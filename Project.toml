@@ -1,0 +1,4 @@
+name = "GBGPeriodicFields"
+uuid = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
+version = "0.1.0"
+authors = ["Grigory Sarnitsky <grigory@sarnitsky.se>"]
