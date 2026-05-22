@@ -1,3 +1,10 @@
+"""
+    Fields
+
+Field representation and transform core for scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
+
+This module defines grids, Fourier-layout conventions, physical-space and real-to-complex spectral field types, FFT transform plans, and storage-wise broadcasting designed for CPU and GPU array backends.
+"""
 module Fields
 
 using AbstractFFTs
@@ -119,17 +126,25 @@ end
 
 """
     AbstractFieldPhysical{T, R}
-    AbstractFieldSpectral{T, R}
 
-Abstract supertypes for fields represented in physical space and spectral space.
+Abstract supertype for fields represented by values in physical space.
 
-Here `T<:AbstractFloat` is the real scalar type associated with the field, and `R` is the tensor order stored as an integer value parameter:
-`R = 0` for scalar fields, `R = 1` for vector fields, `R = 2` for second-order tensor fields, and higher values for higher-order tensor fields.
-
+Here `T<:AbstractFloat` is the real scalar type associated with the field and `R` is the tensor order stored as an integer value parameter.
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
-and [`field_tensor_order`](@ref); concrete subtypes should provide access to their stored data through [`field_data`](@ref).
+and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
 """
 abstract type AbstractFieldPhysical{T<:AbstractFloat, R} end
+
+
+"""
+    AbstractFieldSpectral{T, R}
+
+Abstract supertype for fields represented by Fourier coefficients in spectral space.
+
+Here `T<:AbstractFloat` is the real scalar type associated with the field and `R` is the tensor order stored as an integer value parameter.
+Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
+and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
+"""
 abstract type AbstractFieldSpectral{T<:AbstractFloat, R} end
 
 
@@ -632,6 +647,8 @@ end
 
 Construct a field represented in physical space with storage array `data` and metadata copied from the spectral-space `reference`.
 """
+function similar_physical_field end
+
 similar_physical_field(reference::ScalarFieldSpectral, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
 similar_physical_field(reference::VectorFieldSpectral, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
 similar_physical_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
@@ -642,6 +659,8 @@ similar_physical_field(reference::TensorFieldSpectral{R}, data) where {R} = Tens
 
 Construct a field represented in spectral space with storage array `data` and metadata copied from the physical-space `reference`.
 """
+function similar_spectral_field end
+
 similar_spectral_field(reference::ScalarFieldPhysical, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
 similar_spectral_field(reference::VectorFieldPhysical, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
 similar_spectral_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
@@ -687,6 +706,8 @@ Construct a field with storage array `data` and metadata copied from `reference`
 
 This is used by out-of-place field broadcasting.
 """
+function similar_field end
+
 similar_field(reference::ScalarFieldPhysical, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
 similar_field(reference::ScalarFieldSpectral, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
 similar_field(reference::VectorFieldPhysical, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
@@ -703,6 +724,8 @@ Check that two fields with the same representation have the same scalar type, te
 
 Returns `nothing` or throws an exception.
 """
+function check_field_compatibility end
+
 function check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
   field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
   field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
