@@ -1,17 +1,92 @@
+#=
+AI tips for code generation
+
+Conceptual model
+----------------
+This package represents real periodic fields on rectangular Cartesian domains. A field is a physical object; physical-space and spectral representations are storage/manipulation representations of that same object. In docstrings, prefer "scalar/vector/tensor field in physical-space representation" and "scalar/vector/tensor field in spectral representation". Avoid phrases such as "physical field" and "spectral field" unless the grammar would otherwise become unnatural.
+
+All exposed mathematical objects should be real-valued physical objects. Complex arrays are an implementation detail of spectral storage, not user-facing complex fields.
+
+The fiber dimension is three. Fiber vectors and tensors use the Cartesian Euclidean structure. Do not introduce curvilinear-coordinate machinery, explicit metric tensors, or vector/covector distinctions unless the package design changes.
+
+Physical meaning of operations
+------------------------------
+Operations should represent operations on the underlying physical fields. Implement an operation in spectral representation only when it is mathematically equivalent to the physical-space operation and is efficient or more accurate there. Otherwise, restrict the method to the representation where the operation is sensible.
+
+Linear algebra operations on fields are fiberwise operations. For example, `dot`, `⋅`, `cross`, `×`, `mul!`, `transpose`, scalar multiplication, and vector-space operations act pointwise on the fiber. Global \(L^2\)-type products, norms, adjoints, and integration-based operators belong to separate code with explicit notation.
+
+Do not expose coefficientwise spectral products if they are not the Fourier representation of the corresponding physical operation. In particular, scalar-field multiplication is physical-space pointwise multiplication, products of two vector or tensor fields are defined only in physical-space representation, contractions and linear actions with constant fiber objects are allowed in both representations, and addition of constants in spectral representation must update only the zero Fourier mode.
+
+Fourier normalization
+---------------------
+For FFT normalization, follow the convention of the Julia FFT packages actually used by the implementation. Under the AbstractFFTs convention, forward transforms are unnormalized, while inverse transforms include normalization. Therefore adding a physical constant `c` to a spectral representation updates only the zero Fourier coefficient by `c * prod(grid_size)` for the transformed spatial grid. Do not add `c` to all spectral coefficients.
+
+CPU/GPU portability
+-------------------
+Storage arrays must be generic `AbstractArray`s. Allocate output arrays with `similar(field_data(reference), ...)`. Avoid CPU-specific assumptions.
+
+GPU-compatible code must avoid scalar indexing of GPU arrays in package methods. Use broadcast, `map`, `mapreduce`, `copyto!`, views with broadcasted assignment, or explicit kernels when needed. Test CUDA and AMDGPU paths with scalar indexing disabled. Be careful with wrapped GPU arrays and nested views: if a wrapper causes fallback scalar iteration, rewrite the operation or use a backend-appropriate kernel.
+
+Mutating methods should write into existing storage and return the modified destination. Prefer fused broadcasted assignments such as `destination_data .= expression` for elementwise operations. Use explicit small-component formulas for three-component vector and second-order tensor operations when this is clearer and avoids reductions over the fiber dimension.
+
+Do not add or suggest symmetric mixed-representation broadcast-style rules. Julia's broadcast style promotion only needs one binary method for a pair of styles.
+
+Julia style
+-----------
+Use idiomatic Julia dispatch. Avoid type piracy: do not extend external functions on argument types that all belong to other packages. Extend external functions only when at least one argument type belongs to this package.
+
+Import external functions before extending them, e.g. `import Base: +, -, *, /` and `import LinearAlgebra: dot, ⋅, cross, ×, mul!`.
+
+For package-owned generic functions, attach the operation docstring to `function f end`. For additional method-family documentation on an already-defined package-owned generic, attach the docstring to the existing bare binding `f`. For imported Base, LinearAlgebra, or package functions, attach package-specific method-family documentation to the imported binding using the bare name `f`; do not write `function f end`, since a missing import could silently create a new local generic.
+
+Do not define methods for pure fiber-fiber operations such as `dot(::FiberVector, ::FiberVector)` or `transpose(::FiberTensor2)`: these fiber types are aliases for StaticArrays types, and LinearAlgebra/StaticArrays already handles such operations.
+
+Use descriptive names. Avoid abbreviations unless they are standard mathematical notation. Use two-space indentation. Follow the existing code style in this package. Normal Julia code may use moderately long lines when this improves readability or matches the surrounding style; do not aggressively split ordinary function signatures. In docstrings, prose may also use long lines, but verbatim signatures and code examples should remain conservatively narrow because Documenter renders them in a documentation column.
+
+Avoid unnecessary explicit type declarations in local variables. Do not compute matrix inverses for linear solves; use `\`, factorizations followed by `\`, or `ldiv!` where an in-place solve is appropriate.
+
+When relying on Julia, Base, standard libraries, or other Julia package behavior, always check the official documentation or docstrings.
+
+Docstring style
+---------------
+Docstrings should be short, concrete, and physically meaningful. Prefer direct statements of what the method computes, in which representation it is valid, and whether it allocates or mutates.
+
+Use representation-based terminology:
+    good: "scalar field in physical-space representation"
+    bad:  "physical scalar field"
+
+State whether an operation is pointwise in physical-space representation, coefficientwise in spectral representation, representation-preserving, a zero-mode update, or a fiberwise contraction.
+
+Use "real number" for `Real` scalar constants when this avoids confusion with scalar fields. Use "scalar field" only for field-valued scalar functions. Use "fiber vector" and "fiber tensor" for constant elements of the fiber.
+
+Mention when a method is intentionally not provided because the operation is not physically meaningful in that representation.
+
+Maintenance
+-----------
+Keep this AI-tips block updated when new project requirements are established, and check generated code against it before returning changes.
+=#
+
+
 """
     Fields
 
 Field representation and transform core for scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
 
-This module defines grids, Fourier-layout conventions, physical-space and real-to-complex spectral field types, FFT transform plans, and storage-wise broadcasting designed for CPU and GPU array backends.
+This module defines grids, Cartesian fiber types, Fourier-layout conventions, field types for physical-space representation and real-to-complex spectral representation,
+FFT transform plans, and storage-wise broadcasting designed for CPU and GPU array backends.
 """
 module Fields
 
+using StaticArraysCore: SVector, SMatrix, SArray
 using AbstractFFTs
 using LinearAlgebra
 import FFTW
 
-export Grid3D,
+export FiberVector,
+       FiberTensor2,
+       FiberTensor3,
+       FiberTensor4,
+       Grid3D,
        RealFourierLayout,
        AbstractFieldPhysical,
        AbstractFieldSpectral,
@@ -38,28 +113,54 @@ export Grid3D,
 
 
 
-#########################################
-#        FFT Auxiliary Functions        #
-#########################################
+###################################
+#        Fixed Fiber Types        #
+###################################
 
 """
-    rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int})
+    FiberVector{T}
 
-Return the shape of the nonredundant real-to-complex Fourier representation of a three-dimensional real field.
+Static three-component Cartesian vector type used for individual vector values.
 
-Here `grid_size` is the physical grid size and `fft_dims` is the order of transformed dimensions. The dimension `fft_dims[1]` is the real-FFT half
-dimension: it is stored with length `grid_size[fft_dims[1]] ÷ 2 + 1`, while the other dimensions keep their physical-grid lengths.
-
-Returns a three-tuple giving the spectral array size.
+This is an alias for `SVector{3, T}`, with scalar type `T`.
 """
-rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int}) = ntuple(d -> d == fft_dims[1] ? (grid_size[d] ÷ 2 + 1) : grid_size[d], 3)
+const FiberVector{T} = SVector{3, T}
+
+
+"""
+    FiberTensor2{T}
+
+Static second-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SMatrix{3, 3, T, 9}`, with scalar type `T`.
+"""
+const FiberTensor2{T} = SMatrix{3, 3, T, 9}
+
+
+"""
+    FiberTensor3{T}
+
+Static third-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SArray{Tuple{3, 3, 3}, T, 3, 27}`, with scalar type `T`.
+"""
+const FiberTensor3{T} = SArray{Tuple{3, 3, 3}, T, 3, 27}
+
+
+"""
+    FiberTensor4{T}
+
+Static fourth-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SArray{Tuple{3, 3, 3, 3}, T, 4, 81}`, with scalar type `T`.
+"""
+const FiberTensor4{T} = SArray{Tuple{3, 3, 3, 3}, T, 4, 81}
 
 
 
-
-###############################
-#        Domain Layout        #
-###############################
+#########################################
+#        Domain and Fourier Layout      #
+#########################################
 
 """
     validate_fft_dims(d::NTuple{3, Int})
@@ -128,11 +229,23 @@ struct RealFourierLayout
 end
 
 
+"""
+    rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int})
+
+Return the shape of the nonredundant real-to-complex Fourier representation of a three-dimensional real field.
+
+Here `grid_size` is the physical grid size and `fft_dims` is the order of transformed dimensions. The dimension `fft_dims[1]` is the real-FFT half
+dimension: it is stored with length `grid_size[fft_dims[1]] ÷ 2 + 1`, while the other dimensions keep their physical-grid lengths.
+
+Returns a three-tuple giving the spectral array size.
+"""
+rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int}) = ntuple(d -> d == fft_dims[1] ? (grid_size[d] ÷ 2 + 1) : grid_size[d], 3)
 
 
-######################################
-#        Abstract Field Types        #
-######################################
+
+########################################
+#        Abstract Field Interface       #
+########################################
 
 """
     AbstractFieldPhysical{T, R}
@@ -268,12 +381,12 @@ function field_data end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
-Scalar field stored as its values on a three-dimensional physical grid.
+Scalar field in physical-space representation, stored as its values on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real scalar values, `grid` is the [`Grid3D`](@ref)
 on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
 
-Broadcasting over physical scalar fields is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over scalar fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
@@ -300,7 +413,7 @@ ScalarFieldPhysical(values_at_grid::AbstractArray{T, 3}, grid::Grid3D{T}) where 
       array_type = Array,
     ) where {T<:AbstractFloat}
 
-Construct a physical scalar field by sampling a real-valued function on a three-dimensional physical grid.
+Construct a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
 
 Here `f` is called as `f(x, y, z)`, `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
 used when transforming the field, and `array_type` is the array type used to store the sampled values.
@@ -335,7 +448,7 @@ end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
-Scalar field stored as its nonredundant real-to-complex Fourier coefficients.
+Scalar field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 Here `fourier_coefficients` contains the complex Fourier coefficients in real-FFT storage, `grid` is the [`Grid3D`](@ref)
 associated with the physical domain, and `fourier_layout` is the [`RealFourierLayout`](@ref) specifying the transformed dimensions and the real-FFT half dimension.
@@ -343,7 +456,7 @@ associated with the physical domain, and `fourier_layout` is the [`RealFourierLa
 The coefficient array has shape `spectral_field_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-Broadcasting over spectral scalar fields is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over scalar fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `ScalarFieldSpectral`.
 All such operations are coefficientwise; for example, `.*` does not represent a pseudospectral product of scalar fields.
 
@@ -355,7 +468,8 @@ struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, 
   fourier_layout::L
 
   function ScalarFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
-    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(0)) || throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(0))"))
+    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(0)) ||
+      throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(0))"))
     return new{T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end
@@ -385,12 +499,12 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
-Vector field stored as its components on a three-dimensional physical grid.
+Vector field in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real vector components with storage order `values_at_grid[i, j, k, α]`, where `α = 1, 2, 3`,
 `grid` is the [`Grid3D`](@ref) on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
 
-Broadcasting over physical vector fields is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over vector fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
 These operations are storage-wise and componentwise.
 
@@ -418,7 +532,7 @@ VectorFieldPhysical(values_at_grid::AbstractArray{T, 4}, grid::Grid3D{T}) where 
       array_type = Array,
     ) where {T<:AbstractFloat}
 
-Construct a physical vector field by sampling a real vector-valued function on a three-dimensional physical grid.
+Construct a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
 
 Here `f` is called as `f(x, y, z)` and must return a three-component indexable object, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
 `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
@@ -457,14 +571,14 @@ end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
-Vector field stored as its nonredundant real-to-complex Fourier coefficients.
+Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 Here `fourier_coefficients` contains the complex vector Fourier coefficients in real-FFT storage, with the component index last:
 `fourier_coefficients[i, j, k, α]`, where `α = 1, 2, 3`. The spatial part has shape
 `spectral_field_shape(grid, fourier_layout, Val(0))`, and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(1))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-Broadcasting over spectral vector fields is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
@@ -476,7 +590,8 @@ struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, 
   fourier_layout::L
 
   function VectorFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
-    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(1)) || throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(1))"))
+    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(1)) ||
+      throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(1))"))
     return new{T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end
@@ -518,7 +633,7 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       grid::Grid3D{T},
     ) where {T<:AbstractFloat, N}
 
-Tensor field of order `R ≥ 2` stored as its components on a three-dimensional physical grid.
+Tensor field of order `R ≥ 2` in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real tensor components with storage order `values_at_grid[i, j, k, α₁, ..., αᵣ]`,
 where each tensor index has length `3`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
@@ -527,7 +642,7 @@ and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming t
 The array has shape `physical_field_shape(grid, Val(R))`.
 The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
-Broadcasting over physical tensor fields is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over tensor fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
 These operations are storage-wise and componentwise. They do not represent tensor contractions.
 
@@ -563,7 +678,7 @@ TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T}) where 
       array_type = Array,
     ) where {R, T<:AbstractFloat}
 
-Construct a physical tensor field of order `R ≥ 2` by sampling a real tensor-valued function on a three-dimensional physical grid.
+Construct a tensor field of order `R ≥ 2` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
 
 Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`,
 `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
@@ -616,14 +731,14 @@ end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat, N}
 
-Tensor field of order `R ≥ 2` stored as its nonredundant real-to-complex Fourier coefficients.
+Tensor field of order `R ≥ 2` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 Here `fourier_coefficients` contains the complex tensor Fourier coefficients in real-FFT storage, with the tensor indices last:
 `fourier_coefficients[i, j, k, α₁, ..., αᵣ]`, where each tensor index has length `3`. The spatial part has shape
 `spectral_field_shape(grid, fourier_layout, Val(0))`, and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(R))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-Broadcasting over spectral tensor fields is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
@@ -636,7 +751,8 @@ struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, 
 
   function TensorFieldSpectral{R}(fourier_coefficients::Â, grid::G, fourier_layout::L) where {R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, G<:Grid3D{T}, L<:RealFourierLayout}
     (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
-    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(R)) || throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(R))"))
+    size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(R)) ||
+      throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(R))"))
     return new{R, T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end
@@ -654,6 +770,125 @@ TensorFieldSpectral(fourier_coefficients::AbstractArray{Complex{T}, N}, grid::Gr
 field_data(field::TensorFieldPhysical) = field.values_at_grid
 field_data(field::TensorFieldSpectral) = field.fourier_coefficients
 
+
+
+##################################
+#        Field Utilities         #
+##################################
+
+"""
+    similar_field(reference::AbstractField, data)
+
+    similar_field(reference::AbstractField, ::Val{R})
+
+Construct a field with metadata copied from `reference`.
+
+With storage array `data`, the field has the same representation and tensor order as `reference`. With `Val{R}`, new storage is allocated with the same representation and tensor order `R`.
+
+This is used by out-of-place field broadcasting and by allocating algebraic operations.
+"""
+function similar_field end
+
+similar_field(reference::ScalarFieldPhysical, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+similar_field(reference::ScalarFieldSpectral, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+similar_field(reference::VectorFieldPhysical, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+similar_field(reference::VectorFieldSpectral, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+similar_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+similar_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+
+function similar_field(reference::AbstractFieldPhysical{T}, ::Val{0}) where {T<:AbstractFloat}
+  values_at_grid = similar(field_data(reference), T, physical_field_shape(field_grid(reference), Val(0)))
+  return ScalarFieldPhysical(values_at_grid, field_grid(reference), field_layout(reference))
+end
+
+
+function similar_field(reference::AbstractFieldPhysical{T}, ::Val{1}) where {T<:AbstractFloat}
+  values_at_grid = similar(field_data(reference), T, physical_field_shape(field_grid(reference), Val(1)))
+  return VectorFieldPhysical(values_at_grid, field_grid(reference), field_layout(reference))
+end
+
+
+function similar_field(reference::AbstractFieldPhysical{T}, ::Val{R}) where {T<:AbstractFloat, R}
+  values_at_grid = similar(field_data(reference), T, physical_field_shape(field_grid(reference), Val(R)))
+  return TensorFieldPhysical{R}(values_at_grid, field_grid(reference), field_layout(reference))
+end
+
+
+function similar_field(reference::AbstractFieldSpectral{T}, ::Val{0}) where {T<:AbstractFloat}
+  fourier_coefficients = similar(field_data(reference), Complex{T}, spectral_field_shape(field_grid(reference), field_layout(reference), Val(0)))
+  return ScalarFieldSpectral(fourier_coefficients, field_grid(reference), field_layout(reference))
+end
+
+
+function similar_field(reference::AbstractFieldSpectral{T}, ::Val{1}) where {T<:AbstractFloat}
+  fourier_coefficients = similar(field_data(reference), Complex{T}, spectral_field_shape(field_grid(reference), field_layout(reference), Val(1)))
+  return VectorFieldSpectral(fourier_coefficients, field_grid(reference), field_layout(reference))
+end
+
+
+function similar_field(reference::AbstractFieldSpectral{T}, ::Val{R}) where {T<:AbstractFloat, R}
+  fourier_coefficients = similar(field_data(reference), Complex{T}, spectral_field_shape(field_grid(reference), field_layout(reference), Val(R)))
+  return TensorFieldSpectral{R}(fourier_coefficients, field_grid(reference), field_layout(reference))
+end
+
+
+"""
+    similar_physical_field(reference::AbstractFieldSpectral, data)
+
+Construct a field represented in physical space with storage array `data` and metadata copied from the spectral-space `reference`.
+"""
+function similar_physical_field end
+
+similar_physical_field(reference::ScalarFieldSpectral, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+similar_physical_field(reference::VectorFieldSpectral, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+similar_physical_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+
+
+"""
+    similar_spectral_field(reference::AbstractFieldPhysical, data)
+
+Construct a field represented in spectral space with storage array `data` and metadata copied from the physical-space `reference`.
+"""
+function similar_spectral_field end
+
+similar_spectral_field(reference::ScalarFieldPhysical, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+similar_spectral_field(reference::VectorFieldPhysical, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+similar_spectral_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+
+
+"""
+    check_field_compatibility(
+      a::AbstractFieldPhysical,
+      b::AbstractFieldPhysical,
+    )
+
+    check_field_compatibility(
+      a::AbstractFieldSpectral,
+      b::AbstractFieldSpectral,
+    )
+
+Check that two fields with the same representation have the same scalar type, tensor order, grid, and Fourier layout.
+
+Returns `nothing` or throws an exception.
+"""
+function check_field_compatibility end
+
+function check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
+  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
+  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
+  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
+  return nothing
+end
+
+
+function check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
+  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
+  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
+  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
+  return nothing
+end
 
 
 
@@ -721,7 +956,7 @@ Transform a field from spectral space to physical space in-place.
 
 Here `physical` is the destination, `spectral` is the source, and `transforms` provides the inverse FFT plan.
 
-Returns the modified `physical` field.
+Returns the modified destination field.
 """
 function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
   field_grid(physical) == field_grid(spectral) || throw(ArgumentError("field grids must be equal"))
@@ -746,7 +981,7 @@ Transform a field from physical space to spectral space in-place.
 
 Here `spectral` is the destination, `physical` is the source, and `transforms` provides the forward FFT plan.
 
-Returns the modified `spectral` field.
+Returns the modified destination field.
 """
 function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
   field_grid(spectral) == field_grid(physical) || throw(ArgumentError("field grids must be equal"))
@@ -761,30 +996,6 @@ end
 
 
 """
-    similar_physical_field(reference::AbstractFieldSpectral, data)
-
-Construct a field represented in physical space with storage array `data` and metadata copied from the spectral-space `reference`.
-"""
-function similar_physical_field end
-
-similar_physical_field(reference::ScalarFieldSpectral, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_physical_field(reference::VectorFieldSpectral, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_physical_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
-
-
-"""
-    similar_spectral_field(reference::AbstractFieldPhysical, data)
-
-Construct a field represented in spectral space with storage array `data` and metadata copied from the physical-space `reference`.
-"""
-function similar_spectral_field end
-
-similar_spectral_field(reference::ScalarFieldPhysical, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_spectral_field(reference::VectorFieldPhysical, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_spectral_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
-
-
-"""
     to_physical(
       spectral::AbstractFieldSpectral{T, R},
       transforms::FieldTransforms{T, R},
@@ -795,7 +1006,6 @@ Allocating version of [`to_physical!`](@ref).
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
   physical = similar_physical_field(spectral, values_at_grid)
-
   return to_physical!(physical, spectral, transforms)
 end
 
@@ -811,71 +1021,14 @@ Allocating version of [`to_spectral!`](@ref).
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
   spectral = similar_spectral_field(physical, fourier_coefficients)
-
   return to_spectral!(spectral, physical, transforms)
 end
-
 
 
 
 ##############################
 #        Broadcasting        #
 ##############################
-
-
-"""
-    similar_field(reference::AbstractField, data)
-
-Construct a field with storage array `data` and metadata copied from `reference`.
-
-This is used by out-of-place field broadcasting.
-"""
-function similar_field end
-
-similar_field(reference::ScalarFieldPhysical, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_field(reference::ScalarFieldSpectral, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_field(reference::VectorFieldPhysical, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_field(reference::VectorFieldSpectral, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
-similar_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
-
-
-"""
-    check_field_compatibility(
-      a::AbstractFieldPhysical,
-      b::AbstractFieldPhysical,
-    )
-
-    check_field_compatibility(
-      a::AbstractFieldSpectral,
-      b::AbstractFieldSpectral,
-    )
-
-Check that two fields with the same representation have the same scalar type, tensor order, grid, and Fourier layout.
-
-Returns `nothing` or throws an exception.
-"""
-function check_field_compatibility end
-
-function check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
-  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
-  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
-  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
-  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
-
-  return nothing
-end
-
-
-function check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
-  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
-  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
-  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
-  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
-
-  return nothing
-end
-
 
 struct FieldPhysicalBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
 struct FieldSpectralBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
@@ -944,7 +1097,6 @@ _check_broadcast_field_compatibility(::AbstractField, ::Any) =
 
 function _check_broadcast_field_compatibility(destination::AbstractField, broadcasted::Base.Broadcast.Broadcasted)
   foreach(argument -> _check_broadcast_field_compatibility(destination, argument), broadcasted.args)
-
   return nothing
 end
 
