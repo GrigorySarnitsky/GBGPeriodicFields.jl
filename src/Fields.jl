@@ -777,12 +777,23 @@ This is used by out-of-place field broadcasting and by allocating algebraic oper
 """
 function similar_field end
 
-similar_field(reference::ScalarFieldPhysical, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_field(reference::ScalarFieldSpectral, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_field(reference::VectorFieldPhysical, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_field(reference::VectorFieldSpectral, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
-similar_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+similar_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
+  ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+
+similar_field(reference::ScalarFieldSpectral{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
+  ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+
+similar_field(reference::VectorFieldPhysical{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
+  VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+
+similar_field(reference::VectorFieldSpectral{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
+  VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+
+similar_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
+  TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+
+similar_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
+  TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
 
 function similar_field(reference::AbstractFieldPhysical{T}, ::Val{0}) where {T<:AbstractFloat}
   values_at_grid = similar(field_data(reference), T, physical_field_shape(field_grid(reference), Val(0)))
@@ -827,9 +838,14 @@ Construct a field represented in physical space with storage array `data` and me
 """
 function similar_physical_field end
 
-similar_physical_field(reference::ScalarFieldSpectral, data) = ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_physical_field(reference::VectorFieldSpectral, data) = VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
-similar_physical_field(reference::TensorFieldSpectral{R}, data) where {R} = TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
+similar_physical_field(reference::ScalarFieldSpectral{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
+  ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
+
+similar_physical_field(reference::VectorFieldSpectral{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
+  VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
+
+similar_physical_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
+  TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
 
 
 """
@@ -839,9 +855,14 @@ Construct a field represented in spectral space with storage array `data` and me
 """
 function similar_spectral_field end
 
-similar_spectral_field(reference::ScalarFieldPhysical, data) = ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_spectral_field(reference::VectorFieldPhysical, data) = VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
-similar_spectral_field(reference::TensorFieldPhysical{R}, data) where {R} = TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+similar_spectral_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
+  ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
+
+similar_spectral_field(reference::VectorFieldPhysical{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
+  VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
+
+similar_spectral_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
+  TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
 
 
 """
