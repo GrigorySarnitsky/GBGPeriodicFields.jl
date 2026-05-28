@@ -864,9 +864,51 @@ end
       scalar::Real,
     )
 
-Multiply a field in-place by a real number.
+    multiply!(
+      destination::AbstractFieldPhysical,
+      scalar_field::ScalarFieldPhysical,
+      field::AbstractFieldPhysical,
+    )
+
+    multiply!(
+      destination::AbstractFieldPhysical,
+      field::AbstractFieldPhysical,
+      scalar_field::ScalarFieldPhysical,
+    )
+
+    multiply!(
+      destination::VectorFieldPhysical,
+      scalar_field::ScalarFieldPhysical,
+      a::FiberVector,
+    )
+
+    multiply!(
+      destination::VectorFieldSpectral,
+      scalar_field::ScalarFieldSpectral,
+      a::FiberVector,
+    )
+
+    multiply!(
+      destination::TensorFieldPhysical{2},
+      scalar_field::ScalarFieldPhysical,
+      A::FiberTensor2,
+    )
+
+    multiply!(
+      destination::TensorFieldSpectral{2},
+      scalar_field::ScalarFieldSpectral,
+      A::FiberTensor2,
+    )
+
+Multiply a field in-place by a real number or a scalar field.
 
 Multiplication by a real number is representation-preserving and applies to fields represented in physical or spectral space.
+
+Multiplication by a scalar field in physical-space representation is pointwise and acts on all tensor components of the field.
+
+Multiplication of a scalar field by a constant fiber vector or a constant second-order fiber tensor is defined in both representations.
+In physical-space representation it is pointwise. In spectral representation it is coefficient-wise,
+because the operation is linear in the scalar field.
 
 Returns the modified `destination` field.
 """
@@ -910,9 +952,35 @@ end
       scalar::Real,
     )
 
-Divide a field in-place by a real number.
+    divide!(
+      destination::AbstractFieldPhysical,
+      field::AbstractFieldPhysical,
+      scalar_field::ScalarFieldPhysical,
+    )
+
+    divide!(
+      destination::ScalarFieldPhysical,
+      scalar::Real,
+      scalar_field::ScalarFieldPhysical,
+    )
+
+    divide!(
+      destination::VectorFieldPhysical,
+      a::FiberVector,
+      scalar_field::ScalarFieldPhysical,
+    )
+
+    divide!(
+      destination::TensorFieldPhysical{2},
+      A::FiberTensor2,
+      scalar_field::ScalarFieldPhysical,
+    )
+
+Divide a field in-place by a real number, or divide a field, a real number, or a constant fiber object in-place by a compatible scalar field in physical-space representation.
 
 Division by a real number is representation-preserving and applies to fields represented in physical or spectral space.
+
+Division by a scalar field in physical-space representation is pointwise. When the numerator is a field, the division acts on all tensor components of that field. When the numerator is a real number, the result is a scalar field in physical-space representation. When the numerator is a constant fiber vector or second-order fiber tensor, the result is the corresponding vector or tensor field in physical-space representation.
 
 Returns the modified `destination` field.
 """
@@ -956,54 +1024,6 @@ end
 #####################################################
 
 
-"""
-    multiply!(
-      destination::AbstractFieldPhysical,
-      scalar_field::ScalarFieldPhysical,
-      field::AbstractFieldPhysical,
-    )
-
-    multiply!(
-      destination::AbstractFieldPhysical,
-      field::AbstractFieldPhysical,
-      scalar_field::ScalarFieldPhysical,
-    )
-
-    multiply!(
-      destination::VectorFieldPhysical,
-      scalar_field::ScalarFieldPhysical,
-      a::FiberVector,
-    )
-
-    multiply!(
-      destination::VectorFieldSpectral,
-      scalar_field::ScalarFieldSpectral,
-      a::FiberVector,
-    )
-
-    multiply!(
-      destination::TensorFieldPhysical{2},
-      scalar_field::ScalarFieldPhysical,
-      A::FiberTensor2,
-    )
-
-    multiply!(
-      destination::TensorFieldSpectral{2},
-      scalar_field::ScalarFieldSpectral,
-      A::FiberTensor2,
-    )
-
-Multiply by a scalar field in-place.
-
-Multiplication by a scalar field in physical-space representation is pointwise and acts on all tensor components of the field.
-
-Multiplication of a scalar field by a constant fiber vector or a constant second-order fiber tensor is defined in both representations.
-In physical-space representation it is pointwise. In spectral representation it is coefficient-wise,
-because the operation is linear in the scalar field.
-
-Returns the modified `destination` field.
-"""
-multiply!
 
 
 function _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical, field::AbstractFieldPhysical)
@@ -1114,38 +1134,6 @@ function multiply!(destination::TensorFieldSpectral{2, T}, A::FiberTensor2{T}, s
 end
 
 
-"""
-    divide!(
-      destination::AbstractFieldPhysical,
-      field::AbstractFieldPhysical,
-      scalar_field::ScalarFieldPhysical,
-    )
-
-    divide!(
-      destination::ScalarFieldPhysical,
-      scalar::Real,
-      scalar_field::ScalarFieldPhysical,
-    )
-
-    divide!(
-      destination::VectorFieldPhysical,
-      a::FiberVector,
-      scalar_field::ScalarFieldPhysical,
-    )
-
-    divide!(
-      destination::TensorFieldPhysical{2},
-      A::FiberTensor2,
-      scalar_field::ScalarFieldPhysical,
-    )
-
-Divide a field, a real number, or a constant fiber object in-place by a compatible scalar field in physical-space representation.
-
-Division by a scalar field in physical-space representation is pointwise. When the numerator is a field, the division acts on all tensor components of that field. When the numerator is a real number, the result is a scalar field in physical-space representation. When the numerator is a constant fiber vector or second-order fiber tensor, the result is the corresponding vector or tensor field in physical-space representation.
-
-Returns the modified `destination` field.
-"""
-divide!
 
 
 function _divide_fiber_vector_by_scalar_field!(destination::VectorFieldPhysical, a::FiberVector, scalar_field::ScalarFieldPhysical)
@@ -1332,12 +1320,47 @@ end
       u::VectorFieldSpectral,
     )
 
-Compute a fiberwise Euclidean scalar product in-place.
+    dot!(
+      destination::ScalarFieldPhysical,
+      A::TensorFieldPhysical{2},
+      B::TensorFieldPhysical{2},
+    )
 
-For two vector fields in physical-space representation this computes the pointwise scalar field `u₁ * v₁ + u₂ * v₂ + u₃ * v₃`.
+    dot!(
+      destination::ScalarFieldPhysical,
+      A::TensorFieldPhysical{2},
+      B::FiberTensor2,
+    )
+
+    dot!(
+      destination::ScalarFieldPhysical,
+      A::FiberTensor2,
+      B::TensorFieldPhysical{2},
+    )
+
+    dot!(
+      destination::ScalarFieldSpectral,
+      A::TensorFieldSpectral{2},
+      B::FiberTensor2,
+    )
+
+    dot!(
+      destination::ScalarFieldSpectral,
+      A::FiberTensor2,
+      B::TensorFieldSpectral{2},
+    )
+
+Compute a fiberwise inner product in-place.
+
+For vector arguments this computes the Euclidean scalar product. For two vector fields in physical-space representation this computes the pointwise scalar field `u₁ * v₁ + u₂ * v₂ + u₃ * v₃`.
 
 For a vector field and a constant fiber vector this computes the corresponding linear combination of components.
 The methods for spectral representation are defined only for contraction with a constant fiber vector.
+
+For second-order tensor arguments this computes the Frobenius inner product, i.e. the double contraction `Aᵢⱼ * Bᵢⱼ`.
+
+For two tensor fields this is defined only in physical-space representation. Methods for spectral representation are defined only
+when one factor is a constant fiber tensor, so the operation remains coefficient-wise.
 
 Returns the modified `destination` field.
 """
@@ -1703,11 +1726,43 @@ end
       A::FiberTensor2,
     )
 
-Compute the fiberwise action of a second-order tensor on a vector in-place.
+    mul!(
+      destination::TensorFieldPhysical{2},
+      A::TensorFieldPhysical{2},
+      B::TensorFieldPhysical{2},
+    )
 
-The left action computes `Aᵢⱼ * uⱼ`. The right action computes `uᵢ * Aᵢⱼ`.
+    mul!(
+      destination::TensorFieldPhysical{2},
+      A::TensorFieldPhysical{2},
+      B::FiberTensor2,
+    )
 
-For fields in physical-space representation this is pointwise. Spectral-space methods are defined only
+    mul!(
+      destination::TensorFieldPhysical{2},
+      A::FiberTensor2,
+      B::TensorFieldPhysical{2},
+    )
+
+    mul!(
+      destination::TensorFieldSpectral{2},
+      A::TensorFieldSpectral{2},
+      B::FiberTensor2,
+    )
+
+    mul!(
+      destination::TensorFieldSpectral{2},
+      A::FiberTensor2,
+      B::TensorFieldSpectral{2},
+    )
+
+Compute a fiberwise product in-place.
+
+For vector destinations this computes the action of a second-order tensor on a vector. The left action computes `Aᵢⱼ * uⱼ`. The right action computes `uᵢ * Aᵢⱼ`.
+
+For tensor destinations this computes the product of second-order tensors, `(A * B)ᵢⱼ = Aᵢₖ * Bₖⱼ`.
+
+For field-valued factors in physical-space representation this is pointwise. Spectral-space methods are defined only
 when one factor is a constant fiber tensor or fiber vector, so the operation remains coefficient-wise.
 
 The five-argument form computes `destination = α * product + β * destination`.
@@ -2165,47 +2220,6 @@ end
 #####################################################
 
 
-"""
-    dot!(
-      destination::ScalarFieldPhysical,
-      A::TensorFieldPhysical{2},
-      B::TensorFieldPhysical{2},
-    )
-
-    dot!(
-      destination::ScalarFieldPhysical,
-      A::TensorFieldPhysical{2},
-      B::FiberTensor2,
-    )
-
-    dot!(
-      destination::ScalarFieldPhysical,
-      A::FiberTensor2,
-      B::TensorFieldPhysical{2},
-    )
-
-    dot!(
-      destination::ScalarFieldSpectral,
-      A::TensorFieldSpectral{2},
-      B::FiberTensor2,
-    )
-
-    dot!(
-      destination::ScalarFieldSpectral,
-      A::FiberTensor2,
-      B::TensorFieldSpectral{2},
-    )
-
-Compute the fiberwise Frobenius inner product of second-order tensors in-place.
-
-This computes the double contraction `Aᵢⱼ * Bᵢⱼ`.
-
-For two tensor fields this is defined only in physical-space representation. Methods for spectral representation are defined only
-when one factor is a constant fiber tensor, so the operation remains coefficient-wise.
-
-Returns the modified `destination` field.
-"""
-dot!
 
 
 function _tensor_inner_product_components!(destination, A, B)
@@ -2324,51 +2338,6 @@ end
 #####################################################
 
 
-"""
-    mul!(
-      destination::TensorFieldPhysical{2},
-      A::TensorFieldPhysical{2},
-      B::TensorFieldPhysical{2},
-    )
-
-    mul!(
-      destination::TensorFieldPhysical{2},
-      A::TensorFieldPhysical{2},
-      B::FiberTensor2,
-    )
-
-    mul!(
-      destination::TensorFieldPhysical{2},
-      A::FiberTensor2,
-      B::TensorFieldPhysical{2},
-    )
-
-    mul!(
-      destination::TensorFieldSpectral{2},
-      A::TensorFieldSpectral{2},
-      B::FiberTensor2,
-    )
-
-    mul!(
-      destination::TensorFieldSpectral{2},
-      A::FiberTensor2,
-      B::TensorFieldSpectral{2},
-    )
-
-Compute the fiberwise product of second-order tensors in-place.
-
-This computes `(A * B)ᵢⱼ = Aᵢₖ * Bₖⱼ`.
-
-For two tensor fields this is defined only in physical-space representation. Methods for spectral representation are defined only
-when one factor is a constant fiber tensor, so the operation remains coefficient-wise.
-
-The five-argument form computes `destination = α * product + β * destination`.
-
-As for `LinearAlgebra.mul!`, `destination` must not share storage with either input.
-
-Returns the modified `destination` field.
-"""
-mul!
 
 
 function _tensor_tensor_components_noalias!(destination, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2}, α_value, β_value)

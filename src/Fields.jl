@@ -381,15 +381,26 @@ function field_data end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
+    ScalarFieldPhysical(
+      f,
+      grid::Grid3D{T},
+      fourier_layout::RealFourierLayout = RealFourierLayout();
+      array_type = Array,
+    ) where {T<:AbstractFloat}
+
 Scalar field in physical-space representation, stored as its values on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real scalar values, `grid` is the [`Grid3D`](@ref)
 on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
 
+The function constructor constructs a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
+Here `f` is called as `f(x, y, z)`, `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
+used when transforming the field, and `array_type` is the array type used to store the sampled values.
+
 Broadcasting over scalar fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+The two-argument constructors use the default `RealFourierLayout()` for the layout.
 """
 struct ScalarFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldPhysical{T, 0}
   values_at_grid::A
@@ -405,21 +416,6 @@ end
 ScalarFieldPhysical(values_at_grid::AbstractArray{T, 3}, grid::Grid3D{T}) where {T<:AbstractFloat} = ScalarFieldPhysical(values_at_grid, grid, RealFourierLayout())
 
 
-"""
-    ScalarFieldPhysical(
-      f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
-      array_type = Array,
-    ) where {T<:AbstractFloat}
-
-Construct a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
-
-Here `f` is called as `f(x, y, z)`, `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
-used when transforming the field, and `array_type` is the array type used to store the sampled values.
-
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
-"""
 function ScalarFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {T<:AbstractFloat}
   values_at_grid = Array{T}(undef, physical_field_shape(grid, Val(0))...)
 
@@ -499,16 +495,27 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
       grid::Grid3D{T},
     ) where {T<:AbstractFloat}
 
+    VectorFieldPhysical(
+      f,
+      grid::Grid3D{T},
+      fourier_layout::RealFourierLayout = RealFourierLayout();
+      array_type = Array,
+    ) where {T<:AbstractFloat}
+
 Vector field in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real vector components with storage order `values_at_grid[i, j, k, α]`, where `α = 1, 2, 3`,
 `grid` is the [`Grid3D`](@ref) on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
 
+The function constructor constructs a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
+Here `f` is called as `f(x, y, z)` and must return a three-component indexable object, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
+`fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
+
 Broadcasting over vector fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
 These operations are storage-wise and componentwise.
 
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+The two-argument constructors use the default `RealFourierLayout()` for the layout.
 """
 struct VectorFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldPhysical{T, 1}
   values_at_grid::A
@@ -524,21 +531,6 @@ end
 VectorFieldPhysical(values_at_grid::AbstractArray{T, 4}, grid::Grid3D{T}) where {T<:AbstractFloat} = VectorFieldPhysical(values_at_grid, grid, RealFourierLayout())
 
 
-"""
-    VectorFieldPhysical(
-      f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
-      array_type = Array,
-    ) where {T<:AbstractFloat}
-
-Construct a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
-
-Here `f` is called as `f(x, y, z)` and must return a three-component indexable object, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
-`fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
-
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
-"""
 function VectorFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {T<:AbstractFloat}
   values_at_grid = Array{T}(undef, physical_field_shape(grid, Val(1))...)
 
@@ -633,6 +625,13 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       grid::Grid3D{T},
     ) where {T<:AbstractFloat, N}
 
+    TensorFieldPhysical{R}(
+      f,
+      grid::Grid3D{T},
+      fourier_layout::RealFourierLayout = RealFourierLayout();
+      array_type = Array,
+    ) where {R, T<:AbstractFloat}
+
 Tensor field of order `R ≥ 2` in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real tensor components with storage order `values_at_grid[i, j, k, α₁, ..., αᵣ]`,
@@ -641,6 +640,11 @@ and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming t
 
 The array has shape `physical_field_shape(grid, Val(R))`.
 The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
+
+The function constructor constructs a tensor field of order `R ≥ 2` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
+Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`,
+`grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
+used when transforming the field, and `array_type` is the array type used to store the sampled values.
 
 Broadcasting over tensor fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -670,22 +674,6 @@ TensorFieldPhysical(values_at_grid::AbstractArray{T, N}, grid::Grid3D{T}) where 
   TensorFieldPhysical(values_at_grid, grid, RealFourierLayout())
 
 
-"""
-    TensorFieldPhysical{R}(
-      f,
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout = RealFourierLayout();
-      array_type = Array,
-    ) where {R, T<:AbstractFloat}
-
-Construct a tensor field of order `R ≥ 2` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
-
-Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`,
-`grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
-used when transforming the field, and `array_type` is the array type used to store the sampled values.
-
-The two-argument constructor uses the default `RealFourierLayout()` for the layout.
-"""
 function TensorFieldPhysical{R}(f, grid::Grid3D{T}, fourier_layout::RealFourierLayout = RealFourierLayout(); array_type = Array) where {R, T<:AbstractFloat}
   (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
 
