@@ -14,7 +14,7 @@ using GBGPeriodicFields
 
 makedocs(
   sitename = "GBGPeriodicFields.jl",
-  modules  = [GBGPeriodicFields, GBGPeriodicFields.Fields],
+  modules  = [GBGPeriodicFields, GBGPeriodicFields.Fields,  GBGPeriodicFields.FieldAlgebra],
   format   = Documenter.HTML(),
   pages    = [
     "Home" => "index.md",
@@ -22,6 +22,7 @@ makedocs(
       "Overview"          => "api.md",
       "GBGPeriodicFields" => "api/GBGPeriodicFields.md",
       "Fields"            => "api/Fields.md",
+      "FieldAlgebra"      => "api/FieldAlgebra.md",
     ],
   ]
 )
