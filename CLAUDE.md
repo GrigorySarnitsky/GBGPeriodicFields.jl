@@ -55,6 +55,11 @@ single-source, and keep it updated when new project rules are established.
 10. α/β kernels: five-argument forms convert `T(α)`, `T(β)` and branch on
     `iszero(β_value)` (overwrite vs accumulate); three-argument forms delegate with
     `one(T)`, `zero(T)`.
+11. Transform input contract: allocating `to_physical`/`to_spectral` preserve their
+    input (they copy it); the in-place `to_physical!`/`to_spectral!` may overwrite the
+    source. The inverse real transform (FFTW complex-to-real) destroys its spectral
+    input as scratch, and this is backend-divergent (AMD/rocFFT preserves it). Never
+    rely on a `!`-transform's source surviving; use the allocating form to keep it.
 
 ## Code generation rules (FieldAlgebra)
 
@@ -90,8 +95,9 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
 - Method parity after codegen edits: compare per-generic `methods(f)` counts
   against the committed baseline (`test/method_parity.jl`). Full M2+M3 surface is
   **198 public methods** (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14).
-- Ambiguities: run Aqua.jl `detect_ambiguities` — the explicit `multiply!` quartet
-  exists precisely to resolve these.
+- Ambiguities: `test/method_parity.jl` runs `detect_ambiguities` (from `Test`) over
+  the whole package — the explicit `multiply!` quartet exists precisely to resolve
+  these. (Aqua.jl could be added later for broader package checks.)
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
 - Consult `Project.toml` for dependencies and versions; do not assume.
 
@@ -100,9 +106,7 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
 1. **Fields.jl** — refactored, done and test-covered (`test/fields.jl`): compatibility
    predicates; `FieldSpectralMultipliers` moved here (explicit six-array constructor +
    convenience constructor from a field; host-built wavenumbers copied to backend).
-   Transform input contract: allocating `to_physical`/`to_spectral` preserve their
-   input (they copy it); the in-place `!` forms may overwrite the source (FFTW
-   complex-to-real destroys the spectral input; backend-divergent — AMD/rocFFT does not).
+   The transform input contract is invariant 11.
 2. **FieldAlgebra.jl** — **done** (full public surface): M2 (add/subtract, real
    scaling, scalar-field multiplication) + M3 (dot, cross, tensor-vector and
    tensor-tensor `mul!` with α/β, transpose, tensor inner products, norms,

@@ -39,11 +39,13 @@ mathematically the same operation on the underlying physical object there:
   so offering it would silently compute the wrong physical operation.
 
 The consequence is a hard project invariant: **a missing method is a statement,
-not an omission**. The ~200-method public surface of FieldAlgebra is the
+not an omission**. The 198-method public surface of FieldAlgebra is the
 machine-checkable encoding of the validity table above. Any refactor must
-reproduce the method set exactly; the M2 rewrite was verified
-signature-for-signature against the original (98 public methods across `add!`,
-`subtract!`, `multiply!`, `divide!`, `+`, `-`, `*`, `/`).
+reproduce the method set exactly; it was verified signature-for-signature against
+the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`)
+and then M3 (the dot/cross/`mul!`/transpose/norm/sym/skew/dev contraction and
+decomposition families, plus their `*` operators), bringing the total to 198 and
+parity-checked at runtime in `test/method_parity.jl`.
 
 ## 3. Types and memory layout
 
@@ -54,6 +56,9 @@ Field types are parameterized by scalar type `T<:AbstractFloat`:
 StaticArrays aliases — `FiberVector{T} = SVector{3,T}`,
 `FiberTensor2{T} = SMatrix{3,3,T,9}` (plus `FiberTensor3/4`) — so fiber-fiber
 algebra comes from StaticArrays/LinearAlgebra and the package never defines it.
+**StaticArrays is a direct dependency**, not just the type-only `StaticArraysCore`:
+the package indexes fibers (`a[i]`, `A[i, j]`) and uses their algebra inside the
+generated kernels, so the core-types package alone leaves those operations undefined.
 
 Data layout is **fiber-last**: `(Nx, Ny, Nz)` for scalars, `(Nx, Ny, Nz, 3)` for
 vectors, `(Nx, Ny, Nz, 3, 3)` for tensors; spectral arrays are `Complex{T}` with
@@ -71,6 +76,17 @@ splicing them into generated formulas costs nothing.
 unnormalized; inverse transforms carry the normalization (AbstractFFTs
 convention) — this single convention choice propagates into the zero-mode constant
 updates described above.
+
+**Transform input-preservation contract.** The in-place `to_physical!`/`to_spectral!`
+apply their plans through `mul!`, the no-copy path, so the *source* field may be
+overwritten as scratch. This is intrinsic to real↔complex FFTs: FFTW's
+complex-to-real (`irfft`) transform destroys its input by default, and the
+multidimensional case has no input-preserving algorithm at all. It is also
+backend-divergent — verified that AMD/rocFFT (via AMDGPU.jl) preserves both
+directions on tested sizes, while FFTW does not. To keep a uniform, portable
+contract, the allocating `to_physical`/`to_spectral` copy their input before
+transforming, so non-`!` calls never mutate their argument (the Julia convention)
+while `!` calls stay allocation-light and document that the source may be consumed.
 
 `FieldSpectralMultipliers` holds six one-dimensional arrays: derivative
 wavenumbers `wavenumber_1..3` and `squared_wavenumber_1..3`, plus the grid and
@@ -158,7 +174,7 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   the scalar±Real family (physical broadcasts vs zero-mode updates; reversed
   subtraction is its own operation), the four ambiguity-resolving `multiply!`
   signatures, and the physical-only divisions.
-- **M3 — contraction kernels (next)**: one formula table per family — dot, cross,
+- **M3 — contraction kernels (done)**: one formula table per family — dot, cross,
   tensor-vector and tensor-tensor `mul!`, transpose, tensor inner products,
   pointwise norms, sym/skew/dev — fed through the kernel-body builders. Per-family
   flags: `has_beta` (α/β accumulation for the `mul!` families; five-argument forms
@@ -167,8 +183,9 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   wrap through `_guard_noalias!`; `mul!` is exempt and documents the no-alias
   contract instead, per LinearAlgebra convention). The `sym`/`skew`/`dev` methods
   on bare `FiberTensor2` remain explicit StaticArrays one-liners.
-- **M4 — public wrappers/operators**: generated with explicit per-row
-  compatibility checks, completing the public surface.
+- **M4 — public wrappers/operators (done, folded into M3)**: the allocating
+  forms and the `*` operators (tensor·vector, tensor·tensor) are generated
+  alongside their `mul!`/`dot`/`cross`/… kernels, completing the 198-method surface.
 
 ### Documentation policy
 
@@ -183,12 +200,12 @@ were dropped: they duplicated the tables and went stale instantly.
 ### Verifying codegen changes
 
 With Julia available, verification is runtime introspection: load the package,
-compare `methods(f)` against the committed baseline (`test/method_parity.jl`),
-and run Aqua's ambiguity detection. The M2 baseline is `add!` 14, `subtract!` 14,
-`multiply!` 16, `divide!` 6, `+` 15, `-` 15, `*` 13, `/` 5. (During the
-no-Julia refactor phase, parity was checked by simulating table expansion and
-diffing normalized signatures against the original file; runtime introspection
-supersedes that.)
+compare per-generic `methods(f)` counts against the committed baseline
+(`test/method_parity.jl`), and run `detect_ambiguities` (from `Test`) over the
+package. The full M2+M3 baseline is 198 public methods (e.g. `*` 28, `mul!` 30,
+`dot`/`dot!` 10 each, `add!` 14). (During the no-Julia refactor phase, parity was
+checked by simulating table expansion and diffing normalized signatures against the
+original file; runtime introspection supersedes that.)
 
 ## 7. Aliasing policy
 
@@ -251,8 +268,8 @@ single-threaded, and the agreed (deferred) design is:
    host-built wavenumbers copied to the backend; **Nyquist split** between
    derivative and squared multipliers (correctness, see §4).
 3. FieldAlgebra rewritten around code generation with the invariant that the
-   public method set is reproduced exactly; M2 delivered and parity-verified
-   (98 methods). Validation rewired to direct
+   public method set is reproduced exactly; M2 + M3 delivered and parity-verified
+   at runtime (198 methods, the full surface). Validation rewired to direct
    `_check_field_domain_compatibility` calls — alias wrappers explicitly
    rejected.
 4. Docstring policy: one docstring per operation on the bare binding, curated
@@ -260,8 +277,17 @@ single-threaded, and the agreed (deferred) design is:
 5. Operators defined in `function op(...) ... end` form (parse-proven house
    style); short form only for unary `+`.
 6. GPU-first; CPU threading designed (`_assign!`, §9) and deliberately deferred.
-7. Pending: load-and-fix the new FieldAlgebra under Julia; M3/M4 generation;
-   DifferentialOperators rewiring (delete moved definitions, fix exports and the
-   umbrella re-export, qualify Fields helpers; old five-argument constructor
-   callers break by design); reference test suite incl. the method-parity
-   baseline.
+7. Refactor complete: FieldAlgebra loads and is parity-verified (M2 + M3, 198
+   methods); DifferentialOperators rewired to import `FieldSpectralMultipliers`
+   and its helpers from Fields, with the umbrella re-export corrected (the old
+   five-argument constructor removed by design); reference test suite in place
+   (`test/`, 187 tests, `Pkg.test()` green) including the method-parity baseline.
+   Remaining: deferred CPU threading (§9) and the planned interpolation layer.
+8. StaticArrays promoted from `StaticArraysCore` to a direct dependency — the
+   package indexes fibers and uses their algebra in the generated kernels, so the
+   type-only core package left `field ± fiber`, `scalarfield * fiber`, and the M3
+   fiber contractions undefined at runtime (see §3).
+9. Transform input-preservation contract: in-place `to_physical!`/`to_spectral!`
+   may overwrite their source (FFTW c2r destroys input; backend-divergent), so the
+   allocating `to_physical`/`to_spectral` copy the input to keep non-`!` calls
+   non-mutating (see §4).
