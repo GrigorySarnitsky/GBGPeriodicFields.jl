@@ -19,12 +19,21 @@ copy_architecture_page()
 using Documenter
 using GBGPeriodicFields
 
+# Make `using GBGPeriodicFields` available to any `jldoctest` examples in docstrings
+# (recursive covers the submodules). No doctests exist yet; this is the plumbing so
+# examples can be added incrementally and verified on every build.
+DocMeta.setdocmeta!(GBGPeriodicFields, :DocTestSetup, :(using GBGPeriodicFields); recursive = true)
+
 
 makedocs(
   sitename  = "GBGPeriodicFields.jl",
   modules   = [GBGPeriodicFields, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators],
-  format    = Documenter.HTML(),
+  format    = Documenter.HTML(
+    canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/stable",
+    collapselevel = 1,
+  ),
   checkdocs = :exports,
+  doctest   = true,
   pages     = [
     "Home" => "index.md",
     "API"  => Any[

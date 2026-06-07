@@ -1,5 +1,10 @@
 # FieldAlgebra
 
+```@autodocs
+Modules = [GBGPeriodicFields.FieldAlgebra]
+Order   = [:module]
+```
+
 The `FieldAlgebra` module provides fiberwise, pointwise algebra on the fields defined in [`Fields`](Fields.md). Each operation comes as an in-place `!` form and an allocating form (a `Base`/`LinearAlgebra` operator where one exists).
 
 The operation families are:
@@ -14,25 +19,31 @@ The operation families are:
 
 **Aliasing.** `mul!` follows the `LinearAlgebra` convention: the destination must not share storage with an input. The index-shuffling operations (cross product, transpose, sym/skew/dev) are alias-guarded and may be called with the destination aliasing an input.
 
-```@contents
-Pages = ["FieldAlgebra.md"]
-```
+## Public API
 
-## API
+### Functions
 
 ```@autodocs
 Modules = [GBGPeriodicFields.FieldAlgebra]
 Public  = true
 Private = false
-Order   = [:module, :function]
+Order   = [:function]
 ```
 
 ## Internal API
 
 The code-generation machinery, documented for contributors adding operations: the expression and kernel-body builders, the contraction formula builders, the aliasing guard, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
 
+### Functions
+
 ```@autodocs
 Modules = [GBGPeriodicFields.FieldAlgebra]
 Public  = false
-Order   = [:type, :constant, :function]
+Order   = [:function]
+```
+
+## Index
+
+```@index
+Modules = [GBGPeriodicFields.FieldAlgebra]
 ```
