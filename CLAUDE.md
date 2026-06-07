@@ -17,7 +17,7 @@ single-source, and keep it updated when new project rules are established.
 
 - `src/Fields.jl` — types (`Grid3D`, `RealFourierLayout`, field types; `FiberVector{T} = SVector{3,T}`, `FiberTensor2{T} = SMatrix{3,3,T,9}`, plus `FiberTensor3/4`), memory layout, broadcast style, compatibility checks, `FieldTransformPlans`, `FieldSpectralMultipliers`.
 - `src/FieldAlgebra.jl` — fiberwise/pointwise algebra; method families emitted by code generators.
-- `src/DifferentialOperators.jl` — spectral operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`, in-place variants). **Mid-refactor**: still contains the old `FieldSpectralMultipliers` (it moved to Fields), and the umbrella re-exports it from the wrong module. Fix per roadmap.
+- `src/DifferentialOperators.jl` — spectral operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`, in-place variants). Imports `FieldSpectralMultipliers` and its compatibility/broadcast helpers from Fields; the umbrella re-exports the Fields version. Owns only the spectral kernels and the operators.
 - Include order: Fields → FieldAlgebra → DifferentialOperators. Cross-module access only through explicit `using ..Fields: name, ...` lists — never a bare `using ..Fields`.
 
 ## Core invariants — do not violate
@@ -112,16 +112,21 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
    **StaticArrays** (a package dependency — `StaticArraysCore` gave only the types).
    `mul!` keeps the LinearAlgebra no-alias contract; cross and the unary
    index-shuffles (transpose, sym/skew/dev) are alias-guarded via `_guard_noalias!`.
-3. **DifferentialOperators.jl** — remove the moved `FieldSpectralMultipliers`
-   definitions, fix its exports and the umbrella's re-export, qualify Fields helpers.
-   Old five-argument multiplier-constructor callers break by design.
+3. **DifferentialOperators.jl** — **done**: the duplicate `FieldSpectralMultipliers`
+   and its helpers removed and imported from Fields, export dropped, and the umbrella
+   now re-exports the Fields version (verified: every Fields export surfaces as the
+   same object through the umbrella). Operators tested by analytic round-trips in
+   `test/differentialoperators.jl`. The old five-argument
+   `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
+   use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 173 tests). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 187 tests). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the spectral zero-mode invariant, alias safety, and the
-   intentional absences. `test/method_parity.jl`: the full 198-method baseline +
-   ambiguity check. Pending: DifferentialOperators coverage.
+   intentional absences. `test/differentialoperators.jl`: gradient/divergence/curl/
+   laplacian/inverse_laplacian/helmholtz by analytic round-trips. `test/method_parity.jl`:
+   the full 198-method baseline + ambiguity check.
 5. **Deferred by decision** — CPU threading via the `_assign!` primitive
    (design recorded in `docs/ARCHITECTURE.md` §9; until then, keep elementwise writes
    flowing through field-level broadcasts or named kernels so the later switch stays

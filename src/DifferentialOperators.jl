@@ -78,27 +78,24 @@ module DifferentialOperators
 
 
 using ..Fields:
-  Grid3D,
-  RealFourierLayout,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
   VectorFieldSpectral,
   TensorFieldSpectral,
+  FieldSpectralMultipliers,
   field_data,
-  field_grid,
-  field_layout,
-  field_scalar_type,
   similar_field,
-  spectral_field_shape,
   field_tensor_order,
   check_field_compatibility,
+  _check_field_domain_compatibility,
   _vector_component_data,
   _tensor2_component_data,
-  _check_field_domain_compatibility
+  _check_multipliers_compatibility,
+  _wavenumber_broadcast_view,
+  _squared_wavenumber_broadcast
 
 
-export FieldSpectralMultipliers,
-       gradient!,
+export gradient!,
        gradient,
        divergence!,
        divergence,
@@ -112,102 +109,14 @@ export FieldSpectralMultipliers,
        helmholtz_projection
 
 
-############################################
-#        Field Spectral Multipliers        #
-############################################
-
-
-"""
-    FieldSpectralMultipliers(
-      grid::Grid3D{T},
-      fourier_layout::RealFourierLayout,
-      wavenumber_1::AbstractArray{T, 1},
-      wavenumber_2::AbstractArray{T, 1},
-      wavenumber_3::AbstractArray{T, 1},
-    ) where {T<:AbstractFloat}
-
-Backend-agnostic one-dimensional Fourier wavenumber multipliers for coefficientwise spectral operators.
-
-The multipliers store the physical wavenumbers ``k_1``, ``k_2``, and ``k_3`` corresponding to the nonredundant real-to-complex spectral representation associated with `grid` and `fourier_layout`.
-
-They also store the corresponding one-dimensional squared wavenumber arrays.
-
-The wavenumber arrays must already live on storage (CPU/GPU arrays) compatible with the fields on which the multipliers will be used.
-
-The constructor checks only array lengths; the caller is responsible for frequency ordering, scaling, and the Nyquist-mode convention required for real-valued fields.
-"""
-struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
-  grid::Grid3D{T}
-  fourier_layout::RealFourierLayout
-  wavenumber_1::K1
-  wavenumber_2::K2
-  wavenumber_3::K3
-  squared_wavenumber_1::S1
-  squared_wavenumber_2::S2
-  squared_wavenumber_3::S3
-
-  function FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
-      wavenumber_1::K1, wavenumber_2::K2,  wavenumber_3::K3) where {T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}}
-    
-    spectral_spatial_shape = spectral_field_shape(grid, fourier_layout, Val(0))
-
-    length(wavenumber_1) == spectral_spatial_shape[1] ||
-      throw(DimensionMismatch("length(wavenumber_1) must match the first spectral spatial dimension"))
-
-    length(wavenumber_2) == spectral_spatial_shape[2] ||
-      throw(DimensionMismatch("length(wavenumber_2) must match the second spectral spatial dimension"))
-
-    length(wavenumber_3) == spectral_spatial_shape[3] ||
-      throw(DimensionMismatch("length(wavenumber_3) must match the third spectral spatial dimension"))
-
-    squared_wavenumber_1 = wavenumber_1 .* wavenumber_1
-    squared_wavenumber_2 = wavenumber_2 .* wavenumber_2
-    squared_wavenumber_3 = wavenumber_3 .* wavenumber_3
-
-    return new{T, K1, K2, K3, typeof(squared_wavenumber_1), typeof(squared_wavenumber_2), typeof(squared_wavenumber_3)}(grid, fourier_layout,
-      wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
-  end
-end
-
-
-"""
-    FieldSpectralMultipliers(
-      field::AbstractFieldSpectral{T},
-      wavenumber_1::AbstractArray{T, 1},
-      wavenumber_2::AbstractArray{T, 1},
-      wavenumber_3::AbstractArray{T, 1},
-    ) where {T<:AbstractFloat}
-
-Construct spectral multipliers using the grid, Fourier layout of `field`, and the wavenumber arrays.
-"""
-function FieldSpectralMultipliers(field::AbstractFieldSpectral{T},
-  wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat}
-  return FieldSpectralMultipliers(field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3)
-end
-
-
-_multipliers_scalar_type(::FieldSpectralMultipliers{T}) where {T<:AbstractFloat} = T
-
-
-function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
-  field_scalar_type(field) == _multipliers_scalar_type(multipliers) || throw(ArgumentError("field and spectral multipliers scalar types must be equal"))
-  field_grid(field) == multipliers.grid || throw(ArgumentError("field grid must be equal to spectral multipliers grid"))
-  field_layout(field) == multipliers.fourier_layout || throw(ArgumentError("field Fourier layout must be equal to spectral multipliers Fourier layout"))
-  return nothing
-end
-
-
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = reshape(multipliers.wavenumber_3, 1, 1, length(multipliers.wavenumber_3))
-
-
-function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
-  squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)
-  squared_wavenumber_2 = reshape(multipliers.squared_wavenumber_2, 1, length(multipliers.squared_wavenumber_2), 1)
-  squared_wavenumber_3 = reshape(multipliers.squared_wavenumber_3, 1, 1, length(multipliers.squared_wavenumber_3))
-  return squared_wavenumber_1 .+ squared_wavenumber_2 .+ squared_wavenumber_3
-end
+####################################################
+#        Spectral Operator Kernels                 #
+####################################################
+#
+# Coefficientwise spectral kernels for the operators below. The wavenumber
+# multipliers (`FieldSpectralMultipliers`) and their compatibility and
+# broadcast-view helpers live in Fields and are imported above; the Nyquist
+# split between derivative and squared wavenumbers is handled there.
 
 
 function _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T}) where {T<:AbstractFloat}

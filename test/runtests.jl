@@ -1,11 +1,11 @@
 # Test suite entry point for GBGPeriodicFields.
 #
-# Coverage is built up module by module as the refactor progresses: each verified
-# module gets its own file, included here and also runnable on its own with
+# Each module's tests live in their own file. Each file is included into its own
+# wrapper module so that top-level test helpers (comp, plans_for, grid, ...) and
+# constants don't collide across files. Every file is also runnable on its own:
 #   julia --project=. test/<module>.jl
-#
-# As DifferentialOperators is verified, add its file below.
 
-include("fields.jl")
-include("fieldalgebra.jl")
-include("method_parity.jl")
+module FieldsTests;                include("fields.jl");                end
+module FieldAlgebraTests;          include("fieldalgebra.jl");          end
+module DifferentialOperatorsTests; include("differentialoperators.jl"); end
+module MethodParityTests;          include("method_parity.jl");         end

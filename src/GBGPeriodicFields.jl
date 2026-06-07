@@ -112,7 +112,8 @@ using .Fields:
   field_tensor_order,
   fiber_shape,
   physical_field_shape,
-  spectral_field_shape
+  spectral_field_shape,
+  FieldSpectralMultipliers
 
 
 using .FieldAlgebra:
@@ -139,7 +140,6 @@ using .FieldAlgebra:
 
 
 using .DifferentialOperators:
-  FieldSpectralMultipliers,
   gradient!,
   gradient,
   divergence!,
