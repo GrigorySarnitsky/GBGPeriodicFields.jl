@@ -11,6 +11,19 @@ The operators act on fields in **spectral representation** and are coefficientwi
 
 The Nyquist convention is handled by the multipliers (see `FieldSpectralMultipliers` in [`Fields`](Fields.md)): first-derivative wavenumbers are zeroed at the Nyquist mode on even-length axes, while squared wavenumbers keep the true `k²`.
 
+## Contents
+
+```@contents
+Pages = ["DifferentialOperators.md"]
+Depth = 2:3
+```
+
+## Index
+
+```@index
+Modules = [GBGPeriodicFields.DifferentialOperators]
+```
+
 ## Public API
 
 ### Functions
@@ -32,10 +45,4 @@ The coefficientwise spectral kernels and the aliasing-aware wrappers, documented
 Modules = [GBGPeriodicFields.DifferentialOperators]
 Public  = false
 Order   = [:function]
-```
-
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.DifferentialOperators]
 ```

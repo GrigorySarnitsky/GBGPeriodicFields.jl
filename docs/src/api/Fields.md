@@ -14,6 +14,19 @@ The `Fields` module defines the field objects and their storage. A field is a ph
 - **Spectral multipliers** — `FieldSpectralMultipliers`, the wavenumber arrays used by the spectral differential operators.
 - **Broadcasting** — fields broadcast storage-wise and representation-preserving: a dotted assignment writes into the destination field's storage, while an out-of-place dotted expression allocates a compatible field in the same representation. Physical and spectral representations cannot be mixed in one broadcast.
 
+## Contents
+
+```@contents
+Pages = ["Fields.md"]
+Depth = 2:3
+```
+
+## Index
+
+```@index
+Modules = [GBGPeriodicFields.Fields]
+```
+
 ## Public API
 
 ### Types
@@ -52,10 +65,4 @@ Order   = [:type, :constant]
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:function]
-```
-
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Fields]
 ```

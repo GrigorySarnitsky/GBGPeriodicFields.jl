@@ -19,6 +19,19 @@ The operation families are:
 
 **Aliasing.** `mul!` follows the `LinearAlgebra` convention: the destination must not share storage with an input. The index-shuffling operations (cross product, transpose, sym/skew/dev) are alias-guarded and may be called with the destination aliasing an input.
 
+## Contents
+
+```@contents
+Pages = ["FieldAlgebra.md"]
+Depth = 2:3
+```
+
+## Index
+
+```@index
+Modules = [GBGPeriodicFields.FieldAlgebra]
+```
+
 ## Public API
 
 ### Functions
@@ -40,10 +53,4 @@ The code-generation machinery, documented for contributors adding operations: th
 Modules = [GBGPeriodicFields.FieldAlgebra]
 Public  = false
 Order   = [:function]
-```
-
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.FieldAlgebra]
 ```
