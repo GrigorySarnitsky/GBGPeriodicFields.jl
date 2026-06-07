@@ -13,6 +13,7 @@ const layout = RealFourierLayout()
 const F = GBGPeriodicFields.Fields
 
 comp(data, i) = data[:, :, :, i]                     # vector component slice (Array copy)
+tcomp(data, i, j) = data[:, :, :, i, j]              # tensor component slice (Array copy)
 phys_scalar(f) = ScalarFieldPhysical(f, grid)
 phys_scalar_zero() = ScalarFieldPhysical(zeros(T, gs...), grid)
 
@@ -155,6 +156,145 @@ end
     @test_throws MethodError as * vs              # scalar field × vector field not in spectral
     @test_throws MethodError vs / as              # division by a scalar field not in spectral
     @test_throws MethodError multiply!(F.similar_field(vs, Val(1)), as, vs)
+  end
+
+  # ---------------------------------------------------------------------------
+  # M3: contractions, products, permutations, norms, decompositions
+  # ---------------------------------------------------------------------------
+
+  tensor_a(x, y, z) = [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)]
+  tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
+
+  @testset "vector dot / cross (physical + fiber)" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
+    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    k = FiberVector{T}((1.0, -2.0, 0.5))
+    ud = field_data(u); vd = field_data(v)
+
+    d = dot(u, v)
+    @test d isa ScalarFieldPhysical
+    @test field_data(d) ≈ comp(ud, 1) .* comp(vd, 1) .+ comp(ud, 2) .* comp(vd, 2) .+ comp(ud, 3) .* comp(vd, 3)
+    @test field_data(dot(u, k)) ≈ comp(ud, 1) .* k[1] .+ comp(ud, 2) .* k[2] .+ comp(ud, 3) .* k[3]
+    @test field_data(dot(k, u)) ≈ field_data(dot(u, k))           # inner product is commutative
+
+    c = cross(u, v); cd = field_data(c)
+    @test c isa VectorFieldPhysical
+    @test comp(cd, 1) ≈ comp(ud, 2) .* comp(vd, 3) .- comp(ud, 3) .* comp(vd, 2)
+    @test comp(cd, 2) ≈ comp(ud, 3) .* comp(vd, 1) .- comp(ud, 1) .* comp(vd, 3)
+    @test comp(cd, 3) ≈ comp(ud, 1) .* comp(vd, 2) .- comp(ud, 2) .* comp(vd, 1)
+    @test field_data(cross(k, u)) ≈ .-field_data(cross(u, k))     # cross is antisymmetric
+
+    # alias safety: writing into an input still gives the correct result (guard)
+    w = cross(u, v)
+    cross!(u, u, v)
+    @test field_data(u) ≈ field_data(w)
+  end
+
+  @testset "tensor inner product + transpose" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    B = TensorFieldPhysical{2}(tensor_b, grid)
+    Ad = field_data(A); Bd = field_data(B)
+
+    inner = dot(A, B)
+    @test inner isa ScalarFieldPhysical
+    @test field_data(inner) ≈ sum(tcomp(Ad, i, j) .* tcomp(Bd, i, j) for i in 1:3 for j in 1:3)
+
+    At = transpose(A)
+    for i in 1:3, j in 1:3
+      @test tcomp(field_data(At), i, j) ≈ tcomp(Ad, j, i)
+    end
+  end
+
+  @testset "tensor-vector and tensor-tensor products" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    B = TensorFieldPhysical{2}(tensor_b, grid)
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    Ad = field_data(A); Bd = field_data(B); ud = field_data(u)
+
+    w = A * u                                                     # left action  (A u)ᵢ = Aᵢⱼ uⱼ
+    for i in 1:3
+      @test comp(field_data(w), i) ≈ sum(tcomp(Ad, i, j) .* comp(ud, j) for j in 1:3)
+    end
+    wr = u * A                                                    # right action (u A)ᵢ = uⱼ Aⱼᵢ
+    for i in 1:3
+      @test comp(field_data(wr), i) ≈ sum(comp(ud, j) .* tcomp(Ad, j, i) for j in 1:3)
+    end
+    C = A * B                                                     # (A B)ᵢⱼ = Aᵢₖ Bₖⱼ
+    for i in 1:3, j in 1:3
+      @test tcomp(field_data(C), i, j) ≈ sum(tcomp(Ad, i, k) .* tcomp(Bd, k, j) for k in 1:3)
+    end
+
+    # five-argument accumulation: destination = α * product + β * destination
+    base = A * u
+    dest = 2.0 * (A * u)
+    keep = copy(field_data(dest))
+    mul!(dest, A, u, 3.0, 5.0)
+    @test field_data(dest) ≈ 3.0 .* field_data(base) .+ 5.0 .* keep
+  end
+
+  @testset "norms (physical only)" begin
+    s = ScalarFieldPhysical((x, y, z) -> sin(x) - 0.5, grid)
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    @test field_data(norm(s)) ≈ abs.(field_data(s))
+    @test field_data(norm(u)) ≈ sqrt.(comp(field_data(u), 1) .^ 2 .+ comp(field_data(u), 2) .^ 2 .+ comp(field_data(u), 3) .^ 2)
+    @test field_data(norm(A)) ≈ sqrt.(sum(tcomp(field_data(A), i, j) .^ 2 for i in 1:3 for j in 1:3))
+  end
+
+  @testset "sym / skew / dev (fields + fibers)" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    Ad = field_data(A)
+    S = sym(A); K = skew(A); D = dev(A)
+    @test field_data(S) .+ field_data(K) ≈ Ad                     # A = sym + skew
+    @test tcomp(field_data(S), 1, 2) ≈ tcomp(field_data(S), 2, 1)        # symmetric
+    @test tcomp(field_data(K), 1, 2) ≈ .-tcomp(field_data(K), 2, 1)      # antisymmetric
+    @test tcomp(field_data(K), 2, 2) ≈ zeros(T, gs)                      # zero diagonal
+    @test maximum(abs, tcomp(field_data(D), 1, 1) .+ tcomp(field_data(D), 2, 2) .+ tcomp(field_data(D), 3, 3)) < 1e-12  # traceless (to roundoff)
+
+    M = FiberTensor2{T}(ntuple(i -> Float64(i) + 0.5, 9))
+    @test sym(M) ≈ (M + transpose(M)) / 2
+    @test skew(M) ≈ (M - transpose(M)) / 2
+    @test dev(M) ≈ M - ((M[1, 1] + M[2, 2] + M[3, 3]) / 3) * one(M)
+  end
+
+  @testset "spectral linear contractions are coefficient-wise" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    k = FiberVector{T}((1.0, -2.0, 0.5))
+    As = to_spectral(A, plans_for(A)); us = to_spectral(u, plans_for(u))
+
+    Ast = transpose(As)                                           # index permutation of coefficients
+    for i in 1:3, j in 1:3
+      @test tcomp(field_data(Ast), i, j) ≈ tcomp(field_data(As), j, i)
+    end
+    Ss = sym(As)
+    @test tcomp(field_data(Ss), 1, 2) ≈ 0.5 .* (tcomp(field_data(As), 1, 2) .+ tcomp(field_data(As), 2, 1))
+
+    ds = dot(us, k)                                               # vector field · fiber, coefficient-wise
+    @test field_data(ds) ≈ comp(field_data(us), 1) .* k[1] .+ comp(field_data(us), 2) .* k[2] .+ comp(field_data(us), 3) .* k[3]
+
+    ws = As * k                                                   # tensor field · fiber -> vector field
+    @test ws isa VectorFieldSpectral
+    for i in 1:3
+      @test comp(field_data(ws), i) ≈ sum(tcomp(field_data(As), i, j) .* k[j] for j in 1:3)
+    end
+  end
+
+  @testset "M3 intentional absences (spectral nonlinear products)" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), 1.0, 1.0), grid)
+    v = VectorFieldPhysical((x, y, z) -> (cos(x), 1.0, 1.0), grid)
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    B = TensorFieldPhysical{2}(tensor_b, grid)
+    us = to_spectral(u, plans_for(u)); vs = to_spectral(v, plans_for(v))
+    As = to_spectral(A, plans_for(A)); Bs = to_spectral(B, plans_for(B))
+
+    @test_throws MethodError dot(us, vs)          # two vector fields, spectral
+    @test_throws MethodError cross(us, vs)        # cross of two vector fields, spectral
+    @test_throws MethodError dot(As, Bs)          # two tensor fields, spectral
+    @test_throws MethodError As * Bs              # tensor-tensor field product, spectral
+    @test_throws MethodError As * us              # tensor-vector field product, spectral
+    @test_throws MethodError norm(us)             # pointwise norm, spectral
+    @test_throws MethodError norm(As)
   end
 
 end

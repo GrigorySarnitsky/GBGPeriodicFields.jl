@@ -677,26 +677,572 @@ end
 
 
 #####################################################
-#        Pending operation families                 #
+#        M3 contraction formula builders            #
 #####################################################
 #
-# The contraction and unary tensor families — dot products, cross products,
-# tensor-vector and tensor-tensor mul!, transpose, inner products, norms, and
-# the sym/skew/dev decompositions — are the next code-generation step. The
-# kernel-body builders above already cover their per-component formulas, the
-# α/β accumulation variants, and (through `_guard_noalias!`) the aliasing
-# requirements. The bare bindings below keep the module's exports resolvable
-# until those families are generated.
+# Per-component formulas for the contraction and permutation families, written
+# once and fed to the kernel-body builders. `kind` is :field (component view) or
+# :fiber (StaticArrays indexing), as in the M1 builders above.
 
+
+# Vector inner product rhs:  Σᵢ uᵢ vᵢ.
+_dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
+  _sum_terms([_product(_vector_component(u_symbol, u_kind, i), _vector_component(v_symbol, v_kind, i)) for i in 1:3])
+
+
+# Tensor Frobenius inner product rhs:  Σᵢⱼ Aᵢⱼ Bᵢⱼ.
+_dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
+  _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _tensor_component(B_symbol, B_kind, i, j)) for i in 1:3 for j in 1:3])
+
+
+# Cross product component i:  with cyclic (j, k), uⱼ v_k − u_k vⱼ.
+function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
+  return function (i)
+    j = mod1(i + 1, 3)
+    k = mod1(i + 2, 3)
+    first_term  = _product(_vector_component(left_symbol, left_kind, j), _vector_component(right_symbol, right_kind, k))
+    second_term = _product(_vector_component(left_symbol, left_kind, k), _vector_component(right_symbol, right_kind, j))
+    return :($first_term .- $second_term)
+  end
+end
+
+
+# Tensor-on-vector left action component i:  Σⱼ Aᵢⱼ uⱼ.
+_tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
+  i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
+
+
+# Vector-on-tensor right action component i:  Σⱼ uⱼ Aⱼᵢ.
+_vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
+  i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
+
+
+# Tensor-tensor product component (i, j):  Σₖ Aᵢₖ Bₖⱼ.
+_tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
+  (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])
+
+
+# Transpose component (i, j):  Aⱼᵢ.
+_transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_kind, j, i)
+
+
+const _VectorField = Union{VectorFieldPhysical, VectorFieldSpectral}
+const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
+
+
+#####################################################
+#        Vector and Tensor Dot Products             #
+#####################################################
+
+
+"""
+    dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical, v::VectorFieldPhysical)
+    dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
+    dot!(destination::ScalarFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
+    dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
+    dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::FiberTensor2)
+    dot!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2}, B::FiberTensor2)
+
+Compute a fiberwise inner product in-place; returns `destination`.
+
+For vector arguments this is the Euclidean scalar product `uᵢ vᵢ`; for second-order tensors it is the Frobenius double contraction `Aᵢⱼ Bᵢⱼ`. Either argument order is accepted.
+
+Contraction of two fields is nonlinear and defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
+"""
 function dot! end
+
+
+# Inner-product kernels (scalar result, written through the scalar kernel body).
+@eval _dot_components!(destination, u::_VectorField, v::_VectorField) =
+  $(_scalar_kernel_body(_dot_vector_rhs(:u, :field, :v, :field)))
+
+@eval _dot_components!(destination, u::_VectorField, a::FiberVector) =
+  $(_scalar_kernel_body(_dot_vector_rhs(:u, :field, :a, :fiber)))
+
+@eval _dot_components!(destination, A::_Tensor2Field, B::_Tensor2Field) =
+  $(_scalar_kernel_body(_dot_tensor_rhs(:A, :field, :B, :field)))
+
+@eval _dot_components!(destination, A::_Tensor2Field, B::FiberTensor2) =
+  $(_scalar_kernel_body(_dot_tensor_rhs(:A, :field, :B, :fiber)))
+
+
+# Field-field inner products (physical-space only).
+function dot!(destination::ScalarFieldPhysical{T}, u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
+  check_field_compatibility(u, v)
+  _check_field_domain_compatibility(destination, u)
+  return _dot_components!(destination, u, v)
+end
+
+function dot!(destination::ScalarFieldPhysical{T}, A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}) where {T<:AbstractFloat}
+  check_field_compatibility(A, B)
+  _check_field_domain_compatibility(destination, A)
+  return _dot_components!(destination, A, B)
+end
+
+function dot(u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
+  return dot!(similar_field(u, Val(0)), u, v)
+end
+
+function dot(A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}) where {T<:AbstractFloat}
+  return dot!(similar_field(A, Val(0)), A, B)
+end
+
+
+# Field-fiber inner products (both representations; reversed order delegates,
+# the contraction being commutative). One table row per (representation, rank).
+for (ScalarField, OperandField, Constant) in (
+    (:ScalarFieldPhysical, :VectorFieldPhysical,    :FiberVector),
+    (:ScalarFieldSpectral, :VectorFieldSpectral,    :FiberVector),
+    (:ScalarFieldPhysical, :(TensorFieldPhysical{2}), :FiberTensor2),
+    (:ScalarFieldSpectral, :(TensorFieldSpectral{2}), :FiberTensor2),
+  )
+
+  @eval function dot!(destination::$ScalarField{T}, operand::$OperandField{T}, constant::$Constant{T}) where {T<:AbstractFloat}
+    _check_field_domain_compatibility(destination, operand)
+    return _dot_components!(destination, operand, constant)
+  end
+
+  @eval dot!(destination::$ScalarField{T}, constant::$Constant{T}, operand::$OperandField{T}) where {T<:AbstractFloat} =
+    dot!(destination, operand, constant)
+
+  @eval dot(operand::$OperandField{T}, constant::$Constant{T}) where {T<:AbstractFloat} =
+    dot!(similar_field(operand, Val(0)), operand, constant)
+
+  @eval dot(constant::$Constant{T}, operand::$OperandField{T}) where {T<:AbstractFloat} =
+    dot!(similar_field(operand, Val(0)), operand, constant)
+end
+
+
+#####################################################
+#        Vector Cross Products                      #
+#####################################################
+
+
+"""
+    cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, v::VectorFieldPhysical)
+    cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
+    cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
+
+Compute a fiberwise cross product `u × v` in-place; returns `destination`.
+
+Cross products of two fields are nonlinear and defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (either argument order) is provided, which keeps the operation coefficient-wise.
+"""
 function cross! end
+
+
+# Cross-product kernels (vector result). Index-shuffling reads several source
+# components per written component, so the public methods wrap these through
+# `_guard_noalias!`.
+@eval _cross_components_noalias!(destination, u::_VectorField, v::_VectorField) =
+  $(_vector_kernel_body(_cross_formula(:u, :field, :v, :field); alpha_beta = false))
+
+@eval _cross_components_noalias!(destination, u::_VectorField, a::FiberVector) =
+  $(_vector_kernel_body(_cross_formula(:u, :field, :a, :fiber); alpha_beta = false))
+
+@eval _cross_components_noalias!(destination, a::FiberVector, u::_VectorField) =
+  $(_vector_kernel_body(_cross_formula(:a, :fiber, :u, :field); alpha_beta = false))
+
+
+function cross!(destination::VectorFieldPhysical{T}, u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
+  check_field_compatibility(u, v)
+  check_field_compatibility(destination, u)
+  return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (u, v))
+end
+
+function cross(u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
+  return cross!(similar_field(u, Val(1)), u, v)
+end
+
+# Cross with a constant fiber vector (both representations, both argument orders).
+for (VectorField,) in ((:VectorFieldPhysical,), (:VectorFieldSpectral,))
+
+  @eval function cross!(destination::$VectorField{T}, u::$VectorField{T}, a::FiberVector{T}) where {T<:AbstractFloat}
+    check_field_compatibility(destination, u)
+    return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (u, a))
+  end
+
+  @eval function cross!(destination::$VectorField{T}, a::FiberVector{T}, u::$VectorField{T}) where {T<:AbstractFloat}
+    check_field_compatibility(destination, u)
+    return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (a, u))
+  end
+
+  @eval cross(u::$VectorField{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cross!(similar_field(u, Val(1)), u, a)
+
+  @eval cross(a::FiberVector{T}, u::$VectorField{T}) where {T<:AbstractFloat} = cross!(similar_field(u, Val(1)), a, u)
+end
+
+
+#####################################################
+#        Tensor-Vector and Tensor-Tensor Products   #
+#####################################################
+
+
+"""
+    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2}, u::VectorFieldPhysical[, α, β])
+    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2}, a::FiberVector[, α, β])
+    mul!(destination::VectorFieldSpectral, A::FiberTensor2, u::VectorFieldSpectral[, α, β])
+    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2}[, α, β])
+    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
+
+Compute a fiberwise tensor product in-place; returns `destination`.
+
+For a vector destination this is the action of a second-order tensor on a vector: the left action `Aᵢⱼ uⱼ`, the right action `uⱼ Aⱼᵢ`. For a tensor destination it is the tensor product `(A B)ᵢⱼ = Aᵢₖ Bₖⱼ`.
+
+Products of two fields are nonlinear and defined only in physical-space representation; spectral-space methods require one factor to be a constant fiber tensor or fiber vector. The five-argument form computes `destination = α * product + β * destination`. As with `LinearAlgebra.mul!`, `destination` must not share storage with any input.
+"""
+mul!
+
+
+# Tensor-vector kernels (vector result, α/β accumulation). No alias guard:
+# mul! documents that the destination must not alias the inputs.
+@eval _tensor_vector_components!(destination, A::_Tensor2Field, u::_VectorField, α_value, β_value) =
+  $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :u, :field); alpha_beta = true))
+
+@eval _tensor_vector_components!(destination, A::_Tensor2Field, a::FiberVector, α_value, β_value) =
+  $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :a, :fiber); alpha_beta = true))
+
+@eval _tensor_vector_components!(destination, A::FiberTensor2, u::_VectorField, α_value, β_value) =
+  $(_vector_kernel_body(_tensor_vector_formula(:A, :fiber, :u, :field); alpha_beta = true))
+
+@eval _vector_tensor_components!(destination, u::_VectorField, A::_Tensor2Field, α_value, β_value) =
+  $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :field); alpha_beta = true))
+
+@eval _vector_tensor_components!(destination, a::FiberVector, A::_Tensor2Field, α_value, β_value) =
+  $(_vector_kernel_body(_vector_tensor_formula(:a, :fiber, :A, :field); alpha_beta = true))
+
+@eval _vector_tensor_components!(destination, u::_VectorField, A::FiberTensor2, α_value, β_value) =
+  $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :fiber); alpha_beta = true))
+
+
+# Tensor-tensor kernels (tensor result, α/β accumulation).
+@eval _tensor_tensor_components!(destination, A::_Tensor2Field, B::_Tensor2Field, α_value, β_value) =
+  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :field); alpha_beta = true))
+
+@eval _tensor_tensor_components!(destination, A::_Tensor2Field, B::FiberTensor2, α_value, β_value) =
+  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :fiber); alpha_beta = true))
+
+@eval _tensor_tensor_components!(destination, A::FiberTensor2, B::_Tensor2Field, α_value, β_value) =
+  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :fiber, :B, :field); alpha_beta = true))
+
+
+# --- Tensor-vector mul! (five-argument forms) ---
+
+# Field-field (physical-space only): left action A·u and right action u·A.
+function mul!(destination::VectorFieldPhysical{T}, A::TensorFieldPhysical{2, T}, u::VectorFieldPhysical{T}, α::Real, β::Real) where {T<:AbstractFloat}
+  check_field_compatibility(destination, u)
+  _check_field_domain_compatibility(A, u)
+  return _tensor_vector_components!(destination, A, u, T(α), T(β))
+end
+
+function mul!(destination::VectorFieldPhysical{T}, u::VectorFieldPhysical{T}, A::TensorFieldPhysical{2, T}, α::Real, β::Real) where {T<:AbstractFloat}
+  check_field_compatibility(destination, u)
+  _check_field_domain_compatibility(A, u)
+  return _vector_tensor_components!(destination, u, A, T(α), T(β))
+end
+
+# Tensor field × constant fiber vector, and constant fiber tensor × vector field
+# (both representations). One table row per (representation).
+for (VectorField, Tensor2Field) in (
+    (:VectorFieldPhysical, :(TensorFieldPhysical{2})),
+    (:VectorFieldSpectral, :(TensorFieldSpectral{2})),
+  )
+
+  @eval function mul!(destination::$VectorField{T}, A::$Tensor2Field{T}, a::FiberVector{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    _check_field_domain_compatibility(A, destination)
+    return _tensor_vector_components!(destination, A, a, T(α), T(β))
+  end
+
+  @eval function mul!(destination::$VectorField{T}, a::FiberVector{T}, A::$Tensor2Field{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    _check_field_domain_compatibility(A, destination)
+    return _vector_tensor_components!(destination, a, A, T(α), T(β))
+  end
+
+  @eval function mul!(destination::$VectorField{T}, A::FiberTensor2{T}, u::$VectorField{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    check_field_compatibility(destination, u)
+    return _tensor_vector_components!(destination, A, u, T(α), T(β))
+  end
+
+  @eval function mul!(destination::$VectorField{T}, u::$VectorField{T}, A::FiberTensor2{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    check_field_compatibility(destination, u)
+    return _vector_tensor_components!(destination, u, A, T(α), T(β))
+  end
+end
+
+
+# --- Tensor-tensor mul! (five-argument forms) ---
+
+function mul!(destination::TensorFieldPhysical{2, T}, A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}, α::Real, β::Real) where {T<:AbstractFloat}
+  check_field_compatibility(destination, A)
+  check_field_compatibility(A, B)
+  return _tensor_tensor_components!(destination, A, B, T(α), T(β))
+end
+
+for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
+
+  @eval function mul!(destination::$Tensor2Field{T}, A::$Tensor2Field{T}, B::FiberTensor2{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    check_field_compatibility(destination, A)
+    return _tensor_tensor_components!(destination, A, B, T(α), T(β))
+  end
+
+  @eval function mul!(destination::$Tensor2Field{T}, A::FiberTensor2{T}, B::$Tensor2Field{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    check_field_compatibility(destination, B)
+    return _tensor_tensor_components!(destination, A, B, T(α), T(β))
+  end
+end
+
+
+# --- Three-argument mul! forms delegate with α = 1, β = 0 ---
+for (Destination, First, Second) in (
+    (:(VectorFieldPhysical{T}),    :(TensorFieldPhysical{2, T}), :(VectorFieldPhysical{T})),
+    (:(VectorFieldPhysical{T}),    :(VectorFieldPhysical{T}),    :(TensorFieldPhysical{2, T})),
+    (:(VectorFieldPhysical{T}),    :(TensorFieldPhysical{2, T}), :(FiberVector{T})),
+    (:(VectorFieldPhysical{T}),    :(FiberVector{T}),            :(TensorFieldPhysical{2, T})),
+    (:(VectorFieldPhysical{T}),    :(FiberTensor2{T}),           :(VectorFieldPhysical{T})),
+    (:(VectorFieldPhysical{T}),    :(VectorFieldPhysical{T}),    :(FiberTensor2{T})),
+    (:(VectorFieldSpectral{T}),    :(TensorFieldSpectral{2, T}), :(FiberVector{T})),
+    (:(VectorFieldSpectral{T}),    :(FiberVector{T}),            :(TensorFieldSpectral{2, T})),
+    (:(VectorFieldSpectral{T}),    :(FiberTensor2{T}),           :(VectorFieldSpectral{T})),
+    (:(VectorFieldSpectral{T}),    :(VectorFieldSpectral{T}),    :(FiberTensor2{T})),
+    (:(TensorFieldPhysical{2, T}), :(TensorFieldPhysical{2, T}), :(TensorFieldPhysical{2, T})),
+    (:(TensorFieldPhysical{2, T}), :(TensorFieldPhysical{2, T}), :(FiberTensor2{T})),
+    (:(TensorFieldPhysical{2, T}), :(FiberTensor2{T}),           :(TensorFieldPhysical{2, T})),
+    (:(TensorFieldSpectral{2, T}), :(TensorFieldSpectral{2, T}), :(FiberTensor2{T})),
+    (:(TensorFieldSpectral{2, T}), :(FiberTensor2{T}),           :(TensorFieldSpectral{2, T})),
+  )
+
+  @eval mul!(destination::$Destination, first::$First, second::$Second) where {T<:AbstractFloat} =
+    mul!(destination, first, second, one(T), zero(T))
+end
+
+
+# --- Allocating `*` operators delegate to the three-argument mul! ---
+
+# Tensor-vector: the destination is a vector field built on the vector operand
+# (when present) or on the tensor field's grid.
+for (TensorField,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
+
+  @eval *(A::$TensorField{T}, a::FiberVector{T}) where {T<:AbstractFloat} = mul!(similar_field(A, Val(1)), A, a)
+  @eval *(a::FiberVector{T}, A::$TensorField{T}) where {T<:AbstractFloat} = mul!(similar_field(A, Val(1)), a, A)
+end
+
+for (VectorField,) in ((:VectorFieldPhysical,), (:VectorFieldSpectral,))
+
+  @eval *(A::FiberTensor2{T}, u::$VectorField{T}) where {T<:AbstractFloat} = mul!(similar_field(u, similar(field_data(u))), A, u)
+  @eval *(u::$VectorField{T}, A::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_field(u, similar(field_data(u))), u, A)
+end
+
+*(A::TensorFieldPhysical{2, T}, u::VectorFieldPhysical{T}) where {T<:AbstractFloat} = mul!(similar_field(u, similar(field_data(u))), A, u)
+*(u::VectorFieldPhysical{T}, A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = mul!(similar_field(u, similar(field_data(u))), u, A)
+
+# Tensor-tensor: the destination is a tensor field built on whichever operand is a field.
+*(A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = mul!(similar_field(A, Val(2)), A, B)
+
+for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
+
+  @eval *(A::$Tensor2Field{T}, B::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_field(A, Val(2)), A, B)
+  @eval *(A::FiberTensor2{T}, B::$Tensor2Field{T}) where {T<:AbstractFloat} = mul!(similar_field(B, Val(2)), A, B)
+end
+
+
+#####################################################
+#        Tensor Index Permutations                  #
+#####################################################
+
+
+"""
+    transpose!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
+    transpose!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
+
+Transpose the fiber indices of a second-order tensor field in-place: `destinationᵢⱼ = Aⱼᵢ`; returns `destination`.
+
+The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, this writes a canonical tensor field rather than a lazy wrapper.
+"""
+transpose!
+
+
+@eval _transpose_components_noalias!(destination, A) =
+  $(_tensor_kernel_body(_transpose_formula(:A, :field); alpha_beta = false))
+
+
+for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
+
+  @eval function transpose!(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
+    check_field_compatibility(destination, A)
+    return _guard_noalias!(_transpose_components_noalias!, destination, Val(2), (A,))
+  end
+
+  @eval transpose(A::$Tensor2Field{T}) where {T<:AbstractFloat} = transpose!(similar_field(A, Val(2)), A)
+end
+
+
+#####################################################
+#        Field Norms                                #
+#####################################################
+
+
+"""
+    norm!(destination::ScalarFieldPhysical, scalar_field::ScalarFieldPhysical)
+    norm!(destination::ScalarFieldPhysical, u::VectorFieldPhysical)
+    norm!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
+
+Compute the fiberwise norm of a field in physical-space representation in-place; returns `destination`.
+
+This is the pointwise absolute value `abs(φ)` for scalar fields, the Euclidean norm `sqrt(uᵢ uᵢ)` for vector fields, and the Frobenius norm `sqrt(Aᵢⱼ Aᵢⱼ)` (not the operator norm) for second-order tensor fields. The norm is nonlinear and is not defined for spectral representation.
+"""
 function norm! end
+
+
+@eval _norm_components!(destination, scalar_field::ScalarFieldPhysical) =
+  $(_scalar_kernel_body(:(abs.(field_data(scalar_field)))))
+
+@eval _norm_components!(destination, u::VectorFieldPhysical) =
+  $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_vector_component(:u, :field, i)))) for i in 1:3]))))))
+
+@eval _norm_components!(destination, A::TensorFieldPhysical{2}) =
+  $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(:A, :field, i, j)))) for i in 1:3 for j in 1:3]))))))
+
+
+for (Operand,) in ((:ScalarFieldPhysical,), (:VectorFieldPhysical,), (:(TensorFieldPhysical{2}),))
+
+  @eval function norm!(destination::ScalarFieldPhysical{T}, operand::$Operand{T}) where {T<:AbstractFloat}
+    _check_field_domain_compatibility(destination, operand)
+    return _norm_components!(destination, operand)
+  end
+
+  @eval norm(operand::$Operand{T}) where {T<:AbstractFloat} = norm!(similar_field(operand, Val(0)), operand)
+end
+
+
+#####################################################
+#        Tensor Decompositions                      #
+#####################################################
+
+
+"""
+    sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
+    sym!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
+
+Compute the symmetric part `sym(A) = (A + transpose(A)) / 2` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+"""
 function sym! end
+
+
+"""
+    sym(A::TensorFieldPhysical{2})
+    sym(A::TensorFieldSpectral{2})
+    sym(A::FiberTensor2)
+
+Allocate and compute the symmetric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+"""
 function sym end
+
+
+"""
+    skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
+    skew!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
+
+Compute the skew-symmetric part `skew(A) = (A - transpose(A)) / 2` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+"""
 function skew! end
+
+
+"""
+    skew(A::TensorFieldPhysical{2})
+    skew(A::TensorFieldSpectral{2})
+    skew(A::FiberTensor2)
+
+Allocate and compute the skew-symmetric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+"""
 function skew end
+
+
+"""
+    dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
+    dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
+
+Compute the deviatoric part `dev(A) = A - tr(A) * I / 3` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+"""
 function dev! end
+
+
+"""
+    dev(A::TensorFieldPhysical{2})
+    dev(A::TensorFieldSpectral{2})
+    dev(A::FiberTensor2)
+
+Allocate and compute the deviatoric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+"""
 function dev end
+
+
+# Decomposition kernels. The symmetric/skew kernels need `half` and the
+# deviatoric kernel needs `third`; both are scalar-type locals referenced by the
+# generated per-component formulas. Index-shuffling, so wrapped by the guard.
+@eval function _sym_components_noalias!(destination, A)
+  half = inv(field_scalar_type(A)(2))
+  $(_tensor_kernel_body((i, j) -> i == j ? _tensor_component(:A, :field, i, i) :
+      :(half .* ($(_tensor_component(:A, :field, i, j)) .+ $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
+end
+
+@eval function _skew_components_noalias!(destination, A)
+  half = inv(field_scalar_type(A)(2))
+  $(_tensor_kernel_body((i, j) -> i == j ? :(zero(field_scalar_type(A))) :
+      :(half .* ($(_tensor_component(:A, :field, i, j)) .- $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
+end
+
+@eval function _dev_components_noalias!(destination, A)
+  third = inv(field_scalar_type(A)(3))
+  trace = $(_sum_terms([_tensor_component(:A, :field, d, d) for d in 1:3]))
+  $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
+      _tensor_component(:A, :field, i, j); alpha_beta = false))
+end
+
+
+for (kernel, bang, allocating) in (
+    (:_sym_components_noalias!,  :sym!,  :sym),
+    (:_skew_components_noalias!, :skew!, :skew),
+    (:_dev_components_noalias!,  :dev!,  :dev),
+  )
+
+  for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
+
+    @eval function $bang(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
+      check_field_compatibility(destination, A)
+      return _guard_noalias!($kernel, destination, Val(2), (A,))
+    end
+
+    @eval $allocating(A::$Tensor2Field{T}) where {T<:AbstractFloat} = $bang(similar_field(A, Val(2)), A)
+  end
+end
+
+
+# Decompositions of a constant fiber tensor: explicit StaticArrays one-liners.
+function sym(A::FiberTensor2{T}) where {T<:AbstractFloat}
+  half = inv(T(2))
+  off_12 = half * (A[1, 2] + A[2, 1])
+  off_13 = half * (A[1, 3] + A[3, 1])
+  off_23 = half * (A[2, 3] + A[3, 2])
+  return FiberTensor2{T}(A[1, 1], off_12, off_13, off_12, A[2, 2], off_23, off_13, off_23, A[3, 3])
+end
+
+
+function skew(A::FiberTensor2{T}) where {T<:AbstractFloat}
+  half = inv(T(2))
+  off_12 = half * (A[1, 2] - A[2, 1])
+  off_13 = half * (A[1, 3] - A[3, 1])
+  off_23 = half * (A[2, 3] - A[3, 2])
+  return FiberTensor2{T}(zero(T), -off_12, -off_13, off_12, zero(T), -off_23, off_13, off_23, zero(T))
+end
+
+
+function dev(A::FiberTensor2{T}) where {T<:AbstractFloat}
+  trace_over_three = (A[1, 1] + A[2, 2] + A[3, 3]) / T(3)
+  return FiberTensor2{T}(
+    A[1, 1] - trace_over_three, A[2, 1], A[3, 1],
+    A[1, 2], A[2, 2] - trace_over_three, A[3, 2],
+    A[1, 3], A[2, 3], A[3, 3] - trace_over_three,
+  )
+end
 
 
 end # module FieldAlgebra

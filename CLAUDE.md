@@ -87,10 +87,9 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
 "Should work" is not done. Minimum bar for any change:
 
 - Load: `julia --project -e 'using GBGPeriodicFields'` (catches `@eval` and wiring errors).
-- Method parity after codegen edits: compare `length(methods(f))` / signatures
-  against the committed baseline (`test/method_parity.jl`; create it if absent).
-  M2 baseline: `add!` 14, `subtract!` 14, `multiply!` 16, `divide!` 6, `+` 15,
-  `-` 15, `*` 13 (M2 scope), `/` 5 — 98 public methods total.
+- Method parity after codegen edits: compare per-generic `methods(f)` counts
+  against the committed baseline (`test/method_parity.jl`). Full M2+M3 surface is
+  **198 public methods** (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14).
 - Ambiguities: run Aqua.jl `detect_ambiguities` — the explicit `multiply!` quartet
   exists precisely to resolve these.
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
@@ -104,24 +103,25 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
    Transform input contract: allocating `to_physical`/`to_spectral` preserve their
    input (they copy it); the in-place `!` forms may overwrite the source (FFTW
    complex-to-real destroys the spectral input; backend-divergent — AMD/rocFFT does not).
-2. **FieldAlgebra.jl** — codegen foundation + M2 (add/subtract, real scaling,
-   scalar-field multiplication) generated, loading, and **verified**: 98 methods
-   (parity baseline locked in `test/method_parity.jl`), zero ambiguities, M2
-   behaviour tested in `test/fieldalgebra.jl`. Fiber ops need full **StaticArrays**
-   (now a package dependency — `StaticArraysCore` provided only the types, not
-   indexing/algebra). Pending: M3 (dot, cross, `mul!`, transpose, inner products,
-   norms, sym/skew/dev — contraction generator with `has_beta` and alias-guard
-   flags) and M4 (public wrappers); bare bindings keep exports resolvable meanwhile.
+2. **FieldAlgebra.jl** — **done** (full public surface): M2 (add/subtract, real
+   scaling, scalar-field multiplication) + M3 (dot, cross, tensor-vector and
+   tensor-tensor `mul!` with α/β, transpose, tensor inner products, norms,
+   sym/skew/dev) generated, loading, and verified — **198 public methods** (the
+   pre-refactor surface, parity baseline locked in `test/method_parity.jl`), zero
+   ambiguities, behaviour tested in `test/fieldalgebra.jl`. Fiber ops use full
+   **StaticArrays** (a package dependency — `StaticArraysCore` gave only the types).
+   `mul!` keeps the LinearAlgebra no-alias contract; cross and the unary
+   index-shuffles (transpose, sym/skew/dev) are alias-guarded via `_guard_noalias!`.
 3. **DifferentialOperators.jl** — remove the moved `FieldSpectralMultipliers`
    definitions, fix its exports and the umbrella's re-export, qualify Fields helpers.
    Old five-argument multiplier-constructor callers break by design.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 100 tests). `test/fields.jl`: FFT round-trip, multipliers vs
-   `fftfreq`/`rfftfreq`, real-derivative Nyquist behavior, validation accept/reject.
-   `test/fieldalgebra.jl`: M2 arithmetic in both representations, the spectral
-   zero-mode invariant, and the intentional absences. `test/method_parity.jl`: the
-   M2 method-count baseline + ambiguity check (update when M3/M4 land). Pending:
-   DifferentialOperators coverage, and M3/M4 tests as they land.
+   `Pkg.test()` green, 173 tests). `test/fields.jl`: FFT round-trip, multipliers vs
+   `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
+   `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
+   representations, the spectral zero-mode invariant, alias safety, and the
+   intentional absences. `test/method_parity.jl`: the full 198-method baseline +
+   ambiguity check. Pending: DifferentialOperators coverage.
 5. **Deferred by decision** — CPU threading via the `_assign!` primitive
    (design recorded in `docs/ARCHITECTURE.md` §9; until then, keep elementwise writes
    flowing through field-level broadcasts or named kernels so the later switch stays
