@@ -82,6 +82,7 @@ module GBGPeriodicFields
 
 include("Fields.jl")
 include("FieldAlgebra.jl")
+include("DifferentialOperators.jl")
 
 
 using .Fields:
@@ -99,7 +100,7 @@ using .Fields:
   VectorFieldSpectral,
   TensorFieldPhysical,
   TensorFieldSpectral,
-  FieldTransforms,
+  FieldTransformPlans,
   to_physical!,
   to_spectral!,
   to_physical,
@@ -137,6 +138,22 @@ using .FieldAlgebra:
   dev
 
 
+using .DifferentialOperators:
+  FieldSpectralMultipliers,
+  gradient!,
+  gradient,
+  divergence!,
+  divergence,
+  curl!,
+  curl,
+  laplacian!,
+  laplacian,
+  inverse_laplacian!,
+  inverse_laplacian,
+  helmholtz_projection!,
+  helmholtz_projection
+
+
 export FiberVector,
        FiberTensor2,
        FiberTensor3,
@@ -151,7 +168,7 @@ export FiberVector,
        VectorFieldSpectral,
        TensorFieldPhysical,
        TensorFieldSpectral,
-       FieldTransforms,
+       FieldTransformPlans,
        to_physical!,
        to_spectral!,
        to_physical,
@@ -183,7 +200,20 @@ export FiberVector,
        skew!,
        skew,
        dev!,
-       dev
+       dev,
+       FieldSpectralMultipliers,
+       gradient!,
+       gradient,
+       divergence!,
+       divergence,
+       curl!,
+       curl,
+       laplacian!,
+       laplacian,
+       inverse_laplacian!,
+       inverse_laplacian,
+       helmholtz_projection!,
+       helmholtz_projection
 
 
 end # module GBGPeriodicFields

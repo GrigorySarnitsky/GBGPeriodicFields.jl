@@ -1,72 +1,3 @@
-#=
-AI tips for code generation
-
-Conceptual model
-----------------
-This package represents real periodic fields on rectangular Cartesian domains. A field is a physical object; physical-space and spectral representations are storage/manipulation representations of that same object. In docstrings, prefer "scalar/vector/tensor field in physical-space representation" and "scalar/vector/tensor field in spectral representation". Avoid phrases such as "physical field" and "spectral field" unless the grammar would otherwise become unnatural.
-
-All exposed mathematical objects should be real-valued physical objects. Complex arrays are an implementation detail of spectral storage, not user-facing complex fields.
-
-The fiber dimension is three. Fiber vectors and tensors use the Cartesian Euclidean structure. Do not introduce curvilinear-coordinate machinery, explicit metric tensors, or vector/covector distinctions unless the package design changes.
-
-Physical meaning of operations
-------------------------------
-Operations should represent operations on the underlying physical fields. Implement an operation in spectral representation only when it is mathematically equivalent to the physical-space operation and is efficient or more accurate there. Otherwise, restrict the method to the representation where the operation is sensible.
-
-Linear algebra operations on fields are fiberwise operations. For example, `dot`, `⋅`, `cross`, `×`, `mul!`, `transpose`, scalar multiplication, and vector-space operations act pointwise on the fiber. Global \(L^2\)-type products, norms, adjoints, and integration-based operators belong to separate code with explicit notation.
-
-Do not expose coefficientwise spectral products if they are not the Fourier representation of the corresponding physical operation. In particular, scalar-field multiplication is physical-space pointwise multiplication, products of two vector or tensor fields are defined only in physical-space representation, contractions and linear actions with constant fiber objects are allowed in both representations, and addition of constants in spectral representation must update only the zero Fourier mode.
-
-Fourier normalization
----------------------
-For FFT normalization, follow the convention of the Julia FFT packages actually used by the implementation. Under the AbstractFFTs convention, forward transforms are unnormalized, while inverse transforms include normalization. Therefore adding a physical constant `c` to a spectral representation updates only the zero Fourier coefficient by `c * prod(grid_size)` for the transformed spatial grid. Do not add `c` to all spectral coefficients.
-
-CPU/GPU portability
--------------------
-Storage arrays must be generic `AbstractArray`s. Allocate output arrays with `similar(field_data(reference), ...)`. Avoid CPU-specific assumptions.
-
-GPU-compatible code must avoid scalar indexing of GPU arrays in package methods. Use broadcast, `map`, `mapreduce`, `copyto!`, views with broadcasted assignment, or explicit kernels when needed. Test CUDA and AMDGPU paths with scalar indexing disabled. Be careful with wrapped GPU arrays and nested views: if a wrapper causes fallback scalar iteration, rewrite the operation or use a backend-appropriate kernel.
-
-Mutating methods should write into existing storage and return the modified destination. Prefer fused broadcasted assignments such as `destination_data .= expression` for elementwise operations. Use explicit small-component formulas for three-component vector and second-order tensor operations when this is clearer and avoids reductions over the fiber dimension.
-
-Do not add or suggest symmetric mixed-representation broadcast-style rules. Julia's broadcast style promotion only needs one binary method for a pair of styles.
-
-Julia style
------------
-Use idiomatic Julia dispatch. Avoid type piracy: do not extend external functions on argument types that all belong to other packages. Extend external functions only when at least one argument type belongs to this package.
-
-Import external functions before extending them, e.g. `import Base: +, -, *, /` and `import LinearAlgebra: dot, ⋅, cross, ×, mul!`.
-
-For package-owned generic functions, attach the operation docstring to `function f end`. For additional method-family documentation on an already-defined package-owned generic, attach the docstring to the existing bare binding `f`. For imported Base, LinearAlgebra, or package functions, attach package-specific method-family documentation to the imported binding using the bare name `f`; do not write `function f end`, since a missing import could silently create a new local generic.
-
-Do not define methods for pure fiber-fiber operations such as `dot(::FiberVector, ::FiberVector)` or `transpose(::FiberTensor2)`: these fiber types are aliases for StaticArrays types, and LinearAlgebra/StaticArrays already handles such operations.
-
-Use descriptive names. Avoid abbreviations unless they are standard mathematical notation. Use two-space indentation. Follow the existing code style in this package. Normal Julia code may use moderately long lines when this improves readability or matches the surrounding style; do not aggressively split ordinary function signatures. In docstrings, prose may also use long lines, but verbatim signatures and code examples should remain conservatively narrow because Documenter renders them in a documentation column.
-
-Avoid unnecessary explicit type declarations in local variables. Do not compute matrix inverses for linear solves; use `\`, factorizations followed by `\`, or `ldiv!` where an in-place solve is appropriate.
-
-When relying on Julia, Base, standard libraries, or other Julia package behavior, always check the official documentation or docstrings.
-
-Docstring style
----------------
-Docstrings should be short, concrete, and physically meaningful. Prefer direct statements of what the method computes, in which representation it is valid, and whether it allocates or mutates.
-
-Use representation-based terminology:
-    good: "scalar field in physical-space representation"
-    bad:  "physical scalar field"
-
-State whether an operation is pointwise in physical-space representation, coefficientwise in spectral representation, representation-preserving, a zero-mode update, or a fiberwise contraction.
-
-Use "real number" for `Real` scalar constants when this avoids confusion with scalar fields. Use "scalar field" only for field-valued scalar functions. Use "fiber vector" and "fiber tensor" for constant elements of the fiber.
-
-Mention when a method is intentionally not provided because the operation is not physically meaningful in that representation.
-
-Maintenance
------------
-Keep this AI-tips block updated when new project requirements are established, and check generated code against it before returning changes.
-=#
-
-
 """
     Fields
 
@@ -96,7 +27,8 @@ export FiberVector,
        VectorFieldSpectral,
        TensorFieldPhysical,
        TensorFieldSpectral,
-       FieldTransforms,
+       FieldTransformPlans,
+       FieldSpectralMultipliers,
        to_physical!,
        to_spectral!,
        to_physical,
@@ -155,6 +87,7 @@ Static fourth-order Cartesian tensor type used for individual tensor values.
 This is an alias for `SArray{Tuple{3, 3, 3, 3}, T, 4, 81}`, with scalar type `T`.
 """
 const FiberTensor4{T} = SArray{Tuple{3, 3, 3, 3}, T, 4, 81}
+
 
 
 
@@ -240,6 +173,7 @@ dimension: it is stored with length `grid_size[fft_dims[1]] ÷ 2 + 1`, while the
 Returns a three-tuple giving the spectral array size.
 """
 rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int}) = ntuple(d -> d == fft_dims[1] ? (grid_size[d] ÷ 2 + 1) : grid_size[d], 3)
+
 
 
 
@@ -539,7 +473,6 @@ function VectorFieldPhysical(f, grid::Grid3D{T}, fourier_layout::RealFourierLayo
 
   for k in 1:grid.grid_size[3], j in 1:grid.grid_size[2], i in 1:grid.grid_size[1]
     vector_value = f(x₀ + (i - 1) * Δx₁, y₀ + (j - 1) * Δx₂, z₀ + (k - 1) * Δx₃)
-
     for α in 1:3
       values_at_grid[i, j, k, α] = T(vector_value[α])
     end
@@ -566,9 +499,8 @@ end
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 Here `fourier_coefficients` contains the complex vector Fourier coefficients in real-FFT storage, with the component index last:
-`fourier_coefficients[i, j, k, α]`, where `α = 1, 2, 3`. The spatial part has shape
-`spectral_field_shape(grid, fourier_layout, Val(0))`, and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(1))`.
-The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
+`fourier_coefficients[i, j, k, α]`, where `α = 1, 2, 3`. The spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))`,
+and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(1))`. The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
@@ -638,13 +570,11 @@ Here `values_at_grid` contains the real tensor components with storage order `va
 where each tensor index has length `3`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
 and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
 
-The array has shape `physical_field_shape(grid, Val(R))`.
-The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
+The array has shape `physical_field_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
 The function constructor constructs a tensor field of order `R ≥ 2` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
-Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`,
-`grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
-used when transforming the field, and `array_type` is the array type used to store the sampled values.
+Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
+`fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
 
 Broadcasting over tensor fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -684,7 +614,6 @@ function TensorFieldPhysical{R}(f, grid::Grid3D{T}, fourier_layout::RealFourierL
 
   for k in 1:grid.grid_size[3], j in 1:grid.grid_size[2], i in 1:grid.grid_size[1]
     tensor_value = f(x₀ + (i - 1) * Δx₁, y₀ + (j - 1) * Δx₂, z₀ + (k - 1) * Δx₃)
-
     for tensor_index in CartesianIndices(fiber_shape(Val(R)))
       values_at_grid[i, j, k, Tuple(tensor_index)...] = T(tensor_value[Tuple(tensor_index)...])
     end
@@ -760,6 +689,7 @@ field_data(field::TensorFieldSpectral) = field.fourier_coefficients
 
 
 
+
 ##################################
 #        Field Utilities         #
 ##################################
@@ -794,6 +724,7 @@ similar_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{T, N}) w
 
 similar_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
   TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
+
 
 function similar_field(reference::AbstractFieldPhysical{T}, ::Val{0}) where {T<:AbstractFloat}
   values_at_grid = similar(field_data(reference), T, physical_field_shape(field_grid(reference), Val(0)))
@@ -866,47 +797,121 @@ similar_spectral_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray
 
 
 """
-    check_field_compatibility(
-      a::AbstractFieldPhysical,
-      b::AbstractFieldPhysical,
+    _vector_component_data(
+      field::Union{VectorFieldPhysical, VectorFieldSpectral},
+      component,
     )
 
-    check_field_compatibility(
-      a::AbstractFieldSpectral,
-      b::AbstractFieldSpectral,
+Return a view of the storage array corresponding to vector component `component`.
+
+The first three dimensions are spatial dimensions. The last dimension is the vector-fiber index.
+This helper is internal and works for vector fields in physical-space and spectral representations.
+"""
+_vector_component_data(field::Union{VectorFieldPhysical, VectorFieldSpectral}, component) = selectdim(field_data(field), ndims(field_data(field)), component)
+
+
+"""
+    _tensor2_component_data(
+      field::Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}},
+      first_index,
+      second_index,
     )
 
-Check that two fields with the same representation have the same scalar type, tensor order, grid, and Fourier layout.
+Return a view of the storage array corresponding to component `(first_index, second_index)` of a second-order tensor field.
 
-Returns `nothing` or throws an exception.
+The first three dimensions are spatial dimensions. The last two dimensions are the tensor-fiber indices.
+This helper is internal and works for second-order tensor fields in physical-space and spectral representations.
+"""
+function _tensor2_component_data(field::Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}, first_index, second_index)
+  data = field_data(field)
+  return selectdim(selectdim(data, ndims(data) - 1, first_index), ndims(data) - 1, second_index)
+end
+
+
+
+
+###################################
+#        Field Compatibility      #
+###################################
+
+# Atomic equality predicates over field metadata. Each returns a `Bool` and is
+# composed by the compatibility checks below. They give a single definition of
+# "same scalar type", "same grid", and so on, reused across the package.
+_same_scalar_type(a, b) = field_scalar_type(a) == field_scalar_type(b)
+_same_tensor_order(a, b) = field_tensor_order(a) == field_tensor_order(b)
+_same_grid(a, b) = field_grid(a) == field_grid(b)
+_same_layout(a, b) = field_layout(a) == field_layout(b)
+
+
+# Shared body for same-representation domain checks. The entry points that call
+# it are each restricted to one representation, so a physical/spectral pair has
+# no matching method and is rejected.
+function _check_same_domain(a, b)
+  _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
+  _same_grid(a, b)        || throw(ArgumentError("field grids must be equal"))
+  _same_layout(a, b)      || throw(ArgumentError("field Fourier layouts must be equal"))
+  return nothing
+end
+
+
+"""
+    _check_field_domain_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+    _check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+
+Check that two fields in the same representation share scalar type, grid, and Fourier layout.
+
+Tensor order is allowed to differ, so this is the check for representation-preserving operations that change order, such as gradient and divergence. Returns `nothing` or throws.
+"""
+function _check_field_domain_compatibility end
+_check_field_domain_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical) = _check_same_domain(a, b)
+_check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral) = _check_same_domain(a, b)
+
+
+"""
+    check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+    check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+
+Check that two fields in the same representation share scalar type, tensor order, grid, and Fourier layout.
+
+This is the check for operations that require fully matching operands. Returns `nothing` or throws.
 """
 function check_field_compatibility end
 
 function check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
-  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
-  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
-  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
-  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
+  _check_same_domain(a, b)
+  _same_tensor_order(a, b) || throw(ArgumentError("field tensor orders must be equal"))
   return nothing
 end
-
 
 function check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
-  field_scalar_type(a) == field_scalar_type(b) || throw(ArgumentError("field scalar types must be equal"))
-  field_tensor_order(a) == field_tensor_order(b) || throw(ArgumentError("field tensor orders must be equal"))
-  field_grid(a) == field_grid(b) || throw(ArgumentError("field grids must be equal"))
-  field_layout(a) == field_layout(b) || throw(ArgumentError("field Fourier layouts must be equal"))
+  _check_same_domain(a, b)
+  _same_tensor_order(a, b) || throw(ArgumentError("field tensor orders must be equal"))
+  return nothing
+end
+
+
+"""
+    _check_field_matches_context(field::AbstractField, context)
+
+Check that `field` was built for the same grid and Fourier layout as `context`.
+
+Here `context` is a precomputed spectral artifact carrying `grid` and `fourier_layout` fields, namely [`FieldTransformPlans`](@ref) or [`FieldSpectralMultipliers`](@ref). Returns `nothing` or throws.
+"""
+function _check_field_matches_context(field::AbstractField, context)
+  field_grid(field) == context.grid || throw(ArgumentError("field grid must be equal to $(nameof(typeof(context))) grid"))
+  field_layout(field) == context.fourier_layout || throw(ArgumentError("field Fourier layout must be equal to $(nameof(typeof(context))) Fourier layout"))
   return nothing
 end
 
 
 
-##################################
-#        Field Transforms        #
-##################################
+
+#######################################
+#        Field Transform Plans        #
+#######################################
 
 """
-    FieldTransforms(
+    FieldTransformPlans(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R};
       fft_flags = nothing,
@@ -925,9 +930,9 @@ The fields are
 - `plan_forward_fft::PF`: the plan transforming physical values to spectral coefficients.
 - `plan_inverse_fft::PI`: the plan transforming spectral coefficients to physical values.
 
-The plans are backend-, array-type-, scalar-type-, and tensor-order-specific; construct a separate `FieldTransforms` object for each CPU/GPU backend and field tensor order.
+The plans are backend-, array-type-, scalar-type-, and tensor-order-specific; construct a separate `FieldTransformPlans` object for each CPU/GPU backend and field tensor order.
 """
-struct FieldTransforms{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFourierLayout}
+struct FieldTransformPlans{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFourierLayout}
   grid::G
   fourier_layout::L
   plan_forward_fft::PF
@@ -935,8 +940,8 @@ struct FieldTransforms{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFourier
 end
 
 
-function FieldTransforms(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}; fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat, R}
-  field_grid(physical) == field_grid(spectral) || throw(ArgumentError("field grids must be equal"))
+function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}; fft_flags = nothing, fft_timelimit = Inf) where {T<:AbstractFloat, R}
+  field_grid(physical)   == field_grid(spectral)   || throw(ArgumentError("field grids must be equal"))
   field_layout(physical) == field_layout(spectral) || throw(ArgumentError("field Fourier layouts must be equal"))
 
   fft_dims = field_layout(physical).fft_dims
@@ -949,7 +954,7 @@ function FieldTransforms(physical::AbstractFieldPhysical{T, R}, spectral::Abstra
     isnothing(fft_flags) ? plan_irfft(field_data(spectral), field_grid(physical).grid_size[fft_dims[1]], fft_dims) :
     plan_irfft(field_data(spectral), field_grid(physical).grid_size[fft_dims[1]], fft_dims; flags = fft_flags, timelimit = fft_timelimit)
 
-  return FieldTransforms{T, R, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(field_grid(physical)), typeof(field_layout(physical))}(
+  return FieldTransformPlans{T, R, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(field_grid(physical)), typeof(field_layout(physical))}(
     field_grid(physical), field_layout(physical), plan_forward_fft, plan_inverse_fft)
 end
 
@@ -958,22 +963,20 @@ end
     to_physical!(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R},
-      transforms::FieldTransforms{T, R},
+      transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
 Transform a field from spectral space to physical space in-place.
 
-Here `physical` is the destination, `spectral` is the source, and `transforms` provides the inverse FFT plan.
+Here `physical` is the destination, `spectral` is the source, and `transform_plans` provides the inverse FFT plan.
 
 Returns the modified destination field.
 """
-function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
-  field_grid(physical) == field_grid(spectral) || throw(ArgumentError("field grids must be equal"))
-  field_grid(physical) == transforms.grid || throw(ArgumentError("field grid must be equal to transforms.grid"))
-  field_layout(physical) == field_layout(spectral) || throw(ArgumentError("field Fourier layouts must be equal"))
-  field_layout(physical) == transforms.fourier_layout || throw(ArgumentError("field Fourier layout must be equal to transforms.fourier_layout"))
+function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+  _check_field_matches_context(physical, transform_plans)
+  _check_field_matches_context(spectral, transform_plans)
 
-  mul!(field_data(physical), transforms.plan_inverse_fft, field_data(spectral))
+  mul!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral))
 
   return physical
 end
@@ -983,22 +986,20 @@ end
     to_spectral!(
       spectral::AbstractFieldSpectral{T, R},
       physical::AbstractFieldPhysical{T, R},
-      transforms::FieldTransforms{T, R},
+      transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
 Transform a field from physical space to spectral space in-place.
 
-Here `spectral` is the destination, `physical` is the source, and `transforms` provides the forward FFT plan.
+Here `spectral` is the destination, `physical` is the source, and `transform_plans` provides the forward FFT plan.
 
 Returns the modified destination field.
 """
-function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
-  field_grid(spectral) == field_grid(physical) || throw(ArgumentError("field grids must be equal"))
-  field_grid(spectral) == transforms.grid || throw(ArgumentError("field grid must be equal to transforms.grid"))
-  field_layout(spectral) == field_layout(physical) || throw(ArgumentError("field Fourier layouts must be equal"))
-  field_layout(spectral) == transforms.fourier_layout || throw(ArgumentError("field Fourier layout must be equal to transforms.fourier_layout"))
+function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+  _check_field_matches_context(spectral, transform_plans)
+  _check_field_matches_context(physical, transform_plans)
 
-  mul!(field_data(spectral), transforms.plan_forward_fft, field_data(physical))
+  mul!(field_data(spectral), transform_plans.plan_forward_fft, field_data(physical))
 
   return spectral
 end
@@ -1007,30 +1008,194 @@ end
 """
     to_physical(
       spectral::AbstractFieldSpectral{T, R},
-      transforms::FieldTransforms{T, R},
+      transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
 Allocating version of [`to_physical!`](@ref).
 """
-function to_physical(spectral::AbstractFieldSpectral{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
+function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
   physical = similar_physical_field(spectral, values_at_grid)
-  return to_physical!(physical, spectral, transforms)
+  return to_physical!(physical, spectral, transform_plans)
 end
 
 
 """
     to_spectral(
       physical::AbstractFieldPhysical{T, R},
-      transforms::FieldTransforms{T, R},
+      transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
 Allocating version of [`to_spectral!`](@ref).
 """
-function to_spectral(physical::AbstractFieldPhysical{T, R}, transforms::FieldTransforms{T, R}) where {T<:AbstractFloat, R}
+function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
   spectral = similar_spectral_field(physical, fourier_coefficients)
-  return to_spectral!(spectral, physical, transforms)
+  return to_spectral!(spectral, physical, transform_plans)
+end
+
+
+
+
+###########################################
+#        Field Spectral Multipliers       #
+###########################################
+
+"""
+    FieldSpectralMultipliers(
+      grid::Grid3D{T},
+      fourier_layout::RealFourierLayout,
+      wavenumber_1, wavenumber_2, wavenumber_3,
+      squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+    ) where {T<:AbstractFloat}
+
+    FieldSpectralMultipliers(
+      field::AbstractFieldSpectral{T},
+      wavenumber_1, wavenumber_2, wavenumber_3,
+      squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+    ) where {T<:AbstractFloat}
+
+One-dimensional Fourier wavenumber arrays for coefficientwise spectral operators such as derivatives, the Laplacian, and the Helmholtz projection.
+
+The fields are
+- `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.
+- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: per-axis wavenumbers, used for first derivatives via multiplication by `im * k`.
+- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by `-k^2`.
+
+Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
+The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
+
+These two constructors are explicit: you supply both the wavenumbers and the squared wavenumbers, and only their lengths are checked.
+The two array families are stored independently rather than squaring one to obtain the other,
+because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
+A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment;
+it is documented separately below.
+"""
+struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
+  grid::Grid3D{T}
+  fourier_layout::RealFourierLayout
+  wavenumber_1::K1
+  wavenumber_2::K2
+  wavenumber_3::K3
+  squared_wavenumber_1::S1
+  squared_wavenumber_2::S2
+  squared_wavenumber_3::S3
+
+  function FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
+      wavenumber_1::K1, wavenumber_2::K2, wavenumber_3::K3,
+      squared_wavenumber_1::S1, squared_wavenumber_2::S2, squared_wavenumber_3::S3) where {T<:AbstractFloat,
+      K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
+
+    spectral_spatial_shape = spectral_field_shape(grid, fourier_layout, Val(0))
+
+    length(wavenumber_1) == spectral_spatial_shape[1] || throw(DimensionMismatch("length(wavenumber_1) must match the first spectral spatial dimension"))
+    length(wavenumber_2) == spectral_spatial_shape[2] || throw(DimensionMismatch("length(wavenumber_2) must match the second spectral spatial dimension"))
+    length(wavenumber_3) == spectral_spatial_shape[3] || throw(DimensionMismatch("length(wavenumber_3) must match the third spectral spatial dimension"))
+    length(squared_wavenumber_1) == spectral_spatial_shape[1] || throw(DimensionMismatch("length(squared_wavenumber_1) must match the first spectral spatial dimension"))
+    length(squared_wavenumber_2) == spectral_spatial_shape[2] || throw(DimensionMismatch("length(squared_wavenumber_2) must match the second spectral spatial dimension"))
+    length(squared_wavenumber_3) == spectral_spatial_shape[3] || throw(DimensionMismatch("length(squared_wavenumber_3) must match the third spectral spatial dimension"))
+
+    return new{T, K1, K2, K3, S1, S2, S3}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+  end
+end
+
+
+function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}, wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
+    squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1}, squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat}
+  
+  return FieldSpectralMultipliers(field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+end
+
+
+"""
+    FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+
+Build the spectral multipliers from the grid and Fourier layout of `field`, allocated on the field's storage backend.
+
+The wavenumbers are the physical angular wavenumbers `k = 2π n / L` along each axis, where `L` is the domain length and `n` runs over the FFT frequency indices.
+On an even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to zero, so that derivatives of real fields stay real,
+while its squared wavenumber keeps the true `k^2`, so that the Laplacian and Poisson-type solves stay correct.
+On an odd-length axis there is no exact Nyquist mode and no special treatment is applied.
+"""
+function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+  grid = field_grid(field)
+  fourier_layout = field_layout(field)
+  half_dimension = fourier_layout.fft_dims[1]
+  reference = field_data(field)
+
+  wavenumber_1, squared_wavenumber_1 = _axis_wavenumber_arrays(reference, grid.grid_size[1], grid.domain_size[1], 1 == half_dimension)
+  wavenumber_2, squared_wavenumber_2 = _axis_wavenumber_arrays(reference, grid.grid_size[2], grid.domain_size[2], 2 == half_dimension)
+  wavenumber_3, squared_wavenumber_3 = _axis_wavenumber_arrays(reference, grid.grid_size[3], grid.domain_size[3], 3 == half_dimension)
+
+  return FieldSpectralMultipliers(grid, fourier_layout,
+    wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+end
+
+
+# First-derivative and squared wavenumbers along one axis, returned as host vectors.
+# `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies.
+# The derivative wavenumber zeroes the Nyquist mode on even-length axes; the squared wavenumber keeps the true k^2.
+function _axis_wavenumber_values(number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
+  wavenumber_unit = 2 * T(π) / domain_length
+  stored_length = half_dimension ? (number_of_points ÷ 2 + 1) : number_of_points
+
+  true_wavenumber = Vector{T}(undef, stored_length)
+  for i in 1:stored_length
+    zero_based_index = i - 1
+    frequency_index = (half_dimension || zero_based_index < (number_of_points + 1) ÷ 2) ? zero_based_index : zero_based_index - number_of_points
+    true_wavenumber[i] = wavenumber_unit * frequency_index
+  end
+
+  squared_wavenumber = true_wavenumber .^ 2
+
+  derivative_wavenumber = copy(true_wavenumber)
+  if iseven(number_of_points)
+    nyquist_index = half_dimension ? stored_length : (number_of_points ÷ 2 + 1)
+    derivative_wavenumber[nyquist_index] = zero(T)
+  end
+
+  return derivative_wavenumber, squared_wavenumber
+end
+
+
+# Move the host wavenumber vectors onto the storage backend of `reference`.
+function _axis_wavenumber_arrays(reference::AbstractArray, number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
+  derivative_host, squared_host = _axis_wavenumber_values(number_of_points, domain_length, half_dimension)
+  derivative_wavenumber = similar(reference, T, length(derivative_host))
+  squared_wavenumber = similar(reference, T, length(squared_host))
+  copyto!(derivative_wavenumber, derivative_host)
+  copyto!(squared_wavenumber, squared_host)
+  return derivative_wavenumber, squared_wavenumber
+end
+
+
+_multipliers_scalar_type(::FieldSpectralMultipliers{T}) where {T<:AbstractFloat} = T
+
+
+"""
+    _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+Check that a spectral-space `field` and `multipliers` share scalar type, grid, and Fourier layout. Returns `nothing` or throws.
+"""
+function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+  field_scalar_type(field) == _multipliers_scalar_type(multipliers) || throw(ArgumentError("field and spectral multipliers scalar types must be equal"))
+  _check_field_matches_context(field, multipliers)
+  return nothing
+end
+
+
+# Reshape the per-axis wavenumber arrays so they broadcast against the three spatial dimensions.
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = reshape(multipliers.wavenumber_3, 1, 1, length(multipliers.wavenumber_3))
+
+
+# Total squared wavenumber k^2 = k_1^2 + k_2^2 + k_3^2, broadcast over the three spatial dimensions.
+function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
+  squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)
+  squared_wavenumber_2 = reshape(multipliers.squared_wavenumber_2, 1, length(multipliers.squared_wavenumber_2), 1)
+  squared_wavenumber_3 = reshape(multipliers.squared_wavenumber_3, 1, 1, length(multipliers.squared_wavenumber_3))
+  return squared_wavenumber_1 .+ squared_wavenumber_2 .+ squared_wavenumber_3
 end
 
 
@@ -1051,8 +1216,7 @@ Base.BroadcastStyle(::Type{<:AbstractFieldSpectral{T, R}}) where {T<:AbstractFlo
 Base.BroadcastStyle(::FieldPhysicalBroadcastStyle{M}, ::FieldPhysicalBroadcastStyle{N}) where {M, N} = FieldPhysicalBroadcastStyle{max(M, N)}()
 Base.BroadcastStyle(::FieldSpectralBroadcastStyle{M}, ::FieldSpectralBroadcastStyle{N}) where {M, N} = FieldSpectralBroadcastStyle{max(M, N)}()
 
-Base.BroadcastStyle(::FieldPhysicalBroadcastStyle, ::FieldSpectralBroadcastStyle) =
-  throw(ArgumentError("cannot broadcast fields represented in physical and spectral space together"))
+Base.BroadcastStyle(::FieldPhysicalBroadcastStyle, ::FieldSpectralBroadcastStyle) = throw(ArgumentError("cannot broadcast fields represented in physical and spectral space together"))
 
 Base.broadcastable(field::AbstractField) = field
 
@@ -1089,20 +1253,15 @@ function _first_field(args::Tuple)
 end
 
 
-_check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) =
-  check_field_compatibility(destination, field)
+_check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) = check_field_compatibility(destination, field)
 
-_check_broadcast_field_compatibility(destination::AbstractFieldSpectral, field::AbstractFieldSpectral) =
-  check_field_compatibility(destination, field)
+_check_broadcast_field_compatibility(destination::AbstractFieldSpectral, field::AbstractFieldSpectral) = check_field_compatibility(destination, field)
 
-_check_broadcast_field_compatibility(::AbstractFieldPhysical, ::AbstractFieldSpectral) =
-  throw(ArgumentError("cannot broadcast fields represented in physical and spectral space together"))
+_check_broadcast_field_compatibility(::AbstractFieldPhysical, ::AbstractFieldSpectral) = throw(ArgumentError("cannot broadcast fields represented in physical and spectral space together"))
 
-_check_broadcast_field_compatibility(::AbstractFieldSpectral, ::AbstractFieldPhysical) =
-  throw(ArgumentError("cannot broadcast fields represented in spectral and physical space together"))
+_check_broadcast_field_compatibility(::AbstractFieldSpectral, ::AbstractFieldPhysical) = throw(ArgumentError("cannot broadcast fields represented in spectral and physical space together"))
 
-_check_broadcast_field_compatibility(::AbstractField, ::Any) =
-  nothing
+_check_broadcast_field_compatibility(::AbstractField, ::Any) =  nothing
 
 function _check_broadcast_field_compatibility(destination::AbstractField, broadcasted::Base.Broadcast.Broadcasted)
   foreach(argument -> _check_broadcast_field_compatibility(destination, argument), broadcasted.args)
@@ -1123,13 +1282,7 @@ function Base.copyto!(destination::AbstractField, broadcasted::Base.Broadcast.Br
 
   unwrapped = _unwrap_broadcast_argument(broadcasted)
 
-  unwrapped_with_destination_axes =
-    Base.Broadcast.Broadcasted(
-      unwrapped.style,
-      unwrapped.f,
-      unwrapped.args,
-      axes(field_data(destination)),
-    )
+  unwrapped_with_destination_axes = Base.Broadcast.Broadcasted(unwrapped.style, unwrapped.f, unwrapped.args, axes(field_data(destination)))
 
   copyto!(field_data(destination), Base.Broadcast.instantiate(unwrapped_with_destination_axes))
 
