@@ -48,6 +48,21 @@ const layout = RealFourierLayout()
     end
   end
 
+  @testset "allocating transforms preserve their input" begin
+    a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(0))), grid)
+    plans = FieldTransformPlans(a, spectral_zero)
+
+    physical_before = copy(field_data(a))
+    spectral = to_spectral(a, plans)
+    @test field_data(a) == physical_before          # forward leaves the physical input intact
+
+    spectral_before = copy(field_data(spectral))
+    back = to_physical(spectral, plans)
+    @test field_data(spectral) == spectral_before    # inverse leaves the spectral input intact (would fail on FFTW without the copy)
+    @test field_data(back) ≈ field_data(a)           # and the round-trip is still correct
+  end
+
   @testset "spectral multipliers vs AbstractFFTs" begin
     sp = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
     spectral = to_spectral(sp, FieldTransformPlans(sp, ScalarFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(0))), grid)))

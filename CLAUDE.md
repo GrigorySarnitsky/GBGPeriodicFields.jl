@@ -101,21 +101,27 @@ When unsure about Base/stdlib/package behavior, check official docs — don't gu
 1. **Fields.jl** — refactored, done and test-covered (`test/fields.jl`): compatibility
    predicates; `FieldSpectralMultipliers` moved here (explicit six-array constructor +
    convenience constructor from a field; host-built wavenumbers copied to backend).
+   Transform input contract: allocating `to_physical`/`to_spectral` preserve their
+   input (they copy it); the in-place `!` forms may overwrite the source (FFTW
+   complex-to-real destroys the spectral input; backend-divergent — AMD/rocFFT does not).
 2. **FieldAlgebra.jl** — codegen foundation + M2 (add/subtract, real scaling,
-   scalar-field multiplication) generated and **loading**: `using GBGPeriodicFields`
-   precompiles and loads cleanly, so the earlier load/expansion task is done. Still
-   pending: commit the method-parity baseline (parity only checked on paper so far),
-   then M3 (dot, cross, `mul!`, transpose, inner products, norms, sym/skew/dev —
-   contraction generator with `has_beta` and alias-guard flags) and M4 (public
-   wrappers); bare bindings keep exports resolvable meanwhile.
+   scalar-field multiplication) generated, loading, and **verified**: 98 methods
+   (parity baseline locked in `test/method_parity.jl`), zero ambiguities, M2
+   behaviour tested in `test/fieldalgebra.jl`. Fiber ops need full **StaticArrays**
+   (now a package dependency — `StaticArraysCore` provided only the types, not
+   indexing/algebra). Pending: M3 (dot, cross, `mul!`, transpose, inner products,
+   norms, sym/skew/dev — contraction generator with `has_beta` and alias-guard
+   flags) and M4 (public wrappers); bare bindings keep exports resolvable meanwhile.
 3. **DifferentialOperators.jl** — remove the moved `FieldSpectralMultipliers`
    definitions, fix its exports and the umbrella's re-export, qualify Fields helpers.
    Old five-argument multiplier-constructor callers break by design.
-4. **Tests** — `test/` suite seeded (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green). `test/fields.jl` covers Fields.jl: FFT round-trip, multipliers
-   vs `fftfreq`/`rfftfreq`, real-derivative Nyquist behavior, validation accept/reject.
-   Still pending: the method-parity baseline (lands with FieldAlgebra), plus
-   FieldAlgebra and DifferentialOperators coverage.
+4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
+   `Pkg.test()` green, 100 tests). `test/fields.jl`: FFT round-trip, multipliers vs
+   `fftfreq`/`rfftfreq`, real-derivative Nyquist behavior, validation accept/reject.
+   `test/fieldalgebra.jl`: M2 arithmetic in both representations, the spectral
+   zero-mode invariant, and the intentional absences. `test/method_parity.jl`: the
+   M2 method-count baseline + ambiguity check (update when M3/M4 land). Pending:
+   DifferentialOperators coverage, and M3/M4 tests as they land.
 5. **Deferred by decision** — CPU threading via the `_assign!` primitive
    (design recorded in `docs/ARCHITECTURE.md` §9; until then, keep elementwise writes
    flowing through field-level broadcasts or named kernels so the later switch stays

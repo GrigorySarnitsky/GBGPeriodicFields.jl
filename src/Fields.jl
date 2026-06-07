@@ -8,7 +8,7 @@ FFT transform plans, and storage-wise broadcasting designed for CPU and GPU arra
 """
 module Fields
 
-using StaticArraysCore: SVector, SMatrix, SArray
+using StaticArrays: SVector, SMatrix, SArray
 using AbstractFFTs
 using LinearAlgebra
 import FFTW
@@ -970,6 +970,8 @@ Transform a field from spectral space to physical space in-place.
 
 Here `physical` is the destination, `spectral` is the source, and `transform_plans` provides the inverse FFT plan.
 
+The inverse transform uses `spectral` as scratch space and may overwrite it: on return its coefficients are left in an undefined state (the FFTW CPU backend destroys them — complex-to-real transforms have no input-preserving algorithm in the multidimensional case; some GPU backends happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref) when `spectral` must be preserved.
+
 Returns the modified destination field.
 """
 function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
@@ -993,6 +995,8 @@ Transform a field from physical space to spectral space in-place.
 
 Here `spectral` is the destination, `physical` is the source, and `transform_plans` provides the forward FFT plan.
 
+The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the right to use real-to-complex inputs as scratch); the FFTW CPU backend preserves it, but do not rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be preserved.
+
 Returns the modified destination field.
 """
 function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
@@ -1011,12 +1015,15 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Allocating version of [`to_physical!`](@ref).
+Allocating version of [`to_physical!`](@ref). Unlike the in-place form, the input `spectral` is left unchanged: its coefficients are copied before the transform.
 """
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
   physical = similar_physical_field(spectral, values_at_grid)
-  return to_physical!(physical, spectral, transform_plans)
+  # The inverse transform may overwrite its input (see to_physical!); copy the
+  # coefficients so the caller's field is preserved.
+  spectral_preserved = similar_field(spectral, copy(field_data(spectral)))
+  return to_physical!(physical, spectral_preserved, transform_plans)
 end
 
 
@@ -1026,12 +1033,15 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Allocating version of [`to_spectral!`](@ref).
+Allocating version of [`to_spectral!`](@ref). Unlike the in-place form, the input `physical` is left unchanged: its values are copied before the transform.
 """
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
   spectral = similar_spectral_field(physical, fourier_coefficients)
-  return to_spectral!(spectral, physical, transform_plans)
+  # The forward transform may overwrite its input on some backends (see to_spectral!);
+  # copy the values so the caller's field is preserved.
+  physical_preserved = similar_field(physical, copy(field_data(physical)))
+  return to_spectral!(spectral, physical_preserved, transform_plans)
 end
 
 

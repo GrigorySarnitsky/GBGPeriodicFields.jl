@@ -4,6 +4,8 @@
 # module gets its own file, included here and also runnable on its own with
 #   julia --project=. test/<module>.jl
 #
-# As FieldAlgebra and DifferentialOperators are verified, add their files below.
+# As DifferentialOperators is verified, add its file below.
 
 include("fields.jl")
+include("fieldalgebra.jl")
+include("method_parity.jl")
