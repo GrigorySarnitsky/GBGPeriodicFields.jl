@@ -61,6 +61,8 @@ Use "real number" for `Real` scalar constants when this avoids confusion with sc
 
 Mention when a method is intentionally not provided because the operation is not physically meaningful in that representation.
 
+Document hand-written internal machinery (the codegen builders, the alias guards, the shared Fields helpers, the spectral kernels) with docstrings too: they surface in the package's per-module "Internal API" documentation section (collected by Documenter `@autodocs` with `Public = false`), so contributors can extend the package consistently. The `@eval`-generated methods and kernels carry no docstrings — the formula docstring lives on the builder, consistent with "generators emit methods only — never docstrings". Reserve plain comments for non-intuitive rationale (the *why*) that a descriptive name cannot convey.
+
 Maintenance
 -----------
 Keep this AI-tips block updated when new project requirements are established, and check generated code against it before returning changes.

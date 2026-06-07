@@ -1,72 +1,38 @@
-# FieldAlgebra.jl
+# FieldAlgebra
 
-```@docs
-GBGPeriodicFields.FieldAlgebra
-```
+The `FieldAlgebra` module provides fiberwise, pointwise algebra on the fields defined in [`Fields`](Fields.md). Each operation comes as an in-place `!` form and an allocating form (a `Base`/`LinearAlgebra` operator where one exists).
+
+The operation families are:
+
+- **Vector-space operations** — `add!`/`subtract!` (and `+`/`-`), scaling by a real number, and scalar-field multiplication/division (`multiply!`/`divide!`, `*`/`/`).
+- **Contractions** — `dot!`/`dot` (vector Euclidean and tensor Frobenius inner products; `⋅` alias), `cross!`/`cross` (`×` alias).
+- **Tensor products** — `mul!` for tensor·vector (left and right action) and tensor·tensor, with the five-argument `α`/`β` accumulation form; allocating `*`.
+- **Permutations and decompositions** — `transpose!`/`transpose`, `sym`/`skew`/`dev` (and their `!` forms).
+- **Norms** — `norm!`/`norm` (pointwise absolute value, Euclidean, and Frobenius).
+
+**Representation validity is the spec.** Operations linear in the field (vector-space operations, contractions with a *constant* fiber, transpose, sym/skew/dev) are valid in both representations. Operations nonlinear in the field (products of two fields, contractions of two fields, pointwise norms) are physical-space only — the coefficientwise spectral product is not the Fourier transform of the pointwise product. Missing combinations are deliberate.
+
+**Aliasing.** `mul!` follows the `LinearAlgebra` convention: the destination must not share storage with an input. The index-shuffling operations (cross product, transpose, sym/skew/dev) are alias-guarded and may be called with the destination aliasing an input.
 
 ```@contents
 Pages = ["FieldAlgebra.md"]
 ```
 
-## Field vector-space operations
+## API
 
-```@docs
-GBGPeriodicFields.FieldAlgebra.add!
-GBGPeriodicFields.FieldAlgebra.subtract!
+```@autodocs
+Modules = [GBGPeriodicFields.FieldAlgebra]
+Public  = true
+Private = false
+Order   = [:module, :function]
 ```
 
-The allocating forms are provided by methods of `Base.+` and `Base.-` for compatible field and constant-fiber combinations.
+## Internal API
 
-## Multiplication and division
+The code-generation machinery, documented for contributors adding operations: the expression and kernel-body builders, the contraction formula builders, the aliasing guard, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
 
-```@docs
-GBGPeriodicFields.FieldAlgebra.multiply!
-GBGPeriodicFields.FieldAlgebra.divide!
-```
-
-The allocating forms are provided by methods of `Base.*` and `Base./` where the corresponding operation is representation-wise meaningful.
-
-## Vector products
-
-```@docs
-GBGPeriodicFields.FieldAlgebra.dot!
-GBGPeriodicFields.FieldAlgebra.cross!
-```
-
-The allocating forms are provided by methods of `LinearAlgebra.dot` and `LinearAlgebra.cross`. The infix Unicode aliases `⋅` and `×` are also exported.
-
-## Tensor-vector and tensor-tensor products
-
-```@docs
-GBGPeriodicFields.FieldAlgebra.mul!
-```
-
-The allocating tensor-vector and tensor-tensor forms are provided by methods of `Base.*`.
-
-## Tensor index permutations
-
-```@docs
-GBGPeriodicFields.FieldAlgebra.transpose!
-```
-
-The allocating tensor-index transpose is provided by methods of `Base.transpose`.
-
-## Tensor contractions and field norms
-
-```@docs
-GBGPeriodicFields.FieldAlgebra.norm!
-GBGPeriodicFields.FieldAlgebra.norm
-```
-
-Fiberwise vector inner products and tensor Frobenius inner products are provided by methods of `LinearAlgebra.dot` and documented together with `dot!`.
-
-## Tensor decompositions
-
-```@docs
-GBGPeriodicFields.FieldAlgebra.sym!
-GBGPeriodicFields.FieldAlgebra.sym
-GBGPeriodicFields.FieldAlgebra.skew!
-GBGPeriodicFields.FieldAlgebra.skew
-GBGPeriodicFields.FieldAlgebra.dev!
-GBGPeriodicFields.FieldAlgebra.dev
+```@autodocs
+Modules = [GBGPeriodicFields.FieldAlgebra]
+Public  = false
+Order   = [:type, :constant, :function]
 ```

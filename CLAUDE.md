@@ -87,6 +87,15 @@ Two-space indentation; two blank lines between top-level definitions; section ba
 comments; descriptive names without abbreviations; moderately long lines are fine.
 When unsure about Base/stdlib/package behavior, check official docs — don't guess.
 
+**Docstrings vs comments.** Prefer docstrings; reserve plain comments for non-intuitive
+*why* (rationale a good name can't convey — the Nyquist split, the α/β branch, aliasing
+reasoning, "irregular corner kept explicit because…"). Hand-written internal machinery
+(codegen builders, alias guards, shared Fields helpers, spectral kernels) carries
+docstrings; they surface in each module's **Internal API** docs section via
+`@autodocs ... Public = false`. The `@eval`-generated methods/kernels carry none (the
+formula docstring lives on the builder) — consistent with "generators emit methods only —
+never docstrings", which governs generated methods, not the hand-written builders.
+
 ## Verification workflow
 
 "Should work" is not done. Minimum bar for any change:

@@ -843,9 +843,11 @@ _same_grid(a, b) = field_grid(a) == field_grid(b)
 _same_layout(a, b) = field_layout(a) == field_layout(b)
 
 
-# Shared body for same-representation domain checks. The entry points that call
-# it are each restricted to one representation, so a physical/spectral pair has
-# no matching method and is rejected.
+"""
+    _check_same_domain(a, b)
+
+Throw unless `a` and `b` share scalar type, grid, and Fourier layout (tensor order may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
+"""
 function _check_same_domain(a, b)
   _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
   _same_grid(a, b)        || throw(ArgumentError("field grids must be equal"))
@@ -1142,9 +1144,11 @@ function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:Abs
 end
 
 
-# First-derivative and squared wavenumbers along one axis, returned as host vectors.
-# `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies.
-# The derivative wavenumber zeroes the Nyquist mode on even-length axes; the squared wavenumber keeps the true k^2.
+"""
+    _axis_wavenumber_values(number_of_points, domain_length, half_dimension)
+
+Return `(derivative_wavenumber, squared_wavenumber)` as host vectors for one spatial axis. `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies. On even-length axes the derivative wavenumber is zeroed at the Nyquist mode (so derivatives of real fields stay real) while the squared wavenumber keeps the true `k²` (correct Laplacian) — the deliberate Nyquist split, stored as two independent families.
+"""
 function _axis_wavenumber_values(number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
   wavenumber_unit = 2 * T(π) / domain_length
   stored_length = half_dimension ? (number_of_points ÷ 2 + 1) : number_of_points
@@ -1168,7 +1172,11 @@ function _axis_wavenumber_values(number_of_points::Int, domain_length::T, half_d
 end
 
 
-# Move the host wavenumber vectors onto the storage backend of `reference`.
+"""
+    _axis_wavenumber_arrays(reference, number_of_points, domain_length, half_dimension)
+
+Build the per-axis derivative and squared wavenumber vectors with `_axis_wavenumber_values` on the host, then copy them onto the storage backend of `reference` (via `similar` + `copyto!`, avoiding scalar GPU writes).
+"""
 function _axis_wavenumber_arrays(reference::AbstractArray, number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
   derivative_host, squared_host = _axis_wavenumber_values(number_of_points, domain_length, half_dimension)
   derivative_wavenumber = similar(reference, T, length(derivative_host))
@@ -1194,13 +1202,21 @@ function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipli
 end
 
 
-# Reshape the per-axis wavenumber arrays so they broadcast against the three spatial dimensions.
+"""
+    _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{axis})
+
+Reshape the per-axis derivative wavenumber array (`axis = 1, 2, 3`) so it broadcasts against the three spatial dimensions of a field in spectral representation. Used by the first-derivative spectral operators (gradient, divergence, curl).
+"""
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = reshape(multipliers.wavenumber_3, 1, 1, length(multipliers.wavenumber_3))
 
 
-# Total squared wavenumber k^2 = k_1^2 + k_2^2 + k_3^2, broadcast over the three spatial dimensions.
+"""
+    _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
+
+Return the total squared wavenumber `k² = k₁² + k₂² + k₃²` reshaped to broadcast over the three spatial dimensions. Used by the Laplacian, inverse Laplacian, and Helmholtz projection.
+"""
 function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
   squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)
   squared_wavenumber_2 = reshape(multipliers.squared_wavenumber_2, 1, length(multipliers.squared_wavenumber_2), 1)
@@ -1214,7 +1230,18 @@ end
 #        Broadcasting        #
 ##############################
 
+"""
+    FieldPhysicalBroadcastStyle{N}
+
+Broadcast style for fields in physical-space representation (`N = 3 + tensor_order`). A field stands for its storage array inside a broadcast, and the style materializes the result back into a physical-space field. See also `FieldSpectralBroadcastStyle`.
+"""
 struct FieldPhysicalBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
+
+"""
+    FieldSpectralBroadcastStyle{N}
+
+Broadcast style for fields in spectral representation (`N = 3 + tensor_order`); the spectral counterpart of `FieldPhysicalBroadcastStyle`. Combining the two styles is an error, so physical and spectral representations never mix in one broadcast.
+"""
 struct FieldSpectralBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
 
 (::Type{<:FieldPhysicalBroadcastStyle})(::Val{N}) where {N} = FieldPhysicalBroadcastStyle{N}()
@@ -1251,6 +1278,11 @@ function Base.setindex!(field::AbstractField, value, indices...)
 end
 
 
+"""
+    _first_field(x)
+
+Return the first `AbstractField` found in `x` — a field, an arbitrary value, a `Broadcasted` tree, or an argument tuple — or `nothing` if there is none. Out-of-place field broadcasting uses it to pick the field whose grid/layout metadata seeds the allocated result.
+"""
 _first_field(field::AbstractField) = field
 _first_field(::Any) = nothing
 
@@ -1263,6 +1295,11 @@ function _first_field(args::Tuple)
 end
 
 
+"""
+    _check_broadcast_field_compatibility(destination, argument)
+
+Check, during field broadcasting, that `argument` is compatible with `destination`: same-representation fields must pass `check_field_compatibility`; mixing physical and spectral representations throws; non-field arguments (real numbers, plain arrays) are accepted. Recurses into the operands of a `Broadcasted` argument.
+"""
 _check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) = check_field_compatibility(destination, field)
 
 _check_broadcast_field_compatibility(destination::AbstractFieldSpectral, field::AbstractFieldSpectral) = check_field_compatibility(destination, field)
@@ -1279,6 +1316,11 @@ function _check_broadcast_field_compatibility(destination::AbstractField, broadc
 end
 
 
+"""
+    _unwrap_broadcast_argument(x)
+
+Replace each field in a broadcast expression with its storage array — recursing through a `Broadcasted` tree and leaving non-field arguments untouched — so a field-level broadcast lowers to a plain array broadcast on the underlying backend.
+"""
 _unwrap_broadcast_argument(field::AbstractField) = field_data(field)
 _unwrap_broadcast_argument(argument) = argument
 

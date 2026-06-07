@@ -119,6 +119,11 @@ export gradient!,
 # split between derivative and squared wavenumbers is handled there.
 
 
+"""
+    _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T})
+
+Apply a coefficientwise first derivative along one axis: `destination_component .= im * wavenumber .* source_component`, where `wavenumber` is a `_wavenumber_broadcast_view`. The building block for `gradient` and `divergence`.
+"""
 function _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T}) where {T<:AbstractFloat}
   imaginary_unit = Complex{T}(zero(T), one(T))
   destination_component .= imaginary_unit .* wavenumber .* source_component
@@ -126,6 +131,11 @@ function _apply_spectral_derivative!(destination_component, source_component, wa
 end
 
 
+"""
+    _apply_spectral_divergence!(destination_component, source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
+
+Apply a coefficientwise contraction with the wavenumber vector: `destination .= im * (k₁ s₁ + k₂ s₂ + k₃ s₃)`. Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
+"""
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
   
@@ -135,18 +145,33 @@ function _apply_spectral_divergence!(destination_component, source_component_1, 
 end
 
 
+"""
+    _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
+
+Apply the coefficientwise Laplacian: `destination_data .= -squared_wavenumber .* source_data`, where `squared_wavenumber` is `_squared_wavenumber_broadcast`. Representation-preserving over every component.
+"""
 function _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
   destination_data .= -squared_wavenumber .* source_data
   return destination_data
 end
 
 
+"""
+    _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber, ::Type{T})
+
+Apply the coefficientwise zero-mean inverse Laplacian: `-source_data ./ squared_wavenumber` for nonzero wavevectors, and zero at the zero Fourier mode.
+"""
 function _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
   destination_data .= ifelse.(squared_wavenumber .== zero(T), zero(Complex{T}), -source_data ./ ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber))
   return destination_data
 end
 
 
+"""
+    _apply_spectral_helmholtz_projection!(d_1, d_2, d_3, source_1, source_2, source_3, k_1, k_2, k_3, squared_wavenumber, ::Type{T})
+
+Apply the coefficientwise Leray/Helmholtz projection onto the divergence-free subspace: subtract the longitudinal part `kᵢ (kⱼ ŝⱼ) / |k|²` from each component. The zero Fourier mode is left unchanged.
+"""
 function _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2, destination_component_3,
     source_component_1, source_component_2, source_component_3, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
   
@@ -368,6 +393,11 @@ This computes the vector field ``∇ × u`` coefficientwise in spectral represen
 function curl! end
 
 
+"""
+    _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+Coefficientwise curl `∇ × u`, written componentwise as `im * (k × û)`, assuming `destination` does not alias `field`. The public `curl!` wraps this with the aliasing guard.
+"""
 function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
   wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
@@ -547,6 +577,11 @@ Returns the modified `destination` field.
 function helmholtz_projection! end
 
 
+"""
+    _helmholtz_projection_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+Apply the Helmholtz projection (see `_apply_spectral_helmholtz_projection!`) assuming `destination` does not alias `field`. The public `helmholtz_projection!` wraps this with the aliasing guard.
+"""
 function _helmholtz_projection_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
   wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))

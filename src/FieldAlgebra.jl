@@ -67,6 +67,11 @@ export add!,
 #####################################################
 
 
+"""
+    _copy_field_data!(destination::AbstractField, field::AbstractField)
+
+Copy `field`'s storage into `destination`'s storage unless they already alias; returns `destination`. Used by copy-then-kernel paths that must not assume the destination begins empty.
+"""
 function _copy_field_data!(destination::AbstractField, field::AbstractField)
   destination_data = field_data(destination)
   field_data_source = field_data(field)
@@ -77,24 +82,46 @@ function _copy_field_data!(destination::AbstractField, field::AbstractField)
 end
 
 
+"""
+    _spectral_constant_scale(field::AbstractFieldSpectral)
+
+Return `prod(grid_size)`, the factor by which a physical constant scales the zero Fourier coefficient under the unnormalized-forward FFT convention. Adding a real constant in spectral representation multiplies it by this scale and writes only the zero mode.
+"""
 _spectral_constant_scale(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat} = prod(T.(field_grid(field).grid_size))
 
+
+"""
+    _spectral_zero_mode_data(field::ScalarFieldSpectral)
+
+Return a `1×1×1` view of the zero Fourier coefficient of a scalar field in spectral representation; constant additions in spectral representation write only here.
+"""
 _spectral_zero_mode_data(field::ScalarFieldSpectral) = view(field_data(field), 1:1, 1:1, 1:1)
 
+
+"""
+    _spectral_zero_mode_component_data(field::VectorFieldSpectral, component)
+    _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, second_index)
+
+Return a `1×1×1` view of the zero Fourier coefficient of one component of a vector or second-order tensor field in spectral representation.
+"""
 _spectral_zero_mode_component_data(field::VectorFieldSpectral, component) = view(field_data(field), 1:1, 1:1, 1:1, component:component)
 
 _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, second_index) = view(field_data(field), 1:1, 1:1, 1:1, first_index:first_index, second_index:second_index)
 
 
-# True if `destination` shares its backing array with any field among `operands`
-# (constant fibers are not fields and never alias). Used by the no-alias guard.
+"""
+    _aliases_destination(destination, operands...)
+
+Return `true` if `destination` shares its backing array with any field among `operands`. Constant fibers are not fields and never alias. Used by `_guard_noalias!`.
+"""
 _aliases_destination(destination, operands...) = any(operand -> (operand isa AbstractField) && (field_data(operand) === field_data(destination)), operands)
 
 
-# Run an in-place kernel that requires its destination not to alias its inputs.
-# If aliasing is detected, the kernel writes into a fresh field of tensor order
-# `output_order` and the result is copied back. `operands` is the kernel argument
-# tuple following `destination`.
+"""
+    _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
+
+Run `kernel!(destination, operands...)` while protecting against destination/input aliasing. If `destination` aliases any field in `operands`, run the kernel into a fresh field of tensor order `output_order` and copy the result back; otherwise run in place. Used by index-shuffling operations (cross product, transpose, sym/skew/dev) that read several source components while writing each destination component. `mul!` deliberately skips this guard and documents the no-alias requirement instead, matching the LinearAlgebra convention.
+"""
 function _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
   if _aliases_destination(destination, operands...)
     temporary = similar_field(destination, output_order)
@@ -113,7 +140,11 @@ end
 @inline _subtract_values(x, y, z, rest...) = _subtract_values(x - y, z, rest...)
 
 
-# Reshape a scalar field's data so it broadcasts against the fiber dimensions of `field`.
+"""
+    _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical, field::AbstractFieldPhysical)
+
+Reshape a scalar field's data with singleton fiber dimensions so it broadcasts against the fiber components of `field`. Used by pointwise scalar-field multiplication and division so the scalar acts on every component.
+"""
 function _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical, field::AbstractFieldPhysical)
   singleton_fiber_shape = ntuple(_ -> 1, field_tensor_order(field))
   return reshape(field_data(scalar_field), size(field_data(scalar_field))..., singleton_fiber_shape...)
@@ -135,20 +166,42 @@ end
 # kernels it replaces.
 
 
+"""
+    _vector_component(symbol, kind, i)
+
+Build the expression accessing component `i` of a vector argument named `symbol`. `kind = :field` reads a field's component view (`_vector_component_data`); `kind = :fiber` indexes a constant `SVector`. Spliced into kernel formulas so each per-component formula is written once.
+"""
 _vector_component(symbol, kind, i)    = kind === :field ? :(_vector_component_data( $symbol, $i))     : :($symbol[$i])
+
+"""
+    _tensor_component(symbol, kind, i, j)
+
+Build the expression accessing component `(i, j)` of a second-order tensor argument named `symbol`. `kind = :field` reads a field's component view (`_tensor2_component_data`); `kind = :fiber` indexes a constant `SMatrix`.
+"""
 _tensor_component(symbol, kind, i, j) = kind === :field ? :(_tensor2_component_data($symbol, $i, $j)) : :($symbol[$i, $j])
 
 
-# Broadcasted sum  `term_1 .+ term_2 .+ ...`  of a non-empty collection of expressions.
+"""
+    _sum_terms(terms)
+
+Combine a non-empty collection of expressions into a broadcasted sum `term_1 .+ term_2 .+ …`.
+"""
 _sum_terms(terms) = reduce((accumulated, term) -> :($accumulated .+ $term), terms)
 
-# Broadcasted product  `x .* y`.
+
+"""
+    _product(x, y)
+
+Build the broadcasted product expression `x .* y`.
+"""
 _product(x, y) = :($x .* $y)
 
 
-# Body of a vector-valued kernel: `destination_i .= formula(i)` for i in 1:3.
-# With `alpha_beta`, emits the five-argument `destination = α * formula + β * destination`
-# form, branching on `iszero(β_value)` to keep the pure-overwrite path allocation free.
+"""
+    _vector_kernel_body(formula; alpha_beta::Bool)
+
+Build the body of a vector-valued kernel: `destination_i .= formula(i)` for `i in 1:3`, where `formula(i)` is the per-component expression. With `alpha_beta = true`, emit the five-argument `destination = α * formula + β * destination` form, branching on `iszero(β_value)` so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function binding `destination` (and, when `alpha_beta`, `α_value`/`β_value`).
+"""
 function _vector_kernel_body(formula; alpha_beta::Bool)
   target(i) = :(_vector_component_data(destination, $i))
 
@@ -177,7 +230,11 @@ function _vector_kernel_body(formula; alpha_beta::Bool)
 end
 
 
-# Body of a tensor-valued kernel: `destination_ij .= formula(i, j)` for i, j in 1:3.
+"""
+    _tensor_kernel_body(formula; alpha_beta::Bool)
+
+As `_vector_kernel_body`, but for a second-order tensor-valued kernel: `destination_ij .= formula(i, j)` for `i, j in 1:3`, with the same `alpha_beta` five-argument behaviour.
+"""
 function _tensor_kernel_body(formula; alpha_beta::Bool)
   target(i, j) = :(_tensor2_component_data(destination, $i, $j))
 
@@ -206,8 +263,11 @@ function _tensor_kernel_body(formula; alpha_beta::Bool)
 end
 
 
-# Body of a scalar-field-valued kernel (a contraction with a scalar result):
-# `field_data(destination) .= rhs`.
+"""
+    _scalar_kernel_body(rhs)
+
+Build the body of a scalar-field-valued kernel (a contraction with a scalar result): `field_data(destination) .= rhs`, ending in `return destination`.
+"""
 function _scalar_kernel_body(rhs)
   return quote
     field_data(destination) .= $rhs
@@ -685,17 +745,29 @@ end
 # :fiber (StaticArrays indexing), as in the M1 builders above.
 
 
-# Vector inner product rhs:  Σᵢ uᵢ vᵢ.
+"""
+    _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)
+
+Build the right-hand-side expression for a vector inner product, `Σᵢ uᵢ vᵢ` — a single broadcasted expression fed to `_scalar_kernel_body`. Operand `kind`s are `:field` or `:fiber`, as in `_vector_component`.
+"""
 _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
   _sum_terms([_product(_vector_component(u_symbol, u_kind, i), _vector_component(v_symbol, v_kind, i)) for i in 1:3])
 
 
-# Tensor Frobenius inner product rhs:  Σᵢⱼ Aᵢⱼ Bᵢⱼ.
+"""
+    _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)
+
+Build the right-hand-side expression for the tensor Frobenius inner product, `Σᵢⱼ Aᵢⱼ Bᵢⱼ`, fed to `_scalar_kernel_body`.
+"""
 _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
   _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _tensor_component(B_symbol, B_kind, i, j)) for i in 1:3 for j in 1:3])
 
 
-# Cross product component i:  with cyclic (j, k), uⱼ v_k − u_k vⱼ.
+"""
+    _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
+
+Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is `` `uⱼ v_k − u_k vⱼ` ``. Feeds `_vector_kernel_body`.
+"""
 function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
   return function (i)
     j = mod1(i + 1, 3)
@@ -707,22 +779,38 @@ function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
 end
 
 
-# Tensor-on-vector left action component i:  Σⱼ Aᵢⱼ uⱼ.
+"""
+    _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)
+
+Return a per-component function `i -> expr` for the tensor-on-vector left action, component `i` being `Σⱼ Aᵢⱼ uⱼ`. Feeds `_vector_kernel_body`.
+"""
 _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
   i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
 
 
-# Vector-on-tensor right action component i:  Σⱼ uⱼ Aⱼᵢ.
+"""
+    _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)
+
+Return a per-component function `i -> expr` for the vector-on-tensor right action, component `i` being `Σⱼ uⱼ Aⱼᵢ`. Feeds `_vector_kernel_body`.
+"""
 _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
   i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
 
 
-# Tensor-tensor product component (i, j):  Σₖ Aᵢₖ Bₖⱼ.
+"""
+    _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)
+
+Return a per-component function `(i, j) -> expr` for the tensor-tensor product, component `(i, j)` being `Σₖ Aᵢₖ Bₖⱼ`. Feeds `_tensor_kernel_body`.
+"""
 _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
   (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])
 
 
-# Transpose component (i, j):  Aⱼᵢ.
+"""
+    _transpose_formula(A_symbol, A_kind)
+
+Return a per-component function `(i, j) -> expr` for the transpose, component `(i, j)` being `Aⱼᵢ`. Feeds `_tensor_kernel_body`.
+"""
 _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_kind, j, i)
 
 
@@ -750,6 +838,15 @@ For vector arguments this is the Euclidean scalar product `uᵢ vᵢ`; for secon
 Contraction of two fields is nonlinear and defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
 """
 function dot! end
+
+
+"""
+    dot(u::VectorFieldPhysical, v::VectorFieldPhysical)
+    dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
+
+Allocating fiberwise inner product, returning a scalar field: the Euclidean vector product `uᵢ vᵢ` or the tensor Frobenius product `Aᵢⱼ Bᵢⱼ`. Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. See `dot!` for the in-place form. The infix alias `⋅` is also exported.
+"""
+dot
 
 
 # Inner-product kernels (scalar result, written through the scalar kernel body).
@@ -828,6 +925,14 @@ Compute a fiberwise cross product `u × v` in-place; returns `destination`.
 Cross products of two fields are nonlinear and defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (either argument order) is provided, which keeps the operation coefficient-wise.
 """
 function cross! end
+
+
+"""
+    cross(u::VectorFieldPhysical, v::VectorFieldPhysical)
+
+Allocating fiberwise cross product, returning a vector field. Two vector fields cross only in physical-space representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. See `cross!` for the in-place form. The infix alias `×` is also exported.
+"""
+cross
 
 
 # Cross-product kernels (vector result). Index-shuffling reads several source
@@ -1090,6 +1195,16 @@ Compute the fiberwise norm of a field in physical-space representation in-place;
 This is the pointwise absolute value `abs(φ)` for scalar fields, the Euclidean norm `sqrt(uᵢ uᵢ)` for vector fields, and the Frobenius norm `sqrt(Aᵢⱼ Aᵢⱼ)` (not the operator norm) for second-order tensor fields. The norm is nonlinear and is not defined for spectral representation.
 """
 function norm! end
+
+
+"""
+    norm(scalar_field::ScalarFieldPhysical)
+    norm(u::VectorFieldPhysical)
+    norm(A::TensorFieldPhysical{2})
+
+Allocating fiberwise norm, returning a scalar field: the pointwise absolute value for scalar fields, the Euclidean norm for vector fields, and the Frobenius norm for second-order tensor fields. Physical-space representation only. See `norm!` for the in-place form.
+"""
+norm
 
 
 @eval _norm_components!(destination, scalar_field::ScalarFieldPhysical) =

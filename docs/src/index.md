@@ -32,8 +32,9 @@ using GBGPeriodicFields
 
 - [`Fields`](api/Fields.md): grids, Cartesian fiber types, field representations, FFT transforms, field utilities, and broadcasting support.
 - [`FieldAlgebra`](api/FieldAlgebra.md): fiberwise algebraic operations on fields, including vector-space operations, scalar actions, vector products, tensor products, tensor contractions, norms, and tensor decompositions.
+- [`DifferentialOperators`](api/DifferentialOperators.md): spectral differential operators — gradient, divergence, curl, Laplacian, inverse Laplacian, and Helmholtz projection.
 
-Global products, global norms, integration-based adjoints, and differential operators are intentionally outside the current algebra module.
+Global products, global norms, and integration-based adjoints are intentionally outside the algebra; spectral differential operators live in the separate `DifferentialOperators` module.
 
 ## Documentation structure
 
@@ -46,5 +47,5 @@ Pages = ["index.md"]
 ### API reference
 
 ```@contents
-Pages = ["api.md", "api/GBGPeriodicFields.md", "api/Fields.md", "api/FieldAlgebra.md"]
+Pages = ["api.md", "api/GBGPeriodicFields.md", "api/Fields.md", "api/FieldAlgebra.md", "api/DifferentialOperators.md"]
 ```

@@ -1,78 +1,33 @@
-# Fields.jl
+# Fields
 
-```@docs
-GBGPeriodicFields.Fields
-```
+The `Fields` module defines the field objects and their storage. A field is a physical object; the `*Physical` and `*Spectral` types are two representations of the same field. It provides:
+
+- **Grids and layout** — `Grid3D` for the periodic domain geometry and `RealFourierLayout` for the real-to-complex transform layout.
+- **Fiber types** — the constant Cartesian fiber values `FiberVector`, `FiberTensor2`, `FiberTensor3`, `FiberTensor4` (StaticArrays aliases).
+- **Field types** — scalar, vector, and second-order tensor fields, each in physical-space and spectral representation.
+- **Transforms** — `FieldTransformPlans` and `to_physical(!)` / `to_spectral(!)`. The allocating forms preserve their input; the in-place `!` forms may overwrite the source (a property of the real FFT — see their docstrings).
+- **Spectral multipliers** — `FieldSpectralMultipliers`, the wavenumber arrays used by the spectral differential operators.
+- **Broadcasting** — fields broadcast storage-wise and representation-preserving: a dotted assignment writes into the destination field's storage, while an out-of-place dotted expression allocates a compatible field in the same representation. Physical and spectral representations cannot be mixed in one broadcast.
 
 ```@contents
 Pages = ["Fields.md"]
 ```
 
-## Fixed fiber types
+## API
 
-```@docs
-GBGPeriodicFields.Fields.FiberVector
-GBGPeriodicFields.Fields.FiberTensor2
-GBGPeriodicFields.Fields.FiberTensor3
-GBGPeriodicFields.Fields.FiberTensor4
+```@autodocs
+Modules = [GBGPeriodicFields.Fields]
+Public  = true
+Private = false
+Order   = [:module, :type, :constant, :function]
 ```
 
-## Domain and Fourier layout
+## Internal API
 
-```@docs
-GBGPeriodicFields.Fields.Grid3D
-GBGPeriodicFields.Fields.RealFourierLayout
-GBGPeriodicFields.Fields.validate_fft_dims
-GBGPeriodicFields.Fields.rfft_shape
+These symbols are not part of the public interface; they are documented for contributors extending the package — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, and the broadcast machinery.
+
+```@autodocs
+Modules = [GBGPeriodicFields.Fields]
+Public  = false
+Order   = [:type, :constant, :function]
 ```
-
-## Abstract field interface
-
-```@docs
-GBGPeriodicFields.Fields.AbstractFieldPhysical
-GBGPeriodicFields.Fields.AbstractFieldSpectral
-GBGPeriodicFields.Fields.field_data
-GBGPeriodicFields.Fields.field_grid
-GBGPeriodicFields.Fields.field_layout
-GBGPeriodicFields.Fields.field_scalar_type
-GBGPeriodicFields.Fields.field_tensor_order
-GBGPeriodicFields.Fields.fiber_shape
-GBGPeriodicFields.Fields.physical_field_shape
-GBGPeriodicFields.Fields.spectral_field_shape
-```
-
-## Field types
-
-```@docs
-GBGPeriodicFields.Fields.ScalarFieldPhysical
-GBGPeriodicFields.Fields.ScalarFieldSpectral
-GBGPeriodicFields.Fields.VectorFieldPhysical
-GBGPeriodicFields.Fields.VectorFieldSpectral
-GBGPeriodicFields.Fields.TensorFieldPhysical
-GBGPeriodicFields.Fields.TensorFieldSpectral
-```
-
-## Field utilities
-
-These functions allocate fields with compatible metadata or check whether fields are compatible for representation-preserving operations. They are used internally by the field algebra and are documented here because they are part of the field infrastructure.
-
-```@docs
-GBGPeriodicFields.Fields.similar_field
-GBGPeriodicFields.Fields.similar_physical_field
-GBGPeriodicFields.Fields.similar_spectral_field
-GBGPeriodicFields.Fields.check_field_compatibility
-```
-
-## Transforming between representations
-
-```@docs
-GBGPeriodicFields.Fields.FieldTransforms
-GBGPeriodicFields.Fields.to_physical!
-GBGPeriodicFields.Fields.to_spectral!
-GBGPeriodicFields.Fields.to_physical
-GBGPeriodicFields.Fields.to_spectral
-```
-
-## Broadcasting
-
-Field broadcasting is storage-wise and representation-preserving. Dotted assignments write into the destination field storage, while field-valued out-of-place dotted expressions allocate a compatible field in the same representation.
