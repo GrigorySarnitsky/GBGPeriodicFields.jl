@@ -12,6 +12,7 @@ using StaticArrays: SVector, SMatrix, SArray
 using AbstractFFTs
 using LinearAlgebra
 import FFTW
+using Base.ScopedValues: ScopedValue
 
 export FiberVector,
        FiberTensor2,
@@ -40,7 +41,11 @@ export FiberVector,
        field_tensor_order,
        fiber_shape,
        physical_field_shape,
-       spectral_field_shape
+       spectral_field_shape,
+       with_threading,
+       set_threading_cutoff!,
+       threading_cutoff,
+       set_fft_threads!
 
 
 
@@ -1336,7 +1341,9 @@ function Base.copyto!(destination::AbstractField, broadcasted::Base.Broadcast.Br
 
   unwrapped_with_destination_axes = Base.Broadcast.Broadcasted(unwrapped.style, unwrapped.f, unwrapped.args, axes(field_data(destination)))
 
-  copyto!(field_data(destination), Base.Broadcast.instantiate(unwrapped_with_destination_axes))
+  # Threaded fused assignment on CPU (serial below the cutoff; GPU/unknown wrappers fall
+  # back to standard `materialize!` inside `_assign!`). Covers all whole-field dotted ops.
+  _assign!(field_data(destination), unwrapped_with_destination_axes)
 
   return destination
 end
@@ -1360,5 +1367,159 @@ function Base.copy(broadcasted::Base.Broadcast.Broadcasted{<:FieldSpectralBroadc
 
   return copyto!(destination, broadcasted)
 end
+
+###################################
+#        CPU threading            #
+###################################
+
+# Shared-memory CPU threading for elementwise/fiberwise assignments. Non-reducing maps are
+# bitwise-identical serial vs threaded (each output index is written once from the same fused
+# expression), so threading them is safe and deterministic. The policy is hybrid: threaded by
+# default when more than one Julia thread is available, with a serial cutoff (small operations
+# and the one-element zero-mode views stay serial) and a task-local override for
+# nested-parallel callers. The backend is Base.Threads, kept inside `_assign!` so it stays
+# swappable.
+
+
+"""
+    _THREADING_OVERRIDE
+
+Task-local override for the threading decision: `nothing` follows `Threads.nthreads()`,
+`true`/`false` force threaded/serial. Set within a dynamic scope by [`with_threading`](@ref).
+"""
+const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
+
+
+"""
+    _SERIAL_CUTOFF
+
+Element count below which an assignment runs serially regardless of thread count: threading
+overhead is not worth it for small arrays, and this exempts the one-element zero-mode views.
+Read in the assignment hot path; set with [`set_threading_cutoff!`](@ref).
+"""
+const _SERIAL_CUTOFF = Ref(1 << 14)
+
+
+"""
+    with_threading(f; enabled = true)
+
+Run `f()` with the CPU-threading decision forced to `enabled` (`true`/`false`, or `nothing`
+for the automatic `nthreads()`-following policy). The override is dynamically scoped and
+task-local: it affects only `f()` and is restored afterwards, including on exceptions. Use
+`enabled = false` around a region that already parallelizes at a higher level, to avoid
+oversubscription.
+"""
+with_threading(f; enabled::Union{Nothing, Bool} = true) =
+  Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)
+
+
+"""
+    set_threading_cutoff!(n)
+
+Set the element-count threshold below which assignments run serially. Returns `n`.
+See [`threading_cutoff`](@ref).
+"""
+set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
+
+
+"""
+    threading_cutoff()
+
+The current element-count threshold below which assignments run serially.
+"""
+threading_cutoff() = _SERIAL_CUTOFF[]
+
+
+"""
+    _use_threads(element_count)
+
+Whether an assignment over `element_count` elements should be threaded: at or above the serial
+cutoff, and either forced on or — under the automatic policy — `Threads.nthreads() > 1`.
+"""
+@inline function _use_threads(element_count::Integer)
+  element_count < _SERIAL_CUTOFF[] && return false
+  override = _THREADING_OVERRIDE[]
+  return override === nothing ? Threads.nthreads() > 1 : override
+end
+
+
+"""
+    _index_ranges(axis, n)
+
+Partition the index range `axis` into at most `n` contiguous, near-equal `UnitRange`s.
+"""
+function _index_ranges(axis::AbstractUnitRange, n::Integer)
+  total = length(axis)
+  parts = max(1, min(Int(n), total))
+  block = cld(total, parts)
+  return [(first(axis) + offset):min(first(axis) + offset + block - 1, last(axis)) for offset in 0:block:(total - 1)]
+end
+
+
+"""
+    _assign!(destination, broadcasted)
+
+Materialize the lazy `broadcasted` expression into `destination`, threaded over chunks on the
+CPU when [`_use_threads`](@ref) allows. The generic method is the standard fused
+`Broadcast.materialize!` — the safe polarity that keeps GPU arrays and unknown array wrappers
+on their normal broadcast path (no scalar indexing, honouring invariant 6). Only dense
+`Array`s and `Array`-backed `SubArray`s take the threaded path.
+"""
+_assign!(destination, broadcasted::Base.Broadcast.Broadcasted) =
+  Base.Broadcast.materialize!(destination, broadcasted)
+
+function _assign!(destination::Union{Array, SubArray{<:Any, <:Any, <:Array}}, broadcasted::Base.Broadcast.Broadcasted)
+  _use_threads(length(destination)) || return Base.Broadcast.materialize!(destination, broadcasted)
+  return _assign_threaded!(destination, broadcasted)
+end
+
+
+"""
+    _assign_threaded!(destination, broadcasted)
+
+Thread a fused broadcast assignment over contiguous chunks of `destination`'s linear index
+range. Each task runs the standard fused element loop over its chunk, so fusion is preserved
+(one `Broadcasted` tree, no temporaries) and the result is bitwise-identical to the serial
+path (each index is written by exactly one task). Linear indexing is valid because the
+instantiated broadcast shares `destination`'s axes — any singleton operand axes are remapped
+internally by the broadcast. Falls back to serial when the axes do not match (defensive; the
+field kernels always match).
+"""
+function _assign_threaded!(destination, broadcasted::Base.Broadcast.Broadcasted)
+  instantiated = Base.Broadcast.instantiate(broadcasted)
+  axes(instantiated) == axes(destination) || return Base.Broadcast.materialize!(destination, instantiated)
+
+  @sync for chunk in _index_ranges(Base.OneTo(length(destination)), Threads.nthreads())
+    Threads.@spawn @inbounds @simd for linear_index in chunk
+      destination[linear_index] = instantiated[linear_index]
+    end
+  end
+  return destination
+end
+
+
+"""
+    _init_fft_threads()
+
+Set FFTW's thread count to match Julia's (one when threading is off). FFTW bakes the thread
+count into each plan, so this runs at package load, before any `FieldTransformPlans` is built.
+Retune afterwards with [`set_fft_threads!`](@ref).
+"""
+function _init_fft_threads()
+  count = _THREADING_OVERRIDE[] === false ? 1 : max(1, Threads.nthreads())
+  FFTW.set_num_threads(count)
+  return count
+end
+
+
+"""
+    set_fft_threads!(n)
+
+Set the number of threads FFTW uses, effective for plans built afterwards (FFTW fixes the
+count at plan construction). Returns `n`. Code that parallelizes across many fields at once
+should build plans under `set_fft_threads!(1)` to avoid FFTW×Julia thread oversubscription.
+"""
+set_fft_threads!(n::Integer) = (FFTW.set_num_threads(Int(n)); Int(n))
+
 
 end # module Fields

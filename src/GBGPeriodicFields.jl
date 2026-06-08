@@ -115,7 +115,11 @@ using .Fields:
   fiber_shape,
   physical_field_shape,
   spectral_field_shape,
-  FieldSpectralMultipliers
+  FieldSpectralMultipliers,
+  with_threading,
+  set_threading_cutoff!,
+  threading_cutoff,
+  set_fft_threads!
 
 
 using .FieldAlgebra:
@@ -215,7 +219,16 @@ export FiberVector,
        inverse_laplacian!,
        inverse_laplacian,
        helmholtz_projection!,
-       helmholtz_projection
+       helmholtz_projection,
+       with_threading,
+       set_threading_cutoff!,
+       threading_cutoff,
+       set_fft_threads!
+
+
+function __init__()
+  Fields._init_fft_threads()
+end
 
 
 end # module GBGPeriodicFields
