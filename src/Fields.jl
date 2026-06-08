@@ -1499,6 +1499,52 @@ end
 
 
 """
+    _assign!(destination, source)
+
+Fallback for a non-`Broadcasted` right-hand side (e.g. a bare component view from a transpose,
+or a constant): wrap it as an identity broadcast so the same threaded assignment path applies.
+"""
+_assign!(destination, source) = _assign!(destination, Base.Broadcast.broadcasted(identity, source))
+
+
+"""
+    _to_broadcasted(expr)
+
+Codegen helper operating on expressions: rewrite a dotted expression — infix dotted operators
+(`a .* b .+ c`) and broadcast calls (`f.(x)`) — into the equivalent lazy
+`Base.Broadcast.broadcasted(...)` tree, recursing into operands and leaving non-broadcast
+subexpressions untouched. Lets generated and hand-written kernels route a fused assignment
+through [`_assign!`](@ref) without materializing intermediates (fusion is preserved).
+"""
+function _to_broadcasted(expr)
+  if expr isa Expr && expr.head === :call && expr.args[1] isa Symbol && startswith(string(expr.args[1]), ".")
+    operator = Symbol(string(expr.args[1])[2:end])
+    return Expr(:call, :(Base.Broadcast.broadcasted), operator, map(_to_broadcasted, expr.args[2:end])...)
+  elseif expr isa Expr && expr.head === :. && length(expr.args) == 2 && expr.args[2] isa Expr && expr.args[2].head === :tuple
+    return Expr(:call, :(Base.Broadcast.broadcasted), expr.args[1], map(_to_broadcasted, expr.args[2].args)...)
+  else
+    return expr
+  end
+end
+
+
+"""
+    @_assign!(destination .= rhs)
+
+Threaded replacement for a fused broadcast assignment: rewrite `rhs` to a lazy broadcast tree
+(via [`_to_broadcasted`](@ref)) and assign it through [`_assign!`](@ref), so the write threads
+on the CPU. Use in hand-written kernels in place of `.=`. (`_assign!` must be in scope at the
+call site.)
+"""
+macro _assign!(assignment)
+  (assignment isa Expr && assignment.head === Symbol(".=")) ||
+    throw(ArgumentError("@_assign! expects a `destination .= rhs` expression"))
+  destination, rhs = assignment.args
+  return esc(:(_assign!($destination, $(_to_broadcasted(rhs)))))
+end
+
+
+"""
     _init_fft_threads()
 
 Set FFTW's thread count to match Julia's (one when threading is off). FFTW bakes the thread

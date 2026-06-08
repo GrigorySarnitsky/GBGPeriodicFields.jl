@@ -33,7 +33,10 @@ using ..Fields:
   check_field_compatibility,
   _check_field_domain_compatibility,
   _vector_component_data,
-  _tensor2_component_data
+  _tensor2_component_data,
+  _assign!,
+  _to_broadcasted,
+  @_assign!
 
 
 import Base: +, -, *, /, transpose
@@ -206,8 +209,8 @@ function _vector_kernel_body(formula; alpha_beta::Bool)
   target(i) = :(_vector_component_data(destination, $i))
 
   if alpha_beta
-    overwrite = [:($(target(i)) .= α_value .* $(formula(i))) for i in 1:3]
-    accumulate = [:($(target(i)) .= α_value .* $(formula(i)) .+ β_value .* $(target(i))) for i in 1:3]
+    overwrite = [:(_assign!($(target(i)), $(_to_broadcasted(:(α_value .* $(formula(i))))))) for i in 1:3]
+    accumulate = [:(_assign!($(target(i)), $(_to_broadcasted(:(α_value .* $(formula(i)) .+ β_value .* $(target(i))))))) for i in 1:3]
 
     return quote
       if iszero(β_value)
@@ -219,7 +222,7 @@ function _vector_kernel_body(formula; alpha_beta::Bool)
       return destination
     end
   else
-    statements = [:($(target(i)) .= $(formula(i))) for i in 1:3]
+    statements = [:(_assign!($(target(i)), $(_to_broadcasted(formula(i))))) for i in 1:3]
 
     return quote
       $(statements...)
@@ -239,8 +242,8 @@ function _tensor_kernel_body(formula; alpha_beta::Bool)
   target(i, j) = :(_tensor2_component_data(destination, $i, $j))
 
   if alpha_beta
-    overwrite = [:($(target(i, j)) .= α_value .* $(formula(i, j))) for i in 1:3 for j in 1:3]
-    accumulate = [:($(target(i, j)) .= α_value .* $(formula(i, j)) .+ β_value .* $(target(i, j))) for i in 1:3 for j in 1:3]
+    overwrite = [:(_assign!($(target(i, j)), $(_to_broadcasted(:(α_value .* $(formula(i, j))))))) for i in 1:3 for j in 1:3]
+    accumulate = [:(_assign!($(target(i, j)), $(_to_broadcasted(:(α_value .* $(formula(i, j)) .+ β_value .* $(target(i, j))))))) for i in 1:3 for j in 1:3]
 
     return quote
       if iszero(β_value)
@@ -252,7 +255,7 @@ function _tensor_kernel_body(formula; alpha_beta::Bool)
       return destination
     end
   else
-    statements = [:($(target(i, j)) .= $(formula(i, j))) for i in 1:3 for j in 1:3]
+    statements = [:(_assign!($(target(i, j)), $(_to_broadcasted(formula(i, j))))) for i in 1:3 for j in 1:3]
 
     return quote
       $(statements...)
@@ -270,7 +273,7 @@ Build the body of a scalar-field-valued kernel (a contraction with a scalar resu
 """
 function _scalar_kernel_body(rhs)
   return quote
-    field_data(destination) .= $rhs
+    _assign!(field_data(destination), $(_to_broadcasted(rhs)))
 
     return destination
   end
@@ -430,7 +433,7 @@ end
 
 function subtract!(destination::ScalarFieldSpectral, scalar::Real, field::ScalarFieldSpectral)
   check_field_compatibility(destination, field)
-  field_data(destination) .= (-).(field_data(field))
+  @_assign! field_data(destination) .= (-).(field_data(field))
   return _add_scalar_constant!(destination, scalar)
 end
 
@@ -486,7 +489,7 @@ for (FieldType, Constant, add_kernel, subtract_kernel) in (
 
   @eval function subtract!(destination::$FieldType, constant::$Constant, field::$FieldType) where {T<:AbstractFloat}
     check_field_compatibility(destination, field)
-    field_data(destination) .= (-).(field_data(field))
+    @_assign! field_data(destination) .= (-).(field_data(field))
     return $add_kernel(destination, constant)
   end
 
@@ -593,7 +596,7 @@ function _multiply_by_scalar_field!(destination::AbstractFieldPhysical, scalar_f
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
-  field_data(destination) .= _scalar_field_broadcast_data(scalar_field, field) .* field_data(field)
+  @_assign! field_data(destination) .= _scalar_field_broadcast_data(scalar_field, field) .* field_data(field)
 
   return destination
 end
@@ -682,7 +685,7 @@ function divide!(destination::AbstractFieldPhysical, field::AbstractFieldPhysica
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
-  field_data(destination) .= field_data(field) ./ _scalar_field_broadcast_data(scalar_field, field)
+  @_assign! field_data(destination) .= field_data(field) ./ _scalar_field_broadcast_data(scalar_field, field)
 
   return destination
 end

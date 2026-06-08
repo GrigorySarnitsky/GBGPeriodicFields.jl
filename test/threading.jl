@@ -71,4 +71,38 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     @test field_data(d1) == field_data(d2)
   end
 
+  @testset "codegen kernels threaded == serial (bitwise)" begin
+    u  = VectorFieldPhysical((x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.2), grid)
+    v  = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    A  = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
+    B  = TensorFieldPhysical{2}((x, y, z) -> [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)], grid)
+    sf = ScalarFieldPhysical((x, y, z) -> 2.0 + sin(x), grid)
+
+    @test bitwise(() -> dot(u, v))          # vector inner product (scalar kernel)
+    @test bitwise(() -> cross(u, v))        # cross product
+    @test bitwise(() -> dot(A, B))          # tensor Frobenius product
+    @test bitwise(() -> A * u)              # tensor·vector
+    @test bitwise(() -> u * A)              # vector·tensor
+    @test bitwise(() -> A * B)              # tensor·tensor
+    @test bitwise(() -> transpose(A))       # bare-view permutation (identity-wrap path)
+    @test bitwise(() -> sym(A))
+    @test bitwise(() -> skew(A))
+    @test bitwise(() -> dev(A))
+    @test bitwise(() -> norm(u))
+    @test bitwise(() -> norm(A))
+    @test bitwise(() -> sf * u)             # scalar-field × vector (singleton-axis kernel)
+    @test bitwise(() -> u / sf)             # division by a scalar field
+
+    # mul! both branches
+    acc_s = 2.0 * (A * u); acc_t = 2.0 * (A * u)
+    with_threading(enabled = false) do; mul!(acc_s, A, u, 3.0, 5.0); end
+    with_threading(enabled = true)  do; mul!(acc_t, A, u, 3.0, 5.0); end
+    @test field_data(acc_s) == field_data(acc_t)                                   # accumulate (β ≠ 0)
+    ov_s = VectorFieldPhysical(fill(T(NaN), 32, 31, 30, 3), grid)
+    ov_t = VectorFieldPhysical(fill(T(NaN), 32, 31, 30, 3), grid)
+    with_threading(enabled = false) do; mul!(ov_s, A, u, 1.0, 0.0); end
+    with_threading(enabled = true)  do; mul!(ov_t, A, u, 1.0, 0.0); end
+    @test field_data(ov_s) == field_data(ov_t) && !any(isnan, field_data(ov_t))    # overwrite (β = 0)
+  end
+
 end
