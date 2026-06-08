@@ -92,7 +92,9 @@ using ..Fields:
   _tensor2_component_data,
   _check_multipliers_compatibility,
   _wavenumber_broadcast_view,
-  _squared_wavenumber_broadcast
+  _squared_wavenumber_broadcast,
+  _assign!,
+  @_assign!
 
 
 export gradient!,
@@ -126,7 +128,7 @@ Apply a coefficientwise first derivative along one axis: `destination_component 
 """
 function _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T}) where {T<:AbstractFloat}
   imaginary_unit = Complex{T}(zero(T), one(T))
-  destination_component .= imaginary_unit .* wavenumber .* source_component
+  @_assign! destination_component .= imaginary_unit .* wavenumber .* source_component
   return destination_component
 end
 
@@ -140,7 +142,7 @@ function _apply_spectral_divergence!(destination_component, source_component_1, 
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
   
   imaginary_unit = Complex{T}(zero(T), one(T))
-  destination_component .= imaginary_unit .* (wavenumber_1 .* source_component_1 .+  wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)
+  @_assign! destination_component .= imaginary_unit .* (wavenumber_1 .* source_component_1 .+  wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)
   return destination_component
 end
 
@@ -151,7 +153,7 @@ end
 Apply the coefficientwise Laplacian: `destination_data .= -squared_wavenumber .* source_data`, where `squared_wavenumber` is `_squared_wavenumber_broadcast`. Representation-preserving over every component.
 """
 function _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
-  destination_data .= -squared_wavenumber .* source_data
+  @_assign! destination_data .= -squared_wavenumber .* source_data
   return destination_data
 end
 
@@ -162,7 +164,7 @@ end
 Apply the coefficientwise zero-mean inverse Laplacian: `-source_data ./ squared_wavenumber` for nonzero wavevectors, and zero at the zero Fourier mode.
 """
 function _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
-  destination_data .= ifelse.(squared_wavenumber .== zero(T), zero(Complex{T}), -source_data ./ ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber))
+  @_assign! destination_data .= ifelse.(squared_wavenumber .== zero(T), zero(Complex{T}), -source_data ./ ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber))
   return destination_data
 end
 
@@ -178,9 +180,9 @@ function _apply_spectral_helmholtz_projection!(destination_component_1, destinat
   safe_squared_wavenumber = ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
   longitudinal_component = (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./ safe_squared_wavenumber
 
-  destination_component_1 .= source_component_1 .- wavenumber_1 .* longitudinal_component
-  destination_component_2 .= source_component_2 .- wavenumber_2 .* longitudinal_component
-  destination_component_3 .= source_component_3 .- wavenumber_3 .* longitudinal_component
+  @_assign! destination_component_1 .= source_component_1 .- wavenumber_1 .* longitudinal_component
+  @_assign! destination_component_2 .= source_component_2 .- wavenumber_2 .* longitudinal_component
+  @_assign! destination_component_3 .= source_component_3 .- wavenumber_3 .* longitudinal_component
 
   return nothing
 end
@@ -408,9 +410,9 @@ function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldS
   field_component_2 = _vector_component_data(field, 2)
   field_component_3 = _vector_component_data(field, 3)
 
-  _vector_component_data(destination, 1) .= imaginary_unit .* (wavenumber_2 .* field_component_3 .- wavenumber_3 .* field_component_2)
-  _vector_component_data(destination, 2) .= imaginary_unit .* (wavenumber_3 .* field_component_1 .- wavenumber_1 .* field_component_3)
-  _vector_component_data(destination, 3) .= imaginary_unit .* (wavenumber_1 .* field_component_2 .- wavenumber_2 .* field_component_1)
+  @_assign! _vector_component_data(destination, 1) .= imaginary_unit .* (wavenumber_2 .* field_component_3 .- wavenumber_3 .* field_component_2)
+  @_assign! _vector_component_data(destination, 2) .= imaginary_unit .* (wavenumber_3 .* field_component_1 .- wavenumber_1 .* field_component_3)
+  @_assign! _vector_component_data(destination, 3) .= imaginary_unit .* (wavenumber_1 .* field_component_2 .- wavenumber_2 .* field_component_1)
 
   return destination
 end

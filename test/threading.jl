@@ -105,4 +105,30 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     @test field_data(ov_s) == field_data(ov_t) && !any(isnan, field_data(ov_t))    # overwrite (β = 0)
   end
 
+  @testset "differential operators threaded == serial (bitwise)" begin
+    # 40³ so the spectral component arrays (21×40×40 ≈ 34k) clear the cutoff and thread.
+    og = Grid3D((40, 40, 40), (2π, 2π, 2π))
+    layout = RealFourierLayout()
+    function plans_for(physical)
+      R = field_tensor_order(physical)
+      shape = F.spectral_field_shape(og, layout, Val(R))
+      spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), og) :
+                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), og) :
+                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), og)
+      return FieldTransformPlans(physical, spectral)
+    end
+    phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + sin(2z), og)
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), og)
+    phis = to_spectral(phi, plans_for(phi)); us = to_spectral(u, plans_for(u))
+    m = FieldSpectralMultipliers(phis)
+
+    @test bitwise(() -> gradient(phis, m))                          # scalar → vector
+    @test bitwise(() -> laplacian(phis, m))
+    @test bitwise(() -> inverse_laplacian(laplacian(phis, m), m))
+    @test bitwise(() -> divergence(us, m))
+    @test bitwise(() -> curl(us, m))
+    @test bitwise(() -> gradient(us, m))                            # vector → tensor
+    @test bitwise(() -> helmholtz_projection(us, m))
+  end
+
 end
