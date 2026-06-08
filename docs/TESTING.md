@@ -23,6 +23,12 @@ agree, not that either is correct. Two kinds of oracle are used:
   the same quantity (the spectral form, or the same operation on a device array) is
   required to match it. This is still "two computations of one quantity," not a thing
   against itself.
+- **Structural identities** — relations the operators must satisfy for *any* input: the
+  vector-calculus identities (`div(curl) = 0`, `curl(grad) = 0`) and, on a periodic box,
+  the adjoint relations (divergence as the negative gradient adjoint, self-adjoint curl, a
+  self-adjoint negative-definite Laplacian, a self-adjoint idempotent Helmholtz
+  projection). Tested on randomized band-limited fields, they pin the discrete
+  energy/entropy structure of the scheme.
 
 **The public method set is the spec.** Two mechanisms enforce this:
 
@@ -43,7 +49,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`.
+  `differentialoperators.jl`, plus `eltype_genericity.jl` (Float64/Float32),
+  `adjointness.jl` (operator structure on random fields), and `aqua.jl` (package checks).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
   quartet exists precisely to keep that ambiguity set empty.
@@ -74,6 +81,10 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
 - For **cross-backend** comparison (GPU vs CPU), the two run the same formula and agree
   to roundoff, so compare with `isapprox(Array(device), host; rtol, atol)` carrying a
   small absolute floor.
+- The same trap appears for **inner products of independent fields** (e.g. ⟨∇φ, u⟩): they
+  are near-orthogonal, so the common value of two equal inner products is small relative
+  to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product `‖a‖·‖b‖`, not
+  by the (tiny) result.
 
 **Pick the right oracle.** Operators → analytic closed form. Representation parity and
 backend parity → trusted CPU reference. Never assert an operator only by inverting itself.
@@ -163,7 +174,12 @@ analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that exercis
 `curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting
 element-type preservation through operations); the 198-method parity baseline and zero
 ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
-Project/compat consistency, stale dependencies, type piracy, persistent tasks); and GPU
+Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
+operator adjoint/structural identities on randomized band-limited fields — divergence as
+the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-definite
+Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmholtz
+projection — with the L² inner product computed inline (global L² products are reserved
+for separate code by design); and GPU
 parity on ROCm across `Float64` and `Float32` (74 checks on an AMD Radeon,
 `allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0` branches.
 
@@ -171,5 +187,6 @@ parity on ROCm across `Float64` and `Float32` (74 checks on an AMD Radeon,
 
 1. **Doctests** — the plumbing exists (`doctest = true`, `DocTestSetup`), but no
    `jldoctest` examples have been written into the docstrings.
-2. **Randomized property/fuzz testing** — the identities and round-trips use fixed
-   analytic fields; randomized inputs would broaden coverage.
+2. **Broader randomized/fuzz coverage** — the structural identities now run on randomized
+   band-limited fields; extending randomized inputs across the rest of the algebra would
+   broaden coverage further.
