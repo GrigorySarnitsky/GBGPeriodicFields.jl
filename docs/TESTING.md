@@ -34,9 +34,11 @@ agree, not that either is correct. Two kinds of oracle are used:
 
 - the **parity baseline** (`test/method_parity.jl`) locks the per-generic method counts
   (198 public methods) so a code-generation change cannot silently add or drop a method;
-- **intentional-absence tests** assert that invalid combinations *do not exist* —
-  `@test_throws MethodError` for spectral field×field products, spectral division by a
-  scalar field, and spectral pointwise norms. A deliberate gap is a tested gap.
+- **intentional-absence tests** assert that invalid combinations *do not exist*
+  (`@test_throws MethodError`), symmetrically across representations: nonlinear products
+  are absent in spectral (field×field, division by a scalar field, pointwise norms), and
+  the differential operators are absent in physical (differentiation is spectral-only —
+  there are no finite-difference physical operators yet). A deliberate gap is a tested gap.
 
 **"Should work" is not done.** The minimum bar for any change is: the package loads,
 the parity baseline and ambiguity check pass, and the suite is green.
@@ -168,7 +170,9 @@ end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at t
 Nyquist mode); M2 + M3 algebra and contractions in both representations; the spectral
 zero-mode constant invariant; the in-place `!` forms with caller-supplied destinations
 and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
-`helmholtz_projection!`); the intentional absences; the differential operators by
+`helmholtz_projection!`); the intentional absences in both representations (nonlinear products absent in spectral,
+differential operators absent in physical) and the physical/spectral symmetry of every
+linear field/fiber operation; the differential operators by
 analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that exercises the
 `2π/L` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
 `curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting

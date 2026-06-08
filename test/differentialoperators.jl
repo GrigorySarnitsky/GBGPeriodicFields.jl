@@ -170,4 +170,21 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test maximum(abs, field_data(curl_grad)) < 1e-12
   end
 
+  @testset "intentional absences (differential operators are spectral-only)" begin
+    # Differentiation lives in the spectral representation; there are no physical-grid
+    # (finite-difference) operators yet, by design. Symmetric to the spectral nonlinear
+    # absences in test/fieldalgebra.jl: those assert nonlinear products are absent in
+    # spectral, these assert the differential operators are absent in physical.
+    phi = scalar_field((x, y, z) -> sin(x))
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    m = FieldSpectralMultipliers(to_spectral(phi, plans_for(phi)))
+    @test_throws MethodError gradient(phi, m)
+    @test_throws MethodError gradient(u, m)
+    @test_throws MethodError divergence(u, m)
+    @test_throws MethodError curl(u, m)
+    @test_throws MethodError laplacian(phi, m)
+    @test_throws MethodError inverse_laplacian(phi, m)
+    @test_throws MethodError helmholtz_projection(u, m)
+  end
+
 end

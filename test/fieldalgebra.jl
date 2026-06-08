@@ -332,4 +332,40 @@ end
     a4 = TensorFieldPhysical{2}(tensor_a, grid); dev!(a4, a4);       @test field_data(a4) ≈ Adev
   end
 
+  @testset "linear field/fiber ops: physical/spectral symmetry" begin
+    # Operations linear in the field exist in BOTH representations and commute with the
+    # transform: applying in spectral and inverting equals applying in physical. (Nonlinear
+    # field-field products are physical-only — asserted absent in spectral above.)
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) * cos(y), cos(z), sin(z) + 0.3), grid)
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    sf = phys_scalar((x, y, z) -> 0.7 + sin(x) * sin(y))
+    k = FiberVector{T}((1.0, -2.0, 0.5))
+    M = FiberTensor2{T}(ntuple(i -> Float64(i) + 0.5, 9))
+    uplans = plans_for(u); Aplans = plans_for(A); sfplans = plans_for(sf)
+    us = to_spectral(u, uplans); As = to_spectral(A, Aplans); sfs = to_spectral(sf, sfplans)
+
+    # apply in spectral, invert, and compare to the physical result (plans match the
+    # result's tensor order).
+    same(spectral_result, physical_result, plans) =
+      field_data(to_physical(spectral_result, plans)) ≈ field_data(physical_result)
+
+    @test same(us + k, u + k, uplans)              # field ± fiber (spectral: zero-mode update)
+    @test same(k + us, k + u, uplans)
+    @test same(us - k, u - k, uplans)
+    @test same(As + M, A + M, Aplans)
+    @test same(sfs * k, sf * k, uplans)            # scalar field × fiber -> vector
+    @test same(k * sfs, k * sf, uplans)
+    @test same(dot(us, k), dot(u, k), sfplans)     # vector · fiber -> scalar
+    @test same(dot(k, us), dot(k, u), sfplans)
+    @test same(cross(us, k), cross(u, k), uplans)  # vector × fiber -> vector
+    @test same(cross(k, us), cross(k, u), uplans)
+    @test same(As * k, A * k, uplans)              # tensor · fiber -> vector
+    @test same(transpose(As), transpose(A), Aplans)
+    @test same(sym(As), sym(A), Aplans)
+    @test same(skew(As), skew(A), Aplans)
+    @test same(dev(As), dev(A), Aplans)
+    @test same(2.5 * us, 2.5 * u, uplans)          # real scaling
+    @test same(us / 4.0, u / 4.0, uplans)
+  end
+
 end
