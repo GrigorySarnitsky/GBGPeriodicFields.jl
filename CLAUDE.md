@@ -141,7 +141,8 @@ the per-operation coverage contract.
    `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
    use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 350 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 368 tests; threaded lane `JULIA_NUM_THREADS=4`; CI also runs Julia
+   nightly, non-blocking). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the spectral zero-mode invariant, in-place forms and the unary alias guards, the
@@ -154,7 +155,8 @@ the per-operation coverage contract.
    a representative cross-section in Float64 and Float32, asserting element-type
    preservation. `test/method_parity.jl`:
    the full 198-method baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
-   (ambiguities, unbound args, piracy, compat, stale deps). `test/adjointness.jl`: operator
+   (ambiguities, unbound args, piracy, compat, stale deps). `test/jet.jl`: JET `@test_call`
+   static analysis of the public ops (filtered to package modules). `test/adjointness.jl`: operator
    adjointness and structural identities (div=-gradᵀ, self-adjoint curl, negative-definite
    Laplacian, idempotent Helmholtz projection) on randomized band-limited fields. GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`

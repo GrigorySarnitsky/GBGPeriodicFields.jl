@@ -52,8 +52,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
   `differentialoperators.jl`, plus `eltype_genericity.jl` (Float64/Float32),
-  `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks), and
-  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane).
+  `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks),
+  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
+  and `jet.jl` (JET `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
   quartet exists precisely to keep that ambiguity set empty.
@@ -161,6 +162,13 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   unbound type parameters, undefined exports, project/compat consistency, stale deps,
   type piracy, persistent tasks. Keep it green; among other things it enforces that every
   dependency carries a `[compat]` bound.
+- `JET.jl` (`test/jet.jl`) runs `@test_call` on the public operations, filtered to the
+  package's own modules — a per-Julia-version static check for inference-detected errors
+  (`MethodError`, `BoundsError`, undefined variables). It is left uncapped in
+  `test/Project.toml` so each CI Julia version resolves a compatible JET. Note it analyzes
+  the *running* version, so it does not catch version-divergence (that is the CI matrix's job).
+- CI (`.github/workflows/CI.yml`) runs the full suite on push across Julia 1.11 (the compat
+  floor), stable, and nightly (non-blocking via `continue-on-error`), at `-t1` and `-t4`.
 
 
 ## 7. Current coverage and known gaps

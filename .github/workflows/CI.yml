@@ -11,6 +11,7 @@ jobs:
   test:
     name: Julia ${{ matrix.version }} — ${{ matrix.threads }} thread(s)
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.version == 'nightly' }}
     strategy:
       fail-fast: false
       matrix:
@@ -18,6 +19,8 @@ jobs:
           - version: '1.11'   # the package's minimum (compat floor)
             threads: '1'
           - version: '1'      # current stable, threaded lane
+            threads: '4'
+          - version: 'nightly'  # upcoming Julia; non-blocking (continue-on-error above)
             threads: '4'
 
     steps:

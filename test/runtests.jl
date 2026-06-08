@@ -13,3 +13,4 @@ module AdjointnessTests;           include("adjointness.jl");           end
 module ThreadingTests;             include("threading.jl");             end
 module MethodParityTests;          include("method_parity.jl");         end
 module AquaTests;                  include("aqua.jl");                  end
+module JETTests;                   include("jet.jl");                   end
