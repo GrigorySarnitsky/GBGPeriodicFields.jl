@@ -168,7 +168,7 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   `test/Project.toml` so each CI Julia version resolves a compatible JET. Note it analyzes
   the *running* version, so it does not catch version-divergence (that is the CI matrix's job).
 - CI (`.github/workflows/CI.yml`) runs the full suite on push across Julia 1.11 (the compat
-  floor), stable, and nightly (non-blocking via `continue-on-error`), at `-t1` and `-t4`.
+  floor) and stable, at `-t1` and `-t4` respectively.
 
 
 ## 7. Current coverage and known gaps

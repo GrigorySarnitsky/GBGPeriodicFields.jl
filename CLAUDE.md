@@ -141,8 +141,7 @@ the per-operation coverage contract.
    `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
    use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 368 tests; threaded lane `JULIA_NUM_THREADS=4`; CI also runs Julia
-   nightly, non-blocking). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 368 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the spectral zero-mode invariant, in-place forms and the unary alias guards, the
