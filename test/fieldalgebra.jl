@@ -303,4 +303,33 @@ end
     @test_throws MethodError norm(As)
   end
 
+  @testset "in-place forms and alias guards" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) + 0.2), grid)
+    v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    sf = phys_scalar((x, y, z) -> 2.0 + sin(x))     # nonzero everywhere
+
+    # contractions / norms / division write into a caller-supplied destination
+    sdest = F.similar_field(u, Val(0)); dot!(sdest, u, v)
+    @test field_data(sdest) ≈ field_data(dot(u, v))
+    ndest = F.similar_field(u, Val(0)); norm!(ndest, u)
+    @test field_data(ndest) ≈ field_data(norm(u))
+    qdest = F.similar_field(v, Val(1)); divide!(qdest, v, sf)
+    @test field_data(qdest) ≈ field_data(v / sf)
+
+    # index-shuffles into a caller-supplied destination
+    tdest = F.similar_field(A, Val(2)); transpose!(tdest, A)
+    @test field_data(tdest) ≈ field_data(transpose(A))
+    symdest = F.similar_field(A, Val(2)); sym!(symdest, A)
+    @test field_data(symdest) ≈ field_data(sym(A))
+
+    # alias guards (invariant 9): destination === source must still be correct
+    At = field_data(transpose(A)); Asym = field_data(sym(A))
+    Askew = field_data(skew(A)); Adev = field_data(dev(A))
+    a1 = TensorFieldPhysical{2}(tensor_a, grid); transpose!(a1, a1); @test field_data(a1) ≈ At
+    a2 = TensorFieldPhysical{2}(tensor_a, grid); sym!(a2, a2);       @test field_data(a2) ≈ Asym
+    a3 = TensorFieldPhysical{2}(tensor_a, grid); skew!(a3, a3);      @test field_data(a3) ≈ Askew
+    a4 = TensorFieldPhysical{2}(tensor_a, grid); dev!(a4, a4);       @test field_data(a4) ≈ Adev
+  end
+
 end

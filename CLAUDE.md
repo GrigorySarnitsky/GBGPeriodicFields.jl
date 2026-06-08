@@ -140,16 +140,19 @@ the per-operation coverage contract.
    `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
    use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 226 tests). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 258 tests). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
-   representations, the spectral zero-mode invariant, alias safety, and the
+   representations, the spectral zero-mode invariant, in-place forms and the unary alias guards, and the
    intentional absences. `test/differentialoperators.jl`: gradient/divergence/curl/
-   laplacian/inverse_laplacian/helmholtz by analytic round-trips, incl. an anisotropic
+   laplacian/inverse_laplacian/helmholtz by analytic round-trips, incl. in-place
+   operators, the Nyquist end-to-end split, the div(curl)=0 / curl(grad)=0 identities,
+   and an anisotropic
    (2π, 4π, 6π) box exercising the 2π/L wavenumber scaling. `test/eltype_genericity.jl`:
    a representative cross-section in Float64 and Float32, asserting element-type
    preservation. `test/method_parity.jl`:
-   the full 198-method baseline + ambiguity check. GPU coverage is opt-in and lives
+   the full 198-method baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
+   (ambiguities, unbound args, piracy, compat, stale deps). GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing
    against the CPU result — backend stacks stay test-only, never package dependencies).

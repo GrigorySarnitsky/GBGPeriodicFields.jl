@@ -117,4 +117,57 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test field_data(lap) ≈ field_data(aniso_scalar((x, y, z) -> -(sin(x) + sin(y) + sin(z))))
   end
 
+  @testset "in-place operators and alias guards" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
+    m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
+    us = to_spectral(u, plans_for(u))
+
+    # in-place forms with a caller-supplied destination match the allocating forms
+    gdest = F.similar_field(us, Val(2)); gradient!(gdest, us, m)
+    @test field_data(gdest) ≈ field_data(gradient(us, m))
+    ddest = F.similar_field(us, Val(0)); divergence!(ddest, us, m)
+    @test field_data(ddest) ≈ field_data(divergence(us, m))
+    cdest = F.similar_field(us, Val(1)); curl!(cdest, us, m)
+    @test field_data(cdest) ≈ field_data(curl(us, m))
+    ldest = F.similar_field(us, Val(1)); laplacian!(ldest, us, m)
+    @test field_data(ldest) ≈ field_data(laplacian(us, m))
+    ildest = F.similar_field(us, Val(1)); inverse_laplacian!(ildest, laplacian(us, m), m)
+    @test field_data(ildest) ≈ field_data(inverse_laplacian(laplacian(us, m), m))
+    hdest = F.similar_field(us, Val(1)); helmholtz_projection!(hdest, us, m)
+    @test field_data(hdest) ≈ field_data(helmholtz_projection(us, m))
+
+    # aliasing branch: curl! / helmholtz_projection! with destination === source
+    expected_curl = field_data(curl(us, m))
+    aliased = to_spectral(u, plans_for(u)); curl!(aliased, aliased, m)
+    @test field_data(aliased) ≈ expected_curl
+    expected_projection = field_data(helmholtz_projection(us, m))
+    aliased_projection = to_spectral(u, plans_for(u)); helmholtz_projection!(aliased_projection, aliased_projection, m)
+    @test field_data(aliased_projection) ≈ expected_projection
+  end
+
+  @testset "Nyquist mode end-to-end (the derivative / squared split)" begin
+    # cos(4x) on N = 8 is the Nyquist mode of axis 1. The first-derivative wavenumber is
+    # zeroed there (so ∂ of a real field stays real — the true derivative -4 sin(4x) is
+    # identically 0 at the grid points), while the squared wavenumber keeps k² = 16.
+    phi = scalar_field((x, y, z) -> cos(4x))
+    m = FieldSpectralMultipliers(to_spectral(phi, plans_for(phi)))
+    g = to_physical(gradient(to_spectral(phi, plans_for(phi)), m), plans_for(zero_vector()))
+    @test maximum(abs, comp(field_data(g), 1)) < 1e-12                            # derivative zeroed at Nyquist
+    lap = to_physical(laplacian(to_spectral(phi, plans_for(phi)), m), plans_for(phi))
+    @test field_data(lap) ≈ field_data(scalar_field((x, y, z) -> -16 * cos(4x)))   # squared keeps k² = 16
+  end
+
+  @testset "vector-calculus identities: div(curl u) = 0, curl(grad φ) = 0" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(y), sin(y) + cos(z), sin(z) + cos(x)), grid)
+    m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
+    us = to_spectral(u, plans_for(u))
+    div_curl = to_physical(divergence(curl(us, m), m), plans_for(scalar_field((x, y, z) -> 0.0)))
+    @test maximum(abs, field_data(div_curl)) < 1e-12
+
+    phi = scalar_field((x, y, z) -> sin(x) * cos(y) + sin(2z))
+    ps = to_spectral(phi, plans_for(phi))
+    curl_grad = to_physical(curl(gradient(ps, m), m), plans_for(zero_vector()))
+    @test maximum(abs, field_data(curl_grad)) < 1e-12
+  end
+
 end

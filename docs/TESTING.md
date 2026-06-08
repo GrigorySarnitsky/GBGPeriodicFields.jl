@@ -152,23 +152,24 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
 Honest status, so the contract above reads as the target rather than a description.
 
 **Covered:** FFT round-trips; spectral multipliers cross-checked against
-`AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split at the multiplier level; M2 + M3
-algebra and contractions in both representations; the spectral zero-mode constant
-invariant; alias safety for `cross!`; the intentional absences; the differential
-operators by analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that
-exercises the `2π/L` wavenumber scaling; element-type genericity on CPU (`Float64` and
-`Float32`, asserting element-type preservation through operations); the 198-method parity
-baseline and zero ambiguities; GPU parity on ROCm across `Float64` and `Float32` (74
-checks on an AMD Radeon, `allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0`
-branches.
+`AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split both at the multiplier level and
+end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at the
+Nyquist mode); M2 + M3 algebra and contractions in both representations; the spectral
+zero-mode constant invariant; the in-place `!` forms with caller-supplied destinations
+and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
+`helmholtz_projection!`); the intentional absences; the differential operators by
+analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that exercises the
+`2π/L` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
+`curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting
+element-type preservation through operations); the 198-method parity baseline and zero
+ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
+Project/compat consistency, stale dependencies, type piracy, persistent tasks); and GPU
+parity on ROCm across `Float64` and `Float32` (74 checks on an AMD Radeon,
+`allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0` branches.
 
-**Gaps (in roughly the order worth closing):**
+**Gaps:**
 
-1. **In-place `!` forms with caller destinations and their alias guards** — `dot!`,
-   `norm!`, `divide!`, `transpose!`, `sym!`/`skew!`/`dev!`, and the in-place differential
-   operators run only indirectly through the allocating forms; the aliasing branches and
-   the 3-arg→5-arg α/β delegation are not directly asserted.
-2. **Nyquist end-to-end** — checked at the multiplier level but not through a field that
-   populates the Nyquist mode.
-3. **`Aqua.jl`**, **doctests** (plumbing exists, no examples), and **property tests**
-   (`div(curl u) = 0`, `curl(grad φ) = 0`, `A = sym + skew`).
+1. **Doctests** — the plumbing exists (`doctest = true`, `DocTestSetup`), but no
+   `jldoctest` examples have been written into the docstrings.
+2. **Randomized property/fuzz testing** — the identities and round-trips use fixed
+   analytic fields; randomized inputs would broaden coverage.
