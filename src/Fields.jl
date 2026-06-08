@@ -1478,20 +1478,23 @@ end
     _assign_threaded!(destination, broadcasted)
 
 Thread a fused broadcast assignment over contiguous chunks of `destination`'s linear index
-range. Each task runs the standard fused element loop over its chunk, so fusion is preserved
-(one `Broadcasted` tree, no temporaries) and the result is bitwise-identical to the serial
-path (each index is written by exactly one task). Linear indexing is valid because the
-instantiated broadcast shares `destination`'s axes — any singleton operand axes are remapped
-internally by the broadcast. Falls back to serial when the axes do not match (defensive; the
+range. Each task converts its linear indices to Cartesian ones and writes the corresponding
+broadcast elements, so fusion is preserved (one `Broadcasted` tree, no temporaries) and the
+result is bitwise-identical to serial (each index is written by exactly one task). Cartesian
+indexing of the `Broadcasted` works on every supported Julia version and correctly remaps
+singleton operand axes — linear indexing of a multidimensional `Broadcasted` is only
+supported on Julia ≥ 1.12. Falls back to serial when the axes do not match (defensive; the
 field kernels always match).
 """
 function _assign_threaded!(destination, broadcasted::Base.Broadcast.Broadcasted)
   instantiated = Base.Broadcast.instantiate(broadcasted)
   axes(instantiated) == axes(destination) || return Base.Broadcast.materialize!(destination, instantiated)
 
+  cartesian = CartesianIndices(destination)
   @sync for chunk in _index_ranges(Base.OneTo(length(destination)), Threads.nthreads())
-    Threads.@spawn @inbounds @simd for linear_index in chunk
-      destination[linear_index] = instantiated[linear_index]
+    Threads.@spawn @inbounds for linear_index in chunk
+      index = cartesian[linear_index]
+      destination[index] = instantiated[index]
     end
   end
   return destination
