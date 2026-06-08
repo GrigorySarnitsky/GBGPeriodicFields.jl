@@ -228,37 +228,46 @@ Style promotion is one-sided by design — define a single binary rule per style
 pair, never symmetric mixed-representation rules. The broadcast layer doubles as
 the compatibility enforcement for broadcast-mediated methods (§5).
 
-## 9. Performance model and the deferred CPU-threading design
+## 9. Performance model and CPU threading
 
 Elementwise field operations are memory-bandwidth-bound streaming; FFTs dominate
-asymptotically but only once FFTW is actually threaded — and FFTW threading is
-baked in at **plan time**, so `FFTW.set_num_threads(Threads.nthreads())` must run
-before `FieldTransformPlans` constructs plans. On GPU, broadcasting already
-launches parallel kernels; there is nothing to add. On CPU, Base broadcasting is
-single-threaded, and the agreed (deferred) design is:
+asymptotically. Both are now threaded on CPU (shared memory). On GPU, broadcasting and
+the device FFT libraries already launch parallel kernels, so the CPU threading is
+dispatched away (below).
 
-- One internal primitive `_assign!(destination, bc::Broadcast.Broadcasted)` in
-  Fields. Generic fallback = `Broadcast.materialize!` (the safe polarity: GPU and
-  unknown wrappers keep standard fused broadcast); the specialization for
-  `Union{Array, SubArray{…,<:Array}}` threads a *single* instantiated/preprocessed
-  `Broadcasted` tree over chunked indices — fusion preserved, one pass over
-  memory — with a serial cutoff (~2^14 elements) that automatically exempts the
-  one-element zero-mode views.
-- Plug points: the field broadcast style's `copyto!` (threads all whole-field
-  operations with zero FieldAlgebra changes) and the kernel-body builders emitting
-  `_assign!(target, Broadcast.broadcasted(...))` instead of `target .= formula`
-  (three or four builder functions; every generated kernel inherits it), plus
-  one-line edits in the few explicit kernels.
-- Deferral is safe: threaded non-reducing maps are bitwise identical to serial,
-  the GPU path is untouched by construction, and no types, signatures, or tables
-  change. The interim discipline is to keep elementwise writes flowing through
-  field-level broadcasts or named kernels — no ad-hoc raw-array `.=` scattered in
-  new code — so the eventual edit stays mechanical.
-- Reductions (global norms, energy integrals) are a separate, later concern:
-  chunk-partial accumulation, with the usual floating-point ordering caveat.
-- Expectations: speedup saturates at socket bandwidth over single-core bandwidth
-  (typically 2–6×; more on multi-socket nodes, where thread pinning and NUMA
-  first-touch matter — ThreadPinning.jl).
+**FFTs.** FFTW threading is baked in at **plan time**, so the package's `__init__` calls
+`FFTW.set_num_threads(Threads.nthreads())` before any `FieldTransformPlans` is built
+(`set_fft_threads!` retunes it). Oversubscription caveat: FFTW's pthreads multiply with
+Julia's tasks — code that parallelizes *across* fields and transforms inside each task
+should build plans under `set_fft_threads!(1)`. The common case (one field, transforms
+serial in a time loop) wants `nthreads()` FFTW threads, the default.
+
+**Elementwise/fiberwise ops.** One internal primitive `_assign!(destination, bc)` in
+Fields. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
+array wrappers keep the standard fused broadcast, so **invariant 6 holds by dispatch**, not
+discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
+instantiated `Broadcasted` over contiguous chunks (each chunk a fused `copyto!`; fusion
+preserved, one memory pass), **bitwise-identical to serial** because each output index is
+written once. A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
+the one-element zero-mode views — serial. Policy is **hybrid**: threaded when
+`nthreads() > 1` and above the cutoff, with a task-local `ScopedValue` override
+(`with_threading(enabled = …)`) for nested-parallel callers.
+
+Two plug points route work through `_assign!`: the field broadcast style's `copyto!` (all
+whole-field dotted ops and the field-level algebra), and the kernel assignments — the
+codegen body builders emit `_assign!(target, …)` (via `_to_broadcasted`, which rewrites a
+dotted formula into a lazy `broadcasted` tree at codegen time), and the hand-written
+FieldAlgebra / DifferentialOperators kernels use the `@_assign!` macro in place of `.=`. No
+types, signatures, or method tables change — the 198-method surface and the zero-ambiguity
+property are preserved. **Discipline:** a raw elementwise write must go through
+`_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
+
+Reductions (global norms, energy integrals) remain a separate, later concern: chunk-partial
+accumulation reorders floating-point adds, so they need their own design and a
+tolerance-based test, not the bitwise one used here. Expectations: speedup saturates at
+socket bandwidth over single-core (typically 2–6×; more on multi-socket nodes, where thread
+pinning and NUMA first-touch matter — ThreadPinning.jl — a consumer concern, since the
+package allocates serially via `similar`).
 
 ## 10. Decision log
 
@@ -315,3 +324,12 @@ single-threaded, and the agreed (deferred) design is:
     for *separate code* (so adjointness tests use an inline L² inner product), and
     doctests wait until the package stabilizes and tutorials are written. Coverage detail
     lives in `docs/TESTING.md`.
+12. CPU threading implemented (§9), realizing the design formerly deferred in items 6/9. A
+    `Fields._assign!` primitive threads elementwise/fiberwise assignments on CPU
+    (`Base.Threads`, contiguous chunks, bitwise-identical to serial), routed in via the
+    field broadcast `copyto!` and the kernel assignments (codegen `_to_broadcasted` plus the
+    `@_assign!` macro for hand-written kernels); FFTW threads are matched to Julia's at load.
+    Hybrid policy: on when `nthreads() > 1` and above a `2^14` serial cutoff, with a
+    task-local `with_threading` ScopedValue override; the GPU path stays on the
+    `materialize!` fallback. `[compat] julia` was raised to 1.11 (for ScopedValue).
+    Reductions remain deferred (separate FP-ordering design).

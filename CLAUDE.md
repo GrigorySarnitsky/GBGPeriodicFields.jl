@@ -4,8 +4,8 @@ Julia package: real-valued scalar/vector/second-order-tensor fields on 3D rectan
 periodic domains, with physical-space and real-to-complex (rfft) spectral
 representations, on CPU (`Array`) and GPU (`CuArray`, `ROCArray`). Built as the field
 layer for pseudospectral fluid/turbulence solvers; Lagrangian particle interpolation
-is a later target. Development is **GPU-first**; CPU multithreading is deliberately
-deferred (design recorded — see below).
+is a later target. Development is **GPU-first**; CPU multithreading is implemented (hybrid, behind the
+`_assign!` primitive — see `docs/ARCHITECTURE.md` §9).
 
 Before any structural or design change, read `docs/ARCHITECTURE.md`. It explains why
 the architecture is the way it is; do not re-litigate recorded decisions without the
@@ -141,7 +141,7 @@ the per-operation coverage contract.
    `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
    use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 309 tests). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 350 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the spectral zero-mode invariant, in-place forms and the unary alias guards, the
@@ -160,11 +160,15 @@ the per-operation coverage contract.
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing
    against the CPU result — backend stacks stay test-only, never package dependencies).
-5. **Deferred by decision** — CPU threading via the `_assign!` primitive
-   (design recorded in `docs/ARCHITECTURE.md` §9; until then, keep elementwise writes
-   flowing through field-level broadcasts or named kernels so the later switch stays
-   mechanical). `FFTW.set_num_threads(Threads.nthreads())` must run before plan
-   construction once CPU performance matters.
+5. **CPU threading** — **done** (`docs/ARCHITECTURE.md` §9): the `_assign!` primitive threads
+   elementwise/fiberwise ops on CPU (Base.Threads, contiguous chunks, bitwise-identical to
+   serial), routed in via the field broadcast `copyto!` and the kernel assignments (codegen
+   `_to_broadcasted` + the `@_assign!` macro); FFTW threads match Julia's at load (`__init__`).
+   Hybrid policy: on when `nthreads() > 1` above a `2^14` cutoff, with a `with_threading`
+   ScopedValue override; GPU stays on the `materialize!` fallback. Tested bitwise in
+   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). **Discipline:** raw
+   elementwise writes go through `_assign!`/`@_assign!`, not bare `.=`. Reductions
+   (energy/enstrophy integrals) remain deferred (separate FP-ordering design).
 
 ## Working agreements
 

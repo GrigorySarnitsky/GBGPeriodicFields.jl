@@ -52,7 +52,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
   `differentialoperators.jl`, plus `eltype_genericity.jl` (Float64/Float32),
-  `adjointness.jl` (operator structure on random fields), and `aqua.jl` (package checks).
+  `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks), and
+  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
   quartet exists precisely to keep that ambiguity set empty.
@@ -187,7 +188,11 @@ Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmhol
 projection — with the L² inner product computed inline (global L² products are reserved
 for separate code by design); and GPU
 parity on ROCm across `Float64` and `Float32` (74 checks on an AMD Radeon,
-`allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0` branches.
+`allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0` branches; and CPU threading — every threaded assignment is bitwise-identical to serial
+(field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
+transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
+default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
+gate and the GPU `materialize!` fallback also asserted.
 
 **Gaps:**
 
