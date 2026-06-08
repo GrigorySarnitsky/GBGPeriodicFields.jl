@@ -109,7 +109,8 @@ the per-operation coverage contract.
   **198 public methods** (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14).
 - Ambiguities: `test/method_parity.jl` runs `detect_ambiguities` (from `Test`) over
   the whole package — the explicit `multiply!` quartet exists precisely to resolve
-  these. (Aqua.jl could be added later for broader package checks.)
+  these. `test/aqua.jl` runs `Aqua.test_all` for broader package checks (type piracy,
+  compat bounds, stale deps, unbound type parameters, …).
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
 - GPU tests are **opt-in and separate** (not part of `Pkg.test()`): per-backend
   environments under `test/gpu/` (`rocm/` now, `cuda/` later) run a backend-agnostic

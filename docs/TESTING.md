@@ -156,8 +156,10 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   counts in `test/method_parity.jl` only with a deliberate, reviewed reason, and keep
   `detect_ambiguities` empty.
 - Keep the test summary in `CLAUDE.md` (roadmap item 4) roughly current.
-- `Aqua.jl` is planned for broader package checks (unbound type parameters, stale deps,
-  type piracy) beyond the current ambiguity check.
+- `Aqua.jl` (`test/aqua.jl`) runs `Aqua.test_all` on every `Pkg.test()` — ambiguities,
+  unbound type parameters, undefined exports, project/compat consistency, stale deps,
+  type piracy, persistent tasks. Keep it green; among other things it enforces that every
+  dependency carries a `[compat]` bound.
 
 
 ## 7. Current coverage and known gaps

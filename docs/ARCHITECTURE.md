@@ -112,8 +112,9 @@ Two constructors by design:
   Nyquist mode is perfectly well defined (`-k_N²·mode`); zeroing it would silently
   remove grid-scale dissipation and corrupt `inverse_laplacian`.
 
-Planned reference tests pin this down: multipliers vs `fftfreq`/`rfftfreq`,
-round-trip `to_spectral!`/`to_physical!`, and a real-derivative Nyquist test.
+Reference tests pin this down: multipliers vs `fftfreq`/`rfftfreq`, transform
+round-trips, and a real-field Nyquist end-to-end test (the derivative zeroed at Nyquist
+vs the squared wavenumber kept) — see `docs/TESTING.md`.
 
 ## 5. Validation design
 
@@ -281,7 +282,7 @@ single-threaded, and the agreed (deferred) design is:
    methods); DifferentialOperators rewired to import `FieldSpectralMultipliers`
    and its helpers from Fields, with the umbrella re-export corrected (the old
    five-argument constructor removed by design); reference test suite in place
-   (`test/`, 187 tests, `Pkg.test()` green) including the method-parity baseline.
+   (`test/`, `Pkg.test()` green) including the method-parity baseline.
    Remaining: deferred CPU threading (§9) and the planned interpolation layer.
 8. StaticArrays promoted from `StaticArraysCore` to a direct dependency — the
    package indexes fibers and uses their algebra in the generated kernels, so the
@@ -301,3 +302,16 @@ single-threaded, and the agreed (deferred) design is:
     `allowscalar(false)` — turning invariant 6 into a checked guarantee — and compares
     against the trusted CPU result. The default `Pkg.test()` stays backend-free, so it
     is portable across CI and every machine.
+11. Test-suite buildout (beyond the GPU work in item 10): element-type genericity
+    (`Float32` alongside `Float64`), anisotropic-domain operators (the `2π/L` scaling),
+    in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
+    **adjointness / structural identities** on randomized band-limited fields
+    (`div = -gradᵀ`, self-adjoint curl, negative-definite Laplacian, idempotent Helmholtz
+    projection — the discrete energy/entropy structure). Intentional-absence tests are
+    symmetric across representations: nonlinear products absent in spectral; the
+    differential operators absent in physical (spectral-only — no finite-difference
+    operators yet). `Aqua.test_all` was added, which required `[compat]` bounds for every
+    dependency. Two deliberate deferrals: a global L²/integration reduction is reserved
+    for *separate code* (so adjointness tests use an inline L² inner product), and
+    doctests wait until the package stabilizes and tutorials are written. Coverage detail
+    lives in `docs/TESTING.md`.
