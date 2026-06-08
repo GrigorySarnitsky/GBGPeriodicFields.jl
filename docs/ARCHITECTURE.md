@@ -291,3 +291,13 @@ single-threaded, and the agreed (deferred) design is:
    may overwrite their source (FFTW c2r destroys input; backend-divergent), so the
    allocating `to_physical`/`to_spectral` copy the input to keep non-`!` calls
    non-mutating (see §4).
+10. GPU testing is opt-in and **dependency-free for the package**: the data layer is
+    generic over `AbstractArray`, FFT plans are built through `AbstractFFTs`
+    (backend-dispatched on the array type) and allocations inherit their backend via
+    `similar`, so a GPU backend is only ever a *test* dependency. It lives in
+    per-backend environments under `test/gpu/` (`rocm/` now, `cuda/` later), each
+    instantiated only on matching hardware (AMD at home, NVIDIA at the office); a
+    shared, backend-agnostic `suite.jl` runs the public surface on device arrays with
+    `allowscalar(false)` — turning invariant 6 into a checked guarantee — and compares
+    against the trusted CPU result. The default `Pkg.test()` stays backend-free, so it
+    is portable across CI and every machine.

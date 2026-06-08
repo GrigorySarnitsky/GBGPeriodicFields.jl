@@ -1,0 +1,10 @@
+[deps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+GBGPeriodicFields = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+GBGPeriodicFields = {path = "../../.."}
+
+[compat]
+AMDGPU = "2.5"

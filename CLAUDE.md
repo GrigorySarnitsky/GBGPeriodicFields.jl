@@ -108,6 +108,10 @@ never docstrings", which governs generated methods, not the hand-written builder
   the whole package — the explicit `multiply!` quartet exists precisely to resolve
   these. (Aqua.jl could be added later for broader package checks.)
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
+- GPU tests are **opt-in and separate** (not part of `Pkg.test()`): per-backend
+  environments under `test/gpu/` (`rocm/` now, `cuda/` later) run a backend-agnostic
+  suite with scalar indexing disabled. Run on a machine with a device, e.g.
+  `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl` (see `test/gpu/README.md`).
 - Consult `Project.toml` for dependencies and versions; do not assume.
 
 ## Current state and roadmap
@@ -139,7 +143,10 @@ never docstrings", which governs generated methods, not the hand-written builder
    representations, the spectral zero-mode invariant, alias safety, and the
    intentional absences. `test/differentialoperators.jl`: gradient/divergence/curl/
    laplacian/inverse_laplacian/helmholtz by analytic round-trips. `test/method_parity.jl`:
-   the full 198-method baseline + ambiguity check.
+   the full 198-method baseline + ambiguity check. GPU coverage is opt-in and lives
+   outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
+   exercises the public surface on device arrays with `allowscalar(false)`, comparing
+   against the CPU result — backend stacks stay test-only, never package dependencies).
 5. **Deferred by decision** — CPU threading via the `_assign!` primitive
    (design recorded in `docs/ARCHITECTURE.md` §9; until then, keep elementwise writes
    flowing through field-level broadcasts or named kernels so the later switch stays
