@@ -6,15 +6,17 @@ function remove_jupyter_files()
   foreach(p -> rm(p; recursive = true), dirs)
 end
 
-# Render the design-rationale doc into the site without moving it: ARCHITECTURE.md
-# stays the single source (referenced by CLAUDE.md), copied into src/ at build time.
-# The copy (src/architecture.md) is gitignored.
-function copy_architecture_page()
-  cp(joinpath(@__DIR__, "ARCHITECTURE.md"), joinpath(@__DIR__, "src", "architecture.md"); force = true)
+# Render the design-rationale docs into the site without moving them: ARCHITECTURE.md
+# and TESTING.md stay the single sources (referenced by CLAUDE.md), copied into src/ at
+# build time. The copies (src/architecture.md, src/testing.md) are gitignored.
+function copy_rationale_pages()
+  for name in ("ARCHITECTURE.md", "TESTING.md")
+    cp(joinpath(@__DIR__, name), joinpath(@__DIR__, "src", lowercase(name)); force = true)
+  end
 end
 
 remove_jupyter_files()
-copy_architecture_page()
+copy_rationale_pages()
 
 using Documenter
 using GBGPeriodicFields
@@ -43,7 +45,10 @@ makedocs(
       "FieldAlgebra"          => "api/FieldAlgebra.md",
       "DifferentialOperators" => "api/DifferentialOperators.md",
     ],
-    "Design & Internals" => "architecture.md",
+    "Design & Internals" => Any[
+      "Architecture" => "architecture.md",
+      "Testing"      => "testing.md",
+    ],
   ]
 )
 

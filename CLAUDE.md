@@ -98,6 +98,9 @@ never docstrings", which governs generated methods, not the hand-written builder
 
 ## Verification workflow
 
+Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
+the per-operation coverage contract.
+
 "Should work" is not done. Minimum bar for any change:
 
 - Load: `julia --project -e 'using GBGPeriodicFields'` (catches `@eval` and wiring errors).
