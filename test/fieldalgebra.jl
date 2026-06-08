@@ -230,6 +230,12 @@ end
     keep = copy(field_data(dest))
     mul!(dest, A, u, 3.0, 5.0)
     @test field_data(dest) ≈ 3.0 .* field_data(base) .+ 5.0 .* keep
+
+    # overwrite branch (β = 0): the destination's prior contents are ignored, NaN
+    # included; if it accumulated instead of overwriting, the NaNs would survive.
+    overwrite = VectorFieldPhysical(fill(T(NaN), gs..., 3), grid)
+    mul!(overwrite, A, u, 1.0, 0.0)
+    @test field_data(overwrite) ≈ field_data(base)
   end
 
   @testset "norms (physical only)" begin

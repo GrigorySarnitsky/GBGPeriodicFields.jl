@@ -8,4 +8,5 @@
 module FieldsTests;                include("fields.jl");                end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
 module DifferentialOperatorsTests; include("differentialoperators.jl"); end
+module EltypeGenericityTests;      include("eltype_genericity.jl");     end
 module MethodParityTests;          include("method_parity.jl");         end

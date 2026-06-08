@@ -14,51 +14,54 @@
 # Each check runs the same operation on a host field and on its device twin — built
 # from identical input data — and asserts Array(device_result) ≈ host_result. Any
 # scalar indexing done by the *tests themselves* is on host arrays, after Array().
+#
+# The whole suite runs for each element type in ELEMENT_TYPES — Float32 is the
+# realistic GPU precision (consumer GPUs run Float64 far slower), so it must be
+# exercised on-device, not just Float64.
 
 using Test
 using GBGPeriodicFields
 
 const F = GBGPeriodicFields.Fields
-const T = Float64
-const grid = Grid3D((8, 7, 6), (2π, 2π, 2π))     # mixed parity (even, odd, even), as in test/fields.jl
-const layout = RealFourierLayout()
+const ELEMENT_TYPES = (Float64, Float32)
 
-# Two analytic 3x3 tensor fields, matching test/fieldalgebra.jl.
+# Two analytic 3x3 tensor fields, matching test/fieldalgebra.jl. Element-type
+# independent: the field constructor converts each sampled value to the grid's type.
 tensor_a(x, y, z) = [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)]
 tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 
-# A device twin of `field`: same field type, grid, and layout; data copied to the device.
+# A device twin of `field`: same field type, grid, and layout; data copied to the
+# device. `to_device` is supplied by the backend entry script.
 on_device(field) = F.similar_field(field, to_device(copy(field_data(field))))
 
-# Compare a field held on the device against a host field. The small absolute floor
-# (atol) keeps the comparison meaningful when the exact result is ~zero: device and
-# host run the same formula, so they agree to roundoff, but bare `≈` has atol = 0 and
-# would flag two near-zero arrays that differ only by GPU/CPU rounding.
-matches(device_field, host_field) =
-  isapprox(Array(field_data(device_field)), field_data(host_field); rtol = 1e-8, atol = 1e-8)
 
-# Same-backend forward+inverse plans for a physical field (host or device): the zero
-# spectral array is allocated with `similar(field_data(physical), ...)`, so it lands
-# on whatever backend `physical` lives on.
-function plans_for(physical)
-  R = field_tensor_order(physical)
-  shape = F.spectral_field_shape(grid, layout, Val(R))
-  zero_spectral = similar(field_data(physical), Complex{T}, shape)
-  fill!(zero_spectral, 0)
-  spectral = R == 0 ? ScalarFieldSpectral(zero_spectral, grid) :
-             R == 1 ? VectorFieldSpectral(zero_spectral, grid) :
-                      TensorFieldSpectral{R}(zero_spectral, grid)
-  return FieldTransformPlans(physical, spectral)
-end
+function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
+  grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))   # mixed parity (even, odd, even)
+  layout = RealFourierLayout()
 
+  # Float32 round-trips and derivatives lose precision relative to Float64; scale the
+  # comparison tolerances by element type. The absolute floor keeps comparisons of
+  # near-zero results meaningful (device and host run the same formula).
+  rtol = T === Float32 ? 1.0f-3 : 1e-8
+  atol = T === Float32 ? 1.0f-4 : 1e-8
+  matches(device_field, host_field) =
+    isapprox(Array(field_data(device_field)), field_data(host_field); rtol = rtol, atol = atol)
 
-@testset "GPU [$GPU_BACKEND]" begin
+  # Same-backend forward+inverse plans for a physical field (host or device): the zero
+  # spectral array is allocated with `similar(field_data(physical), ...)`, so it lands
+  # on whatever backend `physical` lives on.
+  function plans_for(physical)
+    R = field_tensor_order(physical)
+    shape = F.spectral_field_shape(grid, layout, Val(R))
+    zero_spectral = similar(field_data(physical), Complex{T}, shape)
+    fill!(zero_spectral, 0)
+    spectral = R == 0 ? ScalarFieldSpectral(zero_spectral, grid) :
+               R == 1 ? VectorFieldSpectral(zero_spectral, grid) :
+                        TensorFieldSpectral{R}(zero_spectral, grid)
+    return FieldTransformPlans(physical, spectral)
+  end
 
-  if !device_functional()
-    @warn "No functional $GPU_BACKEND device detected — skipping on-device tests."
-    @test_skip false
-  else
-    @info "GPU tests running on $GPU_BACKEND."
+  @testset "T = $T" begin
 
     @testset "FFT round-trip (scalar / vector / tensor)" begin
       for host in (
@@ -192,6 +195,20 @@ end
       @test matches(sym(A_spec_d), sym(A_spec_h))
     end
 
+  end
+end
+
+
+@testset "GPU [$GPU_BACKEND]" begin
+
+  if !device_functional()
+    @warn "No functional $GPU_BACKEND device detected — skipping on-device tests."
+    @test_skip false
+  else
+    @info "GPU tests running on $GPU_BACKEND."
+    for T in ELEMENT_TYPES
+      run_gpu_suite(T)
+    end
   end
 
 end

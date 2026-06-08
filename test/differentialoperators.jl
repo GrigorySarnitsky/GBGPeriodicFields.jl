@@ -88,4 +88,33 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test maximum(abs, field_data(div_after)) < 1e-12
   end
 
+  @testset "anisotropic domain (2π, 4π, 6π): wavenumber scaling" begin
+    # Lx ≠ Ly ≠ Lz, so the 2π/L factor in the wavenumbers is non-trivial: a dropped
+    # length factor (assuming L = 2π on every axis) would corrupt the y and z
+    # derivatives while leaving x correct. sin(x)/sin(y)/sin(z) are each periodic on
+    # this box (their 2π period divides 2π, 4π, 6π) and resolved (modes 1, 2, 3 < 4).
+    aniso = Grid3D(gs, (2π, 4π, 6π))
+    function aplans(physical)
+      R = field_tensor_order(physical)
+      data = zeros(Complex{T}, F.spectral_field_shape(aniso, layout, Val(R)))
+      spectral = R == 0 ? ScalarFieldSpectral(data, aniso) :
+                 R == 1 ? VectorFieldSpectral(data, aniso) :
+                          TensorFieldSpectral{R}(data, aniso)
+      return FieldTransformPlans(physical, spectral)
+    end
+    aniso_scalar(f) = ScalarFieldPhysical(f, aniso)
+
+    phi = aniso_scalar((x, y, z) -> sin(x) + sin(y) + sin(z))
+    m = FieldSpectralMultipliers(to_spectral(phi, aplans(phi)))
+
+    g = to_physical(gradient(to_spectral(phi, aplans(phi)), m),
+                    aplans(VectorFieldPhysical(zeros(T, gs..., 3), aniso)))
+    @test comp(field_data(g), 1) ≈ field_data(aniso_scalar((x, y, z) -> cos(x)))   # Lx = 2π
+    @test comp(field_data(g), 2) ≈ field_data(aniso_scalar((x, y, z) -> cos(y)))   # Ly = 4π
+    @test comp(field_data(g), 3) ≈ field_data(aniso_scalar((x, y, z) -> cos(z)))   # Lz = 6π
+
+    lap = to_physical(laplacian(to_spectral(phi, aplans(phi)), m), aplans(phi))
+    @test field_data(lap) ≈ field_data(aniso_scalar((x, y, z) -> -(sin(x) + sin(y) + sin(z))))
+  end
+
 end

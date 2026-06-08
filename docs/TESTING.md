@@ -155,22 +155,20 @@ Honest status, so the contract above reads as the target rather than a descripti
 `AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split at the multiplier level; M2 + M3
 algebra and contractions in both representations; the spectral zero-mode constant
 invariant; alias safety for `cross!`; the intentional absences; the differential
-operators by analytic round-trip; the 198-method parity baseline and zero ambiguities;
-GPU parity on ROCm (37 checks on an AMD Radeon, `allowscalar(false)`), including the
-`mul!` `β = 0`/`β ≠ 0` branches.
+operators by analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that
+exercises the `2π/L` wavenumber scaling; element-type genericity on CPU (`Float64` and
+`Float32`, asserting element-type preservation through operations); the 198-method parity
+baseline and zero ambiguities; GPU parity on ROCm across `Float64` and `Float32` (74
+checks on an AMD Radeon, `allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0`
+branches.
 
 **Gaps (in roughly the order worth closing):**
 
-1. **`Float32`** — every test is `Float64`; the element-type genericity is unexercised.
-2. **Anisotropic domains** — all derivative/algebra tests use `(2π, 2π, 2π)`, so the
-   `2π/L` scaling is never tested (the `4π` grid appears only to *reject* a compatibility
-   check).
-3. **`β = 0` on CPU** — the overwrite branch is pinned on GPU but not in `fieldalgebra.jl`.
-4. **In-place `!` forms with caller destinations and their alias guards** — `dot!`,
+1. **In-place `!` forms with caller destinations and their alias guards** — `dot!`,
    `norm!`, `divide!`, `transpose!`, `sym!`/`skew!`/`dev!`, and the in-place differential
    operators run only indirectly through the allocating forms; the aliasing branches and
    the 3-arg→5-arg α/β delegation are not directly asserted.
-5. **Nyquist end-to-end** — checked at the multiplier level but not through a field that
+2. **Nyquist end-to-end** — checked at the multiplier level but not through a field that
    populates the Nyquist mode.
-6. **`Aqua.jl`**, **doctests** (plumbing exists, no examples), and **property tests**
+3. **`Aqua.jl`**, **doctests** (plumbing exists, no examples), and **property tests**
    (`div(curl u) = 0`, `curl(grad φ) = 0`, `A = sym + skew`).
