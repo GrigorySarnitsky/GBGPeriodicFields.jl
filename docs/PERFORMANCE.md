@@ -22,7 +22,7 @@ that matters.
   and is proven below — the GPU wins. CPU multithreading is a supported feature (`docs/ARCHITECTURE.md`
   §9), but it is not the platform performance is optimized *for*.
 - **Measure before you optimize, and measure on the production platform.** No optimization is kept
-  without a same-session A/B showing it helps the GPU. This session's record is instructive: of the
+  without a same-session side-by-side comparison showing it helps the GPU. This session's record is instructive: of the
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
   hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
@@ -95,8 +95,10 @@ architecture or the tests; they are collected here so an optimizer has them in o
 - **Warm up** (compile) before timing; **synchronize the backend** — GPU work is asynchronous, so an
   un-synced timer measures launch latency, not the kernel (the suite's `bench_sync`).
 - **Report the minimum** of many samples (least-noise estimator) alongside the median.
-- **Same-session A/B**: build both variants and time them on identical data in one process — the only
-  reliable way to resolve a difference smaller than the ~10% run-to-run variance.
+- **Side-by-side comparison in one session**: build both variants (baseline and candidate) and time
+  them on identical data, back-to-back, in a single process — the only reliable way to resolve a
+  difference smaller than the ~10% run-to-run variance (separate launches drift with thermal state,
+  allocation layout, and cache).
 - **Control the thread count** (`-t1` vs `-t4`), and **always confirm on the GPU** before keeping an
   optimization (platform divergence is real, §4).
 
@@ -158,7 +160,7 @@ ones via parallelism).
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
 `Pkg.test()`, exactly like the GPU tests. `build_suite(; array_type, types, sizes)` builds a
 `BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
-`ROCArray`/`CuArray` on GPU — the same trick `test/gpu/suite.jl` uses with `to_device`), so one suite
+`ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
@@ -233,5 +235,5 @@ suite; the recorded RX 6700 XT + i7-12700K results above; the manual save→`jud
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
    comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
-   comparisons are only meaningful within a single session (hence the same-session A/B discipline of
+   comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values.
