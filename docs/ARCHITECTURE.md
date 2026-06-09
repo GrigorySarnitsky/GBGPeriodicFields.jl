@@ -70,11 +70,17 @@ worlds:
   connection of the periodic box (§4). They are bound to a base with a differentiable
   structure: they act on grid sections (in the spectral representation) and not on
   point-value sections, which carry the vertical algebra but no derivatives.
-- **Representation is a choice of frame for a grid section.** Physical and spectral
-  storage are two coordinate representations of one section over the grid; the rfft
-  is the linear isomorphism between them. A point-value section has no second
+- **Representation is a choice of basis for a grid section's data** (distinct from the
+  fiber frame above): physical storage uses the nodal basis, spectral storage the Fourier
+  basis, and the rfft is the linear isomorphism between them. A point-value section has no second
   representation — there is no periodic grid to transform over — so the point types
   are representation-free (§10).
+
+(The vertical/horizontal language is the bundle-theoretic one — fiber directions versus the
+connection's base directions — applied here by analogy to *operations*: the fiberwise algebra
+is order-zero and fiber-preserving, the differential operators are the connection's covariant
+derivative, order one. Strictly, *vertical* (`ker dπ`, canonical) and *horizontal* (a
+connection-chosen complement) are subbundles of the total space's tangent bundle.)
 
 Transfer between sections over *different* bases is the interpolation/anterpolation
 pair: pulling a grid section back to points (evaluation, `f(x) = ⟨δₓ, f⟩`) and the
@@ -520,7 +526,8 @@ the moving-object abstraction and its dynamics are solver concerns.
 - C. T. Crowe, M. P. Sharma, D. E. Stock, *The Particle-Source-In-Cell (PSI-CELL) model for
   gas–droplet flows*, J. Fluids Eng. **99**(2) (1977) 325–332.
 - A. Brandt, A. A. Lubrecht, *Multilevel matrix multiplication and fast solution of integral
-  equations*, J. Comput. Phys. **90**(2) (1990) 348–370 (origin of "anterpolation").
+  equations*, J. Comput. Phys. **90**(2) (1990) 348–370 (an early use of "anterpolation"
+  for the adjoint of interpolation).
 - C. S. Peskin, *The immersed boundary method*, Acta Numerica **11** (2002) 479–517
   (spreading = adjoint of interpolation).
 - E. Catmull, R. Rom, *A class of local interpolating splines*, in: Computer Aided Geometric
