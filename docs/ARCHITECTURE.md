@@ -14,8 +14,10 @@ provides scalar, vector, and second-order tensor fields with two storage
 representations — physical space and real-to-complex (rfft) spectral space — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
 algebra (FieldAlgebra), and spectral differential operators (DifferentialOperators).
-Lagrangian particle interpolation — and its adjoint, anterpolation — is a planned
-later layer (§10). The same code must run
+Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
+serves consumer-side Lagrangian particle tracking — are partly in place (§10): the
+point-value sections and their algebra exist; the transfer kernels are planned. The
+same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
 prioritizes GPU correctness and performance first.
 
@@ -61,7 +63,8 @@ worlds:
   type, whether the base is a grid or a point set. This is the structural reason one
   set of generated kernels (§6) serves fields and point-values verbatim, and the
   mathematical motivation for treating the **section as the primary abstraction**: a
-  shared `AbstractFiberSection{T, R}` supertype spanning both (§10, planned).
+  shared `AbstractFiberSection{T, R}` supertype spanning both, in a planned
+  `FiberSections` module (§10).
 - **Differential operators are the complementary horizontal structure** — gradient,
   divergence, curl, Laplacian are derivatives *along the base*, using the flat
   connection of the periodic box (§4). They are bound to a base with a differentiable
@@ -251,6 +254,11 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   forms and the `*` operators (tensor·vector, tensor·tensor) are generated
   alongside their `mul!`/`dot`/`cross`/… kernels, completing the 198-method surface.
 
+The same builders are reused verbatim to generate the point-value algebra over the
+unstructured base (§10) — the formulas are base-independent (§2). They currently live
+in FieldAlgebra and are imported by the point layer; Phase A moves them down into the
+shared `FiberSections` module so both consumers source them from one place.
+
 ### Documentation policy
 
 Generators emit methods only, never docstrings. Each operation has one docstring
@@ -332,18 +340,18 @@ socket bandwidth over single-core (typically 2–6×; more on multi-socket nodes
 pinning and NUMA first-touch matter — ThreadPinning.jl — a consumer concern, since the
 package allocates serially via `similar`).
 
-## 10. Interpolation and anterpolation (the planned particle-tracking layer)
+## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
-Lagrangian particle tracking (§1) requires two transfer operations between the
-Eulerian fields and the off-grid particle positions. They are formal adjoints of one
+Lagrangian particle tracking by a consumer (§1) requires two transfer operations
+between the Eulerian fields and off-grid positions. They are formal adjoints of one
 another, and the package gives each a fixed name:
 
-- **Interpolation** — grid → particle (the *gather* direction): allocating
+- **Interpolation** — grid → point (the *gather* direction): allocating
   `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the
   callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
-- **Anterpolation** — particle → grid (the *scatter* direction): allocating
+- **Anterpolation** — point → grid (the *scatter* direction): allocating
   `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`,
-  depositing per-particle quantities onto a field. Both operations carry the usual
+  depositing per-point quantities onto a field. Both operations carry the usual
   allocating / in-place (`!`) pair and a five-argument `α`/`β` form (`β = 0` overwrite,
   `β ≠ 0` accumulate — the `mul!` convention, since they are the linear maps `W` / `Wᵀ`;
   accumulation is the common case for the scatter). `interpolate` / `anterpolate!` are the
@@ -353,7 +361,7 @@ another, and the package gives each a fixed name:
   latent heat a droplet releases on condensation (or absorbs on evaporation) must be returned
   to the supersaturation and temperature fields.
 
-**Why the code says "anterpolation."** The particle→grid operation is named
+**Why the code says "anterpolation."** The point→grid (scatter) operation is named
 differently in every community, with no dominant choice: *spreading* (immersed-boundary
 method, where it is explicitly the adjoint `S = J*` of interpolation, built from the
 same kernel — Peskin 2002; also NUFFT type-1), *deposition* / *charge assignment*
@@ -368,7 +376,7 @@ that matters, independent of application. The binding will carry a docstring lis
 synonyms — *adjoint of interpolation; spreading; deposition; scatter; projection /
 PSI-Cell; gridding; two-way-coupling source/feedback* — so a reader from any of those
 fields finds it. **"Extrapolation" is deliberately rejected**: extrapolation means
-evaluating *outside* the convex hull of the data, whereas a particle lies *inside* a
+evaluating *outside* the convex hull of the data, whereas a sample point lies *inside* a
 grid cell and the operation is a weighted distribution; the loose use of "extrapolation"
 for it (seen in a few papers) is a misnomer.
 
@@ -382,7 +390,7 @@ between droplets and the fields — so the design fixes anterpolation as the tra
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, `f(x) = ⟨δₓ, f⟩`, and anterpolation
 as the pushforward of point masses, `𝓘*q = Σₚ qₚ δ_xₚ` (regularized to `Σₚ qₚ β(·−xₚ)`,
-i.e. a particle source term) — is given in full in the `Interpolation` module docstring.
+i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 **Method: the Lalescu local splines.** The package will use the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -403,18 +411,19 @@ separate field. Three properties make it the right fit:
    *global* transform that, in a spectral code, costs one FFT — is the higher-accuracy
    alternative kept in reserve; exact spectral interpolation via a type-2 NUFFT is the
    global, divergence-free extreme, planned only as a high-accuracy reference oracle.)
-2. **GPU-friendly** (the GPU-first invariant, §1): per-particle interpolation is a gather
+2. **GPU-friendly** (the GPU-first invariant, §1): per-point interpolation is a gather
    of `(2n+2)³` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
    matching scatter.
-3. **Trivial, conservative anterpolation:** the same closed-form `β` deposit a particle's
+3. **Trivial, conservative anterpolation:** the same closed-form `β` deposit a point's
    source over its stencil with `Σ β = 1` — exactly the conserving two-way-coupling
    feedback the parcel DNS needs.
 
 The interpolation order is a tunable parameter `(n, m)`, not hard-wired, so accuracy can
 be matched to the spectral resolution (standard practice for pseudospectral particle
-tracking). **This layer is not yet implemented; this section records the design decision
-so implementation begins from it.**
+tracking). **The transfer kernels are not yet implemented; this paragraph records the
+design decision so implementation begins from it** — the point-value data types and their
+algebra (below) *are* implemented.
 
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
 to name two new objects: off-grid locations and the field values there. The package names
@@ -460,12 +469,32 @@ a separate **118-method point-value parity baseline** (the 198-method field surf
 byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_algebra.jl`,
 Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
 
-**Planned consolidation — the shared section supertype.** Fields and point-values share the
-generated kernels but not a supertype. The fiber-bundle model (§2) motivates closing that seam
-by extracting an `AbstractFiberSection{T, R}` over both, and lifting the shared codegen — in
-particular the norm/sym/skew/dev formulas, the one block still *replicated* in `Interpolation`
-rather than sourced from a builder — into a single home. This refactor is planned and not yet
-undertaken; it must reproduce both parity baselines byte-for-byte.
+**Planned consolidation — the module structure the model implies.** Fields and point-values
+today share the generated kernels but not a supertype, and the point objects, their algebra, and
+the (future) transfer all sit in one `Interpolation` module. The fiber-bundle model (§2) implies
+a cleaner layout, planned for the next refactor:
+
+- a new foundation module **`FiberSections`** holds the base-agnostic core —
+  `AbstractFiberSection{T, R}`, the section interface (the component accessors), the `_assign!`
+  primitive, and the vertical-algebra **code generators**: the single home where each fiberwise
+  formula is written once, including the norm/sym/skew/dev formulas presently *replicated* in the
+  point layer rather than sourced from a builder;
+- the current `Interpolation` module **splits in two**: **`Points`** holds the unstructured-base
+  section *objects* (`PointSet`, `*PointValues`) and their generated algebra — a noun-named peer
+  of `Fields`; **`Interpolation`** keeps only the transfer maps (`interpolate`/`anterpolate`) — an
+  operation-named peer of `DifferentialOperators`.
+
+The remaining field/point asymmetry is deliberate and **mandated by the mathematics**, not
+inertia: points have no differential operators (no horizontal structure, §2) and no second
+representation, so there is no point peer to `DifferentialOperators` and no representation
+machinery in `Points`; and the point algebra is a small *generated* emission that folds into
+`Points` rather than earning a separate `FieldAlgebra`-sized module (whose bulk is the 198
+hand-curated methods plus the representation-specific irregular corners — the spectral zero-mode
+updates, the `multiply!` quartet). What the split *fixes* is the naming: section *objects* live
+in noun-named modules (`Fields`, `Points`), operations in operation-named ones (`FieldAlgebra`,
+`DifferentialOperators`, `Interpolation`). This refactor is planned and not yet undertaken; it
+must reproduce both parity baselines (198 field + 118 point) byte-for-byte, with zero
+ambiguities.
 
 **No concept of time (§1).** The package has, and for now keeps, *no* notion of time — no
 advection, no time integration, no temporal interpolation, no per-step state. It answers only
@@ -498,6 +527,9 @@ the moving-object abstraction and its dynamics are solver concerns.
   Design, Academic Press, 1974, pp. 317–326.
 
 ## 11. Decision log
+
+*Chronological and append-only — later entries supersede earlier "remaining"/"deferred"
+notes (e.g. the CPU threading and the interpolation layer) rather than contradicting them.*
 
 1. Fields refactor: atomic compatibility predicates; shared
    `_check_same_domain`; `_check_field_matches_context` for transforms.
@@ -561,9 +593,9 @@ the moving-object abstraction and its dynamics are solver concerns.
     task-local `with_threading` ScopedValue override; the GPU path stays on the
     `materialize!` fallback. `[compat] julia` was raised to 1.11 (for ScopedValue).
     Reductions remain deferred (separate FP-ordering design).
-13. Interpolation-layer design fixed (§10, the planned particle-tracking layer):
-    grid→particle **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
-    `interpolate` / `interpolate!`; particle→grid **anterpolation** as `anterpolate` /
+13. Interpolation-layer design fixed (§10):
+    grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
+    `interpolate` / `interpolate!`; point→grid **anterpolation** as `anterpolate` /
     `anterpolate!` — the symmetric named pair, each with allocating, in-place, and
     α/β-accumulate forms (the `mul!` convention, since they are the linear maps `W` / `Wᵀ`);
     only interpolation also has the pointwise callable `f(x)` (the adjoint of interpolation;
@@ -598,3 +630,15 @@ the moving-object abstraction and its dynamics are solver concerns.
     `AbstractFiberSection{T, R}` supertype the fiber-bundle model (§2) invites — and the lift of
     the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
     undertaken.
+16. Phase A module structure fixed (planned; §2, §10). The fiber-bundle model is realized in
+    modules by (a) a new foundation module **`FiberSections`** — the base-agnostic core:
+    `AbstractFiberSection{T,R}`, the section interface, the `_assign!` primitive, and the
+    vertical-algebra code generators (the single home for every fiberwise formula, including the
+    replicated norm/sym/skew/dev); and (b) splitting the current `Interpolation` into **`Points`**
+    (unstructured-base section objects + their generated algebra — a noun peer of `Fields`) and
+    **`Interpolation`** (the transfer maps only — an operation peer of `DifferentialOperators`).
+    The remaining field/point asymmetry is math-mandated: no point differential operators and no
+    second representation, and the point algebra is a small generated emission that folds into
+    `Points` rather than earning a `FieldAlgebra`-sized module. The naming is what gets fixed:
+    objects in noun modules (`Fields`, `Points`), operations in operation modules. Must reproduce
+    both parity baselines (198 + 118) byte-for-byte; not yet undertaken.

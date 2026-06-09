@@ -185,10 +185,13 @@ the per-operation coverage contract.
    FieldAlgebra code generators verbatim over an extended section interface (`field_data` /
    `_vector_component_data` / `_tensor2_component_data`) — no formula written twice — and
    mirrors the *physical* field surface only (point values are representation-free).
-   **Pending:** the transfer kernels (interpolation `f(x)` / anterpolation) and the planned
-   `AbstractFiberSection{T,R}` supertype over fields + point-values that the fiber-bundle model
-   motivates (`docs/ARCHITECTURE.md` §2, §10), which would also lift the inlined
-   norm/sym/skew/dev formulas into shared builders.
+   **Pending (Phase A, planned — `docs/ARCHITECTURE.md` §2, §10):** a new `FiberSections`
+   foundation module (the `AbstractFiberSection{T,R}` supertype, the section interface, and the
+   shared vertical-algebra codegen, incl. the inlined norm/sym/skew/dev formulas); splitting this
+   module into `Points` (the section objects + their algebra, a noun peer of `Fields`) and
+   `Interpolation` (the transfer maps only, a peer of `DifferentialOperators`); and the transfer
+   kernels themselves (interpolation `f(x)` / anterpolation). Must keep both parity baselines
+   byte-identical.
 
 ## Working agreements
 
