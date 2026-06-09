@@ -205,7 +205,7 @@ for separate code by design); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
 the **PointValues algebra** and the **interpolation / anterpolation transfer** (gather, atomic
-scatter, accumulate) added alongside (142 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
+scatter, accumulate, plus a heavy atomic-contention case) added alongside (144 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff

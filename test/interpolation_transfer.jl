@@ -127,4 +127,97 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       @test field(base) ≈ field(shifted) rtol = (T == Float64 ? 1e-12 : 1e-4)
     end
   end
+
+  # Rough / adversarial scenarios: geometry and stencil corners that the random-interior tests
+  # above do not exercise. Float64 (these probe logic, not precision); adjointness and conservation
+  # are exact identities, so they catch axis/origin/wrap/atomic bugs regardless of "niceness".
+  @testset "rough / adversarial scenarios" begin
+    adjoint(field, xs, q, scheme) =
+      isapprox(dot(point_values(interpolate(field, xs, scheme)), point_values(q)),
+               dot(field_data(field), field_data(anterpolate(field_grid(field), xs, q, scheme))); rtol = 1e-9)
+    conserves(grid, xs, q, scheme) =
+      isapprox(sum(field_data(anterpolate(grid, xs, q, scheme))), sum(point_values(q)); rtol = 1e-9)
+
+    @testset "non-zero origin + strongly anisotropic grid" begin
+      # spacings differ by ~400× across axes; origin far from zero and negative on one axis.
+      grid = Grid3D((10, 8, 12), (2π, 0.5, 40.0); origin = (-1.3, 7.0, 100.0))
+      Δ = (2π / 10, 0.5 / 8, 40.0 / 12)
+      origin = (-1.3, 7.0, 100.0)
+      M = 50
+      # interior points (Catmull–Rom stencil stays in-bounds): origin_d + Δ_d*(1.5 .. N_d-2.5)
+      coords = hcat((origin[d] .+ Δ[d] .* (1.5 .+ ((10, 8, 12)[d] - 4) .* rand(M)) for d in 1:3)...)
+      xs = PointSet(coords)
+      lin(x, y, z) = 0.5 + 0.3x - 1.1y + 0.02z
+      v = interpolate(ScalarFieldPhysical(lin, grid), xs)
+      @test point_values(v) ≈ [lin(coords[p, :]...) for p in 1:M] rtol = 1e-9   # per-axis origin/spacing correct
+      q = ScalarPointValues(rand(M))
+      whole = PointSet(hcat((origin[d] .+ ((2π, 0.5, 40.0)[d]) .* rand(M) for d in 1:3)...))
+      @test adjoint(ScalarFieldPhysical(rand(10, 8, 12), grid), whole, q, CatmullRom)
+      @test conserves(grid, whole, q, CatmullRom)
+    end
+
+    @testset "points exactly on grid nodes (t = 0)" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      Δ = 2π / 8
+      field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + sin(z), grid)
+      node_index = [(1, 1, 1), (3, 4, 5), (8, 8, 8), (1, 8, 4)]
+      coords = [Δ * (idx[d] - 1) for idx in node_index, d in 1:3]
+      v = interpolate(field, PointSet(coords))
+      @test point_values(v) ≈ [field_data(field)[idx...] for idx in node_index] rtol = 1e-12  # interpolating property
+    end
+
+    @testset "stencil wider than the grid (degenerate periodic wrap)" begin
+      grid = Grid3D((4, 4, 4), (2π, 2π, 2π))   # n=3 ⇒ 8-node stencil aliases onto 4 nodes
+      scheme = LalescuSpline(3, 0)
+      xs = PointSet(2π .* rand(30, 3))
+      q = ScalarPointValues(rand(30))
+      @test adjoint(ScalarFieldPhysical(rand(4, 4, 4), grid), xs, q, scheme)
+      @test conserves(grid, xs, q, scheme)
+    end
+
+    @testset "heavy atomic-scatter contention" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      # thousands of points crowded into one cell ⇒ massive atomic accumulation on a few nodes
+      coords = 0.25 .* rand(4000, 3)
+      xs = PointSet(coords)
+      q = ScalarPointValues(rand(4000))
+      @test conserves(grid, xs, q, CatmullRom)            # lost atomic updates would break this
+      @test adjoint(ScalarFieldPhysical(rand(8, 8, 8), grid), xs, q, CatmullRom)
+    end
+
+    @testset "tensor order R = 3" begin
+      grid = Grid3D((6, 6, 6), (2π, 2π, 2π))
+      xs = PointSet(2π .* rand(20, 3))
+      f3 = TensorFieldPhysical{3}(rand(6, 6, 6, 3, 3, 3), grid)
+      q3 = TensorPointValues{3}(rand(20, 3, 3, 3))
+      @test interpolate(f3, xs) isa TensorPointValues{3}
+      @test adjoint(f3, xs, q3, CatmullRom)
+      @test conserves(grid, xs, q3, CatmullRom)
+    end
+
+    @testset "smooth higher schemes (n,m) = (2,1) and (3,2)" begin
+      grid = Grid3D((20, 20, 20), (2π, 2π, 2π))
+      Δ = 2π / 20
+      M = 40
+      coords = Δ .* (4.0 .+ 11.0 .* rand(M, 3))   # interior (stencil up to 8 stays in-bounds)
+      xs = PointSet(coords)
+      quad(x, y, z) = 1.0 + x - 0.5y^2 + 0.3x * z
+      whole = PointSet(2π .* rand(M, 3))
+      q = ScalarPointValues(rand(M))
+      for scheme in (LalescuSpline(2, 1), LalescuSpline(3, 2))
+        vq = interpolate(ScalarFieldPhysical(quad, grid), xs, scheme)
+        @test point_values(vq) ≈ [quad(coords[p, :]...) for p in 1:M] rtol = 1e-8   # reproduces ≤ quadratic
+        @test adjoint(ScalarFieldPhysical(rand(20, 20, 20), grid), whole, q, scheme)
+        @test conserves(grid, whole, q, scheme)
+      end
+    end
+
+    @testset "single point (M = 1)" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      xs = PointSet(reshape([1.1, 2.2, 0.7], 1, 3))
+      @test length(point_values(interpolate(ScalarFieldPhysical((x, y, z) -> sin(x), grid), xs))) == 1
+      q = ScalarPointValues([2.5])
+      @test sum(field_data(anterpolate(grid, xs, q))) ≈ 2.5 rtol = 1e-12
+    end
+  end
 end

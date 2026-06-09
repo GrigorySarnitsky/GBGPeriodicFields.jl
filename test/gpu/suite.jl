@@ -276,6 +276,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         anterpolate!(host_accumulated, host_points, host_quantities, CatmullRom, T(1), T(1))
         @test matches(device_accumulated, host_accumulated)
       end
+      # heavy atomic-scatter contention: thousands of points crowded into one cell, so the device
+      # atomics take many concurrent adds to a few nodes — a race would make this differ from CPU.
+      crowded = PointSet(T(0.3) .* rand(T, 3000, 3))
+      crowded_quantities = ScalarPointValues(rand(T, 3000))
+      @test matches(anterpolate(grid, on_device_ps(crowded), on_device_pv(crowded_quantities)),
+                    anterpolate(grid, crowded, crowded_quantities))
     end
 
   end

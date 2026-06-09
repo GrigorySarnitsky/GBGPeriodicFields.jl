@@ -153,7 +153,7 @@ the per-operation coverage contract.
    `FieldSpectralMultipliers(grid, layout, k1, k2, k3)` constructor is gone by design —
    use the field convenience constructor or the explicit six-array form.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, 1027 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, 1046 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the spectral zero-mode invariant, in-place forms and the unary alias guards, the
@@ -166,7 +166,9 @@ the per-operation coverage contract.
    point-data types. `test/pointvalues_algebra.jl`: the point-value M2 + M3 surface checked
    against per-point references, Float64/Float32. `test/interpolation_transfer.jl`: the Lalescu-spline
    transfer — interior polynomial reproduction, adjointness `⟨Wf,q⟩=⟨f,Wᵀq⟩`, conservation, α/β,
-   periodicity, and the Lagrange/Catmull–Rom weight limits. `test/eltype_genericity.jl`:
+   periodicity, the Lagrange/Catmull–Rom weight limits, and adversarial corners (non-zero origin /
+   anisotropic grid, on-node points, stencil-wider-than-grid, heavy atomic-scatter contention, R=3,
+   the smooth `(2,1)`/`(3,2)` schemes). `test/eltype_genericity.jl`:
    a representative cross-section in Float64 and Float32, asserting element-type
    preservation. `test/method_parity.jl`:
    the full 198-method field baseline + the 118-method point-value baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
