@@ -23,6 +23,7 @@ using Test
 using GBGPeriodicFields
 
 const F = GBGPeriodicFields.Fields
+const IP = GBGPeriodicFields.Interpolation
 const ELEMENT_TYPES = (Float64, Float32)
 
 # Two analytic 3x3 tensor fields, matching test/fieldalgebra.jl. Element-type
@@ -33,6 +34,9 @@ tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 # A device twin of `field`: same field type, grid, and layout; data copied to the
 # device. `to_device` is supplied by the backend entry script.
 on_device(field) = F.similar_field(field, to_device(copy(field_data(field))))
+
+# A device twin of point values: same type and tensor order, data copied to the device.
+on_device_pv(values) = IP.similar_pointvalues(values, to_device(copy(point_values(values))))
 
 
 function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
@@ -154,6 +158,59 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(dev(Ad), dev(A))
       @test matches(norm(sd), norm(s))
       @test matches(norm(ud), norm(u))
+      @test matches(norm(Ad), norm(A))
+    end
+
+    @testset "PointValues algebra" begin
+      M = 12
+      sv = ScalarPointValues(rand(T, M) .+ T(1))     # nonzero everywhere (division)
+      vv = VectorPointValues(rand(T, M, 3)); vv2 = VectorPointValues(rand(T, M, 3))
+      A = TensorPointValues(rand(T, M, 3, 3)); B = TensorPointValues(rand(T, M, 3, 3))
+      a = FiberVector{T}(T(0.3), T(-0.7), T(1.1))
+      Af = FiberTensor2{T}(T(0.2), T(0.5), T(-0.3), T(0.7), T(0.1), T(0.9), T(-0.4), T(0.6), T(0.8))
+      svd, vvd, vvd2, Ad, Bd = on_device_pv.((sv, vv, vv2, A, B))
+
+      # vector space, scaling, fused dotted assignment into device storage
+      @test matches(vvd + vvd2, vv + vv2)
+      @test matches(T(2.5) * vvd, T(2.5) * vv)
+      @test matches(vvd / T(4), vv / T(4))
+      device_dest = IP.similar_pointvalues(vvd, Val(1)); host_dest = IP.similar_pointvalues(vv, Val(1))
+      @. device_dest = vvd - vvd2
+      @. host_dest = vv - vv2
+      @test matches(device_dest, host_dest)
+
+      # scalar-field products, ± constant fiber, scalar × fiber, division
+      @test matches(svd * vvd, sv * vv)
+      @test matches(vvd / svd, vv / sv)
+      @test matches(vvd + a, vv + a)
+      @test matches(Ad + Af, A + Af)
+      @test matches(svd * a, sv * a)
+      @test matches(a / svd, a / sv)
+
+      # contractions
+      @test matches(dot(vvd, vvd2), dot(vv, vv2))
+      @test matches(cross(vvd, vvd2), cross(vv, vv2))
+      @test matches(dot(Ad, Bd), dot(A, B))
+      @test matches(Ad * vvd, A * vv)
+      @test matches(vvd * Ad, vv * A)
+      @test matches(Ad * Bd, A * B)
+
+      # mul! five-argument: accumulate (β ≠ 0) and overwrite (β = 0, NaN-prefilled)
+      host_acc = T(2) * (A * vv); device_acc = on_device_pv(host_acc)
+      mul!(host_acc, A, vv, T(3), T(5)); mul!(device_acc, Ad, vvd, T(3), T(5))
+      @test matches(device_acc, host_acc)
+      device_ow = IP.similar_pointvalues(vvd, Val(1)); fill!(point_values(device_ow), T(NaN))
+      host_ow = IP.similar_pointvalues(vv, Val(1)); fill!(point_values(host_ow), T(NaN))
+      mul!(device_ow, Ad, vvd, T(1), T(0)); mul!(host_ow, A, vv, T(1), T(0))
+      @test matches(device_ow, host_ow)
+      @test matches(device_ow, A * vv)              # NaNs gone ⇒ overwrite, not accumulate
+
+      # transpose, decompositions, norms
+      @test matches(transpose(Ad), transpose(A))
+      @test matches(sym(Ad), sym(A))
+      @test matches(skew(Ad), skew(A))
+      @test matches(dev(Ad), dev(A))
+      @test matches(norm(vvd), norm(vv))
       @test matches(norm(Ad), norm(A))
     end
 

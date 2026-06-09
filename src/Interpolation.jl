@@ -30,8 +30,13 @@ while its adjoint is not (see below). Route both directions through one shared `
 use the same weights — which is what makes them an adjoint pair.
 
 Method choice (the Lalescu local splines), terminology, and GPU rationale are recorded in
-`docs/ARCHITECTURE.md` §10. This module is a documented scaffold; the kernels are not yet
-implemented.
+`docs/ARCHITECTURE.md` §10.
+
+The **data types** above and their **full fiberwise algebra** — the fields' physical surface
+(`+`, scaling, `dot`, `cross`, `mul!`, `transpose`, `norm`, `sym`/`skew`/`dev`, … with
+storage-wise broadcasting), generated from the same FieldAlgebra builders — are implemented and
+tested. The **transfer kernels** (`f(x)` / `interpolate` / `anterpolate!`) are the remaining
+piece and are not yet implemented.
 
 # Why interpolation and anterpolation are adjoint: the function–measure duality
 

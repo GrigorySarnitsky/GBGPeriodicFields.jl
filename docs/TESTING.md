@@ -195,8 +195,9 @@ the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-defini
 Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmholtz
 projection — with the L² inner product computed inline (global L² products are reserved
 for separate code by design); and GPU
-parity on ROCm across `Float64` and `Float32` (74 checks on an AMD Radeon,
-`allowscalar(false)`), including the `mul!` `β = 0` / `β ≠ 0` branches; and CPU threading — every threaded assignment is bitwise-identical to serial
+parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
+surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
+the **PointValues algebra** added alongside (124 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
