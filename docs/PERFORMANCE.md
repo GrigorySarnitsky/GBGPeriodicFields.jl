@@ -1,0 +1,237 @@
+# Performance — GBGPeriodicFields
+
+This is the third companion to [`ARCHITECTURE.md`](architecture.md) and
+[`TESTING.md`](testing.md): where those explain *why* the package is built as it is and *how* its
+correctness is checked, this one explains *how performance is reasoned about, measured, and tracked*.
+Read it before optimizing anything or adding a benchmark. The throughline is the same as for tests:
+a performance claim is only as good as the independent measurement behind it — and on the platform
+that matters.
+
+
+## 1. Philosophy
+
+**Memory-bound, GPU-first, measure-don't-guess.** Three principles set everything below.
+
+- **The baseline is memory bandwidth, not flops.** Every operation here has *low arithmetic
+  intensity* — a handful of floating-point operations per element moved (§2). So "fast" means
+  "moving the necessary bytes efficiently," and adding cores or tuning arithmetic helps only until
+  the memory system saturates. The roofline ceiling for this package is the bandwidth roof, not the
+  compute roof ([roofline](https://developer.nvidia.com/blog/accelerating-hpc-applications-with-nsight-compute-roofline-analysis/)).
+- **GPU-first (invariant 6).** Production runs on the GPU; the CPU path is for development, testing,
+  and small problems. When an optimization helps one platform and hurts the other — which *happens*,
+  and is proven below — the GPU wins. CPU multithreading is a supported feature (`docs/ARCHITECTURE.md`
+  §9), but it is not the platform performance is optimized *for*.
+- **Measure before you optimize, and measure on the production platform.** No optimization is kept
+  without a same-session A/B showing it helps the GPU. This session's record is instructive: of the
+  candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
+  hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
+  *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
+
+Two scope notes carried from the architecture: **reductions are deferred** (energy/enstrophy
+integrals need a separate floating-point-ordering design, `docs/ARCHITECTURE.md` §9), so there are
+no reduction benchmarks yet; and **platform optima diverge**, so every result below is reported per
+platform, never as a single number.
+
+
+## 2. The performance model
+
+What bounds each public operation class — the mental model a benchmark either confirms or refutes.
+
+- **FFT transforms** (`to_physical`/`to_spectral`) → bound by **FFTW** (CPU) / **rocFFT** (GPU). The
+  package adds only the normalization convention and the fiber-last layout (`docs/ARCHITECTURE.md`
+  §3–4); the transform itself is the library's. Not something we tune — but the dominant cost of any
+  spectral step, so it is benchmarked to track the libraries and our plan/layout overhead.
+- **Field algebra (M2 + M3) and spectral differential operators** → **memory-bandwidth-bound**. A
+  fiberwise add, contraction, or wavenumber multiply reads and writes `O(1)` numbers per grid point
+  and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
+  on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
+  §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
+- **The grid↔point transfer** (`interpolate`/`anterpolate`) → the subtle one. Each point gathers (or
+  scatters) a `(2n+2)³` stencil with data-dependent indices, so it is bound by **irregular memory
+  access**, and the binding *differs by platform*:
+  - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
+    flight at once to hide latency
+    ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
+    Scattered (unsorted) points naturally *spread* access and feed that parallelism; and at the
+    grids we run the field is largely **cache-resident** (a 256³ `Float32` field is 67 MB, inside the
+    RX 6700 XT's 96 MB Infinity Cache), so there is little locality left to win.
+  - **CPU**: bound by the cache hierarchy + hardware prefetchers, which *reward* locality — the
+    opposite pull.
+
+  This single fact — GPU wants spread, CPU wants locality — explains the platform-divergent results
+  in §4 (loop order, sorting) and is the most important thing to internalize before touching the
+  transfer.
+
+
+## 3. Best practices
+
+Short checklists, each grounded in an external reference. Most are already enforced by the
+architecture or the tests; they are collected here so an optimizer has them in one place.
+
+**Julia** (Julia [Performance Tips](https://docs.julialang.org/en/v1/manual/performance-tips/);
+[Modern Julia Workflows](https://modernjuliaworkflows.org/optimizing/)):
+
+- **Type stability** — non-concrete types force boxing and allocation. Checked package-wide by
+  `test/jet.jl` (`JET.@test_call`).
+- **Zero allocations in hot paths** — an unexpected allocation almost always signals a type problem.
+  Prefer the in-place `!` forms; allocate scratch once and reuse. (`@allocated`/BenchmarkTools report it.)
+- **`@inbounds` in kernels**, **isbits / `SVector` kernel arguments** (so the spline coefficient
+  matrices pass into GPU kernels *by value*, no device array), and **fused broadcasts through
+  `_assign!`** rather than a bare `.=` (the codegen + threading contract, `docs/ARCHITECTURE.md` §9).
+- **Allocate via `similar`/`similar_field`** so results inherit the input's backend (the one-line
+  reason a CPU-written method runs on a `ROCArray` unchanged).
+
+**GPU** (ROCm/HIP [performance guidelines](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)):
+
+- **No scalar indexing of device arrays** (invariant 6) — a checked guarantee under
+  `allowscalar(false)` in both the test and benchmark GPU runs.
+- **Favour spread access for memory-level parallelism**, and **loop the contiguous (`x`) axis
+  innermost** so per-thread stencil access is stride-1 (§4 measured this at up to 3.9×).
+- **Minimize host↔device transfer**; keep fields resident on the device. **Allocate once, operate
+  in place.**
+
+**Methodology** (BenchmarkTools.jl [manual](https://juliaci.github.io/BenchmarkTools.jl/)):
+
+- **Warm up** (compile) before timing; **synchronize the backend** — GPU work is asynchronous, so an
+  un-synced timer measures launch latency, not the kernel (the suite's `bench_sync`).
+- **Report the minimum** of many samples (least-noise estimator) alongside the median.
+- **Same-session A/B**: build both variants and time them on identical data in one process — the only
+  reliable way to resolve a difference smaller than the ~10% run-to-run variance.
+- **Control the thread count** (`-t1` vs `-t4`), and **always confirm on the GPU** before keeping an
+  optimization (platform divergence is real, §4).
+
+
+## 4. What we have found
+
+Measured on the home **AMD Radeon RX 6700 XT** (gfx1030, 12 GB, 96 MB Infinity Cache, ~384 GB/s
+peak) and **Intel i7-12700K** (8 P-cores), `Float32`, ~1 particle per 27 grid cells. These are the
+cumulative results of the transfer-layer optimization work; the benchmark suite (§5) regenerates the
+tracked subset on demand.
+
+**(a) Memory-bound, and smoothness is free.** Interpolation runs at ~12% of peak bandwidth at 256³;
+cost scales with the stencil *volume* `(2n+2)³`, and the spline degree (`m`) is invisible — the
+weight polynomials hide under memory latency. So pick the smoothness for accuracy, never for speed.
+
+| gather scheme | stencil | GPU 256³ (621k pts) | throughput |
+|---|---|---|---|
+| trilinear `LalescuSpline(0,0)` | 2³ = 8 | 0.51 ms | 1230 Mpts/s |
+| Catmull–Rom `(1,1)` | 4³ = 64 | 3.55 ms | 175 Mpts/s |
+| Lalescu `(3,m)` | 8³ = 512 | 28.0 ms (flat in `m`) | 22 Mpts/s |
+
+**(b) Loop order — contiguous axis innermost (KEPT).** Iterating the contiguous `x` axis innermost
+(stride-1 stencil access) vs `z`-innermost (stride `Nx·Ny`):
+
+| | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
+|---|---|---|---|
+| speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | **0.75×** (regression) |
+
+Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the strided access and its
+`z`-inner form vectorizes better, but the GPU is the production platform.
+
+**(c) Rejected by measurement.** Two "obvious" optimizations that did not survive:
+
+- **Wrap-hoist** (precompute the `3·(2n+2)` periodic node offsets to kill inner-loop `mod`s):
+  bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
+  occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound.
+- **Morton particle sorting** (the textbook GPU-locality optimization): **0.5–1.0× on GPU** (gather)
+  — concentrating access *kills* the memory-level/DRAM-bank parallelism the GPU needs, and the field
+  is cache-resident anyway — though **2.2–4.4× on CPU**. The companion **atomic-free node-centric
+  scatter** is correct, conserving and bit-**deterministic**, but **6–24× slower on GPU**: at our
+  sparse 1-per-27 density it traverses ~27× more (empty) reverse-stencil cells than the atomic
+  scatter touches particles. Sorting + node-centric deposition is a *dense*-particle (PIC) technique;
+  wrong for this regime. (If deterministic anterpolation ever becomes a hard requirement, it is the
+  available — slow-at-sparse — answer.)
+
+**(d) Anterpolation and contention.** The scatter costs ≈**2.2–2.7×** the gather (atomic
+read-modify-write + a full-grid prescale). On gfx1030 `Float32` atomic-add is native but `Float64`
+is emulated (CAS loop) ⇒ ≈**1.3–1.7×** slower; contention is worst at *moderate* clustering
+(~2 pts/cell), not extreme (extreme stays cache-hot).
+
+**(e) CPU vs GPU.** The transfer threads on CPU through KernelAbstractions' `CPU()` backend with no
+code change, scaling ≈**4.5–5.7×** on 8 threads before the bandwidth plateau; the GPU is ≈**9–22×**
+the 8-thread CPU (≈ the 384-vs-~60 GB/s bandwidth ratio for the heavy schemes, more for the light
+ones via parallelism).
+
+
+## 5. The benchmark suite
+
+A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
+`Pkg.test()`, exactly like the GPU tests. `build_suite(; array_type, types, sizes)` builds a
+`BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
+`ROCArray`/`CuArray` on GPU — the same trick `test/gpu/suite.jl` uses with `to_device`), so one suite
+runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
+
+Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
+operators**, and the **interpolation/anterpolation transfer**. Run it:
+
+```sh
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time
+julia --project=benchmark -t1 benchmark/runbenchmarks.jl       # serial lane
+julia --project=benchmark -t4 benchmark/runbenchmarks.jl       # threaded lane
+julia --project=benchmark/gpu/rocm benchmark/gpu/rocm/runbenchmarks.jl   # GPU (on hardware)
+```
+
+The tracked SUITE uses **modest grids (64³, 128³)** for fast, repeatable, regression-sensitive
+runs; the large characterisation sweep behind §4 (256³/512³) is reachable with `build_suite(; sizes
+= (256,))`. Manifests are gitignored (repo convention); each environment reproduces from its
+`Project.toml`.
+
+**The coverage contract.** Every public operation is benchmarked over **{Float64, Float32} ×
+{representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}**. New code adds its benchmark to the
+matching per-class file — the performance analogue of the test coverage contract (`TESTING.md` §4).
+
+
+## 6. Tracking regressions, and per-platform results
+
+**Workflow (manual, BenchmarkTools).** Save a baseline, then `judge` a later run against it on the
+minimum-time estimates:
+
+```sh
+julia --project=benchmark benchmark/runbenchmarks.jl save results/cpu-baseline.json
+julia --project=benchmark benchmark/runbenchmarks.jl judge results/cpu-baseline.json   # :regression / :improvement / :invariant
+```
+
+Because CI runners have no GPU, **GPU tracking is manual**: run the GPU suite on the device and
+record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Project.toml` + a
+2-line `runbenchmarks.jl`); the suite needs no changes.
+
+**Recorded baselines** — tracked SUITE, `128³`, `Float64`, minimum time. CPU = i7-12700K
+(`-t1`/`-t4`), GPU = RX 6700 XT. Regenerate with the commands above; absolute numbers carry ~10%
+jitter (§7), so read them as magnitudes.
+
+| operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU |
+|---|---|---|---|
+| `to_spectral` scalar (FFT) | 7.10 ms | 3.90 ms | 0.41 ms |
+| `mul!` tensor·vec (M3 algebra) | 13.5 ms | 11.1 ms | 0.99 ms |
+| `laplacian!` scalar (operator) | 2.94 ms | 2.77 ms | 0.21 ms |
+| `interpolate!` Catmull–Rom (gather) | 13.5 ms | 3.51 ms | 0.28 ms |
+| `interpolate!` Lalescu (3,3) (gather) | 84.3 ms | 22.0 ms | 1.60 ms |
+| `anterpolate!` Catmull–Rom (scatter) | 29.5 ms | 7.63 ms | 0.67 ms |
+
+Two patterns the full run makes plain. **The bandwidth-bound classes barely thread** at this size —
+algebra and operators gain ≤1.2× from 4 threads (the cheapest, `add!`, even regresses: it is already
+DRAM-bandwidth-saturated on one core), confirming §2. **The transfer threads well** (≈3.8× on the
+Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads by
+~10–50×**, widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
+streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; see the suite output for
+the full type × size × backend matrix.)
+
+
+## 7. Current coverage and known gaps
+
+**Covered:** the four public operation classes (FFT, algebra, operators, transfer) parameterised by
+element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one device-parameterised
+suite; the recorded RX 6700 XT + i7-12700K results above; the manual save→`judge` regression workflow.
+
+**Gaps:**
+
+1. **Reductions** — none exist yet (energy/enstrophy integrals are deferred pending a
+   floating-point-ordering design, `docs/ARCHITECTURE.md` §9); add benchmarks when they land.
+2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
+   supports it via `array_type = CuArray`).
+3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
+   [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
+   comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
+4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
+   comparisons are only meaningful within a single session (hence the same-session A/B discipline of
+   §3); the tables here are indicative magnitudes, not contract values.

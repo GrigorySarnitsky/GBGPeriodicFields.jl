@@ -1,12 +1,13 @@
-# Manual CPU-threading benchmark (NOT part of Pkg.test). Run at a chosen thread count:
+# Manual CPU-threading comparison (NOT part of the tracked SUITE). Run at a chosen thread count:
 #
-#   julia -t1 --project=. bench/threading.jl
-#   julia -t8 --project=. bench/threading.jl
+#   julia --project=benchmark -t1 benchmark/threading.jl
+#   julia --project=benchmark -t8 benchmark/threading.jl
 #
-# Reports serial-vs-threaded wall time for a few representative in-place operations at
-# several grid sizes, using the `with_threading` override so both run in the same process.
-# (FFTs thread separately via FFTW, fixed at the load-time `Threads.nthreads()` — to see
-# their scaling, run this script at different `-t`.)
+# Reports serial-vs-threaded wall time for a few representative in-place operations at several grid
+# sizes, using the `with_threading` override so both run in the same process. (FFTs thread separately
+# via FFTW, fixed at the load-time `Threads.nthreads()` — to see their scaling, run at different `-t`.)
+# The op-by-op SUITE (benchmark/runbenchmarks.jl) run under `-t1` vs `-t4` gives the per-op thread
+# scaling; this script is the complementary same-process serial-vs-forced check.
 
 using GBGPeriodicFields
 const F = GBGPeriodicFields.Fields

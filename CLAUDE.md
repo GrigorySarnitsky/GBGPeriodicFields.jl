@@ -111,7 +111,9 @@ never docstrings", which governs generated methods, not the hand-written builder
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
-the per-operation coverage contract.
+the per-operation coverage contract. Before optimizing or benchmarking, read
+`docs/PERFORMANCE.md` — the performance model, best practices, recorded findings, and the
+benchmark coverage contract.
 
 "Should work" is not done. Minimum bar for any change:
 
@@ -128,6 +130,9 @@ the per-operation coverage contract.
   environments under `test/gpu/` (`rocm/` now, `cuda/` later) run a backend-agnostic
   suite with scalar indexing disabled. Run on a machine with a device, e.g.
   `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl` (see `test/gpu/README.md`).
+- Benchmarks are **opt-in and separate** too (not part of `Pkg.test()`): the `benchmark/` suite
+  (`docs/PERFORMANCE.md`). For a perf-relevant change, run `benchmark/runbenchmarks.jl` and `judge`
+  against a saved baseline before/after — and confirm on the GPU, since platform optima diverge.
 - Consult `Project.toml` for dependencies and versions; do not assume.
 
 ## Current state and roadmap

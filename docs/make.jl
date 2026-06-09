@@ -6,11 +6,11 @@ function remove_jupyter_files()
   foreach(p -> rm(p; recursive = true), dirs)
 end
 
-# Render the design-rationale docs into the site without moving them: ARCHITECTURE.md
-# and TESTING.md stay the single sources (referenced by CLAUDE.md), copied into src/ at
-# build time. The copies (src/architecture.md, src/testing.md) are gitignored.
+# Render the design-rationale docs into the site without moving them: ARCHITECTURE.md,
+# TESTING.md, and PERFORMANCE.md stay the single sources (referenced by CLAUDE.md), copied
+# into src/ at build time. The copies (src/architecture.md, …) are gitignored.
 function copy_rationale_pages()
-  for name in ("ARCHITECTURE.md", "TESTING.md")
+  for name in ("ARCHITECTURE.md", "TESTING.md", "PERFORMANCE.md")
     cp(joinpath(@__DIR__, name), joinpath(@__DIR__, "src", lowercase(name)); force = true)
   end
 end
@@ -51,6 +51,7 @@ makedocs(
     "Design & Internals" => Any[
       "Architecture" => "architecture.md",
       "Testing"      => "testing.md",
+      "Performance"  => "performance.md",
     ],
   ]
 )

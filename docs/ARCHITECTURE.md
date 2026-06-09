@@ -311,7 +311,9 @@ the compatibility enforcement for broadcast-mediated methods (§5).
 Elementwise field operations are memory-bandwidth-bound streaming; FFTs dominate
 asymptotically. Both are now threaded on CPU (shared memory). On GPU, broadcasting and
 the device FFT libraries already launch parallel kernels, so the CPU threading is
-dispatched away (below).
+dispatched away (below). The full performance model (per operation class), the externally
+sourced best practices, the recorded benchmark findings, and the tracked benchmark suite
+live in the companion [`PERFORMANCE.md`](performance.md).
 
 **FFTs.** FFTW threading is baked in at **plan time**, so the package's `__init__` calls
 `FFTW.set_num_threads(Threads.nthreads())` before any `FieldTransformPlans` is built
