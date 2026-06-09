@@ -1,10 +1,10 @@
 # Testing — GBGPeriodicFields
 
-This is the companion to [`ARCHITECTURE.md`](architecture.md): where that document
-explains why the *package* is built the way it is, this one explains how the *tests*
-are built and what they must cover. Read it before adding or changing tests. The goal
-is not a test count — it is that every claim the package makes is checked against
-something independent of the package.
+This is one of three design companions: [`ARCHITECTURE.md`](architecture.md) explains why the
+*package* is built the way it is, [`PERFORMANCE.md`](performance.md) how it performs and is
+benchmarked, and this one explains how the *tests* are built and what they must cover. Read it
+before adding or changing tests. The goal is not a test count — it is that every claim the package
+makes is checked against something independent of the package.
 
 
 ## 1. Philosophy
@@ -173,6 +173,8 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   the *running* version, so it does not catch version-divergence (that is the CI matrix's job).
 - CI (`.github/workflows/CI.yml`) runs the full suite on push across Julia 1.11 (the compat
   floor) and stable, at `-t1` and `-t4` respectively.
+- **Performance is tracked separately**, not by `Pkg.test()`: the opt-in `benchmark/` suite and its
+  coverage contract live in [`PERFORMANCE.md`](performance.md) (the third design companion).
 
 
 ## 7. Current coverage and known gaps
