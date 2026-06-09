@@ -322,15 +322,18 @@ end
       grid_x, grid_y, grid_z = grid_size
       for fibre in 1:number_of_fibres
         accumulated = zero(eltype(output))
-        for i in 1:number_of_nodes
-          node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
+        # Contiguous (x) axis innermost ⇒ stride-1 stencil reads: a GPU-first choice (measured a
+        # large GPU speedup from cache/transaction reuse; mildly slower on CPU, whose larger caches
+        # absorb the stride — invariant 6 prioritises GPU). y/z weight and plane offset are hoisted.
+        for k in 1:number_of_nodes
+          node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
           for j in 1:number_of_nodes
             node_y = mod(base_2 + (j - 1 - neighbourhood), grid_y) + 1
-            weight_xy = weights_1[i] * weights_2[j]
-            for k in 1:number_of_nodes
-              node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
-              linear = node_x + grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
-              accumulated += weight_xy * weights_3[k] * field_values[linear]
+            weight_yz = weights_2[j] * weights_3[k]
+            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            for i in 1:number_of_nodes
+              node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
+              accumulated += weight_yz * weights_1[i] * field_values[node_x + plane]
             end
           end
         end
@@ -366,15 +369,17 @@ end
       grid_x, grid_y, grid_z = grid_size
       for fibre in 1:number_of_fibres
         quantity = factor * point_quantities[point + number_of_points * (fibre - 1)]
-        for i in 1:number_of_nodes
-          node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
+        # Contiguous (x) axis innermost ⇒ stride-1 scatter writes (same GPU-first rationale as the
+        # gather's reads). y/z weight and plane offset are hoisted out of the inner loop.
+        for k in 1:number_of_nodes
+          node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
           for j in 1:number_of_nodes
             node_y = mod(base_2 + (j - 1 - neighbourhood), grid_y) + 1
-            weight_xy = weights_1[i] * weights_2[j]
-            for k in 1:number_of_nodes
-              node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
-              linear = node_x + grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
-              Atomix.@atomic field_values[linear] += weight_xy * weights_3[k] * quantity
+            weight_yz = weights_2[j] * weights_3[k]
+            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            for i in 1:number_of_nodes
+              node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
+              Atomix.@atomic field_values[node_x + plane] += weight_yz * weights_1[i] * quantity
             end
           end
         end

@@ -668,4 +668,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **Atomix** (new dep); both index the native arrays linearly, so one kernel serves
     scalar/vector/tensor orders. Adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation hold to roundoff;
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
-    (ROCm). Physical-space only. The L²/volume-weighted adjoint remains a future refinement.
+    (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
+    (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
+    Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
+    The L²/volume-weighted adjoint remains a future refinement.
