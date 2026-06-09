@@ -38,6 +38,9 @@ on_device(field) = F.similar_field(field, to_device(copy(field_data(field))))
 # A device twin of point values: same type and tensor order, data copied to the device.
 on_device_pv(values) = IP.similar_pointvalues(values, to_device(copy(point_values(values))))
 
+# A device twin of a point set: coordinates copied to the device.
+on_device_ps(point_set) = PointSet(to_device(copy(point_coordinates(point_set))))
+
 
 function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
   grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))   # mixed parity (even, odd, even)
@@ -250,6 +253,29 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       A_spec_d = to_spectral(Ad, plans_for(Ad))
       @test matches(transpose(A_spec_d), transpose(A_spec_h))
       @test matches(sym(A_spec_d), sym(A_spec_h))
+    end
+
+    @testset "interpolation / anterpolation (Lalescu splines)" begin
+      number_of_points = 50
+      host_points = PointSet(T(2π) .* rand(T, number_of_points, 3))
+      device_points = on_device_ps(host_points)
+      cases = ((ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid),  ScalarPointValues(rand(T, number_of_points))),
+               (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid), VectorPointValues(rand(T, number_of_points, 3))),
+               (TensorFieldPhysical{2}(tensor_a, grid),                            TensorPointValues{2}(rand(T, number_of_points, 3, 3))))
+      for (host_field, host_quantities) in cases
+        device_field = on_device(host_field)
+        device_quantities = on_device_pv(host_quantities)
+        # gather
+        @test matches(interpolate(device_field, device_points), interpolate(host_field, host_points))
+        # scatter (allocating)
+        @test matches(anterpolate(grid, device_points, device_quantities), anterpolate(grid, host_points, host_quantities))
+        # scatter accumulate (β = 1) exercises the atomic add on top of existing data
+        device_accumulated = anterpolate(grid, device_points, device_quantities)
+        host_accumulated = anterpolate(grid, host_points, host_quantities)
+        anterpolate!(device_accumulated, device_points, device_quantities, CatmullRom, T(1), T(1))
+        anterpolate!(host_accumulated, host_points, host_quantities, CatmullRom, T(1), T(1))
+        @test matches(device_accumulated, host_accumulated)
+      end
     end
 
   end

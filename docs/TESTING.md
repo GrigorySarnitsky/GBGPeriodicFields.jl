@@ -51,8 +51,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`, `interpolation.jl` (the point-data types) and
-  `pointvalues_algebra.jl` (the point-value M2 + M3 surface), plus
+  `differentialoperators.jl`, `interpolation.jl` (the point-data types),
+  `pointvalues_algebra.jl` (the point-value M2 + M3 surface), and
+  `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
@@ -203,7 +204,8 @@ projection — with the L² inner product computed inline (global L² products a
 for separate code by design); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
-the **PointValues algebra** added alongside (124 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
+the **PointValues algebra** and the **interpolation / anterpolation transfer** (gather, atomic
+scatter, accumulate) added alongside (142 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff

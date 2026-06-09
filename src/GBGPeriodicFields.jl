@@ -184,6 +184,15 @@ using .Points:
   npoints
 
 
+using .Interpolation:
+  interpolate,
+  interpolate!,
+  anterpolate,
+  anterpolate!,
+  LalescuSpline,
+  CatmullRom
+
+
 export FiberVector,
        FiberTensor2,
        FiberTensor3,
@@ -258,7 +267,13 @@ export FiberVector,
        point_coordinates,
        point_values,
        pointvalue_tensor_order,
-       npoints
+       npoints,
+       interpolate,
+       interpolate!,
+       anterpolate,
+       anterpolate!,
+       LalescuSpline,
+       CatmullRom
 
 
 function __init__()
