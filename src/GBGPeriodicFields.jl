@@ -85,6 +85,7 @@ module GBGPeriodicFields
 include("Fields.jl")
 include("FieldAlgebra.jl")
 include("DifferentialOperators.jl")
+include("Interpolation.jl")
 
 
 using .Fields:

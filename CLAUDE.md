@@ -18,7 +18,8 @@ single-source, and keep it updated when new project rules are established.
 - `src/Fields.jl` — types (`Grid3D`, `RealFourierLayout`, field types; `FiberVector{T} = SVector{3,T}`, `FiberTensor2{T} = SMatrix{3,3,T,9}`, plus `FiberTensor3/4`), memory layout, broadcast style, compatibility checks, `FieldTransformPlans`, `FieldSpectralMultipliers`.
 - `src/FieldAlgebra.jl` — fiberwise/pointwise algebra; method families emitted by code generators.
 - `src/DifferentialOperators.jl` — spectral operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`, in-place variants). Imports `FieldSpectralMultipliers` and its compatibility/broadcast helpers from Fields; the umbrella re-exports the Fields version. Owns only the spectral kernels and the operators.
-- Include order: Fields → FieldAlgebra → DifferentialOperators. Cross-module access only through explicit `using ..Fields: name, ...` lists — never a bare `using ..Fields`.
+- `src/Interpolation.jl` — **documented scaffold (not yet implemented)** for the planned Lagrangian particle-tracking layer: interpolation (grid→particle, `f(x)`) and its adjoint **anterpolation** (particle→grid). Carries the module docstring with the adjointness/conservation justification; the method choice (Lalescu splines) and full rationale live in `docs/ARCHITECTURE.md` §10. No exports yet.
+- Include order: Fields → FieldAlgebra → DifferentialOperators → Interpolation. Cross-module access only through explicit `using ..Fields: name, ...` lists — never a bare `using ..Fields`.
 
 ## Core invariants — do not violate
 

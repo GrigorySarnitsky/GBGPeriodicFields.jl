@@ -14,7 +14,8 @@ provides scalar, vector, and second-order tensor fields with two storage
 representations — physical space and real-to-complex (rfft) spectral space — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
 algebra (FieldAlgebra), and spectral differential operators (DifferentialOperators).
-Lagrangian particle interpolation is a planned later layer. The same code must run
+Lagrangian particle interpolation — and its adjoint, anterpolation — is a planned
+later layer (§10). The same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
 prioritizes GPU correctness and performance first.
 
@@ -269,7 +270,114 @@ socket bandwidth over single-core (typically 2–6×; more on multi-socket nodes
 pinning and NUMA first-touch matter — ThreadPinning.jl — a consumer concern, since the
 package allocates serially via `similar`).
 
-## 10. Decision log
+## 10. Interpolation and anterpolation (the planned particle-tracking layer)
+
+Lagrangian particle tracking (§1) requires two transfer operations between the
+Eulerian fields and the off-grid particle positions. They are formal adjoints of one
+another, and the package gives each a fixed name:
+
+- **Interpolation** — grid → particle (the *gather* direction): allocating
+  `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the
+  callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
+- **Anterpolation** — particle → grid (the *scatter* direction): allocating
+  `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`,
+  depositing per-particle quantities onto a field. Both operations carry the usual
+  allocating / in-place (`!`) pair and a five-argument `α`/`β` form (`β = 0` overwrite,
+  `β ≠ 0` accumulate — the `mul!` convention, since they are the linear maps `W` / `Wᵀ`;
+  accumulation is the common case for the scatter). `interpolate` / `anterpolate!` are the
+  symmetric named pair — only interpolation also gets the callable `f(x)`, because evaluation
+  is pointwise while its adjoint is not (see the module docstring). The driving case is
+  two-way coupling in the cloud-parcel DNS this package serves — the water-vapour mass and
+  latent heat a droplet releases on condensation (or absorbs on evaporation) must be returned
+  to the supersaturation and temperature fields.
+
+**Why the code says "anterpolation."** The particle→grid operation is named
+differently in every community, with no dominant choice: *spreading* (immersed-boundary
+method, where it is explicitly the adjoint `S = J*` of interpolation, built from the
+same kernel — Peskin 2002; also NUFFT type-1), *deposition* / *charge assignment*
+(particle-in-cell — Hockney & Eastwood 1988; Birdsall & Langdon 1991), *scatter*
+(data-parallel computing), *projection* / *Particle-Source-In-Cell* (particle-laden-flow
+DNS — Crowe, Sharma & Stock 1977), *gridding* (MRI and radio interferometry), and, in
+cloud microphysics, no operator noun at all — only the *source/sink term* it produces
+and the *two-way coupling* / *thermodynamic feedback* it enacts. We adopt
+**anterpolation** (Brandt & Lubrecht 1990) because it is the single term whose literal
+definition is "the adjoint of interpolation" — it names the operation by the property
+that matters, independent of application. The binding will carry a docstring listing the
+synonyms — *adjoint of interpolation; spreading; deposition; scatter; projection /
+PSI-Cell; gridding; two-way-coupling source/feedback* — so a reader from any of those
+fields finds it. **"Extrapolation" is deliberately rejected**: extrapolation means
+evaluating *outside* the convex hull of the data, whereas a particle lies *inside* a
+grid cell and the operation is a weighted distribution; the loose use of "extrapolation"
+for it (seen in a few papers) is a misnomer.
+
+**The two operations are a conserving adjoint pair.** Interpolation and anterpolation
+share the **same stencil weights**, which form a partition of unity (`Σ β = 1`);
+anterpolation is then the exact transpose of interpolation, and the total deposited
+quantity is conserved: `1ᵀ(Wᵀq) = (W1)ᵀq = 1ᵀq`. Using mismatched weights injects a
+spurious source/dissipation term (Sundaram & Collins 1996). For the parcel application
+this is mandatory — total water and latent heat must be conserved as vapour passes
+between droplets and the fields — so the design fixes anterpolation as the transpose of
+whatever interpolation kernel is in use. The function–measure duality underlying this
+adjointness — evaluation as pairing with a Dirac mass, `f(x) = ⟨δₓ, f⟩`, and anterpolation
+as the pushforward of point masses, `𝓘*q = Σₚ qₚ δ_xₚ` (regularized to `Σₚ qₚ β(·−xₚ)`,
+i.e. a particle source term) — is given in full in the `Interpolation` module docstring.
+
+**Method: the Lalescu local splines.** The package will use the local high-order spline
+interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
+code (Lalescu, Bramas, Rampp & Wilczek 2022). At its core it is Hermite interpolation
+with the node derivatives supplied by finite differences, which makes the interpolant
+simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
+the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
+weighted sum `Σ βᵢ₁ βᵢ₂ βᵢ₃ f(c+i)` over a compact `(2n+2)³` stencil, with closed-form
+polynomial weights `β` parameterized by two integers: a neighbourhood `n` (kernel size
+`2n+2`) and a smoothness `m` (the count of continuous derivatives); `m = 0` recovers
+plain Lagrange interpolation. Field derivatives needed for the velocity gradient /
+deformation tensor are obtained by differentiating the same local polynomial, not from a
+separate field. Three properties make it the right fit:
+
+1. **Single representation, no global precompute.** The weights act directly on the
+   real-space nodal values, so interpolation reads only the physical representation. (The
+   B-spline interpolation of van Hinsberg et al. 2012 — whose coefficients require a
+   *global* transform that, in a spectral code, costs one FFT — is the higher-accuracy
+   alternative kept in reserve; exact spectral interpolation via a type-2 NUFFT is the
+   global, divergence-free extreme, planned only as a high-accuracy reference oracle.)
+2. **GPU-friendly** (the GPU-first invariant, §1): per-particle interpolation is a gather
+   of `(2n+2)³` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
+   global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
+   matching scatter.
+3. **Trivial, conservative anterpolation:** the same closed-form `β` deposit a particle's
+   source over its stencil with `Σ β = 1` — exactly the conserving two-way-coupling
+   feedback the parcel DNS needs.
+
+The interpolation order is a tunable parameter `(n, m)`, not hard-wired, so accuracy can
+be matched to the spectral resolution (standard practice for pseudospectral particle
+tracking). **This layer is not yet implemented; this section records the design decision
+so implementation begins from it.**
+
+**References (this section).**
+
+- C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations
+  for tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010)
+  5862–5869.
+- C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm
+  for large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput.
+  Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code:
+  gitlab.mpcdf.mpg.de/TurTLE/turtle.
+- M. A. T. van Hinsberg, J. H. M. ten Thije Boonkkamp, F. Toschi, H. J. H. Clercx, *On the
+  efficiency and accuracy of interpolation methods for spectral codes*, SIAM J. Sci.
+  Comput. **34**(4) (2012) B479–B498.
+- S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension
+  of finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
+- C. T. Crowe, M. P. Sharma, D. E. Stock, *The Particle-Source-In-Cell (PSI-CELL) model for
+  gas–droplet flows*, J. Fluids Eng. **99**(2) (1977) 325–332.
+- A. Brandt, A. A. Lubrecht, *Multilevel matrix multiplication and fast solution of integral
+  equations*, J. Comput. Phys. **90**(2) (1990) 348–370 (origin of "anterpolation").
+- C. S. Peskin, *The immersed boundary method*, Acta Numerica **11** (2002) 479–517
+  (spreading = adjoint of interpolation).
+- E. Catmull, R. Rom, *A class of local interpolating splines*, in: Computer Aided Geometric
+  Design, Academic Press, 1974, pp. 317–326.
+
+## 11. Decision log
 
 1. Fields refactor: atomic compatibility predicates; shared
    `_check_same_domain`; `_check_field_matches_context` for transforms.
@@ -333,3 +441,22 @@ package allocates serially via `similar`).
     task-local `with_threading` ScopedValue override; the GPU path stays on the
     `materialize!` fallback. `[compat] julia` was raised to 1.11 (for ScopedValue).
     Reductions remain deferred (separate FP-ordering design).
+13. Interpolation-layer design fixed (§10, the planned particle-tracking layer):
+    grid→particle **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
+    `interpolate` / `interpolate!`; particle→grid **anterpolation** as `anterpolate` /
+    `anterpolate!` — the symmetric named pair, each with allocating, in-place, and
+    α/β-accumulate forms (the `mul!` convention, since they are the linear maps `W` / `Wᵀ`);
+    only interpolation also has the pointwise callable `f(x)` (the adjoint of interpolation;
+    synonyms — spreading,
+    deposition, scatter, projection/PSI-Cell, gridding, two-way-coupling feedback — listed
+    on the binding; "extrapolation" rejected as a misnomer). Adjointness is explained in
+    the module docstring via the function–measure duality (Dirac evaluation vs. pushforward
+    of point masses). Method:
+    the **Lalescu local splines** (Lalescu, Teaca & Carati 2010) as in **TurTLE**
+    (Lalescu, Bramas, Rampp & Wilczek 2022) — local Hermite-with-finite-difference
+    derivatives, tunable `(neighbours n, smoothness m)`, single (physical)
+    representation, GPU-friendly; van Hinsberg B-spline (2012) and NUFFT exact-spectral
+    are the higher-accuracy / reference alternatives held in reserve. Interpolation and
+    anterpolation share the same partition-of-unity weights, so anterpolation is the
+    conservative transpose (Sundaram & Collins 1996) — required to conserve total water
+    and latent heat in the two-way-coupled parcel DNS. Not yet implemented.
