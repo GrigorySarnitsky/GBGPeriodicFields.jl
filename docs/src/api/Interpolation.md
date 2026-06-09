@@ -52,7 +52,16 @@ Order   = [:function]
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors
-extending the package.
+extending the package — the section interface the FieldAlgebra builders reuse, the allocator,
+the broadcast style, and the alias guard.
+
+### Types
+
+```@autodocs
+Modules = [GBGPeriodicFields.Interpolation]
+Public  = false
+Order   = [:type, :constant]
+```
 
 ### Functions
 

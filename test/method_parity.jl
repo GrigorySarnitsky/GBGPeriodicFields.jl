@@ -9,7 +9,9 @@ using Test
 using GBGPeriodicFields
 
 const FA = GBGPeriodicFields.FieldAlgebra
+const IP = GBGPeriodicFields.Interpolation
 pkg_method_count(f) = count(m -> m.module === FA, methods(f))
+pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
 
 @testset "method parity" begin
 
@@ -26,6 +28,25 @@ pkg_method_count(f) = count(m -> m.module === FA, methods(f))
       @test pkg_method_count(f) == n
     end
     @test sum(pkg_method_count(f) for (_, f, _) in baseline) == 198
+  end
+
+  # The PointValues algebra (Interpolation module) mirrors the fields' *physical* surface, on
+  # the same generics. It is counted separately (m.module === Interpolation), so the field
+  # baseline above stays locked while this locks the new surface. Representation-free ⇒ no
+  # spectral variants, so the counts are smaller than the field ones.
+  @testset "PointValues algebra baseline (118 methods)" begin
+    baseline = (("add!", add!, 7), ("subtract!", subtract!, 7),
+                ("multiply!", multiply!, 10), ("divide!", divide!, 5),
+                ("+", +, 8), ("-", -, 8), ("*", *, 18), ("/", /, 5),
+                ("dot", dot, 6), ("dot!", dot!, 6), ("cross", cross, 3), ("cross!", cross!, 3),
+                ("mul!", mul!, 18), ("transpose", transpose, 1), ("transpose!", transpose!, 1),
+                ("norm", norm, 3), ("norm!", norm!, 3),
+                ("sym", sym, 1), ("sym!", sym!, 1), ("skew", skew, 1), ("skew!", skew!, 1),
+                ("dev", dev, 1), ("dev!", dev!, 1))
+    for (name, f, n) in baseline
+      @test pointvalues_method_count(f) == n
+    end
+    @test sum(pointvalues_method_count(f) for (_, f, _) in baseline) == 118
   end
 
   @testset "no ambiguities" begin
