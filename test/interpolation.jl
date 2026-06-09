@@ -1,4 +1,4 @@
-# Tests for src/Interpolation.jl: the data types of the off-grid transfer layer —
+# Tests for src/Points.jl: the point data types of the off-grid transfer layer —
 # construction and shape validation, accessors, tensor order, point counts, and the
 # npoints-match compatibility check, across Float64 and Float32. (The interpolation /
 # anterpolation transfer kernels are not implemented yet, so there is nothing else to test.)
@@ -7,7 +7,7 @@ using Test
 using GBGPeriodicFields
 
 # The internal compatibility helper is reached through the submodule.
-const I = GBGPeriodicFields.Interpolation
+const I = GBGPeriodicFields.Points
 
 @testset "Interpolation types" begin
   for T in (Float64, Float32)

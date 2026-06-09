@@ -23,7 +23,7 @@ using Test
 using GBGPeriodicFields
 
 const F = GBGPeriodicFields.Fields
-const IP = GBGPeriodicFields.Interpolation
+const IP = GBGPeriodicFields.Points
 const ELEMENT_TYPES = (Float64, Float32)
 
 # Two analytic 3x3 tensor fields, matching test/fieldalgebra.jl. Element-type

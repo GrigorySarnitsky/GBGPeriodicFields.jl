@@ -63,7 +63,7 @@ worlds:
   type, whether the base is a grid or a point set. This is the structural reason one
   set of generated kernels (§6) serves fields and point-values verbatim, and the
   mathematical motivation for treating the **section as the primary abstraction**: a
-  shared `AbstractFiberSection{T, R}` supertype spanning both, in a planned
+  shared `AbstractFiberSection{T, R}` supertype spanning both, in the
   `FiberSections` module (§10).
 - **Differential operators are the complementary horizontal structure** — gradient,
   divergence, curl, Laplacian are derivatives *along the base*, using the flat
@@ -475,20 +475,20 @@ a separate **118-method point-value parity baseline** (the 198-method field surf
 byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_algebra.jl`,
 Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
 
-**Planned consolidation — the module structure the model implies.** Fields and point-values
-today share the generated kernels but not a supertype, and the point objects, their algebra, and
-the (future) transfer all sit in one `Interpolation` module. The fiber-bundle model (§2) implies
-a cleaner layout, planned for the next refactor:
+**Consolidation status — the module structure the model implies.** The fiber-bundle model (§2)
+calls for a base-agnostic foundation and a clean object/operation naming split, realized in
+stages:
 
-- a new foundation module **`FiberSections`** holds the base-agnostic core —
-  `AbstractFiberSection{T, R}`, the section interface (the component accessors), the `_assign!`
-  primitive, and the vertical-algebra **code generators**: the single home where each fiberwise
-  formula is written once, including the norm/sym/skew/dev formulas presently *replicated* in the
-  point layer rather than sourced from a builder;
-- the current `Interpolation` module **splits in two**: **`Points`** holds the unstructured-base
-  section *objects* (`PointSet`, `*PointValues`) and their generated algebra — a noun-named peer
-  of `Fields`; **`Interpolation`** keeps only the transfer maps (`interpolate`/`anterpolate`) — an
-  operation-named peer of `DifferentialOperators`.
+- **Done:** the foundation module **`FiberSections`** holds the base-agnostic supertype
+  `AbstractFiberSection{T, R}` (the field and point-value types subtype it); and the former
+  `Interpolation` module is **split in two** — **`Points`** holds the unstructured-base section
+  *objects* (`PointSet`, `*PointValues`) and their generated algebra (a noun-named peer of
+  `Fields`), while **`Interpolation`** keeps only the not-yet-implemented transfer maps (a peer of
+  `DifferentialOperators`).
+- **Remaining:** lifting the shared vertical-algebra **code generators** and the `_assign!`
+  primitive down into `FiberSections` — in particular the norm/sym/skew/dev formulas, the one
+  block still *replicated* between the field and point algebra rather than sourced from a builder —
+  so `FieldAlgebra` and `Points` source them from one home.
 
 The remaining field/point asymmetry is deliberate and **mandated by the mathematics**, not
 inertia: points have no differential operators (no horizontal structure, §2) and no second
@@ -498,9 +498,8 @@ machinery in `Points`; and the point algebra is a small *generated* emission tha
 hand-curated methods plus the representation-specific irregular corners — the spectral zero-mode
 updates, the `multiply!` quartet). What the split *fixes* is the naming: section *objects* live
 in noun-named modules (`Fields`, `Points`), operations in operation-named ones (`FieldAlgebra`,
-`DifferentialOperators`, `Interpolation`). This refactor is planned and not yet undertaken; it
-must reproduce both parity baselines (198 field + 118 point) byte-for-byte, with zero
-ambiguities.
+`DifferentialOperators`, `Interpolation`). Each stage reproduces both parity baselines (198 field
++ 118 point) byte-for-byte, with zero ambiguities.
 
 **No concept of time (§1).** The package has, and for now keeps, *no* notion of time — no
 advection, no time integration, no temporal interpolation, no per-step state. It answers only
@@ -637,15 +636,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `AbstractFiberSection{T, R}` supertype the fiber-bundle model (§2) invites — and the lift of
     the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
     undertaken.
-16. Phase A module structure fixed (planned; §2, §10). The fiber-bundle model is realized in
-    modules by (a) a new foundation module **`FiberSections`** — the base-agnostic core:
-    `AbstractFiberSection{T,R}`, the section interface, the `_assign!` primitive, and the
-    vertical-algebra code generators (the single home for every fiberwise formula, including the
-    replicated norm/sym/skew/dev); and (b) splitting the current `Interpolation` into **`Points`**
+16. Phase A consolidation (§2, §10), in stages. **Done:** the foundation module **`FiberSections`**
+    holds the base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types
+    subtype it); and the former `Interpolation` module is **split** into **`Points`**
     (unstructured-base section objects + their generated algebra — a noun peer of `Fields`) and
-    **`Interpolation`** (the transfer maps only — an operation peer of `DifferentialOperators`).
-    The remaining field/point asymmetry is math-mandated: no point differential operators and no
-    second representation, and the point algebra is a small generated emission that folds into
-    `Points` rather than earning a `FieldAlgebra`-sized module. The naming is what gets fixed:
-    objects in noun modules (`Fields`, `Points`), operations in operation modules. Must reproduce
-    both parity baselines (198 + 118) byte-for-byte; not yet undertaken.
+    **`Interpolation`** (the not-yet-implemented transfer maps — an operation peer of
+    `DifferentialOperators`). **Remaining:** lift the shared code generators (and `_assign!`) down
+    into `FiberSections`, de-duplicating the replicated norm/sym/skew/dev formulas. The field/point
+    asymmetry is math-mandated (no point differential operators, no second representation; the
+    point algebra is a small generated emission folded into `Points`). Each stage holds both parity
+    baselines (198 + 118) byte-for-byte, zero ambiguities.

@@ -1,4 +1,4 @@
-# Behaviour tests for the PointValues algebra (Interpolation module): the full M2 + M3 surface,
+# Behaviour tests for the PointValues algebra (Points module): the full M2 + M3 surface,
 # mirroring the fields' physical algebra, checked against an independent array / per-point
 # reference across Float64 and Float32. The data types are tested in interpolation.jl and the
 # method-set is locked in method_parity.jl; here we check the numbers.

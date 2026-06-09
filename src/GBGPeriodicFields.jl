@@ -90,6 +90,7 @@ include("FiberSections.jl")
 include("Fields.jl")
 include("FieldAlgebra.jl")
 include("DifferentialOperators.jl")
+include("Points.jl")
 include("Interpolation.jl")
 
 
@@ -170,7 +171,7 @@ using .DifferentialOperators:
   helmholtz_projection
 
 
-using .Interpolation:
+using .Points:
   Point,
   PointSet,
   AbstractPointValues,
