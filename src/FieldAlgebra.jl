@@ -848,6 +848,8 @@ function dot! end
     dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
 
 Allocating fiberwise inner product, returning a scalar field: the Euclidean vector product `uᵢ vᵢ` or the tensor Frobenius product `Aᵢⱼ Bᵢⱼ`. Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. See `dot!` for the in-place form. The infix alias `⋅` is also exported.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 dot
 
@@ -934,6 +936,8 @@ function cross! end
     cross(u::VectorFieldPhysical, v::VectorFieldPhysical)
 
 Allocating fiberwise cross product, returning a vector field. Two vector fields cross only in physical-space representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. See `cross!` for the in-place form. The infix alias `×` is also exported.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 cross
 
@@ -997,6 +1001,8 @@ Compute a fiberwise tensor product in-place; returns `destination`.
 For a vector destination this is the action of a second-order tensor on a vector: the left action `Aᵢⱼ uⱼ`, the right action `uⱼ Aⱼᵢ`. For a tensor destination it is the tensor product `(A B)ᵢⱼ = Aᵢₖ Bₖⱼ`.
 
 Products of two fields are nonlinear and defined only in physical-space representation; spectral-space methods require one factor to be a constant fiber tensor or fiber vector. The five-argument form computes `destination = α * product + β * destination`. As with `LinearAlgebra.mul!`, `destination` must not share storage with any input.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 mul!
 
@@ -1164,6 +1170,8 @@ end
 Transpose the fiber indices of a second-order tensor field in-place: `destinationᵢⱼ = Aⱼᵢ`; returns `destination`.
 
 The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, this writes a canonical tensor field rather than a lazy wrapper.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 transpose!
 
@@ -1206,6 +1214,8 @@ function norm! end
     norm(A::TensorFieldPhysical{2})
 
 Allocating fiberwise norm, returning a scalar field: the pointwise absolute value for scalar fields, the Euclidean norm for vector fields, and the Frobenius norm for second-order tensor fields. Physical-space representation only. See `norm!` for the in-place form.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 norm
 
@@ -1251,6 +1261,8 @@ function sym! end
     sym(A::FiberTensor2)
 
 Allocate and compute the symmetric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 function sym end
 
@@ -1270,6 +1282,8 @@ function skew! end
     skew(A::FiberTensor2)
 
 Allocate and compute the skew-symmetric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 function skew end
 
@@ -1289,6 +1303,8 @@ function dev! end
     dev(A::FiberTensor2)
 
 Allocate and compute the deviatoric part of a second-order tensor; fiberwise for fields, and a constant fiber tensor for a constant fiber tensor.
+
+This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
 function dev end
 

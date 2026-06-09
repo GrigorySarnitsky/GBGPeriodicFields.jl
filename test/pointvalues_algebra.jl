@@ -76,6 +76,13 @@ matmat(A, B) = [sum(A[i, k] * B[k, j] for k in 1:3) for i in 1:3, j in 1:3]
       for m in 1:M
         @test point_values(dest)[m, :] ≈ T(2) .* matvec(dt[m, :, :], dv[m, :]) .+ T(3) .* prev[m, :]
       end
+      # overwrite (β = 0) must ignore the destination's prior contents (NaN included)
+      ow = VectorPointValues(fill(T(NaN), M, 3))
+      mul!(ow, tv, vv, T(1), T(0))
+      @test all(isfinite, point_values(ow))
+      for m in 1:M
+        @test point_values(ow)[m, :] ≈ matvec(dt[m, :, :], dv[m, :])
+      end
     end
 
     @testset "transpose / norm / sym / skew / dev ($T)" begin

@@ -51,11 +51,14 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`, plus `eltype_genericity.jl` (Float64/Float32),
+  `differentialoperators.jl`, `interpolation.jl` (the point-data types) and
+  `pointvalues_algebra.jl` (the point-value M2 + M3 surface), plus
+  `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
-- **`test/method_parity.jl`** — the spec-lock: per-generic method counts plus
+- **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
+  198-method field surface and the separate 118-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
   quartet exists precisely to keep that ambiguity set empty.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
@@ -179,7 +182,10 @@ Honest status, so the contract above reads as the target rather than a descripti
 `AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split both at the multiplier level and
 end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at the
 Nyquist mode); M2 + M3 algebra and contractions in both representations; the spectral
-zero-mode constant invariant; the in-place `!` forms with caller-supplied destinations
+zero-mode constant invariant; the **point-value algebra** — the `Interpolation` module's
+M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
+on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
+`test/interpolation.jl`; the in-place `!` forms with caller-supplied destinations
 and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
 `helmholtz_projection!`); the intentional absences in both representations (nonlinear products absent in spectral,
 differential operators absent in physical) and the physical/spectral symmetry of every
@@ -187,8 +193,8 @@ linear field/fiber operation; the differential operators by
 analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that exercises the
 `2π/L` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
 `curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting
-element-type preservation through operations); the 198-method parity baseline and zero
-ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
+element-type preservation through operations); the 198-method field and 118-method
+point-value parity baselines and zero ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
 Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
 operator adjoint/structural identities on randomized band-limited fields — divergence as
 the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-definite

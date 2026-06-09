@@ -25,11 +25,65 @@ point/value), never *particle* or *tracer* (a consumer's interpretation), and it
 concept of time**: no advection, time integration, or temporal state. Trajectory dynamics
 belong to the consumer (§10).
 
-## 2. The central principle: representation validity lives in the method set
+## 2. The central principle: the architecture follows established mathematics
 
-A field is one physical object; physical and spectral storage are two
-representations of it. An operation is offered in a representation only when it is
-mathematically the same operation on the underlying physical object there:
+Every abstraction in this package is the code image of a standard mathematical
+object, and design decisions are settled by that mathematics rather than by
+implementation convenience. The primary source is **differential geometry — the
+language of fiber bundles and their sections**; the working rule is that a proposed
+abstraction must first be identifiable as a known mathematical object (or a faithful
+discretization of one) before it earns a place in the design. "For completeness" or
+"it would be convenient" is never a justification — indeed the recurring lesson
+below is that the *absence* of an operation is itself a precise mathematical
+statement.
+
+### The fiber-bundle model
+
+A field, and a collection of values sampled at scattered locations, are both
+**sections of a tensor bundle over a base**. The domain is a flat periodic box (a
+3-torus) with a single global frame, so the bundle is trivial — just `E = B × V`
+for a base `B` and a fiber `V`. The fiber is the tensor order, a tensor power of
+`ℝ³`: `V = ℝ` (scalar), `ℝ³` (vector, `FiberVector`), `ℝ³ ⊗ ℝ³ = ℝ³ˣ³`
+(second-order tensor, `FiberTensor2`), and higher (`FiberTensor3/4`). A section
+assigns a fiber value to each base point; the fiber-last data layout (§3) is exactly
+that section, stored base-indexed.
+
+Three structures of the package are then *parameters of a section*, not separate
+worlds:
+
+- **The base** is either the structured grid `Grid3D` — a field is a section sampled
+  on the grid — or the unstructured point set `PointSet` — point-values are a section
+  sampled at scattered points (§10). Same fibers, different base.
+- **Fiberwise algebra is the vertical (within-fiber) structure**: addition, real
+  scaling, contraction with a constant fiber, dot/cross/tensor products, transpose,
+  sym/skew/dev, and norms all act inside fibers, pointwise in the base, and are
+  therefore **base-independent** — the very same operation on the very same fiber
+  type, whether the base is a grid or a point set. This is the structural reason one
+  set of generated kernels (§6) serves fields and point-values verbatim, and the
+  mathematical motivation for treating the **section as the primary abstraction**: a
+  shared `AbstractFiberSection{T, R}` supertype spanning both (§10, planned).
+- **Differential operators are the complementary horizontal structure** — gradient,
+  divergence, curl, Laplacian are derivatives *along the base*, using the flat
+  connection of the periodic box (§4). They are bound to a base with a differentiable
+  structure: they act on grid sections (in the spectral representation) and not on
+  point-value sections, which carry the vertical algebra but no derivatives.
+- **Representation is a choice of frame for a grid section.** Physical and spectral
+  storage are two coordinate representations of one section over the grid; the rfft
+  is the linear isomorphism between them. A point-value section has no second
+  representation — there is no periodic grid to transform over — so the point types
+  are representation-free (§10).
+
+Transfer between sections over *different* bases is the interpolation/anterpolation
+pair: pulling a grid section back to points (evaluation, `f(x) = ⟨δₓ, f⟩`) and the
+adjoint pushforward of point masses onto the grid. The full function–measure duality
+is given in §10 and the `Interpolation` module docstring.
+
+### Representation validity lives in the method set
+
+The frame picture fixes exactly which operations may be offered in which
+representation: an operation exists in a representation only when it is *the same
+operation on the underlying section there* — equivalently, only when it commutes
+with the rfft isomorphism.
 
 - **Linear in the field** — addition/subtraction of fields, scaling by real
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
@@ -52,7 +106,9 @@ reproduce the method set exactly; it was verified signature-for-signature agains
 the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`)
 and then M3 (the dot/cross/`mul!`/transpose/norm/sym/skew/dev contraction and
 decomposition families, plus their `*` operators), bringing the total to 198 and
-parity-checked at runtime in `test/method_parity.jl`.
+parity-checked at runtime in `test/method_parity.jl`. The point-value algebra
+realizes the *vertical* operations on the unstructured base — it mirrors the
+**physical** field surface and is locked by its own separate baseline (§10).
 
 ## 3. Types and memory layout
 
@@ -389,8 +445,27 @@ two bases.
 
 All wrap a generic `AbstractArray` and allocate via `similar`, so they are backend-generic
 (CPU / CUDA / AMDGPU) for free; compatibility reduces to `M`-matching and matching tensor
-order (a `_check_…` predicate in the Fields style). Types and operators live in the
-`Interpolation` module, importing Fields helpers via an explicit `using ..Fields: …`.
+order (a `_check_…` predicate in the Fields style). The types live in the `Interpolation`
+module, importing Fields helpers via an explicit `using ..Fields: …`.
+
+**Implemented status.** The point types and their **full fiberwise algebra** are implemented
+and tested; only the transfer kernels (interpolation / anterpolation, above) remain future
+work. The algebra mirrors the *physical* field surface — the base-independent vertical
+operations of §2 (M2 vector-space and scalar-field products; M3 dot/cross/`mul!`/transpose/
+norm/sym/skew/dev), with storage-wise broadcasting — and is generated by **reusing
+FieldAlgebra's per-component formula and kernel-body builders verbatim** (§6) over an extended
+section interface (`field_data` / `_vector_component_data` / `_tensor2_component_data`, which
+`Interpolation` extends for the point types), so no formula is written twice. It is locked by
+a separate **118-method point-value parity baseline** (the 198-method field surface is
+byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_algebra.jl`,
+Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
+
+**Planned consolidation — the shared section supertype.** Fields and point-values share the
+generated kernels but not a supertype. The fiber-bundle model (§2) motivates closing that seam
+by extracting an `AbstractFiberSection{T, R}` over both, and lifting the shared codegen — in
+particular the norm/sym/skew/dev formulas, the one block still *replicated* in `Interpolation`
+rather than sourced from a builder — into a single home. This refactor is planned and not yet
+undertaken; it must reproduce both parity baselines byte-for-byte.
 
 **No concept of time (§1).** The package has, and for now keeps, *no* notion of time — no
 advection, no time integration, no temporal interpolation, no per-step state. It answers only
@@ -512,5 +587,14 @@ the moving-object abstraction and its dynamics are solver concerns.
     `ScalarPointValues` / `VectorPointValues` / `TensorPointValues{R}` under
     `AbstractPointValues`, SoA, **representation-free**. Naming is domain-neutral by policy:
     the package is a math backend, so no *particle* / *tracer* type and **no concept of time**
-    (no advection / integration / temporal state) — those are the consumer's. Types live in
-    `Interpolation`, importing Fields helpers. Not yet implemented.
+    (no advection / integration / temporal state) — those are the consumer's. The types live in
+    `Interpolation`, importing Fields helpers; they are implemented and tested (only the
+    transfer kernels of item 13 remain future work — see item 15 for the algebra).
+15. Point-value algebra implemented (§10): FieldAlgebra's code generators are **reused
+    verbatim** over an extended point-value section interface, mirroring the full *physical*
+    field surface (M2 + M3, storage-wise broadcasting) with no duplicated formula; locked by a
+    separate **118-method baseline** (the 198-method field surface byte-unchanged), zero
+    ambiguities, tested on CPU (`test/pointvalues_algebra.jl`) and GPU (ROCm). The shared
+    `AbstractFiberSection{T, R}` supertype the fiber-bundle model (§2) invites — and the lift of
+    the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
+    undertaken.
