@@ -406,9 +406,11 @@ with the node derivatives supplied by finite differences, which makes the interp
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
 weighted sum `Σ βᵢ₁ βᵢ₂ βᵢ₃ f(c+i)` over a compact `(2n+2)³` stencil, with closed-form
-polynomial weights `β` parameterized by two integers: a neighbourhood `n` (kernel size
-`2n+2`) and a smoothness `m` (the count of continuous derivatives); `m = 0` recovers
-plain Lagrange interpolation. Field derivatives needed for the velocity gradient /
+polynomial weights `β`. Lalescu's **two hierarchies** share this stencil: the **smooth**
+hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree `2m+1` that matches the
+value and the first `m` derivatives at the two bracketing nodes (`Cᵐ`, `0 ≤ m ≤ 2n`; `m = 0`
+is linear, `n = 1, m = 1` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)
+is the `C⁰` degree-`2n+1` interpolant of all `2n+2` nodes. Field derivatives needed for the velocity gradient /
 deformation tensor are obtained by differentiating the same local polynomial, not from a
 separate field. Three properties make it the right fit:
 
@@ -429,9 +431,12 @@ separate field. Three properties make it the right fit:
 The interpolation order is a tunable parameter `(n, m)`, not hard-wired, so accuracy can
 be matched to the spectral resolution (standard practice for pseudospectral particle
 tracking). The transfer kernels are implemented as portable KernelAbstractions gather/scatter
-kernels (the scatter accumulates atomically); the per-axis weights are generated for any `(n, m)`
-by a small linear solve — interpolate the central `2(n−m)+2` nodes and match `m` centred-finite-difference
-(Fornberg) node derivatives — validated against the Lagrange (`m = 0`) and Catmull–Rom (`n = 1, m = 1`) limits.
+kernels (the scatter accumulates atomically); the smooth per-axis weights are generated for any
+`(n, m)` by a small linear solve — match the value and the order-`1…m` centred-finite-difference
+(Fornberg) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
+`beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
+(`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
+`min(2m+1, 2n)`; the Lagrange scheme to degree `2n+1`.
 
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
 to name two new objects: off-grid locations and the field values there. The package names
@@ -648,15 +653,19 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `Points`). Both parity baselines (198 + 118) held byte-for-byte through every step, zero
     ambiguities. (The transfer kernels themselves followed — item 17.)
 17. Transfer kernels implemented (§10): interpolation (gather `W`, also the callable `f(x)`) and
-    anterpolation (scatter `Wᵀ`, with the α/β `mul!` convention) as the Lalescu local splines, via a
-    `LalescuSpline(n, m)` scheme (`CatmullRom`, the cubic `n=1,m=1`, is the default). The per-axis
-    weights are generated for any `(n, m)` by a small linear solve — interpolate the central
-    `2(n−m)+2` nodes and match `m` centred finite-difference (Fornberg) derivatives at the bracketing
-    nodes — validated to reproduce Lagrange (`m=0`) and Catmull–Rom (`n=1,m=1`) exactly, with
-    partition of unity (⇒ conservation). Kernels are portable across CPU / CUDA / AMDGPU via
-    **KernelAbstractions** (new dep) with the atomic scatter via **Atomix** (new dep); both index the
-    native arrays linearly, so one kernel serves scalar/vector/tensor orders. Adjointness
-    `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation hold to roundoff; tested on CPU
-    (`test/interpolation_transfer.jl`, Float64/Float32) and GPU (ROCm). Physical-space only. The
-    L²/volume-weighted adjoint and the smooth `(n≥2, m≥1)` weights beyond the validated construction
-    remain future refinements.
+    anterpolation (scatter `Wᵀ`, with the α/β `mul!` convention) as the Lalescu local splines.
+    **Both hierarchies** are provided: the smooth `LalescuSpline(n, m)` — a two-point Hermite of
+    degree `2m+1` matching the value and the order-`1…m` derivatives (centred Fornberg finite
+    differences) at the two bracketing nodes, `Cᵐ` with `0 ≤ m ≤ 2n` (`CatmullRom`, the cubic
+    `n=1,m=1`, is the default; `m=0` is linear) — and the `C⁰` `LagrangeSpline(n)`, the degree-`2n+1`
+    interpolant of all `2n+2` nodes. The smooth weights are **pinned bit-for-bit against TurTLE's
+    `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement ≤ 1e-15) — an earlier
+    "interpolate the central `2(n−m)+2` nodes" draft was corrected after reading the TurTLE source,
+    Lalescu's smooth spline being a *two-point* Hermite, not a central-node hybrid. Reproduction is
+    `min(2m+1, 2n)` (smooth) / `2n+1` (Lagrange); the closed-form Catmull–Rom and the Lagrange cardinal
+    basis are independent anchors, with partition of unity (⇒ conservation). Kernels are portable
+    across CPU / CUDA / AMDGPU via **KernelAbstractions** (new dep) with the atomic scatter via
+    **Atomix** (new dep); both index the native arrays linearly, so one kernel serves
+    scalar/vector/tensor orders. Adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation hold to roundoff;
+    tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
+    (ROCm). Physical-space only. The L²/volume-weighted adjoint remains a future refinement.

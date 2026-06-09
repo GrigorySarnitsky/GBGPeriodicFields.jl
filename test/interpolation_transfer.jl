@@ -2,8 +2,9 @@
 # interpolation (gather, W) and anterpolation (scatter, Wᵀ). Oracles independent of the package:
 # analytic polynomial reproduction (interior points, so the periodic stencil does not wrap), the
 # adjointness identity ⟨W f, q⟩ = ⟨f, Wᵀ q⟩ (holds for ANY field/values), partition-of-unity
-# conservation, and known closed-form weights (Lagrange at m=0, Catmull–Rom at n=1,m=1). GPU parity
-# lives in test/gpu/suite.jl.
+# conservation, known closed-form weights (linear at m=0, Catmull–Rom at n=1,m=1, the Lagrange
+# cardinal basis for LagrangeSpline), and a bit-for-bit pin to TurTLE's reference coefficients. GPU
+# parity lives in test/gpu/suite.jl.
 
 using Test
 using GBGPeriodicFields      # exports `dot` (works on the plain value arrays here)
@@ -16,11 +17,16 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
   Random.seed!(20260609)
 
   @testset "spline weights" begin
-    # Partition of unity (⇒ conservation) for a range of (n, m).
-    for (n, m) in ((0, 0), (1, 0), (1, 1), (2, 0), (2, 1), (2, 2), (3, 1), (3, 3))
+    # Partition of unity (⇒ conservation) for a range of (n, m), both hierarchies.
+    for (n, m) in ((0, 0), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (2, 4), (3, 1), (3, 3))
       scheme = LalescuSpline(n, m)
       for t in 0.0:0.1:1.0
         @test sum(spline_weights(scheme, t)) ≈ 1.0 atol = 1e-12
+      end
+    end
+    for n in (0, 1, 2, 3, 4)
+      for t in 0.0:0.1:1.0
+        @test sum(spline_weights(LagrangeSpline(n), t)) ≈ 1.0 atol = 1e-12
       end
     end
 
@@ -30,9 +36,21 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       @test spline_weights(CatmullRom, t) ≈ catmull_rom(t) atol = 1e-12
     end
 
-    # m=0 reproduces the Lagrange basis over the 2n+2 nodes (offsets -n..n+1).
+    # Smooth m=0 is linear interpolation over the two central nodes (offsets 0, 1; index n+1, n+2),
+    # independent of n — TurTLE's spline_n? floor, NOT a Lagrange interpolant of the whole stencil.
     for n in (1, 2, 3)
       scheme = LalescuSpline(n, 0)
+      for t in 0.0:0.1:1.0
+        w = spline_weights(scheme, t)
+        @test w[n + 1] ≈ 1 - t atol = 1e-12
+        @test w[n + 2] ≈ t atol = 1e-12
+        @test sum(abs, w[setdiff(1:length(w), (n + 1, n + 2))]) ≈ 0 atol = 1e-12
+      end
+    end
+
+    # LagrangeSpline(n) reproduces the Lagrange cardinal basis over the 2n+2 nodes (offsets -n..n+1).
+    for n in (1, 2, 3)
+      scheme = LagrangeSpline(n)
       offsets = collect(-n:n+1)
       lagrange(t) = [prod((t - offsets[j]) / (offsets[i] - offsets[j]) for j in eachindex(offsets) if j != i)
                      for i in eachindex(offsets)]
@@ -41,7 +59,31 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       end
     end
 
-    @test_throws ArgumentError LalescuSpline(1, 2)   # m > n is rejected
+    # Validity: smoothness capped at m ≤ 2n (TurTLE: "no C³ interpolant with a 4-point kernel").
+    @test LalescuSpline(1, 2) isa LalescuSpline    # m = 2 = 2n is now valid (TurTLE beta_n1_m2)
+    @test_throws ArgumentError LalescuSpline(1, 3)  # m = 3 > 2n = 2
+    @test_throws ArgumentError LalescuSpline(0, 1)  # m = 1 > 2n = 0
+    @test_throws ArgumentError LalescuSpline(-1)
+    @test_throws ArgumentError LagrangeSpline(-1)
+  end
+
+  @testset "TurTLE reference coefficients (pin)" begin
+    # The smooth weights are pinned bit-for-bit to TurTLE's beta_n{n}_m{m}
+    # (cpp/particles/interpolation/spline_n{n}.cpp), transcribed here verbatim (deriv 0).
+    turtle = Dict(
+      (1, 1) => x -> [x*(x*(-x/2 + 1) - 1/2), x^2*(3x/2 - 5/2) + 1, x*(x*(-3x/2 + 2) + 1/2), x^2*(x/2 - 1/2)],
+      (1, 2) => x -> [x*(x*(x*(x*(x - 5/2) + 3/2) + 1/2) - 1/2),
+                      x^2*(x*(x*(-3x + 15/2) - 9/2) - 1) + 1,
+                      x*(x*(x*(x*(3x - 15/2) + 9/2) + 1/2) + 1/2),
+                      x^3*(x*(-x + 5/2) - 3/2)],
+      (2, 1) => x -> [x*(x*(x/12 - 1/6) + 1/12), x*(x*(-7x/12 + 5/4) - 2/3), x^2*(4x/3 - 7/3) + 1,
+                      x*(x*(-4x/3 + 5/3) + 2/3), x*(x*(7x/12 - 1/2) - 1/12), x^2*(-x/12 + 1/12)])
+    for ((n, m), beta) in turtle
+      scheme = LalescuSpline(n, m)
+      for t in 0.0:0.05:1.0
+        @test spline_weights(scheme, t) ≈ beta(t) atol = 1e-12
+      end
+    end
   end
 
   for T in (Float64, Float32)
@@ -73,11 +115,11 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
         @test point_values(vv)[p, :] ≈ [linear(coords[p, :]...), -quadratic(coords[p, :]...), 2 * linear(coords[p, :]...)] rtol = poly_tol
       end
 
-      # Higher-order Lagrange reproduces higher-degree polynomials (n=3 ⇒ degree ≤ 7).
+      # The Lagrange hierarchy reproduces higher-degree polynomials (LagrangeSpline(3) ⇒ degree ≤ 7).
       cubic(x, y, z) = T(0.2) + x - T(0.1) * y^3 + T(0.4) * x * y * z
       inner = T(0.4 * 2π) .+ T(0.2 * 2π) .* rand(T, M, 3)
       xs_inner = PointSet(inner)
-      vc = interpolate(ScalarFieldPhysical(cubic, grid), xs_inner, LalescuSpline(3, 0))
+      vc = interpolate(ScalarFieldPhysical(cubic, grid), xs_inner, LagrangeSpline(3))
       @test point_values(vc) ≈ [cubic(inner[p, :]...) for p in 1:M] rtol = (T == Float64 ? 1e-8 : 1e-2)
     end
 
@@ -168,7 +210,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
 
     @testset "stencil wider than the grid (degenerate periodic wrap)" begin
       grid = Grid3D((4, 4, 4), (2π, 2π, 2π))   # n=3 ⇒ 8-node stencil aliases onto 4 nodes
-      scheme = LalescuSpline(3, 0)
+      scheme = LagrangeSpline(3)               # all 8 nodes carry weight (unlike the linear m=0)
       xs = PointSet(2π .* rand(30, 3))
       q = ScalarPointValues(rand(30))
       @test adjoint(ScalarFieldPhysical(rand(4, 4, 4), grid), xs, q, scheme)
@@ -201,12 +243,13 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       M = 40
       coords = Δ .* (4.0 .+ 11.0 .* rand(M, 3))   # interior (stencil up to 8 stays in-bounds)
       xs = PointSet(coords)
-      quad(x, y, z) = 1.0 + x - 0.5y^2 + 0.3x * z
+      # Both reproduce ≥ cubic: (2,1) reproduces min(2m+1,2n)=3, (3,2) reproduces 5.
+      cubic(x, y, z) = 1.0 + x - 0.5y^2 + 0.3x * z - 0.05y^3
       whole = PointSet(2π .* rand(M, 3))
       q = ScalarPointValues(rand(M))
       for scheme in (LalescuSpline(2, 1), LalescuSpline(3, 2))
-        vq = interpolate(ScalarFieldPhysical(quad, grid), xs, scheme)
-        @test point_values(vq) ≈ [quad(coords[p, :]...) for p in 1:M] rtol = 1e-8   # reproduces ≤ quadratic
+        vq = interpolate(ScalarFieldPhysical(cubic, grid), xs, scheme)
+        @test point_values(vq) ≈ [cubic(coords[p, :]...) for p in 1:M] rtol = 1e-8
         @test adjoint(ScalarFieldPhysical(rand(20, 20, 20), grid), whole, q, scheme)
         @test conserves(grid, whole, q, scheme)
       end

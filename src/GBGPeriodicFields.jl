@@ -190,6 +190,7 @@ using .Interpolation:
   anterpolate,
   anterpolate!,
   LalescuSpline,
+  LagrangeSpline,
   CatmullRom
 
 
@@ -273,6 +274,7 @@ export FiberVector,
        anterpolate,
        anterpolate!,
        LalescuSpline,
+       LagrangeSpline,
        CatmullRom
 
 

@@ -8,8 +8,10 @@ Order   = [:module]
 The `Interpolation` module is the grid↔point transfer layer: **interpolation** (grid → point, the
 gather `𝓘 = W`) evaluates a field at off-grid positions, and its adjoint **anterpolation**
 (point → grid, the scatter `𝓘* = Wᵀ`) deposits per-point quantities back onto the grid. Both use the
-local high-order spline of Lalescu, Teaca & Carati (2010) via a shared [`LalescuSpline`](@ref)
-scheme, so they are exact transposes and conserve the deposited total (`docs/ARCHITECTURE.md` §10).
+local high-order splines of Lalescu, Teaca & Carati (2010) — the smooth [`LalescuSpline`](@ref)
+(two-point Hermite, default [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the `C⁰`
+[`LagrangeSpline`](@ref), under a shared [`AbstractSplineScheme`](@ref) — so interpolation and
+anterpolation are exact transposes and conserve the deposited total (`docs/ARCHITECTURE.md` §10).
 The kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types live
 in the [`Points`](Points.md) module.
 
@@ -48,11 +50,12 @@ Order   = [:function]
 
 ## Internal API
 
-The spline-weight generator (Fornberg finite differences + a small linear solve), the periodic
-cell-finding, and the in-kernel helpers — documented for contributors.
+The scheme supertype [`AbstractSplineScheme`](@ref), the spline-weight generators (Fornberg finite
+differences + a small linear solve), the periodic cell-finding, and the in-kernel helpers —
+documented for contributors.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Interpolation]
 Public  = false
-Order   = [:function]
+Order   = [:type, :function]
 ```

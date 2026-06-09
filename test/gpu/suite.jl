@@ -276,6 +276,17 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         anterpolate!(host_accumulated, host_points, host_quantities, CatmullRom, T(1), T(1))
         @test matches(device_accumulated, host_accumulated)
       end
+      # Non-default schemes: the smooth LalescuSpline(2,1) has a rectangular (6×4) coefficient
+      # SMatrix and LagrangeSpline(2) a wider 6-node stencil — both exercise device code paths the
+      # square 4×4 CatmullRom does not. Check gather + scatter parity against the CPU.
+      for scheme in (LalescuSpline(2, 1), LagrangeSpline(2))
+        scalar_host = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+        quantities_host = ScalarPointValues(rand(T, number_of_points))
+        @test matches(interpolate(on_device(scalar_host), device_points, scheme),
+                      interpolate(scalar_host, host_points, scheme))
+        @test matches(anterpolate(grid, device_points, on_device_pv(quantities_host), scheme),
+                      anterpolate(grid, host_points, quantities_host, scheme))
+      end
       # heavy atomic-scatter contention: thousands of points crowded into one cell, so the device
       # atomics take many concurrent adds to a few nodes — a race would make this differ from CPU.
       crowded = PointSet(T(0.3) .* rand(T, 3000, 3))
