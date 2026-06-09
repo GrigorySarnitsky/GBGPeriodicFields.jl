@@ -73,9 +73,186 @@ conserving an energy pairing rather than the plain sum.
 """
 module Interpolation
 
-# Documented scaffold for the planned Lagrangian particle-tracking layer. The design
-# decision — method (Lalescu local splines), terminology, and the adjointness/conservation
-# rationale summarized in the module docstring — lives in docs/ARCHITECTURE.md §10. The
-# interpolation/anterpolation kernels are not yet implemented.
+using StaticArrays: SVector
+using ..Fields: fiber_shape
+
+
+export Point,
+       PointSet,
+       AbstractPointValues,
+       ScalarPointValues,
+       VectorPointValues,
+       TensorPointValues,
+       point_coordinates,
+       point_values,
+       pointvalue_tensor_order,
+       npoints
+
+
+####################################
+#            Positions             #
+####################################
+
+"""
+    Point{T} = SVector{3, T}
+
+A single position in the domain — a coordinate triple. `Point` is the base-space analog of
+`FiberVector`: the same `SVector{3,T}` representation, a different role (a *location*,
+not a field value). It is an alias, not a wrapper, so arithmetic on positions stays
+StaticArrays-native; the position/value distinction is one of role, not dispatch.
+"""
+const Point{T} = SVector{3, T}
+
+
+"""
+    PointSet(coordinates::AbstractArray{T, 2}) where {T<:AbstractFloat}
+
+A collection of `M` off-grid positions, stored structure-of-arrays in `coordinates` with shape
+`(M, 3)` — point index first, coordinate last, mirroring the fiber-last field layout so each
+coordinate axis is contiguous across points. Backend-generic: `coordinates` may be any
+`AbstractArray` (CPU `Array`, GPU `CuArray`/`ROCArray`). Grid-free — a periodic domain wraps any
+coordinate, so positions are not tied to a grid; a transfer operator takes the grid from the field.
+"""
+struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
+  coordinates::A
+
+  function PointSet(coordinates::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
+    size(coordinates, 2) == 3 ||
+      throw(DimensionMismatch("PointSet coordinates must have shape (M, 3); got $(size(coordinates))"))
+    return new{T, A}(coordinates)
+  end
+end
+
+
+####################################
+#           Point values           #
+####################################
+
+"""
+    AbstractPointValues{T<:AbstractFloat, R}
+
+Abstract supertype for field values sampled at the `M` positions of a [`PointSet`](@ref). `T` is
+the real scalar type; `R` is the tensor order (an integer value parameter). Point values are
+**representation-free** — a sampled value is always a physical-space quantity, so there is no
+physical/spectral distinction here, unlike the field types. Concrete subtypes:
+[`ScalarPointValues`](@ref) (`R = 0`), [`VectorPointValues`](@ref) (`R = 1`),
+[`TensorPointValues`](@ref) (`R ≥ 2`).
+"""
+abstract type AbstractPointValues{T<:AbstractFloat, R} end
+
+
+"""
+    ScalarPointValues(data::AbstractArray{T, 1}) where {T<:AbstractFloat}
+
+Scalar field values at `M` points, stored in `data` with shape `(M,)`.
+"""
+struct ScalarPointValues{T<:AbstractFloat, A<:AbstractArray{T, 1}} <: AbstractPointValues{T, 0}
+  data::A
+end
+
+
+"""
+    VectorPointValues(data::AbstractArray{T, 2}) where {T<:AbstractFloat}
+
+Vector field values at `M` points, stored structure-of-arrays in `data` with shape `(M, 3)`.
+"""
+struct VectorPointValues{T<:AbstractFloat, A<:AbstractArray{T, 2}} <: AbstractPointValues{T, 1}
+  data::A
+
+  function VectorPointValues(data::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
+    size(data, 2) == 3 ||
+      throw(DimensionMismatch("VectorPointValues data must have shape (M, 3); got $(size(data))"))
+    return new{T, A}(data)
+  end
+end
+
+
+"""
+    TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:AbstractFloat}
+    TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat}
+
+Tensor field values of order `R` at `M` points, stored structure-of-arrays in `data` with shape
+`(M, fiber_shape(Val(R))...)` (e.g. `(M, 3, 3)` for `R = 2`). The constructor without an explicit
+`{R}` infers `R = ndims(data) - 1`.
+"""
+struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPointValues{T, R}
+  data::A
+
+  function TensorPointValues{R}(data::A) where {R, T<:AbstractFloat, A<:AbstractArray{T}}
+    ndims(data) == R + 1 ||
+      throw(DimensionMismatch("TensorPointValues{$R} data must have $(R + 1) dimensions; got $(ndims(data))"))
+    size(data)[2:end] == fiber_shape(Val(R)) ||
+      throw(DimensionMismatch("TensorPointValues{$R} data must have shape (M, $(fiber_shape(Val(R))...)); got $(size(data))"))
+    return new{R, T, A}(data)
+  end
+end
+
+TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat} = TensorPointValues{ndims(data) - 1}(data)
+
+
+####################################
+#            Accessors             #
+####################################
+
+"""
+    point_coordinates(point_set::PointSet)
+
+Return the `(M, 3)` array of point coordinates.
+"""
+function point_coordinates end
+point_coordinates(point_set::PointSet) = point_set.coordinates
+
+
+"""
+    point_values(sampled_values::AbstractPointValues)
+
+Return the underlying array of sampled values: structure-of-arrays with shape `(M,)` / `(M, 3)` /
+`(M, 3, 3)` for tensor order `0` / `1` / `2`.
+"""
+function point_values end
+point_values(sampled_values::AbstractPointValues) = sampled_values.data
+
+
+"""
+    pointvalue_tensor_order(sampled_values::AbstractPointValues{T, R}) where {T<:AbstractFloat, R}
+
+Return the tensor order `R` of the sampled values.
+"""
+function pointvalue_tensor_order end
+pointvalue_tensor_order(::AbstractPointValues{T, R}) where {T<:AbstractFloat, R} = R
+
+
+"""
+    npoints(point_set::PointSet)
+    npoints(sampled_values::AbstractPointValues)
+
+Return the number `M` of points — the leading-axis length of the coordinate or value array.
+"""
+function npoints end
+npoints(point_set::PointSet) = size(point_set.coordinates, 1)
+npoints(sampled_values::AbstractPointValues) = size(sampled_values.data, 1)
+
+
+####################################
+#          Compatibility           #
+####################################
+
+"""
+    _check_npoints_match(a, b)
+
+Throw a `DimensionMismatch` unless `a` and `b` — each a [`PointSet`](@ref) or an
+[`AbstractPointValues`](@ref) — cover the same number of points `M`; otherwise return `nothing`.
+Internal helper for the transfer operators (interpolation / anterpolation).
+"""
+function _check_npoints_match(a, b)
+  npoints(a) == npoints(b) ||
+    throw(DimensionMismatch("point counts differ: $(npoints(a)) and $(npoints(b))"))
+  return nothing
+end
+
+
+# The transfer kernels — interpolation (`f(x)` / `interpolate` / `interpolate!`) and its adjoint
+# anterpolation (`anterpolate` / `anterpolate!`) — are not yet implemented; see the module
+# docstring and docs/ARCHITECTURE.md §10. These data types and their compatibility check come first.
 
 end # module Interpolation

@@ -61,6 +61,12 @@ single-source, and keep it updated when new project rules are established.
     source. The inverse real transform (FFTW complex-to-real) destroys its spectral
     input as scratch, and this is backend-divergent (AMD/rocFFT preserves it). Never
     rely on a `!`-transform's source surviving; use the allocating form to keep it.
+12. **Math backend — no time, no particles.** The package is a field-operation library that
+    solvers consume, not a solver. Use domain-neutral terminology (base/fiber, point/value),
+    never *particle*/*tracer*. Introduce **no concept of time** — no advection, time
+    integration, temporal interpolation, or per-step state; trajectory dynamics belong to the
+    consumer. The planned interpolation data types follow this: `Point` (alias `SVector{3,T}`),
+    `PointSet` (SoA positions), `PointValues` (three field-mirroring types). See `docs/ARCHITECTURE.md` §10.
 
 ## Code generation rules (FieldAlgebra)
 

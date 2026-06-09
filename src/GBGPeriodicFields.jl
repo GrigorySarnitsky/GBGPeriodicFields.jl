@@ -9,6 +9,8 @@ All exposed mathematical objects should be real-valued physical objects. Complex
 
 The fiber dimension is three. Fiber vectors and tensors use the Cartesian Euclidean structure. Do not introduce curvilinear-coordinate machinery, explicit metric tensors, or vector/covector distinctions unless the package design changes.
 
+This is a math backend for turbulence/cloud solvers, not a solver. Use domain-neutral terminology — base/fiber, point/value — never particle or tracer (a consumer's interpretation). Introduce no concept of time: no advection, time integration, temporal interpolation, or per-step state; trajectory dynamics are the consumer's responsibility. The planned off-grid sampling types follow this: positions are `Point`/`PointSet`, their field values `PointValues`.
+
 Physical meaning of operations
 ------------------------------
 Operations should represent operations on the underlying physical fields. Implement an operation in spectral representation only when it is mathematically equivalent to the physical-space operation and is efficient or more accurate there. Otherwise, restrict the method to the representation where the operation is sensible.
@@ -161,6 +163,19 @@ using .DifferentialOperators:
   helmholtz_projection
 
 
+using .Interpolation:
+  Point,
+  PointSet,
+  AbstractPointValues,
+  ScalarPointValues,
+  VectorPointValues,
+  TensorPointValues,
+  point_coordinates,
+  point_values,
+  pointvalue_tensor_order,
+  npoints
+
+
 export FiberVector,
        FiberTensor2,
        FiberTensor3,
@@ -224,7 +239,17 @@ export FiberVector,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,
-       set_fft_threads!
+       set_fft_threads!,
+       Point,
+       PointSet,
+       AbstractPointValues,
+       ScalarPointValues,
+       VectorPointValues,
+       TensorPointValues,
+       point_coordinates,
+       point_values,
+       pointvalue_tensor_order,
+       npoints
 
 
 function __init__()

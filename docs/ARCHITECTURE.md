@@ -19,6 +19,12 @@ later layer (§10). The same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
 prioritizes GPU correctness and performance first.
 
+The package is a **math backend** — a library of field operations that turbulence and cloud
+solvers consume, not a solver itself. Its vocabulary is therefore domain-neutral (base/fiber,
+point/value), never *particle* or *tracer* (a consumer's interpretation), and it carries **no
+concept of time**: no advection, time integration, or temporal state. Trajectory dynamics
+belong to the consumer (§10).
+
 ## 2. The central principle: representation validity lives in the method set
 
 A field is one physical object; physical and spectral storage are two
@@ -354,6 +360,45 @@ be matched to the spectral resolution (standard practice for pseudospectral part
 tracking). **This layer is not yet implemented; this section records the design decision
 so implementation begins from it.**
 
+**Data types — the unstructured base, in the package's own language.** Interpolation needs
+to name two new objects: off-grid locations and the field values there. The package names
+them in its base/fiber vocabulary, *not* as particles — deliberately, because
+GBGPeriodicFields is a **math backend** (§1): "particle"/"tracer" is the consumer's
+interpretation (a location with physical attributes and an equation of motion), not a
+primitive here. The organizing principle reuses the existing base/fiber split: a field is a
+*section* — fibers (`scalar`/`FiberVector`/`FiberTensor2`) over a *base* — and so far the
+base has always been the structured `Grid3D`. Interpolation adds the **unstructured base**
+and its section, reusing the *same* fibers; `𝓘` / `𝓘*` are the maps between sections over the
+two bases.
+
+- **`Point{T} = SVector{3,T}`** — a single position; a base-space *alias* of `FiberVector`
+  (same representation, different role). An alias, not a wrapper, so consumer arithmetic
+  stays StaticArrays-native (invariant 8); position vs. value is a distinction of role, not
+  dispatch.
+- **`PointSet`** — `M` positions in **structure-of-arrays** layout `(M, 3)` (point index
+  first, coordinate last — each coordinate axis contiguous across points, mirroring the
+  field's fiber-last `(Nx,Ny,Nz,3)` for coalesced GPU gather). Grid-free: periodicity wraps
+  any coordinate, so positions are untethered from a grid; the field supplies the grid at
+  transfer time.
+- **`PointValues`** — the section over a `PointSet`, as **three concrete types mirroring the
+  field zoo** — `ScalarPointValues` / `VectorPointValues` / `TensorPointValues{R}` under an
+  abstract `AbstractPointValues`, SoA layout `(M,)` / `(M,3)` / `(M,3,3)`. They are
+  **representation-free**: a point value is always a physical-space quantity (even exact
+  spectral interpolation *produces* physical values), so there is no physical/spectral split
+  here, unlike the field types.
+
+All wrap a generic `AbstractArray` and allocate via `similar`, so they are backend-generic
+(CPU / CUDA / AMDGPU) for free; compatibility reduces to `M`-matching and matching tensor
+order (a `_check_…` predicate in the Fields style). Types and operators live in the
+`Interpolation` module, importing Fields helpers via an explicit `using ..Fields: …`.
+
+**No concept of time (§1).** The package has, and for now keeps, *no* notion of time — no
+advection, no time integration, no temporal interpolation, no per-step state. It answers only
+the timeless "field ⇄ values at positions." Trajectory integration `dx/dt = u(x)` and any
+time stepping are the consumer's: it holds the positions and advances them, calling this
+package once per evaluation, statelessly. This is the same boundary as "no particles" — both
+the moving-object abstraction and its dynamics are solver concerns.
+
 **References (this section).**
 
 - C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations
@@ -460,3 +505,12 @@ so implementation begins from it.**
     anterpolation share the same partition-of-unity weights, so anterpolation is the
     conservative transpose (Sundaram & Collins 1996) — required to conserve total water
     and latent heat in the two-way-coupled parcel DNS. Not yet implemented.
+14. Point-data types fixed (§10) and the math-backend policy recorded. The unstructured base
+    reuses the base/fiber split: `Point{T} = SVector{3,T}` (a position; an **alias** of
+    `FiberVector`, not a wrapper); `PointSet` (`M` positions, **SoA** `(M,3)`, grid-free);
+    and `PointValues` as **three concrete types** mirroring the field zoo —
+    `ScalarPointValues` / `VectorPointValues` / `TensorPointValues{R}` under
+    `AbstractPointValues`, SoA, **representation-free**. Naming is domain-neutral by policy:
+    the package is a math backend, so no *particle* / *tracer* type and **no concept of time**
+    (no advection / integration / temporal state) — those are the consumer's. Types live in
+    `Interpolation`, importing Fields helpers. Not yet implemented.
