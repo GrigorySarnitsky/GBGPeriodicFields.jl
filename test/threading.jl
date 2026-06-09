@@ -10,6 +10,7 @@ using GBGPeriodicFields
 using Base.Broadcast: broadcasted
 
 const F = GBGPeriodicFields.Fields
+const FS = GBGPeriodicFields.FiberSections   # the threading primitives moved here (Phase A)
 const T = Float64
 const grid = Grid3D((32, 31, 30), (2π, 2π, 2π))     # 29760 elements ≥ the default 2^14 cutoff
 
@@ -23,13 +24,13 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
 
   @testset "config / gate / override" begin
     @test threading_cutoff() == 1 << 14
-    @test F._use_threads(1) == false                                          # below cutoff → serial
-    @test with_threading(enabled = false) do; F._use_threads(10^9) end == false   # forced serial
-    @test with_threading(enabled = true)  do; F._use_threads(10^9) end == true    # forced threaded
+    @test FS._use_threads(1) == false                                          # below cutoff → serial
+    @test with_threading(enabled = false) do; FS._use_threads(10^9) end == false   # forced serial
+    @test with_threading(enabled = true)  do; FS._use_threads(10^9) end == true    # forced threaded
     set_threading_cutoff!(64); @test threading_cutoff() == 64; set_threading_cutoff!(1 << 14)
-    @test F._THREADING_OVERRIDE[] === nothing                                 # default = auto
+    @test FS._THREADING_OVERRIDE[] === nothing                                 # default = auto
     @test_throws ErrorException with_threading(enabled = false) do; error("boom") end
-    @test F._THREADING_OVERRIDE[] === nothing                                 # restored after exception
+    @test FS._THREADING_OVERRIDE[] === nothing                                 # restored after exception
   end
 
   @testset "_assign! threaded == serial (index styles + singleton axes)" begin
@@ -41,7 +42,7 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     function same(dest1, dest2, makebc)
       fill!(dest1, NaN); fill!(dest2, NaN)
       Base.Broadcast.materialize!(dest1, makebc())
-      with_threading(enabled = true) do; F._assign!(dest2, makebc()); end
+      with_threading(enabled = true) do; FS._assign!(dest2, makebc()); end
       return Array(dest1) == Array(dest2) && !any(isnan, dest2)
     end
 

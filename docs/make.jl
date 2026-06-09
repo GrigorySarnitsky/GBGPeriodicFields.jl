@@ -29,7 +29,7 @@ DocMeta.setdocmeta!(GBGPeriodicFields, :DocTestSetup, :(using GBGPeriodicFields)
 
 makedocs(
   sitename  = "GBGPeriodicFields.jl",
-  modules   = [GBGPeriodicFields, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators, GBGPeriodicFields.Points, GBGPeriodicFields.Interpolation],
+  modules   = [GBGPeriodicFields, GBGPeriodicFields.FiberSections, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators, GBGPeriodicFields.Points, GBGPeriodicFields.Interpolation],
   format    = Documenter.HTML(
     canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/stable",
     collapselevel = 1,
@@ -41,6 +41,7 @@ makedocs(
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",
+      "FiberSections"         => "api/FiberSections.md",
       "Fields"                => "api/Fields.md",
       "FieldAlgebra"          => "api/FieldAlgebra.md",
       "DifferentialOperators" => "api/DifferentialOperators.md",

@@ -33,10 +33,36 @@ using ..Fields:
   check_field_compatibility,
   _check_field_domain_compatibility,
   _vector_component_data,
-  _tensor2_component_data,
+  _tensor2_component_data
+
+
+using ..FiberSections:
+  section_scalar_type,
   _assign!,
   _to_broadcasted,
-  @_assign!
+  @_assign!,
+  _add_values,
+  _subtract_values,
+  _vector_component,
+  _tensor_component,
+  _sum_terms,
+  _product,
+  _vector_kernel_body,
+  _tensor_kernel_body,
+  _scalar_kernel_body,
+  _dot_vector_rhs,
+  _dot_tensor_rhs,
+  _cross_formula,
+  _tensor_vector_formula,
+  _vector_tensor_formula,
+  _tensor_tensor_formula,
+  _transpose_formula,
+  _norm_scalar_rhs,
+  _norm_vector_rhs,
+  _norm_tensor_rhs,
+  _sym_kernel_body,
+  _skew_kernel_body,
+  _dev_kernel_body
 
 
 import Base: +, -, *, /, transpose
@@ -136,11 +162,6 @@ function _guard_noalias!(kernel!, destination, output_order::Val, operands::Tupl
 end
 
 
-@inline _add_values(x, y) = x + y
-@inline _add_values(x, y, z, rest...) = _add_values(x + y, z, rest...)
-
-@inline _subtract_values(x, y) = x - y
-@inline _subtract_values(x, y, z, rest...) = _subtract_values(x - y, z, rest...)
 
 
 """
@@ -154,130 +175,6 @@ function _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical, field::
 end
 
 
-#################################
-#        Code generation        #
-#################################
-#
-# The helpers below build expressions for the per-component access and write-back
-# of generated kernels, so that each operation's formula is written exactly once.
-#
-#   `kind` is :field   -> access through the component views (a field argument)
-#             :fiber   -> index a constant SVector / SMatrix argument
-#
-# Field component views are spliced directly into the formulas rather than bound
-# to locals first; the views are lazy, so this is equivalent to the hand-written
-# kernels it replaces.
-
-
-"""
-    _vector_component(symbol, kind, i)
-
-Build the expression accessing component `i` of a vector argument named `symbol`. `kind = :field` reads a field's component view (`_vector_component_data`); `kind = :fiber` indexes a constant `SVector`. Spliced into kernel formulas so each per-component formula is written once.
-"""
-_vector_component(symbol, kind, i)    = kind === :field ? :(_vector_component_data( $symbol, $i))     : :($symbol[$i])
-
-"""
-    _tensor_component(symbol, kind, i, j)
-
-Build the expression accessing component `(i, j)` of a second-order tensor argument named `symbol`. `kind = :field` reads a field's component view (`_tensor2_component_data`); `kind = :fiber` indexes a constant `SMatrix`.
-"""
-_tensor_component(symbol, kind, i, j) = kind === :field ? :(_tensor2_component_data($symbol, $i, $j)) : :($symbol[$i, $j])
-
-
-"""
-    _sum_terms(terms)
-
-Combine a non-empty collection of expressions into a broadcasted sum `term_1 .+ term_2 .+ …`.
-"""
-_sum_terms(terms) = reduce((accumulated, term) -> :($accumulated .+ $term), terms)
-
-
-"""
-    _product(x, y)
-
-Build the broadcasted product expression `x .* y`.
-"""
-_product(x, y) = :($x .* $y)
-
-
-"""
-    _vector_kernel_body(formula; alpha_beta::Bool)
-
-Build the body of a vector-valued kernel: `destination_i .= formula(i)` for `i in 1:3`, where `formula(i)` is the per-component expression. With `alpha_beta = true`, emit the five-argument `destination = α * formula + β * destination` form, branching on `iszero(β_value)` so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function binding `destination` (and, when `alpha_beta`, `α_value`/`β_value`).
-"""
-function _vector_kernel_body(formula; alpha_beta::Bool)
-  target(i) = :(_vector_component_data(destination, $i))
-
-  if alpha_beta
-    overwrite = [:(_assign!($(target(i)), $(_to_broadcasted(:(α_value .* $(formula(i))))))) for i in 1:3]
-    accumulate = [:(_assign!($(target(i)), $(_to_broadcasted(:(α_value .* $(formula(i)) .+ β_value .* $(target(i))))))) for i in 1:3]
-
-    return quote
-      if iszero(β_value)
-        $(overwrite...)
-      else
-        $(accumulate...)
-      end
-
-      return destination
-    end
-  else
-    statements = [:(_assign!($(target(i)), $(_to_broadcasted(formula(i))))) for i in 1:3]
-
-    return quote
-      $(statements...)
-
-      return destination
-    end
-  end
-end
-
-
-"""
-    _tensor_kernel_body(formula; alpha_beta::Bool)
-
-As `_vector_kernel_body`, but for a second-order tensor-valued kernel: `destination_ij .= formula(i, j)` for `i, j in 1:3`, with the same `alpha_beta` five-argument behaviour.
-"""
-function _tensor_kernel_body(formula; alpha_beta::Bool)
-  target(i, j) = :(_tensor2_component_data(destination, $i, $j))
-
-  if alpha_beta
-    overwrite = [:(_assign!($(target(i, j)), $(_to_broadcasted(:(α_value .* $(formula(i, j))))))) for i in 1:3 for j in 1:3]
-    accumulate = [:(_assign!($(target(i, j)), $(_to_broadcasted(:(α_value .* $(formula(i, j)) .+ β_value .* $(target(i, j))))))) for i in 1:3 for j in 1:3]
-
-    return quote
-      if iszero(β_value)
-        $(overwrite...)
-      else
-        $(accumulate...)
-      end
-
-      return destination
-    end
-  else
-    statements = [:(_assign!($(target(i, j)), $(_to_broadcasted(formula(i, j))))) for i in 1:3 for j in 1:3]
-
-    return quote
-      $(statements...)
-
-      return destination
-    end
-  end
-end
-
-
-"""
-    _scalar_kernel_body(rhs)
-
-Build the body of a scalar-field-valued kernel (a contraction with a scalar result): `field_data(destination) .= rhs`, ending in `return destination`.
-"""
-function _scalar_kernel_body(rhs)
-  return quote
-    _assign!(field_data(destination), $(_to_broadcasted(rhs)))
-
-    return destination
-  end
-end
 
 
 #####################################################
@@ -742,79 +639,6 @@ end
 #####################################################
 #        M3 contraction formula builders            #
 #####################################################
-#
-# Per-component formulas for the contraction and permutation families, written
-# once and fed to the kernel-body builders. `kind` is :field (component view) or
-# :fiber (StaticArrays indexing), as in the M1 builders above.
-
-
-"""
-    _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)
-
-Build the right-hand-side expression for a vector inner product, `Σᵢ uᵢ vᵢ` — a single broadcasted expression fed to `_scalar_kernel_body`. Operand `kind`s are `:field` or `:fiber`, as in `_vector_component`.
-"""
-_dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
-  _sum_terms([_product(_vector_component(u_symbol, u_kind, i), _vector_component(v_symbol, v_kind, i)) for i in 1:3])
-
-
-"""
-    _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)
-
-Build the right-hand-side expression for the tensor Frobenius inner product, `Σᵢⱼ Aᵢⱼ Bᵢⱼ`, fed to `_scalar_kernel_body`.
-"""
-_dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
-  _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _tensor_component(B_symbol, B_kind, i, j)) for i in 1:3 for j in 1:3])
-
-
-"""
-    _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
-
-Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is `` `uⱼ v_k − u_k vⱼ` ``. Feeds `_vector_kernel_body`.
-"""
-function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
-  return function (i)
-    j = mod1(i + 1, 3)
-    k = mod1(i + 2, 3)
-    first_term  = _product(_vector_component(left_symbol, left_kind, j), _vector_component(right_symbol, right_kind, k))
-    second_term = _product(_vector_component(left_symbol, left_kind, k), _vector_component(right_symbol, right_kind, j))
-    return :($first_term .- $second_term)
-  end
-end
-
-
-"""
-    _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)
-
-Return a per-component function `i -> expr` for the tensor-on-vector left action, component `i` being `Σⱼ Aᵢⱼ uⱼ`. Feeds `_vector_kernel_body`.
-"""
-_tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
-  i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
-
-
-"""
-    _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)
-
-Return a per-component function `i -> expr` for the vector-on-tensor right action, component `i` being `Σⱼ uⱼ Aⱼᵢ`. Feeds `_vector_kernel_body`.
-"""
-_vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
-  i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
-
-
-"""
-    _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)
-
-Return a per-component function `(i, j) -> expr` for the tensor-tensor product, component `(i, j)` being `Σₖ Aᵢₖ Bₖⱼ`. Feeds `_tensor_kernel_body`.
-"""
-_tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
-  (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])
-
-
-"""
-    _transpose_formula(A_symbol, A_kind)
-
-Return a per-component function `(i, j) -> expr` for the transpose, component `(i, j)` being `Aⱼᵢ`. Feeds `_tensor_kernel_body`.
-"""
-_transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_kind, j, i)
 
 
 const _VectorField = Union{VectorFieldPhysical, VectorFieldSpectral}
@@ -1221,13 +1045,13 @@ norm
 
 
 @eval _norm_components!(destination, scalar_field::ScalarFieldPhysical) =
-  $(_scalar_kernel_body(:(abs.(field_data(scalar_field)))))
+  $(_scalar_kernel_body(_norm_scalar_rhs(:scalar_field)))
 
 @eval _norm_components!(destination, u::VectorFieldPhysical) =
-  $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_vector_component(:u, :field, i)))) for i in 1:3]))))))
+  $(_scalar_kernel_body(_norm_vector_rhs(:u, :field)))
 
 @eval _norm_components!(destination, A::TensorFieldPhysical{2}) =
-  $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(:A, :field, i, j)))) for i in 1:3 for j in 1:3]))))))
+  $(_scalar_kernel_body(_norm_tensor_rhs(:A, :field)))
 
 
 for (Operand,) in ((:ScalarFieldPhysical,), (:VectorFieldPhysical,), (:(TensorFieldPhysical{2}),))
@@ -1309,27 +1133,14 @@ This operation is also defined for `PointValues` — the same fiberwise algebra 
 function dev end
 
 
-# Decomposition kernels. The symmetric/skew kernels need `half` and the
-# deviatoric kernel needs `third`; both are scalar-type locals referenced by the
-# generated per-component formulas. Index-shuffling, so wrapped by the guard.
-@eval function _sym_components_noalias!(destination, A)
-  half = inv(field_scalar_type(A)(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? _tensor_component(:A, :field, i, i) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .+ $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
+# Decomposition kernels — bodies from the shared `_sym_kernel_body` / `_skew_kernel_body` /
+# `_dev_kernel_body` builders in FiberSections (the same builders the point algebra uses, so the
+# formula is written once). Index-shuffling, so wrapped by the guard.
+@eval _sym_components_noalias!(destination, A) = $(_sym_kernel_body())
 
-@eval function _skew_components_noalias!(destination, A)
-  half = inv(field_scalar_type(A)(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? :(zero(field_scalar_type(A))) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .- $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
+@eval _skew_components_noalias!(destination, A) = $(_skew_kernel_body())
 
-@eval function _dev_components_noalias!(destination, A)
-  third = inv(field_scalar_type(A)(3))
-  trace = $(_sum_terms([_tensor_component(:A, :field, d, d) for d in 1:3]))
-  $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
-      _tensor_component(:A, :field, i, j); alpha_beta = false))
-end
+@eval _dev_components_noalias!(destination, A) = $(_dev_kernel_body())
 
 
 for (kernel, bang, allocating) in (

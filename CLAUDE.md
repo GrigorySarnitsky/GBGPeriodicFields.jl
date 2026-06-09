@@ -15,7 +15,7 @@ single-source, and keep it updated when new project rules are established.
 
 ## Modules and wiring
 
-- `src/FiberSections.jl` — base-agnostic foundation: the `AbstractFiberSection{T,R}` supertype that the field and point-value types subtype. The shared vertical-algebra code generators and the `_assign!` primitive move here next (Phase A consolidation, in progress — see roadmap item 6).
+- `src/FiberSections.jl` — base-agnostic foundation: the `AbstractFiberSection{T,R}` supertype (field and point-value types subtype it), the `_assign!`/`@_assign!` threading primitive, and the **vertical-algebra code generators** (per-component formula + kernel-body builders, incl. norm/sym/skew/dev via `section_scalar_type`) — reused verbatim by `FieldAlgebra` and `Points`, so each fiberwise formula is written once.
 - `src/Fields.jl` — types (`Grid3D`, `RealFourierLayout`, field types; `FiberVector{T} = SVector{3,T}`, `FiberTensor2{T} = SMatrix{3,3,T,9}`, plus `FiberTensor3/4`), memory layout, broadcast style, compatibility checks, `FieldTransformPlans`, `FieldSpectralMultipliers`.
 - `src/FieldAlgebra.jl` — fiberwise/pointwise algebra; method families emitted by code generators.
 - `src/DifferentialOperators.jl` — spectral operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`, in-place variants). Imports `FieldSpectralMultipliers` and its compatibility/broadcast helpers from Fields; the umbrella re-exports the Fields version. Owns only the spectral kernels and the operators.
@@ -70,13 +70,16 @@ single-source, and keep it updated when new project rules are established.
     consumer. The interpolation data types follow this: `Point` (alias `SVector{3,T}`),
     `PointSet` (SoA positions), `PointValues` (three field-mirroring types). See `docs/ARCHITECTURE.md` §10.
 
-## Code generation rules (FieldAlgebra)
+## Code generation rules (FiberSections + FieldAlgebra)
 
-- Per-component formulas are written **once**; `@eval` tables stamp out
-  representation, argument-order, and in-place/allocating variants. Builders:
+- Per-component formulas are written **once** in `FiberSections` (shared by `FieldAlgebra` and
+  `Points`); `@eval` tables in each consumer stamp out the representation, argument-order, and
+  in-place/allocating variants. Builders (all in `FiberSections`):
   `_vector_component`/`_tensor_component` (kinds `:field`/`:fiber`), `_sum_terms`,
   `_product`, `_vector_kernel_body`/`_tensor_kernel_body` (with `alpha_beta` flag),
-  `_scalar_kernel_body`, `_guard_noalias!`.
+  `_scalar_kernel_body`, the contraction/decomposition formula builders, and `section_scalar_type`
+  (real `T` for any section). The alias guard `_guard_noalias!` stays per-consumer (it allocates
+  via the base's `similar_*`).
 - Generators emit **methods only — never docstrings**. One docstring per operation,
   on the bare binding: `function f end` for package-owned generics, the bare imported
   name for Base/LinearAlgebra functions. Docstrings list a few canonical signatures
@@ -187,13 +190,13 @@ the per-operation coverage contract.
    FieldAlgebra code generators verbatim over an extended section interface (`field_data` /
    `_vector_component_data` / `_tensor2_component_data`) — no formula written twice — and
    mirrors the *physical* field surface only (point values are representation-free).
-   **Phase A consolidation (`docs/ARCHITECTURE.md` §2, §10) — done so far:** the `FiberSections`
-   foundation module + the `AbstractFiberSection{T,R}` supertype (fields and point-values subtype
-   it), and the `Points` / `Interpolation` split (point objects + algebra in `Points`; the transfer
-   scaffold in `Interpolation`). **Remaining:** lift the shared vertical-algebra codegen and
-   `_assign!` down into `FiberSections` (de-duplicating the replicated norm/sym/skew/dev formulas),
-   then the transfer kernels themselves (interpolation `f(x)` / anterpolation). Each step keeps both
-   parity baselines byte-identical.
+   **Phase A consolidation done (`docs/ARCHITECTURE.md` §2, §10):** the `FiberSections` foundation
+   module + the `AbstractFiberSection{T,R}` supertype (fields and point-values subtype it); the
+   `Points` / `Interpolation` split (point objects + algebra in `Points`; the transfer scaffold in
+   `Interpolation`); and the shared vertical-algebra codegen + `_assign!` lifted into `FiberSections`
+   (norm/sym/skew/dev de-duplicated via `section_scalar_type`). Both parity baselines held
+   byte-identical throughout. **Remaining for the layer:** the transfer kernels themselves
+   (interpolation `f(x)` / anterpolation).
 
 ## Working agreements
 

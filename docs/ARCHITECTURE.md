@@ -261,9 +261,10 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   alongside their `mul!`/`dot`/`cross`/… kernels, completing the 198-method surface.
 
 The same builders are reused verbatim to generate the point-value algebra over the
-unstructured base (§10) — the formulas are base-independent (§2). They currently live
-in FieldAlgebra and are imported by the point layer; Phase A moves them down into the
-shared `FiberSections` module so both consumers source them from one place.
+unstructured base (§10) — the formulas are base-independent (§2). They live in the shared
+`FiberSections` module (with the `_assign!` primitive); both `FieldAlgebra` and `Points` source
+them from there, so each fiberwise formula — including the norm/sym/skew/dev ones, via
+`section_scalar_type` — is written exactly once.
 
 ### Documentation policy
 
@@ -476,21 +477,20 @@ byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_
 Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
 
 **Consolidation status — the module structure the model implies.** The fiber-bundle model (§2)
-calls for a base-agnostic foundation and a clean object/operation naming split, realized in
-stages:
+calls for a base-agnostic foundation and a clean object/operation naming split. Both are now in
+place:
 
-- **Done:** the foundation module **`FiberSections`** holds the base-agnostic supertype
-  `AbstractFiberSection{T, R}` (the field and point-value types subtype it); and the former
-  `Interpolation` module is **split in two** — **`Points`** holds the unstructured-base section
-  *objects* (`PointSet`, `*PointValues`) and their generated algebra (a noun-named peer of
+- the foundation module **`FiberSections`** holds the base-agnostic supertype
+  `AbstractFiberSection{T, R}` (the field and point-value types subtype it), the CPU-threading /
+  fused-assignment primitive `_assign!`, and the vertical-algebra **code generators** — the single
+  home where each fiberwise formula (including norm/sym/skew/dev, via `section_scalar_type`) is
+  written once and reused by both `FieldAlgebra` and `Points`;
+- the former `Interpolation` module is **split in two** — **`Points`** holds the unstructured-base
+  section *objects* (`PointSet`, `*PointValues`) and their generated algebra (a noun-named peer of
   `Fields`), while **`Interpolation`** keeps only the not-yet-implemented transfer maps (a peer of
   `DifferentialOperators`).
-- **Remaining:** lifting the shared vertical-algebra **code generators** and the `_assign!`
-  primitive down into `FiberSections` — in particular the norm/sym/skew/dev formulas, the one
-  block still *replicated* between the field and point algebra rather than sourced from a builder —
-  so `FieldAlgebra` and `Points` source them from one home.
 
-The remaining field/point asymmetry is deliberate and **mandated by the mathematics**, not
+The field/point asymmetry is deliberate and **mandated by the mathematics**, not
 inertia: points have no differential operators (no horizontal structure, §2) and no second
 representation, so there is no point peer to `DifferentialOperators` and no representation
 machinery in `Points`; and the point algebra is a small *generated* emission that folds into
@@ -636,13 +636,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `AbstractFiberSection{T, R}` supertype the fiber-bundle model (§2) invites — and the lift of
     the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
     undertaken.
-16. Phase A consolidation (§2, §10), in stages. **Done:** the foundation module **`FiberSections`**
-    holds the base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types
-    subtype it); and the former `Interpolation` module is **split** into **`Points`**
-    (unstructured-base section objects + their generated algebra — a noun peer of `Fields`) and
-    **`Interpolation`** (the not-yet-implemented transfer maps — an operation peer of
-    `DifferentialOperators`). **Remaining:** lift the shared code generators (and `_assign!`) down
-    into `FiberSections`, de-duplicating the replicated norm/sym/skew/dev formulas. The field/point
-    asymmetry is math-mandated (no point differential operators, no second representation; the
-    point algebra is a small generated emission folded into `Points`). Each stage holds both parity
-    baselines (198 + 118) byte-for-byte, zero ambiguities.
+16. Phase A consolidation **done** (§2, §10). The foundation module **`FiberSections`** holds the
+    base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types subtype
+    it), the `_assign!` threading primitive, and the **vertical-algebra code generators** — the
+    single home for every fiberwise formula (norm/sym/skew/dev included, via `section_scalar_type`),
+    reused verbatim by `FieldAlgebra` and `Points`. The former `Interpolation` module is **split**
+    into **`Points`** (unstructured-base section objects + their generated algebra — a noun peer of
+    `Fields`) and **`Interpolation`** (the not-yet-implemented transfer maps — an operation peer of
+    `DifferentialOperators`). The field/point asymmetry is math-mandated (no point differential
+    operators, no second representation; the point algebra is a small generated emission folded into
+    `Points`). Both parity baselines (198 + 118) held byte-for-byte through every step, zero
+    ambiguities. Remaining for the layer: the transfer kernels themselves (item 13).

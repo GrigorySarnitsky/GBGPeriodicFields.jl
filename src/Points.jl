@@ -24,14 +24,16 @@ adjoint anterpolation (point to grid) — lives in the `Interpolation` module.
 module Points
 
 using StaticArrays: SVector
-using ..FiberSections: AbstractFiberSection
-using ..Fields: fiber_shape, _assign!, @_assign!, FiberVector, FiberTensor2
-using ..FieldAlgebra: _add_values, _subtract_values,
-                      _scalar_kernel_body, _vector_kernel_body, _tensor_kernel_body,
-                      _sum_terms, _vector_component, _tensor_component, _product,
-                      _dot_vector_rhs, _dot_tensor_rhs, _cross_formula,
-                      _tensor_vector_formula, _vector_tensor_formula, _tensor_tensor_formula,
-                      _transpose_formula
+using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!,
+                       _add_values, _subtract_values,
+                       _scalar_kernel_body, _vector_kernel_body, _tensor_kernel_body,
+                       _sum_terms, _vector_component, _tensor_component, _product,
+                       _dot_vector_rhs, _dot_tensor_rhs, _cross_formula,
+                       _tensor_vector_formula, _vector_tensor_formula, _tensor_tensor_formula,
+                       _transpose_formula,
+                       _norm_scalar_rhs, _norm_vector_rhs, _norm_tensor_rhs,
+                       _sym_kernel_body, _skew_kernel_body, _dev_kernel_body
+using ..Fields: fiber_shape, FiberVector, FiberTensor2
 import Base: +, -, *, /
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm
 import ..Fields: field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
@@ -643,11 +645,10 @@ transpose(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = transpose!(simi
 
 
 # --- Norms (scalar result) ---
-# NOTE: FieldAlgebra inlines the norm formula (no shared builder), so these three expressions
-# are replicated here; Phase A extracts `_norm_*_rhs` builders and removes the replication.
-@eval _norm_components_pv!(destination, values::ScalarPointValues) = $(_scalar_kernel_body(:(abs.(field_data(values)))))
-@eval _norm_components_pv!(destination, u::VectorPointValues) = $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_vector_component(:u, :field, i)))) for i in 1:3]))))))
-@eval _norm_components_pv!(destination, A::TensorPointValues{2}) = $(_scalar_kernel_body(:(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(:A, :field, i, j)))) for i in 1:3 for j in 1:3]))))))
+# Bodies from the shared `_norm_*_rhs` builders in FiberSections — the same the field norms use.
+@eval _norm_components_pv!(destination, values::ScalarPointValues) = $(_scalar_kernel_body(_norm_scalar_rhs(:values)))
+@eval _norm_components_pv!(destination, u::VectorPointValues) = $(_scalar_kernel_body(_norm_vector_rhs(:u, :field)))
+@eval _norm_components_pv!(destination, A::TensorPointValues{2}) = $(_scalar_kernel_body(_norm_tensor_rhs(:A, :field)))
 
 for Operand in (:ScalarPointValues, :VectorPointValues, :(TensorPointValues{2}))
   @eval function norm!(destination::ScalarPointValues{T}, operand::$Operand{T}) where {T<:AbstractFloat}
@@ -660,26 +661,13 @@ end
 
 
 # --- Symmetric / skew / deviatoric decompositions (index-shuffling ⇒ alias-guarded) ---
-# NOTE: also replicated from the inlined field formulas (`half`/`third`/`trace` locals); the
-# scalar type comes from `eltype(field_data(A))`. Phase A extracts shared formula builders.
-@eval function _sym_components_pv!(destination, A)
-  half = inv(eltype(field_data(A))(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? _tensor_component(:A, :field, i, i) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .+ $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
+# Bodies from the shared `_sym_kernel_body` / `_skew_kernel_body` / `_dev_kernel_body` builders in
+# FiberSections (scalar type via `section_scalar_type`) — the same the field decompositions use.
+@eval _sym_components_pv!(destination, A) = $(_sym_kernel_body())
 
-@eval function _skew_components_pv!(destination, A)
-  half = inv(eltype(field_data(A))(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? :(zero(eltype(field_data(A)))) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .- $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
+@eval _skew_components_pv!(destination, A) = $(_skew_kernel_body())
 
-@eval function _dev_components_pv!(destination, A)
-  third = inv(eltype(field_data(A))(3))
-  trace = $(_sum_terms([_tensor_component(:A, :field, d, d) for d in 1:3]))
-  $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
-      _tensor_component(:A, :field, i, j); alpha_beta = false))
-end
+@eval _dev_components_pv!(destination, A) = $(_dev_kernel_body())
 
 for (kernel, bang, allocating) in (
     (:_sym_components_pv!,  :sym!,  :sym),

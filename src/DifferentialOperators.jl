@@ -92,7 +92,10 @@ using ..Fields:
   _tensor2_component_data,
   _check_multipliers_compatibility,
   _wavenumber_broadcast_view,
-  _squared_wavenumber_broadcast,
+  _squared_wavenumber_broadcast
+
+
+using ..FiberSections:
   _assign!,
   @_assign!
 

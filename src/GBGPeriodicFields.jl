@@ -95,7 +95,10 @@ include("Interpolation.jl")
 
 
 using .FiberSections:
-  AbstractFiberSection
+  AbstractFiberSection,
+  with_threading,
+  set_threading_cutoff!,
+  threading_cutoff
 
 
 using .Fields:
@@ -127,9 +130,6 @@ using .Fields:
   physical_field_shape,
   spectral_field_shape,
   FieldSpectralMultipliers,
-  with_threading,
-  set_threading_cutoff!,
-  threading_cutoff,
   set_fft_threads!
 
 
