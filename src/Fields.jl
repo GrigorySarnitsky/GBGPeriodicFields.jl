@@ -13,6 +13,7 @@ using AbstractFFTs
 using LinearAlgebra
 import FFTW
 using Base.ScopedValues: ScopedValue
+using ..FiberSections: AbstractFiberSection
 
 export FiberVector,
        FiberTensor2,
@@ -195,7 +196,7 @@ Here `T<:AbstractFloat` is the real scalar type associated with the field and `R
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
 """
-abstract type AbstractFieldPhysical{T<:AbstractFloat, R} end
+abstract type AbstractFieldPhysical{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
 
 """
@@ -207,7 +208,7 @@ Here `T<:AbstractFloat` is the real scalar type associated with the field and `R
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
 """
-abstract type AbstractFieldSpectral{T<:AbstractFloat, R} end
+abstract type AbstractFieldSpectral{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
 
 const AbstractField = Union{AbstractFieldPhysical, AbstractFieldSpectral}

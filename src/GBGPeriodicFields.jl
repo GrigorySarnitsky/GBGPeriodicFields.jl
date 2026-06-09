@@ -86,10 +86,15 @@ The package provides field representations, FFT transform plans, storage-wise br
 module GBGPeriodicFields
 
 
+include("FiberSections.jl")
 include("Fields.jl")
 include("FieldAlgebra.jl")
 include("DifferentialOperators.jl")
 include("Interpolation.jl")
+
+
+using .FiberSections:
+  AbstractFiberSection
 
 
 using .Fields:
@@ -184,6 +189,7 @@ export FiberVector,
        FiberTensor4,
        Grid3D,
        RealFourierLayout,
+       AbstractFiberSection,
        AbstractFieldPhysical,
        AbstractFieldSpectral,
        ScalarFieldPhysical,

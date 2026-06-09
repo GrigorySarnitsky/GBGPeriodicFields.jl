@@ -79,6 +79,7 @@ conserving an energy pairing rather than the plain sum.
 module Interpolation
 
 using StaticArrays: SVector
+using ..FiberSections: AbstractFiberSection
 using ..Fields: fiber_shape, _assign!, @_assign!, FiberVector, FiberTensor2
 using ..FieldAlgebra: _add_values, _subtract_values,
                       _scalar_kernel_body, _vector_kernel_body, _tensor_kernel_body,
@@ -154,7 +155,7 @@ physical/spectral distinction here, unlike the field types. Concrete subtypes:
 [`ScalarPointValues`](@ref) (`R = 0`), [`VectorPointValues`](@ref) (`R = 1`),
 [`TensorPointValues`](@ref) (`R ≥ 2`).
 """
-abstract type AbstractPointValues{T<:AbstractFloat, R} end
+abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
 
 """
