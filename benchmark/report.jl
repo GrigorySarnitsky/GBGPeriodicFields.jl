@@ -9,7 +9,7 @@
 using BenchmarkTools
 using Dates
 
-const CLASSES = ("fft", "algebra", "operators", "transfer")
+const CLASSES = ("fft", "algebra", "operators", "transfer", "reductions")
 
 # cpu-t1.json → "CPU t1", gpu.json → "GPU"
 label_of(path) = (b = splitext(basename(path))[1]; b == "gpu" ? "GPU" : replace(b, "cpu-t" => "CPU t"))

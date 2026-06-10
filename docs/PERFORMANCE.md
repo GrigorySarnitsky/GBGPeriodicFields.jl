@@ -165,7 +165,8 @@ A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* p
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
-operators**, and the **interpolation/anterpolation transfer**. Run it:
+operators**, the **interpolation/anterpolation transfer**, and the **L²/measure reductions**
+(`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`). Run it:
 
 ```sh
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time
@@ -243,9 +244,11 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
-1. **Reductions not yet benchmarked** — the L²/measure reductions (`integral`/`inner`/`l2norm`/
-   `mean`/…, `docs/ARCHITECTURE.md` decision 18) are implemented and tested but have no benchmark
-   class yet; add one (they are bandwidth-bound streaming reductions; watch the GPU `dot`/`sum`).
+1. **Reductions — benchmark class added, committed `RESULTS.md` not yet regenerated.** The L²/measure
+   reductions (`integral`/`inner`/`l2norm`/`mean`/…) now have a `reductions` benchmark class (§5),
+   verified on CPU; they are bandwidth-bound streaming reductions (`lpnorm` is heaviest — it allocates
+   the pointwise `norm` field first). The committed `RESULTS.md` predates the class — regenerate it
+   (`characterize.sh`) on a free machine to add the rows.
 2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
    supports it via `array_type = CuArray`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps

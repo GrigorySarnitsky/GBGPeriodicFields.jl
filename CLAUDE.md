@@ -116,6 +116,28 @@ the per-operation coverage contract. Before optimizing or benchmarking, read
 `docs/PERFORMANCE.md` — the performance model, best practices, recorded findings, and the
 benchmark coverage contract.
 
+### Definition of done — for a new or changed operation/feature
+
+These four are **systematically forgotten** — treat the feature as unfinished until each is
+explicitly checked (not "should work", *done and verified*):
+
+1. **Correctness tests** — a CPU behaviour test against an *independent* oracle (analytic or
+   hand-computed), over both element types and both bases where applicable, **and GPU parity**
+   in `test/gpu/suite.jl` (device-vs-CPU under `allowscalar(false)`). The `docs/TESTING.md` §4
+   coverage contract is the spec.
+2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
+   wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
+   benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
+3. **The three guiding docs** — `docs/ARCHITECTURE.md` (a decision-log entry **and** the relevant
+   section), `docs/TESTING.md` (§2 layout + §7 coverage), and `docs/PERFORMANCE.md` (model +
+   coverage/gaps), as applicable. They are the spec, not an afterthought.
+4. **The rest of the docs + this file** — the API page (`docs/src/api/…` and `make.jl`
+   modules/pages for a new module), the `docs/src/index.md` / `docs/src/api.md` module lists, and
+   **`CLAUDE.md`** itself (the module list, include order, roadmap, and test summary).
+
+Grep the docs for stale "deferred/none-exist/future" claims about whatever you just implemented —
+those are the usual rot. Then the mechanical bar:
+
 "Should work" is not done. Minimum bar for any change:
 
 - Load: `julia --project -e 'using GBGPeriodicFields'` (catches `@eval` and wiring errors).

@@ -11,7 +11,7 @@ practices, and the recorded per-platform results live in [`docs/PERFORMANCE.md`]
   and grid size. `print_results` prints a min-time/allocations table.
 - `harness.jl` — device-parameterised field/point builders + `bench_sync` (blocks the backend so
   BenchmarkTools times GPU work to completion).
-- `fft.jl`, `algebra.jl`, `operators.jl`, `transfer.jl` — per-class benchmark builders.
+- `fft.jl`, `algebra.jl`, `operators.jl`, `transfer.jl`, `reductions.jl` — per-class benchmark builders.
 - `runbenchmarks.jl` — CPU entry (run, print, optional `save`/`judge`).
 - `threading.jl` — standalone serial-vs-threaded comparison (manual).
 - `gpu/<backend>/` — per-backend GPU entry (mirrors `test/gpu/`).
