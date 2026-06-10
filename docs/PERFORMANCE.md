@@ -235,10 +235,8 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 **Covered:** the four public operation classes (FFT, algebra, operators, transfer) parameterised by
 element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one device-parameterised
 suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
-(`characterize.sh` → committed `benchmark/RESULTS.md`): the CPU at grids 64³–256³ across the 1/2/4/8
-thread sweep, and the GPU over 64³–256³, on the RX 6700 XT + i7-12700K. (The committed `RESULTS.md`
-GPU column is a pre-fix partial — 64³–128³, no FFT; the full GPU column regenerates on a freshly-reset
-device, gap 5.)
+(`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
+across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
@@ -266,6 +264,8 @@ device, gap 5.)
      **one (size, element-type) at a time**. Knock-on: a VRAM-OOM segfault can degrade the HIP
      context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault under load.
 
-   So the GPU column is fully obtainable; regenerate it with `benchmark/characterize.sh` on a
-   freshly-reset device. RDNA3 (gfx1100, e.g. 7900 XTX, 24 GB) should make 256³ trivial and 512³
-   feasible.
+   With the per-(size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The standing
+   limit is the 12 GB ceiling itself: both element types can't be 256³-resident at once (hence the
+   one-at-a-time build), and 512³ won't fit on this card. If a future OOM-segfault degrades the
+   context, reset with `rocm-smi --gpureset` from a console (it can crash an active display session)
+   or reboot. RDNA3 (gfx1100, e.g. 7900 XTX, 24 GB) should make 256³ trivial and 512³ feasible.

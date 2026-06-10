@@ -34,13 +34,10 @@ println(io, "# Benchmark results\n")
 println(io, "Minimum time per operation; `—` = not measured for that column. Generated ",
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
         ", host `", gethostname(), "`. Columns below are the runs supplied; grids and element types ",
-        "are in the row labels. The **CPU thread sweep 1/2/4/8 covers 64³–256³**. The **GPU column ",
-        "(RX 6700 XT, gfx1031, ROCm) shown here covers 64³–128³ for algebra/operators/transfer** — a ",
-        "pre-fix run; 256³ and the GPU `fft` class are obtainable but were not captured in this file. ",
-        "256³ GPU FFT itself works fine; the only real limit is the 12 GB VRAM (the full suite for both ",
-        "element types at 256³ overflows it and HIP segfaults rather than erroring — PERFORMANCE.md §6 ",
-        "gap 5), which `characterize.jl` now avoids by building one (size, type) at a time. **Regenerate** ",
-        "the full column with `benchmark/characterize.sh` on a freshly-reset device. ~10% jitter.\n")
+        "are in the row labels. The **CPU thread sweep 1/2/4/8 and the GPU (RX 6700 XT, gfx1031, ROCm) ",
+        "all cover 64³–256³, every op-class incl. FFT.** The GPU sweep builds one (grid, element-type) ",
+        "at a time so 256³ fits in 12 GB VRAM (PERFORMANCE.md §6 gap 5). **Regenerate** with ",
+        "`benchmark/characterize.sh`. ~10% jitter.\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
