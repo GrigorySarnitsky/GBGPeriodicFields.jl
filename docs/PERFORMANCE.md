@@ -105,8 +105,8 @@ architecture or the tests; they are collected here so an optimizer has them in o
 
 ## 4. What we have found
 
-Measured on the home **AMD Radeon RX 6700 XT** (gfx1030, 12 GB, 96 MB Infinity Cache, ~384 GB/s
-peak) and **Intel i7-12700K** (8 P-cores), `Float32`, ~1 particle per 27 grid cells. These are the
+Measured on the home **AMD Radeon RX 6700 XT** (gfx1031, 12 GB, 96 MB Infinity Cache, ~384 GB/s
+peak) and **Intel i7-12700K** (8 P-cores), `Float32`, ~1 point per 27 grid cells. These are the
 cumulative results of the transfer-layer optimization work; the benchmark suite (§5) regenerates the
 tracked subset on demand.
 
@@ -116,9 +116,9 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 
 | gather scheme | stencil | GPU 256³ (621k pts) | throughput |
 |---|---|---|---|
-| trilinear `LalescuSpline(0,0)` | 2³ = 8 | 0.51 ms | 1230 Mpts/s |
-| Catmull–Rom `(1,1)` | 4³ = 64 | 3.55 ms | 175 Mpts/s |
-| Lalescu `(3,m)` | 8³ = 512 | 28.0 ms (flat in `m`) | 22 Mpts/s |
+| `LalescuSpline(0,0)` (trilinear)   | 2³ = 8   | 0.51 ms                | 1230 Mpts/s |
+| `LalescuSpline(1,1)` (Catmull–Rom) | 4³ = 64  | 3.55 ms                | 175 Mpts/s  |
+| `LalescuSpline(3,m)` (Lalescu 8-pt)| 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
 
 **(b) Loop order — contiguous axis innermost (KEPT).** Iterating the contiguous `x` axis innermost
 (stride-1 stencil access) vs `z`-innermost (stride `Nx·Ny`):
@@ -208,23 +208,25 @@ and assembles it into the committed report
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
 that one script; it stamps the date, commit, and host.
 
-A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT); the
-full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
+A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT). The
+last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
+4-thread CPU. The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
 
-| operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU |
-|---|---|---|---|
-| `to_spectral` scalar (FFT) | 7.10 ms | 3.90 ms | 0.41 ms |
-| `mul!` tensor·vec (M3 algebra) | 13.5 ms | 11.1 ms | 0.99 ms |
-| `laplacian!` scalar (operator) | 2.94 ms | 2.77 ms | 0.21 ms |
-| `interpolate!` Catmull–Rom (gather) | 13.5 ms | 3.51 ms | 0.28 ms |
-| `interpolate!` Lalescu (3,3) (gather) | 84.3 ms | 22.0 ms | 1.60 ms |
-| `anterpolate!` Catmull–Rom (scatter) | 29.5 ms | 7.63 ms | 0.67 ms |
+| operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
+|---|--:|--:|--:|--:|--:|
+| `to_spectral` scalar (FFT)            | 7.11 ms | 3.88 ms | 0.40 ms | 1.8× |  9.6× |
+| `mul!` tensor·vec (M3 algebra)        | 13.5 ms | 11.0 ms | 0.97 ms | 1.2× | 11.4× |
+| `laplacian!` scalar (operator)        | 3.09 ms | 2.81 ms | 0.21 ms | 1.1× | 13.4× |
+| `interpolate!` Catmull–Rom (gather)   | 13.8 ms | 3.52 ms | 0.28 ms | 3.9× | 12.7× |
+| `interpolate!` Lalescu (3,3) (gather) | 85.4 ms | 21.7 ms | 1.57 ms | 3.9× | 13.8× |
+| `anterpolate!` Catmull–Rom (scatter)  | 29.6 ms | 7.64 ms | 0.67 ms | 3.9× | 11.5× |
 
-Two patterns the full run makes plain. **The bandwidth-bound classes barely thread** at this size —
-algebra and operators gain ≤1.2× from 4 threads (the cheapest, `add!`, even regresses: it is already
-DRAM-bandwidth-saturated on one core), confirming §2. **The transfer threads well** (≈3.8× on the
-Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads by
-~10–50×**, widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
+Two patterns the speedup columns make plain. **The bandwidth-bound classes barely thread** at this
+size — algebra and operators gain only ≤1.2× from 4 threads (the cheapest, `add!`, even regresses: it
+is already DRAM-bandwidth-saturated on one core), confirming §2. **The transfer threads well** (≈3.9×
+on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
+the 4-thread CPU by ~10–14×** (and the serial CPU by up to ~50× — e.g. Catmull–Rom gather, 13.8 →
+0.28 ms), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
 thread sweep — is in `benchmark/RESULTS.md`.)
