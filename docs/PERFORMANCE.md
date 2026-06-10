@@ -197,9 +197,19 @@ Because CI runners have no GPU, **GPU tracking is manual**: run the GPU suite on
 record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Project.toml` + a
 2-line `runbenchmarks.jl`); the suite needs no changes.
 
-**Recorded baselines** — tracked SUITE, `128³`, `Float64`, minimum time. CPU = i7-12700K
-(`-t1`/`-t4`), GPU = RX 6700 XT. Regenerate with the commands above; absolute numbers carry ~10%
-jitter (§7), so read them as magnitudes.
+**Two scales.** The **tracked SUITE** (`runbenchmarks.jl`, grids 64³/128³) is the quick,
+regression-sensitive run used with `save`/`judge` above. The **exhaustive characterization**
+(`benchmark/characterize.sh`) runs the full matrix — the **CPU thread sweep 1/2/4/8** (powers of two
+up to the performance cores) over grids **64³–256³**, and the **GPU over 64³–128³** (a 256³ GPU run
+wedges host-side, isolated to rocFFT's 256³ batched planning — the 256³ GPU *transfer* kernels run,
+as §4 shows), every op-class, one grid size at a time to bound memory — and assembles it into the
+committed report
+[`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
+(the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
+that one script; it stamps the date, commit, and host.
+
+A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT); the
+full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU |
 |---|---|---|---|
@@ -215,15 +225,18 @@ algebra and operators gain ≤1.2× from 4 threads (the cheapest, `add!`, even r
 DRAM-bandwidth-saturated on one core), confirming §2. **The transfer threads well** (≈3.8× on the
 Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads by
 ~10–50×**, widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
-streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; see the suite output for
-the full type × size × backend matrix.)
+streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
+operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
+thread sweep — is in `benchmark/RESULTS.md`.)
 
 
 ## 7. Current coverage and known gaps
 
 **Covered:** the four public operation classes (FFT, algebra, operators, transfer) parameterised by
 element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one device-parameterised
-suite; the recorded RX 6700 XT + i7-12700K results above; the manual save→`judge` regression workflow.
+suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
+(`characterize.sh` → committed `benchmark/RESULTS.md`): the CPU at grids 64³–256³ across the 1/2/4/8
+thread sweep, and the GPU at 64³–128³, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
@@ -237,3 +250,7 @@ suite; the recorded RX 6700 XT + i7-12700K results above; the manual save→`jud
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values.
+5. **GPU 256³ FFT** — the characterization caps the GPU at 128³: a 256³ GPU run wedges host-side
+   (0% GPU, 100% CPU), isolated to rocFFT's 256³ batched-plan creation under AMDGPU (the 256³ GPU
+   *transfer* kernels run fine, §4). The CPU covers 64³–256³; the GPU column stops at 128³ until the
+   rocFFT issue is pinned down (likely a plan-config or memory-pool interaction).

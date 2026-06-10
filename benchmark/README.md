@@ -38,8 +38,20 @@ julia --project=benchmark/gpu/rocm -e 'using Pkg; Pkg.instantiate()'
 julia --project=benchmark/gpu/rocm benchmark/gpu/rocm/runbenchmarks.jl
 ```
 
-A larger characterisation sweep (the 256³/512³ numbers in `docs/PERFORMANCE.md` §4): pass
-`sizes` to `build_suite`, e.g. `build_suite(; sizes = (256,))`.
+## The exhaustive report
+
+`runbenchmarks.jl` above is the quick, regression-sensitive run (grids 64³/128³). For the **full
+matrix** — the CPU thread sweep (1/2/4/8) and the GPU, each over grids 64³–256³ and every op-class,
+run one grid size at a time to bound memory — use the driver:
+
+```sh
+bash benchmark/characterize.sh                    # writes benchmark/RESULTS.md (~15-30 min)
+THREADS="1 2 4 8 16" bash benchmark/characterize.sh   # override the thread set
+```
+
+It saves per-run JSON under `benchmark/results/` (gitignored) and assembles the committed
+`benchmark/RESULTS.md` (full table + provenance) via `benchmark/report.jl`. `characterize.jl` is the
+per-launch runner (backend chosen by its first argument, `cpu`/`gpu`).
 
 ## Coverage contract
 
