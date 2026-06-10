@@ -92,6 +92,7 @@ include("FieldAlgebra.jl")
 include("DifferentialOperators.jl")
 include("Points.jl")
 include("Interpolation.jl")
+include("Reductions.jl")
 
 
 using .FiberSections:
@@ -194,6 +195,17 @@ using .Interpolation:
   CatmullRom
 
 
+using .Reductions:
+  integral,
+  inner,
+  l2norm,
+  lpnorm
+
+# `mean`/`std`/`var` (Statistics) and `maximum`/`minimum`/`extrema` (Base) are *extended* on sections
+# in `Reductions`; those methods are global and reached through `using Statistics` / Base. They are
+# deliberately not re-exported here (re-exporting another package's bindings is avoided).
+
+
 export FiberVector,
        FiberTensor2,
        FiberTensor3,
@@ -275,7 +287,11 @@ export FiberVector,
        anterpolate!,
        LalescuSpline,
        LagrangeSpline,
-       CatmullRom
+       CatmullRom,
+       integral,
+       inner,
+       l2norm,
+       lpnorm
 
 
 function __init__()

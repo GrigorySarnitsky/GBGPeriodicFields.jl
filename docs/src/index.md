@@ -36,8 +36,9 @@ using GBGPeriodicFields
 - [`DifferentialOperators`](api/DifferentialOperators.md): spectral differential operators — gradient, divergence, curl, Laplacian, inverse Laplacian, and Helmholtz projection.
 - [`Points`](api/Points.md): the unstructured base — point and point-value data types (`Point`, `PointSet`, the `PointValues`) and their full fiberwise algebra, mirroring the physical field surface.
 - [`Interpolation`](api/Interpolation.md): the grid↔point transfer — interpolation (gather) and anterpolation (scatter) via the local Lalescu splines, as portable CPU/CUDA/AMDGPU kernels.
+- [`Reductions`](api/Reductions.md): the L²/measure structure — base reductions over fields and point-values (`integral`, `inner`, `l2norm`, `lpnorm`, and `mean`/`std`/`var`/`maximum`), each integrating the base away against its measure.
 
-Global products, global norms, and integration-based adjoints are intentionally outside the algebra; spectral differential operators live in the separate `DifferentialOperators` module.
+Pointwise (fiberwise) products and norms live in `FieldAlgebra`; their *global* counterparts — integrals, the L² inner product and norms — live in `Reductions`. Spectral differential operators live in the separate `DifferentialOperators` module.
 
 ## Documentation structure
 
@@ -59,5 +60,6 @@ Pages = [
   "api/DifferentialOperators.md",
   "api/Points.md",
   "api/Interpolation.md",
+  "api/Reductions.md",
 ]
 ```

@@ -78,12 +78,13 @@ All in the `Params` struct at the top of the file: `N`, `ν`, forcing band/energ
 ## Gap list — what this example reveals the package still lacks
 
 Each item is something the script computes on raw `field_data(...)` arrays (fine on CPU; **forbidden
-on GPU under `allowscalar(false)`**). The forthcoming `HIST_ROCm.jl` will make #1 and #2 mandatory.
+on GPU under `allowscalar(false)`**). The forthcoming `HIST_ROCm.jl` will make the remaining ones
+mandatory.
 
-1. **Reductions over a field** — even `K = ½·mean(|u|²)`, `ε = ν·mean(|ω|²)`, and `max|u|` require
-   reaching into `field_data` and calling `mean`/`maximum`. There is no public
-   `mean`/`l2norm`/`maximum`/`energy`/`enstrophy`. (Reductions are deferred by design — this pins down
-   the device-portable API shape needed.)
+1. **Reductions over a field** — ✅ **now in the package** (`Reductions` module): `integral`, `inner`,
+   `l2norm`, `lpnorm`, and `mean`/`std`/`var`/`maximum` on fields and point-values. The script still
+   hand-rolls `K`, `ε`, `max|u|` on `field_data` (it predates these) but should be refactored to
+   `½ inner(u,u)`, `ν inner(ω,ω)`, `lpnorm(u, Inf)`.
 2. **Apply a diagonal spectral operator `f(k)`** — the 2/3 de-alias mask, the integrating factor
    `exp(−νk²Δt)`, and the IC envelope all multiply a spectral field by a per-mode real factor. The
    package owns the wavenumber arrays (`m.squared_wavenumber_1..3`) and diagonal kernels internally

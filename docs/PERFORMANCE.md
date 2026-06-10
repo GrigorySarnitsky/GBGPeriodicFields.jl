@@ -27,10 +27,11 @@ that matters.
   hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
 
-Two scope notes carried from the architecture: **reductions are deferred** (energy/enstrophy
-integrals need a separate floating-point-ordering design, `docs/ARCHITECTURE.md` §9), so there are
-no reduction benchmarks yet; and **platform optima diverge**, so every result below is reported per
-platform, never as a single number.
+Two scope notes carried from the architecture: the **L²/measure reductions** (`integral`, `inner`,
+`l2norm`, `mean`, …; `docs/ARCHITECTURE.md` decision 18) now exist but are **not yet benchmarked** —
+they are bandwidth-bound streaming reductions whose only subtlety is floating-point summation order
+(tolerance-tested, not bitwise); and **platform optima diverge**, so every result below is reported
+per platform, never as a single number.
 
 
 ## 2. The performance model
@@ -242,8 +243,9 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
-1. **Reductions** — none exist yet (energy/enstrophy integrals are deferred pending a
-   floating-point-ordering design, `docs/ARCHITECTURE.md` §9); add benchmarks when they land.
+1. **Reductions not yet benchmarked** — the L²/measure reductions (`integral`/`inner`/`l2norm`/
+   `mean`/…, `docs/ARCHITECTURE.md` decision 18) are implemented and tested but have no benchmark
+   class yet; add one (they are bandwidth-bound streaming reductions; watch the GPU `dot`/`sum`).
 2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
    supports it via `array_type = CuArray`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps

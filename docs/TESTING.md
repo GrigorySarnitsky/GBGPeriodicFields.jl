@@ -52,8 +52,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
   `differentialoperators.jl`, `interpolation.jl` (the point-data types),
-  `pointvalues_algebra.jl` (the point-value M2 + M3 surface), and
-  `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), plus
+  `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
+  `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
+  `reductions.jl` (the L²/measure reductions on fields and point-values), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
@@ -202,8 +203,8 @@ Project/compat consistency, stale dependencies, type piracy, persistent tasks); 
 operator adjoint/structural identities on randomized band-limited fields — divergence as
 the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-definite
 Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmholtz
-projection — with the L² inner product computed inline (global L² products are reserved
-for separate code by design); and GPU
+projection — with the L² inner product computed inline (the global L² `inner` now lives in the
+`Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
 the **PointValues algebra** and the **interpolation / anterpolation transfer** (gather, atomic
@@ -211,7 +212,12 @@ scatter, accumulate, plus a heavy atomic-contention case) added alongside (144 c
 (field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
-gate and the GPU `materialize!` fallback also asserted.
+gate and the GPU `materialize!` fallback also asserted; and the **L²/measure reductions**
+(`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum` on physical
+fields and point-values, against analytic oracles (`⟨sin⟩ = 0`, `⟨sin²⟩ = 1/2`) and manual references,
+across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (`(1/N)·Σ` grid, `(1/M)·Σ`
+points), the extensive/intensive `integral = measure · mean` relation (incl. an anisotropic box), the
+energy identity `½ inner(u,u) = ½⟨|u|²⟩`, and the physical-only intentional absence on spectral fields.
 
 **Gaps:**
 

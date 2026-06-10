@@ -342,12 +342,13 @@ types, signatures, or method tables change — the 198-method surface and the ze
 property are preserved. **Discipline:** a raw elementwise write must go through
 `_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
 
-Reductions (global norms, energy integrals) remain a separate, later concern: chunk-partial
-accumulation reorders floating-point adds, so they need their own design and a
-tolerance-based test, not the bitwise one used here. Expectations: speedup saturates at
-socket bandwidth over single-core (typically 2–6×; more on multi-socket nodes, where thread
-pinning and NUMA first-touch matter — ThreadPinning.jl — a consumer concern, since the
-package allocates serially via `similar`).
+Reductions (global norms, integrals — the L²/measure structure) are now provided in the `Reductions`
+module (decision 18), built on `sum`/`dot`/`maximum` rather than the threaded `_assign!`: those reorder
+floating-point adds (pairwise on the host, differently on threads/GPU), so they are **tolerance-tested,
+not bitwise** like the assignments here. Threading them further (custom chunk-partial accumulation) is
+the remaining work; expected speedup then saturates at socket bandwidth over single-core (typically
+2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl —
+a consumer concern, since the package allocates serially via `similar`).
 
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
@@ -674,3 +675,48 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
     The L²/volume-weighted adjoint remains a future refinement.
+18. **The L² / measure structure on sections — the third operation family (in progress).** Advances
+    the reduction deferral of items 6/11/§9. The package's operations split into **vertical**
+    (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
+    `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
+    **measure** it carries; return a fiber value or a scalar. Math grounding (§2): a section lives in
+    `L²(base, μ)`; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
+    the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
+    moments are the canonical reductions (cf. **Statistics** `mean`/`std`/`var`). All dispatch on
+    `AbstractFiberSection`, so fields **and** point-values share one set of formulas (FiberSections
+    "write it once").
+
+    *The measure is a property of the base.* `Grid3D` → uniform Lebesgue quadrature (cell volume
+    `∏Δxᵢ`); `PointSet` → **counting** measure (unit weight per point) — and this is *forced*, not a
+    choice: a `PointSet` is grid-free (§10, carries no domain), so the only well-defined measure is
+    counting. Consequences:
+
+    | base | `integral(f)` (extensive) | `mean(f) = (1/count)·Σ` (intensive) |
+    |------|---------------------------|-------------------------------------|
+    | `Grid3D` (count `N`) | `∫_Ω f dx = (\|Ω\|/N)·Σf` | `(1/N)·Σf` |
+    | `PointSet` (count `M`) | `Σf` | `(1/M)·Σf` |
+
+    So `mean` is the arithmetic average over base elements in both cases — `(1/M)·Σ` over points
+    (a plain sample mean), `(1/N)·Σ` over the grid (which, the grid being uniform, equals the domain
+    average `⟨·⟩`). Names and conventions:
+
+    - `integral(f)` — the **extensive** `∫f dμ` (the one quantity that scales with the base measure).
+    - `mean(f)`, `std(f)`, `var(f)` — extend **Statistics** (we own the types ⇒ not piracy);
+      **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
+    - `inner(f, g)` — the **normalized** L² inner product `⟨f,g⟩ = mean(dot(f,g))` → **scalar**
+      (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
+      convention above and the intensive quantities of homogeneous turbulence (kinetic energy
+      `½ inner(u,u) = ½⟨|u|²⟩`); for points it is `(1/M)·Σ dot`, consistent with `mean`. Not the
+      textbook extensive `∫f·g dx` — that is `integral(dot(f,g))` if ever needed.
+    - `l2norm(f) = √inner(f,f)`, generalized as `lpnorm(f, p)` (`p=2` default; `p=Inf` ⇒ sup of the
+      fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
+    - `maximum`/`minimum`/`extrema` — extend **Base** for scalar sections; vector/tensor sup of
+      magnitude via `lpnorm(·, Inf)`.
+    - **No LinearAlgebra overloading**: `dot`/`norm` stay the vertical pointwise ops (return sections,
+      scalar fields); the global `inner`/`l2norm` are package generics returning numbers.
+
+    `inner`/`l2norm` are representation-invariant (Parseval) — physical-space first, a spectral
+    `inner` to follow. **Physics stays consumer-side**: energy `½ inner(u,u)`, enstrophy
+    `½ inner(ω,ω)`, dissipation `ν inner(ω,ω)`, rms `√inner`, intensities from `std`. The FP-ordering
+    concern that deferred reductions (item 11) is real — implement with a defined summation order and
+    a tolerance-based test (not the bitwise one used for the threaded assignments).

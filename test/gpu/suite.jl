@@ -21,6 +21,7 @@
 
 using Test
 using GBGPeriodicFields
+using Statistics: mean      # extended on sections in the Reductions module (not re-exported)
 
 const F = GBGPeriodicFields.Fields
 const IP = GBGPeriodicFields.Points
@@ -293,6 +294,33 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       crowded_quantities = ScalarPointValues(rand(T, 3000))
       @test matches(anterpolate(grid, on_device_ps(crowded), on_device_pv(crowded_quantities)),
                     anterpolate(grid, crowded, crowded_quantities))
+    end
+
+    @testset "L²/measure reductions" begin
+      # Reductions return host scalars / fiber values; compare device vs CPU directly. (Summation
+      # order differs on the device, so this is a tolerance check, not bitwise.) `var`/`std` are
+      # CPU-verified only for now; the device-array Statistics path is a separate follow-up.
+      rtol = T == Float64 ? 1e-9 : 1.0f-3
+      eq(a, b) = isapprox(a, b; rtol = rtol, atol = rtol)
+      sf = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+      vf = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z) + T(0.1)), grid)
+      sfd, vfd = on_device.((sf, vf))
+      @test eq(integral(sfd), integral(sf))
+      @test eq(mean(sfd), mean(sf))
+      @test eq(maximum(sfd), maximum(sf)) && eq(minimum(sfd), minimum(sf))
+      @test eq(mean(vfd), mean(vf))                 # fiber-valued (FiberVector), componentwise
+      @test eq(integral(vfd), integral(vf))
+      @test eq(inner(vfd, vfd), inner(vf, vf))
+      @test eq(l2norm(vfd), l2norm(vf))
+      @test eq(lpnorm(vfd, Inf), lpnorm(vf, Inf)) && eq(lpnorm(vfd, 4), lpnorm(vf, 4))
+
+      M = 40
+      sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))
+      spd, vpd = on_device_pv.((sp, vp))
+      @test eq(mean(spd), mean(sp)) && eq(integral(spd), integral(sp))   # counting measure ⇒ (1/M)Σ, Σ
+      @test eq(mean(vpd), mean(vp))
+      @test eq(inner(vpd, vpd), inner(vp, vp)) && eq(l2norm(vpd), l2norm(vp))
+      @test eq(maximum(spd), maximum(sp))
     end
 
   end
