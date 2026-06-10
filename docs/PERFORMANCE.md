@@ -200,10 +200,11 @@ record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Pr
 **Two scales.** The **tracked SUITE** (`runbenchmarks.jl`, grids 64³/128³) is the quick,
 regression-sensitive run used with `save`/`judge` above. The **exhaustive characterization**
 (`benchmark/characterize.sh`) runs the full matrix — the **CPU thread sweep 1/2/4/8** (powers of two
-up to the performance cores) over grids **64³–256³**, and the **GPU over 64³–128³** (a 256³ GPU run
-wedges host-side, isolated to rocFFT's 256³ batched planning — the 256³ GPU *transfer* kernels run,
-as §4 shows), every op-class, one grid size at a time to bound memory — and assembles it into the
-committed report
+up to the performance cores) over grids **64³–256³**, and the **GPU over 64³–128³** for the algebra,
+operators, and transfer classes (the GPU lane runs with `CHAR_SKIP=fft`: GPU FFT wedges host-side in
+rocFFT plan creation on this RDNA2 part, so the FFT-GPU figures come from §4's separate clean run, not
+this report — see gap 5), every op-class, one grid size at a time to bound memory — and assembles it
+into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
 that one script; it stamps the date, commit, and host.
@@ -250,7 +251,12 @@ thread sweep, and the GPU at 64³–128³, on the RX 6700 XT + i7-12700K.
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values.
-5. **GPU 256³ FFT** — the characterization caps the GPU at 128³: a 256³ GPU run wedges host-side
-   (0% GPU, 100% CPU), isolated to rocFFT's 256³ batched-plan creation under AMDGPU (the 256³ GPU
-   *transfer* kernels run fine, §4). The CPU covers 64³–256³; the GPU column stops at 128³ until the
-   rocFFT issue is pinned down (likely a plan-config or memory-pool interaction).
+5. **GPU FFT (rocFFT on RDNA2)** — the GPU characterization runs with `CHAR_SKIP=fft` and caps at
+   128³. GPU FFT wedges host-side (0% GPU, 100% CPU, the rocFFT work buffer fills VRAM) in batched
+   plan creation under AMDGPU on this gfx103x (RX 6700 XT) part — 256³ always, and 128³ after a
+   reboot. The non-FFT classes (algebra/operators/transfer) run fine on GPU and **are** in
+   `RESULTS.md` at 64³–128³; the FFT-GPU numbers in §4/§6 come from a separate clean run. CPU covers
+   64³–256³ for all classes. Expected to resolve on RDNA3 (gfx1100, e.g. 7900 XTX), where rocFFT is
+   stable — re-enable with `CHAR_SKIP= ` and lift `CHAR_SIZES`. **After a reboot, warm the ROCm
+   code-object cache once** (run any trivial GPU kernel) before the suite: the first GPU use
+   otherwise spins for many minutes rebuilding the cache, which looks identical to the FFT wedge.

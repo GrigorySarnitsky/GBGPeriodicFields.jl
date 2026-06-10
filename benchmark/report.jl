@@ -14,8 +14,10 @@ const CLASSES = ("fft", "algebra", "operators", "transfer")
 # cpu-t1.json → "CPU t1", gpu.json → "GPU"
 label_of(path) = (b = splitext(basename(path))[1]; b == "gpu" ? "GPU" : replace(b, "cpu-t" => "CPU t"))
 
-cell(group, class, key) = haskey(group[class], key) ?
+cell(group, class, key) = (haskey(group, class) && haskey(group[class], key)) ?
   BenchmarkTools.prettytime(time(minimum(group[class][key]))) : "—"
+
+classkeys(group, class) = haskey(group, class) ? collect(keys(group[class])) : String[]
 
 paths  = ARGS
 groups = [(label_of(p), BenchmarkTools.load(p)[1]) for p in paths]
@@ -32,14 +34,15 @@ println(io, "# Benchmark results\n")
 println(io, "Minimum time per operation; `—` = not measured for that column. Generated ",
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
         ", host `", gethostname(), "`. Columns below are the runs supplied; grids and element types ",
-        "are in the row labels. The **CPU thread sweep 1/2/4/8 covers 64³–256³**. The **GPU column is ",
-        "omitted here**: GPU FFT is unstable under AMDGPU/rocFFT on this gfx1030 (256³ plan creation ",
-        "stalls host-side and can wedge the device — PERFORMANCE.md §6 gap 5); current GPU numbers are ",
-        "in PERFORMANCE.md §4/§6. **Regenerate** with `benchmark/characterize.sh`. ~10% jitter.\n")
+        "are in the row labels. The **CPU thread sweep 1/2/4/8 covers 64³–256³**. The **GPU column ",
+        "(RX 6700 XT, gfx1031, ROCm) covers 64³–128³ and omits the `fft` class**: GPU FFT is unstable ",
+        "under AMDGPU/rocFFT on this RDNA2 part (256³ plan creation stalls host-side and can wedge the ",
+        "device — PERFORMANCE.md §6 gap 5), so the GPU sweep runs with `CHAR_SKIP=fft`; GPU FFT numbers ",
+        "are in PERFORMANCE.md §4/§6. **Regenerate** with `benchmark/characterize.sh`. ~10% jitter.\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
-  allkeys = sort(unique(reduce(vcat, [collect(keys(g[class])) for (_, g) in groups]; init = String[])))
+  allkeys = sort(unique(reduce(vcat, [classkeys(g, class) for (_, g) in groups]; init = String[])))
   println(io, "| operation | ", join(labels, " | "), " |")
   println(io, "|", repeat(":--|", length(labels) + 1))
   for key in allkeys

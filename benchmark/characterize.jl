@@ -25,17 +25,24 @@ const CHAR_SIZES = haskey(ENV, "CHAR_SIZES") ?
   Tuple(parse.(Int, split(ENV["CHAR_SIZES"], ","))) : (USEGPU ? (64, 128) : (64, 128, 256))
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 
+# Classes to drop before tuning/running, e.g. `CHAR_SKIP=fft`. On the gfx103x (RDNA2) GPU the FFT
+# class wedges host-side in rocFFT plan creation (256³ always, 128³ post-reboot — work buffer fills
+# VRAM at 0% GPU; see docs/PERFORMANCE.md §6 gap 5), so the GPU sweep skips it and the other three
+# classes (algebra/operators/transfer, none of which call FFT) run clean.
+const CHAR_SKIP = haskey(ENV, "CHAR_SKIP") ? split(ENV["CHAR_SKIP"], ",") : String[]
+const RUN_CLASSES = filter(c -> !(c in CHAR_SKIP), collect(CLASSES))
+
 combined = BenchmarkGroup()
-for class in CLASSES
+for class in RUN_CLASSES
   combined[class] = BenchmarkGroup()
 end
 
 for N in CHAR_SIZES
   println(USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())", "  tuning + running $(N)^3 ...")
-  suite = build_suite(; array_type = ARRAY_TYPE, sizes = (N,))
+  suite = build_suite(; array_type = ARRAY_TYPE, sizes = (N,), skip = CHAR_SKIP)
   tune!(suite)
   results = run(suite; verbose = false)
-  for class in CLASSES, key in keys(results[class])
+  for class in RUN_CLASSES, key in keys(results[class])
     combined[class][key] = results[class][key]
   end
   suite = nothing

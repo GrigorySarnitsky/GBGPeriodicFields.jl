@@ -22,18 +22,22 @@ include(joinpath(@__DIR__, "transfer.jl"))
 
 const CLASSES = ("fft", "algebra", "operators", "transfer")
 
-function build_suite(; array_type = Array, types = TYPES, sizes = SIZES)
+# `skip` drops whole classes before any of their fields/plans are built — required for the GPU
+# sweep, where merely *building* the fft class creates rocFFT plans (the gfx103x stall point); see
+# characterize.jl and docs/PERFORMANCE.md §6 gap 5.
+function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = String[])
   suite = BenchmarkGroup()
+  want(class) = !(class in skip)
   for class in CLASSES
-    suite[class] = BenchmarkGroup()
+    want(class) && (suite[class] = BenchmarkGroup())
   end
   for T in types, N in sizes
     grid = make_grid(T, N)
     tag = string(T, " ", N, "^3")
-    add_fft!(suite["fft"], array_type, T, grid, tag)
-    add_algebra!(suite["algebra"], array_type, T, grid, tag)
-    add_operators!(suite["operators"], array_type, T, grid, tag)
-    add_transfer!(suite["transfer"], array_type, T, grid, tag)
+    want("fft")       && add_fft!(suite["fft"], array_type, T, grid, tag)
+    want("algebra")   && add_algebra!(suite["algebra"], array_type, T, grid, tag)
+    want("operators") && add_operators!(suite["operators"], array_type, T, grid, tag)
+    want("transfer")  && add_transfer!(suite["transfer"], array_type, T, grid, tag)
   end
   return suite
 end

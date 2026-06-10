@@ -22,7 +22,11 @@ done
 
 gpu_json=()
 echo "=================== GPU (ROCm) ==================="
-if julia --project=benchmark/gpu/rocm benchmark/characterize.jl gpu benchmark/results/gpu.json; then
+# CHAR_SKIP=fft: GPU FFT wedges in rocFFT plan creation on the gfx103x (RDNA2) part — see
+# characterize.jl and docs/PERFORMANCE.md §6 gap 5. Override CHAR_SKIP to re-enable on hardware
+# where rocFFT is stable (e.g. RDNA3 gfx1100). Warm the ROCm code-object cache once after a reboot
+# (a trivial kernel) or the first load can spin for many minutes rebuilding it.
+if CHAR_SKIP="${CHAR_SKIP:-fft}" julia --project=benchmark/gpu/rocm benchmark/characterize.jl gpu benchmark/results/gpu.json; then
   gpu_json=("benchmark/results/gpu.json")
 else
   echo "GPU run skipped/failed — report will omit the GPU column."
