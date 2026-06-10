@@ -199,12 +199,11 @@ record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Pr
 
 **Two scales.** The **tracked SUITE** (`runbenchmarks.jl`, grids 64³/128³) is the quick,
 regression-sensitive run used with `save`/`judge` above. The **exhaustive characterization**
-(`benchmark/characterize.sh`) runs the full matrix — the **CPU thread sweep 1/2/4/8** (powers of two
-up to the performance cores) over grids **64³–256³**, and the **GPU over 64³–128³** for the algebra,
-operators, and transfer classes (the GPU lane runs with `CHAR_SKIP=fft`: GPU FFT wedges host-side in
-rocFFT plan creation on this RDNA2 part, so the FFT-GPU figures come from §4's separate clean run, not
-this report — see gap 5), every op-class, one grid size at a time to bound memory — and assembles it
-into the committed report
+(`benchmark/characterize.sh`) runs the full matrix — every op-class (including FFT) over grids
+**64³–256³**, on the **CPU thread sweep 1/2/4/8** (powers of two up to the performance cores) and the
+**GPU** — building **one (grid size, element type) at a time** to bound memory (a 256³ `Float64`
+tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows the 12 GB GPU — gap 5),
+and assembles it into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
 that one script; it stamps the date, commit, and host.
@@ -237,7 +236,9 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one device-parameterised
 suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): the CPU at grids 64³–256³ across the 1/2/4/8
-thread sweep, and the GPU at 64³–128³, on the RX 6700 XT + i7-12700K.
+thread sweep, and the GPU over 64³–256³, on the RX 6700 XT + i7-12700K. (The committed `RESULTS.md`
+GPU column is a pre-fix partial — 64³–128³, no FFT; the full GPU column regenerates on a freshly-reset
+device, gap 5.)
 
 **Gaps:**
 
@@ -251,12 +252,20 @@ thread sweep, and the GPU at 64³–128³, on the RX 6700 XT + i7-12700K.
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values.
-5. **GPU FFT (rocFFT on RDNA2)** — the GPU characterization runs with `CHAR_SKIP=fft` and caps at
-   128³. GPU FFT wedges host-side (0% GPU, 100% CPU, the rocFFT work buffer fills VRAM) in batched
-   plan creation under AMDGPU on this gfx103x (RX 6700 XT) part — 256³ always, and 128³ after a
-   reboot. The non-FFT classes (algebra/operators/transfer) run fine on GPU and **are** in
-   `RESULTS.md` at 64³–128³; the FFT-GPU numbers in §4/§6 come from a separate clean run. CPU covers
-   64³–256³ for all classes. Expected to resolve on RDNA3 (gfx1100, e.g. 7900 XTX), where rocFFT is
-   stable — re-enable with `CHAR_SKIP= ` and lift `CHAR_SIZES`. **After a reboot, warm the ROCm
-   code-object cache once** (run any trivial GPU kernel) before the suite: the first GPU use
-   otherwise spins for many minutes rebuilding the cache, which looks identical to the FFT wedge.
+5. **GPU at 256³ — three traps, none a rocFFT bug** (RX 6700 XT, gfx1031, 12 GB, ROCm 7.2.4).
+   Earlier notes blamed "rocFFT 256³ planning"; that was wrong. The facts, measured:
+   - **256³ FFT works.** Scalar and vector r2c/c2r at 256³ take ~1 s to plan and ~15–20 ms to run;
+     the full `fft` class passes at 256³.
+   - **Cold kernel compilation looks like a hang.** The first GPU use after a reboot compiles
+     kernels host-side via AMD `comgr` → 0% GPU, 100% CPU, VRAM pool reserved, no output, for
+     minutes. *Never kill a cold first run* — a killed compile never persists to `~/.cache/comgr`, so
+     the next run restarts cold. `characterize.jl` warms the cache with one trivial kernel up front.
+   - **The full suite at 256³ overflows 12 GB VRAM, and HIP segfaults instead of erroring** — the
+     crash is `hipMallocFromPoolAsync` in `libamdhip64.so`, because `build_suite` held all classes ×
+     both element types live (~1.1 GB per 256³ `Float64` tensor). Fixed: `characterize.jl` now builds
+     **one (size, element-type) at a time**. Knock-on: a VRAM-OOM segfault can degrade the HIP
+     context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault under load.
+
+   So the GPU column is fully obtainable; regenerate it with `benchmark/characterize.sh` on a
+   freshly-reset device. RDNA3 (gfx1100, e.g. 7900 XTX, 24 GB) should make 256³ trivial and 512³
+   feasible.

@@ -35,10 +35,12 @@ println(io, "Minimum time per operation; `—` = not measured for that column. G
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
         ", host `", gethostname(), "`. Columns below are the runs supplied; grids and element types ",
         "are in the row labels. The **CPU thread sweep 1/2/4/8 covers 64³–256³**. The **GPU column ",
-        "(RX 6700 XT, gfx1031, ROCm) covers 64³–128³ and omits the `fft` class**: GPU FFT is unstable ",
-        "under AMDGPU/rocFFT on this RDNA2 part (256³ plan creation stalls host-side and can wedge the ",
-        "device — PERFORMANCE.md §6 gap 5), so the GPU sweep runs with `CHAR_SKIP=fft`; GPU FFT numbers ",
-        "are in PERFORMANCE.md §4/§6. **Regenerate** with `benchmark/characterize.sh`. ~10% jitter.\n")
+        "(RX 6700 XT, gfx1031, ROCm) shown here covers 64³–128³ for algebra/operators/transfer** — a ",
+        "pre-fix run; 256³ and the GPU `fft` class are obtainable but were not captured in this file. ",
+        "256³ GPU FFT itself works fine; the only real limit is the 12 GB VRAM (the full suite for both ",
+        "element types at 256³ overflows it and HIP segfaults rather than erroring — PERFORMANCE.md §6 ",
+        "gap 5), which `characterize.jl` now avoids by building one (size, type) at a time. **Regenerate** ",
+        "the full column with `benchmark/characterize.sh` on a freshly-reset device. ~10% jitter.\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
