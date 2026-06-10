@@ -1,6 +1,7 @@
 .ipynb_checkpoints/
 Manifest.toml
 benchmark/results/
+examples/output/
 docs/build/
 docs/site/
 docs/src/architecture.md
