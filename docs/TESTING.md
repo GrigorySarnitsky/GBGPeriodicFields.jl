@@ -57,7 +57,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
   `reductions.jl` (the L²/measure reductions on fields and point-values), plus
   `eltype_genericity.jl` (Float64/Float32),
-  `adjointness.jl` (operator structure on random fields), `aqua.jl` (package checks),
+  `adjointness.jl` (operator structure on random fields),
+  `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
+  `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
@@ -228,12 +230,17 @@ and **convolution** (`test/convolution.jl`): periodic convolution as the coeffic
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
-Nyquist), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields.
+Nyquist), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
+and **property-based tests** (`randomized.jl`): algebraic laws on **random** fields, point-values, and
+kernels over several trials — vector-space and contraction/product identities, transpose/sym/skew/dev,
+the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, `integral = |Ω|·mean`), convolution
+bilinearity/commutativity, and the operator identities `div(curl)=0`, `curl(grad)=0` — which catch the
+index/sign bugs that specific analytic functions can mask.
 
 **Gaps:**
 
 1. **Doctests** — the plumbing exists (`doctest = true`, `DocTestSetup`), but no
    `jldoctest` examples have been written into the docstrings.
-2. **Broader randomized/fuzz coverage** — the structural identities now run on randomized
-   band-limited fields; extending randomized inputs across the rest of the algebra would
-   broaden coverage further.
+2. **Even-broader randomized coverage** — `randomized.jl` now covers the algebra, reductions, and
+   convolution laws on random CPU data; extending property checks onto the device, and to more element
+   types, is possible but lower-value (the laws are formula-level and backend-independent).

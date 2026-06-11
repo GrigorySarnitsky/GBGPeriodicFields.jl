@@ -15,6 +15,7 @@ module InterpolationTransferTests; include("interpolation_transfer.jl"); end
 module ReductionsTests;            include("reductions.jl");            end
 module EltypeGenericityTests;      include("eltype_genericity.jl");     end
 module AdjointnessTests;           include("adjointness.jl");           end
+module RandomizedTests;            include("randomized.jl");            end
 module ThreadingTests;             include("threading.jl");             end
 module MethodParityTests;          include("method_parity.jl");         end
 module AquaTests;                  include("aqua.jl");                  end

@@ -218,7 +218,10 @@ those are the usual rot. Then the mechanical bar:
    (ambiguities, unbound args, piracy, compat, stale deps). `test/jet.jl`: JET `@test_call`
    static analysis of the public ops (filtered to package modules). `test/adjointness.jl`: operator
    adjointness and structural identities (div=-gradᵀ, self-adjoint curl, negative-definite
-   Laplacian, idempotent Helmholtz projection) on randomized band-limited fields. GPU coverage is opt-in and lives
+   Laplacian, idempotent Helmholtz projection) on randomized band-limited fields. `test/randomized.jl`:
+   property-based tests — algebraic laws (vector-space, dot/cross/mul!/transpose/sym/skew/dev,
+   reduction symmetry/linearity/Cauchy–Schwarz, convolution bilinearity/commutativity, div(curl)=0,
+   curl(grad)=0) on random fields, point-values, and kernels over several trials. GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface (fields, the PointValues algebra, the interpolation/anterpolation transfer, convolution, and the L²/measure reductions) on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing
    against the CPU result — the GPU **vendor** stacks (CUDA/AMDGPU) stay test-only; only the backend-agnostic KernelAbstractions/Atomix (used by the transfer kernels) are package deps).
