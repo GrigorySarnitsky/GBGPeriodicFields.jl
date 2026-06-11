@@ -714,7 +714,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
-    The L²/volume-weighted adjoint remains a future refinement.
+    The L²/volume-weighted (measure-consistent) adjoint is `(N/M)·Wᵀ` — both base measures are uniform,
+    so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
+    verified via `inner` as `M·inner(Wf,q) = N·inner(f,Wᵀq)` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (in progress).** Advances
     the reduction deferral of items 6/11/§9. The package's operations split into **vertical**
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
@@ -802,8 +804,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     measures. As shipped (decision 17) the adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation
     `Σ_g (Wᵀq)_g = Σ_p q_p` hold in the **counting/transpose** pairing (the extensive facet of row 1;
     conservation = partition of unity). The **measure-weighted L² adjoint** — `W`,`Wᵀ` adjoint with the
-    grid carrying `Δx³` and points counting — is decision 17's "future refinement"; it is the **bridge
-    from row 1 to the transfer kernel** and is now expressible via `inner` (decision 18). That the
+    grid carrying `Δx³` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
+    now **done**: both measures being uniform, it is `(N/M)·Wᵀ` (a scalar rescaling, no new operation),
+    verified via `inner` as `M·inner(Wf,q) = N·inner(f,Wᵀq)` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
     *The multiplier family (Gap design; not yet implemented) carries three research-grounded guardrails.*

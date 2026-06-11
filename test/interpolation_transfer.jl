@@ -137,6 +137,24 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
       end
     end
 
+    @testset "measure-weighted L² adjointness via inner ($T)" begin
+      # The measure-consistent adjoint W* satisfies ⟨Wf, q⟩_{L²(points)} = ⟨f, W*q⟩_{L²(grid)}. Both base
+      # measures are uniform (counting points, cell-volume grid), so W* = (N/M)·Wᵀ — a scalar rescaling
+      # of the conserving counting-transpose anterpolation, no new operation. Equivalently, with the
+      # normalized `inner` (decision 18): M·inner(Wf, q) = N·inner(f, Wᵀq) — the raw transpose
+      # adjointness above, now stated in the measure structure (closes decision 17/19's "future" L²
+      # adjoint, expressible via `inner`).
+      N = prod(grid.grid_size)
+      xs = PointSet(T(2π) .* rand(T, M, 3))
+      cases = ((ScalarFieldPhysical(rand(T, 16, 15, 14), grid),          ScalarPointValues(rand(T, M))),
+               (VectorFieldPhysical(rand(T, 16, 15, 14, 3), grid),       VectorPointValues(rand(T, M, 3))),
+               (TensorFieldPhysical{2}(rand(T, 16, 15, 14, 3, 3), grid), TensorPointValues{2}(rand(T, M, 3, 3))))
+      for (field, q) in cases
+        @test isapprox(M * inner(interpolate(field, xs), q),
+                       N * inner(field, anterpolate(grid, xs, q)); rtol = adj_tol)
+      end
+    end
+
     @testset "conservation and α/β ($T)" begin
       xs = PointSet(T(2π) .* rand(T, M, 3))
       q = ScalarPointValues(rand(T, M))

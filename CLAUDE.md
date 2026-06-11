@@ -252,7 +252,9 @@ those are the usual rot. Then the mechanical bar:
    **pinned bit-for-bit to TurTLE's `beta_n{n}_m{m}`** (`n`↔`interp_neighbours`, `m`↔`smoothness`);
    reproduction `min(2m+1,2n)` smooth / `2n+1` Lagrange; adjoint and conserving (partition of unity).
    Tested CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) + GPU (ROCm).
-   Physical-space only; the L²-weighted adjoint is future (now expressible via `inner`, item 8).
+   Physical-space only; the L²-weighted (measure-consistent) adjoint is **done** — uniform measures make
+   it `(N/M)·Wᵀ` (a scalar rescaling, no new op), verified via `inner` as `M·inner(Wf,q)=N·inner(f,Wᵀq)`
+   (`test/interpolation_transfer.jl`).
 8. **L²/measure reductions** — **done** (`src/Reductions.jl`; `docs/ARCHITECTURE.md` §2, decision 18):
    the third operation family after the vertical (fiberwise) algebra and horizontal (differential)
    operators. `integral` (extensive `∫f dμ`), `inner`/`l2norm`/`lpnorm` (normalized L²), plus
