@@ -38,14 +38,18 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
   phi_s = to_spectral(phi, plans_for(phi))
   u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(2y), cos(z)), grid)
   u_s = to_spectral(u, plans_for(u))
+  A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], grid)
+  A_s = to_spectral(A, plans_for(A))
 
   @testset "T = $T" begin
 
     @testset "identity kernel ĝ ≡ 1 ⇒ f (scalar kernel over any tensor order)" begin
       ones_kernel = scalar_kernel(ones(Complex{T}, shape0))
       @test approx(field_data(convolve(phi_s, ones_kernel)), field_data(phi_s))
-      @test approx(field_data(convolve(u_s, ones_kernel)), field_data(u_s))   # broadcast over the fiber
+      @test approx(field_data(convolve(u_s, ones_kernel)), field_data(u_s))   # broadcast over a 1-index fiber
+      @test approx(field_data(convolve(A_s, ones_kernel)), field_data(A_s))   # over a 2-index fiber (R=2, 5-D broadcast)
       @test field_tensor_order(convolve(u_s, ones_kernel)) == 1               # representation/order preserved
+      @test field_tensor_order(convolve(A_s, ones_kernel)) == 2
     end
 
     @testset "constant kernel ĝ ≡ c ⇒ scaling by c" begin
@@ -53,17 +57,24 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       const_kernel = scalar_kernel(fill(Complex{T}(c), shape0))
       @test approx(field_data(convolve(phi_s, const_kernel)), c .* field_data(phi_s))
       @test approx(field_data(convolve(u_s, const_kernel)), c .* field_data(u_s))
+      @test approx(field_data(convolve(A_s, const_kernel)), c .* field_data(A_s))
     end
 
-    @testset "translation kernel exp(-i kₓ m Δx) ⇔ circshift (independent physical oracle)" begin
-      m = FieldSpectralMultipliers(phi_s)
+    @testset "translation kernel exp(-i kₐ m Δ) ⇔ circshift along each axis (independent oracle)" begin
+      mult = FieldSpectralMultipliers(phi_s)
       shift = 2
-      dx = grid.grid_spacing[1]
-      k1 = Array(m.wavenumber_1)
-      kdata = Complex{T}[exp(-im * k1[i] * shift * dx)
-                         for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]]
-      shifted = to_physical(convolve(phi_s, scalar_kernel(kdata)), plans_for(phi))
-      @test approx(field_data(shifted), circshift(field_data(phi), (shift, 0, 0)))
+      wn = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
+      for axis in 1:3
+        k = wn[axis]; dx = grid.grid_spacing[axis]
+        kdata = Complex{T}[exp(-im * (axis == 1 ? k[i] : axis == 2 ? k[j] : k[l]) * shift * dx)
+                           for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]]
+        kern = scalar_kernel(kdata)
+        sh = ntuple(d -> d == axis ? shift : 0, 3)
+        @test approx(field_data(to_physical(convolve(phi_s, kern), plans_for(phi))),   # scalar field
+                     circshift(field_data(phi), sh))
+        @test approx(field_data(to_physical(convolve(u_s, kern), plans_for(u))),       # vector field, each component
+                     circshift(field_data(u), (sh..., 0)))
+      end
     end
 
     @testset "spectral_cutoff: a sharp 0/1 low-pass projection" begin
@@ -80,6 +91,10 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       masked_u = convolve(u_s, cutoff)                                      # scalar mask over a vector field
       for i in 1:3
         @test approx(field_data(masked_u)[:, :, :, i], field_data(u_s)[:, :, :, i] .* vals)
+      end
+      masked_A = convolve(A_s, cutoff)                                      # scalar mask over a tensor field (R=2)
+      for i in 1:3, j in 1:3
+        @test approx(field_data(masked_A)[:, :, :, i, j], field_data(A_s)[:, :, :, i, j] .* vals)
       end
     end
 
@@ -103,6 +118,12 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       returned = convolve!(dest, phi_s, g, alpha, beta)
       @test returned === dest
       @test approx(field_data(dest), alpha .* (field_data(g) .* field_data(phi_s)) .+ beta .* dest0)
+
+      # the R=2 in-place α/β path (scalar kernel broadcasts over the 2-index fiber)
+      Adest0 = randn(Complex{T}, F.spectral_field_shape(grid, layout, Val(2)))
+      Adest = TensorFieldSpectral{2}(copy(Adest0), grid)
+      convolve!(Adest, A_s, g, alpha, beta)
+      @test approx(field_data(Adest), alpha .* (field_data(g) .* field_data(A_s)) .+ beta .* Adest0)
     end
 
     @testset "in-place is aliasing-safe (destination === field)" begin
@@ -132,5 +153,28 @@ end
     ones_kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
     @test_throws MethodError convolve(phi, ones_kernel)    # no physical-space convolution (spectral only)
     @test_throws MethodError convolve(phi_s, phi)          # the kernel must be in spectral representation
+  end
+
+  @testset "mixed-parity grid (8, 7, 6): odd axis (no Nyquist) + even axes, all 3 directions" begin
+    T = Float64
+    grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))        # x even, y odd, z even — exercises rfft on an odd axis
+    layout = RealFourierLayout()
+    shape0 = F.spectral_field_shape(grid, layout, Val(0))
+    plans = FieldTransformPlans(ScalarFieldPhysical(zeros(T, 8, 7, 6), grid),
+                                ScalarFieldSpectral(zeros(Complex{T}, shape0), grid))
+    phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) + sin(z), grid)
+    phi_s = to_spectral(phi, plans)
+    @test isapprox(field_data(convolve(phi_s, ScalarFieldSpectral(ones(Complex{T}, shape0), grid))),
+                   field_data(phi_s); rtol = 1e-10)         # identity holds on the mixed-parity grid
+    mult = FieldSpectralMultipliers(phi_s)
+    wn = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
+    for axis in 1:3
+      k = wn[axis]; dx = grid.grid_spacing[axis]; shift = 1
+      kdata = Complex{T}[exp(-im * (axis == 1 ? k[i] : axis == 2 ? k[j] : k[l]) * shift * dx)
+                         for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]]
+      shifted = to_physical(convolve(phi_s, ScalarFieldSpectral(kdata, grid)), plans)
+      sh = ntuple(d -> d == axis ? shift : 0, 3)
+      @test isapprox(field_data(shifted), circshift(field_data(phi), sh); rtol = 1e-10)
+    end
   end
 end

@@ -272,6 +272,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(cutoff_d, cutoff_h)                                              # the builder itself
       @test matches(convolve(phi_spec_d, cutoff_d), convolve(phi_spec_h, cutoff_h))  # scalar field
       @test matches(convolve(u_spec_d, cutoff_d), convolve(u_spec_h, cutoff_h))      # scalar kernel over a vector field
+      A = TensorFieldPhysical{2}(tensor_a, grid); Ad = on_device(A)
+      A_spec_h = to_spectral(A, plans_for(A)); A_spec_d = to_spectral(Ad, plans_for(Ad))
+      @test matches(convolve(A_spec_d, cutoff_d), convolve(A_spec_h, cutoff_h))      # scalar kernel over a tensor field (R=2)
 
       # α/β accumulate branch on device
       host_dest = T(2) * convolve(phi_spec_h, cutoff_h); device_dest = on_device(host_dest)

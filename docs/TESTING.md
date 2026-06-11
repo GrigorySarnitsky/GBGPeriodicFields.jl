@@ -222,9 +222,11 @@ points), the extensive/intensive `integral = measure · mean` relation (incl. an
 energy identity `½ inner(u,u) = ½⟨|u|²⟩`, and the physical-only intentional absence on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 `f̂·ĝ` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
-`exp(-i kₓ m Δx) ⇔ circshift` (an independent physical oracle), the identity / scaling kernels,
-sharp-cutoff idempotence, kernel-composition associativity, the α/β accumulate form, in-place aliasing
-safety, across `Float64`/`Float32`, and the physical-space intentional absence on physical fields.
+`exp(-i kₐ m Δ) ⇔ circshift` along **all three axes, on scalar and vector fields** (an independent
+physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
+fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
+accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
+Nyquist), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields.
 
 **Gaps:**
 

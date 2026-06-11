@@ -194,10 +194,12 @@ those are the usual rot. Then the mechanical bar:
    operators, the Nyquist end-to-end split, the div(curl)=0 / curl(grad)=0 identities,
    and an anisotropic
    (2π, 4π, 6π) box exercising the 2π/L wavenumber scaling. `test/convolution.jl`: convolution as
-   the coefficientwise product `f̂·ĝ` — the translation kernel `exp(-i kₓ m Δx) ⇔ circshift`
-   (independent physical oracle), identity/scaling kernels, sharp-cutoff idempotence,
-   kernel-composition associativity, the α/β accumulate form, in-place aliasing safety,
-   Float64/Float32, and the physical-space intentional absence. `test/interpolation.jl`: the
+   the coefficientwise product `f̂·ĝ` — the translation kernel `exp(-i kₐ m Δ) ⇔ circshift` along
+   **all three axes on scalar and vector fields** (independent physical oracle); identity/scaling/cutoff
+   over **scalar, vector, and tensor (R=2)** fields (the 5-D fiber broadcast); sharp-cutoff idempotence,
+   kernel-composition associativity, the α/β accumulate form (incl. R=2), in-place aliasing safety, a
+   **mixed-parity (8,7,6) grid** (odd axis + Nyquist), Float64/Float32, and the physical-space
+   intentional absence. `test/interpolation.jl`: the
    point-data types. `test/pointvalues_algebra.jl`: the point-value M2 + M3 surface checked
    against per-point references, Float64/Float32. `test/interpolation_transfer.jl`: the Lalescu-spline
    transfer — interior polynomial reproduction, adjointness `⟨Wf,q⟩=⟨f,Wᵀq⟩`, conservation, α/β,
