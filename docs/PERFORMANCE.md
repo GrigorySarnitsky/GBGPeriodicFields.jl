@@ -42,8 +42,8 @@ What bounds each public operation class — the mental model a benchmark either 
   package adds only the normalization convention and the fiber-last layout (`docs/ARCHITECTURE.md`
   §3–4); the transform itself is the library's. Not something we tune — but the dominant cost of any
   spectral step, so it is benchmarked to track the libraries and our plan/layout overhead.
-- **Field algebra (M2 + M3) and spectral differential operators** → **memory-bandwidth-bound**. A
-  fiberwise add, contraction, or wavenumber multiply reads and writes `O(1)` numbers per grid point
+- **Field algebra (M2 + M3), spectral differential operators, and convolution** → **memory-bandwidth-bound**. A
+  fiberwise add, contraction, wavenumber multiply, or kernel multiply (`convolve`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
@@ -165,7 +165,8 @@ A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* p
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
-operators**, the **interpolation/anterpolation transfer**, and the **L²/measure reductions**
+operators**, **convolution** (`convolve!` scalar/vector + `spectral_cutoff`), the
+**interpolation/anterpolation transfer**, and the **L²/measure reductions**
 (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`). Run it:
 
 ```sh
@@ -236,19 +237,21 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 
 ## 7. Current coverage and known gaps
 
-**Covered:** the four public operation classes (FFT, algebra, operators, transfer) parameterised by
-element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one device-parameterised
-suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
+**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions)
+parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one
+device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
 across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
-1. **Reductions — benchmark class added, committed `RESULTS.md` not yet regenerated.** The L²/measure
-   reductions (`integral`/`inner`/`l2norm`/`mean`/…) now have a `reductions` benchmark class (§5),
-   verified on CPU; they are bandwidth-bound streaming reductions (`lpnorm` is heaviest — it allocates
-   the pointwise `norm` field first). The committed `RESULTS.md` predates the class — regenerate it
-   (`characterize.sh`) on a free machine to add the rows.
+1. **`reductions` and `convolution` — benchmark classes added, committed `RESULTS.md` rows lag.** The
+   L²/measure reductions (`integral`/`inner`/`l2norm`/`mean`/…, bandwidth-bound streaming reductions —
+   `lpnorm` is heaviest, allocating the pointwise `norm` field first) and convolution (`convolve!`, a
+   coefficientwise kernel multiply with the cost profile of `laplacian!`) both have benchmark classes
+   (§5), verified on CPU. Regenerate the committed `RESULTS.md` (`characterize.sh`) on a free machine to
+   fill their rows — the GPU `reductions` column from a device-reset re-run, and the new `convolution`
+   rows (CPU + GPU).
 2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
    supports it via `array_type = CuArray`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps

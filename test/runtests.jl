@@ -8,6 +8,7 @@
 module FieldsTests;                include("fields.jl");                end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
 module DifferentialOperatorsTests; include("differentialoperators.jl"); end
+module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end
 module PointValuesAlgebraTests;    include("pointvalues_algebra.jl");   end
 module InterpolationTransferTests; include("interpolation_transfer.jl"); end

@@ -256,6 +256,30 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(sym(A_spec_d), sym(A_spec_h))
     end
 
+    @testset "convolution (apply a Fourier kernel)" begin
+      phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
+      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid)
+      phid, ud = on_device.((phi, u))
+
+      phi_spec_h = to_spectral(phi, plans_for(phi));  phi_spec_d = to_spectral(phid, plans_for(phid))
+      u_spec_h = to_spectral(u, plans_for(u));        u_spec_d = to_spectral(ud, plans_for(ud))
+      mult_h = FieldSpectralMultipliers(phi_spec_h);  mult_d = FieldSpectralMultipliers(phi_spec_d)
+
+      # spectral_cutoff allocates the kernel on the reference field's backend, so the device builder
+      # must run entirely on-device (no scalar indexing) and match the host kernel.
+      cutoff_h = spectral_cutoff(phi_spec_h, mult_h, T(3))
+      cutoff_d = spectral_cutoff(phi_spec_d, mult_d, T(3))
+      @test matches(cutoff_d, cutoff_h)                                              # the builder itself
+      @test matches(convolve(phi_spec_d, cutoff_d), convolve(phi_spec_h, cutoff_h))  # scalar field
+      @test matches(convolve(u_spec_d, cutoff_d), convolve(u_spec_h, cutoff_h))      # scalar kernel over a vector field
+
+      # α/β accumulate branch on device
+      host_dest = T(2) * convolve(phi_spec_h, cutoff_h); device_dest = on_device(host_dest)
+      convolve!(host_dest, phi_spec_h, cutoff_h, T(3), T(5))
+      convolve!(device_dest, phi_spec_d, cutoff_d, T(3), T(5))
+      @test matches(device_dest, host_dest)
+    end
+
     @testset "interpolation / anterpolation (Lalescu splines)" begin
       number_of_points = 50
       host_points = PointSet(T(2π) .* rand(T, number_of_points, 3))

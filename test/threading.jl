@@ -106,7 +106,7 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     @test field_data(ov_s) == field_data(ov_t) && !any(isnan, field_data(ov_t))    # overwrite (β = 0)
   end
 
-  @testset "differential operators threaded == serial (bitwise)" begin
+  @testset "spectral operators (differential + convolution) threaded == serial (bitwise)" begin
     # 40³ so the spectral component arrays (21×40×40 ≈ 34k) clear the cutoff and thread.
     og = Grid3D((40, 40, 40), (2π, 2π, 2π))
     layout = RealFourierLayout()
@@ -130,6 +130,16 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     @test bitwise(() -> curl(us, m))
     @test bitwise(() -> gradient(us, m))                            # vector → tensor
     @test bitwise(() -> helmholtz_projection(us, m))
+
+    # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite
+    # via the three-argument form; β ≠ 0 accumulate below).
+    kernel = spectral_cutoff(phis, m, 5)
+    @test bitwise(() -> convolve(phis, kernel))                     # scalar field ⋆ kernel
+    @test bitwise(() -> convolve(us, kernel))                       # vector field ⋆ scalar kernel (over the fiber)
+    cacc_s = 2.0 * convolve(phis, kernel); cacc_t = 2.0 * convolve(phis, kernel)
+    with_threading(enabled = false) do; convolve!(cacc_s, phis, kernel, 3.0, 5.0); end
+    with_threading(enabled = true)  do; convolve!(cacc_t, phis, kernel, 3.0, 5.0); end
+    @test field_data(cacc_s) == field_data(cacc_t)                  # α/β accumulate branch (β ≠ 0)
   end
 
 end

@@ -90,6 +90,7 @@ include("FiberSections.jl")
 include("Fields.jl")
 include("FieldAlgebra.jl")
 include("DifferentialOperators.jl")
+include("Convolution.jl")
 include("Points.jl")
 include("Interpolation.jl")
 include("Reductions.jl")
@@ -170,6 +171,12 @@ using .DifferentialOperators:
   inverse_laplacian,
   helmholtz_projection!,
   helmholtz_projection
+
+
+using .Convolution:
+  convolve!,
+  convolve,
+  spectral_cutoff
 
 
 using .Points:
@@ -267,6 +274,9 @@ export FiberVector,
        inverse_laplacian,
        helmholtz_projection!,
        helmholtz_projection,
+       convolve!,
+       convolve,
+       spectral_cutoff,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,

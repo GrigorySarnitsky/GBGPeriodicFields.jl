@@ -19,10 +19,11 @@ include(joinpath(@__DIR__, "harness.jl"))
 include(joinpath(@__DIR__, "fft.jl"))
 include(joinpath(@__DIR__, "algebra.jl"))
 include(joinpath(@__DIR__, "operators.jl"))
+include(joinpath(@__DIR__, "convolution.jl"))
 include(joinpath(@__DIR__, "transfer.jl"))
 include(joinpath(@__DIR__, "reductions.jl"))
 
-const CLASSES = ("fft", "algebra", "operators", "transfer", "reductions")
+const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions")
 
 # `skip` drops whole classes before any of their fields/plans are built — required for the GPU
 # sweep, where merely *building* the fft class creates rocFFT plans (the gfx103x stall point); see
@@ -39,6 +40,7 @@ function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = 
     want("fft")        && add_fft!(suite["fft"], array_type, T, grid, tag)
     want("algebra")    && add_algebra!(suite["algebra"], array_type, T, grid, tag)
     want("operators")  && add_operators!(suite["operators"], array_type, T, grid, tag)
+    want("convolution") && add_convolution!(suite["convolution"], array_type, T, grid, tag)
     want("transfer")   && add_transfer!(suite["transfer"], array_type, T, grid, tag)
     want("reductions") && add_reductions!(suite["reductions"], array_type, T, grid, tag)
   end

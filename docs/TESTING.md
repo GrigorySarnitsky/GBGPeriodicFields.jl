@@ -51,7 +51,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`, `interpolation.jl` (the point-data types),
+  `differentialoperators.jl`, `convolution.jl` (periodic convolution — apply a Fourier kernel),
+  `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
   `reductions.jl` (the L²/measure reductions on fields and point-values), plus
@@ -207,8 +208,9 @@ projection — with the L² inner product computed inline (the global L² `inner
 `Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
-the **PointValues algebra** and the **interpolation / anterpolation transfer** (gather, atomic
-scatter, accumulate, plus a heavy atomic-contention case) added alongside (144 checks total); and CPU threading — every threaded assignment is bitwise-identical to serial
+the **PointValues algebra**, the **interpolation / anterpolation transfer** (gather, atomic
+scatter, accumulate, plus a heavy atomic-contention case), **convolution** (apply a Fourier kernel),
+and the **L²/measure reductions** added alongside; and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
@@ -217,7 +219,12 @@ gate and the GPU `materialize!` fallback also asserted; and the **L²/measure re
 fields and point-values, against analytic oracles (`⟨sin⟩ = 0`, `⟨sin²⟩ = 1/2`) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (`(1/N)·Σ` grid, `(1/M)·Σ`
 points), the extensive/intensive `integral = measure · mean` relation (incl. an anisotropic box), the
-energy identity `½ inner(u,u) = ½⟨|u|²⟩`, and the physical-only intentional absence on spectral fields.
+energy identity `½ inner(u,u) = ½⟨|u|²⟩`, and the physical-only intentional absence on spectral fields;
+and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
+`f̂·ĝ` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
+`exp(-i kₓ m Δx) ⇔ circshift` (an independent physical oracle), the identity / scaling kernels,
+sharp-cutoff idempotence, kernel-composition associativity, the α/β accumulate form, in-place aliasing
+safety, across `Float64`/`Float32`, and the physical-space intentional absence on physical fields.
 
 **Gaps:**
 

@@ -76,7 +76,7 @@ worlds:
   section to a scalar or a fiber and are base-dependent (the measure is the base's), yet — like
   the vertical algebra — are shared by fields and point-values through `AbstractFiberSection`
   (§9, decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
-  planned homogeneous-filter multiplier: one L²/integration structure in three roles (the
+  convolution multiplier (the `Convolution` module, decision 20): one L²/integration structure in three roles (the
   measure taxonomy, decision 19).
 - **Representation is a choice of basis for a grid section's data** (distinct from the
   fiber frame above): physical storage uses the nodal basis, spectral storage the Fourier
@@ -95,7 +95,7 @@ pair: pulling a grid section back to points (evaluation, `f(x) = ⟨δₓ, f⟩`
 adjoint pushforward of point masses onto the grid. The full function–measure duality
 is given in §10 and the `Interpolation` module docstring; the interpolation weights are
 themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
-base-changing sibling of the homogeneous-filter multiplier — see the measure taxonomy
+base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
 
 ### Representation validity lives in the method set
@@ -117,7 +117,9 @@ with the rfft isomorphism.
   pointwise norms, contractions of two fields (dot, cross, tensor `mul!`, inner
   products): physical space only. The coefficientwise spectral product is *not* the
   Fourier representation of the pointwise product (that would be a convolution),
-  so offering it would silently compute the wrong physical operation.
+  so offering it *as a product* would silently compute the wrong physical operation —
+  that coefficientwise product *is* convolution, exposed under its true name as `convolve`
+  (the `Convolution` module, decision 20), never as `*`.
 
 The consequence is a hard project invariant: **a missing method is a statement,
 not an omission**. The 198-method public surface of FieldAlgebra is the
@@ -129,6 +131,33 @@ decomposition families, plus their `*` operators), bringing the total to 198 and
 parity-checked at runtime in `test/method_parity.jl`. The point-value algebra
 realizes the *vertical* operations on the unstructured base — it mirrors the
 **physical** field surface and is locked by its own separate baseline (§10).
+
+### Naming conventions
+
+Operation names follow *what the operation is* — the same mathematics-first principle:
+
+- **Reductions** (section → scalar/fiber) take the **quantity's noun**: `integral`, `inner`,
+  `l2norm`, `lpnorm`.
+- **Canonically named operators** (section → section with a standard, often eponymous operator name
+  and no natural verb) take that **noun**: `gradient`, `divergence`, `curl`, `laplacian`,
+  `inverse_laplacian`, `helmholtz_projection`.
+- **Generic transformations** (section → section, named by the action) take the **verb**: the
+  elementwise algebra (`add`, `subtract`, `multiply`, `divide`), the representation changes
+  (`to_physical`, `to_spectral`), and the kernel-measure maps `interpolate` / `anterpolate` and
+  `convolve`.
+- **In-place** forms append `!` uniformly (`gradient!`, `interpolate!`, `convolve!`).
+- **Extensions of Base / LinearAlgebra / Statistics** keep the source name, overriding the above
+  (`dot`, `cross`, `mul!`, `transpose`, `norm`, `mean`, `std`, `var`, `maximum`, `minimum`,
+  `extrema`); the continuum-mechanics decomposition abbreviations `sym` / `skew` / `dev` are likewise
+  conventional.
+- **Modules** carry the family **noun** (`Fields`, `DifferentialOperators`, `Reductions`,
+  `Interpolation`, `Convolution`); the operations inside follow the rules above — so
+  `Convolution` / `convolve` mirrors `Interpolation` / `interpolate`.
+
+The discriminator that places a new operation: a *generic transformation with a natural verb* is a
+verb (convolution → `convolve`); a *canonically named operator* is its noun (the Laplacian →
+`laplacian`). `gradient`/`laplacian`/`helmholtz_projection` are nouns because they are the names of
+those operators, not by a noun preference.
 
 ## 3. Types and memory layout
 
@@ -733,7 +762,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a tolerance-based test (not the bitwise one used for the threaded assignments).
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
     foundation for a future spectral-multiplier family.** The word *measure* recurs across the package
-    (reductions, interpolation, and a planned homogeneous-filter operation) not by coincidence but
+    (reductions, interpolation, and convolution) not by coincidence but
     because all three are facets of the **same L²/integration structure on sections** (§2). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
     recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
@@ -746,7 +775,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     | role of the measure | what it is | operation(s) | maps | status |
     |---------------------|-----------|--------------|------|--------|
     | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm` | section → scalar / fiber | **done** (decision 18) |
-    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | apply `m(k)` (dealias mask, integrating factor, homogeneous filter) | grid → grid (= Fourier multiplier) | **planned** (this entry) |
+    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | `convolve` / `convolve!` (dealias mask, integrating factor, homogeneous filter) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decision 20) |
     | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` `W` / `anterpolate` `Wᵀ` | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
     | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
 
@@ -803,3 +832,33 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`helmholtz_projection` covers the only case currently needed). The Germano differential filter
     `1/(1+Δ²k²)` is architecturally inert — whatever its symbol, it is one more scalar multiplier the
     consumer supplies.
+20. **Convolution — the kernel-multiplier family realized (§2; the new `Convolution` module).**
+    Implements the multiplier designed in decision 19 as periodic (circular) convolution of a field
+    with a kernel, in spectral representation: by the convolution theorem on the torus, `f ⋆ g` is the
+    **coefficientwise spectral product** `f̂ · ĝ`. The kernel `g` is supplied by its transfer function
+    `ĝ` as a **`ScalarFieldSpectral`** (decision 19's open "kernel as a field" call, chosen for
+    elegance); a scalar kernel broadcasts over the fiber, so one method serves scalar/vector/tensor
+    fields, and because a kernel is itself a scalar field in spectral representation, `convolve(g₁,
+    g₂)` composes two kernels for free (the `R = 0` case). `convolve` / `convolve!` mirror `laplacian`
+    / `laplacian!`: coefficientwise ⇒ aliasing-safe (no `_guard_noalias!`; destination may alias the
+    field), `@_assign!`-routed (threads on CPU), with the five-argument `α`/`β` accumulate form
+    (invariant 10). Spectral representation only — there is no physical-space `convolve` (the
+    differential-operator precedent).
+
+    *This completes invariant 1 rather than weakening it.* The coefficientwise spectral product is the
+    operation invariant 1 names but bans **as `*`** (because `*` would read as the spectral *pointwise*
+    product, which it is not). It is offered here under its true name — `convolve`, never `*` — and is
+    linear in the field for a fixed kernel; the spectral pointwise product, division, and norms remain
+    absent. `convolve` / `convolve!` / `spectral_cutoff` are separate generics, so the FieldAlgebra
+    198-method and point-value 118-method parity baselines are unchanged.
+
+    One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
+    low-pass (idempotent projection), the basis of de-aliasing / spectral truncation; physics (an LES
+    filter, an integrating factor `exp(-νk²Δt)`) stays a `ScalarFieldSpectral` the consumer builds
+    from the wavenumbers (invariant 12). Naming follows the §2 convention (the verb `convolve` for a
+    generic transformation; the module noun `Convolution`, parallel to `Interpolation` / `interpolate`).
+    Tested CPU (`test/convolution.jl`, Float64/Float32 — the translation kernel
+    `exp(-i kₓ m Δx) ⇔ circshift` is the independent physical oracle, plus identity/scaling/
+    cutoff-idempotence/composition/α-β/alias) and GPU (ROCm device-vs-CPU parity in `test/gpu/suite.jl`);
+    benchmarked (the `convolution` class). The L²-weighted and matrix-valued (anisotropic) kernels
+    remain future.
