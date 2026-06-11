@@ -114,10 +114,32 @@ access of #1.
 
 ---
 
-## `HIST_ROCm.jl` — *(planned)*
+## `gpu/rocm/HIST_ROCm.jl` — the same DNS on an AMD GPU
 
-The same physics with `array_type = ROCArray` and `allowscalar(false)`. The energetics and the
-diagonal-operator applies are already device-portable (reductions + `convolve`); what remains
-scalar-indexed — the shell/`|k|` utilities, the `E(k)` binning, the forcing band, and the IC
-generator (gaps #1–#3 above) — is what this twin will drive into the package as device-portable
-operations.
+The device twin of `HIST_CPU.jl`: the same physics and the same four plots, but every array lives in
+GPU memory (`ROCArray`) and **scalar indexing of device arrays is disabled** (`AMDGPU.allowscalar(false)`),
+so any stray scalar index inside a package method *throws* — invariant 6 enforced, not trusted. Default
+element type is **Float32** (realistic consumer-GPU precision). It lives in its own sub-environment
+(AMDGPU is heavy and needs ROCm) — exactly like `test/gpu/rocm` and `benchmark/gpu/rocm`:
+
+```sh
+julia --project=examples/gpu/rocm -e 'using Pkg; Pkg.instantiate()'        # one-time (installs AMDGPU)
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl           # full run
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke   # quick check
+```
+
+**What the GPU forced into the package.** With `allowscalar(false)`, the CPU script's hand-rolled
+`field_data` loops cannot run on-device — so they had to become package operations or device-clean
+broadcasts. The energetics (`inner`/`l2norm`/`lpnorm`) and every diagonal-Fourier apply
+(`convolve`/`spectral_cutoff`) run **unchanged on-device** — this twin is the proof that the two
+*closed* gaps (reductions, and the diagonal `f(k)` apply) are genuinely closed device-side, not just on
+the CPU. The two remaining scalar-indexed pieces were reworked here: **forcing** as a `sum`-reduction +
+a per-step `convolve` with a scale kernel (fully on-device), and the **E(k) spectrum** binning on a
+one-shot host copy at the end of the run (the irregular shell scatter still has no device-clean package
+form — open gap #3). A representative Float32 run
+reports `K ≈ 0.67`, `Re_λ ≈ 15`, `k_max·η ≈ 1.6`, `‖∇·u‖_rel ≈ 1e-8` (Float32 roundoff), and the
+spectral-`inner` Parseval check matches the physical energy to all printed digits.
+
+This sharpens the gap list above: gaps **#1 (shell/|k| utility)** and **#3 (E(k) reduction)** are what
+would let the forcing band and the spectrum run wholly on-device too; gap **#2 (random-solenoidal IC
+generator)** would replace the host-built random field. Everything else is already device-portable.
