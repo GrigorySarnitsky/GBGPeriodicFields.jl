@@ -250,8 +250,9 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
    `lpnorm` is heaviest, allocating the pointwise `norm` field first) and convolution (`convolve!`, a
    coefficientwise kernel multiply with the cost profile of `laplacian!`) both have benchmark classes
    (§5), verified on CPU. Regenerate the committed `RESULTS.md` (`characterize.sh`) on a free machine to
-   fill their rows — the GPU `reductions` column from a device-reset re-run, and the new `convolution`
-   rows (CPU + GPU).
+   fill their rows — the GPU columns are now unblocked (the reductions-class wedge is fixed by
+   `gcsample = true`, gap 5), so one gcsample-enabled GPU sweep fills both the `reductions` and the new
+   `convolution` rows.
 2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
    supports it via `array_type = CuArray`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
@@ -273,6 +274,16 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
      both element types live (~1.1 GB per 256³ `Float64` tensor). Fixed: `characterize.jl` now builds
      **one (size, element-type) at a time**. Knock-on: a VRAM-OOM segfault can degrade the HIP
      context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault under load.
+   - **A GC-free benchmark loop wedges the allocating reductions** — independent of grid size (seen at
+     64³), and the cause of a 4-hour hang. `lpnorm` materializes a pointwise-magnitude field per call;
+     BenchmarkTools' `tune!`/`run` does almost no *host* allocation, so Julia's GC (host-pressure
+     triggered) never fires, the dead GPU temps pile into the AMDGPU pool until it hits 12 GB, and the
+     allocator spins — CPU pegged, GPU idle, VRAM maxed, for hours. It is **GC-lag, not a leak**
+     (`GC.gc()` every ~50 calls holds the pool flat; a real solver fires GC every step, so the op is
+     fine in use). Fixed by **`gcsample = true`** for GPU runs (`characterize.jl` and the ROCm runner):
+     a GC before each sample bounds the pool — the `reductions` class then completes at ~0.5 GB peak.
+     Distinct from the cold-compile hang above — there comgr is *active* (compiling, minutes); here it
+     is *idle* (wedged, hours).
 
    With the per-(size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The standing
    limit is the 12 GB ceiling itself: both element types can't be 256³-resident at once (hence the

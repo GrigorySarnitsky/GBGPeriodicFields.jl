@@ -34,6 +34,10 @@ include(joinpath(@__DIR__, "benchmarks.jl"))
 const CHAR_SIZES = haskey(ENV, "CHAR_SIZES") ?
   Tuple(parse.(Int, split(ENV["CHAR_SIZES"], ","))) : (64, 128, 256)
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
+# On GPU, GC before each sample so allocating reductions (lpnorm's per-call magnitude temp) do not
+# exhaust the AMDGPU memory pool under BenchmarkTools' GC-free sampling loop — without this the
+# `reductions` class wedges the device (full pool + spinning allocator; docs/PERFORMANCE.md §7).
+USEGPU && (BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true)
 
 # Classes to drop before tuning/running, e.g. `CHAR_SKIP=fft` (a generic escape hatch — empty by
 # default; the GPU runs FFT fine, see gap 5).

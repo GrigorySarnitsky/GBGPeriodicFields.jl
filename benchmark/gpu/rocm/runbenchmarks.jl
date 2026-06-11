@@ -15,6 +15,11 @@ AMDGPU.functional() || error("no functional ROCm device")
 include(joinpath(@__DIR__, "..", "..", "benchmarks.jl"))
 
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
+# GC before each sample bounds GPU memory. Allocating reductions (lpnorm materializes a pointwise
+# magnitude field per call) otherwise pile up under BenchmarkTools' GC-free sampling loop — Julia's
+# GC triggers on host, not device, pressure, so it never fires — until the AMDGPU pool exhausts and
+# the allocator wedges (see docs/PERFORMANCE.md §7). Cheap on the non-allocating classes.
+BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true
 
 suite = build_suite(; array_type = ROCArray)
 println("Tuning on ROCm / AMDGPU: ", AMDGPU.device(), " ...")
