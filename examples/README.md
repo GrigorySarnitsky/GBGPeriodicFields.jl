@@ -42,8 +42,9 @@ Incompressible Navier–Stokes in **rotational form**, so the nonlinear step map
 ```
 
 - **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via `exp(−νk²Δt)`, the
-  nonlinear term explicit; `Δt` from advective CFL.
-- **De-aliasing:** 2/3 rule.
+  nonlinear term explicit; `Δt` from advective CFL. The integrating factor is a consumer-built
+  `ScalarFieldSpectral` kernel applied with `convolve` (the coefficientwise multiply `f̂·ĝ`).
+- **De-aliasing:** 2/3 rule, as the package's `spectral_cutoff` sharp low-pass kernel (`convolve`).
 - **Forcing:** rescale the lowest shells (`1 ≤ |k| ≤ 2`) to a fixed energy each step — deterministic,
   unconditionally stationary (scaling preserves `∇·u = 0`).
 - **Particles:** ~2000 tracers, RK2 advection on the start-of-step velocity via `interpolate`,
@@ -53,9 +54,13 @@ Incompressible Navier–Stokes in **rotational form**, so the nonlinear step map
 ### What it exercises in the package
 
 `Grid3D`, the field types, `FieldTransformPlans` + `to_physical`/`to_spectral`,
-`FieldSpectralMultipliers`, `curl`, `cross`, `helmholtz_projection`, `divergence`, and `interpolate`
-(grid→point, returning `VectorPointValues`). Two built-in correctness cross-checks: the Parseval
-identity `Σ E(k) == ½⟨|u|²⟩` and `‖∇·u‖ ≈ roundoff` (the run asserts both).
+`FieldSpectralMultipliers`, `curl`, `cross`, `helmholtz_projection`, `divergence`; the **L²/measure
+reductions** `inner`/`l2norm`/`lpnorm` (energy `½ inner(u,u)`, dissipation `ν inner(ω,ω)`, the CFL
+speed `lpnorm(u,Inf)`, and the divergence check `l2norm(∇·u)`); **`convolve` + `spectral_cutoff`**
+(the 2/3 de-alias filter, the `exp(−νk²Δt)` integrating factor, the IC envelope — all diagonal Fourier
+multipliers); and `interpolate` (grid→point, returning `VectorPointValues`). Two built-in correctness
+cross-checks: the Parseval identity `½ inner(û,û) == ½⟨|u|²⟩` (the package's spectral `inner` reproduces
+the physical energy exactly) and `‖∇·u‖ ≈ roundoff` (the run asserts both).
 
 ### Reading the plots (and the 32³ caveat)
 
@@ -77,35 +82,42 @@ All in the `Params` struct at the top of the file: `N`, `ν`, forcing band/energ
 
 ## Gap list — what this example reveals the package still lacks
 
-Each item is something the script computes on raw `field_data(...)` arrays (fine on CPU; **forbidden
-on GPU under `allowscalar(false)`**). The forthcoming `HIST_ROCm.jl` will make the remaining ones
+Each remaining item is something the script computes on raw `field_data(...)` arrays (fine on CPU;
+**forbidden on GPU under `allowscalar(false)`**). The forthcoming `HIST_ROCm.jl` will make them
 mandatory.
 
-1. **Reductions over a field** — ✅ **now in the package** (`Reductions` module): `integral`, `inner`,
-   `l2norm`, `lpnorm`, and `mean`/`std`/`var`/`maximum` on fields and point-values. The script still
-   hand-rolls `K`, `ε`, `max|u|` on `field_data` (it predates these) but should be refactored to
-   `½ inner(u,u)`, `ν inner(ω,ω)`, `lpnorm(u, Inf)`.
-2. **Apply a diagonal spectral operator `f(k)`** — the 2/3 de-alias mask, the integrating factor
-   `exp(−νk²Δt)`, and the IC envelope all multiply a spectral field by a per-mode real factor. The
-   package owns the wavenumber arrays (`m.squared_wavenumber_1..3`) and diagonal kernels internally
-   but exposes no public "apply `f(k)`".
-3. **`|k|`-field and shell utilities** — a wavenumber-magnitude field, shell masks/bands, and a
+**Closed since the first draft:**
+
+- ✅ **Reductions over a field** (`Reductions` module): `integral`, `inner`, `l2norm`, `lpnorm`, and
+  `mean`/`std`/`var`/`maximum` on fields and point-values. The script now uses `½ inner(u,u)`,
+  `ν inner(ω,ω)`, `lpnorm(u, Inf)`, and `l2norm(∇·u)` — no `field_data` reach-in for the energetics.
+- ✅ **Apply a diagonal spectral operator `f(k)`** (`Convolution` module): `convolve` applies any
+  `ScalarFieldSpectral` transfer function as the coefficientwise multiply, and `spectral_cutoff` builds
+  the sharp isotropic low-pass. The 2/3 de-alias filter is `spectral_cutoff`; the `exp(−νk²Δt)`
+  integrating factor and the IC envelope are consumer-built kernels applied with `convolve` (their ν,
+  Δt, width are physics — invariant 12).
+
+**Still open** (the script hand-rolls these on `field_data`):
+
+1. **`|k|`-field and shell utilities** — a wavenumber-magnitude field, shell masks/bands, and a
    shell-average (for the spectrum `E(k)`), all derivable from `m.squared_wavenumber_*` but not
-   exposed.
-4. **Random solenoidal field generator** with a target spectrum (an initial-condition helper).
-5. **Energy spectrum `E(k)`** as a first-class diagnostic (a binned spectral reduction; built here by
+   exposed. (The script still builds `ksquared(m)` and the shell/band loops by hand.)
+2. **Random solenoidal field generator** with a target spectrum (an initial-condition helper).
+3. **Energy spectrum `E(k)`** as a first-class diagnostic (a binned spectral reduction; built here by
    hand with the rfft Parseval weighting).
-6. *Minor:* a periodic field-shift helper (the Eulerian `S₂` uses `circshift` on the raw array); and
+4. *Minor:* a periodic field-shift helper (the Eulerian `S₂` uses `circshift` on the raw array); and
    `gradient(vector)→tensor` for the velocity-gradient tensor, which this script sidesteps via the
    homogeneous identity `ε = ν⟨|ω|²⟩`.
 
 Forcing itself stays a *consumer* concern (the package has no time/forcing), but it needs the shell
-access of #2/#3.
+access of #1.
 
 ---
 
 ## `HIST_ROCm.jl` — *(planned)*
 
-The same physics with `array_type = ROCArray` and `allowscalar(false)`. Because the scalar-indexed
-hand-rolled pieces above (reductions, the `f(k)` apply, the forcing band) cannot run on the device,
-this twin is what will drive gaps #1–#3 into the package as device-portable operations.
+The same physics with `array_type = ROCArray` and `allowscalar(false)`. The energetics and the
+diagonal-operator applies are already device-portable (reductions + `convolve`); what remains
+scalar-indexed — the shell/`|k|` utilities, the `E(k)` binning, the forcing band, and the IC
+generator (gaps #1–#3 above) — is what this twin will drive into the package as device-portable
+operations.

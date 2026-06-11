@@ -16,12 +16,16 @@
 # stationarity, no tuning).
 #
 # What the PACKAGE provides here: Grid3D, the field types, FFT plans/transforms,
-# FieldSpectralMultipliers, curl, cross, helmholtz_projection, divergence, and
-# interpolate (grid→point). What this script must HAND-ROLL — every one a candidate
-# for promotion into the package — is collected in examples/README.md (the "gap
-# list"). The hand-rolled bits all touch `field_data(...)` with scalar indexing,
-# which is fine on the CPU; the forthcoming HIST_ROCm.jl (allowscalar(false)) is
-# what will force those into the package.
+# FieldSpectralMultipliers, curl, cross, helmholtz_projection, divergence; the
+# L²/measure reductions inner / l2norm / lpnorm (energy, dissipation, the CFL
+# speed and the divergence check); convolve / spectral_cutoff (the de-alias filter
+# and the diagonal integrating-factor / IC-envelope kernels); and interpolate
+# (grid→point). What this script must still HAND-ROLL — every one a candidate for
+# promotion into the package — is collected in examples/README.md (the "gap list"):
+# the |k|-field / shell utilities (E(k) spectrum), the random-solenoidal IC, and
+# the low-shell forcing. Those hand-rolled bits touch `field_data(...)` with scalar
+# indexing, fine on the CPU; the forthcoming HIST_ROCm.jl (allowscalar(false)) is
+# what will force them into the package.
 #
 #   julia --project=examples examples/HIST_CPU.jl            # full run (~1 min)
 #   julia --project=examples examples/HIST_CPU.jl --smoke    # tiny, for a quick check
@@ -59,9 +63,14 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1,
 
 
 # =============================================================================
-# Spectral utilities — built from the package's own per-axis squared wavenumbers
-# (m.squared_wavenumber_1..3, true k² kept at Nyquist). GAP: the package exposes
-# the 1-D wavenumber arrays but no |k|-field / mask / shell-average / "apply f(k)".
+# Spectral utilities. The DIAGONAL (in Fourier) operators here — de-aliasing, the
+# integrating factor exp(−νk²Δt), the IC envelope — are applied with the package's
+# `convolve` (periodic convolution = a coefficientwise multiply by a transfer
+# function ĝ). The de-alias filter is the package's `spectral_cutoff` builder; the
+# physics kernels (which carry ν, Δt, the envelope width) are consumer-built
+# `ScalarFieldSpectral`s and applied with the same `convolve` (invariant 12).
+# GAP that remains: a public |k|-field / shell-average — built here from
+# m.squared_wavenumber_1..3 (true k² kept at Nyquist).
 # =============================================================================
 
 # 3-D |k|² over the (Nkx, Ny, Nz) spectral grid.
@@ -72,41 +81,24 @@ function ksquared(m)
   return s1 .+ s2 .+ s3
 end
 
-# 2/3-rule de-aliasing mask: keep |kᵢ| ≤ (2/3)·k_Nyquist on every axis.
-function dealias_mask(m, p)
-  kcut2 = (2 / 3 * (p.N / 2) * 2π / p.L)^2
-  a1 = reshape(m.squared_wavenumber_1 .<= kcut2, :, 1, 1)
-  a2 = reshape(m.squared_wavenumber_2 .<= kcut2, 1, :, 1)
-  a3 = reshape(m.squared_wavenumber_3 .<= kcut2, 1, 1, :)
-  return Float64.(a1 .& a2 .& a3)
-end
-
-# Multiply every fiber component of a spectral field by a per-mode factor w(k)
-# (de-alias mask, integrating factor, IC envelope). This is the diagonal-operator
-# "apply f(k)" the package does not expose publicly.
-function apply_spectral!(field, w3d)
-  d = field_data(field)
-  d .*= reshape(w3d, size(w3d)..., 1)
-  return field
-end
-
-# Per-mode integer wavenumber magnitude |k| (L = 2π ⇒ already integer-scaled).
-wavenumber_magnitude(m, p) = sqrt.(ksquared(m)) .* (p.L / 2π)
+# Wrap a per-mode transfer function w(k) (a real (Nkx, Ny, Nz) array) as a scalar
+# field in spectral representation — the consumer's half of a convolution; the
+# package applies it via `convolve`. The integrating factor and the IC envelope are
+# built this way (their ν / Δt / width are the consumer's, per invariant 12).
+spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(reference))
 
 
 # =============================================================================
-# Diagnostics — kinetic energy and dissipation in PHYSICAL space (robust, no rfft
-# Parseval bookkeeping); the shell spectrum E(k) is the one spectral reduction.
-# GAP: the package has no public mean/l2norm/maximum/energy/enstrophy/spectrum.
+# Diagnostics — kinetic energy, dissipation and the CFL speed as the package's
+# L²/measure reductions (Reductions module): `inner(f,g) = ⟨f·g⟩` (normalized,
+# intensive) and `lpnorm(u, Inf) = sup|u|`. The energy identity ½⟨|u|²⟩ and the
+# homogeneous dissipation ν⟨|ω|²⟩ are thus one-liners — no reaching into
+# field_data. Only the shell spectrum E(k) still hand-rolls a spectral binning.
 # =============================================================================
 
-kinetic_energy(u, p) = 0.5 * sum(abs2, field_data(u)) / p.N^3          # ½⟨|u|²⟩
-dissipation(ω, p)    = p.ν * sum(abs2, field_data(ω)) / p.N^3          # ν⟨|ω|²⟩ (homogeneous)
-
-function max_speed(u)
-  d = field_data(u)
-  return sqrt(maximum(@views d[:, :, :, 1].^2 .+ d[:, :, :, 2].^2 .+ d[:, :, :, 3].^2))
-end
+kinetic_energy(u) = 0.5 * inner(u, u)                                  # ½⟨|u|²⟩   (Reductions.inner)
+dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν⟨|ω|²⟩   (homogeneous)
+max_speed(u)      = lpnorm(u, Inf)                                     # sup|u|, the CFL velocity
 
 # Shell-averaged energy spectrum E(κ): ½ Σ_{|k|∈shell} |û|² / N⁶, with the rfft
 # half-complex doubling (×2 for 0 < kx < Nyquist). ∑ₖ E(κ) ≈ kinetic energy.
@@ -160,30 +152,31 @@ end
 
 # N̂(û) = de-aliased Leray projection of (u×ω)^. Returns (N̂, u_physical); the
 # physical velocity is reused for particle advection, so it is handed back.
-function nonlinear(uh, m, plans, mask)
+function nonlinear(uh, m, plans, dealias)
   ωh = curl(uh, m)                       # spectral vorticity  (package)
   u  = to_physical(uh, plans)            # ALLOCATING ⇒ preserves û (invariant 11)
   ω  = to_physical(ωh, plans)
   Nh = to_spectral(cross(u, ω), plans)   # (u × ω)^         (package cross)
   Nh = helmholtz_projection(Nh, m)       # Leray projection (drops the pressure)
-  apply_spectral!(Nh, mask)              # 2/3 de-alias
+  convolve!(Nh, Nh, dealias)             # 2/3 de-alias (convolve with the sharp cutoff)
   return Nh, u
 end
 
-# One integrating-factor RK2 (Heun) step. E = exp(−νk²Δt) applied as a multiplier.
+# One integrating-factor RK2 (Heun) step. The integrating factor E = exp(−νk²Δt)
+# is a consumer-built kernel (its ν, Δt are physics, invariant 12), applied with
+# the package's `convolve` (the coefficientwise multiply f̂·ĝ).
 #   k₁ = N̂(ûₙ);  û* = E·(ûₙ + Δt·k₁);  k₂ = N̂(û*)
 #   ûₙ₊₁ = E·ûₙ + (Δt/2)(E·k₁ + k₂);   then force.
 # Returns the start-of-step physical velocity (for particle advection).
-function step!(uh, m, plans, mask, ksq, p, dt)
-  E = exp.(-p.ν .* ksq .* dt)
-  k1, u = nonlinear(uh, m, plans, mask)
+function step!(uh, m, plans, dealias, ksq, p, dt)
+  Ek = spectral_kernel(uh, exp.(-p.ν .* ksq .* dt))      # integrating factor exp(−νk²Δt)
+  k1, u = nonlinear(uh, m, plans, dealias)
 
-  ustar = VectorFieldSpectral(field_data(uh) .+ dt .* field_data(k1), field_grid(uh))
-  apply_spectral!(ustar, E)
-  k2, _ = nonlinear(ustar, m, plans, mask)
+  ustar = convolve(uh + dt * k1, Ek)                     # û* = E·(ûₙ + Δt·k₁)
+  k2, _ = nonlinear(ustar, m, plans, dealias)
 
-  apply_spectral!(uh, E)                                  # û ← E·ûₙ
-  field_data(uh) .+= (dt / 2) .* (reshape(E, size(E)..., 1) .* field_data(k1) .+ field_data(k2))
+  # ûₙ₊₁ = E·ûₙ + (Δt/2)(E·k₁ + k₂)   — linear field algebra + convolve, then commit
+  copyto!(field_data(uh), field_data(convolve(uh, Ek) + (dt / 2) * (convolve(k1, Ek) + k2)))
   force!(uh, m, p)
   return u
 end
@@ -212,7 +205,8 @@ end
 function random_solenoidal(grid, m, plans, ksq, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
-  apply_spectral!(uh, exp.(-(ksq ./ kp^2)))               # concentrate at large scales
+  envelope = spectral_kernel(uh, exp.(-(ksq ./ kp^2)))    # concentrate at large scales
+  convolve!(uh, uh, envelope)                             # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-guarded)
   force!(uh, m, p)                                        # set the forced-band energy
   return uh
@@ -279,12 +273,13 @@ function run_hist(p::Params)
                                ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid))
   m    = FieldSpectralMultipliers(uspec0)
   ksq  = ksquared(m)
-  mask = dealias_mask(m, p)
+  # 2/3-rule de-alias filter as the package's sharp isotropic cutoff kernel.
+  dealias = spectral_cutoff(uspec0, m, (2 / 3) * (p.N / 2) * (2π / p.L))
   Δx   = p.L / p.N
 
   # --- initial condition ----------------------------------------------------
   uh = random_solenoidal(grid, m, vplans, ksq, p)
-  apply_spectral!(uh, mask)
+  convolve!(uh, uh, dealias)
 
   # --- spin-up to stationarity (adaptive Δt) --------------------------------
   t_hist = Float64[]; E_hist = Float64[]; ε_hist = Float64[]
@@ -292,9 +287,9 @@ function run_hist(p::Params)
   for n in 1:p.n_spinup
     u = to_physical(uh, vplans)
     dt = p.cfl * Δx / max(max_speed(u), 1e-6)
-    push!(t_hist, t); push!(E_hist, kinetic_energy(u, p))
+    push!(t_hist, t); push!(E_hist, kinetic_energy(u))
     push!(ε_hist, dissipation(to_physical(curl(uh, m), vplans), p))
-    step!(uh, m, vplans, mask, ksq, p, dt)
+    step!(uh, m, vplans, dealias, ksq, p, dt)
     t += dt
   end
 
@@ -308,8 +303,8 @@ function run_hist(p::Params)
   S2e = zeros(p.N ÷ 2); n_snap = 0
   rec = 0
   for n in 1:p.n_stats
-    u = step!(uh, m, vplans, mask, ksq, p, dt)                    # u = start-of-step velocity
-    push!(t_hist, t); push!(E_hist, kinetic_energy(u, p))
+    u = step!(uh, m, vplans, dealias, ksq, p, dt)                 # u = start-of-step velocity
+    push!(t_hist, t); push!(E_hist, kinetic_energy(u))
     push!(ε_hist, dissipation(to_physical(curl(uh, m), vplans), p))
     v = advect!(X, u, dt, p)
     if n % p.rec_stride == 0 && rec < n_rec
@@ -325,19 +320,22 @@ function run_hist(p::Params)
 
   # --- final diagnostics ----------------------------------------------------
   u  = to_physical(uh, vplans)
-  K  = kinetic_energy(u, p)
+  K  = kinetic_energy(u)
   ε  = dissipation(to_physical(curl(uh, m), vplans), p)
   uprime = sqrt(2K / 3)
   Reλ = sqrt(15 * uprime^4 / (p.ν * ε))
   η   = (p.ν^3 / ε)^(1 / 4)
   kmaxη = (2 / 3) * (p.N / 2) * η
-  # divergence check (should be ~roundoff): ‖∇·u‖ / (k_rms ‖u‖)
+  # divergence check (should be ~roundoff): ‖∇·u‖ / (k_rms ‖u‖), via the package l2norm.
   divp = to_physical(divergence(uh, m), splans)
-  divrel = sqrt(mean(abs2, field_data(divp))) / (sqrt(mean(ksq)) * sqrt(2K) + 1e-30)
+  divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m, p)
   @printf("  K=%.4g  ε=%.4g  u'=%.4g  Re_λ=%.1f  η=%.3g  k_max·η=%.2f  ‖∇·u‖_rel=%.1e\n",
           K, ε, uprime, Reλ, η, kmaxη, divrel)
-  @printf("  Σ E(k)=%.4g vs K=%.4g  (Parseval check)\n", sum(ek_E), K)
+  # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces
+  # the physical ½⟨|u|²⟩ exactly — same energy, computed in spectral representation.
+  @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
+          K, 0.5 * inner(uh, uh), sum(ek_E))
   @assert isfinite(K) && isfinite(ε) && divrel < 1e-6 "non-finite or non-solenoidal state"
 
   # --- structure functions --------------------------------------------------
