@@ -70,6 +70,14 @@ worlds:
   connection of the periodic box (§4). They are bound to a base with a differentiable
   structure: they act on grid sections (in the spectral representation) and not on
   point-value sections, which carry the vertical algebra but no derivatives.
+- **Base reductions are the third operation family** — integrating the base away against a
+  **measure** the base carries (`Grid3D` cell volume; `PointSet` counting): `integral`
+  (extensive), the normalized `inner`/`l2norm`, and the `mean`/`std`/`var` moments. They map a
+  section to a scalar or a fiber and are base-dependent (the measure is the base's), yet — like
+  the vertical algebra — are shared by fields and point-values through `AbstractFiberSection`
+  (§9, decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
+  planned homogeneous-filter multiplier: one L²/integration structure in three roles (the
+  measure taxonomy, decision 19).
 - **Representation is a choice of basis for a grid section's data** (distinct from the
   fiber frame above): physical storage uses the nodal basis, spectral storage the Fourier
   basis, and the rfft is the linear isomorphism between them. A point-value section has no second
@@ -85,7 +93,10 @@ connection-chosen complement) are subbundles of the total space's tangent bundle
 Transfer between sections over *different* bases is the interpolation/anterpolation
 pair: pulling a grid section back to points (evaluation, `f(x) = ⟨δₓ, f⟩`) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
-is given in §10 and the `Interpolation` module docstring.
+is given in §10 and the `Interpolation` module docstring; the interpolation weights are
+themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
+base-changing sibling of the homogeneous-filter multiplier — see the measure taxonomy
+(decision 19).
 
 ### Representation validity lives in the method set
 
@@ -720,3 +731,75 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `½ inner(ω,ω)`, dissipation `ν inner(ω,ω)`, rms `√inner`, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — implement with a defined summation order and
     a tolerance-based test (not the bitwise one used for the threaded assignments).
+19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
+    foundation for a future spectral-multiplier family.** The word *measure* recurs across the package
+    (reductions, interpolation, and a planned homogeneous-filter operation) not by coincidence but
+    because all three are facets of the **same L²/integration structure on sections** (§2). This entry
+    fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
+    recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
+    periodic box the set of **homogeneous (translation-invariant) linear operators is *exactly* the
+    Fourier multipliers**, symbol `m(k) ∈ L^∞`, with `‖T‖_{L²→L²} = ‖m‖_∞`. So "apply `m(k)`" is not a
+    convenience — it is the complete representation of the translation commutant, and the existing
+    `gradient`/`curl`/`laplacian`/`helmholtz_projection` (§4) plus the consumer's 2/3 dealias mask and
+    integrating factor `exp(−νk²Δt)` are all special cases of it.
+
+    | role of the measure | what it is | operation(s) | maps | status |
+    |---------------------|-----------|--------------|------|--------|
+    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm` | section → scalar / fiber | **done** (decision 18) |
+    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | apply `m(k)` (dealias mask, integrating factor, homogeneous filter) | grid → grid (= Fourier multiplier) | **planned** (this entry) |
+    | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` `W` / `anterpolate` `Wᵀ` | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
+    | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
+
+    *Interpolation is the base-changing sibling of the multiplier, not a multiplier.* The gather weights
+    `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so
+    `u(x_p) = ∫ u dμ_{x_p}` is integration of the field against a unit-mass kernel measure centered at
+    the point — the same *species* as a homogeneous filter. Two differences make it its own operation
+    (§10, in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
+    point base**, which has no wavenumbers, so it is a **base-change** (grid↔point), *not* a Fourier
+    multiplier (it degenerates to one only when points coincide with nodes); (ii) the default
+    `CatmullRom`/`Lagrange` kernels have **negative side-lobes** — a *signed* unit-mass measure (higher
+    reproduction order, but overshoot), while only the linear `m=0` / positive-B-spline end is a genuine
+    **probability measure** (monotone). Reproduction order = number of matched **moments** of the kernel
+    measure (0th moment `=1` = partition of unity = constants reproduced). This signed/positive split is
+    the *same* dichotomy the LES research surfaces below — evidence the kernel measure is one concept.
+
+    *The transfer adjoint is a row-1 (base-measure) statement, and that is why reductions came first.*
+    Anterpolation `Wᵀ` is the adjoint of `W`; "adjoint w.r.t. which pairing?" is answered by the base
+    measures. As shipped (decision 17) the adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation
+    `Σ_g (Wᵀq)_g = Σ_p q_p` hold in the **counting/transpose** pairing (the extensive facet of row 1;
+    conservation = partition of unity). The **measure-weighted L² adjoint** — `W`,`Wᵀ` adjoint with the
+    grid carrying `Δx³` and points counting — is decision 17's "future refinement"; it is the **bridge
+    from row 1 to the transfer kernel** and is now expressible via `inner` (decision 18). That the
+    reductions had to precede it is recorded here.
+
+    *The multiplier family (Gap design; not yet implemented) carries three research-grounded guardrails.*
+    The deep-research findings on LES filtering do **not** change the design — they justify it and bound
+    it:
+    - **The symbol is data, never parameters** — this is how the family stays inside invariant 12 (no
+      time, no physics). The applicator multiplies a field-in-spectral by a precomputed `k`-array; `ν`,
+      `Δt`, filter width, and positivity all live in how the *consumer* builds that array from the
+      `FieldSpectralMultipliers` wavenumbers (§4). The viscous factor `exp(−νk²Δt)` is literally the
+      heat-kernel probability measure, yet the package never sees `ν` or `Δt`.
+    - **Do not restrict to positive ("measure") symbols.** `L^∞`-symbol is the right generality;
+      convolution-with-a-finite-measure is a *strict subclass* whose symbol must be **continuous**, and
+      the 2/3 mask and sharp spectral cutoff have **discontinuous** symbols (kernels not in `L¹`) — so
+      they are *not* such convolutions yet are valid multipliers we rely on. Positivity of the kernel ⟺
+      positive-definite symbol (**Bochner**) ⟹ probability measure ⟹ realizable SGS stress
+      (**Vreman, Geurts & Kuerten 1994**, realizability *iff* positive filter) ⟹ bona-fide filtered PDF
+      (**Colucci, Jaberi, Givi & Pope 1998**, the FDF); all of that is **consumer** semantics. No
+      `PositiveFilter` type, no realizability checks. (Interpolation already ships signed kernels by
+      default — consistent.)
+    - **Homogeneous-only scope.** Variable-width filters are *not* multipliers (commutation error;
+      **Ghosal & Moin 1995**, **Vasilyev, Lund & Moin 1998**) — and the uniform torus admits only
+      homogeneous operators anyway, so this is a clarifying boundary, not a gap. Projections are the
+      *idempotent* multipliers (the sharp cutoff; `helmholtz_projection` is the matrix-valued one we
+      already ship); smoothings are the non-idempotent ones — same family, no special case.
+
+    Open (untouched by the research, decided when implemented): a name distinct from the existing
+    `FieldSpectralMultipliers` *data* (e.g. a `FourierSymbol` operator or a generic `apply_multiplier!`);
+    placement (extend `DifferentialOperators`, which owns the fixed diagonal symbols, vs. a new module);
+    and how many neutral builders to ship (bare applicator vs. a `spectral_cutoff` helper — never a
+    physics-named `gaussian_les_filter`). v1 is scalar symbols; matrix-valued symbols are deferred
+    (`helmholtz_projection` covers the only case currently needed). The Germano differential filter
+    `1/(1+Δ²k²)` is architecturally inert — whatever its symbol, it is one more scalar multiplier the
+    consumer supplies.
