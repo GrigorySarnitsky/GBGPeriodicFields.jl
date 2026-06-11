@@ -90,17 +90,48 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
       @test mean(tp) isa FiberTensor2{T}
       @test mean(tp) ≈ ones(T, 3, 3)
     end
+
+    @testset "spectral inner via Parseval == physical inner ($T)" begin
+      layout = RealFourierLayout()
+      rtol = T == Float64 ? 1e-10 : 1.0f-3
+      # even Nₓ = 8 exercises the Nyquist correction; odd Nₓ = 7 the no-Nyquist branch
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        tospec(phys) = (R = field_tensor_order(phys);
+                        shape = spectral_field_shape(gp, layout, Val(R));
+                        spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
+                        to_spectral(phys, FieldTransformPlans(phys, spec0)))
+        atol = T == Float64 ? 1e-10 : 1.0f-4
+        # pairs are deliberately NON-orthogonal (shared modes) so the inner is O(1) and rtol genuinely
+        # exercises the Parseval normalization, not two near-zero round-off values
+        f1 = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
+        f2 = ScalarFieldPhysical((x, y, z) -> 2sin(x) - cos(2y) * sin(z), gp)        # ⟨f1 f2⟩ = 3/4
+        u1 = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
+        u2 = VectorFieldPhysical((x, y, z) -> (2sin(x), cos(y), cos(z)), gp)         # ⟨u1·u2⟩ = 3/2
+        A1 = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
+        A2 = TensorFieldPhysical{2}((x, y, z) -> [2sin(x) 0 0; 0 sin(z) 0; 0 0 sin(y)], gp)   # diagonal overlap = 2
+        for (a, b) in ((f1, f2), (u1, u2), (A1, A2))
+          @test isapprox(inner(tospec(a), tospec(b)), inner(a, b); rtol = rtol, atol = atol)   # Parseval, all orders
+        end
+        @test isapprox(l2norm(tospec(u1)), l2norm(u1); rtol = rtol, atol = atol)
+        @test isapprox(inner(tospec(u1), tospec(u1)), inner(u1, u1); rtol = rtol, atol = atol) # energy ≥ 0, = physical
+        @test inner(tospec(f1), tospec(f1)) isa T                                              # real scalar, eltype preserved
+      end
+    end
   end
 
-  # ---- intentional absence: reductions are physical-space only ----
-  @testset "spectral fields have no reductions (physical-only)" begin
+  # ---- spectral: the Parseval inner/l2norm are defined; the measure reductions stay physical-only ----
+  @testset "spectral fields: Parseval inner/l2norm only" begin
     N = 8
     g = Grid3D((N, N, N), (2π, 2π, 2π))
     layout = RealFourierLayout()
     spec = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(g, layout, Val(0))), g)
-    @test_throws MethodError mean(spec)
+    @test inner(spec, spec) === 0.0          # Parseval inner defined (zero field ⇒ 0), real scalar
+    @test l2norm(spec) === 0.0
+    @test_throws MethodError mean(spec)       # the measure reductions remain physical-only
     @test_throws MethodError integral(spec)
-    @test_throws MethodError inner(spec, spec)
-    @test_throws MethodError l2norm(spec)
+    @test_throws MethodError lpnorm(spec, 2)
+    @test_throws MethodError maximum(spec)
   end
 end

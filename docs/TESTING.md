@@ -219,7 +219,9 @@ gate and the GPU `materialize!` fallback also asserted; and the **L²/measure re
 fields and point-values, against analytic oracles (`⟨sin⟩ = 0`, `⟨sin²⟩ = 1/2`) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (`(1/N)·Σ` grid, `(1/M)·Σ`
 points), the extensive/intensive `integral = measure · mean` relation (incl. an anisotropic box), the
-energy identity `½ inner(u,u) = ½⟨|u|²⟩`, and the physical-only intentional absence on spectral fields;
+energy identity `½ inner(u,u) = ½⟨|u|²⟩`, the **spectral Parseval `inner`/`l2norm`** (equal to the
+physical inner, scalar/vector/tensor, on even-`Nₓ` and odd-`Nₓ` grids to hit both the Nyquist and
+no-Nyquist branches), and the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 `f̂·ĝ` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 `exp(-i kₐ m Δ) ⇔ circshift` along **all three axes, on scalar and vector fields** (an independent

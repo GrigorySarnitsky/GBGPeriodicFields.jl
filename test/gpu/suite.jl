@@ -341,6 +341,11 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(l2norm(vfd), l2norm(vf))
       @test eq(lpnorm(vfd, Inf), lpnorm(vf, Inf)) && eq(lpnorm(vfd, 4), lpnorm(vf, 4))
 
+      # spectral (Parseval) inner / l2norm: device == CPU, and equal to the physical inner
+      vf_spec_h = to_spectral(vf, plans_for(vf)); vf_spec_d = to_spectral(vfd, plans_for(vfd))
+      @test eq(inner(vf_spec_d, vf_spec_d), inner(vf_spec_h, vf_spec_h))
+      @test eq(inner(vf_spec_h, vf_spec_h), inner(vf, vf)) && eq(l2norm(vf_spec_d), l2norm(vf_spec_h))
+
       M = 40
       sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))
       spd, vpd = on_device_pv.((sp, vp))

@@ -755,8 +755,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **No LinearAlgebra overloading**: `dot`/`norm` stay the vertical pointwise ops (return sections,
       scalar fields); the global `inner`/`l2norm` are package generics returning numbers.
 
-    `inner`/`l2norm` are representation-invariant (Parseval) — physical-space first, a spectral
-    `inner` to follow. **Physics stays consumer-side**: energy `½ inner(u,u)`, enstrophy
+    `inner`/`l2norm` are representation-invariant (Parseval): the physical reductions came first, and the
+    **spectral `inner`/`l2norm` are now implemented** — for two fields in spectral representation
+    `inner(f̂,ĝ)` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
+    counts twice except the self-conjugate `kₓ=0` and, for even `Nₓ`, Nyquist planes), computed
+    allocation-free as a `dot` over the array plus two plane corrections (the other reductions —
+    `integral`/`mean`/`lpnorm`/`maximum` — remain physical-only, not being Parseval-invariant).
+    **Physics stays consumer-side**: energy `½ inner(u,u)`, enstrophy
     `½ inner(ω,ω)`, dissipation `ν inner(ω,ω)`, rms `√inner`, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — implement with a defined summation order and
     a tolerance-based test (not the bitwise one used for the threaded assignments).

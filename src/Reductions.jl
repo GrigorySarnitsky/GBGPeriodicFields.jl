@@ -9,7 +9,9 @@ carries: `Grid3D`'s uniform quadrature (cell volume `∏Δxᵢ`) and `PointSet`'
 fields and point-values, dispatched on `AbstractFiberSection`.
 
 Defined on **physical fields and point-values** — representation-free / physical-space quantities,
-where the base reduction is the naive one. Spectral (Parseval) reductions are future.
+where the base reduction is the naive one. `inner`/`l2norm` additionally act on fields in **spectral
+representation** via Parseval (equal to the physical inner, no transform); `integral`/`mean`/`lpnorm`/
+`maximum` stay physical-only.
 
 - `integral(f)` — the **extensive** `∫ f dμ` (the only quantity that scales with the base measure):
   `(|Ω|/N)·Σf` on a grid, `Σf` over points.
@@ -28,7 +30,8 @@ Physics stays consumer-side: kinetic energy `½ inner(u,u)`, enstrophy `½ inner
 module Reductions
 
 using ..FiberSections: AbstractFiberSection, section_scalar_type
-using ..Fields: AbstractFieldPhysical, FiberVector, FiberTensor2, field_data, field_grid
+using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, FiberVector, FiberTensor2, field_data,
+  field_grid, _check_field_domain_compatibility
 using ..Points: AbstractPointValues, npoints
 import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
@@ -38,8 +41,8 @@ export integral, inner, l2norm, lpnorm
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
-# is the naive one. Spectral fields are deliberately excluded (their reduction is the Parseval one,
-# future) even though they also subtype AbstractFiberSection.
+# is the naive one. Spectral fields are excluded from ReducibleSection (the measure reductions are
+# physical-only); the Parseval `inner`/`l2norm` are defined separately on AbstractFieldSpectral below.
 const ReducibleSection = Union{AbstractFieldPhysical, AbstractPointValues}
 
 _tensor_order(::AbstractFiberSection{T, R}) where {T, R} = R
@@ -120,7 +123,11 @@ std(section::ReducibleSection; corrected::Bool = true) =
 The **normalized L² inner product** `⟨f, g⟩ = (1/count)·Σ f·g` of two compatible sections (full
 fiber contraction summed over the base, divided by the base count) — a scalar, intensive (matching
 `mean`). For homogeneous turbulence this is the natural pairing: kinetic energy is `½ inner(u, u)`.
-Physical-space only (spectral, via Parseval, is future).
+
+Defined for physical fields and point-values (the naive sum above), and for two fields in **spectral
+representation** via Parseval: `inner(f̂, ĝ)` equals the physical `inner` of the same fields — the
+energy / inner product without an inverse transform. `lpnorm`, `integral`, `mean`, `maximum` remain
+physical-only (only the `p = 2` inner is representation-invariant).
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
@@ -130,13 +137,38 @@ function inner(f::ReducibleSection, g::ReducibleSection)
 end
 
 
+# Spectral (Parseval) inner product. For real fields the normalized physical inner ⟨f,g⟩ =
+# (1/N)·Σₓ dot(f,g) equals, by Parseval, a weighted sum over the rfft coefficients. The rfft stores
+# only kₓ ≥ 0, so each mode counts twice (it stands for itself and its unstored conjugate partner)
+# EXCEPT the self-conjugate kₓ=0 plane and — when Nₓ is even — the Nyquist plane, which count once.
+# With Sₜ = Σ_stored Σ_c f̂_c conj(ĝ_c) = dot(ĝ, f̂):
+#   ⟨f,g⟩ = Re(2·Sₜ − S_{kₓ=0} − S_{Nyquist}) / N²,   N = prod(grid_size)   (Nyquist term: even Nₓ only)
+# computed allocation-free as `dot` over the whole array and its two correction planes (views), the
+# real part discarding the round-off imaginary part of the (provably real) full-spectrum sum.
+function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(f, g)
+  data_f = field_data(f)
+  data_g = field_data(g)
+  total = LinearAlgebra.dot(data_g, data_f)                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
+  # The self-conjugate kₓ=0 plane (and the Nyquist plane for even Nₓ) are counted once, not twice;
+  # subtract them. A `dot` over a strided slice is unsupported on the GPU (rocBLAS `dotc`), so reduce a
+  # broadcast instead — each plane is a single kₓ index, a negligible allocation.
+  plane(i) = sum(conj.(selectdim(data_g, 1, i)) .* selectdim(data_f, 1, i))
+  correction = plane(1)
+  iseven(field_grid(f).grid_size[1]) && (correction += plane(size(data_f, 1)))
+  return real(2 * total - correction) / T(prod(field_grid(f).grid_size))^2
+end
+
+
 """
     l2norm(f)
 
 The **normalized L² norm** `√inner(f, f) = √⟨|f|²⟩` of a section — the root-mean-square of the fiber
-magnitude. The `p = 2` case of [`lpnorm`](@ref). Physical-space only.
+magnitude. The `p = 2` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and —
+via the Parseval [`inner`](@ref) — for a field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
+l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
 
 
 """
