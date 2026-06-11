@@ -49,20 +49,27 @@ for class in RUN_CLASSES
   combined[class] = BenchmarkGroup()
 end
 
-# One (size, type) at a time: a 256³ Float64 tensor field is ~1.1 GB, so holding all classes for both
-# types at once overflows 12 GB of VRAM. Build → tune → run → free per pair keeps the peak bounded.
-for N in CHAR_SIZES, T in TYPES
-  println(USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())", "  tuning + running $(T) $(N)^3 ...")
+# One (class, size, type) at a time. A 256³ Float64 tensor field is ~1.1 GB; the six classes' fields
+# held live together exceed 12 GB of VRAM even for a single element type (a 4-class sweep fit, adding
+# reductions + convolution does not). Building a single class at a time bounds the working set to one
+# class's fields — a few GB at 256³ — well under the ceiling. Build → tune → run → free per class.
+for N in CHAR_SIZES, T in TYPES, class in RUN_CLASSES
+  println(USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())", "  tuning + running $(class) $(T) $(N)^3 ...")
   flush(stdout)
-  suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = CHAR_SKIP)
+  others = filter(!=(class), collect(CLASSES))
+  suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
   tune!(suite)
   results = run(suite; verbose = false)
-  for class in RUN_CLASSES, key in keys(results[class])
+  for key in keys(results[class])
     combined[class][key] = results[class][key]
   end
   suite = nothing
   results = nothing
-  GC.gc(true)                         # free this pair's fields before the next (bounds peak memory)
+  GC.gc(true)                         # free this class's fields before the next (bounds peak memory)
+  # GC returns device memory to the AMDGPU pool, not the OS, so the pool's high-water mark would
+  # accumulate across iterations and 256³ eventually OOMs. reclaim() releases the freed blocks back to
+  # the OS so each (class, size, type) starts clean.
+  USEGPU && AMDGPU.reclaim()
 end
 
 label = USEGPU ? "ROCm / AMDGPU" : "CPU, $(Threads.nthreads()) thread(s)"

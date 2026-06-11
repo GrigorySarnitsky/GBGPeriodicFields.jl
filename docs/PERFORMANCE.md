@@ -245,14 +245,13 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
 
 **Gaps:**
 
-1. **`reductions` and `convolution` — benchmark classes added, committed `RESULTS.md` rows lag.** The
-   L²/measure reductions (`integral`/`inner`/`l2norm`/`mean`/…, bandwidth-bound streaming reductions —
-   `lpnorm` is heaviest, allocating the pointwise `norm` field first) and convolution (`convolve!`, a
-   coefficientwise kernel multiply with the cost profile of `laplacian!`) both have benchmark classes
-   (§5), verified on CPU. Regenerate the committed `RESULTS.md` (`characterize.sh`) on a free machine to
-   fill their rows — the GPU columns are now unblocked (the reductions-class wedge is fixed by
-   `gcsample = true`, gap 5), so one gcsample-enabled GPU sweep fills both the `reductions` and the new
-   `convolution` rows.
+1. **GPU `reductions`/`convolution` are measured with `gcsample` — read them as latency, not
+   throughput.** Both classes are now in `RESULTS.md` for every platform (CPU 1/2/4/8 + GPU). The GPU
+   figures use `gcsample = true` (gap 5): a GC before each sample bounds memory but adds a fixed
+   per-sample cost, so the small-grid GPU times (≈1.5 ms at 64³) are dominated by that overhead, not by
+   the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
+   and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
+   unaffected (gcsample is cheap when there is nothing to collect).
 2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
    supports it via `array_type = CuArray`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
@@ -269,11 +268,16 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
      kernels host-side via AMD `comgr` → 0% GPU, 100% CPU, VRAM pool reserved, no output, for
      minutes. *Never kill a cold first run* — a killed compile never persists to `~/.cache/comgr`, so
      the next run restarts cold. `characterize.jl` warms the cache with one trivial kernel up front.
-   - **The full suite at 256³ overflows 12 GB VRAM, and HIP segfaults instead of erroring** — the
-     crash is `hipMallocFromPoolAsync` in `libamdhip64.so`, because `build_suite` held all classes ×
-     both element types live (~1.1 GB per 256³ `Float64` tensor). Fixed: `characterize.jl` now builds
-     **one (size, element-type) at a time**. Knock-on: a VRAM-OOM segfault can degrade the HIP
-     context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault under load.
+   - **The 256³ working set overflows 12 GB VRAM, and HIP segfaults instead of erroring** — the crash
+     is `hipMallocFromPoolAsync` in `libamdhip64.so`. Two compounding causes, two fixes: (i) holding
+     *all six classes'* fields live for one (size, type) exceeds 12 GB at 256³ (a 4-class sweep fit;
+     adding reductions + convolution did not) → `characterize.jl` builds **one (op-class, size,
+     element-type) at a time**, bounding the working set to a single class (~few GB); (ii) GC returns
+     freed device memory to the AMDGPU *pool*, not the OS, so the pool high-water mark accumulates
+     across iterations and 256³ OOMs late (the first pairs fit, the last does not) → **`AMDGPU.reclaim()`
+     between iterations** releases blocks back to the OS. Knock-on: a VRAM-OOM segfault can still
+     degrade the HIP context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault
+     under load.
    - **A GC-free benchmark loop wedges the allocating reductions** — independent of grid size (seen at
      64³), and the cause of a 4-hour hang. `lpnorm` materializes a pointwise-magnitude field per call;
      BenchmarkTools' `tune!`/`run` does almost no *host* allocation, so Julia's GC (host-pressure
@@ -285,8 +289,8 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
      Distinct from the cold-compile hang above — there comgr is *active* (compiling, minutes); here it
      is *idle* (wedged, hours).
 
-   With the per-(size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The standing
-   limit is the 12 GB ceiling itself: both element types can't be 256³-resident at once (hence the
-   one-at-a-time build), and 512³ won't fit on this card. If a future OOM-segfault degrades the
+   With the per-(op-class, size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The
+   standing limit is the 12 GB ceiling itself: even one class's both-element-type 256³ fields strain it
+   (hence the one-class-at-a-time build), and 512³ won't fit on this card. If a future OOM-segfault degrades the
    context, reset with `rocm-smi --gpureset` from a console (it can crash an active display session)
    or reboot. RDNA3 (gfx1100, e.g. 7900 XTX, 24 GB) should make 256³ trivial and 512³ feasible.
