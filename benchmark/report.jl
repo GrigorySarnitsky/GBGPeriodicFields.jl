@@ -35,7 +35,8 @@ println(io, "Minimum time per operation; `—` = not measured for that column. G
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
         ", host `", gethostname(), "`. Columns below are the runs supplied; grids and element types ",
         "are in the row labels. The **CPU thread sweep 1/2/4/8 and the GPU (RX 6700 XT, gfx1031, ROCm) ",
-        "all cover 64³–256³, every op-class incl. FFT.** The GPU sweep builds one (grid, element-type) ",
+        "all cover 64³–256³, every op-class incl. FFT — except the GPU `reductions` column, pending a ",
+        "device-reset re-run.** The GPU sweep builds one (grid, element-type) ",
         "at a time so 256³ fits in 12 GB VRAM (PERFORMANCE.md §6 gap 5). **Regenerate** with ",
         "`benchmark/characterize.sh`. ~10% jitter.\n")
 
