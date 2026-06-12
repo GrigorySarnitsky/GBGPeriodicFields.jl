@@ -7,8 +7,8 @@ Order   = [:module]
 
 The `Convolution` module is the **kernel-multiplier** operation family — periodic (circular)
 convolution of a field with a kernel, in spectral representation. On the torus, by the convolution
-theorem, `f ⋆ g` is the coefficientwise spectral product `f̂ · ĝ`; the kernel `g` is supplied by its
-transfer function `ĝ` as a [`ScalarFieldSpectral`](Fields.md), which multiplies every fiber component
+theorem, ``f \star g`` is the coefficientwise spectral product ``\hat f \cdot \hat g``; the kernel `g` is supplied by its
+transfer function ``\hat g`` as a [`ScalarFieldSpectral`](Fields.md), which multiplies every fiber component
 (one method serves scalar, vector, and tensor fields). It is the spectral sibling of the
 [`DifferentialOperators`](DifferentialOperators.md) and the same-base counterpart of the
 [`Interpolation`](Interpolation.md) transfer — both are the "kernel measure" of the measure taxonomy.
@@ -23,8 +23,8 @@ integrating factor) stays a consumer-built kernel.
 Three neutral builders ship (decisions 20, 21): `spectral_cutoff` is the isotropic sharp low-pass
 (de-aliasing) kernel; `spectral_band(ref, mult, k_lo, k_hi)` is its annular generalization (a band-pass
 shell selector; the cutoff is the `k_lo = 0` case); and `squared_wavenumber_field(ref, mult)` is the
-`|k|²` radial coordinate of spectral space as a `ScalarFieldSpectral` — the consumer builds a Fourier
-symbol from it (a viscous integrating factor `exp(−ν|k|²Δt)`, a smooth envelope, a Germano filter) and
+``|k|^2`` radial coordinate of spectral space as a `ScalarFieldSpectral` — the consumer builds a Fourier
+symbol from it (a viscous integrating factor ``\exp(-\nu |k|^2 \Delta t)``, a smooth envelope, a Germano filter) and
 applies it with `convolve`.
 
 ## Contents

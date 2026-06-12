@@ -6,10 +6,10 @@ Order   = [:module]
 ```
 
 The `Interpolation` module is the grid↔point transfer layer: **interpolation** (grid → point, the
-gather `𝓘 = W`) evaluates a field at off-grid positions, and its adjoint **anterpolation**
-(point → grid, the scatter `𝓘* = Wᵀ`) deposits per-point quantities back onto the grid. Both use the
+gather ``\mathcal I = W``) evaluates a field at off-grid positions, and its adjoint **anterpolation**
+(point → grid, the scatter ``\mathcal I^* = W^\top``) deposits per-point quantities back onto the grid. Both use the
 local high-order splines of Lalescu, Teaca & Carati (2010) — the smooth [`LalescuSpline`](@ref)
-(two-point Hermite, default [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the `C⁰`
+(two-point Hermite, default [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the ``C^0``
 [`LagrangeSpline`](@ref), under a shared `AbstractSplineScheme` — so interpolation and
 anterpolation are exact transposes and conserve the deposited total (`docs/ARCHITECTURE.md` §10).
 The kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types live

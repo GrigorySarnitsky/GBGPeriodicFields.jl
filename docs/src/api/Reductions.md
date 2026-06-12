@@ -12,15 +12,17 @@ integrates a section over its base against the measure the base carries (`Grid3D
 volume; `PointSet`'s counting measure), and is defined on **physical fields and point-values**
 (representation-free quantities). See `docs/ARCHITECTURE.md` §2 and decision 18.
 
-`integral` is the extensive `∫f dμ`; `inner`/`l2norm`/`lpnorm` are the normalized L² inner product
+`integral` is the extensive ``\int f \, d\mu``; `inner` (``\langle\cdot,\cdot\rangle``), `l2norm`
+(``\lVert\cdot\rVert_2``), and `lpnorm` (``\lVert\cdot\rVert_p``) are the normalized L² inner product
 and norms. The `mean`/`std`/`var` (from `Statistics`) and `maximum`/`minimum`/`extrema` (from `Base`)
 are *extended* on sections here — reached through `using Statistics` / `Base`, not re-exported.
-Physics stays in the consumer (kinetic energy `½ inner(u,u)`, enstrophy, dissipation, rms).
+Physics stays in the consumer (kinetic energy ``\tfrac12\langle u, u\rangle``, enstrophy, dissipation, rms).
 
 A field in **spectral representation** also admits `inner`/`l2norm` via Parseval (equal to the physical
-inner, no transform), and `radial_spectrum(f, mult)` — the **radial (shell-resolved) power spectrum**:
-`inner` decomposed into isotropic `|k|`-shells, returning `(shells, spectrum)` with the exact refinement
-`sum(spectrum) == inner(f, f)` (decision 21). The consumer's energy spectrum is `E = ½ .* spectrum`.
+inner, no transform), and `radial_spectrum(f, mult)` (``\equiv E(\kappa)``) — the **radial (shell-binned)
+power spectrum**: `inner` decomposed into isotropic ``|k|``-shells, returning `(shells, spectrum)` with the
+exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy
+spectrum is ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``.
 
 ## Contents
 
