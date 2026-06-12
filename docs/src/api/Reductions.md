@@ -29,6 +29,14 @@ shell-averaged two-point autocorrelation ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N`
 minimum-image ``|r|`` shells, with ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)``. The two
 resolve the same `inner` over the conjugate radial coordinates (``|k|`` and ``|r|``).
 
+Each has a two-field **co-spectrum** form (decision 22): `radial_spectrum(f, g)` bins the cross-power
+``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` and `radial_correlation(f, g)` is the
+cross-correlation ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``,
+each refining the **mixed** ``\mathrm{inner}(f, g)`` (``\sum_\kappa E_{fg} = C_{fg}(0) = \mathrm{inner}(f, g)``).
+Both are symmetric in ``f, g``, the one-field forms are the ``g = f`` case, and — unlike the power
+spectrum — the co-spectrum may be **negative** in a shell (anticorrelated modes; e.g. a momentum/scalar
+flux co-spectrum, where the sign is physical).
+
 ## Contents
 
 ```@contents

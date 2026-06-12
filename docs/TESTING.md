@@ -57,7 +57,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
-  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation` on fields and point-values),
+  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
@@ -234,7 +234,13 @@ spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
 against an **independent binned-circshift autocorrelation** and ``C(0) = \mathrm{inner}(f,f)``, all orders /
-both grids), and the intentional absence of the *measure* reductions on spectral fields;
+both grids), the **two-field co-spectra** `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
+cross-power / cross-correlation, refining the *mixed* `inner(f, g)`: analytical oracles — an orthogonal
+pair ``\cos x \perp \sin x`` ⇒ zero, and ``\cos x \pm \cos 2x`` ⇒ ``\pm\tfrac12`` in adjacent shells
+cancelling to ``\mathrm{inner} = 0`` (the co-spectrum **may be negative**); the ``f \leftrightarrow g``
+symmetry; the ``g = f`` reduction to the single-field forms (bit-identical); and an **independent
+binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, both grids), and the
+intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 ``\exp(-i k_a m \Delta) \Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent

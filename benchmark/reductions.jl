@@ -22,4 +22,6 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes
   group["radial_spectrum vec | $tag"] = @benchmarkable radial_spectrum($us, $m)   # shell-resolved inner (per-shell masked sums)
   group["radial_correlation vec | $tag"] = @benchmarkable radial_correlation($us, $correlation_plans)  # Wiener–Khinchin: inverse rfft + shell average
+  group["co-spectrum vec.vec | $tag"] = @benchmarkable radial_spectrum($us, $vs, $m)   # cross-power: same binning, Re(f̂·conj ĝ) density
+  group["cross-correlation vec.vec | $tag"] = @benchmarkable radial_correlation($us, $vs, $correlation_plans)  # cross-corr: inverse rfft of conj(f̂)·ĝ
 end

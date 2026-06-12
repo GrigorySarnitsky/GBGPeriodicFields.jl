@@ -367,6 +367,18 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test seps_d == seps_h && eq(corr_d, corr_h)
       @test eq(corr_d[1], inner(vf_spec_d, vf_spec_d))
 
+      # co-spectra (two-field forms): the cross-power radial_spectrum(f, g) and the cross-correlation
+      # radial_correlation(f, g) run the same device kernels, match the CPU, and refine inner(f, g).
+      wf = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + T(0.2), cos(2z)), grid)
+      wfd = on_device(wf)
+      wf_spec_h = to_spectral(wf, plans_for(wf)); wf_spec_d = to_spectral(wfd, plans_for(wfd))
+      _, cospectrum_d = radial_spectrum(vf_spec_d, wf_spec_d, mult_d)
+      _, cospectrum_h = radial_spectrum(vf_spec_h, wf_spec_h, mult_h)
+      @test eq(cospectrum_d, cospectrum_h) && eq(sum(cospectrum_d), inner(vf_spec_d, wf_spec_d))
+      _, xcorrelation_d = radial_correlation(vf_spec_d, wf_spec_d, plans_for(vfd))
+      _, xcorrelation_h = radial_correlation(vf_spec_h, wf_spec_h, plans_for(vf))
+      @test eq(xcorrelation_d, xcorrelation_h) && eq(xcorrelation_d[1], inner(vf_spec_d, wf_spec_d))
+
       M = 40
       sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))
       spd, vpd = on_device_pv.((sp, vp))

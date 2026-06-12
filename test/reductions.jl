@@ -204,6 +204,102 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
         @test all(x -> isapprox(x, c^2; rtol = rtol, atol = atol) || iszero(x), constant_corr)  # c² on every populated shell
       end
     end
+
+    @testset "radial_spectrum co-spectrum refines the mixed inner ($T)" begin
+      layout = RealFourierLayout()
+      atol = T == Float64 ? 1e-12 : 1.0f-5
+      rtol = T == Float64 ? 1e-9 : 1.0f-3
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        tospec(phys) = (R = field_tensor_order(phys);
+                        shape = spectral_field_shape(gp, layout, Val(R));
+                        spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
+                        to_spectral(phys, FieldTransformPlans(phys, spec0)))
+        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        # distinct scalar / vector / tensor pairs so the co-spectrum is non-trivial (g ≠ f)
+        pairs = ((ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                  ScalarFieldPhysical((x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
+                 (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                  VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
+                 (TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+                  TensorFieldPhysical{2}((x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)))
+        for (pf, pg) in pairs
+          fh = tospec(pf); gh = tospec(pg)
+          _, Efg = radial_spectrum(fh, gh, m)
+          _, Egf = radial_spectrum(gh, fh, m)
+          _, Eff = radial_spectrum(fh, fh, m)
+          _, Eff_one = radial_spectrum(fh, m)
+          @test isapprox(sum(Efg), inner(fh, gh); rtol = rtol, atol = atol)  # refines the mixed inner (Parseval)
+          @test Efg == Egf                                  # symmetric: Re(f̂ conj ĝ) = Re(ĝ conj f̂), exact
+          @test Eff == Eff_one                              # the g = f case IS the one-argument power spectrum
+        end
+        # analytical oracle (both signs): f = cos x + cos 2x, g = cos x − cos 2x.
+        #   inner(f, g) = ⟨cos²x⟩ − ⟨cos²2x⟩ = 0, but the co-spectrum resolves that cancellation into
+        #   E(|k| = 1) = +⟨cos²x⟩ = +1/2  and  E(|k| = 2) = −⟨cos²2x⟩ = −1/2.
+        fpm = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) + cos(2x), gp))
+        gpm = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) - cos(2x), gp))
+        _, Epm = radial_spectrum(fpm, gpm, m)
+        @test isapprox(Epm[2], T(1) / 2;  rtol = rtol, atol = atol)         # +1/2 in the |k| = 1 shell
+        @test isapprox(Epm[3], -T(1) / 2; rtol = rtol, atol = atol)         # −1/2 in the |k| = 2 shell (negative!)
+        @test isapprox(sum(Epm), inner(fpm, gpm); rtol = rtol, atol = atol) # … and the two cancel: Σ = inner = 0
+        @test isapprox(sum(Epm), 0; atol = atol)
+        # orthogonal pair cos(x) ⟂ sin(x): zero co-spectrum everywhere (and inner = 0)
+        fo = tospec(ScalarFieldPhysical((x, y, z) -> cos(x), gp))
+        go = tospec(ScalarFieldPhysical((x, y, z) -> sin(x), gp))
+        _, Eo = radial_spectrum(fo, go, m)
+        @test all(x -> isapprox(x, 0; atol = atol), Eo) && isapprox(inner(fo, go), 0; atol = atol)
+      end
+    end
+
+    @testset "radial_correlation cross-correlation vs circshift ($T)" begin
+      layout = RealFourierLayout()
+      rtol = T == Float64 ? 1e-9 : 1.0f-2
+      atol = T == Float64 ? 1e-11 : 1.0f-3
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        gs = gp.grid_size; spacing = gp.grid_spacing; bin_width = minimum(spacing)
+        minimage(I) = sqrt(sum((min(i - 1, n - (i - 1)) * sp)^2 for (i, n, sp) in zip(Tuple(I), gs, spacing)))
+        # independent oracle: the cross-correlation ⟨f(x)·g(x+r)⟩ by direct circshift, binned the same way
+        function binned_circshift_cross(physf, physg, nshell)
+          df = field_data(physf); dg = field_data(physg); total = prod(gs); R = field_tensor_order(physf)
+          shell_sum = zeros(T, nshell); shell_count = zeros(Int, nshell)
+          for I in CartesianIndices(gs)
+            shift = (.-(Tuple(I) .- 1)..., ntuple(_ -> 0, R)...)
+            value = T(sum(df .* circshift(dg, shift)) / total)   # (1/N) Σ_x f(x)·g(x+r), fiber-contracted
+            b = round(Int, minimage(I) / bin_width) + 1
+            b <= nshell && (shell_sum[b] += value; shell_count[b] += 1)
+          end
+          return [iszero(shell_count[i]) ? zero(T) : shell_sum[i] / shell_count[i] for i in 1:nshell]
+        end
+        spec0(R) = (shape = spectral_field_shape(gp, layout, Val(R));
+                    R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                    R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                             TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp))
+        # scalar / vector / tensor pairs + a RANDOM scalar pair (exercises all modes, checked in physical space)
+        pairs = ((ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                  ScalarFieldPhysical((x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
+                 (VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                  VectorFieldPhysical((x, y, z) -> (cos(x), sin(y) + 3 * cos(2z) / 10, sin(z)), gp)),
+                 (TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+                  TensorFieldPhysical{2}((x, y, z) -> [cos(x) sin(y) 0.2; 0.7 cos(z) sin(x); 0.1 sin(z) cos(y)], gp)),
+                 (ScalarFieldPhysical(randn(MersenneTwister(11), T, gs...), gp),
+                  ScalarFieldPhysical(randn(MersenneTwister(23), T, gs...), gp)))
+        for (pf, pg) in pairs
+          R = field_tensor_order(pf)
+          plans = FieldTransformPlans(pf, spec0(R))
+          fh = to_spectral(pf, plans); gh = to_spectral(pg, plans)
+          seps, Cfg = radial_correlation(fh, gh, plans)
+          _, Cgf = radial_correlation(gh, fh, plans)
+          _, Cff = radial_correlation(fh, fh, plans)
+          _, Cff_one = radial_correlation(fh, plans)
+          @test isapprox(Cfg[1], inner(fh, gh); rtol = rtol, atol = atol)                          # C_fg(0) = ⟨f·g⟩ = inner
+          @test isapprox(Cfg, binned_circshift_cross(pf, pg, length(Cfg)); rtol = rtol, atol = atol) # direct physical oracle
+          @test isapprox(Cfg, Cgf; rtol = rtol, atol = atol)                                       # radial binning symmetrizes
+          @test Cff == Cff_one                                                                     # g = f case IS the autocorrelation
+          @test seps[1] == 0 && eltype(Cfg) === T && length(seps) == length(Cfg)
+        end
+      end
+    end
   end
 
   # ---- spectral: the Parseval inner/l2norm are defined; the measure reductions stay physical-only ----

@@ -28,6 +28,10 @@ Two **radial reductions** resolve `inner` over a radial coordinate, a Fourier-du
 `radial_spectrum(f, multipliers)` bins ``|\\hat f|^2`` over ``|k|``-shells (the power spectrum, spectral
 input), and `radial_correlation(f, plans)` is its physical-space dual, the shell-averaged two-point
 autocorrelation ``C(r) = \\mathcal F^{-1}(|\\hat f|^2)/N``; both satisfy ``\\sum E = C(0) = \\mathrm{inner}(f, f)``.
+Each also has a **two-field** form — the co-spectrum `radial_spectrum(f, g, multipliers)` (binning
+``\\sum_c \\mathrm{Re}(\\hat f_c \\overline{\\hat g_c})``) and the cross-correlation `radial_correlation(f, g, plans)`
+(``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle``, via ``\\overline{\\hat f}\\,\\hat g``) — refining the
+mixed `inner(f, g)` (``\\sum E_{fg} = C_{fg}(0) = \\mathrm{inner}(f, g)``); the one-field forms are the ``g = f`` case.
 
 Physics stays consumer-side: kinetic energy ``\\tfrac12 \\langle u, u\\rangle``, enstrophy
 ``\\tfrac12 \\langle \\omega, \\omega\\rangle``, dissipation ``\\nu \\langle \\omega, \\omega\\rangle``,
@@ -222,50 +226,80 @@ function _parseval_weight(f::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
 end
 
 
-"""
-    radial_spectrum(f, multipliers)
-
-The **radial (shell-binned) power spectrum** ``E(\\kappa)`` of a field `f` in spectral representation
-(`radial_spectrum` ``\\equiv E(\\kappa)``): returns `(shells, spectrum)`, where `shells` are the
-bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber energy
-over the modes whose rounded magnitude falls in shell ``i``:
-
-```math
-E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c |\\hat f_c(k)|^2,
-\\qquad
-w(k) = \\begin{cases} 1, & k_x = 0 \\text{ or (even } N_x) \\ k_x = N_x/2, \\\\ 2, & \\text{otherwise,} \\end{cases}
-```
-
-with the rfft half-spectrum weight ``w`` and shell width ``\\Delta k`` (the box fundamental). It
-**refines** [`inner`](@ref): ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` — the
-total L² energy split across isotropic ``|k|``-shells of unit-fundamental width. The consumer's
-kinetic-energy spectrum is then ``\\tfrac12 E(\\kappa)`` (so ``\\sum_\\kappa \\tfrac12 E(\\kappa) =
-\\tfrac12\\langle |u|^2\\rangle``); the package keeps the neutral name, physics stays consumer-side.
-
-Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from ``0``
-to the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
-field the high-``|k|`` shells are empty. For a non-cubic box the shells beyond ``\\min(N_i)/2`` are
-incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but
-``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` still holds. GPU-portable: the binning is a sequence
-of masked reductions (no scalar indexing, no histogram kernel), suited to an occasional diagnostic
-rather than a per-step call.
-"""
-function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+# Shared |k|-shell binning for the power/cross-power spectra. `per_mode_quantity` is the fiber-contracted
+# real density — ``Σ_c |f̂_c|²`` (power) or ``Σ_c Re(f̂_c conj ĝ_c)`` (cross) — an (Nkx, Ny, Nz) array.
+# Apply the rfft Parseval weight, normalize by N², and sum the modes whose rounded |k| falls in each
+# shell; shells run 0…corner at the box-fundamental width, so ∑ over shells = the spectral `inner` exactly.
+function _radial_spectrum_bin(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
+                              per_mode_quantity) where {T<:AbstractFloat}
   _check_multipliers_compatibility(f, multipliers)
   grid = field_grid(f)
   fundamental = 2 * T(π) / T(maximum(grid.domain_size))           # the unit shell width (= 1 for a 2π box)
   shell_index = round.(Int, sqrt.(_squared_wavenumber_broadcast(multipliers)) ./ fundamental)  # shell per mode
   number_of_shells = Int(maximum(shell_index)) + 1
+  weighted = _parseval_weight(f) .* per_mode_quantity            # Parseval-weighted (co-)energy per mode
+  normalization = T(prod(grid.grid_size))^2
+  spectrum = T[sum(weighted .* (shell_index .== shell)) / normalization for shell in 0:(number_of_shells - 1)]
+  shells = T.(0:(number_of_shells - 1)) .* fundamental
+  return shells, spectrum
+end
+
+
+"""
+    radial_spectrum(f, multipliers)
+    radial_spectrum(f, g, multipliers)
+
+The **radial (shell-binned) spectrum** of a field in spectral representation: the one-argument form is
+the **power spectrum** ``E(\\kappa)`` (`radial_spectrum` ``\\equiv E(\\kappa)``); the two-argument form is
+the **co-spectrum** (cross-power) ``E_{fg}(\\kappa)`` of two compatible, equal-order fields. Returns
+`(shells, spectrum)`, where `shells` are the bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]`
+sums the Parseval-weighted fiber (co-)energy over the modes whose rounded magnitude falls in shell ``i``:
+
+```math
+E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c |\\hat f_c(k)|^2,
+\\qquad
+E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k)\\,\\overline{\\hat g_c(k)}\\bigr),
+```
+
+with the rfft half-spectrum weight ``w`` (``1`` on the ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2``
+otherwise) and shell width ``\\Delta k`` (the box fundamental). Each **refines** [`inner`](@ref):
+``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa E_{fg}(\\kappa) = \\langle f, g\\rangle``
+— the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
+form is the ``g = f`` case (``\\mathrm{Re}(\\hat f\\,\\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
+is **symmetric** (``E_{fg} = E_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
+spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's kinetic-energy spectrum is
+``\\tfrac12 E(\\kappa)``; the package keeps the neutral name, physics stays consumer-side.
+
+Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from ``0``
+to the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
+field the high-``|k|`` shells are empty. For a non-cubic box the shells beyond ``\\min(N_i)/2`` are
+incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but the total still
+equals `inner`. GPU-portable: the binning is a sequence of masked reductions (no scalar indexing, no
+histogram kernel), suited to an occasional diagnostic rather than a per-step call.
+"""
+function radial_spectrum end
+
+function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   # Σ_c |f̂_c|² over the fiber, a real (Nkx, Ny, Nz) array (abs2 already drops the fiber for R = 0).
   R = field_tensor_order(f)
   fiber_dims = ntuple(d -> d + 3, R)
   magnitude_squared = R == 0 ? abs2.(field_data(f)) :
     dropdims(sum(abs2, field_data(f); dims = fiber_dims); dims = fiber_dims)
-  weighted = _parseval_weight(f) .* magnitude_squared            # Parseval-weighted energy per mode
-  normalization = T(prod(grid.grid_size))^2
-  spectrum = T[sum(weighted .* (shell_index .== shell)) / normalization for shell in 0:(number_of_shells - 1)]
-  shells = T.(0:(number_of_shells - 1)) .* fundamental
-  return shells, spectrum
+  return _radial_spectrum_bin(f, multipliers, magnitude_squared)
+end
+
+function radial_spectrum(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
+                         multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(f, g)
+  field_tensor_order(f) == field_tensor_order(g) ||
+    throw(ArgumentError("radial_spectrum(f, g, multipliers) needs equal tensor orders " *
+                        "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
+  # Σ_c Re(f̂_c · conj(ĝ_c)) over the fiber, the real co-energy density per mode (an (Nkx, Ny, Nz) array).
+  R = field_tensor_order(f)
+  fiber_dims = ntuple(d -> d + 3, R)
+  cross_density = real.(field_data(f) .* conj.(field_data(g)))
+  cross_power = R == 0 ? cross_density : dropdims(sum(cross_density; dims = fiber_dims); dims = fiber_dims)
+  return _radial_spectrum_bin(f, multipliers, cross_power)
 end
 
 
@@ -287,42 +321,24 @@ function _separation_magnitude(grid, backend_reference::AbstractArray{T}) where 
 end
 
 
-"""
-    radial_correlation(f, plans)
-
-The **radial (shell-averaged) two-point autocorrelation** ``C(r)`` of a field `f` — the physical-space
-Wiener–Khinchin dual of [`radial_spectrum`](@ref). `f` is in spectral representation; `plans` are its
-transform plans (matching `f`'s tensor order). Returns `(separations, correlation)`, where `separations`
-are the bin-center magnitudes ``r`` and `correlation[i]` is ``C`` averaged over the minimum-image
-shell ``|r| \\approx r``. By the autocorrelation theorem the kernel forms the fiber-summed power spectrum
-``\\sum_c |\\hat f_c|^2``, inverse-transforms it, and normalizes:
-
-```math
-C(r) = \\frac1N \\sum_x f(x) \\cdot f(x + r) = \\frac1N\\, \\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r),
-\\qquad
-C(r_i) = \\frac{1}{|\\text{shell } i|} \\sum_{|r| \\,\\approx\\, r_i} C(r).
-```
-
-At zero separation it is the variance ``C(0) = \\langle |f|^2\\rangle = \\mathrm{inner}(f, f)``, so this is
-`inner` resolved over physical separation exactly as `radial_spectrum` resolves it over ``|k|`` — the two
-are a Fourier pair (``\\mathcal F C = |\\hat f|^2``). Spectral input only (it needs the inverse transform);
-GPU-portable (one inverse rfft + masked-reduction binning, no scalar indexing).
-"""
-function radial_correlation(f::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
-  grid = field_grid(f)
-  number_of_points = prod(grid.grid_size)
-  tensor_order = field_tensor_order(f)
-  # Power spectrum per fiber component, |f̂_c(k)|² (real, in the complex coefficient array).
-  power = similar_field(f, Val(tensor_order))
-  @_assign! field_data(power) .= complex.(abs2.(field_data(f)))
-  # Autocorrelation theorem: the inverse transform of the power spectrum is the (unnormalized) circular
-  # autocorrelation per component; fiber-contract and divide by N → the two-point autocorrelation field.
-  autocorrelation = to_physical(power, plans)
+# Inverse-transform a per-component complex spectrum (already written into the spectral field `power`)
+# into the real two-point correlation field: c2r per component, fiber-contract, normalize by N. The
+# per-component cross spectrum conj(f̂_c)·ĝ_c (and its g = f case |f̂_c|²) is Hermitian for real f, g, so
+# the c2r reconstruction is exactly real even though the cross-correlation itself is not even in r.
+function _correlation_field_from(power::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
+  number_of_points = prod(field_grid(power).grid_size)
+  tensor_order = field_tensor_order(power)
+  autocorrelation = to_physical(power, plans)                    # c2r per component (unnormalized correlation)
   data = field_data(autocorrelation)
   fiber_dims = ntuple(d -> d + 3, tensor_order)
-  correlation_field =
-    (tensor_order == 0 ? data : dropdims(sum(data; dims = fiber_dims); dims = fiber_dims)) ./ T(number_of_points)
-  # Radially average over minimum-image |r| shells (bin width = the finest grid spacing).
+  return (tensor_order == 0 ? data : dropdims(sum(data; dims = fiber_dims); dims = fiber_dims)) ./ T(number_of_points)
+end
+
+
+# Radially average a real physical (Nx, Ny, Nz) correlation field over minimum-image |r| shells (bin
+# width = the finest grid spacing) — the shared back half of both `radial_correlation` methods. The
+# ±r folding of the min-image shells symmetrizes the cross-correlation (C_fg(−r) = C_gf(r)).
+function _radial_average(grid, correlation_field::AbstractArray{T}) where {T<:AbstractFloat}
   separation = _separation_magnitude(grid, correlation_field)
   bin_width = T(minimum(grid.grid_spacing))
   shell_index = round.(Int, separation ./ bin_width)
@@ -335,6 +351,57 @@ function radial_correlation(f::AbstractFieldSpectral{T}, plans::FieldTransformPl
     correlation[shell + 1] = iszero(population) ? zero(T) : sum(correlation_field .* in_shell) / population
   end
   return separations, correlation
+end
+
+
+"""
+    radial_correlation(f, plans)
+    radial_correlation(f, g, plans)
+
+The **radial (shell-averaged) two-point correlation** of a field — the physical-space Wiener–Khinchin
+dual of [`radial_spectrum`](@ref). The one-argument form is the **autocorrelation** ``C(r)``; the
+two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
+compatible, equal-order fields. `f` (and `g`) are in spectral representation; `plans` are their transform
+plans (matching the tensor order). Returns `(separations, correlation)`, where `separations` are the
+bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell
+``|r| \\approx r``. By the (cross-)correlation theorem the kernel forms the fiber-summed (cross-)power
+spectrum, inverse-transforms it, and normalizes:
+
+```math
+C(r) = \\frac1N \\sum_x f(x)\\cdot f(x+r) = \\frac1N\\,\\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r),
+\\qquad
+C_{fg}(r) = \\frac1N \\sum_x f(x)\\cdot g(x+r) = \\frac1N\\,\\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c \\overline{\\hat f_c}\\,\\hat g_c\\Bigr)(r),
+```
+
+followed by the shell average ``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
+separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\mathrm{inner}(f, f)`` and
+``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\mathrm{inner}(f, g)`` — `inner` resolved over physical
+separation exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair: ``\\mathcal F C = |\\hat f|^2``,
+``\\mathcal F C_{fg} = \\overline{\\hat f}\\,\\hat g``). The one-argument form is the ``g = f`` case; the
+radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
+averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac12(C_{fg} + C_{gf})``
+and is symmetric in ``f, g``. Spectral input only (it needs the inverse transform); GPU-portable (one
+inverse rfft + masked-reduction binning, no scalar indexing).
+"""
+function radial_correlation end
+
+function radial_correlation(f::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
+  # Power spectrum per fiber component, |f̂_c(k)|² (real, in the complex coefficient array).
+  power = similar_field(f, Val(field_tensor_order(f)))
+  @_assign! field_data(power) .= complex.(abs2.(field_data(f)))
+  return _radial_average(field_grid(f), _correlation_field_from(power, plans))
+end
+
+function radial_correlation(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
+                            plans::FieldTransformPlans) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(f, g)
+  field_tensor_order(f) == field_tensor_order(g) ||
+    throw(ArgumentError("radial_correlation(f, g, plans) needs equal tensor orders " *
+                        "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
+  # Cross-power spectrum per fiber component, conj(f̂_c)·ĝ_c (Hermitian for real f, g ⇒ c2r is real).
+  power = similar_field(f, Val(field_tensor_order(f)))
+  @_assign! field_data(power) .= conj.(field_data(f)) .* field_data(g)
+  return _radial_average(field_grid(f), _correlation_field_from(power, plans))
 end
 
 

@@ -168,8 +168,9 @@ Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative)
 operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation transfer**, and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
-`inner`, and the radial pair `radial_spectrum` / `radial_correlation` — per-shell masked reductions and
-an inverse rfft, diagnostic-cost). Run it:
+`inner`, and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
+`radial_spectrum(f, g)` / `radial_correlation(f, g)` — per-shell masked reductions and an inverse rfft,
+diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their binning). Run it:
 
 ```sh
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time

@@ -932,12 +932,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
-    the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells remain future; a
-    **co-spectrum `radial_spectrum(f, g)` is a near-term need** (decision 22). **Renamed `shell_spectrum → radial_spectrum` in
+    the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells remain future; the
+    **co-spectrum `radial_spectrum(f, g)`** is now **done** (decision 22, the two-field cross-power). **Renamed `shell_spectrum → radial_spectrum` in
     decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, also done.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
-    point pair-statistics (RDF). [Phase 1 (`radial_correlation`) and Phase 2 (`assignment_window` + the
-    pair-correlation recipe) DONE.]**
+    point pair-statistics (RDF). [Phase 1 (`radial_correlation`), Phase 2 (`assignment_window` + the
+    pair-correlation recipe), and the two-field co-spectra (`radial_spectrum(f, g)` / `radial_correlation(f, g)`) all DONE.]**
 
     *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
     in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
@@ -970,8 +970,27 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same masked-reduction
     machinery as `radial_spectrum`, in `r` instead of ``|k|``. Verified against an independent
     binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
-    (`radial_correlation(f, g)` — the cross-correlation, dual of a co-spectrum — is a **near-term need**:
-    co-spectra / cross-correlations will be wanted soon, e.g. momentum/scalar fluxes.)
+
+    *The two-field co-spectra — `radial_spectrum(f, g)` / `radial_correlation(f, g)` (done).* The mixed
+    second-order statistics of two compatible, equal-order fields, refining the **mixed** `inner(f, g)` exactly as
+    the single-field forms refine `inner(f, f)`. The **co-spectrum** bins the Parseval-weighted cross-power
+    density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` over ``|k|``-shells (``\sum_\kappa E_{fg} = \mathrm{inner}(f, g)``);
+    the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``
+    binned over ``|r|``-shells (``C_{fg}(0) = \mathrm{inner}(f, g)``). Two properties fall out of the math and are
+    pinned by tests: each is **symmetric** in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,
+    and the ``\pm r`` folding of the min-image shells symmetrizes the correlation (``C_{fg}(-r) = C_{gf}(r)``, so the
+    radial average is ``\tfrac12(C_{fg}+C_{gf})``) — and the single-field forms are exactly the ``g = f`` case
+    (``\mathrm{Re}(\hat f\,\overline{\hat f}) = |\hat f|^2``; asserted bit-identical). Unlike the power spectrum the
+    co-spectrum **may be negative** in a shell (anticorrelated modes — the canonical use is a momentum/scalar flux
+    co-spectrum, where sign is physical). Implementation reuses the single-field code: the binning helpers
+    (`_radial_spectrum_bin`, `_correlation_field_from` + `_radial_average`) are shared, the two-field methods only swap
+    the per-mode density (``|\hat f|^2 \to \mathrm{Re}(\hat f\,\overline{\hat g})``) / the per-component spectrum
+    (``|\hat f|^2 \to \overline{\hat f}\,\hat g``, Hermitian for real ``f, g`` ⇒ the c2r reconstruction is exactly real).
+    These are **new methods on the existing `Reductions` generics** — no export change, the 198/118 parity baselines
+    are unchanged. Verified CPU (`test/reductions.jl`: analytical oracles — an orthogonal pair ``\cos x \perp \sin x``
+    giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac12`` in adjacent shells that cancel to ``\mathrm{inner} = 0``;
+    the ``g = f`` consistency; the ``f \leftrightarrow g`` symmetry; and an independent binned-circshift cross-correlation
+    on a random pair) + GPU (ROCm device-vs-CPU parity, `test/gpu/suite.jl`); benchmarked (`reductions` class).
 
     *Points → RDF (Phase 2, done).* The pair correlation ``g(r)`` of ``M`` points is computable
     in ``O(N + M \log M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
@@ -1015,12 +1034,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     package ships the primitives and a documented recipe (`test/rdf.jl`, validated against direct pair
     counting), **not** a `radial_distribution_function` function: that scoping held.
 
-    *Phasing — both done.* **Phase 1:** `radial_correlation(f, plans)` (the field duality; neutral, no new
+    *Phasing — all done.* **Phase 1:** `radial_correlation(f, plans)` (the field duality; neutral, no new
     math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \mathrm{inner}``
     exact. **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
     window, `Convolution`) + the documented point-RDF recipe, validated against direct ``O(M^2)`` counting.
-    **Near-term:** the **co-spectra** `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
-    cross-correlation pair — momentum/scalar fluxes; small, mirrors the existing single-field code).
+    **Co-spectra (done):** the two-field `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
+    cross-power / cross-correlation pair — momentum/scalar fluxes; new methods on the existing generics that
+    reuse the single-field binning, refining the mixed `inner(f, g)`; symmetric, may be negative — see above).
     **Future (deferred until a consumer makes them concrete):** higher positive-B-spline / signed-kernel
     window transforms and interlacing (sharper small-``r`` ``g``); and — the "meaningful fibers over the
     radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
