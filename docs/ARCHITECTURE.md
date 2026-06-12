@@ -98,6 +98,72 @@ themselves a unit-mass kernel **measure** (signed for the higher-order schemes),
 base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
 
+### The construction in commutative diagrams
+
+The same picture as the diagrams the rest of this section leans on. A **field is a section** — a
+right inverse of the bundle projection ``\pi``:
+
+```math
+B \;\xrightarrow{\,s\,}\; E \;\xrightarrow{\,\pi\,}\; B, \qquad \pi \circ s = \operatorname{id}_B,
+```
+
+with ``B`` the base (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the
+trivial tensor bundle, and ``s`` the field (`AbstractFiberSection`): exactly one fiber value per base
+point.
+
+**Representations and operators — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
+`to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
+``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
+``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k)\,\cdot`` (``ik``,
+``ik\cdot``, ``ik\times``, ``-|k|^2``):
+
+```math
+\begin{CD}
+f      @>{\mathcal F}>>   \hat f \\
+@V{L}VV                   @VV{\hat L}V \\
+Lf     @>>{\mathcal F}>   \widehat{Lf}
+\end{CD}
+\qquad\qquad \mathcal F\circ L \;=\; \hat L\circ\mathcal F .
+```
+
+This commuting square *is* invariant 2 (one object, two representations) and the entire design of
+`DifferentialOperators`: ``L`` is never formed in physical space — the multiplier ``\hat L`` is applied
+in spectral and conjugated by ``\mathcal F^{\pm1}``. It also draws the line for the validity table just
+below: an operation may be offered in a representation **iff** its square commutes.
+
+**Why there is no spectral product — the convolution-theorem square.** The pointwise product is *not*
+preserved by ``\mathcal F``:
+
+```math
+\begin{CD}
+(f,g)            @>{\star}>>   f \star g \\
+@V{\mathcal F}VV               @VV{\mathcal F}V \\
+(\hat f,\hat g)  @>>{\cdot}>   \hat f \cdot \hat g
+\end{CD}
+\qquad\qquad \mathcal F(f \star g) \;=\; \hat f \cdot \hat g .
+```
+
+The coefficientwise product *downstairs* is **convolution** upstairs — so it is offered under its true
+name `convolve` ``\equiv \star`` (`Convolution`, decision 20), never as ``*``. Dually, the pointwise
+product ``f \cdot g`` transforms to a convolution ``\hat f \star \hat g`` that has **no** coefficientwise
+spectral form — which is precisely why field×field products (and `dot`, `cross`, pointwise norms) are
+physical-space only (invariant 1).
+
+**The grid↔point transfer — the adjoint pair.** Interpolation ``W`` (gather, grid→point) and
+anterpolation ``W^{\top}`` (scatter, point→grid) are ``L^2``-adjoints, and the same partition-of-unity
+stencil that makes them adjoint also reproduces low-degree polynomials exactly:
+
+```math
+\langle W f,\, q\rangle_{\text{pts}} \;=\; \langle f,\, W^{\top} q\rangle_{\text{grid}},
+\qquad\qquad
+W\,\bigl(\operatorname{sample}_{\text{grid}} p\bigr) \;=\; \operatorname{eval}_{\text{pts}} p
+\quad (p \in \Pi_m).
+```
+
+The left identity is adjointness; the right is reproduction (``\Pi_m`` = polynomials up to the scheme's
+order). Together they are conservation — the two facts checked in `test/interpolation_transfer.jl`. With
+uniform measures, ``W^{\top}`` is the literal transpose up to the ``N/M`` measure factor (§10).
+
 ### Representation validity lives in the method set
 
 The frame picture fixes exactly which operations may be offered in which
