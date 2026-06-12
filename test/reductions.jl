@@ -4,6 +4,7 @@
 # physical-only restriction is asserted as an intentional absence.
 
 using Test
+using Random: MersenneTwister
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
 using Statistics: mean, std, var      # extended on sections in the Reductions module (not re-exported)
@@ -123,6 +124,7 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     @testset "radial_spectrum refines the Parseval inner ($T)" begin
       layout = RealFourierLayout()
       atol = T == Float64 ? 1e-12 : 1.0f-5
+      rtol = T == Float64 ? 1e-10 : 1.0f-3
       for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
                         shape = spectral_field_shape(gp, layout, Val(R));
@@ -141,11 +143,19 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
           @test all(>=(0), spectrum)                       # |f̂|² ≥ 0 ⇒ each shell sum ≥ 0
           @test length(shells) == length(spectrum) && eltype(spectrum) === T && shells[1] == 0
         end
-        # a single Fourier mode lands in exactly one shell: cos(x) puts ALL energy in |k| = 1
-        single = tospec(VectorFieldPhysical((x, y, z) -> (cos(x), 0.0, 0.0), gp))
-        _, single_spectrum = radial_spectrum(single, m)
-        @test argmax(single_spectrum) == 2                 # shell |k| = 1 (the second, after |k| = 0)
-        @test isapprox(sum(single_spectrum[3:end]), 0; atol = atol)   # nothing in |k| ≥ 2
+        # analytical oracle: a constant field c has ALL energy in the |k| = 0 shell, E(0) = c² = inner
+        c = T(2.5)
+        constant = tospec(ScalarFieldPhysical((x, y, z) -> c, gp))
+        _, constant_spectrum = radial_spectrum(constant, m)
+        @test isapprox(constant_spectrum[1], c^2; rtol = rtol, atol = atol)
+        @test isapprox(constant_spectrum[1], inner(constant, constant); rtol = rtol, atol = atol)
+        @test isapprox(sum(constant_spectrum[2:end]), 0; atol = atol)        # nothing above |k| = 0
+        # analytical oracle: cos(x) puts ALL its energy ⟨cos²⟩ = 1/2 in the |k| = 1 shell
+        cosine = tospec(ScalarFieldPhysical((x, y, z) -> cos(x), gp))
+        _, cosine_spectrum = radial_spectrum(cosine, m)
+        @test isapprox(cosine_spectrum[2], T(1) / 2; rtol = rtol, atol = atol)   # E(|k| = 1) = 1/2
+        @test isapprox(cosine_spectrum[2], inner(cosine, cosine); rtol = rtol, atol = atol)
+        @test argmax(cosine_spectrum) == 2 && isapprox(sum(cosine_spectrum[3:end]), 0; atol = atol)
       end
     end
 
@@ -170,7 +180,9 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
         end
         for phys in (ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
                      VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
-                     TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp))
+                     TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp),
+                     # a RANDOM field — exercises all modes, checked directly in physical space (circshift)
+                     ScalarFieldPhysical(randn(MersenneTwister(11), T, gs...), gp))
           R = field_tensor_order(phys)
           shape = spectral_field_shape(gp, layout, Val(R))
           spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
@@ -183,6 +195,13 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
           @test isapprox(correlation, binned_circshift(phys, length(correlation)); rtol = rtol, atol = atol)
           @test separations[1] == 0 && eltype(correlation) === T && length(separations) == length(correlation)
         end
+        # analytical oracle: a constant field c is perfectly correlated, C(r) = c² at every separation
+        c = T(1.7)
+        constant = ScalarFieldPhysical((x, y, z) -> c, gp)
+        plans_c = FieldTransformPlans(constant, ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        _, constant_corr = radial_correlation(to_spectral(constant, plans_c), plans_c)
+        @test isapprox(constant_corr[1], c^2; rtol = rtol, atol = atol)                       # C(0) = c²
+        @test all(x -> isapprox(x, c^2; rtol = rtol, atol = atol) || iszero(x), constant_corr)  # c² on every populated shell
       end
     end
   end
