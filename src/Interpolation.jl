@@ -406,6 +406,19 @@ end
 
 Interpolate `field` (physical-space representation) to the off-grid `points`, writing into `out`; returns `out`.
 
+Each point value is the tensor-product spline gather over the ``(2n{+}2)^3`` stencil around the
+containing cell ``c``, with ``t_a`` the fractional position along axis ``a`` and ``\\beta`` the scheme
+weights — exactly the weighted sum the kernel computes:
+
+```math
+f(x_p) \\approx \\sum_{i_1, i_2, i_3} \\beta_{i_1}(t_1)\\, \\beta_{i_2}(t_2)\\, \\beta_{i_3}(t_3)\\;
+f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr).
+```
+
+The ``\\approx`` is genuine: the gather is **exact** at grid nodes and for polynomials up to the
+scheme's reproduction degree (`CatmullRom` quadratic, `LalescuSpline(n,m)` ``\\min(2m{+}1, 2n)``,
+`LagrangeSpline(n)` ``2n{+}1``), approximate otherwise.
+
 `out` must match `field` in tensor order and cover the same number of points as `points`. The transfer runs
 as a portable gather kernel on the field's array backend (CPU / CUDA / AMDGPU). Interpolation is defined for
 physical-space representation only; transform a spectral field to physical space first.
@@ -467,8 +480,18 @@ end
 
 Deposit the per-point `quantities` onto `field` in-place — the adjoint (transpose) of
 [`interpolate!`](@ref) under the same `scheme`, ``\\mathcal I^* = W^\\top`` — computing
-``\\mathrm{field} = \\alpha\\,(W^\\top \\mathrm{quantities}) + \\beta\\,\\mathrm{field}``; returns
-`field`. With ``\\beta = 0`` (default) the field is overwritten; with ``\\beta \\ne 0`` the deposit is
+``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``. Using the **same** stencil weights
+as the gather, each point ``p`` (in cell ``c``, fractional position ``t``) atomically scatters its value
+``q_p`` onto the ``(2n{+}2)^3`` surrounding nodes:
+
+```math
+\\mathrm{field}\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr) \\mathrel{+}= \\alpha\\;
+\\beta_{i_1}(t_1)\\, \\beta_{i_2}(t_2)\\, \\beta_{i_3}(t_3)\\; q_p
+```
+
+(after an initial ``\\times \\beta`` prescale of the field). Sharing the gather weights makes this the
+exact transpose, so with the partition of unity ``\\sum \\beta = 1`` the total deposited quantity is
+conserved. With ``\\beta = 0`` (default) the field is overwritten; with ``\\beta \\ne 0`` the deposit is
 accumulated (the common case for the two-way-coupling scatter). `field` and `quantities` must share
 tensor order and `points` must cover the same number of points. Runs as a portable atomic-scatter
 kernel on the field's array backend.

@@ -671,7 +671,14 @@ function dot! end
     dot(u::VectorFieldPhysical, v::VectorFieldPhysical)
     dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
 
-Allocating fiberwise inner product (`dot` ``\\equiv \\cdot``), returning a scalar field: the Euclidean vector product ``u \\cdot v = u_i v_i`` or the tensor Frobenius product ``A : B = A_{ij} B_{ij}``. Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. See `dot!` for the in-place form. The infix alias ``\\cdot`` (`⋅`) is also exported.
+Allocating fiberwise inner product (`dot` ``\\equiv \\cdot``), returning a scalar field — the Euclidean
+vector product or the tensor Frobenius product, applied pointwise over the base:
+
+```math
+(u \\cdot v)(x) = u_i(x)\\, v_i(x), \\qquad (A : B)(x) = A_{ij}(x)\\, B_{ij}(x)
+```
+
+(summation over repeated fiber indices). Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. See `dot!` for the in-place form. The infix alias ``\\cdot`` (`⋅`) is also exported.
 
 This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
@@ -749,7 +756,12 @@ end
     cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
-Compute a fiberwise cross product (`cross` ``\\equiv \\times``) ``u \\times v`` in-place, with components ``(u \\times v)_i = \\varepsilon_{ijk} u_j v_k``; returns `destination`.
+Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in-place; returns `destination`.
+Pointwise over the base, with the components the kernel writes (cyclic ``(i, j, k)``):
+
+```math
+(u \\times v)_i = \\varepsilon_{ijk}\\, u_j v_k = u_j v_k - u_k v_j.
+```
 
 Cross products of two fields are nonlinear and defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (either argument order) is provided, which keeps the operation coefficient-wise.
 """
@@ -820,9 +832,12 @@ end
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2}[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
 
-Compute a fiberwise tensor (matrix) product in-place; returns `destination`.
+Compute a fiberwise tensor (matrix) product in-place; returns `destination`. Pointwise over the base —
+the tensor-on-vector left/right action, or the matrix product, exactly as the kernel computes them:
 
-For a vector destination this is the action of a second-order tensor on a vector: the left action ``(A u)_i = A_{ij} u_j``, the right action ``(u A)_i = u_j A_{ji}``. For a tensor destination it is the matrix product ``(A B)_{ij} = A_{ik} B_{kj}``.
+```math
+(A u)_i = A_{ij} u_j, \\qquad (u A)_i = u_j A_{ji}, \\qquad (A B)_{ij} = A_{ik} B_{kj}.
+```
 
 Products of two fields are nonlinear and defined only in physical-space representation; spectral-space methods require one factor to be a constant fiber tensor or fiber vector. The five-argument form computes ``\\mathrm{destination} = \\alpha\\,(A B) + \\beta\\,\\mathrm{destination}``. As with `LinearAlgebra.mul!`, `destination` must not share storage with any input.
 
@@ -1037,7 +1052,14 @@ function norm! end
     norm(u::VectorFieldPhysical)
     norm(A::TensorFieldPhysical{2})
 
-Allocating fiberwise norm ``|\\cdot|``, returning a scalar field: the pointwise absolute value ``|\\varphi|`` for scalar fields, the Euclidean norm ``|u| = \\sqrt{u_i u_i}`` for vector fields, and the Frobenius norm ``|A| = \\sqrt{A_{ij} A_{ij}}`` for second-order tensor fields. Physical-space representation only. See `norm!` for the in-place form.
+Allocating fiberwise norm (`norm` ``\\equiv |\\cdot|``), returning a scalar field — the pointwise fiber
+magnitude:
+
+```math
+|\\varphi| \\;(\\text{scalar}), \\qquad |u| = \\sqrt{u_i u_i} \\;(\\text{vector}), \\qquad |A| = \\sqrt{A_{ij} A_{ij}} \\;(\\text{Frobenius, tensor}).
+```
+
+Physical-space representation only. See `norm!` for the in-place form.
 
 This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Interpolation` module).
 """
