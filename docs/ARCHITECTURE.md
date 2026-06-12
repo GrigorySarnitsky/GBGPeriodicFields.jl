@@ -908,4 +908,79 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
     the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells and a co-spectrum
-    `shell_spectrum(f, g)` remain future, unneeded now.
+    `shell_spectrum(f, g)` remain future, unneeded now. **The radial reduction is renamed in decision 22
+    (`shell_spectrum → radial_spectrum`) and gains a physical-space dual; references here use the old
+    name until that lands.**
+22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
+    point pair-statistics (RDF). [DESIGNED; Phase 1/2 not yet implemented — the recorded foundation, as
+    decision 19 was for the multiplier family.]**
+
+    *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
+    in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
+    autocorrelation `C(r) = ⟨f(x)·f(x+r)⟩` equals `IFFT(|f̂|²)` exactly (the cross-correlation theorem).
+    Radially averaging gives the **isotropic radial statistics**, a Fourier-dual pair — average `|f̂|²`
+    over `|k|`-shells (the spectrum), or `IFFT(|f̂|²)` over `|r|`-shells (the correlation). This is
+    invariant 2 — *physical and spectral are representations of one object* — raised to **second-order
+    statistics**: the spectrum and the correlation function are not two diagnostics but one, viewed in
+    the two representations. `shell_spectrum` (decision 21) is the spectral half; this entry designs the
+    physical half and the point application, and fixes the terminology so the family is coherent.
+
+    *Terminology (decided).* Rename **`shell_spectrum → radial_spectrum`** and add the physical dual
+    **`radial_correlation`**. "Radial" is the isotropic-average qualifier common to both spaces — and to
+    the *radial* distribution function of point statistics; "shell" named the binning implementation and
+    does not pair with the physical-space correlation. The two are the **radial reductions**: a
+    Fourier-dual pair in `Reductions`, each mapping a field to a 1-D radial profile, named by the
+    quantity's noun per §2 (`spectrum` / `correlation`) under the `radial` qualifier. `radial_spectrum`'s
+    math is unchanged (`sum == inner`). Physics names stay consumer-side: the energy spectrum
+    `E(k) = ½ radial_spectrum`, the integral/Taylor scales from `radial_correlation`, the RDF `g(r)` from
+    `radial_correlation` of a density field. (The rename is safe — the API is not frozen and
+    `shell_spectrum` shipped the same day with no external users; it is Phase 1's first step.)
+
+    *The physical dual — `radial_correlation`.* `C(r)` = radially-averaged `⟨f(x)·f(x+r)⟩` (full fiber
+    contraction — the trace of the correlation tensor, mirroring `inner`) `= IFFT(|f̂|²)` binned in `r`.
+    `C(0) = ⟨|f|²⟩ = inner(f, f)` (the variance); for a zero-mean field `C(r) → 0` at large `r`. It
+    shares `radial_spectrum`'s shell-binning helper, applied in `r` after one inverse transform. **Open
+    design point:** that inverse transform is a representation change `Reductions` does not currently own,
+    so `radial_correlation` either takes a field in spectral representation **plus transform plans**, or
+    a physical field and transforms internally, or lives partly in the umbrella. (`radial_correlation(f, g)`
+    — the cross-correlation, dual of a co-spectrum — is future.)
+
+    *Points → RDF (Phase 2), and why it works.* The pair correlation `g(r)` of `N` points is computable
+    in `O(N + M log M)` (vs `O(N²)` direct counting) via the **FFT structure-factor estimator** — exactly
+    the proposed pipeline: **anterpolate** the points to a grid density, **FFT**, form `|ρ̂|²`,
+    **deconvolve**, then `radial_spectrum` gives the structure factor `S(k)` and `radial_correlation` the
+    `g(r)`. The math: with `ρ̂(k) = Σ_i e^{-ik·x_i}`, `S(k) = |ρ̂|²/N = 1 + n̄·ĥ(k)` (Ornstein–Zernike),
+    so `g(r) = 1 + IFFT[(S−1)/n̄]`. We already own anterpolate + the transforms + both radial reductions;
+    three corrections are **mandatory** and are the design's substance:
+
+    - **Assignment-window deconvolution.** Scattering with kernel `W` gives `ρ̂_g = Ŵ(k)·ρ̂`, so the
+      measured spectrum is suppressed by `|Ŵ(k)|²` — divide it out. In this framework the deconvolution
+      *is a `convolve` by `1/Ŵ`*: a new `Convolution` builder for the assignment-window transfer function
+      `Ŵ(k)` (the genuinely new math — `Ŵ` for the splines: B-spline → `sinc^p`, the Lalescu two-point
+      Hermite → a derivable closed form).
+    - **Shot noise.** The `i=j` self term is a constant `+1` floor in `S(k)` (a `δ(r)` at the origin):
+      subtract `1/n̄`, or exclude `r = 0`.
+    - **Aliasing / resolution.** The grid folds high-`k` at Nyquist — trust `k ≲ ⅔ k_Nyq`, and `g(r)`
+      below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
+      large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
+      peak (interlacing — Sefusatti et al. — is a future refinement). This matches the intended consumer
+      use; it is a documented boundary, not a defect.
+
+    *Decision-19 tie-in.* A density estimate wants the **positive (probability-measure)** end of the
+    kernel taxonomy (the linear `m = 0` / a B-spline), not the signed default `CatmullRom`, so `g(r) ≥ 0`
+    and `Ŵ(k)` has no in-band zeros (no division blow-up in the deconvolution). Decision 19's recorded
+    signed/positive split becomes a concrete, motivated choice here.
+
+    *Invariant 12.* `radial_spectrum` / `radial_correlation` and the window-deconvolution builder are
+    neutral (harmonic analysis / spatial statistics). The names RDF, structure factor, pair correlation,
+    and the shot-noise / normalization conventions (which encode "what a particle is") stay consumer-side
+    — the package ships the primitives and a documented recipe (an `examples/` worked case, as with the
+    HIST demos), not a `radial_distribution_function` function, unless a thin neutral convenience proves
+    warranted.
+
+    *Phasing.* **Phase 1** — the rename + `radial_correlation` (the field duality; neutral, no new math).
+    **Phase 2** — the `Ŵ` deconvolution builder + the documented point-RDF recipe (+ the positive-kernel
+    guidance). **Open before coding:** `radial_correlation`'s input representation / transform-plan
+    dependency; the `r`-bin convention (`Δr` = grid spacing, max `L/2`, the corner-shell caveat as in
+    `radial_spectrum`); where the shared radial-binning helper lives; whether to ship `Ŵ` as a
+    `Convolution` builder and any points-level convenience; and the normalization conventions.
