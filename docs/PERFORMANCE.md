@@ -48,7 +48,7 @@ What bounds each public operation class — the mental model a benchmark either 
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
 - **The grid↔point transfer** (`interpolate`/`anterpolate`) → the subtle one. Each point gathers (or
-  scatters) a `(2n+2)³` stencil with data-dependent indices, so it is bound by **irregular memory
+  scatters) a ``(2n{+}2)^3`` stencil with data-dependent indices, so it is bound by **irregular memory
   access**, and the binding *differs by platform*:
   - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
     flight at once to hide latency
@@ -112,7 +112,7 @@ cumulative results of the transfer-layer optimization work; the benchmark suite 
 tracked subset on demand.
 
 **(a) Memory-bound, and smoothness is free.** Interpolation runs at ~12% of peak bandwidth at 256³;
-cost scales with the stencil *volume* `(2n+2)³`, and the spline degree (`m`) is invisible — the
+cost scales with the stencil *volume* ``(2n{+}2)^3``, and the spline degree (`m`) is invisible — the
 weight polynomials hide under memory latency. So pick the smoothness for accuracy, never for speed.
 
 | gather scheme | stencil | GPU 256³ (621k pts) | throughput |
@@ -122,7 +122,7 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 | `LalescuSpline(3,m)` (Lalescu 8-pt)| 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
 
 **(b) Loop order — contiguous axis innermost (KEPT).** Iterating the contiguous `x` axis innermost
-(stride-1 stencil access) vs `z`-innermost (stride `Nx·Ny`):
+(stride-1 stencil access) vs `z`-innermost (stride ``N_x N_y``):
 
 | | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
 |---|---|---|---|

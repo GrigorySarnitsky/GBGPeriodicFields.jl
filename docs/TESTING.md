@@ -15,8 +15,9 @@ agree, not that either is correct. Two kinds of oracle are used:
 
 - **Analytic oracles** — for the differential operators. A field is taken to spectral
   representation, the operator applied, and the result compared to a *known closed
-  form*: `∂ₓ sin x = cos x`, `Δ sin x = −sin x`, `∇ × (0,0,sin x) = (0,−cos x,0)`, a
-  Helmholtz-projected field is divergence-free. These catch sign, axis, and scaling
+  form*: ``\partial_x \sin x = \cos x``, ``\Delta \sin x = -\sin x``,
+  ``\nabla \times (0, 0, \sin x) = (0, -\cos x, 0)``, a Helmholtz-projected field is
+  divergence-free. These catch sign, axis, and scaling
   errors that a self-consistent round-trip would silently reproduce.
 - **Trusted reference** — for representation parity and for the GPU path. The CPU path
   is pinned by analytic oracles and the parity baseline; *then* another computation of
@@ -94,9 +95,9 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
 - For **cross-backend** comparison (GPU vs CPU), the two run the same formula and agree
   to roundoff, so compare with `isapprox(Array(device), host; rtol, atol)` carrying a
   small absolute floor.
-- The same trap appears for **inner products of independent fields** (e.g. ⟨∇φ, u⟩): they
+- The same trap appears for **inner products of independent fields** (e.g. ``\langle \nabla\varphi, u\rangle``): they
   are near-orthogonal, so the common value of two equal inner products is small relative
-  to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product `‖a‖·‖b‖`, not
+  to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product ``\lVert a\rVert\,\lVert b\rVert``, not
   by the (tiny) result.
 
 **Pick the right oracle.** Operators → analytic closed form. Representation parity and
@@ -113,13 +114,13 @@ For each public operation, a test must establish:
       (`@test_throws MethodError`) where it is nonlinear (physical-only).
 - [ ] **Both element types** — `Float64` and `Float32`. (`Float32` is the realistic GPU
       precision; consumer GPUs run `Float64` far slower.)
-- [ ] **An anisotropic domain** — at least one test with `Lx ≠ Ly ≠ Lz`, so the `2π/L`
+- [ ] **An anisotropic domain** — at least one test with ``L_x \ne L_y \ne L_z``, so the ``2\pi/L``
       wavenumber scaling is actually exercised and a dropped length factor is visible.
 - [ ] **The in-place `!` form** with a caller-supplied destination, including the
       **aliasing branch** for alias-guarded operations (cross, transpose, sym/skew/dev,
       the curl/Helmholtz wrappers) — and, for `mul!`, the LinearAlgebra no-alias contract.
-- [ ] **Both α/β branches** for the five-argument kernels — overwrite (`β = 0`, which must
-      ignore the destination's prior contents, NaN included) and accumulate (`β ≠ 0`).
+- [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
+      ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).
 - [ ] **GPU parity** — the result matches the CPU path on a device array, under
       `allowscalar(false)`.
 
@@ -210,37 +211,37 @@ Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmhol
 projection — with the L² inner product computed inline (the global L² `inner` now lives in the
 `Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
-surface (including the `mul!` `β = 0` / `β ≠ 0` branches), confirmed on an AMD Radeon, plus
+surface (including the `mul!` ``\beta = 0`` / ``\beta \ne 0`` branches), confirmed on an AMD Radeon, plus
 the **PointValues algebra**, the **interpolation / anterpolation transfer** (gather, atomic
 scatter, accumulate, plus a heavy atomic-contention case), **convolution** (apply a Fourier kernel),
 and the **L²/measure reductions** added alongside; and CPU threading — every threaded assignment is bitwise-identical to serial
-(field ops, the codegen contractions/products including `mul!`'s β=0/β≠0 branches,
+(field ops, the codegen contractions/products including `mul!`'s ``\beta=0``/``\beta\ne0`` branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
 gate and the GPU `materialize!` fallback also asserted; and the **L²/measure reductions**
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum` on physical
-fields and point-values, against analytic oracles (`⟨sin⟩ = 0`, `⟨sin²⟩ = 1/2`) and manual references,
-across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (`(1/N)·Σ` grid, `(1/M)·Σ`
-points), the extensive/intensive `integral = measure · mean` relation (incl. an anisotropic box), the
-energy identity `½ inner(u,u) = ½⟨|u|²⟩`, the **spectral Parseval `inner`/`l2norm`** (equal to the
-physical inner, scalar/vector/tensor, on even-`Nₓ` and odd-`Nₓ` grids to hit both the Nyquist and
+fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac12``) and manual references,
+across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac1N\sum`` grid, ``\tfrac1M\sum``
+points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the
+energy identity ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
+physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
 no-Nyquist branches), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
-spectrum, checked by the exact refinement `sum(spectrum) == inner(f,f)` over scalar/vector/tensor on
-even-`Nₓ` and odd-`Nₓ` grids, plus the single-mode shell placement and its spectral-only absence), and
+spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
+even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence), and
 the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
-`f̂·ĝ` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
-`exp(-i kₐ m Δ) ⇔ circshift` along **all three axes, on scalar and vector fields** (an independent
+``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
+``\exp(-i k_a m \Delta) \Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
-Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a `|k|²`
-membership oracle) and `squared_wavenumber_field` (the `|k|²` radial coordinate vs the analytic sum,
+Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
+membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
 and **property-based tests** (`randomized.jl`): algebraic laws on **random** fields, point-values, and
 kernels over several trials — vector-space and contraction/product identities, transpose/sym/skew/dev,
-the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, `integral = |Ω|·mean`), convolution
-bilinearity/commutativity, and the operator identities `div(curl)=0`, `curl(grad)=0` — which catch the
+the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, ``\mathrm{integral} = |\Omega|\cdot\mathrm{mean}``), convolution
+bilinearity/commutativity, and the operator identities ``\nabla\cdot(\nabla\times u)=0``, ``\nabla\times(\nabla \varphi)=0`` — which catch the
 index/sign bugs that specific analytic functions can mask.
 
 **Gaps:**

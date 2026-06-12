@@ -45,7 +45,7 @@ A field, and a collection of values sampled at scattered locations, are both
 **sections of a tensor bundle over a base**. The domain is a flat periodic box (a
 3-torus) with a single global frame, so the bundle is trivial — just `E = B × V`
 for a base `B` and a fiber `V`. The fiber is the tensor order, a tensor power of
-`ℝ³`: `V = ℝ` (scalar), `ℝ³` (vector, `FiberVector`), `ℝ³ ⊗ ℝ³ = ℝ³ˣ³`
+``\mathbb R^3``: ``V = \mathbb R`` (scalar), ``\mathbb R^3`` (vector, `FiberVector`), ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}``
 (second-order tensor, `FiberTensor2`), and higher (`FiberTensor3/4`). A section
 assigns a fiber value to each base point; the fiber-last data layout (§3) is exactly
 that section, stored base-indexed.
@@ -91,7 +91,7 @@ derivative, order one. Strictly, *vertical* (`ker dπ`, canonical) and *horizont
 connection-chosen complement) are subbundles of the total space's tangent bundle.)
 
 Transfer between sections over *different* bases is the interpolation/anterpolation
-pair: pulling a grid section back to points (evaluation, `f(x) = ⟨δₓ, f⟩`) and the
+pair: pulling a grid section back to points (evaluation, ``f(x) = \langle \delta_x, f\rangle``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
 is given in §10 and the `Interpolation` module docstring; the interpolation weights are
 themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
@@ -109,7 +109,7 @@ with the rfft isomorphism.
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
   both representations, because the Fourier transform commutes with them.
 - **Adding constants** — in physical space, every grid value shifts; in spectral
-  space, `F(f + c) = F(f) + c·N·δ_{k,0}` under the unnormalized-forward convention,
+  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention,
   so only the zero mode changes, scaled by `prod(grid_size)`. This is why
   `_spectral_constant_scale` exists and why constant kernels in spectral
   representation touch a single coefficient (per component).
@@ -209,19 +209,19 @@ Two constructors by design:
 
 - An explicit constructor taking all six arrays (lengths validated). This makes
   the type testable in isolation and lets callers control the backend.
-- A convenience constructor from a field: wavenumbers `2π·n/L` are built on the
+- A convenience constructor from a field: wavenumbers ``2\pi n/L`` are built on the
   host and copied to the field's backend via `similar` + `copyto!` (no scalar
   GPU writes).
 
 **The Nyquist split is deliberate and must not be unified.** On even-length axes:
 
 - Derivative multipliers are **zeroed at the Nyquist frequency**. The Nyquist
-  mode of a real signal is a pure cosine; multiplying by `ik_N` would produce a
+  mode of a real signal is a pure cosine; multiplying by ``i k_N`` would produce a
   component the real signal cannot represent, and the symmetric, real-preserving
   choice for its derivative is zero. This is standard pseudospectral practice and
   keeps derivatives of real fields exactly real.
-- Squared multipliers keep the **true k²** at Nyquist. The Laplacian of the
-  Nyquist mode is perfectly well defined (`-k_N²·mode`); zeroing it would silently
+- Squared multipliers keep the **true ``k^2``** at Nyquist. The Laplacian of the
+  Nyquist mode is perfectly well defined (``-k_N^2\,\mathrm{mode}``); zeroing it would silently
   remove grid-scale dissipation and corrupt `inverse_laplacian`.
 
 Reference tests pin this down: multipliers vs `fftfreq`/`rfftfreq`, transform
@@ -417,8 +417,8 @@ another, and the package gives each a fixed name:
 - **Anterpolation** — point → grid (the *scatter* direction): allocating
   `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`,
   depositing per-point quantities onto a field. Both operations carry the usual
-  allocating / in-place (`!`) pair and a five-argument `α`/`β` form (`β = 0` overwrite,
-  `β ≠ 0` accumulate — the `mul!` convention, since they are the linear maps `W` / `Wᵀ`;
+  allocating / in-place (`!`) pair and a five-argument `α`/`β` form (``\beta = 0`` overwrite,
+  ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` / ``W^\top``;
   accumulation is the common case for the scatter). `interpolate` / `anterpolate!` are the
   symmetric named pair — only interpolation also gets the callable `f(x)`, because evaluation
   is pointwise while its adjoint is not (see the module docstring). The driving case is
@@ -446,15 +446,15 @@ grid cell and the operation is a weighted distribution; the loose use of "extrap
 for it (seen in a few papers) is a misnomer.
 
 **The two operations are a conserving adjoint pair.** Interpolation and anterpolation
-share the **same stencil weights**, which form a partition of unity (`Σ β = 1`);
+share the **same stencil weights**, which form a partition of unity (``\sum \beta = 1``);
 anterpolation is then the exact transpose of interpolation, and the total deposited
-quantity is conserved: `1ᵀ(Wᵀq) = (W1)ᵀq = 1ᵀq`. Using mismatched weights injects a
+quantity is conserved: ``\mathbf 1^\top (W^\top q) = (W \mathbf 1)^\top q = \mathbf 1^\top q``. Using mismatched weights injects a
 spurious source/dissipation term (Sundaram & Collins 1996). For the parcel application
 this is mandatory — total water and latent heat must be conserved as vapour passes
 between droplets and the fields — so the design fixes anterpolation as the transpose of
 whatever interpolation kernel is in use. The function–measure duality underlying this
-adjointness — evaluation as pairing with a Dirac mass, `f(x) = ⟨δₓ, f⟩`, and anterpolation
-as the pushforward of point masses, `𝓘*q = Σₚ qₚ δ_xₚ` (regularized to `Σₚ qₚ β(·−xₚ)`,
+adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
+as the pushforward of point masses, ``\mathcal I^* q = \sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 **Method: the Lalescu local splines.** The package will use the local high-order spline
@@ -463,12 +463,12 @@ code (Lalescu, Bramas, Rampp & Wilczek 2022). At its core it is Hermite interpol
 with the node derivatives supplied by finite differences, which makes the interpolant
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
-weighted sum `Σ βᵢ₁ βᵢ₂ βᵢ₃ f(c+i)` over a compact `(2n+2)³` stencil, with closed-form
-polynomial weights `β`. Lalescu's **two hierarchies** share this stencil: the **smooth**
-hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree `2m+1` that matches the
-value and the first `m` derivatives at the two bracketing nodes (`Cᵐ`, `0 ≤ m ≤ 2n`; `m = 0`
-is linear, `n = 1, m = 1` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)
-is the `C⁰` degree-`2n+1` interpolant of all `2n+2` nodes. Field derivatives needed for the velocity gradient /
+weighted sum ``\sum \beta_{i_1} \beta_{i_2} \beta_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil, with closed-form
+polynomial weights ``\beta``. Lalescu's **two hierarchies** share this stencil: the **smooth**
+hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree ``2m{+}1`` that matches the
+value and the first ``m`` derivatives at the two bracketing nodes (``C^m``, ``0 \le m \le 2n``; ``m = 0``
+is linear, ``n = 1, m = 1`` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)
+is the ``C^0`` degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. Field derivatives needed for the velocity gradient /
 deformation tensor are obtained by differentiating the same local polynomial, not from a
 separate field. Three properties make it the right fit:
 
@@ -479,11 +479,11 @@ separate field. Three properties make it the right fit:
    alternative kept in reserve; exact spectral interpolation via a type-2 NUFFT is the
    global, divergence-free extreme, planned only as a high-accuracy reference oracle.)
 2. **GPU-friendly** (the GPU-first invariant, §1): per-point interpolation is a gather
-   of `(2n+2)³` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
+   of ``(2n{+}2)^3`` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
    matching scatter.
-3. **Trivial, conservative anterpolation:** the same closed-form `β` deposit a point's
-   source over its stencil with `Σ β = 1` — exactly the conserving two-way-coupling
+3. **Trivial, conservative anterpolation:** the same closed-form ``\beta`` deposit a point's
+   source over its stencil with ``\sum \beta = 1`` — exactly the conserving two-way-coupling
    feedback the parcel DNS needs.
 
 The interpolation order is a tunable parameter `(n, m)`, not hard-wired, so accuracy can
@@ -644,7 +644,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`Float32` alongside `Float64`), anisotropic-domain operators (the `2π/L` scaling),
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
     **adjointness / structural identities** on randomized band-limited fields
-    (`div = -gradᵀ`, self-adjoint curl, negative-definite Laplacian, idempotent Helmholtz
+    (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-definite Laplacian, idempotent Helmholtz
     projection — the discrete energy/entropy structure). Intentional-absence tests are
     symmetric across representations: nonlinear products absent in spectral; the
     differential operators absent in physical (spectral-only — no finite-difference
@@ -666,7 +666,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
     `interpolate` / `interpolate!`; point→grid **anterpolation** as `anterpolate` /
     `anterpolate!` — the symmetric named pair, each with allocating, in-place, and
-    α/β-accumulate forms (the `mul!` convention, since they are the linear maps `W` / `Wᵀ`);
+    α/β-accumulate forms (the `mul!` convention, since they are the linear maps ``W`` / ``W^\top``);
     only interpolation also has the pointwise callable `f(x)` (the adjoint of interpolation;
     synonyms — spreading,
     deposition, scatter, projection/PSI-Cell, gridding, two-way-coupling feedback — listed
@@ -711,27 +711,28 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `Points`). Both parity baselines (198 + 118) held byte-for-byte through every step, zero
     ambiguities. (The transfer kernels themselves followed — item 17.)
 17. Transfer kernels implemented (§10): interpolation (gather `W`, also the callable `f(x)`) and
-    anterpolation (scatter `Wᵀ`, with the α/β `mul!` convention) as the Lalescu local splines.
+    anterpolation (scatter ``W^\top``, with the α/β `mul!` convention) as the Lalescu local splines.
     **Both hierarchies** are provided: the smooth `LalescuSpline(n, m)` — a two-point Hermite of
-    degree `2m+1` matching the value and the order-`1…m` derivatives (centred Fornberg finite
-    differences) at the two bracketing nodes, `Cᵐ` with `0 ≤ m ≤ 2n` (`CatmullRom`, the cubic
-    `n=1,m=1`, is the default; `m=0` is linear) — and the `C⁰` `LagrangeSpline(n)`, the degree-`2n+1`
-    interpolant of all `2n+2` nodes. The smooth weights are **pinned bit-for-bit against TurTLE's
-    `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement ≤ 1e-15) — an earlier
-    "interpolate the central `2(n−m)+2` nodes" draft was corrected after reading the TurTLE source,
-    Lalescu's smooth spline being a *two-point* Hermite, not a central-node hybrid. Reproduction is
-    `min(2m+1, 2n)` (smooth) / `2n+1` (Lagrange); the closed-form Catmull–Rom and the Lagrange cardinal
+    degree ``2m{+}1`` matching the value and the order-``1, \dots, m`` derivatives (centred Fornberg
+    finite differences) at the two bracketing nodes, ``C^m`` with ``0 \le m \le 2n`` (`CatmullRom`, the
+    cubic ``n=1, m=1``, is the default; ``m=0`` is linear) — and the ``C^0`` `LagrangeSpline(n)`, the
+    degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are **pinned bit-for-bit
+    against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement
+    ``\le`` 1e-15) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
+    after reading the TurTLE source, Lalescu's smooth spline being a *two-point* Hermite, not a
+    central-node hybrid. Reproduction is ``\min(2m{+}1, 2n)`` (smooth) / ``2n{+}1`` (Lagrange); the
+    closed-form Catmull–Rom and the Lagrange cardinal
     basis are independent anchors, with partition of unity (⇒ conservation). Kernels are portable
     across CPU / CUDA / AMDGPU via **KernelAbstractions** (new dep) with the atomic scatter via
     **Atomix** (new dep); both index the native arrays linearly, so one kernel serves
-    scalar/vector/tensor orders. Adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation hold to roundoff;
+    scalar/vector/tensor orders. Adjointness ``\langle Wf, q\rangle = \langle f, W^\top q\rangle`` and conservation hold to roundoff;
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
-    The L²/volume-weighted (measure-consistent) adjoint is `(N/M)·Wᵀ` — both base measures are uniform,
+    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M)\,W^\top`` — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
-    verified via `inner` as `M·inner(Wf,q) = N·inner(f,Wᵀq)` (`test/interpolation_transfer.jl`, decision 19).
+    verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (in progress).** Advances
     the reduction deferral of items 6/11/§9. The package's operations split into **vertical**
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
@@ -744,28 +745,28 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     "write it once").
 
     *The measure is a property of the base.* `Grid3D` → uniform Lebesgue quadrature (cell volume
-    `∏Δxᵢ`); `PointSet` → **counting** measure (unit weight per point) — and this is *forced*, not a
-    choice: a `PointSet` is grid-free (§10, carries no domain), so the only well-defined measure is
-    counting. Consequences:
+    ``\prod_i \Delta x_i``); `PointSet` → **counting** measure (unit weight per point) — and this is
+    *forced*, not a choice: a `PointSet` is grid-free (§10, carries no domain), so the only well-defined
+    measure is counting. Consequences:
 
-    | base | `integral(f)` (extensive) | `mean(f) = (1/count)·Σ` (intensive) |
+    | base | `integral(f)` (extensive) | ``\mathrm{mean}(f) = \tfrac{1}{\text{count}}\sum`` (intensive) |
     |------|---------------------------|-------------------------------------|
-    | `Grid3D` (count `N`) | `∫_Ω f dx = (\|Ω\|/N)·Σf` | `(1/N)·Σf` |
-    | `PointSet` (count `M`) | `Σf` | `(1/M)·Σf` |
+    | `Grid3D` (count ``N``) | ``\int_\Omega f\,dx = (\|\Omega\|/N)\sum f`` | ``\tfrac1N\sum f`` |
+    | `PointSet` (count ``M``) | ``\sum f`` | ``\tfrac1M\sum f`` |
 
-    So `mean` is the arithmetic average over base elements in both cases — `(1/M)·Σ` over points
-    (a plain sample mean), `(1/N)·Σ` over the grid (which, the grid being uniform, equals the domain
-    average `⟨·⟩`). Names and conventions:
+    So `mean` is the arithmetic average over base elements in both cases — ``\tfrac1M\sum`` over points
+    (a plain sample mean), ``\tfrac1N\sum`` over the grid (which, the grid being uniform, equals the
+    domain average ``\langle\cdot\rangle``). Names and conventions:
 
-    - `integral(f)` — the **extensive** `∫f dμ` (the one quantity that scales with the base measure).
+    - `integral(f)` — the **extensive** ``\int f\,d\mu`` (the one quantity that scales with the base measure).
     - `mean(f)`, `std(f)`, `var(f)` — extend **Statistics** (we own the types ⇒ not piracy);
       **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
-    - `inner(f, g)` — the **normalized** L² inner product `⟨f,g⟩ = mean(dot(f,g))` → **scalar**
+    - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \mathrm{mean}(\mathrm{dot}(f, g))`` → **scalar**
       (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
       convention above and the intensive quantities of homogeneous turbulence (kinetic energy
-      `½ inner(u,u) = ½⟨|u|²⟩`); for points it is `(1/M)·Σ dot`, consistent with `mean`. Not the
-      textbook extensive `∫f·g dx` — that is `integral(dot(f,g))` if ever needed.
-    - `l2norm(f) = √inner(f,f)`, generalized as `lpnorm(f, p)` (`p=2` default; `p=Inf` ⇒ sup of the
+      ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``); for points it is ``\tfrac1M\sum \mathrm{dot}``, consistent with `mean`. Not the
+      textbook extensive ``\int f\cdot g\,dx`` — that is `integral(dot(f,g))` if ever needed.
+    - ``\mathrm{l2norm}(f) = \sqrt{\mathrm{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
       fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
     - `maximum`/`minimum`/`extrema` — extend **Base** for scalar sections; vector/tensor sup of
       magnitude via `lpnorm(·, Inf)`.
@@ -774,12 +775,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     `inner`/`l2norm` are representation-invariant (Parseval): the physical reductions came first, and the
     **spectral `inner`/`l2norm` are now implemented** — for two fields in spectral representation
-    `inner(f̂,ĝ)` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
-    counts twice except the self-conjugate `kₓ=0` and, for even `Nₓ`, Nyquist planes), computed
+    ``\mathrm{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
+    counts twice except the self-conjugate ``k_x=0`` and, for even ``N_x``, Nyquist planes), computed
     allocation-free as a `dot` over the array plus two plane corrections (the other reductions —
     `integral`/`mean`/`lpnorm`/`maximum` — remain physical-only, not being Parseval-invariant).
-    **Physics stays consumer-side**: energy `½ inner(u,u)`, enstrophy
-    `½ inner(ω,ω)`, dissipation `ν inner(ω,ω)`, rms `√inner`, intensities from `std`. The FP-ordering
+    **Physics stays consumer-side**: energy ``\tfrac12\,\mathrm{inner}(u,u)``, enstrophy
+    ``\tfrac12\,\mathrm{inner}(\omega,\omega)``, dissipation ``\nu\,\mathrm{inner}(\omega,\omega)``, rms ``\sqrt{\mathrm{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — implement with a defined summation order and
     a tolerance-based test (not the bitwise one used for the threaded assignments).
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
@@ -789,21 +790,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
     recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
     periodic box the set of **homogeneous (translation-invariant) linear operators is *exactly* the
-    Fourier multipliers**, symbol `m(k) ∈ L^∞`, with `‖T‖_{L²→L²} = ‖m‖_∞`. So "apply `m(k)`" is not a
+    Fourier multipliers**, symbol ``m(k) \in L^\infty``, with ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a
     convenience — it is the complete representation of the translation commutant, and the existing
     `gradient`/`curl`/`laplacian`/`helmholtz_projection` (§4) plus the consumer's 2/3 dealias mask and
-    integrating factor `exp(−νk²Δt)` are all special cases of it.
+    integrating factor ``\exp(-\nu k^2 \Delta t)`` are all special cases of it.
 
     | role of the measure | what it is | operation(s) | maps | status |
     |---------------------|-----------|--------------|------|--------|
-    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `radial_spectrum` (the `\|k\|`-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
-    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | `convolve` / `convolve!`; builders `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` (the radial coordinate consumers build symbols from) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decisions 20, 21) |
-    | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` `W` / `anterpolate` `Wᵀ` | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
+    | **base-quadrature** | `Grid3D` cell volume ``\prod_i \Delta x_i`` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `radial_spectrum` (the `\|k\|`-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
+    | **kernel — multiplier** | translation-invariant convolution, symbol ``m(k) \in L^\infty`` | `convolve` / `convolve!`; builders `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` (the radial coordinate consumers build symbols from) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decisions 20, 21) |
+    | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` (``W``) / `anterpolate` (``W^\top``) | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
     | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
 
     *Interpolation is the base-changing sibling of the multiplier, not a multiplier.* The gather weights
     `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so
-    `u(x_p) = ∫ u dμ_{x_p}` is integration of the field against a unit-mass kernel measure centered at
+    ``u(x_p) = \int u\,d\mu_{x_p}`` is integration of the field against a unit-mass kernel measure centered at
     the point — the same *species* as a homogeneous filter. Two differences make it its own operation
     (§10, in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
     point base**, which has no wavenumbers, so it is a **base-change** (grid↔point), *not* a Fourier
@@ -815,13 +816,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the *same* dichotomy the LES research surfaces below — evidence the kernel measure is one concept.
 
     *The transfer adjoint is a row-1 (base-measure) statement, and that is why reductions came first.*
-    Anterpolation `Wᵀ` is the adjoint of `W`; "adjoint w.r.t. which pairing?" is answered by the base
-    measures. As shipped (decision 17) the adjointness `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` and conservation
-    `Σ_g (Wᵀq)_g = Σ_p q_p` hold in the **counting/transpose** pairing (the extensive facet of row 1;
-    conservation = partition of unity). The **measure-weighted L² adjoint** — `W`,`Wᵀ` adjoint with the
-    grid carrying `Δx³` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
-    now **done**: both measures being uniform, it is `(N/M)·Wᵀ` (a scalar rescaling, no new operation),
-    verified via `inner` as `M·inner(Wf,q) = N·inner(f,Wᵀq)` (`test/interpolation_transfer.jl`). That the
+    Anterpolation ``W^\top`` is the adjoint of ``W``; "adjoint w.r.t. which pairing?" is answered by the base
+    measures. As shipped (decision 17) the adjointness ``\langle Wf, q\rangle = \langle f, W^\top q\rangle`` and conservation
+    ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
+    conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with the
+    grid carrying ``\Delta x^3`` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
+    now **done**: both measures being uniform, it is ``(N/M)\,W^\top`` (a scalar rescaling, no new operation),
+    verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
     *The multiplier family (Gap design; not yet implemented) carries three research-grounded guardrails.*
@@ -829,10 +830,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     it:
     - **The symbol is data, never parameters** — this is how the family stays inside invariant 12 (no
       time, no physics). The applicator multiplies a field-in-spectral by a precomputed `k`-array; `ν`,
-      `Δt`, filter width, and positivity all live in how the *consumer* builds that array from the
-      `FieldSpectralMultipliers` wavenumbers (§4). The viscous factor `exp(−νk²Δt)` is literally the
-      heat-kernel probability measure, yet the package never sees `ν` or `Δt`.
-    - **Do not restrict to positive ("measure") symbols.** `L^∞`-symbol is the right generality;
+      ``\Delta t``, filter width, and positivity all live in how the *consumer* builds that array from the
+      `FieldSpectralMultipliers` wavenumbers (§4). The viscous factor ``\exp(-\nu k^2 \Delta t)`` is literally the
+      heat-kernel probability measure, yet the package never sees ``\nu`` or ``\Delta t``.
+    - **Do not restrict to positive ("measure") symbols.** ``L^\infty``-symbol is the right generality;
       convolution-with-a-finite-measure is a *strict subclass* whose symbol must be **continuous**, and
       the 2/3 mask and sharp spectral cutoff have **discontinuous** symbols (kernels not in `L¹`) — so
       they are *not* such convolutions yet are valid multipliers we rely on. Positivity of the kernel ⟺
@@ -853,13 +854,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and how many neutral builders to ship (bare applicator vs. a `spectral_cutoff` helper — never a
     physics-named `gaussian_les_filter`). v1 is scalar symbols; matrix-valued symbols are deferred
     (`helmholtz_projection` covers the only case currently needed). The Germano differential filter
-    `1/(1+Δ²k²)` is architecturally inert — whatever its symbol, it is one more scalar multiplier the
+    ``1/(1 + \Delta^2 k^2)`` is architecturally inert — whatever its symbol, it is one more scalar multiplier the
     consumer supplies.
 20. **Convolution — the kernel-multiplier family realized (§2; the new `Convolution` module).**
     Implements the multiplier designed in decision 19 as periodic (circular) convolution of a field
     with a kernel, in spectral representation: by the convolution theorem on the torus, `f ⋆ g` is the
-    **coefficientwise spectral product** `f̂ · ĝ`. The kernel `g` is supplied by its transfer function
-    `ĝ` as a **`ScalarFieldSpectral`** (decision 19's open "kernel as a field" call, chosen for
+    **coefficientwise spectral product** ``\hat f \cdot \hat g``. The kernel `g` is supplied by its transfer function
+    ``\hat g`` as a **`ScalarFieldSpectral`** (decision 19's open "kernel as a field" call, chosen for
     elegance); a scalar kernel broadcasts over the fiber, so one method serves scalar/vector/tensor
     fields, and because a kernel is itself a scalar field in spectral representation, `convolve(g₁,
     g₂)` composes two kernels for free (the `R = 0` case). `convolve` / `convolve!` mirror `laplacian`
@@ -877,11 +878,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
     low-pass (idempotent projection), the basis of de-aliasing / spectral truncation; physics (an LES
-    filter, an integrating factor `exp(-νk²Δt)`) stays a `ScalarFieldSpectral` the consumer builds
+    filter, an integrating factor ``\exp(-\nu k^2 \Delta t)``) stays a `ScalarFieldSpectral` the consumer builds
     from the wavenumbers (invariant 12). Naming follows the §2 convention (the verb `convolve` for a
     generic transformation; the module noun `Convolution`, parallel to `Interpolation` / `interpolate`).
     Tested CPU (`test/convolution.jl`, Float64/Float32 — the translation kernel
-    `exp(-i kₓ m Δx) ⇔ circshift` is the independent physical oracle, plus identity/scaling/
+    ``\exp(-i k_x m \Delta x) \Leftrightarrow`` `circshift` is the independent physical oracle, plus identity/scaling/
     cutoff-idempotence/composition/α-β/alias) and GPU (ROCm device-vs-CPU parity in `test/gpu/suite.jl`);
     benchmarked (the `convolution` class). The L²-weighted and matrix-valued (anisotropic) kernels
     remain future.
@@ -893,11 +894,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     pseudospectral consumer (the energy spectrum, the forcing band, the viscous integrating factor):
 
     - **`squared_wavenumber_field(reference, multipliers)` (`Convolution`)** — the radial coordinate
-      `|k|²` of spectral space as a `ScalarFieldSpectral` (real, stored complex, like a cutoff mask).
-      Decision 19 fixed that "the symbol is data": the consumer builds `exp(−ν|k|²Δt)`, a smooth
-      envelope, or a Germano filter `1/(1+Δ²|k|²)` by broadcasting over its `field_data`, then applies
-      it with `convolve`. The package hands over the coordinate; `ν`, `Δt`, the width stay consumer-side.
-      It wraps the existing `_squared_wavenumber_broadcast` (the Laplacian's `|k|²`, true value at
+      ``|k|^2`` of spectral space as a `ScalarFieldSpectral` (real, stored complex, like a cutoff mask).
+      Decision 19 fixed that "the symbol is data": the consumer builds ``\exp(-\nu |k|^2 \Delta t)``, a smooth
+      envelope, or a Germano filter ``1/(1 + \Delta^2 |k|^2)`` by broadcasting over its `field_data`, then applies
+      it with `convolve`. The package hands over the coordinate; ``\nu``, ``\Delta t``, the width stay consumer-side.
+      It wraps the existing `_squared_wavenumber_broadcast` (the Laplacian's ``|k|^2``, true value at
       Nyquist — invariant 5).
     - **`spectral_band(reference, multipliers, k_lo, k_hi)` (`Convolution`)** — the isotropic annular
       band-pass, the generalization of `spectral_cutoff` (now its `k_lo = 0` special case, refactored
@@ -906,11 +907,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       band energy `= inner(convolve(u, band), u)`, then a rescaling `convolve` — no scalar indexing.
     - **`radial_spectrum(f, multipliers)` (`Reductions`; introduced as `shell_spectrum`, renamed in
       decision 22)** — the **radial (shell-binned) power spectrum**: `inner` decomposed into isotropic
-      `|k|`-shells. Returns `(shells, spectrum)` with the exact refinement `sum(spectrum) == inner(f, f)`
+      ``|k|``-shells. Returns `(shells, spectrum)` with the exact refinement `sum(spectrum) == inner(f, f)`
       (same rfft half-spectrum Parseval weighting, now resolved per mode). This is the genuinely new
       reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
       is precisely *"the energy spectrum is the radially-resolved inner"* (decision 19's L²/integration
-      structure, refined by the spectral radial coordinate). The consumer's `E(κ) = ½ spectrum`; the
+      structure, refined by the spectral radial coordinate). The consumer's ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``; the
       neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
       refinement is exact; on a de-aliased field the high-`|k|` shells are empty.
 
@@ -918,7 +919,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a sequence of **masked
     reductions** (one per shell), not a histogram scatter — no scalar indexing, no atomics, GPU-portable
     as an occasional diagnostic (a per-step spectrum would want an atomic-histogram kernel; deferred,
-    unneeded). Tested CPU (`test/convolution.jl` band/coordinate vs the `|k|²` oracle + cutoff equivalence;
+    unneeded). Tested CPU (`test/convolution.jl` band/coordinate vs the ``|k|^2`` oracle + cutoff equivalence;
     `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
@@ -931,9 +932,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
     in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
-    autocorrelation `C(r) = ⟨f(x)·f(x+r)⟩` equals `IFFT(|f̂|²)` exactly (the cross-correlation theorem).
-    Radially averaging gives the **isotropic radial statistics**, a Fourier-dual pair — average `|f̂|²`
-    over `|k|`-shells (the spectrum), or `IFFT(|f̂|²)` over `|r|`-shells (the correlation). This is
+    autocorrelation ``C(r) = \langle f(x) \cdot f(x+r)\rangle`` equals ``\mathcal F^{-1}(|\hat f|^2)`` exactly (the cross-correlation theorem).
+    Radially averaging gives the **isotropic radial statistics**, a Fourier-dual pair — average ``|\hat f|^2``
+    over ``|k|``-shells (the spectrum), or ``\mathcal F^{-1}(|\hat f|^2)`` over ``|r|``-shells (the correlation). This is
     invariant 2 — *physical and spectral are representations of one object* — raised to **second-order
     statistics**: the spectrum and the correlation function are not two diagnostics but one, viewed in
     the two representations. `radial_spectrum` (decision 21, introduced as `shell_spectrum`) is the
@@ -947,43 +948,43 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per §2 (`spectrum` / `correlation`)
     under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
-    stay consumer-side: the energy spectrum `E(k) = ½ radial_spectrum`, the integral/Taylor scales from
+    stay consumer-side: the energy spectrum ``E(k) = \tfrac12\,\mathrm{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
-    *The physical dual — `radial_correlation`.* `C(r)` = radially-averaged `⟨f(x)·f(x+r)⟩` (full fiber
-    contraction — the trace of the correlation tensor, mirroring `inner`) `= IFFT(|f̂|²)` binned in `r`.
-    `C(0) = ⟨|f|²⟩ = inner(f, f)` (the variance); for a zero-mean field `C(r) → 0` at large `r`. It
+    *The physical dual — `radial_correlation`.* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle`` (full fiber
+    contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)`` binned in ``r``.
+    ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)`` (the variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. It
     shares `radial_spectrum`'s shell-binning helper, applied in `r` after one inverse transform. **Open
     design point:** that inverse transform is a representation change `Reductions` does not currently own,
     so `radial_correlation` either takes a field in spectral representation **plus transform plans**, or
     a physical field and transforms internally, or lives partly in the umbrella. (`radial_correlation(f, g)`
     — the cross-correlation, dual of a co-spectrum — is future.)
 
-    *Points → RDF (Phase 2), and why it works.* The pair correlation `g(r)` of `N` points is computable
-    in `O(N + M log M)` (vs `O(N²)` direct counting) via the **FFT structure-factor estimator** — exactly
-    the proposed pipeline: **anterpolate** the points to a grid density, **FFT**, form `|ρ̂|²`,
-    **deconvolve**, then `radial_spectrum` gives the structure factor `S(k)` and `radial_correlation` the
-    `g(r)`. The math: with `ρ̂(k) = Σ_i e^{-ik·x_i}`, `S(k) = |ρ̂|²/N = 1 + n̄·ĥ(k)` (Ornstein–Zernike),
-    so `g(r) = 1 + IFFT[(S−1)/n̄]`. We already own anterpolate + the transforms + both radial reductions;
+    *Points → RDF (Phase 2), and why it works.* The pair correlation ``g(r)`` of ``N`` points is computable
+    in ``O(N + M \log M)`` (vs ``O(N^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
+    the proposed pipeline: **anterpolate** the points to a grid density, **FFT**, form ``|\hat\rho|^2``,
+    **deconvolve**, then `radial_spectrum` gives the structure factor ``S(k)`` and `radial_correlation` the
+    ``g(r)``. The math: with ``\hat\rho(k) = \sum_i e^{-i k \cdot x_i}``, ``S(k) = |\hat\rho|^2/N = 1 + \bar n\,\hat h(k)`` (Ornstein–Zernike),
+    so ``g(r) = 1 + \mathcal F^{-1}[(S-1)/\bar n]``. We already own anterpolate + the transforms + both radial reductions;
     three corrections are **mandatory** and are the design's substance:
 
-    - **Assignment-window deconvolution.** Scattering with kernel `W` gives `ρ̂_g = Ŵ(k)·ρ̂`, so the
-      measured spectrum is suppressed by `|Ŵ(k)|²` — divide it out. In this framework the deconvolution
-      *is a `convolve` by `1/Ŵ`*: a new `Convolution` builder for the assignment-window transfer function
-      `Ŵ(k)` (the genuinely new math — `Ŵ` for the splines: B-spline → `sinc^p`, the Lalescu two-point
+    - **Assignment-window deconvolution.** Scattering with kernel ``W`` gives ``\hat\rho_g = \hat W(k)\,\hat\rho``, so the
+      measured spectrum is suppressed by ``|\hat W(k)|^2`` — divide it out. In this framework the deconvolution
+      *is a `convolve` by ``1/\hat W``*: a new `Convolution` builder for the assignment-window transfer function
+      ``\hat W(k)`` (the genuinely new math — ``\hat W`` for the splines: B-spline → ``\mathrm{sinc}^p``, the Lalescu two-point
       Hermite → a derivable closed form).
-    - **Shot noise.** The `i=j` self term is a constant `+1` floor in `S(k)` (a `δ(r)` at the origin):
-      subtract `1/n̄`, or exclude `r = 0`.
-    - **Aliasing / resolution.** The grid folds high-`k` at Nyquist — trust `k ≲ ⅔ k_Nyq`, and `g(r)`
+    - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the origin):
+      subtract ``1/\bar n``, or exclude ``r = 0``.
+    - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac23 k_\mathrm{Nyq}``, and ``g(r)``
       below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
       large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
       peak (interlacing — Sefusatti et al. — is a future refinement). This matches the intended consumer
       use; it is a documented boundary, not a defect.
 
     *Decision-19 tie-in.* A density estimate wants the **positive (probability-measure)** end of the
-    kernel taxonomy (the linear `m = 0` / a B-spline), not the signed default `CatmullRom`, so `g(r) ≥ 0`
-    and `Ŵ(k)` has no in-band zeros (no division blow-up in the deconvolution). Decision 19's recorded
+    kernel taxonomy (the linear ``m = 0`` / a B-spline), not the signed default `CatmullRom`, so ``g(r) \ge 0``
+    and ``\hat W(k)`` has no in-band zeros (no division blow-up in the deconvolution). Decision 19's recorded
     signed/positive split becomes a concrete, motivated choice here.
 
     *Invariant 12.* `radial_spectrum` / `radial_correlation` and the window-deconvolution builder are
@@ -994,8 +995,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     warranted.
 
     *Phasing.* **Phase 1** — the rename + `radial_correlation` (the field duality; neutral, no new math).
-    **Phase 2** — the `Ŵ` deconvolution builder + the documented point-RDF recipe (+ the positive-kernel
+    **Phase 2** — the ``\hat W`` deconvolution builder + the documented point-RDF recipe (+ the positive-kernel
     guidance). **Open before coding:** `radial_correlation`'s input representation / transform-plan
     dependency; the `r`-bin convention (`Δr` = grid spacing, max `L/2`, the corner-shell caveat as in
-    `radial_spectrum`); where the shared radial-binning helper lives; whether to ship `Ŵ` as a
+    `radial_spectrum`); where the shared radial-binning helper lives; whether to ship ``\hat W`` as a
     `Convolution` builder and any points-level convenience; and the normalization conventions.
