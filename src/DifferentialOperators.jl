@@ -76,10 +76,20 @@ domains: `gradient` ``\\equiv \\nabla``, `divergence` ``\\equiv \\nabla\\cdot``,
 and `helmholtz_projection` ``\\equiv \\mathbb P`` (the Leray projection onto the divergence-free
 subspace).
 
-The implemented methods act on fields in spectral representation, where each operator is a
-coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\nabla f}(k) = i k\\,\\hat f(k)``,
-``\\widehat{\\Delta f}(k) = -|k|^2\\,\\hat f(k)`` — so differentiation is exact (spectral accuracy) on
-the band-limited grid.
+The implemented methods act on fields in spectral representation. A field **is** its finite Fourier
+representation — the physical values are the trigonometric polynomial
+
+```math
+f(x) = \\sum_{k} \\hat f(k)\\, e^{i k \\cdot x}
+```
+
+over the grid's represented modes (coefficients beyond the grid are zero by definition, not truncated).
+Each operator is therefore the **exact** term-by-term derivative of that polynomial, realized as a
+coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\partial_{x_j} f}(k) = i k_j\\, \\hat f(k)``,
+``\\widehat{\\Delta f}(k) = -|k|^2\\, \\hat f(k)`` — with no finite-difference truncation. The per-operator
+docstrings give the symbol each one applies; the `=` is genuine (the only deliberate departure is the
+Nyquist zeroing of the first-derivative wavenumbers on even-length axes, invariant 5). Each formula
+mirrors the coefficientwise kernel it documents, so the two can be checked against each other.
 """
 module DifferentialOperators
 
@@ -218,14 +228,16 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the gradient (`gradient` ``\\equiv \\nabla``) of a field in spectral representation in-place.
+Compute the gradient (`gradient` ``\\equiv \\nabla``) of a field in spectral representation in-place;
+returns `destination`. A scalar field ``\\varphi`` gives the vector ``(\\nabla\\varphi)_i = \\partial_{x_i}\\varphi``;
+a vector field ``u`` gives the second-order tensor ``(\\nabla u)_{ij} = \\partial_{x_j} u_i``. Computed
+coefficientwise (each source component multiplied by ``i k`` of the differentiation axis):
 
-For a scalar field ``\\varphi``, this computes the vector field with components
-``(\\nabla\\varphi)_i = \\partial_i \\varphi``. For a vector field ``u``, the second-order tensor field
-with convention ``(\\nabla u)_{ij} = \\partial_j u_i``.
-
-Fourier differentiation is coefficientwise, ``\\widehat{\\partial_i f}(k) = i\\,k_i\\,\\hat f(k)``, using
-the wavenumber arrays stored in `multipliers`.
+```math
+\\widehat{(\\nabla\\varphi)_i}(k) = i\\, k_i\\, \\hat\\varphi(k),
+\\qquad
+\\widehat{(\\nabla u)_{ij}}(k) = i\\, k_j\\, \\hat u_i(k).
+```
 """
 function gradient! end
 
@@ -316,13 +328,16 @@ end
     )
 
 Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field in spectral representation
-in-place.
+in-place; returns `destination`. A vector field ``u`` gives the scalar ``\\nabla\\cdot u = \\partial_{x_i} u_i``;
+a second-order tensor field ``A`` gives the vector ``(\\nabla\\cdot A)_i = \\partial_{x_j} A_{ij}``.
+Computed as the coefficientwise contraction with ``i k`` (the kernel sums ``i k_j \\hat{(\\cdot)}_j`` over
+the three axes):
 
-For a vector field ``u``, this computes the scalar field ``\\nabla\\cdot u = \\partial_i u_i``. For a
-second-order tensor field ``A``, the vector field with components ``(\\nabla\\cdot A)_i = \\partial_j A_{ij}``.
-
-Fourier differentiation is coefficientwise, ``\\widehat{\\nabla\\cdot u}(k) = i\\,k_i\\,\\hat u_i(k)``,
-using the wavenumber arrays stored in `multipliers`.
+```math
+\\widehat{\\nabla\\cdot u}(k) = i\\,(k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
+\\qquad
+\\widehat{(\\nabla\\cdot A)_i}(k) = i\\,(k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
+```
 """
 function divergence! end
 
@@ -401,8 +416,14 @@ end
     )
 
 Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field in spectral representation
-in-place: the vector field ``\\nabla\\times u``, coefficientwise ``\\widehat{\\nabla\\times u}(k) =
-i\\,k \\times \\hat u(k)``.
+in-place; returns `destination`. Coefficientwise, ``\\widehat{\\nabla\\times u}(k) = i\\, k \\times \\hat u(k)``,
+i.e. componentwise (matching the kernel):
+
+```math
+\\widehat{(\\nabla\\times u)_1}(k) = i\\,(k_2 \\hat u_3 - k_3 \\hat u_2), \\quad
+\\widehat{(\\nabla\\times u)_2}(k) = i\\,(k_3 \\hat u_1 - k_1 \\hat u_3), \\quad
+\\widehat{(\\nabla\\times u)_3}(k) = i\\,(k_1 \\hat u_2 - k_2 \\hat u_1).
+```
 """
 function curl! end
 
@@ -474,13 +495,13 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the Laplacian (`laplacian` ``\\equiv \\Delta``) of a field in spectral representation in-place.
+Compute the Laplacian (`laplacian` ``\\equiv \\Delta``) of a field in spectral representation in-place;
+returns `destination`. Representation-preserving and coefficientwise — for every scalar, vector, or
+tensor component the kernel multiplies by ``-|k|^2``:
 
-This operation is representation-preserving and coefficientwise in spectral representation. For every scalar, vector, or tensor component it computes
-
-``\\widehat{\\Delta f}(k) = - |k|^2 \\hat f(k)``.
-
-Returns the modified `destination` field.
+```math
+\\widehat{\\Delta f}(k) = -|k|^2\\, \\hat f(k), \\qquad |k|^2 = k_1^2 + k_2^2 + k_3^2.
+```
 """
 function laplacian! end
 
@@ -525,15 +546,17 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field in spectral representation in-place.
+Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field in
+spectral representation in-place; returns `destination`. Representation-preserving and coefficientwise —
+the kernel divides by ``-|k|^2`` away from the origin and zeroes the mean mode:
 
-This operation is representation-preserving and coefficientwise in spectral representation. For every scalar, vector, or tensor component it computes
-
-``\\widehat{\\Delta^{-1} f}(k) = - \\hat f(k) / |k|^2``
-
-for nonzero wavevectors and sets the zero Fourier mode to zero.
-
-Returns the modified `destination` field.
+```math
+\\widehat{\\Delta^{-1} f}(k) =
+\\begin{cases}
+-\\,\\hat f(k) / |k|^2, & k \\ne 0, \\\\
+0, & k = 0.
+\\end{cases}
+```
 """
 function inverse_laplacian! end
 
@@ -578,15 +601,16 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector field in spectral representation in-place.
+Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
+field in spectral representation in-place; returns `destination`. It removes the longitudinal
+(curl-free) part coefficientwise, leaving the divergence-free part — the kernel subtracts
+``k_i\\,(k\\cdot\\hat u)/|k|^2`` from ``\\hat u_i``:
 
-This operation projects a vector field onto its divergence-free part coefficientwise in spectral representation. For nonzero wavevectors it applies
+```math
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)\\, \\hat u_j(k), \\qquad k \\ne 0,
+```
 
-``\\widehat{(\\mathbb{P}u)}_i(k) = \\left(\\delta_{ij} - k_i k_j / |k|^2\\right) \\hat u_j(k)``.
-
-The zero Fourier mode is left unchanged.
-
-Returns the modified `destination` field.
+and leaves the zero Fourier mode unchanged.
 """
 function helmholtz_projection! end
 
