@@ -70,9 +70,16 @@ Keep this AI-tips block updated when new project requirements are established, a
 """
     DifferentialOperators
 
-Differential operators on scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
+Differential operators on scalar, vector, and tensor fields on three-dimensional rectangular periodic
+domains: `gradient` ``\\equiv \\nabla``, `divergence` ``\\equiv \\nabla\\cdot``, `curl`
+``\\equiv \\nabla\\times``, `laplacian` ``\\equiv \\Delta``, `inverse_laplacian` ``\\equiv \\Delta^{-1}``,
+and `helmholtz_projection` ``\\equiv \\mathbb P`` (the Leray projection onto the divergence-free
+subspace).
 
-The implemented methods act on fields in spectral representation. Spectral coefficients are used as the implementation representation for Fourier differentiation.
+The implemented methods act on fields in spectral representation, where each operator is a
+coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\nabla f}(k) = i k\\,\\hat f(k)``,
+``\\widehat{\\Delta f}(k) = -|k|^2\\,\\hat f(k)`` — so differentiation is exact (spectral accuracy) on
+the band-limited grid.
 """
 module DifferentialOperators
 
@@ -139,7 +146,7 @@ end
 """
     _apply_spectral_divergence!(destination_component, source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector: `destination .= im * (k₁ s₁ + k₂ s₂ + k₃ s₃)`. Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
+Apply a coefficientwise contraction with the wavenumber vector, ``i\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``. Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
@@ -175,7 +182,7 @@ end
 """
     _apply_spectral_helmholtz_projection!(d_1, d_2, d_3, source_1, source_2, source_3, k_1, k_2, k_3, squared_wavenumber, ::Type{T})
 
-Apply the coefficientwise Leray/Helmholtz projection onto the divergence-free subspace: subtract the longitudinal part `kᵢ (kⱼ ŝⱼ) / |k|²` from each component. The zero Fourier mode is left unchanged.
+Apply the coefficientwise Leray/Helmholtz projection ``\\mathbb P`` onto the divergence-free subspace: subtract the longitudinal part ``k_i (k_j \\hat s_j)/|k|^2`` from each component. The zero Fourier mode is left unchanged.
 """
 function _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2, destination_component_3,
     source_component_1, source_component_2, source_component_3, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
@@ -211,13 +218,14 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the gradient of a field in spectral representation in-place.
+Compute the gradient (`gradient` ``\\equiv \\nabla``) of a field in spectral representation in-place.
 
-For a scalar field `φ`, this computes the vector field with components `(∇φ)ᵢ = ∂ᵢφ`.
+For a scalar field ``\\varphi``, this computes the vector field with components
+``(\\nabla\\varphi)_i = \\partial_i \\varphi``. For a vector field ``u``, the second-order tensor field
+with convention ``(\\nabla u)_{ij} = \\partial_j u_i``.
 
-For a vector field `u`, this computes the second-order tensor field with convention `(∇u)ᵢⱼ = ∂ⱼuᵢ`.
-
-Fourier differentiation is coefficientwise, using the wavenumber arrays stored in `multipliers`.
+Fourier differentiation is coefficientwise, ``\\widehat{\\partial_i f}(k) = i\\,k_i\\,\\hat f(k)``, using
+the wavenumber arrays stored in `multipliers`.
 """
 function gradient! end
 
@@ -267,10 +275,10 @@ end
 """
     gradient(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the gradient of a field in spectral representation.
+Allocate and return the gradient ``\\nabla`` of a field in spectral representation.
 
-For a scalar field in spectral representation, this returns a vector field in spectral representation.
-For a vector field in spectral representation, this returns a second-order tensor field in spectral representation.
+For a scalar field this returns a vector field (``(\\nabla\\varphi)_i = \\partial_i\\varphi``); for a
+vector field, a second-order tensor field (``(\\nabla u)_{ij} = \\partial_j u_i``).
 """
 function gradient end
 
@@ -307,13 +315,14 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the divergence of a field in spectral representation in-place.
+Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field in spectral representation
+in-place.
 
-For a vector field `u`, this computes the scalar field `∇ ⋅ u = ∂ᵢuᵢ`.
+For a vector field ``u``, this computes the scalar field ``\\nabla\\cdot u = \\partial_i u_i``. For a
+second-order tensor field ``A``, the vector field with components ``(\\nabla\\cdot A)_i = \\partial_j A_{ij}``.
 
-For a second-order tensor field `A`, this computes the vector field with components `(∇ ⋅ A)ᵢ = ∂ⱼAᵢⱼ`.
-
-Fourier differentiation is coefficientwise, using the wavenumber arrays stored in `multipliers`.
+Fourier differentiation is coefficientwise, ``\\widehat{\\nabla\\cdot u}(k) = i\\,k_i\\,\\hat u_i(k)``,
+using the wavenumber arrays stored in `multipliers`.
 """
 function divergence! end
 
@@ -357,10 +366,10 @@ end
 """
     divergence(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the divergence of a field in spectral representation.
+Allocate and return the divergence ``\\nabla\\cdot`` of a field in spectral representation.
 
-For a vector field in spectral representation, this returns a scalar field in spectral representation.
-For a second-order tensor field in spectral representation, this returns a vector field in spectral representation.
+For a vector field this returns a scalar field (``\\nabla\\cdot u = \\partial_i u_i``); for a
+second-order tensor field, a vector field (``(\\nabla\\cdot A)_i = \\partial_j A_{ij}``).
 """
 function divergence end
 
@@ -391,9 +400,9 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the curl of a vector field in spectral representation in-place.
-
-This computes the vector field ``∇ × u`` coefficientwise in spectral representation.
+Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field in spectral representation
+in-place: the vector field ``\\nabla\\times u``, coefficientwise ``\\widehat{\\nabla\\times u}(k) =
+i\\,k \\times \\hat u(k)``.
 """
 function curl! end
 
@@ -401,7 +410,7 @@ function curl! end
 """
     _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Coefficientwise curl `∇ × u`, written componentwise as `im * (k × û)`, assuming `destination` does not alias `field`. The public `curl!` wraps this with the aliasing guard.
+Coefficientwise curl ``\\nabla\\times u``, written componentwise as ``i\\,(k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this with the aliasing guard.
 """
 function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
@@ -440,7 +449,7 @@ end
 """
     curl(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the curl of a vector field in spectral representation.
+Allocate and return the curl ``\\nabla\\times u`` of a vector field in spectral representation.
 """
 function curl end
 
@@ -465,7 +474,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the Laplacian of a field in spectral representation in-place.
+Compute the Laplacian (`laplacian` ``\\equiv \\Delta``) of a field in spectral representation in-place.
 
 This operation is representation-preserving and coefficientwise in spectral representation. For every scalar, vector, or tensor component it computes
 
@@ -489,7 +498,7 @@ end
 """
     laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the Laplacian of a field in spectral representation.
+Allocate and return the Laplacian ``\\Delta`` (``\\widehat{\\Delta f}(k) = -|k|^2 \\hat f(k)``) of a field in spectral representation.
 
 This operation is representation-preserving: scalar fields return scalar fields, vector fields return vector fields, and tensor fields return tensor fields of the same tensor order.
 """
@@ -516,7 +525,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the zero-mean inverse Laplacian of a field in spectral representation in-place.
+Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field in spectral representation in-place.
 
 This operation is representation-preserving and coefficientwise in spectral representation. For every scalar, vector, or tensor component it computes
 
@@ -542,7 +551,7 @@ end
 """
     inverse_laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the zero-mean inverse Laplacian of a field in spectral representation.
+Allocate and return the zero-mean inverse Laplacian ``\\Delta^{-1}`` (``\\widehat{\\Delta^{-1} f}(k) = -\\hat f(k)/|k|^2`` for ``k \\ne 0``, zero mode set to zero) of a field in spectral representation.
 
 This operation is representation-preserving: scalar fields return scalar fields, vector fields return vector fields, and tensor fields return tensor fields of the same tensor order.
 """
@@ -569,7 +578,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the Helmholtz projection of a vector field in spectral representation in-place.
+Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector field in spectral representation in-place.
 
 This operation projects a vector field onto its divergence-free part coefficientwise in spectral representation. For nonzero wavevectors it applies
 
@@ -619,7 +628,7 @@ end
 """
     helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the Helmholtz projection of a vector field in spectral representation.
+Allocate and return the Helmholtz (Leray) projection ``\\mathbb P`` of a vector field in spectral representation: ``\\widehat{(\\mathbb P u)}_i(k) = (\\delta_{ij} - k_i k_j/|k|^2)\\,\\hat u_j(k)``.
 
 The returned vector field is the divergence-free part of `field`, with the zero Fourier mode left unchanged.
 """
