@@ -110,7 +110,7 @@ function force!(uh, band, p)
   band_kinetic = 0.5 * inner(convolve(uh, band), uh)    # ½⟨|u_band|²⟩ via Parseval (package inner)
   band_kinetic < 1e-12 && return uh                     # guard (IC seeds the band)
   scale = sqrt(p.E_force / band_kinetic)
-  field_data(uh) .+= (scale - 1) .* field_data(convolve(uh, band))   # in-band modes × scale
+  convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)
   return uh
 end
 
