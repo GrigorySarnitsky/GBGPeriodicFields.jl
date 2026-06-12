@@ -1150,7 +1150,7 @@ end
 """
     _axis_wavenumber_values(number_of_points, domain_length, half_dimension)
 
-Return `(derivative_wavenumber, squared_wavenumber)` as host vectors for one spatial axis. `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies. On even-length axes the derivative wavenumber is zeroed at the Nyquist mode (so derivatives of real fields stay real) while the squared wavenumber keeps the true `k²` (correct Laplacian) — the deliberate Nyquist split, stored as two independent families.
+Return `(derivative_wavenumber, squared_wavenumber)` as host vectors for one spatial axis. `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies. On even-length axes the derivative wavenumber is zeroed at the Nyquist mode (so derivatives of real fields stay real) while the squared wavenumber keeps the true ``k^2`` (correct Laplacian) — the deliberate Nyquist split, stored as two independent families.
 """
 function _axis_wavenumber_values(number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
   wavenumber_unit = 2 * T(π) / domain_length
@@ -1218,7 +1218,7 @@ _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = re
 """
     _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
 
-Return the total squared wavenumber `k² = k₁² + k₂² + k₃²` reshaped to broadcast over the three spatial dimensions. Used by the Laplacian, inverse Laplacian, and Helmholtz projection.
+Return the total squared wavenumber ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` reshaped to broadcast over the three spatial dimensions. Used by the Laplacian, inverse Laplacian, and Helmholtz projection.
 """
 function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
   squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)

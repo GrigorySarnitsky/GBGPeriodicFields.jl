@@ -11,44 +11,50 @@ in the `Points` module.
 
 # API
 
-  * **Interpolation** (grid to point, *gather*): `interpolate(f, xs[, scheme])` / in-place
-    `interpolate!(out, f, xs[, scheme])`, plus the callable `f(x)` (and its broadcast `f.(xs)`)
-    as the ergonomic face of `interpolate`.
-  * **Anterpolation** (point to grid, *scatter*): `anterpolate(grid, xs, qs[, scheme])` / in-place
-    `anterpolate!(field, xs, qs[, scheme])`, with a five-argument `α`/`β` form (`β = 0` overwrite,
-    `β ≠ 0` accumulate, the `mul!` convention; accumulation is the common case for the scatter).
+  * **Interpolation** (grid to point, *gather*; `interpolate` ``\\equiv \\mathcal I = W``):
+    `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the callable
+    `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
+  * **Anterpolation** (point to grid, *scatter*; `anterpolate` ``\\equiv \\mathcal I^* = W^\\top``):
+    `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`, with a
+    five-argument ``\\alpha``/``\\beta`` form (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate,
+    the `mul!` convention; accumulation is the common case for the scatter).
 
-`interpolate` / `anterpolate!` are the symmetric named pair (the operators `𝓘 = W` / `𝓘* = Wᵀ`);
-only interpolation also carries the pointwise callable `f(x)`, because evaluation is pointwise
-while its adjoint is not. Both directions share one `scheme` (the same weights) — which is what
-makes them an adjoint pair.
+`interpolate` / `anterpolate!` are the symmetric named pair (the operators ``\\mathcal I = W`` /
+``\\mathcal I^* = W^\\top``); only interpolation also carries the pointwise callable `f(x)`, because
+evaluation is pointwise while its adjoint is not. Both directions share one `scheme` (the same
+weights) — which is what makes them an adjoint pair.
 
 # Why interpolation and anterpolation are adjoint: the function–measure duality
 
-`𝓘 : G → P` and `𝓘* : P → G` satisfy `⟨𝓘 f, q⟩_P = ⟨f, 𝓘* q⟩_G`, a duality between *functions*
-(which you evaluate) and *measures* (which you integrate against):
+``\\mathcal I : G \\to P`` and ``\\mathcal I^* : P \\to G`` satisfy ``\\langle \\mathcal I f, q\\rangle_P
+= \\langle f, \\mathcal I^* q\\rangle_G``, a duality between *functions* (which you evaluate) and
+*measures* (which you integrate against):
 
-  * evaluation is pairing with a Dirac mass, `f(x) = ⟨δₓ, f⟩`, so `(𝓘 f)ₚ = ⟨δ_{xₚ}, f⟩ = f(xₚ)`;
+  * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, so
+    ``(\\mathcal I f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
   * its adjoint cannot be pointwise — it returns a measure, a sum of point masses
-    `𝓘* q = Σₚ qₚ δ_{xₚ}`, regularized by the stencil kernel to `Σₚ qₚ β(·−xₚ)`, a point source
-    density.
+    ``\\mathcal I^* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil kernel to
+    ``\\sum_p q_p\\,\\beta(\\cdot - x_p)``, a point-source density.
 
-Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate
-measures* (`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`.
-Discretely, with `G = ℝᴺ` (`N` grid nodes) and `P = ℝᴹ` (`M` points), interpolation is the matrix
-`𝓘 = W` (`Wₚₙ = βₙ(xₚ)`) and anterpolation its transpose `𝓘* = Wᵀ`. With shared partition-of-unity
-weights (`𝓘 𝟙 = 𝟙`, i.e. `Σₙ Wₚₙ = 1`), anterpolation is the exact transpose of interpolation and
-the total deposited quantity is conserved,
+Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate measures*
+(`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`. Discretely,
+with ``G = \\mathbb R^N`` (``N`` grid nodes) and ``P = \\mathbb R^M`` (``M`` points), interpolation is
+the matrix ``\\mathcal I = W`` (``W_{pn} = \\beta_n(x_p)``) and anterpolation its transpose
+``\\mathcal I^* = W^\\top``. With shared partition-of-unity weights (``\\mathcal I\\,\\mathbf 1 = \\mathbf 1``,
+i.e. ``\\sum_n W_{pn} = 1``), anterpolation is the exact transpose of interpolation and the total
+deposited quantity is conserved,
 
-    Σₙ (𝓘* q)ₙ = ⟨𝟙, 𝓘* q⟩ = ⟨𝓘 𝟙, q⟩ = ⟨𝟙, q⟩ = Σₚ qₚ,
+```math
+\\sum_n (\\mathcal I^* q)_n = \\langle \\mathbf 1, \\mathcal I^* q\\rangle = \\langle \\mathcal I\\,\\mathbf 1, q\\rangle = \\langle \\mathbf 1, q\\rangle = \\sum_p q_p,
+```
 
 which is mandatory for the two-way-coupled parcel application (total water mass and latent heat
 conserved). This holds **only when both directions use the same weights**, so the design fixes
-anterpolation as the transpose/adjoint of whatever interpolation scheme is in use (mismatched
-weights inject a spurious source — Sundaram & Collins 1996). The inner products are a modelling
-choice: with the Euclidean (counting) products the adjoint is the bare transpose `Wᵀ`; with
-`L²`/volume-weighted products it is `M_G⁻¹ Wᵀ M_P` (the immersed-boundary spreading/interpolation
-pair of Peskin), conserving an energy pairing rather than the plain sum.
+anterpolation as the transpose/adjoint of whatever interpolation scheme is in use (mismatched weights
+inject a spurious source — Sundaram & Collins 1996). The inner products are a modelling choice: with
+the Euclidean (counting) products the adjoint is the bare transpose ``W^\\top``; with ``L^2``/volume-
+weighted products it is ``M_G^{-1} W^\\top M_P`` (the immersed-boundary spreading/interpolation pair of
+Peskin), conserving an energy pairing rather than the plain sum.
 """
 module Interpolation
 
@@ -75,11 +81,11 @@ export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, Lagr
     AbstractSplineScheme{N2, M2, T, L}
 
 Supertype of the local interpolation schemes — the two hierarchies of Lalescu, Teaca & Carati
-(2010): the smooth [`LalescuSpline`](@ref) and the `C⁰` [`LagrangeSpline`](@ref). A scheme is a
-tensor product of 1D weight polynomials over a compact stencil of `N2` nodes, each weight a
-degree-`(M2−1)` polynomial in the fractional cell position `t ∈ [0,1)`. The `N2 × M2` coefficient
-matrix (`[node, power]`) is precomputed once into an `SMatrix` so it passes into the gather/scatter
-kernels by value (no device array).
+(2010): the smooth [`LalescuSpline`](@ref) and the ``C^0`` [`LagrangeSpline`](@ref). A scheme is a
+tensor product of 1D weight polynomials over a compact stencil of ``N_2`` nodes, each weight a
+degree-``(M_2-1)`` polynomial in the fractional cell position ``t \\in [0, 1)``. The ``N_2 \\times M_2``
+coefficient matrix (`[node, power]`) is precomputed once into an `SMatrix` so it passes into the
+gather/scatter kernels by value (no device array).
 """
 abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} end
 
@@ -87,21 +93,22 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} end
 """
     LalescuSpline(n, m = 1; T = Float64)
 
-Smooth (`Cᵐ`) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
-TurTLE's `beta_n{n}_m{m}` (TurTLE's `interp_neighbours = n`, `smoothness = m`). Over a compact
-stencil of `2n+2` nodes at offsets `{−n,…,n+1}` (`n ≥ 0`, the finite-difference half-width), the
-per-axis weights `βq(t)` for fractional cell position `t ∈ [0,1)` are the coefficients of the
-**two-point Hermite** interpolant of degree `2m+1`: the polynomial that reproduces the field value
-and the derivatives of order `1…m` at the two bracketing nodes (offsets `0` and `1`), each
-derivative estimated by a centred finite difference over the `2n+2`-node stencil (Fornberg weights).
-Smoothness is `Cᵐ` with `0 ≤ m ≤ 2n`; the weights are stored in the `(2n+2)×(2m+2)` `SMatrix`
-`coefficients` (`βq(t) = Σₚ coefficients[q, p+1] tᵖ`).
+Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
+TurTLE's `beta_n{n}_m{m}` (TurTLE's `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
+of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the finite-difference
+half-width), the per-axis weights ``\\beta_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
+coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
+reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
+(offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over the
+``2n{+}2``-node stencil (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
+are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
+(``\\beta_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]\\, t^p``).
 
-It reproduces polynomials up to degree `min(2m+1, 2n)` (for `n ≥ 1`). Special cases: `m = 0` is
-linear interpolation over the two central nodes (independent of `n`); `n = 1, m = 1` is the
-Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the `C⁰` Lagrange
-hierarchy (degree `2n+1`, all `2n+2` nodes interpolated) use [`LagrangeSpline`](@ref). Used by
-[`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
+It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
+``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
+is the Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the ``C^0``
+Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
+Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
 """
 struct LalescuSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -124,12 +131,12 @@ end
 """
     LagrangeSpline(n; T = Float64)
 
-The `C⁰` Lagrange hierarchy of Lalescu, Teaca & Carati (2010) (TurTLE's `Lagrange_polys`): the
-unique degree-`2n+1` polynomial interpolating all `2n+2` stencil nodes at offsets `{−n,…,n+1}`
-(`n ≥ 0`). The per-axis weights are the Lagrange cardinal polynomials, stored in the `(2n+2)×(2n+2)`
-`SMatrix` `coefficients`. Reproduces polynomials up to degree `2n+1` exactly, but is only `C⁰`
-(kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. `n = 0` is linear
-interpolation.
+The ``C^0`` Lagrange hierarchy of Lalescu, Teaca & Carati (2010) (TurTLE's `Lagrange_polys`): the
+unique degree-``2n{+}1`` polynomial interpolating all ``2n{+}2`` stencil nodes at offsets
+``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``). The per-axis weights are the Lagrange cardinal polynomials,
+stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix` `coefficients`. Reproduces polynomials up to
+degree ``2n{+}1`` exactly, but is only ``C^0`` (kinks at the nodes); for smooth derivatives use
+[`LalescuSpline`](@ref) instead. ``n = 0`` is linear interpolation.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -156,8 +163,8 @@ spline_coefficients(scheme::LagrangeSpline) = scheme.coefficients
     _fornberg(evaluation_point, nodes, max_order)
 
 Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `nodes[i]` in the
-order-`k` derivative (`k = 0…max_order`) of a function sampled at `nodes`, evaluated at
-`evaluation_point`. Host-side helper for the spline-weight construction.
+order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
+evaluated at `evaluation_point`. Host-side helper for the spline-weight construction.
 """
 function _fornberg(evaluation_point::Float64, nodes::Vector{Float64}, max_order::Int)
   number_of_nodes = length(nodes)
@@ -193,12 +200,12 @@ end
 """
     _hermite_weight_matrix(n, m)
 
-Build the `(2n+2)×(2m+2)` matrix of smooth-spline weight-polynomial coefficients (row `q` is the
-weight polynomial for stencil offset `q − 1 − n ∈ {−n,…,n+1}`; column `p+1` is the `tᵖ` coefficient).
-Each weight has degree `2m+1`; together they form the two-point Hermite interpolant reproducing the
-value and the order-`1…m` derivatives at the two bracketing nodes (offsets `0` and `1`), the
-derivatives taken from centred finite differences over the `2n+2`-node stencil. See
-[`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
+Build the ``(2n{+}2) \\times (2m{+}2)`` matrix of smooth-spline weight-polynomial coefficients (row `q`
+is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column `p+1` is
+the ``t^p`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
+interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
+(offsets ``0`` and ``1``), the derivatives taken from centred finite differences over the
+``2n{+}2``-node stencil. See [`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
 """
 function _hermite_weight_matrix(n::Int, m::Int)
   offsets = collect(-n:n+1)
@@ -231,10 +238,10 @@ end
 """
     _lagrange_weight_matrix(n)
 
-Build the `(2n+2)×(2n+2)` matrix of Lagrange cardinal-polynomial coefficients over the stencil
-offsets `{−n,…,n+1}` (row `q` is the cardinal polynomial of node `q`; column `p+1` is the `tᵖ`
-coefficient). Each is the degree-`2n+1` polynomial that is one at its own node and zero at the
-others (the inverse of the offsets' Vandermonde matrix). See [`LagrangeSpline`](@ref).
+Build the ``(2n{+}2) \\times (2n{+}2)`` matrix of Lagrange cardinal-polynomial coefficients over the
+stencil offsets ``\\{-n, \\dots, n{+}1\\}`` (row `q` is the cardinal polynomial of node `q`; column
+`p+1` is the ``t^p`` coefficient). Each is the degree-``2n{+}1`` polynomial that is one at its own node
+and zero at the others (the inverse of the offsets' Vandermonde matrix). See [`LagrangeSpline`](@ref).
 """
 function _lagrange_weight_matrix(n::Int)
   offsets = collect(-n:n+1)
@@ -254,8 +261,8 @@ end
 """
     CatmullRom
 
-The default interpolation scheme: the cubic `n = 1, m = 1` [`LalescuSpline`](@ref), a four-point
-`C¹` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
+The default interpolation scheme: the cubic ``n = 1, m = 1`` [`LalescuSpline`](@ref), a four-point
+``C^1`` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
 """
 const CatmullRom = LalescuSpline(1, 1)
 
@@ -268,10 +275,10 @@ const CatmullRom = LalescuSpline(1, 1)
 """
     _axis_weights(coefficients, t)
 
-Evaluate the per-axis spline weights `βq(t)` for all `N2` stencil nodes at fractional position `t`,
-returning an `SVector{N2}`. Horner over the `M2` polynomial-coefficient columns of `coefficients`
-(`M2 = degree + 1`); pure and allocation-free, so it runs inside the gather/scatter kernels on CPU
-and GPU.
+Evaluate the per-axis spline weights ``\\beta_q(t)`` for all `N2` stencil nodes at fractional position
+``t``, returning an `SVector{N2}`. Horner over the `M2` polynomial-coefficient columns of
+`coefficients` (``M_2 = \\deg + 1``); pure and allocation-free, so it runs inside the gather/scatter
+kernels on CPU and GPU.
 """
 @inline function _axis_weights(coefficients::SMatrix{N2, M2, T}, t::T) where {N2, M2, T}
   weights = coefficients[:, M2]
@@ -459,8 +466,9 @@ end
                  scheme = CatmullRom, α = true, β = false)
 
 Deposit the per-point `quantities` onto `field` in-place — the adjoint (transpose) of
-[`interpolate!`](@ref) under the same `scheme` — computing `field = α·(Wᵀ quantities) + β·field`;
-returns `field`. With `β = 0` (default) the field is overwritten; with `β ≠ 0` the deposit is
+[`interpolate!`](@ref) under the same `scheme`, ``\\mathcal I^* = W^\\top`` — computing
+``\\mathrm{field} = \\alpha\\,(W^\\top \\mathrm{quantities}) + \\beta\\,\\mathrm{field}``; returns
+`field`. With ``\\beta = 0`` (default) the field is overwritten; with ``\\beta \\ne 0`` the deposit is
 accumulated (the common case for the two-way-coupling scatter). `field` and `quantities` must share
 tensor order and `points` must cover the same number of points. Runs as a portable atomic-scatter
 kernel on the field's array backend.

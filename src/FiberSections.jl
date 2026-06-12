@@ -371,7 +371,7 @@ end
 """
     _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)
 
-Build the right-hand-side expression for a vector inner product, `Σᵢ uᵢ vᵢ` — a single broadcasted expression fed to `_scalar_kernel_body`. Operand `kind`s are `:field` or `:fiber`, as in `_vector_component`.
+Build the right-hand-side expression for a vector inner product, ``\\sum_i u_i v_i`` — a single broadcasted expression fed to `_scalar_kernel_body`. Operand `kind`s are `:field` or `:fiber`, as in `_vector_component`.
 """
 _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
   _sum_terms([_product(_vector_component(u_symbol, u_kind, i), _vector_component(v_symbol, v_kind, i)) for i in 1:3])
@@ -380,7 +380,7 @@ _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
 """
     _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)
 
-Build the right-hand-side expression for the tensor Frobenius inner product, `Σᵢⱼ Aᵢⱼ Bᵢⱼ`, fed to `_scalar_kernel_body`.
+Build the right-hand-side expression for the tensor Frobenius inner product, ``\\sum_{ij} A_{ij} B_{ij}``, fed to `_scalar_kernel_body`.
 """
 _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
   _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _tensor_component(B_symbol, B_kind, i, j)) for i in 1:3 for j in 1:3])
@@ -389,7 +389,7 @@ _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
 """
     _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
 
-Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is `` `uⱼ v_k − u_k vⱼ` ``. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is ``u_j v_k - u_k v_j``. Feeds `_vector_kernel_body`.
 """
 function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
   return function (i)
@@ -405,7 +405,7 @@ end
 """
     _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)
 
-Return a per-component function `i -> expr` for the tensor-on-vector left action, component `i` being `Σⱼ Aᵢⱼ uⱼ`. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the tensor-on-vector left action, component `i` being ``\\sum_j A_{ij} u_j``. Feeds `_vector_kernel_body`.
 """
 _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
   i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
@@ -414,7 +414,7 @@ _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
 """
     _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)
 
-Return a per-component function `i -> expr` for the vector-on-tensor right action, component `i` being `Σⱼ uⱼ Aⱼᵢ`. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the vector-on-tensor right action, component `i` being ``\\sum_j u_j A_{ji}``. Feeds `_vector_kernel_body`.
 """
 _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
   i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
@@ -423,7 +423,7 @@ _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
 """
     _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)
 
-Return a per-component function `(i, j) -> expr` for the tensor-tensor product, component `(i, j)` being `Σₖ Aᵢₖ Bₖⱼ`. Feeds `_tensor_kernel_body`.
+Return a per-component function `(i, j) -> expr` for the tensor-tensor product, component `(i, j)` being ``\\sum_k A_{ik} B_{kj}``. Feeds `_tensor_kernel_body`.
 """
 _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
   (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])
@@ -432,7 +432,7 @@ _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
 """
     _transpose_formula(A_symbol, A_kind)
 
-Return a per-component function `(i, j) -> expr` for the transpose, component `(i, j)` being `Aⱼᵢ`. Feeds `_tensor_kernel_body`.
+Return a per-component function `(i, j) -> expr` for the transpose, component `(i, j)` being ``A_{ji}``. Feeds `_tensor_kernel_body`.
 """
 _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_kind, j, i)
 
@@ -449,7 +449,7 @@ _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_k
 """
     _norm_scalar_rhs(symbol)
 
-Right-hand side for the scalar norm — the pointwise absolute value `abs(φ)`. Fed to `_scalar_kernel_body`.
+Right-hand side for the scalar norm — the pointwise absolute value ``|\\varphi|``. Fed to `_scalar_kernel_body`.
 """
 _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 
@@ -457,7 +457,7 @@ _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 """
     _norm_vector_rhs(symbol, kind)
 
-Right-hand side for the vector Euclidean norm `sqrt(Σᵢ uᵢ²)`. Fed to `_scalar_kernel_body`.
+Right-hand side for the vector Euclidean norm ``\\sqrt{\\sum_i u_i^2}``. Fed to `_scalar_kernel_body`.
 """
 _norm_vector_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_vector_component(symbol, kind, i)))) for i in 1:3]))))
@@ -466,7 +466,7 @@ _norm_vector_rhs(symbol, kind) =
 """
     _norm_tensor_rhs(symbol, kind)
 
-Right-hand side for the tensor Frobenius norm `sqrt(Σᵢⱼ Aᵢⱼ²)`. Fed to `_scalar_kernel_body`.
+Right-hand side for the tensor Frobenius norm ``\\sqrt{\\sum_{ij} A_{ij}^2}``. Fed to `_scalar_kernel_body`.
 """
 _norm_tensor_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(symbol, kind, i, j)))) for i in 1:3 for j in 1:3]))))
@@ -475,9 +475,9 @@ _norm_tensor_rhs(symbol, kind) =
 """
     _sym_kernel_body()
 
-Body of the symmetric-part kernel `sym(A) = (A + transpose(A)) / 2` for a section argument named
-`A` writing into `destination`. The `half` local takes the section's real scalar type from
-`section_scalar_type(A)`. Index-shuffling, so callers wrap it through their alias guard.
+Body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for a section
+argument named `A` writing into `destination`. The `half` local takes the section's real scalar type
+from `section_scalar_type(A)`. Index-shuffling, so callers wrap it through their alias guard.
 """
 _sym_kernel_body() = quote
   half = inv(section_scalar_type(A)(2))
@@ -489,7 +489,7 @@ end
 """
     _skew_kernel_body()
 
-Body of the skew-symmetric-part kernel `skew(A) = (A - transpose(A)) / 2`; see `_sym_kernel_body`.
+Body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)``; see `_sym_kernel_body`.
 """
 _skew_kernel_body() = quote
   half = inv(section_scalar_type(A)(2))
@@ -501,7 +501,7 @@ end
 """
     _dev_kernel_body()
 
-Body of the deviatoric-part kernel `dev(A) = A - tr(A) * I / 3`; see `_sym_kernel_body`.
+Body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I``; see `_sym_kernel_body`.
 """
 _dev_kernel_body() = quote
   third = inv(section_scalar_type(A)(3))
