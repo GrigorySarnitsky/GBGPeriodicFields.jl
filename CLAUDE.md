@@ -321,6 +321,28 @@ those are the usual rot. Then the mechanical bar:
    mass-assignment deconvolution window `Ŵ=∏ sinc²(kₐΔxₐ/2)`, the neutral primitive for the FFT
    point-RDF route (consumer recipe in `test/rdf.jl`, validated vs direct O(M²) pair counting).
 
+## Planned directions (recorded — not started)
+
+The package is feature-complete for its core mission. Recorded next steps, in priority order:
+
+- **Co-spectra `radial_spectrum(f, g)` / `radial_correlation(f, g)`** — **near-term, needed soon**
+  (cross-correlation pair: momentum/scalar fluxes). Small — mirrors the existing single-field code
+  (`inner(f,g)`-style two-argument forms). `docs/ARCHITECTURE.md` decision 22.
+- **Doctests + a getting-started tutorial** — the `doctest=true` plumbing is wired but no doctests
+  exist yet; turn the reference docs into a usable on-ramp (the "finish the package" milestone).
+- **Alternative interpolation/anterpolation schemes — need a design discussion before coding**
+  (`docs/ARCHITECTURE.md` §10, decision 17): the **van Hinsberg global B-spline** (a coefficient
+  pre-transform + compact stencil — higher accuracy, but a global solve that breaks "single
+  representation", so it needs a coefficient-field type + transform step) and the **NUFFT** type-1/2
+  (exact spectral gather/scatter — the accuracy ceiling + a divergence-free reference oracle; adds a
+  NUFFT dep, e.g. the AMD-portable `NonuniformFFTs.jl`). Both change the data flow, so they are not
+  drop-in `AbstractSplineScheme`s — plan first.
+- **Deferred until a consumer makes them concrete** (the §2 rule against speculative structure):
+  anisotropic / tensor-valued radial spectra `E_ij(κ)` + the Craya–Herring longitudinal/transverse
+  split (shear-flow anisotropy diagnostics); higher positive-B-spline / signed-kernel RDF windows +
+  interlacing; matrix-valued convolution kernels; threaded reductions; CUDA verification (needs NVIDIA
+  hardware). Shear-flow support (Rogallo time-dependent multipliers + remeshing) stays consumer-side.
+
 ## Working agreements
 
 - The API is not frozen; do not build backward-compatibility shims.

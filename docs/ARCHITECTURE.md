@@ -478,6 +478,15 @@ separate field. Three properties make it the right fit:
    *global* transform that, in a spectral code, costs one FFT — is the higher-accuracy
    alternative kept in reserve; exact spectral interpolation via a type-2 NUFFT is the
    global, divergence-free extreme, planned only as a high-accuracy reference oracle.)
+   **PLANNED — alternative interpolation/anterpolation schemes (need a design discussion before
+   coding):** the **van Hinsberg global B-spline** (a coefficient pre-transform, then a compact
+   local stencil — higher accuracy per stencil width, at the cost of a global solve that breaks the
+   "single representation" property — so it needs a coefficient-field type and a transform step) and
+   the **NUFFT** type-1/type-2 (exact spectral gather/scatter, the accuracy ceiling and a
+   divergence-free reference oracle; would add a NUFFT dependency, e.g. the AMD-portable
+   `NonuniformFFTs.jl`). Both slot under the existing `AbstractSplineScheme`/transfer interface in
+   spirit but change the data flow (global precompute / external transform), so they are a recorded
+   *future direction*, not a drop-in scheme. See item 17 and the references below.
 2. **GPU-friendly** (the GPU-first invariant, §1): per-point interpolation is a gather
    of ``(2n{+}2)^3`` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
@@ -923,8 +932,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
-    the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells and a co-spectrum
-    `radial_spectrum(f, g)` remain future, unneeded now. **Renamed `shell_spectrum → radial_spectrum` in
+    the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells remain future; a
+    **co-spectrum `radial_spectrum(f, g)` is a near-term need** (decision 22). **Renamed `shell_spectrum → radial_spectrum` in
     decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, also done.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
     point pair-statistics (RDF). [Phase 1 (`radial_correlation`) and Phase 2 (`assignment_window` + the
@@ -961,7 +970,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same masked-reduction
     machinery as `radial_spectrum`, in `r` instead of ``|k|``. Verified against an independent
     binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
-    (`radial_correlation(f, g)` — the cross-correlation, dual of a co-spectrum — remains future.)
+    (`radial_correlation(f, g)` — the cross-correlation, dual of a co-spectrum — is a **near-term need**:
+    co-spectra / cross-correlations will be wanted soon, e.g. momentum/scalar fluxes.)
 
     *Points → RDF (Phase 2, done).* The pair correlation ``g(r)`` of ``M`` points is computable
     in ``O(N + M \log M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
@@ -1009,8 +1019,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \mathrm{inner}``
     exact. **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
     window, `Convolution`) + the documented point-RDF recipe, validated against direct ``O(M^2)`` counting.
+    **Near-term:** the **co-spectra** `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
+    cross-correlation pair — momentum/scalar fluxes; small, mirrors the existing single-field code).
     **Future (deferred until a consumer makes them concrete):** higher positive-B-spline / signed-kernel
-    window transforms and interlacing (sharper small-``r`` ``g``); a co-spectrum `radial_correlation(f, g)`;
-    and — the "meaningful fibers over the radial coordinate" — the anisotropic / tensor-valued radial
-    spectra ``E_{ij}(\kappa)`` and the Craya–Herring longitudinal/transverse split, which only earn their
-    structure under anisotropy (e.g. shear flow), per the §2 rule against speculative structure.
+    window transforms and interlacing (sharper small-``r`` ``g``); and — the "meaningful fibers over the
+    radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
+    Craya–Herring longitudinal/transverse split, which only earn their structure under anisotropy
+    (e.g. shear flow), per the §2 rule against speculative structure.
