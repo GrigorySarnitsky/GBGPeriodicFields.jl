@@ -137,7 +137,7 @@ realizes the *vertical* operations on the unstructured base — it mirrors the
 Operation names follow *what the operation is* — the same mathematics-first principle:
 
 - **Reductions** (section → scalar/fiber) take the **quantity's noun**: `integral`, `inner`,
-  `l2norm`, `lpnorm`.
+  `l2norm`, `lpnorm`, `shell_spectrum` (the radial profile is still the quantity's noun).
 - **Canonically named operators** (section → section with a standard, often eponymous operator name
   and no natural verb) take that **noun**: `gradient`, `divergence`, `curl`, `laplacian`,
   `inverse_laplacian`, `helmholtz_projection`.
@@ -781,8 +781,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     | role of the measure | what it is | operation(s) | maps | status |
     |---------------------|-----------|--------------|------|--------|
-    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm` | section → scalar / fiber | **done** (decision 18) |
-    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | `convolve` / `convolve!` (dealias mask, integrating factor, homogeneous filter) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decision 20) |
+    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `shell_spectrum` (the `\|k\|`-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
+    | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | `convolve` / `convolve!`; builders `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` (the radial coordinate consumers build symbols from) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decisions 20, 21) |
     | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` `W` / `anterpolate` `Wᵀ` | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
     | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
 
@@ -870,3 +870,42 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     cutoff-idempotence/composition/α-β/alias) and GPU (ROCm device-vs-CPU parity in `test/gpu/suite.jl`);
     benchmarked (the `convolution` class). The L²-weighted and matrix-valued (anisotropic) kernels
     remain future.
+21. **Shell-space spectral primitives — the radial coordinate, the band-pass, and the shell-resolved
+    inner (extending `Convolution` + `Reductions`).** Three neutral primitives surfaced by the
+    `examples/HIST_*` demos, each the code image of an established object and each slotting into an
+    existing family — no new module, no parity-baseline change (separate generics), physics names
+    stay consumer-side (invariant 12). They close the largest hand-rolled pieces of a real
+    pseudospectral consumer (the energy spectrum, the forcing band, the viscous integrating factor):
+
+    - **`squared_wavenumber_field(reference, multipliers)` (`Convolution`)** — the radial coordinate
+      `|k|²` of spectral space as a `ScalarFieldSpectral` (real, stored complex, like a cutoff mask).
+      Decision 19 fixed that "the symbol is data": the consumer builds `exp(−ν|k|²Δt)`, a smooth
+      envelope, or a Germano filter `1/(1+Δ²|k|²)` by broadcasting over its `field_data`, then applies
+      it with `convolve`. The package hands over the coordinate; `ν`, `Δt`, the width stay consumer-side.
+      It wraps the existing `_squared_wavenumber_broadcast` (the Laplacian's `|k|²`, true value at
+      Nyquist — invariant 5).
+    - **`spectral_band(reference, multipliers, k_lo, k_hi)` (`Convolution`)** — the isotropic annular
+      band-pass, the generalization of `spectral_cutoff` (now its `k_lo = 0` special case, refactored
+      to delegate). Idempotent ⇒ a projection; it selects a wavenumber shell — a de-alias band, a
+      forcing band, a filter ring. With it the demos' low-shell forcing becomes pure package ops:
+      band energy `= inner(convolve(u, band), u)`, then a rescaling `convolve` — no scalar indexing.
+    - **`shell_spectrum(f, multipliers)` (`Reductions`)** — the **radial (shell-resolved) power
+      spectrum**: `inner` decomposed into isotropic `|k|`-shells. Returns `(shells, spectrum)` with
+      the exact refinement `sum(spectrum) == inner(f, f)` (same rfft half-spectrum Parseval weighting,
+      now resolved per mode). This is the genuinely new reduction — spectral-representation only, like
+      the Parseval `inner` — and the architectural framing is precisely *"the energy spectrum is the
+      shell-resolved inner"* (decision 19's L²/integration structure, refined by the spectral radial
+      coordinate). The consumer's `E(κ) = ½ spectrum`; the neutral noun keeps physics out (invariant
+      12). Shells run to the corner wavenumber so the refinement is exact; on a de-aliased field the
+      high-`|k|` shells are empty.
+
+    *Device-clean by construction.* `squared_wavenumber_field` / `spectral_band` are broadcast kernel
+    builders (the `spectral_cutoff` pattern); `shell_spectrum` bins via a sequence of **masked
+    reductions** (one per shell), not a histogram scatter — no scalar indexing, no atomics, GPU-portable
+    as an occasional diagnostic (a per-step spectrum would want an atomic-histogram kernel; deferred,
+    unneeded). Tested CPU (`test/convolution.jl` band/coordinate vs the `|k|²` oracle + cutoff equivalence;
+    `test/reductions.jl` `sum(shell_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
+    device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
+    The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
+    the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells and a co-spectrum
+    `shell_spectrum(f, g)` remain future, unneeded now.

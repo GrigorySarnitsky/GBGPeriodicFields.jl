@@ -31,13 +31,14 @@ module Reductions
 
 using ..FiberSections: AbstractFiberSection, section_scalar_type
 using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, FiberVector, FiberTensor2, field_data,
-  field_grid, _check_field_domain_compatibility
+  field_grid, field_tensor_order, FieldSpectralMultipliers,
+  _check_field_domain_compatibility, _check_multipliers_compatibility, _squared_wavenumber_broadcast
 using ..Points: AbstractPointValues, npoints
 import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
 import LinearAlgebra
 
-export integral, inner, l2norm, lpnorm
+export integral, inner, l2norm, lpnorm, shell_spectrum
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
@@ -169,6 +170,59 @@ via the Parseval [`inner`](@ref) — for a field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
 l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
+
+
+# The rfft half-spectrum Parseval weight, as a (Nkx, 1, 1) array on the field's backend so it
+# broadcasts over the spectral coefficients: each stored mode counts twice (it stands for its unstored
+# conjugate partner) EXCEPT the self-conjugate kₓ=0 plane and — for even Nₓ — the Nyquist plane, which
+# count once. The tiny host vector is built then bulk-copied to the device (no scalar indexing of
+# device memory, invariant 6). Same weighting as the spectral `inner` above, here per mode.
+function _parseval_weight(f::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+  number_of_kx = size(field_data(f), 1)
+  weight_host = fill(T(2), number_of_kx)
+  weight_host[1] = T(1)
+  iseven(field_grid(f).grid_size[1]) && (weight_host[number_of_kx] = T(1))
+  weight_device = similar(field_data(f), T, number_of_kx)
+  copyto!(weight_device, weight_host)
+  return reshape(weight_device, number_of_kx, 1, 1)
+end
+
+
+"""
+    shell_spectrum(f, multipliers)
+
+The **radial (shell-resolved) power spectrum** of a field `f` in spectral representation: returns
+`(shells, spectrum)`, where `shells` are the bin-center wavenumber magnitudes and `spectrum[i]` is the
+Parseval-weighted `Σ_{|k| ∈ shell i} |f̂(k)|²` summed over the fiber (the rfft half-spectrum weighting).
+It **refines** [`inner`](@ref): `sum(spectrum) == inner(f, f)` — the total L² energy split across
+isotropic `|k|`-shells of unit-fundamental width. The consumer's kinetic-energy spectrum is then
+`E = ½ .* spectrum` (so `Σ E = ½⟨|u|²⟩`); the package keeps the neutral name, physics stays
+consumer-side.
+
+Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from `0` to
+the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
+field the high-`|k|` shells are empty. For a non-cubic box the shells beyond `min(Nᵢ)/2` are
+incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but
+`Σ spectrum == inner` still holds. GPU-portable: the binning is a sequence of masked reductions (no
+scalar indexing, no histogram kernel), suited to an occasional diagnostic rather than a per-step call.
+"""
+function shell_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+  _check_multipliers_compatibility(f, multipliers)
+  grid = field_grid(f)
+  fundamental = 2 * T(π) / T(maximum(grid.domain_size))           # the unit shell width (= 1 for a 2π box)
+  shell_index = round.(Int, sqrt.(_squared_wavenumber_broadcast(multipliers)) ./ fundamental)  # shell per mode
+  number_of_shells = Int(maximum(shell_index)) + 1
+  # Σ_c |f̂_c|² over the fiber, a real (Nkx, Ny, Nz) array (abs2 already drops the fiber for R = 0).
+  R = field_tensor_order(f)
+  fiber_dims = ntuple(d -> d + 3, R)
+  magnitude_squared = R == 0 ? abs2.(field_data(f)) :
+    dropdims(sum(abs2, field_data(f); dims = fiber_dims); dims = fiber_dims)
+  weighted = _parseval_weight(f) .* magnitude_squared            # Parseval-weighted energy per mode
+  normalization = T(prod(grid.grid_size))^2
+  spectrum = T[sum(weighted .* (shell_index .== shell)) / normalization for shell in 0:(number_of_shells - 1)]
+  shells = T.(0:(number_of_shells - 1)) .* fundamental
+  return shells, spectrum
+end
 
 
 """

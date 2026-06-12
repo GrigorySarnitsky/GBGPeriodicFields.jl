@@ -176,7 +176,9 @@ using .DifferentialOperators:
 using .Convolution:
   convolve!,
   convolve,
-  spectral_cutoff
+  spectral_cutoff,
+  spectral_band,
+  squared_wavenumber_field
 
 
 using .Points:
@@ -206,7 +208,8 @@ using .Reductions:
   integral,
   inner,
   l2norm,
-  lpnorm
+  lpnorm,
+  shell_spectrum
 
 # `mean`/`std`/`var` (Statistics) and `maximum`/`minimum`/`extrema` (Base) are *extended* on sections
 # in `Reductions`; those methods are global and reached through `using Statistics` / Base. They are
@@ -277,6 +280,8 @@ export FiberVector,
        convolve!,
        convolve,
        spectral_cutoff,
+       spectral_band,
+       squared_wavenumber_field,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,
@@ -301,7 +306,8 @@ export FiberVector,
        integral,
        inner,
        l2norm,
-       lpnorm
+       lpnorm,
+       shell_spectrum
 
 
 function __init__()

@@ -10,16 +10,17 @@
 #
 # Read HIST_CPU.jl first; this file flags only what CHANGES for the GPU:
 #   • All field storage is built from device arrays (`dev(...)`); the FFT plans,
-#     multipliers and `spectral_cutoff` kernel land on-device automatically.
+#     multipliers and the shell-mask kernels land on-device automatically.
 #   • The package operations are backend-agnostic and run unchanged: curl, cross,
 #     helmholtz_projection, the transforms, the L²/measure reductions
-#     (inner/l2norm/lpnorm), convolve/spectral_cutoff, and interpolate.
-#   • The two pieces HIST_CPU still hand-rolled with scalar loops — the low-shell
-#     FORCING and the energy SPECTRUM — are reworked device-clean here: forcing as
-#     a sum-reduction + a `convolve` with a per-step scale kernel; the spectrum's
-#     irregular shell binning is done on a one-shot host copy (end-of-run only).
-#     These remain the package "gap list" (see examples/README.md): a |k|/shell
-#     utility and an E(k) reduction would let even these run wholly on-device.
+#     (inner/l2norm/lpnorm and shell_spectrum), convolve with the kernel/coordinate
+#     builders (spectral_cutoff / spectral_band / squared_wavenumber_field), and interpolate.
+#   • There is now NOTHING device-special left to hand-roll. The forcing band is a
+#     `spectral_band` kernel (energy via `inner(convolve(û,band),û)`, rescale via
+#     `convolve`) and the energy spectrum is `shell_spectrum` (on-device shell binning,
+#     no host copy) — the same source as HIST_CPU.jl, run on device arrays. The only
+#     remaining non-package bits (examples/README.md gap list) are the random-solenoidal
+#     IC generator and the Eulerian-S₂ field-shift, both representation-neutral.
 #
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl            # full run
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
@@ -70,68 +71,45 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1,
 # the reference field lives on, so on the GPU they stay entirely on-device.
 # =============================================================================
 
-# 3-D |k|² over the (Nkx, Ny, Nz) spectral grid (a device array, built by
-# broadcasting the package's per-axis squared-wavenumber arrays — themselves on the
-# device). GAP: no public |k|-field / shell utility yet.
-function ksquared(m)
-  s1 = reshape(m.squared_wavenumber_1, :, 1, 1)
-  s2 = reshape(m.squared_wavenumber_2, 1, :, 1)
-  s3 = reshape(m.squared_wavenumber_3, 1, 1, :)
-  return s1 .+ s2 .+ s3
-end
-
 # Wrap a per-mode transfer function w(k) (a real device array) as a scalar field in
-# spectral representation — the consumer's half of a convolution.
+# spectral representation — the consumer's half of a convolution. The |k|² it needs
+# is the package's `squared_wavenumber_field` (a device ScalarFieldSpectral), so the
+# consumer never hand-rolls a wavenumber broadcast.
 spectral_kernel(reference, w) = ScalarFieldSpectral(Complex{FT}.(w), field_grid(reference))
 
 
 # =============================================================================
-# Diagnostics — the L²/measure reductions run on-device unchanged (sum/dot/maximum
-# are GPU-portable): kinetic energy ½⟨|u|²⟩, dissipation ν⟨|ω|²⟩, the CFL speed.
+# Diagnostics — every one is a package reduction, running on-device unchanged
+# (sum/dot/maximum are GPU-portable): kinetic energy ½⟨|u|²⟩, dissipation ν⟨|ω|²⟩,
+# the CFL speed, and — now also on-device — the energy spectrum via shell_spectrum
+# (the shell binning is masked reductions, no host copy, no scalar indexing).
 # =============================================================================
 
 kinetic_energy(u) = 0.5 * inner(u, u)                                 # ½⟨|u|²⟩   (Reductions.inner)
 dissipation(ω, p) = p.ν * inner(ω, ω)                                 # ν⟨|ω|²⟩   (homogeneous)
 max_speed(u)      = lpnorm(u, Inf)                                    # sup|u|, the CFL velocity
 
-# Shell-averaged energy spectrum E(κ). The irregular shell *binning* (a scatter by
-# integer shell index) has no device-clean package form yet, so this end-of-run
-# diagnostic copies the spectral coefficients to the host once and bins there. GAP:
-# a first-class E(k) shell reduction. ∑ₖ E(κ) ≈ kinetic energy (Parseval).
-function energy_spectrum(uh, m, p)
-  d  = Array(field_data(uh))                                          # one-shot host copy
-  s1 = Array(m.squared_wavenumber_1); s2 = Array(m.squared_wavenumber_2); s3 = Array(m.squared_wavenumber_3)
-  Nkx = length(s1)
-  kmax = floor(Int, p.N / 2)
-  E = zeros(kmax + 1)
-  scale = 1 / (2 * float(p.N)^6)
-  for k in axes(d, 3), j in axes(d, 2), i in 1:Nkx
-    κ = round(Int, sqrt(s1[i] + s2[j] + s3[k]) * p.L / 2π)
-    κ > kmax && continue
-    weight = (i == 1 || (iseven(p.N) && i == Nkx)) ? 1.0 : 2.0
-    E[κ + 1] += scale * weight * (abs2(d[i, j, k, 1]) + abs2(d[i, j, k, 2]) + abs2(d[i, j, k, 3]))
-  end
-  return collect(0:kmax), E
+# E(κ) = ½ × the shell-resolved Parseval inner; ∑ₖ E(κ) = ½⟨|u|²⟩ = kinetic energy.
+# shell_spectrum bins on-device and returns small host vectors — no host copy of the field.
+function energy_spectrum(uh, m)
+  shells, spectrum = shell_spectrum(uh, m)                            # device binning (package)
+  return shells, 0.5 .* spectrum
 end
 
 
 # =============================================================================
-# Forcing — hold the energy in shells 1 ≤ |k| ≤ k_force at E_force. Device-clean:
-# a sum-reduction for the band energy, then a `convolve` with a per-step kernel
-# that multiplies the in-band modes by √(E_force/E_band) and leaves the rest alone
-# (scaling preserves ∇·u = 0). `band` (FT mask) and `wt` (rfft half-spectrum
-# weight) are precomputed device arrays. GAP: a shell/band utility would remove
-# even this hand-rolled mask. Replaces the CPU scalar-indexed loop.
+# Forcing — hold the kinetic energy in shells 1 ≤ |k| ≤ k_force at E_force, now pure
+# package ops (identical to HIST_CPU.jl): `band` is a `spectral_band` mask kernel;
+# the band energy is ½ inner(convolve(û, band), û) (Parseval); rescaling the in-band
+# modes is one more `convolve`. No precomputed mask / weight, no sum-reduction by
+# hand — all on-device (scaling preserves ∇·u = 0).
 # =============================================================================
 
-function force!(uh, p, band, wt)
-  d = field_data(uh)                                                  # (Nkx,Ny,Nz,3) complex, device
-  magnitude_squared = dropdims(sum(abs2, d; dims = 4); dims = 4)      # Σ_c |û_c|²  (Nkx,Ny,Nz)
-  band_energy = sum(wt .* band .* magnitude_squared) / (2 * FT(p.N)^6)
-  band_energy < FT(1e-12) && return uh                                # guard (IC seeds the band)
-  scale = sqrt(FT(p.E_force) / band_energy)
-  kernel = spectral_kernel(uh, 1 .+ (scale - 1) .* band)             # =scale in-band, =1 outside
-  convolve!(uh, uh, kernel)
+function force!(uh, band, p)
+  band_kinetic = FT(0.5) * inner(convolve(uh, band), uh)  # ½⟨|u_band|²⟩ via Parseval (package inner)
+  band_kinetic < FT(1e-12) && return uh                   # guard (IC seeds the band)
+  scale = sqrt(FT(p.E_force) / band_kinetic)
+  field_data(uh) .+= (scale - 1) .* field_data(convolve(uh, band))   # in-band modes × scale
   return uh
 end
 
@@ -157,7 +135,7 @@ end
 #   k₁ = N̂(ûₙ);  û* = E·(ûₙ + Δt·k₁);  k₂ = N̂(û*)
 #   ûₙ₊₁ = E·ûₙ + (Δt/2)(E·k₁ + k₂);   then force.
 # Returns the start-of-step physical velocity (for particle advection).
-function step!(uh, m, plans, dealias, ksq, p, dt, band, wt)
+function step!(uh, m, plans, dealias, band, ksq, p, dt)
   Ek = spectral_kernel(uh, exp.(-FT(p.ν) .* ksq .* FT(dt)))           # integrating factor exp(−νk²Δt)
   k1, u = nonlinear(uh, m, plans, dealias)
 
@@ -166,7 +144,7 @@ function step!(uh, m, plans, dealias, ksq, p, dt, band, wt)
 
   # ûₙ₊₁ = E·ûₙ + (Δt/2)(E·k₁ + k₂)   — linear field algebra + convolve, then commit
   copyto!(field_data(uh), field_data(convolve(uh, Ek) + (FT(dt) / 2) * (convolve(k1, Ek) + k2)))
-  force!(uh, p, band, wt)
+  force!(uh, band, p)
   return u
 end
 
@@ -190,13 +168,13 @@ end
 # large-scale envelope, projected solenoidal, band-energy normalized.
 # =============================================================================
 
-function random_solenoidal(grid, m, plans, ksq, p, band, wt; kp = 2.0)
+function random_solenoidal(grid, m, plans, ksq, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(dev(randn(rng, FT, p.N, p.N, p.N, 3)), grid), plans)
   envelope = spectral_kernel(uh, exp.(-(ksq ./ FT(kp)^2)))           # concentrate at large scales
   convolve!(uh, uh, envelope)                                        # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)                                   # make solenoidal (alias-guarded)
-  force!(uh, p, band, wt)                                            # set the forced-band energy
+  force!(uh, band, p)                                                # set the forced-band energy
   return uh
 end
 
@@ -262,20 +240,14 @@ function run_hist(p::Params)
   splans = FieldTransformPlans(ScalarFieldPhysical(dev(zeros(FT, p.N, p.N, p.N)), grid),
                                ScalarFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(0)))), grid))
   m    = FieldSpectralMultipliers(uspec0)                 # wavenumbers copied to the device backend
-  ksq  = ksquared(m)
-  # 2/3-rule de-alias filter as the package's sharp isotropic cutoff kernel (device).
+  ksq  = real.(field_data(squared_wavenumber_field(uspec0, m)))   # |k|² (package), device array
+  # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels (device).
   dealias = spectral_cutoff(uspec0, m, (2 / 3) * (p.N / 2) * (2π / p.L))
+  band    = spectral_band(uspec0, m, FT(0.5 * (2π / p.L)), FT((p.k_force + 0.5) * (2π / p.L)))
   Δx   = p.L / p.N
 
-  # Forcing precompute (device): the shell band mask and the rfft half-spectrum weight.
-  shell = sqrt.(ksq) .* FT(p.L / 2π)                      # integer shell index |k|
-  band  = FT.((shell .>= FT(0.5)) .& (shell .<= FT(p.k_force + 0.5)))
-  Nkx   = size(field_data(uspec0), 1)
-  wvec  = fill(FT(2), Nkx); wvec[1] = FT(1); iseven(p.N) && (wvec[Nkx] = FT(1))
-  wt    = dev(reshape(wvec, Nkx, 1, 1))
-
   # --- initial condition ----------------------------------------------------
-  uh = random_solenoidal(grid, m, vplans, ksq, p, band, wt)
+  uh = random_solenoidal(grid, m, vplans, ksq, band, p)
   convolve!(uh, uh, dealias)
 
   # --- spin-up to stationarity (adaptive Δt) --------------------------------
@@ -286,7 +258,7 @@ function run_hist(p::Params)
     dt = p.cfl * Δx / max(max_speed(u), 1e-6)
     push!(t_hist, t); push!(E_hist, kinetic_energy(u))
     push!(ε_hist, dissipation(to_physical(curl(uh, m), vplans), p))
-    step!(uh, m, vplans, dealias, ksq, p, dt, band, wt)
+    step!(uh, m, vplans, dealias, band, ksq, p, dt)
     t += dt
   end
 
@@ -300,7 +272,7 @@ function run_hist(p::Params)
   S2e = zeros(p.N ÷ 2); n_snap = 0
   rec = 0
   for n in 1:p.n_stats
-    u = step!(uh, m, vplans, dealias, ksq, p, dt, band, wt)       # u = start-of-step velocity
+    u = step!(uh, m, vplans, dealias, band, ksq, p, dt)          # u = start-of-step velocity
     push!(t_hist, t); push!(E_hist, kinetic_energy(u))
     push!(ε_hist, dissipation(to_physical(curl(uh, m), vplans), p))
     v = advect!(X, u, dt, p)
@@ -326,7 +298,7 @@ function run_hist(p::Params)
   # divergence check (should be ~Float32 roundoff): ‖∇·u‖ / (k_rms ‖u‖), via the package l2norm.
   divp = to_physical(divergence(uh, m), splans)
   divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
-  ek_k, ek_E = energy_spectrum(uh, m, p)
+  ek_k, ek_E = energy_spectrum(uh, m)
   @printf("  K=%.4g  ε=%.4g  u'=%.4g  Re_λ=%.1f  η=%.3g  k_max·η=%.2f  ‖∇·u‖_rel=%.1e\n",
           K, ε, uprime, Reλ, η, kmaxη, divrel)
   # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces

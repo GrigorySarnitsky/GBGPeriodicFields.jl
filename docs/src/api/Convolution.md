@@ -16,10 +16,16 @@ See `docs/ARCHITECTURE.md` §2 and decision 20.
 
 `convolve`/`convolve!` apply the kernel (with allocating, in-place, and α/β-accumulate forms); because
 a kernel is itself a scalar field in spectral representation, `convolve(g₁, g₂)` composes two kernels.
-`spectral_cutoff` builds the isotropic sharp low-pass (de-aliasing) kernel. This is the coefficientwise
-spectral product invariant 1 names but bans **as `*`** — offered here under its true name `convolve`,
-never as `*`. Spectral representation only; physics (an LES filter, an integrating factor) stays a
-consumer-built kernel.
+This is the coefficientwise spectral product invariant 1 names but bans **as `*`** — offered here under
+its true name `convolve`, never as `*`. Spectral representation only; physics (an LES filter, an
+integrating factor) stays a consumer-built kernel.
+
+Three neutral builders ship (decisions 20, 21): `spectral_cutoff` is the isotropic sharp low-pass
+(de-aliasing) kernel; `spectral_band(ref, mult, k_lo, k_hi)` is its annular generalization (a band-pass
+shell selector; the cutoff is the `k_lo = 0` case); and `squared_wavenumber_field(ref, mult)` is the
+`|k|²` radial coordinate of spectral space as a `ScalarFieldSpectral` — the consumer builds a Fourier
+symbol from it (a viscous integrating factor `exp(−ν|k|²Δt)`, a smooth envelope, a Germano filter) and
+applies it with `convolve`.
 
 ## Contents
 

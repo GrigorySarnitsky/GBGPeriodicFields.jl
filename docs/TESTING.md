@@ -51,11 +51,12 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`, `convolution.jl` (periodic convolution — apply a Fourier kernel),
+  `differentialoperators.jl`, `convolution.jl` (periodic convolution + the kernel/coordinate builders
+  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field`),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
-  `reductions.jl` (the L²/measure reductions on fields and point-values), plus
+  `reductions.jl` (the L²/measure reductions + the shell-resolved `shell_spectrum` on fields and point-values), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
@@ -223,14 +224,19 @@ across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (`(
 points), the extensive/intensive `integral = measure · mean` relation (incl. an anisotropic box), the
 energy identity `½ inner(u,u) = ½⟨|u|²⟩`, the **spectral Parseval `inner`/`l2norm`** (equal to the
 physical inner, scalar/vector/tensor, on even-`Nₓ` and odd-`Nₓ` grids to hit both the Nyquist and
-no-Nyquist branches), and the intentional absence of the *measure* reductions on spectral fields;
+no-Nyquist branches), the **shell-resolved Parseval inner** `shell_spectrum` (the radial power
+spectrum, checked by the exact refinement `sum(spectrum) == inner(f,f)` over scalar/vector/tensor on
+even-`Nₓ` and odd-`Nₓ` grids, plus the single-mode shell placement and its spectral-only absence), and
+the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 `f̂·ĝ` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 `exp(-i kₐ m Δ) ⇔ circshift` along **all three axes, on scalar and vector fields** (an independent
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
-Nyquist), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
+Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a `|k|²`
+membership oracle) and `squared_wavenumber_field` (the `|k|²` radial coordinate vs the analytic sum,
+real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
 and **property-based tests** (`randomized.jl`): algebraic laws on **random** fields, point-values, and
 kernels over several trials — vector-space and contraction/product identities, transpose/sym/skew/dev,
 the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, `integral = |Ω|·mean`), convolution

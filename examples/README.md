@@ -82,35 +82,36 @@ All in the `Params` struct at the top of the file: `N`, `ν`, forcing band/energ
 
 ## Gap list — what this example reveals the package still lacks
 
-Each remaining item is something the script computes on raw `field_data(...)` arrays (fine on CPU;
-**forbidden on GPU under `allowscalar(false)`**). The forthcoming `HIST_ROCm.jl` will make them
-mandatory.
+Each item the example surfaced as a hand-roll is, by design, a candidate for promotion into the
+package. Most are now closed — the GPU twin (`allowscalar(false)`) forced the remaining ones in.
 
-**Closed since the first draft:**
+**Closed:**
 
-- ✅ **Reductions over a field** (`Reductions` module): `integral`, `inner`, `l2norm`, `lpnorm`, and
-  `mean`/`std`/`var`/`maximum` on fields and point-values. The script now uses `½ inner(u,u)`,
-  `ν inner(ω,ω)`, `lpnorm(u, Inf)`, and `l2norm(∇·u)` — no `field_data` reach-in for the energetics.
-- ✅ **Apply a diagonal spectral operator `f(k)`** (`Convolution` module): `convolve` applies any
-  `ScalarFieldSpectral` transfer function as the coefficientwise multiply, and `spectral_cutoff` builds
-  the sharp isotropic low-pass. The 2/3 de-alias filter is `spectral_cutoff`; the `exp(−νk²Δt)`
-  integrating factor and the IC envelope are consumer-built kernels applied with `convolve` (their ν,
-  Δt, width are physics — invariant 12).
+- ✅ **Reductions over a field** (`Reductions`): `integral`, `inner`, `l2norm`, `lpnorm`,
+  `mean`/`std`/`var`/`maximum`. The script uses `½ inner(u,u)`, `ν inner(ω,ω)`, `lpnorm(u, Inf)`,
+  `l2norm(∇·u)` — no `field_data` reach-in for the energetics.
+- ✅ **Apply a diagonal spectral operator `f(k)`** (`Convolution`): `convolve` applies any
+  `ScalarFieldSpectral` transfer function; `spectral_cutoff` builds the sharp isotropic low-pass.
+  The 2/3 de-alias filter is `spectral_cutoff`; the `exp(−νk²Δt)` integrating factor and the IC
+  envelope are consumer-built kernels applied with `convolve` (ν, Δt, width are physics — invariant 12).
+- ✅ **`|k|`-field and shell band utilities** (`Convolution`, decision 21): `squared_wavenumber_field`
+  is the `|k|²` radial coordinate (the consumer builds `exp(−νk²Δt)` / the envelope from it);
+  `spectral_band(ref, mult, k_lo, k_hi)` is the annular band-pass. The **forcing** is now pure package
+  ops — band energy `= ½ inner(convolve(û, band), û)`, rescale via `convolve` — no shell loop.
+- ✅ **Energy spectrum `E(k)`** (`Reductions`, decision 21): `shell_spectrum(û, mult)` is the
+  shell-resolved Parseval inner (`sum(spectrum) == inner`); the consumer's `E = ½ spectrum`. The
+  binning is device-clean (masked reductions), so on the GPU the spectrum needs no host copy.
 
-**Still open** (the script hand-rolls these on `field_data`):
+**Still open** (the script hand-rolls these on `field_data`, both representation-neutral):
 
-1. **`|k|`-field and shell utilities** — a wavenumber-magnitude field, shell masks/bands, and a
-   shell-average (for the spectrum `E(k)`), all derivable from `m.squared_wavenumber_*` but not
-   exposed. (The script still builds `ksquared(m)` and the shell/band loops by hand.)
-2. **Random solenoidal field generator** with a target spectrum (an initial-condition helper).
-3. **Energy spectrum `E(k)`** as a first-class diagnostic (a binned spectral reduction; built here by
-   hand with the rfft Parseval weighting).
-4. *Minor:* a periodic field-shift helper (the Eulerian `S₂` uses `circshift` on the raw array); and
-   `gradient(vector)→tensor` for the velocity-gradient tensor, which this script sidesteps via the
+1. **Random solenoidal field generator** with a target spectrum (an initial-condition helper). The
+   script builds the random field + envelope + Helmholtz projection by hand.
+2. *Minor:* a periodic field-shift helper (the Eulerian `S₂` uses `circshift` on the raw array); and
+   `gradient(vector)→tensor` for the velocity-gradient tensor, which the script sidesteps via the
    homogeneous identity `ε = ν⟨|ω|²⟩`.
 
-Forcing itself stays a *consumer* concern (the package has no time/forcing), but it needs the shell
-access of #1.
+Forcing and time integration themselves stay a *consumer* concern (the package has no time/forcing);
+what the package now supplies is every spectral primitive they are built from.
 
 ---
 
@@ -129,17 +130,15 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke   # qui
 ```
 
 **What the GPU forced into the package.** With `allowscalar(false)`, the CPU script's hand-rolled
-`field_data` loops cannot run on-device — so they had to become package operations or device-clean
-broadcasts. The energetics (`inner`/`l2norm`/`lpnorm`) and every diagonal-Fourier apply
-(`convolve`/`spectral_cutoff`) run **unchanged on-device** — this twin is the proof that the two
-*closed* gaps (reductions, and the diagonal `f(k)` apply) are genuinely closed device-side, not just on
-the CPU. The two remaining scalar-indexed pieces were reworked here: **forcing** as a `sum`-reduction +
-a per-step `convolve` with a scale kernel (fully on-device), and the **E(k) spectrum** binning on a
-one-shot host copy at the end of the run (the irregular shell scatter still has no device-clean package
-form — open gap #3). A representative Float32 run
-reports `K ≈ 0.67`, `Re_λ ≈ 15`, `k_max·η ≈ 1.6`, `‖∇·u‖_rel ≈ 1e-8` (Float32 roundoff), and the
-spectral-`inner` Parseval check matches the physical energy to all printed digits.
+`field_data` loops cannot run on-device — so they drove the spectral primitives into the package (the
+"closed" gaps above). The result: **the GPU twin runs the exact same source as `HIST_CPU.jl` for the
+forcing and the spectrum** — `spectral_band` + `inner` + `convolve` for the forcing, `shell_spectrum`
+for E(k) — on device arrays, with no host copy and no scalar-indexed mask. The energetics
+(`inner`/`l2norm`/`lpnorm`), every diagonal-Fourier apply (`convolve` / `spectral_cutoff` /
+`spectral_band` / `squared_wavenumber_field`), and the shell-resolved spectrum all run unchanged
+on-device. A representative Float32 run reports `K ≈ 0.67`, `Re_λ ≈ 15`, `k_max·η ≈ 1.6`,
+`‖∇·u‖_rel ≈ 1e-8` (Float32 roundoff), and the spectral-`inner` Parseval check matches the physical
+energy to all printed digits.
 
-This sharpens the gap list above: gaps **#1 (shell/|k| utility)** and **#3 (E(k) reduction)** are what
-would let the forcing band and the spectrum run wholly on-device too; gap **#2 (random-solenoidal IC
-generator)** would replace the host-built random field. Everything else is already device-portable.
+The only non-package pieces left (gap list above) are the random-solenoidal IC generator and the
+Eulerian-`S₂` field-shift — both representation-neutral and host-side here, neither on the GPU hot path.

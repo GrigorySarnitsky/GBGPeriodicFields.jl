@@ -45,7 +45,7 @@ using ..FiberSections:
   _assign!,
   @_assign!
 
-export convolve, convolve!, spectral_cutoff
+export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_field
 
 
 ####################################################
@@ -140,12 +140,66 @@ end
 
 
 """
+    squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+The **squared-wavenumber field** `|k|² = k₁² + k₂² + k₃²` as a scalar field in spectral
+representation, on `reference`'s grid and array backend. The neutral isotropic radial coordinate of
+spectral space: the consumer builds a Fourier symbol from it — a viscous integrating factor
+`exp(−ν|k|²Δt)`, a smooth spectral envelope `exp(−(|k|/k_p)²)`, a Germano filter `1/(1+Δ²|k|²)` — by
+broadcasting over its `field_data`, then applies it with [`convolve`](@ref). Carrying `ν`, `Δt`, and
+the filter width is the consumer's (invariant 12); the package supplies only the coordinate.
+
+`|k|²` is summed with the true value kept at the Nyquist frequency (the Laplacian convention,
+invariant 5). The value is real but stored in the `Complex{T}` coefficient array of a
+`ScalarFieldSpectral` (imaginary part zero), exactly as [`spectral_cutoff`](@ref) stores its `0/1`
+mask.
+"""
+function squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+  _check_multipliers_compatibility(reference, multipliers)
+  T = field_scalar_type(reference)
+  result = similar_field(reference, Val(0))
+  result_data = field_data(result)
+  @_assign! result_data .= Complex{T}.(_squared_wavenumber_broadcast(multipliers))
+  return result
+end
+
+
+"""
+    spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_low, wavenumber_high)
+
+Build the **isotropic sharp spectral band-pass** as a scalar field in spectral representation: the
+transfer function `ĝ(k) = 1` for `wavenumber_low ≤ |k| ≤ wavenumber_high` and `0` otherwise, on
+`reference`'s grid and array backend. The annular generalization of [`spectral_cutoff`](@ref) — which
+is the low-pass special case `wavenumber_low = 0`. Convolving with it keeps an isotropic shell of
+wavenumbers: a de-aliasing band, a forcing band (the energy held in `1 ≤ |k| ≤ k_f`), or any shell
+selector. Idempotent (`ĝ² = ĝ`), so it is a projection.
+
+A neutral mathematical primitive: the band edges are the consumer's. `|k|²` keeps the true value at
+the Nyquist frequency (the Laplacian convention, invariant 5).
+"""
+function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+    wavenumber_low::Real, wavenumber_high::Real)
+  _check_multipliers_compatibility(reference, multipliers)
+  T = field_scalar_type(reference)
+  kernel = similar_field(reference, Val(0))
+  kernel_data = field_data(kernel)
+  squared_wavenumber = _squared_wavenumber_broadcast(multipliers)
+  low_squared = T(wavenumber_low)^2
+  high_squared = T(wavenumber_high)^2
+  @_assign! kernel_data .= ifelse.((squared_wavenumber .>= low_squared) .& (squared_wavenumber .<= high_squared),
+                                   one(Complex{T}), zero(Complex{T}))
+  return kernel
+end
+
+
+"""
     spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
 
 Build the **isotropic sharp spectral cutoff** as a scalar field in spectral representation: the
 transfer function `ĝ(k) = 1` for `|k| ≤ wavenumber_cutoff` and `0` otherwise, on `reference`'s grid
 and array backend. Convolving with it is the ideal low-pass projection (idempotent — `ĝ² = ĝ`), the
-basis of spectral truncation and de-aliasing.
+basis of spectral truncation and de-aliasing. The low-pass special case of [`spectral_band`](@ref)
+(`wavenumber_low = 0`).
 
 A neutral mathematical primitive: the choice of cutoff (e.g. a `2/3` de-aliasing rule, or an LES
 filter scale) is the consumer's. The squared wavenumber `|k|²` is summed with the true value kept at
@@ -153,14 +207,7 @@ the Nyquist frequency (the Laplacian convention, invariant 5).
 """
 function spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_cutoff::Real)
-  _check_multipliers_compatibility(reference, multipliers)
-  T = field_scalar_type(reference)
-  kernel = similar_field(reference, Val(0))
-  kernel_data = field_data(kernel)
-  squared_wavenumber = _squared_wavenumber_broadcast(multipliers)
-  cutoff_squared = T(wavenumber_cutoff)^2
-  @_assign! kernel_data .= ifelse.(squared_wavenumber .<= cutoff_squared, one(Complex{T}), zero(Complex{T}))
-  return kernel
+  return spectral_band(reference, multipliers, zero(wavenumber_cutoff), wavenumber_cutoff)
 end
 
 

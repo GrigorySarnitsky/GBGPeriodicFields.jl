@@ -11,6 +11,7 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   s = scalar_phys(AT, T, grid)
   u = vector_phys(AT, T, grid); v = vector_phys(AT, T, grid)
   us = vector_spec(AT, T, grid); vs = vector_spec(AT, T, grid)
+  m = FieldSpectralMultipliers(us)
   group["integral scalar | $tag"] = @benchmarkable integral($s)
   group["mean vector | $tag"]     = @benchmarkable mean($u)            # fiber-valued (sum over base + copy)
   group["inner vec.vec | $tag"]   = @benchmarkable inner($u, $v)       # the energy workhorse (dot)
@@ -18,4 +19,5 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   group["lpnorm vec Inf | $tag"]  = @benchmarkable lpnorm($u, Inf)     # norm(u) alloc + sup
   group["maximum scalar | $tag"]  = @benchmarkable maximum($s)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes
+  group["shell_spectrum vec | $tag"] = @benchmarkable shell_spectrum($us, $m)   # shell-resolved inner (per-shell masked sums)
 end

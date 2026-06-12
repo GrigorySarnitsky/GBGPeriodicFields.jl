@@ -281,6 +281,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       convolve!(host_dest, phi_spec_h, cutoff_h, T(3), T(5))
       convolve!(device_dest, phi_spec_d, cutoff_d, T(3), T(5))
       @test matches(device_dest, host_dest)
+
+      # spectral_band (annular) and squared_wavenumber_field build entirely on-device (no scalar index)
+      @test matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
+      @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
     end
 
     @testset "interpolation / anterpolation (Lalescu splines)" begin
@@ -345,6 +349,14 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       vf_spec_h = to_spectral(vf, plans_for(vf)); vf_spec_d = to_spectral(vfd, plans_for(vfd))
       @test eq(inner(vf_spec_d, vf_spec_d), inner(vf_spec_h, vf_spec_h))
       @test eq(inner(vf_spec_h, vf_spec_h), inner(vf, vf)) && eq(l2norm(vf_spec_d), l2norm(vf_spec_h))
+
+      # shell_spectrum: the per-shell binning runs on-device (masked reductions, no scalar indexing).
+      # The returned host vectors match the CPU, and sum(spectrum) == inner (the exact refinement).
+      mult_h = FieldSpectralMultipliers(vf_spec_h); mult_d = FieldSpectralMultipliers(vf_spec_d)
+      shells_d, spectrum_d = shell_spectrum(vf_spec_d, mult_d)
+      shells_h, spectrum_h = shell_spectrum(vf_spec_h, mult_h)
+      @test shells_d == shells_h && eq(spectrum_d, spectrum_h)
+      @test eq(sum(spectrum_d), inner(vf_spec_d, vf_spec_d))
 
       M = 40
       sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))

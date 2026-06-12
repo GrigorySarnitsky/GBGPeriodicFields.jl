@@ -98,6 +98,37 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       end
     end
 
+    @testset "spectral_band: annular band-pass generalizing spectral_cutoff" begin
+      m = FieldSpectralMultipliers(phi_s)
+      band = spectral_band(phi_s, m, T(1.5), T(3.0))
+      vals = field_data(band)
+      @test band isa ScalarFieldSpectral
+      @test all(v -> v == zero(Complex{T}) || v == one(Complex{T}), vals)    # a sharp 0/1 shell mask
+      @test vals[1, 1, 1] == zero(Complex{T})                               # |k| = 0 excluded (low edge > 0)
+      @test approx(field_data(convolve(band, band)), vals)                  # idempotent projection
+      # the low-pass special case: spectral_cutoff(k) === spectral_band(0, k)
+      @test field_data(spectral_cutoff(phi_s, m, T(2.5))) == field_data(spectral_band(phi_s, m, T(0), T(2.5)))
+      # membership oracle: ĝ = 1 exactly on the closed shell 1.5 ≤ |k| ≤ 3.0
+      k_squared = real.(field_data(squared_wavenumber_field(phi_s, m)))
+      expected = map(k2 -> (T(1.5)^2 <= k2 <= T(3.0)^2) ? one(Complex{T}) : zero(Complex{T}), k_squared)
+      @test vals == expected
+    end
+
+    @testset "squared_wavenumber_field: |k|² as a real-valued ScalarFieldSpectral" begin
+      m = FieldSpectralMultipliers(phi_s)
+      k2 = squared_wavenumber_field(phi_s, m)
+      @test k2 isa ScalarFieldSpectral
+      reference = reshape(Array(m.squared_wavenumber_1), :, 1, 1) .+
+                  reshape(Array(m.squared_wavenumber_2), 1, :, 1) .+
+                  reshape(Array(m.squared_wavenumber_3), 1, 1, :)
+      @test real.(field_data(k2)) ≈ reference
+      @test all(iszero, imag.(field_data(k2)))                              # real, stored in the complex array
+      @test field_data(k2)[1, 1, 1] == zero(Complex{T})                     # |k| = 0 at the origin mode
+      # consumer use: build a viscous integrating factor exp(−ν|k|²Δt) and apply it with convolve
+      factor = scalar_kernel(exp.(-T(0.1) .* field_data(k2) .* T(0.05)))
+      @test all(v -> abs(v) <= 1 + abstol, field_data(factor))              # a decay (|symbol| ≤ 1), real
+    end
+
     @testset "kernel composition: convolve(g₁, g₂) composes, and is associative" begin
       m = FieldSpectralMultipliers(phi_s)
       g1 = spectral_cutoff(phi_s, m, T(3))

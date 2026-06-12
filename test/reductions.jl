@@ -119,6 +119,35 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
         @test inner(tospec(f1), tospec(f1)) isa T                                              # real scalar, eltype preserved
       end
     end
+
+    @testset "shell_spectrum refines the Parseval inner ($T)" begin
+      layout = RealFourierLayout()
+      atol = T == Float64 ? 1e-12 : 1.0f-5
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        tospec(phys) = (R = field_tensor_order(phys);
+                        shape = spectral_field_shape(gp, layout, Val(R));
+                        spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
+                        to_spectral(phys, FieldTransformPlans(phys, spec0)))
+        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        f = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
+        u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
+        A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
+        for section in (f, u, A)                          # scalar / vector / tensor, both grids
+          spectral = tospec(section)
+          shells, spectrum = shell_spectrum(spectral, m)
+          @test sum(spectrum) ≈ inner(spectral, spectral)  # the exact inner refinement (Parseval)
+          @test all(>=(0), spectrum)                       # |f̂|² ≥ 0 ⇒ each shell sum ≥ 0
+          @test length(shells) == length(spectrum) && eltype(spectrum) === T && shells[1] == 0
+        end
+        # a single Fourier mode lands in exactly one shell: cos(x) puts ALL energy in |k| = 1
+        single = tospec(VectorFieldPhysical((x, y, z) -> (cos(x), 0.0, 0.0), gp))
+        _, single_spectrum = shell_spectrum(single, m)
+        @test argmax(single_spectrum) == 2                 # shell |k| = 1 (the second, after |k| = 0)
+        @test isapprox(sum(single_spectrum[3:end]), 0; atol = atol)   # nothing in |k| ≥ 2
+      end
+    end
   end
 
   # ---- spectral: the Parseval inner/l2norm are defined; the measure reductions stay physical-only ----
@@ -127,11 +156,15 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     g = Grid3D((N, N, N), (2π, 2π, 2π))
     layout = RealFourierLayout()
     spec = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(g, layout, Val(0))), g)
+    m = FieldSpectralMultipliers(spec)
     @test inner(spec, spec) === 0.0          # Parseval inner defined (zero field ⇒ 0), real scalar
     @test l2norm(spec) === 0.0
+    @test shell_spectrum(spec, m)[2] == zeros(length(shell_spectrum(spec, m)[2]))  # spectral-only, zero field ⇒ 0
     @test_throws MethodError mean(spec)       # the measure reductions remain physical-only
     @test_throws MethodError integral(spec)
     @test_throws MethodError lpnorm(spec, 2)
     @test_throws MethodError maximum(spec)
+    # shell_spectrum is the mirror image — spectral-only, no physical-field method
+    @test_throws MethodError shell_spectrum(ScalarFieldPhysical((x, y, z) -> sin(x), g), m)
   end
 end
