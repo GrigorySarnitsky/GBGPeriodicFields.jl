@@ -209,7 +209,7 @@ using .Reductions:
   inner,
   l2norm,
   lpnorm,
-  shell_spectrum
+  radial_spectrum
 
 # `mean`/`std`/`var` (Statistics) and `maximum`/`minimum`/`extrema` (Base) are *extended* on sections
 # in `Reductions`; those methods are global and reached through `using Statistics` / Base. They are
@@ -307,7 +307,7 @@ export FiberVector,
        inner,
        l2norm,
        lpnorm,
-       shell_spectrum
+       radial_spectrum
 
 
 function __init__()

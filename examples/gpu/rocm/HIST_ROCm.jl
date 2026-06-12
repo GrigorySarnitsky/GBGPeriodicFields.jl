@@ -13,11 +13,11 @@
 #     multipliers and the shell-mask kernels land on-device automatically.
 #   • The package operations are backend-agnostic and run unchanged: curl, cross,
 #     helmholtz_projection, the transforms, the L²/measure reductions
-#     (inner/l2norm/lpnorm and shell_spectrum), convolve with the kernel/coordinate
+#     (inner/l2norm/lpnorm and radial_spectrum), convolve with the kernel/coordinate
 #     builders (spectral_cutoff / spectral_band / squared_wavenumber_field), and interpolate.
 #   • There is now NOTHING device-special left to hand-roll. The forcing band is a
 #     `spectral_band` kernel (energy via `inner(convolve(û,band),û)`, rescale via
-#     `convolve`) and the energy spectrum is `shell_spectrum` (on-device shell binning,
+#     `convolve`) and the energy spectrum is `radial_spectrum` (on-device shell binning,
 #     no host copy) — the same source as HIST_CPU.jl, run on device arrays. The only
 #     remaining non-package bits (examples/README.md gap list) are the random-solenoidal
 #     IC generator and the Eulerian-S₂ field-shift, both representation-neutral.
@@ -81,7 +81,7 @@ spectral_kernel(reference, w) = ScalarFieldSpectral(Complex{FT}.(w), field_grid(
 # =============================================================================
 # Diagnostics — every one is a package reduction, running on-device unchanged
 # (sum/dot/maximum are GPU-portable): kinetic energy ½⟨|u|²⟩, dissipation ν⟨|ω|²⟩,
-# the CFL speed, and — now also on-device — the energy spectrum via shell_spectrum
+# the CFL speed, and — now also on-device — the energy spectrum via radial_spectrum
 # (the shell binning is masked reductions, no host copy, no scalar indexing).
 # =============================================================================
 
@@ -90,9 +90,9 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                 # ν�
 max_speed(u)      = lpnorm(u, Inf)                                    # sup|u|, the CFL velocity
 
 # E(κ) = ½ × the shell-resolved Parseval inner; ∑ₖ E(κ) = ½⟨|u|²⟩ = kinetic energy.
-# shell_spectrum bins on-device and returns small host vectors — no host copy of the field.
+# radial_spectrum bins on-device and returns small host vectors — no host copy of the field.
 function energy_spectrum(uh, m)
-  shells, spectrum = shell_spectrum(uh, m)                            # device binning (package)
+  shells, spectrum = radial_spectrum(uh, m)                            # device binning (package)
   return shells, 0.5 .* spectrum
 end
 

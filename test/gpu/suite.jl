@@ -350,11 +350,11 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(inner(vf_spec_d, vf_spec_d), inner(vf_spec_h, vf_spec_h))
       @test eq(inner(vf_spec_h, vf_spec_h), inner(vf, vf)) && eq(l2norm(vf_spec_d), l2norm(vf_spec_h))
 
-      # shell_spectrum: the per-shell binning runs on-device (masked reductions, no scalar indexing).
+      # radial_spectrum: the per-shell binning runs on-device (masked reductions, no scalar indexing).
       # The returned host vectors match the CPU, and sum(spectrum) == inner (the exact refinement).
       mult_h = FieldSpectralMultipliers(vf_spec_h); mult_d = FieldSpectralMultipliers(vf_spec_d)
-      shells_d, spectrum_d = shell_spectrum(vf_spec_d, mult_d)
-      shells_h, spectrum_h = shell_spectrum(vf_spec_h, mult_h)
+      shells_d, spectrum_d = radial_spectrum(vf_spec_d, mult_d)
+      shells_h, spectrum_h = radial_spectrum(vf_spec_h, mult_h)
       @test shells_d == shells_h && eq(spectrum_d, spectrum_h)
       @test eq(sum(spectrum_d), inner(vf_spec_d, vf_spec_d))
 

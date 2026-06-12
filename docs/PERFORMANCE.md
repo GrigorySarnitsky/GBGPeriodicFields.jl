@@ -168,7 +168,7 @@ Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative)
 operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field`), the **interpolation/anterpolation transfer**, and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
-`inner`, and the shell-resolved `shell_spectrum` — per-shell masked reductions, a diagnostic-cost
+`inner`, and the shell-resolved `radial_spectrum` — per-shell masked reductions, a diagnostic-cost
 sweep). Run it:
 
 ```sh

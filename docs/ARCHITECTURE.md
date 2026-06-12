@@ -137,7 +137,7 @@ realizes the *vertical* operations on the unstructured base — it mirrors the
 Operation names follow *what the operation is* — the same mathematics-first principle:
 
 - **Reductions** (section → scalar/fiber) take the **quantity's noun**: `integral`, `inner`,
-  `l2norm`, `lpnorm`, `shell_spectrum` (the radial profile is still the quantity's noun).
+  `l2norm`, `lpnorm`, `radial_spectrum` (the radial profile is still the quantity's noun).
 - **Canonically named operators** (section → section with a standard, often eponymous operator name
   and no natural verb) take that **noun**: `gradient`, `divergence`, `curl`, `laplacian`,
   `inverse_laplacian`, `helmholtz_projection`.
@@ -781,7 +781,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     | role of the measure | what it is | operation(s) | maps | status |
     |---------------------|-----------|--------------|------|--------|
-    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `shell_spectrum` (the `\|k\|`-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
+    | **base-quadrature** | `Grid3D` cell volume `∏Δxᵢ` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `radial_spectrum` (the `\|k\|`-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
     | **kernel — multiplier** | translation-invariant convolution, symbol `m(k) ∈ L^∞` | `convolve` / `convolve!`; builders `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` (the radial coordinate consumers build symbols from) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decisions 20, 21) |
     | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` `W` / `anterpolate` `Wᵀ` | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
     | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
@@ -889,28 +889,27 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       to delegate). Idempotent ⇒ a projection; it selects a wavenumber shell — a de-alias band, a
       forcing band, a filter ring. With it the demos' low-shell forcing becomes pure package ops:
       band energy `= inner(convolve(u, band), u)`, then a rescaling `convolve` — no scalar indexing.
-    - **`shell_spectrum(f, multipliers)` (`Reductions`)** — the **radial (shell-resolved) power
-      spectrum**: `inner` decomposed into isotropic `|k|`-shells. Returns `(shells, spectrum)` with
-      the exact refinement `sum(spectrum) == inner(f, f)` (same rfft half-spectrum Parseval weighting,
-      now resolved per mode). This is the genuinely new reduction — spectral-representation only, like
-      the Parseval `inner` — and the architectural framing is precisely *"the energy spectrum is the
-      shell-resolved inner"* (decision 19's L²/integration structure, refined by the spectral radial
-      coordinate). The consumer's `E(κ) = ½ spectrum`; the neutral noun keeps physics out (invariant
-      12). Shells run to the corner wavenumber so the refinement is exact; on a de-aliased field the
-      high-`|k|` shells are empty.
+    - **`radial_spectrum(f, multipliers)` (`Reductions`; introduced as `shell_spectrum`, renamed in
+      decision 22)** — the **radial (shell-binned) power spectrum**: `inner` decomposed into isotropic
+      `|k|`-shells. Returns `(shells, spectrum)` with the exact refinement `sum(spectrum) == inner(f, f)`
+      (same rfft half-spectrum Parseval weighting, now resolved per mode). This is the genuinely new
+      reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
+      is precisely *"the energy spectrum is the radially-resolved inner"* (decision 19's L²/integration
+      structure, refined by the spectral radial coordinate). The consumer's `E(κ) = ½ spectrum`; the
+      neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
+      refinement is exact; on a de-aliased field the high-`|k|` shells are empty.
 
     *Device-clean by construction.* `squared_wavenumber_field` / `spectral_band` are broadcast kernel
-    builders (the `spectral_cutoff` pattern); `shell_spectrum` bins via a sequence of **masked
+    builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a sequence of **masked
     reductions** (one per shell), not a histogram scatter — no scalar indexing, no atomics, GPU-portable
     as an occasional diagnostic (a per-step spectrum would want an atomic-histogram kernel; deferred,
     unneeded). Tested CPU (`test/convolution.jl` band/coordinate vs the `|k|²` oracle + cutoff equivalence;
-    `test/reductions.jl` `sum(shell_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
+    `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
     the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells and a co-spectrum
-    `shell_spectrum(f, g)` remain future, unneeded now. **The radial reduction is renamed in decision 22
-    (`shell_spectrum → radial_spectrum`) and gains a physical-space dual; references here use the old
-    name until that lands.**
+    `radial_spectrum(f, g)` remain future, unneeded now. **Renamed `shell_spectrum → radial_spectrum` in
+    decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, pending.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
     point pair-statistics (RDF). [DESIGNED; Phase 1/2 not yet implemented — the recorded foundation, as
     decision 19 was for the multiplier family.]**
@@ -922,19 +921,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     over `|k|`-shells (the spectrum), or `IFFT(|f̂|²)` over `|r|`-shells (the correlation). This is
     invariant 2 — *physical and spectral are representations of one object* — raised to **second-order
     statistics**: the spectrum and the correlation function are not two diagnostics but one, viewed in
-    the two representations. `shell_spectrum` (decision 21) is the spectral half; this entry designs the
-    physical half and the point application, and fixes the terminology so the family is coherent.
+    the two representations. `radial_spectrum` (decision 21, introduced as `shell_spectrum`) is the
+    spectral half; this entry designs the physical half and the point application, and fixes the
+    terminology so the family is coherent.
 
-    *Terminology (decided).* Rename **`shell_spectrum → radial_spectrum`** and add the physical dual
-    **`radial_correlation`**. "Radial" is the isotropic-average qualifier common to both spaces — and to
-    the *radial* distribution function of point statistics; "shell" named the binning implementation and
-    does not pair with the physical-space correlation. The two are the **radial reductions**: a
-    Fourier-dual pair in `Reductions`, each mapping a field to a 1-D radial profile, named by the
-    quantity's noun per §2 (`spectrum` / `correlation`) under the `radial` qualifier. `radial_spectrum`'s
-    math is unchanged (`sum == inner`). Physics names stay consumer-side: the energy spectrum
-    `E(k) = ½ radial_spectrum`, the integral/Taylor scales from `radial_correlation`, the RDF `g(r)` from
-    `radial_correlation` of a density field. (The rename is safe — the API is not frozen and
-    `shell_spectrum` shipped the same day with no external users; it is Phase 1's first step.)
+    *Terminology (decided; the rename is **done**).* `shell_spectrum` is renamed **`radial_spectrum`**,
+    and the physical dual **`radial_correlation`** is added (Phase 1, pending). "Radial" is the
+    isotropic-average qualifier common to both spaces — and to the *radial* distribution function of point
+    statistics; "shell" named the binning implementation and does not pair with the physical-space
+    correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
+    a field to a 1-D radial profile, named by the quantity's noun per §2 (`spectrum` / `correlation`)
+    under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
+    stay consumer-side: the energy spectrum `E(k) = ½ radial_spectrum`, the integral/Taylor scales from
+    `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
+    safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
     *The physical dual — `radial_correlation`.* `C(r)` = radially-averaged `⟨f(x)·f(x+r)⟩` (full fiber
     contraction — the trace of the correlation tensor, mirroring `inner`) `= IFFT(|f̂|²)` binned in `r`.

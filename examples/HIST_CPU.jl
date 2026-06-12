@@ -18,7 +18,7 @@
 # What the PACKAGE provides here: Grid3D, the field types, FFT plans/transforms,
 # FieldSpectralMultipliers, curl, cross, helmholtz_projection, divergence; the
 # L²/measure reductions inner / l2norm / lpnorm (energy, dissipation, the CFL speed,
-# the divergence check) and shell_spectrum (the radial energy spectrum E(k));
+# the divergence check) and radial_spectrum (the radial energy spectrum E(k));
 # convolve with the kernel/coordinate builders spectral_cutoff (de-alias),
 # spectral_band (the forcing band) and squared_wavenumber_field (|k|², for the
 # integrating-factor / IC-envelope symbols); and interpolate (grid→point). What this
@@ -83,7 +83,7 @@ spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(r
 # =============================================================================
 # Diagnostics — kinetic energy, dissipation, the CFL speed and the energy spectrum
 # are all package reductions now (Reductions module): `inner(f,g) = ⟨f·g⟩`,
-# `lpnorm(u, Inf) = sup|u|`, and `shell_spectrum(û, m)` = the shell-resolved inner
+# `lpnorm(u, Inf) = sup|u|`, and `radial_spectrum(û, m)` = the shell-resolved inner
 # (the radial power spectrum, `Σ spectrum = inner` ⇒ Σ E = ½⟨|u|²⟩). No field_data
 # loops; the energy spectrum is one call.
 # =============================================================================
@@ -94,7 +94,7 @@ max_speed(u)      = lpnorm(u, Inf)                                     # sup|u|,
 
 # E(κ) = ½ × the shell-resolved Parseval inner; ∑ₖ E(κ) = ½⟨|u|²⟩ = kinetic energy.
 function energy_spectrum(uh, m)
-  shells, spectrum = shell_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
+  shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
   return shells, 0.5 .* spectrum                                       # E(κ): physics ½ stays consumer-side
 end
 

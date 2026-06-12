@@ -38,7 +38,7 @@ import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
 import LinearAlgebra
 
-export integral, inner, l2norm, lpnorm, shell_spectrum
+export integral, inner, l2norm, lpnorm, radial_spectrum
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
@@ -189,7 +189,7 @@ end
 
 
 """
-    shell_spectrum(f, multipliers)
+    radial_spectrum(f, multipliers)
 
 The **radial (shell-resolved) power spectrum** of a field `f` in spectral representation: returns
 `(shells, spectrum)`, where `shells` are the bin-center wavenumber magnitudes and `spectrum[i]` is the
@@ -206,7 +206,7 @@ incompletely sampled (only corner modes) — the standard isotropic-spectrum cav
 `Σ spectrum == inner` still holds. GPU-portable: the binning is a sequence of masked reductions (no
 scalar indexing, no histogram kernel), suited to an occasional diagnostic rather than a per-step call.
 """
-function shell_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   _check_multipliers_compatibility(f, multipliers)
   grid = field_grid(f)
   fundamental = 2 * T(π) / T(maximum(grid.domain_size))           # the unit shell width (= 1 for a 2π box)

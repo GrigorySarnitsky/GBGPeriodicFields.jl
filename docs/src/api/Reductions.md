@@ -18,7 +18,7 @@ are *extended* on sections here — reached through `using Statistics` / `Base`,
 Physics stays in the consumer (kinetic energy `½ inner(u,u)`, enstrophy, dissipation, rms).
 
 A field in **spectral representation** also admits `inner`/`l2norm` via Parseval (equal to the physical
-inner, no transform), and `shell_spectrum(f, mult)` — the **radial (shell-resolved) power spectrum**:
+inner, no transform), and `radial_spectrum(f, mult)` — the **radial (shell-resolved) power spectrum**:
 `inner` decomposed into isotropic `|k|`-shells, returning `(shells, spectrum)` with the exact refinement
 `sum(spectrum) == inner(f, f)` (decision 21). The consumer's energy spectrum is `E = ½ .* spectrum`.
 

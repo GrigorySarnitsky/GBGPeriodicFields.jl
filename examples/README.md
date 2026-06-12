@@ -98,7 +98,7 @@ package. Most are now closed — the GPU twin (`allowscalar(false)`) forced the 
   is the `|k|²` radial coordinate (the consumer builds `exp(−νk²Δt)` / the envelope from it);
   `spectral_band(ref, mult, k_lo, k_hi)` is the annular band-pass. The **forcing** is now pure package
   ops — band energy `= ½ inner(convolve(û, band), û)`, rescale via `convolve` — no shell loop.
-- ✅ **Energy spectrum `E(k)`** (`Reductions`, decision 21): `shell_spectrum(û, mult)` is the
+- ✅ **Energy spectrum `E(k)`** (`Reductions`, decision 21): `radial_spectrum(û, mult)` is the
   shell-resolved Parseval inner (`sum(spectrum) == inner`); the consumer's `E = ½ spectrum`. The
   binning is device-clean (masked reductions), so on the GPU the spectrum needs no host copy.
 
@@ -132,7 +132,7 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke   # qui
 **What the GPU forced into the package.** With `allowscalar(false)`, the CPU script's hand-rolled
 `field_data` loops cannot run on-device — so they drove the spectral primitives into the package (the
 "closed" gaps above). The result: **the GPU twin runs the exact same source as `HIST_CPU.jl` for the
-forcing and the spectrum** — `spectral_band` + `inner` + `convolve` for the forcing, `shell_spectrum`
+forcing and the spectrum** — `spectral_band` + `inner` + `convolve` for the forcing, `radial_spectrum`
 for E(k) — on device arrays, with no host copy and no scalar-indexed mask. The energetics
 (`inner`/`l2norm`/`lpnorm`), every diagonal-Fourier apply (`convolve` / `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field`), and the shell-resolved spectrum all run unchanged

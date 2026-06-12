@@ -12,7 +12,7 @@ include order reflects the dependency layering: `FiberSections` → `Fields` →
 - [Convolution](api/Convolution.md): periodic convolution of a field with a Fourier kernel (`convolve`/`convolve!`, the coefficientwise product `f̂·ĝ`; the builders `spectral_cutoff`/`spectral_band`/`squared_wavenumber_field`), in spectral representation.
 - [Points](api/Points.md): the unstructured-base point and point-value data types and their fiberwise algebra.
 - [Interpolation](api/Interpolation.md): the grid↔point transfer — interpolation (gather) and anterpolation (scatter) via the local Lalescu splines.
-- [Reductions](api/Reductions.md): the L²/measure structure — base reductions (`integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/`var`, `maximum`) over fields and point-values, plus the shell-resolved `shell_spectrum` (the radial power spectrum) on fields in spectral representation.
+- [Reductions](api/Reductions.md): the L²/measure structure — base reductions (`integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/`var`, `maximum`) over fields and point-values, plus the shell-resolved `radial_spectrum` (the radial power spectrum) on fields in spectral representation.
 
 ```@contents
 Pages = [
