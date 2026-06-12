@@ -96,10 +96,18 @@ end
     integral(f)
 
 The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equiv \\int\\,d\\mu``) —
-**extensive** (scales with the base measure): the uniform quadrature ``\\tfrac{|\\Omega|}{N}\\sum_x f``
-on a `Grid3D`, the counting-measure ``\\sum_p f`` over a `PointSet`. Fiber-preserving: a scalar for a
-scalar section, a `FiberVector` for a vector section, a `FiberTensor2` for a tensor section.
-Physical-space only; spectral integration is future.
+**extensive** (scales with the base measure). Computed as the measure-weighted sum over base elements
+(the uniform quadrature on a `Grid3D`, the counting measure on a `PointSet`):
+
+```math
+\\int_\\Omega f \\, d\\mu = \\frac{|\\Omega|}{N} \\sum_{x} f(x) \\quad (\\texttt{Grid3D}),
+\\qquad
+\\sum_{p} f_p \\quad (\\texttt{PointSet}).
+```
+
+For a band-limited field the grid quadrature is exact (the periodic trapezoidal rule integrates the
+represented modes exactly). Fiber-preserving: a scalar for a scalar section, a `FiberVector` for a
+vector section, a `FiberTensor2` for a tensor section. Physical-space only; spectral integration is future.
 """
 function integral end
 integral(section::ReducibleSection) =
@@ -123,15 +131,31 @@ std(section::ReducibleSection; corrected::Bool = true) =
 """
     inner(f, g)
 
-The **normalized L² inner product** ``\\langle f, g\\rangle = \\tfrac1N \\sum_x f \\cdot g`` of two
-compatible sections (`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``; the full fiber contraction
-``f \\cdot g`` summed over the base, divided by the base count) — a scalar, intensive (matching `mean`).
+The **normalized L² inner product** of two compatible sections (`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``)
+— the full fiber contraction ``f \\cdot g`` summed over the base and divided by the base count ``N``; a
+scalar, intensive (matching `mean`). Computed as
+
+```math
+\\langle f, g\\rangle = \\frac1N \\sum_x f(x) \\cdot g(x).
+```
+
 For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
 
-Defined for physical fields and point-values (the naive sum above), and for two fields in **spectral
-representation** via Parseval: ``\\langle \\hat f, \\hat g\\rangle`` equals the physical `inner` of the
-same fields — the inner product without an inverse transform. `lpnorm`, `integral`, `mean`, `maximum`
-remain physical-only (only the ``p = 2`` inner is representation-invariant).
+For two fields in **spectral representation** the same value is computed by Parseval, without an inverse
+transform. The rfft stores only ``k_x \\ge 0``, so each mode counts twice except the self-conjugate
+``k_x = 0`` plane (and, for even ``N_x``, the Nyquist plane); the kernel forms a `dot` over the stored
+coefficients and subtracts those planes:
+
+```math
+\\langle f, g\\rangle = \\frac{1}{N^2}\\,\\mathrm{Re}\\!\\left(
+2 \\sum_{k_x \\ge 0} \\hat f(k)\\, \\overline{\\hat g(k)}
+\\;-\\; \\sum_{k_x = 0} \\hat f\\, \\overline{\\hat g}
+\\;-\\; \\sum_{k_x = N_x/2} \\hat f\\, \\overline{\\hat g}
+\\right),
+```
+
+with the last (Nyquist) sum present only for even ``N_x``, and ``N = \\prod_i N_i``. `lpnorm`, `integral`,
+`mean`, `maximum` remain physical-only (only the ``p = 2`` inner is representation-invariant).
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
@@ -197,9 +221,17 @@ end
 
 The **radial (shell-binned) power spectrum** ``E(\\kappa)`` of a field `f` in spectral representation
 (`radial_spectrum` ``\\equiv E(\\kappa)``): returns `(shells, spectrum)`, where `shells` are the
-bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` is the Parseval-weighted
-``\\sum_{|k| \\in \\text{shell } i} |\\hat f(k)|^2`` summed over the fiber (the rfft half-spectrum
-weighting). It **refines** [`inner`](@ref): ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` — the
+bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber energy
+over the modes whose rounded magnitude falls in shell ``i``:
+
+```math
+E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c |\\hat f_c(k)|^2,
+\\qquad
+w(k) = \\begin{cases} 1, & k_x = 0 \\text{ or (even } N_x) \\ k_x = N_x/2, \\\\ 2, & \\text{otherwise,} \\end{cases}
+```
+
+with the rfft half-spectrum weight ``w`` and shell width ``\\Delta k`` (the box fundamental). It
+**refines** [`inner`](@ref): ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` — the
 total L² energy split across isotropic ``|k|``-shells of unit-fundamental width. The consumer's
 kinetic-energy spectrum is then ``\\tfrac12 E(\\kappa)`` (so ``\\sum_\\kappa \\tfrac12 E(\\kappa) =
 \\tfrac12\\langle |u|^2\\rangle``); the package keeps the neutral name, physics stays consumer-side.
@@ -234,10 +266,17 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized Lᵖ norm** ``\\lVert f\\rVert_p = \\bigl(\\langle |f|^p\\rangle\\bigr)^{1/p}`` of a
-section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the pointwise fiber magnitude
-(the vertical `norm`). ``p = 2`` reduces to [`l2norm`](@ref); ``p = \\infty`` is the sup of the fiber
-magnitude ``\\lVert f\\rVert_\\infty`` (e.g. the maximum speed for a CFL condition). Physical-space only.
+The **normalized Lᵖ norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is
+the pointwise fiber magnitude (the vertical `norm`). Computed as
+
+```math
+\\lVert f\\rVert_p = \\Bigl(\\frac1N \\sum_x |f(x)|^p\\Bigr)^{1/p},
+\\qquad
+\\lVert f\\rVert_\\infty = \\max_x |f(x)|.
+```
+
+``p = 2`` reduces to [`l2norm`](@ref); ``p = \\infty`` is the sup of the fiber magnitude (e.g. the
+maximum speed for a CFL condition). Physical-space only.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
   p == 2 && return l2norm(section)

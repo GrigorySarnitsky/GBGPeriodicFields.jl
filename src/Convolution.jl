@@ -86,15 +86,21 @@ end
     convolve!(destination, field, kernel::ScalarFieldSpectral, α, β)
 
 Convolve `field` (in spectral representation) with the kernel whose transfer function is `kernel`,
-writing into `destination` in-place: the periodic (circular) convolution ``f \\star g``, realized
-coefficientwise as ``\\hat f \\cdot \\hat g``. `kernel` is a scalar field in spectral representation
-holding ``\\hat g``; it multiplies every fiber component of `field`, so one method serves scalar,
-vector, and tensor fields. Representation-preserving: `destination` has `field`'s tensor order.
+writing into `destination` in-place. On the torus the periodic convolution
+``(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy`` is, by the convolution theorem, the **exact**
+coefficientwise product of the transforms — which is what the kernel computes (``\\hat g`` = `kernel`,
+broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta`` accumulate):
 
-The five-argument form computes ``\\mathrm{destination} = \\alpha\\,(f \\star g) + \\beta\\,\\mathrm{destination}``
-(``\\alpha``, ``\\beta`` real, converted to the field's scalar type); the three-argument form
-overwrites (``\\alpha = 1``, ``\\beta = 0``). Coefficientwise ⇒ aliasing-safe: `destination` may alias
-`field` (or the kernel).
+```math
+\\widehat{f \\star g}(k) = \\hat f(k)\\, \\hat g(k),
+\\qquad
+\\widehat{\\mathrm{destination}}(k) = \\alpha\\, \\hat f(k)\\, \\hat g(k) + \\beta\\, \\widehat{\\mathrm{destination}}(k).
+```
+
+A scalar `kernel` serves scalar, vector, and tensor `field`s (one method); representation-preserving.
+The three-argument form overwrites (``\\alpha = 1``, ``\\beta = 0``); ``\\alpha``, ``\\beta`` are real,
+converted to the field's scalar type. Coefficientwise ⇒ aliasing-safe: `destination` may alias `field`
+(or the kernel).
 
 Spectral representation only — there is no physical-space `convolve` (on the torus, convolution *is*
 the coefficientwise spectral product). That product is offered here under its true name, never as
@@ -146,8 +152,14 @@ end
 """
     squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-The **squared-wavenumber field** ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` as a scalar field in spectral
-representation, on `reference`'s grid and array backend. The neutral isotropic radial coordinate of
+The **squared-wavenumber field** as a scalar field in spectral representation, on `reference`'s grid
+and array backend — the value at each mode is
+
+```math
+|k|^2 = k_1^2 + k_2^2 + k_3^2.
+```
+
+The neutral isotropic radial coordinate of
 spectral space: the consumer builds a Fourier symbol from it — a viscous integrating factor
 ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope ``\\exp(-(|k|/k_p)^2)``, a Germano filter
 ``1/(1 + \\Delta^2 |k|^2)`` — by broadcasting over its `field_data`, then applies it with
@@ -172,10 +184,16 @@ end
 """
     spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_low, wavenumber_high)
 
-Build the **isotropic sharp spectral band-pass** as a scalar field in spectral representation: the
-transfer function ``\\hat g(k) = \\mathbb 1[\\,k_\\mathrm{lo} \\le |k| \\le k_\\mathrm{hi}\\,]`` (with
-`k_lo = wavenumber_low`, `k_hi = wavenumber_high`), on `reference`'s grid and array backend. The
-annular generalization of [`spectral_cutoff`](@ref) — which is the low-pass special case
+Build the **isotropic sharp spectral band-pass** as a scalar field in spectral representation, on
+`reference`'s grid and array backend — the transfer function (with `k_lo = wavenumber_low`,
+`k_hi = wavenumber_high`)
+
+```math
+\\hat g(k) = \\mathbb 1\\!\\left[\\, k_\\mathrm{lo}^2 \\le |k|^2 \\le k_\\mathrm{hi}^2 \\,\\right]
+= \\begin{cases} 1, & k_\\mathrm{lo} \\le |k| \\le k_\\mathrm{hi}, \\\\ 0, & \\text{otherwise.} \\end{cases}
+```
+
+The annular generalization of [`spectral_cutoff`](@ref) — which is the low-pass special case
 ``k_\\mathrm{lo} = 0``. Convolving with it keeps an isotropic shell of wavenumbers: a de-aliasing band,
 a forcing band (the energy held in ``1 \\le |k| \\le k_f``), or any shell selector. Idempotent
 (``\\hat g^2 = \\hat g``), so it is a projection.
@@ -201,10 +219,15 @@ end
 """
     spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
 
-Build the **isotropic sharp spectral cutoff** as a scalar field in spectral representation: the
-transfer function ``\\hat g(k) = \\mathbb 1[\\,|k| \\le k_c\\,]`` (with `k_c = wavenumber_cutoff`), on
-`reference`'s grid and array backend. Convolving with it is the ideal low-pass projection (idempotent —
-``\\hat g^2 = \\hat g``), the basis of spectral truncation and de-aliasing. The low-pass special case
+Build the **isotropic sharp spectral cutoff** as a scalar field in spectral representation, on
+`reference`'s grid and array backend — the transfer function (with `k_c = wavenumber_cutoff`)
+
+```math
+\\hat g(k) = \\mathbb 1\\!\\left[\\, |k| \\le k_c \\,\\right].
+```
+
+Convolving with it is the ideal low-pass projection (idempotent — ``\\hat g^2 = \\hat g``), the basis
+of spectral truncation and de-aliasing. The low-pass special case
 of [`spectral_band`](@ref) (``k_\\mathrm{lo} = 0``).
 
 A neutral mathematical primitive: the choice of cutoff (e.g. a ``2/3`` de-aliasing rule, or an LES
