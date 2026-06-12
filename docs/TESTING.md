@@ -57,7 +57,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
-  `reductions.jl` (the L²/measure reductions + the shell-resolved `radial_spectrum` on fields and point-values), plus
+  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation` on fields and point-values), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
@@ -227,8 +227,10 @@ energy identity ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``
 physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
 no-Nyquist branches), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
 spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
-even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence), and
-the intentional absence of the *measure* reductions on spectral fields;
+even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
+its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
+against an **independent binned-circshift autocorrelation** and ``C(0) = \mathrm{inner}(f,f)``, all orders /
+both grids), and the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 ``\exp(-i k_a m \Delta) \Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent

@@ -358,6 +358,13 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test shells_d == shells_h && eq(spectrum_d, spectrum_h)
       @test eq(sum(spectrum_d), inner(vf_spec_d, vf_spec_d))
 
+      # radial_correlation: the inverse rfft + masked-reduction binning run on-device; the returned
+      # host vectors match the CPU, and C(0) == inner (the Wiener–Khinchin dual of radial_spectrum).
+      seps_d, corr_d = radial_correlation(vf_spec_d, plans_for(vfd))
+      seps_h, corr_h = radial_correlation(vf_spec_h, plans_for(vf))
+      @test seps_d == seps_h && eq(corr_d, corr_h)
+      @test eq(corr_d[1], inner(vf_spec_d, vf_spec_d))
+
       M = 40
       sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))
       spd, vpd = on_device_pv.((sp, vp))

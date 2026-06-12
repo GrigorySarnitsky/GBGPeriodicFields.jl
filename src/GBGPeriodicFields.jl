@@ -209,7 +209,8 @@ using .Reductions:
   inner,
   l2norm,
   lpnorm,
-  radial_spectrum
+  radial_spectrum,
+  radial_correlation
 
 # `mean`/`std`/`var` (Statistics) and `maximum`/`minimum`/`extrema` (Base) are *extended* on sections
 # in `Reductions`; those methods are global and reached through `using Statistics` / Base. They are
@@ -307,7 +308,8 @@ export FiberVector,
        inner,
        l2norm,
        lpnorm,
-       radial_spectrum
+       radial_spectrum,
+       radial_correlation
 
 
 function __init__()

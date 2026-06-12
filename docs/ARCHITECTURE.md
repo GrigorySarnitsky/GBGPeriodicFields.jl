@@ -925,10 +925,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
     the GPU forcing + spectrum fully on-device. Matrix-valued (anisotropic) shells and a co-spectrum
     `radial_spectrum(f, g)` remain future, unneeded now. **Renamed `shell_spectrum → radial_spectrum` in
-    decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, pending.**
+    decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, also done.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
-    point pair-statistics (RDF). [DESIGNED; Phase 1/2 not yet implemented — the recorded foundation, as
-    decision 19 was for the multiplier family.]**
+    point pair-statistics (RDF). [Phase 1 (`radial_correlation`) DONE; Phase 2 (point RDF) designed,
+    not yet implemented.]**
 
     *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
     in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
@@ -942,7 +942,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     terminology so the family is coherent.
 
     *Terminology (decided; the rename is **done**).* `shell_spectrum` is renamed **`radial_spectrum`**,
-    and the physical dual **`radial_correlation`** is added (Phase 1, pending). "Radial" is the
+    and the physical dual **`radial_correlation`** is added (Phase 1, **done**). "Radial" is the
     isotropic-average qualifier common to both spaces — and to the *radial* distribution function of point
     statistics; "shell" named the binning implementation and does not pair with the physical-space
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
@@ -952,14 +952,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
-    *The physical dual — `radial_correlation`.* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle`` (full fiber
-    contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)`` binned in ``r``.
-    ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)`` (the variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. It
-    shares `radial_spectrum`'s shell-binning helper, applied in `r` after one inverse transform. **Open
-    design point:** that inverse transform is a representation change `Reductions` does not currently own,
-    so `radial_correlation` either takes a field in spectral representation **plus transform plans**, or
-    a physical field and transforms internally, or lives partly in the umbrella. (`radial_correlation(f, g)`
-    — the cross-correlation, dual of a co-spectrum — is future.)
+    *The physical dual — `radial_correlation` (done).* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle``
+    (full fiber contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)/N``
+    binned over minimum-image ``|r|`` shells. ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)`` (the
+    variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
+    as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
+    its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
+    imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same masked-reduction
+    machinery as `radial_spectrum`, in `r` instead of ``|k|``. Verified against an independent
+    binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
+    (`radial_correlation(f, g)` — the cross-correlation, dual of a co-spectrum — remains future.)
 
     *Points → RDF (Phase 2), and why it works.* The pair correlation ``g(r)`` of ``N`` points is computable
     in ``O(N + M \log M)`` (vs ``O(N^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
@@ -994,9 +996,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     HIST demos), not a `radial_distribution_function` function, unless a thin neutral convenience proves
     warranted.
 
-    *Phasing.* **Phase 1** — the rename + `radial_correlation` (the field duality; neutral, no new math).
-    **Phase 2** — the ``\hat W`` deconvolution builder + the documented point-RDF recipe (+ the positive-kernel
-    guidance). **Open before coding:** `radial_correlation`'s input representation / transform-plan
-    dependency; the `r`-bin convention (`Δr` = grid spacing, max `L/2`, the corner-shell caveat as in
-    `radial_spectrum`); where the shared radial-binning helper lives; whether to ship ``\hat W`` as a
-    `Convolution` builder and any points-level convenience; and the normalization conventions.
+    *Phasing.* **Phase 1 — done:** the rename + `radial_correlation` (the field duality; neutral, no new
+    math), `radial_correlation(f, plans)`, ``\Delta r`` = the finest grid spacing, minimum-image ``|r|``
+    binning, ``C(0) = \mathrm{inner}`` exact. **Phase 2 (designed, deferred):** the ``\hat W``
+    deconvolution builder + the documented point-RDF recipe (+ the positive-kernel guidance). **Open for
+    Phase 2:** the ``\hat W`` spline-window transform (B-spline → ``\mathrm{sinc}^p``, the Lalescu Hermite
+    closed form); whether to ship ``\hat W`` as a `Convolution` builder and any points-level convenience;
+    and the shot-noise / normalization conventions. (The anisotropic / tensor-valued radial spectra
+    ``E_{ij}(\kappa)`` and the Craya–Herring longitudinal/transverse split — the "meaningful fibers over
+    the radial coordinate" — are deferred until an anisotropy consumer (e.g. shear flow) makes them
+    concrete, per the §2 rule against speculative structure.)

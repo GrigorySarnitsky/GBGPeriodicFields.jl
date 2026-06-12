@@ -24,6 +24,11 @@ power spectrum**: `inner` decomposed into isotropic ``|k|``-shells, returning `(
 exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy
 spectrum is ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``.
 
+Its physical-space **Wiener–Khinchin dual** is `radial_correlation(f, plans)` (decision 22) — the
+shell-averaged two-point autocorrelation ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``, binned over
+minimum-image ``|r|`` shells, with ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)``. The two
+resolve the same `inner` over the conjugate radial coordinates (``|k|`` and ``|r|``).
+
 ## Contents
 
 ```@contents

@@ -24,22 +24,28 @@ representation** via Parseval (equal to the physical inner, no transform); `inte
   `lpnorm(f, p)` the ``L^p`` norm (``p = 2`` default, ``p = \\infty`` ⇒ the sup of the fiber magnitude).
 - `maximum`/`minimum`/`extrema` — extend `Base` for **scalar** sections.
 
+Two **radial reductions** resolve `inner` over a radial coordinate, a Fourier-dual pair (Wiener–Khinchin):
+`radial_spectrum(f, multipliers)` bins ``|\\hat f|^2`` over ``|k|``-shells (the power spectrum, spectral
+input), and `radial_correlation(f, plans)` is its physical-space dual, the shell-averaged two-point
+autocorrelation ``C(r) = \\mathcal F^{-1}(|\\hat f|^2)/N``; both satisfy ``\\sum E = C(0) = \\mathrm{inner}(f, f)``.
+
 Physics stays consumer-side: kinetic energy ``\\tfrac12 \\langle u, u\\rangle``, enstrophy
 ``\\tfrac12 \\langle \\omega, \\omega\\rangle``, dissipation ``\\nu \\langle \\omega, \\omega\\rangle``,
 rms ``\\sqrt{\\langle \\cdot, \\cdot\\rangle}``, intensities from `std`.
 """
 module Reductions
 
-using ..FiberSections: AbstractFiberSection, section_scalar_type
+using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!
 using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, FiberVector, FiberTensor2, field_data,
-  field_grid, field_tensor_order, FieldSpectralMultipliers,
-  _check_field_domain_compatibility, _check_multipliers_compatibility, _squared_wavenumber_broadcast
+  field_grid, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
+  similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
+  _squared_wavenumber_broadcast
 using ..Points: AbstractPointValues, npoints
 import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
 import LinearAlgebra
 
-export integral, inner, l2norm, lpnorm, radial_spectrum
+export integral, inner, l2norm, lpnorm, radial_spectrum, radial_correlation
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
@@ -260,6 +266,75 @@ function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectral
   spectrum = T[sum(weighted .* (shell_index .== shell)) / normalization for shell in 0:(number_of_shells - 1)]
   shells = T.(0:(number_of_shells - 1)) .* fundamental
   return shells, spectrum
+end
+
+
+# Minimum-image separation magnitude ``|r|`` at each grid point, as an (Nx, Ny, Nz) array on the
+# field's backend: along axis a the separation index is `min(i, Nₐ − i)`, scaled by the spacing `Δxₐ`,
+# so distances fold at the half-box (the autocorrelation is periodic and even). Built per-axis on the
+# host then bulk-copied to the backend (no scalar indexing of device memory), like `_parseval_weight`.
+function _separation_magnitude(grid, backend_reference::AbstractArray{T}) where {T}
+  axis_distance(a) = begin
+    n = grid.grid_size[a]
+    spacing = T(grid.grid_spacing[a])
+    host = T[min(i, n - i) * spacing for i in 0:(n - 1)]
+    device = similar(backend_reference, T, n)
+    copyto!(device, host)
+    return reshape(device, ntuple(d -> d == a ? n : 1, 3))
+  end
+  d1, d2, d3 = axis_distance(1), axis_distance(2), axis_distance(3)
+  return sqrt.(d1 .^ 2 .+ d2 .^ 2 .+ d3 .^ 2)
+end
+
+
+"""
+    radial_correlation(f, plans)
+
+The **radial (shell-averaged) two-point autocorrelation** ``C(r)`` of a field `f` — the physical-space
+Wiener–Khinchin dual of [`radial_spectrum`](@ref). `f` is in spectral representation; `plans` are its
+transform plans (matching `f`'s tensor order). Returns `(separations, correlation)`, where `separations`
+are the bin-center magnitudes ``r`` and `correlation[i]` is ``C`` averaged over the minimum-image
+shell ``|r| \\approx r``. By the autocorrelation theorem the kernel forms the fiber-summed power spectrum
+``\\sum_c |\\hat f_c|^2``, inverse-transforms it, and normalizes:
+
+```math
+C(r) = \\frac1N \\sum_x f(x) \\cdot f(x + r) = \\frac1N\\, \\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r),
+\\qquad
+C(r_i) = \\frac{1}{|\\text{shell } i|} \\sum_{|r| \\,\\approx\\, r_i} C(r).
+```
+
+At zero separation it is the variance ``C(0) = \\langle |f|^2\\rangle = \\mathrm{inner}(f, f)``, so this is
+`inner` resolved over physical separation exactly as `radial_spectrum` resolves it over ``|k|`` — the two
+are a Fourier pair (``\\mathcal F C = |\\hat f|^2``). Spectral input only (it needs the inverse transform);
+GPU-portable (one inverse rfft + masked-reduction binning, no scalar indexing).
+"""
+function radial_correlation(f::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
+  grid = field_grid(f)
+  number_of_points = prod(grid.grid_size)
+  tensor_order = field_tensor_order(f)
+  # Power spectrum per fiber component, |f̂_c(k)|² (real, in the complex coefficient array).
+  power = similar_field(f, Val(tensor_order))
+  @_assign! field_data(power) .= complex.(abs2.(field_data(f)))
+  # Autocorrelation theorem: the inverse transform of the power spectrum is the (unnormalized) circular
+  # autocorrelation per component; fiber-contract and divide by N → the two-point autocorrelation field.
+  autocorrelation = to_physical(power, plans)
+  data = field_data(autocorrelation)
+  fiber_dims = ntuple(d -> d + 3, tensor_order)
+  correlation_field =
+    (tensor_order == 0 ? data : dropdims(sum(data; dims = fiber_dims); dims = fiber_dims)) ./ T(number_of_points)
+  # Radially average over minimum-image |r| shells (bin width = the finest grid spacing).
+  separation = _separation_magnitude(grid, correlation_field)
+  bin_width = T(minimum(grid.grid_spacing))
+  shell_index = round.(Int, separation ./ bin_width)
+  number_of_shells = Int(maximum(shell_index)) + 1
+  separations = T.(0:(number_of_shells - 1)) .* bin_width
+  correlation = zeros(T, number_of_shells)
+  for shell in 0:(number_of_shells - 1)
+    in_shell = shell_index .== shell
+    population = sum(in_shell)                      # number of grid points in this |r| shell
+    correlation[shell + 1] = iszero(population) ? zero(T) : sum(correlation_field .* in_shell) / population
+  end
+  return separations, correlation
 end
 
 

@@ -148,6 +148,43 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
         @test isapprox(sum(single_spectrum[3:end]), 0; atol = atol)   # nothing in |k| ≥ 2
       end
     end
+
+    @testset "radial_correlation: Wiener–Khinchin autocorrelation vs circshift ($T)" begin
+      layout = RealFourierLayout()
+      rtol = T == Float64 ? 1e-9 : 1.0f-2
+      atol = T == Float64 ? 1e-11 : 1.0f-3
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        gs = gp.grid_size; spacing = gp.grid_spacing; bin_width = minimum(spacing)
+        minimage(I) = sqrt(sum((min(i - 1, n - (i - 1)) * sp)^2 for (i, n, sp) in zip(Tuple(I), gs, spacing)))
+        # independent oracle: the autocorrelation by direct circshift, binned the same way (host loop)
+        function binned_circshift(phys, nshell)
+          d = field_data(phys); total = prod(gs); R = field_tensor_order(phys)
+          shell_sum = zeros(T, nshell); shell_count = zeros(Int, nshell)
+          for I in CartesianIndices(gs)
+            shift = (.-(Tuple(I) .- 1)..., ntuple(_ -> 0, R)...)
+            value = T(sum(d .* circshift(d, shift)) / total)     # (1/N) Σ_x f(x)·f(x+r), fiber-contracted
+            b = round(Int, minimage(I) / bin_width) + 1
+            b <= nshell && (shell_sum[b] += value; shell_count[b] += 1)
+          end
+          return [iszero(shell_count[i]) ? zero(T) : shell_sum[i] / shell_count[i] for i in 1:nshell]
+        end
+        for phys in (ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
+                     VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp),
+                     TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp))
+          R = field_tensor_order(phys)
+          shape = spectral_field_shape(gp, layout, Val(R))
+          spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                  R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                           TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp)
+          plans = FieldTransformPlans(phys, spec0)
+          spectral = to_spectral(phys, plans)
+          separations, correlation = radial_correlation(spectral, plans)
+          @test correlation[1] ≈ inner(spectral, spectral)              # C(0) = ⟨|f|²⟩ = inner, exact
+          @test isapprox(correlation, binned_circshift(phys, length(correlation)); rtol = rtol, atol = atol)
+          @test separations[1] == 0 && eltype(correlation) === T && length(separations) == length(correlation)
+        end
+      end
+    end
   end
 
   # ---- spectral: the Parseval inner/l2norm are defined; the measure reductions stay physical-only ----
