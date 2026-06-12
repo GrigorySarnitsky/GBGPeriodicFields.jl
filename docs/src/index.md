@@ -28,6 +28,9 @@ Then you can use it as usual:
 using GBGPeriodicFields
 ```
 
+New here? Start with the **[Getting started](tutorial.md)** tour — a short, runnable walkthrough of
+grids, fields, representations, operators, reductions, and the point transfer.
+
 ## Main components
 
 - [`FiberSections`](api/FiberSections.md): the base-agnostic foundation — the `AbstractFiberSection` supertype shared by fields and point-values, the CPU-threading primitive, and the fiberwise-algebra code generators (each per-component formula written once, reused by `FieldAlgebra` and `Points`).

@@ -21,9 +21,9 @@ copy_rationale_pages()
 using Documenter
 using GBGPeriodicFields
 
-# Make `using GBGPeriodicFields` available to any `jldoctest` examples in docstrings
-# (recursive covers the submodules). No doctests exist yet; this is the plumbing so
-# examples can be added incrementally and verified on every build.
+# Make `using GBGPeriodicFields` available to the `jldoctest` examples (the Getting-started
+# tutorial; recursive covers the submodules). `doctest = true` runs and verifies them on every
+# build, so the examples cannot drift from the code; add more incrementally.
 DocMeta.setdocmeta!(GBGPeriodicFields, :DocTestSetup, :(using GBGPeriodicFields); recursive = true)
 
 
@@ -38,6 +38,7 @@ makedocs(
   doctest   = true,
   pages     = [
     "Home" => "index.md",
+    "Getting started" => "tutorial.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",

@@ -72,6 +72,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
   **backend-free** (see §5).
 - **`test/gpu/`** — the opt-in GPU suite (see §5).
+- **Doctests** — the Getting-started tutorial (`docs/src/tutorial.md`) is written as `jldoctest`
+  blocks, run and verified by `doctest = true` in `docs/make.jl` (outside `Pkg.test()`): a third
+  layer of checked examples that cannot drift from the code (a wrong expected output fails the build).
 
 
 ## 3. Writing a test here
