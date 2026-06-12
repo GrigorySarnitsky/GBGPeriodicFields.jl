@@ -178,7 +178,8 @@ using .Convolution:
   convolve,
   spectral_cutoff,
   spectral_band,
-  squared_wavenumber_field
+  squared_wavenumber_field,
+  assignment_window
 
 
 using .Points:
@@ -283,6 +284,7 @@ export FiberVector,
        spectral_cutoff,
        spectral_band,
        squared_wavenumber_field,
+       assignment_window,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,

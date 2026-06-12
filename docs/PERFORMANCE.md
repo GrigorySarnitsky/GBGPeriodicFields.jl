@@ -166,7 +166,7 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
 operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
-`spectral_band` / `squared_wavenumber_field`), the **interpolation/anterpolation transfer**, and the
+`spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation transfer**, and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
 `inner`, and the radial pair `radial_spectrum` / `radial_correlation` — per-shell masked reductions and
 an inverse rfft, diagnostic-cost). Run it:

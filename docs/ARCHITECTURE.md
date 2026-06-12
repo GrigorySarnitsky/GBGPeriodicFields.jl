@@ -927,8 +927,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `radial_spectrum(f, g)` remain future, unneeded now. **Renamed `shell_spectrum → radial_spectrum` in
     decision 22 (done); the physical-space dual `radial_correlation` is decision-22 Phase 1, also done.**
 22. **Radial statistics — the spectrum↔correlation duality (Wiener–Khinchin), and the FFT route to
-    point pair-statistics (RDF). [Phase 1 (`radial_correlation`) DONE; Phase 2 (point RDF) designed,
-    not yet implemented.]**
+    point pair-statistics (RDF). [Phase 1 (`radial_correlation`) and Phase 2 (`assignment_window` + the
+    pair-correlation recipe) DONE.]**
 
     *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
     in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
@@ -963,46 +963,54 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
     (`radial_correlation(f, g)` — the cross-correlation, dual of a co-spectrum — remains future.)
 
-    *Points → RDF (Phase 2), and why it works.* The pair correlation ``g(r)`` of ``N`` points is computable
-    in ``O(N + M \log M)`` (vs ``O(N^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
-    the proposed pipeline: **anterpolate** the points to a grid density, **FFT**, form ``|\hat\rho|^2``,
-    **deconvolve**, then `radial_spectrum` gives the structure factor ``S(k)`` and `radial_correlation` the
-    ``g(r)``. The math: with ``\hat\rho(k) = \sum_i e^{-i k \cdot x_i}``, ``S(k) = |\hat\rho|^2/N = 1 + \bar n\,\hat h(k)`` (Ornstein–Zernike),
-    so ``g(r) = 1 + \mathcal F^{-1}[(S-1)/\bar n]``. We already own anterpolate + the transforms + both radial reductions;
-    three corrections are **mandatory** and are the design's substance:
+    *Points → RDF (Phase 2, done).* The pair correlation ``g(r)`` of ``M`` points is computable
+    in ``O(N + M \log M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
+    the implemented recipe: **anterpolate** the points to a grid density (positive/linear assignment), form the
+    overdensity ``\delta = \rho/\bar\rho - 1``, **FFT**, **deconvolve** ``\hat\delta`` by the assignment window
+    ``\hat W``, then `radial_correlation` of the deconvolved field gives ``\xi(r) = \langle\delta(x)\delta(x+r)\rangle``
+    and ``g(r) = 1 + \xi(r)`` (the ``i=j`` self term is the shot noise, isolated in the ``r=0`` shell, so
+    ``g`` at ``r>0`` is clean). With ``\hat\rho(k) = \sum_i e^{-i k \cdot x_i}``,
+    ``S(k) = |\hat\rho|^2/M = 1 + \bar n\,\hat h(k)`` (Ornstein–Zernike) and ``g = 1 + h``. We already owned
+    anterpolate + the transforms + both radial reductions; the **one new neutral primitive is the
+    assignment-window deconvolution**, the rest is the consumer recipe (invariant 12). Three corrections, all
+    handled:
 
-    - **Assignment-window deconvolution.** Scattering with kernel ``W`` gives ``\hat\rho_g = \hat W(k)\,\hat\rho``, so the
-      measured spectrum is suppressed by ``|\hat W(k)|^2`` — divide it out. In this framework the deconvolution
-      *is a `convolve` by ``1/\hat W``*: a new `Convolution` builder for the assignment-window transfer function
-      ``\hat W(k)`` (the genuinely new math — ``\hat W`` for the splines: B-spline → ``\mathrm{sinc}^p``, the Lalescu two-point
-      Hermite → a derivable closed form).
-    - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the origin):
-      subtract ``1/\bar n``, or exclude ``r = 0``.
+    - **Assignment-window deconvolution (`assignment_window`, `Convolution`).** Scattering with kernel ``W``
+      gives ``\hat\rho_g = \hat W(k)\,\hat\rho``, so the measured spectrum is suppressed by ``|\hat W(k)|^2`` —
+      divide it out (a `convolve` by ``1/\hat W``). Shipped for the **linear (CIC) positive** assignment:
+      ``\hat W(k) = \prod_a \operatorname{sinc}^2(k_a\Delta x_a/2)``, no in-band zeros. (Higher positive
+      B-splines / the signed-kernel closed forms remain future.)
+    - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the
+      origin): in the binned ``g(r)`` it lands entirely in the ``r=0`` shell, so reading ``g`` at ``r>0`` is the
+      subtraction (no extra step). Consumer-side by convention.
     - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac23 k_\mathrm{Nyq}``, and ``g(r)``
       below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
       large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
       peak (interlacing — Sefusatti et al. — is a future refinement). This matches the intended consumer
       use; it is a documented boundary, not a defect.
 
+    *Verified (`test/rdf.jl`):* `assignment_window` against its ``\prod \operatorname{sinc}^2`` formula
+    (even/odd grids, both element types), and the full recipe against an **independent direct ``O(M^2)``
+    physical-space pair count** on a clustered point set — the recipe recovers the clustering peak (within
+    ~10% of direct counting) and the ``g \to 1`` baseline (the normalization).
+
     *Decision-19 tie-in.* A density estimate wants the **positive (probability-measure)** end of the
     kernel taxonomy (the linear ``m = 0`` / a B-spline), not the signed default `CatmullRom`, so ``g(r) \ge 0``
     and ``\hat W(k)`` has no in-band zeros (no division blow-up in the deconvolution). Decision 19's recorded
     signed/positive split becomes a concrete, motivated choice here.
 
-    *Invariant 12.* `radial_spectrum` / `radial_correlation` and the window-deconvolution builder are
-    neutral (harmonic analysis / spatial statistics). The names RDF, structure factor, pair correlation,
-    and the shot-noise / normalization conventions (which encode "what a particle is") stay consumer-side
-    — the package ships the primitives and a documented recipe (an `examples/` worked case, as with the
-    HIST demos), not a `radial_distribution_function` function, unless a thin neutral convenience proves
-    warranted.
+    *Invariant 12.* `radial_spectrum` / `radial_correlation` and `assignment_window` are neutral
+    (harmonic analysis / spatial statistics). The names RDF, structure factor, pair correlation, and the
+    shot-noise / normalization conventions (which encode "what a particle is") stay consumer-side — the
+    package ships the primitives and a documented recipe (`test/rdf.jl`, validated against direct pair
+    counting), **not** a `radial_distribution_function` function: that scoping held.
 
-    *Phasing.* **Phase 1 — done:** the rename + `radial_correlation` (the field duality; neutral, no new
-    math), `radial_correlation(f, plans)`, ``\Delta r`` = the finest grid spacing, minimum-image ``|r|``
-    binning, ``C(0) = \mathrm{inner}`` exact. **Phase 2 (designed, deferred):** the ``\hat W``
-    deconvolution builder + the documented point-RDF recipe (+ the positive-kernel guidance). **Open for
-    Phase 2:** the ``\hat W`` spline-window transform (B-spline → ``\mathrm{sinc}^p``, the Lalescu Hermite
-    closed form); whether to ship ``\hat W`` as a `Convolution` builder and any points-level convenience;
-    and the shot-noise / normalization conventions. (The anisotropic / tensor-valued radial spectra
-    ``E_{ij}(\kappa)`` and the Craya–Herring longitudinal/transverse split — the "meaningful fibers over
-    the radial coordinate" — are deferred until an anisotropy consumer (e.g. shear flow) makes them
-    concrete, per the §2 rule against speculative structure.)
+    *Phasing — both done.* **Phase 1:** `radial_correlation(f, plans)` (the field duality; neutral, no new
+    math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \mathrm{inner}``
+    exact. **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
+    window, `Convolution`) + the documented point-RDF recipe, validated against direct ``O(M^2)`` counting.
+    **Future (deferred until a consumer makes them concrete):** higher positive-B-spline / signed-kernel
+    window transforms and interlacing (sharper small-``r`` ``g``); a co-spectrum `radial_correlation(f, g)`;
+    and — the "meaningful fibers over the radial coordinate" — the anisotropic / tensor-valued radial
+    spectra ``E_{ij}(\kappa)`` and the Craya–Herring longitudinal/transverse split, which only earn their
+    structure under anisotropy (e.g. shear flow), per the §2 rule against speculative structure.

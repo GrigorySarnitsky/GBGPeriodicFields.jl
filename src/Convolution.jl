@@ -36,6 +36,7 @@ using ..Fields:
   ScalarFieldSpectral,
   FieldSpectralMultipliers,
   field_data,
+  field_grid,
   field_scalar_type,
   field_tensor_order,
   similar_field,
@@ -48,7 +49,7 @@ using ..FiberSections:
   _assign!,
   @_assign!
 
-export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_field
+export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window
 
 
 ####################################################
@@ -237,6 +238,45 @@ at the Nyquist frequency (the Laplacian convention, invariant 5).
 function spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_cutoff::Real)
   return spectral_band(reference, multipliers, zero(wavenumber_cutoff), wavenumber_cutoff)
+end
+
+
+"""
+    assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+The **linear (cloud-in-cell) mass-assignment window** ``\\hat W(k)`` as a real scalar field in spectral
+representation — the Fourier transform of the linear interpolation kernel, for **deconvolving** a
+gridded point density. Scattering ``M`` points onto the grid with a *positive* assignment
+(`LalescuSpline(n, 0)`, i.e. linear / `m = 0`, the positive kernel decisions 19/22 recommend for a
+density) smears the true density, ``\\hat\\rho_g(k) = \\hat W(k)\\,\\hat\\rho(k)``; dividing by
+``\\hat W`` (a `convolve` by ``1/\\hat W``) undoes the smearing. ``\\hat W`` has no in-band zeros for the
+positive linear kernel, so the division is stable.
+
+```math
+\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\!\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr),
+\\qquad \\operatorname{sinc}(y) = \\frac{\\sin y}{y},
+```
+
+computed from the **true** per-axis ``|k_a|`` (kept at the Nyquist frequency, invariant 5), so
+``\\hat W(0) = 1`` and it falls toward the grid scale. This continuous-kernel form is the standard
+particle-mesh deconvolution — exact as ``k \\to 0``, with the residual sub-cell shift-dependence
+(reduced by interlacing) bounding it near Nyquist. The package supplies the window; the density
+estimate, shot-noise subtraction, and the RDF normalization stay consumer-side (invariant 12 — the
+worked pair-correlation recipe and its direct-pair-counting check are in `test/rdf.jl`).
+"""
+function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+  _check_multipliers_compatibility(reference, multipliers)
+  T = field_scalar_type(reference)
+  spacing = field_grid(reference).grid_spacing
+  # sinc²(|k_a| Δx_a / 2) per axis, GPU-safe (ifelse, not Base.sinc's branch); 1 at k_a = 0.
+  axis(squared_wavenumber, Δ) =
+    (y = sqrt.(squared_wavenumber) .* (T(Δ) / 2); ifelse.(iszero.(y), one(T), sin.(y) ./ y) .^ 2)
+  w1 = reshape(axis(multipliers.squared_wavenumber_1, spacing[1]), :, 1, 1)
+  w2 = reshape(axis(multipliers.squared_wavenumber_2, spacing[2]), 1, :, 1)
+  w3 = reshape(axis(multipliers.squared_wavenumber_3, spacing[3]), 1, 1, :)
+  window = similar_field(reference, Val(0))
+  @_assign! field_data(window) .= Complex{T}.(w1 .* w2 .* w3)
+  return window
 end
 
 

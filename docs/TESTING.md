@@ -57,7 +57,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
   `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
-  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation` on fields and point-values), plus
+  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation` on fields and point-values),
+  `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
@@ -240,6 +241,10 @@ accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) 
 Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
 membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
+the **point pair-correlation** (`rdf.jl`, decision 22 Phase 2): `assignment_window` against its
+``\prod \operatorname{sinc}^2`` formula, and the FFT g(r) recipe (anterpolate density → deconvolve →
+`radial_correlation`) validated against an **independent direct ``O(M^2)`` physical-space pair count** on a
+clustered set (the clustering peak within ~10% and the g → 1 baseline);
 and **property-based tests** (`randomized.jl`): algebraic laws on **random** fields, point-values, and
 kernels over several trials — vector-space and contraction/product identities, transpose/sym/skew/dev,
 the reduction laws (inner symmetry, linearity, Cauchy–Schwarz, ``\mathrm{integral} = |\Omega|\cdot\mathrm{mean}``), convolution

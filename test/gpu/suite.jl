@@ -285,6 +285,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # spectral_band (annular) and squared_wavenumber_field build entirely on-device (no scalar index)
       @test matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
       @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
+      # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
+      @test matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
     end
 
     @testset "interpolation / anterpolation (Lalescu splines)" begin

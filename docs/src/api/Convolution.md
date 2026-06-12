@@ -20,12 +20,14 @@ This is the coefficientwise spectral product invariant 1 names but bans **as `*`
 its true name `convolve`, never as `*`. Spectral representation only; physics (an LES filter, an
 integrating factor) stays a consumer-built kernel.
 
-Three neutral builders ship (decisions 20, 21): `spectral_cutoff` is the isotropic sharp low-pass
+Four neutral builders ship (decisions 20, 21, 22): `spectral_cutoff` is the isotropic sharp low-pass
 (de-aliasing) kernel; `spectral_band(ref, mult, k_lo, k_hi)` is its annular generalization (a band-pass
-shell selector; the cutoff is the `k_lo = 0` case); and `squared_wavenumber_field(ref, mult)` is the
+shell selector; the cutoff is the `k_lo = 0` case); `squared_wavenumber_field(ref, mult)` is the
 ``|k|^2`` radial coordinate of spectral space as a `ScalarFieldSpectral` — the consumer builds a Fourier
 symbol from it (a viscous integrating factor ``\exp(-\nu |k|^2 \Delta t)``, a smooth envelope, a Germano filter) and
-applies it with `convolve`.
+applies it with `convolve`; and `assignment_window(ref, mult)` is the linear/CIC mass-assignment window
+``\hat W = \prod_a \operatorname{sinc}^2(k_a \Delta x_a/2)`` for deconvolving a gridded point density (the
+FFT point-RDF route, decision 22 — divide by ``\hat W`` to undo the assignment smearing).
 
 ## Contents
 

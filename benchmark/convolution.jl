@@ -14,4 +14,5 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(field_data(spectral_cutoff($s, $m, 2)))
   group["spectral_band | $tag"]    = @benchmarkable bench_sync(field_data(spectral_band($s, $m, 1, 3)))
   group["squared_wavenumber_field | $tag"] = @benchmarkable bench_sync(field_data(squared_wavenumber_field($s, $m)))
+  group["assignment_window | $tag"] = @benchmarkable bench_sync(field_data(assignment_window($s, $m)))
 end
