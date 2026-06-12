@@ -316,6 +316,21 @@ show a few canonical signatures plus prose about representation validity,
 including which combinations are intentionally absent. Exhaustive signature lists
 were dropped: they duplicated the tables and went stale instantly.
 
+**Mathematics is rendered LaTeX, with the symbol bound to the code.** All math in docstrings and
+in these doc pages is written as Documenter LaTeX (KaTeX) in **standard notation** — inline
+``\\langle f, g\\rangle``, display ```math``` blocks — never Unicode-glyph approximations (`⟨f,g⟩`,
+`Σ`, `∫`). Because the package is *grounded in mathematics* (§2), each code object is **explicitly
+identified with its mathematical symbol on first mention** so the correspondence is never left
+implicit: `gradient` ``\\equiv \\nabla``, `divergence` ``\\equiv \\nabla\\cdot``, `curl`
+``\\equiv \\nabla\\times``, `laplacian` ``\\equiv \\Delta``, `inverse_laplacian`
+``\\equiv \\Delta^{-1}``, `helmholtz_projection` ``\\equiv \\mathbb{P}``, `inner`
+``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert``, `integral`
+``\\equiv \\int\\,d\\mu``, `convolve` ``\\equiv \\star``, `interpolate`/`anterpolate`
+``\\equiv W``/``W^\\top``, `to_spectral`/`to_physical` ``\\equiv \\mathcal F``/``\\mathcal F^{-1}``,
+a field in spectral representation written ``\\hat f``. (In a `"""` docstring the LaTeX backslashes
+are escaped `\\`; in a `.md` page they are raw. Plain `#` comments stay Unicode — they are not
+rendered.) `Reductions` is the reference implementation.
+
 ### Verifying codegen changes
 
 With Julia available, verification is runtime introspection: load the package,

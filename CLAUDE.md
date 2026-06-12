@@ -112,6 +112,20 @@ docstrings; they surface in each module's **Internal API** docs section via
 formula docstring lives on the builder) — consistent with "generators emit methods only —
 never docstrings", which governs generated methods, not the hand-written builders.
 
+**Math in docstrings and doc pages — rendered LaTeX, standard notation, symbol linked to code.**
+All mathematics in **docstrings and doc pages** is written as **rendered LaTeX** (Documenter's
+KaTeX), never Unicode-glyph approximations: inline as ``` ``\\langle f,g\\rangle`` ``` (double
+backticks; in a `"""` docstring the LaTeX backslashes are escaped `\\`, e.g. ``` ``\\Delta f`` ```;
+in a `.md` page raw `` `` ``), display as a ```` ```math ```` block. Use **standard mathematical
+notation** (∇, Δ, ⟨·,·⟩, ‖·‖, ∫, 𝔽, etc.). **Every code object is explicitly bound to its math
+symbol on first mention** — `laplacian` ``\\equiv \\Delta``, `gradient` ``\\equiv \\nabla``,
+`divergence` ``\\equiv \\nabla\\cdot``, `curl` ``\\equiv \\nabla\\times``, `inner`
+``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert``, `convolve`
+``\\equiv \\star``, `helmholtz_projection` ``\\equiv \\mathbb{P}``, `to_spectral`/`to_physical`
+``\\equiv \\mathcal F``/``\\mathcal F^{-1}``, the spectral representation written ``\\hat f`` — so the
+reader always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
+not rendered). `Reductions` is the reference implementation of this convention.
+
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and

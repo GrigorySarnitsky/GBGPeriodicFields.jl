@@ -4,28 +4,29 @@
 The **L² / measure structure** on sections — the third operation family alongside the vertical
 (fiberwise) algebra and the horizontal (differential) operators (`docs/ARCHITECTURE.md` §2,
 decision 18). A reduction integrates a section over its **base**, against the measure the base
-carries: `Grid3D`'s uniform quadrature (cell volume `∏Δxᵢ`) and `PointSet`'s **counting** measure
-(unit weight per point — forced, since a `PointSet` is grid-free). One set of formulas serves
-fields and point-values, dispatched on `AbstractFiberSection`.
+carries: `Grid3D`'s uniform quadrature (cell volume ``\\prod_i \\Delta x_i``) and `PointSet`'s
+**counting** measure (unit weight per point — forced, since a `PointSet` is grid-free). One set of
+formulas serves fields and point-values, dispatched on `AbstractFiberSection`.
 
 Defined on **physical fields and point-values** — representation-free / physical-space quantities,
 where the base reduction is the naive one. `inner`/`l2norm` additionally act on fields in **spectral
 representation** via Parseval (equal to the physical inner, no transform); `integral`/`mean`/`lpnorm`/
 `maximum` stay physical-only.
 
-- `integral(f)` — the **extensive** `∫ f dμ` (the only quantity that scales with the base measure):
-  `(|Ω|/N)·Σf` on a grid, `Σf` over points.
-- `mean(f)`, `std(f)`, `var(f)` — extend `Statistics`; **intensive** and **fiber-preserving**
-  (`mean` of a vector field is a `FiberVector`). `mean(f) = (1/count)·Σf` — the arithmetic average
-  over base elements: `(1/N)·Σ` on the grid (the domain average, the grid being uniform), `(1/M)·Σ`
-  over points (a plain sample mean).
-- `inner(f, g)` — the **normalized** L² inner product `⟨f,g⟩ = (1/count)·Σ f·g` → **scalar**
-  (intensive, matching `mean`); `l2norm(f) = √inner(f,f)`, `lpnorm(f, p)` (`p = 2` default,
-  `p = Inf` ⇒ sup of the fiber magnitude).
+- `integral(f)` — the **extensive** integral ``\\int_\\Omega f \\, d\\mu`` (the only quantity that
+  scales with the base measure): ``\\tfrac{|\\Omega|}{N}\\sum_x f`` on a grid, ``\\sum_p f`` over points.
+- `mean(f)`, `std(f)`, `var(f)` — extend `Statistics`; **intensive** and **fiber-preserving** (`mean`
+  of a vector field is a `FiberVector`): the arithmetic average over base elements,
+  ``\\tfrac1N\\sum_x f`` on the grid (the domain average, the grid being uniform) and
+  ``\\tfrac1M\\sum_p f`` over points (a plain sample mean).
+- `inner(f, g)` — the **normalized** L² inner product ``\\langle f, g\\rangle = \\tfrac1N\\sum_x f\\cdot g``
+  → **scalar** (intensive, matching `mean`); ``\\mathrm{l2norm}(f) = \\sqrt{\\langle f, f\\rangle}``, and
+  `lpnorm(f, p)` the ``L^p`` norm (``p = 2`` default, ``p = \\infty`` ⇒ the sup of the fiber magnitude).
 - `maximum`/`minimum`/`extrema` — extend `Base` for **scalar** sections.
 
-Physics stays consumer-side: kinetic energy `½ inner(u,u)`, enstrophy `½ inner(ω,ω)`, dissipation
-`ν inner(ω,ω)`, rms `√inner`, intensities from `std`.
+Physics stays consumer-side: kinetic energy ``\\tfrac12 \\langle u, u\\rangle``, enstrophy
+``\\tfrac12 \\langle \\omega, \\omega\\rangle``, dissipation ``\\nu \\langle \\omega, \\omega\\rangle``,
+rms ``\\sqrt{\\langle \\cdot, \\cdot\\rangle}``, intensities from `std`.
 """
 module Reductions
 
@@ -94,10 +95,11 @@ end
 """
     integral(f)
 
-The base integral `∫_Ω f dμ` of a section — **extensive** (scales with the base measure): the
-uniform-quadrature `(|Ω|/N)·Σf` on a `Grid3D`, the counting-measure `Σf` over a `PointSet`.
-Fiber-preserving: a scalar for a scalar section, a `FiberVector` for a vector section, a
-`FiberTensor2` for a tensor section. Physical-space only; spectral integration is future.
+The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equiv \\int\\,d\\mu``) —
+**extensive** (scales with the base measure): the uniform quadrature ``\\tfrac{|\\Omega|}{N}\\sum_x f``
+on a `Grid3D`, the counting-measure ``\\sum_p f`` over a `PointSet`. Fiber-preserving: a scalar for a
+scalar section, a `FiberVector` for a vector section, a `FiberTensor2` for a tensor section.
+Physical-space only; spectral integration is future.
 """
 function integral end
 integral(section::ReducibleSection) =
@@ -121,14 +123,15 @@ std(section::ReducibleSection; corrected::Bool = true) =
 """
     inner(f, g)
 
-The **normalized L² inner product** `⟨f, g⟩ = (1/count)·Σ f·g` of two compatible sections (full
-fiber contraction summed over the base, divided by the base count) — a scalar, intensive (matching
-`mean`). For homogeneous turbulence this is the natural pairing: kinetic energy is `½ inner(u, u)`.
+The **normalized L² inner product** ``\\langle f, g\\rangle = \\tfrac1N \\sum_x f \\cdot g`` of two
+compatible sections (`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``; the full fiber contraction
+``f \\cdot g`` summed over the base, divided by the base count) — a scalar, intensive (matching `mean`).
+For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
 
 Defined for physical fields and point-values (the naive sum above), and for two fields in **spectral
-representation** via Parseval: `inner(f̂, ĝ)` equals the physical `inner` of the same fields — the
-energy / inner product without an inverse transform. `lpnorm`, `integral`, `mean`, `maximum` remain
-physical-only (only the `p = 2` inner is representation-invariant).
+representation** via Parseval: ``\\langle \\hat f, \\hat g\\rangle`` equals the physical `inner` of the
+same fields — the inner product without an inverse transform. `lpnorm`, `integral`, `mean`, `maximum`
+remain physical-only (only the ``p = 2`` inner is representation-invariant).
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
@@ -164,9 +167,10 @@ end
 """
     l2norm(f)
 
-The **normalized L² norm** `√inner(f, f) = √⟨|f|²⟩` of a section — the root-mean-square of the fiber
-magnitude. The `p = 2` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and —
-via the Parseval [`inner`](@ref) — for a field in spectral representation.
+The **normalized L² norm** ``\\lVert f\\rVert_2 = \\sqrt{\\langle f, f\\rangle} = \\sqrt{\\langle |f|^2\\rangle}``
+of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``) — the root-mean-square of the fiber magnitude
+``|f|``. The ``p = 2`` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and — via
+the Parseval [`inner`](@ref) — for a field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
 l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
@@ -191,20 +195,22 @@ end
 """
     radial_spectrum(f, multipliers)
 
-The **radial (shell-resolved) power spectrum** of a field `f` in spectral representation: returns
-`(shells, spectrum)`, where `shells` are the bin-center wavenumber magnitudes and `spectrum[i]` is the
-Parseval-weighted `Σ_{|k| ∈ shell i} |f̂(k)|²` summed over the fiber (the rfft half-spectrum weighting).
-It **refines** [`inner`](@ref): `sum(spectrum) == inner(f, f)` — the total L² energy split across
-isotropic `|k|`-shells of unit-fundamental width. The consumer's kinetic-energy spectrum is then
-`E = ½ .* spectrum` (so `Σ E = ½⟨|u|²⟩`); the package keeps the neutral name, physics stays
-consumer-side.
+The **radial (shell-binned) power spectrum** ``E(\\kappa)`` of a field `f` in spectral representation
+(`radial_spectrum` ``\\equiv E(\\kappa)``): returns `(shells, spectrum)`, where `shells` are the
+bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` is the Parseval-weighted
+``\\sum_{|k| \\in \\text{shell } i} |\\hat f(k)|^2`` summed over the fiber (the rfft half-spectrum
+weighting). It **refines** [`inner`](@ref): ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` — the
+total L² energy split across isotropic ``|k|``-shells of unit-fundamental width. The consumer's
+kinetic-energy spectrum is then ``\\tfrac12 E(\\kappa)`` (so ``\\sum_\\kappa \\tfrac12 E(\\kappa) =
+\\tfrac12\\langle |u|^2\\rangle``); the package keeps the neutral name, physics stays consumer-side.
 
-Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from `0` to
-the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
-field the high-`|k|` shells are empty. For a non-cubic box the shells beyond `min(Nᵢ)/2` are
+Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from ``0``
+to the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
+field the high-``|k|`` shells are empty. For a non-cubic box the shells beyond ``\\min(N_i)/2`` are
 incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but
-`Σ spectrum == inner` still holds. GPU-portable: the binning is a sequence of masked reductions (no
-scalar indexing, no histogram kernel), suited to an occasional diagnostic rather than a per-step call.
+``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` still holds. GPU-portable: the binning is a sequence
+of masked reductions (no scalar indexing, no histogram kernel), suited to an occasional diagnostic
+rather than a per-step call.
 """
 function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   _check_multipliers_compatibility(f, multipliers)
@@ -228,9 +234,10 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized Lᵖ norm** `(⟨|f|ᵖ⟩)^{1/p}` of a section, where `|f|` is the pointwise fiber
-magnitude (the vertical `norm`). `p = 2` reduces to [`l2norm`](@ref); `p = Inf` is the sup of the
-fiber magnitude `‖f‖_∞` (e.g. the maximum speed for a CFL condition). Physical-space only.
+The **normalized Lᵖ norm** ``\\lVert f\\rVert_p = \\bigl(\\langle |f|^p\\rangle\\bigr)^{1/p}`` of a
+section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the pointwise fiber magnitude
+(the vertical `norm`). ``p = 2`` reduces to [`l2norm`](@ref); ``p = \\infty`` is the sup of the fiber
+magnitude ``\\lVert f\\rVert_\\infty`` (e.g. the maximum speed for a CFL condition). Physical-space only.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
   p == 2 && return l2norm(section)
