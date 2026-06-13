@@ -11,7 +11,7 @@ gather ``\mathcal I = W``) evaluates a field at off-grid positions, and its adjo
 The two are an L²-adjoint pair under a shared scheme; the scheme — an [`AbstractTransferScheme`](@ref) —
 is the choice of *kernel* and *representation*. Two families:
 
-  * **Physical-domain splines** ([`AbstractSplineScheme`](@ref)) — the local high-order splines of
+  * **Physical-domain splines** (`AbstractSplineScheme`) — the local high-order splines of
     Lalescu, Teaca & Carati (2010): the smooth [`LalescuSpline`](@ref) (two-point Hermite, default
     [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the ``C^0`` [`LagrangeSpline`](@ref). They
     act on the **physical** nodal values; interpolation and anterpolation are exact transposes and
