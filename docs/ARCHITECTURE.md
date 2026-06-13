@@ -53,9 +53,10 @@ statement.
 A field, and a collection of values sampled at scattered locations, are both
 **sections of a tensor bundle over a base**. The domain is a flat periodic box (a
 3-torus) with a single global frame, so the bundle is trivial — just the product ``E = B \times V``
-of a base ``B`` and a fiber ``V``. The fiber is the tensor order, a tensor power of
-``\mathbb R^3``: ``V = \mathbb R`` (scalar), ``\mathbb R^3`` (vector, `FiberVector`), ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}``
-(second-order tensor, `FiberTensor2`), and higher (`FiberTensor3/4`). A section
+of a base ``B`` and a fiber ``V``. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
+**tensor order** ``R``: ``V = \mathbb R`` (``R = 0``, scalar), ``\mathbb R^3`` (``R = 1``, vector, `FiberVector`),
+``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
+and higher (`FiberTensor3/4`). A section
 assigns a fiber value to each base point; the fiber-last data layout (§3) is exactly
 that section, stored base-indexed.
 
