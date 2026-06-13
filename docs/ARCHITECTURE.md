@@ -17,12 +17,15 @@ its own, without opening the source or another document. (Universally standard m
 The package is the field layer for pseudospectral simulation of incompressible
 fluid dynamics and turbulence on three-dimensional rectangular periodic domains. It
 provides scalar, vector, and second-order tensor fields with two storage
-representations — physical space and real-to-complex (rfft) spectral space — plus
+representations — physical and spectral (the spectral one stored non-redundantly as the
+real-to-complex / `rfft` half-spectrum) — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
 algebra (FieldAlgebra), and spectral differential operators (DifferentialOperators).
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
 serves consumer-side Lagrangian particle tracking — are in place (§10): the point-value
-sections, their fiberwise algebra, and the transfer kernels (the Lalescu local splines). The
+sections, their fiberwise algebra, and the transfer **schemes** — local splines (Lalescu, Teaca &
+Carati: the smooth Hermite and ``C^0`` Lagrange hierarchies) and exact spectral-domain transfers
+(`DirectDFT`, `NUFFT`), unified under one `AbstractTransferScheme`. The
 same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
 prioritizes GPU correctness and performance first.
