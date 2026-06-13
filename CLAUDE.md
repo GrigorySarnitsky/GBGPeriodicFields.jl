@@ -147,9 +147,13 @@ discrete-sum). When unsure, verify against the implementation and a standard ref
 
 **Doc-edit checklist — run ALL FOUR on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
-overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted** —
-math in LaTeX, backticks only for a real code identifier (greppable in `src/`); **(4) Current** — no stale
-claims; statements match the code's present state. These are the standing bar, not one-off audits.
+overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted —
+bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip), **and** every code identifier —
+functions, types, **module names** (`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always**
+backticked and **never** bare (the bare-`FieldAlgebra` slip); check *both* directions (a backtick span must be
+greppable in `src/`; a code name must never sit in plain prose); **(4) Current** — no stale claims; statements
+match the code's present state. These are the standing bar, not one-off audits. (The formatting check is the
+one that has bitten twice — once each direction — so verify both explicitly.)
 
 ## Verification workflow
 

@@ -20,7 +20,7 @@ provides scalar, vector, and second-order tensor fields with two storage
 representations — physical and spectral (the spectral one stored non-redundantly as the
 real-to-complex / `rfft` half-spectrum) — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
-algebra (FieldAlgebra), and spectral differential operators (DifferentialOperators).
+algebra (`FieldAlgebra`), and spectral differential operators (`DifferentialOperators`).
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
 serves consumer-side Lagrangian particle tracking — are in place (§10): the point-value
 sections, their fiberwise algebra, and the transfer **schemes** — local splines (Lalescu, Teaca &
@@ -200,7 +200,7 @@ with the rfft isomorphism.
   (the `Convolution` module, decision 20), never as `*`.
 
 The consequence is a hard project invariant: **a missing method is a statement,
-not an omission**. The 198-method public surface of FieldAlgebra is the
+not an omission**. The 198-method public surface of `FieldAlgebra` is the
 machine-checkable encoding of the validity table above. Any refactor must
 reproduce the method set exactly; it was verified signature-for-signature against
 the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`)
@@ -280,9 +280,9 @@ while `!` calls stay allocation-light and document that the source may be consum
 
 `FieldSpectralMultipliers` holds six one-dimensional arrays: derivative
 wavenumbers `wavenumber_1..3` and `squared_wavenumber_1..3`, plus the grid and
-layout. It lives in **Fields**, as a sibling of `FieldTransformPlans`, because it
+layout. It lives in **`Fields`**, as a sibling of `FieldTransformPlans`, because it
 is representation infrastructure (what the spectral axes *mean*), not a
-differential operator; it moved out of DifferentialOperators during the refactor.
+differential operator; it moved out of `DifferentialOperators` during the refactor.
 Two constructors by design:
 
 - An explicit constructor taking all six arrays (lengths validated). This makes
@@ -308,7 +308,7 @@ vs the squared wavenumber kept) — see `docs/TESTING.md`.
 
 ## 5. Validation design
 
-Fields owns compatibility checking, built from atomic Boolean predicates
+`Fields` owns compatibility checking, built from atomic Boolean predicates
 (`_same_scalar_type`, `_same_tensor_order`, `_same_grid`, `_same_layout`) composed
 into `_check_same_domain`, the representation-dispatched
 `_check_field_domain_compatibility` (physical-physical and spectral-spectral
@@ -316,7 +316,7 @@ methods — the dispatch barrier that prevents cross-representation mixing), the
 public `check_field_compatibility`, and `_check_field_matches_context` for
 transform plans.
 
-History: FieldAlgebra used to carry near-duplicate checkers
+History: `FieldAlgebra` used to carry near-duplicate checkers
 (`_check_scalar_field_compatibility`, `_check_tensor2_vector_field_compatibility`).
 These were removed in favor of **direct calls** to
 `Fields._check_field_domain_compatibility` — an explicit decision against alias
@@ -329,11 +329,11 @@ paths, zero-mode updates — check explicitly. This is why, e.g., physical
 scalar±Real methods are bare broadcasts while their spectral counterparts call
 `check_field_compatibility` before `_copy_field_data!`.
 
-## 6. The code-generation architecture of FieldAlgebra
+## 6. The code-generation architecture of `FieldAlgebra`
 
 ### Why it emerged
 
-The original FieldAlgebra was 3033 hand-written lines defining ~198 public
+The original `FieldAlgebra` was 3033 hand-written lines defining ~198 public
 methods, with per-component kernels unrolled by hand (three statements per vector
 operation, nine per tensor). The regularity was overwhelming: one mathematical
 operation expands into 8–32 near-identical methods (two representations × two
@@ -345,7 +345,7 @@ once, while the public surface (and its deliberate absences) stays bit-identical
 
 ### Layers
 
-- **M1 — expression builders** (`Code generation` section of FieldAlgebra):
+- **M1 — expression builders** (`Code generation` section of `FieldAlgebra`):
   `_vector_component(symbol, kind, i)` / `_tensor_component(symbol, kind, i, j)`
   produce component-access expressions, with `kind = :field` (component view) or
   `:fiber` (StaticArrays indexing); `_sum_terms` and `_product` combine formulas;
@@ -433,8 +433,8 @@ not alias the inputs, matching `LinearAlgebra.mul!` semantics.
 
 ## 8. Broadcasting
 
-Fields broadcast storage-wise: a field in a broadcast stands for its data array,
-and the field broadcast style (owned by Fields) materializes into field storage.
+`Fields` broadcast storage-wise: a field in a broadcast stands for its data array,
+and the field broadcast style (owned by `Fields`) materializes into field storage.
 Style promotion is one-sided by design — define a single binary rule per style
 pair, never symmetric mixed-representation rules. The broadcast layer doubles as
 the compatibility enforcement for broadcast-mediated methods (§5).
@@ -456,7 +456,7 @@ should build plans under `set_fft_threads!(1)`. The common case (one field, tran
 serial in a time loop) wants `nthreads()` FFTW threads, the default.
 
 **Elementwise/fiberwise ops.** One internal primitive `_assign!(destination, bc)` in
-Fields. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
+`Fields`. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
 array wrappers keep the standard fused broadcast, so **invariant 6 holds by dispatch**, not
 discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
 instantiated `Broadcasted` over contiguous chunks (each chunk a fused `copyto!`; fusion
@@ -470,7 +470,7 @@ Two plug points route work through `_assign!`: the field broadcast style's `copy
 whole-field dotted ops and the field-level algebra), and the kernel assignments — the
 codegen body builders emit `_assign!(target, …)` (via `_to_broadcasted`, which rewrites a
 dotted formula into a lazy `broadcasted` tree at codegen time), and the hand-written
-FieldAlgebra / DifferentialOperators kernels use the `@_assign!` macro in place of `.=`. No
+`FieldAlgebra` / `DifferentialOperators` kernels use the `@_assign!` macro in place of `.=`. No
 types, signatures, or method tables change — the 198-method surface and the zero-ambiguity
 property are preserved. **Discipline:** a raw elementwise write must go through
 `_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
@@ -631,15 +631,15 @@ interpolation ``\mathcal I = W`` and its adjoint anterpolation ``\mathcal I^* = 
 
 All wrap a generic `AbstractArray` and allocate via `similar`, so they are backend-generic
 (CPU / CUDA / AMDGPU) for free; compatibility reduces to `M`-matching and matching tensor
-order (a `_check_…` predicate in the Fields style). The types live in the `Interpolation`
-module, importing Fields helpers via an explicit `using ..Fields: …`.
+order (a `_check_…` predicate in the `Fields` style). The types live in the `Interpolation`
+module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 
 **Implemented status.** The point types, their **full fiberwise algebra**, and the transfer
 schemes (interpolation / anterpolation — the local splines plus the spectral-domain `DirectDFT` and
 `NUFFT`, decision 23) are all implemented and tested. The algebra mirrors the *physical* field surface — the base-independent vertical
 operations of §2 (M2 vector-space and scalar-field products; M3 dot/cross/`mul!`/transpose/
 norm/sym/skew/dev), with storage-wise broadcasting — and is generated by **reusing
-FieldAlgebra's per-component formula and kernel-body builders verbatim** (§6) over an extended
+`FieldAlgebra`'s per-component formula and kernel-body builders verbatim** (§6) over an extended
 section interface (`field_data` / `_vector_component_data` / `_tensor2_component_data`, which
 `Interpolation` extends for the point types), so no formula is written twice. It is locked by
 a separate **118-method point-value parity baseline** (the 198-method field surface is
@@ -708,13 +708,13 @@ the moving-object abstraction and its dynamics are solver concerns.
 *Chronological and append-only — later entries supersede earlier "remaining"/"deferred"
 notes (e.g. the CPU threading and the interpolation layer) rather than contradicting them.*
 
-1. Fields refactor: atomic compatibility predicates; shared
+1. `Fields` refactor: atomic compatibility predicates; shared
    `_check_same_domain`; `_check_field_matches_context` for transforms.
-2. `FieldSpectralMultipliers` moved DifferentialOperators → Fields; explicit
+2. `FieldSpectralMultipliers` moved `DifferentialOperators` → `Fields`; explicit
    six-array constructor (validated lengths) plus convenience constructor;
    host-built wavenumbers copied to the backend; **Nyquist split** between
    derivative and squared multipliers (correctness, see §4).
-3. FieldAlgebra rewritten around code generation with the invariant that the
+3. `FieldAlgebra` rewritten around code generation with the invariant that the
    public method set is reproduced exactly; M2 + M3 delivered and parity-verified
    at runtime (198 methods, the full surface). Validation rewired to direct
    `_check_field_domain_compatibility` calls — alias wrappers explicitly
@@ -724,9 +724,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 5. Operators defined in `function op(...) ... end` form (parse-proven house
    style); short form only for unary `+`.
 6. GPU-first; CPU threading designed (`_assign!`, §9) and deliberately deferred.
-7. Refactor complete: FieldAlgebra loads and is parity-verified (M2 + M3, 198
-   methods); DifferentialOperators rewired to import `FieldSpectralMultipliers`
-   and its helpers from Fields, with the umbrella re-export corrected (the old
+7. Refactor complete: `FieldAlgebra` loads and is parity-verified (M2 + M3, 198
+   methods); `DifferentialOperators` rewired to import `FieldSpectralMultipliers`
+   and its helpers from `Fields`, with the umbrella re-export corrected (the old
    five-argument constructor removed by design); reference test suite in place
    (`test/`, `Pkg.test()` green) including the method-parity baseline.
    Remaining: deferred CPU threading (§9) and the planned interpolation layer.
@@ -798,9 +798,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `AbstractPointValues`, SoA, **representation-free**. Naming is domain-neutral by policy:
     the package is a math backend, so no *particle* / *tracer* type and **no concept of time**
     (no advection / integration / temporal state) — those are the consumer's. The types live in
-    `Interpolation`, importing Fields helpers; they are implemented and tested (only the
+    `Interpolation`, importing `Fields` helpers; they are implemented and tested (only the
     transfer kernels of item 13 remain future work — see item 15 for the algebra).
-15. Point-value algebra implemented (§10): FieldAlgebra's code generators are **reused
+15. Point-value algebra implemented (§10): `FieldAlgebra`'s code generators are **reused
     verbatim** over an extended point-value section interface, mirroring the full *physical*
     field surface (M2 + M3, storage-wise broadcasting) with no duplicated formula; locked by a
     separate **118-method baseline** (the 198-method field surface byte-unchanged), zero
@@ -850,7 +850,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `L²(base, μ)`; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. **Statistics** `mean`/`std`/`var`). All dispatch on
-    `AbstractFiberSection`, so fields **and** point-values share one set of formulas (FiberSections
+    `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
     "write it once").
 
     *The measure is a property of the base.* `Grid3D` → uniform Lebesgue quadrature (cell volume
@@ -986,7 +986,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operation invariant 1 names but bans **as `*`** (because `*` would read as the spectral *pointwise*
     product, which it is not). It is offered here under its true name — `convolve`, never `*` — and is
     linear in the field for a fixed kernel; the spectral pointwise product, division, and norms remain
-    absent. `convolve` / `convolve!` / `spectral_cutoff` are separate generics, so the FieldAlgebra
+    absent. `convolve` / `convolve!` / `spectral_cutoff` are separate generics, so the `FieldAlgebra`
     198-method and point-value 118-method parity baselines are unchanged.
 
     One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
