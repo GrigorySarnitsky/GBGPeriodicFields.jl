@@ -6,6 +6,12 @@ instead of accidentally reverting it. `CLAUDE.md` carries the operational summar
 this file carries the reasoning. The AI-tips block in `src/GBGPeriodicFields.jl`
 carries the conceptual model and writing conventions.
 
+This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
+`code` identifier — is introduced in plain language at its first use, the meaning stated before or in
+the same sentence as the symbol. So it reads top-to-bottom, and each §11 decision-log entry reads on
+its own, without opening the source or another document. (Universally standard math — ``\nabla``,
+``\Delta``, ``\int``, ``\mathbb R`` — may stand unglossed.) Keep it that way when editing.
+
 ## 1. Purpose and scope
 
 The package is the field layer for pseudospectral simulation of incompressible
@@ -162,7 +168,8 @@ W\,\bigl(\operatorname{sample}_{\text{grid}} p\bigr) \;=\; \operatorname{eval}_{
 
 The left identity is adjointness; the right is reproduction (``\Pi_m`` = polynomials up to the scheme's
 order). Together they are conservation — the two facts checked in `test/interpolation_transfer.jl`. With
-uniform measures, ``W^{\top}`` is the literal transpose up to the ``N/M`` measure factor (§10).
+uniform measures, ``W^{\top}`` is the literal transpose up to the ``N/M`` measure factor — ``N`` the
+number of grid points, ``M`` the number of sample points (§10).
 
 ### Representation validity lives in the method set
 
@@ -501,13 +508,14 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   values (the gather/scatter kernels below); approximate, conserving, the production default.
 - **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
   inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{i k\cdot(x_p-o)}`` and its adjoint
-  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}``. `DirectDFT` is the exact ``O(NM)`` form — the
+  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
+  grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
   the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
-  `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to ε on the resolved
-  sub-Nyquist band). The adjoint relation carries
+  `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
+  ``ε`` on the resolved sub-Nyquist band). The adjoint relation carries
   the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
 
 **Why the code says "anterpolation."** The point→grid (scatter) operation is named
@@ -1004,7 +1012,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       (same rfft half-spectrum Parseval weighting, now resolved per mode). This is the genuinely new
       reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
       is precisely *"the energy spectrum is the radially-resolved inner"* (decision 19's L²/integration
-      structure, refined by the spectral radial coordinate). The consumer's ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``; the
+      structure, refined by the spectral radial coordinate). The consumer's energy spectrum over the
+      shell wavenumber ``\kappa`` (``= |k|``) is ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``; the
       neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
       refinement is exact; on a de-aliased field the high-`|k|` shells are empty.
 
@@ -1141,9 +1150,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     spectral solver hands ``\hat f`` for free); `anterpolate` returns a section, here in spectral
     representation (the Fourier coefficients of ``\sum_p q_p\delta_{x_p}``).
 
-    *`DirectDFT` (done).* The literal ``O(NM)`` sum: type-2 ``f(x_p) = \tfrac1N\sum_{\text{stored }k}
-    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{i k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, the
-    Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
+    *`DirectDFT` (done).* The literal ``O(NM)`` sum (``N`` the grid-point count, ``o`` the grid origin):
+    type-2 ``f(x_p) = \tfrac1N\sum_{\text{stored }k}
+    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{i k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
+    the Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
     type-1 ``(W^\top q)(k) = \sum_p q_p e^{-i k\cdot(x_p-o)}``. It is the *definition* of the
     spectral-domain pair, so it is at once a transparent exact baseline, the **divergence-free
     reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
@@ -1158,12 +1168,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     gridding form of `DirectDFT`: **spread → FFT → deconvolve**, all reusing existing machinery — the
     transfer kernels (spread/gather with an exponential-of-semicircle window in place of the spline
     coefficients), a `FieldTransformPlans` on an oversampled (``\sigma=2``) grid, and a ``1/\hat\psi``
-    deconvolution `ScalarFieldSpectral` built like `assignment_window` (which **is** the ``\hat\psi`` of
-    the linear/CIC window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new
-    ingredient is the window ``\psi`` (exp-of-semicircle, GPU-trivial) and its transform ``\hat\psi``
+    deconvolution `ScalarFieldSpectral` — ``\psi`` the smooth compact spreading window, ``\hat\psi`` its
+    Fourier transform — built like `assignment_window` (which **is** the ``\hat\psi`` of the linear/CIC
+    window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new ingredient is that
+    window ``\psi`` (exp-of-semicircle, GPU-trivial) and its transform ``\hat\psi``
     (host quadrature, the ``z=\sin\theta`` substitution regularizing the endpoint); the stencil width
-    and ``\beta`` follow the Barnett–Magland–af Klinteberg ES rule for the tolerance. Verified against
-    `DirectDFT` (and `to_physical`) to ``\varepsilon`` (``\sim 10^{-12}`` at default tol) for scalar and
+    and the shape parameter ``\beta`` follow the Barnett–Magland–af Klinteberg ES rule for the tolerance.
+    Verified against `DirectDFT` (and `to_physical`) to the requested tolerance ``\varepsilon``
+    (``\sim 10^{-12}`` at the default) for scalar and
     vector fields, with the NUFFT pair an **exact adjoint** (``\sim 10^{-15}``).
 
     *The Nyquist edge.* The one subtlety: the rfft half-spectrum Nyquist mode of an even axis cannot be

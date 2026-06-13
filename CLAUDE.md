@@ -126,6 +126,16 @@ symbol on first mention** — `laplacian` ``\\equiv \\Delta``, `gradient` ``\\eq
 reader always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
 not rendered). `Reductions` is the reference implementation of this convention.
 
+**`docs/ARCHITECTURE.md` is self-contained — introduce notation in plain text before it is used.** As
+the top-level design document it must read top-to-bottom (and, since the §11 decision log is browsed
+entry-by-entry, each entry on its own) **without** opening the source or another doc. So **every piece
+of notation — a math symbol in LaTeX or a `code` identifier — is introduced in plain language at its
+first use**, the meaning stated *before or in the same sentence as* the symbol; later uses may then be
+bare. This is stricter than the code↔symbol binding above: it also covers package-specific math symbols
+(`W`/`Wᵀ`, the base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the origin `o`, …).
+Universally standard math may stand unglossed (∇, Δ, ∫, ℝ, plain summation indices). Decisions 18/19 are
+the reference entries; keep the header's self-contained note true when editing.
+
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
