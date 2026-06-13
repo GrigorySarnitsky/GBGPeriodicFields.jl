@@ -816,8 +816,8 @@ end
 /(A::FiberTensor2{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_pointvalues(scalar_values, Val(2)), A, scalar_values)
 
 
-# The transfer kernels — interpolation (`f(x)` / `interpolate` / `interpolate!`) and its adjoint
-# anterpolation (`anterpolate` / `anterpolate!`) — are not yet implemented; see the module
-# docstring and docs/ARCHITECTURE.md §10. These data types and their compatibility check come first.
+# The grid↔point transfer (interpolation `f(x)` / `interpolate` and its adjoint `anterpolate`) lives
+# in the `Interpolation` module; `Points` owns only the point-data types and their fiberwise algebra.
+# See the module docstring and docs/ARCHITECTURE.md §10.
 
-end # module Interpolation
+end # module Points

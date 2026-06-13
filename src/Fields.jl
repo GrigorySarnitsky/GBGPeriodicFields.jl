@@ -1074,8 +1074,8 @@ One-dimensional Fourier wavenumber arrays for coefficientwise spectral operators
 
 The fields are
 - `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.
-- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: per-axis wavenumbers, used for first derivatives via multiplication by `im * k`.
-- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by `-k^2`.
+- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: per-axis wavenumbers, used for first derivatives via multiplication by ``\\mathrm{i} k``.
+- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by ``-k^2``.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
@@ -1127,9 +1127,9 @@ end
 
 Build the spectral multipliers from the grid and Fourier layout of `field`, allocated on the field's storage backend.
 
-The wavenumbers are the physical angular wavenumbers `k = 2π n / L` along each axis, where `L` is the domain length and `n` runs over the FFT frequency indices.
+The wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L`` along each axis, where ``L`` is the domain length and ``n`` runs over the FFT frequency indices.
 On an even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to zero, so that derivatives of real fields stay real,
-while its squared wavenumber keeps the true `k^2`, so that the Laplacian and Poisson-type solves stay correct.
+while its squared wavenumber keeps the true ``k^2``, so that the Laplacian and Poisson-type solves stay correct.
 On an odd-length axis there is no exact Nyquist mode and no special treatment is applied.
 """
 function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}

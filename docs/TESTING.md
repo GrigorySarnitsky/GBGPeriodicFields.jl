@@ -27,7 +27,7 @@ agree, not that either is correct. Two kinds of oracle are used:
 - **Structural identities** — relations the operators must satisfy for *any* input: the
   vector-calculus identities (`div(curl) = 0`, `curl(grad) = 0`) and, on a periodic box,
   the adjoint relations (divergence as the negative gradient adjoint, self-adjoint curl, a
-  self-adjoint negative-definite Laplacian, a self-adjoint idempotent Helmholtz
+  self-adjoint negative-semidefinite Laplacian, a self-adjoint idempotent Helmholtz
   projection). Tested on randomized band-limited fields, they pin the discrete
   energy/entropy structure of the scheme.
 
@@ -56,7 +56,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field`),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
-  `interpolation_transfer.jl` (the Lalescu-spline interpolation / anterpolation transfer kernels), and
+  `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
+  `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
   `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
@@ -195,7 +196,7 @@ Honest status, so the contract above reads as the target rather than a descripti
 `AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split both at the multiplier level and
 end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at the
 Nyquist mode); M2 + M3 algebra and contractions in both representations; the spectral
-zero-mode constant invariant; the **point-value algebra** — the `Interpolation` module's
+zero-mode constant invariant; the **point-value algebra** — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
 `test/interpolation.jl`; the in-place `!` forms with caller-supplied destinations
@@ -203,21 +204,22 @@ and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
 `helmholtz_projection!`); the intentional absences in both representations (nonlinear products absent in spectral,
 differential operators absent in physical) and the physical/spectral symmetry of every
 linear field/fiber operation; the differential operators by
-analytic round-trip, including an anisotropic `(2π, 4π, 6π)` box that exercises the
-`2π/L` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
+analytic round-trip, including an anisotropic ``(2\pi, 4\pi, 6\pi)`` box that exercises the
+``2\pi/L`` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
 `curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting
 element-type preservation through operations); the 198-method field and 118-method
 point-value parity baselines and zero ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
 Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
 operator adjoint/structural identities on randomized band-limited fields — divergence as
-the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-definite
+the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-semidefinite
 Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmholtz
 projection — with the L² inner product computed inline (the global L² `inner` now lives in the
 `Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` ``\beta = 0`` / ``\beta \ne 0`` branches), confirmed on an AMD Radeon, plus
 the **PointValues algebra**, the **interpolation / anterpolation transfer** (gather, atomic
-scatter, accumulate, plus a heavy atomic-contention case), **convolution** (apply a Fourier kernel),
+scatter, accumulate, plus a heavy atomic-contention case), the **spectral transfer** (`DirectDFT`
+and `NUFFT`), **convolution** (apply a Fourier kernel),
 and the **L²/measure reductions** added alongside; and CPU threading — every threaded assignment is bitwise-identical to serial
 (field ops, the codegen contractions/products including `mul!`'s ``\beta=0``/``\beta\ne0`` branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
@@ -262,8 +264,9 @@ index/sign bugs that specific analytic functions can mask.
 
 **Gaps:**
 
-1. **Doctests** — the plumbing exists (`doctest = true`, `DocTestSetup`), but no
-   `jldoctest` examples have been written into the docstrings.
+1. **Docstring doctests** — the Getting-started tutorial is doctested (§2, the third checked
+   layer), but the per-function docstrings in `src/` do not yet carry their own `jldoctest`
+   examples.
 2. **Even-broader randomized coverage** — `randomized.jl` now covers the algebra, reductions, and
    convolution laws on random CPU data; extending property checks onto the device, and to more element
    types, is possible but lower-value (the laws are formula-level and backend-independent).

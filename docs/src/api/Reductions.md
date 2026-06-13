@@ -19,10 +19,10 @@ are *extended* on sections here — reached through `using Statistics` / `Base`,
 Physics stays in the consumer (kinetic energy ``\tfrac12\langle u, u\rangle``, enstrophy, dissipation, rms).
 
 A field in **spectral representation** also admits `inner`/`l2norm` via Parseval (equal to the physical
-inner, no transform), and `radial_spectrum(f, mult)` (``\equiv E(\kappa)``) — the **radial (shell-binned)
-power spectrum**: `inner` decomposed into isotropic ``|k|``-shells, returning `(shells, spectrum)` with the
-exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy
-spectrum is ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``.
+inner, no transform), and `radial_spectrum(f, mult)` — the **radial (shell-binned) power spectrum**
+``S(\kappa)``: `inner` decomposed into isotropic ``|k|``-shells, returning `(shells, spectrum)` with the
+exact refinement ``\sum_\kappa S(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy
+spectrum is ``E(\kappa) = \tfrac12\,S(\kappa)``.
 
 Its physical-space **Wiener–Khinchin dual** is `radial_correlation(f, plans)` (decision 22) — the
 shell-averaged two-point autocorrelation ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``, binned over

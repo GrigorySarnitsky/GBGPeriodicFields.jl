@@ -27,11 +27,11 @@ that matters.
   hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
 
-Two scope notes carried from the architecture: the **L²/measure reductions** (`integral`, `inner`,
-`l2norm`, `mean`, …; `docs/ARCHITECTURE.md` decision 18) now exist but are **not yet benchmarked** —
-they are bandwidth-bound streaming reductions whose only subtlety is floating-point summation order
-(tolerance-tested, not bitwise); and **platform optima diverge**, so every result below is reported
-per platform, never as a single number.
+A scope note carried from the architecture: **platform optima diverge**, so every result below is
+reported per platform, never as a single number. (The **L²/measure reductions** — `integral`, `inner`,
+`l2norm`, `mean`, …; `docs/ARCHITECTURE.md` decision 18 — are bandwidth-bound streaming reductions
+whose only subtlety is floating-point summation order, tolerance-tested rather than bitwise; they are
+now part of the suite, §5.)
 
 
 ## 2. The performance model
@@ -47,9 +47,9 @@ What bounds each public operation class — the mental model a benchmark either 
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
-- **The grid↔point transfer** (`interpolate`/`anterpolate`) → the subtle one. Each point gathers (or
-  scatters) a ``(2n{+}2)^3`` stencil with data-dependent indices, so it is bound by **irregular memory
-  access**, and the binding *differs by platform*:
+- **The grid↔point transfer** (`interpolate`/`anterpolate`), local-stencil **spline** schemes → the
+  subtle one. Each point gathers (or scatters) a ``(2n{+}2)^3`` stencil with data-dependent indices, so
+  it is bound by **irregular memory access**, and the binding *differs by platform*:
   - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
     flight at once to hide latency
     ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
@@ -62,6 +62,11 @@ What bounds each public operation class — the mental model a benchmark either 
   This single fact — GPU wants spread, CPU wants locality — explains the platform-divergent results
   in §4 (loop order, sorting) and is the most important thing to internalize before touching the
   transfer.
+- **The spectral transfer** (`DirectDFT`/`NUFFT`) → a different cost class. `DirectDFT` is the exact
+  ``O(N M)`` double sum (compute-bound, no FFT, no window) — the oracle; `NUFFT` is its
+  ``O(N\log N + M)`` fast form, an oversampled FFT plus a windowed spread/gather, so it is FFT-bound in
+  the grid size ``N`` and carries the same irregular-access spread/gather as the splines in the point
+  count ``M``.
 
 
 ## 3. Best practices
@@ -133,7 +138,7 @@ Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the str
 
 **(c) Rejected by measurement.** Two "obvious" optimizations that did not survive:
 
-- **Wrap-hoist** (precompute the `3·(2n+2)` periodic node offsets to kill inner-loop `mod`s):
+- **Wrap-hoist** (precompute the ``3(2n{+}2)`` periodic node offsets to kill inner-loop `mod`s):
   bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
   occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound.
 - **Morton particle sorting** (the textbook GPU-locality optimization): **0.5–1.0× on GPU** (gather)
@@ -146,7 +151,7 @@ Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the str
   available — slow-at-sparse — answer.)
 
 **(d) Anterpolation and contention.** The scatter costs ≈**2.2–2.7×** the gather (atomic
-read-modify-write + a full-grid prescale). On gfx1030 `Float32` atomic-add is native but `Float64`
+read-modify-write + a full-grid prescale). On gfx1031 `Float32` atomic-add is native but `Float64`
 is emulated (CAS loop) ⇒ ≈**1.3–1.7×** slower; contention is worst at *moderate* clustering
 (~2 pts/cell), not extreme (extreme stays cache-hot).
 
@@ -166,7 +171,8 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
 operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
-`spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation transfer**, and the
+`spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation
+transfer** (the spline schemes plus the spectral `DirectDFT`/`NUFFT`), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
 `inner`, and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — per-shell masked reductions and an inverse rfft,

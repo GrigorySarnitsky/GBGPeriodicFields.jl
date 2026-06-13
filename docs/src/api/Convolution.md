@@ -9,9 +9,10 @@ The `Convolution` module is the **kernel-multiplier** operation family — perio
 convolution of a field with a kernel, in spectral representation. On the torus, by the convolution
 theorem, ``f \star g`` is the coefficientwise spectral product ``\hat f \cdot \hat g``; the kernel `g` is supplied by its
 transfer function ``\hat g`` as a [`ScalarFieldSpectral`](Fields.md), which multiplies every fiber component
-(one method serves scalar, vector, and tensor fields). It is the spectral sibling of the
-[`DifferentialOperators`](DifferentialOperators.md) and the same-base counterpart of the
-[`Interpolation`](Interpolation.md) transfer — both are the "kernel measure" of the measure taxonomy.
+(one method serves scalar, vector, and tensor fields). In the **measure taxonomy** (decision 19) it is
+a *kernel* operation: the spectral sibling of [`DifferentialOperators`](DifferentialOperators.md) — both
+apply a coefficientwise spectral multiplier — and the same-base counterpart of the grid↔point
+[`Interpolation`](Interpolation.md) transfer.
 See `docs/ARCHITECTURE.md` §2 and decision 20.
 
 `convolve`/`convolve!` apply the kernel (with allocating, in-place, and α/β-accumulate forms); because

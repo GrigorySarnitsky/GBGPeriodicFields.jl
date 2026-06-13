@@ -25,7 +25,7 @@ is the choice of *kernel* and *representation*. Two families:
     version of `DirectDFT` (spread → oversampled FFT → deconvolve), owned natively, exact to a tolerance
     on the resolved sub-Nyquist band. See `docs/ARCHITECTURE.md` §10 / decision 23.
 
-The spline kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types
+The transfer kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types
 live in the [`Points`](Points.md) module.
 
 ## Contents

@@ -8,7 +8,7 @@ Order   = [:module]
 The `Fields` module defines the field objects and their storage. A field is a physical object; the `*Physical` and `*Spectral` types are two representations of the same field. It provides:
 
 - **Grids and layout** — `Grid3D` for the periodic domain geometry and `RealFourierLayout` for the real-to-complex transform layout.
-- **Fiber types** — the constant Cartesian fiber values `FiberVector`, `FiberTensor2`, `FiberTensor3`, `FiberTensor4` (StaticArrays aliases).
+- **Fiber types** — the Cartesian fiber types `FiberVector`, `FiberTensor2`, `FiberTensor3`, `FiberTensor4` (StaticArrays aliases), elements of the fiber ``(\mathbb R^3)^{\otimes R}`` for tensor order ``R``.
 - **Field types** — scalar, vector, and second-order tensor fields, each in physical-space and spectral representation.
 - **Transforms** — `FieldTransformPlans` and `to_physical(!)` / `to_spectral(!)`. The allocating forms preserve their input; the in-place `!` forms may overwrite the source (a property of the real FFT — see their docstrings).
 - **Spectral multipliers** — `FieldSpectralMultipliers`, the wavenumber arrays used by the spectral differential operators.

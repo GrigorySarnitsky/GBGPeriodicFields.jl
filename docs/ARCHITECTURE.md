@@ -396,16 +396,16 @@ were dropped: they duplicated the tables and went stale instantly.
 
 **Mathematics is rendered LaTeX, with the symbol bound to the code.** All math in docstrings and
 in these doc pages is written as Documenter LaTeX (KaTeX) in **standard notation** — inline
-``\\langle f, g\\rangle``, display ```math``` blocks — never Unicode-glyph approximations (`⟨f,g⟩`,
+``\langle f, g\rangle``, display ```math``` blocks — never Unicode-glyph approximations (`⟨f,g⟩`,
 `Σ`, `∫`). Because the package is *grounded in mathematics* (§2), each code object is **explicitly
 identified with its mathematical symbol on first mention** so the correspondence is never left
-implicit: `gradient` ``\\equiv \\nabla``, `divergence` ``\\equiv \\nabla\\cdot``, `curl`
-``\\equiv \\nabla\\times``, `laplacian` ``\\equiv \\Delta``, `inverse_laplacian`
-``\\equiv \\Delta^{-1}``, `helmholtz_projection` ``\\equiv \\mathbb{P}``, `inner`
-``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert``, `integral`
-``\\equiv \\int\\,d\\mu``, `convolve` ``\\equiv \\star``, `interpolate`/`anterpolate`
-``\\equiv W``/``W^\\top``, `to_spectral`/`to_physical` ``\\equiv \\mathcal F``/``\\mathcal F^{-1}``,
-a field in spectral representation written ``\\hat f``. (In a `"""` docstring the LaTeX backslashes
+implicit: `gradient` ``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl`
+``\equiv \nabla\times``, `laplacian` ``\equiv \Delta``, `inverse_laplacian`
+``\equiv \Delta^{-1}``, `helmholtz_projection` ``\equiv \mathbb{P}``, `inner`
+``\equiv \langle\cdot,\cdot\rangle``, `l2norm` ``\equiv \lVert\cdot\rVert``, `integral`
+``\equiv \int\,d\mu``, `convolve` ``\equiv \star``, `interpolate`/`anterpolate`
+``\equiv W``/``W^\top``, `to_spectral`/`to_physical` ``\equiv \mathcal F``/``\mathcal F^{-1}``,
+a field in spectral representation written ``\hat f``. (In a `"""` docstring the LaTeX backslashes
 are escaped `\\`; in a `.md` page they are raw. Plain `#` comments stay Unicode — they are not
 rendered.) `Reductions` is the reference implementation.
 
@@ -749,7 +749,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     against the trusted CPU result. The default `Pkg.test()` stays backend-free, so it
     is portable across CI and every machine.
 11. Test-suite buildout (beyond the GPU work in item 10): element-type genericity
-    (`Float32` alongside `Float64`), anisotropic-domain operators (the `2π/L` scaling),
+    (`Float32` alongside `Float64`), anisotropic-domain operators (the ``2\pi/L`` scaling),
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
     **adjointness / structural identities** on randomized band-limited fields
     (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-**semidefinite** Laplacian — negative-definite
