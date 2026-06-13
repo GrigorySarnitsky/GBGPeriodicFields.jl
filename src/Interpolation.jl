@@ -60,6 +60,7 @@ module Interpolation
 
 using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
+using ..FiberSections: _assign!, @_assign!
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
@@ -72,7 +73,7 @@ import KernelAbstractions
 import Atomix
 
 export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, LagrangeSpline, CatmullRom,
-       AbstractTransferScheme, DirectDFT
+       AbstractTransferScheme, DirectDFT, NUFFT
 
 
 #####################################################
@@ -799,6 +800,389 @@ function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantit
   out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
   return anterpolate!(out, points, quantities, scheme)
 end
+
+
+#####################################################
+#        Spectral-domain transfer: NUFFT            #
+#####################################################
+#
+# The fast O(N log N + M) gridding form of DirectDFT: spread → FFT → deconvolve. The non-uniform
+# points are spread to / gathered from an oversampled (σ) grid with a smooth compact window ψ; the
+# window's spectral footprint ψ̂ is divided out (deconvolution), and the oversampling makes the
+# window's aliases negligible (the accuracy ε). All three pieces reuse existing machinery — the
+# transfer kernels (with the window in place of the spline coefficients), a FieldTransformPlans on
+# the oversampled grid, and an `assignment_window`-style coefficientwise deconvolution.
+
+
+# Exponential-of-semicircle (ES) window weights over the W-wide stencil, GPU-trivial (exp/sqrt only).
+# For fractional position t ∈ [0,1) the W nodes sit at offsets δ = i − W÷2 (i = 1…W); the weight of
+# node i is ψ(t − δ) with ψ(s) = exp(β(√(1−(2s/W)²) − 1)). Returned as an SVector so the kernels
+# index it by a runtime stencil index on CPU and GPU (as for the spline `_axis_weights`).
+@inline function _es_weights(t::T, beta::T, ::Val{W}) where {T, W}
+  half = W ÷ 2
+  return SVector{W, T}(ntuple(i -> begin
+    z = 2 * (t - (i - half)) / W
+    exp(beta * (sqrt(max(one(T) - z * z, zero(T))) - one(T)))
+  end, Val(W)))
+end
+
+
+# The continuous Fourier transform ψ̂(ω) = ∫_{−W/2}^{W/2} ψ(s) e^{−iωs} ds of the ES window (real,
+# even). The √(1−z²) endpoint singularity is regularized by the substitution z = sin θ
+# (√(1−z²) = cos θ), after which the integrand is smooth and trapezoidal converges fast. Host-only
+# (called once per plan, per stored mode along each axis), so plain scalar quadrature.
+function _es_window_transform(omega::T, beta::T, width::Integer; quadrature_points::Int = 256) where {T<:AbstractFloat}
+  half_width = T(width) / 2
+  accumulated = zero(T)
+  for q in 0:quadrature_points
+    theta = -T(π) / 2 + T(π) * q / quadrature_points
+    trapezoidal = (q == 0 || q == quadrature_points) ? one(T) / 2 : one(T)
+    accumulated += trapezoidal * exp(beta * (cos(theta) - one(T))) * cos(omega * half_width * sin(theta)) * cos(theta)
+  end
+  return half_width * (T(π) / quadrature_points) * accumulated
+end
+
+
+# Stencil width and shape parameter for a target tolerance (the exponential-of-semicircle rule for
+# oversampling σ = 2: w ≈ log₁₀(1/ε) + 2, β ≈ 2.30 w — Barnett, Magland & af Klinteberg 2019).
+# Verified against `DirectDFT` in `test/transfer_spectral.jl` and bumped if the measured error misses ε.
+_nufft_width(tol::Real) = max(4, ceil(Int, -log10(tol)) + 2)
+_nufft_beta(width::Integer, ::Type{T}) where {T} = T(23) / 10 * width
+
+
+# Per-axis N→σN frequency index map: stored coarse index → stored oversampled index of the same
+# Fourier frequency. On the rfft half axis the low frequencies 0…N/2 keep their index; on a full axis
+# the negative frequencies fold to the high end of the oversampled axis. Host build → backend copy.
+function _nufft_index_map(reference::AbstractArray, number_of_points::Int, oversampled_points::Int, stored_length::Int, is_half::Bool)
+  host = Vector{Int}(undef, stored_length)
+  for i in 1:stored_length
+    zero_based = i - 1
+    frequency = (is_half || zero_based < (number_of_points + 1) ÷ 2) ? zero_based : zero_based - number_of_points
+    host[i] = frequency ≥ 0 ? frequency + 1 : oversampled_points + frequency + 1
+  end
+  device = similar(reference, Int, stored_length)
+  copyto!(device, host)
+  return device
+end
+
+
+# The coefficientwise deconvolution ∏_a 1/ψ̂_a(ω) on the coarse (N) spectral grid, a real (Nkx,Ny,Nz)
+# device array (mirrors `Convolution.assignment_window`: per-axis host build, reshape, broadcast,
+# copy). ω_a = 2π·freq/(σ N_a) is the cell-frequency of the stored mode on the oversampled grid.
+function _nufft_deconvolution(reference::AbstractFieldSpectral{T}, oversampling::Int, width::Int, beta::T) where {T<:AbstractFloat}
+  grid = field_grid(reference)
+  half_dimension = field_layout(reference).fft_dims[1]
+  data = field_data(reference)
+  axis(d) = begin
+    stored = size(data, d)
+    number_of_points = grid.grid_size[d]
+    is_half = d == half_dimension
+    host = Vector{T}(undef, stored)
+    for i in 1:stored
+      zero_based = i - 1
+      frequency = (is_half || zero_based < (number_of_points + 1) ÷ 2) ? zero_based : zero_based - number_of_points
+      omega = 2 * T(π) * frequency / (oversampling * number_of_points)
+      host[i] = one(T) / _es_window_transform(omega, beta, width)
+    end
+    # Project out the exact Nyquist mode on even axes: the rfft half-spectrum Nyquist cannot be
+    # split losslessly into the finer oversampled grid (the gridding NUFFT's known edge). Zeroing it
+    # here makes type-1 and type-2 exact adjoints on the resolved sub-Nyquist band — exactly the band
+    # a spectral solver uses (de-aliasing zeros the Nyquist), where the transfer is exact to ε.
+    if iseven(number_of_points)
+      host[is_half ? stored : number_of_points ÷ 2 + 1] = zero(T)
+    end
+    device = similar(data, T, stored); copyto!(device, host); device
+  end
+  reciprocal_1 = reshape(axis(1), :, 1, 1)
+  reciprocal_2 = reshape(axis(2), 1, :, 1)
+  reciprocal_3 = reshape(axis(3), 1, 1, :)
+  deconvolution = similar(data, T, size(data, 1), size(data, 2), size(data, 3))
+  @_assign! deconvolution .= reciprocal_1 .* reciprocal_2 .* reciprocal_3
+  return deconvolution
+end
+
+
+"""
+    NUFFT(reference::AbstractFieldSpectral; tol = 1e-10, oversampling = 2, width = 0, beta = 0)
+
+The **fast** spectral-domain transfer scheme — the ``O(N\\log N + M)`` windowed-gridding (NUFFT)
+counterpart of [`DirectDFT`](@ref), exact to a tolerance `tol`. Built from a `reference` spectral
+field (it fixes the grid, layout, element type, and tensor order); the plan holds the oversampled
+(`oversampling`×) grid and its [`FieldTransformPlans`](@ref), the deconvolution ``1/\\hat\\psi``, and
+the coarse↔oversampled mode maps. `width`/`beta` default to the exponential-of-semicircle parameters
+for `tol`. Used like `DirectDFT`: `interpolate(f̂, points, nufft)` / `anterpolate(points, q, nufft)`,
+on a field in **spectral representation**, of the reference's tensor order. The algorithm is
+
+```math
+\\text{type-2: deconvolve } \\hat f / \\hat\\psi \\to \\text{zero-pad} \\to \\mathcal F^{-1} \\to \\text{window-gather}, \\qquad
+\\text{type-1: window-spread} \\to \\mathcal F \\to \\text{truncate} \\to \\text{deconvolve}.
+```
+
+It agrees with `DirectDFT` (hence `to_physical`/`to_spectral` at the nodes) to `tol`, shares its
+adjoint relation, and like it is divergence-free (it reconstructs the band-limited field). For a few
+points/modes `DirectDFT` is simpler; `NUFFT` wins as ``M, N`` grow.
+"""
+struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
+  width::Int
+  beta::T
+  total_oversampling::T
+  oversampled_grid::Grid3D{T}
+  oversampled_plans::PL
+  deconvolution::DC
+  oversampled_physical::PP    # template (its data is copied, never mutated, per call)
+  oversampled_spectral::SP
+  embed_map_1::MP
+  embed_map_2::MP
+  embed_map_3::MP
+end
+
+
+function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversampling::Integer = 2,
+               width::Integer = 0, beta::Real = 0) where {T<:AbstractFloat, R}
+  σ = Int(oversampling)
+  w = width > 0 ? Int(width) : _nufft_width(tol)
+  β = beta > 0 ? T(beta) : _nufft_beta(w, T)
+  grid = field_grid(reference)
+  layout = field_layout(reference)
+  data = field_data(reference)
+  oversampled_size = ntuple(d -> σ * grid.grid_size[d], 3)
+  oversampled_grid = Grid3D(oversampled_size, grid.domain_size; origin = grid.origin)
+  physical_template = _wrap_field(similar(data, T, physical_field_shape(oversampled_grid, Val(R))), oversampled_grid, Val(R))
+  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, spectral_field_shape(oversampled_grid, layout, Val(R))), oversampled_grid, Val(R))
+  plans = FieldTransformPlans(physical_template, spectral_template)
+  deconvolution = _nufft_deconvolution(reference, σ, w, β)
+  total_oversampling = T(prod(oversampled_size) / prod(grid.grid_size))
+  map_1 = _nufft_index_map(data, grid.grid_size[1], oversampled_size[1], size(data, 1), 1 == layout.fft_dims[1])
+  map_2 = _nufft_index_map(data, grid.grid_size[2], oversampled_size[2], size(data, 2), 2 == layout.fft_dims[1])
+  map_3 = _nufft_index_map(data, grid.grid_size[3], oversampled_size[3], size(data, 3), 3 == layout.fft_dims[1])
+  return NUFFT(w, β, total_oversampling, oversampled_grid, plans, deconvolution,
+               physical_template, spectral_template, map_1, map_2, map_3)
+end
+
+
+# Window gather (type-2): one work-item per point sums the W³ stencil of the oversampled physical
+# field with the ES window weights (no atomics). Mirrors `_interpolate_kernel!`.
+@kernel function _nufft_gather_kernel!(output, @Const(coordinates), @Const(field_values), beta,
+                                       origin, spacing, grid_size, points_per_fibre, number_of_points, ::Val{W}) where {W}
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds begin
+      base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
+      base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
+      base_3, t_3 = _locate(coordinates[point, 3], origin[3], spacing[3], grid_size[3])
+      weights_1 = _es_weights(t_1, beta, Val(W))
+      weights_2 = _es_weights(t_2, beta, Val(W))
+      weights_3 = _es_weights(t_3, beta, Val(W))
+      half = W ÷ 2
+      number_of_fibres = length(field_values) ÷ points_per_fibre
+      grid_x, grid_y, grid_z = grid_size
+      for fibre in 1:number_of_fibres
+        accumulated = zero(eltype(output))
+        for k in 1:W
+          node_z = mod(base_3 + (k - half), grid_z) + 1
+          for j in 1:W
+            node_y = mod(base_2 + (j - half), grid_y) + 1
+            weight_yz = weights_2[j] * weights_3[k]
+            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            for i in 1:W
+              node_x = mod(base_1 + (i - half), grid_x) + 1
+              accumulated += weight_yz * weights_1[i] * field_values[node_x + plane]
+            end
+          end
+        end
+        output[point + number_of_points * (fibre - 1)] = accumulated
+      end
+    end
+  end
+end
+
+
+# Window spread (type-1): the transpose of the gather — one work-item per point scatters its value
+# over the W³ stencil, atomically. Mirrors `_anterpolate_kernel!`.
+@kernel function _nufft_spread_kernel!(field_values, @Const(coordinates), @Const(point_quantities), beta,
+                                       origin, spacing, grid_size, points_per_fibre, number_of_points, ::Val{W}) where {W}
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds begin
+      base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
+      base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
+      base_3, t_3 = _locate(coordinates[point, 3], origin[3], spacing[3], grid_size[3])
+      weights_1 = _es_weights(t_1, beta, Val(W))
+      weights_2 = _es_weights(t_2, beta, Val(W))
+      weights_3 = _es_weights(t_3, beta, Val(W))
+      half = W ÷ 2
+      number_of_fibres = length(field_values) ÷ points_per_fibre
+      grid_x, grid_y, grid_z = grid_size
+      for fibre in 1:number_of_fibres
+        quantity = point_quantities[point + number_of_points * (fibre - 1)]
+        for k in 1:W
+          node_z = mod(base_3 + (k - half), grid_z) + 1
+          for j in 1:W
+            node_y = mod(base_2 + (j - half), grid_y) + 1
+            weight_yz = weights_2[j] * weights_3[k]
+            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            for i in 1:W
+              node_x = mod(base_1 + (i - half), grid_x) + 1
+              Atomix.@atomic field_values[node_x + plane] += weight_yz * weights_1[i] * quantity
+            end
+          end
+        end
+      end
+    end
+  end
+end
+
+
+# Copy the coarse (N) spectral coefficients into the zero-padded oversampled (σN) array by the
+# per-axis frequency maps (one work-item per coarse mode; the oversampled array is zeroed first).
+@kernel function _nufft_embed_kernel!(oversampled, @Const(coarse), @Const(map_1), @Const(map_2), @Const(map_3),
+                                      coarse_modes, oversampled_modes, n1, n2, over_n1, over_n2)
+  mode = @index(Global, Linear)
+  if mode ≤ coarse_modes
+    @inbounds begin
+      i1 = mod(mode - 1, n1) + 1
+      i2 = mod((mode - 1) ÷ n1, n2) + 1
+      i3 = (mode - 1) ÷ (n1 * n2) + 1
+      over_base = map_1[i1] + over_n1 * (map_2[i2] - 1) + over_n1 * over_n2 * (map_3[i3] - 1)
+      number_of_fibres = length(coarse) ÷ coarse_modes
+      for fibre in 1:number_of_fibres
+        oversampled[over_base + oversampled_modes * (fibre - 1)] = coarse[mode + coarse_modes * (fibre - 1)]
+      end
+    end
+  end
+end
+
+
+# The transpose of embed: read the oversampled coefficients at the mapped positions into the coarse
+# array (one work-item per coarse mode).
+@kernel function _nufft_extract_kernel!(coarse, @Const(oversampled), @Const(map_1), @Const(map_2), @Const(map_3),
+                                        coarse_modes, oversampled_modes, n1, n2, over_n1, over_n2)
+  mode = @index(Global, Linear)
+  if mode ≤ coarse_modes
+    @inbounds begin
+      i1 = mod(mode - 1, n1) + 1
+      i2 = mod((mode - 1) ÷ n1, n2) + 1
+      i3 = (mode - 1) ÷ (n1 * n2) + 1
+      over_base = map_1[i1] + over_n1 * (map_2[i2] - 1) + over_n1 * over_n2 * (map_3[i3] - 1)
+      number_of_fibres = length(coarse) ÷ coarse_modes
+      for fibre in 1:number_of_fibres
+        coarse[mode + coarse_modes * (fibre - 1)] = oversampled[over_base + oversampled_modes * (fibre - 1)]
+      end
+    end
+  end
+end
+
+
+# A fresh oversampled work field (physical or spectral) from a stored template (never mutates it).
+_fresh(template) = similar_field(template, similar(field_data(template)))
+
+
+"""
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+
+Fast spectral interpolation (the windowed-gridding NUFFT, [`NUFFT`](@ref)) of `field` to `points`:
+deconvolve, zero-pad to the oversampled grid, inverse FFT, window-gather. Agrees with
+[`DirectDFT`](@ref) to the plan's tolerance.
+"""
+function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+  pointvalue_tensor_order(out) == field_tensor_order(field) ||
+    throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
+  _check_npoints_match(out, points)
+  T = field_scalar_type(field)
+  backend = get_backend(field_data(field))
+  oversampled_spectral = _fresh(scheme.oversampled_spectral)
+  over_data = field_data(oversampled_spectral)
+  fill!(over_data, zero(Complex{T}))
+  # deconvolve + scale the coarse coefficients, then embed into the zero-padded oversampled grid
+  coarse = similar(field_data(field))
+  @_assign! coarse .= field_data(field) .* scheme.deconvolution .* scheme.total_oversampling
+  data = field_data(field)
+  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
+  coarse_modes = n1 * n2 * n3
+  oversampled_modes = size(over_data, 1) * size(over_data, 2) * size(over_data, 3)
+  _nufft_embed_kernel!(backend)(over_data, coarse, scheme.embed_map_1, scheme.embed_map_2, scheme.embed_map_3,
+    coarse_modes, oversampled_modes, n1, n2, size(over_data, 1), size(over_data, 2); ndrange = coarse_modes)
+  synchronize(backend)
+  oversampled_physical = to_physical(oversampled_spectral, scheme.oversampled_plans)
+  over_grid = scheme.oversampled_grid
+  _nufft_gather_kernel!(backend)(point_values(out), point_coordinates(points), field_data(oversampled_physical), scheme.beta,
+    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out), Val(scheme.width);
+    ndrange = npoints(out))
+  synchronize(backend)
+  return out
+end
+
+
+"""
+    interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+
+Allocating form of the NUFFT [`interpolate!`](@ref).
+"""
+function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+  T = field_scalar_type(field)
+  R = field_tensor_order(field)
+  data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(R))...))
+  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme)
+end
+
+
+"""
+    anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+                 scheme::NUFFT, α = true, β = false)
+
+Fast spectral anterpolation (the windowed-gridding NUFFT) — the adjoint of the NUFFT
+[`interpolate!`](@ref): window-spread, FFT, truncate to the coarse modes, deconvolve, accumulating
+``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``.
+"""
+function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+                      scheme::NUFFT, α::Real = true, β::Real = false)
+  field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
+    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
+  _check_npoints_match(points, quantities)
+  T = field_scalar_type(field)
+  backend = get_backend(field_data(field))
+  oversampled_physical = _fresh(scheme.oversampled_physical)
+  over_phys_data = field_data(oversampled_physical)
+  fill!(over_phys_data, zero(T))
+  over_grid = scheme.oversampled_grid
+  _nufft_spread_kernel!(backend)(over_phys_data, point_coordinates(points), point_values(quantities), scheme.beta,
+    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities), Val(scheme.width);
+    ndrange = npoints(quantities))
+  synchronize(backend)
+  oversampled_spectral = to_spectral(oversampled_physical, scheme.oversampled_plans)
+  over_data = field_data(oversampled_spectral)
+  coarse = similar(field_data(field))
+  data = field_data(field)
+  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
+  coarse_modes = n1 * n2 * n3
+  oversampled_modes = size(over_data, 1) * size(over_data, 2) * size(over_data, 3)
+  _nufft_extract_kernel!(backend)(coarse, over_data, scheme.embed_map_1, scheme.embed_map_2, scheme.embed_map_3,
+    coarse_modes, oversampled_modes, n1, n2, size(over_data, 1), size(over_data, 2); ndrange = coarse_modes)
+  synchronize(backend)
+  if iszero(β)
+    @_assign! data .= T(α) .* coarse .* scheme.deconvolution
+  else
+    @_assign! data .= T(α) .* coarse .* scheme.deconvolution .+ T(β) .* data
+  end
+  return field
+end
+
+
+"""
+    anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT)
+
+Allocating form of the NUFFT [`anterpolate!`](@ref): a new spectral field like `reference`.
+"""
+function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT)
+  out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
+  return anterpolate!(out, points, quantities, scheme)
+end
+
+
+# Spectral-field wrappers (the spectral siblings of `_wrap_field`), for the oversampled work fields.
+_wrap_field_spectral(data, grid, ::Val{0}) = ScalarFieldSpectral(data, grid)
+_wrap_field_spectral(data, grid, ::Val{1}) = VectorFieldSpectral(data, grid)
+_wrap_field_spectral(data, grid, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid)
 
 
 end # module Interpolation

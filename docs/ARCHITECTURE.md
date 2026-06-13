@@ -504,9 +504,10 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}``. `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
-  the oracle for the planned fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned
-  natively — spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
-  `FieldTransformPlans`, and an `assignment_window`-style deconvolution). The adjoint relation carries
+  the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
+  spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
+  `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to ε on the resolved
+  sub-Nyquist band). The adjoint relation carries
   the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
 
 **Why the code says "anterpolation."** The point→grid (scatter) operation is named
@@ -1129,8 +1130,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
     Craya–Herring longitudinal/transverse split, which only earn their structure under anisotropy
     (e.g. shear flow), per the §2 rule against speculative structure.
-23. **Spectral-domain transfer — `DirectDFT` (exact) and the native `NUFFT` (fast). [`DirectDFT` DONE;
-    `NUFFT` in progress.]**
+23. **Spectral-domain transfer — `DirectDFT` (exact) and the native `NUFFT` (fast). [Both DONE.]**
 
     *The object.* The transfer layer (§10) had one scheme family — the physical-domain local splines.
     This adds the **spectral-domain** transfer: evaluation/deposition between Fourier coefficients and
@@ -1154,15 +1154,27 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
     like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.
 
-    *Native `NUFFT` (decided: own it, no dependency — in progress).* The fast ``O(N\log N + M)`` windowed
+    *Native `NUFFT` (decided: own it, no dependency — done).* The fast ``O(N\log N + M)`` windowed
     gridding form of `DirectDFT`: **spread → FFT → deconvolve**, all reusing existing machinery — the
     transfer kernels (spread/gather with an exponential-of-semicircle window in place of the spline
     coefficients), a `FieldTransformPlans` on an oversampled (``\sigma=2``) grid, and a ``1/\hat\psi``
     deconvolution `ScalarFieldSpectral` built like `assignment_window` (which **is** the ``\hat\psi`` of
     the linear/CIC window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new
-    ingredient is the window ``\psi`` and its transform ``\hat\psi`` (host quadrature); validated against
-    `DirectDFT` to a tolerance ``\varepsilon``. `NonuniformFFTs.jl` was evaluated (it fits — real-data
-    rfft, AMDGPU/KA, batched) but **not adopted**: owning it keeps the package self-contained and makes
-    the spline transfer and the NUFFT share one spread machinery, with `DirectDFT` and a direct ``O(NM)``
-    DFT as independent ground truth. Tested CPU (`test/transfer_spectral.jl`) + GPU parity; method parity
-    198/118 unchanged (the transfer verbs are not in those surfaces).
+    ingredient is the window ``\psi`` (exp-of-semicircle, GPU-trivial) and its transform ``\hat\psi``
+    (host quadrature, the ``z=\sin\theta`` substitution regularizing the endpoint); the stencil width
+    and ``\beta`` follow the Barnett–Magland–af Klinteberg ES rule for the tolerance. Verified against
+    `DirectDFT` (and `to_physical`) to ``\varepsilon`` (``\sim 10^{-12}`` at default tol) for scalar and
+    vector fields, with the NUFFT pair an **exact adjoint** (``\sim 10^{-15}``).
+
+    *The Nyquist edge.* The one subtlety: the rfft half-spectrum Nyquist mode of an even axis cannot be
+    split losslessly into the finer oversampled grid (zero-padding a real spectrum). It is **projected
+    out** in the deconvolution, so `NUFFT`'s type-1/type-2 remain exact adjoints on the **resolved
+    sub-Nyquist band** — exactly the band a spectral solver uses (de-aliasing, or any natural spectral
+    decay, zeros the Nyquist), where the transfer is exact to ``\varepsilon``. `DirectDFT` (no
+    oversampling) carries the Nyquist exactly; the two agree on the sub-Nyquist band.
+
+    `NonuniformFFTs.jl` was evaluated (it fits — real-data rfft, AMDGPU/KA, batched) but **not adopted**:
+    owning it keeps the package self-contained and makes the spline transfer and the NUFFT share one
+    spread machinery, with `DirectDFT` and a direct ``O(NM)`` DFT as independent ground truth. Tested
+    CPU (`test/transfer_spectral.jl`) + GPU parity; method parity 198/118 unchanged (the transfer verbs
+    are not in those surfaces).

@@ -329,6 +329,31 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
                     anterpolate(grid, crowded, crowded_quantities))
     end
 
+    @testset "spectral transfer (DirectDFT / NUFFT)" begin
+      number_of_points = 40
+      host_points = PointSet(T(2π) .* rand(T, number_of_points, 3))
+      device_points = on_device_ps(host_points)
+      tol = T === Float32 ? 1.0f-3 : 1e-9
+      # band-limited below the Nyquist of (8,7,6) ⇒ NUFFT is exact; scalar + vector
+      sf = ScalarFieldPhysical((x, y, z) -> cos(2x) + T(1) / 2 * sin(y) * cos(z) + T(3) / 10, grid)
+      vf = VectorFieldPhysical((x, y, z) -> (sin(y) + cos(2z), sin(2x) + cos(z), sin(x) + cos(2y)), grid)
+      for host_physical in (sf, vf)
+        R = field_tensor_order(host_physical)
+        host_spectral = to_spectral(host_physical, plans_for(host_physical))
+        device_spectral = to_spectral(on_device(host_physical), plans_for(on_device(host_physical)))
+        host_q = R == 0 ? ScalarPointValues(rand(T, number_of_points)) : VectorPointValues(rand(T, number_of_points, 3))
+        device_q = on_device_pv(host_q)
+        # DirectDFT (stateless): device vs CPU, gather + scatter
+        @test matches(interpolate(device_spectral, device_points, DirectDFT()), interpolate(host_spectral, host_points, DirectDFT()))
+        @test matches(anterpolate(device_spectral, device_points, device_q, DirectDFT()), anterpolate(host_spectral, host_points, host_q, DirectDFT()))
+        # NUFFT (per-backend plan: device plan ↔ device arrays): device vs CPU
+        device_nufft = NUFFT(device_spectral; tol = tol)
+        host_nufft = NUFFT(host_spectral; tol = tol)
+        @test matches(interpolate(device_spectral, device_points, device_nufft), interpolate(host_spectral, host_points, host_nufft))
+        @test matches(anterpolate(device_spectral, device_points, device_q, device_nufft), anterpolate(host_spectral, host_points, host_q, host_nufft))
+      end
+    end
+
     @testset "L²/measure reductions" begin
       # Reductions return host scalars / fiber values; compare device vs CPU directly. (Summation
       # order differs on the device, so this is a tolerance check, not bitwise.) `var`/`std` are

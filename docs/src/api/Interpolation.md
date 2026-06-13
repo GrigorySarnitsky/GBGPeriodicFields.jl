@@ -20,7 +20,10 @@ is the choice of *kernel* and *representation*. Two families:
     sum, acting on a field in **spectral** representation: ``f(x_p) = \tfrac1N \sum_k \hat f(k)\,
     e^{i k\cdot(x_p-o)}`` and its adjoint. It reproduces the band-limited field **exactly** (so it is
     pointwise divergence-free, matching [`to_physical`](@ref) at the grid nodes) and is the oracle for
-    the fast windowed `NUFFT` (planned). See `docs/ARCHITECTURE.md` §10.
+    the fast [`NUFFT`](@ref).
+  * **Spectral-domain fast transfer** ([`NUFFT`](@ref)) — the ``O(N\log N + M)`` windowed-gridding
+    version of `DirectDFT` (spread → oversampled FFT → deconvolve), owned natively, exact to a tolerance
+    on the resolved sub-Nyquist band. See `docs/ARCHITECTURE.md` §10 / decision 23.
 
 The spline kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types
 live in the [`Points`](Points.md) module.

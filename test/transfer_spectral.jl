@@ -107,3 +107,65 @@ using Random: MersenneTwister
     end
   end
 end
+
+@testset "Spectral transfer (NUFFT)" begin
+  for T in (Float64, Float32)
+    tol = T == Float64 ? 1e-10 : 1.0f-4
+    atol = T == Float64 ? 1e-8 : 1.0f-3
+    layout = RealFourierLayout()
+    grid = Grid3D((16, 16, 16), (T(2π), T(2π), T(2π)))   # oversampled 32³ ≥ stencil width
+
+    tospec(phys) = (R = field_tensor_order(phys);
+                    shape = spectral_field_shape(grid, layout, Val(R));
+                    spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
+                                     VectorFieldSpectral(zeros(Complex{T}, shape), grid);
+                    plans = FieldTransformPlans(phys, spec0);
+                    (to_spectral(phys, plans), plans))
+
+    rng = MersenneTwister(99)
+    P = T.(rand(rng, 8, 3) .* 2π)
+    points = PointSet(P)
+
+    # band-limited well below the Nyquist (= the resolved band the gridding NUFFT is exact on)
+    scalar(x, y, z) = cos(2x) + T(1) / 2 * sin(y) * cos(3z) + T(3) / 10
+    vector(x, y, z) = (sin(y) + cos(2z), sin(2x) + cos(z), sin(x) + cos(2y))
+
+    @testset "NUFFT == DirectDFT (the oracle) to tol ($T)" begin
+      for phys in (ScalarFieldPhysical(scalar, grid), VectorFieldPhysical(vector, grid))
+        fh, plans = tospec(phys)
+        nufft = NUFFT(fh; tol = tol)
+        fast = Array(point_values(interpolate(fh, points, nufft)))
+        oracle = Array(point_values(interpolate(fh, points, DirectDFT())))
+        @test isapprox(fast, oracle; rtol = atol, atol = atol)
+        # …hence exact reconstruction of the band-limited field, and == to_physical at the nodes
+        if field_tensor_order(phys) == 0
+          want = T[scalar(P[r, 1], P[r, 2], P[r, 3]) for r in 1:size(P, 1)]
+          @test isapprox(vec(fast), want; rtol = atol, atol = atol)
+        end
+      end
+    end
+
+    @testset "NUFFT adjoint pair M·⟨Wf̂,q⟩ = N·⟨f̂,Wᵀq⟩ ($T)" begin
+      for (phys, q) in ((ScalarFieldPhysical(scalar, grid), ScalarPointValues(randn(rng, T, 8))),
+                        (VectorFieldPhysical(vector, grid), VectorPointValues(randn(rng, T, 8, 3))))
+        fh, _ = tospec(phys)
+        nufft = NUFFT(fh; tol = tol)
+        gathered = interpolate(fh, points, nufft)
+        deposited = anterpolate(fh, points, q, nufft)
+        left = sum(vec(Array(point_values(gathered))) .* vec(Array(point_values(q))))   # = M·inner_pts
+        right = prod(grid.grid_size) * inner(fh, deposited)
+        @test isapprox(left, right; rtol = atol, atol = atol)
+      end
+    end
+
+    @testset "NUFFT α/β accumulate + tunable width ($T)" begin
+      phys = ScalarFieldPhysical(scalar, grid); fh, _ = tospec(phys)
+      nufft = NUFFT(fh; width = 8, beta = 18)            # explicit ES parameters
+      q = ScalarPointValues(randn(rng, T, 8))
+      once = anterpolate(fh, points, q, nufft)
+      twice = ScalarFieldSpectral(copy(field_data(once)), grid)
+      anterpolate!(twice, points, q, nufft, T(1), T(1))
+      @test isapprox(Array(field_data(twice)), 2 .* Array(field_data(once)); rtol = atol, atol = atol)
+    end
+  end
+end

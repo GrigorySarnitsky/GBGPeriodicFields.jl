@@ -204,7 +204,8 @@ using .Interpolation:
   LagrangeSpline,
   CatmullRom,
   AbstractTransferScheme,
-  DirectDFT
+  DirectDFT,
+  NUFFT
 
 
 using .Reductions:
@@ -310,6 +311,7 @@ export FiberVector,
        CatmullRom,
        AbstractTransferScheme,
        DirectDFT,
+       NUFFT,
        integral,
        inner,
        l2norm,
