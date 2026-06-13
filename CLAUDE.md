@@ -136,6 +136,21 @@ bare. This is stricter than the code↔symbol binding above: it also covers pack
 Universally standard math may stand unglossed (∇, Δ, ∫, ℝ, plain summation indices). Decisions 18/19 are
 the reference entries; keep the header's self-contained note true when editing.
 
+**Mathematical correctness is its own check — distinct from formatting.** A sentence can be perfectly
+formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
+must be **true and precise**, checked on its own. Guard especially against: **category/type errors** (a
+vector space equated with an integer — "the fiber *is* the tensor order" was exactly this; an operator
+conflated with its parameter; a representation with the object); **imprecise equalities / normalizations**
+(FFT/Parseval factors, a missing ``1/N``, adjoint relations); and **overclaims** ("exact"/"all"/"never"
+that aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs
+discrete-sum). When unsure, verify against the implementation and a standard reference.
+
+**Doc-edit checklist — run ALL FOUR on every documentation change (most strictly on `ARCHITECTURE.md`):**
+**(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
+overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted** —
+math in LaTeX, backticks only for a real code identifier (greppable in `src/`); **(4) Current** — no stale
+claims; statements match the code's present state. These are the standing bar, not one-off audits.
+
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and

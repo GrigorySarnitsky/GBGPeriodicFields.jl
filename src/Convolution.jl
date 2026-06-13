@@ -87,9 +87,9 @@ end
     convolve!(destination, field, kernel::ScalarFieldSpectral, α, β)
 
 Convolve `field` (in spectral representation) with the kernel whose transfer function is `kernel`,
-writing into `destination` in-place. On the torus the periodic convolution
-``(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy`` is, by the convolution theorem, the **exact**
-coefficientwise product of the transforms — which is what the kernel computes (``\\hat g`` = `kernel`,
+writing into `destination` in-place. On the grid the periodic (circular) convolution
+``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` (indices modulo the grid size) is, by the discrete
+convolution theorem, **exactly** the coefficientwise product of the transforms — which is what the kernel computes (``\\hat g`` = `kernel`,
 broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta`` accumulate):
 
 ```math

@@ -752,7 +752,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`Float32` alongside `Float64`), anisotropic-domain operators (the `2π/L` scaling),
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
     **adjointness / structural identities** on randomized band-limited fields
-    (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-definite Laplacian, idempotent Helmholtz
+    (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-**semidefinite** Laplacian — negative-definite
+    on the zero-mean subspace, its kernel being the constant mode — idempotent Helmholtz
     projection — the discrete energy/entropy structure). Intentional-absence tests are
     symmetric across representations: nonlinear products absent in spectral; the
     differential operators absent in physical (spectral-only — no finite-difference
@@ -884,7 +885,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `inner`/`l2norm` are representation-invariant (Parseval): the physical reductions came first, and the
     **spectral `inner`/`l2norm` are now implemented** — for two fields in spectral representation
     ``\mathrm{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
-    counts twice except the self-conjugate ``k_x=0`` and, for even ``N_x``, Nyquist planes), computed
+    counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
+    rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
     allocation-free as a `dot` over the array plus two plane corrections (the other reductions —
     `integral`/`mean`/`lpnorm`/`maximum` — remain physical-only, not being Parseval-invariant).
     **Physics stays consumer-side**: energy ``\tfrac12\,\mathrm{inner}(u,u)``, enstrophy
@@ -897,11 +899,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     because all three are facets of the **same L²/integration structure on sections** (§2). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
     recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
-    periodic box the set of **homogeneous (translation-invariant) linear operators is *exactly* the
-    Fourier multipliers**, symbol ``m(k) \in L^\infty``, with ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a
-    convenience — it is the complete representation of the translation commutant, and the existing
-    `gradient`/`curl`/`laplacian`/`helmholtz_projection` (§4) plus the consumer's 2/3 dealias mask and
-    integrating factor ``\exp(-\nu k^2 \Delta t)`` are all special cases of it.
+    periodic box every **homogeneous (translation-invariant) linear operator is a Fourier multiplier** — a
+    coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
+    ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
+    the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` (§4),
+    the consumer's 2/3 dealias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
+    (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``ik``, ``-|k|^2 \notin L^\infty``),
+    diagonalized identically but outside the norm identity above.
 
     | role of the measure | what it is | operation(s) | maps | status |
     |---------------------|-----------|--------------|------|--------|
@@ -1042,7 +1046,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *The object.* A field's **two-point correlation function** and its **power spectrum** are one object
     in two representations, linked by the **Wiener–Khinchin theorem**: on the periodic grid the circular
-    autocorrelation ``C(r) = \langle f(x) \cdot f(x+r)\rangle`` equals ``\mathcal F^{-1}(|\hat f|^2)`` exactly (the cross-correlation theorem).
+    autocorrelation ``C(r) = \langle f(x) \cdot f(x+r)\rangle`` equals ``\mathcal F^{-1}(|\hat f|^2)/N`` exactly — the inverse
+    transform of the power spectrum, normalized by the grid-point count ``N`` (the cross-correlation theorem).
     Radially averaging gives the **isotropic radial statistics**, a Fourier-dual pair — average ``|\hat f|^2``
     over ``|k|``-shells (the spectrum), or ``\mathcal F^{-1}(|\hat f|^2)`` over ``|r|``-shells (the correlation). This is
     invariant 2 — *physical and spectral are representations of one object* — raised to **second-order

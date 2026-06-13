@@ -152,8 +152,9 @@ scalar, intensive (matching `mean`). Computed as
 For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
 
 For two fields in **spectral representation** the same value is computed by Parseval, without an inverse
-transform. The rfft stores only ``k_x \\ge 0``, so each mode counts twice except the self-conjugate
-``k_x = 0`` plane (and, for even ``N_x``, the Nyquist plane); the kernel forms a `dot` over the stored
+transform. The rfft stores only ``k_x \\ge 0``, so each mode counts twice except those on the
+``k_x = 0`` plane (and, for even ``N_x``, the Nyquist plane) — the planes the rfft maps to themselves
+under conjugation, whose partners are already stored, so they count once; the kernel forms a `dot` over the stored
 coefficients and subtracts those planes:
 
 ```math
