@@ -61,20 +61,37 @@ module Interpolation
 using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
-                Grid3D, field_data, field_grid, field_scalar_type, field_tensor_order,
-                fiber_shape, physical_field_shape
+                AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
+                Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
+                field_tensor_order, fiber_shape, physical_field_shape, spectral_field_shape,
+                FieldTransformPlans, to_physical, to_spectral, similar_field
 using ..Points: PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
                 point_coordinates, point_values, npoints, pointvalue_tensor_order, _check_npoints_match
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
 
-export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, LagrangeSpline, CatmullRom
+export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, LagrangeSpline, CatmullRom,
+       AbstractTransferScheme, DirectDFT
 
 
 #####################################################
 #        Spline scheme and weight generation        #
 #####################################################
+
+
+"""
+    AbstractTransferScheme
+
+Supertype of **all** grid↔point transfer schemes — the parameter that fixes how the adjoint pair
+`interpolate` ``= W`` / `anterpolate` ``= W^\\top`` is realized (the function–measure duality above).
+A scheme is a choice of *kernel* and *representation*: the **physical-domain** local splines
+([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
+exact transfers ([`DirectDFT`](@ref) and [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
+acting on a field in spectral representation). Same verbs, one adjointness contract; the schemes
+differ only in (kernel, representation). See `docs/ARCHITECTURE.md` §10.
+"""
+abstract type AbstractTransferScheme end
 
 
 """
@@ -85,9 +102,10 @@ Supertype of the local interpolation schemes — the two hierarchies of Lalescu,
 tensor product of 1D weight polynomials over a compact stencil of ``N_2`` nodes, each weight a
 degree-``(M_2-1)`` polynomial in the fractional cell position ``t \\in [0, 1)``. The ``N_2 \\times M_2``
 coefficient matrix (`[node, power]`) is precomputed once into an `SMatrix` so it passes into the
-gather/scatter kernels by value (no device array).
+gather/scatter kernels by value (no device array). The **physical-domain** family of
+[`AbstractTransferScheme`](@ref) (its weights act on the physical nodal values).
 """
-abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} end
+abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTransferScheme end
 
 
 """
@@ -552,6 +570,235 @@ _wrap_field(data, grid, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid)
 _single_point_value(values::ScalarPointValues) = Array(point_values(values))[1]
 _single_point_value(values::VectorPointValues) = SVector{3}(Array(point_values(values))[1, :])
 _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_values(values))[1, :, :])
+
+
+#####################################################
+#        Spectral-domain transfer: DirectDFT        #
+#####################################################
+
+
+"""
+    DirectDFT()
+
+The **exact** spectral-domain transfer scheme: interpolation/anterpolation by the literal ``O(NM)``
+discrete Fourier sum — no window, no oversampling, no FFT. It is the *definition* of the
+spectral-domain adjoint pair `interpolate` ``= W`` / `anterpolate` ``= W^\\top``, so it is at once a
+transparent exact baseline and the oracle that validates [`NUFFT`](@ref). It acts on a field in
+**spectral representation**, `interpolate(f̂, points, DirectDFT())` and
+`anterpolate(reference, points, q, DirectDFT())`:
+
+```math
+f(x_p) = \\frac1N \\sum_{k} \\hat f(k)\\, e^{i k\\cdot (x_p - o)}
+       = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{i k\\cdot (x_p - o)}\\bigr),
+\\qquad
+(W^\\top q)(k) = \\sum_p q_p\\, e^{-i k\\cdot (x_p - o)},
+```
+
+reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
+Parseval weight ``\\alpha(k) = 1`` on the self-conjugate ``k_x = 0`` plane (and the even-``N_x`` Nyquist
+plane), ``2`` otherwise. The interpolation reproduces the band-limited field **exactly** — so it is
+pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid
+nodes; the adjoint matches [`to_spectral`](@ref) from grid-node samples. Adjoint pair:
+``M\\,\\langle W\\hat f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle \\hat f, W^\\top q\\rangle`` (the
+measure factor, as for the splines). Stateless; ``O(NM)`` — for many points/modes prefer [`NUFFT`](@ref).
+"""
+struct DirectDFT <: AbstractTransferScheme end
+
+
+# True signed wavenumbers and the rfft half-spectrum Parseval weight along one array axis of a
+# spectral field. `stored_length` is the array's size on this axis (halved on the rfft axis `is_half`),
+# `number_of_points` the corresponding grid size. Returns `(k, α)` host vectors: `k` the TRUE
+# wavenumber (Nyquist kept, unlike the derivative multipliers); `α = 1` on the half-axis self-conjugate
+# modes (kₓ = 0 and even-Nₓ Nyquist) and 2 elsewhere, all-ones on the full axes — so the per-mode weight
+# is the product α₁α₂α₃, which reduces to the single half-axis weight.
+function _dft_axis(stored_length::Int, number_of_points::Int, domain_length::T, is_half::Bool) where {T<:AbstractFloat}
+  unit = 2 * T(π) / domain_length
+  wavenumber = Vector{T}(undef, stored_length)
+  for i in 1:stored_length
+    zero_based = i - 1
+    frequency = (is_half || zero_based < (number_of_points + 1) ÷ 2) ? zero_based : zero_based - number_of_points
+    wavenumber[i] = unit * frequency
+  end
+  if is_half
+    weight = fill(T(2), stored_length)
+    weight[1] = one(T)
+    iseven(number_of_points) && (weight[stored_length] = one(T))
+  else
+    weight = ones(T, stored_length)
+  end
+  return wavenumber, weight
+end
+
+
+# Build the three per-axis wavenumber + weight device vectors for a spectral field (host build →
+# backend copy, mirroring `Fields._axis_wavenumber_arrays`). The half (rfft) axis is `fft_dims[1]`.
+function _dft_axes(field::AbstractFieldSpectral{T}) where {T}
+  grid = field_grid(field)
+  half_dimension = field_layout(field).fft_dims[1]
+  data = field_data(field)
+  build(d) = begin
+    k_host, weight_host = _dft_axis(size(data, d), grid.grid_size[d], grid.domain_size[d], d == half_dimension)
+    k_device = similar(data, T, length(k_host)); copyto!(k_device, k_host)
+    weight_device = similar(data, T, length(weight_host)); copyto!(weight_device, weight_host)
+    (k_device, weight_device)
+  end
+  axis_1, axis_2, axis_3 = build(1), build(2), build(3)
+  return axis_1[1], axis_2[1], axis_3[1], axis_1[2], axis_2[2], axis_3[2]
+end
+
+
+# type-2 / interpolate: one work-item per point sums the exact inverse DFT over every stored mode,
+# reconstructing the real field via the α-weighted half-spectrum (Re of the conjugate-folded sum), /N.
+@kernel function _direct_dft_interpolate_kernel!(output, @Const(coordinates), @Const(spectral),
+                                                 @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+                                                 @Const(weight_1), @Const(weight_2), @Const(weight_3),
+                                                 origin, inverse_count, modes_per_fibre, number_of_points, n1, n2, n3)
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds begin
+      x1 = coordinates[point, 1] - origin[1]
+      x2 = coordinates[point, 2] - origin[2]
+      x3 = coordinates[point, 3] - origin[3]
+      number_of_fibres = length(spectral) ÷ modes_per_fibre
+      for fibre in 1:number_of_fibres
+        accumulated = zero(eltype(output))
+        for i3 in 1:n3
+          phase_3 = wavenumber_3[i3] * x3
+          for i2 in 1:n2
+            phase_23 = phase_3 + wavenumber_2[i2] * x2
+            weight_23 = weight_2[i2] * weight_3[i3]
+            plane = n1 * (i2 - 1) + n1 * n2 * (i3 - 1) + modes_per_fibre * (fibre - 1)
+            for i1 in 1:n1
+              phase = phase_23 + wavenumber_1[i1] * x1
+              coefficient = spectral[i1 + plane]
+              accumulated += weight_1[i1] * weight_23 *
+                (real(coefficient) * cos(phase) - imag(coefficient) * sin(phase))
+            end
+          end
+        end
+        output[point + number_of_points * (fibre - 1)] = accumulated * inverse_count
+      end
+    end
+  end
+end
+
+
+# type-1 / anterpolate: one work-item per stored mode sums the forward DFT over every point (no
+# atomics — distinct modes are independent). `factor` = α, `prescale` = β (overwrite when β = 0).
+@kernel function _direct_dft_anterpolate_kernel!(spectral, @Const(coordinates), @Const(quantities),
+                                                 @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+                                                 origin, factor, prescale, modes_per_fibre, number_of_points, n1, n2, n3)
+  mode = @index(Global, Linear)
+  if mode ≤ modes_per_fibre
+    @inbounds begin
+      i1 = mod(mode - 1, n1) + 1
+      i2 = mod((mode - 1) ÷ n1, n2) + 1
+      i3 = (mode - 1) ÷ (n1 * n2) + 1
+      kx = wavenumber_1[i1]; ky = wavenumber_2[i2]; kz = wavenumber_3[i3]
+      number_of_fibres = length(spectral) ÷ modes_per_fibre
+      for fibre in 1:number_of_fibres
+        real_part = zero(eltype(quantities))
+        imaginary_part = zero(eltype(quantities))
+        for point in 1:number_of_points
+          phase = kx * (coordinates[point, 1] - origin[1]) +
+                  ky * (coordinates[point, 2] - origin[2]) +
+                  kz * (coordinates[point, 3] - origin[3])
+          quantity = quantities[point + number_of_points * (fibre - 1)]
+          real_part += quantity * cos(phase)
+          imaginary_part -= quantity * sin(phase)
+        end
+        index = mode + modes_per_fibre * (fibre - 1)
+        contribution = factor * complex(real_part, imaginary_part)
+        spectral[index] = iszero(prescale) ? contribution : contribution + prescale * spectral[index]
+      end
+    end
+  end
+end
+
+
+"""
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
+
+Exact spectral interpolation (the ``O(NM)`` inverse DFT) of `field` (spectral representation) to
+`points`, writing into `out`; see [`DirectDFT`](@ref). The result equals [`to_physical`](@ref) at the
+grid nodes and reproduces the band-limited field exactly off-grid.
+"""
+function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
+  pointvalue_tensor_order(out) == field_tensor_order(field) ||
+    throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
+  _check_npoints_match(out, points)
+  grid = field_grid(field)
+  T = field_scalar_type(field)
+  data = field_data(field)
+  wavenumber_1, wavenumber_2, wavenumber_3, weight_1, weight_2, weight_3 = _dft_axes(field)
+  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
+  modes_per_fibre = n1 * n2 * n3
+  number_of_points = npoints(out)
+  backend = get_backend(data)
+  _direct_dft_interpolate_kernel!(backend)(point_values(out), point_coordinates(points), data,
+    wavenumber_1, wavenumber_2, wavenumber_3, weight_1, weight_2, weight_3,
+    T.(grid.origin), one(T) / T(prod(grid.grid_size)), modes_per_fibre, number_of_points, n1, n2, n3;
+    ndrange = number_of_points)
+  synchronize(backend)
+  return out
+end
+
+
+"""
+    interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
+
+Allocating form: a new [`AbstractPointValues`](@ref) of `field`'s tensor order holding `field`
+evaluated exactly at `points` (the inverse DFT, [`DirectDFT`](@ref)).
+"""
+function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
+  T = field_scalar_type(field)
+  R = field_tensor_order(field)
+  data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(R))...))
+  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme)
+end
+
+
+"""
+    anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+                 scheme::DirectDFT, α = true, β = false)
+
+Exact spectral anterpolation (the ``O(NM)`` forward DFT) — the adjoint of the spectral
+[`interpolate!`](@ref) — depositing the per-point `quantities` into the Fourier coefficients of
+`field`: ``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}`` with
+``(W^\\top q)(k) = \\sum_p q_p\\,e^{-i k\\cdot(x_p - o)}`` (matches [`to_spectral`](@ref) from grid-node
+samples). ``\\beta = 0`` overwrites, ``\\beta \\ne 0`` accumulates.
+"""
+function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+                      scheme::DirectDFT, α::Real = true, β::Real = false)
+  field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
+    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
+  _check_npoints_match(points, quantities)
+  grid = field_grid(field)
+  T = field_scalar_type(field)
+  data = field_data(field)
+  wavenumber_1, wavenumber_2, wavenumber_3, _, _, _ = _dft_axes(field)
+  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
+  modes_per_fibre = n1 * n2 * n3
+  number_of_points = npoints(quantities)
+  backend = get_backend(data)
+  _direct_dft_anterpolate_kernel!(backend)(data, point_coordinates(points), point_values(quantities),
+    wavenumber_1, wavenumber_2, wavenumber_3, T.(grid.origin), T(α), T(β),
+    modes_per_fibre, number_of_points, n1, n2, n3; ndrange = modes_per_fibre)
+  synchronize(backend)
+  return field
+end
+
+
+"""
+    anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
+
+Allocating form: a new spectral field like `reference` (same grid/layout, the tensor order of
+`quantities`) holding the deposited Fourier coefficients (the forward DFT, [`DirectDFT`](@ref)).
+"""
+function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
+  out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
+  return anterpolate!(out, points, quantities, scheme)
+end
 
 
 end # module Interpolation

@@ -12,6 +12,7 @@ module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end
 module PointValuesAlgebraTests;    include("pointvalues_algebra.jl");   end
 module InterpolationTransferTests; include("interpolation_transfer.jl"); end
+module SpectralTransferTests;      include("transfer_spectral.jl");     end
 module ReductionsTests;            include("reductions.jl");            end
 module RDFTests;                   include("rdf.jl");                   end
 module EltypeGenericityTests;      include("eltype_genericity.jl");     end

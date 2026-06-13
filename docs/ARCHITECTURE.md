@@ -492,6 +492,23 @@ another, and the package gives each a fixed name:
   latent heat a droplet releases on condensation (or absorbs on evaporation) must be returned
   to the supersaturation and temperature fields.
 
+**One adjoint pair, two scheme families (decision 23).** The `scheme` argument is an
+`AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
+(the §2 commutative-diagram view: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
+families share the same `interpolate`/`anterpolate` verbs and the same adjointness contract:
+
+- **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
+  values (the gather/scatter kernels below); approximate, conserving, the production default.
+- **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
+  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{i k\cdot(x_p-o)}`` and its adjoint
+  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}``. `DirectDFT` is the exact ``O(NM)`` form — the
+  *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
+  reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
+  the oracle for the planned fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned
+  natively — spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
+  `FieldTransformPlans`, and an `assignment_window`-style deconvolution). The adjoint relation carries
+  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
+
 **Why the code says "anterpolation."** The point→grid (scatter) operation is named
 differently in every community, with no dominant choice: *spreading* (immersed-boundary
 method, where it is explicitly the adjoint `S = J*` of interpolation, built from the
@@ -1112,3 +1129,40 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
     Craya–Herring longitudinal/transverse split, which only earn their structure under anisotropy
     (e.g. shear flow), per the §2 rule against speculative structure.
+23. **Spectral-domain transfer — `DirectDFT` (exact) and the native `NUFFT` (fast). [`DirectDFT` DONE;
+    `NUFFT` in progress.]**
+
+    *The object.* The transfer layer (§10) had one scheme family — the physical-domain local splines.
+    This adds the **spectral-domain** transfer: evaluation/deposition between Fourier coefficients and
+    scattered points, the exact off-grid form of the field. Both families are unified under a new
+    supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the L²-adjoint
+    contract; a scheme is a choice of *(kernel, representation)*. The spectral schemes dispatch on a
+    field in spectral representation (invariant 2: hand ``W`` whichever representation it reads — a
+    spectral solver hands ``\hat f`` for free); `anterpolate` returns a section, here in spectral
+    representation (the Fourier coefficients of ``\sum_p q_p\delta_{x_p}``).
+
+    *`DirectDFT` (done).* The literal ``O(NM)`` sum: type-2 ``f(x_p) = \tfrac1N\sum_{\text{stored }k}
+    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{i k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, the
+    Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
+    type-1 ``(W^\top q)(k) = \sum_p q_p e^{-i k\cdot(x_p-o)}``. It is the *definition* of the
+    spectral-domain pair, so it is at once a transparent exact baseline, the **divergence-free
+    reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
+    where the splines break ``\nabla\cdot u=0``), and the **oracle** that will validate `NUFFT`. It
+    matches `to_physical` at the grid nodes and `to_spectral` from node samples (both exact to round-off),
+    and satisfies ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle`` (the
+    measure factor, as for the splines — decision 17). Two simple KernelAbstractions kernels (type-2
+    over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
+    like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.
+
+    *Native `NUFFT` (decided: own it, no dependency — in progress).* The fast ``O(N\log N + M)`` windowed
+    gridding form of `DirectDFT`: **spread → FFT → deconvolve**, all reusing existing machinery — the
+    transfer kernels (spread/gather with an exponential-of-semicircle window in place of the spline
+    coefficients), a `FieldTransformPlans` on an oversampled (``\sigma=2``) grid, and a ``1/\hat\psi``
+    deconvolution `ScalarFieldSpectral` built like `assignment_window` (which **is** the ``\hat\psi`` of
+    the linear/CIC window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new
+    ingredient is the window ``\psi`` and its transform ``\hat\psi`` (host quadrature); validated against
+    `DirectDFT` to a tolerance ``\varepsilon``. `NonuniformFFTs.jl` was evaluated (it fits — real-data
+    rfft, AMDGPU/KA, batched) but **not adopted**: owning it keeps the package self-contained and makes
+    the spline transfer and the NUFFT share one spread machinery, with `DirectDFT` and a direct ``O(NM)``
+    DFT as independent ground truth. Tested CPU (`test/transfer_spectral.jl`) + GPU parity; method parity
+    198/118 unchanged (the transfer verbs are not in those surfaces).

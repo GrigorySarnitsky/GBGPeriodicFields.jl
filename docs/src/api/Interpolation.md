@@ -7,13 +7,23 @@ Order   = [:module]
 
 The `Interpolation` module is the grid↔point transfer layer: **interpolation** (grid → point, the
 gather ``\mathcal I = W``) evaluates a field at off-grid positions, and its adjoint **anterpolation**
-(point → grid, the scatter ``\mathcal I^* = W^\top``) deposits per-point quantities back onto the grid. Both use the
-local high-order splines of Lalescu, Teaca & Carati (2010) — the smooth [`LalescuSpline`](@ref)
-(two-point Hermite, default [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the ``C^0``
-[`LagrangeSpline`](@ref), under a shared `AbstractSplineScheme` — so interpolation and
-anterpolation are exact transposes and conserve the deposited total (`docs/ARCHITECTURE.md` §10).
-The kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types live
-in the [`Points`](Points.md) module.
+(point → grid, the scatter ``\mathcal I^* = W^\top``) deposits per-point quantities back onto the grid.
+The two are an L²-adjoint pair under a shared scheme; the scheme — an [`AbstractTransferScheme`](@ref) —
+is the choice of *kernel* and *representation*. Two families:
+
+  * **Physical-domain splines** ([`AbstractSplineScheme`](@ref)) — the local high-order splines of
+    Lalescu, Teaca & Carati (2010): the smooth [`LalescuSpline`](@ref) (two-point Hermite, default
+    [`CatmullRom`](@ref), pinned bit-for-bit to TurTLE) and the ``C^0`` [`LagrangeSpline`](@ref). They
+    act on the **physical** nodal values; interpolation and anterpolation are exact transposes and
+    conserve the deposited total.
+  * **Spectral-domain exact transfer** ([`DirectDFT`](@ref)) — the literal ``O(NM)`` discrete Fourier
+    sum, acting on a field in **spectral** representation: ``f(x_p) = \tfrac1N \sum_k \hat f(k)\,
+    e^{i k\cdot(x_p-o)}`` and its adjoint. It reproduces the band-limited field **exactly** (so it is
+    pointwise divergence-free, matching [`to_physical`](@ref) at the grid nodes) and is the oracle for
+    the fast windowed `NUFFT` (planned). See `docs/ARCHITECTURE.md` §10.
+
+The spline kernels are portable across CPU / CUDA / AMDGPU (KernelAbstractions); the point-data types
+live in the [`Points`](Points.md) module.
 
 ## Contents
 

@@ -202,7 +202,9 @@ using .Interpolation:
   anterpolate!,
   LalescuSpline,
   LagrangeSpline,
-  CatmullRom
+  CatmullRom,
+  AbstractTransferScheme,
+  DirectDFT
 
 
 using .Reductions:
@@ -306,6 +308,8 @@ export FiberVector,
        LalescuSpline,
        LagrangeSpline,
        CatmullRom,
+       AbstractTransferScheme,
+       DirectDFT,
        integral,
        inner,
        l2norm,
