@@ -509,44 +509,6 @@ the module docstring). The driving case is two-way coupling in the cloud-parcel 
 the water-vapour mass and latent heat a droplet releases on condensation (or absorbs on evaporation) must
 be returned to the supersaturation and temperature fields.
 
-**One adjoint pair, two scheme families (decision 23).** The `scheme` argument is an
-`AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
-(the commutative-diagram view below: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
-families share the same `interpolate`/`anterpolate` verbs and the same adjointness contract:
-
-- **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
-  values (the gather/scatter kernels below); approximate, conserving, the production default.
-- **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
-  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{i k\cdot(x_p-o)}`` and its adjoint
-  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
-  grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
-  *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
-  reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
-  the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
-  spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
-  `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
-  ``ε`` on the resolved sub-Nyquist band). The adjoint relation carries
-  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
-
-**Why the code says "anterpolation."** The point→grid (scatter) operation is named
-differently in every community, with no dominant choice: *spreading* (immersed-boundary
-method, where it is explicitly the adjoint ``S = J^*`` of interpolation, built from the
-same kernel — Peskin 2002; also NUFFT type-1), *deposition* / *charge assignment*
-(particle-in-cell — Hockney & Eastwood 1988; Birdsall & Langdon 1991), *scatter*
-(data-parallel computing), *projection* / *Particle-Source-In-Cell* (particle-laden-flow
-DNS — Crowe, Sharma & Stock 1977), *gridding* (MRI and radio interferometry), and, in
-cloud microphysics, no operator noun at all — only the *source/sink term* it produces
-and the *two-way coupling* / *thermodynamic feedback* it enacts. We adopt
-**anterpolation** (Brandt & Lubrecht 1990) because it is the single term whose literal
-definition is "the adjoint of interpolation" — it names the operation by the property
-that matters, independent of application. The binding will carry a docstring listing the
-synonyms — *adjoint of interpolation; spreading; deposition; scatter; projection /
-PSI-Cell; gridding; two-way-coupling source/feedback* — so a reader from any of those
-fields finds it. **"Extrapolation" is deliberately rejected**: extrapolation means
-evaluating *outside* the convex hull of the data, whereas a sample point lies *inside* a
-grid cell and the operation is a weighted distribution; the loose use of "extrapolation"
-for it (seen in a few papers) is a misnomer.
-
 **The two operations are a conserving adjoint pair.** Interpolation and anterpolation
 share the **same stencil weights**, which form a partition of unity (``\sum \beta = 1``);
 anterpolation is then the exact transpose of interpolation, and the total deposited
@@ -590,6 +552,25 @@ back but pushes a measure forward — so the adjointness *is* their adjunction
 ``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``. (Strictly ``W = \iota^{*}\circ R``, with
 ``R`` the reconstruction — spline or band-limited spectral interpolant — lifting grid samples to a section
 over ``\Omega``; the reproduction identity is ``R`` exact on ``\Pi_m``.)
+
+**Two scheme families (decision 23).** The `scheme` argument is an
+`AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
+(the commutative-diagram view above: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
+families share the same `interpolate`/`anterpolate` verbs and the same adjointness contract:
+
+- **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
+  values (the gather/scatter kernels below); approximate, conserving, the production default.
+- **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
+  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{i k\cdot(x_p-o)}`` and its adjoint
+  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
+  grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
+  *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
+  reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
+  the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
+  spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
+  `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
+  ``ε`` on the resolved sub-Nyquist band). The adjoint relation carries
+  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -671,51 +652,26 @@ All wrap a generic `AbstractArray` and allocate via `similar`, so they are backe
 order (a `_check_…` predicate in the `Fields` style). The types live in the `Interpolation`
 module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 
-**Implemented status.** The point types, their **full fiberwise algebra**, and the transfer
-schemes (interpolation / anterpolation — the local splines plus the spectral-domain `DirectDFT` and
-`NUFFT`, decision 23) are all implemented and tested. The algebra mirrors the *physical* field surface — the base-independent vertical
-operations of [§2](@ref "2. The central principle: the architecture follows established mathematics") (M2 vector-space and scalar-field products; M3 dot/cross/`mul!`/transpose/
-norm/sym/skew/dev), with storage-wise broadcasting — and is generated by **reusing
-`FieldAlgebra`'s per-component formula and kernel-body builders verbatim** ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) over an extended
-section interface (`field_data` / `_vector_component_data` / `_tensor2_component_data`, which
-`Interpolation` extends for the point types), so no formula is written twice. It is locked by
-a separate **118-method point-value parity baseline** (the 198-method field surface is
-byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_algebra.jl`,
-Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
+**Implemented and tested.** The point types, their full fiberwise algebra (M2 + M3, generated by reusing `FieldAlgebra`'s per-component builders over an extended section interface — [§6](@ref "6. The code-generation architecture of `FieldAlgebra`") — and locked by a separate 118-method parity baseline, the 198-method field surface byte-unchanged), and all transfer schemes (the local splines plus the spectral `DirectDFT`/`NUFFT`, decision 23) are implemented and covered on CPU (Float64/Float32) and the GPU (ROCm, `allowscalar(false)`).
 
-**Consolidation status — the module structure the model implies.** The fiber-bundle model ([§2](@ref "2. The central principle: the architecture follows established mathematics"))
-calls for a base-agnostic foundation and a clean object/operation naming split. Both are now in
-place:
-
-- the foundation module **`FiberSections`** holds the base-agnostic supertype
-  `AbstractFiberSection{T, R}` (the field and point-value types subtype it), the CPU-threading /
-  fused-assignment primitive `_assign!`, and the vertical-algebra **code generators** — the single
-  home where each fiberwise formula (including norm/sym/skew/dev, via `section_scalar_type`) is
-  written once and reused by both `FieldAlgebra` and `Points`;
-- the former `Interpolation` module is **split in two** — **`Points`** holds the unstructured-base
-  section *objects* (`PointSet` and the point-value types `ScalarPointValues` / `VectorPointValues` /
-  `TensorPointValues`) and their generated algebra (a noun-named peer of
-  `Fields`), while **`Interpolation`** holds the transfer maps — the grid↔point schemes (local splines
-  plus the spectral-domain `DirectDFT`/`NUFFT`) under one `AbstractTransferScheme`, a peer of
-  `DifferentialOperators`.
-
-The field/point asymmetry is deliberate and **mandated by the mathematics**, not
-inertia: points have no differential operators (no horizontal structure, [§2](@ref "2. The central principle: the architecture follows established mathematics")) and no second
-representation, so there is no point peer to `DifferentialOperators` and no representation
-machinery in `Points`; and the point algebra is a small *generated* emission that folds into
-`Points` rather than earning a separate `FieldAlgebra`-sized module (whose bulk is the 198
-hand-curated methods plus the representation-specific irregular corners — the spectral zero-mode
-updates, the `multiply!` quartet). What the split *fixes* is the naming: section *objects* live
-in noun-named modules (`Fields`, `Points`), operations in operation-named ones (`FieldAlgebra`,
-`DifferentialOperators`, `Interpolation`). Each stage reproduces both parity baselines (198 field
-+ 118 point) byte-for-byte, with zero ambiguities.
-
-**No concept of time ([§1](@ref "1. Purpose and scope")).** The package has, and for now keeps, *no* notion of time — no
-advection, no time integration, no temporal interpolation, no per-step state. It answers only
-the timeless "field ⇄ values at positions." Trajectory integration `dx/dt = u(x)` and any
-time stepping are the consumer's: it holds the positions and advances them, calling this
-package once per evaluation, statelessly. This is the same boundary as "no particles" — both
-the moving-object abstraction and its dynamics are solver concerns.
+**Why the code says "anterpolation."** The point→grid (scatter) operation is named
+differently in every community, with no dominant choice: *spreading* (immersed-boundary
+method, where it is explicitly the adjoint ``S = J^*`` of interpolation, built from the
+same kernel — Peskin 2002; also NUFFT type-1), *deposition* / *charge assignment*
+(particle-in-cell — Hockney & Eastwood 1988; Birdsall & Langdon 1991), *scatter*
+(data-parallel computing), *projection* / *Particle-Source-In-Cell* (particle-laden-flow
+DNS — Crowe, Sharma & Stock 1977), *gridding* (MRI and radio interferometry), and, in
+cloud microphysics, no operator noun at all — only the *source/sink term* it produces
+and the *two-way coupling* / *thermodynamic feedback* it enacts. We adopt
+**anterpolation** (Brandt & Lubrecht 1990) because it is the single term whose literal
+definition is "the adjoint of interpolation" — it names the operation by the property
+that matters, independent of application. The binding will carry a docstring listing the
+synonyms — *adjoint of interpolation; spreading; deposition; scatter; projection /
+PSI-Cell; gridding; two-way-coupling source/feedback* — so a reader from any of those
+fields finds it. **"Extrapolation" is deliberately rejected**: extrapolation means
+evaluating *outside* the convex hull of the data, whereas a sample point lies *inside* a
+grid cell and the operation is a weighted distribution; the loose use of "extrapolation"
+for it (seen in a few papers) is a misnomer.
 
 **References (this section).**
 
