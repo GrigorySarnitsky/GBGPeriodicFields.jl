@@ -545,14 +545,16 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ``\Pi_m`` (the polynomials up to the scheme order), the adjointness and the polynomial reproduction read
 
 ```math
-\langle W f,\, q\rangle_{\text{pts}} \;=\; \langle f,\, W^{\top} q\rangle_{\text{grid}},
+\sum_{p} (W f)_p\, q_p \;=\; \sum_{x} f\,(W^{\top} q),
 \qquad\qquad
 W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
 \quad (\phi \in \Pi_m),
 ```
 
-with uniform measures ``W^{\top}`` is the literal
-transpose up to the ``N/M`` factor (``N`` grid points, ``M`` sample points). Intrinsically the pair is a
+the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
+normalizing each side by its base count gives the measure-weighted ``M\,\langle W f, q\rangle_{\text{pts}} =
+N\,\langle f, W^{\top} q\rangle_{\text{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
+normalizations). Intrinsically the pair is a
 **pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map from the point base
 ``B_{\text{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
 **trivial** bundle back along ``\iota`` keeps
@@ -568,10 +570,11 @@ B_{\text{points}} @>>{\iota}> \Omega
 ```
 
 Interpolation is the **pullback of the section**, ``W = \iota^{*}`` (``(Wf)_p = f(x_p)``); anterpolation the
-**pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
-Dirac mass above regularized by the stencil). They have **opposite variance** — ``\iota`` pulls a function
-back but pushes a measure forward — so the adjointness *is* their adjunction
-``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``. (Strictly ``W`` is ``\iota^{*}`` *after* a
+**pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
+Dirac mass above regularized by the stencil) — for the uniform measures ``\iota_{*} = (N/M)\,W^{\top}``, the
+scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exact L²-adjoint. They have
+**opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — so the adjointness
+*is* their adjunction ``\langle \iota^{*} f, q\rangle_{\text{pts}} = \langle f, \iota_{*} q\rangle_{\text{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
 reconstruction — the spline or band-limited spectral interpolant lifting grid samples to a section over
 ``\Omega`` — which the reproduction identity above shows is exact on ``\Pi_m``.)
 

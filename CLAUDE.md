@@ -158,7 +158,14 @@ vector space equated with an integer — "the fiber *is* the tensor order" was e
 conflated with its parameter; a representation with the object); **imprecise equalities / normalizations**
 (FFT/Parseval factors, a missing ``1/N``, adjoint relations); and **overclaims** ("exact"/"all"/"never"
 that aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs
-discrete-sum). When unsure, verify against the implementation and a standard reference.
+discrete-sum). When unsure, verify against the implementation and a standard reference. **Run this as a
+positive verification, not a read-through** — a false-but-plausible statement is as invisible as an unbound
+symbol: enumerate every formula, normalization constant (the `1/N`, `1/N²`, `2π/L`, Parseval factors),
+adjoint/transpose relation, and quantifier, and verify EACH independently against the implementation (read
+the code, quote the line) or a derivation, noting how. The §10 `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` slip — clean only for the
+measure-adjoint `ι_*`, but off by the `N/M` measure factor for the implemented (counting) transpose under
+the *normalized* inner — was exactly such a plausible-looking equality: a read-through passed it, a
+code-check (`inner = dot/_base_count`) caught it.
 
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
@@ -190,6 +197,15 @@ the `docs/src/` pages — by grep or per-section enumeration, then fix all occur
 the class and the count. Fixing only the pointed-at line and waiting to be handed the next instance is the
 failure this rule exists to stop (across one review it happened repeatedly — the §10 symbol bindings, the
 indented tables, the unbound symbols — each patched singly while the rest of the class sat untouched).
+
+**"Check the docs" = the complete battery, never one check or one file.** When asked to check / review /
+audit the docs (in any words), run the FULL matrix in one go: every check above (the five-point checklist +
+the notation/structure rules) across every surface — `ARCHITECTURE.md`, `TESTING.md`, `PERFORMANCE.md`,
+every `src/` docstring, and every `docs/src` page. The `/check-docs` command (`.claude/commands/check-docs.md`)
+encodes this exact protocol; running it — or the equivalent surface-parallel fan-out — is the default
+reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
+next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
+because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review.
 
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
