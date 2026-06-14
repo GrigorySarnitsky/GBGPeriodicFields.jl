@@ -491,8 +491,9 @@ a consumer concern, since the package allocates serially via `similar`).
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
 Lagrangian particle tracking by a consumer ([§1](@ref "1. Purpose and scope")) requires two transfer operations
-between the Eulerian fields and off-grid positions. They are formal adjoints of one
-another, and the package gives each a fixed name:
+between the Eulerian fields and off-grid positions — a field `f`, the positions `xs` (a `PointSet`,
+with ``x_p`` the ``p``-th) and the per-point quantities `qs` (``q_p`` the value at ``x_p``). They are
+formal adjoints of one another, and the package gives each a fixed name:
 
 - **Interpolation** — grid → point (the *gather* direction): allocating
   `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the
@@ -518,7 +519,7 @@ this is mandatory — total water and latent heat must be conserved as vapour pa
 between droplets and the fields — so the design fixes anterpolation as the transpose of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
-as the pushforward of point masses, ``\mathcal I^* q = \sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
+as the pushforward of point masses, ``\iota_* q = \sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities
@@ -628,7 +629,7 @@ primitive here. The organizing principle reuses the existing base/fiber split: a
 *section* — fibers (scalar, `FiberVector`, `FiberTensor2`) over a *base* — and so far the
 base has always been the structured `Grid3D`. Interpolation adds the **unstructured base**
 and its section, reusing the *same* fibers; the maps between sections over the two bases are
-interpolation ``\mathcal I = W`` and its adjoint anterpolation ``\mathcal I^* = W^\top`` (the same
+interpolation ``W`` and its adjoint anterpolation ``W^\top`` (the same
 ``W``/``W^\top`` used above).
 
 - **`Point{T} = SVector{3,T}`** — a single position; a base-space *alias* of `FiberVector`

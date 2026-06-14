@@ -6,8 +6,8 @@ Order   = [:module]
 ```
 
 The `Interpolation` module is the grid↔point transfer layer: **interpolation** (grid → point, the
-gather ``\mathcal I = W``) evaluates a field at off-grid positions, and its adjoint **anterpolation**
-(point → grid, the scatter ``\mathcal I^* = W^\top``) deposits per-point quantities back onto the grid.
+gather ``W``) evaluates a field at off-grid positions, and its adjoint **anterpolation**
+(point → grid, the scatter ``W^\top``) deposits per-point quantities back onto the grid.
 The two are an L²-adjoint pair under a shared scheme; the scheme — an [`AbstractTransferScheme`](@ref) —
 is the choice of *kernel* and *representation*. Two families:
 

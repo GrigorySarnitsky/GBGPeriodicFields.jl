@@ -2,50 +2,52 @@
     Interpolation
 
 Transfer between the grid sections of `Fields` and the point sections of `Points`: evaluating a
-field at off-grid positions, and depositing per-point quantities back onto the grid. The two
-operations are formal adjoints of each other. The transfer uses the local spline interpolation of
-Lalescu, Teaca & Carati (2010) as portable gather/scatter kernels (CPU / CUDA / AMDGPU, via
-KernelAbstractions; the scatter accumulates atomically); the method, terminology, and GPU rationale
-are in `docs/ARCHITECTURE.md` §10, and the point-value data types and their fiberwise algebra live
-in the `Points` module.
+field `f` at off-grid positions `xs`, and depositing per-point quantities `qs` back onto the grid.
+Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th; `xs` a `PointSet`)
+**and `q` a per-point value** (`qs` the matching array). The two operations are formal adjoints of
+each other. The transfer uses the local spline interpolation of Lalescu, Teaca & Carati (2010) as
+portable gather/scatter kernels (CPU / CUDA / AMDGPU, via KernelAbstractions; the scatter accumulates
+atomically); the method, terminology, and GPU rationale are in `docs/ARCHITECTURE.md` §10, and the
+point-value data types and their fiberwise algebra live in the `Points` module.
 
 # API
 
-  * **Interpolation** (grid to point, *gather*; `interpolate` ``\\equiv \\mathcal I = W``):
+  * **Interpolation** (grid to point, *gather*; `interpolate` ``\\equiv W``):
     `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the callable
     `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
-  * **Anterpolation** (point to grid, *scatter*; `anterpolate` ``\\equiv \\mathcal I^* = W^\\top``):
+  * **Anterpolation** (point to grid, *scatter*; `anterpolate` ``\\equiv W^\\top``):
     `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`, with a
     five-argument ``\\alpha``/``\\beta`` form (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate,
     the `mul!` convention; accumulation is the common case for the scatter).
 
-`interpolate` / `anterpolate!` are the symmetric named pair (the operators ``\\mathcal I = W`` /
-``\\mathcal I^* = W^\\top``); only interpolation also carries the pointwise callable `f(x)`, because
-evaluation is pointwise while its adjoint is not. Both directions share one `scheme` (the same
-weights) — which is what makes them an adjoint pair.
+`interpolate` / `anterpolate!` are the symmetric named pair (the linear maps ``W`` / ``W^\\top``); only
+interpolation also carries the pointwise callable `f(x)`, because evaluation is pointwise while its
+adjoint is not. Both directions share one `scheme` (the same weights) — which is what makes them an
+adjoint pair.
 
 # Why interpolation and anterpolation are adjoint: the function–measure duality
 
-``\\mathcal I : G \\to P`` and ``\\mathcal I^* : P \\to G`` satisfy ``\\langle \\mathcal I f, q\\rangle_P
-= \\langle f, \\mathcal I^* q\\rangle_G``, a duality between *functions* (which you evaluate) and
-*measures* (which you integrate against):
+Write ``\\iota`` for the map carrying each point to its location ``x_p``. Interpolation pulls a
+*function* back along ``\\iota`` (the pullback ``W = \\iota^*``, which you evaluate); anterpolation
+pushes the dual *measure* forward (the pushforward ``W^\\top = \\iota_*``, which you integrate against).
+The two satisfy the adjunction ``\\langle W f, q\\rangle_P = \\langle f, W^\\top q\\rangle_G``:
 
   * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, so
-    ``(\\mathcal I f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
-  * its adjoint cannot be pointwise — it returns a measure, a sum of point masses
-    ``\\mathcal I^* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil kernel to
-    ``\\sum_p q_p\\,\\beta(\\cdot - x_p)``, a point-source density.
+    ``(W f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
+  * its adjoint cannot be pointwise — the pushforward returns a measure, a sum of point masses
+    ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil kernel to
+    ``\\sum_p q_p\\,\\beta(\\cdot - x_p)``, a point-source density (the matrix ``W^\\top`` is this measure
+    sampled on the grid).
 
 Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate measures*
 (`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`. Discretely,
 with ``G = \\mathbb R^N`` (``N`` grid nodes) and ``P = \\mathbb R^M`` (``M`` points), interpolation is
-the matrix ``\\mathcal I = W`` (``W_{pn} = \\beta_n(x_p)``) and anterpolation its transpose
-``\\mathcal I^* = W^\\top``. With shared partition-of-unity weights (``\\mathcal I\\,\\mathbf 1 = \\mathbf 1``,
-i.e. ``\\sum_n W_{pn} = 1``), anterpolation is the exact transpose of interpolation and the total
-deposited quantity is conserved,
+the matrix ``W`` (``W_{pn} = \\beta_n(x_p)``) and anterpolation its transpose ``W^\\top``. With shared
+partition-of-unity weights (``W\\,\\mathbf 1 = \\mathbf 1``, i.e. ``\\sum_n W_{pn} = 1``), anterpolation
+is the exact transpose of interpolation and the total deposited quantity is conserved,
 
 ```math
-\\sum_n (\\mathcal I^* q)_n = \\langle \\mathbf 1, \\mathcal I^* q\\rangle = \\langle \\mathcal I\\,\\mathbf 1, q\\rangle = \\langle \\mathbf 1, q\\rangle = \\sum_p q_p,
+\\sum_n (W^\\top q)_n = \\langle \\mathbf 1, W^\\top q\\rangle = \\langle W\\,\\mathbf 1, q\\rangle = \\langle \\mathbf 1, q\\rangle = \\sum_p q_p,
 ```
 
 which is mandatory for the two-way-coupled parcel application (total water mass and latent heat
@@ -527,7 +529,7 @@ end
                  scheme = CatmullRom, α = true, β = false)
 
 Deposit the per-point `quantities` onto `field` in-place — the adjoint (transpose) of
-[`interpolate!`](@ref) under the same `scheme`, ``\\mathcal I^* = W^\\top`` — computing
+[`interpolate!`](@ref) under the same `scheme` (``W^\\top``) — computing
 ``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``. Using the **same** stencil weights
 as the gather, each point ``p`` (in cell ``c``, fractional position ``t``) atomically scatters its value
 ``q_p`` onto the ``(2n{+}2)^3`` surrounding nodes:

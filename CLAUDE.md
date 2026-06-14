@@ -162,7 +162,11 @@ discrete-sum). When unsure, verify against the implementation and a standard ref
 
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
-overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted —
+overclaims); **(2) Self-contained** — **every** symbol is *bound* to its meaning in plain language at
+first use, the elementary working ones included (`f` the field, `x` a position, `q` a per-point value,
+index letters), not just the exotic; a concept *mentioned nearby* (a function argument, a passing noun)
+is **not** a binding, and a self-contained sweep must not be scoped to a hand-picked symbol list that
+skips the basics (how `f`/`x`/`q` slipped through a review); **(3) Formatted —
 bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip; and ASCII-only math like
 `S = J*` — single letters joined by `=`/`*`/juxtaposition — which carries no math glyph, so it evades a
 glyph grep *and* reads as code: catch this class by **reading**, not grep), **and** every code identifier —
@@ -180,6 +184,15 @@ render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §13 dec
 bullet list** instead, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
 bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
 `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
+
+**One notation per concept — no redundant symbols.** The self-contained check guards that every symbol
+is *introduced*; it does **not** guard that a concept has only *one* symbol. Before introducing a math
+symbol, check it isn't a synonym for one already in use. If an abstract operator and its matrix (or a
+continuous vs discrete form) genuinely both appear, name each one's distinct role **once** and stop — one
+object wearing three symbols (the `W`/`𝓘`/`ι` interpolation tangle: matrix, operator, and pullback all
+for the same map) is the failure mode. It is easy to *create* this when an edit adds new notation (here,
+`ι`) without retiring the old (`𝓘`), so when an edit introduces a symbol, grep the doc for any existing
+symbol denoting the same thing and reconcile them.
 
 **One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram
