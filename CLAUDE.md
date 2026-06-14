@@ -127,7 +127,7 @@ reader always knows which symbol *is* which function. Plain `#` code comments st
 not rendered). `Reductions` is the reference implementation of this convention.
 
 **`docs/ARCHITECTURE.md` is self-contained — introduce notation in plain text before it is used.** As
-the top-level design document it must read top-to-bottom (and, since the §11 decision log is browsed
+the top-level design document it must read top-to-bottom (and, since the §13 decision log is browsed
 entry-by-entry, each entry on its own) **without** opening the source or another doc. So **every piece
 of notation — a math symbol in LaTeX or a `code` identifier — is introduced in plain language at its
 first use**, the meaning stated *before or in the same sentence as* the symbol; later uses may then be
@@ -176,10 +176,17 @@ author–year; ≤3 authors named, `First et al.` for 4+; full reference inline 
 
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
-render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §11 decision entry) use a **nested
+render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §13 decision entry) use a **nested
 bullet list** instead, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
 bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
 `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
+
+**One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
+every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram
+lives with its topic, not in a group-by-form bin. In `ARCHITECTURE.md`, §2 is the overview/**map** (the
+bundle foundation + a linked one-liner per part); §§3–12 own the details (each operation family has a body
+section); §13 is the append-only decision log, self-contained by design (its overlap with the body is
+intentional — do **not** dedupe it against the body).
 
 ## Verification workflow
 

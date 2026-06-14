@@ -8,7 +8,7 @@ carries the conceptual model and writing conventions.
 
 This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
 `code` identifier — is introduced in plain language at its first use, the meaning stated before or in
-the same sentence as the symbol. So it reads top-to-bottom, and each §11 decision-log entry reads on
+the same sentence as the symbol. So it reads top-to-bottom, and each §13 decision-log entry reads on
 its own, without opening the source or another document. (Universally standard math — ``\nabla``,
 ``\Delta``, ``\int``, ``\mathbb R`` — may stand unglossed.) Keep it that way when editing.
 
@@ -109,93 +109,37 @@ themselves a unit-mass kernel **measure** (signed for the higher-order schemes),
 base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
 
-### The construction in commutative diagrams
+### The architecture map
 
-The same picture as the diagrams the rest of this section leans on. A **field is a section** — a
-right inverse of the bundle projection ``\pi``:
+A field — or values sampled at scattered points — is a **section** ``s``, a right inverse of the bundle
+projection ``\pi``:
 
 ```math
 B \;\xrightarrow{\,s\,}\; E \;\xrightarrow{\,\pi\,}\; B, \qquad \pi \circ s = \operatorname{id}_B,
 ```
 
-with ``B`` the base (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the
-trivial tensor bundle, and ``s`` the field (`AbstractFiberSection`): exactly one fiber value per base
-point.
+with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
+tensor bundle, and ``s`` the field (`AbstractFiberSection`): one fiber value per base point. Everything
+below operates on sections, in one of **three operation families** plus the support mechanics — each
+explained in its own section, referenced here rather than repeated:
 
-**Representations and operators — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
-`to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
-``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
-``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k)\,\cdot`` (``ik``,
-``ik\cdot``, ``ik\times``, ``-|k|^2``):
+- **Representations** — physical (nodal) and spectral (rfft) views of one section, exchanged by the
+  isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
+  operator-as-multiplier square are §4.
+- **Vertical — fiberwise algebra** (`FieldAlgebra` on fields, `Points` on point-values): add/scale,
+  contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once (§6).
+- **Horizontal — differential operators** (`DifferentialOperators`): `gradient`, `divergence`, `curl`,
+  `laplacian`, …, applied as spectral multipliers (§4).
+- **Convolution** (`Convolution`): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation (§11).
+- **Measure / L²** (`Reductions`): `integral`, `inner`, `l2norm`, `mean`, the radial spectra (§12).
+- **The grid↔point transfer** (`Interpolation`): interpolation ``W`` and its adjoint anterpolation
+  ``W^{\top}`` (§10).
+- **Support mechanics** — types & memory layout (§3), validation design (§5), code generation (§6),
+  aliasing (§7), broadcasting (§8), performance & threading (§9).
 
-```math
-\begin{CD}
-f      @>{\mathcal F}>>   \hat f \\
-@V{L}VV                   @VV{\hat L}V \\
-Lf     @>>{\mathcal F}>   \widehat{Lf}
-\end{CD}
-\qquad\qquad \mathcal F\circ L \;=\; \hat L\circ\mathcal F .
-```
-
-This commuting square *is* invariant 2 (one object, two representations) and the entire design of
-`DifferentialOperators`: ``L`` is never formed in physical space — the multiplier ``\hat L`` is applied
-in spectral and conjugated by ``\mathcal F^{\pm1}``. It also draws the line for the validity table just
-below: an operation may be offered in a representation **iff** its square commutes.
-
-**Why there is no spectral product — the convolution-theorem square.** The pointwise product is *not*
-preserved by ``\mathcal F``:
-
-```math
-\begin{CD}
-(f,g)            @>{\star}>>   f \star g \\
-@V{\mathcal F}VV               @VV{\mathcal F}V \\
-(\hat f,\hat g)  @>>{\cdot}>   \hat f \cdot \hat g
-\end{CD}
-\qquad\qquad \mathcal F(f \star g) \;=\; \hat f \cdot \hat g .
-```
-
-The coefficientwise product *downstairs* is **convolution** upstairs — so it is offered under its true
-name `convolve` ``\equiv \star`` (`Convolution`, decision 20), never as ``*``. Dually, the pointwise
-product ``f \cdot g`` transforms to a convolution ``\hat f \star \hat g`` that has **no** coefficientwise
-spectral form — which is precisely why field×field products (and `dot`, `cross`, pointwise norms) are
-physical-space only (invariant 1).
-
-**The grid↔point transfer — the adjoint pair.** Interpolation ``W`` (gather, grid→point) and
-anterpolation ``W^{\top}`` (scatter, point→grid) are ``L^2``-adjoints, and the same partition-of-unity
-stencil that makes them adjoint also reproduces low-degree polynomials exactly:
-
-```math
-\langle W f,\, q\rangle_{\text{pts}} \;=\; \langle f,\, W^{\top} q\rangle_{\text{grid}},
-\qquad\qquad
-W\,\bigl(\operatorname{sample}_{\text{grid}} p\bigr) \;=\; \operatorname{eval}_{\text{pts}} p
-\quad (p \in \Pi_m).
-```
-
-The left identity is adjointness; the right is reproduction (``\Pi_m`` = polynomials up to the scheme's
-order). Together they are conservation — the two facts checked in `test/interpolation_transfer.jl`. With
-uniform measures, ``W^{\top}`` is the literal transpose up to the ``N/M`` measure factor — ``N`` the
-number of grid points, ``M`` the number of sample points (§10).
-
-**The transfer, intrinsically — a pullback–pushforward.** Write ``\iota : B_{\text{points}} \to \Omega`` for the
-map carrying each point to its location ``x_p`` in the torus ``\Omega`` (the grid ``B_{\text{grid}}`` is itself a
-sampling of ``\Omega``). Pulling the **trivial** bundle back along ``\iota`` keeps the fiber and changes only the
-base, ``B_{\text{points}} \times V = \iota^{*}(\Omega \times V)`` — the transfer is a **base-change, not a fiber
-operation** (the measure taxonomy, decision 19):
-
-```math
-\begin{CD}
-B_{\text{points}} \times V @>{\iota\,\times\,\mathrm{id}_V}>> \Omega \times V \\
-@V{\pi}VV @VV{\pi}V \\
-B_{\text{points}} @>>{\iota}> \Omega
-\end{CD}
-```
-
-Interpolation is then the **pullback of the section**, ``W = \iota^{*}`` with ``(Wf)_p = f(x_p)``; anterpolation
-the **pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` with ``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``
-(the Dirac mass regularized by the stencil; §10). They have **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — and the
-adjointness identity above *is* their adjunction, ``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``.
-(Strictly ``W = \iota^{*}\circ R``, with ``R`` the reconstruction — spline or band-limited spectral interpolant —
-lifting grid samples to a section over ``\Omega``; the reproduction identity above is ``R`` exact on ``\Pi_m``.)
+The three operation families are one **measure taxonomy** (the same L²/integration structure in three
+roles; decision 19). Which operation is valid in which representation, the naming rules, and the
+documentation policy follow.
 
 ### Representation validity lives in the method set
 
@@ -220,6 +164,21 @@ equivalently, only when it commutes with the rfft isomorphism.
   so offering it *as a product* would silently compute the wrong physical operation —
   that coefficientwise product *is* convolution, exposed under its true name as `convolve`
   (the `Convolution` module, decision 20), never as `*`.
+
+The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution-theorem square**:
+
+```math
+\begin{CD}
+(f,g)            @>{\star}>>   f \star g \\
+@V{\mathcal F}VV               @VV{\mathcal F}V \\
+(\hat f,\hat g)  @>>{\cdot}>   \hat f \cdot \hat g
+\end{CD}
+\qquad\qquad \mathcal F(f \star g) \;=\; \hat f \cdot \hat g .
+```
+
+The coefficientwise product *downstairs* is **convolution** upstairs (offered as `convolve` ``\equiv \star``,
+§11); the pointwise product ``f \cdot g`` transforms to a convolution with **no** coefficientwise spectral
+form — exactly why those nonlinear operations are physical-space only.
 
 The consequence is a hard project invariant: **a missing method is a statement,
 not an omission**. The 198-method public surface of `FieldAlgebra` is the
@@ -352,6 +311,26 @@ Two constructors by design:
 Reference tests pin this down: multipliers vs `fftfreq`/`rfftfreq`, transform
 round-trips, and a real-field Nyquist end-to-end test (the derivative zeroed at Nyquist
 vs the squared wavenumber kept) — see `docs/TESTING.md`.
+
+**Operators are multipliers — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
+`to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
+``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
+``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k)\,\cdot`` (``ik``,
+``ik\cdot``, ``ik\times``, ``-|k|^2``):
+
+```math
+\begin{CD}
+f      @>{\mathcal F}>>   \hat f \\
+@V{L}VV                   @VV{\hat L}V \\
+Lf     @>>{\mathcal F}>   \widehat{Lf}
+\end{CD}
+\qquad\qquad \mathcal F\circ L \;=\; \hat L\circ\mathcal F .
+```
+
+This commuting square *is* invariant 2 (one object, two representations) and the entire design of
+`DifferentialOperators`: ``L`` is never formed in physical space — the multiplier ``\hat L`` is applied
+in spectral and conjugated by ``\mathcal F^{\pm1}``. It is the worked case of §2's representation-validity
+rule: an operation may be offered in a representation **iff** its square commutes.
 
 ## 5. Validation design
 
@@ -532,7 +511,7 @@ another, and the package gives each a fixed name:
 
 **One adjoint pair, two scheme families (decision 23).** The `scheme` argument is an
 `AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
-(the §2 commutative-diagram view: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
+(the commutative-diagram view below: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
 families share the same `interpolate`/`anterpolate` verbs and the same adjointness contract:
 
 - **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
@@ -579,6 +558,38 @@ whatever interpolation kernel is in use. The function–measure duality underlyi
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
 as the pushforward of point masses, ``\mathcal I^* q = \sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
+
+Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities
+
+```math
+\langle W f,\, q\rangle_{\text{pts}} \;=\; \langle f,\, W^{\top} q\rangle_{\text{grid}},
+\qquad\qquad
+W\,\bigl(\operatorname{sample}_{\text{grid}} p\bigr) \;=\; \operatorname{eval}_{\text{pts}} p
+\quad (p \in \Pi_m),
+```
+
+with ``\Pi_m`` the polynomials up to the scheme order; with uniform measures ``W^{\top}`` is the literal
+transpose up to the ``N/M`` factor (``N`` grid points, ``M`` sample points). Intrinsically the pair is a
+**pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map carrying each point
+to its location ``x_p`` in the torus ``\Omega``, pulling the **trivial** bundle back along ``\iota`` keeps
+the fiber and changes only the base, ``B_{\text{points}} \times V = \iota^{*}(\Omega \times V)`` — a
+**base-change, not a fiber operation** (decision 19):
+
+```math
+\begin{CD}
+B_{\text{points}} \times V @>{\iota\,\times\,\mathrm{id}_V}>> \Omega \times V \\
+@V{\pi}VV @VV{\pi}V \\
+B_{\text{points}} @>>{\iota}> \Omega
+\end{CD}
+```
+
+Interpolation is the **pullback of the section**, ``W = \iota^{*}`` (``(Wf)_p = f(x_p)``); anterpolation the
+**pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
+Dirac mass above regularized by the stencil). They have **opposite variance** — ``\iota`` pulls a function
+back but pushes a measure forward — so the adjointness *is* their adjunction
+``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``. (Strictly ``W = \iota^{*}\circ R``, with
+``R`` the reconstruction — spline or band-limited spectral interpolant — lifting grid samples to a section
+over ``\Omega``; the reproduction identity is ``R`` exact on ``\Pi_m``.)
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -732,7 +743,36 @@ the moving-object abstraction and its dynamics are solver concerns.
 - E. Catmull, R. Rom, *A class of local interpolating splines*, in: Computer Aided Geometric
   Design, Academic Press, 1974, pp. 317–326.
 
-## 11. Decision log
+## 11. Convolution
+
+`Convolution` is the **kernel-multiplier** family: periodic (circular) convolution of a field with a
+kernel, in spectral representation. By the convolution theorem (§2), ``f \star g`` is the coefficientwise
+product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``) apply a kernel supplied as a
+`ScalarFieldSpectral` transfer function ``\hat g``, which multiplies every fiber component (one method for
+scalar, vector, and tensor fields), with the α/β accumulate form and alias-safety of a coefficientwise op.
+It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, §4) and the
+**same-base counterpart of the `Interpolation` transfer** (decision 19); offered under its true name
+`convolve`, never as `*` (invariant 1). Spectral representation only; physics (an LES filter, an integrating
+factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Four neutral builders
+ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its annular generalization),
+`squared_wavenumber_field` (the ``|k|^2`` radial coordinate consumers build symbols from), and
+`assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window). See decisions 20, 21, 22.
+
+## 12. Reductions
+
+`Reductions` is the **L² / measure** family — the third operation family, integrating a section over its
+base against the measure the base carries (`Grid3D`'s uniform cell volume, `PointSet`'s counting measure;
+decision 18). `integral` (``\equiv \int\,d\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
+`l2norm`, and `lpnorm` are the normalized L² product and norms; `mean`/`std`/`var` (extending `Statistics`)
+and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
+point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
+via Parseval (equal to the physical inner, no transform; the rfft half-spectrum weighting). The **radial**
+pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
+its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
+``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Physics (kinetic
+energy ``\tfrac12\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22.
+
+## 13. Decision log
 
 *Chronological and append-only — later entries supersede earlier "remaining"/"deferred"
 notes (e.g. the CPU threading and the interpolation layer) rather than contradicting them.*
