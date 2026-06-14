@@ -156,7 +156,7 @@ end
 """
     _apply_spectral_divergence!(destination_component, source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector, ``i\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``. Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
+Apply a coefficientwise contraction with the wavenumber vector, ``i\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)`` (``k_a`` the wavenumber component and ``\\hat s_a`` the source field's spectral component along axis ``a = 1, 2, 3``). Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}

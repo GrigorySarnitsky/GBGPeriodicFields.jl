@@ -166,7 +166,12 @@ overclaims); **(2) Self-contained** — **every** symbol is *bound* to its meani
 first use, the elementary working ones included (`f` the field, `x` a position, `q` a per-point value,
 index letters), not just the exotic; a concept *mentioned nearby* (a function argument, a passing noun)
 is **not** a binding, and a self-contained sweep must not be scoped to a hand-picked symbol list that
-skips the basics (how `f`/`x`/`q` slipped through a review); **(3) Formatted —
+skips the basics (how `f`/`x`/`q` slipped through a review). **Run this as a positive enumeration, not a
+read-through** — an unbound symbol is invisible by omission (the eye supplies a plausible meaning and moves
+on), so *list every distinct symbol, sub/superscript, operator name, and bold/blackboard letter in the
+passage* and, for each, quote the clause that binds it; a symbol with no citable binding **is** the defect.
+Reading-to-notice missed exactly this class — the unbound all-ones `𝟙`, the `⟨·,·⟩_pts`/`⟨·,·⟩_grid`
+inner-product measures, and the `sample`/`eval` operators all *looked* like ordinary math; **(3) Formatted —
 bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip; and ASCII-only math like
 `S = J*` — single letters joined by `=`/`*`/juxtaposition — which carries no math glyph, so it evades a
 glyph grep *and* reads as code: catch this class by **reading**, not grep), **and** every code identifier —
@@ -178,6 +183,14 @@ author–year; ≤3 authors named, `First et al.` for 4+; full reference inline 
 `ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
 (The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)
 
+**A flagged instance is a sample of a class — fix the class, not the line.** When a check (or the user)
+catches one defect, treat it as evidence of a *pattern*, not a lone typo: characterize the class and
+**sweep every doc surface for it** — `ARCHITECTURE.md`, every module and operation docstring in `src/`, and
+the `docs/src/` pages — by grep or per-section enumeration, then fix all occurrences in one pass and report
+the class and the count. Fixing only the pointed-at line and waiting to be handed the next instance is the
+failure this rule exists to stop (across one review it happened repeatedly — the §10 symbol bindings, the
+indented tables, the unbound symbols — each patched singly while the rest of the class sat untouched).
+
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
 render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §13 decision entry) use a **nested
@@ -185,14 +198,19 @@ bullet list** instead, and keep literal `|` out of cells (a `|` — even inside 
 bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
 `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
 
-**One notation per concept — no redundant symbols.** The self-contained check guards that every symbol
+**One notation per concept — and one concept per notation.** The self-contained check guards that every symbol
 is *introduced*; it does **not** guard that a concept has only *one* symbol. Before introducing a math
 symbol, check it isn't a synonym for one already in use. If an abstract operator and its matrix (or a
 continuous vs discrete form) genuinely both appear, name each one's distinct role **once** and stop — one
 object wearing three symbols (the `W`/`𝓘`/`ι` interpolation tangle: matrix, operator, and pullback all
 for the same map) is the failure mode. It is easy to *create* this when an edit adds new notation (here,
 `ι`) without retiring the old (`𝓘`), so when an edit introduces a symbol, grep the doc for any existing
-symbol denoting the same thing and reconcile them.
+symbol denoting the same thing and reconcile them. **Run the rule the other way too:** a single glyph must
+not carry two meanings in one section. When you introduce a symbol, grep the section for the glyph and
+confirm it is free — `β` meaning both the `mul!` accumulation scalar *and* the spline stencil weight, and
+`p` meaning both the point index (`xₚ`, `Σₚ`) *and* a polynomial (`p ∈ Πₘ`), were the failure mode (fixed by
+yielding the local use: stencil weight → `w`, polynomial → `φ`). A package-wide convention that cannot move
+(the α/β accumulation, invariant 10) keeps the glyph; the local use renames.
 
 **One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram

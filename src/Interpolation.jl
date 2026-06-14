@@ -35,15 +35,16 @@ The two satisfy the adjunction ``\\langle W f, q\\rangle_P = \\langle f, W^\\top
   * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, so
     ``(W f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
   * its adjoint cannot be pointwise — the pushforward returns a measure, a sum of point masses
-    ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil kernel to
-    ``\\sum_p q_p\\,\\beta(\\cdot - x_p)``, a point-source density (the matrix ``W^\\top`` is this measure
+    ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil weight kernel ``w`` to
+    ``\\sum_p q_p\\,w(\\cdot - x_p)``, a point-source density (the matrix ``W^\\top`` is this measure
     sampled on the grid).
 
 Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate measures*
 (`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`. Discretely,
 with ``G = \\mathbb R^N`` (``N`` grid nodes) and ``P = \\mathbb R^M`` (``M`` points), interpolation is
-the matrix ``W`` (``W_{pn} = \\beta_n(x_p)``) and anterpolation its transpose ``W^\\top``. With shared
-partition-of-unity weights (``W\\,\\mathbf 1 = \\mathbf 1``, i.e. ``\\sum_n W_{pn} = 1``), anterpolation
+the matrix ``W`` (``W_{pn} = w_n(x_p)``, the stencil weights ``w``) and anterpolation its transpose
+``W^\\top``. With shared partition-of-unity weights (``W\\,\\mathbf 1 = \\mathbf 1`` with ``\\mathbf 1`` the
+all-ones vector, i.e. ``\\sum_n W_{pn} = 1``), anterpolation
 is the exact transpose of interpolation and the total deposited quantity is conserved,
 
 ```math
@@ -125,13 +126,13 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
 TurTLE's `beta_n{n}_m{m}` (TurTLE's `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the finite-difference
-half-width), the per-axis weights ``\\beta_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
+half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
 coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over the
 ``2n{+}2``-node stencil (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
-(``\\beta_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]\\, t^p``).
+(``w_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]\\, t^p``).
 
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
@@ -325,7 +326,7 @@ const CatmullRom = LalescuSpline(1, 1)
 """
     _axis_weights(coefficients, t)
 
-Evaluate the per-axis spline weights ``\\beta_q(t)`` for all `N2` stencil nodes at fractional position
+Evaluate the per-axis spline weights ``w_q(t)`` for all `N2` stencil nodes at fractional position
 ``t``, returning an `SVector{N2}`. Horner over the `M2` polynomial-coefficient columns of
 `coefficients` (``M_2 = \\deg + 1``); pure and allocation-free, so it runs inside the gather/scatter
 kernels on CPU and GPU.
@@ -457,11 +458,11 @@ end
 Interpolate `field` (physical-space representation) to the off-grid `points`, writing into `out`; returns `out`.
 
 Each point value is the tensor-product spline gather over the ``(2n{+}2)^3`` stencil around the
-containing cell ``c``, with ``t_a`` the fractional position along axis ``a`` and ``\\beta`` the scheme
+containing cell ``c``, with ``t_a`` the fractional position along axis ``a`` and ``w`` the scheme
 weights — exactly the weighted sum the kernel computes:
 
 ```math
-f(x_p) \\approx \\sum_{i_1, i_2, i_3} \\beta_{i_1}(t_1)\\, \\beta_{i_2}(t_2)\\, \\beta_{i_3}(t_3)\\;
+f(x_p) \\approx \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\;
 f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr).
 ```
 
@@ -536,11 +537,11 @@ as the gather, each point ``p`` (in cell ``c``, fractional position ``t``) atomi
 
 ```math
 \\mathrm{field}\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr) \\mathrel{+}= \\alpha\\;
-\\beta_{i_1}(t_1)\\, \\beta_{i_2}(t_2)\\, \\beta_{i_3}(t_3)\\; q_p
+w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\; q_p
 ```
 
 (after an initial ``\\times \\beta`` prescale of the field). Sharing the gather weights makes this the
-exact transpose, so with the partition of unity ``\\sum \\beta = 1`` the total deposited quantity is
+exact transpose, so with the partition of unity ``\\sum w = 1`` the total deposited quantity is
 conserved. With ``\\beta = 0`` (default) the field is overwritten; with ``\\beta \\ne 0`` the deposit is
 accumulated (the common case for the two-way-coupling scatter). `field` and `quantities` must share
 tensor order and `points` must cover the same number of points. Runs as a portable atomic-scatter

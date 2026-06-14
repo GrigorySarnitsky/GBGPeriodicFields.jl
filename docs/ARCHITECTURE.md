@@ -153,8 +153,8 @@ equivalently, only when it commutes with the rfft isomorphism.
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
   both representations, because the Fourier transform commutes with them.
 - **Adding constants** — in physical space, every grid value shifts; in spectral
-  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention,
-  so only the zero mode changes, scaled by `prod(grid_size)`. This is why
+  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention
+  — ``N`` the total grid-point count (`prod(grid_size)`) — so only the zero mode changes, scaled by ``N``. This is why
   `_spectral_constant_scale` exists and why constant kernels in spectral
   representation touch a single coefficient (per component).
 - **Nonlinear in the field** — products of two fields, division by a scalar field,
@@ -511,30 +511,50 @@ the water-vapour mass and latent heat a droplet releases on condensation (or abs
 be returned to the supersaturation and temperature fields.
 
 **The two operations are a conserving adjoint pair.** Interpolation and anterpolation
-share the **same stencil weights**, which form a partition of unity (``\sum \beta = 1``);
+share the **same stencil weights** ``w``, which form a partition of unity (``\sum w = 1``);
 anterpolation is then the exact transpose of interpolation, and the total deposited
-quantity is conserved: ``\mathbf 1^\top (W^\top q) = (W \mathbf 1)^\top q = \mathbf 1^\top q``. Using mismatched weights injects a
+quantity is conserved — with ``\mathbf 1`` the all-ones vector,
+``\mathbf 1^\top (W^\top q) = (W \mathbf 1)^\top q = \mathbf 1^\top q``. Using mismatched weights injects a
 spurious source/dissipation term (Sundaram & Collins 1996). For the parcel application
 this is mandatory — total water and latent heat must be conserved as vapour passes
 between droplets and the fields — so the design fixes anterpolation as the transpose of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
-as the pushforward of point masses, ``\sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
+as the pushforward of point masses, ``\sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,w(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
-Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities
+Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
+The two inner products are concrete pairings against the measure each base carries: on point-values
+``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\text{pts}}`` a plain sum over the
+``M`` particles, while on fields ``f, g`` the **cell-volume measure** makes
+``\langle\cdot,\cdot\rangle_{\text{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
+fiber contraction — the ordinary product for scalars, the dot product for vectors):
+
+```math
+\langle a, b\rangle_{\text{pts}} = \frac1M \sum_{p=1}^{M} a_p\cdot b_p,
+\qquad\qquad
+\langle f, g\rangle_{\text{grid}} = \frac{1}{|\Omega|}\int_{\Omega} f(x)\cdot g(x)\,\mathrm{d}x
+= \frac1N \sum_{x} f(x)\cdot g(x),
+```
+
+each normalized by its total measure — the ``M`` particles, and the box volume ``|\Omega|`` (equivalently
+the ``N`` grid cells) — exactly as the package's `inner` computes them. Writing
+``\operatorname{sample}_{\text{grid}}`` for sampling a function at the grid nodes,
+``\operatorname{eval}_{\text{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
+``\Pi_m`` (the polynomials up to the scheme order), the adjointness and the polynomial reproduction read
 
 ```math
 \langle W f,\, q\rangle_{\text{pts}} \;=\; \langle f,\, W^{\top} q\rangle_{\text{grid}},
 \qquad\qquad
-W\,\bigl(\operatorname{sample}_{\text{grid}} p\bigr) \;=\; \operatorname{eval}_{\text{pts}} p
-\quad (p \in \Pi_m),
+W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
+\quad (\phi \in \Pi_m),
 ```
 
-with ``\Pi_m`` the polynomials up to the scheme order; with uniform measures ``W^{\top}`` is the literal
+with uniform measures ``W^{\top}`` is the literal
 transpose up to the ``N/M`` factor (``N`` grid points, ``M`` sample points). Intrinsically the pair is a
-**pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map carrying each point
-to its location ``x_p`` in the torus ``\Omega``, pulling the **trivial** bundle back along ``\iota`` keeps
+**pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map from the point base
+``B_{\text{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
+**trivial** bundle back along ``\iota`` keeps
 the fiber and changes only the base, ``B_{\text{points}} \times V = \iota^{*}(\Omega \times V)`` — a
 **base-change, not a fiber operation** (decision 19):
 
@@ -571,7 +591,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
   ``ε`` on the resolved sub-Nyquist band). The adjoint relation carries
-  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle``.
+  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\text{pts}} = N\,\langle \hat f, W^\top q\rangle_{\text{grid}}``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -579,9 +599,9 @@ code (Lalescu et al. 2022). At its core it is Hermite interpolation
 with the node derivatives supplied by finite differences, which makes the interpolant
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
-weighted sum ``\sum \beta_{i_1} \beta_{i_2} \beta_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
+weighted sum ``\sum w_{i_1} w_{i_2} w_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
 (``n`` the per-axis finite-difference half-width) — ``c`` the grid cell containing ``x`` and ``i`` the
-integer node offset within the stencil — with closed-form polynomial weights ``\beta``. Lalescu's **two hierarchies** share this stencil: the **smooth**
+integer node offset within the stencil — with closed-form polynomial weights ``w``. Lalescu's **two hierarchies** share this stencil: the **smooth**
 hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree ``2m{+}1`` that matches the
 value and the first ``m`` derivatives at the two bracketing nodes (``C^m``, ``0 \le m \le 2n``; ``m = 0``
 is linear, ``n = 1, m = 1`` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)
@@ -607,8 +627,8 @@ separate field. Three properties make it the right fit:
    of ``(2n{+}2)^3`` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
    matching scatter.
-3. **Trivial, conservative anterpolation:** the same closed-form ``\beta`` deposit a point's
-   source over its stencil with ``\sum \beta = 1`` — exactly the conserving two-way-coupling
+3. **Trivial, conservative anterpolation:** the same closed-form ``w`` deposit a point's
+   source over its stencil with ``\sum w = 1`` — exactly the conserving two-way-coupling
    feedback the parcel DNS needs.
 
 The interpolation order is a tunable parameter `(n, m)`, not hard-wired, so accuracy can
@@ -866,7 +886,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
-    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M)\,W^\top`` — both base measures are uniform,
+    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M)\,W^\top`` (``N`` grid points, ``M`` sample
+    points) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
     verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
@@ -1208,7 +1229,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
     where the splines break ``\nabla\cdot u=0``), and the **oracle** that will validate `NUFFT`. It
     matches `to_physical` at the grid nodes and `to_spectral` from node samples (both exact to round-off),
-    and satisfies ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle`` (the
+    and satisfies ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle_{\mathrm{grid}}`` (the
     measure factor, as for the splines — decision 17). Two simple KernelAbstractions kernels (type-2
     over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
     like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.

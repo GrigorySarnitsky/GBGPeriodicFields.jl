@@ -257,13 +257,14 @@ the **co-spectrum** (cross-power) ``E_{fg}(\\kappa)`` of two compatible, equal-o
 sums the Parseval-weighted fiber (co-)energy over the modes whose rounded magnitude falls in shell ``i``:
 
 ```math
-E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c |\\hat f_c(k)|^2,
+E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2,
 \\qquad
-E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} w(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k)\\,\\overline{\\hat g_c(k)}\\bigr),
+E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k)\\,\\overline{\\hat g_c(k)}\\bigr),
 ```
 
-with the rfft half-spectrum weight ``w`` (``1`` on the ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2``
-otherwise) and shell width ``\\Delta k`` (the box fundamental). Each **refines** [`inner`](@ref):
+with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on the
+``k_x = 0`` and even-``N_x`` Nyquist planes, ``2`` otherwise), and shell width ``\\Delta k`` (the box
+fundamental). Each **refines** [`inner`](@ref):
 ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa E_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f\\,\\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
