@@ -163,7 +163,9 @@ discrete-sum). When unsure, verify against the implementation and a standard ref
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
 overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted —
-bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip), **and** every code identifier —
+bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip; and ASCII-only math like
+`S = J*` — single letters joined by `=`/`*`/juxtaposition — which carries no math glyph, so it evades a
+glyph grep *and* reads as code: catch this class by **reading**, not grep), **and** every code identifier —
 functions, types, **module names** (`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always**
 backticked and **never** bare (the bare-`FieldAlgebra` slip); check *both* directions (a backtick span must be
 greppable in `src/`; a code name must never sit in plain prose); **(4) Current** — no stale claims; statements

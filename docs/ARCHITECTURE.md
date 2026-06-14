@@ -530,7 +530,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
 
 **Why the code says "anterpolation."** The point→grid (scatter) operation is named
 differently in every community, with no dominant choice: *spreading* (immersed-boundary
-method, where it is explicitly the adjoint `S = J*` of interpolation, built from the
+method, where it is explicitly the adjoint ``S = J^*`` of interpolation, built from the
 same kernel — Peskin 2002; also NUFFT type-1), *deposition* / *charge assignment*
 (particle-in-cell — Hockney & Eastwood 1988; Birdsall & Langdon 1991), *scatter*
 (data-parallel computing), *projection* / *Particle-Source-In-Cell* (particle-laden-flow
