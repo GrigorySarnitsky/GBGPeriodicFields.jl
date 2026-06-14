@@ -102,7 +102,7 @@ projection ``\pi``'s differential — canonical) and *horizontal* (a connection-
 subbundles of the total space's tangent bundle.)
 
 Transfer between sections over *different* bases is the interpolation/anterpolation
-pair: pulling a grid section back to points (evaluation, ``f(x) = \langle \delta_x, f\rangle``) and the
+pair: pulling a grid section back to points (evaluation — pairing with a Dirac mass ``\delta_x`` — ``f(x) = \langle \delta_x, f\rangle``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
 is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)") and the `Interpolation` module docstring; the interpolation weights are
 themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
@@ -519,7 +519,7 @@ this is mandatory — total water and latent heat must be conserved as vapour pa
 between droplets and the fields — so the design fixes anterpolation as the transpose of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
-as the pushforward of point masses, ``\iota_* q = \sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
+as the pushforward of point masses, ``\sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,\beta(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities
@@ -550,9 +550,9 @@ Interpolation is the **pullback of the section**, ``W = \iota^{*}`` (``(Wf)_p = 
 **pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
 Dirac mass above regularized by the stencil). They have **opposite variance** — ``\iota`` pulls a function
 back but pushes a measure forward — so the adjointness *is* their adjunction
-``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``. (Strictly ``W = \iota^{*}\circ R``, with
-``R`` the reconstruction — spline or band-limited spectral interpolant — lifting grid samples to a section
-over ``\Omega``; the reproduction identity is ``R`` exact on ``\Pi_m``.)
+``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``. (Strictly ``W`` is ``\iota^{*}`` *after* a
+reconstruction — the spline or band-limited spectral interpolant lifting grid samples to a section over
+``\Omega`` — which the reproduction identity above shows is exact on ``\Pi_m``.)
 
 **Two scheme families (decision 23).** The `scheme` argument is an
 `AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
@@ -579,8 +579,9 @@ code (Lalescu et al. 2022). At its core it is Hermite interpolation
 with the node derivatives supplied by finite differences, which makes the interpolant
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
-weighted sum ``\sum \beta_{i_1} \beta_{i_2} \beta_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil, with closed-form
-polynomial weights ``\beta``. Lalescu's **two hierarchies** share this stencil: the **smooth**
+weighted sum ``\sum \beta_{i_1} \beta_{i_2} \beta_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
+(``n`` the per-axis finite-difference half-width) — ``c`` the grid cell containing ``x`` and ``i`` the
+integer node offset within the stencil — with closed-form polynomial weights ``\beta``. Lalescu's **two hierarchies** share this stencil: the **smooth**
 hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree ``2m{+}1`` that matches the
 value and the first ``m`` derivatives at the two bracketing nodes (``C^m``, ``0 \le m \le 2n``; ``m = 0``
 is linear, ``n = 1, m = 1`` is Catmull–Rom), and the **Lagrange** hierarchy (`LagrangeSpline(n)`)

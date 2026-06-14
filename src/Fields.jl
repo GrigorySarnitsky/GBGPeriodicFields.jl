@@ -1074,7 +1074,7 @@ One-dimensional Fourier wavenumber arrays for coefficientwise spectral operators
 
 The fields are
 - `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.
-- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: per-axis wavenumbers, used for first derivatives via multiplication by ``\\mathrm{i} k``.
+- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: the per-axis physical (angular) wavenumbers ``k`` along each axis, used for first derivatives via multiplication by ``\\mathrm{i} k``.
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by ``-k^2``.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.

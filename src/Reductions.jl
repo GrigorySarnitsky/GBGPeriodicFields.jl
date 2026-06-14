@@ -115,7 +115,7 @@ The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equ
 \\sum_{p} f_p \\quad (\\texttt{PointSet}).
 ```
 
-For a band-limited field the grid quadrature is exact (the periodic trapezoidal rule integrates the
+Here ``N`` is the number of base points (grid cells) and ``|\\Omega|`` the domain volume. For a band-limited field the grid quadrature is exact (the periodic trapezoidal rule integrates the
 represented modes exactly). Fiber-preserving: a scalar for a scalar section, a `FiberVector` for a
 vector section, a `FiberTensor2` for a tensor section. Physical-space only; spectral integration is future.
 """

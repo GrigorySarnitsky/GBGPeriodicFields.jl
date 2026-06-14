@@ -20,9 +20,10 @@ Physics stays in the consumer (kinetic energy ``\tfrac12\langle u, u\rangle``, e
 
 A field in **spectral representation** also admits `inner`/`l2norm` via Parseval (equal to the physical
 inner, no transform), and `radial_spectrum(f, mult)` — the **radial (shell-binned) power spectrum**
-``S(\kappa)``: `inner` decomposed into isotropic ``|k|``-shells, returning `(shells, spectrum)` with the
-exact refinement ``\sum_\kappa S(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy
-spectrum is ``E(\kappa) = \tfrac12\,S(\kappa)``.
+``S(\kappa)`` (``\kappa`` the shell-center wavenumber): `inner` decomposed into isotropic ``|k|``-shells
+(``|k|`` the wavenumber magnitude), returning `(shells, spectrum)` with the exact refinement
+``\sum_\kappa S(\kappa) = \langle f, f\rangle`` (decision 21). The consumer's energy spectrum is
+``E(\kappa) = \tfrac12\,S(\kappa)``.
 
 Its physical-space **Wiener–Khinchin dual** is `radial_correlation(f, plans)` (decision 22) — the
 shell-averaged two-point autocorrelation ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``, binned over
@@ -30,9 +31,10 @@ minimum-image ``|r|`` shells, with ``C(0) = \langle |f|^2\rangle = \mathrm{inner
 resolve the same `inner` over the conjugate radial coordinates (``|k|`` and ``|r|``).
 
 Each has a two-field **co-spectrum** form (decision 22): `radial_spectrum(f, g)` bins the cross-power
-``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` and `radial_correlation(f, g)` is the
-cross-correlation ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``,
-each refining the **mixed** ``\mathrm{inner}(f, g)`` (``\sum_\kappa E_{fg} = C_{fg}(0) = \mathrm{inner}(f, g)``).
+``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (the sum over fiber components ``c``) into per-shell
+totals ``S_{fg}(\kappa)``, and `radial_correlation(f, g)` is the cross-correlation
+``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``,
+each refining the **mixed** ``\mathrm{inner}(f, g)`` (``\sum_\kappa S_{fg}(\kappa) = C_{fg}(0) = \mathrm{inner}(f, g)``).
 Both are symmetric in ``f, g``, the one-field forms are the ``g = f`` case, and — unlike the power
 spectrum — the co-spectrum may be **negative** in a shell (anticorrelated modes; e.g. a momentum/scalar
 flux co-spectrum, where the sign is physical).

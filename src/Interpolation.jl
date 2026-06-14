@@ -939,8 +939,9 @@ end
 The **fast** spectral-domain transfer scheme — the ``O(N\\log N + M)`` windowed-gridding (NUFFT)
 counterpart of [`DirectDFT`](@ref), exact to a tolerance `tol`. Built from a `reference` spectral
 field (it fixes the grid, layout, element type, and tensor order); the plan holds the oversampled
-(`oversampling`×) grid and its [`FieldTransformPlans`](@ref), the deconvolution ``1/\\hat\\psi``, and
-the coarse↔oversampled mode maps. `width`/`beta` default to the exponential-of-semicircle parameters
+(`oversampling`×) grid and its [`FieldTransformPlans`](@ref), the deconvolution ``1/\\hat\\psi`` (``\\psi``
+the exponential-of-semicircle gridding window, ``\\hat\\psi`` its transform), and the coarse↔oversampled
+mode maps. `width`/`beta` default to the exponential-of-semicircle parameters
 for `tol`. Used like `DirectDFT`: `interpolate(f̂, points, nufft)` / `anterpolate(points, q, nufft)`,
 on a field in **spectral representation**, of the reference's tensor order. The algorithm is
 
