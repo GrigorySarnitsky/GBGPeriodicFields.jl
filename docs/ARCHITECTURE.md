@@ -192,8 +192,8 @@ B_{\text{points}} @>>{\iota}> \Omega
 
 Interpolation is then the **pullback of the section**, ``W = \iota^{*}`` with ``(Wf)_p = f(x_p)``; anterpolation
 the **pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` with ``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``
-(the Dirac mass regularized by the stencil; §10). They have **opposite variance** — functions pull back, measures
-push forward — and the adjointness identity above *is* their adjunction, ``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``.
+(the Dirac mass regularized by the stencil; §10). They have **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — and the
+adjointness identity above *is* their adjunction, ``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``.
 (Strictly ``W = \iota^{*}\circ R``, with ``R`` the reconstruction — spline or band-limited spectral interpolant —
 lifting grid samples to a section over ``\Omega``; the reproduction identity above is ``R`` exact on ``\Pi_m``.)
 
