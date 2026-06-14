@@ -125,17 +125,17 @@ explained in its own section, referenced here rather than repeated:
 
 - **Representations** — physical (nodal) and spectral (rfft) views of one section, exchanged by the
   isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
-  operator-as-multiplier square are §4.
+  operator-as-multiplier square are [§4](@ref "4. Spectral machinery").
 - **Vertical — fiberwise algebra** (`FieldAlgebra` on fields, `Points` on point-values): add/scale,
-  contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once (§6).
+  contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
 - **Horizontal — differential operators** (`DifferentialOperators`): `gradient`, `divergence`, `curl`,
-  `laplacian`, …, applied as spectral multipliers (§4).
-- **Convolution** (`Convolution`): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation (§11).
-- **Measure / L²** (`Reductions`): `integral`, `inner`, `l2norm`, `mean`, the radial spectra (§12).
+  `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
+- **Convolution** (`Convolution`): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
+- **Measure / L²** (`Reductions`): `integral`, `inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
 - **The grid↔point transfer** (`Interpolation`): interpolation ``W`` and its adjoint anterpolation
-  ``W^{\top}`` (§10).
-- **Support mechanics** — types & memory layout (§3), validation design (§5), code generation (§6),
-  aliasing (§7), broadcasting (§8), performance & threading (§9).
+  ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
+- **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
+  aliasing ([§7](@ref "7. Aliasing policy")), broadcasting ([§8](@ref "8. Broadcasting")), performance & threading ([§9](@ref "9. Performance model and CPU threading")).
 
 The three operation families are one **measure taxonomy** (the same L²/integration structure in three
 roles; decision 19). Which operation is valid in which representation, the naming rules, and the
@@ -499,15 +499,15 @@ another, and the package gives each a fixed name:
   callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
 - **Anterpolation** — point → grid (the *scatter* direction): allocating
   `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`,
-  depositing per-point quantities onto a field. Both operations carry the usual
-  allocating / in-place (`!`) pair and a five-argument `α`/`β` form (``\beta = 0`` overwrite,
-  ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` / ``W^\top``;
-  accumulation is the common case for the scatter). `interpolate` / `anterpolate!` are the
-  symmetric named pair — only interpolation also gets the callable `f(x)`, because evaluation
-  is pointwise while its adjoint is not (see the module docstring). The driving case is
-  two-way coupling in the cloud-parcel DNS this package serves — the water-vapour mass and
-  latent heat a droplet releases on condensation (or absorbs on evaporation) must be returned
-  to the supersaturation and temperature fields.
+  depositing per-point quantities onto a field.
+
+Both carry the usual allocating / in-place (`!`) pair and a five-argument `α`/`β` form (``\beta = 0``
+overwrite, ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` /
+``W^\top``; accumulation is the common case for the scatter). They are the symmetric named pair — only
+interpolation also gets the callable `f(x)`, because evaluation is pointwise while its adjoint is not (see
+the module docstring). The driving case is two-way coupling in the cloud-parcel DNS this package serves:
+the water-vapour mass and latent heat a droplet releases on condensation (or absorbs on evaporation) must
+be returned to the supersaturation and temperature fields.
 
 **One adjoint pair, two scheme families (decision 23).** The `scheme` argument is an
 `AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
