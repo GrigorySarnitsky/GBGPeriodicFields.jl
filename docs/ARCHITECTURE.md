@@ -8,7 +8,7 @@ carries the conceptual model and writing conventions.
 
 This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
 `code` identifier — is introduced in plain language at its first use, the meaning stated before or in
-the same sentence as the symbol. So it reads top-to-bottom, and each §13 decision-log entry reads on
+the same sentence as the symbol. So it reads top-to-bottom, and each [§13](@ref "13. Decision log") decision-log entry reads on
 its own, without opening the source or another document. (Universally standard math — ``\nabla``,
 ``\Delta``, ``\int``, ``\mathbb R`` — may stand unglossed.) Keep it that way when editing.
 
@@ -22,7 +22,7 @@ real-to-complex / `rfft` half-spectrum) — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
 algebra (`FieldAlgebra`), and spectral differential operators (`DifferentialOperators`).
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
-serves consumer-side Lagrangian particle tracking — are in place (§10): the point-value
+serves consumer-side Lagrangian particle tracking — are in place ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): the point-value
 sections, their fiberwise algebra, and the transfer **schemes** — local splines (Lalescu, Teaca &
 Carati 2010: the smooth Hermite and ``C^0`` Lagrange hierarchies) and exact spectral-domain transfers
 (`DirectDFT`, `NUFFT`), unified under one `AbstractTransferScheme`. The
@@ -34,7 +34,7 @@ The package is a **math backend** — a library of field operations that turbule
 solvers consume, not a solver itself. Its vocabulary is therefore domain-neutral (base/fiber,
 point/value), never *particle* or *tracer* (a consumer's interpretation), and it carries **no
 concept of time**: no advection, time integration, or temporal state. Trajectory dynamics
-belong to the consumer (§10).
+belong to the consumer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 
 ## 2. The central principle: the architecture follows established mathematics
 
@@ -57,7 +57,7 @@ of a base ``B`` and a fiber ``V``. The fiber is a tensor power of ``\mathbb R^3`
 **tensor order** ``R``: ``V = \mathbb R`` (``R = 0``, scalar), ``\mathbb R^3`` (``R = 1``, vector, `FiberVector`),
 ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
 and higher (`FiberTensor3/4`). A section
-assigns a fiber value to each base point; the fiber-last data layout (§3) is exactly
+assigns a fiber value to each base point; the fiber-last data layout ([§3](@ref "3. Types and memory layout")) is exactly
 that section, stored base-indexed.
 
 Three structures of the package are then *parameters of a section*, not separate
@@ -65,19 +65,19 @@ worlds:
 
 - **The base** is either the structured grid `Grid3D` — a field is a section sampled
   on the grid — or the unstructured point set `PointSet` — point-values are a section
-  sampled at scattered points (§10). Same fibers, different base.
+  sampled at scattered points ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). Same fibers, different base.
 - **Fiberwise algebra is the vertical (within-fiber) structure**: addition, real
   scaling, contraction with a constant fiber, dot/cross/tensor products, transpose,
   sym/skew/dev, and norms all act inside fibers, pointwise in the base, and are
   therefore **base-independent** — the very same operation on the very same fiber
   type, whether the base is a grid or a point set. This is the structural reason one
-  set of generated kernels (§6) serves fields and point-values verbatim, and the
+  set of generated kernels ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) serves fields and point-values verbatim, and the
   mathematical motivation for treating the **section as the primary abstraction**: a
   shared `AbstractFiberSection{T, R}` supertype spanning both, in the
-  `FiberSections` module (§10).
+  `FiberSections` module ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Differential operators are the complementary horizontal structure** — gradient,
   divergence, curl, Laplacian are derivatives *along the base*, using the flat
-  connection of the periodic box (§4). They are bound to a base with a differentiable
+  connection of the periodic box ([§4](@ref "4. Spectral machinery")). They are bound to a base with a differentiable
   structure: they act on grid sections (in the spectral representation) and not on
   point-value sections, which carry the vertical algebra but no derivatives.
 - **Base reductions are the third operation family** — integrating the base away against a
@@ -85,14 +85,14 @@ worlds:
   (extensive), the normalized `inner`/`l2norm`, and the `mean`/`std`/`var` moments. They map a
   section to a scalar or a fiber and are base-dependent (the measure is the base's), yet — like
   the vertical algebra — are shared by fields and point-values through `AbstractFiberSection`
-  (§9, decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
+  ([§9](@ref "9. Performance model and CPU threading"), decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
   convolution multiplier (the `Convolution` module, decision 20): one L²/integration structure in three roles (the
   measure taxonomy, decision 19).
 - **Representation is a choice of basis for a grid section's data** (distinct from the
   fiber frame above): physical storage uses the nodal basis, spectral storage the Fourier
   basis, and the rfft is the linear isomorphism between them. A point-value section has no second
   representation — there is no periodic grid to transform over — so the point types
-  are representation-free (§10).
+  are representation-free ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 
 (The vertical/horizontal language is the bundle-theoretic one — fiber directions versus the
 connection's base directions — applied here by analogy to *operations*: the fiberwise algebra
@@ -104,7 +104,7 @@ subbundles of the total space's tangent bundle.)
 Transfer between sections over *different* bases is the interpolation/anterpolation
 pair: pulling a grid section back to points (evaluation, ``f(x) = \langle \delta_x, f\rangle``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
-is given in §10 and the `Interpolation` module docstring; the interpolation weights are
+is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)") and the `Interpolation` module docstring; the interpolation weights are
 themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
 base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
@@ -177,7 +177,7 @@ The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution
 ```
 
 The coefficientwise product *downstairs* is **convolution** upstairs (offered as `convolve` ``\equiv \star``,
-§11); the pointwise product ``f \cdot g`` transforms to a convolution with **no** coefficientwise spectral
+[§11](@ref "11. Convolution")); the pointwise product ``f \cdot g`` transforms to a convolution with **no** coefficientwise spectral
 form — exactly why those nonlinear operations are physical-space only.
 
 The consequence is a hard project invariant: **a missing method is a statement,
@@ -189,7 +189,7 @@ and then M3 (the dot/cross/`mul!`/transpose/norm/sym/skew/dev contraction and
 decomposition families, plus their `*` operators), bringing the total to 198 and
 parity-checked at runtime in `test/method_parity.jl`. The point-value algebra
 realizes the *vertical* operations on the unstructured base — it mirrors the
-**physical** field surface and is locked by its own separate baseline (§10).
+**physical** field surface and is locked by its own separate baseline ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 
 ### Naming conventions
 
@@ -220,7 +220,7 @@ those operators, not by a noun preference.
 
 ### Documentation policy
 
-The `@eval` code generators (§6) emit methods only, never docstrings. Each operation has one
+The `@eval` code generators ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) emit methods only, never docstrings. Each operation has one
 docstring attached to the bare binding (`function f end` for package-owned generics; the
 bare imported name for Base/LinearAlgebra functions — never `function f end`
 there, since a missing import would silently create a new generic). Docstrings
@@ -262,7 +262,7 @@ the first axis halved per rfft. Rationale: with column-major storage, each
 component slice `data[:, :, :, i(, j)]` is one contiguous block. That gives
 batched per-component FFTs, coalesced GPU access, pure streaming writes for
 elementwise kernels, and trivially chunkable index ranges for the CPU
-threading (§9). Component access goes through views
+threading ([§9](@ref "9. Performance model and CPU threading")). Component access goes through views
 (`_vector_component_data`, `_tensor2_component_data`); views are lazy, so
 splicing them into generated formulas costs nothing.
 
@@ -329,7 +329,7 @@ Lf     @>>{\mathcal F}>   \widehat{Lf}
 
 This commuting square *is* invariant 2 (one object, two representations) and the entire design of
 `DifferentialOperators`: ``L`` is never formed in physical space — the multiplier ``\hat L`` is applied
-in spectral and conjugated by ``\mathcal F^{\pm1}``. It is the worked case of §2's representation-validity
+in spectral and conjugated by ``\mathcal F^{\pm1}``. It is the worked case of [§2](@ref "2. The central principle: the architecture follows established mathematics")'s representation-validity
 rule: an operation may be offered in a representation **iff** its square commutes.
 
 ## 5. Validation design
@@ -405,7 +405,7 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   alongside their `mul!`/`dot`/`cross`/… kernels, completing the 198-method surface.
 
 The same builders are reused verbatim to generate the point-value algebra over the
-unstructured base (§10) — the formulas are base-independent (§2). They live in the shared
+unstructured base ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) — the formulas are base-independent ([§2](@ref "2. The central principle: the architecture follows established mathematics")). They live in the shared
 `FiberSections` module (with the `_assign!` primitive); both `FieldAlgebra` and `Points` source
 them from there, so each fiberwise formula — including the norm/sym/skew/dev ones, via
 `section_scalar_type` — is written exactly once.
@@ -438,7 +438,7 @@ not alias the inputs, matching `LinearAlgebra.mul!` semantics.
 and the field broadcast style (owned by `Fields`) materializes into field storage.
 Style promotion is one-sided by design — define a single binary rule per style
 pair, never symmetric mixed-representation rules. The broadcast layer doubles as
-the compatibility enforcement for broadcast-mediated methods (§5).
+the compatibility enforcement for broadcast-mediated methods ([§5](@ref "5. Validation design")).
 
 ## 9. Performance model and CPU threading
 
@@ -490,7 +490,7 @@ a consumer concern, since the package allocates serially via `similar`).
 
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
-Lagrangian particle tracking by a consumer (§1) requires two transfer operations
+Lagrangian particle tracking by a consumer ([§1](@ref "1. Purpose and scope")) requires two transfer operations
 between the Eulerian fields and off-grid positions. They are formal adjoints of one
 another, and the package gives each a fixed name:
 
@@ -620,7 +620,7 @@ separate field. Three properties make it the right fit:
    scheme. (The other once-planned alternative — exact spectral transfer — is **done**: the
    ``O(NM)`` `DirectDFT` oracle and the fast `NUFFT`, owned natively with no `NonuniformFFTs.jl`
    dependency, under `AbstractTransferScheme`; decision 23.) See item 17 and the references below.
-2. **GPU-friendly** (the GPU-first invariant, §1): per-point interpolation is a gather
+2. **GPU-friendly** (the GPU-first invariant, [§1](@ref "1. Purpose and scope")): per-point interpolation is a gather
    of ``(2n{+}2)^3`` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
    matching scatter.
@@ -641,7 +641,7 @@ kernels (the scatter accumulates atomically); the smooth per-axis weights are ge
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
 to name two new objects: off-grid locations and the field values there. The package names
 them in its base/fiber vocabulary, *not* as particles — deliberately, because
-GBGPeriodicFields is a **math backend** (§1): "particle"/"tracer" is the consumer's
+GBGPeriodicFields is a **math backend** ([§1](@ref "1. Purpose and scope")): "particle"/"tracer" is the consumer's
 interpretation (a location with physical attributes and an equation of motion), not a
 primitive here. The organizing principle reuses the existing base/fiber split: a field is a
 *section* — fibers (scalar, `FiberVector`, `FiberTensor2`) over a *base* — and so far the
@@ -674,16 +674,16 @@ module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 **Implemented status.** The point types, their **full fiberwise algebra**, and the transfer
 schemes (interpolation / anterpolation — the local splines plus the spectral-domain `DirectDFT` and
 `NUFFT`, decision 23) are all implemented and tested. The algebra mirrors the *physical* field surface — the base-independent vertical
-operations of §2 (M2 vector-space and scalar-field products; M3 dot/cross/`mul!`/transpose/
+operations of [§2](@ref "2. The central principle: the architecture follows established mathematics") (M2 vector-space and scalar-field products; M3 dot/cross/`mul!`/transpose/
 norm/sym/skew/dev), with storage-wise broadcasting — and is generated by **reusing
-`FieldAlgebra`'s per-component formula and kernel-body builders verbatim** (§6) over an extended
+`FieldAlgebra`'s per-component formula and kernel-body builders verbatim** ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) over an extended
 section interface (`field_data` / `_vector_component_data` / `_tensor2_component_data`, which
 `Interpolation` extends for the point types), so no formula is written twice. It is locked by
 a separate **118-method point-value parity baseline** (the 198-method field surface is
 byte-unchanged), has zero ambiguities, and is covered on CPU (`test/pointvalues_algebra.jl`,
 Float64/Float32) and on the GPU (the ROCm suite under `allowscalar(false)`).
 
-**Consolidation status — the module structure the model implies.** The fiber-bundle model (§2)
+**Consolidation status — the module structure the model implies.** The fiber-bundle model ([§2](@ref "2. The central principle: the architecture follows established mathematics"))
 calls for a base-agnostic foundation and a clean object/operation naming split. Both are now in
 place:
 
@@ -700,7 +700,7 @@ place:
   `DifferentialOperators`.
 
 The field/point asymmetry is deliberate and **mandated by the mathematics**, not
-inertia: points have no differential operators (no horizontal structure, §2) and no second
+inertia: points have no differential operators (no horizontal structure, [§2](@ref "2. The central principle: the architecture follows established mathematics")) and no second
 representation, so there is no point peer to `DifferentialOperators` and no representation
 machinery in `Points`; and the point algebra is a small *generated* emission that folds into
 `Points` rather than earning a separate `FieldAlgebra`-sized module (whose bulk is the 198
@@ -710,7 +710,7 @@ in noun-named modules (`Fields`, `Points`), operations in operation-named ones (
 `DifferentialOperators`, `Interpolation`). Each stage reproduces both parity baselines (198 field
 + 118 point) byte-for-byte, with zero ambiguities.
 
-**No concept of time (§1).** The package has, and for now keeps, *no* notion of time — no
+**No concept of time ([§1](@ref "1. Purpose and scope")).** The package has, and for now keeps, *no* notion of time — no
 advection, no time integration, no temporal interpolation, no per-step state. It answers only
 the timeless "field ⇄ values at positions." Trajectory integration `dx/dt = u(x)` and any
 time stepping are the consumer's: it holds the positions and advances them, calling this
@@ -746,11 +746,11 @@ the moving-object abstraction and its dynamics are solver concerns.
 ## 11. Convolution
 
 `Convolution` is the **kernel-multiplier** family: periodic (circular) convolution of a field with a
-kernel, in spectral representation. By the convolution theorem (§2), ``f \star g`` is the coefficientwise
+kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
 product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``) apply a kernel supplied as a
 `ScalarFieldSpectral` transfer function ``\hat g``, which multiplies every fiber component (one method for
 scalar, vector, and tensor fields), with the α/β accumulate form and alias-safety of a coefficientwise op.
-It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, §4) and the
+It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, [§4](@ref "4. Spectral machinery")) and the
 **same-base counterpart of the `Interpolation` transfer** (decision 19); offered under its true name
 `convolve`, never as `*` (invariant 1). Spectral representation only; physics (an LES filter, an integrating
 factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Four neutral builders
@@ -782,7 +782,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 2. `FieldSpectralMultipliers` moved `DifferentialOperators` → `Fields`; explicit
    six-array constructor (validated lengths) plus convenience constructor;
    host-built wavenumbers copied to the backend; **Nyquist split** between
-   derivative and squared multipliers (correctness, see §4).
+   derivative and squared multipliers (correctness, see [§4](@ref "4. Spectral machinery")).
 3. `FieldAlgebra` rewritten around code generation with the invariant that the
    public method set is reproduced exactly; M2 + M3 delivered and parity-verified
    at runtime (198 methods, the full surface). Validation rewired to direct
@@ -792,21 +792,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
    signatures + validity prose; generators never emit docstrings.
 5. Operators defined in `function op(...) ... end` form (parse-proven house
    style); short form only for unary `+`.
-6. GPU-first; CPU threading designed (`_assign!`, §9) and deliberately deferred.
+6. GPU-first; CPU threading designed (`_assign!`, [§9](@ref "9. Performance model and CPU threading")) and deliberately deferred.
 7. Refactor complete: `FieldAlgebra` loads and is parity-verified (M2 + M3, 198
    methods); `DifferentialOperators` rewired to import `FieldSpectralMultipliers`
    and its helpers from `Fields`, with the umbrella re-export corrected (the old
    five-argument constructor removed by design); reference test suite in place
    (`test/`, `Pkg.test()` green) including the method-parity baseline.
-   Remaining: deferred CPU threading (§9) and the planned interpolation layer.
+   Remaining: deferred CPU threading ([§9](@ref "9. Performance model and CPU threading")) and the planned interpolation layer.
 8. StaticArrays promoted from `StaticArraysCore` to a direct dependency — the
    package indexes fibers and uses their algebra in the generated kernels, so the
    type-only core package left `field ± fiber`, `scalarfield * fiber`, and the M3
-   fiber contractions undefined at runtime (see §3).
+   fiber contractions undefined at runtime (see [§3](@ref "3. Types and memory layout")).
 9. Transform input-preservation contract: in-place `to_physical!`/`to_spectral!`
    may overwrite their source (FFTW c2r destroys input; backend-divergent), so the
    allocating `to_physical`/`to_spectral` copy the input to keep non-`!` calls
-   non-mutating (see §4).
+   non-mutating (see [§4](@ref "4. Spectral machinery")).
 10. GPU testing is opt-in and **dependency-free for the package**: the data layer is
     generic over `AbstractArray`, FFT plans are built through `AbstractFFTs`
     (backend-dispatched on the array type) and allocations inherit their backend via
@@ -831,7 +831,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     for *separate code* (so adjointness tests use an inline L² inner product), and
     doctests wait until the package stabilizes and tutorials are written. Coverage detail
     lives in `docs/TESTING.md`.
-12. CPU threading implemented (§9), realizing the design formerly deferred in items 6/9. A
+12. CPU threading implemented ([§9](@ref "9. Performance model and CPU threading")), realizing the design formerly deferred in items 6/9. A
     `Fields._assign!` primitive threads elementwise/fiberwise assignments on CPU
     (`Base.Threads`, contiguous chunks, bitwise-identical to serial), routed in via the
     field broadcast `copyto!` and the kernel assignments (codegen `_to_broadcasted` plus the
@@ -840,7 +840,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     task-local `with_threading` ScopedValue override; the GPU path stays on the
     `materialize!` fallback. `[compat] julia` was raised to 1.11 (for ScopedValue).
     Reductions remain deferred (separate FP-ordering design).
-13. Interpolation-layer design fixed (§10):
+13. Interpolation-layer design fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")):
     grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
     `interpolate` / `interpolate!`; point→grid **anterpolation** as `anterpolate` /
     `anterpolate!` — the symmetric named pair, each with allocating, in-place, and
@@ -859,7 +859,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     anterpolation share the same partition-of-unity weights, so anterpolation is the
     conservative transpose (Sundaram & Collins 1996) — required to conserve total water
     and latent heat in the two-way-coupled parcel DNS. Implemented (item 17).
-14. Point-data types fixed (§10) and the math-backend policy recorded. The unstructured base
+14. Point-data types fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) and the math-backend policy recorded. The unstructured base
     reuses the base/fiber split: `Point{T} = SVector{3,T}` (a position; an **alias** of
     `FiberVector`, not a wrapper); `PointSet` (`M` positions, **SoA** `(M,3)`, grid-free);
     and `PointValues` as **three concrete types** mirroring the field zoo —
@@ -869,15 +869,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (no advection / integration / temporal state) — those are the consumer's. The types live in
     `Interpolation`, importing `Fields` helpers; they are implemented and tested (only the
     transfer kernels of item 13 remain future work — see item 15 for the algebra).
-15. Point-value algebra implemented (§10): `FieldAlgebra`'s code generators are **reused
+15. Point-value algebra implemented ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): `FieldAlgebra`'s code generators are **reused
     verbatim** over an extended point-value section interface, mirroring the full *physical*
     field surface (M2 + M3, storage-wise broadcasting) with no duplicated formula; locked by a
     separate **118-method baseline** (the 198-method field surface byte-unchanged), zero
     ambiguities, tested on CPU (`test/pointvalues_algebra.jl`) and GPU (ROCm). The shared
-    `AbstractFiberSection{T, R}` supertype the fiber-bundle model (§2) invites — and the lift of
+    `AbstractFiberSection{T, R}` supertype the fiber-bundle model ([§2](@ref "2. The central principle: the architecture follows established mathematics")) invites — and the lift of
     the inlined norm/sym/skew/dev formulas into a builder — is the planned next step, not yet
     undertaken.
-16. Phase A consolidation **done** (§2, §10). The foundation module **`FiberSections`** holds the
+16. Phase A consolidation **done** ([§2](@ref "2. The central principle: the architecture follows established mathematics"), [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). The foundation module **`FiberSections`** holds the
     base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types subtype
     it), the `_assign!` threading primitive, and the **vertical-algebra code generators** — the
     single home for every fiberwise formula (norm/sym/skew/dev included, via `section_scalar_type`),
@@ -888,7 +888,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operators, no second representation; the point algebra is a small generated emission folded into
     `Points`). Both parity baselines (198 + 118) held byte-for-byte through every step, zero
     ambiguities. (The transfer kernels themselves followed — item 17.)
-17. Transfer kernels implemented (§10): interpolation (gather ``W``, also the callable `f(x)`) and
+17. Transfer kernels implemented ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): interpolation (gather ``W``, also the callable `f(x)`) and
     anterpolation (scatter ``W^\top``, with the α/β `mul!` convention) as the Lalescu local splines.
     **Both hierarchies** are provided: the smooth `LalescuSpline(n, m)` — a two-point Hermite of
     degree ``2m{+}1`` matching the value and the order-``1, \dots, m`` derivatives (centred Fornberg
@@ -912,10 +912,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
     verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
-    the reduction deferral of items 6/11/§9. The package's operations split into **vertical**
+    the reduction deferral of items 6/11/[§9](@ref "9. Performance model and CPU threading"). The package's operations split into **vertical**
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
     `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
-    **measure** it carries; return a fiber value or a scalar. Math grounding (§2): a section lives in
+    **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
     `L²(base, μ)`; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. **Statistics** `mean`/`std`/`var`). All dispatch on
@@ -924,7 +924,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *The measure is a property of the base.* `Grid3D` → uniform Lebesgue quadrature (cell volume
     ``\prod_i \Delta x_i``); `PointSet` → **counting** measure (unit weight per point) — and this is
-    *forced*, not a choice: a `PointSet` is grid-free (§10, carries no domain), so the only well-defined
+    *forced*, not a choice: a `PointSet` is grid-free ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), carries no domain), so the only well-defined
     measure is counting. Consequences:
 
     `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
@@ -966,13 +966,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
     foundation for the spectral-multiplier family later realized as `Convolution` (decision 20).** The word *measure* recurs across the package
     (reductions, interpolation, and convolution) not by coincidence but
-    because all three are facets of the **same L²/integration structure on sections** (§2). This entry
+    because all three are facets of the **same L²/integration structure on sections** ([§2](@ref "2. The central principle: the architecture follows established mathematics")). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
     recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
     periodic box every **homogeneous (translation-invariant) linear operator is a Fourier multiplier** — a
     coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
-    the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` (§4),
+    the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` ([§4](@ref "4. Spectral machinery")),
     the consumer's 2/3 dealias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
     (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``ik``, ``-|k|^2 \notin L^\infty``),
     diagonalized identically but outside the norm identity above.
@@ -996,7 +996,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so
     ``u(x_p) = \int u\,d\mu_{x_p}`` is integration of the field against a unit-mass kernel measure centered at
     the point — the same *species* as a homogeneous filter. Two differences make it its own operation
-    (§10, in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
+    ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
     point base**, which has no wavenumbers, so it is a **base-change** (grid↔point), *not* a Fourier
     multiplier (it degenerates to one only when points coincide with nodes); (ii) the default
     `CatmullRom`/`Lagrange` kernels have **negative side-lobes** — a *signed* unit-mass measure (higher
@@ -1021,7 +1021,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **The symbol is data, never parameters** — this is how the family stays inside invariant 12 (no
       time, no physics). The applicator multiplies a field-in-spectral by a precomputed ``k``-array; ``\nu``,
       ``\Delta t``, filter width, and positivity all live in how the *consumer* builds that array from the
-      `FieldSpectralMultipliers` wavenumbers (§4). The viscous factor ``\exp(-\nu k^2 \Delta t)`` is literally the
+      `FieldSpectralMultipliers` wavenumbers ([§4](@ref "4. Spectral machinery")). The viscous factor ``\exp(-\nu k^2 \Delta t)`` is literally the
       heat-kernel probability measure, yet the package never sees ``\nu`` or ``\Delta t``.
     - **Do not restrict to positive ("measure") symbols.** ``L^\infty``-symbol is the right generality;
       convolution-with-a-finite-measure is a *strict subclass* whose symbol must be **continuous**, and
@@ -1047,7 +1047,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`helmholtz_projection` covers the only case currently needed). The Germano differential filter
     ``1/(1 + \Delta^2 k^2)`` is architecturally inert — whatever its symbol, it is one more scalar multiplier the
     consumer supplies.
-20. **Convolution — the kernel-multiplier family realized (§2; the new `Convolution` module).**
+20. **Convolution — the kernel-multiplier family realized ([§2](@ref "2. The central principle: the architecture follows established mathematics"); the new `Convolution` module).**
     Implements the multiplier designed in decision 19 as periodic (circular) convolution of a field
     with a kernel, in spectral representation: by the convolution theorem on the torus, `f ⋆ g` is the
     **coefficientwise spectral product** ``\hat f \cdot \hat g``. The kernel `g` is supplied by its transfer function
@@ -1070,7 +1070,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
     low-pass (idempotent projection), the basis of de-aliasing / spectral truncation; physics (an LES
     filter, an integrating factor ``\exp(-\nu k^2 \Delta t)``) stays a `ScalarFieldSpectral` the consumer builds
-    from the wavenumbers (invariant 12). Naming follows the §2 convention (the verb `convolve` for a
+    from the wavenumbers (invariant 12). Naming follows the [§2](@ref "2. The central principle: the architecture follows established mathematics") convention (the verb `convolve` for a
     generic transformation; the module noun `Convolution`, parallel to `Interpolation` / `interpolate`).
     Tested CPU (`test/convolution.jl`, Float64/Float32 — the translation kernel
     ``\exp(-i k_x m \Delta x) \Leftrightarrow`` `circshift` is the independent physical oracle, plus identity/scaling/
@@ -1139,7 +1139,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     isotropic-average qualifier common to both spaces — and to the *radial* distribution function of point
     statistics; "shell" named the binning implementation and does not pair with the physical-space
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
-    a field to a 1-D radial profile, named by the quantity's noun per §2 (`spectrum` / `correlation`)
+    a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
     under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
     stay consumer-side: the energy spectrum ``E(k) = \tfrac12\,\mathrm{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
@@ -1229,10 +1229,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     window transforms and interlacing (sharper small-``r`` ``g``); and — the "meaningful fibers over the
     radial coordinate" — the anisotropic / tensor-valued radial spectra ``E_{ij}(\kappa)`` and the
     Craya–Herring longitudinal/transverse split, which only earn their structure under anisotropy
-    (e.g. shear flow), per the §2 rule against speculative structure.
+    (e.g. shear flow), per the [§2](@ref "2. The central principle: the architecture follows established mathematics") rule against speculative structure.
 23. **Spectral-domain transfer — `DirectDFT` (exact) and the native `NUFFT` (fast). [Both DONE.]**
 
-    *The object.* The transfer layer (§10) had one scheme family — the physical-domain local splines.
+    *The object.* The transfer layer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) had one scheme family — the physical-domain local splines.
     This adds the **spectral-domain** transfer: evaluation/deposition between Fourier coefficients and
     scattered points, the exact off-grid form of the field. Both families are unified under a new
     supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the L²-adjoint
