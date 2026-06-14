@@ -85,7 +85,7 @@ worlds:
   (extensive), the normalized `inner`/`l2norm`, and the `mean`/`std`/`var` moments. They map a
   section to a scalar or a fiber and are base-dependent (the measure is the base's), yet — like
   the vertical algebra — are shared by fields and point-values through `AbstractFiberSection`
-  ([§9](@ref "9. Performance model and CPU threading"), decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
+  ([§12](@ref "12. Reductions"), decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
   convolution multiplier (the `Convolution` module, decision 20): one L²/integration structure in three roles (the
   measure taxonomy, decision 19).
 - **Representation is a choice of basis for a grid section's data** (distinct from the
@@ -120,11 +120,11 @@ B \;\xrightarrow{\,s\,}\; E \;\xrightarrow{\,\pi\,}\; B, \qquad \pi \circ s = \o
 
 with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
 tensor bundle, and ``s`` the field (`AbstractFiberSection`): one fiber value per base point. Everything
-below operates on sections, in one of **three operation families** plus the support mechanics — each
-explained in its own section, referenced here rather than repeated:
+below operates on sections, plus the support mechanics — each explained in its own section, referenced
+here rather than repeated:
 
-- **Representations** — physical (nodal) and spectral (rfft) views of one section, exchanged by the
-  isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
+- **Representations** — physical (nodal) and spectral (rfft, written ``\hat f``) views of one section,
+  exchanged by the isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
   operator-as-multiplier square are [§4](@ref "4. Spectral machinery").
 - **Vertical — fiberwise algebra** (`FieldAlgebra` on fields, `Points` on point-values): add/scale,
   contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
@@ -137,8 +137,8 @@ explained in its own section, referenced here rather than repeated:
 - **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
   aliasing ([§7](@ref "7. Aliasing policy")), broadcasting ([§8](@ref "8. Broadcasting")), performance & threading ([§9](@ref "9. Performance model and CPU threading")).
 
-The three operation families are one **measure taxonomy** (the same L²/integration structure in three
-roles; decision 19). Which operation is valid in which representation, the naming rules, and the
+Reductions, convolution, and the grid↔point transfer are the same L²/integration structure in three
+roles — the **measure taxonomy** (decision 19). Which operation is valid in which representation, the naming rules, and the
 documentation policy follow.
 
 ### Representation validity lives in the method set
@@ -251,7 +251,7 @@ Field types are parameterized by scalar type `T<:AbstractFloat`:
 `TensorFieldPhysical{2}/TensorFieldSpectral{2}`. Constant fiber values are
 StaticArrays aliases — `FiberVector{T} = SVector{3,T}`,
 `FiberTensor2{T} = SMatrix{3,3,T,9}` (plus `FiberTensor3/4`) — so fiber-fiber
-algebra comes from StaticArrays/LinearAlgebra and the package never defines it.
+algebra comes from `StaticArrays`/`LinearAlgebra` and the package never defines it.
 **StaticArrays is a direct dependency**, not just the type-only `StaticArraysCore`:
 the package indexes fibers (`a[i]`, `A[i, j]`) and uses their algebra inside the
 generated kernels, so the core-types package alone leaves those operations undefined.
@@ -874,7 +874,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
     `L²(base, μ)`; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
-    moments are the canonical reductions (cf. **Statistics** `mean`/`std`/`var`). All dispatch on
+    moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
     `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
     "write it once").
 
@@ -894,7 +894,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     domain average ``\langle\cdot\rangle``). Names and conventions:
 
     - `integral(f)` — the **extensive** ``\int f\,d\mu`` (the one quantity that scales with the base measure).
-    - `mean(f)`, `std(f)`, `var(f)` — extend **Statistics** (we own the types ⇒ not piracy);
+    - `mean(f)`, `std(f)`, `var(f)` — extend `Statistics` (we own the types ⇒ not piracy);
       **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
     - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \mathrm{mean}(\mathrm{dot}(f, g))`` → **scalar**
       (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
@@ -903,7 +903,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       textbook extensive ``\int f\cdot g\,dx`` — that is `integral(dot(f,g))` if ever needed.
     - ``\mathrm{l2norm}(f) = \sqrt{\mathrm{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
       fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
-    - `maximum`/`minimum`/`extrema` — extend **Base** for scalar sections; vector/tensor sup of
+    - `maximum`/`minimum`/`extrema` — extend `Base` for scalar sections; vector/tensor sup of
       magnitude via `lpnorm(·, Inf)`.
     - **No LinearAlgebra overloading**: `dot`/`norm` stay the vertical pointwise ops (return sections,
       scalar fields); the global `inner`/`l2norm` are package generics returning numbers.
