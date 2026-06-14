@@ -178,10 +178,11 @@ number of grid points, ``M`` the number of sample points (§10).
 
 ### Representation validity lives in the method set
 
-The frame picture fixes exactly which operations may be offered in which
-representation: an operation exists in a representation only when it is *the same
-operation on the underlying section there* — equivalently, only when it commutes
-with the rfft isomorphism.
+Seeing each representation as a **basis for a grid section's data** — the nodal basis
+(physical) and the Fourier basis (spectral), with the rfft the linear isomorphism between
+them — fixes exactly which operations are valid where: an operation exists in a
+representation only when it is *the same operation on the underlying section there* —
+equivalently, only when it commutes with the rfft isomorphism.
 
 - **Linear in the field** — addition/subtraction of fields, scaling by real
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
