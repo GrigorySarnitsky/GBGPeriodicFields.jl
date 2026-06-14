@@ -479,7 +479,11 @@ property are preserved. **Discipline:** a raw elementwise write must go through
 Reductions (global norms, integrals — the L²/measure structure) are now provided in the `Reductions`
 module (decision 18), built on `sum`/`dot`/`maximum` rather than the threaded `_assign!`: those reorder
 floating-point adds (pairwise on the host, differently on threads/GPU), so they are **tolerance-tested,
-not bitwise** like the assignments here. Threading them further (custom chunk-partial accumulation) is
+not bitwise** like the assignments here. (The only already-threaded part is a *prior* step in a couple of them:
+`lpnorm` for ``p \ne 2`` builds the pointwise fiber magnitude ``\lvert f\rvert`` via the vertical
+`norm` — an `_assign!`-routed fiberwise op, hence threaded — then reduces *that* with the plain
+`sum`/`maximum`. `inner`/`l2norm`/`integral`/`mean` build no such field, so they are a single,
+unthreaded `dot`/`sum`.) Threading them further (custom chunk-partial accumulation) is
 the remaining work; expected speedup then saturates at socket bandwidth over single-core (typically
 2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl —
 a consumer concern, since the package allocates serially via `similar`).
@@ -911,12 +915,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``ik``, ``-|k|^2 \notin L^\infty``),
     diagonalized identically but outside the norm identity above.
 
-    | role of the measure | what it is | operation(s) | maps | status |
-    |---------------------|-----------|--------------|------|--------|
-    | **base-quadrature** | `Grid3D` cell volume ``\prod_i \Delta x_i`` / `PointSet` counting | `integral`, `inner`, `mean`, `std`, `lpnorm`; `radial_spectrum` (the ``|k|``-resolved `inner`) | section → scalar / fiber / radial profile | **done** (decisions 18, 21) |
-    | **kernel — multiplier** | translation-invariant convolution, symbol ``m(k) \in L^\infty`` | `convolve` / `convolve!`; builders `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` (the radial coordinate consumers build symbols from) | grid → grid (= Fourier multiplier) | **done** (`Convolution`, decisions 20, 21) |
-    | **kernel — transfer** | off-grid partition-of-unity convolution (unit mass; signed or positive) | `interpolate` (``W``) / `anterpolate` (``W^\top``) | grid ↔ point (base-change, *not* a multiplier) | **done** (decisions 13/17) |
-    | **sample-space (FDF)** | spatially-filtered fine-grained Dirac density | — | over the velocity/composition sample space | **out** (physics; invariant 12) |
+    The roles — each as *what it is; operation(s); the map it performs; status*:
+
+    - **base-quadrature**: `Grid3D` cell volume ``\prod_i \Delta x_i`` / `PointSet` counting; ops
+      `integral`, `inner`, `mean`, `std`, `lpnorm`, `radial_spectrum` (the ``|k|``-resolved `inner`);
+      section → scalar / fiber / radial profile; **done** (decisions 18, 21).
+    - **kernel — multiplier**: translation-invariant convolution, symbol ``m(k) \in L^\infty``;
+      `convolve` / `convolve!` plus the builders `spectral_cutoff` / `spectral_band` /
+      `squared_wavenumber_field` (the radial coordinate consumers build symbols from); grid → grid
+      (a Fourier multiplier); **done** (`Convolution`, decisions 20, 21).
+    - **kernel — transfer**: off-grid partition-of-unity convolution (unit mass; signed or positive);
+      `interpolate` (``W``) / `anterpolate` (``W^\top``); grid ↔ point (base-change, *not* a
+      multiplier); **done** (decisions 13/17).
+    - **sample-space (FDF)**: spatially-filtered fine-grained Dirac density, over the
+      velocity/composition sample space; no package operation; **out** (physics; invariant 12).
 
     *Interpolation is the base-changing sibling of the multiplier, not a multiplier.* The gather weights
     `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so

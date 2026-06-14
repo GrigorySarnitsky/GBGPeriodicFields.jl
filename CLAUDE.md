@@ -172,6 +172,13 @@ author–year; ≤3 authors named, `First et al.` for 4+; full reference inline 
 `ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
 (The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)
 
+**Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
+not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
+render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §11 decision entry) use a **nested
+bullet list** instead, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
+bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
+`grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
+
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
