@@ -24,7 +24,7 @@ algebra (`FieldAlgebra`), and spectral differential operators (`DifferentialOper
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
 serves consumer-side Lagrangian particle tracking — are in place (§10): the point-value
 sections, their fiberwise algebra, and the transfer **schemes** — local splines (Lalescu, Teaca &
-Carati: the smooth Hermite and ``C^0`` Lagrange hierarchies) and exact spectral-domain transfers
+Carati 2010: the smooth Hermite and ``C^0`` Lagrange hierarchies) and exact spectral-domain transfers
 (`DirectDFT`, `NUFFT`), unified under one `AbstractTransferScheme`. The
 same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
@@ -556,7 +556,7 @@ i.e. a regularized point source) — is given in full in the `Interpolation` mod
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
-code (Lalescu, Bramas, Rampp & Wilczek 2022). At its core it is Hermite interpolation
+code (Lalescu et al. 2022). At its core it is Hermite interpolation
 with the node derivatives supplied by finite differences, which makes the interpolant
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
@@ -573,7 +573,7 @@ separate field. Three properties make it the right fit:
    real-space nodal values, so interpolation reads only the physical representation — unlike the
    spectral-domain schemes (`DirectDFT`, `NUFFT`; decision 23, below), which read the spectral
    representation directly and reconstruct the band-limited field exactly. (The B-spline interpolation
-   of van Hinsberg et al. 2012 — whose coefficients require a *global* transform that, in a spectral
+   of van Hinsberg et al. (2012) — whose coefficients require a *global* transform that, in a spectral
    code, costs one FFT — is the higher-accuracy *local* alternative still in reserve.)
    **PLANNED — the van Hinsberg global B-spline (needs a design discussion before coding):** a
    coefficient pre-transform, then a compact local stencil — higher accuracy per stencil width, at the
@@ -596,7 +596,7 @@ be matched to the spectral resolution (standard practice for pseudospectral part
 tracking). The transfer kernels are implemented as portable KernelAbstractions gather/scatter
 kernels (the scatter accumulates atomically); the smooth per-axis weights are generated for any
 `(n, m)` by a small linear solve — match the value and the order-`1…m` centred-finite-difference
-(Fornberg) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
+(Fornberg 1988) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
 `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
 (`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
 `min(2m+1, 2n)`; the Lagrange scheme to degree `2n+1`.
@@ -691,6 +691,8 @@ the moving-object abstraction and its dynamics are solver concerns.
 - M. A. T. van Hinsberg, J. H. M. ten Thije Boonkkamp, F. Toschi, H. J. H. Clercx, *On the
   efficiency and accuracy of interpolation methods for spectral codes*, SIAM J. Sci.
   Comput. **34**(4) (2012) B479–B498.
+- B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*, Math.
+  Comp. **51**(184) (1988) 699–706.
 - S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension
   of finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
 - C. T. Crowe, M. P. Sharma, D. E. Stock, *The Particle-Source-In-Cell (PSI-CELL) model for
@@ -783,7 +785,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the module docstring via the function–measure duality (Dirac evaluation vs. pushforward
     of point masses). Method:
     the **Lalescu local splines** (Lalescu, Teaca & Carati 2010) as in **TurTLE**
-    (Lalescu, Bramas, Rampp & Wilczek 2022) — local Hermite-with-finite-difference
+    (Lalescu et al. 2022) — local Hermite-with-finite-difference
     derivatives, tunable `(neighbours n, smoothness m)`, single (physical)
     representation, GPU-friendly; van Hinsberg B-spline (2012) and NUFFT exact-spectral
     are the higher-accuracy / reference alternatives held in reserve. Interpolation and
@@ -951,7 +953,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       they are *not* such convolutions yet are valid multipliers we rely on. Positivity of the kernel ⟺
       positive-definite symbol (**Bochner**) ⟹ probability measure ⟹ realizable SGS stress
       (**Vreman, Geurts & Kuerten 1994**, realizability *iff* positive filter) ⟹ bona-fide filtered PDF
-      (**Colucci, Jaberi, Givi & Pope 1998**, the FDF); all of that is **consumer** semantics. No
+      (**Colucci et al. 1998**, the FDF); all of that is **consumer** semantics. No
       `PositiveFilter` type, no realizability checks. (Interpolation already ships signed kernels by
       default — consistent.)
     - **Homogeneous-only scope.** Variable-width filters are *not* multipliers (commutation error;

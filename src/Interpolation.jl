@@ -54,7 +54,15 @@ anterpolation as the transpose/adjoint of whatever interpolation scheme is in us
 inject a spurious source — Sundaram & Collins 1996). The inner products are a modelling choice: with
 the Euclidean (counting) products the adjoint is the bare transpose ``W^\\top``; with ``L^2``/volume-
 weighted products it is ``M_G^{-1} W^\\top M_P`` (the immersed-boundary spreading/interpolation pair of
-Peskin), conserving an energy pairing rather than the plain sum.
+Peskin 2002), conserving an energy pairing rather than the plain sum.
+
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
+    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension of
+    finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
+  * C. S. Peskin, *The immersed boundary method*, Acta Numerica **11** (2002) 479–517.
 """
 module Interpolation
 
@@ -128,6 +136,16 @@ It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``).
 is the Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the ``C^0``
 Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
 Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
+
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
+    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
+    large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
+    **278** (2022) 108406.
+  * B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*, Math. Comp.
+    **51**(184) (1988) 699–706.
 """
 struct LalescuSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -156,6 +174,14 @@ unique degree-``2n{+}1`` polynomial interpolating all ``2n{+}2`` stencil nodes a
 stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix` `coefficients`. Reproduces polynomials up to
 degree ``2n{+}1`` exactly, but is only ``C^0`` (kinks at the nodes); for smooth derivatives use
 [`LalescuSpline`](@ref) instead. ``n = 0`` is linear interpolation.
+
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
+    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
+    large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
+    **278** (2022) 108406.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -184,6 +210,9 @@ spline_coefficients(scheme::LagrangeSpline) = scheme.coefficients
 Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `nodes[i]` in the
 order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
 evaluated at `evaluation_point`. Host-side helper for the spline-weight construction.
+
+Reference: B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*,
+Math. Comp. **51**(184) (1988) 699–706.
 """
 function _fornberg(evaluation_point::Float64, nodes::Vector{Float64}, max_order::Int)
   number_of_nodes = length(nodes)

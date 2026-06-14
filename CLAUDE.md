@@ -136,6 +136,21 @@ bare. This is stricter than the code↔symbol binding above: it also covers pack
 Universally standard math may stand unglossed (∇, Δ, ∫, ℝ, plain summation indices). Decisions 18/19 are
 the reference entries; keep the header's self-contained note true when editing.
 
+**Citations — one uniform style across docstrings and doc pages.** In-text, **context-standard
+author–year**: author-prominent → parenthesized year (`Lalescu, Teaca & Carati (2010)`); inside an
+existing parenthetical → bare year, no nested parens (`(de-aliasing; Sundaram & Collins 1996)`). Name
+**up to three** authors (`A & B`; `A, B & C`); **four or more → `First et al.`** — except keep enough
+surnames to disambiguate two works that would otherwise collide. **Full references:** doc pages cite
+short and the canonical full reference lives in `docs/ARCHITECTURE.md` §References (the works the package
+**implements / pins to** — Lalescu 2010, TurTLE 2022, van Hinsberg, Fornberg, the anterpolation lineage);
+**docstrings carry the full reference inline** (a `# References` block, or a one-line `Reference:`) so a
+REPL reader sees it without opening another file — and each inline copy must match the §References entry
+**verbatim** (drift is the chosen duplication's only risk, so this is the thing to check). **Not
+citations:** eponymous method *names* (the `Catmull–Rom` spline, `Lagrange`/`Hermite` interpolation,
+`Fornberg` weights) take **no year** unless you are actually citing the work; non-implemented
+related-work asides (e.g. LES SGS models) may stay informal author–year with no full reference; plain
+`#` code comments are exempt (not rendered).
+
 **Mathematical correctness is its own check — distinct from formatting.** A sentence can be perfectly
 formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
 must be **true and precise**, checked on its own. Guard especially against: **category/type errors** (a
@@ -145,15 +160,17 @@ conflated with its parameter; a representation with the object); **imprecise equ
 that aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs
 discrete-sum). When unsure, verify against the implementation and a standard reference.
 
-**Doc-edit checklist — run ALL FOUR on every documentation change (most strictly on `ARCHITECTURE.md`):**
+**Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
 overclaims); **(2) Self-contained** — notation introduced in plain text at first use; **(3) Formatted —
 bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip), **and** every code identifier —
 functions, types, **module names** (`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always**
 backticked and **never** bare (the bare-`FieldAlgebra` slip); check *both* directions (a backtick span must be
 greppable in `src/`; a code name must never sit in plain prose); **(4) Current** — no stale claims; statements
-match the code's present state. These are the standing bar, not one-off audits. (The formatting check is the
-one that has bitten twice — once each direction — so verify both explicitly.)
+match the code's present state; **(5) Cited** — citations follow the citation policy above (context-standard
+author–year; ≤3 authors named, `First et al.` for 4+; full reference inline in docstrings and canonical in
+`ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
+(The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)
 
 ## Verification workflow
 
