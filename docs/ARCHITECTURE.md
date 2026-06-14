@@ -661,7 +661,8 @@ place:
   home where each fiberwise formula (including norm/sym/skew/dev, via `section_scalar_type`) is
   written once and reused by both `FieldAlgebra` and `Points`;
 - the former `Interpolation` module is **split in two** — **`Points`** holds the unstructured-base
-  section *objects* (`PointSet`, `*PointValues`) and their generated algebra (a noun-named peer of
+  section *objects* (`PointSet` and the point-value types `ScalarPointValues` / `VectorPointValues` /
+  `TensorPointValues`) and their generated algebra (a noun-named peer of
   `Fields`), while **`Interpolation`** holds the transfer maps — the grid↔point schemes (local splines
   plus the spectral-domain `DirectDFT`/`NUFFT`) under one `AbstractTransferScheme`, a peer of
   `DifferentialOperators`.

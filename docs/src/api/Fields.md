@@ -5,7 +5,7 @@ Modules = [GBGPeriodicFields.Fields]
 Order   = [:module]
 ```
 
-The `Fields` module defines the field objects and their storage. A field is a physical object; the `*Physical` and `*Spectral` types are two representations of the same field. It provides:
+The `Fields` module defines the field objects and their storage. A field is a physical object; the physical and spectral types (e.g. `ScalarFieldPhysical` and `ScalarFieldSpectral`) are two representations of the same field. It provides:
 
 - **Grids and layout** — `Grid3D` for the periodic domain geometry and `RealFourierLayout` for the real-to-complex transform layout.
 - **Fiber types** — the Cartesian fiber types `FiberVector`, `FiberTensor2`, `FiberTensor3`, `FiberTensor4` (StaticArrays aliases), elements of the fiber ``(\mathbb R^3)^{\otimes R}`` for tensor order ``R``.
