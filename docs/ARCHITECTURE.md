@@ -861,10 +861,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *forced*, not a choice: a `PointSet` is grid-free (§10, carries no domain), so the only well-defined
     measure is counting. Consequences:
 
-    | base | `integral(f)` (extensive) | ``\mathrm{mean}(f) = \tfrac{1}{\text{count}}\sum`` (intensive) |
-    |------|---------------------------|-------------------------------------|
-    | `Grid3D` (count ``N``) | ``\int_\Omega f\,dx = (\|\Omega\|/N)\sum f`` | ``\tfrac1N\sum f`` |
-    | `PointSet` (count ``M``) | ``\sum f`` | ``\tfrac1M\sum f`` |
+    `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
+    ``\mathrm{mean}(f) = \tfrac{1}{\text{count}}\sum f`` — per base:
+
+    - `Grid3D` (``N`` cells): ``\mathrm{integral}(f) = \int_\Omega f\,dx = (\lvert\Omega\rvert/N)\sum f``, ``\mathrm{mean}(f) = \tfrac1N\sum f``.
+    - `PointSet` (``M`` points): ``\mathrm{integral}(f) = \sum f``, ``\mathrm{mean}(f) = \tfrac1M\sum f``.
 
     So `mean` is the arithmetic average over base elements in both cases — ``\tfrac1M\sum`` over points
     (a plain sample mean), ``\tfrac1N\sum`` over the grid (which, the grid being uniform, equals the
