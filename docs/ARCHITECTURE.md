@@ -491,16 +491,16 @@ a consumer concern, since the package allocates serially via `similar`).
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
 Lagrangian particle tracking by a consumer ([§1](@ref "1. Purpose and scope")) requires two transfer operations
-between the Eulerian fields and off-grid positions — a field `f`, the positions `xs` (a `PointSet`,
-with ``x_p`` the ``p``-th) and the per-point quantities `qs` (``q_p`` the value at ``x_p``). They are
-formal adjoints of one another, and the package gives each a fixed name:
+between the Eulerian fields and off-grid positions. They are formal adjoints of one another, and the
+package gives each a fixed name:
 
-- **Interpolation** — grid → point (the *gather* direction): allocating
+- **Interpolation** — grid → point (the *gather* direction): evaluate a field `f` at the off-grid
+  positions `xs` (a `PointSet`, ``x_p`` the ``p``-th). Allocating
   `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the
   callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
-- **Anterpolation** — point → grid (the *scatter* direction): allocating
-  `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`,
-  depositing per-point quantities onto a field.
+- **Anterpolation** — point → grid (the *scatter* direction): deposit per-point quantities `qs`
+  (``q_p`` the value at ``x_p``) back onto a field. Allocating
+  `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`.
 
 Both carry the usual allocating / in-place (`!`) pair and a five-argument `α`/`β` form (``\beta = 0``
 overwrite, ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` /
