@@ -176,6 +176,27 @@ order). Together they are conservation — the two facts checked in `test/interp
 uniform measures, ``W^{\top}`` is the literal transpose up to the ``N/M`` measure factor — ``N`` the
 number of grid points, ``M`` the number of sample points (§10).
 
+**The transfer, intrinsically — a pullback–pushforward.** Write ``\iota : B_{\text{points}} \to \Omega`` for the
+map carrying each point to its location ``x_p`` in the torus ``\Omega`` (the grid ``B_{\text{grid}}`` is itself a
+sampling of ``\Omega``). Pulling the **trivial** bundle back along ``\iota`` keeps the fiber and changes only the
+base, ``B_{\text{points}} \times V = \iota^{*}(\Omega \times V)`` — the transfer is a **base-change, not a fiber
+operation** (the measure taxonomy, decision 19):
+
+```math
+\begin{CD}
+B_{\text{points}} \times V @>{\iota\,\times\,\mathrm{id}_V}>> \Omega \times V \\
+@V{\pi}VV @VV{\pi}V \\
+B_{\text{points}} @>>{\iota}> \Omega
+\end{CD}
+```
+
+Interpolation is then the **pullback of the section**, ``W = \iota^{*}`` with ``(Wf)_p = f(x_p)``; anterpolation
+the **pushforward of the dual measure**, ``W^{\top} = \iota_{*}`` with ``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``
+(the Dirac mass regularized by the stencil; §10). They have **opposite variance** — functions pull back, measures
+push forward — and the adjointness identity above *is* their adjunction, ``\langle \iota^{*} f, q\rangle = \langle f, \iota_{*} q\rangle``.
+(Strictly ``W = \iota^{*}\circ R``, with ``R`` the reconstruction — spline or band-limited spectral interpolant —
+lifting grid samples to a section over ``\Omega``; the reproduction identity above is ``R`` exact on ``\Pi_m``.)
+
 ### Representation validity lives in the method set
 
 Seeing each representation as a **basis for a grid section's data** — the nodal basis
