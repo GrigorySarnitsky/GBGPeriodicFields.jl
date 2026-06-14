@@ -1,21 +1,14 @@
 name: CI
 
 on:
+  # Every commit is authored locally and the FULL matrix is run before it is pushed
+  # (`julia +1.11` 1-thread + `julia +release` 4-thread, both installed via juliaup),
+  # so a push-triggered run would only re-verify what is already green. Kept manual
+  # plus on release tags — the one thing a single local run cannot give is a
+  # from-scratch clean-environment resolve, which a tagged release then exercises.
+  workflow_dispatch:
   push:
-    branches:
-      - master
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-  pull_request:
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-
-# A new push to the same ref cancels the in-flight run instead of paying for both.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    tags: '*'
 
 jobs:
   test:
