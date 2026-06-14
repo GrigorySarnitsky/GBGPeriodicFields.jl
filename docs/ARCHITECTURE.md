@@ -126,13 +126,13 @@ here rather than repeated:
 - **Representations** — physical (nodal) and spectral (rfft, written ``\hat f``) views of one section,
   exchanged by the isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
   operator-as-multiplier square are [§4](@ref "4. Spectral machinery").
-- **Vertical — fiberwise algebra** (`FieldAlgebra` on fields, `Points` on point-values): add/scale,
+- **Vertical — fiberwise algebra** ([`FieldAlgebra`](@ref GBGPeriodicFields.FieldAlgebra) on fields, [`Points`](@ref GBGPeriodicFields.Points) on point-values): add/scale,
   contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
-- **Horizontal — differential operators** (`DifferentialOperators`): `gradient`, `divergence`, `curl`,
+- **Horizontal — differential operators** ([`DifferentialOperators`](@ref GBGPeriodicFields.DifferentialOperators)): `gradient`, `divergence`, `curl`,
   `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
-- **Convolution** (`Convolution`): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
-- **Measure / L²** (`Reductions`): `integral`, `inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
-- **The grid↔point transfer** (`Interpolation`): interpolation ``W`` and its adjoint anterpolation
+- **Convolution** ([`Convolution`](@ref GBGPeriodicFields.Convolution)): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
+- **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)): `integral`, `inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
+- **The grid↔point transfer** ([`Interpolation`](@ref GBGPeriodicFields.Interpolation)): interpolation ``W`` and its adjoint anterpolation
   ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
   aliasing ([§7](@ref "7. Aliasing policy")), broadcasting ([§8](@ref "8. Broadcasting")), performance & threading ([§9](@ref "9. Performance model and CPU threading")).
