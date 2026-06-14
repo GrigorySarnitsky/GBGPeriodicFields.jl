@@ -15,7 +15,7 @@ apply a coefficientwise spectral multiplier — and the same-base counterpart of
 [`Interpolation`](Interpolation.md) transfer.
 See `docs/ARCHITECTURE.md` §2 and decision 20.
 
-`convolve`/`convolve!` apply the kernel (with allocating, in-place, and α/β-accumulate forms); because
+`convolve`/`convolve!` apply the kernel (with allocating, in-place, and `α`/`β`-accumulate forms); because
 a kernel is itself a scalar field in spectral representation, `convolve(g₁, g₂)` composes two kernels.
 This is the coefficientwise spectral product invariant 1 names but bans **as `*`** — offered here under
 its true name `convolve`, never as `*`. Spectral representation only; physics (an LES filter, an
@@ -25,9 +25,9 @@ Four neutral builders ship (decisions 20, 21, 22): `spectral_cutoff` is the isot
 (de-aliasing) kernel; `spectral_band(ref, mult, k_lo, k_hi)` is its annular generalization (a band-pass
 shell selector; the cutoff is the `k_lo = 0` case); `squared_wavenumber_field(ref, mult)` is the
 ``|k|^2`` radial coordinate of spectral space as a `ScalarFieldSpectral` — the consumer builds a Fourier
-symbol from it (a viscous integrating factor ``\exp(-\nu |k|^2 \Delta t)``, a smooth envelope, a Germano filter) and
+symbol from it (a viscous integrating factor ``\exp(-\nu |k|^2 \Delta t)`` with ``\nu`` the viscosity and ``\Delta t`` a timestep, a smooth envelope, a Germano filter) and
 applies it with `convolve`; and `assignment_window(ref, mult)` is the linear/CIC mass-assignment window
-``\hat W = \prod_a \operatorname{sinc}^2(k_a \Delta x_a/2)`` for deconvolving a gridded point density (the
+``\hat W = \prod_a \operatorname{sinc}^2(k_a \Delta x_a/2)`` (the product over axes ``a``, with ``\Delta x_a`` the grid spacing) for deconvolving a gridded point density (the
 FFT point-RDF route, decision 22 — divide by ``\hat W`` to undo the assignment smearing).
 
 ## Contents

@@ -61,7 +61,8 @@ export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_f
     _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
 
 Apply the coefficientwise spectral product ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f
-+ \\beta\\,\\mathrm{dst}`` — the periodic convolution ``f \\star g`` in spectral representation, with
++ \\beta\\,\\mathrm{dst}`` (``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`) — the
+periodic convolution ``f \\star g`` in spectral representation, with
 `kernel_data` ``= \\hat g``. The scalar `kernel_data` (`(Nx, Ny, Nz)`) broadcasts over the fiber
 components of `source_data`, exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor
 order. Branches on `iszero(beta)` (overwrite vs. accumulate, invariant 10). Coefficientwise ⇒
@@ -257,7 +258,8 @@ positive linear kernel, so the division is stable.
 \\qquad \\operatorname{sinc}(y) = \\frac{\\sin y}{y},
 ```
 
-computed from the **true** per-axis ``|k_a|`` (kept at the Nyquist frequency, invariant 5), so
+computed from the **true** per-axis wavenumber ``|k_a|`` (kept at the Nyquist frequency, invariant 5) and
+the grid spacing ``\\Delta x_a``, so
 ``\\hat W(0) = 1`` and it falls toward the grid scale. This continuous-kernel form is the standard
 particle-mesh deconvolution — exact as ``k \\to 0``, with the residual sub-cell shift-dependence
 (reduced by interlacing) bounding it near Nyquist. The package supplies the window; the density

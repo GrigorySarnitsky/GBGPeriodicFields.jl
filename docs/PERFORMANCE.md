@@ -48,7 +48,7 @@ What bounds each public operation class — the mental model a benchmark either 
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.
 - **The grid↔point transfer** (`interpolate`/`anterpolate`), local-stencil **spline** schemes → the
-  subtle one. Each point gathers (or scatters) a ``(2n{+}2)^3`` stencil with data-dependent indices, so
+  subtle one. Each point gathers (or scatters) a ``(2n{+}2)^3`` stencil (``n`` the spline half-width) with data-dependent indices, so
   it is bound by **irregular memory access**, and the binding *differs by platform*:
   - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
     flight at once to hide latency
@@ -127,7 +127,7 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 | `LalescuSpline(3,m)` (Lalescu 8-pt)| 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
 
 **(b) Loop order — contiguous axis innermost (KEPT).** Iterating the contiguous `x` axis innermost
-(stride-1 stencil access) vs `z`-innermost (stride ``N_x N_y``):
+(stride-1 stencil access) vs `z`-innermost (stride ``N_x N_y``, the grid's ``x``,``y`` dimensions):
 
 | | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
 |---|---|---|---|

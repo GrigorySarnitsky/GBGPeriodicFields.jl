@@ -153,8 +153,9 @@ equivalently, only when it commutes with the rfft isomorphism.
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
   both representations, because the Fourier transform commutes with them.
 - **Adding constants** — in physical space, every grid value shifts; in spectral
-  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention
-  — ``N`` the total grid-point count (`prod(grid_size)`) — so only the zero mode changes, scaled by ``N``. This is why
+  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention,
+  with ``N`` the total grid-point count (`prod(grid_size)`) and ``k`` the wavenumber — so only the zero
+  mode (``k = 0``) changes, scaled by ``N``. This is why
   `_spectral_constant_scale` exists and why constant kernels in spectral
   representation touch a single coefficient (per component).
 - **Nonlinear in the field** — products of two fields, division by a scalar field,
@@ -1137,7 +1138,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The two-field co-spectra — `radial_spectrum(f, g)` / `radial_correlation(f, g)` (done).* The mixed
     second-order statistics of two compatible, equal-order fields, refining the **mixed** `inner(f, g)` exactly as
     the single-field forms refine `inner(f, f)`. The **co-spectrum** bins the Parseval-weighted cross-power
-    density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` over ``|k|``-shells (``\sum_\kappa E_{fg} = \mathrm{inner}(f, g)``);
+    density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (``c`` indexing the fiber components) over ``|k|``-shells (``\sum_\kappa E_{fg} = \mathrm{inner}(f, g)``);
     the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``
     binned over ``|r|``-shells (``C_{fg}(0) = \mathrm{inner}(f, g)``). Two properties fall out of the math and are
     pinned by tests: each is **symmetric** in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,

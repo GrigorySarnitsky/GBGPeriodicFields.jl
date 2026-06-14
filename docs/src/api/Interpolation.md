@@ -17,7 +17,7 @@ is the choice of *kernel* and *representation*. Two families:
     act on the **physical** nodal values; interpolation and anterpolation are exact transposes and
     conserve the deposited total.
   * **Spectral-domain exact transfer** ([`DirectDFT`](@ref)) — the literal ``O(NM)`` discrete Fourier
-    sum (``N`` grid points, ``M`` sample points), acting on a field in **spectral** representation:
+    sum (``N`` grid points, ``M`` sample points at positions ``x_p``), acting on a field in **spectral** representation:
     ``f(x_p) = \tfrac1N \sum_k \hat f(k)\, e^{i k\cdot(x_p-o)}`` — ``\hat f(k)`` the spectral coefficient at
     wavenumber ``k``, ``o`` the grid origin — and its adjoint. It reproduces the band-limited field **exactly** (so it is
     pointwise divergence-free, matching [`to_physical`](@ref) at the grid nodes) and is the oracle for

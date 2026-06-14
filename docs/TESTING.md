@@ -245,7 +245,7 @@ binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, 
 intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
-``\exp(-i k_a m \Delta) \Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
+``\exp(-i k_a m \Delta)`` (a shift of ``m`` cells, grid spacing ``\Delta``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
