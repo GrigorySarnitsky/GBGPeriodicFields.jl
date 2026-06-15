@@ -40,7 +40,12 @@ them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}``
 multipliers ``i k_a`` act on). ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
 each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
 is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
-nature of the transfer.
+nature of the transfer. A point's *position* ``x_p \in \mathbb R^3`` is a separate object from the value it
+carries: the positions are the `PointSet` geometry (``\mathbb R^M \otimes \mathbb R^3 \cong \mathbb R^{3M}``,
+themselves a vector-valued section over the points) and enter only through the transfer weights
+``w_n(x_p)``, whereas ``\Gamma_P`` is the space of *values* — a ``V`` per point. So ``\Gamma_P`` is
+``\mathbb R^{3M}`` only when the sampled field is a vector (``V = \mathbb R^3``); in general it is
+``\mathbb R^M \otimes V``, just as the grid value space is not ``\mathbb R^{3N}``.
 
 With the fiber contraction ``\cdot : V \times V \to \mathbb R``, the inner products are the package's
 **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
