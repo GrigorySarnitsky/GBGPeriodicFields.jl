@@ -32,7 +32,12 @@ V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 
 \end{aligned}
 ```
 
-with the fiber contraction ``\cdot : V \times V \to \mathbb R``. The inner products are the package's
+Here ``\mathbb R^N`` is the scalar field over the ``N`` cells — one real coordinate per cell, the
+discretized base — and ``\otimes V`` attaches the fiber, so a grid section carries a ``V``-value *at each
+cell* (``\mathbb R^N \otimes V \cong V^N``; a cell holds a single real only in the scalar case ``R = 0``,
+where ``V = \mathbb R``). Likewise ``\Gamma_P`` is a ``V``-value at each of the ``M`` points.
+
+With the fiber contraction ``\cdot : V \times V \to \mathbb R``, the inner products are the package's
 **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
 
 ```math
