@@ -155,7 +155,11 @@ related-work asides (e.g. LES SGS models) may stay informal author–year with n
 formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
 must be **true and precise**, checked on its own. Guard especially against: **category/type errors** (a
 vector space equated with an integer — "the fiber *is* the tensor order" was exactly this; an operator
-conflated with its parameter; a representation with the object); **imprecise equalities / normalizations**
+conflated with its parameter; a representation with the object; **an operator's domain/codomain left
+unchecked** — verify *which spaces* a map acts between, the fiber included, not only scalar formula values:
+the `𝟙`/`W` transfer slip wrote the section space `ℝ^N⊗V` as `ℝ^N` (flattening the fiber) and conflated the
+grid all-ones `𝟙_N` with the point `𝟙_M`, a structural error the value-check missed because it verified
+formulas, not spaces); **imprecise equalities / normalizations**
 (FFT/Parseval factors, a missing ``1/N``, adjoint relations); and **overclaims** ("exact"/"all"/"never"
 that aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs
 discrete-sum). When unsure, verify against the implementation and a standard reference. **Run this as a
@@ -227,6 +231,20 @@ confirm it is free — `β` meaning both the `mul!` accumulation scalar *and* th
 `p` meaning both the point index (`xₚ`, `Σₚ`) *and* a polynomial (`p ∈ Πₘ`), were the failure mode (fixed by
 yielding the local use: stencil weight → `w`, polynomial → `φ`). A package-wide convention that cannot move
 (the α/β accumulation, invariant 10) keeps the glyph; the local use renames.
+
+**Prefer coordinate-free notation (a check).** State maps and pairings **intrinsically** — operators (the
+pullback `ι*`, the pushforward `ι_*`, `W`/`Wᵀ` as maps) and the measure pairings as honest sums/integrals
+(`Σ_p a_p·b_p`, `∫_Ω f·g dx` — concrete *and* coordinate-free in spirit; keep these, they are preferred).
+**Avoid coordinate/matrix machinery that buries the bundle structure:** the dense matrix of a section-level
+map (`W_{pn}`), an all-ones vector `𝟙`, a mass matrix, or flattening a section space `ℝ^N⊗V` to `ℝ^N`
+(which hides base vs fiber). **Carve-out:** component notation for the genuine *fiber* tensor algebra is
+fine — the fiber has a canonical global frame and a `FiberTensor2` really is a 3×3 matrix, so
+`(Au)_i = A_{ij}u_j` is the clearest form; the rule targets *section/base* flattening, not the fiber. If a
+basis/matrix form is genuinely needed (e.g. to mirror the code), state the basis **and** the space it acts
+on, kept as a clearly-marked shadow of the intrinsic object. This is **also a correctness guard**: the
+`𝟙`/`W_{pn}` transfer picture passed the binding and formula-value checks yet was structurally wrong (the
+fiber flattening + the `𝟙_N`/`𝟙_M` conflation above) — a coordinate-free lens catches what a value-check
+cannot.
 
 **One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram

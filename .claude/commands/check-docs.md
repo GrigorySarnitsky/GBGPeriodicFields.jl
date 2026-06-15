@@ -30,8 +30,12 @@ reading is not a check.
 2. **Self-contained** — enumerate every symbol, sub/superscript, operator name, and bold/blackboard letter;
    cite the clause that binds each; flag any unbound. (Universally standard math — `∇`, `Δ`, `∫`, `ℝ`, `π`,
    the imaginary unit `i`, plain summation indices — needs no binding.)
-3. **One notation per concept, and one concept per notation** — flag a concept wearing two symbols, and a
-   single glyph carrying two meanings in one section.
+3. **Notation — one symbol per concept, one concept per symbol, and coordinate-free** — flag a concept
+   wearing two symbols; a glyph with two meanings in one section; and basis-dependent *section-level*
+   machinery (a dense map matrix `W_{pn}`, an all-ones vector `𝟙`, flattening a section space `ℝ^N⊗V` to
+   `ℝ^N`) that buries the base⊗fiber structure. Prefer intrinsic operators and honest sums/integrals; fiber
+   component notation (`A_{ij}u_j`, the genuine 3×3 fiber matrix) is fine; if a matrix form mirrors the
+   code, name the basis and the space.
 4. **Formatted (bidirectional)** — math is LaTeX, never backticks (incl. ASCII-math like `S = J*` that
    carries no glyph); every code identifier / type / module name is backticked, never bare; check BOTH
    directions. Markdown tables top-level, never indented in a list.
