@@ -545,7 +545,7 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ``\Pi_m`` (the polynomials up to the scheme order), the adjointness and the polynomial reproduction read
 
 ```math
-\sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f\cdot(W^{\top} q),
+\sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f(x)\cdot(W^{\top} q)(x),
 \qquad\qquad
 W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
 \quad (\phi \in \Pi_m),
