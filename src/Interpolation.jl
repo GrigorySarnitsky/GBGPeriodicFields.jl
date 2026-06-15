@@ -3,7 +3,7 @@
 
 Transfer between the grid sections of `Fields` and the point sections of `Points`: evaluating a
 field `f` at off-grid positions `xs`, and depositing per-point quantities `qs` back onto the grid.
-Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th; `xs` a `PointSet`)
+Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th position; `xs` a `PointSet`)
 **and `q` a per-point value** (`qs` the matching array). The two operations are formal adjoints of
 each other, under a chosen transfer `scheme` — two families: the physical-domain local splines of
 Lalescu, Teaca & Carati (2010) (portable KernelAbstractions gather/scatter kernels, CPU / CUDA / AMDGPU,

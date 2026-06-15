@@ -500,7 +500,7 @@ between the Eulerian fields and off-grid positions. They are formal adjoints of 
 package gives each a fixed name:
 
 - **Interpolation** — grid → point (the *gather* direction): evaluate a field `f` at the off-grid
-  positions `xs` (a `PointSet`, ``x_p`` the ``p``-th). Allocating
+  positions `xs` (a `PointSet`, ``x_p`` the ``p``-th position). Allocating
   `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the
   callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
 - **Anterpolation** — point → grid (the *scatter* direction): deposit per-point quantities `qs`
