@@ -1,5 +1,6 @@
 using Pkg
 Pkg.activate(@__DIR__)
+using Literate
 
 function remove_jupyter_files()
   dirs = [joinpath(r, d) for (r, ds, _) in walkdir(@__DIR__) for d in ds if d == ".ipynb_checkpoints"]
@@ -15,8 +16,26 @@ function copy_rationale_pages()
   end
 end
 
+# Build the browsable example page from the runnable script with Literate.jl: the same
+# `examples/HIST_CPU.jl` a user downloads becomes the tutorial. Rendered with plain (non-executed)
+# code fences, the pre-generated GPU-produced figures (committed under examples/figures/) embedded — so
+# the page never runs the DNS in CI — and the script copied beside it for download. Output gitignored.
+function build_examples()
+  output = joinpath(@__DIR__, "src", "examples")
+  figures = joinpath(@__DIR__, "..", "examples", "figures")
+  mkpath(output)
+  for png in filter(name -> endswith(name, ".png"), readdir(figures))
+    cp(joinpath(figures, png), joinpath(output, png); force = true)
+  end
+  cp(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), joinpath(output, "HIST_CPU.jl"); force = true)
+  Literate.markdown(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), output;
+                    name = "hist_cpu", documenter = false, execute = false,
+                    codefence = "```julia" => "```")
+end
+
 remove_jupyter_files()
 copy_rationale_pages()
+build_examples()
 
 using Documenter
 using GBGPeriodicFields
@@ -39,6 +58,7 @@ makedocs(
   pages     = [
     "Home" => "index.md",
     "Getting started" => "tutorial.md",
+    "Examples" => "examples/hist_cpu.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",

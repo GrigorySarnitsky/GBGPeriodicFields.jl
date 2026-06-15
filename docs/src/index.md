@@ -29,7 +29,9 @@ using GBGPeriodicFields
 ```
 
 New here? Start with the **[Getting started](tutorial.md)** tour — a short, runnable walkthrough of
-grids, fields, representations, operators, reductions, and the point transfer.
+grids, fields, representations, operators, reductions, and the point transfer. For a full solver, the
+**[Examples](examples/hist_cpu.md)** page walks through a complete forced-HIT pseudospectral DNS built
+on the package — the performance-first, allocation-free pattern, with results.
 
 ## Main components
 
