@@ -28,7 +28,11 @@ Carati 2010: the smooth Hermite and ``C^0`` Lagrange hierarchies) and exact spec
 (`DirectDFT`, `NUFFT`), unified under one `AbstractTransferScheme`. The
 same code must run
 on CPU `Array`s and on GPU arrays (CUDA `CuArray`, AMDGPU `ROCArray`); development
-prioritizes GPU correctness and performance first.
+prioritizes GPU correctness and performance first. The target is a **single node** with
+**shared-memory parallelism only** — CPU multithreading ([§9](@ref "9. Performance model and CPU threading"))
+and a **single GPU** device. Distributed-memory / multi-node execution (a cluster, MPI) and multi-GPU
+sharding are deliberately **out of scope** — a consumer's concern if ever needed, not this field layer's
+(every field is one host or device array, allocated via `similar`).
 
 The package is a **math backend** — a library of field operations that turbulence and cloud
 solvers consume, not a solver itself. Its vocabulary is therefore domain-neutral (base/fiber,

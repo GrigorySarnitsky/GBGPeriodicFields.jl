@@ -2,9 +2,10 @@
 
 Julia package: real-valued scalar/vector/second-order-tensor fields on 3D rectangular
 periodic domains, with physical-space and real-to-complex (rfft) spectral
-representations, on CPU (`Array`) and GPU (`CuArray`, `ROCArray`). Built as the field
-layer for pseudospectral fluid/turbulence solvers; Lagrangian particle interpolation
-is a later target. Development is **GPU-first**; CPU multithreading is implemented (hybrid, behind the
+representations, on CPU (`Array`) and GPU (`CuArray`, `ROCArray`) — **single node, shared-memory only**
+(CPU multithreading and a single GPU; distributed/multi-node and multi-GPU are out of scope). Built as the field
+layer for pseudospectral fluid/turbulence solvers, with the interpolation/anterpolation point layer for
+Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithreading is implemented (hybrid, behind the
 `_assign!` primitive — see `docs/ARCHITECTURE.md` §9).
 
 Before any structural or design change, read `docs/ARCHITECTURE.md`. It explains why
