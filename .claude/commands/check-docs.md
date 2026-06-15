@@ -27,8 +27,11 @@ reading is not a check.
    factors), adjoint/conservation relation, complexity claim, and quantifier (*exact / all / never /
    bit-for-bit*); verify EACH against the implementation in `src/` (read it, quote the decisive line) or by
    derivation. Flag false / imprecise / overclaim. For a nontrivial statement the sharpest method is to
-   write it formally on scratch (types from the code) and expand it — the formal entries live in
-   `docs/FORMALIZATION.md`, each linked to the test that checks it.
+   write it formally on scratch (types from the code) and expand it. The verified statements live in
+   `docs/FORMALIZATION.md`: check each nontrivial prose claim **against its entry** (the chain is *prose ↔
+   formalization ↔ test* — the prose agrees with the typed statement, the statement is verified against the
+   code, the linked test enforces it), and flag any nontrivial statement with **no entry**, or an entry with
+   **no test link**, as a coverage gap.
 2. **Self-contained** — enumerate every symbol, sub/superscript, operator name, and bold/blackboard letter;
    cite the clause that binds each; flag any unbound. (Universally standard math — `∇`, `Δ`, `∫`, `ℝ`, `π`,
    the imaginary unit `i`, plain summation indices — needs no binding.)
@@ -64,4 +67,5 @@ definitions; this command runs all of them.
 ## Report
 
 Report the full matrix: which surfaces × checks were run, the findings (class and count) with fixes, and
-what was verified clean. Done only when every cell is covered and the build is clean.
+what was verified clean — including the `FORMALIZATION.md` coverage (every nontrivial operation has a typed
+entry, each test-linked). Done only when every cell is covered and the build is clean.

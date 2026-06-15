@@ -172,8 +172,10 @@ the *normalized* inner — was exactly such a plausible-looking equality: a read
 code-check (`inner = dot/_base_count`) caught it. **The lightweight way to run this:** write the statement
 formally on scratch — every object typed, the types taken from the code — and expand it; if it won't type,
 or an equality won't expand-match, the prose is imprecise. The nontrivial statements live formally in
-`docs/FORMALIZATION.md`, each linked to the test that checks it numerically (the test suite is the
-deterministic checker — a formal note with no test is a coverage gap). Hand-verified typed notes, not a
+`docs/FORMALIZATION.md`; check each prose claim **against its entry** — the chain is *prose ↔ formalization ↔
+test* (the prose must agree with the typed statement, the statement is verified against the code, the linked
+test enforces it numerically) — and treat a nontrivial claim with **no entry**, or an entry with **no test
+link**, as a coverage gap. Hand-verified typed notes, not a
 proof assistant.
 
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
@@ -279,9 +281,10 @@ explicitly checked (not "should work", *done and verified*):
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
-3. **The three guiding docs** — `docs/ARCHITECTURE.md` (a decision-log entry **and** the relevant
-   section), `docs/TESTING.md` (§2 layout + §7 coverage), and `docs/PERFORMANCE.md` (model +
-   coverage/gaps), as applicable. They are the spec, not an afterthought.
+3. **The four guiding docs** — `docs/ARCHITECTURE.md` (a decision-log entry **and** the relevant
+   section), `docs/FORMALIZATION.md` (a typed entry for any nontrivial new/changed statement — re-verify
+   the expansion against the new code, link its test), `docs/TESTING.md` (§2 layout + §7 coverage), and
+   `docs/PERFORMANCE.md` (model + coverage/gaps), as applicable. They are the spec, not an afterthought.
 4. **The rest of the docs + this file** — the API page (`docs/src/api/…` and `make.jl`
    modules/pages for a new module), the `docs/src/index.md` / `docs/src/api.md` module lists, and
    **`CLAUDE.md`** itself (the module list, include order, roadmap, and test summary).
