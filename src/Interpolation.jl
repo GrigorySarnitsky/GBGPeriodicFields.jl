@@ -5,10 +5,11 @@ Transfer between the grid sections of `Fields` and the point sections of `Points
 field `f` at off-grid positions `xs`, and depositing per-point quantities `qs` back onto the grid.
 Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th; `xs` a `PointSet`)
 **and `q` a per-point value** (`qs` the matching array). The two operations are formal adjoints of
-each other. The transfer uses the local spline interpolation of Lalescu, Teaca & Carati (2010) as
-portable gather/scatter kernels (CPU / CUDA / AMDGPU, via KernelAbstractions; the scatter accumulates
-atomically); the method, terminology, and GPU rationale are in `docs/ARCHITECTURE.md` §10, and the
-point-value data types and their fiberwise algebra live in the `Points` module.
+each other, under a chosen transfer `scheme` — two families: the physical-domain local splines of
+Lalescu, Teaca & Carati (2010) (portable KernelAbstractions gather/scatter kernels, CPU / CUDA / AMDGPU,
+atomic scatter; the default), and the spectral-domain exact `DirectDFT` / fast `NUFFT` that act on a field
+in spectral representation. The method, terminology, and GPU rationale are in `docs/ARCHITECTURE.md` §10,
+and the point-value data types and their fiberwise algebra live in the `Points` module.
 
 # API
 
