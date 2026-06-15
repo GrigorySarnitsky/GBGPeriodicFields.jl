@@ -27,15 +27,20 @@ Fixed throughout (definitions read from `src/`):
 ```math
 \begin{aligned}
 V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 3^R)\\
-\Gamma_G &:= \mathbb R^N \otimes V        &&\text{grid sections, } N \text{ cells}\\
-\Gamma_P &:= \mathbb R^M \otimes V        &&\text{point sections, } M \text{ points}
+\Gamma_G &:= \mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}\otimes V &&\text{grid sections, } N = N_x N_y N_z \text{ cells}\\
+\Gamma_P &:= \mathbb R^M \otimes V        &&\text{point sections, } M \text{ scattered points}
 \end{aligned}
 ```
 
-Here ``\mathbb R^N`` is the scalar field over the ``N`` cells — one real coordinate per cell, the
-discretized base — and ``\otimes V`` attaches the fiber, so a grid section carries a ``V``-value *at each
-cell* (``\mathbb R^N \otimes V \cong V^N``; a cell holds a single real only in the scalar case ``R = 0``,
-where ``V = \mathbb R``). Likewise ``\Gamma_P`` is a ``V``-value at each of the ``M`` points.
+A grid cell is a triple ``(i, j, k)``, so the scalar field over the grid is the 3-axis tensor product
+``\mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}`` (the array ``f_{ijk}``) — one real per cell.
+As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
+``(i, j, k)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
+them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}`` and the differential
+multipliers ``i k_a`` act on). ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
+each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
+is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
+nature of the transfer.
 
 With the fiber contraction ``\cdot : V \times V \to \mathbb R``, the inner products are the package's
 **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
