@@ -170,10 +170,10 @@ end
 """
     _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
 
-Apply the coefficientwise Laplacian: `destination_data .= -squared_wavenumber .* source_data`, where `squared_wavenumber` is `_squared_wavenumber_broadcast`. Representation-preserving over every component.
+Apply the coefficientwise Laplacian ``-|k|^2`` to each component (`destination_data .= (-).(squared_wavenumber) .* source_data`), where `squared_wavenumber` is the lazy `_squared_wavenumber_broadcast`. Representation-preserving over every component.
 """
 function _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
-  @_assign! destination_data .= -squared_wavenumber .* source_data
+  @_assign! destination_data .= (-).(squared_wavenumber) .* source_data   # broadcast unary minus: composes with the lazy |k|²
   return destination_data
 end
 
@@ -184,7 +184,9 @@ end
 Apply the coefficientwise zero-mean inverse Laplacian: `-source_data ./ squared_wavenumber` for nonzero wavevectors, and zero at the zero Fourier mode.
 """
 function _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
-  @_assign! destination_data .= ifelse.(squared_wavenumber .== zero(T), zero(Complex{T}), -source_data ./ ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber))
+  # Multiply by the safe factor -1/|k|² (0 at the zero mode), composed as a single fused broadcast so it
+  # stays allocation-free with the lazy |k|² (`_squared_wavenumber_broadcast`).
+  @_assign! destination_data .= (-).(source_data) .* ifelse.(squared_wavenumber .== zero(T), zero(T), inv.(squared_wavenumber))
   return destination_data
 end
 
@@ -196,13 +198,21 @@ Apply the coefficientwise Leray/Helmholtz projection ``\\mathbb P`` onto the div
 """
 function _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2, destination_component_3,
     source_component_1, source_component_2, source_component_3, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
-  
-  safe_squared_wavenumber = ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
-  longitudinal_component = (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./ safe_squared_wavenumber
-
-  @_assign! destination_component_1 .= source_component_1 .- wavenumber_1 .* longitudinal_component
-  @_assign! destination_component_2 .= source_component_2 .- wavenumber_2 .* longitudinal_component
-  @_assign! destination_component_3 .= source_component_3 .- wavenumber_3 .* longitudinal_component
+  # Allocation-free: the longitudinal coefficient kⱼŝⱼ/|k|² and the safe |k|² (1 at the zero mode) are
+  # fused into each component's broadcast rather than materialized as scratch arrays, so the projection
+  # runs fully in place. This matters in allocating hot loops, especially on GPU where per-call scratch
+  # would otherwise grow the memory pool. Correct because every caller passes distinct destination and
+  # source arrays (the aliased path of `helmholtz_projection!` allocates its own temporary upstream), so
+  # recomputing kⱼŝⱼ from the unmodified source for each component has no read-after-write hazard.
+  @_assign! destination_component_1 .= source_component_1 .- wavenumber_1 .*
+    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
+    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
+  @_assign! destination_component_2 .= source_component_2 .- wavenumber_2 .*
+    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
+    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
+  @_assign! destination_component_3 .= source_component_3 .- wavenumber_3 .*
+    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
+    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
 
   return nothing
 end

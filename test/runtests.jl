@@ -18,6 +18,7 @@ module RDFTests;                   include("rdf.jl");                   end
 module EltypeGenericityTests;      include("eltype_genericity.jl");     end
 module AdjointnessTests;           include("adjointness.jl");           end
 module RandomizedTests;            include("randomized.jl");            end
+module AllocationsTests;           include("allocations.jl");           end
 module ThreadingTests;             include("threading.jl");             end
 module MethodParityTests;          include("method_parity.jl");         end
 module AquaTests;                  include("aqua.jl");                  end

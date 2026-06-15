@@ -63,6 +63,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
+  `allocations.jl` (the in-place `!` spectral operators, transforms, `convolve!` and fiber products/shuffles allocate ``\sim 0`` bytes — `@allocated` on preallocated buffers, both element types; guards the GPU hot-loop discipline, decision 24),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).

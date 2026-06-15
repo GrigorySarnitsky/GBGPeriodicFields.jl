@@ -160,6 +160,23 @@ code change, scaling ≈**4.5–5.7×** on 8 threads before the bandwidth platea
 the 8-thread CPU (≈ the 384-vs-~60 GB/s bandwidth ratio for the heavy schemes, more for the light
 ones via parallelism).
 
+**(f) Allocation-free in-place operators — the GPU hot-loop discipline.** A pseudospectral solver
+applies the spectral operators thousands of times in its time loop, so any per-call scratch an operator
+allocates internally matters. On the GPU it matters *a lot*: such scratch escapes Julia's GC (which
+triggers on *host* memory, while the scratch is *device* memory), so the device pool grows every step
+until VRAM fills and the run wedges (allocator spinning, GPU idle) or `hipMalloc` aborts — observed at
+192³/256³. The fix made the in-place spectral operators allocate **nothing**: `_squared_wavenumber_broadcast`
+(the ``|k|^2`` coordinate) is returned **lazily** (an unfused `Broadcasted`, no ``O(N^3)`` array), and the
+`helmholtz_projection!` / `laplacian!` / `inverse_laplacian!` kernels fuse their former temporaries into
+the component broadcasts — each now allocates ``\sim 0`` bytes in place (measured; guarded by
+`test/allocations.jl`), with identical results. Payoff: a **preallocated, in-place** pseudospectral DNS
+step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
+(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``Re_\lambda \approx 98``) sustains **≈ 42 ms/step**
+(2000 steps, ≈ 83 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
+use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`/`dev!`
+deliberately materialize one field and are the exceptions (use `maximum(abs, …)` for a CFL speed).
+[Decision 24.]
+
 
 ## 5. The benchmark suite
 

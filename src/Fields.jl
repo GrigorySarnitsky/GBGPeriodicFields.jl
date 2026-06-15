@@ -1218,13 +1218,20 @@ _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = re
 """
     _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
 
-Return the total squared wavenumber ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` reshaped to broadcast over the three spatial dimensions. Used by the Laplacian, inverse Laplacian, and Helmholtz projection.
+Return the total squared wavenumber ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` as a **lazy** `Broadcasted` over
+the three per-axis squared-wavenumber vectors (reshaped to the three spatial dimensions). Used by the
+Laplacian, inverse Laplacian, and Helmholtz projection.
+
+Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
+(`-|k|² ŝ`, `ŝ - kᵢ kⱼŝⱼ/|k|²`, …) without ever materializing the ``O(N^3)`` array. That keeps those
+operators allocation-free in place — important in allocating hot loops, and on the GPU where a per-call
+``|k|^2`` scratch would otherwise grow the memory pool every step.
 """
 function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
   squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)
   squared_wavenumber_2 = reshape(multipliers.squared_wavenumber_2, 1, length(multipliers.squared_wavenumber_2), 1)
   squared_wavenumber_3 = reshape(multipliers.squared_wavenumber_3, 1, 1, length(multipliers.squared_wavenumber_3))
-  return squared_wavenumber_1 .+ squared_wavenumber_2 .+ squared_wavenumber_3
+  return Base.broadcasted(+, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 end
 
 

@@ -1269,3 +1269,30 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     spread machinery, with `DirectDFT` and a direct ``O(NM)`` DFT as independent ground truth. Tested
     CPU (`test/transfer_spectral.jl`) + GPU parity; method parity 198/118 unchanged (the transfer verbs
     are not in those surfaces).
+
+24. **Allocation-free in-place spectral operators (the GPU hot-loop discipline).** A solver runs the
+    operators thousands of times in its time loop. On the GPU, any scratch an operator allocates
+    internally is invisible to Julia's garbage collector — the collector triggers on *host* memory
+    pressure, but the scratch lives in *device* memory — so the device memory pool grows every step
+    until it fills VRAM, and the run then wedges (the allocator spins, GPU idle) or `hipMalloc` aborts.
+    The discipline this forces: the in-place ``!`` operators must allocate **nothing**, writing only
+    into their preallocated destination. Two changes brought the spectral operators into line. *(a)*
+    `_squared_wavenumber_broadcast` — the radial coordinate ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` — now
+    returns a **lazy** `Broadcasted` over the three per-axis squared-wavenumber vectors instead of a
+    materialized ``O(N^3)`` array (``N`` the points per axis), so the Laplacian (``-|k|^2\hat f``),
+    inverse Laplacian (``-\hat f/|k|^2``) and Helmholtz projection
+    (``\hat f_i - k_i\,(k_j\hat f_j)/|k|^2``) fuse it into their own broadcasts without ever allocating
+    it. *(b)* The `laplacian!`, `inverse_laplacian!` and `helmholtz_projection!` kernels were rewritten
+    so their former per-call temporaries (the longitudinal coefficient ``k_j\hat f_j/|k|^2``, the safe
+    ``1/|k|^2`` that is ``1`` at the zero mode) are **fused** into the component assignments rather than
+    materialized; the projection recomputes the longitudinal part inline for each component, which is
+    safe because the kernel always receives a destination distinct from the source — the aliased
+    `helmholtz_projection!(x, x)` allocates its guard temporary upstream ([§7](@ref "7. Aliasing policy")).
+    Net: each of the three now allocates ``\sim 0`` bytes in place (measured), with identical arithmetic
+    and results (the full suite is unchanged) — so a preallocated, in-place pseudospectral step allocates
+    nothing per step and runs on a 12 GB consumer GPU with **no manual `GC.gc()` / `reclaim`, at flat
+    VRAM** (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!42`` ms/step on
+    an RX 6700 XT). Guarded by `test/allocations.jl` (every in-place spectral operator, transform,
+    `convolve!`, and fiber product/shuffle, both element types). The fiber norm, `lpnorm` and `dev!`
+    deliberately materialize one field (a pointwise magnitude, or the trace they subtract) and are the
+    documented exceptions — a consumer's CFL speed uses `maximum(abs, …)` rather than `lpnorm`.
