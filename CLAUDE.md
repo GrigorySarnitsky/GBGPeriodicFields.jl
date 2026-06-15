@@ -10,9 +10,9 @@ Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithr
 
 Before any structural or design change, read `docs/ARCHITECTURE.md`. It explains why
 the architecture is the way it is; do not re-litigate recorded decisions without the
-user. The umbrella module `src/GBGPeriodicFields.jl` carries an AI-tips comment block
-with the conceptual model and docstring conventions — follow it, keep it
-single-source, and keep it updated when new project rules are established.
+user. The conceptual model and the writing/docstring conventions are recorded once — in
+`docs/ARCHITECTURE.md` (§2 and its documentation policy) and this file; the umbrella module
+`src/GBGPeriodicFields.jl` only points there (its former AI-tips block was merged out, to keep one source).
 
 ## Modules and wiring
 
@@ -102,7 +102,9 @@ single-source, and keep it updated when new project rules are established.
 
 Two-space indentation; two blank lines between top-level definitions; section banner
 comments; descriptive names without abbreviations; moderately long lines are fine.
-When unsure about Base/stdlib/package behavior, check official docs — don't guess.
+When unsure about Base/stdlib/package behavior, check official docs — don't guess. Avoid unnecessary
+explicit local-variable type declarations; for a linear solve use `\`/factorizations/`ldiv!`, never an
+explicit matrix inverse.
 
 **Docstrings vs comments.** Prefer docstrings; reserve plain comments for non-intuitive
 *why* (rationale a good name can't convey — the Nyquist split, the α/β branch, aliasing

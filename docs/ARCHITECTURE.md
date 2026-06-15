@@ -3,8 +3,8 @@
 This document records the architecture of the package and, more importantly, *why*
 it is the way it is. It exists so that future work (human or AI) extends the design
 instead of accidentally reverting it. `CLAUDE.md` carries the operational summary;
-this file carries the reasoning. The AI-tips block in `src/GBGPeriodicFields.jl`
-carries the conceptual model and writing conventions.
+this file carries the reasoning — and, since the umbrella module's AI-tips block was merged in, the
+conceptual model (§2) and the writing/docstring conventions (the §2 documentation policy) as well.
 
 This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
 `code` identifier — is introduced in plain language at its first use, the meaning stated before or in
