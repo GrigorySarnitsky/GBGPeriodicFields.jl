@@ -513,12 +513,12 @@ be returned to the supersaturation and temperature fields.
 
 **The two operations are a conserving adjoint pair.** Interpolation and anterpolation
 share the **same stencil weights** ``w``, which form a partition of unity (``\sum w = 1``);
-anterpolation is then the exact transpose of interpolation, and the total deposited
-quantity is conserved — with ``\mathbf 1`` the all-ones vector,
-``\mathbf 1^\top (W^\top q) = (W \mathbf 1)^\top q = \mathbf 1^\top q``. Using mismatched weights injects a
+anterpolation is then the exact adjoint of interpolation, and — since ``\sum w = 1`` — the total
+deposited quantity is conserved: summed over the grid, the scattered field equals the input summed over
+the points, in each fiber component. Using mismatched weights injects a
 spurious source/dissipation term (Sundaram & Collins 1996). For the parcel application
 this is mandatory — total water and latent heat must be conserved as vapour passes
-between droplets and the fields — so the design fixes anterpolation as the transpose of
+between droplets and the fields — so the design fixes anterpolation as the adjoint of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
 as the pushforward of point masses, ``\sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,w(\cdot - x_p)``,
@@ -545,7 +545,7 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ``\Pi_m`` (the polynomials up to the scheme order), the adjointness and the polynomial reproduction read
 
 ```math
-\sum_{p} (W f)_p\, q_p \;=\; \sum_{x} f\,(W^{\top} q),
+\sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f\cdot(W^{\top} q),
 \qquad\qquad
 W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
 \quad (\phi \in \Pi_m),
@@ -569,7 +569,8 @@ B_{\text{points}} @>>{\iota}> \Omega
 \end{CD}
 ```
 
-Interpolation is the **pullback of the section**, ``W = \iota^{*}`` (``(Wf)_p = f(x_p)``); anterpolation the
+Interpolation is the **pullback of the section**, ``W = \iota^{*} \otimes \mathrm{id}_V`` (fiber-preserving —
+the trivial bundle leaves the fiber by the identity; ``(Wf)_p = f(x_p)``); anterpolation the
 **pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
 Dirac mass above regularized by the stencil) — for the uniform measures ``\iota_{*} = (N/M)\,W^{\top}``, the
 scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exact L²-adjoint. They have

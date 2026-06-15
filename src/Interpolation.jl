@@ -28,36 +28,31 @@ adjoint pair.
 # Why interpolation and anterpolation are adjoint: the function–measure duality
 
 Write ``\\iota`` for the map carrying each point to its location ``x_p``. Interpolation pulls a
-*function* back along ``\\iota`` (the pullback ``W = \\iota^*``, which you evaluate); anterpolation
-pushes the dual *measure* forward (the pushforward ``W^\\top = \\iota_*``, which you integrate against).
-The two satisfy the adjunction ``\\langle W f, q\\rangle_P = \\langle f, W^\\top q\\rangle_G``:
+*function* back along ``\\iota`` — the pullback ``W = \\iota^* \\otimes \\mathrm{id}_V``, which acts on the
+**base** and leaves the fiber by the identity (the bundle is trivial — one global frame — so the fiber
+components are never mixed); you evaluate it. Anterpolation pushes the dual *measure* forward — a sum of
+point masses ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil weight kernel ``w`` to
+the point-source density ``\\sum_p q_p\\,w(\\cdot - x_p)`` it deposits on the grid; you integrate against
+it. So:
 
-  * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, so
+  * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, hence
     ``(W f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
-  * its adjoint cannot be pointwise — the pushforward returns a measure, a sum of point masses
-    ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil weight kernel ``w`` to
-    ``\\sum_p q_p\\,w(\\cdot - x_p)``, a point-source density (the matrix ``W^\\top`` is this measure
-    sampled on the grid).
+  * its adjoint cannot be pointwise — it returns a measure (the density above), not a value.
 
 Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate measures*
-(`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`. Discretely,
-with ``G = \\mathbb R^N`` (``N`` grid nodes) and ``P = \\mathbb R^M`` (``M`` points), interpolation is
-the matrix ``W`` (``W_{pn} = w_n(x_p)``, the stencil weights ``w``) and anterpolation its transpose
-``W^\\top``. With shared partition-of-unity weights (``W\\,\\mathbf 1 = \\mathbf 1`` with ``\\mathbf 1`` the
-all-ones vector, i.e. ``\\sum_n W_{pn} = 1``), anterpolation
-is the exact transpose of interpolation and the total deposited quantity is conserved,
+(`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`.
 
-```math
-\\sum_n (W^\\top q)_n = \\langle \\mathbf 1, W^\\top q\\rangle = \\langle W\\,\\mathbf 1, q\\rangle = \\langle \\mathbf 1, q\\rangle = \\sum_p q_p,
-```
-
-which is mandatory for the two-way-coupled parcel application (total water mass and latent heat
-conserved). This holds **only when both directions use the same weights**, so the design fixes
-anterpolation as the transpose/adjoint of whatever interpolation scheme is in use (mismatched weights
-inject a spurious source — Sundaram & Collins 1996). The inner products are a modelling choice: with
-the Euclidean (counting) products the adjoint is the bare transpose ``W^\\top``; with ``L^2``/volume-
-weighted products it is ``M_G^{-1} W^\\top M_P`` (the immersed-boundary spreading/interpolation pair of
-Peskin 2002), conserving an energy pairing rather than the plain sum.
+Both directions share one set of stencil weights ``w`` (a partition of unity, ``\\sum w = 1``) applied as
+a **compact local stencil** — no global operator is ever formed. Sharing the weights is what makes
+anterpolation the **adjoint** ``W^\\top`` of interpolation, and ``\\sum w = 1`` makes the deposited total
+equal the input total in each fiber component — the conservation the two-way-coupled parcel application
+needs (total water mass and latent heat). It holds **only when both directions use the same weights**
+(mismatched weights inject a spurious source — Sundaram & Collins 1996). Against the package's normalized
+inner products (`inner` — the point counting-average and the grid volume-average) the adjoint relation
+carries the two base-count normalizations, ``M\\,\\langle W f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle f,
+W^\\top q\\rangle_{\\mathrm{grid}}`` (``N`` grid nodes, ``M`` points); the measure-weighted reading is the
+immersed-boundary spreading/interpolation adjoint pair (Peskin 2002). The full measure/pullback account
+is in `docs/ARCHITECTURE.md` §10.
 
 # References
 
