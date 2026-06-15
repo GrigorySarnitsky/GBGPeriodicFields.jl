@@ -10,7 +10,7 @@ end
 # TESTING.md, and PERFORMANCE.md stay the single sources (referenced by CLAUDE.md), copied
 # into src/ at build time. The copies (src/architecture.md, …) are gitignored.
 function copy_rationale_pages()
-  for name in ("ARCHITECTURE.md", "TESTING.md", "PERFORMANCE.md")
+  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
     cp(joinpath(@__DIR__, name), joinpath(@__DIR__, "src", lowercase(name)); force = true)
   end
 end
@@ -52,9 +52,10 @@ makedocs(
       "Reductions"            => "api/Reductions.md",
     ],
     "Design & Internals" => Any[
-      "Architecture" => "architecture.md",
-      "Testing"      => "testing.md",
-      "Performance"  => "performance.md",
+      "Architecture"  => "architecture.md",
+      "Formalization" => "formalization.md",
+      "Testing"       => "testing.md",
+      "Performance"   => "performance.md",
     ],
   ]
 )

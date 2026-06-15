@@ -49,6 +49,7 @@ Pointwise (fiberwise) products and norms live in `FieldAlgebra`; their *global* 
 ### Design & internals
 
 - [Architecture](architecture.md): why the package is built as it is — the fiber-bundle model, representation validity (the method set is the spec), the code-generation architecture, the spectral machinery, CPU threading, and the grid↔point transfer.
+- [Formalization](formalization.md): the typed statements behind the prose — each operation's spaces and normalizations checked by expansion against the code, linked to the tests that verify them.
 - [Testing](testing.md): how the tests are built and the per-operation coverage contract.
 - [Performance](performance.md): the performance model, externally-sourced best practices, the recorded optimization findings, and the tracked benchmark suite.
 

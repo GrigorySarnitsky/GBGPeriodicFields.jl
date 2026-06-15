@@ -169,7 +169,12 @@ adjoint/transpose relation, and quantifier, and verify EACH independently agains
 the code, quote the line) or a derivation, noting how. The §10 `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` slip — clean only for the
 measure-adjoint `ι_*`, but off by the `N/M` measure factor for the implemented (counting) transpose under
 the *normalized* inner — was exactly such a plausible-looking equality: a read-through passed it, a
-code-check (`inner = dot/_base_count`) caught it.
+code-check (`inner = dot/_base_count`) caught it. **The lightweight way to run this:** write the statement
+formally on scratch — every object typed, the types taken from the code — and expand it; if it won't type,
+or an equality won't expand-match, the prose is imprecise. The nontrivial statements live formally in
+`docs/FORMALIZATION.md`, each linked to the test that checks it numerically (the test suite is the
+deterministic checker — a formal note with no test is a coverage gap). Hand-verified typed notes, not a
+proof assistant.
 
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
@@ -204,7 +209,7 @@ indented tables, the unbound symbols — each patched singly while the rest of t
 
 **"Check the docs" = the complete battery, never one check or one file.** When asked to check / review /
 audit the docs (in any words), run the FULL matrix in one go: every check above (the five-point checklist +
-the notation/structure rules) across every surface — `ARCHITECTURE.md`, `TESTING.md`, `PERFORMANCE.md`,
+the notation/structure rules) across every surface — `ARCHITECTURE.md`, `FORMALIZATION.md`, `TESTING.md`, `PERFORMANCE.md`,
 every `src/` docstring, and every `docs/src` page. The `/check-docs` command (`.claude/commands/check-docs.md`)
 encodes this exact protocol; running it — or the equivalent surface-parallel fan-out — is the default
 reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
@@ -244,7 +249,9 @@ basis/matrix form is genuinely needed (e.g. to mirror the code), state the basis
 on, kept as a clearly-marked shadow of the intrinsic object. This is **also a correctness guard**: the
 `𝟙`/`W_{pn}` transfer picture passed the binding and formula-value checks yet was structurally wrong (the
 fiber flattening + the `𝟙_N`/`𝟙_M` conflation above) — a coordinate-free lens catches what a value-check
-cannot.
+cannot. (`docs/FORMALIZATION.md` is the **sanctioned home** for the coordinate/matrix/component expansions —
+exempt from this preference, since *checking* precision requires expanding into components, but **not**
+exempt from correctness.)
 
 **One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram

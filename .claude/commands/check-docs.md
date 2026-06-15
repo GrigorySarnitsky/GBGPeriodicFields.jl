@@ -10,7 +10,7 @@ one pass, rebuild, and report the matrix.
 ## Surfaces (ALL of them)
 
 1. `docs/ARCHITECTURE.md` — every section §1–§13 and §References.
-2. `docs/TESTING.md`, `docs/PERFORMANCE.md`.
+2. `docs/FORMALIZATION.md`, `docs/TESTING.md`, `docs/PERFORMANCE.md`.
 3. Every docstring in `src/*.jl` — FiberSections, Fields, FieldAlgebra, DifferentialOperators,
    Convolution, Points, Interpolation, Reductions, and the umbrella `GBGPeriodicFields.jl` (Public **and**
    Internal docstrings; `#` comments are exempt — not rendered).
@@ -26,7 +26,9 @@ reading is not a check.
 1. **Correct** — enumerate every formula, normalization constant (the `1/N`, `1/N²`, `2π/L`, Parseval
    factors), adjoint/conservation relation, complexity claim, and quantifier (*exact / all / never /
    bit-for-bit*); verify EACH against the implementation in `src/` (read it, quote the decisive line) or by
-   derivation. Flag false / imprecise / overclaim.
+   derivation. Flag false / imprecise / overclaim. For a nontrivial statement the sharpest method is to
+   write it formally on scratch (types from the code) and expand it — the formal entries live in
+   `docs/FORMALIZATION.md`, each linked to the test that checks it.
 2. **Self-contained** — enumerate every symbol, sub/superscript, operator name, and bold/blackboard letter;
    cite the clause that binds each; flag any unbound. (Universally standard math — `∇`, `Δ`, `∫`, `ℝ`, `π`,
    the imaginary unit `i`, plain summation indices — needs no binding.)
@@ -35,7 +37,8 @@ reading is not a check.
    machinery (a dense map matrix `W_{pn}`, an all-ones vector `𝟙`, flattening a section space `ℝ^N⊗V` to
    `ℝ^N`) that buries the base⊗fiber structure. Prefer intrinsic operators and honest sums/integrals; fiber
    component notation (`A_{ij}u_j`, the genuine 3×3 fiber matrix) is fine; if a matrix form mirrors the
-   code, name the basis and the space.
+   code, name the basis and the space. (`docs/FORMALIZATION.md` is exempt — it is the home for those
+   coordinate/matrix expansions — but still subject to *Correct*.)
 4. **Formatted (bidirectional)** — math is LaTeX, never backticks (incl. ASCII-math like `S = J*` that
    carries no glyph); every code identifier / type / module name is backticked, never bare; check BOTH
    directions. Markdown tables top-level, never indented in a list.
