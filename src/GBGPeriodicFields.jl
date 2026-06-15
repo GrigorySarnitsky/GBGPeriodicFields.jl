@@ -14,7 +14,7 @@ Tools for representing, transforming, and manipulating scalar, vector, and tenso
 The package is aimed primarily at fluid-dynamics and turbulence simulations, with physical-space and real-to-complex spectral representations
 designed for both CPU and GPU array backends. It also targets Lagrangian particle simulations through interpolation tools for evaluating fields between grid nodes.
 
-The package provides field representations, FFT transform plans, storage-wise broadcasting, and algebraic operations on fields.
+The package provides field representations and FFT transform plans, storage-wise broadcasting, the fiberwise algebra (`dot`, `cross`, `mul!`, …), spectral differential operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`), periodic convolution (`convolve`), the L²/measure reductions (`integral`, `inner`, `l2norm`, `radial_spectrum`, `radial_correlation`), and the grid↔point transfer (`interpolate`/`anterpolate`).
 """
 module GBGPeriodicFields
 

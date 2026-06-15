@@ -45,7 +45,11 @@ reading is not a check.
 4. **Formatted (bidirectional)** — math is LaTeX, never backticks (incl. ASCII-math like `S = J*` that
    carries no glyph); every code identifier / type / module name is backticked, never bare; check BOTH
    directions. Markdown tables top-level, never indented in a list.
-5. **Current** — every claim matches the code's present state; no stale *future / deferred / none-exist*.
+5. **Current** — every claim matches the code's present state; no stale *future / deferred / none-exist*;
+   and **complete** — a docstring or summary that names only a *subset* of what the code now provides is
+   stale even if literally true (e.g. a module docstring naming one of two scheme families, or a capability
+   list missing a builder). Check each module/operation/summary still names everything added since it was
+   written, against the current `export`s / method set.
 6. **Cited** — context-standard author–year; ≤3 authors named, `First et al.` for 4+; inline references
    verbatim-consistent with the `ARCHITECTURE.md` §References entry.
 

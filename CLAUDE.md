@@ -199,7 +199,11 @@ glyph grep *and* reads as code: catch this class by **reading**, not grep), **an
 functions, types, **module names** (`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always**
 backticked and **never** bare (the bare-`FieldAlgebra` slip); check *both* directions (a backtick span must be
 greppable in `src/`; a code name must never sit in plain prose); **(4) Current** — no stale claims; statements
-match the code's present state; **(5) Cited** — citations follow the citation policy above (context-standard
+match the code's present state, **and complete** — a docstring/summary that names only a *subset* of what
+the code now provides is stale even if every sentence is literally true (the Interpolation module docstring
+said "uses the local spline interpolation" after the spectral `DirectDFT`/`NUFFT` schemes shipped; the
+umbrella docstring listed only some operation families), so check each module/operation/summary still names
+everything added since it was written, against the current `export`s / method set; **(5) Cited** — citations follow the citation policy above (context-standard
 author–year; ≤3 authors named, `First et al.` for 4+; full reference inline in docstrings and canonical in
 `ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
 (The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)

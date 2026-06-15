@@ -24,6 +24,7 @@ spectral product, division, and norms remain absent.
 - `spectral_cutoff` / `spectral_band` — neutral kernel builders: the isotropic sharp low-pass
   ``\\hat g(k) = \\mathbb 1[\\,|k| \\le k_c\\,]`` (de-aliasing) and its annular generalization.
 - `squared_wavenumber_field` — the radial coordinate ``|k|^2`` as a `ScalarFieldSpectral`.
+- `assignment_window` — the linear/CIC mass-assignment window ``\\hat W = \\prod_a \\operatorname{sinc}^2(k_a \\Delta x_a/2)``, divided out to deconvolve a gridded point density (decision 22).
 
 Physics stays consumer-side: an LES filter, an integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, or
 a de-aliasing mask is a `ScalarFieldSpectral` the consumer builds from `FieldSpectralMultipliers` and
