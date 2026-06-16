@@ -401,9 +401,14 @@ those are the usual rot. Then the mechanical bar:
    property-based tests — algebraic laws (vector-space, dot/cross/mul!/transpose/sym/skew/dev,
    reduction symmetry/linearity/Cauchy–Schwarz, convolution bilinearity/commutativity, div(curl)=0,
    curl(grad)=0) on random fields, point-values, and kernels over several trials. `test/allocations.jl`:
-   the in-place `!` spectral operators / transforms / `convolve!` / fiber products + shuffles allocate
-   ~0 bytes (`@allocated` on preallocated buffers, both element types) — locks the GPU hot-loop
-   discipline (decision 24; `norm!`/`lpnorm`/`dev!` materialize a field by design and are excluded).
+   a **comprehensive** `@allocated` audit (both element types) — the *entire* in-place `!` surface
+   (spectral operators, transforms, `convolve!`, and `add!`/`subtract!`/`mul!`/`multiply!`/`divide!`/`dot!`/
+   `cross!`/`transpose!`/`sym!`/`skew!` over physical+spectral × R=0/1/2 × field/constant/reversed × α/β, the
+   point-value algebra, and the spline `interpolate!`/`anterpolate!`) allocates ~0 bytes; the hot-loop
+   reductions (physical `inner`, `maximum`, `integral`/`mean`/`std`/`var`) do not materialize a field; and the
+   documented allocators are bounded (`norm!`/`dev!`/`lpnorm`/`radial_*` are occasional diagnostics; the
+   spectral *vector* `inner` allocates only its O(N²) Parseval-correction planes — a strided-view `dot`,
+   which would fuse, is unavailable on the GPU). Locks the GPU hot-loop discipline (decisions 24, 25).
    GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface (fields, the PointValues algebra, the interpolation/anterpolation transfer, convolution, and the L²/measure reductions) on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing

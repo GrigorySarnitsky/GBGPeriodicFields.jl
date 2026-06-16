@@ -185,20 +185,35 @@ end
 # EXCEPT the self-conjugate kₓ=0 plane and — when Nₓ is even — the Nyquist plane, which count once.
 # With Sₜ = Σ_stored Σ_c f̂_c conj(ĝ_c) = dot(ĝ, f̂):
 #   ⟨f,g⟩ = Re(2·Sₜ − S_{kₓ=0} − S_{Nyquist}) / N²,   N = prod(grid_size)   (Nyquist term: even Nₓ only)
-# computed allocation-free as `dot` over the whole array and its two correction planes (views), the
-# real part discarding the round-off imaginary part of the (provably real) full-spectrum sum.
+# computed as a `dot` over the whole array (contiguous ⇒ allocation-free) plus two small correction-plane
+# reductions; the real part discards the round-off imaginary part of the (provably real) full-spectrum sum.
 function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
   data_f = field_data(f)
   data_g = field_data(g)
+  normalization = T(prod(field_grid(f).grid_size))^2
+  even_nx = iseven(field_grid(f).grid_size[1])
+  if data_f === data_g
+    # f === g (an L² norm / kinetic energy — the hot-loop case): conj(f̂)·f̂ = |f̂|² is real, so the entire
+    # Parseval sum is a fused `abs2` mapreduce, the correction planes included. `sum(abs2, view)` reduces
+    # the strided kₓ plane WITHOUT a product-broadcast, so this branch is **allocation-free** (unlike the
+    # general f ≠ g branch below). `l2norm(f) = sqrt(inner(f, f))` therefore allocates nothing either.
+    total = sum(abs2, data_f)                                     # Σ_stored |f̂|²  (fused, real)
+    correction = sum(abs2, selectdim(data_f, 1, 1))
+    even_nx && (correction += sum(abs2, selectdim(data_f, 1, size(data_f, 1))))
+    return (2 * total - correction) / normalization
+  end
+  # General f ≠ g. The whole-array term is a contiguous `dot` (allocation-free); the self-conjugate kₓ=0
+  # plane (and the Nyquist plane for even Nₓ) are counted once, not twice, so subtract them. A `dot` over
+  # the strided plane view (which would fuse, no temporary) is unsupported on the GPU (rocBLAS `dotc` has
+  # no strided method), so reduce the product-broadcast instead — this materializes O(N²) per call (one kₓ
+  # plane × fiber, twice): small vs the O(N³) field, but allocated each call. A GPU hot loop forms an energy
+  # as `inner(f, f)` (the fused branch above) or uses the physical `inner` (a contiguous `dot`), not this.
   total = LinearAlgebra.dot(data_g, data_f)                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
-  # The self-conjugate kₓ=0 plane (and the Nyquist plane for even Nₓ) are counted once, not twice;
-  # subtract them. A `dot` over a strided slice is unsupported on the GPU (rocBLAS `dotc`), so reduce a
-  # broadcast instead — each plane is a single kₓ index, a negligible allocation.
   plane(i) = sum(conj.(selectdim(data_g, 1, i)) .* selectdim(data_f, 1, i))
   correction = plane(1)
-  iseven(field_grid(f).grid_size[1]) && (correction += plane(size(data_f, 1)))
-  return real(2 * total - correction) / T(prod(field_grid(f).grid_size))^2
+  even_nx && (correction += plane(size(data_f, 1)))
+  return real(2 * total - correction) / normalization
 end
 
 
