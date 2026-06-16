@@ -35,6 +35,7 @@
 # julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 # julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
+# julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (the documented figures; very heavy on CPU)
 # julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot, no re-run
 # ```
 #
@@ -51,7 +52,8 @@ include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O,
 
 # ## Parameters
 #
-# The knobs of the run. `smoke()` / `fast()` / `huge()` select ``32^{3}`` / ``64^{3}`` / ``192^{3}``.
+# The knobs of the run. `smoke()` / `fast()` / `huge()` / `mega()` select ``32^{3}`` / ``64^{3}`` /
+# ``192^{3}`` / ``256^{3}``.
 
 Base.@kwdef struct Params
   N::Int          = 32          # grid points per side
@@ -86,6 +88,17 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_s
 # settle flat). Heavy: minutes on a GPU, much longer on the CPU.
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
+
+# The configuration behind the documented figures (`--mega`) — ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
+# the practical Reynolds-number ceiling for this scheme: ``\mathrm{Re}_\lambda \approx 109`` with
+# ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower ``\nu`` would raise
+# ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the marginally-resolved flow
+# blows up over a long run). Same recipe as `--huge`, one grid level up. This is the configuration the GPU
+# twin runs to produce the figures below; on the CPU it is reproducible but **very heavy** — hours of
+# wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles the GPU twin's footprint) — so the GPU twin is
+# the practical path to it.
+mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500, n_particles = 8000,
+                rec_stride = 4, snap_stride = 100)
 
 
 # ## Spectral utilities and the preallocated workspace
@@ -415,7 +428,8 @@ end
 function main()
   p = ("--smoke" in ARGS) ? smoke() :
       ("--fast"  in ARGS) ? fast()  :
-      ("--huge"  in ARGS) ? huge()  : Params()
+      ("--huge"  in ARGS) ? huge()  :
+      ("--mega"  in ARGS) ? mega()  : Params()
   run_hist(p)
 end
 
