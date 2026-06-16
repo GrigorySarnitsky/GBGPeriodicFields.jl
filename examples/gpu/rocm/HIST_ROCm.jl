@@ -24,7 +24,7 @@
 #     IC generator and the Eulerian-S₂ field-shift, both representation-neutral.
 #
 # Like HIST_CPU.jl, the run is split SIMULATE → DUMP → PLOT: every plotted curve is written
-# to output/HIST_ROCm.h5 and the figures (the thesis Fig. A.1 structure-function layout, the
+# to output/HIST_ROCm.h5 and the figures (the compensated structure-function layout, the
 # spectrum, the stationarity history and the velocity autocorrelations) are rendered by the
 # shared examples/hist_postprocess.jl; re-plot without re-running via
 #   julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm.h5

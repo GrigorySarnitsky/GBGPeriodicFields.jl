@@ -17,13 +17,24 @@
 using HDF5
 using Plots
 using Plots.PlotMeasures: mm
+using PGFPlotsX                      # LaTeX plotting backend
+using LaTeXStrings                   # L"..." math in axis labels and annotations
 using Statistics: mean
+
+# Activate the LaTeX (PGFPlotsX) backend HERE, at include time — not inside make_hist_plots. Switching the
+# Plots backend inside a function and then plotting in that same function body hits a world-age error (the
+# backend's freshly-defined methods are invisible to the already-compiled body, so the figure's backend
+# object stays `nothing`). amsmath + newtx (the user's preferred text/math fonts) go in the LaTeX preamble.
+pgfplotsx()
+for command in ("\\usepackage{amsmath}", "\\usepackage[upint,varvw]{newtx}")
+  command ∉ PGFPlotsX.CUSTOM_PREAMBLE && push!(PGFPlotsX.CUSTOM_PREAMBLE, command)
+end
 
 
 # =============================================================================
 # Second-order structure functions (traces) and the velocity autocorrelations.
 #
-# These follow the trace definitions used in the thesis (appendix A, eqs A.8/A.9):
+# These are the standard trace second-order structure functions (the K41 forms):
 #   Eulerian   S⁽ᴱ⁾(Δx) = (1/3)⟨|u(x+Δx) − u(x)|²⟩      (all components, isotropically
 #                                                         averaged over direction)
 #   Lagrangian S⁽ᴸ⁾(Δt) = (1/3)⟨|U(t+Δt) − U(t)|²⟩       (over particles & time origins)
@@ -106,13 +117,15 @@ end
 
 
 # =============================================================================
-# Plots (Plots.jl / GR). The headline figure is the thesis Fig. A.1 layout: the
+# Plots — Plots.jl with the PGFPlotsX (LaTeX) backend, so every axis label and
+# annotation is typeset by LaTeX (amsmath + newtx; preamble set in make_hist_plots).
+# Clean lines, no markers. The headline figure is the pair of compensated structure functions: the
 # Eulerian and Lagrangian structure functions each normalized by their Kolmogorov
 # inertial scaling (so a K41 inertial range would show as a plateau at 1). We keep
 # the energy spectrum and the stationarity history too, and add the autocorrelations
 # the integral scales are measured from.
 #
-# Normalizations (thesis eqs A.10/A.11), applied here from the RAW stored data so the
+# K41 inertial-range normalizations, applied here from the RAW stored data so the
 # constants C₂, C₀ can be changed at plot time:
 #   Eulerian:   S⁽ᴱ⁾(Δx) / [ (11/9) C₂ ε^{2/3} Δx^{2/3} ]   vs  Δx/η
 #   Lagrangian: S⁽ᴸ⁾(Δt) / [ C₀ ε Δt ]                       vs  Δt/τ_η
@@ -125,23 +138,24 @@ end
 # at the low demo Reynolds number, where λ ≈ L — do not overprint).
 function mark_scale!(plt, xpos, label, ypos)
   vline!(plt, [xpos]; ls = :dot, lc = :gray, lw = 1, label = "")
-  annotate!(plt, xpos, ypos, text(label, 7, :gray, :center, :center))
+  annotate!(plt, xpos, ypos, text(label, 8, :gray, :center, :center))
   return plt
 end
 
 # Panel a) — Eulerian structure function normalized by its K41 scaling, vs Δx/η.
 function eulerian_panel(b)
   η, ε, C₂ = b["eta"], b["epsilon"], b["C2"]
-  r = b["r"]
+  r, S2 = b["r"][2:end], b["S2_E"][2:end]          # skip r = 0 (the log axis and the r^{2/3} normalization both exclude it)
   norm = (11 / 9) * C₂ * ε^(2 / 3) .* r .^ (2 / 3)
-  x, y = r ./ η, b["S2_E"] ./ norm
+  x, y = r ./ η, S2 ./ norm
   ymax = maximum(y)
-  plt = plot(x, y; xscale = :log10, marker = :circle, ms = 2, lw = 1.5, label = "",
-             xlabel = "Δx/η", ylabel = "S⁽ᴱ⁾(Δx) / (11/9·C₂·ε²ᐟ³·Δx²ᐟ³)",
+  plt = plot(x, y; xscale = :log10, lw = 2, label = "",
+             xlabel = L"\Delta x / \eta",
+             ylabel = L"S^{(E)}(\Delta x)\,/\,\left(\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}\right)",
              title = "a) Eulerian structure function", ylims = (0, 1.28 * ymax),
-             left_margin = 7mm, bottom_margin = 5mm, right_margin = 5mm)
-  mark_scale!(plt, b["lambda"] / η, "λ/η", 1.20 * ymax)
-  mark_scale!(plt, b["L_int"] / η, "L/η", 1.10 * ymax)
+             left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
+  mark_scale!(plt, b["lambda"] / η, L"\lambda/\eta", 1.20 * ymax)
+  mark_scale!(plt, b["L_int"] / η, L"L/\eta", 1.10 * ymax)
   return plt
 end
 
@@ -152,13 +166,14 @@ function lagrangian_panel(b)
   τ, S2 = b["tau"][2:end], b["S2_L"][2:end]
   x, y = τ ./ τ_η, S2 ./ (C₀ * ε .* τ)
   ymax = maximum(y)
-  plt = plot(x, y; xscale = :log10, marker = :circle, ms = 2, lw = 1.5, label = "",
-             xlabel = "Δt/τ_η", ylabel = "S⁽ᴸ⁾(Δt) / (C₀·ε·Δt)",
+  plt = plot(x, y; xscale = :log10, lw = 2, label = "",
+             xlabel = L"\Delta t / \tau_\eta",
+             ylabel = L"S^{(L)}(\Delta t)\,/\,\left(C_0\,\varepsilon\,\Delta t\right)",
              title = "b) Lagrangian structure function", ylims = (0, 1.28 * ymax),
-             left_margin = 7mm, bottom_margin = 5mm, right_margin = 5mm)
+             left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
   τ_u = b["tau_u"]
-  mark_scale!(plt, sqrt(τ_η * τ_u) / τ_η, "√(τ_η·τ_u)/τ_η", 1.20 * ymax)
-  mark_scale!(plt, τ_u / τ_η, "τ_u/τ_η", 1.10 * ymax)
+  mark_scale!(plt, sqrt(τ_η * τ_u) / τ_η, L"\sqrt{\tau_\eta\,\tau_u}/\tau_\eta", 1.20 * ymax)
+  mark_scale!(plt, τ_u / τ_η, L"\tau_u/\tau_\eta", 1.10 * ymax)
   return plt
 end
 
@@ -166,17 +181,17 @@ end
 function spectrum_panel(b)
   populated = findall(@. (b["ek_k"] > 0) & (b["ek_E"] > 0))
   k, E = b["ek_k"][populated], b["ek_E"][populated]
-  plt = plot(k, E; xscale = :log10, yscale = :log10, marker = :circle, ms = 2, label = "E(k)",
-             xlabel = "k", ylabel = "E(k)", title = "energy spectrum", legend = :bottomleft)
-  plot!(plt, k, E[1] .* (k ./ k[1]) .^ (-5 / 3); ls = :dash, label = "k⁻⁵ᐟ³ (K41)")
+  plt = plot(k, E; xscale = :log10, yscale = :log10, lw = 2, label = L"E(\kappa)",
+             xlabel = L"\kappa", ylabel = L"E(\kappa)", title = "energy spectrum", legend = :bottomleft)
+  plot!(plt, k, E[1] .* (k ./ k[1]) .^ (-5 / 3); ls = :dash, lw = 1.5, label = L"\kappa^{-5/3}\ \mathrm{(K41)}")
   return plt
 end
 
 # Stationarity history: kinetic energy E(t) and dissipation ε(t), with the spin-up boundary.
 function stationarity_panel(b)
   t = b["t"]
-  plt = plot(t, b["E"]; label = "E(t)", xlabel = "t", title = "stationarity", legend = :right)
-  plot!(plt, t, b["eps_t"]; label = "ε(t)")
+  plt = plot(t, b["E"]; lw = 2, label = L"E(t)", xlabel = L"t", title = "stationarity", legend = :right)
+  plot!(plt, t, b["eps_t"]; lw = 2, label = L"\varepsilon(t)")
   boundary = min(Int(b["n_spinup"]) + 1, length(t))
   vline!(plt, [t[boundary]]; ls = :dot, label = "stats start")
   return plt
@@ -187,26 +202,24 @@ end
 # each with its integral scale marked (the integral is taken to the first zero crossing).
 function autocorrelation_panel(b)
   η, τ_η = b["eta"], b["tau_eta"]
-  spatial = plot(b["sep"][2:end] ./ η, b["rho_E"][2:end]; xscale = :log10, lw = 1.5, marker = :circle,
-                 ms = 2, label = "", xlabel = "r/η", ylabel = "ρ(r)",
+  spatial = plot(b["sep"][2:end] ./ η, b["rho_E"][2:end]; xscale = :log10, lw = 2,
+                 label = "", xlabel = L"r/\eta", ylabel = L"\rho(r)",
                  title = "spatial velocity autocorrelation", left_margin = 5mm, bottom_margin = 5mm)
   vline!(spatial, [b["L_int"] / η]; ls = :dot, lc = :gray, label = "")
-  annotate!(spatial, b["L_int"] / η, 0.9, text("L/η", 7, :gray, :center, :center))
+  annotate!(spatial, b["L_int"] / η, 0.9, text(L"L/\eta", 8, :gray, :center, :center))
   hline!(spatial, [0]; lc = :gray, ls = :dot, label = "")
 
-  temporal = plot(b["tau"][2:end] ./ τ_η, b["rho_L"][2:end]; xscale = :log10, lw = 1.5, marker = :circle,
-                  ms = 2, label = "", xlabel = "τ/τ_η", ylabel = "ρ_L(τ)",
+  temporal = plot(b["tau"][2:end] ./ τ_η, b["rho_L"][2:end]; xscale = :log10, lw = 2,
+                  label = "", xlabel = L"\tau/\tau_\eta", ylabel = L"\rho_L(\tau)",
                   title = "Lagrangian velocity autocorrelation", left_margin = 5mm, bottom_margin = 5mm)
   vline!(temporal, [b["tau_u"] / τ_η]; ls = :dot, lc = :gray, label = "")
-  annotate!(temporal, b["tau_u"] / τ_η, 0.9, text("τ_u/τ_η", 7, :gray, :center, :center))
+  annotate!(temporal, b["tau_u"] / τ_η, 0.9, text(L"\tau_u/\tau_\eta", 8, :gray, :center, :center))
   hline!(temporal, [0]; lc = :gray, ls = :dot, label = "")
   return plot(spatial, temporal; layout = (1, 2), size = (1100, 430))
 end
 
 # Render and save all figures; `prefix` distinguishes the CPU and GPU outputs.
 function make_hist_plots(bundle; outdir, prefix)
-  ENV["GKSwstype"] = "100"        # headless GR (write PNG without a display)
-  gr()
   isdir(outdir) || mkpath(outdir)
 
   eul = eulerian_panel(bundle)

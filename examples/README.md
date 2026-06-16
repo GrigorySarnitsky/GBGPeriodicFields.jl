@@ -24,8 +24,8 @@ re-styled without re-running the DNS via `plot_hist.jl`.
 ## `HIST_CPU.jl` — forced homogeneous isotropic stationary turbulence (CPU)
 
 A *minimal, demonstration* pseudospectral DNS of forced HIT that plots the **Eulerian and Lagrangian
-second-order velocity structure functions**, each normalized by its Kolmogorov scaling (the layout of
-Fig. A.1 in the accompanying thesis), alongside the energy spectrum, the stationarity history, and the
+second-order velocity structure functions**, each compensated by its Kolmogorov (K41) inertial scaling,
+alongside the energy spectrum, the stationarity history, and the
 velocity autocorrelations. The goal is a readable, **performance-first** workflow: the time loop is
 fully in-place over a preallocated workspace (no per-step field allocation) — both how a real DNS is
 written and what keeps the GPU twin hassle-free.
@@ -43,7 +43,7 @@ Threading is **opt-in**: with no `-t` flag Julia (and the package's CPU threadin
 thread. At 32³ multithreading buys little; pass `-t8` once you raise `N`.
 
 Output lands in `examples/output/`: the data dump `HIST_CPU.h5` (every plotted curve + the run scalars)
-and the PNGs `structure_functions` (the headline two-panel Fig. A.1 figure), `spectrum`, `stationarity`,
+and the PNGs `structure_functions` (the headline two-panel figure), `spectrum`, `stationarity`,
 `autocorrelation`, and a 2×2 `summary`.
 
 ### Method
@@ -82,7 +82,7 @@ materializes a magnitude field). Built-in correctness cross-checks: the Parseval
 
 ### Reading the plots (and the Reynolds-number caveat)
 
-The headline `structure_functions` figure follows thesis Fig. A.1: the Eulerian and Lagrangian **trace**
+The headline `structure_functions` figure shows the Eulerian and Lagrangian **trace**
 structure functions, each normalized by its Kolmogorov inertial scaling —
 `S⁽ᴱ⁾(Δx) / [(11/9) C₂ ε²ᐟ³ Δx²ᐟ³]` vs `Δx/η`, and `S⁽ᴸ⁾(Δt) / [C₀ ε Δt]` vs `Δt/τ_η` (`C₂=2.1`,
 `C₀=6.0`). A K41 inertial range shows as a **plateau at 1**. Marked on each panel are the **Taylor** and

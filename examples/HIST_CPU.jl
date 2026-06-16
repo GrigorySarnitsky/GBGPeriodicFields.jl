@@ -2,17 +2,28 @@
 #
 # A *small, demonstration* pseudospectral DNS of forced homogeneous-isotropic turbulence, written the
 # way a real consumer would use **GBGPeriodicFields**. It plots the Eulerian and Lagrangian second-order
-# velocity structure functions — each normalized by its Kolmogorov scaling (the layout of Fig. A.1 in the
-# accompanying thesis) — alongside the energy spectrum, the stationarity history, and the velocity
+# velocity structure functions — each compensated by its Kolmogorov (K41) inertial scaling, side by side —
+# alongside the energy spectrum, the stationarity history, and the velocity
 # autocorrelations. The goal is a readable, **performance-first** end-to-end workflow: the time loop is
 # fully in-place over a preallocated workspace (no per-step allocation) — both how a real DNS is written
 # and what lets the GPU twin run hassle-free (no manual garbage collection).
 #
-# **Method** (rotational form): `∂û/∂t = P[(u×ω)^] − ν k² û + f̂`, with `ω = ∇×u` and `P` the Leray
-# (Helmholtz) projection. Integrating-factor RK2 (viscosity exact via `exp(−νk²Δt)`, the nonlinear term
-# explicit), 2/3-rule de-aliasing, and a deterministic large-scale forcing that holds the lowest-shell
-# energy fixed (statistical stationarity, no tuning). The time loop is the consumer's — the package has
-# no concept of time, by design.
+# **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
+# the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\nu`` for the kinematic viscosity, and
+# ``\mathbb{P}`` for the Leray–Helmholtz projection onto divergence-free fields, the demo advances
+#
+# ```math
+# \frac{\partial \hat{u}}{\partial t}
+#   = \mathbb{P}\,\widehat{u\times\omega} \;-\; \nu\,k^{2}\,\hat{u} \;+\; \hat{f},
+#   \qquad k^{2} = \lvert\mathbf{k}\rvert^{2},
+# ```
+#
+# where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the
+# nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
+# *exactly* through the integrating factor ``\exp(-\nu k^{2}\,\Delta t)`` and the nonlinear term explicitly
+# (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest-shell energy fixed
+# (statistical stationarity, no tuning). The time loop is the consumer's — the package has no concept of
+# time, by design.
 #
 # This page is generated from the runnable script
 # [`HIST_CPU.jl`](./HIST_CPU.jl) with [Literate.jl](https://github.com/fredrikekre/Literate.jl) (it is
@@ -388,23 +399,50 @@ main()
 
 #md # ## Results
 #md #
-#md # Running the script writes the figures below — these are from the GPU twin (192³ `Float32`,
-#md # `Re_λ ≈ 93`). The headline is the Fig. A.1 layout: the Eulerian and Lagrangian trace structure
-#md # functions, each normalized by its Kolmogorov inertial scaling (a true inertial range would
-#md # plateau at 1), with the Taylor and integral scales marked — the integral length `L` and time
-#md # `τ_u` are measured from the velocity autocorrelations.
+#md # The figures below are from the GPU twin (192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``). The
+#md # headline is the pair of compensated structure functions: the **trace second-order velocity structure functions**, Eulerian and
+#md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
+#md # a plateau at ``1``. With ``\langle\cdot\rangle`` the average (over space/time origins), ``u`` the
+#md # Eulerian velocity and ``U`` a tracer's velocity,
+#md #
+#md # ```math
+#md # S^{(E)}(\Delta x) = \tfrac13\big\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\big\rangle
+#md #                   = \tfrac23\big(C(0) - C(r)\big),
+#md # \qquad
+#md # S^{(L)}(\Delta t) = \tfrac13\big\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\big\rangle
+#md #                   = \tfrac23\big(R(0) - R(\Delta t)\big),
+#md # ```
+#md #
+#md # where ``r = \lvert\Delta x\rvert``, ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` is the spatial velocity
+#md # autocorrelation — read straight off the package's `radial_correlation` (the shell-averaged ``C(r)``) —
+#md # and ``R(\tau) = \langle U(t)\cdot U(t+\tau)\rangle`` is the Lagrangian one (over tracers and time
+#md # origins). The plotted curves are the K41-normalized ratios
+#md #
+#md # ```math
+#md # \frac{S^{(E)}(\Delta x)}{\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}}
+#md #   \quad\text{vs}\quad \frac{\Delta x}{\eta},
+#md # \qquad\qquad
+#md # \frac{S^{(L)}(\Delta t)}{C_0\,\varepsilon\,\Delta t}
+#md #   \quad\text{vs}\quad \frac{\Delta t}{\tau_\eta},
+#md # ```
+#md #
+#md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
+#md # ``\tau_\eta = \sqrt{\nu/\varepsilon}`` the Kolmogorov time, and ``C_2 \approx 2.1``, ``C_0 \approx 6``
+#md # the (adjustable, plot-time) Kolmogorov constants. The Taylor microscale ``\lambda`` and the integral
+#md # scales are marked: the integral length ``L = \int_0^\infty \rho(r)\,dr`` and time
+#md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,d\tau`` are the areas under the normalized autocorrelations
+#md # ``\rho = C/C(0)`` and ``\rho_L = R/R(0)`` (taken to the first zero crossing).
 #md #
 #md # ![Eulerian and Lagrangian structure functions, normalized by their Kolmogorov scalings](structure_functions.png)
 #md #
-#md # The velocity autocorrelations the integral scales are read off (`L = ∫ρ(r)dr` from
-#md # `radial_correlation`; `τ_u = ∫ρ_L(τ)dτ` from the tracked particles):
+#md # The velocity autocorrelations the integral scales are read off:
 #md #
 #md # ![Spatial and Lagrangian velocity autocorrelations](autocorrelation.png)
 #md #
-#md # The energy spectrum, and the `E(t)` / `ε(t)` history — the band-rescaling forcing makes the energy
-#md # oscillate slowly about its mean rather than settle flat, so the statistics are time-averaged over
-#md # several oscillation periods (the autocorrelation accumulates over all snapshots) to keep the means
-#md # representative:
+#md # The energy spectrum ``E(\kappa)`` (with the ``\kappa^{-5/3}`` K41 guide) and the ``E(t)`` /
+#md # ``\varepsilon(t)`` history. The band-rescaling forcing makes the energy oscillate slowly about its mean
+#md # rather than settle flat, so the statistics are time-averaged over several oscillation periods (the
+#md # autocorrelation accumulates over all snapshots) to keep the means representative.
 #md #
 #md # ![Energy spectrum](spectrum.png)
 #md #
