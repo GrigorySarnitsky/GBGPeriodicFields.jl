@@ -10,7 +10,12 @@ Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithr
 
 Before any structural or design change, read `docs/ARCHITECTURE.md`. It explains why
 the architecture is the way it is; do not re-litigate recorded decisions without the
-user. The conceptual model and the writing/docstring conventions are recorded once — in
+user. **Design changes must be justified by established mathematics** — the
+differential-geometry / fiber-bundle framing of §2 (fields and point-values as sections
+of a flat tensor bundle over a base; the vertical fiberwise / horizontal grid-bound
+operation split) — **not by convenience**: "it's convenient", "for symmetry", or "for
+completeness" is never a valid justification (cf. invariant 1's deliberate absences). The
+conceptual model and the writing/docstring conventions are recorded once — in
 `docs/ARCHITECTURE.md` (§2 and its documentation policy) and this file; the umbrella module
 `src/GBGPeriodicFields.jl` only points there (its former AI-tips block was merged out, to keep one source).
 
@@ -177,7 +182,13 @@ REPL reader sees it without opening another file — and each inline copy must m
 citations:** eponymous method *names* (the `Catmull–Rom` spline, `Lagrange`/`Hermite` interpolation,
 `Fornberg` weights) take **no year** unless you are actually citing the work; non-implemented
 related-work asides (e.g. LES SGS models) may stay informal author–year with no full reference; plain
-`#` code comments are exempt (not rendered).
+`#` code comments are exempt (not rendered). **Never cite an inaccessible source** — the gitignored
+monograph under `inspiration/`, an "accompanying thesis", "appendix A", "Fig. A.1", or any "accompanying"
+material the reader cannot open — in **any** user-facing surface: rendered doc pages **and** the
+downloadable `examples/` scripts and READMEs. A citation the reader cannot follow is dead weight and
+implies they are missing something they cannot get; present every diagnostic on its own public terms
+(the trace structure functions and their K41 normalizations are standard turbulence — describe them, at
+most cite a public source).
 
 **Mathematical correctness is its own check — distinct from formatting.** A sentence can be perfectly
 formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
@@ -277,6 +288,22 @@ and grep `examples/*.jl` → markdown too, not only `ARCHITECTURE.md` / `src/`. 
 LaTeX pass was once applied to only the two paragraphs the user pointed at, leaving the rest of the page in
 Unicode/backtick math — the "fix the class, not the line" rule violated, and the gap went uncaught because the
 rendered page was never built and grepped (only the touched paragraphs were eyeballed).**
+
+**Demo & figure standards (the `examples/` HIST demos).** A figure presented as a *result* must come from
+a **verified-stationary** flow: check the `k(t)`/`ε(t)` history fluctuates about a constant mean (not
+drifting) before presenting — a structure function over a transient is biased. The band-rescaling forcing
+oscillates (≈ 7-turnover period), so spin past the energy overshoot and time-average over several periods,
+and keep the frozen stats-`Δt` CFL conservative (≤ 0.3) or a long, marginally-resolved run blows up (NaN →
+advect crash). A **plotted reference power-law must be dimensionally complete and carry its constant** —
+the K41 spectrum guide is ``C_K\,\varepsilon^{2/3}\,\kappa^{-5/3}`` with the measured `ε`, never a bare
+``\kappa^{-5/3}`` slope (different dimensions: ``E(\kappa)`` is energy per unit wavenumber); always check a
+reference line's dimensions match the curve it overlays. Example plots use the **PGFPlotsX (LaTeX)
+backend** with the amsmath/newtx preamble and `LaTeXStrings` `L"..."` labels (never Unicode glyphs or
+backticks), **clean lines, no markers** — and `pgfplotsx()` is activated at **top-level / include time**,
+not inside the plotting function (else a world-age error: the figure's backend object stays `nothing`,
+surfaced as a cryptic `was_shown` `FieldError`); on a log axis skip the `r=0` / `τ=0` point. Turbulence
+notation follows Pope: `k` = turbulent kinetic energy, `κ` = wavenumber magnitude, `E(κ)` = spectrum —
+kept distinct (the integrating factor is `ℰ`, the RK stages `N̂₁`/`N̂₂`).
 
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
@@ -574,3 +601,16 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   finished.
 - Errors found later are fixed one by one; architectural soundness is judged on the
   full picture first.
+- **Commit ⇒ push, on `master`.** This is a *private* repo synced across machines through
+  GitHub, so work is committed **directly on `master`** (the default branch — do not branch)
+  and **pushed in the same step**; GitHub is the cross-machine sync path and the docs site
+  deploys on push. End every commit message with `Co-Authored-By: Claude Opus 4.8
+  <noreply@anthropic.com>`; never use `[skip ci]`.
+- **CI is manual-only — run the matrix LOCALLY pre-commit.** Push-triggered CI burned the
+  free tier, so the workflow runs only on manual dispatch / tags, **not on push**. Before
+  committing a code change, run the full test matrix locally on **both** Julia versions
+  (1.11 and release, via juliaup) — `Pkg.test()` plus the GPU suite where a device change
+  warrants it; a docstring/doc/example-only change needs only a load + the relevant doc
+  build. Docs still deploy on push. (Sub-environment `Manifest`s under `docs/`, `test/gpu/*`,
+  `benchmark/*` are gitignored and go stale locally when package deps change — `Pkg.resolve`
+  that env if precompile breaks; CI is unaffected.)
