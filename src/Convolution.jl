@@ -7,11 +7,21 @@ differential operators and the same-base counterpart of `Interpolation` — both
 measure" of the measure taxonomy (decision 19); convolution is the grid→grid multiplier,
 interpolation the grid↔point base-change.
 
-On the torus the only convolution is the periodic (circular) one (`convolve` ``\\equiv \\star``), and
-by the convolution theorem it is the **coefficientwise spectral product** ``\\widehat{f \\star g} =
-\\hat f \\cdot \\hat g``. The kernel `g` is supplied by its transfer function ``\\hat g`` as a **scalar
-field in spectral representation** (`ScalarFieldSpectral`); a scalar kernel multiplies every fiber
-component, so one operation serves scalar, vector, and tensor fields.
+On the torus the only convolution is the periodic (circular) one (`convolve` ``\\equiv \\star``). With
+``\\Omega`` the periodic box, in physical space it is the **filtering integral**
+
+```math
+(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy ,
+```
+
+the kernel-weighted local average of the field ``f`` about the point ``x`` (a low-pass filter when the
+kernel ``g`` is a smoothing bump), with the displacement ``x - y`` reduced onto the torus; discretized on
+the grid this is the circular sum over grid points ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]``. By the
+convolution theorem (the forward transform unnormalized, invariant 4) the convolution is *exactly* the
+**coefficientwise spectral product** ``\\widehat{f \\star g} = \\hat f \\cdot \\hat g`` — one multiply per
+coefficient, which is why `convolve` lives in spectral representation. The kernel `g` is supplied by its
+transfer function ``\\hat g`` as a **scalar field in spectral representation** (`ScalarFieldSpectral`); a
+scalar kernel multiplies every fiber component, so one operation serves scalar, vector, and tensor fields.
 
 This coefficientwise product is exactly the operation invariant 1 names but bans **as `*`** (because
 `*` would be read as the spectral *pointwise* product, which it is not). It is offered here under its
@@ -24,7 +34,7 @@ spectral product, division, and norms remain absent.
 - `spectral_cutoff` / `spectral_band` — neutral kernel builders: the isotropic sharp low-pass
   ``\\hat g(k) = \\mathbb 1[\\,|k| \\le k_c\\,]`` (de-aliasing) and its annular generalization.
 - `squared_wavenumber_field` — the radial coordinate ``|k|^2`` as a `ScalarFieldSpectral`.
-- `assignment_window` — the linear/CIC mass-assignment window ``\\hat W = \\prod_a \\operatorname{sinc}^2(k_a \\Delta x_a/2)``, divided out to deconvolve a gridded point density (decision 22).
+- `assignment_window` — the linear/CIC mass-assignment window: the B-spline tent cloud ``W`` in physical space, returned as its transfer function ``\\hat W = \\prod_a \\operatorname{sinc}^2(k_a \\Delta x_a/2)``, divided out to deconvolve a gridded point density (decision 22).
 
 Physics stays consumer-side: an LES filter, an integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, or
 a de-aliasing mask is a `ScalarFieldSpectral` the consumer builds from `FieldSpectralMultipliers` and
@@ -246,13 +256,24 @@ end
 """
     assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-The **linear (cloud-in-cell) mass-assignment window** ``\\hat W(k)`` as a real scalar field in spectral
-representation — the Fourier transform of the linear interpolation kernel, for **deconvolving** a
-gridded point density. Scattering ``M`` points onto the grid with a *positive* assignment
-(`LalescuSpline(n, 0)`, i.e. linear / `m = 0`, the positive kernel decisions 19/22 recommend for a
-density) smears the true density, ``\\hat\\rho_g(k) = \\hat W(k)\\,\\hat\\rho(k)``; dividing by
-``\\hat W`` (a `convolve` by ``1/\\hat W``) undoes the smearing. ``\\hat W`` has no in-band zeros for the
-positive linear kernel, so the division is stable.
+The **linear (cloud-in-cell, CIC) mass-assignment window** for **deconvolving** a gridded point density.
+As a real physical object, ``W`` is the **linear B-spline ("tent") cloud** — the tensor product of
+per-axis tents
+
+```math
+W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}\\,
+       \\max\\!\\Bigl(0,\\; 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
+```
+
+each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the
+origin ``x = 0`` (it is a cell-wide top-hat convolved with itself — hence the *squared* sinc below).
+Depositing ``M`` points with a *positive* linear assignment (`LalescuSpline(n, 0)`, i.e. linear /
+`m = 0`, the positive kernel decisions 19/22 recommend for a density) spreads each point's mass over this
+tent, so the gridded density is the true density ``\\rho`` convolved with the window,
+``\\rho_g = \\rho \\star W``. The function returns ``W`` in **spectral representation** — its transfer
+function ``\\hat W(k)`` — because that is where the deconvolution lives: ``\\hat\\rho_g = \\hat W\\,\\hat\\rho``,
+so dividing by ``\\hat W`` (a `convolve` by ``1/\\hat W``) undoes the smearing. ``\\hat W`` has no in-band
+zeros for the positive linear kernel, so the division is stable. Its transform is the squared sinc
 
 ```math
 \\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\!\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr),
