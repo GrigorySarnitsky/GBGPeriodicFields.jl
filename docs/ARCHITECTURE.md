@@ -1096,10 +1096,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       refinement is exact; on a de-aliased field the high-``|k|`` shells are empty.
 
     *Device-clean by construction.* `squared_wavenumber_field` / `spectral_band` are broadcast kernel
-    builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a sequence of **masked
-    reductions** (one per shell), not a histogram scatter — no scalar indexing, no atomics, GPU-portable
-    as an occasional diagnostic (a per-step spectrum would want an atomic-histogram kernel; deferred,
-    unneeded). Tested CPU (`test/convolution.jl` band/coordinate vs the ``|k|^2`` oracle + cutoff equivalence;
+    builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a single **scatter-add** pass — one
+    portable atomic-histogram kernel over the modes (no scalar indexing), an occasional diagnostic.
+    *(Originally a sequence of masked reductions, one per shell, with the histogram scatter deferred as
+    "unneeded"; **decision 25** lifted the deferral — the per-shell masks allocated ``O(N)`` full-grid
+    temporaries per call (``N`` the points per axis), which on the GPU the garbage collector cannot reclaim
+    promptly, so a single ``256^3`` diagnostic wedged a 12 GB card.)* Tested CPU (`test/convolution.jl` band/coordinate vs the ``|k|^2`` oracle + cutoff equivalence;
     `test/reductions.jl` `sum(radial_spectrum) == inner`, the single-mode shell placement) and GPU (ROCm
     device-vs-CPU parity in `test/gpu/suite.jl`); benchmarked (the `reductions` / `convolution` classes).
     The `examples/HIST_CPU.jl` + `examples/gpu/rocm/HIST_ROCm.jl` demos are refactored onto them, making
@@ -1139,8 +1141,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
     as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
     its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
-    imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same masked-reduction
-    machinery as `radial_spectrum`, in ``r`` instead of ``|k|``. Verified against an independent
+    imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same scatter-add
+    machinery as `radial_spectrum` (the single-pass shell histogram; decision 25), in ``r`` instead of ``|k|``. Verified against an independent
     binned-circshift autocorrelation (CPU `test/reductions.jl`, GPU `test/gpu/suite.jl`) and `C(0) = inner`.
 
     *The two-field co-spectra — `radial_spectrum(f, g)` / `radial_correlation(f, g)` (done).* The mixed
@@ -1296,3 +1298,40 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `convolve!`, and fiber product/shuffle, both element types). The fiber norm, `lpnorm` and `dev!`
     deliberately materialize one field (a pointwise magnitude, or the trace they subtract) and are the
     documented exceptions — a consumer's CFL speed uses `maximum(abs, …)` rather than `lpnorm`.
+
+25. **Allocation-bounded radial diagnostics — the shell binning as a single scatter-add (the GPU-GC
+    corollary of decision 24).** Decision 24 made the time *loop* allocation-free; this brings the
+    *diagnostics* into the same discipline, for the same reason. The radial statistics — `radial_spectrum`
+    (the ``|k|``-shell power spectrum) and `radial_correlation` (the ``|r|``-shell two-point correlation) —
+    binned by looping over the shells and, for each shell ``s``, reducing a masked broadcast (sum of the
+    per-mode value over the modes whose rounded shell index equals ``s``). The number of shells scales with
+    the grid — ``\lceil \sqrt{3}\,N/2\rceil`` (``N`` the points per axis), ``\approx 220`` at ``N = 256`` —
+    and each iteration allocates a full-grid temporary: the Boolean shell mask, and (because on the GPU
+    stack a `mapreduce` over a `Broadcasted` materializes its argument rather than fusing) the masked
+    product too. That is ``O(N)`` full-grid temporaries per *single* diagnostic call. On the GPU these are
+    dead immediately but not reclaimed: Julia's garbage collector triggers on *host* memory pressure, and a
+    dead device array is a tiny host wrapper owning a large *device* buffer (the mechanism of decision 24),
+    so the pool climbs. One ``256^3`` correlation snapshot churned several GB; with the live working set
+    already ``\sim\!6`` GB, the first snapshot wedged a 12 GB card (the allocator spinning, GPU idle).
+
+    The fix replaces the per-shell loop with a single **scatter-add** pass — one portable
+    `KernelAbstractions` + `Atomix` histogram kernel (`_shell_bin_kernel!`, driven by `_bin_by_shell`) that
+    sweeps the array once and, per element, atomically adds the value (and a unit population count) into the
+    accumulator of its shell, keyed by a precomputed integer shell index. Per-call full-grid temporaries
+    drop from ``O(N)`` to ``O(1)`` (the shell-index array, the binned quantity, and the tiny
+    length-``(\text{number of shells})`` accumulators): the spectrum keeps the value sum (normalized by
+    ``N^2``), the correlation divides it by the per-shell population. This is the *same* atomic scatter the
+    point→grid `anterpolate` already uses ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")),
+    now depositing mode/point energies into radial shells instead of point quantities onto the grid; it
+    lifts the "histogram scatter deferred as unneeded" sub-decision of decision 21. The trade-off —
+    contention on the small accumulator set — is acceptable for an *occasional* diagnostic (every
+    `snap_stride` steps in a solver), and the old form was itself ``O(\text{shells}\times N^3)`` work; a
+    privatized/shared-memory histogram is a possible future optimization, unneeded now.
+
+    Correctness is unchanged (the scatter sums the same per-shell quantities as the masked reductions): CPU
+    `test/reductions.jl` (the analytic ``\langle\sin^2\rangle`` and independent binned-circshift oracles,
+    both element types) and GPU parity `test/gpu/suite.jl` (`allowscalar(false)` — the scatter is
+    device-clean, no scalar indexing) both hold. End to end, the ``256^3`` Float32 forced-HIT example
+    on a 12 GB RX 6700 XT (``\approx 87`` ms/step) now runs to completion at a flat ``\sim\!6`` GB
+    (``\approx 8`` GB peak) through its `radial_correlation` snapshots, where the per-shell form wedged at
+    the first one.

@@ -242,8 +242,10 @@ cross-power / cross-correlation, refining the *mixed* `inner(f, g)`: analytical 
 pair ``\cos x \perp \sin x`` ⇒ zero, and ``\cos x \pm \cos 2x`` ⇒ ``\pm\tfrac12`` in adjacent shells
 cancelling to ``\mathrm{inner} = 0`` (the co-spectrum **may be negative**); the ``f \leftrightarrow g``
 symmetry; the ``g = f`` reduction to the single-field forms (bit-identical); and an **independent
-binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, both grids), and the
-intentional absence of the *measure* reductions on spectral fields;
+binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, both grids; the shared
+``|k|``/``|r|`` shell binning is a single scatter-add pass — `KernelAbstractions` / `Atomix`, device-clean,
+no scalar indexing (decision 25) — so these oracles plus the GPU parity suite also cover that histogram
+kernel), and the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 ``\exp(-i k_a m \Delta)`` (a shift of ``m`` cells, grid spacing ``\Delta``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent

@@ -45,6 +45,9 @@ using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, FiberVector, Fiber
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast
 using ..Points: AbstractPointValues, npoints
+using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
+import KernelAbstractions
+import Atomix
 import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
 import LinearAlgebra
@@ -227,6 +230,44 @@ function _parseval_weight(f::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
 end
 
 
+# =============================================================================
+# Radial shell binning — the device-friendly histogram shared by the spectrum
+# (|k|-shells) and the correlation (|r|-shells).
+# =============================================================================
+
+# Scatter-add every element of `values` into one of `length(value_bins)` shell accumulators, keyed by the
+# 0-based `shell_index` (same shape as `values`): one atomic add of the value and one of the population
+# count per element. Portable KernelAbstractions + Atomix, exactly like the anterpolation scatter.
+@kernel function _shell_bin_kernel!(value_bins, count_bins, @Const(values), @Const(shell_index))
+  element = @index(Global, Linear)
+  bin = shell_index[element] + 1
+  Atomix.@atomic value_bins[bin] += values[element]
+  Atomix.@atomic count_bins[bin] += 1
+end
+
+
+# Bin `values` into `number_of_shells` accumulators by the 0-based `shell_index` (same shape) in a SINGLE
+# scatter-add pass, returning the per-shell value sum and population count as host vectors. This replaces a
+# per-shell masked reduction `sum(values .* (shell_index .== shell))` looped over the shells — which
+# allocates one full-grid temporary per shell (the mask, and on this GPU stack the masked product too,
+# since mapreduce-over-broadcast materializes). The shell count grows as O(N) (N the points per axis), so
+# that is O(N) full-grid temporaries per diagnostic call, and the GPU GC — triggered by host pressure,
+# blind to the device buffer a dead array owns — does
+# not reclaim them promptly, so the pool climbs to the device limit and the allocator wedges (decision 25).
+# One pass keeps it to O(1) temporaries (`values`, `shell_index`, the tiny bins). Device-clean: no scalar
+# indexing, the only host transfer the two small bin vectors.
+function _bin_by_shell(values, shell_index, number_of_shells)
+  backend = get_backend(values)
+  value_bins = similar(values, eltype(values), number_of_shells)
+  count_bins = similar(values, Int, number_of_shells)
+  fill!(value_bins, zero(eltype(values)))
+  fill!(count_bins, 0)
+  _shell_bin_kernel!(backend)(value_bins, count_bins, values, shell_index; ndrange = length(values))
+  synchronize(backend)
+  return Array(value_bins), Array(count_bins)
+end
+
+
 # Shared |k|-shell binning for the power/cross-power spectra. `per_mode_quantity` is the fiber-contracted
 # real density — ``Σ_c |f̂_c|²`` (power) or ``Σ_c Re(f̂_c conj ĝ_c)`` (cross) — an (Nkx, Ny, Nz) array.
 # Apply the rfft Parseval weight, normalize by N², and sum the modes whose rounded |k| falls in each
@@ -240,7 +281,8 @@ function _radial_spectrum_bin(f::AbstractFieldSpectral{T}, multipliers::FieldSpe
   number_of_shells = Int(maximum(shell_index)) + 1
   weighted = _parseval_weight(f) .* per_mode_quantity            # Parseval-weighted (co-)energy per mode
   normalization = T(prod(grid.grid_size))^2
-  spectrum = T[sum(weighted .* (shell_index .== shell)) / normalization for shell in 0:(number_of_shells - 1)]
+  shell_sum, _ = _bin_by_shell(weighted, shell_index, number_of_shells)   # one scatter-add pass; counts unused here
+  spectrum = shell_sum ./ normalization
   shells = T.(0:(number_of_shells - 1)) .* fundamental
   return shells, spectrum
 end
@@ -276,8 +318,9 @@ Spectral representation only (a Parseval reduction, like the spectral `inner`). 
 to the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
 field the high-``|k|`` shells are empty. For a non-cubic box the shells beyond ``\\min(N_i)/2`` are
 incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but the total still
-equals `inner`. GPU-portable: the binning is a sequence of masked reductions (no scalar indexing, no
-histogram kernel), suited to an occasional diagnostic rather than a per-step call.
+equals `inner`. GPU-portable: the binning is a single scatter-add pass over the modes (one atomic add per
+mode into the shell bins — no scalar indexing, no per-shell full-grid temporary), suited to an occasional
+diagnostic rather than a per-step call.
 """
 function radial_spectrum end
 
@@ -346,12 +389,8 @@ function _radial_average(grid, correlation_field::AbstractArray{T}) where {T<:Ab
   shell_index = round.(Int, separation ./ bin_width)
   number_of_shells = Int(maximum(shell_index)) + 1
   separations = T.(0:(number_of_shells - 1)) .* bin_width
-  correlation = zeros(T, number_of_shells)
-  for shell in 0:(number_of_shells - 1)
-    in_shell = shell_index .== shell
-    population = sum(in_shell)                      # number of grid points in this |r| shell
-    correlation[shell + 1] = iszero(population) ? zero(T) : sum(correlation_field .* in_shell) / population
-  end
+  shell_sum, population = _bin_by_shell(correlation_field, shell_index, number_of_shells)  # one scatter-add pass
+  correlation = [iszero(population[s]) ? zero(T) : shell_sum[s] / population[s] for s in 1:number_of_shells]
   return separations, correlation
 end
 
@@ -383,7 +422,7 @@ separation exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair
 radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac12(C_{fg} + C_{gf})``
 and is symmetric in ``f, g``. Spectral input only (it needs the inverse transform); GPU-portable (one
-inverse rfft + masked-reduction binning, no scalar indexing).
+inverse rfft + a single scatter-add binning pass, no scalar indexing).
 """
 function radial_correlation end
 

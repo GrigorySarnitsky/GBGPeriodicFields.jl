@@ -177,6 +177,21 @@ use the `!` forms with a destination distinct from the sources; the fiber `norm`
 deliberately materialize one field and are the exceptions (use `maximum(abs, …)` for a CFL speed).
 [Decision 24.]
 
+**(g) Allocation-bounded radial diagnostics — the same GC trap, in the binning.** The same device-GC
+hazard as (f) lived in the *diagnostics*. `radial_spectrum` / `radial_correlation` binned by looping over
+the ``|k|``- (or ``|r|``-) shells and reducing a masked broadcast per shell. The shell count scales with
+the grid (``\approx \sqrt{3}\,N/2``, ``\approx 220`` at ``N = 256``), and each iteration allocates a
+full-grid mask — and, because a `mapreduce` over a `Broadcasted` *materializes* on this GPU stack rather
+than fusing, the masked product too: ``O(N)`` full-grid temporaries per call, which the host-triggered GC
+does not reclaim. A single ``256^3`` `radial_correlation` snapshot churned several GB and wedged a 12 GB
+card at the *first* snapshot. The fix bins in a **single scatter-add pass** — one portable
+`KernelAbstractions` + `Atomix` histogram kernel atomically accumulating each element into its shell — so
+per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (same per-shell sums; CPU
+`test/reductions.jl` + GPU parity hold). Payoff: the ``256^3`` `Float32` forced-HIT example
+(``\approx 87`` ms/step) now runs to completion on the RX 6700 XT at a flat ``\sim\!6`` GB
+(``\approx 8`` GB peak) through its snapshots, where the per-shell form wedged at the first one. The scatter contends on the small accumulator set, acceptable for an *occasional* diagnostic
+(not a per-step call); a privatized histogram is a possible future optimization. [Decision 25.]
+
 
 ## 5. The benchmark suite
 
@@ -192,8 +207,9 @@ operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral
 transfer** (the spline schemes plus the spectral `DirectDFT`/`NUFFT`), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
 `inner`, and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
-`radial_spectrum(f, g)` / `radial_correlation(f, g)` — per-shell masked reductions and an inverse rfft,
-diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their binning). Run it:
+`radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
+inverse rfft, diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their
+binning). Run it:
 
 ```sh
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time
