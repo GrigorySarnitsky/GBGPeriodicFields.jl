@@ -138,11 +138,11 @@ end
 # at the low demo Reynolds number, where λ ≈ L — do not overprint).
 function mark_scale!(plt, xpos, label, ypos)
   vline!(plt, [xpos]; ls = :dot, lc = :gray, lw = 1, label = "")
-  annotate!(plt, xpos, ypos, text(label, 8, :gray, :center, :center))
+  annotate!(plt, xpos, ypos, text(label, 8, :black, :center, :center))
   return plt
 end
 
-# Panel a) — Eulerian structure function normalized by its K41 scaling, vs Δx/η.
+# Eulerian structure function normalized by its K41 scaling, vs Δx/η.
 function eulerian_panel(b)
   η, ε, C₂ = b["eta"], b["epsilon"], b["C2"]
   r, S2 = b["r"][2:end], b["S2_E"][2:end]          # skip r = 0 (the log axis and the r^{2/3} normalization both exclude it)
@@ -152,14 +152,14 @@ function eulerian_panel(b)
   plt = plot(x, y; xscale = :log10, lw = 2, label = "",
              xlabel = L"\Delta x / \eta",
              ylabel = L"S^{(E)}(\Delta x)\,/\,\left(\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}\right)",
-             title = "a) Eulerian structure function", ylims = (0, 1.28 * ymax),
+             title = "Eulerian structure function", ylims = (0, 1.28 * ymax),
              left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
   mark_scale!(plt, b["lambda"] / η, L"\lambda/\eta", 1.20 * ymax)
   mark_scale!(plt, b["L_int"] / η, L"L/\eta", 1.10 * ymax)
   return plt
 end
 
-# Panel b) — Lagrangian structure function normalized by its K41 scaling, vs Δt/τ_η.
+# Lagrangian structure function normalized by its K41 scaling, vs Δt/τ_η.
 # Skips the τ = 0 sample (the normalization ∝ Δt and the log axis both exclude it).
 function lagrangian_panel(b)
   τ_η, ε, C₀ = b["tau_eta"], b["epsilon"], b["C0"]
@@ -169,7 +169,7 @@ function lagrangian_panel(b)
   plt = plot(x, y; xscale = :log10, lw = 2, label = "",
              xlabel = L"\Delta t / \tau_\eta",
              ylabel = L"S^{(L)}(\Delta t)\,/\,\left(C_0\,\varepsilon\,\Delta t\right)",
-             title = "b) Lagrangian structure function", ylims = (0, 1.28 * ymax),
+             title = "Lagrangian structure function", ylims = (0, 1.28 * ymax),
              left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
   τ_u = b["tau_u"]
   mark_scale!(plt, sqrt(τ_η * τ_u) / τ_η, L"\sqrt{\tau_\eta\,\tau_u}/\tau_\eta", 1.20 * ymax)
@@ -213,14 +213,14 @@ function autocorrelation_panel(b)
                  label = "", xlabel = L"r/\eta", ylabel = L"\rho(r)",
                  title = "spatial velocity autocorrelation", left_margin = 5mm, bottom_margin = 5mm)
   vline!(spatial, [b["L_int"] / η]; ls = :dot, lc = :gray, label = "")
-  annotate!(spatial, b["L_int"] / η, 0.9, text(L"L/\eta", 8, :gray, :center, :center))
+  annotate!(spatial, b["L_int"] / η, 0.9, text(L"L/\eta", 8, :black, :center, :center))
   hline!(spatial, [0]; lc = :gray, ls = :dot, label = "")
 
   temporal = plot(b["tau"][2:end] ./ τ_η, b["rho_L"][2:end]; xscale = :log10, lw = 2,
                   label = "", xlabel = L"\tau/\tau_\eta", ylabel = L"\rho_L(\tau)",
                   title = "Lagrangian velocity autocorrelation", left_margin = 5mm, bottom_margin = 5mm)
   vline!(temporal, [b["tau_u"] / τ_η]; ls = :dot, lc = :gray, label = "")
-  annotate!(temporal, b["tau_u"] / τ_η, 0.9, text(L"\tau_u/\tau_\eta", 8, :gray, :center, :center))
+  annotate!(temporal, b["tau_u"] / τ_η, 0.9, text(L"\tau_u/\tau_\eta", 8, :black, :center, :center))
   hline!(temporal, [0]; lc = :gray, ls = :dot, label = "")
   return plot(spatial, temporal; layout = (1, 2), size = (1100, 430))
 end
