@@ -18,7 +18,7 @@ and norms. The `mean`/`std`/`var` (from `Statistics`) and `maximum`/`minimum`/`e
 are *extended* on sections here — reached through `using Statistics` / `Base`, not re-exported.
 Physics stays in the consumer (kinetic energy ``\tfrac12\langle u, u\rangle``, enstrophy, dissipation, rms).
 
-A field in **spectral representation** also admits `inner`/`l2norm` via Parseval (equal to the physical
+A field in **spectral representation** also admits `inner`/`l2norm` via Parseval's theorem (equal to the physical
 inner, no transform), and `radial_spectrum(f, mult)` — the **radial (shell-binned) power spectrum**
 ``S(\kappa)`` (``\kappa`` the shell-center wavenumber): `inner` decomposed into isotropic ``|k|``-shells
 (``|k|`` the wavenumber magnitude), returning `(shells, spectrum)` with the exact refinement

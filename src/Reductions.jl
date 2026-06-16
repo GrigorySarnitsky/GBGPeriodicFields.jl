@@ -10,7 +10,7 @@ formulas serves fields and point-values, dispatched on `AbstractFiberSection`.
 
 Defined on **physical fields and point-values** — representation-free / physical-space quantities,
 where the base reduction is the naive one. `inner`/`l2norm` additionally act on fields in **spectral
-representation** via Parseval (equal to the physical inner, no transform); `integral`/`mean`/`lpnorm`/
+representation** via Parseval's theorem (equal to the physical inner, no transform); `integral`/`mean`/`lpnorm`/
 `maximum` stay physical-only.
 
 - `integral(f)` — the **extensive** integral ``\\int_\\Omega f \\, d\\mu`` (the only quantity that
@@ -154,7 +154,7 @@ scalar, intensive (matching `mean`). Computed as
 
 For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
 
-For two fields in **spectral representation** the same value is computed by Parseval, without an inverse
+For two fields in **spectral representation** the same value is computed by Parseval's theorem, without an inverse
 transform. The rfft stores only ``k_x \\ge 0``, so each mode counts twice except those on the
 ``k_x = 0`` plane (and, for even ``N_x``, the Nyquist plane) — the planes the rfft maps to themselves
 under conjugation, whose partners are already stored, so they count once; the kernel forms a `dot` over the stored
@@ -180,7 +180,7 @@ end
 
 
 # Spectral (Parseval) inner product. For real fields the normalized physical inner ⟨f,g⟩ =
-# (1/N)·Σₓ dot(f,g) equals, by Parseval, a weighted sum over the rfft coefficients. The rfft stores
+# (1/N)·Σₓ dot(f,g) equals, by Parseval's theorem, a weighted sum over the rfft coefficients. The rfft stores
 # only kₓ ≥ 0, so each mode counts twice (it stands for itself and its unstored conjugate partner)
 # EXCEPT the self-conjugate kₓ=0 plane and — when Nₓ is even — the Nyquist plane, which count once.
 # With Sₜ = Σ_stored Σ_c f̂_c conj(ĝ_c) = dot(ĝ, f̂):

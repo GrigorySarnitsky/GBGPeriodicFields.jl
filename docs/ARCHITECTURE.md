@@ -753,7 +753,7 @@ decision 18). `integral` (``\equiv \int\,d\mu``) is the extensive sum; `inner` (
 `l2norm`, and `lpnorm` are the normalized L² product and norms; `mean`/`std`/`var` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
 point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
-via Parseval (equal to the physical inner, no transform; the rfft half-spectrum weighting). The **radial**
+via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting). The **radial**
 pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
 its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
 ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Physics (kinetic

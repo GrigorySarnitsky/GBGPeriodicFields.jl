@@ -84,7 +84,7 @@ julia> round(inner(u, u); digits = 4)     # ⟨|u|²⟩ = 1/2 + 1/2 + 1/2
 1.5
 ```
 
-The same energy, resolved over wavenumber shells, is the radial power spectrum — and by Parseval its
+The same energy, resolved over wavenumber shells, is the radial power spectrum — and by Parseval's theorem its
 total equals `inner`:
 
 ```jldoctest tutorial
