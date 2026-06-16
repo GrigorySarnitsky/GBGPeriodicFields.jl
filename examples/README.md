@@ -142,6 +142,7 @@ index inside a package method *throws* — invariant 6 enforced, not trusted. De
 
 ```sh
 julia --project=examples/gpu/rocm -e 'using Pkg; Pkg.instantiate()'         # one-time (installs AMDGPU)
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109 (the documented figures)
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
@@ -151,12 +152,14 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # qu
 over a preallocated workspace and the package's in-place operators are allocation-free (the spectral
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
-representative **192³ Float32** run on an RX 6700 XT (12 GB) reaches `Re_λ ≈ 93`, `k_max·η ≈ 1.13`
-(resolved), and sustains **≈ 34 ms/step** (8000 steps, ≈ 270 s of simulation), with the spectral-`inner`
-Parseval check matching the physical energy to all printed digits and `‖∇·u‖_rel ≈ 1e-8` (Float32
-roundoff). At fixed forcing the Reynolds number is set by `ν`, not the grid, so 192³ already gives the
-scale separation; a larger grid only adds dissipation-range resolution, at more memory (192³ is a
-comfortable fit on 12 GB). An *allocating* style would instead grow the device pool every step until it
+representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the configuration behind the
+figures above — reaches `Re_λ ≈ 109`, `k_max·η ≈ 1.33` (comfortably resolved), and sustains **≈ 87
+ms/step** (9000 steps, ≈ 785 s of simulation), with the spectral-`inner` Parseval check matching the
+physical energy to all printed digits and `‖∇·u‖_rel ≈ 1.6e-7` (Float32 roundoff). It fits 12 GB because
+the working set stays ≈ 6 GB (≈ 8 GB peak through the snapshots) — both the time loop and the radial
+binning are allocation-bounded. This is about the practical `Re_λ` ceiling for the scheme: a lower `ν`
+raises `Re_λ` but drops `k_max·η` below ≈ 1.1, where the marginally-resolved flow blows up over a long
+averaging window. `--huge` (192³, `Re_λ ≈ 93`) is the lighter, very comfortable fit. An *allocating* style would instead grow the device pool every step until it
 wedges or `hipMalloc` aborts — which is exactly why a real GPU DNS preallocates.
 
 The only non-package pieces left (gap list) are the random-solenoidal IC generator and the host-side

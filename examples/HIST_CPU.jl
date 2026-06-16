@@ -9,18 +9,18 @@
 # and what lets the GPU twin run hassle-free (no manual garbage collection).
 #
 # **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
-# the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\nu`` for the kinematic viscosity, and
+# the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
+# ``\kappa = \lvert\mathbf{k}\rvert`` for its magnitude, ``\nu`` for the kinematic viscosity, and
 # ``\mathbb{P}`` for the Leray–Helmholtz projection onto divergence-free fields, the demo advances
 #
 # ```math
 # \frac{\partial \hat{u}}{\partial t}
-#   = \mathbb{P}\,\widehat{u\times\omega} \;-\; \nu\,k^{2}\,\hat{u} \;+\; \hat{f},
-#   \qquad k^{2} = \lvert\mathbf{k}\rvert^{2},
+#   = \mathbb{P}\,\widehat{u\times\omega} \;-\; \nu\,\kappa^{2}\,\hat{u} \;+\; \hat{f},
 # ```
 #
 # where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the
 # nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
-# *exactly* through the integrating factor ``\exp(-\nu k^{2}\,\Delta t)`` and the nonlinear term explicitly
+# *exactly* through the integrating factor ``\exp(-\nu\,\kappa^{2}\,\Delta t)`` and the nonlinear term explicitly
 # (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest-shell energy fixed
 # (statistical stationarity, no tuning). The time loop is the consumer's — the package has no concept of
 # time, by design.
@@ -28,7 +28,7 @@
 # This page is generated from the runnable script
 # [`HIST_CPU.jl`](./HIST_CPU.jl) with [Literate.jl](https://github.com/fredrikekre/Literate.jl) (it is
 # *not* executed during the docs build); the figures are from the GPU twin `gpu/rocm/HIST_ROCm.jl`
-# (192³ Float32, `Re_λ ≈ 93`). The run is split **simulate → dump → plot** — every plotted curve is
+# (``256^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 109``). The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
 # written to an HDF5 file, so the figures can be re-styled without re-running the DNS:
 #
 # ```sh
@@ -51,7 +51,7 @@ include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O,
 
 # ## Parameters
 #
-# The knobs of the run. `smoke()` / `fast()` / `huge()` select 32³ / 64³ / 192³.
+# The knobs of the run. `smoke()` / `fast()` / `huge()` select ``32^{3}`` / ``64^{3}`` / ``192^{3}``.
 
 Base.@kwdef struct Params
   N::Int          = 32          # grid points per side
@@ -65,42 +65,45 @@ Base.@kwdef struct Params
   n_particles::Int = 2000       # Lagrangian tracers
   rec_stride::Int = 3           # record particle velocity every this many stats steps
   snap_stride::Int = 100        # take an Eulerian SF snapshot every this many stats steps
-  seed::Int       = 1234
+  seed::Int       = 42
 end
 
 # A tiny configuration for a quick end-to-end check (`--smoke`).
 smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1, snap_stride = 10)
 
-# A larger, still-quick configuration for nicer statistics (`--fast`) — 64³, more tracers.
+# A larger, still-quick configuration for nicer statistics (`--fast`) — ``64^{3}``, more tracers.
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_stride = 2, snap_stride = 40)
 
-# A high-Reynolds configuration (`--huge`) — 192³ at a lower viscosity, so the Reynolds number
-# (Re_λ ≈ 93) and the scale separation λ ≪ L, τ_η ≪ τ_u are large enough to read off the plots; the grid
-# resolves it (k_max·η ≈ 1.13). At fixed forcing Re_λ is set by ν, not the grid, so 192³ already gives the
+# A high-Reynolds configuration (`--huge`) — ``192^{3}`` at a lower viscosity, so the Reynolds number
+# (``\mathrm{Re}_\lambda \approx 93``) and the scale separation ``\lambda \ll L``, ``\tau_\eta \ll \tau_u``
+# are large enough to read off the plots; the grid resolves it (``\kappa_{\max}\eta \approx 1.13``). At
+# fixed forcing ``\mathrm{Re}_\lambda`` is set by ``\nu``, not the grid, so ``192^{3}`` already gives the
 # separation; it is also a comfortable fit on a 12 GB GPU. The CFL is conservative (0.3) because the
-# statistics-window Δt is frozen (for a uniform Lagrangian axis): over a long averaging window a CFL-tight,
-# marginally-resolved run can hit a velocity peak the frozen Δt cannot handle and blow up. n_spinup clears
-# the initial energy overshoot; n_stats time-averages over a few of the forcing's energy-oscillation periods
-# (the band-rescaling forcing makes E(t) oscillate about its mean rather than settle flat). Heavy: minutes on a GPU, much longer on the CPU.
+# statistics-window ``\Delta t`` is frozen (for a uniform Lagrangian axis): over a long averaging window a
+# CFL-tight, marginally-resolved run can hit a velocity peak the frozen ``\Delta t`` cannot handle and blow
+# up. `n_spinup` clears the initial energy overshoot; `n_stats` time-averages over a few of the forcing's
+# energy-oscillation periods (the band-rescaling forcing makes ``k(t)`` oscillate about its mean rather than
+# settle flat). Heavy: minutes on a GPU, much longer on the CPU.
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
 
 
 # ## Spectral utilities and the preallocated workspace
 #
-# The diagonal-in-Fourier operators — de-aliasing, the integrating factor `exp(−νk²Δt)`, the IC
-# envelope — are applied with the package's `convolve` (periodic convolution = a coefficientwise multiply
-# by a transfer function ĝ). The de-alias filter is the package's `spectral_cutoff`; the physics kernels
-# (carrying ν, Δt, the envelope width) are consumer-built `ScalarFieldSpectral`s applied with the same
-# `convolve`. The `|k|²` they need is the package's `squared_wavenumber_field`.
+# The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu\,\kappa^{2}\Delta t)``,
+# the IC envelope — are applied with the package's `convolve` (periodic convolution = a coefficientwise
+# multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
+# physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are consumer-built
+# `ScalarFieldSpectral`s applied with the same `convolve`. The ``\lvert\mathbf{k}\rvert^{2}`` they need is
+# the package's `squared_wavenumber_field`.
 #
 # `make_workspace` preallocates every scratch field the time loop needs, so a step allocates nothing —
 # this is the heart of the performance-first design (and what keeps the GPU pool flat).
 
-# Wrap a per-mode transfer function w(k) (a real (Nkx, Ny, Nz) array) as a scalar
-# field in spectral representation — the consumer's half of a convolution; the
+# Wrap a per-mode transfer function ``w(\mathbf{k})`` (a real ``(N_{k_x}, N_y, N_z)`` array, the argument
+# `w`) as a scalar field in spectral representation — the consumer's half of a convolution; the
 # package applies it via `convolve`. The integrating factor and the IC envelope are
-# built this way (their ν / Δt / width are the consumer's, per invariant 12).
+# built this way (their ``\nu`` / ``\Delta t`` / width are the consumer's, per invariant 12).
 spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(reference))
 
 
@@ -121,20 +124,23 @@ end
 
 # ## Diagnostics
 #
-# Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g) = ⟨f·g⟩`
-# and `radial_spectrum(û, m)` = the shell-resolved inner (`Σ spectrum = inner ⇒ Σ E = ½⟨|u|²⟩`). No
-# `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an allocation-free reduction;
-# `lpnorm(u, Inf)` would be the true `sup|u|` but materializes a magnitude field, so we avoid it in the
-# hot loop.
+# Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
+# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum(uh, m)` the shell-resolved inner, so the shell
+# sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac12\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
+# kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
+# allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but materializes a
+# magnitude field, so we avoid it in the hot loop.
 
 kinetic_energy(u) = 0.5 * inner(u, u)                                  # ½⟨|u|²⟩   (Reductions.inner)
 dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν⟨|ω|²⟩   (homogeneous)
-# CFL speed: max |velocity component|, an allocation-free reduction over the raw array. (lpnorm(u, Inf)
-# is the true sup|u| but materializes a magnitude field every call — avoided so the hot loop allocates
-# nothing; the max component differs from the magnitude by at most √3, well inside the CFL margin.)
+# CFL speed: ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
+# allocation-free reduction over the raw array. (`lpnorm(u, Inf)` is the true ``\sup\lvert u\rvert`` but
+# materializes a magnitude field every call — avoided so the hot loop allocates nothing; the max component
+# differs from the magnitude by at most ``\sqrt{3}``, well inside the CFL margin.)
 max_speed(u)      = maximum(abs, field_data(u))
 
-# E(κ) = ½ × the shell-resolved Parseval inner; ∑ₖ E(κ) = ½⟨|u|²⟩ = kinetic energy.
+# ``E(\kappa) = \tfrac12 \times`` the shell-resolved Parseval inner; ``\sum_\kappa E(\kappa) =
+# \tfrac12\langle\lvert u\rvert^{2}\rangle = k``, the kinetic energy.
 function energy_spectrum(uh, m)
   shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
   return shells, 0.5 .* spectrum                                       # E(κ): physics ½ stays consumer-side
@@ -143,10 +149,12 @@ end
 
 # ## Forcing
 #
-# Hold the kinetic energy in shells `1 ≤ |k| ≤ k_force` at `E_force`, built entirely from package ops:
-# `band` is a `spectral_band` mask kernel; the band energy is `½ inner(u_band, u_band)` (Parseval; the f===f inner is allocation-free);
-# rescaling the in-band modes is one more `convolve` (scaling preserves `∇·u = 0`). `convolve!` into the
-# scratch `ws.tmp` keeps it allocation-free, no scalar indexing.
+# Hold the kinetic energy in the shells ``1 \le \lvert\mathbf{k}\rvert \le`` `k_force` at `E_force`, built
+# entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
+# ``\tfrac12\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
+# (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
+# `convolve` (scaling preserves ``\nabla\cdot u = 0``). `convolve!` into the scratch `ws.tmp` keeps it
+# allocation-free, no scalar indexing.
 
 function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)                           # band-pass copy into scratch (no allocation)
@@ -177,7 +185,8 @@ function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   return u_out, ω_out
 end
 
-# N̂ = de-aliased Leray projection of (u×ω)^, written into `Nh`, from physical u, ω.
+# ``\hat{N}`` (the buffer `Nh`) = de-aliased Leray projection of ``\widehat{u\times\omega}``, from physical
+# ``u``, ``\omega``.
 function rhs!(Nh, u, ω, ws, m, plans, dealias)
   cross!(ws.uxω, u, ω)                          # u × ω  (physical)
   to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch
@@ -186,11 +195,21 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
   return Nh
 end
 
-# One integrating-factor RK2 (Heun) step, fully in place. The integrating factor E = exp(−νk²Δt)
-# (ν, Δt are physics — invariant 12) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already
-# hold the START-of-step physical velocity & vorticity (the loop fills them, and also uses them for
-# the diagnostics), so k₁ reuses them — no recomputation.
-#   k₁ = N̂(ûₙ);  û* = E·(ûₙ + Δt·k₁);  k₂ = N̂(û*);  ûₙ₊₁ = E·ûₙ + (Δt/2)(E·k₁ + k₂);  then force.
+# One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
+# ``\mathcal{E} = \exp(-\nu\,\kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics —
+# invariant 12) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
+# physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
+# stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
+# `ws.k1`, `ws.k2` hold ``\hat{N}_1``, ``\hat{N}_2``):
+#
+# ```math
+# \hat{N}_1 = \hat{N}(\hat{u}_n), \qquad
+# \hat{u}^{*} = \mathcal{E}\,(\hat{u}_n + \Delta t\,\hat{N}_1), \qquad
+# \hat{N}_2 = \hat{N}(\hat{u}^{*}), \qquad
+# \hat{u}_{n+1} = \mathcal{E}\,\hat{u}_n + \tfrac{\Delta t}{2}\,(\mathcal{E}\,\hat{N}_1 + \hat{N}_2),
+# ```
+#
+# then force.
 function step!(uh, ws, m, plans, dealias, band, ksq, p, dt)
   field_data(ws.Ek) .= complex.(exp.(-p.ν .* ksq .* dt))         # E = exp(−νk²Δt) into scratch
   rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)                # k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
@@ -208,8 +227,8 @@ end
 
 # ## Particles
 #
-# RK2 in space on the frozen start-of-step velocity field (the `O(Δt²)` field-staleness is fine for a
-# demo), using the package's `interpolate` (gather). Positions wrap into `[0, L)`; the per-tracer
+# RK2 in space on the frozen start-of-step velocity field (the ``O(\Delta t^{2})`` field-staleness is fine
+# for a demo), using the package's `interpolate` (gather). Positions wrap into ``[0, L)``; the per-tracer
 # velocity is recorded for the Lagrangian statistics.
 
 function advect!(X, u, dt, p)
@@ -278,8 +297,9 @@ function run_hist(p::Params)
   uh = random_solenoidal(grid, m, vplans, ws, ksq, band, p)
   convolve!(uh, uh, dealias)
 
-  # Spin-up to stationarity (adaptive Δt; these statistics are discarded). Each step fills the cached
-  # start-of-step velocity/vorticity (`to_velocity_vorticity!`), records E(t)/ε(t), then advances `uh`.
+  # Spin-up to stationarity (adaptive ``\Delta t``; these statistics are discarded). Each step fills the
+  # cached start-of-step velocity/vorticity (`to_velocity_vorticity!`), records ``k(t)`` and
+  # ``\varepsilon(t)``, then advances `uh`.
   t_hist = Float64[]; E_hist = Float64[]; ε_hist = Float64[]
   t = 0.0
   sim_start = time()                                          # wall-clock of the simulation (the time loops)
@@ -291,12 +311,13 @@ function run_hist(p::Params)
     t += dt
   end
 
-  # Freeze Δt for the statistics window so the Lagrangian τ-axis is uniform.
+  # Freeze ``\Delta t`` for the statistics window so the Lagrangian ``\tau``-axis is uniform.
   to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)
   dt = p.cfl * Δx / max(max_speed(ws.u), 1e-6)
 
-  # Statistics window (Δt frozen so the Lagrangian τ-axis is uniform): advance the field, advect the
-  # tracers on the start-of-step velocity, record their velocities, and accumulate the autocorrelation.
+  # Statistics window (``\Delta t`` frozen so the Lagrangian ``\tau``-axis is uniform): advance the field,
+  # advect the tracers on the start-of-step velocity, record their velocities, and accumulate the
+  # autocorrelation.
   X = p.L .* rand(MersenneTwister(p.seed + 1), p.n_particles, 3)   # seed tracers
   n_rec = p.n_stats ÷ p.rec_stride
   V = zeros(p.n_particles, 3, n_rec)                              # recorded velocities
@@ -312,9 +333,9 @@ function run_hist(p::Params)
       V[:, :, rec] .= v
     end
     if n % p.snap_stride == 0
-      # Eulerian statistics from the FFT velocity autocorrelation C(r) (package, shell-averaged):
-      # the trace S⁽ᴱ⁾(r) = (2/3)(C(0) − C(r)) and the integral length L = ∫ρ both follow from it
-      # — no hand-rolled spatial shift. Accumulate C over snapshots for a time average.
+      ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, shell-averaged): the
+      ## trace S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length L = ∫ρ follow from it — no hand-rolled
+      ## spatial shift. Accumulate C over snapshots for a time average.
       s, Csnap = radial_correlation(uh, vplans)
       isempty(Cacc) ? (sep = s; Cacc = copy(Csnap)) : (Cacc .+= Csnap)
       n_snap += 1
@@ -337,15 +358,17 @@ function run_hist(p::Params)
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * η
-  # divergence check (should be ~roundoff): ‖∇·u‖ / (k_rms ‖u‖), via the package l2norm.
+  # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}}\,\lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
   divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)
 
   # Length / time scales from the velocity autocorrelations.
-  # Eulerian: the time-averaged C(r) (= ⟨u(x)·u(x+r)⟩, C(0) = ⟨|u|²⟩) gives the integral length
-  # L = ∫₀ ρ(r) dr and the trace structure function S⁽ᴱ⁾(r) = (2/3)(C(0) − C(r)). Lagrangian: the
-  # particle-velocity autocorrelation R(τ) (from the recorded V), integral time τ_u = ∫₀ ρ_L(τ) dτ.
+  # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,dr``
+  # and the trace structure function ``S^{(E)}(r) = \tfrac23\,(C(0) - C(r))``. Lagrangian: the
+  # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
+  # ``\tau_u = \int_0^\infty \rho_L(\tau)\,d\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
   S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian trace structure function (homogeneous identity)
@@ -360,18 +383,19 @@ function run_hist(p::Params)
   @printf("  scales: λ/η=%.2f  L/η=%.2f  |  τ_u/τ_η=%.2f  √(τ_η·τ_u)/τ_η=%.2f\n",
           λ / η, L_int / η, τ_u / τ_η, sqrt(τ_η * τ_u) / τ_η)
   # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces
-  # the physical ½⟨|u|²⟩ exactly — same energy, computed in spectral representation.
+  # the physical ``\tfrac12\langle\lvert u\rvert^{2}\rangle`` exactly — same energy, computed in spectral
+  # representation.
   @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
           K, 0.5 * inner(uh, uh), sum(ek_E))
   @assert isfinite(K) && isfinite(ε) && divrel < 1e-6 "non-finite or non-solenoidal state"
 
-  # Dump every plotted curve to HDF5, then plot (re-plot later via plot_hist.jl, no re-run).
+  # Dump every plotted curve to HDF5, then plot (re-plot later via `plot_hist.jl`, no re-run).
   bundle = Dict{String, Any}(
     "backend" => "CPU", "eltype" => "Float64",
     "N" => p.N, "L_box" => p.L, "nu" => p.ν, "dt" => dt, "n_spinup" => p.n_spinup,
     "K" => K, "epsilon" => ε, "uprime" => uprime, "Re_lambda" => Reλ,
     "eta" => η, "tau_eta" => τ_η, "lambda" => λ, "L_int" => L_int, "tau_u" => τ_u,
-    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "sim_seconds" => sim_seconds,
+    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "CK" => 1.6, "sim_seconds" => sim_seconds,
     "t" => t_hist, "E" => E_hist, "eps_t" => ε_hist,
     "ek_k" => collect(ek_k), "ek_E" => collect(ek_E),
     "r" => sep[2:end], "S2_E" => S2_E[2:end],          # structure-function panel (excludes r = 0)
@@ -399,7 +423,7 @@ main()
 
 #md # ## Results
 #md #
-#md # The figures below are from the GPU twin (192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``). The
+#md # The figures below are from the GPU twin (``256^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 109``). The
 #md # headline is the pair of compensated structure functions: the **trace second-order velocity structure functions**, Eulerian and
 #md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
 #md # a plateau at ``1``. With ``\langle\cdot\rangle`` the average (over space/time origins), ``u`` the
@@ -435,14 +459,19 @@ main()
 #md #
 #md # ![Eulerian and Lagrangian structure functions, normalized by their Kolmogorov scalings](structure_functions.png)
 #md #
-#md # The velocity autocorrelations the integral scales are read off:
+#md # The velocity autocorrelations, from which the integral scales are read off:
 #md #
 #md # ![Spatial and Lagrangian velocity autocorrelations](autocorrelation.png)
 #md #
-#md # The energy spectrum ``E(\kappa)`` (with the ``\kappa^{-5/3}`` K41 guide) and the ``E(t)`` /
-#md # ``\varepsilon(t)`` history. The band-rescaling forcing makes the energy oscillate slowly about its mean
-#md # rather than settle flat, so the statistics are time-averaged over several oscillation periods (the
-#md # autocorrelation accumulates over all snapshots) to keep the means representative.
+#md # The energy spectrum ``E(\kappa)``, compared against the K41 inertial-range form
+#md # ``E(\kappa) = C_K\,\varepsilon^{2/3}\,\kappa^{-5/3}`` with ``C_K \approx 1.6`` the Kolmogorov constant.
+#md # The prefactor ``C_K\,\varepsilon^{2/3}`` is not cosmetic: ``E(\kappa)`` has the dimensions of energy
+#md # per unit wavenumber and ``\kappa^{-5/3}`` does not, so the guide must carry ``C_K\,\varepsilon^{2/3}``
+#md # (with the measured ``\varepsilon``) to be the full K41 prediction rather than a slope. Alongside it,
+#md # the turbulent kinetic energy ``k(t)`` and the dissipation ``\varepsilon(t)``: the band-rescaling
+#md # forcing makes the energy oscillate slowly about its mean rather than settle flat, so the statistics
+#md # are time-averaged over several oscillation periods (the autocorrelation accumulates over all
+#md # snapshots) to keep the means representative.
 #md #
 #md # ![Energy spectrum](spectrum.png)
 #md #
@@ -453,5 +482,5 @@ main()
 #md # The device twin `gpu/rocm/HIST_ROCm.jl` runs this identical solver on `ROCArray`s (`Float32`,
 #md # `allowscalar(false)`). Because the time loop is in-place and the package's spectral operators are
 #md # allocation-free, it needs **no manual garbage collection** — the device memory pool stays flat and
-#md # it sustains ≈ 34 ms/step at 192³ on an RX 6700 XT. That hassle-free GPU behaviour is the whole point
+#md # it sustains ``\approx 87`` ms/step at ``256^{3}`` on an RX 6700 XT. That hassle-free GPU behaviour is the whole point
 #md # of writing the solver preallocated and in-place.

@@ -177,20 +177,27 @@ function lagrangian_panel(b)
   return plt
 end
 
-# Energy spectrum E(k) with the K41 k⁻⁵ᐟ³ guide (a reference line, not a fit).
+# Energy spectrum E(κ) with the K41 inertial-range form C_K ε^(2/3) κ⁻⁵ᐟ³ (C_K ≈ 1.6, the Kolmogorov
+# constant). This is the dimensionally-complete K41 prediction, not a bare κ⁻⁵ᐟ³ slope: E(κ) has the
+# dimensions of energy·length (velocity²·length), κ⁻⁵ᐟ³ has dimensions length^(5/3), and the prefactor
+# C_K ε^(2/3) (dimensions length^(4/3)/time²) is exactly what reconciles them — so there must be a constant
+# in front, and it carries ε, the measured dissipation rate.
 function spectrum_panel(b)
   populated = findall(@. (b["ek_k"] > 0) & (b["ek_E"] > 0))
   k, E = b["ek_k"][populated], b["ek_E"][populated]
+  C_K, ε = get(b, "CK", 1.6), b["epsilon"]                  # Kolmogorov constant (plot-time) and dissipation
   plt = plot(k, E; xscale = :log10, yscale = :log10, lw = 2, label = L"E(\kappa)",
              xlabel = L"\kappa", ylabel = L"E(\kappa)", title = "energy spectrum", legend = :bottomleft)
-  plot!(plt, k, E[1] .* (k ./ k[1]) .^ (-5 / 3); ls = :dash, lw = 1.5, label = L"\kappa^{-5/3}\ \mathrm{(K41)}")
+  plot!(plt, k, C_K .* ε^(2 / 3) .* k .^ (-5 / 3); ls = :dash, lw = 1.5,
+        label = L"C_K\,\varepsilon^{2/3}\,\kappa^{-5/3}\ \mathrm{(K41)}")
   return plt
 end
 
-# Stationarity history: kinetic energy E(t) and dissipation ε(t), with the spin-up boundary.
+# Stationarity history: turbulent kinetic energy k(t) and dissipation ε(t), with the spin-up boundary.
+# (k for the turbulent kinetic energy, the standard symbol; κ — not k — is the wavenumber in the spectrum.)
 function stationarity_panel(b)
   t = b["t"]
-  plt = plot(t, b["E"]; lw = 2, label = L"E(t)", xlabel = L"t", title = "stationarity", legend = :right)
+  plt = plot(t, b["E"]; lw = 2, label = L"k(t)", xlabel = L"t", title = "stationarity", legend = :right)
   plot!(plt, t, b["eps_t"]; lw = 2, label = L"\varepsilon(t)")
   boundary = min(Int(b["n_spinup"]) + 1, length(t))
   vline!(plt, [t[boundary]]; ls = :dot, label = "stats start")

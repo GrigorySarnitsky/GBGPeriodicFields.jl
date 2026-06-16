@@ -237,6 +237,34 @@ reading of the request. Do **not** run one check, sweep one file, then stop and 
 next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
 because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review.
 
+**A Literate example (e.g. `examples/HIST_CPU.jl`) IS a rendered doc page — sweep and verify it like one.**
+Every **full-line `# ` comment becomes Markdown prose** on the built page (only inline `# …` after code on the
+same line, and `##` double-hash lines, stay as code comments). **"Full-line" includes INDENTED comments inside
+a function body** — a 2-space-indented `# …` on its own line still renders as prose, so the driver's internal
+step comments are rendered too (Literate strips the indentation). One consequence bit this page: a full-line
+comment **inside a control-flow block** (e.g. the first line inside an `if`/`for`) splits the code fence and
+strands the block header from its body. For a comment that must stay *in* the code — inside control flow, or
+any implementation note you don't want rendered — use `##` (Literate keeps it as a `#` code comment, math-glyph
+exempt) or make it inline after code; reserve full-line `# ` for genuine narrative prose at statement
+boundaries. So **all math in the prose comments is rendered and must be LaTeX** — double-backtick inline,
+```math``` display — exactly as in `ARCHITECTURE.md`. **Two forbidden
+failure modes, both found littered across this page:** (a) bare **Unicode glyphs** in prose (`Re_λ`, `λ ≪ L`,
+`∇·u = 0`, `exp(−νk²Δt)`) render as literal text, not math; (b) **math wrapped in backticks** — backticks are
+ONLY for a **code identifier that actually appears in the code** (a function/type/field/file name), so a
+*formula* in backticks (`` `exp(−νk²Δt)` ``, `` `|k|²` ``, `` `½⟨|u|²⟩` ``) is a lie: it renders as monospace
+code yet names nothing in the code. Convert BOTH kinds to LaTeX; keep backticks only for real code names. And an
+**underscored identifier in prose must be backticked** (`` `n_spinup` ``), or Markdown parses `n_spinup … n_stats`
+as an *italic* span across the underscores.
+
+**Verify a doc edit by BUILDING the page, not by eyeballing the diff.** After editing a Literate example,
+regenerate it (`Literate.markdown(src, out; documenter=false)`) and grep the OUTPUT prose for Unicode-math
+glyphs and backtick-wrapped formulas until the count is **zero** — the built page is the source of truth for
+what renders. The example page is a "check the docs" surface: the battery above (and `/check-docs`) must build
+and grep `examples/*.jl` → markdown too, not only `ARCHITECTURE.md` / `src/`. **This rule exists because a
+LaTeX pass was once applied to only the two paragraphs the user pointed at, leaving the rest of the page in
+Unicode/backtick math — the "fix the class, not the line" rule violated, and the gap went uncaught because the
+rendered page was never built and grepped (only the touched paragraphs were eyeballed).**
+
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
 render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §13 decision entry) use a **nested

@@ -30,6 +30,8 @@
 #   julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm.h5
 #
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl            # full run (default 32³)
+#   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109 (the documented figures)
+#   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³, for nicer statistics
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
 # =============================================================================
@@ -63,7 +65,7 @@ Base.@kwdef struct Params
   n_particles::Int = 2000       # Lagrangian tracers
   rec_stride::Int = 3           # record particle velocity every this many stats steps
   snap_stride::Int = 100        # take an Eulerian SF snapshot every this many stats steps
-  seed::Int       = 1234
+  seed::Int       = 42
 end
 
 # A tiny configuration for a quick end-to-end check (`--smoke`).
@@ -83,26 +85,22 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_s
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
 
-# Push the grid to 256³ (`--mega`) at a lower viscosity than `--huge` (measured Re_λ ≈ 109, k_max·η ≈ 1.34
-# — still comfortably resolved; ≈ 87 ms/step on an RX 6700 XT). This fits a 12 GB card only because *both*
-# the time loop and the diagnostics are allocation-bounded: the hot loop is allocation-free (decision 24),
-# and the radial-correlation/spectrum binning is a single scatter-add pass rather than a per-shell masked
-# reduction (decision 25) — the latter materialized ~N full-grid temporaries per snapshot that the GPU GC
-# could not reclaim, and used to wedge the card at the first snapshot. Footprint is now ~flat at the
-# preallocated working set (~6 GB, ≈ 8 GB peak through the snapshots). The viscosity carries a resolution
-# margin and the CFL is conservative (0.4) because the statistics-window Δt is frozen (for a uniform
-# Lagrangian axis): a marginally-resolved, CFL-tight high-Re run can blow up on an intermittent velocity
-# burst (the more aggressive ν = 2e-3 did exactly that, in particle advection).
+# Push the grid to 256³ (`--mega`) at a lower viscosity than `--huge`: measured Re_λ ≈ 109, k_max·η ≈ 1.3
+# (comfortably resolved), ≈ 90 ms/step on an RX 6700 XT. This is the practical Re ceiling for the scheme —
+# a lower ν (ν = 2e-3, Re_λ ≈ 120) drops k_max·η to ≈ 1.08, where the marginally-resolved flow blows up over
+# a long run. It fits a 12 GB card only because *both* the time loop and the diagnostics are
+# allocation-bounded: the hot loop is allocation-free (decision 24) and the radial binning is a single
+# scatter-add (decision 25; the per-shell form materialized ~N full-grid temporaries per snapshot and wedged
+# the card). Footprint is ~flat at the preallocated working set (~6 GB, ≈ 8 GB peak through the snapshots).
 #
-# Stationarity: the band-rescaling forcing, started from a low-energy smooth initial condition, injects
-# energy faster than it dissipates, so E(t) overshoots its mean near t ≈ 7 turnovers and then *oscillates*
-# about it with a slowly-damped ≈ 7-turnover period (the forcing–dissipation lag) — it does not settle to a
-# flat plateau. n_spinup clears the large initial overshoot (measured in turnover times — at 256³ the finer
-# grid forces a smaller Δt, hence more steps than the coarser grids for the same physical time); the n_stats
-# window then captures the developed flow (a small ~5% residual oscillation about the mean). For a *longer*
-# averaging window, also lower the CFL as `huge` does — the frozen Δt is CFL-fragile over long runs, where
-# an energy-oscillation peak can eventually blow it up.
-mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.4, n_spinup = 3800, n_stats = 1200, n_particles = 8000,
+# Stationarity (the same recipe as `huge`): the band-rescaling forcing, from a low-energy smooth initial
+# condition, makes E(t) overshoot its mean near t ≈ 7 turnovers and then *oscillate* about it with a
+# slowly-damped ≈ 7-turnover period — it does not settle to a flat plateau. So n_spinup clears the overshoot
+# (measured in turnover times — at 256³ the finer grid forces a smaller Δt, hence more steps than the coarser
+# grids for the same physical time) and n_stats time-averages over a few oscillation periods. The CFL is
+# conservative (0.3) because the statistics-window Δt is frozen (for a uniform Lagrangian axis): over a long
+# run a CFL-tight, marginally-resolved field eventually hits a velocity peak the frozen Δt cannot handle.
+mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500, n_particles = 8000,
                 rec_stride = 4, snap_stride = 100)
 
 
@@ -384,7 +382,7 @@ function run_hist(p::Params)
     "N" => p.N, "L_box" => p.L, "nu" => p.ν, "dt" => dt, "n_spinup" => p.n_spinup,
     "K" => K, "epsilon" => ε, "uprime" => uprime, "Re_lambda" => Reλ,
     "eta" => η, "tau_eta" => τ_η, "lambda" => λ, "L_int" => L_int, "tau_u" => τ_u,
-    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "sim_seconds" => sim_seconds,
+    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "CK" => 1.6, "sim_seconds" => sim_seconds,
     "t" => t_hist, "E" => E_hist, "eps_t" => ε_hist,
     "ek_k" => collect(ek_k), "ek_E" => collect(ek_E),
     "r" => sep[2:end], "S2_E" => S2_E[2:end],          # structure-function panel (excludes r = 0)
