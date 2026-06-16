@@ -436,8 +436,20 @@ separation exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair
 ``\\mathcal F C_{fg} = \\overline{\\hat f}\\,\\hat g``). The one-argument form is the ``g = f`` case; the
 radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac12(C_{fg} + C_{gf})``
-and is symmetric in ``f, g``. Spectral input only (it needs the inverse transform); GPU-portable (one
-inverse rfft + a single scatter-add binning pass, no scalar indexing).
+and is symmetric in ``f, g``.
+
+Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a (L_a/2)^2}`` (``\\sqrt3\\,L/2``
+for a cubic box) at the finest spacing ``\\min_a \\Delta x_a``, the ``\\min(i, N_a - i)`` fold making ``C``
+periodic and even (``C(r) = C(L - r)``). This is the physical-space mirror of the spectrum's corner caveat:
+only ``|r| \\le \\min_a L_a/2`` — the sphere inscribed in the min-image box — is sampled in *all*
+directions; shells from there out to the corner keep only the box-diagonal directions (incompletely
+sampled). And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
+the field correlating with its own periodic image, not a true infinite-domain correlation — so a consumer
+reads an integral scale only out to where ``C`` has decayed (e.g. the first zero crossing), not the full
+curve. As with the spectrum the *total* is unaffected: ``C(0) = \\mathrm{inner}(f, f)`` exactly.
+
+Spectral input only (it needs the inverse transform); GPU-portable (one inverse rfft + a single
+scatter-add binning pass, no scalar indexing).
 """
 function radial_correlation end
 
