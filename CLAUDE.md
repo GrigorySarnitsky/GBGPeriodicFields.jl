@@ -469,8 +469,8 @@ those are the usual rot. Then the mechanical bar:
    (bit-identical), and an **independent binned-circshift cross-correlation** on a random pair.
    `test/convolution.jl` additionally covers `spectral_band` (annular,
    `spectral_cutoff = band(0,k)`, idempotent, `|k|²` membership oracle), `squared_wavenumber_field`
-   (|k|² vs the analytic sum, real-valued), and `assignment_window` (∏ sinc² formula). `test/rdf.jl`
-   (decision 22 Phase 2): the FFT pair-correlation recipe (anterpolate density → deconvolve by
+   (|k|² vs the analytic sum, real-valued). `test/rdf.jl`
+   (decision 22 Phase 2): `assignment_window` against its ∏ sinc² formula, and the FFT pair-correlation recipe (anterpolate density → deconvolve by
    `assignment_window` → `radial_correlation` → g(r)) validated against an **independent direct O(M²)
    pair count** on a clustered point set (the clustering peak + the g→1 baseline). `test/eltype_genericity.jl`:
    a representative cross-section in Float64 and Float32, asserting element-type
