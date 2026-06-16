@@ -1,10 +1,27 @@
 """
     Fields
 
-Field representation and transform core for scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
+Field representation and transform core for scalar, vector, and second-order tensor fields on
+three-dimensional rectangular periodic domains. A field is a physical object; the physical-space and
+spectral types (e.g. `ScalarFieldPhysical` and `ScalarFieldSpectral`) are two representations of the
+**same** field. Provided here:
 
-This module defines grids, Cartesian fiber types, Fourier-layout conventions, field types for physical-space representation and real-to-complex spectral representation,
-FFT transform plans, and storage-wise broadcasting designed for CPU and GPU array backends.
+  * **Grid and layout** — `Grid3D` (the periodic domain geometry) and `RealFourierLayout` (the
+    real-to-complex transform layout).
+  * **Fiber types** — the Cartesian fiber aliases `FiberVector`, `FiberTensor2`, `FiberTensor3`,
+    `FiberTensor4` (StaticArrays types), elements of the fiber ``(\\mathbb R^3)^{\\otimes R}`` for tensor
+    order ``R``.
+  * **Field types** — scalar, vector, and second-order tensor fields, each in physical-space and
+    spectral representation.
+  * **Transforms** — `FieldTransformPlans` and `to_physical(!)` / `to_spectral(!)`; the allocating forms
+    preserve their input, the in-place `!` forms may overwrite the source (a property of the real FFT,
+    see their docstrings).
+  * **Spectral multipliers** — `FieldSpectralMultipliers`, the wavenumber arrays the spectral
+    differential operators multiply by.
+  * **Broadcasting** — storage-wise and representation-preserving: a dotted assignment writes into the
+    destination's storage, an out-of-place dotted expression allocates a like field in the same
+    representation, and physical and spectral representations cannot be mixed in one broadcast. Designed
+    for CPU and GPU array backends.
 """
 module Fields
 

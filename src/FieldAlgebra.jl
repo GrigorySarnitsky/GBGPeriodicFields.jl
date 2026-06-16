@@ -1,13 +1,31 @@
 """
     FieldAlgebra
 
-Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor fields defined in [`Fields`](@ref).
+Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor fields defined in
+[`Fields`](@ref). Each operation comes as an allocating form (a `Base`/`LinearAlgebra` operator where one
+exists) and an in-place `!` form. The families:
 
-This module extends arithmetic (`+`, `-`, `*`, `/`) and the relevant `LinearAlgebra` operations (`dot`, `cross`, `mul!`, `transpose`, `norm`) to fields, together with in-place `add!`, `subtract!`, `multiply!`, `divide!`, `dot!`, `cross!`, `mul!`, `transpose!`, `norm!`, `sym!`, `skew!`, and `dev!`.
+  * **Vector-space** — `add!`/`subtract!` (`+`/`-`), real scaling, and scalar-field
+    multiplication/division (`multiply!`/`divide!`, `*`/`/`).
+  * **Contractions** — `dot!`/`dot` (vector Euclidean and tensor Frobenius inner products, `⋅`) and
+    `cross!`/`cross` (`×`).
+  * **Tensor products** — `mul!` for tensor·vector (left and right action) and tensor·tensor, with the
+    five-argument `α`/`β` accumulation form; allocating `*`.
+  * **Permutations and decompositions** — `transpose!`/`transpose`, and `sym`/`skew`/`dev` (with `!` forms).
+  * **Norms** — `norm!`/`norm` (pointwise absolute value, Euclidean, and Frobenius).
 
-Field-field and field-constant operations preserve the representation of their arguments: they act pointwise on fields in physical-space representation and coefficient-wise on fields in spectral representation. Operations that are not linear in a field argument (for example multiplying two fields together, or contracting two fields) are defined only in physical-space representation, except where one factor is a compile-time constant fiber, which keeps the operation coefficient-wise.
+Field-field and field-constant operations preserve the representation of their arguments: they act
+pointwise on fields in physical-space representation and coefficient-wise on fields in spectral
+representation. Operations that are not linear in a field argument (for example multiplying two fields
+together, or contracting two fields) are defined only in physical-space representation, except where one
+factor is a compile-time constant fiber, which keeps the operation coefficient-wise; missing combinations
+are deliberate (invariant 1). **Aliasing:** `mul!` follows the `LinearAlgebra` convention — the
+destination must not share storage with an input — while the index-shuffling operations (`cross`,
+`transpose`, `sym`/`skew`/`dev`) are alias-guarded and may be called with the destination aliasing an input.
 
-Most of the method families below are emitted by small code generators defined in the "Code generation" section: the per-component formulas are written once, and the generators stamp out the representation, argument-order, and in-place/allocating variants.
+Most of the method families below are emitted by small code generators defined in the "Code generation"
+section: the per-component formulas are written once, and the generators stamp out the representation,
+argument-order, and in-place/allocating variants.
 """
 module FieldAlgebra
 

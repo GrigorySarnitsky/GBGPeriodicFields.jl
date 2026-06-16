@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.FiberSections]
 Order   = [:module]
 ```
 
-The `FiberSections` module is the base-agnostic core of the package's fiber-bundle model
-(`docs/ARCHITECTURE.md` §2): the `AbstractFiberSection` supertype shared by fields (sections over
-a `Grid3D`) and point-values (sections over a `PointSet`), the CPU-threading / fused-assignment
-primitive `_assign!`, and the vertical-algebra **code generators** (per-component formula and
-kernel-body builders) reused verbatim by both `FieldAlgebra` and `Points`, so each fiberwise
-formula is written exactly once.
-
 ## Contents
 
 ```@contents

@@ -90,6 +90,11 @@ coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\partial_{x_j
 docstrings give the symbol each one applies; the `=` is genuine (the only deliberate departure is the
 Nyquist zeroing of the first-derivative wavenumbers on even-length axes, invariant 5). Each formula
 mirrors the coefficientwise kernel it documents, so the two can be checked against each other.
+
+The wavenumber symbols are held in a `FieldSpectralMultipliers` (built from a field with
+`FieldSpectralMultipliers(field)`, or from the explicit six-array constructor); each operator has an
+allocating form and an in-place `!` form. `laplacian`, `inverse_laplacian`, and `helmholtz_projection`
+preserve tensor order; `gradient`, `divergence`, and `curl` change it as the operator dictates.
 """
 module DifferentialOperators
 
