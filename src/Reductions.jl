@@ -128,8 +128,9 @@ integral(section::ReducibleSection) =
 
 
 # `mean`, `std`, `var` (extending Statistics) — intensive, fiber-preserving base reductions.
-# `mean(f) = (1/count)·Σf`: the arithmetic average over base elements (a plain sample mean over
-# points). `std`/`var` are the per-fiber-component base moments.
+# `mean(f) = (1/count)·Σf`: the arithmetic average over base elements — the volume average
+# (1/|Ω|)∫_Ω f dx on a grid, a plain sample mean over points. `std`/`var` are the per-fiber-component
+# base moments.
 mean(section::ReducibleSection) = _fiberwise(section, mean, (data, base) -> mean(data; dims = base))
 
 var(section::ReducibleSection; corrected::Bool = true) =
@@ -145,11 +146,13 @@ std(section::ReducibleSection; corrected::Bool = true) =
     inner(f, g)
 
 The **normalized L² inner product** of two compatible sections (`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``)
-— the full fiber contraction ``f \\cdot g`` summed over the base and divided by the base count ``N``; a
-scalar, intensive (matching `mean`). Computed as
+— the fiber contraction ``f \\cdot g`` averaged over the domain; a scalar, intensive (matching `mean`). It is
+the **volume average** of the pointwise dot product over the periodic box ``\\Omega`` of volume ``|\\Omega|``,
+which on the grid is the equal-weight sum over the ``N`` cells (each of volume ``|\\Omega|/N``):
 
 ```math
-\\langle f, g\\rangle = \\frac1N \\sum_x f(x) \\cdot g(x).
+\\langle f, g\\rangle = \\frac{1}{|\\Omega|} \\int_\\Omega f(x) \\cdot g(x)\\, dx
+                      = \\frac1N \\sum_x f(x) \\cdot g(x).
 ```
 
 For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
@@ -220,10 +223,17 @@ end
 """
     l2norm(f)
 
-The **normalized L² norm** ``\\lVert f\\rVert_2 = \\sqrt{\\langle f, f\\rangle} = \\sqrt{\\langle |f|^2\\rangle}``
-of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``) — the root-mean-square of the fiber magnitude
-``|f|``. The ``p = 2`` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and — via
-the Parseval [`inner`](@ref) — for a field in spectral representation.
+The **normalized L² norm** of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``) — the root-mean-square
+of the fiber magnitude ``|f|`` over the periodic box ``\\Omega`` of volume ``|\\Omega|``:
+
+```math
+\\lVert f\\rVert_2 = \\sqrt{\\langle f, f\\rangle}
+                  = \\sqrt{\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^2\\, dx}
+                  = \\sqrt{\\frac1N \\sum_x |f(x)|^2}.
+```
+
+The ``p = 2`` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and — via the
+Parseval [`inner`](@ref) — for a field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
 l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
@@ -476,13 +486,15 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized Lᵖ norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is
-the pointwise fiber magnitude (the vertical `norm`). Computed as
+The **normalized Lᵖ norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the
+pointwise fiber magnitude (the vertical `norm`) — the ``L^p`` average over the periodic box ``\\Omega`` of
+volume ``|\\Omega|``, which on the grid is the equal-weight sum over the ``N`` cells:
 
 ```math
-\\lVert f\\rVert_p = \\Bigl(\\frac1N \\sum_x |f(x)|^p\\Bigr)^{1/p},
+\\lVert f\\rVert_p = \\Bigl(\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^p\\, dx\\Bigr)^{1/p}
+                   = \\Bigl(\\frac1N \\sum_x |f(x)|^p\\Bigr)^{1/p},
 \\qquad
-\\lVert f\\rVert_\\infty = \\max_x |f(x)|.
+\\lVert f\\rVert_\\infty = \\sup_{x \\in \\Omega} |f(x)| = \\max_x |f(x)|.
 ```
 
 ``p = 2`` reduces to [`l2norm`](@ref); ``p = \\infty`` is the sup of the fiber magnitude (e.g. the
