@@ -33,7 +33,7 @@ written and what keeps the GPU twin hassle-free.
 ```sh
 julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
-julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈98 (heavy; minutes)
+julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy; minutes)
 julia -t8 --project=examples examples/HIST_CPU.jl --fast  # 8 CPU threads (matters most at N ≥ 64)
 julia --project=examples examples/HIST_CPU.jl --smoke    # tiny, ~seconds, for a quick check
 julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot saved data, no re-run
@@ -94,7 +94,7 @@ log-midpoint proxy `√(τ_η·τ_u)` — so it needs no acceleration statistics
 
 At the default **32³** (`Re_λ ≈ 16`) there is essentially no inertial range, so the normalized curves
 form a hump rather than a plateau, and `λ ≈ L` (the scales have not separated) — expected, not a bug.
-**`--huge` (192³, `Re_λ ≈ 98`)** separates them cleanly (`λ/η ≈ 19`, `L/η ≈ 45`) and the Eulerian curve
+**`--huge` (192³, `Re_λ ≈ 93`)** separates them cleanly (`λ/η ≈ 19`, `L/η ≈ 43`) and the Eulerian curve
 approaches the plateau. The `spectrum` concentrates energy at large scales and falls through the
 dissipation range; `E(t)`, `ε(t)` are statistically steady past the spin-up.
 
@@ -142,7 +142,7 @@ index inside a package method *throws* — invariant 6 enforced, not trusted. De
 
 ```sh
 julia --project=examples/gpu/rocm -e 'using Pkg; Pkg.instantiate()'         # one-time (installs AMDGPU)
-julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈98
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
 ```
@@ -151,8 +151,8 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # qu
 over a preallocated workspace and the package's in-place operators are allocation-free (the spectral
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
-representative **192³ Float32** run on an RX 6700 XT (12 GB) reaches `Re_λ ≈ 98`, `k_max·η ≈ 1.1`
-(resolved), and sustains **≈ 42 ms/step** (2000 steps, ≈ 83 s of simulation), with the spectral-`inner`
+representative **192³ Float32** run on an RX 6700 XT (12 GB) reaches `Re_λ ≈ 93`, `k_max·η ≈ 1.13`
+(resolved), and sustains **≈ 34 ms/step** (8000 steps, ≈ 270 s of simulation), with the spectral-`inner`
 Parseval check matching the physical energy to all printed digits and `‖∇·u‖_rel ≈ 1e-8` (Float32
 roundoff). At fixed forcing the Reynolds number is set by `ν`, not the grid, so 192³ already gives the
 scale separation; a larger grid only adds dissipation-range resolution, at more memory (192³ is a

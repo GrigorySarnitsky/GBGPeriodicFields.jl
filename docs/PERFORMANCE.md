@@ -171,8 +171,8 @@ until VRAM fills and the run wedges (allocator spinning, GPU idle) or `hipMalloc
 the component broadcasts — each now allocates ``\sim 0`` bytes in place (measured; guarded by
 `test/allocations.jl`), with identical results. Payoff: a **preallocated, in-place** pseudospectral DNS
 step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
-(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``Re_\lambda \approx 98``) sustains **≈ 42 ms/step**
-(2000 steps, ≈ 83 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
+(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``Re_\lambda \approx 93``) sustains **≈ 34 ms/step**
+(8000 steps, ≈ 270 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
 use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`/`dev!`
 deliberately materialize one field and are the exceptions (use `maximum(abs, …)` for a CFL speed).
 [Decision 24.]

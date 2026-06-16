@@ -72,12 +72,38 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1,
 # A larger, still-quick configuration for nicer statistics (`--fast`) — 64³, more tracers.
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_stride = 2, snap_stride = 40)
 
-# A high-Reynolds configuration (`--huge`) — 192³ at a lower viscosity. The Reynolds number (Re_λ ≈ 98)
-# is set by ν, not the grid, so this already gives the scale separation λ ≪ L, τ_η ≪ τ_u; the grid only
-# has to RESOLVE it (k_max·η ≈ 1.1 here). 192³ is a comfortable fit on a 12 GB card (a larger grid only
-# adds dissipation-range margin, at more memory). Several minutes on the GPU.
-huge() = Params(N = 192, ν = 3.0e-3, n_spinup = 800, n_stats = 1200, n_particles = 8000,
+# A high-Reynolds configuration (`--huge`) — 192³ at a lower viscosity. The Reynolds number (Re_λ ≈ 93) is
+# set by ν, not the grid, so this already gives the scale separation λ ≪ L, τ_η ≪ τ_u; the grid only has to
+# RESOLVE it (k_max·η ≈ 1.13 here). 192³ is a comfortable fit on a 12 GB card. The CFL is conservative (0.3)
+# and ν carries a resolution margin **because the statistics-window Δt is frozen** (for a uniform Lagrangian
+# axis): over a long averaging window a CFL-tight, marginally-resolved run eventually hits a velocity peak
+# that the frozen Δt cannot handle and blows up — the conservative CFL is what keeps the long run stable.
+# n_spinup clears the initial energy overshoot; n_stats time-averages over a few of the forcing's
+# energy-oscillation periods (see the `mega` note below). A few minutes on the GPU.
+huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
+
+# Push the grid to 256³ (`--mega`) at a lower viscosity than `--huge` (measured Re_λ ≈ 109, k_max·η ≈ 1.34
+# — still comfortably resolved; ≈ 87 ms/step on an RX 6700 XT). This fits a 12 GB card only because *both*
+# the time loop and the diagnostics are allocation-bounded: the hot loop is allocation-free (decision 24),
+# and the radial-correlation/spectrum binning is a single scatter-add pass rather than a per-shell masked
+# reduction (decision 25) — the latter materialized ~N full-grid temporaries per snapshot that the GPU GC
+# could not reclaim, and used to wedge the card at the first snapshot. Footprint is now ~flat at the
+# preallocated working set (~6 GB, ≈ 8 GB peak through the snapshots). The viscosity carries a resolution
+# margin and the CFL is conservative (0.4) because the statistics-window Δt is frozen (for a uniform
+# Lagrangian axis): a marginally-resolved, CFL-tight high-Re run can blow up on an intermittent velocity
+# burst (the more aggressive ν = 2e-3 did exactly that, in particle advection).
+#
+# Stationarity: the band-rescaling forcing, started from a low-energy smooth initial condition, injects
+# energy faster than it dissipates, so E(t) overshoots its mean near t ≈ 7 turnovers and then *oscillates*
+# about it with a slowly-damped ≈ 7-turnover period (the forcing–dissipation lag) — it does not settle to a
+# flat plateau. n_spinup clears the large initial overshoot (measured in turnover times — at 256³ the finer
+# grid forces a smaller Δt, hence more steps than the coarser grids for the same physical time); the n_stats
+# window then captures the developed flow (a small ~5% residual oscillation about the mean). For a *longer*
+# averaging window, also lower the CFL as `huge` does — the frozen Δt is CFL-fragile over long runs, where
+# an energy-oscillation peak can eventually blow it up.
+mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.4, n_spinup = 3800, n_stats = 1200, n_particles = 8000,
+                rec_stride = 4, snap_stride = 100)
 
 
 # =============================================================================
@@ -378,7 +404,8 @@ end
 function main()
   p = ("--smoke" in ARGS) ? smoke() :
       ("--fast"  in ARGS) ? fast()  :
-      ("--huge"  in ARGS) ? huge()  : Params()
+      ("--huge"  in ARGS) ? huge()  :
+      ("--mega"  in ARGS) ? mega()  : Params()
   run_hist(p)
 end
 

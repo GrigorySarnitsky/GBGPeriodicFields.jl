@@ -1293,7 +1293,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     Net: each of the three now allocates ``\sim 0`` bytes in place (measured), with identical arithmetic
     and results (the full suite is unchanged) — so a preallocated, in-place pseudospectral step allocates
     nothing per step and runs on a 12 GB consumer GPU with **no manual `GC.gc()` / `reclaim`, at flat
-    VRAM** (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!42`` ms/step on
+    VRAM** (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!34`` ms/step on
     an RX 6700 XT). Guarded by `test/allocations.jl` (every in-place spectral operator, transform,
     `convolve!`, and fiber product/shuffle, both element types). The fiber norm, `lpnorm` and `dev!`
     deliberately materialize one field (a pointwise magnitude, or the trace they subtract) and are the
