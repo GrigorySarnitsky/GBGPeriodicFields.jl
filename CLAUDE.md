@@ -127,6 +127,19 @@ docstrings; they surface in each module's **Internal API** docs section via
 formula docstring lives on the builder) — consistent with "generators emit methods only —
 never docstrings", which governs generated methods, not the hand-written builders.
 
+**Physical-space meaning first — even for spectral-representation operations.** By invariant 2 a field is
+a real physical object and spectral is only a *representation*, so a docstring for an operation that is
+*computed* in spectral representation must still **state what it does to the real object in physical space
+first — with the explicit relation/formula — then give the spectral form** it actually uses. `Convolution`
+is the reference: `convolve` leads with the periodic filtering integral (f⋆g)(x) = ∫_Ω f(y)·g(x−y) dy (and
+its discrete circular sum) before the coefficientwise product f̂·ĝ; `assignment_window` leads with the
+linear/CIC B-spline "tent" cloud W(x) before returning its transfer function Ŵ. Give the physical form
+**whenever a clean one exists**; when it does not — a sharp spectral cutoff is a non-compact sinc/Dirichlet
+kernel, `squared_wavenumber_field` is the symbol of −∇² rather than a kernel — say so briefly rather than
+forcing it. **Correctness:** check the physical↔spectral relation is *exact* for the package's convention
+(unnormalized forward, invariant 4 — the convolution theorem holds for both the integral and the discrete
+sum); a stray 1/N, cell-volume, or |Ω| normalization factor is the easy slip here.
+
 **Math in docstrings and doc pages — rendered LaTeX, standard notation, symbol linked to code.**
 All mathematics in **docstrings and doc pages** is written as **rendered LaTeX** (Documenter's
 KaTeX), never Unicode-glyph approximations: inline as ``` ``\\langle f,g\\rangle`` ``` (double
