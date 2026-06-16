@@ -125,6 +125,13 @@ For each public operation, a test must establish:
 - [ ] **The in-place `!` form** with a caller-supplied destination, including the
       **aliasing branch** for alias-guarded operations (cross, transpose, sym/skew/dev,
       the curl/Helmholtz wrappers) — and, for `mul!`, the LinearAlgebra no-alias contract.
+- [ ] **Allocation-free** (invariant 13): every in-place `!` operator gets an `@allocated` assertion in
+      `allocations.jl` — on preallocated buffers with a distinct destination it allocates ``\sim 0``
+      field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
+      are counted, whereas GPU `@allocated` reports only the host wrapper of a device buffer and would miss
+      the materialization that wedges a hot loop (the code is generic, so a CPU materialization is a GPU
+      one). A deliberate materializer (`norm!`/`dev!`/`lpnorm`/`std`/`var`, the radial diagnostics, the
+      mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an O(N)/O(shells) regression.
 - [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).
 - [ ] **GPU parity** — the result matches the CPU path on a device array, under

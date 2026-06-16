@@ -74,6 +74,18 @@ user. The conceptual model and the writing/docstring conventions are recorded on
     integration, temporal interpolation, or per-step state; trajectory dynamics belong to the
     consumer. The interpolation data types follow this: `Point` (alias `SVector{3,T}`),
     `PointSet` (SoA positions), `PointValues` (three field-mirroring types). See `docs/ARCHITECTURE.md` §10.
+13. **Allocation-free is an enforced contract.** Every in-place `!` operator allocates **no** field-sized
+    scratch when called on preallocated buffers with a destination distinct from its sources — fuse
+    temporaries into the assignment, never materialize them. This is load-bearing for GPU hot loops: a
+    per-call device temporary escapes Julia's GC (which triggers on *host* pressure, blind to the *device*
+    buffer a dead array owns), so the pool grows every step until the run wedges (decisions 24, 25, 26).
+    Enforced **exhaustively** by `test/allocations.jl` via `@allocated` **on the CPU** — where a
+    materialized array's full bytes are counted; on the GPU it is a device buffer behind a tiny host
+    wrapper, invisible to `@allocated`, so a GPU measurement would miss the very leak that wedges a hot
+    loop. A new in-place op — or any function claimed allocation-free — **must** be added to that audit.
+    Deliberate materializers (`norm!`/`lpnorm`/`dev!`/`std`/`var`, the radial diagnostics, the mixed
+    spectral `inner(f, g)` — a strided-view `dot` being unavailable on the GPU) are the documented
+    exceptions and get a *bounded* regression guard, not a zero guard.
 
 ## Code generation rules (FiberSections + FieldAlgebra)
 
@@ -284,7 +296,9 @@ explicitly checked (not "should work", *done and verified*):
 1. **Correctness tests** — a CPU behaviour test against an *independent* oracle (analytic or
    hand-computed), over both element types and both bases where applicable, **and GPU parity**
    in `test/gpu/suite.jl` (device-vs-CPU under `allowscalar(false)`). The `docs/TESTING.md` §4
-   coverage contract is the spec.
+   coverage contract is the spec — and for an in-place `!` operator that includes an `@allocated`
+   assertion in `test/allocations.jl` (invariant 13: allocation-free, measured on the CPU; a deliberate
+   materializer gets a bounded guard instead).
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.

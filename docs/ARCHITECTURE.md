@@ -1336,3 +1336,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     on a 12 GB RX 6700 XT (``\approx 87`` ms/step) now runs to completion at a flat ``\sim\!6`` GB
     (``\approx 8`` GB peak) through its `radial_correlation` snapshots, where the per-shell form wedged at
     the first one.
+
+26. **Allocation-free in-place operators are a standing, exhaustively-enforced contract (generalizing 24
+    and 25).** Decisions 24 (the spectral operators) and 25 (the radial binning) each fixed *one* family
+    that allocated a per-call temporary the GPU could not afford. This decision promotes the property from
+    a sequence of point fixes to a package-wide invariant: **every in-place `!` operator allocates no
+    field-sized scratch** when called on preallocated buffers with a destination distinct from its sources
+    — kernels fuse their temporaries into the assignment, never materialize them. The motivation is the one
+    from decision 24: a solver applies these operators thousands of times per step, and on the GPU a
+    per-call temporary escapes Julia's garbage collector (which triggers on *host* memory pressure, while
+    the temporary is a *device* buffer behind a tiny host wrapper), so the device pool grows every step
+    until the run wedges or `hipMalloc` aborts.
+
+    *The enforcement is an exhaustive test, `test/allocations.jl`.* It warms one in-place call per signature
+    and asserts a second `@allocated` call stays below a small fraction of one field — across both element
+    types, both representations, tensor orders ``R = 0, 1, 2``, the field/constant/reversed and α/β argument
+    branches, the point-value algebra, and the spline transfer (the *whole* in-place surface, not a sample).
+    **It runs on the CPU on purpose:** there a materialized field is a host `Array` and `@allocated` counts
+    its full bytes, so a stray temporary trips the threshold; on the GPU the same `similar`/broadcast
+    allocates a *device* buffer whose host wrapper is only a few hundred bytes, so GPU `@allocated` would
+    report ``\sim 0`` and miss the leak. The operator code is generic over the array type, so a CPU
+    materialization *is* a GPU one — the CPU is simply where it is visible. The contract binds new code: a
+    new in-place operator (or any function documented allocation-free) must be added to the audit
+    (invariant 13; the §4 coverage contract in `docs/TESTING.md`).
+
+    *Documented exceptions — bounded, not zero.* A few operations materialize one field *by design* and are
+    excluded from the zero assertion, getting a *bounded* guard instead (catching a regression to ``O(N)`` —
+    or ``O(\text{shells})`` — extra while allowing the legitimate one-field temporary): the fiber
+    `norm!`/`lpnorm` (a pointwise magnitude), `dev!` (the trace it subtracts), `std`/`var` (deviations), and
+    the radial diagnostics (occasional, ``O(1)``-bounded). The spectral `inner` is the subtle case (``N``
+    the points per axis): `inner(f, f)` — an energy or `l2norm` — is allocation-free, since
+    ``\overline{\hat f}\,\hat f = |\hat f|^2`` is real and the whole Parseval sum, correction planes
+    included, is a fused `sum(abs2, …)`; but the mixed `inner(f, g)` of two distinct fields allocates an
+    ``O(N^2)`` kₓ-plane correction, because a `dot` over the strided plane view (which would fuse, no
+    temporary) is unsupported on the GPU (rocBLAS `dotc` has no strided method — verified on the device).
+    Consumers form a hot-loop energy as `inner(f, f)` or the physical `inner` (a contiguous `dot`); the
+    `examples/` forcing computes its band energy as `inner(u_band, u_band)` for exactly this reason. The
+    audit found the whole in-place surface already clean; the only allocation it surfaced was the mixed
+    spectral `inner`, resolved by the `inner(f, f)` fast path above.
