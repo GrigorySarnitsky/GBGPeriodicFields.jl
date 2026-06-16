@@ -613,4 +613,8 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   warrants it; a docstring/doc/example-only change needs only a load + the relevant doc
   build. Docs still deploy on push. (Sub-environment `Manifest`s under `docs/`, `test/gpu/*`,
   `benchmark/*` are gitignored and go stale locally when package deps change — `Pkg.resolve`
-  that env if precompile breaks; CI is unaffected.)
+  that env if precompile breaks; CI is unaffected.) **The two CPU lanes need a per-version
+  resolve locally:** the gitignored top-level `Manifest.toml` is Julia-version-specific, so a
+  1.12-resolved manifest makes `julia +1.11 … Pkg.test()` error immediately (`manifest generated
+  by a different version of Julia`) — move/clear `Manifest.toml` so 1.11 resolves fresh, then
+  restore the 1.12 one (CI is unaffected: each matrix job resolves from scratch on a clean checkout).
