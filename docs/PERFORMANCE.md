@@ -204,7 +204,7 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
 operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation
-transfer** (the spline schemes plus the spectral `DirectDFT`/`NUFFT`), and the
+transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
 `inner`, and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
