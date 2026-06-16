@@ -17,7 +17,7 @@
 #     kernel/coordinate builders (spectral_cutoff / spectral_band / squared_wavenumber_field),
 #     and interpolate.
 #   • There is now NOTHING device-special left to hand-roll. The forcing band is a
-#     `spectral_band` kernel (energy via `inner(convolve(û,band),û)`, rescale via
+#     `spectral_band` kernel (energy via `inner(u_band, u_band)`, rescale via
 #     `convolve`) and the energy spectrum is `radial_spectrum` (on-device shell binning,
 #     no host copy) — the same source as HIST_CPU.jl, run on device arrays. The only
 #     remaining non-package bits (examples/README.md gap list) are the random-solenoidal
@@ -162,14 +162,14 @@ end
 # =============================================================================
 # Forcing — hold the kinetic energy in shells 1 ≤ |k| ≤ k_force at E_force, now pure
 # package ops (identical to HIST_CPU.jl): `band` is a `spectral_band` mask kernel;
-# the band energy is ½ inner(convolve(û, band), û) (Parseval); rescaling the in-band
+# the band energy is ½ inner(u_band, u_band) (Parseval; the f===f inner is allocation-free); rescaling the in-band
 # modes is one more `convolve`. No precomputed mask / weight, no sum-reduction by
 # hand — all on-device (scaling preserves ∇·u = 0).
 # =============================================================================
 
 function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)                             # band-pass copy into scratch (no allocation)
-  band_kinetic = FT(0.5) * inner(ws.tmp, uh)              # ½⟨|u_band|²⟩ via Parseval (package inner)
+  band_kinetic = FT(0.5) * inner(ws.tmp, ws.tmp)         # ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
   band_kinetic < FT(1e-12) && return uh                   # guard (IC seeds the band)
   scale = sqrt(FT(p.E_force) / band_kinetic)
   convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)

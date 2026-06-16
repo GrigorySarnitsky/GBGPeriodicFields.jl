@@ -133,13 +133,13 @@ end
 # ## Forcing
 #
 # Hold the kinetic energy in shells `1 ≤ |k| ≤ k_force` at `E_force`, built entirely from package ops:
-# `band` is a `spectral_band` mask kernel; the band energy is `½ inner(convolve(û, band), û)` (Parseval);
+# `band` is a `spectral_band` mask kernel; the band energy is `½ inner(u_band, u_band)` (Parseval; the f===f inner is allocation-free);
 # rescaling the in-band modes is one more `convolve` (scaling preserves `∇·u = 0`). `convolve!` into the
 # scratch `ws.tmp` keeps it allocation-free, no scalar indexing.
 
 function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)                           # band-pass copy into scratch (no allocation)
-  band_kinetic = 0.5 * inner(ws.tmp, uh)                # ½⟨|u_band|²⟩ via Parseval (package inner)
+  band_kinetic = 0.5 * inner(ws.tmp, ws.tmp)           # ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
   band_kinetic < 1e-12 && return uh                     # guard (IC seeds the band)
   scale = sqrt(p.E_force / band_kinetic)
   convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)

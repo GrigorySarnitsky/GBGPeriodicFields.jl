@@ -1083,7 +1083,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       band-pass, the generalization of `spectral_cutoff` (now its `k_lo = 0` special case, refactored
       to delegate). Idempotent ⇒ a projection; it selects a wavenumber shell — a de-alias band, a
       forcing band, a filter ring. With it the demos' low-shell forcing becomes pure package ops:
-      band energy `= inner(convolve(u, band), u)`, then a rescaling `convolve` — no scalar indexing.
+      band energy `= inner(u_band, u_band)` with `u_band = convolve(u, band)`, then a rescaling `convolve`
+      — no scalar indexing, and the `inner(f, f)` form is allocation-free (its fused-`abs2` fast path).
     - **`radial_spectrum(f, multipliers)` (`Reductions`; introduced as `shell_spectrum`, renamed in
       decision 22)** — the **radial (shell-binned) power spectrum**: `inner` decomposed into isotropic
       ``|k|``-shells. Returns `(shells, spectrum)` with the exact refinement `sum(spectrum) == inner(f, f)`
