@@ -17,13 +17,13 @@
 # This page is generated from the runnable script
 # [`HIST_CPU.jl`](./HIST_CPU.jl) with [Literate.jl](https://github.com/fredrikekre/Literate.jl) (it is
 # *not* executed during the docs build); the figures are from the GPU twin `gpu/rocm/HIST_ROCm.jl`
-# (192³ Float32, `Re_λ ≈ 98`). The run is split **simulate → dump → plot** — every plotted curve is
+# (192³ Float32, `Re_λ ≈ 93`). The run is split **simulate → dump → plot** — every plotted curve is
 # written to an HDF5 file, so the figures can be re-styled without re-running the DNS:
 #
 # ```sh
 # julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
-# julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈98 (heavy)
+# julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
 # julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot, no re-run
 # ```
 #
@@ -64,10 +64,14 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1,
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_stride = 2, snap_stride = 40)
 
 # A high-Reynolds configuration (`--huge`) — 192³ at a lower viscosity, so the Reynolds number
-# (Re_λ ≈ 98) and the scale separation λ ≪ L, τ_η ≪ τ_u are large enough to read off the plots; the grid
-# resolves it (k_max·η ≈ 1.1). At fixed forcing Re_λ is set by ν, not the grid, so 192³ already gives the
-# separation; it is also a comfortable fit on a 12 GB GPU. Heavy: minutes on a GPU, much longer on the CPU.
-huge() = Params(N = 192, ν = 3.0e-3, n_spinup = 800, n_stats = 1200, n_particles = 8000,
+# (Re_λ ≈ 93) and the scale separation λ ≪ L, τ_η ≪ τ_u are large enough to read off the plots; the grid
+# resolves it (k_max·η ≈ 1.13). At fixed forcing Re_λ is set by ν, not the grid, so 192³ already gives the
+# separation; it is also a comfortable fit on a 12 GB GPU. The CFL is conservative (0.3) because the
+# statistics-window Δt is frozen (for a uniform Lagrangian axis): over a long averaging window a CFL-tight,
+# marginally-resolved run can hit a velocity peak the frozen Δt cannot handle and blow up. n_spinup clears
+# the initial energy overshoot; n_stats time-averages over a few of the forcing's energy-oscillation periods
+# (the band-rescaling forcing makes E(t) oscillate about its mean rather than settle flat). Heavy: minutes on a GPU, much longer on the CPU.
+huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
 
 
@@ -385,7 +389,7 @@ main()
 #md # ## Results
 #md #
 #md # Running the script writes the figures below — these are from the GPU twin (192³ `Float32`,
-#md # `Re_λ ≈ 98`). The headline is the Fig. A.1 layout: the Eulerian and Lagrangian trace structure
+#md # `Re_λ ≈ 93`). The headline is the Fig. A.1 layout: the Eulerian and Lagrangian trace structure
 #md # functions, each normalized by its Kolmogorov inertial scaling (a true inertial range would
 #md # plateau at 1), with the Taylor and integral scales marked — the integral length `L` and time
 #md # `τ_u` are measured from the velocity autocorrelations.
@@ -397,7 +401,10 @@ main()
 #md #
 #md # ![Spatial and Lagrangian velocity autocorrelations](autocorrelation.png)
 #md #
-#md # The energy spectrum, and the stationarity of `E(t)` and `ε(t)`:
+#md # The energy spectrum, and the `E(t)` / `ε(t)` history — the band-rescaling forcing makes the energy
+#md # oscillate slowly about its mean rather than settle flat, so the statistics are time-averaged over
+#md # several oscillation periods (the autocorrelation accumulates over all snapshots) to keep the means
+#md # representative:
 #md #
 #md # ![Energy spectrum](spectrum.png)
 #md #
@@ -408,5 +415,5 @@ main()
 #md # The device twin `gpu/rocm/HIST_ROCm.jl` runs this identical solver on `ROCArray`s (`Float32`,
 #md # `allowscalar(false)`). Because the time loop is in-place and the package's spectral operators are
 #md # allocation-free, it needs **no manual garbage collection** — the device memory pool stays flat and
-#md # it sustains ≈ 42 ms/step at 192³ on an RX 6700 XT. That hassle-free GPU behaviour is the whole point
+#md # it sustains ≈ 34 ms/step at 192³ on an RX 6700 XT. That hassle-free GPU behaviour is the whole point
 #md # of writing the solver preallocated and in-place.
