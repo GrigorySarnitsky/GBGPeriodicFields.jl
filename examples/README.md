@@ -34,6 +34,7 @@ written and what keeps the GPU twin hassle-free.
 julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy; minutes)
+julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (the documented figures; very heavy on CPU — hours)
 julia -t8 --project=examples examples/HIST_CPU.jl --fast  # 8 CPU threads (matters most at N ≥ 64)
 julia --project=examples examples/HIST_CPU.jl --smoke    # tiny, ~seconds, for a quick check
 julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot saved data, no re-run
@@ -102,7 +103,8 @@ dissipation range; `E(t)`, `ε(t)` are statistically steady past the spin-up.
 
 All in the `Params` struct at the top: `N`, `ν`, forcing band/energy (`k_force`, `E_force`), `cfl`,
 step counts (`n_spinup`, `n_stats`), `n_particles`, recording strides, `seed`. The
-`smoke()` / `fast()` / `huge()` configurations select 32³ / 64³ / 192³.
+`smoke()` / `fast()` / `huge()` / `mega()` configurations select 32³ / 64³ / 192³ / 256³ (the last is the
+documented-figure config — very heavy on the CPU; the GPU twin is the practical path to it).
 
 ---
 
