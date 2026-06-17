@@ -32,22 +32,29 @@ julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl
 
 If no functional device is present the suite warns and skips rather than failing.
 
-## Add the CUDA environment (NVIDIA)
+## Run on NVIDIA / CUDA
 
-Not committed yet — create it at the office by mirroring `rocm/`:
+```sh
+# one-time: resolve and install the environment (downloads the CUDA toolkit artifacts).
+# CUDA is already a dependency here and Manifests are gitignored, so instantiate
+# resolves it fresh against the [compat] bound.
+julia --project=test/gpu/cuda -e 'using Pkg; Pkg.instantiate()'
 
-1. `mkdir test/gpu/cuda`
-2. `test/gpu/cuda/Project.toml` — copy `rocm/Project.toml` verbatim (the `[deps]` and the
-   `[sources]` path are identical; the backend is added in the next step).
-3. `test/gpu/cuda/runtests.jl` — copy `rocm/runtests.jl` and swap the backend names:
-   `AMDGPU` → `CUDA`, `AMDGPU.ROCArray` → `CUDA.CuArray`,
-   `AMDGPU.functional` → `CUDA.functional`, `AMDGPU.allowscalar` → `CUDA.allowscalar`,
-   and set `GPU_BACKEND = "CUDA"`.
-4. Instantiate and run:
-   ```sh
-   julia --project=test/gpu/cuda -e 'using Pkg; Pkg.add("CUDA"); Pkg.instantiate()'
-   julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
-   ```
+# run the suite on the device
+julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
+```
+
+As with ROCm, the suite warns and skips if no functional device is present. (On a Pascal
+card such as the GTX 1070, CUDA.jl may warn that the compute capability is "not fully
+supported" by the auto-selected toolkit; the suite passes regardless.)
+
+## Adding another backend
+
+Mirror `rocm/` (or `cuda/`): a `Project.toml` with the same `[deps]` and `[sources]` path
+(swapping the GPU backend dependency), plus a thin `runtests.jl` that swaps the backend
+names — for CUDA, `AMDGPU` → `CUDA`, `AMDGPU.ROCArray` → `CUDA.CuArray`,
+`AMDGPU.functional` → `CUDA.functional`, `AMDGPU.allowscalar` → `CUDA.allowscalar`, and
+`GPU_BACKEND = "CUDA"`. The shared `suite.jl` needs no changes.
 
 ## What the suite checks
 

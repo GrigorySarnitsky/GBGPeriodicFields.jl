@@ -798,7 +798,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     generic over `AbstractArray`, FFT plans are built through `AbstractFFTs`
     (backend-dispatched on the array type) and allocations inherit their backend via
     `similar`, so a GPU backend is only ever a *test* dependency. It lives in
-    per-backend environments under `test/gpu/` (`rocm/` now, `cuda/` later), each
+    per-backend environments under `test/gpu/` (`rocm/` and `cuda/`), each
     instantiated only on matching hardware (AMD at home, NVIDIA at the office); a
     shared, backend-agnostic `suite.jl` runs the public surface on device arrays with
     `allowscalar(false)` — turning invariant 6 into a checked guarantee — and compares

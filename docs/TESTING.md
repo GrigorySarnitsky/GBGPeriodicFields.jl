@@ -150,7 +150,7 @@ possible because the data layer is generic over `AbstractArray`, FFT plans are b
 through `AbstractFFTs` (dispatched on the array type), and allocations inherit their
 backend via `similar` — so a field on a `ROCArray`/`CuArray` just works.
 
-- **Per-backend environments** live under `test/gpu/` (`rocm/` now, `cuda/` later). Each
+- **Per-backend environments** live under `test/gpu/` (`rocm/` and `cuda/`). Each
   is instantiated only on matching hardware (AMD at home, NVIDIA at the office); a no-GPU
   CI box never installs a vendor stack.
 - A single **backend-agnostic** `test/gpu/suite.jl` holds the test logic. A thin

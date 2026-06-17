@@ -393,7 +393,7 @@ those are the usual rot. Then the mechanical bar:
   compat bounds, stale deps, unbound type parameters, …).
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
 - GPU tests are **opt-in and separate** (not part of `Pkg.test()`): per-backend
-  environments under `test/gpu/` (`rocm/` now, `cuda/` later) run a backend-agnostic
+  environments under `test/gpu/` (`rocm/` and `cuda/`) run a backend-agnostic
   suite with scalar indexing disabled. Run on a machine with a device, e.g.
   `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl` (see `test/gpu/README.md`).
 - Benchmarks are **opt-in and separate** too (not part of `Pkg.test()`): the `benchmark/` suite
@@ -590,8 +590,8 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
 - **Deferred until a consumer makes them concrete** (the §2 rule against speculative structure):
   anisotropic / tensor-valued radial spectra `E_ij(κ)` + the Craya–Herring longitudinal/transverse
   split (shear-flow anisotropy diagnostics); higher positive-B-spline / signed-kernel RDF windows +
-  interlacing; matrix-valued convolution kernels; threaded reductions; CUDA verification (needs NVIDIA
-  hardware). Shear-flow support (Rogallo time-dependent multipliers + remeshing) stays consumer-side.
+  interlacing; matrix-valued convolution kernels; threaded reductions. Shear-flow support (Rogallo
+  time-dependent multipliers + remeshing) stays consumer-side.
 
 ## Working agreements
 
