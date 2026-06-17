@@ -294,8 +294,10 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
    the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
    and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
    unaffected (gcsample is cheap when there is nothing to collect).
-2. **CUDA** — `benchmark/gpu/cuda/` is added when an NVIDIA device is available (the suite already
-   supports it via `array_type = CuArray`).
+2. **CUDA results not yet in `RESULTS.md`.** The `benchmark/gpu/cuda/` env exists and runs (mirrors
+   `rocm/`, `array_type = CuArray`; verified on a GeForce GTX 1070 across all classes at 64³/128³, both
+   element types). Folding its numbers into the committed report is pending — on an 8 GB Pascal card it
+   is a 64³/128³ Float32 platform, not a 256³ characterization target.
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
    comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
