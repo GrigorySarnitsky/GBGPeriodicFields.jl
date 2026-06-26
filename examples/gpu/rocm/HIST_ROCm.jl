@@ -30,7 +30,8 @@
 #   julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm.h5
 #
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl            # full run (default 32³)
-#   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109 (the documented figures)
+#   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (the documented figures; 24 GB card)
+#   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³, for nicer statistics
 #   julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
@@ -102,6 +103,16 @@ huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700
 # run a CFL-tight, marginally-resolved field eventually hits a velocity peak the frozen Δt cannot handle.
 mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500, n_particles = 8000,
                 rec_stride = 4, snap_stride = 100)
+
+# `--giant` — 320³ at ν = 1.85e-3 (k_max·η ≈ 1.3, mega's resolution one grid level up): time-averaged
+# Re_λ ≈ 130, ≈ 96 ms/step at ~13 GB peak on a 24 GB RX 7900 XTX — the configuration behind the documented
+# figures. The 24 GB card's headroom is what unlocks it (mega's 256³ was the 12 GB card's ceiling). The
+# forcing oscillates (≈ 7-turnover period; see the `mega` note), so the long n_stats time-averages the
+# statistics over ~4–5 full oscillation periods, and the k(t)/ε(t) history shows that bounded oscillation
+# about a constant mean (Re_λ ≈ 130 is the time-averaged value, not an instantaneous one). The card also
+# reaches the 384³ ceiling (≈ 21 GB of the 24).
+giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16000, n_particles = 8000,
+                 rec_stride = 4, snap_stride = 100)
 
 
 # =============================================================================
@@ -403,6 +414,7 @@ function main()
   p = ("--smoke" in ARGS) ? smoke() :
       ("--fast"  in ARGS) ? fast()  :
       ("--huge"  in ARGS) ? huge()  :
+      ("--giant" in ARGS) ? giant() :
       ("--mega"  in ARGS) ? mega()  : Params()
   run_hist(p)
 end
