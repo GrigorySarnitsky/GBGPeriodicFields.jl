@@ -30,9 +30,17 @@ end
 
 include(joinpath(@__DIR__, "benchmarks.jl"))
 
-# Both element types by default; one is built at a time (see the loop) to bound memory.
+# Both element types and the standard grids by default; one (class, size, type) is built at a time
+# (see the loop) to bound memory. `CHAR_SIZES` / `CHAR_TYPES` override the grids / element types —
+# e.g. `CHAR_SIZES=512 CHAR_TYPES=Float32` runs only the 512³ Float32 point (the large-grid sweep
+# that would OOM in Float64 even on a 24 GB card — the heavy classes' working sets approach the
+# ceiling and a HIP OOM segfaults rather than erroring; see docs/PERFORMANCE.md §7).
 const CHAR_SIZES = haskey(ENV, "CHAR_SIZES") ?
   Tuple(parse.(Int, split(ENV["CHAR_SIZES"], ","))) : (64, 128, 256)
+_char_type(s) = s == "Float64" ? Float64 : s == "Float32" ? Float32 :
+  error("CHAR_TYPES entry must be Float64 or Float32, got $(repr(s))")
+const CHAR_TYPES = haskey(ENV, "CHAR_TYPES") ?
+  Tuple(_char_type(strip(s)) for s in split(ENV["CHAR_TYPES"], ",")) : TYPES
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 # On GPU, GC before each sample so allocating reductions (lpnorm's per-call magnitude temp) do not
 # exhaust the AMDGPU memory pool under BenchmarkTools' GC-free sampling loop — without this the
@@ -53,7 +61,7 @@ end
 # held live together exceed 12 GB of VRAM even for a single element type (a 4-class sweep fit, adding
 # reductions + convolution does not). Building a single class at a time bounds the working set to one
 # class's fields — a few GB at 256³ — well under the ceiling. Build → tune → run → free per class.
-for N in CHAR_SIZES, T in TYPES, class in RUN_CLASSES
+for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
   println(USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())", "  tuning + running $(class) $(T) $(N)^3 ...")
   flush(stdout)
   others = filter(!=(class), collect(CLASSES))

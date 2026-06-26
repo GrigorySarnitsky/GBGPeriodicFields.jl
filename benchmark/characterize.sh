@@ -7,6 +7,11 @@
 #   bash benchmark/characterize.sh
 #
 # Override the thread set:  THREADS="1 2 4 8 16" bash benchmark/characterize.sh
+# Per-lane overrides honored by characterize.jl (export here, or run that script directly): CHAR_SIZES
+# (grids, e.g. "64,128,256"), CHAR_TYPES ("Float64,Float32"), CHAR_SKIP (drop classes). E.g. a 512³
+# Float32 GPU lane skipping the memory-heavy classes (see docs/PERFORMANCE.md §7):
+#   CHAR_SIZES=512 CHAR_TYPES=Float32 CHAR_SKIP=transfer,reductions \
+#     julia --project=benchmark/gpu/rocm benchmark/characterize.jl gpu benchmark/results/gpu-512.json
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

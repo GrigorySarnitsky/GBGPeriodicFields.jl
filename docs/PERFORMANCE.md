@@ -255,7 +255,10 @@ that one script; it stamps the date, commit, and host.
 
 A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT). The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
-4-thread CPU. The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
+4-thread CPU. `RESULTS.md` now carries **three GPU columns** — the GTX 1070 (CUDA), the RX 6700 XT
+shown here, and the RX 7900 XTX (gfx1100, 24 GB), which at 256³ (kernel-dominated, not launch- or
+`gcsample`-floored) runs ~1.7–3.8× faster than the 6700 XT — widest in `Float32` — and adds a 512³
+`Float32` point. The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
@@ -283,7 +286,8 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
-across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
+across the CPU 1/2/4/8 thread sweep (i7-12700K) and three GPUs — GTX 1070 (CUDA), RX 6700 XT, and
+RX 7900 XTX, the last extended to a 512³ `Float32` point for the bandwidth-bound classes.
 
 **Gaps:**
 
@@ -294,10 +298,11 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
    the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
    and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
    unaffected (gcsample is cheap when there is nothing to collect).
-2. **CUDA results not yet in `RESULTS.md`.** The `benchmark/gpu/cuda/` env exists and runs (mirrors
-   `rocm/`, `array_type = CuArray`; verified on a GeForce GTX 1070 across all classes at 64³/128³, both
-   element types). Folding its numbers into the committed report is pending — on an 8 GB Pascal card it
-   is a 64³/128³ Float32 platform, not a 256³ characterization target.
+2. **CUDA is in `RESULTS.md`** (the **GPU 1070** column, resolved 2026-06-26). The `benchmark/gpu/cuda/`
+   env (mirrors `rocm/`, `array_type = CuArray`) ran on a GeForce GTX 1070 across all classes at
+   64³/128³, both element types, and its numbers now sit beside the two AMD cards in the committed
+   report. An 8 GB Pascal card is a 64³/128³ Float32 platform (it tops out below 256³), so those rows
+   read `—` at 256³/512³; it is also a *separate* host from `Aiporetne` (the report header states so).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
    comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
@@ -334,7 +339,17 @@ across the CPU 1/2/4/8 thread sweep and the GPU, on the RX 6700 XT + i7-12700K.
      is *idle* (wedged, hours).
 
    With the per-(op-class, size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The
-   standing limit is the 12 GB ceiling itself: even one class's both-element-type 256³ fields strain it
-   (hence the one-class-at-a-time build), and 512³ won't fit on this card. If a future OOM-segfault degrades the
-   context, reset with `rocm-smi --gpureset` from a console (it can crash an active display session)
-   or reboot. RDNA3 (gfx1100, e.g. 7900 XTX, 24 GB) should make 256³ trivial and 512³ feasible.
+   standing limit on the 6700 XT is the 12 GB ceiling itself: even one class's both-element-type 256³
+   fields strain it (hence the one-class-at-a-time build), and 512³ won't fit on that card. If a future
+   OOM-segfault degrades the context, reset with `rocm-smi --gpureset` from a console (it can crash an
+   active display session) or reboot.
+
+   **Update (2026-06-26, RX 7900 XTX, gfx1100, 24 GB).** On RDNA3 256³ is indeed trivial for every class
+   (both element types), and a **512³ `Float32`** point is now in `RESULTS.md` for the bandwidth-bound
+   classes (`fft`, `algebra`, `operators`, `convolution`). But 512³ is *not* free even at 24 GB:
+   `transfer` is omitted (its NUFFT oversamples ×2 to a 1024³ work grid) and `reductions` is omitted
+   (the radial diagnostics hold a ≈24 GB live set at 512³ — vector physical + spectral fields + the
+   inverse-rfft plans). A 512³ `Float64` sweep of the heavy classes exceeds 24 GB,
+   and a HIP OOM **wedges** the allocator (GPU 0 %, one host core spinning, VRAM full) rather than
+   erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
+   when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.

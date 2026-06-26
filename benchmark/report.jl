@@ -11,8 +11,15 @@ using Dates
 
 const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions")
 
-# cpu-t1.json → "CPU t1", gpu.json → "GPU"
-label_of(path) = (b = splitext(basename(path))[1]; b == "gpu" ? "GPU" : replace(b, "cpu-t" => "CPU t"))
+# cpu-t1.json → "CPU t1"; gpu-rx7900xtx.json → "GPU 7900XTX"; gpu-gtx1070.json → "GPU 1070";
+# a bare gpu.json / cuda.json → "GPU". The per-card suffix lets one report hold several devices.
+function label_of(path)
+  b = splitext(basename(path))[1]
+  startswith(b, "cpu-t") && return replace(b, "cpu-t" => "CPU t")
+  b in ("gpu", "cuda") && return "GPU"
+  startswith(b, "gpu-") && return "GPU " * uppercase(replace(b, "gpu-" => "", "rx" => "", "gtx" => ""))
+  return b
+end
 
 cell(group, class, key) = (haskey(group, class) && haskey(group[class], key)) ?
   BenchmarkTools.prettytime(time(minimum(group[class][key]))) : "—"
@@ -31,14 +38,19 @@ end
 
 io = IOBuffer()
 println(io, "# Benchmark results\n")
-println(io, "Minimum time per operation; `—` = not measured for that column. Generated ",
+println(io, "Minimum time per operation; `—` = not measured for that column (a device / grid / ",
+        "element-type combination not run). Generated ",
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
-        ", host `", gethostname(), "`. Columns below are the runs supplied; grids and element types ",
-        "are in the row labels. The **CPU thread sweep 1/2/4/8 and the GPU (RX 6700 XT, gfx1031, ROCm) ",
-        "all cover 64³–256³, every op-class incl. FFT.** The GPU sweep builds one (op-class, grid, ",
-        "element-type) at a time so the 256³ working set fits in 12 GB VRAM (PERFORMANCE.md §7). ",
-        "**Regenerate** with ",
-        "`benchmark/characterize.sh`. ~10% jitter.\n")
+        ", host `", gethostname(), "`. Columns are the supplied runs; grids and element types are ",
+        "in the row labels. **CPU** = i7-12700K thread sweep 1/2/4/8 (host `Aiporetne`). **GPUs**, ",
+        "newest last: **GTX 1070** (Pascal, CUDA, 8 GB — a *separate* office host, 64³/128³ only); ",
+        "**RX 6700 XT** (gfx1031, ROCm, 12 GB — `Aiporetne`, 64³–256³); **RX 7900 XTX** (gfx1100, ",
+        "ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the ",
+        "`transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ ",
+        "and the radial diagnostics' working set hits the 24 GB ceiling). The GPU sweep builds ",
+        "one (op-class, grid, element-type) at a time so the working set stays bounded ",
+        "(PERFORMANCE.md §7). **Regenerate** with `benchmark/characterize.sh` plus the per-card ",
+        "archive in `benchmark/results/` (PERFORMANCE.md §6). ~10% jitter.\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
