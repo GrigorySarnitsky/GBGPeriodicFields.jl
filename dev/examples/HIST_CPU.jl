@@ -28,14 +28,14 @@
 # This page is generated from the runnable script
 # [`HIST_CPU.jl`](./HIST_CPU.jl) with [Literate.jl](https://github.com/fredrikekre/Literate.jl) (it is
 # *not* executed during the docs build); the figures are from the GPU twin `gpu/rocm/HIST_ROCm.jl`
-# (``256^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 109``). The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
+# (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a 24 GB RX 7900 XTX). The run is split into **simulate**, **dump** and **plot** stages — every plotted curve is
 # written to an HDF5 file, so the figures can be re-styled without re-running the DNS:
 #
 # ```sh
 # julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 # julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
-# julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (the documented figures; very heavy on CPU)
+# julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (heaviest CPU config; very heavy on CPU)
 # julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot, no re-run
 # ```
 #
@@ -89,14 +89,14 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_s
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
 
-# The configuration behind the documented figures (`--mega`) — ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
-# the practical Reynolds-number ceiling for this scheme: ``\mathrm{Re}_\lambda \approx 109`` with
-# ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower ``\nu`` would raise
-# ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the marginally-resolved flow
-# blows up over a long run). Same recipe as `--huge`, one grid level up. This is the configuration the GPU
-# twin runs to produce the figures below; on the CPU it is reproducible but **very heavy** — hours of
-# wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles the GPU twin's footprint) — so the GPU twin is
-# the practical path to it.
+# The largest CPU-practical configuration (`--mega`) — ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
+# ``\mathrm{Re}_\lambda \approx 109`` with ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower
+# ``\nu`` would raise ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the
+# marginally-resolved flow blows up over a long run). Same recipe as `--huge`, one grid level up. On the CPU
+# it is reproducible but **very heavy** — hours of wall-clock and ``\gtrsim`` 12 GB of RAM (`Float64` doubles
+# the GPU twin's footprint). The **documented figures go one level further still** — the GPU twin's `--giant`
+# at ``320^{3}`` (``\mathrm{Re}_\lambda \approx 130``), which a 24 GB card's headroom unlocks; ``256^{3}`` was
+# the ceiling of the 12 GB card this scheme was first characterized on.
 mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500, n_particles = 8000,
                 rec_stride = 4, snap_stride = 100)
 
@@ -437,7 +437,8 @@ main()
 
 #md # ## Results
 #md #
-#md # The figures below are from the GPU twin (``256^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 109``). The
+#md # The figures below are from the GPU twin (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a
+#md # 24 GB RX 7900 XTX, time-averaged over several forcing-oscillation periods). The
 #md # headline is the pair of compensated structure functions: the **trace second-order velocity structure functions**, Eulerian and
 #md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
 #md # a plateau at ``1``. With ``\langle\cdot\rangle`` the average (over space/time origins), ``u`` the
@@ -496,5 +497,6 @@ main()
 #md # The device twin `gpu/rocm/HIST_ROCm.jl` runs this identical solver on `ROCArray`s (`Float32`,
 #md # `allowscalar(false)`). Because the time loop is in-place and the package's spectral operators are
 #md # allocation-free, it needs **no manual garbage collection** — the device memory pool stays flat and
-#md # it sustains ``\approx 87`` ms/step at ``256^{3}`` on an RX 6700 XT. That hassle-free GPU behaviour is the whole point
+#md # it sustains ``\approx 96`` ms/step at ``320^{3}`` on a 24 GB RX 7900 XTX (peak ``\approx 13`` GB; the card
+#md # reaches ``384^{3}`` at its ``\approx 21`` GB ceiling). That hassle-free GPU behaviour is the whole point
 #md # of writing the solver preallocated and in-place.
