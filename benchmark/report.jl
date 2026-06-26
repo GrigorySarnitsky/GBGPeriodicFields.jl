@@ -43,7 +43,7 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         Dates.format(now(), "yyyy-mm-dd"), " at commit `", commit, "` on Julia ", VERSION,
         ", host `", gethostname(), "`. Columns are the supplied runs; grids and element types are ",
         "in the row labels. **CPU** = i7-12700K thread sweep 1/2/4/8 (host `Aiporetne`). **GPUs**, ",
-        "newest last: **GTX 1070** (Pascal, CUDA, 8 GB — a *separate* office host, 64³/128³ only); ",
+        "newest last: **GTX 1070** (Pascal, CUDA, 8 GB — `Enteropia`, a *separate* office host, 64³/128³ only); ",
         "**RX 6700 XT** (gfx1031, ROCm, 12 GB — `Aiporetne`, 64³–256³); **RX 7900 XTX** (gfx1100, ",
         "ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the ",
         "`transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ ",

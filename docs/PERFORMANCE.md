@@ -302,7 +302,7 @@ RX 7900 XTX, the last extended to a 512³ `Float32` point for the bandwidth-boun
    env (mirrors `rocm/`, `array_type = CuArray`) ran on a GeForce GTX 1070 across all classes at
    64³/128³, both element types, and its numbers now sit beside the two AMD cards in the committed
    report. An 8 GB Pascal card is a 64³/128³ Float32 platform (it tops out below 256³), so those rows
-   read `—` at 256³/512³; it is also a *separate* host from `Aiporetne` (the report header states so).
+   read `—` at 256³/512³; it is also a *separate* host — `Enteropia`, the office workstation — not `Aiporetne`.
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
    comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
