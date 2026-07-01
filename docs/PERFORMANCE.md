@@ -255,10 +255,12 @@ that one script; it stamps the date, commit, and host.
 
 A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT). The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
-4-thread CPU. `RESULTS.md` now carries **three GPU columns** — the GTX 1070 (CUDA), the RX 6700 XT
-shown here, and the RX 7900 XTX (gfx1100, 24 GB), which at 256³ (kernel-dominated, not launch- or
-`gcsample`-floored) runs ~1.7–3.8× faster than the 6700 XT — widest in `Float32` — and adds a 512³
-`Float32` point. The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
+4-thread CPU. `RESULTS.md` now carries **two CPU thread sweeps** (i7-12700K and Ryzen 9800X3D) and
+**four GPU columns** — the GTX 1070 (Pascal, CUDA, pre-swap), the RX 6700 XT shown here, the RX 7900 XTX
+(gfx1100, 24 GB), and the RTX 5070 Ti (Blackwell sm_120, CUDA, 16 GB). At 256³ (kernel-dominated, not
+launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 6700 XT — widest in
+`Float32` — and adds a 512³ `Float32` point; the 5070 Ti covers the full 256³ matrix (both element
+types, all six classes). The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
@@ -283,11 +285,12 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 ## 7. Current coverage and known gaps
 
 **Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions)
-parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and ROCm GPU through one
+parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
-across the CPU 1/2/4/8 thread sweep (i7-12700K) and three GPUs — GTX 1070 (CUDA), RX 6700 XT, and
-RX 7900 XTX, the last extended to a 512³ `Float32` point for the bandwidth-bound classes.
+across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
+CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell sm_120, CUDA); the 7900 XTX is extended to
+a 512³ `Float32` point for the bandwidth-bound classes.
 
 **Gaps:**
 
@@ -298,11 +301,16 @@ RX 7900 XTX, the last extended to a 512³ `Float32` point for the bandwidth-boun
    the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
    and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
    unaffected (gcsample is cheap when there is nothing to collect).
-2. **CUDA is in `RESULTS.md`** (the **GPU 1070** column, resolved 2026-06-26). The `benchmark/gpu/cuda/`
-   env (mirrors `rocm/`, `array_type = CuArray`) ran on a GeForce GTX 1070 across all classes at
-   64³/128³, both element types, and its numbers now sit beside the two AMD cards in the committed
-   report. An 8 GB Pascal card is a 64³/128³ Float32 platform (it tops out below 256³), so those rows
-   read `—` at 256³/512³; it is also a *separate* host — `Enteropia`, the office workstation — not `Aiporetne`.
+2. **CUDA spans two NVIDIA generations, both on `Enteropia`** (the office box; CPU Ryzen 9800X3D).
+   `characterize.jl` now takes a `cuda` backend beside `gpu`/`rocm` (CuArray + `CUDA.reclaim()`, no
+   comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The archived
+   **GTX 1070** (Pascal, 8 GB) stays a 64³/128³ column — an 8 GB Pascal card tops out below 256³, so
+   those rows read `—`. Its in-place replacement, the **RTX 5070 Ti** (Blackwell sm_120, 16 GB), covers
+   the **full 64³–256³ matrix** (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
+   16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 5),
+   CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
+   ceiling is safe. `Enteropia` now also contributes its **9800X3D** CPU thread sweep beside the
+   i7-12700K (host `Aiporetne`).
 3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
    comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.

@@ -1,15 +1,26 @@
 # Exhaustive characterization run: all op-classes over grids 64³–256³, on the backend chosen by
-# ARGS[1] ("cpu"/"gpu"), saving a BenchmarkTools JSON to ARGS[2]. Runs **one (size, element-type) at a
-# time** (build → run → free) so peak memory stays bounded to a single grid + type — required on the
-# 12 GB GPU, where building all classes for both Float64 and Float32 at 256³ exhausts VRAM and HIP's
-# pool allocator segfaults rather than erroring (see docs/PERFORMANCE.md §6 gap 5). Thread count is
-# taken from the launch (`-tN`); the thread sweep is driven by benchmark/characterize.sh. Results are
-# assembled into the committed benchmark/RESULTS.md by benchmark/report.jl. See docs/PERFORMANCE.md §6.
+# ARGS[1] ("cpu" default; "gpu"/"rocm" = AMDGPU; "cuda" = NVIDIA), saving a BenchmarkTools JSON to
+# ARGS[2]. Runs **one (size, element-type) at a time** (build → run → free) so peak memory stays
+# bounded to a single grid + type — required on a memory-limited GPU, where building all classes for
+# both Float64 and Float32 at 256³ exhausts VRAM (on AMD, HIP's pool allocator segfaults rather than
+# erroring; CUDA OOMs gracefully — see docs/PERFORMANCE.md §6 gap 5). The GPU path is
+# backend-parametric: only the array type, the pool `reclaim()`, and the AMD-only code-object warm
+# differ. Thread count is taken from the launch (`-tN`); the thread sweep is driven by
+# benchmark/characterize.sh. Results are assembled into the committed benchmark/RESULTS.md by
+# benchmark/report.jl. See docs/PERFORMANCE.md §6.
 
 using BenchmarkTools
 
-const USEGPU = !isempty(ARGS) && ARGS[1] == "gpu"
-if USEGPU
+const BACKEND = isempty(ARGS) ? "cpu" : ARGS[1]
+const USECUDA = BACKEND == "cuda"
+const USEGPU  = USECUDA || BACKEND in ("gpu", "rocm")
+if USECUDA
+  @eval using CUDA
+  @eval CUDA.allowscalar(false)
+  ARRAY_TYPE = @eval CuArray
+  # CUDA JIT-compiles each kernel through the driver and caches SASS in ~/.nv/ComputeCache; there is
+  # no host-side comgr stall (the AMD trap below), so no explicit cache warm is needed.
+elseif USEGPU
   @eval using AMDGPU
   @eval AMDGPU.allowscalar(false)
   ARRAY_TYPE = @eval ROCArray
@@ -62,7 +73,8 @@ end
 # reductions + convolution does not). Building a single class at a time bounds the working set to one
 # class's fields — a few GB at 256³ — well under the ceiling. Build → tune → run → free per class.
 for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
-  println(USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())", "  tuning + running $(class) $(T) $(N)^3 ...")
+  println(USECUDA ? "CUDA" : USEGPU ? "ROCm" : "CPU-t$(Threads.nthreads())",
+          "  tuning + running $(class) $(T) $(N)^3 ...")
   flush(stdout)
   others = filter(!=(class), collect(CLASSES))
   suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
@@ -74,13 +86,13 @@ for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
   suite = nothing
   results = nothing
   GC.gc(true)                         # free this class's fields before the next (bounds peak memory)
-  # GC returns device memory to the AMDGPU pool, not the OS, so the pool's high-water mark would
+  # GC returns device memory to the driver's pool, not the OS, so the pool's high-water mark would
   # accumulate across iterations and 256³ eventually OOMs. reclaim() releases the freed blocks back to
-  # the OS so each (class, size, type) starts clean.
-  USEGPU && AMDGPU.reclaim()
+  # the OS so each (class, size, type) starts clean (both vendors pool and expose reclaim()).
+  USECUDA ? CUDA.reclaim() : (USEGPU && AMDGPU.reclaim())
 end
 
-label = USEGPU ? "ROCm / AMDGPU" : "CPU, $(Threads.nthreads()) thread(s)"
+label = USECUDA ? "CUDA / NVIDIA" : USEGPU ? "ROCm / AMDGPU" : "CPU, $(Threads.nthreads()) thread(s)"
 print_results(combined; label = label)
 if length(ARGS) ≥ 2
   mkpath(dirname(ARGS[2]))
