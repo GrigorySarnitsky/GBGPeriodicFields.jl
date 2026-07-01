@@ -192,6 +192,27 @@ per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (s
 (``\approx 8`` GB peak) through its snapshots, where the per-shell form wedged at the first one. The scatter contends on the small accumulator set, acceptable for an *occasional* diagnostic
 (not a per-step call); a privatized histogram is a possible future optimization. [Decision 25.]
 
+**(h) FFTW `ESTIMATE` can badly mis-plan single-precision transforms — pass `MEASURE` for production.**
+`FieldTransformPlans` builds its FFTW plans with the default `ESTIMATE` flag (instant, but it *guesses*
+the algorithm instead of timing candidates). On a Ryzen 9800X3D (Zen 5, stock FFTW 3.3.11) that guess is
+~5× too slow for the 256³ `Float32` transforms — in **both** directions, at every thread count — because
+its hardcoded single-precision codelet heuristics misjudge this CPU generation. Rebuilding with
+`FFTW.MEASURE` (a one-time, timed plan search) fixes it, and the planning cost (seconds) amortizes over a
+long run. Pure in-place transform, 256³ `Float32`, minimum time:
+
+| threads | c2r (`to_physical!`), `ESTIMATE`→`MEASURE` | r2c (`to_spectral!`), `ESTIMATE`→`MEASURE` |
+|---|---|---|
+| 1 | 163 → 30 ms (**5.4×**) | 167 → 31 ms (**5.3×**) |
+| 4 | 43.7 → 9.5 ms (**4.6×**) | 41.7 → 8.3 ms (**5.1×**) |
+| 8 | 23.5 → 6.8 ms (**3.4×**) | 21.8 → 4.8 ms (**4.5×**) |
+
+It is size- and CPU-specific (128³ is fine; the i7-12700K shows no such inversion) — a classic `ESTIMATE`
+pitfall on a new CPU, not a package issue. The default stays `ESTIMATE` (cheap, deterministic, right for
+tests and short runs); the escape hatch already exists,
+`FieldTransformPlans(phys, spec; fft_flags = FFTW.MEASURE)` (or `FFTW.PATIENT`). `MEASURE` overwrites its
+input arrays while planning, so build the plans on scratch fields before seeding data. The forced-HIT CPU
+example (`examples/HIST_CPU.jl`) now plans with `MEASURE`.
+
 
 ## 5. The benchmark suite
 

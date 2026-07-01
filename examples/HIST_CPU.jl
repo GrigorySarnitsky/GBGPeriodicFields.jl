@@ -45,6 +45,7 @@
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data, field_grid          # raw-array / grid accessors
 using Random, Statistics, Printf, LinearAlgebra
+import FFTW                                               # for the `MEASURE` planner flag (see the plan setup)
 
 const OUTDIR = joinpath(@__DIR__, "output")
 include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O, plots (shared)
@@ -295,9 +296,15 @@ function run_hist(p::Params)
   layout = RealFourierLayout()
   uphys0 = VectorFieldPhysical(zeros(p.N, p.N, p.N, 3), grid)
   uspec0 = VectorFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(1))), grid)
-  vplans = FieldTransformPlans(uphys0, uspec0)            # vector physical ↔ spectral
+  # Plan the transforms with FFTW's `MEASURE` planner instead of the default `ESTIMATE`: over a long run
+  # the one-time planning cost amortizes, and on some CPUs `ESTIMATE` badly mis-plans the single-precision
+  # transforms (up to ``\sim\!5\times`` slower at ``256^{3}``). `MEASURE` overwrites its input arrays while
+  # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
+  # condition below.
+  vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)   # vector physical ↔ spectral
   splans = FieldTransformPlans(ScalarFieldPhysical(zeros(p.N, p.N, p.N), grid),
-                               ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid))
+                               ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid);
+                               fft_flags = FFTW.MEASURE)
   m    = FieldSpectralMultipliers(uspec0)
   ksq  = real.(field_data(squared_wavenumber_field(uspec0, m)))   # |k|² (package), for the consumer symbols
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
