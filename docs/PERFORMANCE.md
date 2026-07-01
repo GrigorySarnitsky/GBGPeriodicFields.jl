@@ -281,7 +281,14 @@ last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and 
 (gfx1100, 24 GB), and the RTX 5070 Ti (Blackwell sm_120, CUDA, 16 GB). At 256³ (kernel-dominated, not
 launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 6700 XT — widest in
 `Float32` — and adds a 512³ `Float32` point; the 5070 Ti covers the full 256³ matrix (both element
-types, all six classes). The full operation × type × grid × thread/backend matrix is in `RESULTS.md`:
+types, all six classes). Across vendors the **reductions** class shows the widest gap and the
+clearest architectural signature: the radial diagnostics (`radial_spectrum`/`radial_correlation`)
+bin on an Atomix scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
+`radial_spectrum` at 256³ is ≈12× faster on the 5070 Ti than the 7900 XTX in `Float32`, widening to
+≈32× in `Float64` (92 → 2.9 ms); the extra `Float64` factor is the emulated-atomic penalty of §4(d)
+(RDNA has no native global `Float64` atomics), the 7900 XTX paying ≈4.3× for `Float32`→`Float64` on
+this op against the 5070 Ti's ≈1.7×. The full operation × type × grid × thread/backend matrix is in
+`RESULTS.md`:
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
