@@ -44,9 +44,10 @@ julia --project=test/gpu/cuda -e 'using Pkg; Pkg.instantiate()'
 julia --project=test/gpu/cuda test/gpu/cuda/runtests.jl
 ```
 
-As with ROCm, the suite warns and skips if no functional device is present. (On a Pascal
-card such as the GTX 1070, CUDA.jl may warn that the compute capability is "not fully
-supported" by the auto-selected toolkit; the suite passes regardless.)
+As with ROCm, the suite warns and skips if no functional device is present. Verified on an
+RTX 5070 Ti (Blackwell, `sm_120`) and, earlier, a GTX 1070 (Pascal). (On an older Pascal card
+such as the GTX 1070, CUDA.jl may warn that the compute capability is "not fully supported" by
+the auto-selected toolkit — harmless, the suite passes regardless; Blackwell needs no such caveat.)
 
 ## Adding another backend
 
