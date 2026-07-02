@@ -1126,7 +1126,7 @@ function sym! end
     sym(A::TensorFieldSpectral{2})
     sym(A::FiberTensor2)
 
-Allocate and compute the symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value.
+Allocate and compute the symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
 
 This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
 """
@@ -1147,7 +1147,7 @@ function skew! end
     skew(A::TensorFieldSpectral{2})
     skew(A::FiberTensor2)
 
-Allocate and compute the skew-symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value.
+Allocate and compute the skew-symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
 
 This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
 """
@@ -1168,7 +1168,7 @@ function dev! end
     dev(A::TensorFieldSpectral{2})
     dev(A::FiberTensor2)
 
-Allocate and compute the deviatoric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value.
+Allocate and compute the deviatoric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
 
 This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
 """
