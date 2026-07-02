@@ -33,6 +33,23 @@ function build_examples()
                     codefence = "```julia" => "```")
 end
 
+# The rendered-doc source set both lints scan: every `src/*.jl` docstring, the four rationale docs, and
+# every `docs/src` page except the gitignored rationale COPIES (which are linted from their sources).
+function _doc_lint_sources()
+  sources = String[]
+  for f in readdir(joinpath(@__DIR__, "..", "src"); join = true)
+    endswith(f, ".jl") && push!(sources, f)
+  end
+  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
+    push!(sources, joinpath(@__DIR__, name))
+  end
+  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md"])
+  for (root, _, files) in walkdir(joinpath(@__DIR__, "src")), f in files
+    endswith(f, ".md") && !(f in generated) && push!(sources, joinpath(root, f))
+  end
+  return sources
+end
+
 # Doc lint: an inline ``…`` math span must not be split across a source line by a CommonMark
 # list/blockquote leader. A wrapped continuation beginning with "- "/"* "/"+ "/"> "/"1." (≤ 3 leading
 # spaces) is parsed as a *new list item*, which silently drops the span out of math mode — and Documenter
@@ -44,19 +61,7 @@ end
 function lint_inline_math()
   leader = r"^\s{0,3}([-*+>]|\d+[.)])\s"
   twobacktick = r"(?<!`)``(?!`)"
-  sources = String[]
-  for f in readdir(joinpath(@__DIR__, "..", "src"); join = true)
-    endswith(f, ".jl") && push!(sources, f)
-  end
-  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
-    push!(sources, joinpath(@__DIR__, name))
-  end
-  # Skip the gitignored rationale COPIES (linted from their sources just above); lint everything else in
-  # src/, including the generated examples/hist_cpu.md (the Literate example's rendered prose).
-  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md"])
-  for (root, _, files) in walkdir(joinpath(@__DIR__, "src")), f in files
-    endswith(f, ".md") && !(f in generated) && push!(sources, joinpath(root, f))
-  end
+  sources = _doc_lint_sources()
   problems = String[]
   for file in sources
     isjl = endswith(file, ".jl")
@@ -85,10 +90,31 @@ function lint_inline_math()
   @info "doc lint: inline math OK across $(length(sources)) source files"
 end
 
+# Doc lint: canonical notation. A rendered-math token with a single house spelling must never appear in a
+# banned variant — a silent drift (the source parses, the page renders, yet the notation disagrees with its
+# sibling docstring). The allocating `divergence` once wrote its partial as `\partial_i` where `divergence!`
+# wrote `\partial_{x_i}`: one operation, one home, one notation (CLAUDE.md §Style, "the review unit is the
+# operation family and the cold read"). Extend `banned` as new canonical spellings are fixed.
+function lint_notation_variants()
+  banned = [
+    (r"\\partial_[ijk]",
+     "bare-index partial — write \\partial_{x_i} (subscript the coordinate, not the fiber index)"),
+  ]
+  srcs = _doc_lint_sources()
+  problems = String[]
+  for file in srcs, (n, line) in enumerate(eachline(file)), (re, msg) in banned
+    occursin(re, line) &&
+      push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n, "  ", msg))
+  end
+  isempty(problems) || error("doc lint failed — non-canonical notation:\n  " * join(problems, "\n  "))
+  @info "doc lint: notation OK across $(length(srcs)) source files"
+end
+
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
 lint_inline_math()
+lint_notation_variants()
 
 using Documenter
 using GBGPeriodicFields

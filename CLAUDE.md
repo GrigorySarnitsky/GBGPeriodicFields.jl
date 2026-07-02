@@ -262,7 +262,10 @@ skips the basics (how `f`/`x`/`q` slipped through a review). **Run this as a pos
 read-through** — an unbound symbol is invisible by omission (the eye supplies a plausible meaning and moves
 on), so *list every distinct symbol, sub/superscript, operator name, and bold/blackboard letter in the
 passage* and, for each, quote the clause that binds it; a symbol with no citable binding **is** the defect.
-Reading-to-notice missed exactly this class — the unbound all-ones `𝟙`, the `⟨·,·⟩_pts`/`⟨·,·⟩_grid`
+**The same defined-or-linked bar binds *terms of art*, not only symbols** — a noun that names a package
+concept (an *assignment*, a *section*, a *cutoff*, "the destination's length") must be explained in a clause
+on the page or `@ref`-linked, never left correct only to a reader who already holds the module's context;
+the acceptance test is the *cold read* (see the operation-family rule below). Reading-to-notice missed exactly this class — the unbound all-ones `𝟙`, the `⟨·,·⟩_pts`/`⟨·,·⟩_grid`
 inner-product measures, and the `sample`/`eval` operators all *looked* like ordinary math; **(3) Formatted —
 bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip; and ASCII-only math like
 `S = J*` — single letters joined by `=`/`*`/juxtaposition — which carries no math glyph, so it evades a
@@ -295,6 +298,38 @@ encodes this exact protocol; running it — or the equivalent surface-parallel f
 reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
 next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
 because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review.
+
+**The review unit is the operation family and the cold read — the two defects a per-docstring pass
+structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula
+true? each name backticked?), so two classes slip through by construction — one *relational*, one
+*audience-relative* — and both bit this session. **(1) Variant-pair drift.** One operation is documented
+across several bindings — the allocating `f` and the in-place `f!`, a getter and its `set_…!`, sometimes a
+physical and a spectral generic. The *operation's* defining math (the componentwise formula, the spectral
+kernel) has **one home** — the primary binding: the `!` form for the spectral operators (it owns the
+kernel), the getter for a getter/setter (it owns the meaning) — and every other variant is a **thin wrapper
+that leads with the one-sentence physical meaning, names its result intrinsically, and `@ref`-links the
+home**, carrying no second copy of the formula (`gradient` → *"Allocating form of [`gradient!`](@ref):
+allocate the result and return it. A scalar field gives its gradient vector field ∇φ; a vector field u gives
+∇u. See `gradient!` for the componentwise definition and the spectral kernel."*; `set_threading_cutoff!` →
+*"Set [`threading_cutoff`](@ref) to `n`…"*). This is "one concept, one home" and the cross-referencing
+*at-home test* applied to the **generic pair** — the site nobody audits, because each string reads fine
+alone; it *reconciles* with "physical-meaning-first outranks DRY" (the wrapper keeps the one plain-meaning
+sentence, sheds only the *re-derivation*). Typed twice, the math **drifts** — the allocating operators wrote
+the partial as `\partial_i` while the `!` forms wrote `\partial_{x_i}`, the "one notation per concept" rule
+broken *across* the pair and invisible to a within-string sweep. **Guards:** the wrapper of each `f`/`f!` and
+getter/`set_…!` pair must carry **no** display formula and **must** link its home; and a banned-variant grep
+(bare-index `\partial_[ijk]` empty; canonical `\partial_{x_i}`) is **build-enforced** by `docs/make.jl`'s
+`lint_notation_variants()`. **(2) Cold-reader opacity.** A docstring can bind every *symbol* (passing
+*Self-contained*) yet be unreadable to someone who has not read the module, because its **terms of art are
+nouns, not symbols**: `threading_cutoff` said "the element count at or above which an *assignment* is split"
+— every word defined *elsewhere*, none on the page. Extend the defined-or-linked bar from symbols to
+**nouns** (checklist (2)): the first sentence says what the thing *is* in plain words, and a term naming a
+package concept is inlined in a clause or `@ref`-linked on first use. **Acceptance test — the cold read:**
+parse the docstring with the module's context withheld; a noun that silently assumes you already know the
+package is the defect. Both are family/context properties, so neither guard is another per-string grep —
+`/check-docs` adds a lane that **groups each operation's generics and diffs them** and a lane that **reads
+each exported docstring in isolation**; when one instance surfaces, sweep the *class* across every family per
+"fix the class, not the line".
 
 **A Literate example (e.g. `examples/HIST_CPU.jl`) IS a rendered doc page — sweep and verify it like one.**
 Every **full-line `# ` comment becomes Markdown prose** on the built page (only inline `# …` after code on the

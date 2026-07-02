@@ -37,6 +37,11 @@ reading is not a check.
    the imaginary unit `i`, plain summation indices — needs no binding.) **And, separately, from each
    docstring's *signature*:** enumerate every argument (positional *and* keyword) and cite where the body
    documents it — an argument mentioned only *inside a formula* reads as bound-by-use and is `UNDOCUMENTED`.
+   **And the same bar binds *terms of art*, not only symbols:** a noun naming a package concept (an
+   *assignment*, a *section*, a *cutoff*, "the destination's length") must be explained in a clause on the
+   page or `@ref`-linked, not left correct only to a reader who already knows the package — the **cold read**
+   (parse the docstring with the module's source withheld) is the test (`threading_cutoff`'s "element count
+   … assignment" passed the symbol sweep and still baffled a fresh reader). Run this in the cold-reader lane.
 3. **Notation — one symbol per concept, one concept per symbol, and coordinate-free** — flag a concept
    wearing two symbols; a glyph with two meanings in one section; and basis-dependent *section-level*
    machinery (a dense map matrix `W_{pn}`, an all-ones vector `𝟙`, flattening a section space `ℝ^N⊗V` to
@@ -57,26 +62,38 @@ reading is not a check.
    written, against the current `export`s / method set.
 6. **Cited** — context-standard author–year; ≤3 authors named, `First et al.` for 4+; inline references
    verbatim-consistent with the `ARCHITECTURE.md` §References entry.
+7. **Consistent across variant pairs** (the `src/` docstrings — *relational*, not per-surface) — group each
+   operation's generics (allocating `f` / in-place `f!`, getter / `set_…!`, physical / spectral) and confirm
+   the defining math (formula, spectral kernel) lives in **one home**, every other variant a thin
+   `@ref`-linking wrapper with no second copy of the formula and no notation that differs across the pair
+   (the `\partial_i` vs `\partial_{x_i}` drift). Checks 1–6 each run inside one string and cannot see this;
+   run it in the family lane. See `CLAUDE.md` §Style, "the review unit is the operation family and the cold read".
 
 `CLAUDE.md` (the doc-edit checklist and the standing notation/structure rules) holds the authoritative
 definitions; this command runs all of them.
 
 ## Mechanism
 
-- Fan out subagents across the surfaces in parallel — each runs ALL six checks on its surface via the
+- Fan out subagents across the surfaces in parallel — each runs checks 1–6 on its surface via the
   positive procedures above, reading `src/` as ground truth, and returns genuine findings with evidence and
   a proposed fix.
+- Two **cross-cutting lanes** (their grouping is not per-surface, so the surface agents cannot run them):
+  a **family lane** that enumerates each operation's `f`/`f!` (and getter/`set_…!`) generics and diffs their
+  docstrings for one-home + notation (check 7); and a **cold-reader lane** — an agent handed each exported
+  docstring's text *alone, without the module's source*, reporting every term of art it cannot parse (check
+  2's audience half). Neither is expressible as a grep.
 - Run the deterministic grep/awk guards below, plus a bare-module-name scan and a glyph-vs-backtick scan
-  (Unicode math *outside* a backtick span). Inline-math-on-one-line is **build-enforced** —
-  `docs/make.jl`'s `lint_inline_math()` errors the build on a span split by a list leader — so the rebuild
-  below IS that guard; the **argument-coverage** sweep (from each signature, positional + keyword; §Style)
-  runs inside check 2.
+  (Unicode math *outside* a backtick span). Inline-math-on-one-line and canonical notation are
+  **build-enforced** — `docs/make.jl`'s `lint_inline_math()` errors on a span split by a list leader and
+  `lint_notation_variants()` on a bare-index `\partial_[ijk]` — so the rebuild below IS those guards; the
+  **argument-coverage** sweep (from each signature, positional + keyword; §Style) runs inside check 2.
 
 ```bash
 grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs                         # tables top-level only — must be empty
 grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src docs/src docs/*.md      # formula-in-backticks → should be ``LaTeX``
 grep -rnE '\$[^$]*[\\_^{}][^$]*\$' docs                           # stray TeX $…$ → use ``…`` / ```math```
 grep -rniE '\bknobs?\b' docs src examples                         # neutral register — must be empty
+grep -rnE '\\partial_[ijk]' src docs/*.md docs/src                # bare-index ∂ → canonical \partial_{x_i}; build-enforced, must be empty
 awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/*.jl  # wide docstring signatures — FNR (per-file), NOT NR
 ```
 
@@ -90,4 +107,6 @@ awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{pr
 
 Report the full matrix: which surfaces × checks were run, the findings (class and count) with fixes, and
 what was verified clean — including the `FORMALIZATION.md` coverage (every nontrivial operation has a typed
-entry, each test-linked). Done only when every cell is covered and the build is clean.
+entry, each test-linked), the **family lane**'s one-home/notation audit of each `f`/`f!` pair, and the
+**cold-reader lane**'s pass over the exported docstrings. Done only when every cell is covered and the build
+is clean.
