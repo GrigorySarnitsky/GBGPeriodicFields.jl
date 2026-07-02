@@ -21,7 +21,7 @@
 # where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the
 # nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
 # *exactly* through the integrating factor ``\exp(-\nu\,\kappa^{2}\,\Delta t)`` and the nonlinear term explicitly
-# (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest-shell energy fixed
+# (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest shells' band energy fixed
 # (statistical stationarity, no tuning). The time loop is the consumer's — the package has no concept of
 # time, by design.
 #
@@ -163,7 +163,7 @@ end
 
 # ## Forcing
 #
-# Hold the kinetic energy in the shells ``1 \le \lvert\mathbf{k}\rvert \le`` `k_force` at `E_force`, built
+# Hold the kinetic energy in the shells from ``\lvert\mathbf{k}\rvert = 1`` up to `k_force` at `E_force`, built
 # entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
 # ``\tfrac12\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
 # (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
@@ -272,7 +272,7 @@ end
 
 # ## Statistics
 #
-# The trace structure functions (`lagrangian_stats`), the Lagrangian velocity autocorrelation, and the
+# The Lagrangian trace structure function (`lagrangian_stats`), the Lagrangian velocity autocorrelation, and the
 # integral-scale reduction (`integral_scale`) live in the shared `hist_postprocess.jl`. The Eulerian
 # integral length comes from the package's `radial_correlation` (in the driver below); the Lagrangian
 # integral time from `lagrangian_stats`.
