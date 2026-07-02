@@ -81,7 +81,13 @@ definitions; this command runs all of them.
   a **family lane** that enumerates each operation's `f`/`f!` (and getter/`set_…!`) generics and diffs their
   docstrings for one-home + notation (check 7); and a **cold-reader lane** — an agent handed each exported
   docstring's text *alone, without the module's source*, reporting every term of art it cannot parse (check
-  2's audience half). Neither is expressible as a grep.
+  2's audience half). Neither is expressible as a grep. **Substrate rule for the cold-reader lane:** feed it
+  the reader's *actual* `?name` view — include the **module docstring** (`?Module`), and **every** method
+  docstring of a generic (Julia renders all of them), never one collapsed docstring. A substrate that skips
+  the module docstring or shows one method of a multi-method generic makes the lane over-flag things
+  documented centrally or on a sibling method, so **verify every cold-reader finding against source before
+  fixing** (one sweep raised four such false positives — a module-documented argument, a multi-method verb
+  pair, an operator pair, a core supertype — every one deflated on a code-check).
 - Run the deterministic grep/awk guards below, plus a bare-module-name scan and a glyph-vs-backtick scan
   (Unicode math *outside* a backtick span). Inline-math-on-one-line and canonical notation are
   **build-enforced** — `docs/make.jl`'s `lint_inline_math()` errors on a span split by a list leader and
