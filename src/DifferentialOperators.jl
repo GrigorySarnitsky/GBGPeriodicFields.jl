@@ -240,10 +240,9 @@ end
 """
     gradient(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the gradient ``\\nabla`` of a field in spectral representation.
-
-For a scalar field this returns a vector field (``(\\nabla\\varphi)_i = \\partial_i\\varphi``); for a
-vector field, a second-order tensor field (``(\\nabla u)_{ij} = \\partial_j u_i``).
+Allocating form of [`gradient!`](@ref): allocate the result and return it. A scalar field ``\\varphi``
+gives its gradient vector field ``\\nabla\\varphi``; a vector field ``u`` gives the second-order tensor
+field ``\\nabla u``. See `gradient!` for the componentwise definition and the spectral kernel.
 """
 function gradient end
 
@@ -334,10 +333,9 @@ end
 """
     divergence(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the divergence ``\\nabla\\cdot`` of a field in spectral representation.
-
-For a vector field this returns a scalar field (``\\nabla\\cdot u = \\partial_i u_i``); for a
-second-order tensor field, a vector field (``(\\nabla\\cdot A)_i = \\partial_j A_{ij}``).
+Allocating form of [`divergence!`](@ref): allocate the result and return it. A vector field ``u`` gives
+its scalar divergence ``\\nabla\\cdot u``; a second-order tensor field ``A`` gives the vector field
+``\\nabla\\cdot A``. See `divergence!` for the componentwise definition and the spectral kernel.
 """
 function divergence end
 
@@ -424,7 +422,8 @@ end
 """
     curl(field, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the curl ``\\nabla\\times u`` of a vector field in spectral representation.
+Allocating form of [`curl!`](@ref): allocate the result and return it, the curl ``\\nabla\\times u`` of a
+vector field. See `curl!` for the componentwise definition and the spectral kernel.
 """
 function curl end
 
@@ -473,9 +472,9 @@ end
 """
     laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the Laplacian ``\\Delta`` (``\\widehat{\\Delta f}(k) = -|k|^2 \\hat f(k)``) of a field in spectral representation.
-
-This operation is representation-preserving: scalar fields return scalar fields, vector fields return vector fields, and tensor fields return tensor fields of the same tensor order.
+Allocating form of [`laplacian!`](@ref): allocate the result and return it, the Laplacian ``\\Delta f``.
+Representation-preserving (scalar, vector, or tensor field of the same tensor order). See `laplacian!` for
+the spectral form ``-|k|^2``.
 """
 function laplacian end
 
@@ -528,9 +527,9 @@ end
 """
     inverse_laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the zero-mean inverse Laplacian ``\\Delta^{-1}`` (``\\widehat{\\Delta^{-1} f}(k) = -\\hat f(k)/|k|^2`` for ``k \\ne 0``, zero mode set to zero) of a field in spectral representation.
-
-This operation is representation-preserving: scalar fields return scalar fields, vector fields return vector fields, and tensor fields return tensor fields of the same tensor order.
+Allocating form of [`inverse_laplacian!`](@ref): allocate the result and return it, the zero-mean inverse
+Laplacian ``\\Delta^{-1} f`` (the zero Fourier mode is set to zero). Representation-preserving (scalar,
+vector, or tensor field of the same tensor order). See `inverse_laplacian!` for the spectral form.
 """
 function inverse_laplacian end
 
@@ -608,9 +607,9 @@ end
 """
     helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-Allocate and return the Helmholtz (Leray) projection ``\\mathbb P`` of a vector field in spectral representation: ``\\widehat{(\\mathbb P u)}_i(k) = (\\delta_{ij} - k_i k_j/|k|^2)\\,\\hat u_j(k)``.
-
-The returned vector field is the divergence-free part of `field`, with the zero Fourier mode left unchanged.
+Allocating form of [`helmholtz_projection!`](@ref): allocate the result and return it, the Helmholtz
+(Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with the zero Fourier
+mode left unchanged. See `helmholtz_projection!` for the spectral form.
 """
 function helmholtz_projection end
 
