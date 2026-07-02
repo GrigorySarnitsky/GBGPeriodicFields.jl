@@ -53,7 +53,7 @@ include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O,
 
 # ## Parameters
 #
-# The knobs of the run. `smoke()` / `fast()` / `huge()` / `mega()` select ``32^{3}`` / ``64^{3}`` /
+# The options of the run. `smoke()` / `fast()` / `huge()` / `mega()` select ``32^{3}`` / ``64^{3}`` /
 # ``192^{3}`` / ``256^{3}``.
 
 Base.@kwdef struct Params
