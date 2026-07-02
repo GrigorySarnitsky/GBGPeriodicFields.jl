@@ -340,7 +340,7 @@ end
     _locate(coordinate, origin, spacing, number_of_grid_points)
 
 Return `(base_cell, t)` for one axis: the zero-based index `base_cell` of the left node of the cell
-containing `coordinate`, and the fractional position `t ∈ [0,1)` within it. Periodic wrapping of the
+containing `coordinate`, and the fractional position ``t \\in [0, 1)`` within it. Periodic wrapping of the
 stencil is applied later via `mod`. Pure scalar arithmetic, kernel-safe.
 """
 @inline function _locate(coordinate::T, origin::T, spacing::T, number_of_grid_points::Int) where {T}

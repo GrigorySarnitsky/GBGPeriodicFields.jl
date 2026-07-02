@@ -33,9 +33,62 @@ function build_examples()
                     codefence = "```julia" => "```")
 end
 
+# Doc lint: an inline ``…`` math span must not be split across a source line by a CommonMark
+# list/blockquote leader. A wrapped continuation beginning with "- "/"* "/"+ "/"> "/"1." (≤ 3 leading
+# spaces) is parsed as a *new list item*, which silently drops the span out of math mode — and Documenter
+# does NOT flag it (the page builds, then renders the LaTeX as literal text). This guard fails the build
+# instead; keep each inline span on one source line (break the prose around it, not the span). The α/β
+# convolution formula `dst .= α ĝ·f̂ + β dst` wrapping onto a "+ …" line was exactly this bug. Must run
+# after `build_examples()` so the generated `examples/hist_cpu.md` (the Literate example's rendered prose)
+# exists to be linted.
+function lint_inline_math()
+  leader = r"^\s{0,3}([-*+>]|\d+[.)])\s"
+  twobacktick = r"(?<!`)``(?!`)"
+  sources = String[]
+  for f in readdir(joinpath(@__DIR__, "..", "src"); join = true)
+    endswith(f, ".jl") && push!(sources, f)
+  end
+  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
+    push!(sources, joinpath(@__DIR__, name))
+  end
+  # Skip the gitignored rationale COPIES (linted from their sources just above); lint everything else in
+  # src/, including the generated examples/hist_cpu.md (the Literate example's rendered prose).
+  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md"])
+  for (root, _, files) in walkdir(joinpath(@__DIR__, "src")), f in files
+    endswith(f, ".md") && !(f in generated) && push!(sources, joinpath(root, f))
+  end
+  problems = String[]
+  for file in sources
+    isjl = endswith(file, ".jl")
+    indoc = !isjl                 # .md renders entirely; .jl renders only inside """ … """ docstrings
+    infence = false
+    inspan = false                # inside an unclosed inline ``…`` span
+    for (n, line) in enumerate(eachline(file))
+      # This package writes every docstring delimiter as a lone `"""` on its own line, so toggle on that —
+      # robust against a triple-quoted string *literal* in code (whose opening `x = """` is never lone).
+      if isjl && strip(line) == "\"\"\""
+        indoc = !indoc; inspan = false; continue
+      end
+      indoc || continue
+      if startswith(strip(line), "```")
+        infence = !infence; inspan = false; continue
+      end
+      infence && continue
+      if inspan && occursin(leader, line)
+        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n,
+                               "  inline ``math`` broken across a line by a list/blockquote leader"))
+      end
+      isodd(count(twobacktick, line)) && (inspan = !inspan)
+    end
+  end
+  isempty(problems) || error("doc lint failed — keep inline math on one line:\n  " * join(problems, "\n  "))
+  @info "doc lint: inline math OK across $(length(sources)) source files"
+end
+
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
+lint_inline_math()
 
 using Documenter
 using GBGPeriodicFields

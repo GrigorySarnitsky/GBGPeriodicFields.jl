@@ -99,7 +99,7 @@ form a hump rather than a plateau, and `λ ≈ L` (the scales have not separated
 approaches the plateau. The `spectrum` concentrates energy at large scales and falls through the
 dissipation range; `E(t)`, `ε(t)` are statistically steady past the spin-up.
 
-### Knobs
+### Options
 
 All in the `Params` struct at the top: `N`, `ν`, forcing band/energy (`k_force`, `E_force`), `cfl`,
 step counts (`n_spinup`, `n_stats`), `n_particles`, recording strides, `seed`. The

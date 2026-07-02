@@ -99,8 +99,8 @@ Abstract supertype for field values sampled at the `M` positions of a [`PointSet
 the real scalar type; `R` is the tensor order (an integer value parameter). Point values are
 **representation-free** — a sampled value is always a physical-space quantity, so there is no
 physical/spectral distinction here, unlike the field types. Concrete subtypes:
-[`ScalarPointValues`](@ref) (`R = 0`), [`VectorPointValues`](@ref) (`R = 1`),
-[`TensorPointValues`](@ref) (`R ≥ 2`).
+[`ScalarPointValues`](@ref) (``R = 0``), [`VectorPointValues`](@ref) (``R = 1``),
+[`TensorPointValues`](@ref) (``R \\ge 2``).
 """
 abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 

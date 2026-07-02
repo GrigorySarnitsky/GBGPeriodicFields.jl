@@ -71,8 +71,8 @@ export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_f
 """
     _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
 
-Apply the coefficientwise spectral product ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f
-+ \\beta\\,\\mathrm{dst}`` (``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`) — the
+Apply the coefficientwise spectral product ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f + \\beta\\,\\mathrm{dst}``
+(``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`) — the
 periodic convolution ``f \\star g`` in spectral representation, with
 `kernel_data` ``= \\hat g``. The scalar `kernel_data` (`(Nx, Ny, Nz)`) broadcasts over the fiber
 components of `source_data`, exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor

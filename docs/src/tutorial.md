@@ -97,7 +97,7 @@ julia> round(sum(spectrum); digits = 4)   # Σ E(k) = inner(u, u)
 ## Convolution (apply a Fourier kernel)
 
 `convolve` applies a kernel (a `ScalarFieldSpectral`) as the coefficientwise product. `spectral_cutoff`
-builds an isotropic sharp low-pass — here keeping `|k| ≤ 4`:
+builds an isotropic sharp low-pass — here keeping ``|k| \le 4``:
 
 ```jldoctest tutorial
 julia> cutoff = spectral_cutoff(uh, multipliers, 4.0);

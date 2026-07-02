@@ -34,7 +34,9 @@ reading is not a check.
    **no test link**, as a coverage gap.
 2. **Self-contained** — enumerate every symbol, sub/superscript, operator name, and bold/blackboard letter;
    cite the clause that binds each; flag any unbound. (Universally standard math — `∇`, `Δ`, `∫`, `ℝ`, `π`,
-   the imaginary unit `i`, plain summation indices — needs no binding.)
+   the imaginary unit `i`, plain summation indices — needs no binding.) **And, separately, from each
+   docstring's *signature*:** enumerate every argument (positional *and* keyword) and cite where the body
+   documents it — an argument mentioned only *inside a formula* reads as bound-by-use and is `UNDOCUMENTED`.
 3. **Notation — one symbol per concept, one concept per symbol, and coordinate-free** — flag a concept
    wearing two symbols; a glyph with two meanings in one section; and basis-dependent *section-level*
    machinery (a dense map matrix `W_{pn}`, an all-ones vector `𝟙`, flattening a section space `ℝ^N⊗V` to
@@ -44,7 +46,10 @@ reading is not a check.
    coordinate/matrix expansions — but still subject to *Correct*.)
 4. **Formatted (bidirectional)** — math is LaTeX, never backticks (incl. ASCII-math like `S = J*` that
    carries no glyph); every code identifier / type / module name is backticked, never bare; check BOTH
-   directions. Markdown tables top-level, never indented in a list.
+   directions. Markdown tables top-level, never indented in a list. Also the *silent* failures (source looks
+   right, page renders broken): a code name never *inside* a ``…`` span, a formula never split across a
+   ``…``/`` `code` `` boundary, inline math on one source line (build-enforced), and no >88-col signature or
+   wide unbroken display block (horizontal scroll).
 5. **Current** — every claim matches the code's present state; no stale *future / deferred / none-exist*;
    and **complete** — a docstring or summary that names only a *subset* of what the code now provides is
    stale even if literally true (e.g. a module docstring naming one of two scheme families, or a capability
@@ -61,10 +66,23 @@ definitions; this command runs all of them.
 - Fan out subagents across the surfaces in parallel — each runs ALL six checks on its surface via the
   positive procedures above, reading `src/` as ground truth, and returns genuine findings with evidence and
   a proposed fix.
-- Run the deterministic grep guards too: the table guard `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` (must
-  be empty); a bare-module-name scan; a glyph-vs-backtick scan.
-- Triage (drop false positives — universally standard math; kwarg names correctly backticked), then fix
-  EVERY genuine finding in one pass.
+- Run the deterministic grep/awk guards below, plus a bare-module-name scan and a glyph-vs-backtick scan
+  (Unicode math *outside* a backtick span). Inline-math-on-one-line is **build-enforced** —
+  `docs/make.jl`'s `lint_inline_math()` errors the build on a span split by a list leader — so the rebuild
+  below IS that guard; the **argument-coverage** sweep (from each signature, positional + keyword; §Style)
+  runs inside check 2.
+
+```bash
+grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs                         # tables top-level only — must be empty
+grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src docs/src docs/*.md      # formula-in-backticks → should be ``LaTeX``
+grep -rnE '\$[^$]*[\\_^{}][^$]*\$' docs                           # stray TeX $…$ → use ``…`` / ```math```
+grep -rniE '\bknobs?\b' docs src examples                         # neutral register — must be empty
+awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/*.jl  # wide docstring signatures — FNR (per-file), NOT NR
+```
+
+- Triage (drop false positives — universally standard math; the real Julia operators `×`/`⋅`/`≈`; pervasive
+  shorthand `L²`/`N³`/`O(N²)`; `#`-comment hits; kwarg names correctly backticked), then fix EVERY genuine
+  finding in one pass.
 - Rebuild: `julia --project=docs docs/make.jl` (doctests + cross-references + render) — must be clean.
 - Commit + push (no `[skip ci]`; the docs site must redeploy).
 

@@ -159,6 +159,41 @@ symbol on first mention** — `laplacian` ``\\equiv \\Delta``, `gradient` ``\\eq
 reader always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
 not rendered). `Reductions` is the reference implementation of this convention.
 
+**Silent-rendering-failure micro-rules — markup KaTeX/Documenter render *wrong without failing the build*.**
+The bidirectional rule catches the two *loud* failures (a formula in backticks; a bare code name); these
+four are *silent* — the source looks right, the page renders broken, and a read-through of the *source*
+never catches it. **(a) A code identifier never sits inside a math span.** KaTeX renders a name inside a
+``` ``…`` ``` / ```` ```math ```` span as the product of italic single letters (`gradient` → eight italics,
+not the word). Backtick it in prose; a code name that must appear *inside* a formula is wrapped
+``` ``\\texttt{gradient}`` ```. The `code` ``\\equiv \\Delta`` binding (code **adjacent** to math) is
+correct — the token **inside** the span is the defect. **(b) A formula is one LaTeX span** — never split it
+across a ``` ``…`` ``` span and an adjacent `` `code` `` span (``` ``0 \\le m \\le`` ``` `2n` renders
+broken); keep it one span, a trailing code name in ``\\texttt{}``. **(c) Inline math stays on ONE source
+line.** A wrapped continuation of an inline ``` ``…`` ``` span that begins with a CommonMark list/blockquote
+leader (`- `/`* `/`+ `/`> `/`1.`, ≤ 3 leading spaces) is parsed as a **new list item** and silently drops
+the span out of math mode — the §13 decision log (a list) and any bulleted math are the high-risk spots, and
+the α/β `convolve` formula wrapping onto a `+ …` line was exactly this. Break the *prose* around the span,
+not the span; **`docs/make.jl`'s `lint_inline_math()` fails the build on it** (scanning `src/` docstrings +
+the four rationale docs + every `docs/src` page incl. the generated example), so even a docstring-only
+change must pass it. **(d) No horizontal scroll.** A rendered code block (a docstring signature) and a
+display-math block do not auto-wrap — hand-wrap a long signature with a hanging indent under the first
+argument (the `anterpolate!` convention, ≤ ~88 source columns) and a wide display formula with
+`aligned`/`gathered`, never one line packing equations behind ``\\quad``; inline math reflows and is exempt.
+And **a backtick span holds only well-formed Julia** — a name/type/call/expression — never math that merely
+looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\ge``). The real operators
+`×`/`⋅`/`≈` backticked *are* code and stay.
+
+**Neutral reference register — never "knob".** A tunable argument is an **option** (or *keyword argument*,
+*setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
+Applies to docstrings, the four design docs, the doc pages, `#` comments, and `@testset` names.
+
+**Argument coverage (signature-driven) — a sweep separate from the symbol sweep, run *from the signature*.**
+For each docstring, enumerate **every argument in its signature** (positional *and* keyword) and cite where
+the body documents each (a `- **`arg`**` bullet, a binding clause, an `arg = value` mention, or a `::Type`
+for a conventional first arg); flag any `UNDOCUMENTED`. The self-contained *symbol* sweep is not enough — an
+argument that surfaces only *inside a formula* reads as "bound by use" and slips through (a tolerance or
+stencil width shown only in a formula never gets its own entry).
+
 **`docs/ARCHITECTURE.md` is self-contained — introduce notation in plain text before it is used.** As
 the top-level design document it must read top-to-bottom (and, since the §13 decision log is browsed
 entry-by-entry, each entry on its own) **without** opening the source or another doc. So **every piece
@@ -348,6 +383,20 @@ lives with its topic, not in a group-by-form bin. In `ARCHITECTURE.md`, §2 is t
 bundle foundation + a linked one-liner per part); §§3–12 own the details (each operation family has a body
 section); §13 is the append-only decision log, self-contained by design (its overlap with the body is
 intentional — do **not** dedupe it against the body).
+
+**Cross-referencing — discriminating-minimalist; a link earns its place.** Live Documenter `@ref` links are
+the encouraged way to point across the docs (a mistyped `@ref` fails the build, so it cannot rot), but
+**backtick every code identifier and promote to `@ref` only where a reader would genuinely jump and there is
+one clear destination**: (1) link a target **at most once per docstring** (its first genuine mention); (2)
+**never** link the docstring's own binding, its argument names, `Symbol`/option tokens, struct fields, or
+`Base` names; (3) a **family** of built-ins (the spline schemes, the reductions) is **one** catalogue
+destination, not five — name each member in plain backticks and `@ref` the default; (4) **at-home test** —
+if a sentence would sit equally well in the *target's* own docstring, cut it and link (the function's own
+defining formula and its validity/absence clauses always stay — physical-meaning-first outranks DRY). **No
+dead references on the user-facing surface:** a rendered docstring or a thrown error must not cite a
+`§`-number or a repo path (those live in `#` comments, `CLAUDE.md`, and the design docs, which cross-cite
+freely); a docstring must read **complete at the REPL**, where links are dead — a link adds depth one hop
+away, never a fact the reader needs.
 
 ## Verification workflow
 

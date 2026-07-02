@@ -584,7 +584,7 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       array_type = Array,
     ) where {R, T<:AbstractFloat}
 
-Tensor field of order `R ≥ 2` in physical-space representation, stored as its components on a three-dimensional physical grid.
+Tensor field of order ``R \\ge 2`` in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 Here `values_at_grid` contains the real tensor components with storage order `values_at_grid[i, j, k, α₁, ..., αᵣ]`,
 where each tensor index has length `3`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
@@ -592,7 +592,7 @@ and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming t
 
 The array has shape `physical_field_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
-The function constructor constructs a tensor field of order `R ≥ 2` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
+The function constructor constructs a tensor field of order ``R \\ge 2`` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
 Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
 `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
 
@@ -668,7 +668,7 @@ end
       grid::Grid3D{T},
     ) where {T<:AbstractFloat, N}
 
-Tensor field of order `R ≥ 2` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
+Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 Here `fourier_coefficients` contains the complex tensor Fourier coefficients in real-FFT storage, with the tensor indices last:
 `fourier_coefficients[i, j, k, α₁, ..., αᵣ]`, where each tensor index has length `3`. The spatial part has shape
@@ -1240,7 +1240,7 @@ the three per-axis squared-wavenumber vectors (reshaped to the three spatial dim
 Laplacian, inverse Laplacian, and Helmholtz projection.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
-(`-|k|² ŝ`, `ŝ - kᵢ kⱼŝⱼ/|k|²`, …) without ever materializing the ``O(N^3)`` array. That keeps those
+(``-|k|^2\\,\\hat s``, ``\\hat s - k_i k_j\\,\\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
 operators allocation-free in place — important in allocating hot loops, and on the GPU where a per-call
 ``|k|^2`` scratch would otherwise grow the memory pool every step.
 """
