@@ -673,7 +673,7 @@ Tensor field of order ``R \\ge 2`` in spectral representation, stored as its non
 Here `fourier_coefficients` contains the complex tensor Fourier coefficients in real-FFT storage, with the tensor indices last:
 `fourier_coefficients[i, j, k, α₁, ..., αᵣ]`, where each tensor index has length `3`. The spatial part has shape
 `spectral_field_shape(grid, fourier_layout, Val(0))`, and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(R))`.
-The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
+The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
@@ -1211,7 +1211,8 @@ _multipliers_scalar_type(::FieldSpectralMultipliers{T}) where {T<:AbstractFloat}
 
 
 """
-    _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+    _check_multipliers_compatibility(field::AbstractFieldSpectral,
+                                     multipliers::FieldSpectralMultipliers)
 
 Check that a spectral-space `field` and `multipliers` share scalar type, grid, and Fourier layout. Returns `nothing` or throws.
 """
@@ -1240,7 +1241,7 @@ the three per-axis squared-wavenumber vectors (reshaped to the three spatial dim
 Laplacian, inverse Laplacian, and Helmholtz projection.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
-(``-|k|^2\\,\\hat s``, ``\\hat s - k_i k_j\\,\\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
+(``-|k|^2\\,\\hat s``, ``\\hat s_i - k_i k_j\\,\\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
 operators allocation-free in place — important in allocating hot loops, and on the GPU where a per-call
 ``|k|^2`` scratch would otherwise grow the memory pool every step.
 """

@@ -11,12 +11,12 @@ The implemented methods act on fields in spectral representation. A field **is**
 representation — the physical values are the trigonometric polynomial
 
 ```math
-f(x) = \\sum_{k} \\hat f(k)\\, e^{i k \\cdot x}
+f(x) = \\frac{1}{N} \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k \\cdot x}
 ```
 
-over the grid's represented modes (coefficients beyond the grid are zero by definition, not truncated).
+over the grid's represented modes (``N = N_x N_y N_z`` the total number of grid points; coefficients beyond the grid are zero by definition, not truncated; forward transform unnormalized, inverse normalized — invariant 4).
 Each operator is therefore the **exact** term-by-term derivative of that polynomial, realized as a
-coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\partial_{x_j} f}(k) = i k_j\\, \\hat f(k)``,
+coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\partial_{x_j} f}(k) = \\mathrm{i} k_j\\, \\hat f(k)``,
 ``\\widehat{\\Delta f}(k) = -|k|^2\\, \\hat f(k)`` — with no finite-difference truncation. The per-operator
 docstrings give the symbol each one applies; the `=` is genuine (the only deliberate departure is the
 Nyquist zeroing of the first-derivative wavenumbers on even-length axes, invariant 5). Each formula
@@ -90,9 +90,11 @@ end
 
 
 """
-    _apply_spectral_divergence!(destination_component, source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
+    _apply_spectral_divergence!(destination_component,
+                                source_1, source_2, source_3,
+                                wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector, ``i\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)`` (``k_a`` the wavenumber component and ``\\hat s_a`` the source field's spectral component along axis ``a = 1, 2, 3``). Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
+Apply a coefficientwise contraction with the wavenumber vector, ``\\mathrm{i}\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)`` (``k_a`` the wavenumber component and ``\\hat s_a`` the source field's spectral component along axis ``a = 1, 2, 3``). Used by `divergence` for the vector → scalar case and per output component for tensor → vector.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
@@ -115,7 +117,8 @@ end
 
 
 """
-    _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber, ::Type{T})
+    _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber,
+                                       ::Type{T})
 
 Apply the coefficientwise zero-mean inverse Laplacian: `-source_data ./ squared_wavenumber` for nonzero wavevectors, and zero at the zero Fourier mode.
 """
@@ -128,7 +131,11 @@ end
 
 
 """
-    _apply_spectral_helmholtz_projection!(d_1, d_2, d_3, source_1, source_2, source_3, k_1, k_2, k_3, squared_wavenumber, ::Type{T})
+    _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2,
+                                          destination_component_3, source_component_1,
+                                          source_component_2, source_component_3,
+                                          wavenumber_1, wavenumber_2, wavenumber_3,
+                                          squared_wavenumber, ::Type{T})
 
 Apply the coefficientwise Leray/Helmholtz projection ``\\mathbb P`` onto the divergence-free subspace: subtract the longitudinal part ``k_i (k_j \\hat s_j)/|k|^2`` from each component. The zero Fourier mode is left unchanged.
 """
@@ -177,12 +184,12 @@ end
 Compute the gradient (`gradient` ``\\equiv \\nabla``) of a field in spectral representation in-place;
 returns `destination`. A scalar field ``\\varphi`` gives the vector ``(\\nabla\\varphi)_i = \\partial_{x_i}\\varphi``;
 a vector field ``u`` gives the second-order tensor ``(\\nabla u)_{ij} = \\partial_{x_j} u_i``. Computed
-coefficientwise (each source component multiplied by ``i k`` of the differentiation axis):
+coefficientwise (each source component multiplied by ``\\mathrm{i} k`` of the differentiation axis):
 
 ```math
-\\widehat{(\\nabla\\varphi)_i}(k) = i\\, k_i\\, \\hat\\varphi(k),
+\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}\\, k_i\\, \\hat\\varphi(k),
 \\qquad
-\\widehat{(\\nabla u)_{ij}}(k) = i\\, k_j\\, \\hat u_i(k).
+\\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}\\, k_j\\, \\hat u_i(k).
 ```
 """
 function gradient! end
@@ -280,9 +287,9 @@ Computed as the coefficientwise contraction with ``i k`` (the kernel sums ``i k_
 the three axes):
 
 ```math
-\\widehat{\\nabla\\cdot u}(k) = i\\,(k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
+\\widehat{\\nabla\\cdot u}(k) = \\mathrm{i}\\,(k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
 \\qquad
-\\widehat{(\\nabla\\cdot A)_i}(k) = i\\,(k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
+\\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i}\\,(k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
 ```
 """
 function divergence! end
@@ -362,22 +369,23 @@ end
     )
 
 Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field in spectral representation
-in-place; returns `destination`. Coefficientwise, ``\\widehat{\\nabla\\times u}(k) = i\\, k \\times \\hat u(k)``,
+in-place; returns `destination`. Coefficientwise, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}\\, k \\times \\hat u(k)``,
 i.e. componentwise (matching the kernel):
 
 ```math
-\\widehat{(\\nabla\\times u)_1}(k) = i\\,(k_2 \\hat u_3 - k_3 \\hat u_2), \\quad
-\\widehat{(\\nabla\\times u)_2}(k) = i\\,(k_3 \\hat u_1 - k_1 \\hat u_3), \\quad
-\\widehat{(\\nabla\\times u)_3}(k) = i\\,(k_1 \\hat u_2 - k_2 \\hat u_1).
+\\widehat{(\\nabla\\times u)_1}(k) = \\mathrm{i}\\,(k_2 \\hat u_3 - k_3 \\hat u_2), \\quad
+\\widehat{(\\nabla\\times u)_2}(k) = \\mathrm{i}\\,(k_3 \\hat u_1 - k_1 \\hat u_3), \\quad
+\\widehat{(\\nabla\\times u)_3}(k) = \\mathrm{i}\\,(k_1 \\hat u_2 - k_2 \\hat u_1).
 ```
 """
 function curl! end
 
 
 """
-    _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+    _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral,
+                   multipliers::FieldSpectralMultipliers)
 
-Coefficientwise curl ``\\nabla\\times u``, written componentwise as ``i\\,(k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this with the aliasing guard.
+Coefficientwise curl ``\\nabla\\times u``, written componentwise as ``\\mathrm{i}\\,(k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this with the aliasing guard.
 """
 function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
@@ -562,7 +570,9 @@ function helmholtz_projection! end
 
 
 """
-    _helmholtz_projection_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+    _helmholtz_projection_noalias!(destination::VectorFieldSpectral,
+                                   field::VectorFieldSpectral,
+                                   multipliers::FieldSpectralMultipliers)
 
 Apply the Helmholtz projection (see `_apply_spectral_helmholtz_projection!`) assuming `destination` does not alias `field`. The public `helmholtz_projection!` wraps this with the aliasing guard.
 """

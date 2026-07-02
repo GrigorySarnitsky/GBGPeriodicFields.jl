@@ -180,7 +180,8 @@ deliberately materialize one field and are the exceptions (use `maximum(abs, …
 **(g) Allocation-bounded radial diagnostics — the same GC trap, in the binning.** The same device-GC
 hazard as (f) lived in the *diagnostics*. `radial_spectrum` / `radial_correlation` binned by looping over
 the ``|k|``- (or ``|r|``-) shells and reducing a masked broadcast per shell. The shell count scales with
-the grid (``\approx \sqrt{3}\,N/2``, ``\approx 220`` at ``N = 256``), and each iteration allocates a
+the grid (``\approx \sqrt{3}\,N/2``, ``\approx 220`` at ``N = 256``, with ``N`` the per-axis size here — not
+the total ``N`` of §2), and each iteration allocates a
 full-grid mask — and, because a `mapreduce` over a `Broadcasted` *materializes* on this GPU stack rather
 than fusing, the masked product too: ``O(N)`` full-grid temporaries per call, which the host-triggered GC
 does not reclaim. A single ``256^3`` `radial_correlation` snapshot churned several GB and wedged a 12 GB
@@ -244,7 +245,7 @@ runs; the large characterisation sweep behind §4 (256³/512³) is reachable wit
 = (256,))`. Manifests are gitignored (repo convention); each environment reproduces from its
 `Project.toml`.
 
-**The coverage contract.** Every public operation is benchmarked over **{Float64, Float32} ×
+**The coverage contract.** Every public operation class is benchmarked (representative members) over **{Float64, Float32} ×
 {representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}**. New code adds its benchmark to the
 matching per-class file — the performance analogue of the test coverage contract (`TESTING.md` §4).
 

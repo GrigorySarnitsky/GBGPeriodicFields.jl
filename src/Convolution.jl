@@ -15,8 +15,9 @@ On the torus the only convolution is the periodic (circular) one (`convolve` ``\
 ```
 
 the kernel-weighted local average of the field ``f`` about the point ``x`` (a low-pass filter when the
-kernel ``g`` is a smoothing bump), with the displacement ``x - y`` reduced onto the torus; discretized on
-the grid this is the circular sum over grid points ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]``. By the
+kernel ``g`` is a smoothing bump), with the displacement ``x - y`` reduced onto the torus (its periodic
+trapezoidal quadrature on the grid carries the cell volume ``\\Delta x``). `convolve` realizes the discrete
+**circular** convolution ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` directly. By the
 convolution theorem (the forward transform unnormalized, invariant 4) the convolution is *exactly* the
 **coefficientwise spectral product** ``\\widehat{f \\star g} = \\hat f \\cdot \\hat g`` — one multiply per
 coefficient, which is why `convolve` lives in spectral representation. The kernel `g` is supplied by its
@@ -163,7 +164,8 @@ end
 
 
 """
-    squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+    squared_wavenumber_field(reference::AbstractFieldSpectral,
+                             multipliers::FieldSpectralMultipliers)
 
 The **squared-wavenumber field** as a scalar field in spectral representation, on `reference`'s grid
 and array backend — the value at each mode is
@@ -195,7 +197,8 @@ end
 
 
 """
-    spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_low, wavenumber_high)
+    spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+                  wavenumber_low, wavenumber_high)
 
 Build the **isotropic sharp spectral band-pass** as a scalar field in spectral representation, on
 `reference`'s grid and array backend — the transfer function (with `k_lo = wavenumber_low`,
@@ -230,7 +233,8 @@ end
 
 
 """
-    spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
+    spectral_cutoff(reference::AbstractFieldSpectral,
+                    multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
 
 Build the **isotropic sharp spectral cutoff** as a scalar field in spectral representation, on
 `reference`'s grid and array backend — the transfer function (with `k_c = wavenumber_cutoff`)

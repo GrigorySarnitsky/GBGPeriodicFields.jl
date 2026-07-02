@@ -34,7 +34,7 @@ written and what keeps the GPU twin hassle-free.
 julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
 julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy; minutes)
-julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (the documented figures; very heavy on CPU — hours)
+julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (very heavy on CPU — hours; documented figures use the GPU twin at 320³)
 julia -t8 --project=examples examples/HIST_CPU.jl --fast  # 8 CPU threads (matters most at N ≥ 64)
 julia --project=examples examples/HIST_CPU.jl --smoke    # tiny, ~seconds, for a quick check
 julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot saved data, no re-run
@@ -103,8 +103,8 @@ dissipation range; `E(t)`, `ε(t)` are statistically steady past the spin-up.
 
 All in the `Params` struct at the top: `N`, `ν`, forcing band/energy (`k_force`, `E_force`), `cfl`,
 step counts (`n_spinup`, `n_stats`), `n_particles`, recording strides, `seed`. The
-`smoke()` / `fast()` / `huge()` / `mega()` configurations select 32³ / 64³ / 192³ / 256³ (the last is the
-documented-figure config — very heavy on the CPU; the GPU twin is the practical path to it).
+`smoke()` / `fast()` / `huge()` / `mega()` configurations select 32³ / 64³ / 192³ / 256³ (the last very
+heavy on the CPU; the documented figures use the GPU twin at 320³).
 
 ---
 
@@ -154,8 +154,8 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # qu
 over a preallocated workspace and the package's in-place operators are allocation-free (the spectral
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
-representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the configuration behind the
-figures above — reaches `Re_λ ≈ 109`, `k_max·η ≈ 1.33` (comfortably resolved), and sustains **≈ 87
+representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the earlier 12 GB ceiling, below
+the 320³ RX 7900 XTX run behind the figures above — reaches `Re_λ ≈ 109`, `k_max·η ≈ 1.33` (comfortably resolved), and sustains **≈ 87
 ms/step** (9000 steps, ≈ 785 s of simulation), with the spectral-`inner` Parseval check matching the
 physical energy to all printed digits and `‖∇·u‖_rel ≈ 1.6e-7` (Float32 roundoff). It fits 12 GB because
 the working set stays ≈ 6 GB (≈ 8 GB peak through the snapshots) — both the time loop and the radial

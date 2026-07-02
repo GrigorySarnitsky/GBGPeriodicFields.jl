@@ -125,8 +125,8 @@ of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the fi
 half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
 coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
-(offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over the
-``2n{+}2``-node stencil (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
+(offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
+``2n{+}1``-node stencil about that node (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 (``w_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]\\, t^p``).
 
@@ -142,7 +142,7 @@ Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point 
     tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
     large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
-    **278** (2022) 108406.
+    **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
   * B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*, Math. Comp.
     **51**(184) (1988) 699–706.
 """
@@ -180,7 +180,7 @@ degree ``2n{+}1`` exactly, but is only ``C^0`` (kinks at the nodes); for smooth 
     tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
     large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
-    **278** (2022) 108406.
+    **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -251,8 +251,8 @@ Build the ``(2n{+}2) \\times (2m{+}2)`` matrix of smooth-spline weight-polynomia
 is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column `p+1` is
 the ``t^p`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
-(offsets ``0`` and ``1``), the derivatives taken from centred finite differences over the
-``2n{+}2``-node stencil. See [`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
+(offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
+``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
 """
 function _hermite_weight_matrix(n::Int, m::Int)
   offsets = collect(-n:n+1)
@@ -449,7 +449,8 @@ end
 
 
 """
-    interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet, scheme = CatmullRom)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
+                 scheme = CatmullRom)
 
 Interpolate `field` (physical-space representation) to the off-grid `points`, writing into `out`; returns `out`.
 
@@ -567,7 +568,8 @@ end
 
 
 """
-    anterpolate(grid::Grid3D, points::PointSet, quantities::AbstractPointValues, scheme = CatmullRom)
+    anterpolate(grid::Grid3D, points::PointSet, quantities::AbstractPointValues,
+                scheme = CatmullRom)
 
 Allocating form of [`anterpolate!`](@ref): returns a new physical-space field on `grid`, of the tensor
 order of `quantities`, holding the deposited (scattered) quantities.
@@ -628,7 +630,7 @@ Parseval weight ``\\alpha(k) = 1`` on the self-conjugate ``k_x = 0`` plane (and 
 plane), ``2`` otherwise. The interpolation reproduces the band-limited field **exactly** — so it is
 pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid
 nodes; the adjoint matches [`to_spectral`](@ref) from grid-node samples. Adjoint pair:
-``M\\,\\langle W\\hat f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle \\hat f, W^\\top q\\rangle`` (the
+``M\\,\\langle W\\hat f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle \\hat f, W^\\top q\\rangle_{\\mathrm{grid}}`` (the
 measure factor, as for the splines). Stateless; ``O(NM)`` — for many points/modes prefer [`NUFFT`](@ref).
 """
 struct DirectDFT <: AbstractTransferScheme end
@@ -746,7 +748,8 @@ end
 
 
 """
-    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
+                 scheme::DirectDFT)
 
 Exact spectral interpolation (the ``O(NM)`` inverse DFT) of `field` (spectral representation) to
 `points`, writing into `out`; see [`DirectDFT`](@ref). The result equals [`to_physical`](@ref) at the
@@ -819,7 +822,8 @@ end
 
 
 """
-    anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
+    anterpolate(reference::AbstractFieldSpectral, points::PointSet,
+                quantities::AbstractPointValues, scheme::DirectDFT)
 
 Allocating form: a new spectral field like `reference` (same grid/layout, the tensor order of
 `quantities`) holding the deposited Fourier coefficients (the forward DFT, [`DirectDFT`](@ref)).
@@ -947,8 +951,9 @@ on a field in **spectral representation**, of the reference's tensor order. The 
 \\text{type-1: window-spread} \\to \\mathcal F \\to \\text{truncate} \\to \\text{deconvolve}.
 ```
 
-It agrees with `DirectDFT` (hence `to_physical`/`to_spectral` at the nodes) to `tol`, shares its
-adjoint relation, and like it is divergence-free (it reconstructs the band-limited field). For a few
+It agrees with `DirectDFT` (hence `to_physical`/`to_spectral` at the nodes) to `tol` on the resolved
+sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint relation, and like it is
+divergence-free (it reconstructs the band-limited field). For a few
 points/modes `DirectDFT` is simpler; `NUFFT` wins as ``M, N`` grow.
 """
 struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
@@ -1107,11 +1112,13 @@ _fresh(template) = similar_field(template, similar(field_data(template)))
 
 
 """
-    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
+                 scheme::NUFFT)
 
 Fast spectral interpolation (the windowed-gridding NUFFT, [`NUFFT`](@ref)) of `field` to `points`:
 deconvolve, zero-pad to the oversampled grid, inverse FFT, window-gather. Agrees with
-[`DirectDFT`](@ref) to the plan's tolerance.
+[`DirectDFT`](@ref) to the plan's tolerance on the resolved sub-Nyquist band (the rfft Nyquist plane is
+projected out).
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
@@ -1198,7 +1205,8 @@ end
 
 
 """
-    anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT)
+    anterpolate(reference::AbstractFieldSpectral, points::PointSet,
+                quantities::AbstractPointValues, scheme::NUFFT)
 
 Allocating form of the NUFFT [`anterpolate!`](@ref): a new spectral field like `reference`.
 """

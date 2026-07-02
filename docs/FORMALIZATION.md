@@ -79,7 +79,7 @@ so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequ
 
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
-behaviour, and transform input-preservation.
+behaviour, and transform input-preservation — and `test/fieldalgebra.jl` (the constant/zero-mode invariant).
 
 ## Fiberwise algebra (`FieldAlgebra` / `FiberSections`, [Architecture](architecture.md) §2, §6)
 

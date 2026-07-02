@@ -120,7 +120,7 @@ The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equ
 
 Here ``N`` is the number of base points (grid cells) and ``|\\Omega|`` the domain volume. For a band-limited field the grid quadrature is exact (the periodic trapezoidal rule integrates the
 represented modes exactly). Fiber-preserving: a scalar for a scalar section, a `FiberVector` for a
-vector section, a `FiberTensor2` for a tensor section. Physical-space only; spectral integration is future.
+vector section, a `FiberTensor2` for a tensor section. Physical-space only (like the other measure reductions).
 """
 function integral end
 integral(section::ReducibleSection) =
@@ -331,7 +331,8 @@ E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|
 
 with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on the
 ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2`` otherwise), and shell width ``\\Delta k`` (the box
-fundamental). Each **refines** [`inner`](@ref):
+fundamental); the per-axis wavenumbers ``k`` are read from `multipliers` ([`FieldSpectralMultipliers`](@ref)).
+Each **refines** [`inner`](@ref):
 ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa E_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f\\,\\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
@@ -486,7 +487,7 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized Lᵖ norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the
+The **normalized ``L^p`` norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the
 pointwise fiber magnitude (the vertical `norm`) — the ``L^p`` average over the periodic box ``\\Omega`` of
 volume ``|\\Omega|``, which on the grid is the equal-weight sum over the ``N`` cells:
 

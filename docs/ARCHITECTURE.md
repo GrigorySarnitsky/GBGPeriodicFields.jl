@@ -20,7 +20,8 @@ provides scalar, vector, and second-order tensor fields with two storage
 representations — physical and spectral (the spectral one stored non-redundantly as the
 real-to-complex / `rfft` half-spectrum) — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
-algebra (`FieldAlgebra`), and spectral differential operators (`DifferentialOperators`).
+algebra (`FieldAlgebra`), spectral differential operators (`DifferentialOperators`), periodic
+convolution (`Convolution`), and the L²/measure reductions (`Reductions`).
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
 serves consumer-side Lagrangian particle tracking — are in place ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): the point-value
 sections, their fiberwise algebra, and the transfer **schemes** — local splines (Lalescu, Teaca &
@@ -376,7 +377,7 @@ once, while the public surface (and its deliberate absences) stays bit-identical
 
 ### Layers
 
-- **M1 — expression builders** (`Code generation` section of `FieldAlgebra`):
+- **M1 — expression builders** (the vertical-algebra builders in `FiberSections`, imported by `FieldAlgebra`):
   `_vector_component(symbol, kind, i)` / `_tensor_component(symbol, kind, i, j)`
   produce component-access expressions, with `kind = :field` (component view) or
   `:fiber` (StaticArrays indexing); `_sum_terms` and `_product` combine formulas;
@@ -546,13 +547,13 @@ each normalized by its total measure — the ``M`` particles, and the box volume
 the ``N`` grid cells) — exactly as the package's `inner` computes them. Writing
 ``\operatorname{sample}_{\text{grid}}`` for sampling a function at the grid nodes,
 ``\operatorname{eval}_{\text{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
-``\Pi_m`` (the polynomials up to the scheme order), the adjointness and the polynomial reproduction read
+``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
 
 ```math
 \sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f(x)\cdot(W^{\top} q)(x),
 \qquad\qquad
 W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
-\quad (\phi \in \Pi_m),
+\quad (\phi \in \Pi_d),
 ```
 
 the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
@@ -599,7 +600,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
-  ``ε`` on the resolved sub-Nyquist band). The adjoint relation carries
+  ``\varepsilon`` on the resolved sub-Nyquist band). The adjoint relation carries
   the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\text{pts}} = N\,\langle \hat f, W^\top q\rangle_{\text{grid}}``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline

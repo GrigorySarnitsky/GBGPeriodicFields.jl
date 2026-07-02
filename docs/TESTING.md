@@ -25,7 +25,7 @@ agree, not that either is correct. Two kinds of oracle are used:
   required to match it. This is still "two computations of one quantity," not a thing
   against itself.
 - **Structural identities** — relations the operators must satisfy for *any* input: the
-  vector-calculus identities (`div(curl) = 0`, `curl(grad) = 0`) and, on a periodic box,
+  vector-calculus identities (``\nabla\cdot(\nabla\times u) = 0``, ``\nabla\times(\nabla\varphi) = 0``) and, on a periodic box,
   the adjoint relations (divergence as the negative gradient adjoint, self-adjoint curl, a
   self-adjoint negative-semidefinite Laplacian, a self-adjoint idempotent Helmholtz
   projection). Tested on randomized band-limited fields, they pin the discrete
@@ -95,7 +95,7 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
   comparison and will fail on nothing but rounding. Either assert
   `maximum(abs, data) < 1e-12`, or pass an explicit `atol`. **Also choose inputs so the
   expected result is not accidentally zero** — e.g. an axis-aligned field
-  `(sin x, sin y, sin z)` is irrotational *and* longitudinal, so both `curl` and the
+  ``(\sin x, \sin y, \sin z)`` is irrotational *and* longitudinal, so both `curl` and the
   Helmholtz projection return ~0 and test nothing. Use a field whose components depend on
   more than one coordinate.
 - For **cross-backend** comparison (GPU vs CPU), the two run the same formula and agree
@@ -220,8 +220,8 @@ and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
 differential operators absent in physical) and the physical/spectral symmetry of every
 linear field/fiber operation; the differential operators by
 analytic round-trip, including an anisotropic ``(2\pi, 4\pi, 6\pi)`` box that exercises the
-``2\pi/L`` wavenumber scaling; the vector-calculus identities `div(curl u) = 0` and
-`curl(grad φ) = 0`; element-type genericity on CPU (`Float64` and `Float32`, asserting
+``2\pi/L`` wavenumber scaling; the vector-calculus identities ``\nabla\cdot(\nabla\times u) = 0`` and
+``\nabla\times(\nabla\varphi) = 0``; element-type genericity on CPU (`Float64` and `Float32`, asserting
 element-type preservation through operations); the 198-method field and 118-method
 point-value parity baselines and zero ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
 Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
@@ -240,7 +240,7 @@ and the **L²/measure reductions** added alongside; and CPU threading — every 
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
 gate and the GPU `materialize!` fallback also asserted; and the **L²/measure reductions**
-(`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum` on physical
+(`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
 fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac12``) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac1N\sum`` grid, ``\tfrac1M\sum``
 points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the

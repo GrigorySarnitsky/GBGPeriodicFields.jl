@@ -678,7 +678,7 @@ const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
 
 Compute a fiberwise inner product in-place; returns `destination`.
 
-For vector arguments this is the Euclidean scalar product `uᵢ vᵢ`; for second-order tensors it is the Frobenius double contraction `Aᵢⱼ Bᵢⱼ`. Either argument order is accepted.
+For vector arguments this is the Euclidean scalar product ``u_i v_i``; for second-order tensors it is the Frobenius double contraction ``A_{ij} B_{ij}``. Either argument order is accepted.
 
 Contraction of two fields is nonlinear and defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
 """
@@ -844,10 +844,12 @@ end
 
 
 """
-    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2}, u::VectorFieldPhysical[, α, β])
+    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2},
+         u::VectorFieldPhysical[, α, β])
     mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2}, a::FiberVector[, α, β])
     mul!(destination::VectorFieldSpectral, A::FiberTensor2, u::VectorFieldSpectral[, α, β])
-    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2}[, α, β])
+    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2},
+         B::TensorFieldPhysical{2}[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
 
 Compute a fiberwise tensor (matrix) product in-place; returns `destination`. Pointwise over the base —
