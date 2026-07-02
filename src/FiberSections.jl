@@ -98,8 +98,9 @@ with_threading(f; enabled::Union{Nothing, Bool} = true) =
 """
     set_threading_cutoff!(n)
 
-Set the element-count threshold below which assignments run serially. Returns `n`.
-See [`threading_cutoff`](@ref).
+Set [`threading_cutoff`](@ref) to `n` and return it: a CPU field assignment whose destination has fewer
+than `n` elements then runs serially instead of threaded. Raise it to keep small operations off the
+thread pool; lower it to thread smaller writes.
 """
 set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 
@@ -107,7 +108,11 @@ set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 """
     threading_cutoff()
 
-The current element-count threshold below which assignments run serially.
+The element count at or above which a CPU field assignment is split across `Base.Threads` workers rather
+than run serially — an *assignment* being a fused elementwise write into field storage (the
+[`_assign!`](@ref) primitive behind every in-place operation, whose docstring carries the full policy).
+The count is the destination array's length (grid points times fiber components); CPU-only — GPU arrays
+are never threaded. Default `16384`; set with [`set_threading_cutoff!`](@ref).
 """
 threading_cutoff() = _SERIAL_CUTOFF[]
 
