@@ -3,7 +3,7 @@
 
 The unstructured base of the package's fiber-bundle model: off-grid sample positions and the
 field values there, as sections over a `PointSet` — the point-set counterpart of the grid
-sections in `Fields` (`docs/ARCHITECTURE.md` §2, §10).
+sections in `Fields`.
 
 Provided here:
 

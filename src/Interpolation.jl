@@ -8,8 +8,8 @@ Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th p
 each other, under a chosen transfer `scheme` — two families: the physical-domain local splines of
 Lalescu, Teaca & Carati (2010) (portable KernelAbstractions gather/scatter kernels, CPU / CUDA / AMDGPU,
 atomic scatter; the default), and the spectral-domain exact `DirectDFT` / fast `NUFFT` that act on a field
-in spectral representation. The method, terminology, and GPU rationale are in `docs/ARCHITECTURE.md` §10,
-and the point-value data types and their fiberwise algebra live in the `Points` module.
+in spectral representation. The point-value data types and their fiberwise algebra live in the `Points`
+module.
 
 # API
 
@@ -52,8 +52,7 @@ needs (total water mass and latent heat). It holds **only when both directions u
 inner products (`inner` — the point counting-average and the grid volume-average) the adjoint relation
 carries the two base-count normalizations, ``M\\,\\langle W f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle f,
 W^\\top q\\rangle_{\\mathrm{grid}}`` (``N`` grid nodes, ``M`` points); the measure-weighted reading is the
-immersed-boundary spreading/interpolation adjoint pair (Peskin 2002). The full measure/pullback account
-is in `docs/ARCHITECTURE.md` §10.
+immersed-boundary spreading/interpolation adjoint pair (Peskin 2002).
 
 # References
 
@@ -92,12 +91,12 @@ export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, Lagr
     AbstractTransferScheme
 
 Supertype of **all** grid↔point transfer schemes — the parameter that fixes how the adjoint pair
-`interpolate` ``= W`` / `anterpolate` ``= W^\\top`` is realized (the function–measure duality above).
-A scheme is a choice of *kernel* and *representation*: the **physical-domain** local splines
+`interpolate` ``= W`` / `anterpolate` ``= W^\\top`` is realized. A scheme is a choice of *kernel* and
+*representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
 exact transfers ([`DirectDFT`](@ref) and [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
 acting on a field in spectral representation). Same verbs, one adjointness contract; the schemes
-differ only in (kernel, representation). See `docs/ARCHITECTURE.md` §10.
+differ only in (kernel, representation).
 """
 abstract type AbstractTransferScheme end
 

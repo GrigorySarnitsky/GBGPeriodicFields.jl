@@ -4,7 +4,7 @@
 Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
-`PointSet`) are both *sections of a tensor bundle over a base* (`docs/ARCHITECTURE.md` §2). This
+`PointSet`) are both *sections of a tensor bundle over a base*. This
 module owns the part of the design that does not depend on the base: the `AbstractFiberSection`
 supertype, the CPU-threading / fused-assignment primitive `_assign!`, and the vertical-algebra
 **code generators** (the per-component formula and kernel-body builders) — written once here so
@@ -34,7 +34,7 @@ in physical-space or spectral representation) and point-values (sections over a 
 Here `T<:AbstractFloat` is the real scalar type and `R` the tensor order (`0` scalar, `1` vector,
 `2` second-order tensor, and so on). The fiberwise algebra is rooted at this supertype because it
 is base-independent — the same operation on the same fiber type regardless of whether the base is
-a structured grid or an unstructured point set (`docs/ARCHITECTURE.md` §2).
+a structured grid or an unstructured point set.
 """
 abstract type AbstractFiberSection{T<:AbstractFloat, R} end
 
@@ -149,7 +149,7 @@ end
 Materialize the lazy `broadcasted` expression into `destination`, threaded over chunks on the
 CPU when [`_use_threads`](@ref) allows. The generic method is the standard fused
 `Broadcast.materialize!` — the safe polarity that keeps GPU arrays and unknown array wrappers
-on their normal broadcast path (no scalar indexing, honouring invariant 6). Only dense
+on their normal broadcast path (no scalar indexing). Only dense
 `Array`s and `Array`-backed `SubArray`s take the threaded path.
 """
 _assign!(destination, broadcasted::Base.Broadcast.Broadcasted) =

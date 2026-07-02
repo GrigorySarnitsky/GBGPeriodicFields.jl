@@ -14,15 +14,15 @@ representation — the physical values are the trigonometric polynomial
 f(x) = \\frac{1}{N} \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k \\cdot x}
 ```
 
-over the grid's represented modes (``N = N_x N_y N_z`` the total number of grid points; coefficients beyond the grid are zero by definition, not truncated; forward transform unnormalized, inverse normalized — invariant 4).
+over the grid's represented modes (``N = N_x N_y N_z`` the total number of grid points; coefficients beyond the grid are zero by definition, not truncated; forward transform unnormalized, inverse normalized).
 Each operator is therefore the **exact** term-by-term derivative of that polynomial, realized as a
 coefficientwise multiply by its wavenumber symbol — ``\\widehat{\\partial_{x_j} f}(k) = \\mathrm{i} k_j\\, \\hat f(k)``,
 ``\\widehat{\\Delta f}(k) = -|k|^2\\, \\hat f(k)`` — with no finite-difference truncation. The per-operator
 docstrings give the symbol each one applies; the `=` is genuine (the only deliberate departure is the
-Nyquist zeroing of the first-derivative wavenumbers on even-length axes, invariant 5). Each formula
+Nyquist zeroing of the first-derivative wavenumbers on even-length axes). Each formula
 mirrors the coefficientwise kernel it documents, so the two can be checked against each other.
 
-The wavenumber symbols are held in a `FieldSpectralMultipliers` (built from a field with
+The wavenumber symbols are held in a [`FieldSpectralMultipliers`](@ref) (built from a field with
 `FieldSpectralMultipliers(field)`, or from the explicit six-array constructor); each operator has an
 allocating form and an in-place `!` form. `laplacian`, `inverse_laplacian`, and `helmholtz_projection`
 preserve tensor order; `gradient`, `divergence`, and `curl` change it as the operator dictates.

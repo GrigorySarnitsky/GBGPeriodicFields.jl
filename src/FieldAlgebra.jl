@@ -19,7 +19,7 @@ pointwise on fields in physical-space representation and coefficient-wise on fie
 representation. Operations that are not linear in a field argument (for example multiplying two fields
 together, or contracting two fields) are defined only in physical-space representation, except where one
 factor is a compile-time constant fiber, which keeps the operation coefficient-wise; missing combinations
-are deliberate (invariant 1). **Aliasing:** `mul!` follows the `LinearAlgebra` convention — the
+are deliberate. **Aliasing:** `mul!` follows the `LinearAlgebra` convention — the
 destination must not share storage with an input — while the index-shuffling operations (`cross`,
 `transpose`, `sym`/`skew`/`dev`) are alias-guarded and may be called with the destination aliasing an input.
 

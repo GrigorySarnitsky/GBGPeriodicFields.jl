@@ -2,8 +2,7 @@
     Reductions
 
 The **L² / measure structure** on sections — the third operation family alongside the vertical
-(fiberwise) algebra and the horizontal (differential) operators (`docs/ARCHITECTURE.md` §2,
-decision 18). A reduction integrates a section over its **base**, against the measure the base
+(fiberwise) algebra and the horizontal (differential) operators. A reduction integrates a section over its **base**, against the measure the base
 carries: `Grid3D`'s uniform quadrature (cell volume ``\\prod_i \\Delta x_i``) and `PointSet`'s
 **counting** measure (unit weight per point — forced, since a `PointSet` is grid-free). One set of
 formulas serves fields and point-values, dispatched on `AbstractFiberSection`.
@@ -85,7 +84,7 @@ Apply a reduction that **keeps the fiber and integrates the base away**, returni
 a scalar for tensor order `0`, a `FiberVector` for `1`, a `FiberTensor2` for `2`. `whole_reduce(data)`
 is used for the scalar case (reduce the whole array); `over_base_reduce(data, base_dims)` reduces only
 the leading base dimensions for higher orders. The (tiny) reduced array is copied to the host before
-the `SVector`/`SMatrix` build, so no device array is scalar-indexed (invariant 6).
+the `SVector`/`SMatrix` build, so no device array is scalar-indexed.
 """
 function _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce)
   T = section_scalar_type(section)
