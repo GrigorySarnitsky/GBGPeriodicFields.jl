@@ -1,40 +1,33 @@
 """
     Reductions
 
-The **L² / measure structure** on sections — the third operation family alongside the vertical
-(fiberwise) algebra and the horizontal (differential) operators. A reduction integrates a section over its **base**, against the measure the base
-carries: `Grid3D`'s uniform quadrature (cell volume ``\\prod_i \\Delta x_i``) and `PointSet`'s
-**counting** measure (unit weight per point — forced, since a `PointSet` is grid-free). One set of
-formulas serves fields and point-values, dispatched on `AbstractFiberSection`.
+The **L² / measure structure** on sections — the third operation family, alongside the vertical
+(fiberwise) algebra and the horizontal (differential) operators. A reduction integrates a section over
+its **base** against the measure the base carries: a `Grid3D` uses its uniform quadrature (the cell
+volume), and a `PointSet` uses its **counting** measure (unit weight per point,
+forced because a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
+dispatched on `AbstractFiberSection`.
 
-Defined on **physical fields and point-values** — representation-free / physical-space quantities,
-where the base reduction is the naive one. `inner`/`l2norm` additionally act on fields in **spectral
-representation** via Parseval's theorem (equal to the physical inner, no transform); `integral`/`mean`/`lpnorm`/
-`maximum` stay physical-only.
+The measure reductions act on **physical fields and point-values** — representation-free, physical-space
+quantities. In addition, `inner` and `l2norm` act on fields in **spectral representation**: by
+Parseval's theorem they return the physical value with no transform. All the other reductions stay
+physical-only.
 
-- `integral(f)` — the **extensive** integral ``\\int_\\Omega f \\, d\\mu`` (the only quantity that
-  scales with the base measure): ``\\tfrac{|\\Omega|}{N}\\sum_x f`` on a grid, ``\\sum_p f`` over points.
-- `mean(f)`, `std(f)`, `var(f)` — extend `Statistics`; **intensive** and **fiber-preserving** (`mean`
-  of a vector field is a `FiberVector`): the arithmetic average over base elements,
-  ``\\tfrac1N\\sum_x f`` on the grid (the domain average, the grid being uniform) and
-  ``\\tfrac1M\\sum_p f`` over points (a plain sample mean).
-- `inner(f, g)` — the **normalized** L² inner product ``\\langle f, g\\rangle = \\tfrac1N\\sum_x f\\cdot g``
-  → **scalar** (intensive, matching `mean`); ``\\mathrm{l2norm}(f) = \\sqrt{\\langle f, f\\rangle}``, and
-  `lpnorm(f, p)` the ``L^p`` norm (``p = 2`` default, ``p = \\infty`` ⇒ the sup of the fiber magnitude).
-- `maximum`/`minimum`/`extrema` — extend `Base` for **scalar** sections.
+Each family links to the home where its formula lives:
 
-Two **radial reductions** resolve `inner` over a radial coordinate, a Fourier-dual pair (Wiener–Khinchin):
-`radial_spectrum(f, multipliers)` bins ``|\\hat f|^2`` over ``|k|``-shells (the power spectrum, spectral
-input), and `radial_correlation(f, plans)` is its physical-space dual, the shell-averaged two-point
-autocorrelation ``C(r) = \\mathcal F^{-1}(|\\hat f|^2)/N``; both satisfy ``\\sum E = C(0) = \\mathrm{inner}(f, f)``.
-Each also has a **two-field** form — the co-spectrum `radial_spectrum(f, g, multipliers)` (binning
-``\\sum_c \\mathrm{Re}(\\hat f_c \\overline{\\hat g_c})``) and the cross-correlation `radial_correlation(f, g, plans)`
-(``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle``, via ``\\overline{\\hat f}\\,\\hat g``) — refining the
-mixed `inner(f, g)` (``\\sum E_{fg} = C_{fg}(0) = \\mathrm{inner}(f, g)``); the one-field forms are the ``g = f`` case.
+- [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
+- `mean`, `std`, `var` — the **intensive**, **fiber-preserving** base moments (they extend
+  `Statistics`; the `mean` of a vector field is a `FiberVector`).
+- [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
+  averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
+  [`lpnorm`](@ref) are the norms derived from it.
+- `maximum`, `minimum`, `extrema` — the ``L^\\infty`` end, extending `Base` for scalar sections.
+- [`radial_spectrum`](@ref) and [`radial_correlation`](@ref) — a Fourier-dual pair (Wiener–Khinchin)
+  that resolves `inner` over a radial coordinate, the shell-binned power spectrum over ``|k|`` and its
+  physical-space two-point correlation over ``|r|``, each also in a two-field co-spectrum form.
 
-Physics stays consumer-side: kinetic energy ``\\tfrac12 \\langle u, u\\rangle``, enstrophy
-``\\tfrac12 \\langle \\omega, \\omega\\rangle``, dissipation ``\\nu \\langle \\omega, \\omega\\rangle``,
-rms ``\\sqrt{\\langle \\cdot, \\cdot\\rangle}``, intensities from `std`.
+Physics stays consumer-side: the consumer builds kinetic energy, enstrophy, dissipation, rms, and
+turbulence intensities from these reductions.
 """
 module Reductions
 
@@ -107,19 +100,23 @@ end
 """
     integral(f)
 
-The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equiv \\int\\,d\\mu``) —
-**extensive** (scales with the base measure). Computed as the measure-weighted sum over base elements
-(the uniform quadrature on a `Grid3D`, the counting measure on a `PointSet`):
+The base integral ``\\int_\\Omega f \\, d\\mu`` of a section (`integral` ``\\equiv \\int\\,d\\mu``) — the
+measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
+scales with the base measure; reach for [`inner`](@ref) or `mean` when you want an intensive,
+size-independent average instead. On a `Grid3D` the sum uses the uniform cell-volume quadrature, and on
+a `PointSet` it uses the unit-weight counting measure:
 
 ```math
 \\int_\\Omega f \\, d\\mu = \\frac{|\\Omega|}{N} \\sum_{x} f(x) \\quad (\\texttt{Grid3D}),
 \\qquad
-\\sum_{p} f_p \\quad (\\texttt{PointSet}).
+\\sum_{p} f_p \\quad (\\texttt{PointSet}),
 ```
 
-Here ``N`` is the number of base points (grid cells) and ``|\\Omega|`` the domain volume. For a band-limited field the grid quadrature is exact (the periodic trapezoidal rule integrates the
-represented modes exactly). Fiber-preserving: a scalar for a scalar section, a `FiberVector` for a
-vector section, a `FiberTensor2` for a tensor section. Physical-space only (like the other measure reductions).
+where ``N`` is the number of grid cells and ``|\\Omega|`` the domain volume. The result is
+fiber-preserving: a scalar for a scalar section, a `FiberVector` for a vector section, and a
+`FiberTensor2` for a tensor section. For a band-limited field the grid quadrature is exact, because the
+periodic trapezoidal rule integrates the represented modes exactly. It is physical-space only, like the
+other measure reductions.
 """
 function integral end
 integral(section::ReducibleSection) =
@@ -144,34 +141,27 @@ std(section::ReducibleSection; corrected::Bool = true) =
 """
     inner(f, g)
 
-The **normalized L² inner product** of two compatible sections (`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``)
-— the fiber contraction ``f \\cdot g`` averaged over the domain; a scalar, intensive (matching `mean`). It is
-the **volume average** of the pointwise dot product over the periodic box ``\\Omega`` of volume ``|\\Omega|``,
-which on the grid is the equal-weight sum over the ``N`` cells (each of volume ``|\\Omega|/N``):
+The **normalized L² inner product** ``\\langle f, g\\rangle`` of two compatible sections
+(`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``) — the fiber contraction ``f \\cdot g`` averaged over the
+base, returning a scalar. It is intensive (it matches `mean`), which makes it the natural pairing for
+homogeneous turbulence, where kinetic energy is ``\\tfrac12\\langle u, u\\rangle``. For the norms derived
+from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a wavenumber or separation
+shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
+
+The arguments `f` and `g` are two compatible sections of equal fiber order. On a grid the pairing is the
+equal-weight average over the ``N`` cells; on a point-set it is the average over the ``M`` points:
 
 ```math
-\\langle f, g\\rangle = \\frac{1}{|\\Omega|} \\int_\\Omega f(x) \\cdot g(x)\\, dx
-                      = \\frac1N \\sum_x f(x) \\cdot g(x).
+\\begin{aligned}
+\\langle f, g\\rangle &= \\frac{1}{|\\Omega|} \\int_\\Omega f(x) \\cdot g(x)\\, dx
+  = \\frac1N \\sum_x f(x) \\cdot g(x) && (\\texttt{Grid3D}), \\\\
+\\langle f, g\\rangle &= \\frac1M \\sum_p f_p \\cdot g_p && (\\texttt{PointSet}).
+\\end{aligned}
 ```
 
-For homogeneous turbulence this is the natural pairing: kinetic energy is ``\\tfrac12\\langle u, u\\rangle``.
-
-For two fields in **spectral representation** the same value is computed by Parseval's theorem, without an inverse
-transform. The rfft stores only ``k_x \\ge 0``, so each mode counts twice except those on the
-``k_x = 0`` plane (and, for even ``N_x``, the Nyquist plane) — the planes the rfft maps to themselves
-under conjugation, whose partners are already stored, so they count once; the kernel forms a `dot` over the stored
-coefficients and subtracts those planes:
-
-```math
-\\langle f, g\\rangle = \\frac{1}{N^2}\\,\\mathrm{Re}\\!\\left(
-2 \\sum_{k_x \\ge 0} \\hat f(k)\\, \\overline{\\hat g(k)}
-\\;-\\; \\sum_{k_x = 0} \\hat f\\, \\overline{\\hat g}
-\\;-\\; \\sum_{k_x = N_x/2} \\hat f\\, \\overline{\\hat g}
-\\right),
-```
-
-with the last (Nyquist) sum present only for even ``N_x``, and ``N = \\prod_i N_i``. `lpnorm`, `integral`,
-`mean`, `maximum` remain physical-only (only the ``p = 2`` inner is representation-invariant).
+For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
+no inverse transform, applying the rfft half-spectrum weighting internally. Only this ``p = 2`` inner is
+representation-invariant; `lpnorm`, `integral`, `mean`, and `maximum` remain physical-only.
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
@@ -222,17 +212,20 @@ end
 """
     l2norm(f)
 
-The **normalized L² norm** of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``) — the root-mean-square
-of the fiber magnitude ``|f|`` over the periodic box ``\\Omega`` of volume ``|\\Omega|``:
+The **normalized L² norm** ``\\lVert f\\rVert_2`` of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``)
+— the root-mean-square of the fiber magnitude ``|f|`` over the base, and the ``p = 2`` case of
+[`lpnorm`](@ref). It is ``\\sqrt{\\langle f, f\\rangle}`` built on [`inner`](@ref), so it inherits both
+bases: the grid cell-volume average and the point-set counting average.
 
 ```math
 \\lVert f\\rVert_2 = \\sqrt{\\langle f, f\\rangle}
-                  = \\sqrt{\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^2\\, dx}
-                  = \\sqrt{\\frac1N \\sum_x |f(x)|^2}.
+  = \\sqrt{\\frac1N \\sum_x |f(x)|^2} \\quad (\\texttt{Grid3D}),
+\\qquad
+\\sqrt{\\frac1M \\sum_p |f_p|^2} \\quad (\\texttt{PointSet}).
 ```
 
-The ``p = 2`` case of [`lpnorm`](@ref). Defined for physical fields and point-values, and — via the
-Parseval [`inner`](@ref) — for a field in spectral representation.
+It is defined for physical fields and point-values, and — through the Parseval [`inner`](@ref) — for a
+field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
 l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
@@ -316,22 +309,24 @@ end
     radial_spectrum(f, multipliers)
     radial_spectrum(f, g, multipliers)
 
-The **radial (shell-binned) spectrum** of a field in spectral representation: the one-argument form is
-the **power spectrum** ``E(\\kappa)`` (`radial_spectrum` ``\\equiv E(\\kappa)``); the two-argument form is
-the **co-spectrum** (cross-power) ``E_{fg}(\\kappa)`` of two compatible, equal-order fields. Returns
-`(shells, spectrum)`, where `shells` are the bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]`
-sums the Parseval-weighted fiber (co-)energy over the modes whose rounded magnitude falls in shell ``i``:
+The **radial (shell-binned) spectrum** resolves a field's L² energy over wavenumber-magnitude shells
+(`radial_spectrum` ``\\equiv E(\\kappa)``). The one-argument form is the **power spectrum** ``E(\\kappa)``,
+and the two-argument form is the **co-spectrum** (cross-power) ``E_{fg}(\\kappa)`` of two compatible,
+equal-order fields; `f` and `g` are in spectral representation and `multipliers` supplies the per-axis
+wavenumbers ``k`` ([`FieldSpectralMultipliers`](@ref)). It returns `(shells, spectrum)`, where `shells`
+are the bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber
+(co-)energy over the modes whose rounded magnitude falls in shell ``i``:
 
 ```math
-E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2,
-\\qquad
+\\begin{gathered}
+E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
 E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k \\,:\\, \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k)\\,\\overline{\\hat g_c(k)}\\bigr),
+\\end{gathered}
 ```
 
 with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on the
 ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2`` otherwise), and shell width ``\\Delta k`` (the box
-fundamental); the per-axis wavenumbers ``k`` are read from `multipliers` ([`FieldSpectralMultipliers`](@ref)).
-Each **refines** [`inner`](@ref):
+fundamental). Each form **refines** [`inner`](@ref):
 ``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa E_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f\\,\\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
@@ -339,13 +334,12 @@ is **symmetric** (``E_{fg} = E_{gf}``, ``\\mathrm{Re}`` being conjugation-symmet
 spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's kinetic-energy spectrum is
 ``\\tfrac12 E(\\kappa)``; the package keeps the neutral name, physics stays consumer-side.
 
-Spectral representation only (a Parseval reduction, like the spectral `inner`). Shells run from ``0``
-to the corner wavenumber, so the sum is over *all* modes (an exact `inner` refinement); on a de-aliased
-field the high-``|k|`` shells are empty. For a non-cubic box the shells beyond ``\\min(N_i)/2`` are
-incompletely sampled (only corner modes) — the standard isotropic-spectrum caveat — but the total still
-equals `inner`. GPU-portable: the binning is a single scatter-add pass over the modes (one atomic add per
-mode into the shell bins — no scalar indexing, no per-shell full-grid temporary), suited to an occasional
-diagnostic rather than a per-step call.
+This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
+`inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
+refinement); on a de-aliased field the high-``|k|`` shells are empty. For a non-cubic box the shells
+beyond ``\\min(N_i)/2`` are incompletely sampled (only corner modes contribute) — the standard
+isotropic-spectrum caveat — but the total still equals `inner`. The reduction is GPU-portable, a single
+pass over the modes that suits an occasional diagnostic rather than a per-step call.
 """
 function radial_spectrum end
 
@@ -424,19 +418,21 @@ end
     radial_correlation(f, plans)
     radial_correlation(f, g, plans)
 
-The **radial (shell-averaged) two-point correlation** of a field — the physical-space Wiener–Khinchin
-dual of [`radial_spectrum`](@ref). The one-argument form is the **autocorrelation** ``C(r)``; the
+The **radial (shell-averaged) two-point correlation** of a field is the physical-space Wiener–Khinchin
+dual of [`radial_spectrum`](@ref). The one-argument form is the **autocorrelation** ``C(r)``, and the
 two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
-compatible, equal-order fields. `f` (and `g`) are in spectral representation; `plans` are their transform
-plans (matching the tensor order). Returns `(separations, correlation)`, where `separations` are the
+compatible, equal-order fields. The fields `f` (and `g`) are in spectral representation, and `plans` are
+their transform plans (matching the tensor order). It returns `(separations, correlation)`, where
+`separations` are the
 bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell
 ``|r| \\approx r``. By the (cross-)correlation theorem the kernel forms the fiber-summed (cross-)power
 spectrum, inverse-transforms it, and normalizes:
 
 ```math
-C(r) = \\frac1N \\sum_x f(x)\\cdot f(x+r) = \\frac1N\\,\\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r),
-\\qquad
+\\begin{gathered}
+C(r) = \\frac1N \\sum_x f(x)\\cdot f(x+r) = \\frac1N\\,\\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r), \\\\
 C_{fg}(r) = \\frac1N \\sum_x f(x)\\cdot g(x+r) = \\frac1N\\,\\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c \\overline{\\hat f_c}\\,\\hat g_c\\Bigr)(r),
+\\end{gathered}
 ```
 
 followed by the shell average ``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
@@ -458,8 +454,8 @@ the field correlating with its own periodic image, not a true infinite-domain co
 reads an integral scale only out to where ``C`` has decayed (e.g. the first zero crossing), not the full
 curve. As with the spectrum the *total* is unaffected: ``C(0) = \\mathrm{inner}(f, f)`` exactly.
 
-Spectral input only (it needs the inverse transform); GPU-portable (one inverse rfft + a single
-scatter-add binning pass, no scalar indexing).
+It takes spectral input only, since it needs the inverse transform, and it is GPU-portable: one inverse
+transform plus a single binning pass.
 """
 function radial_correlation end
 
@@ -486,19 +482,23 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized ``L^p`` norm** of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``), where ``|f|`` is the
-pointwise fiber magnitude (the vertical `norm`) — the ``L^p`` average over the periodic box ``\\Omega`` of
-volume ``|\\Omega|``, which on the grid is the equal-weight sum over the ``N`` cells:
+The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``),
+where ``|f|`` is the pointwise fiber magnitude (the vertical `norm`) — the ``L^p`` average of ``|f|`` over
+the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
+`p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed in a CFL condition).
+On a grid the average is the equal-weight sum over the ``N`` cells; on a point-set it is the sum over the
+``M`` points:
 
 ```math
-\\lVert f\\rVert_p = \\Bigl(\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^p\\, dx\\Bigr)^{1/p}
-                   = \\Bigl(\\frac1N \\sum_x |f(x)|^p\\Bigr)^{1/p},
-\\qquad
-\\lVert f\\rVert_\\infty = \\sup_{x \\in \\Omega} |f(x)| = \\max_x |f(x)|.
+\\begin{aligned}
+\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^p\\, dx\\Bigr)^{1/p}
+  = \\Bigl(\\frac1N \\sum_x |f(x)|^p\\Bigr)^{1/p} && (\\texttt{Grid3D}), \\\\
+\\lVert f\\rVert_p &= \\Bigl(\\frac1M \\sum_p |f_p|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
+\\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|. &&
+\\end{aligned}
 ```
 
-``p = 2`` reduces to [`l2norm`](@ref); ``p = \\infty`` is the sup of the fiber magnitude (e.g. the
-maximum speed for a CFL condition). Physical-space only.
+It is physical-space only.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
   p == 2 && return l2norm(section)

@@ -2,26 +2,26 @@
     Fields
 
 Field representation and transform core for scalar, vector, and second-order tensor fields on
-three-dimensional rectangular periodic domains. A field is a physical object; the physical-space and
-spectral types (e.g. `ScalarFieldPhysical` and `ScalarFieldSpectral`) are two representations of the
-**same** field. Provided here:
+three-dimensional rectangular periodic domains, for CPU and GPU array backends. A field is a physical
+object, and the physical-space and spectral types (for example `ScalarFieldPhysical` and
+`ScalarFieldSpectral`) are two representations of the **same** field.
 
-  * **Grid and layout** — `Grid3D` (the periodic domain geometry) and `RealFourierLayout` (the
-    real-to-complex transform layout).
-  * **Fiber types** — the Cartesian fiber aliases `FiberVector`, `FiberTensor2`, `FiberTensor3`,
-    `FiberTensor4` (StaticArrays types), elements of the fiber ``(\\mathbb R^3)^{\\otimes R}`` for tensor
-    order ``R``.
-  * **Field types** — scalar, vector, and second-order tensor fields, each in physical-space and
-    spectral representation.
-  * **Transforms** — `FieldTransformPlans` and `to_physical(!)` / `to_spectral(!)`; the allocating forms
-    preserve their input, the in-place `!` forms may overwrite the source (a property of the real FFT,
-    see their docstrings).
-  * **Spectral multipliers** — `FieldSpectralMultipliers`, the wavenumber arrays the spectral
-    differential operators multiply by.
-  * **Broadcasting** — storage-wise and representation-preserving: a dotted assignment writes into the
-    destination's storage, an out-of-place dotted expression allocates a like field in the same
-    representation, and physical and spectral representations cannot be mixed in one broadcast. Designed
-    for CPU and GPU array backends.
+This module provides the following.
+
+  * **Grid and layout** — [`Grid3D`](@ref) describes the periodic domain geometry, and
+    [`RealFourierLayout`](@ref) describes the real-to-complex transform layout.
+  * **Fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref), and
+    [`FiberTensor4`](@ref) are StaticArrays aliases naming one individual tensor value of a given order.
+  * **Field types** — the scalar, vector, and second-order tensor field types each come in a
+    physical-space and a spectral representation.
+  * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
+    [`to_spectral`](@ref) move a field between the two representations. The allocating forms preserve
+    their input, while the in-place `!` forms may overwrite the source.
+  * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
+    spectral differential operators multiply by.
+  * **Broadcasting** — a dotted assignment writes into the destination's storage, an out-of-place dotted
+    expression allocates a like field in the same representation, and physical and spectral
+    representations cannot be mixed in one broadcast.
 """
 module Fields
 
@@ -1037,7 +1037,11 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Allocating version of [`to_physical!`](@ref). Unlike the in-place form, the input `spectral` is left unchanged: its coefficients are copied before the transform.
+Transform a field from spectral space to physical space, returning a newly allocated physical-space field.
+
+Here `spectral` is the source and `transform_plans` provides the inverse FFT plan.
+
+This is the allocating form of [`to_physical!`](@ref). Unlike the in-place form, it leaves the input `spectral` unchanged, because it copies the coefficients before transforming. Use it when `spectral` must be preserved, and use the in-place form when it need not be.
 """
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
@@ -1055,7 +1059,11 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Allocating version of [`to_spectral!`](@ref). Unlike the in-place form, the input `physical` is left unchanged: its values are copied before the transform.
+Transform a field from physical space to spectral space, returning a newly allocated spectral-space field.
+
+Here `physical` is the source and `transform_plans` provides the forward FFT plan.
+
+This is the allocating form of [`to_spectral!`](@ref). Unlike the in-place form, it leaves the input `physical` unchanged, because it copies the values before transforming. Use it when `physical` must be preserved, and use the in-place form when it need not be.
 """
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))

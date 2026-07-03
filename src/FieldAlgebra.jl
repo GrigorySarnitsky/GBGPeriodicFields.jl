@@ -2,30 +2,33 @@
     FieldAlgebra
 
 Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor fields defined in
-[`Fields`](@ref). Each operation comes as an allocating form (a `Base`/`LinearAlgebra` operator where one
-exists) and an in-place `!` form. The families:
+[`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
+one exists — and an in-place `!` form. The families are:
 
-  * **Vector-space** — `add!`/`subtract!` (`+`/`-`), real scaling, and scalar-field
-    multiplication/division (`multiply!`/`divide!`, `*`/`/`).
-  * **Contractions** — `dot!`/`dot` (vector Euclidean and tensor Frobenius inner products, `⋅`) and
-    `cross!`/`cross` (`×`).
-  * **Tensor products** — `mul!` for tensor·vector (left and right action) and tensor·tensor, with the
-    five-argument `α`/`β` accumulation form; allocating `*`.
-  * **Permutations and decompositions** — `transpose!`/`transpose`, and `sym`/`skew`/`dev` (with `!` forms).
-  * **Norms** — `norm!`/`norm` (pointwise absolute value, Euclidean, and Frobenius).
+  * **Vector-space** — [`add!`](@ref) and `subtract!` (`+`, `-`), real scaling, and scalar-field
+    multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`).
+  * **Contractions** — [`dot!`](@ref) computes the vector Euclidean and tensor Frobenius inner products
+    (`⋅`), and [`cross!`](@ref) the cross product (`×`).
+  * **Tensor products** — [`mul!`](@ref) computes the tensor-on-vector action (left and right) and the
+    tensor-on-tensor product, with a five-argument `α`/`β` accumulation form and an allocating `*`.
+  * **Permutations and decompositions** — [`transpose!`](@ref) transposes the fiber indices, and `sym`,
+    `skew`, `dev` split off the symmetric, skew-symmetric, and deviatoric parts (each with a `!` form).
+  * **Norms** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius norms.
 
 Field-field and field-constant operations preserve the representation of their arguments: they act
 pointwise on fields in physical-space representation and coefficient-wise on fields in spectral
-representation. Operations that are not linear in a field argument (for example multiplying two fields
-together, or contracting two fields) are defined only in physical-space representation, except where one
-factor is a compile-time constant fiber, which keeps the operation coefficient-wise; missing combinations
-are deliberate. **Aliasing:** `mul!` follows the `LinearAlgebra` convention — the
-destination must not share storage with an input — while the index-shuffling operations (`cross`,
-`transpose`, `sym`/`skew`/`dev`) are alias-guarded and may be called with the destination aliasing an input.
+representation. An operation that is not linear in a field argument — multiplying two fields together, or
+contracting two fields — is defined only in physical-space representation, except where one factor is a
+compile-time constant fiber, which keeps the operation coefficient-wise; the missing combinations are
+deliberate.
 
-Most of the method families below are emitted by small code generators defined in the "Code generation"
-section: the per-component formulas are written once, and the generators stamp out the representation,
-argument-order, and in-place/allocating variants.
+`mul!` follows the `LinearAlgebra` convention that the destination must not share storage with an input,
+while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-guarded and
+may be called with the destination aliasing an input.
+
+Every operation in this module is also defined for point-values (`AbstractPointValues`): the same
+fiberwise algebra applied to field values sampled at an unstructured point set. See the [`Points`](@ref)
+module.
 """
 module FieldAlgebra
 
@@ -205,11 +208,11 @@ end
     add!(destination, field, constant)
     add!(destination, constant, field)
 
-Add fields, or a field and a constant, in place; returns `destination`.
+Add fields, or a field and a constant, in place, and return `destination`.
 
-Field-field addition is storage-wise and representation-preserving: pointwise for fields in physical-space representation and coefficient-wise for fields in spectral representation.
+Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical-space representation and coefficient-wise on fields in spectral representation.
 
-The constant variants pair a scalar field with a `Real`, a vector field with a `FiberVector`, and a second-order tensor field with a `FiberTensor2`, in either argument order. In physical-space representation the constant is added at every grid point; in spectral representation only the zero Fourier coefficient changes, scaled by the inverse-transform normalisation, so that the physical values shift by exactly the constant.
+The constant variants pair a scalar field with a `Real`, a vector field with a `FiberVector`, and a second-order tensor field with a `FiberTensor2`, in either argument order. In physical-space representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
 """
 function add! end
 
@@ -219,9 +222,9 @@ function add! end
     subtract!(destination, field, constant)
     subtract!(destination, constant, field)
 
-Subtract fields, or a field and a constant, in place; returns `destination`.
+Subtract fields, or a field and a constant, in place, and return `destination`.
 
-Field-field subtraction computes `a - b - fields...`, storage-wise and representation-preserving. The constant variants mirror [`add!`](@ref) — a `Real` for scalar fields, a `FiberVector` for vector fields, a `FiberTensor2` for second-order tensor fields — acting on every grid point in physical-space representation and on the zero Fourier coefficient only in spectral representation. The reversed argument order computes `constant - field`.
+Field-field subtraction computes `a - b - fields...`; it is storage-wise and representation-preserving. The constant variants mirror [`add!`](@ref): they accept a `Real` for a scalar field, a `FiberVector` for a vector field, and a `FiberTensor2` for a second-order tensor field. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
 function subtract! end
 
@@ -441,11 +444,11 @@ end
     multiply!(destination, scalar_field, field)
     multiply!(destination, scalar_field, constant)
 
-Multiply in place by a real number or by a scalar field; returns `destination`.
+Multiply a field in place by a real number or by a scalar field, and return `destination`.
 
-Multiplication by a real number is representation-preserving and defined for fields in physical-space and spectral representation, in either argument order.
+Multiplication by a real number is representation-preserving and is defined for fields in both physical-space and spectral representation, in either argument order.
 
-Multiplication by a scalar field is pointwise and is therefore defined only in physical-space representation when the other factor is a field; in spectral representation the product of two fields is a convolution, which this module does not provide. When the other factor is a constant `FiberVector` or `FiberTensor2` the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
+Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical-space representation; in spectral representation the product of two fields is a convolution, which this module does not provide. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
 """
 function multiply! end
 
@@ -455,9 +458,9 @@ function multiply! end
     divide!(destination, field, scalar_field)
     divide!(destination, numerator, scalar_field)
 
-Divide in place; returns `destination`.
+Divide a field in place, and return `destination`.
 
-Division by a real number is representation-preserving and defined in both representations. Division by a scalar field is pointwise and defined only in physical-space representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field).
+Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical-space representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field).
 """
 function divide! end
 
@@ -676,11 +679,17 @@ const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
     dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::FiberTensor2)
     dot!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2}, B::FiberTensor2)
 
-Compute a fiberwise inner product in-place; returns `destination`.
+Compute a fiberwise inner product in place, and return `destination`.
 
-For vector arguments this is the Euclidean scalar product ``u_i v_i``; for second-order tensors it is the Frobenius double contraction ``A_{ij} B_{ij}``. Either argument order is accepted.
+For two vector fields this is the Euclidean scalar product; for two second-order tensor fields it is the Frobenius double contraction. Either argument order is accepted.
 
-Contraction of two fields is nonlinear and defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
+Contraction of two fields is nonlinear and is defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
+
+Pointwise over the base, with summation over the repeated fiber indices:
+
+```math
+(u \\cdot v)(x) = u_i(x)\\, v_i(x), \\qquad (A : B)(x) = A_{ij}(x)\\, B_{ij}(x).
+```
 """
 function dot! end
 
@@ -689,16 +698,7 @@ function dot! end
     dot(u::VectorFieldPhysical, v::VectorFieldPhysical)
     dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
 
-Allocating fiberwise inner product (`dot` ``\\equiv \\cdot``), returning a scalar field — the Euclidean
-vector product or the tensor Frobenius product, applied pointwise over the base:
-
-```math
-(u \\cdot v)(x) = u_i(x)\\, v_i(x), \\qquad (A : B)(x) = A_{ij}(x)\\, B_{ij}(x)
-```
-
-(summation over repeated fiber indices). Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. See `dot!` for the in-place form. The infix alias ``\\cdot`` (`⋅`) is also exported.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocating form of [`dot!`](@ref) (`dot` ``\\equiv \\cdot``): allocate the scalar-field result and return it. For two vector fields this is their pointwise Euclidean product; for two second-order tensor fields, their pointwise Frobenius product. Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. The infix alias ``\\cdot`` (`⋅`) is also exported. See `dot!` for the componentwise formula.
 """
 dot
 
@@ -774,8 +774,11 @@ end
     cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
-Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in-place; returns `destination`.
-Pointwise over the base; with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated ``j, k``), the components are
+Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in place, and return `destination`.
+
+Cross products of two fields are nonlinear and are defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise.
+
+Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated ``j, k``), the components are
 
 ```math
 \\begin{gathered}
@@ -785,8 +788,6 @@ Pointwise over the base; with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (sum
 (u \\times v)_3 = u_1 v_2 - u_2 v_1.
 \\end{gathered}
 ```
-
-Cross products of two fields are nonlinear and defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (either argument order) is provided, which keeps the operation coefficient-wise.
 """
 function cross! end
 
@@ -794,9 +795,7 @@ function cross! end
 """
     cross(u::VectorFieldPhysical, v::VectorFieldPhysical)
 
-Allocating fiberwise cross product (`cross` ``\\equiv \\times``) ``u \\times v``, returning a vector field. Two vector fields cross only in physical-space representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. See `cross!` for the in-place form. The infix alias ``\\times`` (`×`) is also exported.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocating form of [`cross!`](@ref) (`cross` ``\\equiv \\times``): allocate the vector-field result ``u \\times v`` and return it. Two vector fields cross only in physical-space representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. The infix alias ``\\times`` (`×`) is also exported. See `cross!` for the componentwise formula.
 """
 cross
 
@@ -857,16 +856,18 @@ end
          B::TensorFieldPhysical{2}[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
 
-Compute a fiberwise tensor (matrix) product in-place; returns `destination`. Pointwise over the base —
-the tensor-on-vector left/right action, or the matrix product, exactly as the kernel computes them:
+Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\mathrm{destination} = \\alpha\\,(A B) + \\beta\\,\\mathrm{destination}``.
+
+A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector.
+
+!!! warning
+    As with `LinearAlgebra.mul!`, `destination` must not share storage with any input; this operation carries no alias guard.
+
+Pointwise over the base, with summation over the repeated fiber indices:
 
 ```math
 (A u)_i = A_{ij} u_j, \\qquad (u A)_i = u_j A_{ji}, \\qquad (A B)_{ij} = A_{ik} B_{kj}.
 ```
-
-Products of two fields are nonlinear and defined only in physical-space representation; spectral-space methods require one factor to be a constant fiber tensor or fiber vector. The five-argument form computes ``\\mathrm{destination} = \\alpha\\,(A B) + \\beta\\,\\mathrm{destination}``. As with `LinearAlgebra.mul!`, `destination` must not share storage with any input.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
 """
 mul!
 
@@ -1031,11 +1032,15 @@ end
     transpose!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     transpose!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Transpose the fiber indices of a second-order tensor field in-place (`transpose` ``\\equiv (\\cdot)^\\top``): ``\\mathrm{destination}_{ij} = A_{ji}``; returns `destination`.
+Transpose the fiber indices of a second-order tensor field in place (`transpose` ``\\equiv (\\cdot)^\\top``), and return `destination`.
 
-The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, this writes a canonical tensor field rather than a lazy wrapper.
+The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, it writes a materialized tensor field rather than a lazy wrapper.
 
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Pointwise over the base:
+
+```math
+\\mathrm{destination}_{ij} = A_{ji}.
+```
 """
 transpose!
 
@@ -1065,9 +1070,15 @@ end
     norm!(destination::ScalarFieldPhysical, u::VectorFieldPhysical)
     norm!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
 
-Compute the fiberwise norm of a field (`norm` ``\\equiv |\\cdot|``) in physical-space representation in-place; returns `destination`.
+Compute the fiberwise norm of a physical-space field (`norm` ``\\equiv |\\cdot|``) in place, and return `destination`.
 
-This is the pointwise absolute value ``|\\varphi|`` for scalar fields, the Euclidean norm ``|u| = \\sqrt{u_i u_i}`` for vector fields, and the Frobenius norm ``|A| = \\sqrt{A_{ij} A_{ij}}`` (not the operator norm) for second-order tensor fields. The norm is nonlinear and is not defined for spectral representation.
+The norm is nonlinear, so it is defined only in physical-space representation.
+
+Pointwise over the base — the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
+
+```math
+|\\varphi|, \\qquad |u| = \\sqrt{u_i u_i}, \\qquad |A| = \\sqrt{A_{ij} A_{ij}}.
+```
 """
 function norm! end
 
@@ -1077,16 +1088,7 @@ function norm! end
     norm(u::VectorFieldPhysical)
     norm(A::TensorFieldPhysical{2})
 
-Allocating fiberwise norm (`norm` ``\\equiv |\\cdot|``), returning a scalar field — the pointwise fiber
-magnitude:
-
-```math
-|\\varphi| \\;(\\text{scalar}), \\qquad |u| = \\sqrt{u_i u_i} \\;(\\text{vector}), \\qquad |A| = \\sqrt{A_{ij} A_{ij}} \\;(\\text{Frobenius, tensor}).
-```
-
-Physical-space representation only. See `norm!` for the in-place form.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocating form of [`norm!`](@ref) (`norm` ``\\equiv |\\cdot|``): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical-space representation only. See `norm!` for the componentwise formula.
 """
 norm
 
@@ -1121,7 +1123,7 @@ end
     sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     sym!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the symmetric part ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+Compute the symmetric part ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function sym! end
 
@@ -1131,9 +1133,7 @@ function sym! end
     sym(A::TensorFieldSpectral{2})
     sym(A::FiberTensor2)
 
-Allocate and compute the symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocate the result and compute the symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function sym end
 
@@ -1142,7 +1142,7 @@ function sym end
     skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     skew!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the skew-symmetric part ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)`` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+Compute the skew-symmetric part ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function skew! end
 
@@ -1152,9 +1152,7 @@ function skew! end
     skew(A::TensorFieldSpectral{2})
     skew(A::FiberTensor2)
 
-Allocate and compute the skew-symmetric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocate the result and compute the skew-symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function skew end
 
@@ -1163,7 +1161,7 @@ function skew end
     dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the deviatoric part ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I`` of a second-order tensor field in-place; returns `destination`. Linear and representation-preserving, so defined for both representations.
+Compute the deviatoric part ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function dev! end
 
@@ -1173,9 +1171,7 @@ function dev! end
     dev(A::TensorFieldSpectral{2})
     dev(A::FiberTensor2)
 
-Allocate and compute the deviatoric part of a second-order tensor; fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
-
-This operation is also defined for `PointValues` — the same fiberwise algebra on field values sampled at an unstructured point set (see the `Points` module).
+Allocate the result and compute the deviatoric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function dev end
 

@@ -9,12 +9,38 @@
 """
     GBGPeriodicFields
 
-Tools for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
+Represent, transform, and manipulate real-valued scalar, vector, and second-order-tensor
+fields on three-dimensional rectangular periodic domains, in physical-space and
+real-to-complex spectral representations, on both CPU and GPU array backends.
 
-The package is aimed primarily at fluid-dynamics and turbulence simulations, with physical-space and real-to-complex spectral representations
-designed for both CPU and GPU array backends. It also targets Lagrangian particle simulations through interpolation tools for evaluating fields between grid nodes.
+The package is the field layer for pseudospectral fluid and turbulence solvers, and it
+carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
+methods. A field is one real physical object; the physical and spectral forms are two
+representations of that same object.
 
-The package provides field representations and FFT transform plans, storage-wise broadcasting, the fiberwise algebra (`dot`, `cross`, `mul!`, …), spectral differential operators (`gradient`, `divergence`, `curl`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`), periodic convolution (`convolve`, `spectral_cutoff`, …), the L²/measure reductions (`integral`, `inner`, `l2norm`, `radial_spectrum`, `radial_correlation`, …), and the grid↔point transfer (`interpolate`/`anterpolate`).
+The umbrella assembles its public surface from the submodules below, each of which owns
+one operation family:
+
+- [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
+  the FFT transform plans, and the transforms [`to_physical`](@ref) and
+  [`to_spectral`](@ref) between the two representations.
+- [`FieldAlgebra`](@ref) provides the fiberwise algebra: the contractions `dot` and `cross`,
+  the tensor product `mul!`, the transpose `transpose!`, the norm `norm`, and the
+  [`sym`](@ref)/`skew`/`dev` decompositions.
+- [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
+  `divergence`, `curl`, `laplacian`, `inverse_laplacian`, and `helmholtz_projection`.
+- [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref) together with the
+  kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`, and
+  `assignment_window`.
+- [`Points`](@ref) supplies the point-data types and their fiberwise algebra, mirroring the
+  physical field surface.
+- [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
+  adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
+- [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
+  `l2norm`, and `lpnorm`, plus the radial diagnostics `radial_spectrum` and
+  `radial_correlation`.
+
+[`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share.
 """
 module GBGPeriodicFields
 

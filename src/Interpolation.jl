@@ -1,58 +1,35 @@
 """
     Interpolation
 
-Transfer between the grid sections of `Fields` and the point sections of `Points`: evaluating a
-field `f` at off-grid positions `xs`, and depositing per-point quantities `qs` back onto the grid.
-Throughout, **`f` is a field, `x` an off-grid position** (``x_p`` the ``p``-th position; `xs` a `PointSet`)
-**and `q` a per-point value** (`qs` the matching array). The two operations are formal adjoints of
-each other, under a chosen transfer `scheme` — two families: the physical-domain local splines of
-Lalescu, Teaca & Carati (2010) (portable KernelAbstractions gather/scatter kernels, CPU / CUDA / AMDGPU,
-atomic scatter; the default), and the spectral-domain exact `DirectDFT` / fast `NUFFT` that act on a field
-in spectral representation. The point-value data types and their fiberwise algebra live in the `Points`
-module.
+Transfer between the grid sections of `Fields` and the point sections of `Points`: **interpolation**
+evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
+back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
+
+Interpolation **gathers**: the value at a point is the field read out there. Anterpolation **scatters**:
+it spreads each point's quantity onto the surrounding grid nodes with a stencil weight, so it returns a
+whole field. The two are adjoints because they share the same stencil weights, and because those weights
+sum to one (a partition of unity) anterpolation **conserves** the total it deposits — the property that
+coupling a quantity back onto the flow needs. Conservation holds **only** when both directions use the
+same weights; mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation reads
+a value while its adjoint returns a field, and that is the one asymmetry in the API. Each scheme's own
+docstring gives the gather and scatter weights it applies.
+
+A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation the
+field is read in. Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
+(portable KernelAbstractions gather/scatter kernels on CPU / CUDA / AMDGPU, with an atomic scatter; the
+default [`CatmullRom`](@ref)), and the spectral-domain exact [`DirectDFT`](@ref) / fast [`NUFFT`](@ref)
+that act on a field in spectral representation. The point-value data types and their fiberwise algebra
+live in the `Points` module.
 
 # API
 
-  * **Interpolation** (grid to point, *gather*; `interpolate` ``\\equiv W``):
-    `interpolate(f, xs[, scheme])` / in-place `interpolate!(out, f, xs[, scheme])`, plus the callable
-    `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of `interpolate`.
-  * **Anterpolation** (point to grid, *scatter*; `anterpolate` ``\\equiv W^\\top``):
-    `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`, with a
-    five-argument ``\\alpha``/``\\beta`` form (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate,
-    the `mul!` convention; accumulation is the common case for the scatter).
-
-`interpolate` / `anterpolate!` are the symmetric named pair (the linear maps ``W`` / ``W^\\top``); only
-interpolation also carries the pointwise callable `f(x)`, because evaluation is pointwise while its
-adjoint is not. Both directions share one `scheme` (the same weights) — which is what makes them an
-adjoint pair.
-
-# Why interpolation and anterpolation are adjoint: the function–measure duality
-
-Write ``\\iota`` for the map carrying each point to its location ``x_p``. Interpolation pulls a
-*function* back along ``\\iota`` — the pullback ``W = \\iota^* \\otimes \\mathrm{id}_V``, which acts on the
-**base** and leaves the fiber by the identity (the bundle is trivial — one global frame — so the fiber
-components are never mixed); you evaluate it. Anterpolation pushes the dual *measure* forward — a sum of
-point masses ``\\iota_* q = \\sum_p q_p\\,\\delta_{x_p}``, regularized by the stencil weight kernel ``w`` to
-the point-source density ``\\sum_p q_p\\,w(\\cdot - x_p)`` it deposits on the grid; you integrate against
-it. So:
-
-  * evaluation is pairing with a Dirac mass, ``f(x) = \\langle \\delta_x, f\\rangle``, hence
-    ``(W f)_p = \\langle \\delta_{x_p}, f\\rangle = f(x_p)``;
-  * its adjoint cannot be pointwise — it returns a measure (the density above), not a value.
-
-Hence the API asymmetry: you *evaluate functions* (`f(x)` returns a value) but *accumulate measures*
-(`anterpolate!` adds a source density onto a field); there is no pointwise `f(x) = q`.
-
-Both directions share one set of stencil weights ``w`` (a partition of unity, ``\\sum w = 1``) applied as
-a **compact local stencil** — no global operator is ever formed. Sharing the weights is what makes
-anterpolation the **adjoint** ``W^\\top`` of interpolation, and ``\\sum w = 1`` makes the deposited total
-equal the input total in each fiber component — the conservation the two-way-coupled parcel application
-needs (total water mass and latent heat). It holds **only when both directions use the same weights**
-(mismatched weights inject a spurious source — Sundaram & Collins 1996). Against the package's normalized
-inner products (`inner` — the point counting-average and the grid volume-average) the adjoint relation
-carries the two base-count normalizations, ``M\\,\\langle W f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle f,
-W^\\top q\\rangle_{\\mathrm{grid}}`` (``N`` grid nodes, ``M`` points); the measure-weighted reading is the
-immersed-boundary spreading/interpolation adjoint pair (Peskin 2002).
+  * **Interpolation** (grid → point, *gather*; `interpolate` ``\\equiv W``): [`interpolate`](@ref) and
+    the in-place [`interpolate!`](@ref), plus the callable `f(x)` (and its broadcast `f.(xs)`) as the
+    ergonomic face of a single-point gather.
+  * **Anterpolation** (point → grid, *scatter*; `anterpolate` ``\\equiv W^\\top``): [`anterpolate`](@ref)
+    and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
+    (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the
+    common case for the scatter).
 
 # References
 
@@ -60,7 +37,6 @@ immersed-boundary spreading/interpolation adjoint pair (Peskin 2002).
     tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension of
     finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
-  * C. S. Peskin, *The immersed boundary method*, Acta Numerica **11** (2002) 479–517.
 """
 module Interpolation
 
@@ -104,13 +80,25 @@ abstract type AbstractTransferScheme end
 """
     AbstractSplineScheme{N2, M2, T, L}
 
-Supertype of the local interpolation schemes — the two hierarchies of Lalescu, Teaca & Carati
-(2010): the smooth [`LalescuSpline`](@ref) and the ``C^0`` [`LagrangeSpline`](@ref). A scheme is a
-tensor product of 1D weight polynomials over a compact stencil of ``N_2`` nodes, each weight a
-degree-``(M_2-1)`` polynomial in the fractional cell position ``t \\in [0, 1)``. The ``N_2 \\times M_2``
-coefficient matrix (`[node, power]`) is precomputed once into an `SMatrix` so it passes into the
-gather/scatter kernels by value (no device array). The **physical-domain** family of
-[`AbstractTransferScheme`](@ref) (its weights act on the physical nodal values).
+Supertype of the physical-domain local interpolation schemes — the two hierarchies of Lalescu, Teaca &
+Carati (2010): the smooth [`LalescuSpline`](@ref) and the ``C^0`` [`LagrangeSpline`](@ref). Each acts on
+a field in physical-space representation, gathering and scattering its nodal values over a compact
+``(2n{+}2)^3`` stencil around the cell ``c`` that contains a point ``x_p``. With ``t_a`` the point's
+fractional position along axis ``a`` and ``w`` the scheme's per-axis weight polynomials, interpolation is
+the tensor-product gather
+
+```math
+f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\;
+f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
+```
+
+and anterpolation is its transpose, adding ``w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\, q_p`` (with
+``q_p`` the value carried at ``x_p``) onto each of those same nodes. Concretely a scheme is a tensor product of 1D weight polynomials: a compact
+stencil of ``N_2 = 2n{+}2`` nodes, each weight a degree-``(M_2-1)`` polynomial in the fractional cell
+position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, power]`) is precomputed
+once into an `SMatrix`, so it passes into the gather/scatter kernels by value (no device array). One of
+the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
+[`NUFFT`](@ref) are the other.
 """
 abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTransferScheme end
 
@@ -166,17 +154,15 @@ end
 """
     LagrangeSpline(n; T = Float64)
 
-The ``C^0`` Lagrange hierarchy of Lalescu, Teaca & Carati (2010) (TurTLE's `Lagrange_polys`): the
-unique degree-``2n{+}1`` polynomial interpolating all ``2n{+}2`` stencil nodes at offsets
-``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``). The per-axis weights are the Lagrange cardinal polynomials,
-stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix` `coefficients`. Reproduces polynomials up to
-degree ``2n{+}1`` exactly, but is only ``C^0`` (kinks at the nodes); for smooth derivatives use
-[`LalescuSpline`](@ref) instead. ``n = 0`` is linear interpolation.
+Local, ``C^0``, Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
+nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
+are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
+`coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly, but is only ``C^0`` (the
+interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. ``n = 0`` is
+linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_polys`.
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
-    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
     large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
     **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
@@ -448,27 +434,25 @@ end
 
 
 """
-    interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
-                 scheme = CatmullRom)
+    interpolate!(out, field::AbstractFieldPhysical, points, scheme = CatmullRom)
+    interpolate!(out, field::AbstractFieldSpectral, points, scheme::DirectDFT)
+    interpolate!(out, field::AbstractFieldSpectral, points, scheme::NUFFT)
 
-Interpolate `field` (physical-space representation) to the off-grid `points`, writing into `out`; returns `out`.
+Interpolate `field` to the off-grid `points`, writing the gathered values into `out`; returns `out`. This
+is the in-place home of the gather ``W``; for a freshly allocated result use [`interpolate`](@ref), and
+for a single position the callable `field(x)`.
 
-Each point value is the tensor-product spline gather over the ``(2n{+}2)^3`` stencil around the
-containing cell ``c``, with ``t_a`` the fractional position along axis ``a`` and ``w`` the scheme
-weights — exactly the weighted sum the kernel computes:
+The `scheme` (an [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation the
+field is read in. The physical-domain local splines ([`CatmullRom`](@ref) and the other
+[`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space** field
+over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in **spectral
+representation** in the Fourier basis; each scheme's own docstring gives the weights it applies.
 
-```math
-f(x_p) \\approx \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\;
-f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr).
-```
-
-The ``\\approx`` is genuine: the gather is **exact** at grid nodes and for polynomials up to the
-scheme's reproduction degree (`CatmullRom` quadratic, `LalescuSpline(n,m)` ``\\min(2m{+}1, 2n)``,
-`LagrangeSpline(n)` ``2n{+}1``), approximate otherwise.
-
-`out` must match `field` in tensor order and cover the same number of points as `points`. The transfer runs
-as a portable gather kernel on the field's array backend (CPU / CUDA / AMDGPU). Interpolation is defined for
-physical-space representation only; transform a spectral field to physical space first.
+`out` must match `field` in tensor order (scalar, vector, or second-order tensor) and cover the same
+number of points as `points`. The transfer runs as a portable gather kernel on the field's array backend
+(CPU / CUDA / AMDGPU). The spline schemes are exact at grid nodes and for polynomials up to the scheme's
+reproduction degree and approximate otherwise; the spectral schemes reconstruct the band-limited field
+exactly (`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
@@ -487,10 +471,13 @@ end
 
 
 """
-    interpolate(field::AbstractFieldPhysical, points::PointSet, scheme = CatmullRom)
+    interpolate(field::AbstractFieldPhysical, points, scheme = CatmullRom)
+    interpolate(field::AbstractFieldSpectral, points, scheme::DirectDFT)
+    interpolate(field::AbstractFieldSpectral, points, scheme::NUFFT)
 
-Allocating form of [`interpolate!`](@ref): returns a new [`AbstractPointValues`](@ref) of `field`'s tensor
-order holding `field` sampled at `points`.
+Allocating form of [`interpolate!`](@ref): allocate a new [`AbstractPointValues`](@ref) of `field`'s
+tensor order and return `field` sampled at `points`. See [`interpolate!`](@ref) for the schemes and their
+accuracy.
 """
 function interpolate(field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
   T = field_scalar_type(field)
@@ -503,9 +490,9 @@ end
     (field::AbstractFieldPhysical)(x; scheme = CatmullRom)
 
 Evaluate `field` at a single off-grid position `x` (a length-3 indexable), returning a scalar, an
-`SVector{3}`, or an `SMatrix{3,3}` for scalar/vector/second-order-tensor fields. A convenience wrapper
-over [`interpolate`](@ref) (it builds a one-point set and runs the gather kernel); for many points,
-call `interpolate` with a [`PointSet`](@ref) instead.
+`SVector{3}`, or an `SMatrix{3,3}` for a scalar, vector, or second-order-tensor field. This is the
+ergonomic face of a one-point [`interpolate`](@ref) gather: it builds a one-point set and runs the spline
+kernel. For many points, call [`interpolate`](@ref) with a [`PointSet`](@ref) instead.
 """
 function (field::AbstractFieldPhysical)(x; scheme::AbstractSplineScheme = CatmullRom)
   T = field_scalar_type(field)
@@ -522,26 +509,27 @@ end
 
 
 """
-    anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
-                 scheme = CatmullRom, α = true, β = false)
+    anterpolate!(field, points, quantities, scheme = CatmullRom, α = true, β = false)
 
-Deposit the per-point `quantities` onto `field` in-place — the adjoint (transpose) of
-[`interpolate!`](@ref) under the same `scheme` (``W^\\top``) — computing
-``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``. Using the **same** stencil weights
-as the gather, each point ``p`` (in cell ``c``, fractional position ``t``) atomically scatters its value
-``q_p`` onto the ``(2n{+}2)^3`` surrounding nodes:
+Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
+[`interpolate!`](@ref) under the same `scheme` — computing
+``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``; returns `field`. This is the
+in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
 
-```math
-\\mathrm{field}\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr) \\mathrel{+}= \\alpha\\;
-w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\; q_p
-```
+Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
+with the weights' partition of unity the total deposited quantity is conserved. The `scheme` (an
+[`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation: the physical-domain
+local splines ([`CatmullRom`](@ref) and the other [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref))
+scatter onto a **physical-space** field, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a
+field in **spectral representation**; each scheme's own docstring gives the weights.
 
-(after an initial ``\\times \\beta`` prescale of the field). Sharing the gather weights makes this the
-exact transpose, so with the partition of unity ``\\sum w = 1`` the total deposited quantity is
-conserved. With ``\\beta = 0`` (default) the field is overwritten; with ``\\beta \\ne 0`` the deposit is
-accumulated (the common case for the two-way-coupling scatter). `field` and `quantities` must share
-tensor order and `points` must cover the same number of points. Runs as a portable atomic-scatter
-kernel on the field's array backend.
+  - `α` scales the deposited contribution.
+  - `β` sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0`` accumulates
+    onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling scatter).
+
+`field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
+must cover the same number of points. The transfer runs as a portable scatter kernel on the field's array
+backend (CPU / CUDA / AMDGPU).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false)
@@ -567,11 +555,15 @@ end
 
 
 """
-    anterpolate(grid::Grid3D, points::PointSet, quantities::AbstractPointValues,
-                scheme = CatmullRom)
+    anterpolate(grid::Grid3D, points, quantities, scheme = CatmullRom)
+    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::DirectDFT)
+    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT)
 
-Allocating form of [`anterpolate!`](@ref): returns a new physical-space field on `grid`, of the tensor
-order of `quantities`, holding the deposited (scattered) quantities.
+Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order holding the
+deposited (scattered) quantities, and return it. The spline schemes deposit onto a physical-space field
+on `grid`; the spectral schemes deposit into a field in spectral representation like `reference` (same
+grid and layout). See [`anterpolate!`](@ref) for the schemes and the ``\\alpha``/``\\beta`` accumulate
+form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues, scheme::AbstractSplineScheme = CatmullRom) where {T<:AbstractFloat}
   R = pointvalue_tensor_order(quantities)
@@ -610,27 +602,27 @@ _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_va
 """
     DirectDFT()
 
-The **exact** spectral-domain transfer scheme: interpolation/anterpolation by the literal ``O(NM)``
-discrete Fourier sum — no window, no oversampling, no FFT. It is the *definition* of the
-spectral-domain adjoint pair `interpolate` ``= W`` / `anterpolate` ``= W^\\top``, so it is at once a
-transparent exact baseline and the oracle that validates [`NUFFT`](@ref). It acts on a field in
-**spectral representation**, `interpolate(f̂, points, DirectDFT())` and
-`anterpolate(reference, points, q, DirectDFT())`:
+The **exact** spectral-domain transfer scheme: it interpolates and anterpolates by the literal ``O(NM)``
+discrete Fourier sum over the field's stored Fourier modes ``k`` and the ``M`` points (``x_p`` the
+``p``-th point position, ``q_p`` the value carried there), with ``N = N_x N_y N_z`` the grid-point
+count — no window, no oversampling, no FFT.
+It is the *definition* of the spectral-domain adjoint pair, so it serves both as a transparent exact
+baseline and as the oracle that validates the fast [`NUFFT`](@ref); for many points or modes, prefer
+`NUFFT`. It acts on a field in **spectral representation**:
 
 ```math
-f(x_p) = \\frac1N \\sum_{k} \\hat f(k)\\, e^{i k\\cdot (x_p - o)}
-       = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{i k\\cdot (x_p - o)}\\bigr),
+f(x_p) = \\frac1N \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}
+       = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr),
 \\qquad
-(W^\\top q)(k) = \\sum_p q_p\\, e^{-i k\\cdot (x_p - o)},
+(W^\\top q)(k) = \\sum_p q_p\\, e^{-\\mathrm{i} k\\cdot (x_p - o)},
 ```
 
 reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
 Parseval weight ``\\alpha(k) = 1`` on the self-conjugate ``k_x = 0`` plane (and the even-``N_x`` Nyquist
-plane), ``2`` otherwise. The interpolation reproduces the band-limited field **exactly** — so it is
-pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid
-nodes; the adjoint matches [`to_spectral`](@ref) from grid-node samples. Adjoint pair:
-``M\\,\\langle W\\hat f, q\\rangle_{\\mathrm{pts}} = N\\,\\langle \\hat f, W^\\top q\\rangle_{\\mathrm{grid}}`` (the
-measure factor, as for the splines). Stateless; ``O(NM)`` — for many points/modes prefer [`NUFFT`](@ref).
+plane) and ``2`` elsewhere. Interpolation reproduces the band-limited field **exactly**, so it is
+pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid nodes;
+anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
+`DirectDFT()` and pass it as the `scheme`.
 """
 struct DirectDFT <: AbstractTransferScheme end
 
@@ -746,14 +738,6 @@ end
 end
 
 
-"""
-    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
-                 scheme::DirectDFT)
-
-Exact spectral interpolation (the ``O(NM)`` inverse DFT) of `field` (spectral representation) to
-`points`, writing into `out`; see [`DirectDFT`](@ref). The result equals [`to_physical`](@ref) at the
-grid nodes and reproduces the band-limited field exactly off-grid.
-"""
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
@@ -775,12 +759,6 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
 end
 
 
-"""
-    interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
-
-Allocating form: a new [`AbstractPointValues`](@ref) of `field`'s tensor order holding `field`
-evaluated exactly at `points` (the inverse DFT, [`DirectDFT`](@ref)).
-"""
 function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
@@ -789,16 +767,6 @@ function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::Dir
 end
 
 
-"""
-    anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                 scheme::DirectDFT, α = true, β = false)
-
-Exact spectral anterpolation (the ``O(NM)`` forward DFT) — the adjoint of the spectral
-[`interpolate!`](@ref) — depositing the per-point `quantities` into the Fourier coefficients of
-`field`: ``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}`` with
-``(W^\\top q)(k) = \\sum_p q_p\\,e^{-i k\\cdot(x_p - o)}`` (matches [`to_spectral`](@ref) from grid-node
-samples). ``\\beta = 0`` overwrites, ``\\beta \\ne 0`` accumulates.
-"""
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                       scheme::DirectDFT, α::Real = true, β::Real = false)
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
@@ -820,13 +788,6 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
 end
 
 
-"""
-    anterpolate(reference::AbstractFieldSpectral, points::PointSet,
-                quantities::AbstractPointValues, scheme::DirectDFT)
-
-Allocating form: a new spectral field like `reference` (same grid/layout, the tensor order of
-`quantities`) holding the deposited Fourier coefficients (the forward DFT, [`DirectDFT`](@ref)).
-"""
 function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
   out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
   return anterpolate!(out, points, quantities, scheme)
@@ -936,24 +897,35 @@ end
 """
     NUFFT(reference::AbstractFieldSpectral; tol = 1e-10, oversampling = 2, width = 0, beta = 0)
 
-The **fast** spectral-domain transfer scheme — the ``O(N\\log N + M)`` windowed-gridding (NUFFT)
-counterpart of [`DirectDFT`](@ref), exact to a tolerance `tol`. Built from a `reference` spectral
-field (it fixes the grid, layout, element type, and tensor order); the plan holds the oversampled
-(`oversampling`×) grid and its [`FieldTransformPlans`](@ref), the deconvolution ``1/\\hat\\psi`` (``\\psi``
-the exponential-of-semicircle gridding window, ``\\hat\\psi`` its transform), and the coarse↔oversampled
-mode maps. `width`/`beta` default to the exponential-of-semicircle parameters
-for `tol`. Used like `DirectDFT`: `interpolate(f̂, points, nufft)` / `anterpolate(points, q, nufft)`,
-on a field in **spectral representation**, of the reference's tensor order. The algorithm is
+The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
+(nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at
+scattered points and depositing point values back, agreeing with `DirectDFT` to a tolerance `tol`. It
+spreads the transfer onto an oversampled grid through a smooth compact window and takes a single FFT, so
+it is far cheaper than the exact ``O(NM)`` sum once the point and mode counts grow; for a few points or
+modes, `DirectDFT` is simpler and exact.
 
-```math
-\\text{type-2: deconvolve } \\hat f / \\hat\\psi \\to \\text{zero-pad} \\to \\mathcal F^{-1} \\to \\text{window-gather}, \\qquad
-\\text{type-1: window-spread} \\to \\mathcal F \\to \\text{truncate} \\to \\text{deconvolve}.
-```
+Build a plan once from a `reference` spectral field, which fixes the grid, layout, element type, and
+tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
+like the reference. The options:
 
-It agrees with `DirectDFT` (hence `to_physical`/`to_spectral` at the nodes) to `tol` on the resolved
-sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint relation, and like it is
-divergence-free (it reconstructs the band-limited field). For a few
-points/modes `DirectDFT` is simpler; `NUFFT` wins as ``M, N`` grow.
+  - `tol` — the target accuracy; the window width and shape default to the values that reach it.
+  - `oversampling` — the linear oversampling factor of the work grid (default `2`).
+  - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
+  - `beta` — the window shape parameter; `0` (default) picks it from the width.
+
+It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
+`tol` on the resolved sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint
+relation, and like it reconstructs the band-limited field (divergence-free).
+
+!!! warning
+    A `NUFFT` plan holds an oversampled work grid of about ``\\sigma^3`` times the field's memory (eight
+    times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
+    memory-tight GPU.
+
+# References
+
+  * A. H. Barnett, J. Magland, L. af Klinteberg, *A parallel nonuniform fast Fourier transform library
+    based on an exponential of semicircle kernel*, SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
 struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
   width::Int
@@ -1110,15 +1082,6 @@ end
 _fresh(template) = similar_field(template, similar(field_data(template)))
 
 
-"""
-    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
-                 scheme::NUFFT)
-
-Fast spectral interpolation (the windowed-gridding NUFFT, [`NUFFT`](@ref)) of `field` to `points`:
-deconvolve, zero-pad to the oversampled grid, inverse FFT, window-gather. Agrees with
-[`DirectDFT`](@ref) to the plan's tolerance on the resolved sub-Nyquist band (the rfft Nyquist plane is
-projected out).
-"""
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
@@ -1148,11 +1111,6 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
 end
 
 
-"""
-    interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
-
-Allocating form of the NUFFT [`interpolate!`](@ref).
-"""
 function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
@@ -1161,14 +1119,6 @@ function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUF
 end
 
 
-"""
-    anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                 scheme::NUFFT, α = true, β = false)
-
-Fast spectral anterpolation (the windowed-gridding NUFFT) — the adjoint of the NUFFT
-[`interpolate!`](@ref): window-spread, FFT, truncate to the coarse modes, deconvolve, accumulating
-``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``.
-"""
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                       scheme::NUFFT, α::Real = true, β::Real = false)
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
@@ -1203,12 +1153,6 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
 end
 
 
-"""
-    anterpolate(reference::AbstractFieldSpectral, points::PointSet,
-                quantities::AbstractPointValues, scheme::NUFFT)
-
-Allocating form of the NUFFT [`anterpolate!`](@ref): a new spectral field like `reference`.
-"""
 function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT)
   out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
   return anterpolate!(out, points, quantities, scheme)

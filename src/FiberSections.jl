@@ -4,16 +4,22 @@
 Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
-`PointSet`) are both *sections of a tensor bundle over a base*. This
-module owns the part of the design that does not depend on the base: the `AbstractFiberSection`
-supertype, the CPU-threading / fused-assignment primitive `_assign!`, and the vertical-algebra
-**code generators** (the per-component formula and kernel-body builders) — written once here so
-that one set of generated kernels serves both field and point-value sections.
+`PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
+design that does not depend on which base is used, and it groups three families of
+contributor-facing machinery:
 
-The base-specific halves live elsewhere: the concrete types, the section-interface accessors
-(`field_data`, `_vector_component_data`, `_tensor2_component_data`), `fiber_shape`, and the
-broadcast styles are in `Fields` (grid) and `Points` (point set), each extending the accessors
-for its own types; `FieldAlgebra` and `Points` stamp the method tables from the builders here.
+- the [`AbstractFiberSection`](@ref) supertype, which both fields and point-values subtype;
+- the CPU-threading, fused-assignment primitive [`_assign!`](@ref) and its policy controls
+  ([`with_threading`](@ref), [`threading_cutoff`](@ref), and [`set_threading_cutoff!`](@ref));
+- the vertical-algebra code generators — the per-component formula and kernel-body builders —
+  written once here so that one set of generated kernels serves both field and point-value
+  sections.
+
+The base-specific halves live elsewhere. `Fields` (grid) and `Points` (point set) hold the
+concrete types, the section-interface accessors (`field_data`, `_vector_component_data`, and
+`_tensor2_component_data`), `fiber_shape`, and the broadcast styles, each extending the accessors
+for its own types, while `FieldAlgebra` and `Points` stamp the method tables from the builders
+here.
 """
 module FiberSections
 
@@ -28,13 +34,14 @@ export AbstractFiberSection,
 """
     AbstractFiberSection{T, R}
 
-Supertype of every section of the package's tensor bundle: fields (sections over a `Grid3D`,
-in physical-space or spectral representation) and point-values (sections over a `PointSet`).
+Supertype of every section of the package's tensor bundle, so both fields (sections over a
+`Grid3D`, in physical-space or spectral representation) and point-values (sections over a
+`PointSet`) subtype it.
 
-Here `T<:AbstractFloat` is the real scalar type and `R` the tensor order (`0` scalar, `1` vector,
-`2` second-order tensor, and so on). The fiberwise algebra is rooted at this supertype because it
-is base-independent — the same operation on the same fiber type regardless of whether the base is
-a structured grid or an unstructured point set.
+The parameter `T<:AbstractFloat` is the real scalar type, and `R` is the tensor order (`0`
+scalar, `1` vector, `2` second-order tensor, and so on). The fiberwise algebra is rooted at this
+supertype because it is base-independent: it applies the same operation to the same fiber type
+whether the base is a structured grid or an unstructured point set.
 """
 abstract type AbstractFiberSection{T<:AbstractFloat, R} end
 
@@ -42,10 +49,10 @@ abstract type AbstractFiberSection{T<:AbstractFloat, R} end
 """
     section_scalar_type(section::AbstractFiberSection)
 
-Return the real scalar type `T` of any section. Defined once on `AbstractFiberSection{T}`, so it
-gives the real `T` for fields (including spectral fields, whose data is `Complex{T}`) and for
-point-values alike — letting the shared `sym`/`skew`/`dev` kernels obtain `T` without dispatching
-on the concrete base.
+Return the real scalar type `T` of any section. Because it is defined once on
+`AbstractFiberSection{T}`, it yields the real `T` for fields (including spectral fields, whose
+data is `Complex{T}`) and for point-values alike, which lets the shared `sym`/`skew`/`dev`
+kernels obtain `T` without dispatching on the concrete base.
 """
 section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
 
@@ -66,8 +73,9 @@ section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
 """
     _THREADING_OVERRIDE
 
-Task-local override for the threading decision: `nothing` follows `Threads.nthreads()`,
-`true`/`false` force threaded/serial. Set within a dynamic scope by [`with_threading`](@ref).
+Task-local override for the threading decision. A value of `nothing` follows
+`Threads.nthreads()`, while `true` or `false` forces the threaded or serial path.
+[`with_threading`](@ref) sets it within a dynamic scope.
 """
 const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
 
@@ -75,9 +83,9 @@ const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
 """
     _SERIAL_CUTOFF
 
-Element count below which an assignment runs serially regardless of thread count: threading
-overhead is not worth it for small arrays, and this exempts the one-element zero-mode views.
-Read in the assignment hot path; set with [`set_threading_cutoff!`](@ref).
+Element count below which an assignment runs serially regardless of thread count. Threading
+overhead is not worth it for small arrays, and this cutoff also exempts the one-element
+zero-mode views. The assignment hot path reads it, and [`set_threading_cutoff!`](@ref) sets it.
 """
 const _SERIAL_CUTOFF = Ref(1 << 14)
 
@@ -85,11 +93,11 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 """
     with_threading(f; enabled = true)
 
-Run `f()` with the CPU-threading decision forced to `enabled` (`true`/`false`, or `nothing`
-for the automatic `nthreads()`-following policy). The override is dynamically scoped and
-task-local: it affects only `f()` and is restored afterwards, including on exceptions. Use
-`enabled = false` around a region that already parallelizes at a higher level, to avoid
-oversubscription.
+Run `f()` with the CPU-threading decision forced to `enabled`, then restore the previous setting.
+Pass `true` or `false` to force the threaded or serial path, or `nothing` to follow the automatic
+`nthreads()`-based policy. The override is dynamically scoped and task-local, so it affects only
+`f()` and is restored afterwards, including on exceptions. Use `enabled = false` around a region
+that already parallelizes at a higher level, to avoid oversubscription.
 """
 with_threading(f; enabled::Union{Nothing, Bool} = true) =
   Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)
@@ -98,9 +106,9 @@ with_threading(f; enabled::Union{Nothing, Bool} = true) =
 """
     set_threading_cutoff!(n)
 
-Set [`threading_cutoff`](@ref) to `n` and return it: a CPU field assignment whose destination has fewer
-than `n` elements then runs serially instead of threaded. Raise it to keep small operations off the
-thread pool; lower it to thread smaller writes.
+Set [`threading_cutoff`](@ref) to `n` and return it. A CPU field assignment whose destination has
+fewer than `n` elements then runs serially instead of threaded. Raise `n` to keep small
+operations off the thread pool, or lower it to thread smaller writes.
 """
 set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 
@@ -108,11 +116,12 @@ set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 """
     threading_cutoff()
 
-The element count at or above which a CPU field assignment is split across `Base.Threads` workers rather
-than run serially — an *assignment* being a fused elementwise write into field storage (the
-[`_assign!`](@ref) primitive behind every in-place operation, whose docstring carries the full policy).
-The count is the destination array's length (grid points times fiber components); CPU-only — GPU arrays
-are never threaded. Default `16384`; set with [`set_threading_cutoff!`](@ref).
+Return the element count at or above which a CPU field assignment is split across `Base.Threads`
+workers rather than run serially. Here an assignment is a fused elementwise write into field
+storage — the [`_assign!`](@ref) primitive behind every in-place operation, whose docstring
+carries the full policy. The count is measured as the destination array's length (grid points
+times fiber components), and it applies on the CPU only, since GPU arrays are never threaded. The
+default is `16384`, and [`set_threading_cutoff!`](@ref) changes it.
 """
 threading_cutoff() = _SERIAL_CUTOFF[]
 
@@ -120,8 +129,9 @@ threading_cutoff() = _SERIAL_CUTOFF[]
 """
     _use_threads(element_count)
 
-Whether an assignment over `element_count` elements should be threaded: at or above the serial
-cutoff, and either forced on or — under the automatic policy — `Threads.nthreads() > 1`.
+Return whether an assignment over `element_count` elements should be threaded. It is threaded when
+the count is at or above the serial cutoff and threading is either forced on or, under the
+automatic policy, `Threads.nthreads() > 1`.
 """
 @inline function _use_threads(element_count::Integer)
   element_count < _SERIAL_CUTOFF[] && return false
@@ -146,11 +156,11 @@ end
 """
     _assign!(destination, broadcasted)
 
-Materialize the lazy `broadcasted` expression into `destination`, threaded over chunks on the
+Materialize the lazy `broadcasted` expression into `destination`, threading over chunks on the
 CPU when [`_use_threads`](@ref) allows. The generic method is the standard fused
-`Broadcast.materialize!` — the safe polarity that keeps GPU arrays and unknown array wrappers
-on their normal broadcast path (no scalar indexing). Only dense
-`Array`s and `Array`-backed `SubArray`s take the threaded path.
+`Broadcast.materialize!`, the safe polarity that keeps GPU arrays and unknown array wrappers on
+their normal broadcast path with no scalar indexing. Only dense `Array`s and `Array`-backed
+`SubArray`s take the threaded path.
 """
 _assign!(destination, broadcasted::Base.Broadcast.Broadcasted) =
   Base.Broadcast.materialize!(destination, broadcasted)
@@ -164,14 +174,14 @@ end
 """
     _assign_threaded!(destination, broadcasted)
 
-Thread a fused broadcast assignment over contiguous chunks of `destination`'s linear index
-range. Each task converts its linear indices to Cartesian ones and writes the corresponding
-broadcast elements, so fusion is preserved (one `Broadcasted` tree, no temporaries) and the
-result is bitwise-identical to serial (each index is written by exactly one task). Cartesian
-indexing of the `Broadcasted` works on every supported Julia version and correctly remaps
-singleton operand axes — linear indexing of a multidimensional `Broadcasted` is only
-supported on Julia ≥ 1.12. Falls back to serial when the axes do not match (defensive; the
-field kernels always match).
+Thread a fused broadcast assignment over contiguous chunks of `destination`'s linear index range.
+Each task converts its linear indices to Cartesian ones and writes the corresponding broadcast
+elements, so fusion is preserved (one `Broadcasted` tree, no temporaries) and the result is
+bitwise-identical to serial, since each index is written by exactly one task. Cartesian indexing
+of the `Broadcasted` works on every supported Julia version and correctly remaps singleton operand
+axes, whereas linear indexing of a multidimensional `Broadcasted` is only supported on Julia 1.12
+or newer. The method falls back to serial when the axes do not match, which is defensive because
+the field kernels always match.
 """
 function _assign_threaded!(destination, broadcasted::Base.Broadcast.Broadcasted)
   instantiated = Base.Broadcast.instantiate(broadcasted)
@@ -191,8 +201,9 @@ end
 """
     _assign!(destination, source)
 
-Fallback for a non-`Broadcasted` right-hand side (e.g. a bare component view from a transpose,
-or a constant): wrap it as an identity broadcast so the same threaded assignment path applies.
+Handle a non-`Broadcasted` right-hand side — for example a bare component view from a transpose,
+or a constant — by wrapping it as an identity broadcast so the same threaded assignment path
+applies.
 """
 _assign!(destination, source) = _assign!(destination, Base.Broadcast.broadcasted(identity, source))
 
@@ -200,11 +211,11 @@ _assign!(destination, source) = _assign!(destination, Base.Broadcast.broadcasted
 """
     _to_broadcasted(expr)
 
-Codegen helper operating on expressions: rewrite a dotted expression — infix dotted operators
-(`a .* b .+ c`) and broadcast calls (`f.(x)`) — into the equivalent lazy
-`Base.Broadcast.broadcasted(...)` tree, recursing into operands and leaving non-broadcast
-subexpressions untouched. Lets generated and hand-written kernels route a fused assignment
-through [`_assign!`](@ref) without materializing intermediates (fusion is preserved).
+Rewrite a dotted expression — an infix dotted operator such as `a .* b .+ c`, or a broadcast call
+such as `f.(x)` — into the equivalent lazy `Base.Broadcast.broadcasted(...)` tree, recursing into
+operands and leaving non-broadcast subexpressions untouched. This codegen helper lets generated
+and hand-written kernels route a fused assignment through [`_assign!`](@ref) without materializing
+intermediates, so fusion is preserved.
 """
 function _to_broadcasted(expr)
   if expr isa Expr && expr.head === :call && expr.args[1] isa Symbol && startswith(string(expr.args[1]), ".")
@@ -221,10 +232,10 @@ end
 """
     @_assign!(destination .= rhs)
 
-Threaded replacement for a fused broadcast assignment: rewrite `rhs` to a lazy broadcast tree
-(via [`_to_broadcasted`](@ref)) and assign it through [`_assign!`](@ref), so the write threads
-on the CPU. Use in hand-written kernels in place of `.=`. (`_assign!` must be in scope at the
-call site.)
+Replace a fused broadcast assignment with a threaded one: rewrite `rhs` to a lazy broadcast tree
+(via [`_to_broadcasted`](@ref)) and assign it through [`_assign!`](@ref), so the write threads on
+the CPU. Use it in hand-written kernels in place of `.=`, and note that `_assign!` must be in
+scope at the call site.
 """
 macro _assign!(assignment)
   (assignment isa Expr && assignment.head === Symbol(".=")) ||
@@ -252,14 +263,14 @@ end
 """
     _vector_component(symbol, kind, i)
 
-Build the expression accessing component `i` of a vector argument named `symbol`. `kind = :field` reads a field's component view (`_vector_component_data`); `kind = :fiber` indexes a constant `SVector`. Spliced into kernel formulas so each per-component formula is written once.
+Build the expression that accesses component `i` of a vector argument named `symbol`. With `kind = :field` it reads a field's component view (`_vector_component_data`); with `kind = :fiber` it indexes a constant `SVector`. The builders splice the result into kernel formulas so that each per-component formula is written once.
 """
 _vector_component(symbol, kind, i)    = kind === :field ? :(_vector_component_data( $symbol, $i))     : :($symbol[$i])
 
 """
     _tensor_component(symbol, kind, i, j)
 
-Build the expression accessing component `(i, j)` of a second-order tensor argument named `symbol`. `kind = :field` reads a field's component view (`_tensor2_component_data`); `kind = :fiber` indexes a constant `SMatrix`.
+Build the expression that accesses component `(i, j)` of a second-order tensor argument named `symbol`. With `kind = :field` it reads a field's component view (`_tensor2_component_data`); with `kind = :fiber` it indexes a constant `SMatrix`.
 """
 _tensor_component(symbol, kind, i, j) = kind === :field ? :(_tensor2_component_data($symbol, $i, $j)) : :($symbol[$i, $j])
 
@@ -283,7 +294,7 @@ _product(x, y) = :($x .* $y)
 """
     _vector_kernel_body(formula; alpha_beta::Bool)
 
-Build the body of a vector-valued kernel: `destination_i .= formula(i)` for `i in 1:3`, where `formula(i)` is the per-component expression. With `alpha_beta = true`, emit the five-argument `destination = α * formula + β * destination` form, branching on `iszero(β_value)` so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function binding `destination` (and, when `alpha_beta`, `α_value`/`β_value`).
+Build the body of a vector-valued kernel, writing `destination_i .= formula(i)` for `i in 1:3`, where `formula(i)` is the per-component expression. With `alpha_beta = true` it emits the five-argument `destination = α * formula + β * destination` form and branches on `iszero(β_value)`, so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function that binds `destination` (and, when `alpha_beta` is set, `α_value` and `β_value`).
 """
 function _vector_kernel_body(formula; alpha_beta::Bool)
   target(i) = :(_vector_component_data(destination, $i))
@@ -316,7 +327,7 @@ end
 """
     _tensor_kernel_body(formula; alpha_beta::Bool)
 
-As `_vector_kernel_body`, but for a second-order tensor-valued kernel: `destination_ij .= formula(i, j)` for `i, j in 1:3`, with the same `alpha_beta` five-argument behaviour.
+Build the body of a second-order tensor-valued kernel, writing `destination_ij .= formula(i, j)` for `i, j in 1:3`, with the same `alpha_beta` five-argument behaviour as `_vector_kernel_body`.
 """
 function _tensor_kernel_body(formula; alpha_beta::Bool)
   target(i, j) = :(_tensor2_component_data(destination, $i, $j))
@@ -349,7 +360,7 @@ end
 """
     _scalar_kernel_body(rhs)
 
-Build the body of a scalar-field-valued kernel (a contraction with a scalar result): `field_data(destination) .= rhs`, ending in `return destination`.
+Build the body of a scalar-field-valued kernel (a contraction with a scalar result), writing `field_data(destination) .= rhs` and ending in `return destination`.
 """
 function _scalar_kernel_body(rhs)
   return quote
@@ -376,7 +387,7 @@ end
 """
     _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)
 
-Build the right-hand-side expression for a vector inner product, ``\\sum_i u_i v_i`` — a single broadcasted expression fed to `_scalar_kernel_body`. Operand `kind`s are `:field` or `:fiber`, as in `_vector_component`.
+Build the right-hand-side expression for a vector inner product, ``\\sum_i u_i v_i``, as a single broadcasted expression fed to `_scalar_kernel_body`. Each operand `kind` is `:field` or `:fiber`, as in `_vector_component`.
 """
 _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
   _sum_terms([_product(_vector_component(u_symbol, u_kind, i), _vector_component(v_symbol, v_kind, i)) for i in 1:3])
@@ -385,7 +396,7 @@ _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind) =
 """
     _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)
 
-Build the right-hand-side expression for the tensor Frobenius inner product, ``\\sum_{ij} A_{ij} B_{ij}``, fed to `_scalar_kernel_body`.
+Build the right-hand-side expression for the tensor Frobenius inner product, ``\\sum_{ij} A_{ij} B_{ij}``, as a single broadcasted expression fed to `_scalar_kernel_body`.
 """
 _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
   _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _tensor_component(B_symbol, B_kind, i, j)) for i in 1:3 for j in 1:3])
@@ -394,7 +405,7 @@ _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind) =
 """
     _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
 
-Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is ``u_j v_k - u_k v_j``. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the cross product: with cyclic `(j, k)`, component `i` is ``u_j v_k - u_k v_j``. Its output feeds `_vector_kernel_body`.
 """
 function _cross_formula(left_symbol, left_kind, right_symbol, right_kind)
   return function (i)
@@ -410,7 +421,7 @@ end
 """
     _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)
 
-Return a per-component function `i -> expr` for the tensor-on-vector left action, component `i` being ``\\sum_j A_{ij} u_j``. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the tensor-on-vector left action, whose component `i` is ``\\sum_j A_{ij} u_j``. Its output feeds `_vector_kernel_body`.
 """
 _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
   i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
@@ -419,7 +430,7 @@ _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
 """
     _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)
 
-Return a per-component function `i -> expr` for the vector-on-tensor right action, component `i` being ``\\sum_j u_j A_{ji}``. Feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the vector-on-tensor right action, whose component `i` is ``\\sum_j u_j A_{ji}``. Its output feeds `_vector_kernel_body`.
 """
 _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
   i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
@@ -428,7 +439,7 @@ _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
 """
     _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)
 
-Return a per-component function `(i, j) -> expr` for the tensor-tensor product, component `(i, j)` being ``\\sum_k A_{ik} B_{kj}``. Feeds `_tensor_kernel_body`.
+Return a per-component function `(i, j) -> expr` for the tensor-tensor product, whose component `(i, j)` is ``\\sum_k A_{ik} B_{kj}``. Its output feeds `_tensor_kernel_body`.
 """
 _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
   (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])
@@ -437,7 +448,7 @@ _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
 """
     _transpose_formula(A_symbol, A_kind)
 
-Return a per-component function `(i, j) -> expr` for the transpose, component `(i, j)` being ``A_{ji}``. Feeds `_tensor_kernel_body`.
+Return a per-component function `(i, j) -> expr` for the transpose, whose component `(i, j)` is ``A_{ji}``. Its output feeds `_tensor_kernel_body`.
 """
 _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_kind, j, i)
 
@@ -454,7 +465,7 @@ _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_k
 """
     _norm_scalar_rhs(symbol)
 
-Right-hand side for the scalar norm — the pointwise absolute value ``|\\varphi|``. Fed to `_scalar_kernel_body`.
+Build the right-hand side for the scalar norm, the pointwise absolute value ``|\\varphi|``. It feeds `_scalar_kernel_body`.
 """
 _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 
@@ -462,7 +473,7 @@ _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 """
     _norm_vector_rhs(symbol, kind)
 
-Right-hand side for the vector Euclidean norm ``\\sqrt{\\sum_i u_i^2}``. Fed to `_scalar_kernel_body`.
+Build the right-hand side for the vector Euclidean norm ``\\sqrt{\\sum_i u_i^2}``. It feeds `_scalar_kernel_body`.
 """
 _norm_vector_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_vector_component(symbol, kind, i)))) for i in 1:3]))))
@@ -471,7 +482,7 @@ _norm_vector_rhs(symbol, kind) =
 """
     _norm_tensor_rhs(symbol, kind)
 
-Right-hand side for the tensor Frobenius norm ``\\sqrt{\\sum_{ij} A_{ij}^2}``. Fed to `_scalar_kernel_body`.
+Build the right-hand side for the tensor Frobenius norm ``\\sqrt{\\sum_{ij} A_{ij}^2}``. It feeds `_scalar_kernel_body`.
 """
 _norm_tensor_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(symbol, kind, i, j)))) for i in 1:3 for j in 1:3]))))
@@ -480,9 +491,10 @@ _norm_tensor_rhs(symbol, kind) =
 """
     _sym_kernel_body()
 
-Body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for a section
-argument named `A` writing into `destination`. The `half` local takes the section's real scalar type
-from `section_scalar_type(A)`. Index-shuffling, so callers wrap it through their alias guard.
+Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for
+a section argument named `A`, writing into `destination`. The `half` local takes the section's real
+scalar type from `section_scalar_type(A)`. The kernel only shuffles indices, so callers wrap it
+through their alias guard.
 """
 _sym_kernel_body() = quote
   half = inv(section_scalar_type(A)(2))
@@ -494,7 +506,7 @@ end
 """
     _skew_kernel_body()
 
-Body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)``; see `_sym_kernel_body`.
+Build the body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)``. See `_sym_kernel_body` for the shared structure.
 """
 _skew_kernel_body() = quote
   half = inv(section_scalar_type(A)(2))
@@ -506,7 +518,7 @@ end
 """
     _dev_kernel_body()
 
-Body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I``; see `_sym_kernel_body`.
+Build the body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I``. See `_sym_kernel_body` for the shared structure.
 """
 _dev_kernel_body() = quote
   third = inv(section_scalar_type(A)(3))

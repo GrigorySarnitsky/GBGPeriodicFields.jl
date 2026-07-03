@@ -1,45 +1,28 @@
 """
     Convolution
 
-The **kernel-multiplier** operation family: periodic
-convolution of a field with a kernel, in spectral representation. It is the spectral sibling of the
-differential operators and the same-base counterpart of `Interpolation` — both realize the "kernel
-measure" of the measure taxonomy; convolution is the grid→grid multiplier,
-interpolation the grid↔point base-change.
+Periodic (circular) convolution of a field with a kernel, computed in spectral representation. This
+is the kernel-multiplier operation family — a grid→grid multiplier that filters a field against a
+fixed kernel — the spectral sibling of the differential operators and the same-base counterpart of
+`Interpolation`. On the torus the only convolution is the periodic one, and by the convolution
+theorem it is exactly a coefficientwise product of the transforms, so the operation lives in spectral
+representation. A kernel is supplied by its transfer function as a scalar field in spectral
+representation, and a scalar kernel multiplies every fiber component, so one operation serves scalar,
+vector, and tensor fields. The operation is named `convolve` rather than `*` because the
+coefficientwise product would read as a pointwise multiplication, which it is not.
 
-On the torus the only convolution is the periodic (circular) one (`convolve` ``\\equiv \\star``). With
-``\\Omega`` the periodic box, in physical space it is the **filtering integral**
-
-```math
-(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy ,
-```
-
-the kernel-weighted local average of the field ``f`` about the point ``x`` (a low-pass filter when the
-kernel ``g`` is a smoothing bump), with the displacement ``x - y`` reduced onto the torus (its periodic
-trapezoidal quadrature on the grid carries the cell volume ``\\Delta x``). `convolve` realizes the discrete
-**circular** convolution ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` directly. By the
-convolution theorem (the forward transform unnormalized) the convolution is *exactly* the
-**coefficientwise spectral product** ``\\widehat{f \\star g} = \\hat f \\cdot \\hat g`` — one multiply per
-coefficient, which is why `convolve` lives in spectral representation. The kernel `g` is supplied by its
-transfer function ``\\hat g`` as a **scalar field in spectral representation** (`ScalarFieldSpectral`); a
-scalar kernel multiplies every fiber component, so one operation serves scalar, vector, and tensor fields.
-
-This coefficientwise product is exactly the operation the public method set bans **as `*`** (because
-`*` would be read as the spectral *pointwise* product, which it is not). It is offered here under its
-true name — `convolve`, never `*` — and is linear in the field for a fixed kernel. The pointwise
-spectral product, division, and norms remain absent.
-
-- `convolve(f, g)` / `convolve!` — the convolution ``f \\star g = \\mathcal F^{-1}(\\hat f \\cdot \\hat g)``,
-  with the in-place and ``\\alpha``/``\\beta``-accumulate forms. Because a kernel is itself a scalar
-  field in spectral representation, `convolve(g₁, g₂)` composes two kernels. Spectral representation only.
-- `spectral_cutoff` / `spectral_band` — neutral kernel builders: the isotropic sharp low-pass
-  ``\\hat g(k) = \\mathbb 1[\\,|k| \\le k_c\\,]`` (de-aliasing) and its annular generalization.
-- `squared_wavenumber_field` — the radial coordinate ``|k|^2`` as a `ScalarFieldSpectral`.
-- `assignment_window` — the linear/CIC mass-assignment window: the B-spline tent cloud ``W`` in physical space, returned as its transfer function ``\\hat W = \\prod_a \\operatorname{sinc}^2(k_a \\Delta x_a/2)``, divided out to deconvolve a gridded point density.
-
-Physics stays consumer-side: an LES filter, an integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, or
-a de-aliasing mask is a `ScalarFieldSpectral` the consumer builds from `FieldSpectralMultipliers` and
+Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
+scalar field in spectral representation that the consumer builds from `FieldSpectralMultipliers` and
 convolves with — the package supplies the operation, not the physical meaning.
+
+- [`convolve`](@ref) / [`convolve!`](@ref) — convolve a field with a kernel; the in-place form adds
+  ``\\alpha``/``\\beta`` accumulation, and `convolve(g₁, g₂)` composes two kernels into one.
+- [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
+  its annular band-pass generalization.
+- [`squared_wavenumber_field`](@ref) — the squared-wavenumber radial coordinate of spectral space, as
+  a scalar field in spectral representation, from which a consumer builds a Fourier symbol.
+- [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, for deconvolving a
+  gridded point density.
 """
 module Convolution
 
@@ -72,13 +55,13 @@ export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_f
 """
     _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
 
-Apply the coefficientwise spectral product ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f + \\beta\\,\\mathrm{dst}``
-(``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`) — the
-periodic convolution ``f \\star g`` in spectral representation, with
-`kernel_data` ``= \\hat g``. The scalar `kernel_data` (`(Nx, Ny, Nz)`) broadcasts over the fiber
-components of `source_data`, exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor
-order. Branches on `iszero(beta)` (overwrite vs. accumulate). Coefficientwise ⇒
-aliasing-safe: `destination` may be `source` (or the kernel).
+Apply the coefficientwise spectral product that realizes the periodic convolution in spectral
+representation, writing ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f + \\beta\\,\\mathrm{dst}``
+(``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
+The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
+`source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
+call branches on `iszero(beta)` to overwrite or accumulate. The product is coefficientwise, so it is
+aliasing-safe: `destination_data` may be `source_data` or the kernel.
 """
 function _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
   if iszero(beta)
@@ -99,28 +82,38 @@ end
     convolve!(destination, field, kernel::ScalarFieldSpectral)
     convolve!(destination, field, kernel::ScalarFieldSpectral, α, β)
 
-Convolve `field` (in spectral representation) with the kernel whose transfer function is `kernel`,
-writing into `destination` in-place. On the grid the periodic (circular) convolution
-``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` (indices modulo the grid size) is, by the discrete
-convolution theorem, **exactly** the coefficientwise product of the transforms — which is what the kernel computes (``\\hat g`` = `kernel`,
-broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta`` accumulate):
+Convolve `field` with the kernel whose transfer function is `kernel`, writing the result into
+`destination` in place; both `field` and `destination` are in spectral representation.
+
+As a real physical object the periodic convolution is the kernel-weighted local average of the field
+``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
 ```math
-\\widehat{f \\star g}(k) = \\hat f(k)\\, \\hat g(k),
-\\qquad
+(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy ,
+```
+
+with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus; on the grid
+this is the circular sum ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` with indices modulo the grid
+size. By the convolution theorem (the forward transform unnormalized) it is exactly the
+coefficientwise product of the transforms, which is what this operation computes — ``\\hat g`` =
+`kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``
+accumulate:
+
+```math
 \\widehat{\\mathrm{destination}}(k) = \\alpha\\, \\hat f(k)\\, \\hat g(k) + \\beta\\, \\widehat{\\mathrm{destination}}(k).
 ```
 
-A scalar `kernel` serves scalar, vector, and tensor `field`s (one method); representation-preserving.
-The three-argument form overwrites (``\\alpha = 1``, ``\\beta = 0``); ``\\alpha``, ``\\beta`` are real,
-converted to the field's scalar type. Coefficientwise ⇒ aliasing-safe: `destination` may alias `field`
-(or the kernel).
+- `field` — the field to filter, in spectral representation.
+- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation;
+  one scalar kernel serves scalar, vector, and tensor `field`s.
+- `destination` — the field written with the result; it may alias `field` or `kernel`, since the
+  product is coefficientwise.
+- `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
+  overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
+  ``\\alpha\\,(f \\star g) + \\beta\\,\\mathrm{destination}``.
 
-Spectral representation only — there is no physical-space `convolve` (on the torus, convolution *is*
-the coefficientwise spectral product). That product is offered here under its true name, never as
-`*`: `convolve` is convolution, not the spectral pointwise product.
-
-Returns the modified `destination`.
+Spectral representation only: on the torus convolution is the coefficientwise spectral product,
+offered here under its true name rather than as `*`. Returns the modified `destination`.
 """
 function convolve! end
 
@@ -143,11 +136,10 @@ end
 """
     convolve(field, kernel::ScalarFieldSpectral)
 
-Allocate and return the periodic convolution of `field` with the kernel ``\\hat g`` = `kernel`, in
-spectral representation — ``f \\star g``, the coefficientwise product ``\\hat f \\cdot \\hat g``.
-Representation- and tensor-order-preserving. Because a kernel is itself a scalar field in spectral
-representation, `convolve(g₁, g₂)` composes two kernels (the product ``\\hat g_1 \\cdot \\hat g_2`` of
-their transfer functions). Spectral representation only.
+Allocate the result and return the periodic convolution of `field` with the kernel `kernel`, in
+spectral representation. Because a kernel is itself a scalar field in spectral representation,
+`convolve(g₁, g₂)` composes two kernels into one. See [`convolve!`](@ref) for the componentwise
+definition and the spectral kernel; the representation and tensor order are preserved.
 """
 function convolve end
 
@@ -167,22 +159,25 @@ end
     squared_wavenumber_field(reference::AbstractFieldSpectral,
                              multipliers::FieldSpectralMultipliers)
 
-The **squared-wavenumber field** as a scalar field in spectral representation, on `reference`'s grid
-and array backend — the value at each mode is
+Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spectral representation, on
+`reference`'s grid and array backend.
+
+Use it as the neutral radial coordinate of spectral space: a consumer builds a Fourier symbol from it
+— a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
+Germano subgrid filter — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
+The package supplies the coordinate, while ``\\nu``, ``\\Delta t``, and any filter width stay
+consumer-side.
+
+- `reference` — a field in spectral representation whose grid and backend the result matches.
+- `multipliers` — the wavenumber arrays for that grid, checked for compatibility with `reference`.
 
 ```math
-|k|^2 = k_1^2 + k_2^2 + k_3^2.
+|k|^2 = k_1^2 + k_2^2 + k_3^2 ,
 ```
 
-The neutral isotropic radial coordinate of
-spectral space: the consumer builds a Fourier symbol from it — a viscous integrating factor
-``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope ``\\exp(-(|k|/k_p)^2)``, a Germano filter
-``1/(1 + \\Delta^2 |k|^2)`` — by broadcasting over its `field_data`, then applies it with
-[`convolve`](@ref). Carrying ``\\nu``, ``\\Delta t``, and the filter width is the consumer's; the package supplies only the coordinate.
-
-``|k|^2`` is summed with the true value kept at the Nyquist frequency (the Laplacian convention). The value is real but stored in the `Complex{T}` coefficient array of a
-`ScalarFieldSpectral` (imaginary part zero), exactly as [`spectral_cutoff`](@ref) stores its ``0/1``
-mask.
+summed with the true value kept at the Nyquist frequency (the Laplacian convention). The value is
+real but is stored in the `Complex{T}` coefficient array of a scalar field in spectral representation,
+its imaginary part zero, exactly as [`spectral_cutoff`](@ref) stores its ``0/1`` mask.
 """
 function squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
   _check_multipliers_compatibility(reference, multipliers)
@@ -198,22 +193,26 @@ end
     spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
                   wavenumber_low, wavenumber_high)
 
-Build the **isotropic sharp spectral band-pass** as a scalar field in spectral representation, on
-`reference`'s grid and array backend — the transfer function (with `k_lo = wavenumber_low`,
-`k_hi = wavenumber_high`)
+Build an isotropic sharp spectral band-pass kernel as a scalar field in spectral representation, on
+`reference`'s grid and array backend: the transfer function is ``1`` on the wavenumber shell and
+``0`` outside it.
+
+Convolve a field with it to keep an isotropic shell of wavenumbers — a de-aliasing band, a forcing
+band, or any shell selector. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and it is
+the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass case
+``k_\\mathrm{lo} = 0``.
+
+- `reference` — a field in spectral representation whose grid and backend the kernel matches.
+- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
+  ``k_\\mathrm{hi}`` of the retained shell.
 
 ```math
-\\hat g(k) = \\mathbb 1\\!\\left[\\, k_\\mathrm{lo}^2 \\le |k|^2 \\le k_\\mathrm{hi}^2 \\,\\right]
-= \\begin{cases} 1, & k_\\mathrm{lo} \\le |k| \\le k_\\mathrm{hi}, \\\\ 0, & \\text{otherwise.} \\end{cases}
+\\hat g(k) = \\begin{cases} 1, & k_\\mathrm{lo} \\le |k| \\le k_\\mathrm{hi}, \\\\ 0, & \\text{otherwise,} \\end{cases}
 ```
 
-The annular generalization of [`spectral_cutoff`](@ref) — which is the low-pass special case
-``k_\\mathrm{lo} = 0``. Convolving with it keeps an isotropic shell of wavenumbers: a de-aliasing band,
-a forcing band (the energy held in ``1 \\le |k| \\le k_f``), or any shell selector. Idempotent
-(``\\hat g^2 = \\hat g``), so it is a projection.
-
-A neutral mathematical primitive: the band edges are the consumer's. ``|k|^2`` keeps the true value at
-the Nyquist frequency (the Laplacian convention).
+with ``|k|^2`` keeping the true value at the Nyquist frequency (the Laplacian convention). The band
+edges are the consumer's choice.
 """
 function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_low::Real, wavenumber_high::Real)
@@ -234,20 +233,25 @@ end
     spectral_cutoff(reference::AbstractFieldSpectral,
                     multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
 
-Build the **isotropic sharp spectral cutoff** as a scalar field in spectral representation, on
-`reference`'s grid and array backend — the transfer function (with `k_c = wavenumber_cutoff`)
+Build an isotropic sharp low-pass kernel as a scalar field in spectral representation, on
+`reference`'s grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
+above it.
+
+Convolve a field with it for the ideal low-pass projection, the basis of spectral truncation and
+de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and it is the low-pass
+special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
+
+- `reference` — a field in spectral representation whose grid and backend the kernel matches.
+- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
 
 ```math
 \\hat g(k) = \\mathbb 1\\!\\left[\\, |k| \\le k_c \\,\\right].
 ```
 
-Convolving with it is the ideal low-pass projection (idempotent — ``\\hat g^2 = \\hat g``), the basis
-of spectral truncation and de-aliasing. The low-pass special case
-of [`spectral_band`](@ref) (``k_\\mathrm{lo} = 0``).
-
-A neutral mathematical primitive: the choice of cutoff (e.g. a ``2/3`` de-aliasing rule, or an LES
-filter scale) is the consumer's. The squared wavenumber ``|k|^2`` is summed with the true value kept
-at the Nyquist frequency (the Laplacian convention).
+The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the consumer's.
+The squared wavenumber ``|k|^2`` keeps the true value at the Nyquist frequency (the Laplacian
+convention).
 """
 function spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_cutoff::Real)
@@ -258,9 +262,20 @@ end
 """
     assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
-The **linear (cloud-in-cell, CIC) mass-assignment window** for **deconvolving** a gridded point density.
-As a real physical object, ``W`` is the **linear B-spline ("tent") cloud** — the tensor product of
-per-axis tents
+Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation,
+on `reference`'s grid and array backend, for deconvolving a gridded point density.
+
+Use it in the pair-correlation route. Depositing ``M`` points on the grid with the positive linear
+assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density) spreads each point's
+mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
+``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by
+``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function.
+
+- `reference` — a field in spectral representation whose grid and backend the window matches.
+- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+
+As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tensor product of per-axis
+tents:
 
 ```math
 W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}\\,
@@ -268,26 +283,20 @@ W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}\\,
 ```
 
 each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the
-origin ``x = 0`` (it is a cell-wide top-hat convolved with itself — hence the *squared* sinc below).
-Depositing ``M`` points with a *positive* linear assignment (`LalescuSpline(0, 0)`, i.e. the 2-point linear /
-`m = 0`, the positive kernel recommended for a density) spreads each point's mass over this
-tent, so the gridded density is the true density ``\\rho`` convolved with the window,
-``\\rho_g = \\rho \\star W``. The function returns ``W`` in **spectral representation** — its transfer
-function ``\\hat W(k)`` — because that is where the deconvolution lives: ``\\hat\\rho_g = \\hat W\\,\\hat\\rho``,
-so dividing by ``\\hat W`` (a `convolve` by ``1/\\hat W``) undoes the smearing. ``\\hat W`` has no in-band
-zeros for the positive linear kernel, so the division is stable. Its transform is the squared sinc
+origin (a cell-wide top-hat convolved with itself, hence the squared sinc). The function returns its
+transfer function ``\\hat W(k)``, the squared sinc
 
 ```math
-\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\!\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr),
-\\qquad \\operatorname{sinc}(y) = \\frac{\\sin y}{y},
+\\begin{gathered}
+\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\!\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr), \\\\
+\\operatorname{sinc}(y) = \\frac{\\sin y}{y},
+\\end{gathered}
 ```
 
-computed from the **true** per-axis wavenumber ``|k_a|`` (kept at the Nyquist frequency) and
-the grid spacing ``\\Delta x_a``, so
-``\\hat W(0) = 1`` and it falls toward the grid scale. This continuous-kernel form is the standard
-particle-mesh deconvolution — exact as ``k \\to 0``, with the residual sub-cell shift-dependence
-(reduced by interlacing) bounding it near Nyquist. The package supplies the window; the density
-estimate, shot-noise subtraction, and the RDF normalization stay consumer-side.
+computed from the per-axis wavenumber ``k_a`` (kept at the Nyquist frequency) and the grid spacing
+``\\Delta x_a``, so ``\\hat W(0) = 1`` and it decays toward the grid scale. Because the squared sinc
+does not vanish anywhere in the resolved band, dividing by it is stable. The package supplies the
+window; the density estimate and the correlation normalization stay consumer-side.
 """
 function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
   _check_multipliers_compatibility(reference, multipliers)
