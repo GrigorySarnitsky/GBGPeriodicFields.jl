@@ -44,7 +44,7 @@ using ..FiberSections:
   _assign!,
   @_assign!
 
-export convolve, convolve!, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window
+export convolve, convolve!, ⋆, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window
 
 
 ####################################################
@@ -148,6 +148,16 @@ function convolve(field::AbstractFieldSpectral, kernel::ScalarFieldSpectral)
   destination = similar_field(field, Val(field_tensor_order(field)))
   return convolve!(destination, field, kernel)
 end
+
+
+"""
+    field ⋆ kernel
+
+Infix alias for [`convolve`](@ref): `field ⋆ kernel` is `convolve(field, kernel)`, the periodic
+convolution of `field` with the kernel `kernel` in spectral representation. Its own symbol keeps the
+operation distinct from `*`, which would read as a pointwise product.
+"""
+const ⋆ = convolve
 
 
 ####################################################

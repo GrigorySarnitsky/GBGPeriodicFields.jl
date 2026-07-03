@@ -48,6 +48,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test approx(field_data(convolve(phi_s, ones_kernel)), field_data(phi_s))
       @test approx(field_data(convolve(u_s, ones_kernel)), field_data(u_s))   # broadcast over a 1-index fiber
       @test approx(field_data(convolve(A_s, ones_kernel)), field_data(A_s))   # over a 2-index fiber (R=2, 5-D broadcast)
+      @test field_data(phi_s ⋆ ones_kernel) == field_data(convolve(phi_s, ones_kernel))   # the exported infix ⋆ alias
       @test field_tensor_order(convolve(u_s, ones_kernel)) == 1               # representation/order preserved
       @test field_tensor_order(convolve(A_s, ones_kernel)) == 2
     end

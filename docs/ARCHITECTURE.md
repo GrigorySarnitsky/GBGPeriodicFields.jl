@@ -735,7 +735,7 @@ for it (seen in a few papers) is a misnomer.
 
 `Convolution` is the **kernel-multiplier** family: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
-product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``) apply a kernel supplied as a
+product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``, also exported as the infix operator `⋆`) apply a kernel supplied as a
 `ScalarFieldSpectral` transfer function ``\hat g``, which multiplies every fiber component (one method for
 scalar, vector, and tensor fields), with the α/β accumulate form and alias-safety of a coefficientwise op.
 It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, [§4](@ref "4. Spectral machinery")) and the
