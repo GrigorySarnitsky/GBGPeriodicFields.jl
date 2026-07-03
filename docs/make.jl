@@ -138,6 +138,7 @@ makedocs(
     "Home" => "index.md",
     "Getting started" => "tutorial.md",
     "Examples" => "examples/hist_cpu.md",
+    "Notation" => "notation.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",

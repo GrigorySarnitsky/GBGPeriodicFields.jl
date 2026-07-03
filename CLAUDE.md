@@ -115,6 +115,73 @@ conceptual model and the writing/docstring conventions are recorded once — in
 - Operators are defined in `function +(...) ... end` form (the parse-proven house
   style); short form only for `+(field::AbstractField) = field`.
 
+## Documentation policy — the docstring rubric
+
+This is the organizing spec for every user-facing docstring and API page; §Style below elaborates the
+individual conventions and their rationale, and the rendered glossary at `docs/src/notation.md` is the
+reader's copy of the notation. Two audiences, one rule each: a **module docstring is a map**; a
+**function docstring is a home**.
+
+**Two-tier structure.**
+- **Module docstring = map.** What the module is, its scope and place in the architecture, and its
+  invariants (physical vs spectral, the base measure) — then a **linked one-liner per operation
+  family, and no formulas.** Every formula lives in the operation's own docstring.
+- **Function docstring = home**, in this order: (1) a plain one-sentence identity in the user's terms;
+  (2) when to use it, versus the alternatives; (3) each argument (positional and keyword) and its
+  effect; (4) the caveats a user needs (memory, accuracy, gotchas), as a `!!! warning` where
+  load-bearing; (5) one physical-meaning-first formula **if a clean one exists**, never overflowing
+  (hand-wrap with `aligned`/`gathered`); (6) an inline citation for a **named/published** method
+  (verbatim-consistent with `ARCHITECTURE.md` §References) and **none** for a classical one (the
+  Lagrange interpolant, Fornberg weights); (7) cross-links. **Exclude:** implementation internals
+  (→ `#` comments), unexplained specialist jargon, architectural rationale (→ `ARCHITECTURE.md`), and
+  the formal/intrinsic apparatus (→ `FORMALIZATION.md`).
+
+**One concept, one home.**
+- *Across dispatch.* One docstring per operation, on the bare binding (`function f end`); a generic
+  carries **one** docstring, never one per method. Per-scheme or per-representation specifics live in
+  the scheme's / representation's own docstring, linked (the transfer verbs collapse 12 → 4 this way).
+- *Across `f`/`f!`.* The in-place `!` form is the **home** — it owns the componentwise formula and the
+  kernel — and is listed **first**; the allocating form and any operator alias (`+ - * / ⋅ × ⋆`) is a
+  **thin wrapper** that leads with the one-sentence meaning and `@ref`-links the home, carrying no
+  second copy of the formula. The bare operators `+ - * /` carry thin allocating docstrings so the
+  pairing is documented and REPL-visible.
+
+**API pages are math-grouped.** Group public objects into the operation **families of
+`ARCHITECTURE.md` §2** under hand-written `###` headers via explicit `@docs` blocks (not `@autodocs`,
+which cannot express a semantic group). Each object appears **once**, in the family whose defining
+mathematics it realizes; keep an `f`/`f!` pair together with the `!` home first; order a group by
+increasing tensor order. Lead a page with its **headline operations**, then the supporting
+types/schemes they take (Interpolation: the transfer operations before the transfer-scheme catalogue).
+Drop `@index` — it lists only module-owned bindings, so it silently omits the imported/extended
+operators and mixes in the internals; keep `@contents` as the table of contents. `checkdocs = :exports`
+guards a dropped export.
+
+**Coverage.** A measure reduction documents **every base it supports** — a `Grid3D`'s cell-volume
+average *and* a `PointSet`'s counting average — not just one.
+
+**Notation** (glossary: `docs/src/notation.md`). The imaginary unit is upright ``\mathrm{i}`` (never
+bare italic `i`, never `\imath`/`\mathbb{i}`), which frees `i` as an index; indices are italic
+``i, j, k, \dots`` in order, used freely alongside ``\mathrm{i}``; a partial derivative is
+``\partial_{x_i}`` (subscript the coordinate). Prefer fixed ``\Bigl \dots \Bigr`` over auto-`\left \dots
+\right` (which over-sizes around subscripted sums). No horizontal scroll, and a code identifier never
+sits inside a math span.
+
+**Prose is grammatical.** Every sentence has a subject and a verb; no verbless fragments, noun-stacks,
+`label:`-colon tags, or comma splices. **Concise means few words, not missing verbs** — the goal is
+compact prose that still reads as sentences aloud; restore the grammar without adding fluff.
+
+**Correctness is verified, not asserted.** Check every formula, normalization, adjoint relation, and
+especially every **cross-scheme equivalence** by expanding it (degree, reproduction, indices, types)
+against the code — a plausible "X is just Y" is a false claim until the expansion matches. This session
+alone: the cross-product index splice, `LalescuSpline(n, 0)` vs `(0, 0)`, and the false
+`LagrangeSpline ≡ LalescuSpline(n, 0)` (linear vs degree ``2n+1``).
+
+**Reconciled tensions.** *Compact vs grammatical:* grammaticality is the floor, compactness the goal
+above it. *Coordinate-free notation:* the intrinsic maps (`ι*`, `ι_*`, the pushforward of Dirac
+measures, `Π_d`) belong to the **design docs**; a docstring uses the honest concrete forms (``\sum_p``,
+``\int_\Omega``, `W`/`Wᵀ` as named maps). *Physical-meaning-first vs DRY:* a thin wrapper keeps its one
+plain-meaning sentence and sheds only the re-derived formula.
+
 ## Style
 
 Two-space indentation; two blank lines between top-level definitions; section banner

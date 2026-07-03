@@ -775,10 +775,15 @@ end
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
 Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in-place; returns `destination`.
-Pointwise over the base, with the components the kernel writes (cyclic ``(i, j, k)``):
+Pointwise over the base; with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated ``j, k``), the components are
 
 ```math
-(u \\times v)_i = \\varepsilon_{ijk}\\, u_j v_k = u_j v_k - u_k v_j.
+\\begin{gathered}
+(u \\times v)_i = \\varepsilon_{ijk}\\, u_j v_k, \\\\
+(u \\times v)_1 = u_2 v_3 - u_3 v_2, \\quad
+(u \\times v)_2 = u_3 v_1 - u_1 v_3, \\quad
+(u \\times v)_3 = u_1 v_2 - u_2 v_1.
+\\end{gathered}
 ```
 
 Cross products of two fields are nonlinear and defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (either argument order) is provided, which keeps the operation coefficient-wise.

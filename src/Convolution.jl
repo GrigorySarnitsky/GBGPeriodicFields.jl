@@ -269,7 +269,7 @@ W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}\\,
 
 each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the
 origin ``x = 0`` (it is a cell-wide top-hat convolved with itself — hence the *squared* sinc below).
-Depositing ``M`` points with a *positive* linear assignment (`LalescuSpline(n, 0)`, i.e. linear /
+Depositing ``M`` points with a *positive* linear assignment (`LalescuSpline(0, 0)`, i.e. the 2-point linear /
 `m = 0`, the positive kernel recommended for a density) spreads each point's mass over this
 tent, so the gridded density is the true density ``\\rho`` convolved with the window,
 ``\\rho_g = \\rho \\star W``. The function returns ``W`` in **spectral representation** — its transfer
