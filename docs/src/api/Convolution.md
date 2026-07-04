@@ -5,9 +5,7 @@ Modules = [GBGPeriodicFields.Convolution]
 Order   = [:module]
 ```
 
-## Public API
-
-### Convolution operations
+## Convolution operations
 
 ```@docs
 convolve!
@@ -15,7 +13,7 @@ convolve
 ⋆
 ```
 
-### Kernel-multiplier builders
+## Kernel-multiplier builders
 
 ```@docs
 spectral_cutoff

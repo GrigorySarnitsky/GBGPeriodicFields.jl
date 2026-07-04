@@ -5,9 +5,7 @@ Modules = [GBGPeriodicFields.Interpolation]
 Order   = [:module]
 ```
 
-## Public API
-
-### Transfer operations
+## Transfer operations
 
 ```@docs
 interpolate!
@@ -16,7 +14,7 @@ anterpolate!
 anterpolate
 ```
 
-### Transfer-scheme types
+## Transfer-scheme types
 
 ```@docs
 AbstractTransferScheme

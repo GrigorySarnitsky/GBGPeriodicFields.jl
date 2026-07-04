@@ -5,15 +5,13 @@ Modules = [GBGPeriodicFields.FiberSections]
 Order   = [:module]
 ```
 
-## Public API
-
-### Fiber-section supertype
+## Fiber-section supertype
 
 ```@docs
 AbstractFiberSection
 ```
 
-### Threading configuration
+## Threading configuration
 
 ```@docs
 threading_cutoff

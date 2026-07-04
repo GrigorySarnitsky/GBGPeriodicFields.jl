@@ -5,15 +5,13 @@ Modules = [GBGPeriodicFields.Reductions]
 Order   = [:module]
 ```
 
-## Public API
-
-### Integral reductions
+## Integral reductions
 
 ```@docs
 integral
 ```
 
-### Inner-product and norm reductions
+## Inner-product and norm reductions
 
 ```@docs
 inner
@@ -21,7 +19,7 @@ l2norm
 lpnorm
 ```
 
-### Radial reductions
+## Radial reductions
 
 ```@docs
 radial_spectrum

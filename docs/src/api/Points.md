@@ -5,16 +5,14 @@ Modules = [GBGPeriodicFields.Points]
 Order   = [:module]
 ```
 
-## Public API
-
-### Point and point-set types
+## Point and point-set types
 
 ```@docs
 Point
 PointSet
 ```
 
-### Point-value types
+## Point-value types
 
 ```@docs
 AbstractPointValues
@@ -23,7 +21,7 @@ VectorPointValues
 TensorPointValues
 ```
 
-### Point accessor functions
+## Point accessor functions
 
 ```@docs
 point_coordinates

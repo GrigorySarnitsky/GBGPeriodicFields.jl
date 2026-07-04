@@ -5,9 +5,7 @@ Modules = [GBGPeriodicFields.Fields]
 Order   = [:module]
 ```
 
-## Public API
-
-### Fiber types
+## Fiber types
 
 ```@docs
 FiberVector
@@ -16,14 +14,14 @@ FiberTensor3
 FiberTensor4
 ```
 
-### Base and layout types
+## Base and layout types
 
 ```@docs
 Grid3D
 RealFourierLayout
 ```
 
-### Field types
+## Field types
 
 ```@docs
 AbstractFieldPhysical
@@ -36,14 +34,14 @@ TensorFieldPhysical
 TensorFieldSpectral
 ```
 
-### Transform-plan and multiplier types
+## Transform-plan and multiplier types
 
 ```@docs
 FieldTransformPlans
 FieldSpectralMultipliers
 ```
 
-### Transform operations
+## Transform operations
 
 ```@docs
 to_physical!
@@ -52,7 +50,7 @@ to_spectral!
 to_spectral
 ```
 
-### Field accessor functions
+## Field accessor functions
 
 ```@docs
 field_data
@@ -65,7 +63,7 @@ physical_field_shape
 spectral_field_shape
 ```
 
-### FFT thread configuration
+## FFT thread configuration
 
 ```@docs
 set_fft_threads!

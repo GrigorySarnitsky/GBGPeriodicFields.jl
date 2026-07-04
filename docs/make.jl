@@ -130,7 +130,7 @@ makedocs(
   modules   = [GBGPeriodicFields, GBGPeriodicFields.FiberSections, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators, GBGPeriodicFields.Convolution, GBGPeriodicFields.Points, GBGPeriodicFields.Interpolation, GBGPeriodicFields.Reductions],
   format    = Documenter.HTML(
     canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/stable",
-    collapselevel = 2,
+    collapselevel = 1,
   ),
   checkdocs = :exports,
   doctest   = true,

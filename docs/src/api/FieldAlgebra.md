@@ -5,9 +5,7 @@ Modules = [GBGPeriodicFields.FieldAlgebra]
 Order   = [:module]
 ```
 
-## Public API
-
-### Vector-space operations
+## Vector-space operations
 
 ```@docs
 add!
@@ -16,7 +14,7 @@ multiply!
 divide!
 ```
 
-### Contraction and product operations
+## Contraction and product operations
 
 ```@docs
 dot!
@@ -28,7 +26,7 @@ cross
 mul!
 ```
 
-### Transposition and decomposition operations
+## Transposition and decomposition operations
 
 ```@docs
 transpose!
@@ -40,7 +38,7 @@ dev!
 dev
 ```
 
-### Norm operations
+## Norm operations
 
 ```@docs
 norm!

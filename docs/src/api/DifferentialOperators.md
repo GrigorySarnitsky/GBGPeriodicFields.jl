@@ -5,9 +5,7 @@ Modules = [GBGPeriodicFields.DifferentialOperators]
 Order   = [:module]
 ```
 
-## Public API
-
-### First-order differential operators
+## First-order differential operators
 
 ```@docs
 gradient!
@@ -18,7 +16,7 @@ curl!
 curl
 ```
 
-### Second-order differential operators
+## Second-order differential operators
 
 ```@docs
 laplacian!
@@ -27,7 +25,7 @@ inverse_laplacian!
 inverse_laplacian
 ```
 
-### Projection operators
+## Projection operators
 
 ```@docs
 helmholtz_projection!
