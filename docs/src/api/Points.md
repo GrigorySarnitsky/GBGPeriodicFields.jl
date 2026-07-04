@@ -12,30 +12,31 @@ Pages = ["Points.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Points]
-```
-
 ## Public API
 
-### Types
+### Point and point-set types
 
-```@autodocs
-Modules = [GBGPeriodicFields.Points]
-Public  = true
-Private = false
-Order   = [:type, :constant]
+```@docs
+Point
+PointSet
 ```
 
-### Functions
+### Point-value types
 
-```@autodocs
-Modules = [GBGPeriodicFields.Points]
-Public  = true
-Private = false
-Order   = [:function]
+```@docs
+AbstractPointValues
+ScalarPointValues
+VectorPointValues
+TensorPointValues
+```
+
+### Point accessor functions
+
+```@docs
+point_coordinates
+point_values
+pointvalue_tensor_order
+npoints
 ```
 
 ## Internal API

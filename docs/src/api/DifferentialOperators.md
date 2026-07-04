@@ -12,21 +12,33 @@ Pages = ["DifferentialOperators.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.DifferentialOperators]
-```
-
 ## Public API
 
-### Functions
+### First-order differential operators
 
-```@autodocs
-Modules = [GBGPeriodicFields.DifferentialOperators]
-Public  = true
-Private = false
-Order   = [:function]
+```@docs
+gradient!
+gradient
+divergence!
+divergence
+curl!
+curl
+```
+
+### Second-order differential operators
+
+```@docs
+laplacian!
+laplacian
+inverse_laplacian!
+inverse_laplacian
+```
+
+### Projection operators
+
+```@docs
+helmholtz_projection!
+helmholtz_projection
 ```
 
 ## Internal API

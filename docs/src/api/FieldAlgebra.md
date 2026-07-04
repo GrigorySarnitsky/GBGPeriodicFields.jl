@@ -12,21 +12,46 @@ Pages = ["FieldAlgebra.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.FieldAlgebra]
-```
-
 ## Public API
 
-### Functions
+### Vector-space operations
 
-```@autodocs
-Modules = [GBGPeriodicFields.FieldAlgebra]
-Public  = true
-Private = false
-Order   = [:function]
+```@docs
+add!
+subtract!
+multiply!
+divide!
+```
+
+### Contraction and product operations
+
+```@docs
+dot!
+dot
+⋅
+cross!
+cross
+×
+mul!
+```
+
+### Transposition and decomposition operations
+
+```@docs
+transpose!
+sym!
+sym
+skew!
+skew
+dev!
+dev
+```
+
+### Norm operations
+
+```@docs
+norm!
+norm
 ```
 
 ## Internal API

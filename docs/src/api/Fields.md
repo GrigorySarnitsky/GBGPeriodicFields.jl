@@ -12,30 +12,70 @@ Pages = ["Fields.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Fields]
-```
-
 ## Public API
 
-### Types
+### Fiber types
 
-```@autodocs
-Modules = [GBGPeriodicFields.Fields]
-Public  = true
-Private = false
-Order   = [:type, :constant]
+```@docs
+FiberVector
+FiberTensor2
+FiberTensor3
+FiberTensor4
 ```
 
-### Functions
+### Base and layout types
 
-```@autodocs
-Modules = [GBGPeriodicFields.Fields]
-Public  = true
-Private = false
-Order   = [:function]
+```@docs
+Grid3D
+RealFourierLayout
+```
+
+### Field types
+
+```@docs
+AbstractFieldPhysical
+AbstractFieldSpectral
+ScalarFieldPhysical
+ScalarFieldSpectral
+VectorFieldPhysical
+VectorFieldSpectral
+TensorFieldPhysical
+TensorFieldSpectral
+```
+
+### Transform-plan and multiplier types
+
+```@docs
+FieldTransformPlans
+FieldSpectralMultipliers
+```
+
+### Transform operations
+
+```@docs
+to_physical!
+to_physical
+to_spectral!
+to_spectral
+```
+
+### Field accessor functions
+
+```@docs
+field_data
+field_grid
+field_layout
+field_scalar_type
+field_tensor_order
+fiber_shape
+physical_field_shape
+spectral_field_shape
+```
+
+### FFT thread configuration
+
+```@docs
+set_fft_threads!
 ```
 
 ## Internal API

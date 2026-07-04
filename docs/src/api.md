@@ -8,7 +8,7 @@ include order reflects the dependency layering: `FiberSections` → `Fields` →
 - [FiberSections](api/FiberSections.md): the base-agnostic foundation — the `AbstractFiberSection` supertype, the `_assign!` threading primitive, and the fiberwise-algebra code generators reused by `FieldAlgebra` and `Points`.
 - [Fields](api/Fields.md): grids, Cartesian fiber types, field representations, FFT transforms, field utilities, and broadcasting support.
 - [FieldAlgebra](api/FieldAlgebra.md): fiberwise algebraic operations on scalar, vector, and tensor fields.
-- [DifferentialOperators](api/DifferentialOperators.md): spectral differential operators on fields in spectral representation.
+- [DifferentialOperators](api/DifferentialOperators.md): differential operators on fields in spectral representation.
 - [Convolution](api/Convolution.md): periodic convolution of a field with a Fourier kernel (`convolve`/`convolve!`, the coefficientwise product ``\hat f \cdot \hat g``; the builders `spectral_cutoff`/`spectral_band`/`squared_wavenumber_field`/`assignment_window`), in spectral representation.
 - [Points](api/Points.md): the unstructured-base point and point-value data types and their fiberwise algebra.
 - [Interpolation](api/Interpolation.md): the grid↔point transfer — interpolation (gather) and anterpolation (scatter) as an L²-adjoint pair, under an `AbstractTransferScheme`: the local splines (`LalescuSpline`/`CatmullRom`, `LagrangeSpline`), the exact spectral `DirectDFT`, and the fast spectral `NUFFT`.

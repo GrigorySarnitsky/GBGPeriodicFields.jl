@@ -12,20 +12,30 @@ Pages = ["Reductions.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Reductions]
-```
-
 ## Public API
 
-```@autodocs
-Modules = [GBGPeriodicFields.Reductions]
-Public  = true
-Private = false
-Order   = [:function]
+### Integral reductions
+
+```@docs
+integral
 ```
+
+### Inner-product and norm reductions
+
+```@docs
+inner
+l2norm
+lpnorm
+```
+
+### Radial reductions
+
+```@docs
+radial_spectrum
+radial_correlation
+```
+
+The `mean`, `std`, and `var` moments (extending `Statistics`) and the `maximum`, `minimum`, and `extrema` order statistics (extending `Base`) are also defined for sections; they are method extensions of the standard-library generics rather than package exports, and are described in the module summary above.
 
 ## Internal API
 

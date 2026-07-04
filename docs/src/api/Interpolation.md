@@ -12,30 +12,26 @@ Pages = ["Interpolation.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Interpolation]
-```
-
 ## Public API
 
-### Types
+### Transfer operations
 
-```@autodocs
-Modules = [GBGPeriodicFields.Interpolation]
-Public  = true
-Private = false
-Order   = [:type, :constant]
+```@docs
+interpolate!
+interpolate
+anterpolate!
+anterpolate
 ```
 
-### Functions
+### Transfer-scheme types
 
-```@autodocs
-Modules = [GBGPeriodicFields.Interpolation]
-Public  = true
-Private = false
-Order   = [:function]
+```@docs
+AbstractTransferScheme
+LalescuSpline
+CatmullRom
+LagrangeSpline
+DirectDFT
+NUFFT
 ```
 
 ## Internal API

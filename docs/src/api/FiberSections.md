@@ -12,19 +12,20 @@ Pages = ["FiberSections.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.FiberSections]
-```
-
 ## Public API
 
-```@autodocs
-Modules = [GBGPeriodicFields.FiberSections]
-Public  = true
-Private = false
-Order   = [:type, :constant, :function]
+### Fiber-section supertype
+
+```@docs
+AbstractFiberSection
+```
+
+### Threading configuration
+
+```@docs
+threading_cutoff
+set_threading_cutoff!
+with_threading
 ```
 
 ## Internal API

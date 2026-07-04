@@ -12,19 +12,23 @@ Pages = ["Convolution.md"]
 Depth = 2:3
 ```
 
-## Index
-
-```@index
-Modules = [GBGPeriodicFields.Convolution]
-```
-
 ## Public API
 
-```@autodocs
-Modules = [GBGPeriodicFields.Convolution]
-Public  = true
-Private = false
-Order   = [:function]
+### Convolution operations
+
+```@docs
+convolve!
+convolve
+⋆
+```
+
+### Kernel-multiplier builders
+
+```@docs
+spectral_cutoff
+spectral_band
+squared_wavenumber_field
+assignment_window
 ```
 
 ## Internal API
