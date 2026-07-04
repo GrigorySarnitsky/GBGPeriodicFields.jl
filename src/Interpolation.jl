@@ -619,10 +619,11 @@ baseline and as the oracle that validates the fast [`NUFFT`](@ref); for many poi
 `NUFFT`. It acts on a field in **spectral representation**:
 
 ```math
-f(x_p) = \\frac1N \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}
-       = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr),
-\\qquad
-(W^\\top q)(k) = \\sum_p q_p\\, e^{-\\mathrm{i} k\\cdot (x_p - o)},
+\\begin{aligned}
+f(x_p) &= \\frac1N \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}
+        = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr), \\\\
+(W^\\top q)(k) &= \\sum_p q_p\\, e^{-\\mathrm{i} k\\cdot (x_p - o)},
+\\end{aligned}
 ```
 
 reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
