@@ -14,7 +14,7 @@ The operation families are:
 
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
 - [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field.
-- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the rotation of a vector field and preserves the tensor order.
+- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the local rotation rate of a vector field and preserves the tensor order.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
 - [`helmholtz_projection`](@ref) ``\\equiv \\mathbb P`` projects a vector field onto its divergence-free part.
@@ -493,7 +493,7 @@ a scalar field ``f`` over the three axes, and it acts on each component of a vec
 alike, so it preserves the tensor order:
 
 ```math
-\\Delta f = \\sum_i \\partial_{x_i}^2 f, \\qquad (\\Delta u)_j = \\sum_i \\partial_{x_i}^2 u_j.
+\\Delta f = \\partial^2_{x_i x_i} f, \\qquad (\\Delta u)_j = \\partial^2_{x_i x_i} u_j.
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`laplacian`](@ref)

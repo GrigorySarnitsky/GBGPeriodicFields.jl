@@ -162,7 +162,9 @@ average *and* a `PointSet`'s counting average — not just one.
 **Notation** (glossary: `docs/src/notation.md`). The imaginary unit is upright ``\mathrm{i}`` (never
 bare italic `i`, never `\imath`/`\mathbb{i}`), which frees `i` as an index; indices are italic
 ``i, j, k, \dots`` in order, used freely alongside ``\mathrm{i}``; a partial derivative is
-``\partial_{x_i}`` (subscript the coordinate). Prefer fixed ``\Bigl \dots \Bigr`` over auto-`\left \dots
+``\partial_{x_i}`` (subscript the coordinate), and a second-order derivative is ``\partial^2_{x_i x_i}`` (a
+repeated fiber index is summed, Einstein convention — so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f``,
+no explicit ``\sum``). Prefer fixed ``\Bigl \dots \Bigr`` over auto-`\left \dots
 \right` (which over-sizes around subscripted sums). No horizontal scroll, and a code identifier never
 sits inside a math span.
 
