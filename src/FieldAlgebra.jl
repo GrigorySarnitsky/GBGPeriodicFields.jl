@@ -5,15 +5,20 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 [`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
 one exists — and an in-place `!` form. The families are:
 
-  * **Vector-space** — [`add!`](@ref) and `subtract!` (`+`, `-`), real scaling, and scalar-field
-    multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`).
-  * **Contractions** — [`dot!`](@ref) computes the vector Euclidean and tensor Frobenius inner products
-    (`⋅`), and [`cross!`](@ref) the cross product (`×`).
-  * **Tensor products** — [`mul!`](@ref) computes the tensor-on-vector action (left and right) and the
-    tensor-on-tensor product, with a five-argument `α`/`β` accumulation form and an allocating `*`.
-  * **Permutations and decompositions** — [`transpose!`](@ref) transposes the fiber indices, and `sym`,
-    `skew`, `dev` split off the symmetric, skew-symmetric, and deviatoric parts (each with a `!` form).
-  * **Norms** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius norms.
+  * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), real scaling, and
+    scalar-field multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition and real
+    scaling are the vector-space structure; scalar-field multiplication is the module action over the
+    scalar fields.
+  * **Contraction and product operations** — [`dot!`](@ref) computes the vector Euclidean and tensor
+    Frobenius inner products (`⋅`), [`cross!`](@ref) the cross product (`×`), and [`mul!`](@ref) the
+    tensor-on-vector action (left and right) and the tensor-on-tensor product — contracted (matrix)
+    products, not the outer tensor product — with a five-argument `α`/`β` accumulation form and an
+    allocating `*`.
+  * **Transposition and decomposition operations** — [`transpose!`](@ref) transposes the fiber indices,
+    and `sym`, `skew`, `dev` split off the symmetric, skew-symmetric, and deviatoric parts (each with a
+    `!` form).
+  * **Norm operations** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius
+    norms.
 
 Field-field and field-constant operations preserve the representation of their arguments: they act
 pointwise on fields in physical-space representation and coefficient-wise on fields in spectral
