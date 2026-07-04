@@ -10,10 +10,10 @@ one exists — and an in-place `!` form. The families are:
     scaling are the vector-space structure; scalar-field multiplication is the module action over the
     scalar fields.
   * **Contraction and product operations** — [`dot!`](@ref) computes the vector Euclidean and tensor
-    Frobenius inner products (`⋅`), [`cross!`](@ref) the cross product (`×`), and [`mul!`](@ref) the
+    Frobenius inner products (`⋅`), [`cross!`](@ref) the cross product (`×`), [`mul!`](@ref) the
     tensor-on-vector action (left and right) and the tensor-on-tensor product — contracted (matrix)
     products, not the outer tensor product — with a five-argument `α`/`β` accumulation form and an
-    allocating `*`.
+    allocating `*`, and [`tr!`](@ref) the trace, the self-contraction of a tensor's own two indices.
   * **Transposition and decomposition operations** — [`transpose!`](@ref) transposes the fiber indices,
     and `sym`, `skew`, `dev` split off the symmetric, skew-symmetric, and deviatoric parts (each with a
     `!` form).
@@ -88,11 +88,12 @@ using ..FiberSections:
   _norm_tensor_rhs,
   _sym_kernel_body,
   _skew_kernel_body,
-  _dev_kernel_body
+  _dev_kernel_body,
+  _trace_tensor_rhs
 
 
 import Base: +, -, *, /, transpose
-import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm
+import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm, tr
 
 
 export add!,
@@ -114,7 +115,9 @@ export add!,
        skew!,
        skew,
        dev!,
-       dev
+       dev,
+       tr!,
+       tr
 
 
 #####################################################
@@ -1116,6 +1119,52 @@ for (Operand,) in ((:ScalarFieldPhysical,), (:VectorFieldPhysical,), (:(TensorFi
   end
 
   @eval norm(operand::$Operand{T}) where {T<:AbstractFloat} = norm!(similar_field(operand, Val(0)), operand)
+end
+
+
+#####################################################
+#        Tensor Trace                               #
+#####################################################
+
+
+"""
+    tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
+    tr!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2})
+
+Compute the fiberwise trace (`tr` ``\\equiv \\operatorname{tr}``) of a second-order tensor field in place, and return `destination`. The trace is linear and representation-preserving, so it is defined for both representations.
+
+Pointwise over the base, it contracts the two fiber indices to a scalar — the first tensor invariant:
+
+```math
+\\operatorname{tr}(A) = A_{ii} = A_{11} + A_{22} + A_{33}.
+```
+"""
+function tr! end
+
+
+"""
+    tr(A::TensorFieldPhysical{2})
+    tr(A::TensorFieldSpectral{2})
+
+Allocating form of [`tr!`](@ref): allocate the scalar-field result and return the fiberwise trace of a second-order tensor field. See [`tr!`](@ref) for the componentwise definition and the physical/spectral validity. (A single `FiberTensor2` value already has `LinearAlgebra.tr`.)
+"""
+tr
+
+
+@eval _trace_components!(destination, A::_Tensor2Field) = $(_scalar_kernel_body(_trace_tensor_rhs(:A, :field)))
+
+
+for (Tensor2Field, ScalarField) in (
+    (:(TensorFieldPhysical{2}), :ScalarFieldPhysical),
+    (:(TensorFieldSpectral{2}), :ScalarFieldSpectral),
+  )
+
+  @eval function tr!(destination::$ScalarField{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
+    _check_field_domain_compatibility(destination, A)
+    return _trace_components!(destination, A)
+  end
+
+  @eval tr(A::$Tensor2Field{T}) where {T<:AbstractFloat} = tr!(similar_field(A, Val(0)), A)
 end
 
 

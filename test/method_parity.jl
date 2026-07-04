@@ -15,7 +15,7 @@ pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
 
 @testset "method parity" begin
 
-  @testset "M2 + M3 baseline (198 methods)" begin
+  @testset "M2 + M3 baseline (202 methods)" begin
     baseline = (("add!", add!, 14), ("subtract!", subtract!, 14),
                 ("multiply!", multiply!, 16), ("divide!", divide!, 6),
                 ("+", +, 15), ("-", -, 15), ("*", *, 28), ("/", /, 5),
@@ -23,18 +23,19 @@ pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
                 ("mul!", mul!, 30), ("transpose", transpose, 2), ("transpose!", transpose!, 2),
                 ("norm", norm, 3), ("norm!", norm!, 3),
                 ("sym", sym, 3), ("sym!", sym!, 2), ("skew", skew, 3), ("skew!", skew!, 2),
-                ("dev", dev, 3), ("dev!", dev!, 2))
+                ("dev", dev, 3), ("dev!", dev!, 2),
+                ("tr", tr, 2), ("tr!", tr!, 2))
     for (name, f, n) in baseline
       @test pkg_method_count(f) == n
     end
-    @test sum(pkg_method_count(f) for (_, f, _) in baseline) == 198
+    @test sum(pkg_method_count(f) for (_, f, _) in baseline) == 202
   end
 
   # The PointValues algebra (Points module) mirrors the fields' *physical* surface, on
   # the same generics. It is counted separately (m.module === Points), so the field
   # baseline above stays locked while this locks the new surface. Representation-free ⇒ no
   # spectral variants, so the counts are smaller than the field ones.
-  @testset "PointValues algebra baseline (118 methods)" begin
+  @testset "PointValues algebra baseline (120 methods)" begin
     baseline = (("add!", add!, 7), ("subtract!", subtract!, 7),
                 ("multiply!", multiply!, 10), ("divide!", divide!, 5),
                 ("+", +, 8), ("-", -, 8), ("*", *, 18), ("/", /, 5),
@@ -42,11 +43,12 @@ pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
                 ("mul!", mul!, 18), ("transpose", transpose, 1), ("transpose!", transpose!, 1),
                 ("norm", norm, 3), ("norm!", norm!, 3),
                 ("sym", sym, 1), ("sym!", sym!, 1), ("skew", skew, 1), ("skew!", skew!, 1),
-                ("dev", dev, 1), ("dev!", dev!, 1))
+                ("dev", dev, 1), ("dev!", dev!, 1),
+                ("tr", tr, 1), ("tr!", tr!, 1))
     for (name, f, n) in baseline
       @test pointvalues_method_count(f) == n
     end
-    @test sum(pointvalues_method_count(f) for (_, f, _) in baseline) == 118
+    @test sum(pointvalues_method_count(f) for (_, f, _) in baseline) == 120
   end
 
   @testset "no ambiguities" begin

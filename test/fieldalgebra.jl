@@ -263,6 +263,25 @@ end
     @test dev(M) ≈ M - ((M[1, 1] + M[2, 2] + M[3, 3]) / 3) * one(M)
   end
 
+  @testset "trace (fields + fibers, both representations)" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    Ad = field_data(A)
+    expected = tcomp(Ad, 1, 1) .+ tcomp(Ad, 2, 2) .+ tcomp(Ad, 3, 3)
+    @test tr(A) isa ScalarFieldPhysical
+    @test field_data(tr(A)) ≈ expected
+    @test field_data(tr(sym(A))) ≈ expected                        # antisymmetric part is traceless
+    @test maximum(abs, field_data(tr(dev(A)))) < 1e-12             # deviator is traceless
+    dest = F.similar_field(A, Val(0)); tr!(dest, A)                # in-place matches allocating
+    @test field_data(dest) ≈ expected
+
+    M = FiberTensor2{T}(ntuple(i -> Float64(i) + 0.5, 9))
+    @test tr(M) ≈ M[1, 1] + M[2, 2] + M[3, 3]
+
+    As = to_spectral(A, plans_for(A))                              # linear ⇒ coefficient-wise
+    @test tr(As) isa ScalarFieldSpectral
+    @test field_data(tr(As)) ≈ tcomp(field_data(As), 1, 1) .+ tcomp(field_data(As), 2, 2) .+ tcomp(field_data(As), 3, 3)
+  end
+
   @testset "spectral linear contractions are coefficient-wise" begin
     A = TensorFieldPhysical{2}(tensor_a, grid)
     u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)

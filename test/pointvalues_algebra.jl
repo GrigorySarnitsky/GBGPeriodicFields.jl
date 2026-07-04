@@ -85,12 +85,13 @@ matmat(A, B) = [sum(A[i, k] * B[k, j] for k in 1:3) for i in 1:3, j in 1:3]
       end
     end
 
-    @testset "transpose / norm / sym / skew / dev ($T)" begin
+    @testset "transpose / norm / sym / skew / dev / trace ($T)" begin
       for m in 1:M, i in 1:3, j in 1:3
         @test point_values(transpose(tv))[m, i, j] ≈ dt[m, j, i]
       end
       @test point_values(norm(vv)) ≈ [sqrt(sum(dv[m, i]^2 for i in 1:3)) for m in 1:M]
       @test point_values(norm(tv)) ≈ [sqrt(sum(dt[m, :, :] .^ 2)) for m in 1:M]
+      @test point_values(tr(tv)) ≈ [dt[m, 1, 1] + dt[m, 2, 2] + dt[m, 3, 3] for m in 1:M]
       for m in 1:M
         Am = dt[m, :, :]; Amt = permutedims(Am)
         tr3 = (Am[1, 1] + Am[2, 2] + Am[3, 3]) / 3

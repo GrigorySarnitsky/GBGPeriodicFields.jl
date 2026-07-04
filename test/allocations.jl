@@ -185,6 +185,8 @@ end
       @alloc_below threshold sym!(std_, st)
       @alloc_below threshold skew!(ptd, pt)
       @alloc_below threshold skew!(std_, st)
+      @alloc_below threshold tr!(psd, pt)                # linear tensor → scalar, fused (unlike dev!)
+      @alloc_below threshold tr!(ssd, st)
 
       # ----- point-value algebra (mirrors the physical surface; same generated bodies, different base) -----
       @alloc_below threshold add!(qvd, qv, qv)
@@ -198,6 +200,7 @@ end
       @alloc_below threshold cross!(qvd, qv, qv)
       @alloc_below threshold transpose!(qtd, qt)
       @alloc_below threshold sym!(qtd, qt)
+      @alloc_below threshold tr!(qsd, qt)
 
       # ----- grid↔point transfer (local spline; the particle-tracking hot path) -----
       points = PointSet(T(2π) .* rand(T, M, 3))

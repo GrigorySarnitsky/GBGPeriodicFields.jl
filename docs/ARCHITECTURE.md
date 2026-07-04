@@ -191,8 +191,9 @@ not an omission**. The 198-method public surface of `FieldAlgebra` is the
 machine-checkable encoding of the validity table above. Any refactor must
 reproduce the method set exactly; it was verified signature-for-signature against
 the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`)
-and then M3 (the dot/cross/`mul!`/transpose/norm/sym/skew/dev contraction and
-decomposition families, plus their `*` operators), bringing the total to 198 and
+and then M3 (the dot/cross/`mul!`/transpose/norm/sym/skew/dev/trace contraction and
+decomposition families, plus their `*` operators), bringing the total to 198; the later
+trace `tr`/`tr!` addition brings it to 202, all
 parity-checked at runtime in `test/method_parity.jl`. The point-value algebra
 realizes the *vertical* operations on the unstructured base — it mirrors the
 **physical** field surface and is locked by its own separate baseline ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).

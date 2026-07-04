@@ -24,6 +24,8 @@ cross!
 cross
 ×
 mul!
+tr!
+tr
 ```
 
 ## Transposition and decomposition operations

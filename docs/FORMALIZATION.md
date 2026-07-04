@@ -97,12 +97,15 @@ u\cdot v &= u_i v_i, & A : B &= A_{ij}B_{ij}, & (u\times v)_i &= \epsilon_{ijk}\
 
 The decompositions are ``\operatorname{sym}(A)=\tfrac12(A+A^{\top})``,
 ``\operatorname{skew}(A)=\tfrac12(A-A^{\top})``, ``\operatorname{dev}(A)=A-\tfrac13(\operatorname{tr}A)\,I``,
-so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr}\operatorname{dev}(A)=0``;
+so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr}\operatorname{dev}(A)=0``.
+The trace ``\operatorname{tr}(A)=A_{ii}`` — the first tensor invariant that `dev` removes — is exposed as
+`tr`/`tr!`, and being linear it is representation-preserving (the trace of the spectral coefficients is
+the spectral representation of ``\operatorname{tr}A``).
 ``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dst}=\alpha(\cdot)+\beta\,\mathrm{dst}``.
 
 **Backs** [Architecture](architecture.md) §2, §6 and the `FieldAlgebra` docstrings.
 **Checked by** `test/fieldalgebra.jl` (and `test/pointvalues_algebra.jl` for the identical point-value
-mirror) — dot/cross, tensor products with α/β, transpose, norms, and the sym/skew/dev identities.
+mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, and the sym/skew/dev identities.
 
 ## Differential operators (`DifferentialOperators`, [Architecture](architecture.md) §4)
 

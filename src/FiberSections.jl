@@ -489,6 +489,14 @@ _norm_tensor_rhs(symbol, kind) =
 
 
 """
+    _trace_tensor_rhs(symbol, kind)
+
+Build the right-hand side for the fiberwise trace ``\\operatorname{tr}(A) = A_{ii} = A_{11} + A_{22} + A_{33}``, the sum of the diagonal components of the tensor `symbol` (`kind` is `:field` or `:fiber`). It feeds `_scalar_kernel_body`, and `_dev_kernel_body` reuses it for the trace it subtracts. The trace is linear, so the same body serves both physical-space and spectral representation.
+"""
+_trace_tensor_rhs(symbol, kind) = _sum_terms([_tensor_component(symbol, kind, d, d) for d in 1:3])
+
+
+"""
     _sym_kernel_body()
 
 Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for
@@ -522,7 +530,7 @@ Build the body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tf
 """
 _dev_kernel_body() = quote
   third = inv(section_scalar_type(A)(3))
-  trace = $(_sum_terms([_tensor_component(:A, :field, d, d) for d in 1:3]))
+  trace = $(_trace_tensor_rhs(:A, :field))
   $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
       _tensor_component(:A, :field, i, j); alpha_beta = false))
 end

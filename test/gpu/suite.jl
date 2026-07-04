@@ -160,6 +160,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(sym(Ad), sym(A))
       @test matches(skew(Ad), skew(A))
       @test matches(dev(Ad), dev(A))
+      @test matches(tr(Ad), tr(A))
       @test matches(norm(sd), norm(s))
       @test matches(norm(ud), norm(u))
       @test matches(norm(Ad), norm(A))
@@ -214,6 +215,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(sym(Ad), sym(A))
       @test matches(skew(Ad), skew(A))
       @test matches(dev(Ad), dev(A))
+      @test matches(tr(Ad), tr(A))
       @test matches(norm(vvd), norm(vv))
       @test matches(norm(Ad), norm(A))
     end

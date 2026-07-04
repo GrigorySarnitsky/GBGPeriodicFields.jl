@@ -10,4 +10,5 @@ function add_algebra!(group, AT, ::Type{T}, grid, tag) where {T}
   group["cross! | $tag"]          = @benchmarkable (cross!($vdest, $u, $v); bench_sync(field_data($vdest)))
   group["mul! tensor.vec | $tag"] = @benchmarkable (mul!($vdest, $A, $u); bench_sync(field_data($vdest)))
   group["norm! vec | $tag"]       = @benchmarkable (norm!($sdest, $u); bench_sync(field_data($sdest)))
+  group["tr! tensor | $tag"]      = @benchmarkable (tr!($sdest, $A); bench_sync(field_data($sdest)))
 end

@@ -537,7 +537,7 @@ those are the usual rot. Then the mechanical bar:
 - Load: `julia --project -e 'using GBGPeriodicFields'` (catches `@eval` and wiring errors).
 - Method parity after codegen edits: compare per-generic `methods(f)` counts
   against the committed baseline (`test/method_parity.jl`). Full M2+M3 surface is
-  **198 public methods** (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14).
+  **202 public methods** (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14, `tr` 2).
 - Ambiguities: `test/method_parity.jl` runs `detect_ambiguities` (from `Test`) over
   the whole package — the explicit `multiply!` quartet exists precisely to resolve
   these. `test/aqua.jl` runs `Aqua.test_all` for broader package checks (type piracy,
@@ -561,8 +561,9 @@ those are the usual rot. Then the mechanical bar:
 2. **FieldAlgebra.jl** — **done** (full public surface): M2 (add/subtract, real
    scaling, scalar-field multiplication) + M3 (dot, cross, tensor-vector and
    tensor-tensor `mul!` with α/β, transpose, tensor inner products, norms,
-   sym/skew/dev) generated, loading, and verified — **198 public methods** (the
-   pre-refactor surface, parity baseline locked in `test/method_parity.jl`), zero
+   sym/skew/dev, trace) generated, loading, and verified — **202 public methods** (the
+   pre-refactor surface plus the trace `tr`/`tr!` addition, parity baseline locked in
+   `test/method_parity.jl`), zero
    ambiguities, behaviour tested in `test/fieldalgebra.jl`. Fiber ops use full
    **StaticArrays** (a package dependency — `StaticArraysCore` gave only the types).
    `mul!` keeps the LinearAlgebra no-alias contract; cross and the unary
@@ -626,7 +627,7 @@ those are the usual rot. Then the mechanical bar:
    pair count** on a clustered point set (the clustering peak + the g→1 baseline). `test/eltype_genericity.jl`:
    a representative cross-section in Float64 and Float32, asserting element-type
    preservation. `test/method_parity.jl`:
-   the full 198-method field baseline + the 118-method point-value baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
+   the full 202-method field baseline + the 120-method point-value baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
    (ambiguities, unbound args, piracy, compat, stale deps). `test/jet.jl`: JET `@test_call`
    static analysis of the public ops (filtered to package modules). `test/adjointness.jl`: operator
    adjointness and structural identities (div=-gradᵀ, self-adjoint curl, negative-definite
@@ -658,7 +659,7 @@ those are the usual rot. Then the mechanical bar:
    *threading* them (custom chunk accumulation) remains deferred.
 6. **Point layer** (`Points` objects/algebra + `Interpolation` transfer) — point-data types and their **full fiberwise algebra**
    done and tested (CPU `test/pointvalues_algebra.jl` + `test/interpolation.jl`; GPU ROCm;
-   118-method point-value parity baseline, zero ambiguities). The algebra reuses the
+   120-method point-value parity baseline, zero ambiguities). The algebra reuses the
    FieldAlgebra code generators verbatim over an extended section interface (`field_data` /
    `_vector_component_data` / `_tensor2_component_data`) — no formula written twice — and
    mirrors the *physical* field surface only (point values are representation-free).
@@ -688,7 +689,7 @@ those are the usual rot. Then the mechanical bar:
    (representation-free) for the measure reductions; `inner`/`l2norm` additionally act on **spectral**
    fields via Parseval's theorem (rfft half-spectrum weighting; = the physical inner). `mean(points) = (1/M)·Σ`; `inner`/`mean` are
    intensive (normalized), `integral` extensive. Physics stays consumer-side (energy `½ inner(u,u)`,
-   etc.). Tested in `test/reductions.jl`; the 198/118 parity baselines are unchanged (separate
+   etc.). Tested in `test/reductions.jl`; the 202/120 parity baselines are unchanged (separate
    generics). GPU-portable by construction (`sum`/`dot`/`maximum`); GPU parity covered in
    `test/gpu/suite.jl`. **`radial_spectrum` added (decision 21):** the shell-resolved Parseval inner —
    the radial power spectrum `(shells, spectrum)` with `sum(spectrum) == inner(f,f)`, spectral-only,
@@ -713,7 +714,7 @@ those are the usual rot. Then the mechanical bar:
    composes kernels for free (the `R=0` case). `spectral_cutoff` is the one neutral builder (isotropic
    sharp low-pass / idempotent projection); physics (LES filter, integrating factor `exp(-νk²Δt)`)
    stays a consumer-built kernel (invariant 12). **Completes invariant 1** — the coefficientwise
-   product, named `convolve`, never `*`; the 198/118 parity baselines are unchanged (separate
+   product, named `convolve`, never `*`; the 202/120 parity baselines are unchanged (separate
    generic). Tested CPU (`test/convolution.jl`, Float64/Float32, the translation-kernel ⇔ circshift
    oracle) + GPU (ROCm parity in `test/gpu/suite.jl`); benchmarked (`convolution` class). Naming per
    the §2 convention (verb `convolve`; module noun `Convolution`, parallel to

@@ -34,13 +34,14 @@ using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_as
                        _tensor_vector_formula, _vector_tensor_formula, _tensor_tensor_formula,
                        _transpose_formula,
                        _norm_scalar_rhs, _norm_vector_rhs, _norm_tensor_rhs,
-                       _sym_kernel_body, _skew_kernel_body, _dev_kernel_body
+                       _sym_kernel_body, _skew_kernel_body, _dev_kernel_body,
+                       _trace_tensor_rhs
 using ..Fields: fiber_shape, FiberVector, FiberTensor2
 import Base: +, -, *, /
-import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm
+import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr
 import ..Fields: field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
-                       norm!, sym, sym!, skew, skew!, dev, dev!
+                       norm!, sym, sym!, skew, skew!, dev, dev!, tr!
 
 
 export Point,
@@ -670,6 +671,18 @@ for Operand in (:ScalarPointValues, :VectorPointValues, :(TensorPointValues{2}))
 
   @eval norm(operand::$Operand{T}) where {T<:AbstractFloat} = norm!(similar_pointvalues(operand, Val(0)), operand)
 end
+
+
+# --- Trace (scalar result) ---
+# Body from the shared `_trace_tensor_rhs` builder in FiberSections — the same the field trace uses.
+@eval _trace_components_pv!(destination, A::TensorPointValues{2}) = $(_scalar_kernel_body(_trace_tensor_rhs(:A, :field)))
+
+function tr!(destination::ScalarPointValues{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat}
+  _check_npoints_match(destination, A)
+  return _trace_components_pv!(destination, A)
+end
+
+tr(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = tr!(similar_pointvalues(A, Val(0)), A)
 
 
 # --- Symmetric / skew / deviatoric decompositions (index-shuffling ⇒ alias-guarded) ---

@@ -114,7 +114,9 @@ using .FieldAlgebra:
   skew!,
   skew,
   dev!,
-  dev
+  dev,
+  tr!,
+  tr
 
 
 using .DifferentialOperators:
@@ -229,6 +231,8 @@ export FiberVector,
        skew,
        dev!,
        dev,
+       tr!,
+       tr,
        FieldSpectralMultipliers,
        gradient!,
        gradient,
