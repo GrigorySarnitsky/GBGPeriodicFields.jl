@@ -10,10 +10,12 @@ the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that
 ``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
 of ``W`` and likewise linear: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
 ``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
-``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two form a linear adjoint pair: for any
-field ``f`` and per-point values ``q``, the gathered values paired with ``q`` and summed over the ``M``
-points equal ``f`` paired with the scattered field and summed over the ``N`` grid positions ``x``, with
-``\\cdot`` the fiber dot product (ordinary multiplication for a scalar field):
+``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two form a linear adjoint pair. Each side
+of the identity below is an inner product, but the two live on different spaces: the left pairs the
+gathered values ``Wf`` with ``q`` on the space of per-point values (summed over the ``M`` points), the
+right pairs ``f`` with the scattered field ``W^\\top q`` on the space of fields (summed over the ``N``
+grid positions ``x``), with ``\\cdot`` the fiber dot product (ordinary multiplication for a scalar
+field). Their equality is what makes ``W^\\top`` the adjoint of ``W``:
 
 ```math
 \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x).
