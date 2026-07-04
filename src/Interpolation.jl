@@ -5,9 +5,9 @@ Transfer between the grid sections of `Fields` and the point sections of `Points
 evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
 back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
 
-Interpolation (`interpolate`) is the **gather** ``W``, the linear map that reads a field ``f`` out at
-the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` evaluated at that point's
-position ``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
+Interpolation (`interpolate`) is the **gather** ``W``, the linear map that evaluates a field ``f`` at
+the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that point's position
+``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
 of ``W`` and likewise linear: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
 ``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
 ``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two form a linear adjoint pair: for any
