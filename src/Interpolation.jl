@@ -5,22 +5,26 @@ Transfer between the grid sections of `Fields` and the point sections of `Points
 evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
 back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
 
-Interpolation **gathers**: the value at a point is the field read out there. Anterpolation **scatters**:
-it spreads each point's quantity onto the surrounding grid nodes with a stencil weight, so it returns a
-whole field. The two are adjoints: with a field ``f`` and per-point quantities ``q``, the values gathered at the
-points paired with ``q`` equal ``f`` paired with the scattered field (the left sum below runs over the
-points, the right over the grid nodes):
+Interpolation (`interpolate`) is the **gather** ``W``, the linear map that reads a field ``f`` out at
+the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` evaluated at that point's
+position ``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
+of ``W`` and likewise linear: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
+``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
+``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two form a linear adjoint pair: for any
+field ``f`` and per-point values ``q``, the gathered values paired with ``q`` and summed over the ``M``
+points equal ``f`` paired with the scattered field and summed over the ``N`` grid positions ``x``, with
+``\\cdot`` the fiber dot product (ordinary multiplication for a scalar field):
 
 ```math
-\\sum_p (Wf)_p\\, q_p = \\sum_n f_n\\, (W^\\top q)_n .
+\\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x).
 ```
 
-This holds because the gather ``W`` and its scatter ``W^\\top`` share the same stencil weights. Because
-those weights sum to one (a partition of unity), anterpolation **conserves** the total it deposits — the
-property that coupling a quantity back onto the flow needs. Conservation holds **only** when both directions use the
-same weights; mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation reads
-a value while its adjoint returns a field, and that is the one asymmetry in the API. Each scheme's own
-docstring gives the gather and scatter weights it applies.
+This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
+(a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
+quantity back onto the flow needs. Conservation holds **only** when both directions use the same weights;
+mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation reads a value while
+its adjoint returns a field, the one asymmetry in the API. Each scheme's own docstring gives the gather
+and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation the
 field is read in. Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
