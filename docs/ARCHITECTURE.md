@@ -708,29 +708,16 @@ for it (seen in a few papers) is a misnomer.
 
 **References (this section).**
 
-- C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations
-  for tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010)
-  5862–5869.
-- C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm
-  for large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput.
-  Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code:
-  gitlab.mpcdf.mpg.de/TurTLE/turtle.
-- M. A. T. van Hinsberg, J. H. M. ten Thije Boonkkamp, F. Toschi, H. J. H. Clercx, *On the
-  efficiency and accuracy of interpolation methods for spectral codes*, SIAM J. Sci.
-  Comput. **34**(4) (2012) B479–B498.
-- B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*, Math.
-  Comp. **51**(184) (1988) 699–706.
-- S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension
-  of finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
-- C. T. Crowe, M. P. Sharma, D. E. Stock, *The Particle-Source-In-Cell (PSI-CELL) model for
-  gas–droplet flows*, J. Fluids Eng. **99**(2) (1977) 325–332.
-- A. Brandt, A. A. Lubrecht, *Multilevel matrix multiplication and fast solution of integral
-  equations*, J. Comput. Phys. **90**(2) (1990) 348–370 (an early use of "anterpolation"
-  for the adjoint of interpolation).
-- C. S. Peskin, *The immersed boundary method*, Acta Numerica **11** (2002) 479–517
-  (spreading = adjoint of interpolation).
-- E. Catmull, R. Rom, *A class of local interpolating splines*, in: Computer Aided Geometric
-  Design, Academic Press, 1974, pp. 317–326.
+- C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+- C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+- M. A. T. van Hinsberg, J. H. M. ten Thije Boonkkamp, F. Toschi, H. J. H. Clercx, [*On the efficiency and accuracy of interpolation methods for spectral codes*](https://doi.org/10.1137/110849018), SIAM J. Sci. Comput. **34**(4) (2012) B479–B498.
+- A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+- B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
+- S. Sundaram, L. R. Collins, [*Numerical considerations in simulating a turbulent suspension of finite-volume particles*](https://doi.org/10.1006/jcph.1996.0064), J. Comput. Phys. **124**(2) (1996) 337–350.
+- C. T. Crowe, M. P. Sharma, D. E. Stock, [*The Particle-Source-In-Cell (PSI-CELL) model for gas–droplet flows*](https://doi.org/10.1115/1.3448756), J. Fluids Eng. **99**(2) (1977) 325–332.
+- A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370 (an early use of "anterpolation" for the adjoint of interpolation).
+- C. S. Peskin, [*The immersed boundary method*](https://doi.org/10.1017/S0962492902000077), Acta Numerica **11** (2002) 479–517 (spreading = adjoint of interpolation).
+- E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
 
 ## 11. Convolution
 

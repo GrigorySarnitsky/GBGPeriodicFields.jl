@@ -41,10 +41,8 @@ live in the `Points` module.
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
-    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * S. Sundaram, L. R. Collins, *Numerical considerations in simulating a turbulent suspension of
-    finite-volume particles*, J. Comput. Phys. **124**(2) (1996) 337–350.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * S. Sundaram, L. R. Collins, [*Numerical considerations in simulating a turbulent suspension of finite-volume particles*](https://doi.org/10.1006/jcph.1996.0064), J. Comput. Phys. **124**(2) (1996) 337–350.
 """
 module Interpolation
 
@@ -133,13 +131,9 @@ Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point 
 
 # References
 
-  * C. C. Lalescu, B. Teaca, D. Carati, *Implementation of high order spline interpolations for
-    tracking test particles in discretized fields*, J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
-    large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
-    **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
-  * B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*, Math. Comp.
-    **51**(184) (1988) 699–706.
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 """
 struct LalescuSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -171,9 +165,7 @@ linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_p
 
 # References
 
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, *An efficient particle tracking algorithm for
-    large-scale parallel pseudo-spectral simulations of turbulence* (TurTLE), Comput. Phys. Commun.
-    **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -203,8 +195,7 @@ Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `n
 order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
 evaluated at `evaluation_point`. Host-side helper for the spline-weight construction.
 
-Reference: B. Fornberg, *Generation of finite difference formulas on arbitrarily spaced grids*,
-Math. Comp. **51**(184) (1988) 699–706.
+Reference: B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 """
 function _fornberg(evaluation_point::Float64, nodes::Vector{Float64}, max_order::Int)
   number_of_nodes = length(nodes)
@@ -933,8 +924,7 @@ relation, and like it reconstructs the band-limited field (divergence-free).
 
 # References
 
-  * A. H. Barnett, J. Magland, L. af Klinteberg, *A parallel nonuniform fast Fourier transform library
-    based on an exponential of semicircle kernel*, SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+  * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
 struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
   width::Int

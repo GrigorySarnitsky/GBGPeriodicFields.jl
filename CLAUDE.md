@@ -282,7 +282,13 @@ short and the canonical full reference lives in `docs/ARCHITECTURE.md` §Referen
 **implements / pins to** — Lalescu 2010, TurTLE 2022, van Hinsberg, Fornberg, the anterpolation lineage);
 **docstrings carry the full reference inline** (a `# References` block, or a one-line `Reference:`) so a
 REPL reader sees it without opening another file — and each inline copy must match the §References entry
-**verbatim** (drift is the chosen duplication's only risk, so this is the thing to check). **Not
+**verbatim** (drift is the chosen duplication's only risk, so this is the thing to check). **Every
+reference carries a clickable DOI on its title** — `[*Title*](https://doi.org/…)`, or an
+`openlibrary.org/…/works/…` link for a book with no DOI — verbatim-identical in the §References list and
+every inline docstring copy; a DOI stays REPL-safe (the URL renders as visible text, not a dead link).
+**A reference *block* of two or more citations is a bullet list, one citation per line**, never a
+semicolon-joined paragraph (unreadable when rendered); a lone citation stays inline as `Reference: …`.
+**Not
 citations:** eponymous method *names* (the `Catmull–Rom` spline, `Lagrange`/`Hermite` interpolation,
 `Fornberg` weights) take **no year** unless you are actually citing the work; non-implemented
 related-work asides (e.g. LES SGS models) may stay informal author–year with no full reference; plain
