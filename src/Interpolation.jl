@@ -7,9 +7,17 @@ back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues
 
 Interpolation **gathers**: the value at a point is the field read out there. Anterpolation **scatters**:
 it spreads each point's quantity onto the surrounding grid nodes with a stencil weight, so it returns a
-whole field. The two are adjoints because they share the same stencil weights, and because those weights
-sum to one (a partition of unity) anterpolation **conserves** the total it deposits — the property that
-coupling a quantity back onto the flow needs. Conservation holds **only** when both directions use the
+whole field. The two are adjoints: with a field ``f`` and per-point quantities ``q``, the values gathered at the
+points paired with ``q`` equal ``f`` paired with the scattered field (the left sum below runs over the
+points, the right over the grid nodes):
+
+```math
+\\sum_p (Wf)_p\\, q_p = \\sum_n f_n\\, (W^\\top q)_n .
+```
+
+This holds because the gather ``W`` and its scatter ``W^\\top`` share the same stencil weights. Because
+those weights sum to one (a partition of unity), anterpolation **conserves** the total it deposits — the
+property that coupling a quantity back onto the flow needs. Conservation holds **only** when both directions use the
 same weights; mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation reads
 a value while its adjoint returns a field, and that is the one asymmetry in the API. Each scheme's own
 docstring gives the gather and scatter weights it applies.
