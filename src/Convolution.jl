@@ -8,8 +8,8 @@ fixed kernel — the spectral sibling of the differential operators and the same
 theorem it is exactly a coefficientwise product of the transforms, so the operation lives in spectral
 representation. A kernel is supplied by its transfer function as a scalar field in spectral
 representation, and a scalar kernel multiplies every fiber component, so one operation serves scalar,
-vector, and tensor fields. The operation is named `convolve` rather than `*` because the
-coefficientwise product would read as a pointwise multiplication, which it is not.
+vector, and tensor fields. The operation is named `convolve` (allocating infix `⋆`) rather than `*`,
+because the coefficientwise product would read as a pointwise multiplication, which it is not.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
 scalar field in spectral representation that the consumer builds from `FieldSpectralMultipliers` and
@@ -112,8 +112,8 @@ accumulate:
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha\\,(f \\star g) + \\beta\\,\\mathrm{destination}``.
 
-Spectral representation only: on the torus convolution is the coefficientwise spectral product,
-offered here under its true name rather than as `*`. Returns the modified `destination`.
+Spectral representation only: on the torus convolution is the coefficientwise spectral product.
+Returns the modified `destination`.
 """
 function convolve! end
 
