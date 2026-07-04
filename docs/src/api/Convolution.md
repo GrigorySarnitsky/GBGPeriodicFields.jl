@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.Convolution]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["Convolution.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Convolution operations

@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.DifferentialOperators]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["DifferentialOperators.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### First-order differential operators

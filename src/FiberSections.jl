@@ -11,7 +11,7 @@ contributor-facing machinery:
 - the [`AbstractFiberSection`](@ref) supertype, which both fields and point-values subtype;
 - the CPU-threading, fused-assignment primitive [`_assign!`](@ref) and its policy controls
   ([`with_threading`](@ref), [`threading_cutoff`](@ref), and [`set_threading_cutoff!`](@ref));
-- the vertical-algebra code generators — the per-component formula and kernel-body builders —
+- the fiberwise-algebra code generators — the per-component builders behind operations such as `dot`, `cross`, and `norm` —
   written once here so that one set of generated kernels serves both field and point-value
   sections.
 

@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.Fields]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["Fields.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Fiber types

@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.FieldAlgebra]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["FieldAlgebra.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Vector-space operations

@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.Points]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["Points.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Point and point-set types

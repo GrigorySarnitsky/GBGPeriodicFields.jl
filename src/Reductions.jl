@@ -1,8 +1,8 @@
 """
     Reductions
 
-The **L² / measure structure** on sections — the third operation family, alongside the vertical
-(fiberwise) algebra and the horizontal (differential) operators. A reduction integrates a section over
+The **L² / measure structure** on sections — the third operation family, alongside the fiberwise algebra
+and the differential operators. A reduction integrates a section over
 its **base** against the measure the base carries: a `Grid3D` uses its uniform quadrature (the cell
 volume), and a `PointSet` uses its **counting** measure (unit weight per point,
 forced because a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
@@ -483,7 +483,7 @@ end
     lpnorm(f, p = 2)
 
 The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``),
-where ``|f|`` is the pointwise fiber magnitude (the vertical `norm`) — the ``L^p`` average of ``|f|`` over
+where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
 the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
 `p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed in a CFL condition).
 On a grid the average is the equal-weight sum over the ``N`` cells; on a point-set it is the sum over the
@@ -502,7 +502,7 @@ It is physical-space only.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
   p == 2 && return l2norm(section)
-  magnitude = field_data(LinearAlgebra.norm(section))      # pointwise fiber magnitude (vertical norm)
+  magnitude = field_data(LinearAlgebra.norm(section))      # pointwise fiber magnitude (fiberwise norm)
   isinf(p) && return maximum(magnitude)
   return (sum(magnitude .^ p) / _base_count(section))^(1 / p)
 end

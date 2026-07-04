@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.Interpolation]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["Interpolation.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Transfer operations

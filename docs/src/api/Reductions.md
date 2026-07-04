@@ -5,13 +5,6 @@ Modules = [GBGPeriodicFields.Reductions]
 Order   = [:module]
 ```
 
-## Contents
-
-```@contents
-Pages = ["Reductions.md"]
-Depth = 2:3
-```
-
 ## Public API
 
 ### Integral reductions
