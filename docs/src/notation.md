@@ -14,7 +14,7 @@ and need not repeat the convention.
 | Repeated index | ``a_i b_i`` | An index repeated within a term is summed over the three components ``1, 2, 3`` (Einstein convention); an explicit ``\sum`` is reserved for the grid, point, and mode sums below. |
 | Partial derivative | ``\partial_{x_i}``, ``\partial^2_{x_i x_i}`` | The coordinate is subscripted, not the fiber index; a second derivative repeats the coordinate, so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f`` (with the repeated ``i`` summed). |
 | Summations | ``\sum_x``, ``\sum_p``, ``\sum_k`` | Over the ``N`` grid points, over the ``M`` points, and over the Fourier modes. |
-| Delimiters | ``\Bigl(\;\Bigr)`` | Fixed-size ``\Bigl \dots \Bigr`` is preferred to auto-sized `\left \dots \right`, which over-inflates around subscripted sums. |
+| Delimiters | ``\Bigl(\;\Bigr)`` | Fixed-size `\Bigl \dots \Bigr` is preferred to auto-sized `\left \dots \right`, which over-inflates around subscripted sums. |
 
 ## Base and fiber
 
