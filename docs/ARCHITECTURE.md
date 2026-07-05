@@ -951,7 +951,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (reductions, interpolation, and convolution) not by coincidence but
     because all three are facets of the **same L²/integration structure on sections** ([§2](@ref "2. The central principle: the architecture follows established mathematics")). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
-    recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x): on a uniform
+    recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.x<!-- TODO(citation): the "x" in Thm 2.5.x is a deliberate placeholder — replace with the real theorem number, confirmed against the user's Grafakos edition (the numbering differs across editions). Do NOT guess: a wrong number is worse than the visible placeholder. -->): on a uniform
     periodic box every **homogeneous (translation-invariant) linear operator is a Fourier multiplier** — a
     coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
@@ -1240,6 +1240,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     measure factor, as for the splines — decision 17). Two simple KernelAbstractions kernels (type-2
     over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
     like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.
+    **Standing principle** (beyond this pair): when a fast or approximate method is added, its exact
+    reference ships as a **first-class sibling scheme**, built first — at once the definition a user can
+    reach for at small sizes and the oracle the fast form is validated against — never a `test/`-only helper.
 
     *Native `NUFFT` (decided: own it, no dependency — done).* The fast ``O(N\log N + M)`` windowed
     gridding form of `DirectDFT`: **spread → FFT → deconvolve**, all reusing existing machinery — the
