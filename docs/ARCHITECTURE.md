@@ -742,7 +742,9 @@ decision 18). `integral` (``\equiv \int\,d\mu``) is the extensive sum; `inner` (
 `l2norm`, and `lpnorm` are the normalized L² product and norms; `mean`/`std`/`var` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
 point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
-via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting). The **radial**
+via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
+`integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
+and the integral ``(|\Omega|/N)\,\hat f(0)``, no transform. The **radial**
 pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
 its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
 ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Physics (kinetic
@@ -934,8 +936,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\mathrm{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
     counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
     rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
-    allocation-free as a `dot` over the array plus two plane corrections (the other reductions —
-    `integral`/`mean`/`lpnorm`/`maximum` — remain physical-only, not being Parseval-invariant).
+    allocation-free as a `dot` over the array plus two plane corrections. `integral` and `mean` are
+    representation-invariant too, by a different route — the zero (DC) Fourier mode: under the
+    unnormalized-forward convention the DC coefficient is ``\hat f(0) = \sum_x f(x)`` (real for a real
+    field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N)\,\hat f(0)`` with no transform,
+    read from the same zero-mode slot the constant-add writes (invariant 4). `lpnorm` (for ``p \ne 2``),
+    `std`/`var`, and `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only.
     **Physics stays consumer-side**: energy ``\tfrac12\,\mathrm{inner}(u,u)``, enstrophy
     ``\tfrac12\,\mathrm{inner}(\omega,\omega)``, dissipation ``\nu\,\mathrm{inner}(\omega,\omega)``, rms ``\sqrt{\mathrm{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — so they are implemented with a defined summation

@@ -216,8 +216,9 @@ end
 # Reductions that contract a field to a scalar (or a fiber) must not materialize an O(N³) field. The
 # physical `inner` is a `dot`; the scalar spectral `inner` reduces a single small kₓ plane; `maximum` /
 # `minimum` / `extrema` and the `maximum(abs, …)` CFL idiom are fused mapreduces; `integral` / `mean`
-# reduce over the base into a fiber-sized result; `std` / `var` stream (Statistics does not materialize the
-# deviations). Each allocates only O(1)/O(fiber) — measured at ≤ ~830 bytes, far under one field.
+# reduce over the base into a fiber-sized result physically, and in spectral representation read the zero
+# (DC) mode via a tiny device→host copy; `std` / `var` stream (Statistics does not materialize the
+# deviations). Each allocates only O(1)/O(fiber) — measured well under a kilobyte, far under one field.
 @testset "reductions do not materialize a field" begin
   for T in (Float64, Float32)
     @testset "$T" begin
@@ -233,6 +234,9 @@ end
       vplans = FieldTransformPlans(VectorFieldPhysical(zeros(T, N, N, N, 3), grid),
                                    VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid))
       vs = to_spectral(pv, vplans)
+      tplans = FieldTransformPlans(TensorFieldPhysical(zeros(T, N, N, N, 3, 3), grid),
+                                   TensorFieldSpectral{2}(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(2))), grid))
+      ts = to_spectral(pt, tplans)
       threshold = sizeof(field_data(vs)) ÷ 16
 
       @alloc_below threshold inner(pv, pv)                 # physical inner = dot
@@ -251,6 +255,13 @@ end
       @alloc_below threshold mean(pv)
       @alloc_below threshold std(pv)
       @alloc_below threshold var(pv)
+      # spectral integral/mean read the zero (DC) mode via a tiny device→host copy (O(1)/O(fiber)), no field
+      @alloc_below threshold integral(ss)
+      @alloc_below threshold integral(vs)
+      @alloc_below threshold integral(ts)
+      @alloc_below threshold mean(ss)
+      @alloc_below threshold mean(vs)
+      @alloc_below threshold mean(ts)
     end
   end
 end

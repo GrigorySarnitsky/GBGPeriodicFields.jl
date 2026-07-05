@@ -379,6 +379,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(inner(vf_spec_d, vf_spec_d), inner(vf_spec_h, vf_spec_h))
       @test eq(inner(vf_spec_h, vf_spec_h), inner(vf, vf)) && eq(l2norm(vf_spec_d), l2norm(vf_spec_h))
 
+      # spectral integral/mean via the zero (DC) mode: the DC-slot device→host copy runs on-device,
+      # matches the CPU, and equals the physical reductions (scalar and fiber-valued)
+      sf_spec_h = to_spectral(sf, plans_for(sf)); sf_spec_d = to_spectral(sfd, plans_for(sfd))
+      @test eq(integral(sf_spec_d), integral(sf_spec_h)) && eq(mean(sf_spec_d), mean(sf))
+      @test eq(integral(vf_spec_d), integral(vf_spec_h)) && eq(mean(vf_spec_d), mean(vf))
+
       # radial_spectrum: the per-shell binning runs on-device (masked reductions, no scalar indexing).
       # The returned host vectors match the CPU, and sum(spectrum) == inner (the exact refinement).
       mult_h = FieldSpectralMultipliers(vf_spec_h); mult_d = FieldSpectralMultipliers(vf_spec_d)

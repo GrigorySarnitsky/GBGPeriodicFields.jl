@@ -180,6 +180,16 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 \qquad \int_\Omega f\,d\mu = \text{measure}\cdot\text{mean}. \quad\checkmark
 ```
 
+**`integral` and `mean` in spectral representation** (the zero mode, no transform): the unnormalized
+forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real field), so
+
+```math
+\text{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,d\mu = \frac{|\Omega|}{N}\,\hat f(0). \quad\checkmark
+```
+
+Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
+the constant-add writes; `std`/`var`/`lpnorm`/`maximum` have no single-coefficient form.
+
 **`inner` in spectral representation** (Parseval, no transform): the discrete Parseval identity
 ``\tfrac1N\sum_x f_x\cdot g_x = \tfrac1{N^2}\sum_{\text{all }k}\hat f(k)\,\overline{\hat g(k)}`` together with
 the rfft half-spectrum (each ``k_x>0`` mode stands for its conjugate partner, so it counts twice; the
@@ -209,6 +219,7 @@ negative.
 
 **Backs** [Architecture](architecture.md) §12, decisions 18/21/22.
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac12``,
+the spectral `integral`/`mean` against the physical reductions (``\langle c\rangle=c``, ``\int c\,dx=c|\Omega|``),
 ``\sum E=\mathrm{inner}``, ``C(0)=\mathrm{inner}`` against an independent binned-circshift oracle, and the
 co-spectrum signs.
 

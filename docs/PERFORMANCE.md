@@ -228,7 +228,8 @@ operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral
 `spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
-`inner`, and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
+`inner`, the spectral zero-mode `integral`/`mean` (an O(1) DC-coefficient read, not a streaming reduction),
+and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
 inverse rfft, diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their
 binning). Run it:

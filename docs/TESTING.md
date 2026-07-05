@@ -63,7 +63,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
-  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators, transforms, `convolve!`, the M2+M3 algebra `add!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra, and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, `maximum`, `integral`/`mean`/`std`/`var`) do not materialize a field; and the documented allocators are bounded — `norm!`/`dev!`/`lpnorm`/`radial_*` occasional, and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25),
+  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators, transforms, `convolve!`, the M2+M3 algebra `add!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra, and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`dev!`/`lpnorm`/`radial_*` occasional, and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
@@ -246,7 +246,9 @@ across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``
 points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the
 energy identity ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
 physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
-no-Nyquist branches), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
+no-Nyquist branches), the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
+read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
+still absent on spectral fields), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
 spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked

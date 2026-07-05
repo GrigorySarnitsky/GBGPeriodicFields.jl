@@ -9,9 +9,10 @@ forced because a `PointSet` is grid-free). One set of formulas serves both field
 dispatched on `AbstractFiberSection`.
 
 The measure reductions act on **physical fields and point-values** — representation-free, physical-space
-quantities. In addition, `inner` and `l2norm` act on fields in **spectral representation**: by
-Parseval's theorem they return the physical value with no transform. All the other reductions stay
-physical-only.
+quantities. Several also act on fields in **spectral representation**, returning the identical physical
+value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, and `integral`/`mean` from the
+zero (DC) Fourier mode. The remaining reductions (`lpnorm`, `std`/`var`, `maximum`/`minimum`/`extrema`)
+stay physical-only.
 
 Each family links to the home where its formula lives:
 
@@ -32,10 +33,12 @@ turbulence intensities from these reductions.
 module Reductions
 
 using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!
-using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, FiberVector, FiberTensor2, field_data,
+using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
+  TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
   field_grid, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast
+using ..FieldAlgebra: _spectral_zero_mode_data, _spectral_zero_mode_component_data, _spectral_constant_scale
 using ..Points: AbstractPointValues, npoints
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
@@ -48,8 +51,9 @@ export integral, inner, l2norm, lpnorm, radial_spectrum, radial_correlation
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
-# is the naive one. Spectral fields are excluded from ReducibleSection (the measure reductions are
-# physical-only); the Parseval `inner`/`l2norm` are defined separately on AbstractFieldSpectral below.
+# is the naive one. Spectral fields are excluded from ReducibleSection: they carry only the reductions
+# that have a spectral form — the Parseval `inner`/`l2norm` and the zero-mode `integral`/`mean` — each
+# defined separately on AbstractFieldSpectral below.
 const ReducibleSection = Union{AbstractFieldPhysical, AbstractPointValues}
 
 _tensor_order(::AbstractFiberSection{T, R}) where {T, R} = R
@@ -67,6 +71,7 @@ _base_count(field::AbstractFieldPhysical) = prod(field_grid(field).grid_size)
 _base_count(values::AbstractPointValues) = npoints(values)
 
 _cell_measure(field::AbstractFieldPhysical) = prod(field_grid(field).grid_spacing)
+_cell_measure(field::AbstractFieldSpectral) = prod(field_grid(field).grid_spacing)
 _cell_measure(::AbstractPointValues{T}) where {T} = one(T)
 
 
@@ -115,8 +120,10 @@ a `PointSet` it uses the unit-weight counting measure:
 where ``N`` is the number of grid cells and ``|\\Omega|`` the domain volume. The result is
 fiber-preserving: a scalar for a scalar section, a `FiberVector` for a vector section, and a
 `FiberTensor2` for a tensor section. For a band-limited field the grid quadrature is exact, because the
-periodic trapezoidal rule integrates the represented modes exactly. It is physical-space only, like the
-other measure reductions.
+periodic trapezoidal rule integrates the represented modes exactly. For a field in **spectral
+representation** the same value comes from the zero (DC) Fourier mode with no inverse transform,
+``\\int_\\Omega f\\,d\\mu = \\tfrac{|\\Omega|}{N}\\,\\hat f(0)``, since the DC coefficient
+``\\hat f(0) = \\sum_x f(x)`` is real for a real field.
 """
 function integral end
 integral(section::ReducibleSection) =
@@ -136,6 +143,31 @@ var(section::ReducibleSection; corrected::Bool = true) =
 std(section::ReducibleSection; corrected::Bool = true) =
   _fiberwise(section, data -> std(data; corrected = corrected),
              (data, base) -> std(data; dims = base, corrected = corrected))
+
+
+# Spectral representation: `integral` and `mean` are carried entirely by the zero (DC) Fourier mode, so
+# both are read with no inverse transform. Under the unnormalized-forward convention (invariant 4) the DC
+# coefficient is f̂(0) = Σₓ f(x), real for a real field — the same zero-mode slot the constant-add writes.
+# `_real_zero_mode` copies just that slot to the host (GPU-safe; no scalar indexing of the device array)
+# and returns a real fiber value; `mean = f̂(0)/N` and `integral = ΔV·f̂(0)` then equal the physical
+# reductions (up to FFT round-off). `std`/`var`/`lpnorm`/`maximum` have no single-coefficient form and
+# stay physical-only.
+_real_zero_mode(field::ScalarFieldSpectral) = real(only(Array(_spectral_zero_mode_data(field))))
+
+function _real_zero_mode(field::VectorFieldSpectral)
+  T = section_scalar_type(field)
+  return FiberVector{T}(ntuple(c -> real(only(Array(_spectral_zero_mode_component_data(field, c)))), Val(3)))
+end
+
+function _real_zero_mode(field::TensorFieldSpectral{2})
+  T = section_scalar_type(field)
+  return FiberTensor2{T}(ntuple(k -> real(only(Array(_spectral_zero_mode_component_data(field,
+                                        (k - 1) % 3 + 1, (k - 1) ÷ 3 + 1)))), Val(9)))
+end
+
+integral(field::AbstractFieldSpectral) = _real_zero_mode(field) * _cell_measure(field)
+
+mean(field::AbstractFieldSpectral) = _real_zero_mode(field) / _spectral_constant_scale(field)
 
 
 """
@@ -160,8 +192,9 @@ equal-weight average over the ``N`` cells; on a point-set it is the average over
 ```
 
 For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
-no inverse transform, applying the rfft half-spectrum weighting internally. Only this ``p = 2`` inner is
-representation-invariant; `lpnorm`, `integral`, `mean`, and `maximum` remain physical-only.
+no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
+`l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
+`lpnorm`, `std`/`var`, and `maximum`/`minimum`/`extrema` remain physical-only.
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)

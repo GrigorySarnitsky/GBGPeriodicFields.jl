@@ -121,6 +121,43 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
       end
     end
 
+    @testset "spectral integral & mean via the zero (DC) mode ($T)" begin
+      layout = RealFourierLayout()
+      rtol = T == Float64 ? 1e-10 : 1.0f-3
+      atol = T == Float64 ? 1e-12 : 1.0f-5
+      # even Nₓ = 8 and odd Nₓ = 7 both place the DC coefficient at index [1,1,1]; check both
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(4π), T(6π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        tospec(phys) = (R = field_tensor_order(phys);
+                        shape = spectral_field_shape(gp, layout, Val(R));
+                        spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
+                        to_spectral(phys, FieldTransformPlans(phys, spec0)))
+        # non-zero DC components so the checks exercise real values, not two round-off zeros
+        f = ScalarFieldPhysical((x, y, z) -> 2 + sin(x) + cos(2y) * sin(z), gp)
+        u = VectorFieldPhysical((x, y, z) -> (T(1) + sin(x), T(2) + cos(y), sin(2z)), gp)
+        A = TensorFieldPhysical{2}((x, y, z) -> [1+sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) 2+sin(y)], gp)
+        for section in (f, u, A)                        # scalar / vector / tensor, both grids
+          spectral = tospec(section)
+          # independent oracle: the physical reduction (summed in physical space) == the zero-mode read
+          @test isapprox(integral(spectral), integral(section); rtol = rtol, atol = atol)
+          @test isapprox(mean(spectral),     mean(section);     rtol = rtol, atol = atol)
+        end
+        # fiber-preserving, eltype-preserving (scalar → T, vector → FiberVector, tensor → FiberTensor2)
+        @test integral(tospec(f)) isa T && mean(tospec(f)) isa T
+        @test integral(tospec(u)) isa FiberVector{T} && mean(tospec(u)) isa FiberVector{T}
+        @test integral(tospec(A)) isa FiberTensor2{T} && mean(tospec(A)) isa FiberTensor2{T}
+        # analytical oracles: a constant carries all of ∫ and the mean in the DC mode
+        c = T(2.5); cs = tospec(ScalarFieldPhysical((x, y, z) -> c, gp))
+        @test isapprox(mean(cs), c; rtol = rtol, atol = atol)                          # ⟨c⟩ = c
+        @test isapprox(integral(cs), c * prod(gp.domain_size); rtol = rtol, atol = atol) # ∫c dx = c|Ω|
+        # a zero-mean fluctuation has a vanishing DC coefficient
+        @test isapprox(mean(tospec(ScalarFieldPhysical((x, y, z) -> sin(x), gp))), 0; atol = atol)
+        # extensive = |Ω|·intensive holds in the spectral representation too
+        @test isapprox(integral(tospec(f)), prod(gp.domain_size) * mean(tospec(f)); rtol = rtol, atol = atol)
+      end
+    end
+
     @testset "radial_spectrum refines the Parseval inner ($T)" begin
       layout = RealFourierLayout()
       atol = T == Float64 ? 1e-12 : 1.0f-5
@@ -302,8 +339,8 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     end
   end
 
-  # ---- spectral: the Parseval inner/l2norm are defined; the measure reductions stay physical-only ----
-  @testset "spectral fields: Parseval inner/l2norm only" begin
+  # ---- spectral: inner/l2norm (Parseval) and integral/mean (zero mode) are defined; the rest stay physical ----
+  @testset "spectral fields: inner/l2norm (Parseval) and integral/mean (zero mode)" begin
     N = 8
     g = Grid3D((N, N, N), (2π, 2π, 2π))
     layout = RealFourierLayout()
@@ -312,9 +349,11 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     @test inner(spec, spec) === 0.0          # Parseval inner defined (zero field ⇒ 0), real scalar
     @test l2norm(spec) === 0.0
     @test radial_spectrum(spec, m)[2] == zeros(length(radial_spectrum(spec, m)[2]))  # spectral-only, zero field ⇒ 0
-    @test_throws MethodError mean(spec)       # the measure reductions remain physical-only
-    @test_throws MethodError integral(spec)
-    @test_throws MethodError lpnorm(spec, 2)
+    @test mean(spec) === 0.0                  # zero-mode measure reductions defined (zero field ⇒ 0)
+    @test integral(spec) === 0.0
+    @test_throws MethodError lpnorm(spec, 2)  # lpnorm / std / var / maximum have no single-coefficient form
+    @test_throws MethodError std(spec)
+    @test_throws MethodError var(spec)
     @test_throws MethodError maximum(spec)
     # radial_spectrum is the mirror image — spectral-only, no physical-field method
     @test_throws MethodError radial_spectrum(ScalarFieldPhysical((x, y, z) -> sin(x), g), m)
