@@ -621,8 +621,8 @@ deformation tensor are obtained by differentiating the same local polynomial, no
 separate field. Three properties make it the right fit:
 
 1. **Single representation, no global precompute.** The weights act directly on the
-   real-space nodal values, so interpolation reads only the physical representation — unlike the
-   spectral-domain schemes (`DirectDFT`, `NUFFT`; decision 23, below), which read the spectral
+   real-space nodal values, so interpolation acts only on the physical representation — unlike the
+   spectral-domain schemes (`DirectDFT`, `NUFFT`; decision 23, below), which act on the spectral
    representation directly and reconstruct the band-limited field exactly. (The B-spline interpolation
    of van Hinsberg et al. (2012) — whose coefficients require a *global* transform that, in a spectral
    code, costs one FFT — is the higher-accuracy *local* alternative still in reserve.)
@@ -1174,7 +1174,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       ``\hat W(k) = \prod_a \operatorname{sinc}^2(k_a\Delta x_a/2)``, no in-band zeros. (Higher positive
       B-splines / the signed-kernel closed forms remain future.)
     - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the
-      origin): in the binned ``g(r)`` it lands entirely in the ``r=0`` shell, so reading ``g`` at ``r>0`` is the
+      origin): in the binned ``g(r)`` it lands entirely in the ``r=0`` shell, so evaluating ``g`` at ``r>0`` is the
       subtraction (no extra step). Consumer-side by convention.
     - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac23 k_\mathrm{Nyq}``, and ``g(r)``
       below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
@@ -1217,7 +1217,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     scattered points, the exact off-grid form of the field. Both families are unified under a new
     supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the L²-adjoint
     contract; a scheme is a choice of *(kernel, representation)*. The spectral schemes dispatch on a
-    field in spectral representation (invariant 2: hand ``W`` whichever representation it reads — a
+    field in spectral representation (invariant 2: hand ``W`` whichever representation it acts on — a
     spectral solver hands ``\hat f`` for free); `anterpolate` returns a section, here in spectral
     representation (the Fourier coefficients of ``\sum_p q_p\delta_{x_p}``).
 

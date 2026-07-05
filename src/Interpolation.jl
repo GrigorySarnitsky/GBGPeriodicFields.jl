@@ -446,8 +446,8 @@ Interpolate `field` to the off-grid `points`, writing the gathered values into `
 is the in-place home of the gather ``W``; for a freshly allocated result use [`interpolate`](@ref), and
 for a single position the callable `field(x)`.
 
-The `scheme` (an [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation the
-field is read in. The physical-domain local splines ([`CatmullRom`](@ref) and the other
+The `scheme` (an [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation it
+acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
 [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space** field
 over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in **spectral
 representation** in the Fourier basis; each scheme's own docstring gives the weights it applies.
