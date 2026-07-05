@@ -10,26 +10,25 @@ the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that
 ``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
 of ``W`` and likewise linear: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
 ``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
-``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two form a linear adjoint pair. Each side
-of the identity below is an inner product, but the two live on different spaces: the left pairs the
-gathered values ``Wf`` with ``q`` on the space of per-point values (summed over the ``M`` points), the
-right pairs ``f`` with the scattered field ``W^\\top q`` on the space of fields (summed over the ``N``
-grid positions ``x``), with ``\\cdot`` the fiber dot product (ordinary multiplication for a scalar
-field). Their equality is what makes ``W^\\top`` the adjoint of ``W``:
+``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two are exact transposes — pairing
+the gathered values against ``q`` over the ``M`` points equals pairing ``f`` against the scattered
+field over the ``N`` grid cells. Written with the normalized inner product ``\\langle\\cdot,\\cdot\\rangle``
+(`inner`, the fiber contraction averaged over its base), the factors ``M`` and ``N`` undo its ``1/M``
+and ``1/N``:
 
 ```math
-\\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x).
+M \\langle Wf, q \\rangle_{\\texttt{PointSet}} = \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\texttt{Grid3D}}.
 ```
 
 This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. Conservation holds **only** when both directions use the same weights;
-mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation reads a value while
+mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields a value while
 its adjoint returns a field, the one asymmetry in the API. Each scheme's own docstring gives the gather
 and scatter weights it applies.
 
-A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation the
-field is read in. Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
+A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
+Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
 (portable KernelAbstractions gather/scatter kernels on CPU / CUDA / AMDGPU, with an atomic scatter; the
 default [`CatmullRom`](@ref)), and the spectral-domain exact [`DirectDFT`](@ref) / fast [`NUFFT`](@ref)
 that act on a field in spectral representation. The point-value data types and their fiberwise algebra
