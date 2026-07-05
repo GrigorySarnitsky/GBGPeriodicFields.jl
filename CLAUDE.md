@@ -299,6 +299,14 @@ implies they are missing something they cannot get; present every diagnostic on 
 (the trace structure functions and their K41 normalizations are standard turbulence — describe them, at
 most cite a public source).
 
+**One open citation item (tracked here, not in the rendered docs).** `ARCHITECTURE.md` decision 19's math
+anchor cites "Grafakos, *Classical Fourier Analysis*, Thm 2.5.x", where the `2.5.x` is a **deliberate
+placeholder** for the real theorem number — fill it in confirmed against the user's Grafakos edition (the
+numbering differs by edition), and **do not guess** (a wrong number is worse than the visible placeholder).
+Deferred by the user ("do later"). It is tracked here, not as a comment at the citation, because every
+`docs/` rationale doc is Documenter-rendered — an **inline HTML comment there leaks as visible escaped text**
+(verified 2026-07-05: `<!-- … -->` rendered literally on the page), so the rendered docs carry no hidden TODOs.
+
 **Mathematical correctness is its own check — distinct from formatting.** A sentence can be perfectly
 formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
 must be **true and precise**, checked on its own. Guard especially against: **category/type errors** (a
