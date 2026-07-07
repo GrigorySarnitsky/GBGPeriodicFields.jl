@@ -507,8 +507,9 @@ the third principal invariant ``I_3`` of the ``3\\times3`` tensor `symbol` (`kin
 \\det(A) = A_{11}(A_{22}A_{33} - A_{23}A_{32}) - A_{12}(A_{21}A_{33} - A_{23}A_{31}) + A_{13}(A_{21}A_{32} - A_{22}A_{31}).
 ```
 
-It feeds `_scalar_kernel_body`. Unlike the linear `_trace_tensor_rhs`, the determinant is a cubic product
-of the components, so it is a nonlinear operation and is generated for physical-space representation only.
+It feeds `_scalar_kernel_body`. Unlike the linear `_trace_tensor_rhs`, the determinant is cubic in the
+components (a homogeneous degree-3 form), so it is a nonlinear operation and is generated for physical-space
+representation only.
 """
 function _det_tensor_rhs(symbol, kind)
   component(i, j) = _tensor_component(symbol, kind, i, j)

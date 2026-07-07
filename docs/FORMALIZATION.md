@@ -101,7 +101,8 @@ so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr
 The trace ``\operatorname{tr}(A)=A_{ii}`` — the first tensor invariant that `dev` removes — is exposed as
 `tr`/`tr!`, and being linear it is representation-preserving (the trace of the spectral coefficients is
 the spectral representation of ``\operatorname{tr}A``). The **third** invariant, the determinant
-``\det A=\epsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a cubic product of the components, hence
+``\det A=\epsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a homogeneous cubic form in the
+components, hence
 **nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A\,\det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
 ``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dst}=\alpha(\cdot)+\beta\,\mathrm{dst}``,

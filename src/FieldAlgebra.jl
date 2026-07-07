@@ -1232,9 +1232,9 @@ end
 Compute the fiberwise determinant (`det` ``\\equiv \\det``) of a second-order tensor field in place, and
 return `destination`.
 
-The determinant is a cubic product of the tensor's components — the third principal invariant ``I_3``,
-the fiberwise Jacobian. Unlike the linear trace [`tr!`](@ref), it is nonlinear, so it is defined in
-physical-space representation only; there is no spectral form.
+The determinant is cubic in the tensor's components — the third principal invariant ``I_3``, the signed
+factor by which ``A`` scales volumes as a linear map. Unlike the linear trace [`tr!`](@ref), it is
+nonlinear, so it is defined in physical-space representation only; there is no spectral form.
 
 Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
 fiber indices):

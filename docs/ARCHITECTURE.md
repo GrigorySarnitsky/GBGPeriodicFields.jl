@@ -1402,9 +1402,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       clean. It stays **field-only** — the consumers are field updates, and the package does not add a
       point-value method for symmetry alone.
     - `det`/`det!` (`FieldAlgebra`) is the fiberwise determinant, the **third principal invariant** ``I_3``
-      (the Jacobian) — the sibling of the trace ``\operatorname{tr}`` (the first invariant ``I_1``) the
-      package already carried; the gap was the missing invariant, not a completeness fill. Being a cubic
-      product of the components it is **nonlinear**, so it is physical-space only (there is no spectral
+      (the signed factor by which the tensor scales volumes as a linear map) — the sibling of the trace
+      ``\operatorname{tr}`` (the first invariant ``I_1``) the
+      package already carried; the gap was the missing invariant, not a completeness fill. Being cubic
+      in the components it is **nonlinear**, so it is physical-space only (there is no spectral
       determinant), exactly like `norm`. It reuses the shared per-component formula builder in
       `FiberSections`, so it lands on **both** fields and point-values (mirroring ``\operatorname{tr}``, which
       already lived on both) with the formula written once.
