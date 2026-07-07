@@ -310,10 +310,11 @@ projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the singl
 ``\\langle f, w\\,g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
 symmetric in `f`, `g` and may be negative.
 
-Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref). It is fused and
-allocation-light (only a small per-axis weight vector), so it suits a per-step call — unlike the radial
-reductions [`radial_spectrum`](@ref) / `radial_correlation`, whose shell-binning pass (and, for the
-correlation, an inverse transform) makes them occasional diagnostics.
+Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref). It is fused:
+the cost is a single weighted pass over the coefficients — comparable to one spectral `inner` — and its
+only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
+than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which build an ``O(N)``
+shell-index array and a scatter-add binning pass (and, for the correlation, an inverse transform).
 """
 function weighted_inner end
 
@@ -433,8 +434,9 @@ This reduction acts on the spectral representation only, being a Parseval reduct
 `inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
 refinement); on a de-aliased field the high-``|k|`` shells are empty. For a non-cubic box the shells
 beyond ``\\min(N_i)/2`` are incompletely sampled (only corner modes contribute) — the standard
-isotropic-spectrum caveat — but the total still equals `inner`. The reduction is GPU-portable, a single
-pass over the modes that suits an occasional diagnostic rather than a per-step call.
+isotropic-spectrum caveat — but the total still equals `inner`. The reduction is GPU-portable: a single
+scatter-add binning pass over the modes, costing more than a plain reduction like `inner` by its ``O(N)``
+shell-index array and the atomic binning.
 """
 function radial_spectrum end
 

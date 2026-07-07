@@ -1250,8 +1250,8 @@ Laplacian, inverse Laplacian, and Helmholtz projection.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
 (``-|k|^2\\,\\hat s``, ``\\hat s_i - k_i k_j\\,\\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
-operators allocation-free in place — important in allocating hot loops, and on the GPU where a per-call
-``|k|^2`` scratch would otherwise grow the memory pool every step.
+operators allocation-free in place: no ``O(N^3)`` ``|k|^2`` scratch is built, which on the GPU would
+otherwise accumulate in the memory pool on each call.
 """
 function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
   squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)

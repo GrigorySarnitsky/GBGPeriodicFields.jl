@@ -458,8 +458,8 @@ end
 Overwrite `destination` with the real-weighted linear combination ``\\alpha\\,a + \\beta\\,b`` of two
 compatible fields, and return `destination`.
 
-Reach for `combine!` in a preallocated hot loop when you need a real-weighted combination of two fields
-in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
+Reach for `combine!` with a preallocated destination when you need a real-weighted combination of two
+fields in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
 (``a + b``), and [`multiply!`](@ref), which scales a single field; the allocating equivalent is the
 operator expression ``\\alpha\\,a + \\beta\\,b``, which builds scratch fields instead. The combination is
 linear and representation-preserving, so it is defined for both physical-space and spectral

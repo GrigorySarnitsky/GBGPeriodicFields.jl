@@ -255,6 +255,19 @@ looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\
 *setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
 Applies to docstrings, the four design docs, the doc pages, `#` comments, and `@testset` names.
 
+**Cost register, not time — a docstring frames expense, never temporal cadence.** The package carries no
+concept of time (invariant 12), so a **docstring must not describe *when* or *how often* a consumer calls
+an operation** — never "per-step call", "occasional diagnostic", "every step", "each timestep", "hot loop"
+(usage-frequency framing). State the **cost** instead, with a concrete quantitative anchor: fused vs.
+allocating, single pass vs. several, ``O(1)``/``O(N)``/``O(N\log N)``, "one wavenumber row, not a field",
+"comparable to one `inner`", "far cheaper than …". The reader decides the cadence from the cost. (`weighted_inner`
+was reworded from "suits a per-step call, unlike the occasional shell diagnostics" to "a single weighted pass,
+comparable to one spectral `inner` … far cheaper than the radial reductions, which build an ``O(N)`` shell-index
+pass"; `radial_spectrum` likewise.) The **rationale docs** — `ARCHITECTURE.md` (esp. the decision-24/26
+allocation contract), `PERFORMANCE.md` — *may* reference the consumer's per-step solver loop, since explaining
+*why* allocation-free matters requires it; a bare function/`#`-comment mention of "each call" (an invocation, not
+a time unit) is also fine. The bar is on **docstring prose**.
+
 **Argument coverage (signature-driven) — a sweep separate from the symbol sweep, run *from the signature*.**
 For each docstring, enumerate **every argument in its signature** (positional *and* keyword) and cite where
 the body documents each (a `- **`arg`**` bullet, a binding clause, an `arg = value` mention, or a `::Type`
