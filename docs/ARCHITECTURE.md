@@ -1442,6 +1442,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     full definition-of-done: a CPU behaviour test against an independent oracle over both element types (and
     both grids where they apply), GPU device-parity, the `test/allocations.jl` guard
     (`combine!`/`det!`/`symmetric_gradient!` allocation-free; `weighted_inner` allocation-light — only a
-    small per-axis weight vector, so it is safe per-step, unlike the shell diagnostics), and a benchmark.
+    small per-axis weight vector, so it is safe per-step, unlike the radial reductions
+    `radial_spectrum`/`radial_correlation`), and a benchmark.
     That `combine!` stays field-only and the quadratic form waits both follow the same rule: **the consumer,
     not symmetry, decides where an operation lives.**

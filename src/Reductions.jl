@@ -311,8 +311,9 @@ projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the singl
 symmetric in `f`, `g` and may be negative.
 
 Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref). It is fused and
-allocation-light (only a small per-axis weight vector), so unlike the shell diagnostics it suits a
-per-step call.
+allocation-light (only a small per-axis weight vector), so it suits a per-step call — unlike the radial
+reductions [`radial_spectrum`](@ref) / `radial_correlation`, whose shell-binning pass (and, for the
+correlation, an inverse transform) makes them occasional diagnostics.
 """
 function weighted_inner end
 
