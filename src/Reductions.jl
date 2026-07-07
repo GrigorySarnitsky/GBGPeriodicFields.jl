@@ -325,12 +325,16 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
                         "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
   # α(k)·w(k): the rfft Parseval weight times the real multiplier, an (Nkx, Ny, Nz) factor that broadcasts
   # over the fiber (trailing singleton dims). Re(f̂_c conj ĝ_c) is the per-mode co-energy density. The whole
-  # reduction is one fused lazy-broadcast `sum` (Base.broadcasted keeps it unmaterialized on CPU and GPU),
-  # so no per-mode field is built — only `_parseval_weight`'s tiny (Nkx,) vector is allocated.
+  # reduction is one fused `sum` over a lazy `Broadcasted` — no per-mode field is built, only
+  # `_parseval_weight`'s tiny (Nkx,) vector is allocated. The `Base.Broadcast.instantiate` is load-bearing on
+  # the GPU: `sum`/`mapreduce` over a `Broadcasted` needs its `axes` computed, and an unmaterialized
+  # `Base.broadcasted(...)` carries `Nothing` axes, so AMDGPU's `mapreducedim!` throws `axes(::Broadcasted, ::Int)`
+  # (CPU tolerates it; the GPU does not). `instantiate` fills the axes without materializing, keeping the
+  # reduction fused on both backends.
   weight = Base.broadcasted(*, _parseval_weight(f), Base.broadcasted(real, field_data(w)))
   density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
   normalization = T(prod(field_grid(f).grid_size))^2
-  return sum(Base.broadcasted(*, weight, density)) / normalization
+  return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
 weighted_inner(f::AbstractFieldSpectral{T}, w::ScalarFieldSpectral{T}) where {T<:AbstractFloat} =
