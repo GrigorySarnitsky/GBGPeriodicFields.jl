@@ -24,11 +24,12 @@ one operation family:
 - [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
   the FFT transform plans, and the transforms [`to_physical`](@ref) and
   [`to_spectral`](@ref) between the two representations.
-- [`FieldAlgebra`](@ref) provides the fiberwise algebra: the contractions `dot` and `cross`,
-  the tensor product `mul!`, the transpose `transpose!`, the norm `norm`, and the
-  [`sym`](@ref)/`skew`/`dev` decompositions.
+- [`FieldAlgebra`](@ref) provides the fiberwise algebra: the weighted combination [`combine!`](@ref),
+  the contractions `dot` and `cross`, the tensor product `mul!`, the transpose `transpose!`, the norm
+  `norm`, the trace and determinant `tr`/`det`, and the [`sym`](@ref)/`skew`/`dev` decompositions.
 - [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
-  `divergence`, `curl`, `laplacian`, `inverse_laplacian`, and `helmholtz_projection`.
+  `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
+  `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref) together with the
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`, and
   `assignment_window`.
@@ -37,7 +38,7 @@ one operation family:
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
-  `l2norm`, and `lpnorm`, plus the radial diagnostics `radial_spectrum` and
+  `weighted_inner`, `l2norm`, and `lpnorm`, plus the radial diagnostics `radial_spectrum` and
   `radial_correlation`.
 
 [`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share.
@@ -97,6 +98,7 @@ using .Fields:
 using .FieldAlgebra:
   add!,
   subtract!,
+  combine!,
   multiply!,
   divide!,
   dot!,
@@ -116,7 +118,9 @@ using .FieldAlgebra:
   dev!,
   dev,
   tr!,
-  tr
+  tr,
+  det!,
+  det
 
 
 using .DifferentialOperators:
@@ -126,6 +130,8 @@ using .DifferentialOperators:
   divergence,
   curl!,
   curl,
+  symmetric_gradient!,
+  symmetric_gradient,
   laplacian!,
   laplacian,
   inverse_laplacian!,
@@ -173,6 +179,7 @@ using .Interpolation:
 using .Reductions:
   integral,
   inner,
+  weighted_inner,
   l2norm,
   lpnorm,
   radial_spectrum,
@@ -213,6 +220,7 @@ export FiberVector,
        spectral_field_shape,
        add!,
        subtract!,
+       combine!,
        multiply!,
        divide!,
        dot!,
@@ -233,6 +241,8 @@ export FiberVector,
        dev,
        tr!,
        tr,
+       det!,
+       det,
        FieldSpectralMultipliers,
        gradient!,
        gradient,
@@ -240,6 +250,8 @@ export FiberVector,
        divergence,
        curl!,
        curl,
+       symmetric_gradient!,
+       symmetric_gradient,
        laplacian!,
        laplacian,
        inverse_laplacian!,
@@ -279,6 +291,7 @@ export FiberVector,
        NUFFT,
        integral,
        inner,
+       weighted_inner,
        l2norm,
        lpnorm,
        radial_spectrum,

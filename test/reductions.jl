@@ -196,6 +196,51 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
       end
     end
 
+    @testset "weighted_inner ⟨f, w·g⟩ ($T)" begin
+      layout = RealFourierLayout()
+      atol = T == Float64 ? 1e-11 : 1.0f-4
+      rtol = T == Float64 ? 1e-9 : 1.0f-3
+      for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
+        tospec(phys) = (R = field_tensor_order(phys);
+                        shape = spectral_field_shape(gp, layout, Val(R));
+                        spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
+                                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
+                        to_spectral(phys, FieldTransformPlans(phys, spec0)))
+        zero_scalar() = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp)
+        m = FieldSpectralMultipliers(zero_scalar())
+        ones_w = ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp)  # w ≡ 1
+        ksq  = squared_wavenumber_field(zero_scalar(), m)                       # w = |k|² (keeps true Nyquist k²)
+        band = spectral_cutoff(zero_scalar(), m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
+
+        f = tospec(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
+        u = tospec(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp))
+        A = tospec(TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp))
+
+        # w ≡ 1 reduces to the plain inner (scalar / vector / tensor)
+        for spectral in (f, u, A)
+          @test isapprox(weighted_inner(spectral, ones_w), inner(spectral, spectral); rtol = rtol, atol = atol)
+        end
+        # w = |k|² is ⟨f, −Δf⟩ exactly (both keep the true Nyquist k²) — the Dirichlet/H¹ energy
+        @test isapprox(weighted_inner(f, ksq), -inner(f, laplacian(f, m)); rtol = rtol, atol = atol)
+        @test isapprox(weighted_inner(u, ksq), -inner(u, laplacian(u, m)); rtol = rtol, atol = atol)
+        # and it equals ⟨∇f, ∇f⟩ for these sub-Nyquist test fields (the ∇ multiplier zeroes only the empty Nyquist plane)
+        @test isapprox(weighted_inner(f, ksq), inner(gradient(f, m), gradient(f, m)); rtol = rtol, atol = atol)
+        @test isapprox(weighted_inner(u, ksq), inner(gradient(u, m), gradient(u, m)); rtol = rtol, atol = atol)
+        # sharp band is idempotent (w² = w) ⇒ ⟨f, w·f⟩ = ‖w⋆f‖² = inner(convolve, convolve)
+        for spectral in (f, u)
+          conv = convolve(spectral, band)
+          @test isapprox(weighted_inner(spectral, band), inner(conv, conv); rtol = rtol, atol = atol)
+        end
+        # mixed form is symmetric in f, g; the two-argument form is the g = f case
+        g = tospec(ScalarFieldPhysical((x, y, z) -> cos(x) * sin(y) + sin(3z), gp))
+        @test isapprox(weighted_inner(f, g, ksq), weighted_inner(g, f, ksq); rtol = rtol, atol = atol)
+        @test weighted_inner(f, f, ksq) ≈ weighted_inner(f, ksq)
+        # spectral-only: a physical field has no weighted_inner
+        @test_throws MethodError weighted_inner(ScalarFieldPhysical((x, y, z) -> sin(x), gp), ones_w)
+      end
+    end
+
     @testset "radial_correlation: Wiener–Khinchin autocorrelation vs circshift ($T)" begin
       layout = RealFourierLayout()
       rtol = T == Float64 ? 1e-9 : 1.0f-2

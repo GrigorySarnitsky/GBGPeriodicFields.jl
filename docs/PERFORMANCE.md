@@ -223,11 +223,13 @@ A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* p
 `ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
 
-Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative), **spectral
-operators**, **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
+Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative — including the weighted
+combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
+`symmetric_gradient!`), **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
-**L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the spectral Parseval
+**L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the fused
+multiplier-weighted `weighted_inner`, the spectral Parseval
 `inner`, the spectral zero-mode `integral`/`mean` (an O(1) DC-coefficient read, not a streaming reduction),
 and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
@@ -320,7 +322,10 @@ device-parameterised suite; the manual save→`judge` regression workflow; and t
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
 across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
 CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell sm_120, CUDA); the 7900 XTX is extended to
-a 512³ `Float32` point for the bandwidth-bound classes.
+a 512³ `Float32` point for the bandwidth-bound classes. The decision-27 additions (`combine!`, `det!`,
+`symmetric_gradient!`, `weighted_inner`) are wired into their classes and CPU-verified (0 allocations for
+`combine!`/`det!`; the small bounded wrappers for `symmetric_gradient!`/`weighted_inner`); they enter the
+committed `RESULTS.md` table on its next GPU-host refresh.
 
 **Gaps:**
 

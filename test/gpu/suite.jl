@@ -95,6 +95,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(ad - bd, a - b)
       @test matches(2.5 * ad, 2.5 * a)
       @test matches(ad / 4.0, a / 4.0)
+      @test matches(combine!(F.similar_field(ad, Val(0)), 2.0, ad, -3.0, bd),   # combine! (axpby)
+                    combine!(F.similar_field(a, Val(0)), 2.0, a, -3.0, b))
       @test matches(sfd * vd, sf * v)        # scalar field × vector field
       @test matches(vd / sfd, v / sf)        # division by a scalar field
 
@@ -161,6 +163,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(skew(Ad), skew(A))
       @test matches(dev(Ad), dev(A))
       @test matches(tr(Ad), tr(A))
+      @test matches(det(Ad), det(A))               # nonlinear fiber invariant
       @test matches(norm(sd), norm(s))
       @test matches(norm(ud), norm(u))
       @test matches(norm(Ad), norm(A))
@@ -216,6 +219,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(skew(Ad), skew(A))
       @test matches(dev(Ad), dev(A))
       @test matches(tr(Ad), tr(A))
+      @test matches(det(Ad), det(A))
       @test matches(norm(vvd), norm(vv))
       @test matches(norm(Ad), norm(A))
     end
@@ -249,6 +253,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(divergence(u_spec_d, mult_d), divergence(u_spec_h, mult_h))
       @test matches(curl(u_spec_d, mult_d), curl(u_spec_h, mult_h))
       @test matches(gradient(u_spec_d, mult_d), gradient(u_spec_h, mult_h))          # vector -> tensor
+      @test matches(symmetric_gradient(u_spec_d, mult_d), symmetric_gradient(u_spec_h, mult_h))  # fused sym∇
       @test matches(helmholtz_projection(u_spec_d, mult_d), helmholtz_projection(u_spec_h, mult_h))
 
       # spectral linear tensor ops are coefficientwise (valid in spectral representation)
@@ -256,6 +261,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       A_spec_d = to_spectral(Ad, plans_for(Ad))
       @test matches(transpose(A_spec_d), transpose(A_spec_h))
       @test matches(sym(A_spec_d), sym(A_spec_h))
+      @test matches(combine!(F.similar_field(A_spec_d, Val(2)), 2.0, A_spec_d, -3.0, A_spec_d),  # combine! spectral
+                    combine!(F.similar_field(A_spec_h, Val(2)), 2.0, A_spec_h, -3.0, A_spec_h))
     end
 
     @testset "convolution (apply a Fourier kernel)" begin
@@ -393,6 +400,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test shells_d == shells_h && eq(spectrum_d, spectrum_h)
       @test eq(sum(spectrum_d), inner(vf_spec_d, vf_spec_d))
 
+      # weighted_inner ⟨f, w·g⟩: the |k|² weight builds on-device and the reduction is fused (no field);
+      # matches the CPU and the exact −Δ identity ⟨f, |k|²·f⟩ = −⟨f, Δf⟩.
+      ksq_d = squared_wavenumber_field(sf_spec_d, mult_d); ksq_h = squared_wavenumber_field(sf_spec_h, mult_h)
+      @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
+      @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
+
       # radial_correlation: the inverse rfft + masked-reduction binning run on-device; the returned
       # host vectors match the CPU, and C(0) == inner (the Wiener–Khinchin dual of radial_spectrum).
       seps_d, corr_d = radial_correlation(vf_spec_d, plans_for(vfd))
@@ -411,6 +424,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       _, xcorrelation_d = radial_correlation(vf_spec_d, wf_spec_d, plans_for(vfd))
       _, xcorrelation_h = radial_correlation(vf_spec_h, wf_spec_h, plans_for(vf))
       @test eq(xcorrelation_d, xcorrelation_h) && eq(xcorrelation_d[1], inner(vf_spec_d, wf_spec_d))
+      @test eq(weighted_inner(vf_spec_d, wf_spec_d, ksq_d), weighted_inner(vf_spec_h, wf_spec_h, ksq_h))  # weighted mixed co-form
 
       M = 40
       sp = ScalarPointValues(rand(T, M) .+ T(1)); vp = VectorPointValues(rand(T, M, 3))

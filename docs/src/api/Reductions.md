@@ -15,6 +15,7 @@ integral
 
 ```@docs
 inner
+weighted_inner
 l2norm
 lpnorm
 ```

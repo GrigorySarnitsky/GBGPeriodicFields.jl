@@ -497,6 +497,31 @@ _trace_tensor_rhs(symbol, kind) = _sum_terms([_tensor_component(symbol, kind, d,
 
 
 """
+    _det_tensor_rhs(symbol, kind)
+
+Build the right-hand side for the fiberwise determinant ``\\det(A) = \\varepsilon_{ijk}\\,A_{1i} A_{2j} A_{3k}``,
+the third principal invariant ``I_3`` of the ``3\\times3`` tensor `symbol` (`kind` is `:field` or
+`:fiber`), expanded by cofactors along the first row:
+
+```math
+\\det(A) = A_{11}(A_{22}A_{33} - A_{23}A_{32}) - A_{12}(A_{21}A_{33} - A_{23}A_{31}) + A_{13}(A_{21}A_{32} - A_{22}A_{31}).
+```
+
+It feeds `_scalar_kernel_body`. Unlike the linear `_trace_tensor_rhs`, the determinant is a cubic product
+of the components, so it is a nonlinear operation and is generated for physical-space representation only.
+"""
+function _det_tensor_rhs(symbol, kind)
+  component(i, j) = _tensor_component(symbol, kind, i, j)
+  minor(row_1, row_2, col_1, col_2) =
+    :($(_product(component(row_1, col_1), component(row_2, col_2))) .- $(_product(component(row_1, col_2), component(row_2, col_1))))
+  cofactor_11 = _product(component(1, 1), minor(2, 3, 2, 3))
+  cofactor_12 = _product(component(1, 2), minor(2, 3, 1, 3))
+  cofactor_13 = _product(component(1, 3), minor(2, 3, 1, 2))
+  return :($cofactor_11 .- $cofactor_12 .+ $cofactor_13)
+end
+
+
+"""
     _sym_kernel_body()
 
 Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for

@@ -65,6 +65,26 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test maximum(abs, comp(field_data(c), 3)) < 1e-12
   end
 
+  @testset "symmetric_gradient: sym(∇u), formed fused" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
+    us = to_spectral(u, plans_for(u))
+    m = FieldSpectralMultipliers(us)
+    S = symmetric_gradient(us, m)
+    @test S isa TensorFieldSpectral{2}
+    @test field_data(S) ≈ field_data(sym(gradient(us, m)))              # == sym(∇u) exactly (same coefficients)
+    @test field_data(S) ≈ permutedims(field_data(S), (1, 2, 3, 5, 4))   # symmetric in the fiber indices
+
+    # analytic: S₁₁ = ∂ₓu₁ = cos x; S₁₂ = ½(∂_y u₁ + ∂ₓ u₂) = ½(−2 sin 2y + 0) = −sin 2y
+    Sp = to_physical(S, plans_for(zero_tensor()))
+    @test tcomp(field_data(Sp), 1, 1) ≈ field_data(scalar_field((x, y, z) -> cos(x)))
+    @test tcomp(field_data(Sp), 1, 2) ≈ field_data(scalar_field((x, y, z) -> -sin(2y)))
+    @test tcomp(field_data(Sp), 2, 1) ≈ tcomp(field_data(Sp), 1, 2)     # symmetry in physical space too
+
+    dest = TensorFieldSpectral{2}(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(2))), grid)
+    symmetric_gradient!(dest, us, m)                                    # in-place matches allocating
+    @test field_data(dest) ≈ field_data(S)
+  end
+
   @testset "laplacian: Δ sin(x) = -sin(x)" begin
     phi = scalar_field((x, y, z) -> sin(x))
     m = FieldSpectralMultipliers(to_spectral(phi, plans_for(phi)))
@@ -115,6 +135,17 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
 
     lap = to_physical(laplacian(to_spectral(phi, aplans(phi)), m), aplans(phi))
     @test field_data(lap) ≈ field_data(aniso_scalar((x, y, z) -> -(sin(x) + sin(y) + sin(z))))
+
+    # symmetric_gradient on the anisotropic box: the diagonal Sᵢᵢ = ∂_{xᵢ}uᵢ picks up the per-axis
+    # 2π/L, so a dropped Ly = 4π / Lz = 6π factor corrupts S₂₂ / S₃₃ while leaving S₁₁ correct.
+    ua = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), sin(z)), aniso)
+    ma = FieldSpectralMultipliers(to_spectral(ua, aplans(ua)))
+    Sa = to_physical(symmetric_gradient(to_spectral(ua, aplans(ua)), ma),
+                     aplans(TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), aniso)))
+    @test tcomp(field_data(Sa), 1, 1) ≈ field_data(aniso_scalar((x, y, z) -> cos(x)))   # Lx = 2π
+    @test tcomp(field_data(Sa), 2, 2) ≈ field_data(aniso_scalar((x, y, z) -> cos(y)))   # Ly = 4π
+    @test tcomp(field_data(Sa), 3, 3) ≈ field_data(aniso_scalar((x, y, z) -> cos(z)))   # Lz = 6π
+    @test maximum(abs, tcomp(field_data(Sa), 1, 2)) < 1e-12                              # off-diagonals vanish
   end
 
   @testset "in-place operators and alias guards" begin

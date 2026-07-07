@@ -34,7 +34,7 @@ agree, not that either is correct. Two kinds of oracle are used:
 **The public method set is the spec.** Two mechanisms enforce this:
 
 - the **parity baseline** (`test/method_parity.jl`) locks the per-generic method counts
-  (198 public methods) so a code-generation change cannot silently add or drop a method;
+  (206 public methods) so a code-generation change cannot silently add or drop a method;
 - **intentional-absence tests** assert that invalid combinations *do not exist*
   (`@test_throws MethodError`), symmetrically across representations: nonlinear products
   are absent in spectral (field×field, division by a scalar field, pointwise norms), and
@@ -51,24 +51,25 @@ the parity baseline and ambiguity check pass, and the suite is green.
   (`module FieldAlgebraTests; include("fieldalgebra.jl"); end`), so per-file helpers and
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
-- **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl`,
-  `differentialoperators.jl`, `convolution.jl` (periodic convolution + the kernel/coordinate builders
+- **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
+  combination `combine!` and the determinant `det`),
+  `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
   `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field`),
   `interpolation.jl` (the point-data types),
-  `pointvalues_algebra.jl` (the point-value M2 + M3 surface),
+  `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
-  `reductions.jl` (the L²/measure reductions + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
+  `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
-  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators, transforms, `convolve!`, the M2+M3 algebra `add!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra, and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`dev!`/`lpnorm`/`radial_*` occasional, and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25),
+  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`dev!`/`lpnorm`/`radial_*` occasional, and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
-  198-method field surface and the separate 118-method point-value surface) plus
+  206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
   quartet exists precisely to keep that ambiguity set empty.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
@@ -210,7 +211,9 @@ Honest status, so the contract above reads as the target rather than a descripti
 **Covered:** FFT round-trips; spectral multipliers cross-checked against
 `AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split both at the multiplier level and
 end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at the
-Nyquist mode); M2 + M3 algebra and contractions in both representations; the spectral
+Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted
+combination `combine!` (physical + spectral, alias-safe) and the physical-only determinant `det`
+(against a per-point LU oracle, with its spectral absence asserted); the spectral
 zero-mode constant invariant; the **point-value algebra** — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
@@ -220,9 +223,10 @@ and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
 differential operators absent in physical) and the physical/spectral symmetry of every
 linear field/fiber operation; the differential operators by
 analytic round-trip, including an anisotropic ``(2\pi, 4\pi, 6\pi)`` box that exercises the
-``2\pi/L`` wavenumber scaling; the vector-calculus identities ``\nabla\cdot(\nabla\times u) = 0`` and
+``2\pi/L`` wavenumber scaling; the fused `symmetric_gradient` (matching `sym(gradient)` exactly, plus its
+own analytic diagonal on the anisotropic box); the vector-calculus identities ``\nabla\cdot(\nabla\times u) = 0`` and
 ``\nabla\times(\nabla\varphi) = 0``; element-type genericity on CPU (`Float64` and `Float32`, asserting
-element-type preservation through operations); the 198-method field and 118-method
+element-type preservation through operations); the 206-method field and 122-method
 point-value parity baselines and zero ambiguities; `Aqua.test_all` (ambiguities, unbound type parameters, undefined exports,
 Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
 operator adjoint/structural identities on randomized band-limited fields — divergence as
@@ -246,7 +250,11 @@ across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``
 points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the
 energy identity ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
 physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
-no-Nyquist branches), the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
+no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, w\,g\rangle`` (the
+``w \equiv 1`` reduction to `inner`, the ``w = |k|^2`` Dirichlet energy checked against both
+``-\langle f, \Delta f\rangle`` and ``\langle \nabla f, \nabla f\rangle``, the idempotent-band identity
+``\lVert w \star f\rVert^2``, and the ``f \leftrightarrow g`` symmetry — scalar/vector/tensor, spectral-only),
+the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
 read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
 still absent on spectral fields), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
 spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on

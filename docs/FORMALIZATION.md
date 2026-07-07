@@ -100,12 +100,18 @@ The decompositions are ``\operatorname{sym}(A)=\tfrac12(A+A^{\top})``,
 so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr}\operatorname{dev}(A)=0``.
 The trace ``\operatorname{tr}(A)=A_{ii}`` — the first tensor invariant that `dev` removes — is exposed as
 `tr`/`tr!`, and being linear it is representation-preserving (the trace of the spectral coefficients is
-the spectral representation of ``\operatorname{tr}A``).
-``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dst}=\alpha(\cdot)+\beta\,\mathrm{dst}``.
+the spectral representation of ``\operatorname{tr}A``). The **third** invariant, the determinant
+``\det A=\epsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a cubic product of the components, hence
+**nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A\,\det B``; it
+reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
+``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dst}=\alpha(\cdot)+\beta\,\mathrm{dst}``,
+and the weighted combination ``\alpha a+\beta b`` (`combine!`) is its linear two-field peer — coefficientwise,
+hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plain `add!`.
 
-**Backs** [Architecture](architecture.md) §2, §6 and the `FieldAlgebra` docstrings.
+**Backs** [Architecture](architecture.md) §2, §6, decision 27, and the `FieldAlgebra` docstrings.
 **Checked by** `test/fieldalgebra.jl` (and `test/pointvalues_algebra.jl` for the identical point-value
-mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, and the sym/skew/dev identities.
+mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, the determinant (against a
+per-point LU oracle), the weighted combination, and the sym/skew/dev identities.
 
 ## Differential operators (`DifferentialOperators`, [Architecture](architecture.md) §4)
 
@@ -135,10 +141,20 @@ one-line spectral check:
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``I-\hat k\hat k^{\top}``, ``-|k|^2`` are
 real symmetric.)
 
-**Backs** [Architecture](architecture.md) §4.
+The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
+of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its multiplier is the symmetric
+part of ``\nabla u``'s multiplier ``ik_j\hat u_i``,
+
+```math
+\hat S_{ij} = \tfrac{i}{2}\,(k_j\hat u_i + k_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
+```
+
+formed without materializing the full gradient tensor and sharing the derivative-wavenumber Nyquist zeroing.
+
+**Backs** [Architecture](architecture.md) §4, decision 27.
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
-``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``) and `test/adjointness.jl` (self-adjointness,
-idempotent projection, negative-definite Laplacian).
+``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, and ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``)
+and `test/adjointness.jl` (self-adjointness, idempotent projection, negative-definite Laplacian).
 
 ## Convolution (`Convolution`, [Architecture](architecture.md) §11)
 
@@ -217,11 +233,22 @@ cross-correlation ``C_{fg}(r)=\tfrac1N\mathcal F^{-1}(\overline{\hat f}\,\hat g)
 ``\langle f,g\rangle`` (``\sum E_{fg}=C_{fg}(0)=\langle f,g\rangle``), are symmetric in ``f,g``, and may be
 negative.
 
-**Backs** [Architecture](architecture.md) §12, decisions 18/21/22.
+**`weighted_inner`** applies a real Fourier multiplier ``w(k)`` inside the same Parseval sum,
+
+```math
+\langle f, w\,g\rangle = \frac{1}{N^2}\sum_k \alpha(k)\,w(k)\sum_c \mathrm{Re}\!\bigl(\hat f_c\,\overline{\hat g_c}\bigr), \quad\checkmark
+```
+
+generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. For ``w=|k|^2`` (the
+squared-wavenumber symbol, true ``k^2`` at Nyquist) it is the Dirichlet energy ``\langle f,-\Delta g\rangle``;
+and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` **iff** ``w`` is idempotent
+(``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only.
+
+**Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27.
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac12``,
 the spectral `integral`/`mean` against the physical reductions (``\langle c\rangle=c``, ``\int c\,dx=c|\Omega|``),
-``\sum E=\mathrm{inner}``, ``C(0)=\mathrm{inner}`` against an independent binned-circshift oracle, and the
-co-spectrum signs.
+``\sum E=\mathrm{inner}``, ``C(0)=\mathrm{inner}`` against an independent binned-circshift oracle, the
+co-spectrum signs, and `weighted_inner` against ``\langle f,-\Delta g\rangle`` and the idempotent-band identity.
 
 ## Interpolation / anterpolation (`Interpolation`, [Architecture](architecture.md) §10)
 

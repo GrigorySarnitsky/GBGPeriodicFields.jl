@@ -132,11 +132,12 @@ here rather than repeated:
   exchanged by the isomorphism ``\mathcal F`` (`to_spectral`/`to_physical`); the spectral machinery and the
   operator-as-multiplier square are [§4](@ref "4. Spectral machinery").
 - **Vertical — fiberwise algebra** ([`FieldAlgebra`](@ref GBGPeriodicFields.FieldAlgebra) on fields, [`Points`](@ref GBGPeriodicFields.Points) on point-values): add/scale,
-  contract (`dot`/`cross`), transpose, sym/skew/dev, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
+  the weighted combination `combine!`, contract (`dot`/`cross`), transpose, sym/skew/dev, the `tr`/`det`
+  invariants, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
 - **Horizontal — differential operators** ([`DifferentialOperators`](@ref GBGPeriodicFields.DifferentialOperators)): `gradient`, `divergence`, `curl`,
-  `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
+  `symmetric_gradient`, `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
 - **Convolution** ([`Convolution`](@ref GBGPeriodicFields.Convolution)): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
-- **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)): `integral`, `inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
+- **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)): `integral`, `inner`, `weighted_inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
 - **The grid↔point transfer** ([`Interpolation`](@ref GBGPeriodicFields.Interpolation)): interpolation ``W`` and its adjoint anterpolation
   ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
@@ -187,7 +188,7 @@ The coefficientwise product *downstairs* is **convolution** upstairs (offered as
 form — exactly why those nonlinear operations are physical-space only.
 
 The consequence is a hard project invariant: **a missing method is a statement,
-not an omission**. The 198-method public surface of `FieldAlgebra` is the
+not an omission**. The 206-method public surface of `FieldAlgebra` is the
 machine-checkable encoding of the validity table above. Any refactor must
 reproduce the method set exactly; it was verified signature-for-signature against
 the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`)
@@ -409,7 +410,7 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   on bare `FiberTensor2` remain explicit StaticArrays one-liners.
 - **M4 — public wrappers/operators (done, folded into M3)**: the allocating
   forms and the `*` operators (tensor·vector, tensor·tensor) are generated
-  alongside their `mul!`/`dot`/`cross`/… kernels, completing the 198-method surface.
+  alongside their `mul!`/`dot`/`cross`/… kernels, completing the 206-method surface.
 
 The same builders are reused verbatim to generate the point-value algebra over the
 unstructured base ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) — the formulas are base-independent ([§2](@ref "2. The central principle: the architecture follows established mathematics")). They live in the shared
@@ -422,8 +423,8 @@ them from there, so each fiberwise formula — including the norm/sym/skew/dev o
 With Julia available, verification is runtime introspection: load the package,
 compare per-generic `methods(f)` counts against the committed baseline
 (`test/method_parity.jl`), and run `detect_ambiguities` (from `Test`) over the
-package. The full M2+M3 baseline is 198 public methods (e.g. `*` 28, `mul!` 30,
-`dot`/`dot!` 10 each, `add!` 14). (During the no-Julia refactor phase, parity was
+package. The full M2+M3 baseline is 206 public methods (e.g. `*` 28, `mul!` 30,
+`dot`/`dot!` 10 each, `add!` 14, `combine!` 2, `tr` 2, `det`/`det!` 1 each). (During the no-Julia refactor phase, parity was
 checked by simulating table expansion and diffing normalized signatures against the
 original file; runtime introspection supersedes that.)
 
@@ -479,7 +480,7 @@ whole-field dotted ops and the field-level algebra), and the kernel assignments 
 codegen body builders emit `_assign!(target, …)` (via `_to_broadcasted`, which rewrites a
 dotted formula into a lazy `broadcasted` tree at codegen time), and the hand-written
 `FieldAlgebra` / `DifferentialOperators` kernels use the `@_assign!` macro in place of `.=`. No
-types, signatures, or method tables change — the 198-method surface and the zero-ambiguity
+types, signatures, or method tables change — the 206-method surface and the zero-ambiguity
 property are preserved. **Discipline:** a raw elementwise write must go through
 `_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
 
@@ -685,7 +686,7 @@ All wrap a generic `AbstractArray` and allocate via `similar`, so they are backe
 order (a `_check_…` predicate in the `Fields` style). The types live in the `Interpolation`
 module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 
-**Implemented and tested.** The point types, their full fiberwise algebra (M2 + M3, generated by reusing `FieldAlgebra`'s per-component builders over an extended section interface — [§6](@ref "6. The code-generation architecture of `FieldAlgebra`") — and locked by a separate 118-method parity baseline, the 198-method field surface byte-unchanged), and all transfer schemes (the local splines plus the spectral `DirectDFT`/`NUFFT`, decision 23) are implemented and covered on CPU (Float64/Float32) and the GPU (ROCm, `allowscalar(false)`).
+**Implemented and tested.** The point types, their full fiberwise algebra (M2 + M3, generated by reusing `FieldAlgebra`'s per-component builders over an extended section interface — [§6](@ref "6. The code-generation architecture of `FieldAlgebra`") — and locked by a separate 122-method parity baseline, the 206-method field surface byte-unchanged), and all transfer schemes (the local splines plus the spectral `DirectDFT`/`NUFFT`, decision 23) are implemented and covered on CPU (Float64/Float32) and the GPU (ROCm, `allowscalar(false)`).
 
 **Why the code says "anterpolation."** The point→grid (scatter) operation is named
 differently in every community, with no dominant choice: *spreading* (immersed-boundary
@@ -739,7 +740,9 @@ ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its ann
 `Reductions` is the **L² / measure** family — the third operation family, integrating a section over its
 base against the measure the base carries (`Grid3D`'s uniform cell volume, `PointSet`'s counting measure;
 decision 18). `integral` (``\equiv \int\,d\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
-`l2norm`, and `lpnorm` are the normalized L² product and norms; `mean`/`std`/`var` (extending `Statistics`)
+`l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
+(``\equiv \langle\cdot, w\,\cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w\,g\rangle`` —
+the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
 point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
@@ -1372,3 +1375,72 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `examples/` forcing computes its band energy as `inner(u_band, u_band)` for exactly this reason. The
     audit found the whole in-place surface already clean; the only allocation it surfaced was the mixed
     spectral `inner`, resolved by the `inner(f, f)` fast path above.
+
+27. **Consumer-driven fused and missing field-math operations — `combine!`, `det`, `symmetric_gradient`,
+    `weighted_inner` (done); a quadratic-form reduction deferred.** The sibling consumer
+    `GBGIsotropicTurbulence` (a thin physics solver built on this field layer) asked the package to absorb
+    the field-math it hand-rolls hottest, on the principle that a field library should serve its consumer the
+    way **numpy/BLAS serve scientific Python** — not only composable primitives, but *fused* kernels for the
+    recurring composites. The reason is concrete: Julia fuses within a single broadcast or `mapreduce` but
+    **not across function-call boundaries**, so a chain like `gradient!` → `sym!` → `inner` is three separate
+    passes that each materialize a tensor-sized intermediate — and on a memory-bound GPU consumer that
+    intermediate's peak footprint, not the bandwidth, is the binding constraint. The rule for what to absorb:
+    **fuse away the intermediate the consumer never needs, or supply a genuinely missing primitive** — never
+    add an operation "for completeness" (invariant 1). An adversarial triage kept four and deferred one; each
+    kept operation is general field math with no time, particles, or physics (invariant 12 — the physics
+    names stay consumer-side).
+
+    *The four, by family.*
+    - `combine!(dest, α, a, β, b)` (`FieldAlgebra`) writes the real-weighted combination ``\alpha\,a +
+      \beta\,b`` of two same-representation fields ``a, b`` with real weights ``\alpha, \beta``, in one fused
+      pass. It was a genuine gap: `add!` is unit-weight (``a+b``) and `multiply!` scales a single field, so
+      the weighted combination (an axpby) had no form and the consumer reached into field storage with
+      hand-rolled broadcasts at nine call sites. It completes the package's own ``\alpha/\beta`` accumulation
+      convention (already on `mul!`/`convolve!`); being linear in the fields it is defined in **both**
+      representations, and being coefficientwise it is alias-safe with no guard (``a`` or ``b`` may be
+      `dest`). It is a new verb rather than a five-argument `add!`, to keep `add!`'s constant-variant dispatch
+      clean. It stays **field-only** — the consumers are field updates, and the package does not add a
+      point-value method for symmetry alone.
+    - `det`/`det!` (`FieldAlgebra`) is the fiberwise determinant, the **third principal invariant** ``I_3``
+      (the Jacobian) — the sibling of the trace ``\operatorname{tr}`` (the first invariant ``I_1``) the
+      package already carried; the gap was the missing invariant, not a completeness fill. Being a cubic
+      product of the components it is **nonlinear**, so it is physical-space only (there is no spectral
+      determinant), exactly like `norm`. It reuses the shared per-component formula builder in
+      `FiberSections`, so it lands on **both** fields and point-values (mirroring ``\operatorname{tr}``, which
+      already lived on both) with the formula written once.
+    - `symmetric_gradient`/`!` (`DifferentialOperators`) forms the symmetric part of a vector field's
+      gradient, ``S_{ij} = \tfrac12\,(\partial_{x_j} u_i + \partial_{x_i} u_j)`` for a vector field ``u``,
+      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm i}{2}\,(k_j \hat u_i + k_i \hat u_j)`` with the
+      same Nyquist-correct derivative wavenumbers ``k`` as `gradient` — skipping the full nine-component
+      gradient tensor ``\nabla u`` that `sym(gradient(u))` builds only to symmetrize. It is the **fused
+      symmetric peer of `curl`**, which already extracts the *antisymmetric* part of ``\nabla u`` (as a
+      vector). The name is the charter-neutral mathematical one; the fluids name "strain rate" stays in the
+      consumer, exactly as the package says `curl` where the consumer says "vorticity".
+    - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
+      product of two fields ``f, g`` in spectral representation against a real Fourier multiplier ``w(k)``,
+      ``\langle f, w\,g\rangle = \tfrac1{N^2}\sum_k \alpha(k)\,w(k)\sum_c \operatorname{Re}(\hat f_c\,
+      \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight, ``N`` the grid-point
+      count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
+      fused pass with no filtered field materialized. It is the **reduction-dual of `convolve`** (apply a
+      spectral symbol, then reduce) and generalizes `inner` (the ``w \equiv 1`` case); ``w = |k|^2`` gives the
+      ``H^1``/Dirichlet energy ``\langle f, -\Delta g\rangle``. Spectral representation only, like the
+      Parseval `inner`. The consumer formed in-band energy every step as `convolve!` into scratch then
+      `inner`; the fused form removes that scratch field.
+
+    *The deferral.* A fifth request, a quadratic-form reduction ``\langle v, A v\rangle =
+    \operatorname{mean}(v_i A_{ij} v_j)`` (a vector field ``v`` contracted through a second-order tensor field
+    ``A``), was **declined for now**: its own request flagged it "for completeness of the fused-reduction
+    set", its saving is a single *vector* intermediate at diagnostic cadence, and its consumer (the enstrophy
+    production ``\langle \omega_i S_{ij} \omega_j\rangle``, the vorticity ``\omega`` through the strain ``S``)
+    is not yet live — so by the [§2](@ref "2. The central principle: the architecture follows established mathematics") rule against speculative structure it waits until that consumer
+    lands, when it is a small addition on the existing `inner` machinery.
+
+    *Scope and verification.* The public method set grows to **206** field methods (`combine!` adds 2,
+    `det`/`det!` 1 each) and **122** point-value methods (`det`/`det!` 1 each); `symmetric_gradient` and
+    `weighted_inner` live in other modules and leave those baselines untouched. Each operation carries the
+    full definition-of-done: a CPU behaviour test against an independent oracle over both element types (and
+    both grids where they apply), GPU device-parity, the `test/allocations.jl` guard
+    (`combine!`/`det!`/`symmetric_gradient!` allocation-free; `weighted_inner` allocation-light — only a
+    small per-axis weight vector, so it is safe per-step, unlike the shell diagnostics), and a benchmark.
+    That `combine!` stays field-only and the quadratic form waits both follow the same rule: **the consumer,
+    not symmetry, decides where an operation lives.**

@@ -5,15 +5,17 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 [`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
 one exists — and an in-place `!` form. The families are:
 
-  * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), real scaling, and
-    scalar-field multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition and real
-    scaling are the vector-space structure; scalar-field multiplication is the module action over the
-    scalar fields.
+  * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
+    combination [`combine!`](@ref) (``\\alpha\\,a + \\beta\\,b``), real scaling, and scalar-field
+    multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition, weighted combination,
+    and real scaling are the vector-space structure; scalar-field multiplication is the module action over
+    the scalar fields.
   * **Contraction and product operations** — [`dot!`](@ref) computes the vector Euclidean and tensor
     Frobenius inner products (`⋅`), [`cross!`](@ref) the cross product (`×`), [`mul!`](@ref) the
     tensor-on-vector action (left and right) and the tensor-on-tensor product — contracted (matrix)
     products, not the outer tensor product — with a five-argument `α`/`β` accumulation form and an
-    allocating `*`, and [`tr!`](@ref) the trace, the self-contraction of a tensor's own two indices.
+    allocating `*`, [`tr!`](@ref) the trace, the self-contraction of a tensor's own two indices, and
+    [`det!`](@ref) the determinant, the tensor's third principal invariant.
   * **Transposition and decomposition operations** — [`transpose!`](@ref) transposes the fiber indices,
     and `sym`, `skew`, `dev` split off the symmetric, skew-symmetric, and deviatoric parts (each with a
     `!` form).
@@ -89,15 +91,17 @@ using ..FiberSections:
   _sym_kernel_body,
   _skew_kernel_body,
   _dev_kernel_body,
-  _trace_tensor_rhs
+  _trace_tensor_rhs,
+  _det_tensor_rhs
 
 
 import Base: +, -, *, /, transpose
-import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm, tr
+import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm, tr, det
 
 
 export add!,
        subtract!,
+       combine!,
        multiply!,
        divide!,
        dot!,
@@ -117,7 +121,9 @@ export add!,
        dev!,
        dev,
        tr!,
-       tr
+       tr,
+       det!,
+       det
 
 
 #####################################################
@@ -437,6 +443,53 @@ for (FieldType, Constant, add_kernel, subtract_kernel) in (
   @eval function -(constant::$Constant, field::$FieldType) where {T<:AbstractFloat}
     destination = similar_field(field, similar(field_data(field)))
     return subtract!(destination, constant, field)
+  end
+end
+
+
+#####################################################
+#        Weighted Field Combination                 #
+#####################################################
+
+
+"""
+    combine!(destination, α::Real, a, β::Real, b)
+
+Overwrite `destination` with the real-weighted linear combination ``\\alpha\\,a + \\beta\\,b`` of two
+compatible fields, and return `destination`.
+
+Reach for `combine!` in a preallocated hot loop when you need a real-weighted combination of two fields
+in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
+(``a + b``), and [`multiply!`](@ref), which scales a single field; the allocating equivalent is the
+operator expression ``\\alpha\\,a + \\beta\\,b``, which builds scratch fields instead. The combination is
+linear and representation-preserving, so it is defined for both physical-space and spectral
+representation.
+
+The arguments are:
+- `destination` — the field that receives the result; either input may alias it (see below).
+- `α`, `a` — the real weight and the first field.
+- `β`, `b` — the real weight and the second field.
+
+The write is coefficientwise, so it needs no alias guard: `a`, `b`, or both may be `destination` itself.
+In particular `combine!(u, 1, u, β, k)` computes the scaled accumulate ``u \\leftarrow u + \\beta\\,k`` in
+place.
+
+```math
+\\mathrm{destination} = \\alpha\\, a + \\beta\\, b.
+```
+"""
+function combine! end
+
+
+# One method per representation; the body is the same fused broadcast (the broadcast machinery enforces
+# compatibility). Coefficientwise ⇒ alias-safe with no guard, like `laplacian!`/`convolve!`. The real
+# weights are converted to the field's scalar type `T`, keeping the broadcast in-type (invariant 10).
+for Representation in (:AbstractFieldPhysical, :AbstractFieldSpectral)
+
+  @eval function combine!(destination::$Representation, α::Real, a::$Representation, β::Real, b::$Representation)
+    T = field_scalar_type(destination)
+    destination .= T(α) .* a .+ T(β) .* b
+    return destination
   end
 end
 
@@ -1166,6 +1219,54 @@ for (Tensor2Field, ScalarField) in (
 
   @eval tr(A::$Tensor2Field{T}) where {T<:AbstractFloat} = tr!(similar_field(A, Val(0)), A)
 end
+
+
+#####################################################
+#        Tensor Determinant                         #
+#####################################################
+
+
+"""
+    det!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
+
+Compute the fiberwise determinant (`det` ``\\equiv \\det``) of a second-order tensor field in place, and
+return `destination`.
+
+The determinant is a cubic product of the tensor's components — the third principal invariant ``I_3``,
+the fiberwise Jacobian. Unlike the linear trace [`tr!`](@ref), it is nonlinear, so it is defined in
+physical-space representation only; there is no spectral form.
+
+Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
+fiber indices):
+
+```math
+\\det(A) = \\varepsilon_{ijk}\\, A_{1i}\\, A_{2j}\\, A_{3k}.
+```
+"""
+function det! end
+
+
+"""
+    det(A::TensorFieldPhysical{2})
+
+Allocating form of [`det!`](@ref): allocate the scalar-field result and return the fiberwise determinant
+— the third principal invariant ``I_3`` — of a second-order tensor field. Physical-space representation
+only. See [`det!`](@ref) for the componentwise formula. (A single `FiberTensor2` value already has
+`LinearAlgebra.det`.)
+"""
+det
+
+
+@eval _det_components!(destination, A::TensorFieldPhysical{2}) = $(_scalar_kernel_body(_det_tensor_rhs(:A, :field)))
+
+
+function det!(destination::ScalarFieldPhysical{T}, A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, A)
+  return _det_components!(destination, A)
+end
+
+
+det(A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = det!(similar_field(A, Val(0)), A)
 
 
 #####################################################

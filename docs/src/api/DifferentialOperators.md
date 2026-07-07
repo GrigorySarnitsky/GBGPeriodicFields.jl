@@ -14,6 +14,8 @@ divergence!
 divergence
 curl!
 curl
+symmetric_gradient!
+symmetric_gradient
 ```
 
 ## Second-order differential operators

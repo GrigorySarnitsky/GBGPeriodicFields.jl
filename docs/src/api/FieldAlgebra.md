@@ -10,6 +10,7 @@ Order   = [:module]
 ```@docs
 add!
 subtract!
+combine!
 multiply!
 divide!
 ```
@@ -26,6 +27,8 @@ cross
 mul!
 tr!
 tr
+det!
+det
 ```
 
 ## Transposition and decomposition operations

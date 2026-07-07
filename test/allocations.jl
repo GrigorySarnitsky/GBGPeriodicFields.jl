@@ -110,6 +110,7 @@ end
       @alloc_below threshold divergence!(svd, st, multipliers)            # tensor → vector
       @alloc_below threshold gradient!(svd, ss, multipliers)             # scalar → vector
       @alloc_below threshold gradient!(std_, sv, multipliers)            # vector → tensor
+      @alloc_below threshold symmetric_gradient!(std_, sv, multipliers)  # vector → tensor, fused sym∇
 
       # ----- transforms, all tensor orders (plans reuse their own work buffers; invariant 11) -----
       @alloc_below threshold to_physical!(psd, ss, scalar_plans)
@@ -135,6 +136,11 @@ end
         @alloc_below threshold subtract!(d, a, a)
         @alloc_below threshold subtract!(d, a, c)
         @alloc_below threshold subtract!(d, c, a)
+      end
+
+      # ----- combine! (axpby α·a + β·b): physical + spectral, R = 0/1/2; coefficientwise ⇒ alias-safe -----
+      for (d, a) in ((psd, ps), (pvd, pu), (ptd, pt), (ssd, ss), (svd, sv), (std_, st))
+        @alloc_below threshold combine!(d, T(2), a, T(3), a)
       end
 
       # ----- mul!: field·field contractions (physical) + constant-matrix actions (linear; both reps), α/β
@@ -187,6 +193,7 @@ end
       @alloc_below threshold skew!(std_, st)
       @alloc_below threshold tr!(psd, pt)                # linear tensor → scalar, fused (unlike dev!)
       @alloc_below threshold tr!(ssd, st)
+      @alloc_below threshold det!(psd, pt)               # nonlinear tensor → scalar, fused (physical only)
 
       # ----- point-value algebra (mirrors the physical surface; same generated bodies, different base) -----
       @alloc_below threshold add!(qvd, qv, qv)
@@ -201,6 +208,7 @@ end
       @alloc_below threshold transpose!(qtd, qt)
       @alloc_below threshold sym!(qtd, qt)
       @alloc_below threshold tr!(qsd, qt)
+      @alloc_below threshold det!(qsd, qt)
 
       # ----- grid↔point transfer (local spline; the particle-tracking hot path) -----
       points = PointSet(T(2π) .* rand(T, M, 3))
@@ -244,6 +252,12 @@ end
       @alloc_below threshold inner(vs, vs)                 # spectral vector inner(f,f): fused abs2 fast path, allocation-free
       @alloc_below threshold l2norm(pv)                    # = sqrt(inner): physical, dot
       @alloc_below threshold l2norm(vs)                    # = sqrt(inner(f,f)): spectral, allocation-free
+      # weighted_inner ⟨f, w·g⟩: fused lazy-broadcast reduction, only `_parseval_weight`'s tiny (Nkx,) vector
+      wkernel = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+      field_data(wkernel) .= one(Complex{T})
+      @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
+      @alloc_below threshold weighted_inner(vs, wkernel)       # vector self-pairing (weight broadcasts over fiber)
+      @alloc_below threshold weighted_inner(ss, ss, wkernel)   # mixed scalar
       @alloc_below threshold maximum(ps)                   # scalar-section maximum
       @alloc_below threshold minimum(ps)
       @alloc_below threshold extrema(ps)

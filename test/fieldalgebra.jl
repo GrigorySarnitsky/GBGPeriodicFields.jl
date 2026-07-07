@@ -282,6 +282,48 @@ end
     @test field_data(tr(As)) ≈ tcomp(field_data(As), 1, 1) .+ tcomp(field_data(As), 2, 2) .+ tcomp(field_data(As), 3, 3)
   end
 
+  @testset "determinant (fields + fibers, physical only)" begin
+    A = TensorFieldPhysical{2}(tensor_a, grid)
+    Ad = field_data(A)
+    expected = [det(Ad[i, j, k, :, :]) for i in 1:gs[1], j in 1:gs[2], k in 1:gs[3]]  # per-point 3×3 LU det (independent of Sarrus)
+    @test det(A) isa ScalarFieldPhysical
+    @test field_data(det(A)) ≈ expected
+    dest = F.similar_field(A, Val(0)); det!(dest, A)               # in-place matches allocating
+    @test field_data(dest) ≈ expected
+
+    M = FiberTensor2{T}(ntuple(i -> Float64(i)^2 + 0.3, 9))        # a single fiber value already has det
+    @test det(M) ≈ det(Matrix(M))
+
+    As = to_spectral(A, plans_for(A))                              # nonlinear ⇒ spectral form intentionally absent
+    @test_throws MethodError det(As)
+    @test_throws MethodError det!(F.similar_field(As, Val(0)), As)
+  end
+
+  @testset "weighted combination combine! (physical + spectral)" begin
+    av = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+    bv = VectorFieldPhysical((x, y, z) -> (cos(x), sin(y), z + 0.2), grid)
+    dest = F.similar_field(av, Val(1))
+    combine!(dest, 2.0, av, -3.0, bv)
+    @test field_data(dest) ≈ 2.0 .* field_data(av) .- 3.0 .* field_data(bv)
+    @test field_data(dest) ≈ field_data(2.0 * av - 3.0 * bv)       # equals the operator expression α·a + β·b
+
+    a0 = phys_scalar((x, y, z) -> sin(x)); b0 = phys_scalar((x, y, z) -> cos(y) + 0.3)
+    d0 = phys_scalar_zero(); combine!(d0, 0.5, a0, 4.0, b0)        # R = 0
+    @test field_data(d0) ≈ 0.5 .* field_data(a0) .+ 4.0 .* field_data(b0)
+    At = TensorFieldPhysical{2}(tensor_a, grid); Bt = TensorFieldPhysical{2}(tensor_b, grid)
+    dt = F.similar_field(At, Val(2)); combine!(dt, -1.0, At, 2.0, Bt)  # R = 2
+    @test field_data(dt) ≈ -1.0 .* field_data(At) .+ 2.0 .* field_data(Bt)
+
+    as = to_spectral(av, plans_for(av)); bs = to_spectral(bv, plans_for(bv))  # spectral: same on coefficients
+    ds = F.similar_field(as, Val(1)); combine!(ds, 0.5, as, 4.0, bs)
+    @test field_data(ds) ≈ 0.5 .* field_data(as) .+ 4.0 .* field_data(bs)
+
+    u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid); u0 = copy(field_data(u))
+    k = VectorFieldPhysical((x, y, z) -> (1.0, cos(z), x), grid)
+    combine!(u, 1.0, u, 0.5, k)                                    # alias-safe accumulate u ← u + ½k
+    @test field_data(u) ≈ u0 .+ 0.5 .* field_data(k)
+  end
+
   @testset "spectral linear contractions are coefficient-wise" begin
     A = TensorFieldPhysical{2}(tensor_a, grid)
     u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)

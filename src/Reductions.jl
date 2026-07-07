@@ -21,7 +21,8 @@ Each family links to the home where its formula lives:
   `Statistics`; the `mean` of a vector field is a `FiberVector`).
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
-  [`lpnorm`](@ref) are the norms derived from it.
+  [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
+  spectral generalization ``\\langle f, w\\,g\\rangle``.
 - `maximum`, `minimum`, `extrema` — the ``L^\\infty`` end, extending `Base` for scalar sections.
 - [`radial_spectrum`](@ref) and [`radial_correlation`](@ref) — a Fourier-dual pair (Wiener–Khinchin)
   that resolves `inner` over a radial coordinate, the shell-binned power spectrum over ``|k|`` and its
@@ -47,7 +48,7 @@ import Statistics: mean, std, var
 import Base: maximum, minimum, extrema
 import LinearAlgebra
 
-export integral, inner, l2norm, lpnorm, radial_spectrum, radial_correlation
+export integral, inner, weighted_inner, l2norm, lpnorm, radial_spectrum, radial_correlation
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
@@ -278,6 +279,62 @@ function _parseval_weight(f::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
   copyto!(weight_device, weight_host)
   return reshape(weight_device, number_of_kx, 1, 1)
 end
+
+
+"""
+    weighted_inner(f, w)
+    weighted_inner(f, g, w)
+
+The **multiplier-weighted L² inner product** ``\\langle f, w\\,g\\rangle`` of two fields in spectral
+representation against a real bounded Fourier multiplier `w`
+(`weighted_inner` ``\\equiv \\langle\\cdot, w\\,\\cdot\\rangle``). It applies the spectral symbol `w` to `g`
+and reduces against `f` in a single fused pass, materializing no weighted field — the reduction-dual of
+`convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
+``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w\\,f\\rangle``.
+
+The arguments are:
+- `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
+- `w` — the weight, a `ScalarFieldSpectral` holding a **real** multiplier ``w(k)`` (only its real part is used). Build it with the neutral kernels: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `squared_wavenumber_field` (``w = |k|^2``) gives the ``H^1``/Dirichlet energy ``\\langle\\nabla f, \\nabla g\\rangle``.
+
+Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
+half-spectrum weight ``\\alpha(k)`` (``1`` on the ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2``
+otherwise), ``N`` the number of grid points, and ``c`` indexing the fiber components,
+
+```math
+\\langle f, w\\,g\\rangle = \\frac1N \\sum_x f(x)\\,(w \\star g)(x)
+  = \\frac{1}{N^2} \\sum_{k} \\alpha(k)\\, w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k)\\,\\overline{\\hat g_c(k)}\\bigr).
+```
+
+It equals the naive ``\\mathrm{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent
+projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the single-weight pairing
+``\\langle f, w\\,g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
+symmetric in `f`, `g` and may be negative.
+
+Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref). It is fused and
+allocation-light (only a small per-axis weight vector), so unlike the shell diagnostics it suits a
+per-step call.
+"""
+function weighted_inner end
+
+function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
+                        w::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(f, g)
+  _check_field_domain_compatibility(f, w)
+  field_tensor_order(f) == field_tensor_order(g) ||
+    throw(ArgumentError("weighted_inner(f, g, w) needs equal tensor orders " *
+                        "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
+  # α(k)·w(k): the rfft Parseval weight times the real multiplier, an (Nkx, Ny, Nz) factor that broadcasts
+  # over the fiber (trailing singleton dims). Re(f̂_c conj ĝ_c) is the per-mode co-energy density. The whole
+  # reduction is one fused lazy-broadcast `sum` (Base.broadcasted keeps it unmaterialized on CPU and GPU),
+  # so no per-mode field is built — only `_parseval_weight`'s tiny (Nkx,) vector is allocated.
+  weight = Base.broadcasted(*, _parseval_weight(f), Base.broadcasted(real, field_data(w)))
+  density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
+  normalization = T(prod(field_grid(f).grid_size))^2
+  return sum(Base.broadcasted(*, weight, density)) / normalization
+end
+
+weighted_inner(f::AbstractFieldSpectral{T}, w::ScalarFieldSpectral{T}) where {T<:AbstractFloat} =
+  weighted_inner(f, f, w)
 
 
 # =============================================================================

@@ -15,6 +15,7 @@ The operation families are:
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
 - [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field.
 - [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the local rotation rate of a vector field and preserves the tensor order.
+- [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
 - [`helmholtz_projection`](@ref) ``\\equiv \\mathbb P`` projects a vector field onto its divergence-free part.
@@ -55,6 +56,8 @@ export gradient!,
        divergence,
        curl!,
        curl,
+       symmetric_gradient!,
+       symmetric_gradient,
        laplacian!,
        laplacian,
        inverse_laplacian!,
@@ -470,6 +473,102 @@ function curl end
 function curl(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
   destination = similar_field(field, Val(1))
   return curl!(destination, field, multipliers)
+end
+
+
+
+
+#####################################
+#        Symmetric Gradient         #
+#####################################
+
+
+"""
+    symmetric_gradient!(
+      destination::TensorFieldSpectral{2},
+      field::VectorFieldSpectral,
+      multipliers::FieldSpectralMultipliers,
+    )
+
+Compute the symmetric gradient (`symmetric_gradient` ``\\equiv \\operatorname{sym}\\nabla``) of a vector
+field and write it into `destination`, returning `destination`. It is the symmetric part of the gradient
+``\\nabla u``, the second-order tensor field
+
+```math
+S_{ij} = \\tfrac12\\,(\\partial_{x_j} u_i + \\partial_{x_i} u_j),
+```
+
+formed directly. It is the fused symmetric peer of [`curl`](@ref), which extracts the *antisymmetric* part
+of ``\\nabla u`` as a vector: forming ``S`` this way skips the full nine-component gradient tensor that
+`sym(gradient(u))` builds only to symmetrize, so reach for it whenever the symmetric part is all you need.
+
+Use this in-place form when `destination` is already allocated; the allocating [`symmetric_gradient`](@ref)
+returns a fresh result instead.
+
+The arguments are:
+- `destination` — the second-order tensor field that receives the result; it shares the domain of `field` and holds one tensor order higher.
+- `field` — the vector field to differentiate, in spectral representation.
+- `multipliers` — the wavenumber symbols for the field's grid.
+
+The spectral symbol symmetrizes ``\\mathrm{i}\\,k_j\\,\\hat u_i`` in its two indices:
+
+```math
+\\widehat{S_{ij}}(k) = \\tfrac{\\mathrm{i}}{2}\\,\\bigl(k_j\\,\\hat u_i(k) + k_i\\,\\hat u_j(k)\\bigr).
+```
+"""
+function symmetric_gradient! end
+
+
+function symmetric_gradient!(destination::TensorFieldSpectral{2, T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, field)
+  _check_multipliers_compatibility(field, multipliers)
+
+  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
+  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
+  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
+
+  field_component_1 = _vector_component_data(field, 1)
+  field_component_2 = _vector_component_data(field, 2)
+  field_component_3 = _vector_component_data(field, 3)
+
+  imaginary_unit = Complex{T}(zero(T), one(T))
+  half_imaginary = imaginary_unit * inv(T(2))
+
+  # Diagonal Sᵢᵢ = i·kᵢ·ûᵢ (the ½(kᵢûᵢ + kᵢûᵢ) collapses); off-diagonal Sᵢⱼ = (i/2)(kⱼûᵢ + kᵢûⱼ), written
+  # from the same expression for the symmetric pair. An order-raising operator writes a tensor from a
+  # vector, so destination and source occupy distinct storage and cannot alias — no guard needed (like
+  # `gradient!`).
+  @_assign! _tensor2_component_data(destination, 1, 1) .= imaginary_unit .* wavenumber_1 .* field_component_1
+  @_assign! _tensor2_component_data(destination, 2, 2) .= imaginary_unit .* wavenumber_2 .* field_component_2
+  @_assign! _tensor2_component_data(destination, 3, 3) .= imaginary_unit .* wavenumber_3 .* field_component_3
+
+  @_assign! _tensor2_component_data(destination, 1, 2) .= half_imaginary .* (wavenumber_2 .* field_component_1 .+ wavenumber_1 .* field_component_2)
+  @_assign! _tensor2_component_data(destination, 2, 1) .= half_imaginary .* (wavenumber_2 .* field_component_1 .+ wavenumber_1 .* field_component_2)
+
+  @_assign! _tensor2_component_data(destination, 1, 3) .= half_imaginary .* (wavenumber_3 .* field_component_1 .+ wavenumber_1 .* field_component_3)
+  @_assign! _tensor2_component_data(destination, 3, 1) .= half_imaginary .* (wavenumber_3 .* field_component_1 .+ wavenumber_1 .* field_component_3)
+
+  @_assign! _tensor2_component_data(destination, 2, 3) .= half_imaginary .* (wavenumber_3 .* field_component_2 .+ wavenumber_2 .* field_component_3)
+  @_assign! _tensor2_component_data(destination, 3, 2) .= half_imaginary .* (wavenumber_3 .* field_component_2 .+ wavenumber_2 .* field_component_3)
+
+  return destination
+end
+
+
+"""
+    symmetric_gradient(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+Allocating form of [`symmetric_gradient!`](@ref): allocate the result and return it, the symmetric
+gradient ``\\operatorname{sym}\\nabla u`` — the symmetric part of ``\\nabla u`` as a second-order tensor
+field, formed without the full gradient. See `symmetric_gradient!` for the componentwise definition and the
+spectral kernel.
+"""
+function symmetric_gradient end
+
+
+function symmetric_gradient(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+  destination = similar_field(field, Val(2))
+  return symmetric_gradient!(destination, field, multipliers)
 end
 
 

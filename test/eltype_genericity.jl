@@ -62,7 +62,9 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
       scaled = 2.5 * a               # a Float64 scalar must not promote a Float32 field
       contraction = dot(u, v)
       product = A * u
-      for field in (sum_ab, scaled, contraction, product)
+      combined = combine!(F.similar_field(u, Val(1)), 2.5, u, -1.5, v)   # Float64 weights must not promote
+      determinant = det(A)
+      for field in (sum_ab, scaled, contraction, product, combined, determinant)
         @test eltype(field_data(field)) === T
       end
       @test approx(field_data(sum_ab), field_data(a) .+ field_data(b))
@@ -73,6 +75,9 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
                    comp(field_data(u), 3) .* comp(field_data(v), 3))
       @test approx(comp(field_data(product), 1),
                    sum(field_data(A)[:, :, :, 1, j] .* comp(field_data(u), j) for j in 1:3))
+      @test approx(field_data(combined), 2.5 .* field_data(u) .- 1.5 .* field_data(v))
+      @test approx(field_data(determinant),
+                   [det(field_data(A)[i, j, k, :, :]) for i in 1:8, j in 1:7, k in 1:6])
     end
 
     @testset "laplacian round-trip: Δ sin x = -sin x" begin
@@ -81,6 +86,19 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
       lap = to_physical(laplacian(to_spectral(phi, plans_for(phi)), m), plans_for(phi))
       @test eltype(field_data(lap)) === T
       @test approx(field_data(lap), .-field_data(phi))
+    end
+
+    @testset "spectral symmetric_gradient / weighted_inner preserve element type" begin
+      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      us = to_spectral(u, plans_for(u))
+      m = FieldSpectralMultipliers(us)
+      S = symmetric_gradient(us, m)
+      @test eltype(field_data(S)) === Complex{T}
+      @test approx(field_data(S), field_data(sym(gradient(us, m))))
+
+      w1 = ScalarFieldSpectral(fill(one(Complex{T}), F.spectral_field_shape(grid, layout, Val(0))), grid)
+      @test weighted_inner(us, w1) isa T                    # a Float64 must not leak in
+      @test approx(weighted_inner(us, w1), inner(us, us))
     end
 
   end
