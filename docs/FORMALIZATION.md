@@ -37,7 +37,7 @@ A grid cell is a triple ``(i, j, k)``, so the scalar field over the grid is the 
 As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
 ``(i, j, k)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
 them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}`` and the differential
-multipliers ``i k_a`` act on). ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
+multipliers ``\mathrm{i} k_a`` act on). ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
 each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
 is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
 nature of the transfer. A point's *position* ``x_p \in \mathbb R^3`` is a separate object from the value it
@@ -64,8 +64,8 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 `plan_rfft`/`plan_irfft`):
 
 ```math
-\hat f(k) = \sum_{x} f(x)\,e^{-i k\cdot x}, \qquad
-f(x) = \frac1N \sum_{k} \hat f(k)\,e^{i k\cdot x}, \qquad N = N_x N_y N_z,
+\hat f(k) = \sum_{x} f(x)\,e^{-\mathrm{i} k\cdot x}, \qquad
+f(x) = \frac1N \sum_{k} \hat f(k)\,e^{\mathrm{i} k\cdot x}, \qquad N = N_x N_y N_z,
 ```
 
 so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequences used elsewhere:
@@ -147,7 +147,7 @@ of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its mu
 part of ``\nabla u``'s multiplier ``ik_j\hat u_i``,
 
 ```math
-\hat S_{ij} = \tfrac{i}{2}\,(k_j\hat u_i + k_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
+\hat S_{ij} = \tfrac{\mathrm{i}}{2}\,(k_j\hat u_i + k_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
 ```
 
 formed without materializing the full gradient tensor and sharing the derivative-wavenumber Nyquist zeroing.
@@ -181,10 +181,43 @@ coordinate consumers build symbols from; and `assignment_window` the linear/CIC 
 
 undone by dividing (deconvolution).
 
-**Backs** [Architecture](architecture.md) §11, decisions 20–22.
-**Checked by** `test/convolution.jl` — the translation kernel ``e^{-i k_a m\Delta} \Leftrightarrow``
-`circshift` (an independent physical oracle), cutoff idempotence, the ``\operatorname{sinc}^2`` window, and
-the physical-space intentional absence.
+The fifth builder, `translation_kernel`, is the shift theorem's multiplier: for a physical displacement
+``h = (h_1, h_2, h_3)`` it is the transform of the Dirac delta displaced to ``h``,
+so convolving carries the field ``f`` at position ``x`` to ``f(x - h)``. Write ``\kappa_a`` for the
+true signed wavenumber of axis ``a``, ``\tilde\kappa_a`` for the derivative wavenumber (equal to
+``\kappa_a`` except at the Nyquist frequency of an even-length axis, where it is zeroed — invariant 5),
+``N_a`` for the number of points on that axis and ``\Delta x_a`` for its grid spacing. The implemented
+multiplier is the separable product
+
+```math
+\hat g_h(k) = \prod_{a=1}^{3}
+  \bigl[\, \cos(\kappa_a h_a) \;-\; \mathrm i\,\sin(\tilde\kappa_a h_a) \,\bigr].
+```
+
+Three statements, each expanded against the code and tested:
+
+- **A pure phase away from Nyquist.** Where no component of ``k`` sits at a Nyquist frequency we have
+  ``\tilde\kappa_a = \kappa_a``, and ``\cos`` is even, so each factor collapses to
+  ``\cos(\kappa_a h_a) - \mathrm i \sin(\kappa_a h_a) = e^{-\mathrm i \kappa_a h_a}``, whence
+  ``\hat g_h(k) = e^{-\mathrm i k \cdot h}``, of unit modulus. ``\checkmark``
+- **Reality: the kernel is Hermitian.** ``\hat g_h(-k) = \overline{\hat g_h(k)}`` on the discrete
+  frequency torus, so `convolve` carries a real field to a real field. Each non-Nyquist factor conjugates
+  under ``\kappa_a \mapsto -\kappa_a``; each Nyquist factor is the *real* number
+  ``\cos(\pi h_a / \Delta x_a)``, hence its own conjugate — which is what the statement needs, the
+  Nyquist frequency being its own negative modulo ``N_a``. The two candidate kernels fail here or below: the
+  true phase ``e^{-\mathrm i k\cdot h}`` is *not* Hermitian at Nyquist for a fractional displacement, and
+  the all-derivative-wavenumber kernel is Hermitian but carries the wrong value. ``\checkmark``
+- **Whole-cell displacements are exact.** For ``h_a = m_a\,\Delta x_a`` with ``m \in \mathbb Z^3`` every
+  factor is the exact phase — the Nyquist one reducing to ``\cos(\pi m_a) = (-1)^{m_a}`` — and the
+  convolution is exactly the index shift, `circshift` by ``m`` cells. ``\checkmark``
+
+**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28.
+**Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
+`circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, the ``\operatorname{sinc}^2`` window, and
+the physical-space intentional absence; and for `translation_kernel`, `circshift` on a *random* field (one
+with Nyquist content, so the Nyquist factor is exercised), the exact `DirectDFT` evaluation at the displaced
+nodes for a sub-cell displacement, and the reality check that the displaced half-spectrum survives a
+transform round trip (the inverse transform being the Hermitian projector).
 
 ## Reductions (`Reductions`, [Architecture](architecture.md) §12)
 
@@ -318,9 +351,9 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 ``1`` on the self-conjugate planes and ``2`` else):
 
 ```math
-\text{type-2 (interpolate)}\quad f(x_p) = \frac1N\!\!\sum_{\text{stored }k}\!\!\alpha(k)\,\mathrm{Re}\!\bigl(\hat f(k)\,e^{i k\cdot(x_p-o)}\bigr),
+\text{type-2 (interpolate)}\quad f(x_p) = \frac1N\!\!\sum_{\text{stored }k}\!\!\alpha(k)\,\mathrm{Re}\!\bigl(\hat f(k)\,e^{\mathrm{i} k\cdot(x_p-o)}\bigr),
 \qquad
-\text{type-1 (anterpolate)}\quad (W^{\top}q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)} .
+\text{type-1 (anterpolate)}\quad (W^{\top}q)(k) = \sum_p q_p\,e^{-\mathrm{i} k\cdot(x_p-o)} .
 ```
 
 Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes), and the

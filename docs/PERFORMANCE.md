@@ -226,7 +226,8 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
 `symmetric_gradient!`), **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
-`spectral_band` / `squared_wavenumber_field` / `assignment_window`), the **interpolation/anterpolation
+`spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
+paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the fused
 multiplier-weighted `weighted_inner`, the spectral Parseval

@@ -23,6 +23,8 @@ convolves with — the package supplies the operation, not the physical meaning.
   a scalar field in spectral representation, from which a consumer builds a Fourier symbol.
 - [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, for deconvolving a
   gridded point density.
+- [`translation_kernel`](@ref) — the kernel that translates a field by a physical displacement, the
+  shift theorem's phase.
 """
 module Convolution
 
@@ -44,7 +46,8 @@ using ..FiberSections:
   _assign!,
   @_assign!
 
-export convolve, convolve!, ⋆, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window
+export convolve, convolve!, ⋆, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window,
+       translation_kernel
 
 
 ####################################################
@@ -111,6 +114,16 @@ accumulate:
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha\\,(f \\star g) + \\beta\\,\\mathrm{destination}``.
+
+!!! warning "A real field needs a Hermitian kernel"
+    The stored half-spectrum holds only the modes with ``k_1 \\ge 0``; the rest are implied by the
+    reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
+    still real exactly when its own transfer function carries that symmetry,
+    ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
+    real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
+    `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
+    construction. A consumer-built kernel that breaks the symmetry yields coefficients that are those
+    of no real field, and the inverse transform then silently keeps only their Hermitian part.
 
 Spectral representation only: on the torus convolution is the coefficientwise spectral product.
 Returns the modified `destination`.
@@ -321,6 +334,84 @@ function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldS
   window = similar_field(reference, Val(0))
   @_assign! field_data(window) .= Complex{T}.(w1 .* w2 .* w3)
   return window
+end
+
+
+"""
+    translation_kernel(reference::AbstractFieldSpectral,
+                       multipliers::FieldSpectralMultipliers,
+                       offset::NTuple{3, Real})
+
+Build the kernel that translates a field by the physical displacement ``h`` = `offset`, as a scalar
+field in spectral representation on `reference`'s grid and array backend: convolving a field ``f``
+with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
+
+Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the
+relocation of a probe, or the displaced evaluation of a phase-shift de-aliasing scheme. Apply it with
+[`convolve`](@ref) / `convolve!`, which is allocation-free in place; because a scalar kernel
+multiplies every fiber component, one call translates a whole vector or tensor field, and because the
+kernel depends on nothing but the displacement, one kernel serves every field it is applied to (its
+own cost is a single pass over the coefficients). To *sample* the field at the displaced positions
+``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
+one complex kernel: on every resolved mode it is a pure phase of unit modulus, so it moves the field
+without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
+`assignment_window`.
+
+- `reference` — a field in spectral representation whose grid and backend the kernel matches.
+- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `offset` — the displacement ``h = (h_1, h_2, h_3)``, a physical length per axis in the units of the
+  box rather than a count of cells; a half-cell displacement is `0.5 .* grid.grid_spacing` on the
+  `Grid3D` the field lives on.
+
+As a real physical object the translation is the convolution with a Dirac delta displaced to ``h`` and
+periodized on the box, ``g = \\delta(x - h)``, whose sifting property gives
+``(f \\star g)(x) = f(x - h)`` exactly. On the grid that ``g`` is the band-limited (periodic-sinc)
+interpolation stencil centred at ``h``, so the convolution re-samples the trigonometric interpolant of
+``f`` at the displaced nodes ``x_n - h``, and collapses to a plain index shift when ``h`` is a whole
+number of cells. Its transfer function ``\\hat g`` at wavenumber ``k`` is the shift theorem's phase,
+assembled per axis from that wavenumber's component ``k_a`` and the displacement ``h_a`` along the
+axis:
+
+```math
+\\hat g(k) = \\mathrm{e}^{-\\mathrm{i}\\, k \\cdot h}
+          = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i}\\,\\sin(k_a h_a) \\bigr].
+```
+
+!!! warning "At the Nyquist frequency the phase becomes a real attenuation"
+    On an even-length axis the Nyquist mode of a real field carries a single real amplitude that
+    stands for both of the wavenumbers ``\\pm\\pi/\\Delta x_a`` (with ``\\Delta x_a`` the grid spacing
+    along axis ``a``), so its band-limited form is the cosine ``\\cos(\\pi x_a/\\Delta x_a)``, and
+    displacing that cosine re-samples on the grid to ``\\cos(\\pi h_a/\\Delta x_a)`` times itself. At
+    that one frequency the kernel therefore carries this **real factor** rather than a complex phase —
+    and it has to be real: the Nyquist mode is its own conjugate partner, so a complex factor there
+    would leave coefficients that are those of no real field at all. A displaced Nyquist mode is thus
+    attenuated rather than moved: it vanishes for a half-cell displacement and changes sign for an odd
+    whole-cell one. Two consequences follow, both confined to that frequency: the translation is not
+    invertible there (displacing by ``h`` and back scales the mode by ``\\cos^2``), and two
+    translations compose exactly on every resolved mode but not at Nyquist. Whole-cell displacements
+    are exact everywhere, and a field with no Nyquist content — one truncated by a de-aliasing cutoff —
+    never meets the caveat at all.
+"""
+function translation_kernel(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+    offset::NTuple{3, Real})
+  _check_multipliers_compatibility(reference, multipliers)
+  T = field_scalar_type(reference)
+  # exp(-i k h) = cos(k h) - i·sin(k h) splits into an even and an odd function of k, and the two
+  # wavenumber families the multipliers carry (invariant 5) are precisely what each half needs: the
+  # even cosine takes the true wavenumber |k_a| = √(k_a²), which keeps its Nyquist value, while the
+  # odd sine takes the derivative wavenumber, which is zeroed there. Every axis factor then conjugates
+  # under k_a → -k_a — real at the Nyquist slot, which is its own negative — so the kernel is Hermitian
+  # and a real field stays real. A phase built from the true Nyquist wavenumber is not Hermitian, and
+  # hands back coefficients that are no real field's (the docstring's warning).
+  axis_phase(squared_wavenumber, derivative_wavenumber, displacement) =
+    (d = T(displacement);
+     Complex{T}.(cos.(sqrt.(squared_wavenumber) .* d), .-sin.(derivative_wavenumber .* d)))
+  phase_1 = reshape(axis_phase(multipliers.squared_wavenumber_1, multipliers.wavenumber_1, offset[1]), :, 1, 1)
+  phase_2 = reshape(axis_phase(multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2]), 1, :, 1)
+  phase_3 = reshape(axis_phase(multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3]), 1, 1, :)
+  kernel = similar_field(reference, Val(0))
+  @_assign! field_data(kernel) .= phase_1 .* phase_2 .* phase_3
+  return kernel
 end
 
 

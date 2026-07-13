@@ -27,6 +27,7 @@ and need not repeat the convention.
 | ``N`` | the grid-point count ``\prod_i N_i`` | `prod(grid_size)` |
 | ``M`` | the number of points | `npoints` |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lVert k\rVert`` its magnitude) | `FieldSpectralMultipliers` |
+| ``h`` | a physical displacement (``h_a`` is its component along axis ``a``); ``\Delta`` is reserved for the Laplacian, and ``\Delta x_a`` for the grid spacing | `translation_kernel` |
 | ``\hat f`` | the field ``f`` in spectral representation | `to_spectral(f)` |
 
 ## Operators

@@ -54,7 +54,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
 - **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
   combination `combine!` and the determinant `det`),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
-  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field`),
+  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
@@ -272,13 +272,23 @@ no scalar indexing (decision 25) — so these oracles plus the GPU parity suite 
 kernel), and the intentional absence of the *measure* reductions on spectral fields;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
-``\exp(-i k_a m \Delta)`` (a shift of ``m`` cells, grid spacing ``\Delta``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
+``\exp(-\mathrm{i} k_a m \Delta x_a)`` (a shift of ``m`` cells, with ``\Delta x_a`` the grid spacing along axis ``a``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
 Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
 membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
+and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
+a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the
+one frequency where the kernel is a real attenuation rather than a phase (a whole-cell displacement, odd and
+even, along each axis), the exact **`DirectDFT` evaluation at the displaced nodes** as the oracle for a
+sub-cell displacement, an analytic displaced cosine, the **reality check** that a displaced half-spectrum
+survives a transform round trip (the inverse transform is the Hermitian projector, so a kernel built from the
+true Nyquist phase would move), the Nyquist attenuation itself (a half-cell displacement annihilates
+``\cos(4x)`` on an 8-point ``2\pi`` axis; a whole-cell one flips its sign), unit modulus on the resolved
+band, composition and inversion, the fiber broadcast over vector and tensor fields, and the mixed-parity
+grid;
 the **point pair-correlation** (`rdf.jl`, decision 22 Phase 2): `assignment_window` against its
 ``\prod \operatorname{sinc}^2`` formula, and the FFT g(r) recipe (anterpolate density → deconvolve →
 `radial_correlation`) validated against an **independent direct ``O(M^2)`` physical-space pair count** on a

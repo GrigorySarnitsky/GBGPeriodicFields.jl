@@ -5,8 +5,16 @@
 #   * sharp-cutoff idempotence (a 0/1 low-pass projection), and kernel-composition associativity,
 # plus the α/β accumulate form, in-place aliasing safety, both element types, and the physical-space
 # intentional absence.
+#
+# translation_kernel gets the same circshift oracle on a *random* field — one that carries Nyquist
+# content, unlike the band-limited fields above — plus an analytic shifted-cosine, the exact DirectDFT
+# evaluation at the displaced nodes (a sub-cell displacement), and the reality check that pins the
+# Nyquist convention: a kernel built from the true Nyquist phase leaves a half-spectrum that is no
+# real field's, and one built from the Nyquist-zeroed derivative wavenumbers misses the sign flip of
+# an odd whole-cell shift.
 
 using Test
+using Random
 using GBGPeriodicFields
 
 const F = GBGPeriodicFields.Fields
@@ -76,6 +84,98 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
         @test approx(field_data(to_physical(convolve(u_s, kern), plans_for(u))),       # vector field, each component
                      circshift(field_data(u), (sh..., 0)))
       end
+    end
+
+    @testset "translation_kernel: f ↦ f(x − Δ), the shift theorem's phase" begin
+      mult = FieldSpectralMultipliers(phi_s)
+      dx = grid.grid_spacing
+
+      # a zero displacement is the identity kernel
+      @test approx(field_data(translation_kernel(phi_s, mult, (T(0), T(0), T(0)))), ones(Complex{T}, shape0))
+
+      # analytic oracle: translating cos(2x + 0.3)·sin(y) by Δ gives cos(2(x − Δ₁) + 0.3)·sin(y − Δ₂)
+      offset = (T(0.37), T(-0.21), T(0.11))
+      g = ScalarFieldPhysical((x, y, z) -> cos(2x + T(0.3)) * sin(y), grid)
+      g_s = to_spectral(g, plans_for(g))
+      moved = to_physical(convolve(g_s, translation_kernel(g_s, mult, offset)), plans_for(g))
+      analytic = ScalarFieldPhysical((x, y, z) -> cos(2 * (x - offset[1]) + T(0.3)) * sin(y - offset[2]), grid)
+      @test approx(field_data(moved), field_data(analytic))
+
+      # a whole-cell displacement is exactly circshift. The field is random, so every mode carries
+      # content — the Nyquist mode included, where the kernel's real factor cos(π m) = (−1)^m must
+      # flip the sign on an odd shift (a kernel built from the derivative wavenumbers would not).
+      Random.seed!(20260713)
+      noise = ScalarFieldPhysical(randn(T, gs...), grid)
+      noise_s = to_spectral(noise, plans_for(noise))
+      for axis in 1:3, cells in (1, 2)                       # an odd and an even whole-cell shift
+        displacement = ntuple(d -> d == axis ? cells * dx[d] : zero(T), 3)
+        shifted = to_physical(convolve(noise_s, translation_kernel(noise_s, mult, displacement)), plans_for(noise))
+        @test approx(field_data(shifted), circshift(field_data(noise), ntuple(d -> d == axis ? cells : 0, 3)))
+      end
+
+      # one scalar kernel translates a whole vector or tensor field (it broadcasts over the fiber)
+      one_cell = ntuple(d -> dx[d], 3)
+      cell_kernel = translation_kernel(phi_s, mult, one_cell)
+      @test approx(field_data(to_physical(convolve(u_s, cell_kernel), plans_for(u))),
+                   circshift(field_data(u), (1, 1, 1, 0)))
+      @test approx(field_data(to_physical(convolve(A_s, cell_kernel), plans_for(A))),
+                   circshift(field_data(A), (1, 1, 1, 0, 0)))
+
+      # the displaced field is still a *real* field: its half-spectrum stays Hermitian, so transforming
+      # out and back changes nothing (to_spectral ∘ to_physical is exactly the Hermitian projector).
+      # This is the check the true-Nyquist-phase kernel fails.
+      half_cell = ntuple(d -> dx[d] / 2, 3)
+      half_shifted = convolve(noise_s, translation_kernel(noise_s, mult, half_cell))
+      @test approx(field_data(to_spectral(to_physical(half_shifted, plans_for(noise)), plans_for(noise))),
+                   field_data(half_shifted))
+
+      # at Nyquist the mode is attenuated, not moved: cos(4x) is the Nyquist mode of an 8-point 2π
+      # axis, so a half-cell displacement annihilates it and a whole-cell one flips its sign
+      nyquist = ScalarFieldPhysical((x, y, z) -> cos(4x), grid)
+      nyquist_s = to_spectral(nyquist, plans_for(nyquist))
+      annihilated = to_physical(convolve(nyquist_s, translation_kernel(nyquist_s, mult, (dx[1] / 2, T(0), T(0)))),
+                                plans_for(nyquist))
+      @test all(v -> abs(v) <= abstol, field_data(annihilated))
+      flipped = to_physical(convolve(nyquist_s, translation_kernel(nyquist_s, mult, (dx[1], T(0), T(0)))),
+                            plans_for(nyquist))
+      @test approx(field_data(flipped), .-field_data(nyquist))
+
+      # a pure phase of unit modulus on every resolved mode — the attenuation is confined to the
+      # Nyquist frequencies, which are the modes whose derivative wavenumber is zeroed but whose
+      # squared wavenumber is not
+      kernel_values = field_data(translation_kernel(phi_s, mult, (T(0.3), T(0.4), T(-0.2))))
+      derivative = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
+      squared = (Array(mult.squared_wavenumber_1), Array(mult.squared_wavenumber_2), Array(mult.squared_wavenumber_3))
+      at_nyquist(axis, index) = iszero(derivative[axis][index]) && !iszero(squared[axis][index])
+      @test all(abs(kernel_values[i, j, l]) ≈ one(T)
+                for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]
+                if !(at_nyquist(1, i) || at_nyquist(2, j) || at_nyquist(3, l)))
+
+      # translations compose and invert on the resolved band (phi carries no Nyquist content)
+      forth = translation_kernel(phi_s, mult, offset)
+      back = translation_kernel(phi_s, mult, .-offset)
+      @test approx(field_data(convolve(convolve(phi_s, forth), back)), field_data(phi_s))
+      @test approx(field_data(convolve(phi_s, convolve(forth, forth))),                 # kernel(Δ)·kernel(Δ)
+                   field_data(convolve(phi_s, translation_kernel(phi_s, mult, 2 .* offset))))   # = kernel(2Δ)
+    end
+
+    @testset "translation_kernel == the exact DirectDFT evaluation at the displaced nodes" begin
+      # The independent oracle for a sub-cell displacement: the package's exact spectral interpolator,
+      # asked for the band-limited field at the displaced grid nodes xₙ − Δ. Exact agreement (phi has
+      # no Nyquist content, the one frequency where the two conventions part).
+      mult = FieldSpectralMultipliers(phi_s)
+      offset = (T(0.41), T(0.13), T(-0.29))
+      moved = to_physical(convolve(phi_s, translation_kernel(phi_s, mult, offset)), plans_for(phi))
+      coordinates = zeros(T, prod(gs), 3)
+      index = 0
+      for l in 1:gs[3], j in 1:gs[2], i in 1:gs[1]          # column-major, matching vec(field_data)
+        index += 1
+        for (axis, cell) in enumerate((i, j, l))
+          coordinates[index, axis] = grid.origin[axis] + (cell - 1) * grid.grid_spacing[axis] - offset[axis]
+        end
+      end
+      exact = interpolate(phi_s, PointSet(coordinates), DirectDFT())
+      @test approx(vec(field_data(moved)), field_data(exact))
     end
 
     @testset "spectral_cutoff: a sharp 0/1 low-pass projection" begin
@@ -185,6 +285,7 @@ end
     ones_kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
     @test_throws MethodError convolve(phi, ones_kernel)    # no physical-space convolution (spectral only)
     @test_throws MethodError convolve(phi_s, phi)          # the kernel must be in spectral representation
+    @test_throws MethodError translation_kernel(phi, FieldSpectralMultipliers(phi_s), (0.1, 0.0, 0.0))
   end
 
   @testset "mixed-parity grid (8, 7, 6): odd axis (no Nyquist) + even axes, all 3 directions" begin
@@ -208,5 +309,22 @@ end
       sh = ntuple(d -> d == axis ? shift : 0, 3)
       @test isapprox(field_data(shifted), circshift(field_data(phi), sh); rtol = 1e-10)
     end
+
+    # translation_kernel on the same mixed-parity grid, over a *random* field (Nyquist content on the
+    # two even axes, none on the odd one, where the kernel stays a pure phase at every frequency)
+    Random.seed!(20260713)
+    noise = ScalarFieldPhysical(randn(T, 8, 7, 6), grid)
+    noise_s = to_spectral(noise, plans)
+    for axis in 1:3
+      displacement = ntuple(d -> d == axis ? grid.grid_spacing[d] : zero(T), 3)
+      shifted = to_physical(convolve(noise_s, translation_kernel(noise_s, mult, displacement)), plans)
+      @test isapprox(field_data(shifted), circshift(field_data(noise), ntuple(d -> d == axis ? 1 : 0, 3));
+                     rtol = 1e-10)
+    end
+    # and the displaced field stays real (the half-spectrum stays Hermitian) under a half-cell shift
+    half_cell = ntuple(d -> grid.grid_spacing[d] / 2, 3)
+    half_shifted = convolve(noise_s, translation_kernel(noise_s, mult, half_cell))
+    @test isapprox(field_data(to_spectral(to_physical(half_shifted, plans), plans)),
+                   field_data(half_shifted); rtol = 1e-10)
   end
 end

@@ -31,8 +31,8 @@ one operation family:
   `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref) together with the
-  kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`, and
-  `assignment_window`.
+  kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
+  `assignment_window`, and `translation_kernel`.
 - [`Points`](@ref) supplies the point-data types and their fiberwise algebra, mirroring the
   physical field surface.
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
@@ -147,7 +147,8 @@ using .Convolution:
   spectral_cutoff,
   spectral_band,
   squared_wavenumber_field,
-  assignment_window
+  assignment_window,
+  translation_kernel
 
 
 using .Points:
@@ -265,6 +266,7 @@ export FiberVector,
        spectral_band,
        squared_wavenumber_field,
        assignment_window,
+       translation_kernel,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,

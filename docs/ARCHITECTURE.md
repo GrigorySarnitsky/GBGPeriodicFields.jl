@@ -308,7 +308,7 @@ Two constructors by design:
 **The Nyquist split is deliberate and must not be unified.** On even-length axes:
 
 - Derivative multipliers are **zeroed at the Nyquist frequency**. The Nyquist
-  mode of a real signal is a pure cosine; multiplying by ``i k_N`` would produce a
+  mode of a real signal is a pure cosine; multiplying by ``\mathrm{i} k_N`` would produce a
   component the real signal cannot represent, and the symmetric, real-preserving
   choice for its derivative is zero. This is standard pseudospectral practice and
   keeps derivatives of real fields exactly real.
@@ -594,8 +594,8 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
 - **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
   values (the gather/scatter kernels below); approximate, conserving, the production default.
 - **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
-  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{i k\cdot(x_p-o)}`` and its adjoint
-  ``(W^\top q)(k) = \sum_p q_p\,e^{-i k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
+  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{\mathrm{i} k\cdot(x_p-o)}`` and its adjoint
+  ``(W^\top q)(k) = \sum_p q_p\,e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
   grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
@@ -730,10 +730,16 @@ scalar, vector, and tensor fields), with the α/β accumulate form and alias-saf
 It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, [§4](@ref "4. Spectral machinery")) and the
 **same-base counterpart of the `Interpolation` transfer** (decision 19); offered under its true name
 `convolve`, never as `*` (invariant 1). Spectral representation only; physics (an LES filter, an integrating
-factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Four neutral builders
+factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Five neutral builders
 ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its annular generalization),
-`squared_wavenumber_field` (the ``|k|^2`` radial coordinate consumers build symbols from), and
-`assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window). See decisions 20, 21, 22.
+`squared_wavenumber_field` (the ``|k|^2`` radial coordinate consumers build symbols from),
+`assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window), and
+`translation_kernel` (the shift theorem's phase ``e^{-\mathrm i k\cdot h}``, which displaces a field by a
+physical offset ``h``). The first four are real and even in the wavenumber ``k``; `translation_kernel` is
+the one **complex** kernel, and the reality condition a complex kernel must meet — the Hermitian symmetry
+``\hat g(-k) = \overline{\hat g(k)}``, equivalently a real physical-space kernel ``g`` — is what forces its
+value at the Nyquist frequency to be a real attenuation rather than a phase (decision 28). See decisions
+20, 21, 22, 28.
 
 ## 12. Reductions
 
@@ -1059,7 +1065,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     from the wavenumbers (invariant 12). Naming follows the [§2](@ref "2. The central principle: the architecture follows established mathematics") convention (the verb `convolve` for a
     generic transformation; the module noun `Convolution`, parallel to `Interpolation` / `interpolate`).
     Tested CPU (`test/convolution.jl`, Float64/Float32 — the translation kernel
-    ``\exp(-i k_x m \Delta x) \Leftrightarrow`` `circshift` is the independent physical oracle, plus identity/scaling/
+    ``\exp(-\mathrm{i} k_x m \Delta x) \Leftrightarrow`` `circshift` is the independent physical oracle, plus identity/scaling/
     cutoff-idempotence/composition/α-β/alias) and GPU (ROCm device-vs-CPU parity in `test/gpu/suite.jl`);
     benchmarked (the `convolution` class). The L²-weighted and matrix-valued (anisotropic) kernels
     remain future.
@@ -1171,7 +1177,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     overdensity ``\delta = \rho/\bar\rho - 1``, **FFT**, **deconvolve** ``\hat\delta`` by the assignment window
     ``\hat W``, then `radial_correlation` of the deconvolved field gives ``\xi(r) = \langle\delta(x)\delta(x+r)\rangle``
     and ``g(r) = 1 + \xi(r)`` (the ``i=j`` self term is the shot noise, isolated in the ``r=0`` shell, so
-    ``g`` at ``r>0`` is clean). With ``\hat\rho(k) = \sum_i e^{-i k \cdot x_i}``,
+    ``g`` at ``r>0`` is clean). With ``\hat\rho(k) = \sum_i e^{-\mathrm{i} k \cdot x_i}``,
     ``S(k) = |\hat\rho|^2/M = 1 + \bar n\,\hat h(k)`` (Ornstein–Zernike) and ``g = 1 + h``. We already owned
     anterpolate + the transforms + both radial reductions; the **one new neutral primitive is the
     assignment-window deconvolution**, the rest is the consumer recipe (invariant 12). Three corrections, all
@@ -1232,9 +1238,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *`DirectDFT` (done).* The literal ``O(NM)`` sum (``N`` the grid-point count, ``o`` the grid origin):
     type-2 ``f(x_p) = \tfrac1N\sum_{\text{stored }k}
-    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{i k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
+    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{\mathrm{i} k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
     the Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
-    type-1 ``(W^\top q)(k) = \sum_p q_p e^{-i k\cdot(x_p-o)}``. It is the *definition* of the
+    type-1 ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}``. It is the *definition* of the
     spectral-domain pair, so it is at once a transparent exact baseline, the **divergence-free
     reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
     where the splines break ``\nabla\cdot u=0``), and the **oracle** that will validate `NUFFT`. It
@@ -1446,3 +1452,78 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `radial_spectrum`/`radial_correlation`, which build an ``O(N)`` shell-index pass), and a benchmark.
     That `combine!` stays field-only and the quadratic form waits both follow the same rule: **the consumer,
     not symmetry, decides where an operation lives.**
+
+28. **Spectral translation — `translation_kernel`, and the reality condition a complex kernel must meet.**
+    The sibling consumer `GBGIsotropicTurbulence` asked for a fifth kernel builder: the multiplier that
+    **translates** a field by a physical displacement ``h = (h_1, h_2, h_3)`` (a length
+    per axis, in the box's units), carrying a field ``f`` at position ``x`` to the displaced field
+    ``f(x - h)``. Its consumer is phase-shift de-aliasing, where the nonlinear product is evaluated a
+    second time on a half-cell-displaced grid and averaged with the unshifted evaluation — the memory-lean
+    alternative to padding the grid; it also serves shift-and-average filters and the relocation of a probe.
+
+    *Why the package owns it.* Translation is a **coordinate-only** operation on the field, with no physics
+    in it — the exact sibling of the derivative and cutoff multipliers the package already owns — and by the
+    shift theorem it *is* a convolution: with the Dirac delta displaced to ``h``, whose transfer
+    function is the pure phase ``\hat g(k) = e^{-\mathrm i\, k\cdot h}`` at wavenumber ``k``. So it needs
+    no new operation, only a new kernel (decision 20): `convolve!` already applies a scalar kernel to any
+    tensor order, with its accumulation weights, alias-safely. **Only the builder was missing** —
+    the package exposes no function-of-wavenumbers constructor, and the allocation helper `similar_field` is
+    internal, so a consumer cannot build the kernel without reaching into the package's internals.
+
+    *The correctness trap — the real reason it belongs here.* A kernel must leave a **real** field real. The
+    rfft half-spectrum stores only the modes whose first wavenumber component is non-negative; the rest are
+    implied by the reality of the field, ``\hat f(-k) = \overline{\hat f(k)}``. Multiplying by a kernel
+    preserves that symmetry — and so returns a field rather than a complex impostor — exactly when the kernel
+    is itself Hermitian, ``\hat g(-k) = \overline{\hat g(k)}``, equivalently when its physical-space form
+    ``g`` is real. The four kernels shipped before this one are real and even in ``k``, so they satisfy the
+    condition without anyone having to think about it. The translation phase does not, at one frequency per
+    axis: the **Nyquist** frequency of an even-length axis (with ``N_a`` points and spacing ``\Delta x_a``
+    along axis ``a``), the mode that is its own conjugate partner and where the kernel is therefore forced to
+    be real. The two obvious candidates each fail, and they fail *differently*:
+    - The **true phase** ``e^{-\mathrm i\, k\cdot h}`` built from the signed wavenumbers is complex at
+      Nyquist for a fractional displacement, so it returns coefficients that are no real field's — the
+      inverse transform then silently keeps only their Hermitian part. (Whole-cell displacements are safe:
+      the factor there is ``(-1)^m`` for a displacement of ``m`` cells, which is real.)
+    - The **Nyquist-zeroed derivative wavenumbers** — the ones `gradient` uses, and the fix the request
+      itself proposed — do keep the kernel real (the factor becomes ``1``), but the value is *wrong*: they
+      leave the Nyquist mode unmoved, where a one-cell shift must flip its sign.
+
+    The correct multiplier follows from what the Nyquist mode *is*. It carries a single real amplitude
+    standing for both of the wavenumbers ``\pm\pi/\Delta x_a``, so its band-limited form is the cosine
+    ``\cos(\pi x_a/\Delta x_a)``, and displacing that cosine and re-sampling it on the grid multiplies it by
+    the real factor ``\cos(\pi h_a/\Delta x_a)`` — equal to ``(-1)^m`` for a whole-cell displacement of
+    ``m`` cells, and to ``0`` for a half-cell one, a displaced Nyquist mode being genuinely not representable
+    on the same grid. Splitting the phase into its even and odd parts,
+    ``e^{-\mathrm i k_a h_a} = \cos(k_a h_a) - \mathrm i \sin(k_a h_a)``, states the rule in
+    one line: **the even (cosine) part takes the true wavenumber, the odd (sine) part takes the derivative
+    wavenumber.** Those are exactly the package's two multiplier families (invariant 5: squared wavenumbers
+    keep the true value at Nyquist, derivative wavenumbers are zeroed there), so the builder is a
+    three-factor broadcast and the Nyquist correction falls out of a convention already in place for the very
+    same reason — an odd function of ``k`` must vanish at Nyquist to keep a real field real, which is why the
+    derivative multiplier is zeroed there. `translation_kernel` is the first operation to use **both**
+    families, and it confirms that split rather than excepting it.
+
+    *Consequences, documented on the operation.* The kernel is a pure phase of unit modulus on every resolved
+    mode, so it moves the field without touching any amplitude; at Nyquist it is a real attenuation instead.
+    Translations therefore compose and invert exactly on the resolved band but not at Nyquist (displacing by
+    ``h`` and back scales that one mode by ``\cos^2``). None of this reaches a field already truncated
+    by a de-aliasing cutoff, which is the consumer's case.
+
+    *Scope: the builder only.* No fused `translate!` — a `convolve!` that builds its own kernel — although
+    the request offered one. The kernel depends on nothing but the displacement, so building it per call
+    would allocate a field-sized array on every invocation, exactly the allocation the package forbids in
+    place (decisions 24, 26). The family's build-once-apply-many pattern is already the right one: a
+    displaced evaluation builds the two kernels (for ``+h`` and ``-h``) once and applies them with
+    `convolve!` at zero allocation.
+
+    *Verification.* Two independent oracles pin the operator, and each rejects one of the wrong kernels: a
+    whole-cell displacement equals `circshift` **on a random field**, which carries content at every mode
+    including Nyquist; and a sub-cell displacement equals the exact `DirectDFT` evaluation of the field at
+    the displaced nodes ``x_n - h`` (decision 23). The random field matters — the band-limited fields the
+    older convolution tests use pass with *any* of the three candidate kernels, which is precisely how a
+    hand-rolled kernel gets away with being wrong. Reality is checked directly (transforming the displaced
+    field out and back is the identity, the inverse transform being the Hermitian projector, so a
+    non-Hermitian result would move), alongside the analytic displaced cosine, the Nyquist attenuation, and
+    unit modulus on the resolved band — over both element types, a mixed-parity grid, GPU device-parity, and
+    a benchmark. The method-set baselines (206 field / 122 point-value methods) are untouched: like
+    `convolve` itself, this is a new generic in `Convolution`.

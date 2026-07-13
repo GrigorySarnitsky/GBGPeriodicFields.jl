@@ -20,6 +20,7 @@ spectral_cutoff
 spectral_band
 squared_wavenumber_field
 assignment_window
+translation_kernel
 ```
 
 ## Internal API

@@ -296,6 +296,14 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
       @test matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
+      # translation_kernel — the one complex kernel; the per-axis cos/sin phase builds on-device
+      offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)                  # a half-cell displacement
+      shift_h = translation_kernel(phi_spec_h, mult_h, offset)
+      shift_d = translation_kernel(phi_spec_d, mult_d, offset)
+      @test matches(shift_d, shift_h)                                          # the builder itself
+      @test matches(convolve(phi_spec_d, shift_d), convolve(phi_spec_h, shift_h))   # scalar field
+      @test matches(convolve(u_spec_d, shift_d), convolve(u_spec_h, shift_h))       # over a vector fiber
+      @test matches(convolve(A_spec_d, shift_d), convolve(A_spec_h, shift_h))       # over a tensor fiber (R=2)
     end
 
     @testset "interpolation / anterpolation (Lalescu splines)" begin
