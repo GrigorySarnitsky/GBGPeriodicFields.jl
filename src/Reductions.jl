@@ -405,30 +405,31 @@ end
     radial_spectrum(f, multipliers)
     radial_spectrum(f, g, multipliers)
 
-The **radial (shell-binned) spectrum** resolves a field's L² energy over wavenumber-magnitude shells
-(`radial_spectrum` ``\\equiv E(\\kappa)``). The one-argument form is the **power spectrum** ``E(\\kappa)``,
-and the two-argument form is the **co-spectrum** (cross-power) ``E_{fg}(\\kappa)`` of two compatible,
-equal-order fields; `f` and `g` are in spectral representation and `multipliers` supplies the per-axis
-wavenumbers ``k`` ([`FieldSpectralMultipliers`](@ref)). It returns `(shells, spectrum)`, where `shells`
-are the bin-center wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber
-(co-)energy over the modes whose rounded magnitude falls in shell ``i``:
+The **radial (shell-binned) power spectrum** resolves a field's L² energy over wavenumber-magnitude
+shells. Write ``P(\\kappa)`` for the one-argument **power spectrum** and ``P_{fg}(\\kappa)`` for the
+two-argument **co-spectrum** (cross-power) of two compatible, equal-order fields; `f` and `g` are in
+spectral representation and `multipliers` supplies the per-axis wavenumbers ``k``
+([`FieldSpectralMultipliers`](@ref)). It returns `(shells, spectrum)`, where `shells` are the bin-center
+wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber (co-)energy over the
+modes whose rounded magnitude falls in shell ``i``:
 
 ```math
 \\begin{gathered}
-E(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
-E_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
+P(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
+P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
 \\end{gathered}
 ```
 
 with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on the
 ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2`` otherwise), and shell width ``\\Delta k`` (the box
 fundamental). Each form **refines** [`inner`](@ref):
-``\\sum_\\kappa E(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa E_{fg}(\\kappa) = \\langle f, g\\rangle``
+``\\sum_\\kappa P(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa P_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
-is **symmetric** (``E_{fg} = E_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
-spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's kinetic-energy spectrum is
-``\\tfrac{1}{2} E(\\kappa)``; the package keeps the neutral name, physics stays consumer-side.
+is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
+spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's physics kinetic-energy
+spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (it integrates to the turbulent kinetic energy, half
+the L² energy); the package keeps the neutral power-spectrum name, physics stays consumer-side.
 
 This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
 `inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`

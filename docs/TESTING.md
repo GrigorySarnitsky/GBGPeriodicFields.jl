@@ -257,7 +257,7 @@ no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, 
 the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
 read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
 still absent on spectral fields), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
-spectrum, checked by the exact refinement ``\sum_\kappa E(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
+spectrum ``P(\kappa)``, checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
 against an **independent binned-circshift autocorrelation** and ``C(0) = \mathrm{inner}(f,f)``, all orders /

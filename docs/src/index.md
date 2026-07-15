@@ -6,6 +6,8 @@ The package is aimed primarily at fluid-dynamics and turbulence simulations. Fie
 
 This package is not intended to be a ready-to-use DNS solver; rather, it is a toolkit for building fluid-dynamics and general field solvers.
 
+A few words of vocabulary, used throughout the docs. A **field** — and its off-grid **point-values** — is a *section*: one **fiber** value (a scalar, a vector, or a second-order tensor) attached to every point of a **base** (the structured grid, or an unstructured set of points). Every operation is one of three kinds: it acts *within* each fiber (the pointwise algebra — add, contract, transpose), it *couples neighbouring base points* (the differential operators and the grid↔point transfer), or it *integrates the base away* against the base's measure (the reductions). The design behind this split is the [Architecture](architecture.md) page; you do not need it to use the package.
+
 ## Installation
 
 This is an unregistered package, so it is not listed in the `General` Julia registry. To install it, run:

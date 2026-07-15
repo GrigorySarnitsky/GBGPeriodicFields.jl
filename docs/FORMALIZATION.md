@@ -91,7 +91,7 @@ point bases (one set of generated kernels, `src/FiberSections.jl`). A `FiberVect
 \begin{aligned}
 u\cdot v &= u_i v_i, & A : B &= A_{ij}B_{ij}, & (u\times v)_i &= \epsilon_{ijk} u_j v_k,\\
 (Au)_i &= A_{ij}u_j, & (uA)_i &= u_j A_{ji}, & (AB)_{ij} &= A_{ik}B_{kj},\\
-(A^{\top})_{ij} &= A_{ji}, & \lVert u\rVert &= \sqrt{u_i u_i}, & \lVert A\rVert &= \sqrt{A_{ij}A_{ij}}.
+(A^{\top})_{ij} &= A_{ji}, & |u| &= \sqrt{u_i u_i}, & |A| &= \sqrt{A_{ij}A_{ij}}.
 \end{aligned}
 ```
 
@@ -256,15 +256,17 @@ self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 inverse):
 
 ```math
-E(\kappa_i) = \frac{1}{N^2}\!\!\sum_{\mathrm{round}(|k|/\Delta k)=i}\!\!\alpha(k)\sum_c |\hat f_c(k)|^2,
+P(\kappa_i) = \frac{1}{N^2}\!\!\sum_{\mathrm{round}(|k|/\Delta k)=i}\!\!\alpha(k)\sum_c |\hat f_c(k)|^2,
 \qquad
 C(r) = \frac{1}{N} \mathcal F^{-1}\!\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
 ```
 
-each refining `inner` exactly: ``\sum_i E(\kappa_i) = \langle f,f\rangle`` and ``C(0) = \langle f,f\rangle``.
+with ``P(\kappa)`` the shell **power spectrum** (the consumer's physics energy spectrum is
+``E(\kappa)=\tfrac{1}{2}P(\kappa)``), each refining `inner` exactly:
+``\sum_i P(\kappa_i) = \langle f,f\rangle`` and ``C(0) = \langle f,f\rangle``.
 ``\checkmark`` The two-field forms (cross-power ``\sum_c\mathrm{Re}(\hat f_c\overline{\hat g_c})``,
 cross-correlation ``C_{fg}(r)=\tfrac{1}{N}\mathcal F^{-1}(\overline{\hat f} \hat g)(r)``) refine the mixed
-``\langle f,g\rangle`` (``\sum E_{fg}=C_{fg}(0)=\langle f,g\rangle``), are symmetric in ``f,g``, and may be
+``\langle f,g\rangle`` (``\sum P_{fg}=C_{fg}(0)=\langle f,g\rangle``), are symmetric in ``f,g``, and may be
 negative.
 
 **`weighted_inner`** applies a real Fourier multiplier ``w(k)`` inside the same Parseval sum,

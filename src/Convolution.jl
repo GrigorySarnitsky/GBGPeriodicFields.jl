@@ -377,6 +377,11 @@ axis:
           = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(k_a h_a) \\bigr].
 ```
 
+The two factors draw on the package's two wavenumber families: the even cosine takes the **true**
+wavenumber ``k_a`` and the odd sine the **Nyquist-zeroed derivative** wavenumber. These coincide on every
+resolved mode — so the factor there is the pure phase ``\\mathrm{e}^{-\\mathrm{i} k_a h_a}`` above — and
+part only at an even axis's Nyquist frequency, where the warning below applies.
+
 !!! warning "At the Nyquist frequency the phase becomes a real attenuation"
     On an even-length axis the Nyquist mode of a real field carries a single real amplitude that
     stands for both of the wavenumbers ``\\pm\\pi/\\Delta x_a`` (with ``\\Delta x_a`` the grid spacing

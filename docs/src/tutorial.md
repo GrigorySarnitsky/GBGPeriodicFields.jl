@@ -90,7 +90,7 @@ total equals `inner`:
 ```jldoctest tutorial
 julia> shells, spectrum = radial_spectrum(uh, multipliers);
 
-julia> round(sum(spectrum); digits = 4)   # Σ E(k) = inner(u, u)
+julia> round(sum(spectrum); digits = 4)   # Σ P(κ) = inner(u, u): the power spectrum's shells sum to inner
 1.5
 ```
 
