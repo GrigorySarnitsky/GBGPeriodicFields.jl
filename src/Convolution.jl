@@ -121,7 +121,7 @@ accumulate:
     still real exactly when its own transfer function carries that symmetry,
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
     real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
-    `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
+    `spectral_band`, `squared_wavenumber_field`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
     construction. A consumer-built kernel that breaks the symmetry yields coefficients that are those
     of no real field, and the inverse transform then silently keeps only their Hermitian part.
 
@@ -149,10 +149,11 @@ end
 """
     convolve(field, kernel::ScalarFieldSpectral)
 
-Allocate the result and return the periodic convolution of `field` with the kernel `kernel`, in
-spectral representation. Because a kernel is itself a scalar field in spectral representation,
-`convolve(g₁, g₂)` composes two kernels into one. See [`convolve!`](@ref) for the componentwise
-definition and the spectral kernel; the representation and tensor order are preserved.
+Allocating form of [`convolve!`](@ref): allocate the result and return the periodic convolution of
+`field` with the kernel `kernel`, in spectral representation. Because a kernel is itself a scalar
+field in spectral representation, `convolve(g₁, g₂)` composes two kernels into one. See `convolve!`
+for the componentwise definition and the spectral kernel; the representation and tensor order are
+preserved.
 """
 function convolve end
 
@@ -269,7 +270,7 @@ special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 - `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
 
 ```math
-\\hat g(k) = \\mathbb 1\\!\\left[  |k| \\le k_c  \\right].
+\\hat g(k) = \\mathbb 1\\!\\bigl[ |k| \\le k_c \\bigr].
 ```
 
 The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the consumer's.
@@ -373,13 +374,13 @@ assembled per axis from that wavenumber's component ``k_a`` and the displacement
 axis:
 
 ```math
-\\hat g(k) = \\mathrm{e}^{-\\mathrm{i}  k \\cdot h}
+\\hat g(k) = e^{-\\mathrm{i}  k \\cdot h}
           = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(k_a h_a) \\bigr].
 ```
 
 The two factors draw on the package's two wavenumber families: the even cosine takes the **true**
 wavenumber ``k_a`` and the odd sine the **Nyquist-zeroed derivative** wavenumber. These coincide on every
-resolved mode — so the factor there is the pure phase ``\\mathrm{e}^{-\\mathrm{i} k_a h_a}`` above — and
+resolved mode — so the factor there is the pure phase ``e^{-\\mathrm{i} k_a h_a}`` above — and
 part only at an even axis's Nyquist frequency, where the warning below applies.
 
 !!! warning "At the Nyquist frequency the phase becomes a real attenuation"

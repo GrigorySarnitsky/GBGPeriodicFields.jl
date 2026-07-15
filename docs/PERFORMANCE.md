@@ -171,7 +171,7 @@ until VRAM fills and the run wedges (allocator spinning, GPU idle) or `hipMalloc
 the component broadcasts — each now allocates ``\sim 0`` bytes in place (measured; guarded by
 `test/allocations.jl`), with identical results. Payoff: a **preallocated, in-place** pseudospectral DNS
 step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
-(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``Re_\lambda \approx 93``) sustains **≈ 34 ms/step**
+(`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``) sustains **≈ 34 ms/step**
 (8000 steps, ≈ 270 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
 use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`/`dev!`
 deliberately materialize one field and are the exceptions (use `maximum(abs, …)` for a CFL speed).
@@ -283,7 +283,7 @@ A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GP
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
 4-thread CPU. `RESULTS.md` now carries **two CPU thread sweeps** (i7-12700K and Ryzen 9800X3D) and
 **four GPU columns** — the GTX 1070 (Pascal, CUDA, pre-swap), the RX 6700 XT shown here, the RX 7900 XTX
-(gfx1100, 24 GB), and the RTX 5070 Ti (Blackwell sm_120, CUDA, 16 GB). At 256³ (kernel-dominated, not
+(gfx1100, 24 GB), and the RTX 5070 Ti (Blackwell `sm_120`, CUDA, 16 GB). At 256³ (kernel-dominated, not
 launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 6700 XT — widest in
 `Float32` — and adds a 512³ `Float32` point; the 5070 Ti covers the full 256³ matrix (both element
 types, all six classes). Across vendors the **reductions** class shows the widest gap and the
@@ -322,10 +322,10 @@ parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and G
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
 across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
-CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell sm_120, CUDA); the 7900 XTX is extended to
+CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
 a 512³ `Float32` point for the bandwidth-bound classes. The decision-27 additions (`combine!`, `det!`,
 `symmetric_gradient!`, `weighted_inner`) are wired into their classes and CPU-verified (0 allocations for
-`combine!`/`det!`; the small bounded wrappers for `symmetric_gradient!`/`weighted_inner`); they enter the
+`combine!`/`det!`/`symmetric_gradient!`; the small bounded guard for `weighted_inner`); they enter the
 committed `RESULTS.md` table on its next GPU-host refresh.
 
 **Gaps:**
@@ -341,7 +341,7 @@ committed `RESULTS.md` table on its next GPU-host refresh.
    `characterize.jl` now takes a `cuda` backend beside `gpu`/`rocm` (CuArray + `CUDA.reclaim()`, no
    comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The archived
    **GTX 1070** (Pascal, 8 GB) stays a 64³/128³ column — an 8 GB Pascal card tops out below 256³, so
-   those rows read `—`. Its in-place replacement, the **RTX 5070 Ti** (Blackwell sm_120, 16 GB), covers
+   those rows read `—`. Its in-place replacement, the **RTX 5070 Ti** (Blackwell `sm_120`, 16 GB), covers
    the **full 64³–256³ matrix** (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
    16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 5),
    CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the

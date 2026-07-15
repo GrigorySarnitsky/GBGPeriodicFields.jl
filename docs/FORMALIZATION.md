@@ -89,7 +89,7 @@ point bases (one set of generated kernels, `src/FiberSections.jl`). A `FiberVect
 
 ```math
 \begin{aligned}
-u\cdot v &= u_i v_i, & A : B &= A_{ij}B_{ij}, & (u\times v)_i &= \epsilon_{ijk} u_j v_k,\\
+u\cdot v &= u_i v_i, & A : B &= A_{ij}B_{ij}, & (u\times v)_i &= \varepsilon_{ijk} u_j v_k,\\
 (Au)_i &= A_{ij}u_j, & (uA)_i &= u_j A_{ji}, & (AB)_{ij} &= A_{ik}B_{kj},\\
 (A^{\top})_{ij} &= A_{ji}, & |u| &= \sqrt{u_i u_i}, & |A| &= \sqrt{A_{ij}A_{ij}}.
 \end{aligned}
@@ -101,7 +101,7 @@ so ``\operatorname{sym}+\operatorname{skew}=\mathrm{id}`` and ``\operatorname{tr
 The trace ``\operatorname{tr}(A)=A_{ii}`` — the first tensor invariant that `dev` removes — is exposed as
 `tr`/`tr!`, and being linear it is representation-preserving (the trace of the spectral coefficients is
 the spectral representation of ``\operatorname{tr}A``). The **third** invariant, the determinant
-``\det A=\epsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a homogeneous cubic form in the
+``\det A=\varepsilon_{ijk}A_{1i}A_{2j}A_{3k}=I_3`` (`det`/`det!`), is a homogeneous cubic form in the
 components, hence
 **nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
@@ -155,7 +155,7 @@ formed without materializing the full gradient tensor and sharing the derivative
 **Backs** [Architecture](architecture.md) §4, decision 27.
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
 ``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, and ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``)
-and `test/adjointness.jl` (self-adjointness, idempotent projection, negative-definite Laplacian).
+and `test/adjointness.jl` (self-adjointness, idempotent projection, negative-semidefinite Laplacian).
 
 ## Convolution (`Convolution`, [Architecture](architecture.md) §11)
 
@@ -191,21 +191,21 @@ multiplier is the separable product
 
 ```math
 \hat g_h(k) = \prod_{a=1}^{3}
-  \bigl[  \cos(\kappa_a h_a) \;-\; \mathrm i \sin(\tilde\kappa_a h_a)  \bigr].
+  \bigl[  \cos(\kappa_a h_a) \;-\; \mathrm{i} \sin(\tilde\kappa_a h_a)  \bigr].
 ```
 
 Three statements, each expanded against the code and tested:
 
 - **A pure phase away from Nyquist.** Where no component of ``k`` sits at a Nyquist frequency we have
   ``\tilde\kappa_a = \kappa_a``, and ``\cos`` is even, so each factor collapses to
-  ``\cos(\kappa_a h_a) - \mathrm i \sin(\kappa_a h_a) = e^{-\mathrm i \kappa_a h_a}``, whence
-  ``\hat g_h(k) = e^{-\mathrm i k \cdot h}``, of unit modulus. ``\checkmark``
+  ``\cos(\kappa_a h_a) - \mathrm{i} \sin(\kappa_a h_a) = e^{-\mathrm{i} \kappa_a h_a}``, whence
+  ``\hat g_h(k) = e^{-\mathrm{i} k \cdot h}``, of unit modulus. ``\checkmark``
 - **Reality: the kernel is Hermitian.** ``\hat g_h(-k) = \overline{\hat g_h(k)}`` on the discrete
   frequency torus, so `convolve` carries a real field to a real field. Each non-Nyquist factor conjugates
   under ``\kappa_a \mapsto -\kappa_a``; each Nyquist factor is the *real* number
   ``\cos(\pi h_a / \Delta x_a)``, hence its own conjugate — which is what the statement needs, the
   Nyquist frequency being its own negative modulo ``N_a``. The two candidate kernels fail here or below: the
-  true phase ``e^{-\mathrm i k\cdot h}`` is *not* Hermitian at Nyquist for a fractional displacement, and
+  true phase ``e^{-\mathrm{i} k\cdot h}`` is *not* Hermitian at Nyquist for a fractional displacement, and
   the all-derivative-wavenumber kernel is Hermitian but carries the wrong value. ``\checkmark``
 - **Whole-cell displacements are exact.** For ``h_a = m_a \Delta x_a`` with ``m \in \mathbb Z^3`` every
   factor is the exact phase — the Nyquist one reducing to ``\cos(\pi m_a) = (-1)^{m_a}`` — and the
@@ -213,8 +213,8 @@ Three statements, each expanded against the code and tested:
 
 **Backs** [Architecture](architecture.md) §11, decisions 20–22, 28.
 **Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
-`circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, the ``\operatorname{sinc}^2`` window, and
-the physical-space intentional absence; and for `translation_kernel`, `circshift` on a *random* field (one
+`circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, and
+the physical-space intentional absence (the ``\operatorname{sinc}^2`` window is checked by `test/rdf.jl`); and for `translation_kernel`, `circshift` on a *random* field (one
 with Nyquist content, so the Nyquist factor is exercised), the exact `DirectDFT` evaluation at the displaced
 nodes for a sub-cell displacement, and the reality check that the displaced half-spectrum survives a
 transform round trip (the inverse transform being the Hermitian projector).
@@ -227,14 +227,14 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 
 ```math
 \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\text{grid}),\quad \sum_p f_p\ (\text{points});
-\qquad \int_\Omega f\,\mathrm{d}\mu = \text{measure}\cdot\text{mean}. \quad\checkmark
+\qquad \int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\mathrm{mean}. \quad\checkmark
 ```
 
 **`integral` and `mean` in spectral representation** (the zero mode, no transform): the unnormalized
 forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real field), so
 
 ```math
-\text{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
+\mathrm{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
 ```
 
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
@@ -324,7 +324,7 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 
 ```math
 \langle f, \iota_* q\rangle_{\text{grid}}
-= \frac{1}{N}\sum_n f_n\cdot\tfrac NM (W^{\top}q)_n
+= \frac{1}{N}\sum_n f_n\cdot\tfrac{N}{M} (W^{\top}q)_n
 = \frac{1}{M}\sum_n f_n\cdot(W^{\top}q)_n
 = \langle Wf, q\rangle_{\text{pts}} \qquad\checkmark
 ```

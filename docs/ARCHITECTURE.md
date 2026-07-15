@@ -350,7 +350,7 @@ rule: an operation may be offered in a representation **iff** its square commute
 into `_check_same_domain`, the representation-dispatched
 `_check_field_domain_compatibility` (physical-physical and spectral-spectral
 methods — the dispatch barrier that prevents cross-representation mixing), the
-public `check_field_compatibility`, and `_check_field_matches_context` for
+unexported `check_field_compatibility` (un-prefixed, but documented with the internals), and `_check_field_matches_context` for
 transform plans.
 
 History: `FieldAlgebra` used to carry near-duplicate checkers
@@ -587,7 +587,7 @@ scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exac
 **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — so the adjointness
 *is* their adjunction ``\langle \iota^{*} f, q\rangle_{\text{pts}} = \langle f, \iota_{*} q\rangle_{\text{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
 reconstruction — the spline or band-limited spectral interpolant lifting grid samples to a section over
-``\Omega`` — which the reproduction identity above shows is exact on ``\Pi_m``.)
+``\Omega`` — which the reproduction identity above shows is exact on ``\Pi_d``.)
 
 **Two scheme families (decision 23).** The `scheme` argument is an
 `AbstractTransferScheme` — the choice of *kernel* and *representation* that realizes ``W`` / ``W^\top``
@@ -702,7 +702,7 @@ cloud microphysics, no operator noun at all — only the *source/sink term* it p
 and the *two-way coupling* / *thermodynamic feedback* it enacts. We adopt
 **anterpolation** (Brandt & Lubrecht 1990) because it is the single term whose literal
 definition is "the adjoint of interpolation" — it names the operation by the property
-that matters, independent of application. The binding will carry a docstring listing the
+that matters, independent of application. The binding carries a docstring listing the
 synonyms — *adjoint of interpolation; spreading; deposition; scatter; projection /
 PSI-Cell; gridding; two-way-coupling source/feedback* — so a reader from any of those
 fields finds it. **"Extrapolation" is deliberately rejected**: extrapolation means
@@ -737,7 +737,7 @@ factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 1
 ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its annular generalization),
 `squared_wavenumber_field` (the ``|k|^2`` radial coordinate consumers build symbols from),
 `assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window), and
-`translation_kernel` (the shift theorem's phase ``e^{-\mathrm i k\cdot h}``, which displaces a field by a
+`translation_kernel` (the shift theorem's phase ``e^{-\mathrm{i} k\cdot h}``, which displaces a field by a
 physical offset ``h``). The first four are real and even in the wavenumber ``k``; `translation_kernel` is
 the one **complex** kernel, and the reality condition a complex kernel must meet — the Hermitian symmetry
 ``\hat g(-k) = \overline{\hat g(k)}``, equivalently a real physical-space kernel ``g`` — is what forces its
@@ -893,7 +893,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     basis are independent anchors, with partition of unity (⇒ conservation). Kernels are portable
     across CPU / CUDA / AMDGPU via **KernelAbstractions** (new dep) with the atomic scatter via
     **Atomix** (new dep); both index the native arrays linearly, so one kernel serves
-    scalar/vector/tensor orders. Adjointness ``\langle Wf, q\rangle = \langle f, W^\top q\rangle`` and conservation hold to roundoff;
+    scalar/vector/tensor orders. Adjointness in the counting pairing — ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n``, the unnormalized sums over the ``M`` points and the ``N`` grid nodes — and conservation hold to roundoff;
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
@@ -948,7 +948,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\mathrm{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
     counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
     rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
-    allocation-free as a `dot` over the array plus two plane corrections. `integral` and `mean` are
+    as a `dot` over the array plus two plane corrections — allocation-free in the `inner(f, f)`/`l2norm` case, while the mixed `inner(f, g)` materializes its two correction planes (decision 26). `integral` and `mean` are
     representation-invariant too, by a different route — the zero (DC) Fourier mode: under the
     unnormalized-forward convention the DC coefficient is ``\hat f(0) = \sum_x f(x)`` (real for a real
     field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N) \hat f(0)`` with no transform,
@@ -1002,7 +1002,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *The transfer adjoint is a row-1 (base-measure) statement, and that is why reductions came first.*
     Anterpolation ``W^\top`` is the adjoint of ``W``; "adjoint w.r.t. which pairing?" is answered by the base
-    measures. As shipped (decision 17) the adjointness ``\langle Wf, q\rangle = \langle f, W^\top q\rangle`` and conservation
+    measures. As shipped (decision 17) the adjointness ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n`` (the unnormalized counting pairing) and conservation
     ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
     conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with the
     grid carrying ``\Delta x^3`` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
@@ -1175,7 +1175,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     on a random pair) + GPU (ROCm device-vs-CPU parity, `test/gpu/suite.jl`); benchmarked (`reductions` class).
 
     *Points → RDF (Phase 2, done).* The pair correlation ``g(r)`` of ``M`` points is computable
-    in ``O(N + M \log M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
+    in ``O(N \log N + M)`` (vs ``O(M^2)`` direct counting) via the **FFT structure-factor estimator** — exactly
     the implemented recipe: **anterpolate** the points to a grid density (positive/linear assignment), form the
     overdensity ``\delta = \rho/\bar\rho - 1``, **FFT**, **deconvolve** ``\hat\delta`` by the assignment window
     ``\hat W``, then `radial_correlation` of the deconvolved field gives ``\xi(r) = \langle\delta(x)\delta(x+r)\rangle``
@@ -1197,7 +1197,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac{2}{3} k_\mathrm{Nyq}``, and ``g(r)``
       below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
       large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
-      peak (interlacing — Sefusatti et al. — is a future refinement). This matches the intended consumer
+      peak (interlacing — Sefusatti et al. 2016 — is a future refinement). This matches the intended consumer
       use; it is a documented boundary, not a defect.
 
     *Verified (`test/rdf.jl`):* `assignment_window` against its ``\prod \operatorname{sinc}^2`` formula
@@ -1267,7 +1267,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (host quadrature, the ``z=\sin\theta`` substitution regularizing the endpoint); the stencil width
     and the shape parameter ``\beta`` follow the Barnett–Magland–af Klinteberg ES rule for the tolerance.
     Verified against `DirectDFT` (and `to_physical`) to the requested tolerance ``\varepsilon``
-    (``\sim 10^{-12}`` at the default) for scalar and
+    (the default requests `tol = 1e-10`; the exponential-of-semicircle window over-delivers, ``\sim 10^{-12}`` measured there) for scalar and
     vector fields, with the NUFFT pair an **exact adjoint** (``\sim 10^{-15}``).
 
     *The Nyquist edge.* The one subtlety: the rfft half-spectrum Nyquist mode of an even axis cannot be
@@ -1420,7 +1420,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       already lived on both) with the formula written once.
     - `symmetric_gradient`/`!` (`DifferentialOperators`) forms the symmetric part of a vector field's
       gradient, ``S_{ij} = \tfrac{1}{2} (\partial_{x_j} u_i + \partial_{x_i} u_j)`` for a vector field ``u``,
-      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm i}{2} (k_j \hat u_i + k_i \hat u_j)`` with the
+      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm{i}}{2} (k_j \hat u_i + k_i \hat u_j)`` with the
       same Nyquist-correct derivative wavenumbers ``k`` as `gradient` — skipping the full nine-component
       gradient tensor ``\nabla u`` that `sym(gradient(u))` builds only to symmetrize. It is the **fused
       symmetric peer of `curl`**, which already extracts the *antisymmetric* part of ``\nabla u`` (as a
@@ -1428,7 +1428,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       consumer, exactly as the package says `curl` where the consumer says "vorticity".
     - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
       product of two fields ``f, g`` in spectral representation against a real Fourier multiplier ``w(k)``,
-      ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \operatorname{Re}(\hat f_c 
+      ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}(\hat f_c 
       \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight, ``N`` the grid-point
       count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
       fused pass with no filtered field materialized. It is the **reduction-dual of `convolve`** (apply a
@@ -1467,7 +1467,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *Why the package owns it.* Translation is a **coordinate-only** operation on the field, with no physics
     in it — the exact sibling of the derivative and cutoff multipliers the package already owns — and by the
     shift theorem it *is* a convolution: with the Dirac delta displaced to ``h``, whose transfer
-    function is the pure phase ``\hat g(k) = e^{-\mathrm i  k\cdot h}`` at wavenumber ``k``. So it needs
+    function is the pure phase ``\hat g(k) = e^{-\mathrm{i}  k\cdot h}`` at wavenumber ``k``. So it needs
     no new operation, only a new kernel (decision 20): `convolve!` already applies a scalar kernel to any
     tensor order, with its accumulation weights, alias-safely. **Only the builder was missing** —
     the package exposes no function-of-wavenumbers constructor, and the allocation helper `similar_field` is
@@ -1483,7 +1483,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     axis: the **Nyquist** frequency of an even-length axis (with ``N_a`` points and spacing ``\Delta x_a``
     along axis ``a``), the mode that is its own conjugate partner and where the kernel is therefore forced to
     be real. The two obvious candidates each fail, and they fail *differently*:
-    - The **true phase** ``e^{-\mathrm i  k\cdot h}`` built from the signed wavenumbers is complex at
+    - The **true phase** ``e^{-\mathrm{i}  k\cdot h}`` built from the signed wavenumbers is complex at
       Nyquist for a fractional displacement, so it returns coefficients that are no real field's — the
       inverse transform then silently keeps only their Hermitian part. (Whole-cell displacements are safe:
       the factor there is ``(-1)^m`` for a displacement of ``m`` cells, which is real.)
@@ -1497,7 +1497,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the real factor ``\cos(\pi h_a/\Delta x_a)`` — equal to ``(-1)^m`` for a whole-cell displacement of
     ``m`` cells, and to ``0`` for a half-cell one, a displaced Nyquist mode being genuinely not representable
     on the same grid. Splitting the phase into its even and odd parts,
-    ``e^{-\mathrm i k_a h_a} = \cos(k_a h_a) - \mathrm i \sin(k_a h_a)``, states the rule in
+    ``e^{-\mathrm{i} k_a h_a} = \cos(k_a h_a) - \mathrm{i} \sin(k_a h_a)``, states the rule in
     one line: **the even (cosine) part takes the true wavenumber, the odd (sine) part takes the derivative
     wavenumber.** Those are exactly the package's two multiplier families (invariant 5: squared wavenumbers
     keep the true value at Nyquist, derivative wavenumbers are zeroed there), so the builder is a

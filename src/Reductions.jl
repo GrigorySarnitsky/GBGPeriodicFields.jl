@@ -18,7 +18,9 @@ Each family links to the home where its formula lives:
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
 - `mean`, `std`, `var` — the **intensive**, **fiber-preserving** base moments (they extend
-  `Statistics`; the `mean` of a vector field is a `FiberVector`).
+  `Statistics`; the `mean` of a vector field is a `FiberVector`): `mean` is the plain arithmetic
+  average over the ``N`` grid cells or the ``M`` points, and `std`/`var` keep the `Statistics`
+  keyword `corrected = true` (the default divides by the count minus one).
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
@@ -542,7 +544,7 @@ radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding 
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac{1}{2}(C_{fg} + C_{gf})``
 and is symmetric in ``f, g``.
 
-Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a (L_a/2)^2}`` (``\\sqrt3 L/2``
+Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a (L_a/2)^2}`` (``\\sqrt{3} L/2``
 for a cubic box) at the finest spacing ``\\min_a \\Delta x_a``, the ``\\min(i, N_a - i)`` fold making ``C``
 periodic and even (``C(r) = C(L - r)``). This is the physical-space mirror of the spectrum's corner caveat:
 only ``|r| \\le \\min_a L_a/2`` — the sphere inscribed in the min-image box — is sampled in *all*

@@ -32,21 +32,22 @@ end
 
 
 # =============================================================================
-# Second-order structure functions (traces) and the velocity autocorrelations.
+# Second-order structure functions (per-component) and the velocity autocorrelations.
 #
-# These are the standard trace second-order structure functions (the K41 forms):
+# These are the standard per-component second-order structure functions — one third of the
+# trace ⟨|δu|²⟩ (the K41 forms):
 #   Eulerian   S⁽ᴱ⁾(Δx) = (1/3)⟨|u(x+Δx) − u(x)|²⟩      (all components, isotropically
 #                                                         averaged over direction)
 #   Lagrangian S⁽ᴸ⁾(Δt) = (1/3)⟨|U(t+Δt) − U(t)|²⟩       (over particles & time origins)
-# For a homogeneous field the Eulerian trace is got from the velocity autocorrelation,
+# For a homogeneous field the Eulerian one is got from the velocity autocorrelation,
 # S⁽ᴱ⁾(r) = (2/3)(C(0) − C(r)) with C(r) = ⟨u(x)·u(x+r)⟩ — so the driver reads it straight
 # off the package's FFT-based `radial_correlation` (the shell-averaged C(r)); no
-# hand-rolled spatial shift, and it scales to any grid. The Lagrangian trace is the
+# hand-rolled spatial shift, and it scales to any grid. The Lagrangian one is the
 # matching `(2/3)(R(0) − R(τ))`, but is computed below directly from the per-particle
 # velocity increments (robust, and the recorded V is small).
 # =============================================================================
 
-# Lagrangian velocity autocorrelation R(τ) = ⟨U(t)·U(t+τ)⟩ and trace structure function
+# Lagrangian velocity autocorrelation R(τ) = ⟨U(t)·U(t+τ)⟩ and per-component structure function
 # S⁽ᴸ⁾(τ) = (1/3)⟨|U(t+τ) − U(t)|²⟩, both over particles and time origins, in ONE pass over
 # the recorded velocities. V is a host array (n_particles, 3, n_records); the lag axis τ
 # includes τ = 0 (R(0) = ⟨|U|²⟩, S⁽ᴸ⁾(0) = 0). lag_dt = rec_stride · dt.
@@ -69,7 +70,7 @@ function lagrangian_stats(V, lag_dt)
     end
     denominator = M * (T - ℓ)
     R[ℓ + 1] = acc_corr / denominator
-    S2[ℓ + 1] = (acc_diff / denominator) / 3        # trace: (1/3)⟨|ΔU|²⟩
+    S2[ℓ + 1] = (acc_diff / denominator) / 3        # per-component: (1/3)⟨|ΔU|²⟩
   end
   return τ, R, S2
 end

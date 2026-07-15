@@ -10,6 +10,7 @@ Order   = [:module]
 ```@docs
 interpolate!
 interpolate
+GBGPeriodicFields.Fields.AbstractFieldPhysical(::Any)
 anterpolate!
 anterpolate
 ```
@@ -35,4 +36,5 @@ documented for contributors.
 Modules = [GBGPeriodicFields.Interpolation]
 Public  = false
 Order   = [:type, :function]
+Filter  = t -> t !== GBGPeriodicFields.Fields.AbstractFieldPhysical
 ```

@@ -73,7 +73,7 @@ Incompressible Navier–Stokes in **rotational form**, so the nonlinear step map
 **L²/measure reductions** `inner`/`l2norm` (energy `½ inner(u,u)`, dissipation `ν inner(ω,ω)`, the
 divergence check `l2norm(∇·u)`), `radial_spectrum` (the energy spectrum `E(k)`) and
 **`radial_correlation`** (the shell-averaged velocity autocorrelation `C(r)`, whose integral is the
-integral length `L`, and from which the Eulerian trace structure function follows as
+integral length `L`, and from which the Eulerian per-component structure function follows as
 `S⁽ᴱ⁾(r) = ⅔(C(0)−C(r))`); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the `exp(−νk²Δt)`
 integrating factor, the IC envelope); and `interpolate` (grid→point). The hot loop uses the **in-place,
 allocation-free** `!` forms throughout — the spectral operators allocate ~0 bytes (`docs/ARCHITECTURE.md`
@@ -83,8 +83,8 @@ materializes a magnitude field). Built-in correctness cross-checks: the Parseval
 
 ### Reading the plots (and the Reynolds-number caveat)
 
-The headline `structure_functions` figure shows the Eulerian and Lagrangian **trace**
-structure functions, each normalized by its Kolmogorov inertial scaling —
+The headline `structure_functions` figure shows the Eulerian and Lagrangian **per-component**
+structure functions (one third of the trace `⟨|δu|²⟩`), each normalized by its Kolmogorov inertial scaling —
 `S⁽ᴱ⁾(Δx) / [(11/9) C₂ ε²ᐟ³ Δx²ᐟ³]` vs `Δx/η`, and `S⁽ᴸ⁾(Δt) / [C₀ ε Δt]` vs `Δt/τ_η` (`C₂=2.1`,
 `C₀=6.0`). A K41 inertial range shows as a **plateau at 1**. Marked on each panel are the **Taylor** and
 **integral** scales — `λ/η` and `L/η` (Eulerian), `√(τ_η·τ_u)/τ_η` and `τ_u/τ_η` (Lagrangian) — where the

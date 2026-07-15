@@ -45,6 +45,7 @@ and need not repeat the convention.
 | ``\mathcal{F}``, ``\mathcal{F}^{-1}`` | the forward and inverse transforms | `to_spectral`, `to_physical` |
 | ``\cdot``, ``\times`` | the fiber dot and cross products | `dot` (`⋅`), `cross` (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | `inner` |
+| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude | `norm` |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |

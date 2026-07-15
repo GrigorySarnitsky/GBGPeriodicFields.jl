@@ -3,7 +3,7 @@
 A short, runnable tour of the package. Every code block below is a **doctest** — the output shown is
 checked when the docs are built, so the tutorial cannot silently drift from the code.
 
-The mental model (`docs/ARCHITECTURE.md` §2): a **field** is a real physical object — a section of a
+The mental model (the [Architecture](architecture.md) page): a **field** is a real physical object — a section of a
 tensor bundle over a periodic box. *Physical* and *spectral* are two **representations** of the same
 object; the complex coefficient arrays are storage detail, never the object itself.
 
@@ -125,5 +125,5 @@ julia> pointvalue_tensor_order(sampled)
 
 That is the whole surface in miniature: build a field, move between representations, apply operators /
 convolutions, reduce it, and transfer to and from points. The [API reference](api.md) documents every
-operation (with its computed formula), and `docs/ARCHITECTURE.md` explains *why* the package is shaped
+operation (with its computed formula), and the [Architecture](architecture.md) page explains *why* the package is shaped
 this way.

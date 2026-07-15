@@ -400,7 +400,8 @@ cyclically,
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
-fresh result instead.
+fresh result instead. `destination` may alias `field`: the aliased call is detected and computed through
+a guard temporary, at the cost of one field-sized allocation.
 
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`.
@@ -743,7 +744,9 @@ gradient of the pressure-like potential that solves the divergence:
     physical space even though it acts coefficientwise in spectral representation.
 
 Use this in-place form when `destination` is already allocated; the allocating
-[`helmholtz_projection`](@ref) returns a fresh result instead.
+[`helmholtz_projection`](@ref) returns a fresh result instead. `destination` may alias `field`: the
+aliased call is detected and computed through a guard temporary, at the cost of one field-sized
+allocation.
 
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`.

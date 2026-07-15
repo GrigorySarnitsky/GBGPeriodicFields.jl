@@ -263,7 +263,7 @@ end
 
 
 # =============================================================================
-# Structure functions, autocorrelations and integral scales — the trace S₂'s, the
+# Structure functions, autocorrelations and integral scales — the per-component S₂'s, the
 # Lagrangian velocity autocorrelation, and the integral-scale reduction all live in
 # examples/hist_postprocess.jl (shared with the CPU twin; eulerian_trace_s2! keeps the
 # whole-field circshift on-device, only the scalar reductions land on the host). The
@@ -366,11 +366,11 @@ function run_hist(p::Params)
 
   # --- length / time scales from the velocity autocorrelations --------------
   # Eulerian: the time-averaged C(r) (= ⟨u(x)·u(x+r)⟩, C(0) = ⟨|u|²⟩) gives the integral length
-  # L = ∫₀ ρ(r) dr and the trace structure function S⁽ᴱ⁾(r) = (2/3)(C(0) − C(r)). Lagrangian: the
+  # L = ∫₀ ρ(r) dr and the per-component structure function S⁽ᴱ⁾(r) = (2/3)(C(0) − C(r)). Lagrangian: the
   # particle-velocity autocorrelation R(τ) (from the recorded V), integral time τ_u = ∫₀ ρ_L(τ) dτ.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
-  S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian trace structure function (homogeneous identity)
+  S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian per-component structure function (homogeneous identity)
   τ_l, R_l, S2l = lagrangian_stats(V, p.rec_stride * dt)
   rho_L  = R_l ./ R_l[1]
   τ_u    = integral_scale(τ_l, R_l)

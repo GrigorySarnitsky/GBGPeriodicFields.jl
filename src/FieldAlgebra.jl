@@ -1278,7 +1278,13 @@ det(A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = det!(similar_field(
     sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     sym!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the symmetric part ``\\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+
+Pointwise over the base:
+
+```math
+\\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top).
+```
 """
 function sym! end
 
@@ -1297,7 +1303,13 @@ function sym end
     skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     skew!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the skew-symmetric part ``\\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the skew-symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+
+Pointwise over the base:
+
+```math
+\\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top).
+```
 """
 function skew! end
 
@@ -1316,7 +1328,13 @@ function skew end
     dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the deviatoric part ``\\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the deviatoric (trace-free) part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+
+Pointwise over the base, with ``I`` the identity tensor:
+
+```math
+\\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I.
+```
 """
 function dev! end
 

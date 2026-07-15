@@ -17,7 +17,7 @@ field over the ``N`` grid cells. Written with the normalized inner product ``\\l
 and ``1/N``:
 
 ```math
-M \\langle Wf, q \\rangle_{\\texttt{PointSet}} = \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\texttt{Grid3D}}.
+M \\langle Wf, q \\rangle_{\\text{pts}} = \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\text{grid}}.
 ```
 
 This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
@@ -521,7 +521,10 @@ Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoi
 in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
-with the weights' partition of unity the total deposited quantity is conserved. The `scheme` (an
+with the weights' partition of unity the total deposited quantity is conserved. Other communities name
+this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
+(particle-in-cell), *projection* (particle-source-in-cell), or *gridding* (nonuniform FFTs);
+*anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990). The `scheme` (an
 [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation: the physical-domain
 local splines ([`CatmullRom`](@ref) and the other [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref))
 scatter onto a **physical-space** field, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a
@@ -534,6 +537,10 @@ field in **spectral representation**; each scheme's own docstring gives the weig
 `field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
 must cover the same number of points. The transfer runs as a portable scatter kernel on the field's array
 backend (CPU / CUDA / AMDGPU).
+
+Reference: A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
+equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
+(an early use of "anterpolation" for the adjoint of interpolation).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false)

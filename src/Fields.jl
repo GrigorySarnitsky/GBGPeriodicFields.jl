@@ -992,7 +992,12 @@ Transform a field from spectral space to physical space in-place.
 
 Here `physical` is the destination, `spectral` is the source, and `transform_plans` provides the inverse FFT plan.
 
-The inverse transform uses `spectral` as scratch space and may overwrite it: on return its coefficients are left in an undefined state (the FFTW CPU backend destroys them — complex-to-real transforms have no input-preserving algorithm in the multidimensional case; some GPU backends happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref) when `spectral` must be preserved.
+!!! warning "The source is used as scratch"
+    The inverse transform uses `spectral` as scratch space and may overwrite it: on return its
+    coefficients are left in an undefined state (the FFTW CPU backend destroys them — complex-to-real
+    transforms have no input-preserving algorithm in the multidimensional case; some GPU backends
+    happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref)
+    when `spectral` must be preserved.
 
 Returns the modified destination field.
 """
@@ -1017,7 +1022,11 @@ Transform a field from physical space to spectral space in-place.
 
 Here `spectral` is the destination, `physical` is the source, and `transform_plans` provides the forward FFT plan.
 
-The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the right to use real-to-complex inputs as scratch); the FFTW CPU backend preserves it, but do not rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be preserved.
+!!! warning "The source may be overwritten"
+    The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the
+    right to use real-to-complex inputs as scratch); the FFTW CPU backend preserves it, but do not
+    rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be
+    preserved.
 
 Returns the modified destination field.
 """
@@ -1109,7 +1118,7 @@ These two constructors are explicit: you supply both the wavenumbers and the squ
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
 A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment;
-it is documented separately below.
+it carries its own docstring.
 """
 struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
   grid::Grid3D{T}
