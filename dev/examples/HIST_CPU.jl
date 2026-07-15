@@ -33,6 +33,7 @@
 #
 # ```sh
 # julia --project=examples examples/HIST_CPU.jl            # full run (default 32³, ~1 min)
+# julia --project=examples examples/HIST_CPU.jl --smoke    # tiny end-to-end check
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 # julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
 # julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (heaviest CPU config; very heavy on CPU)
@@ -117,7 +118,7 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # Wrap a per-mode transfer function ``w(\mathbf{k})`` (a real ``(N_{k_x}, N_y, N_z)`` array, the argument
 # `w`) as a scalar field in spectral representation — the consumer's half of a convolution; the
 # package applies it via `convolve`. The integrating factor and the IC envelope are
-# built this way (their ``\nu`` / ``\Delta t`` / width are the consumer's, per invariant 12).
+# built this way (their ``\nu`` / ``\Delta t`` / width are the consumer's — the package carries no physics).
 spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(reference))
 
 
@@ -190,7 +191,7 @@ end
 # every step until it wedges).
 
 # Physical velocity & vorticity of a spectral field, into the given buffers. `uh` is preserved by
-# transforming a COPY of it — `to_physical!` consumes its spectral source (invariant 11).
+# transforming a COPY of it — `to_physical!` may overwrite its spectral source as scratch.
 function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   curl!(ws.ωh, uh, m)                          # ω̂ = ∇×û  (û preserved)
   to_physical!(ω_out, ws.ωh, plans)            # physical vorticity (consumes ω̂)
@@ -210,17 +211,19 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
 end
 
 # One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
-# ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics —
-# invariant 12) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
+# ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics
+# the package never sees) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
 # physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
 # stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
 # `ws.k1`, `ws.k2` hold ``\hat{N}_1``, ``\hat{N}_2``):
 #
 # ```math
-# \hat{N}_1 = \hat{N}(\hat{u}_n), \qquad
-# \hat{u}^{*} = \mathcal{E} (\hat{u}_n + \Delta t \hat{N}_1), \qquad
-# \hat{N}_2 = \hat{N}(\hat{u}^{*}), \qquad
-# \hat{u}_{n+1} = \mathcal{E} \hat{u}_n + \tfrac{\Delta t}{2} (\mathcal{E} \hat{N}_1 + \hat{N}_2),
+# \begin{aligned}
+# \hat{N}_1 &= \hat{N}(\hat{u}_n), &
+# \hat{u}^{*} &= \mathcal{E} (\hat{u}_n + \Delta t \hat{N}_1), \\
+# \hat{N}_2 &= \hat{N}(\hat{u}^{*}), &
+# \hat{u}_{n+1} &= \mathcal{E} \hat{u}_n + \tfrac{\Delta t}{2} (\mathcal{E} \hat{N}_1 + \hat{N}_2),
+# \end{aligned}
 # ```
 #
 # then force.
@@ -257,7 +260,7 @@ end
 # ## Initial condition
 #
 # A random field, concentrated at large scales by an envelope, projected solenoidal, then band-energy
-# normalized. (The random-solenoidal IC generator is the one remaining package *gap* — see the README.)
+# normalized. (The package deliberately ships no random-field generator; the example builds its own.)
 
 function random_solenoidal(grid, m, plans, ws, ksq, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
@@ -272,7 +275,7 @@ end
 
 # ## Statistics
 #
-# The Lagrangian trace structure function (`lagrangian_stats`), the Lagrangian velocity autocorrelation, and the
+# The Lagrangian per-component structure function (`lagrangian_stats`), the Lagrangian velocity autocorrelation, and the
 # integral-scale reduction (`integral_scale`) live in the shared `hist_postprocess.jl`. The Eulerian
 # integral length comes from the package's `radial_correlation` (in the driver below); the Lagrangian
 # integral time from `lagrangian_stats`.
@@ -354,7 +357,7 @@ function run_hist(p::Params)
     end
     if n % p.snap_stride == 0
       ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, shell-averaged): the
-      ## trace S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length L = ∫ρ follow from it — no hand-rolled
+      ## per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length L = ∫ρ follow from it — no hand-rolled
       ## spatial shift. Accumulate C over snapshots for a time average.
       s, Csnap = radial_correlation(uh, vplans)
       isempty(Cacc) ? (sep = s; Cacc = copy(Csnap)) : (Cacc .+= Csnap)
@@ -386,12 +389,12 @@ function run_hist(p::Params)
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
   # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
-  # and the trace structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
+  # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
   # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
-  S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian trace structure function (homogeneous identity)
+  S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian per-component structure function (homogeneous identity)
   τ_l, R_l, S2l = lagrangian_stats(V, p.rec_stride * dt)
   rho_L = R_l ./ R_l[1]
   τ_u   = integral_scale(τ_l, R_l)
@@ -446,17 +449,18 @@ main()
 #md #
 #md # The figures below are from the GPU twin (``320^{3}`` `Float32`, ``\mathrm{Re}_\lambda \approx 130`` on a
 #md # 24 GB RX 7900 XTX, time-averaged over several forcing-oscillation periods). The
-#md # headline is the pair of compensated structure functions: the **trace second-order velocity structure functions**, Eulerian and
+#md # headline is the pair of compensated structure functions: the **per-component second-order velocity structure functions**
+#md # (one third of the trace ``\langle\lvert\delta u\rvert^{2}\rangle``), Eulerian and
 #md # Lagrangian, each normalized by its Kolmogorov (K41) inertial scaling — a true inertial range shows as
 #md # a plateau at ``1``. With ``\langle\cdot\rangle`` the average (over space/time origins), ``u`` the
 #md # Eulerian velocity and ``U`` a tracer's velocity,
 #md #
 #md # ```math
-#md # S^{(E)}(\Delta x) = \tfrac{1}{3}\big\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\big\rangle
-#md #                   = \tfrac{2}{3}\big(C(0) - C(r)\big),
+#md # S^{(E)}(\Delta x) = \tfrac{1}{3}\bigl\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\bigr\rangle
+#md #                   = \tfrac{2}{3}\bigl(C(0) - C(r)\bigr),
 #md # \qquad
-#md # S^{(L)}(\Delta t) = \tfrac{1}{3}\big\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\big\rangle
-#md #                   = \tfrac{2}{3}\big(R(0) - R(\Delta t)\big),
+#md # S^{(L)}(\Delta t) = \tfrac{1}{3}\bigl\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\bigr\rangle
+#md #                   = \tfrac{2}{3}\bigl(R(0) - R(\Delta t)\bigr),
 #md # ```
 #md #
 #md # where ``r = \lvert\Delta x\rvert``, ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` is the spatial velocity
