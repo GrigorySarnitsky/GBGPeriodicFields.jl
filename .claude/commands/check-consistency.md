@@ -25,7 +25,7 @@ formula-in-backticks. A hat that *reads* the TeX may not *flag* these (a panel o
 and waved it through). **Those belong to `/check-docs`'s deterministic scans** (several are build-enforced)
 — do not lean on the panel for them.
 
-## The panel (11 hats)
+## The panel (12 hats)
 
 Substrate **FULL** = every rendered page incl. the design docs; **SITEONLY** = the four design docs
 (Architecture / Formalization / Testing / Performance) withheld, so the two no-design-doc hats judge
@@ -36,18 +36,22 @@ self-containedness and structure without the design docs as a crutch.
 | 1 | `consistency-matrix` | the spine — matrix every recurring entity (object, symbol, formula, normalization, method, docstring shape) and diff it across all pages | FULL |
 | 2 | `software-architect` | the *documented* design as a senior Julia dev — signatures, dispatch, `f`/`f!`, the section/representation decomposition, single-source-of-truth, decision-log soundness | FULL |
 | 3 | `spectral-methods-mathematician` | every field operation's mathematics vs pseudospectral theory *and* itself — the transform pair and where `1/N` lives, the `iκ`/`−|k|²` multipliers and the Nyquist split, Parseval, Hermitian symmetry, spline order & smoothness | FULL |
-| 4 | `gpu-kernel-practitioner` | the allocation / backend / performance claims — allocation-free in-place, no scalar indexing, plan reuse, kernel fusion, CPU/CUDA/ROCm parity, `Float32`/`Float64` | FULL |
-| 5 | `structure-consistency` | infer the implicit docstring template, then flag every outlier against it | SITEONLY |
-| 6 | `latex-typesetter` | every formula's TeX idiom read as source, in the house style (upright `\mathrm{i}`/`\mathrm{d}`, component notation, `\Bigl` preferred, braced fractions, no gratuitous `\,`) | FULL |
-| 7 | `api-user` | build/drive the library from the docs alone — arg coverage, return shapes/representations, exported-vs-documented agreement | FULL |
-| 8 | `normalization-convention-auditor` | every normalization factor & indexing convention correct *and* identical across pages (the `1/N`, the multiplier signs, `fftfreq`/rFFT-Nyquist, the Parseval/spectrum factors, the `N/M` adjoint) | FULL |
-| 9 | `citations-integrity` | consistent author-year, inline↔reference-block matching with verbatim DOIs, no inaccessible source, no overclaim | FULL |
-| 10 | `style-editor` | internal uniformity (majority style) **+** the raw built HTML for silent-render failures | FULL + raw HTML |
-| 11 | `cold-reader` | a Fourier-literate newcomer's top-to-bottom cold read — undefined symbols/terms, self-containedness | SITEONLY |
+| 4 | `differential-geometer` | the *intrinsic* structure — the fiber-bundle / section model, base vs fiber, the measure taxonomy, and the adjoint/duality claims as maps between the right spaces; the category/type errors a value-check can't see (a fiber `ℝ^N⊗V` flattened to `ℝ^N`, the `N/M` measure-adjoint, an object conflated with its representation) | FULL |
+| 5 | `gpu-kernel-practitioner` | the allocation / backend / performance claims — allocation-free in-place, no scalar indexing, plan reuse, kernel fusion, CPU/CUDA/ROCm parity, `Float32`/`Float64` | FULL |
+| 6 | `structure-consistency` | infer the implicit docstring template, then flag every outlier against it | SITEONLY |
+| 7 | `latex-typesetter` | every formula's TeX idiom read as source, in the house style (upright `\mathrm{i}`/`\mathrm{d}`, component notation, `\Bigl` preferred, braced fractions, no gratuitous `\,`) | FULL |
+| 8 | `api-user` | build/drive the library from the docs alone — arg coverage, return shapes/representations, exported-vs-documented agreement | FULL |
+| 9 | `normalization-convention-auditor` | every normalization factor & indexing convention correct *and* identical across pages (the `1/N`, the multiplier signs, `fftfreq`/rFFT-Nyquist, the Parseval/spectrum factors, the `N/M` adjoint) | FULL |
+| 10 | `citations-integrity` | consistent author-year, inline↔reference-block matching with verbatim DOIs, no inaccessible source, no overclaim | FULL |
+| 11 | `style-editor` | internal uniformity (majority style) **+** the raw built HTML for silent-render failures | FULL + raw HTML |
+| 12 | `cold-reader` | a Fourier-literate newcomer's top-to-bottom cold read — undefined symbols/terms, self-containedness | SITEONLY |
 
 The hats live in `.claude/commands/check-consistency/panel.js` (their personas are the source of truth;
-this table is the map). Scale the panel to the ask: this full 11-hat run is the "thorough audit" (~2 M
-tokens, tens of minutes); for a quick check, run a subset.
+this table is the map). Two mathematicians sit adjacent by design — `spectral-methods-mathematician` (applied
+Fourier/numerics) then `differential-geometer` (intrinsic geometry / measure theory / functional analysis) —
+the applied one catching the concrete sign/normalization bugs, the pure one the structural/category errors.
+Scale the panel to the ask: this full 12-hat run is the "thorough audit" (~2 M tokens, tens of minutes); for
+a quick check, run a subset.
 
 ## Run it
 
