@@ -12,10 +12,13 @@ export const meta = {
   phases: [ { title: 'Panel' } ],
 }
 
-const FULL = args.full
-const SITEONLY = args.siteonly
-const RAWHTML = args.rawhtml
-const PILE = args.pile
+// args may arrive as a JSON string rather than an object (a Workflow-invocation quirk) — parse defensively,
+// otherwise every ${…} path below interpolates to "undefined" and the hats fall back to their scratchpad.
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const FULL = A.full
+const SITEONLY = A.siteonly
+const RAWHTML = A.rawhtml
+const PILE = A.pile
 
 const SCHEMA = {
   type: 'object', additionalProperties: false,
