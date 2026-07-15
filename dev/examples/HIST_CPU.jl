@@ -15,12 +15,12 @@
 #
 # ```math
 # \frac{\partial \hat{u}}{\partial t}
-#   = \mathbb{P}\,\widehat{u\times\omega} \;-\; \nu\,\kappa^{2}\,\hat{u} \;+\; \hat{f},
+#   = \mathbb{P} \widehat{u\times\omega} \;-\; \nu \kappa^{2} \hat{u} \;+\; \hat{f},
 # ```
 #
 # where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the
 # nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
-# *exactly* through the integrating factor ``\exp(-\nu\,\kappa^{2}\,\Delta t)`` and the nonlinear term explicitly
+# *exactly* through the integrating factor ``\exp(-\nu \kappa^{2} \Delta t)`` and the nonlinear term explicitly
 # (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest shells' band energy fixed
 # (statistical stationarity, no tuning). The time loop is the consumer's — the package has no concept of
 # time, by design.
@@ -104,7 +104,7 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 
 # ## Spectral utilities and the preallocated workspace
 #
-# The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu\,\kappa^{2}\Delta t)``,
+# The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``,
 # the IC envelope — are applied with the package's `convolve` (periodic convolution = a coefficientwise
 # multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
 # physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are consumer-built
@@ -140,7 +140,7 @@ end
 #
 # Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
 # ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum(uh, m)` the shell-resolved inner, so the shell
-# sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac12\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
+# sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
 # kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
 # allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but materializes a
 # magnitude field, so we avoid it in the hot loop.
@@ -153,8 +153,8 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν�
 # differs from the magnitude by at most ``\sqrt{3}``, well inside the CFL margin.)
 max_speed(u)      = maximum(abs, field_data(u))
 
-# ``E(\kappa) = \tfrac12 \times`` the shell-resolved Parseval inner; ``\sum_\kappa E(\kappa) =
-# \tfrac12\langle\lvert u\rvert^{2}\rangle = k``, the kinetic energy.
+# ``E(\kappa) = \tfrac{1}{2} \times`` the shell-resolved Parseval inner; ``\sum_\kappa E(\kappa) =
+# \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the kinetic energy.
 function energy_spectrum(uh, m)
   shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
   return shells, 0.5 .* spectrum                                       # E(κ): physics ½ stays consumer-side
@@ -165,7 +165,7 @@ end
 #
 # Hold the kinetic energy in the shells from ``\lvert\mathbf{k}\rvert = 1`` up to `k_force` at `E_force`, built
 # entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
-# ``\tfrac12\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
+# ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
 # (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
 # `convolve` (scaling preserves ``\nabla\cdot u = 0``). `convolve!` into the scratch `ws.tmp` keeps it
 # allocation-free, no scalar indexing.
@@ -210,7 +210,7 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
 end
 
 # One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
-# ``\mathcal{E} = \exp(-\nu\,\kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics —
+# ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics —
 # invariant 12) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
 # physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
 # stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
@@ -218,9 +218,9 @@ end
 #
 # ```math
 # \hat{N}_1 = \hat{N}(\hat{u}_n), \qquad
-# \hat{u}^{*} = \mathcal{E}\,(\hat{u}_n + \Delta t\,\hat{N}_1), \qquad
+# \hat{u}^{*} = \mathcal{E} (\hat{u}_n + \Delta t \hat{N}_1), \qquad
 # \hat{N}_2 = \hat{N}(\hat{u}^{*}), \qquad
-# \hat{u}_{n+1} = \mathcal{E}\,\hat{u}_n + \tfrac{\Delta t}{2}\,(\mathcal{E}\,\hat{N}_1 + \hat{N}_2),
+# \hat{u}_{n+1} = \mathcal{E} \hat{u}_n + \tfrac{\Delta t}{2} (\mathcal{E} \hat{N}_1 + \hat{N}_2),
 # ```
 #
 # then force.
@@ -378,17 +378,17 @@ function run_hist(p::Params)
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * η
-  # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}}\,\lVert u\rVert)``, via the package `l2norm`.
+  # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
   divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)
 
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
-  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,dr``
-  # and the trace structure function ``S^{(E)}(r) = \tfrac23\,(C(0) - C(r))``. Lagrangian: the
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
+  # and the trace structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
-  # ``\tau_u = \int_0^\infty \rho_L(\tau)\,d\tau``.
+  # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
   S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian trace structure function (homogeneous identity)
@@ -403,7 +403,7 @@ function run_hist(p::Params)
   @printf("  scales: λ/η=%.2f  L/η=%.2f  |  τ_u/τ_η=%.2f  √(τ_η·τ_u)/τ_η=%.2f\n",
           λ / η, L_int / η, τ_u / τ_η, sqrt(τ_η * τ_u) / τ_η)
   # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces
-  # the physical ``\tfrac12\langle\lvert u\rvert^{2}\rangle`` exactly — same energy, computed in spectral
+  # the physical ``\tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle`` exactly — same energy, computed in spectral
   # representation.
   @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
           K, 0.5 * inner(uh, uh), sum(ek_E))
@@ -452,11 +452,11 @@ main()
 #md # Eulerian velocity and ``U`` a tracer's velocity,
 #md #
 #md # ```math
-#md # S^{(E)}(\Delta x) = \tfrac13\big\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\big\rangle
-#md #                   = \tfrac23\big(C(0) - C(r)\big),
+#md # S^{(E)}(\Delta x) = \tfrac{1}{3}\big\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\big\rangle
+#md #                   = \tfrac{2}{3}\big(C(0) - C(r)\big),
 #md # \qquad
-#md # S^{(L)}(\Delta t) = \tfrac13\big\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\big\rangle
-#md #                   = \tfrac23\big(R(0) - R(\Delta t)\big),
+#md # S^{(L)}(\Delta t) = \tfrac{1}{3}\big\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\big\rangle
+#md #                   = \tfrac{2}{3}\big(R(0) - R(\Delta t)\big),
 #md # ```
 #md #
 #md # where ``r = \lvert\Delta x\rvert``, ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` is the spatial velocity
@@ -465,18 +465,18 @@ main()
 #md # origins). The plotted curves are the K41-normalized ratios
 #md #
 #md # ```math
-#md # \frac{S^{(E)}(\Delta x)}{\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}}
+#md # \frac{S^{(E)}(\Delta x)}{\tfrac{11}{9} C_2 \varepsilon^{2/3} \Delta x^{2/3}}
 #md #   \quad\text{vs}\quad \frac{\Delta x}{\eta},
 #md # \qquad\qquad
-#md # \frac{S^{(L)}(\Delta t)}{C_0\,\varepsilon\,\Delta t}
+#md # \frac{S^{(L)}(\Delta t)}{C_0 \varepsilon \Delta t}
 #md #   \quad\text{vs}\quad \frac{\Delta t}{\tau_\eta},
 #md # ```
 #md #
 #md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
 #md # ``\tau_\eta = \sqrt{\nu/\varepsilon}`` the Kolmogorov time, and ``C_2 \approx 2.1``, ``C_0 \approx 6``
 #md # the (adjustable, plot-time) Kolmogorov constants. The Taylor microscale ``\lambda`` and the integral
-#md # scales are marked: the integral length ``L = \int_0^\infty \rho(r)\,dr`` and time
-#md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,d\tau`` are the areas under the normalized autocorrelations
+#md # scales are marked: the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r`` and time
+#md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau`` are the areas under the normalized autocorrelations
 #md # ``\rho = C/C(0)`` and ``\rho_L = R/R(0)`` (taken to the first zero crossing).
 #md #
 #md # ![Eulerian and Lagrangian structure functions, normalized by their Kolmogorov scalings](structure_functions.png)
@@ -486,9 +486,9 @@ main()
 #md # ![Spatial and Lagrangian velocity autocorrelations](autocorrelation.png)
 #md #
 #md # The energy spectrum ``E(\kappa)``, compared against the K41 inertial-range form
-#md # ``E(\kappa) = C_K\,\varepsilon^{2/3}\,\kappa^{-5/3}`` with ``C_K \approx 1.6`` the Kolmogorov constant.
-#md # The prefactor ``C_K\,\varepsilon^{2/3}`` is not cosmetic: ``E(\kappa)`` has the dimensions of energy
-#md # per unit wavenumber and ``\kappa^{-5/3}`` does not, so the guide must carry ``C_K\,\varepsilon^{2/3}``
+#md # ``E(\kappa) = C_K \varepsilon^{2/3} \kappa^{-5/3}`` with ``C_K \approx 1.6`` the Kolmogorov constant.
+#md # The prefactor ``C_K \varepsilon^{2/3}`` is not cosmetic: ``E(\kappa)`` has the dimensions of energy
+#md # per unit wavenumber and ``\kappa^{-5/3}`` does not, so the guide must carry ``C_K \varepsilon^{2/3}``
 #md # (with the measured ``\varepsilon``) to be the full K41 prediction rather than a slope. Alongside it,
 #md # the turbulent kinetic energy ``k(t)`` and the dissipation ``\varepsilon(t)``: the band-rescaling
 #md # forcing makes the energy oscillate slowly about its mean rather than settle flat, so the statistics
