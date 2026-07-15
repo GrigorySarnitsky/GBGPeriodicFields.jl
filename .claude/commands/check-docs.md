@@ -16,6 +16,10 @@ one pass, rebuild, and report the matrix.
    Internal docstrings; `#` comments are exempt — not rendered).
 4. Every page in `docs/src/` — `index.md`, `tutorial.md`, and all `docs/src/api/*.md` (hand-written prose;
    skip `@autodocs` / `@example` / `@repl` / `@contents` / `@index` blocks).
+5. The Literate example `examples/HIST_CPU.jl` (and the GPU sibling) — **a rendered doc page**: every
+   full-line `# ` comment becomes prose, so its math is LaTeX under the same rules, single-backslash (the
+   LaTeX lives in comments, not docstrings). The build lints already scan the generated
+   `docs/src/examples/hist_cpu.md`; edit the *source* `.jl`.
 
 ## Checks (ALL of them, on every surface)
 
@@ -54,7 +58,14 @@ reading is not a check.
    directions. Markdown tables top-level, never indented in a list. Also the *silent* failures (source looks
    right, page renders broken): a code name never *inside* a ``…`` span, a formula never split across a
    ``…``/`` `code` `` boundary, inline math on one source line (build-enforced), and no >88-col signature or
-   wide unbroken display block (horizontal scroll).
+   wide unbroken display block (horizontal scroll). **Notation idiom** (the `notation.md` house set): the
+   imaginary unit and the differential are upright (``\mathrm{i}``, ``\mathrm{d}x``) — never a bare italic
+   ``i``/``d`` — so a multiplier is ``\mathrm{i}k``, not `ik`, and an integral carries ``\,\mathrm{d}\mu``;
+   every fraction argument is braced (``\tfrac{1}{2}``, not `\tfrac12`; build-enforced); adjacent factors
+   juxtapose with **no** gratuitous thin space ``\,`` between them (the thin space is reserved for the
+   differential); and a multi-letter run inside a math span is an upright token (``\mathrm{lo}``,
+   ``\operatorname{Re}``), never a bare letter-product. The gratuitous-``\,`` and unbraced-fraction scans
+   below must come back empty.
 5. **Current** — every claim matches the code's present state; no stale *future / deferred / none-exist*;
    and **complete** — a docstring or summary that names only a *subset* of what the code now provides is
    stale even if literally true (e.g. a module docstring naming one of two scheme families, or a capability
@@ -89,25 +100,90 @@ definitions; this command runs all of them.
   fixing** (one sweep raised four such false positives — a module-documented argument, a multi-method verb
   pair, an operator pair, a core supertype — every one deflated on a code-check).
 - Run the deterministic grep/awk guards below, plus a bare-module-name scan and a glyph-vs-backtick scan
-  (Unicode math *outside* a backtick span). Inline-math-on-one-line and canonical notation are
+  (Unicode math *outside* a backtick span). The block has two tiers: **must-be-empty** scans (tables,
+  formula-in-backticks, stray `$…$`, neutral register, bare-index ∂, the gratuitous-``\,``, the unbraced
+  fraction, wide signatures) and **triage** heuristics (code-in-math letter-products, split formulas, dead
+  docstring refs, crammed citations, sentence-opening lowercase identifiers) whose hits mix real signal with
+  false positives. Two non-grep backstops follow: a **DOI cross-check** (every docstring DOI is in
+  `ARCHITECTURE.md` §References, verbatim) and the deterministic **argument-coverage** sweep (from each
+  signature, positional + keyword; §Style — check 2). Inline-math-on-one-line and canonical notation are
   **build-enforced** — `docs/make.jl`'s `lint_inline_math()` errors on a span split by a list leader and
-  `lint_notation_variants()` on a bare-index `\partial_[ijk]` — so the rebuild below IS those guards; the
-  **argument-coverage** sweep (from each signature, positional + keyword; §Style) runs inside check 2.
+  `lint_notation_variants()` on a bare-index `\partial_[ijk]` **and an unbraced fraction ``\frac1``** — so
+  the rebuild below IS those guards.
+
+The doc surfaces are `src/*.jl` (docstrings), the four rationale docs, and the hand-written `docs/src`
+pages — the same set the build lints scan. The gitignored `docs/src/{architecture,formalization,testing,
+performance}.md` are regenerated *copies* of the rationale sources, so exclude them (edit the source, not
+the copy). Set the doc list once:
 
 ```bash
-grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs                         # tables top-level only — must be empty
-grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src docs/src docs/*.md      # formula-in-backticks → should be ``LaTeX``
-grep -rnE '\$[^$]*[\\_^{}][^$]*\$' docs                           # stray TeX $…$ → use ``…`` / ```math```
-grep -rniE '\bknobs?\b' docs src examples                         # neutral register — must be empty
-grep -rnE '\\partial_[ijk]' src docs/*.md docs/src                # bare-index ∂ → canonical \partial_{x_i}; build-enforced, must be empty
-awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/*.jl  # wide docstring signatures — FNR (per-file), NOT NR
+DOCS_MD="docs/ARCHITECTURE.md docs/FORMALIZATION.md docs/TESTING.md docs/PERFORMANCE.md \
+         docs/src/notation.md docs/src/index.md docs/src/tutorial.md docs/src/api.md docs/src/api/*.md \
+         examples/HIST_CPU.jl examples/gpu/*/*.jl"   # the Literate examples are single-backslash md-style surfaces
+
+# ---- must come back EMPTY ----
+grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs                         # tables top-level only, never indented in a list
+grep -rniE '\b(knobs?|tweaks?)\b' docs src examples               # neutral register
+grep -rnE '\\partial_[ijk]' src $DOCS_MD                          # bare-index ∂ → \partial_{x_i}; build-enforced
+grep -rnP '\\\\,(?!\\\\mathrm\{d\})' src/*.jl; grep -rnP '\\,(?!\\mathrm\{d\})' $DOCS_MD  # gratuitous thin space → keep only the differential \,\mathrm{d}, else a plain space (never delete: \varepsilon\,r → \varepsilon r, not \varepsilonr)
+grep -rnP '\\\\[dt]?frac[0-9]' src/*.jl; grep -rnP '\\[dt]?frac[0-9]' $DOCS_MD  # unbraced fraction numerator → \frac{1}{N} (build-enforced by lint_notation_variants)
+
+# ---- TRIAGE (heuristics: real signal mixed with false positives — read each, then fix the genuine class) ----
+grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # formula-in-backticks → ``LaTeX`` (FP: the real Julia operators ×/⋅/≈; a documented anti-pattern example)
+grep -rnE '\$[^$]*[\\_^{}][^$]*\$' $DOCS_MD                        # stray TeX $…$ → use ``…`` / ```math``` (scope to sources, NOT docs/build)
+awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/*.jl  # wide docstring signatures (>88 col) — FNR (per-file), NOT NR; hand-wrap the ones a reader would scroll
+grep -rnoP '``[^`]*``' src/*.jl $DOCS_MD | grep -P '(?<![\\A-Za-z])(?<!\{)[a-z]{2,}' | grep -vP '\\(mathrm|texttt|text|operatorname|hat|[dt]?frac|sqrt|langle|rangle|partial|nabla|Delta|Omega|kappa|varepsilon|sum|prod|int|star|equiv|cdot|times|otimes|lVert|rVert|le|ge|to|mapsto|quad|left|right|Bigl|Bigr|begin|end|sin|cos|exp|log|max|min|Re|Im|det|tr)'  # code-in-math: a bare multi-letter run inside a math span (a letter-product, e.g. `ik`→\mathrm{i}k, `conj`→\overline{}) → \mathrm{…}; SUBSCRIPT index runs (A_{ij}) and #-comment lines are fine
+grep -rnP '[^`\s]```[^`]|[^`]```[^`\s]' src/*.jl $DOCS_MD | grep -vP '^\S+:\d+:\s*```'  # split-formula: a ``math`` span abutting a `code` span (3 inline backticks); a documented ```math``` fence-name is a false positive
+grep -rnE '§[0-9]|docs/(src|ARCHITECTURE|FORMALIZATION|TESTING|PERFORMANCE)|ARCHITECTURE\.md|inspiration/' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'  # dead ref on a user-facing docstring: a §-number / design-doc path (must read complete at the REPL); drop #-comment hits
+grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed citation block (two citations joined by ';') → one per bullet line
+grep -rnE '\. `[a-z][a-z_]*!?`' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose sentence opens with a lowercase code identifier → capitalize the lead word or reword (args / bullets exempt)
+```
+
+Two deterministic backstops that are not one-line greps:
+
+```bash
+# DOI cross-check — every DOI cited in a src docstring must appear (verbatim) in ARCHITECTURE.md's
+# per-section reference blocks, and vice-versa (CLAUDE.md: the inline copy is verbatim-consistent).
+python3 - <<'PY'
+import re, glob
+src = set()
+for f in glob.glob('src/*.jl'):
+    for m in re.findall(r'doi\.org/[^\s\)\]]+', open(f).read()):
+        src.add(m.rstrip('.,);'))
+arch = open('docs/ARCHITECTURE.md').read()
+for d in sorted(src):
+    if d not in arch: print('DOI in a docstring but not in ARCHITECTURE §References:', d)
+PY
+
+# Argument coverage — from each docstring SIGNATURE, every positional + keyword parameter must be
+# mentioned as a backticked `arg` in the body (an arg named only inside a formula reads as bound-by-use).
+# Triage: a thin wrapper that @ref-links its home may name a math variable in a ``f`` span not `f`; the
+# α/β accumulation is documented under its Greek name; internal `_helpers` are looser.
+julia --startup-file=no -e '
+for file in filter(f->endswith(f,".jl"), readdir("src"; join=true))
+  s = read(file, String)
+  for m in eachmatch(r"\"\"\"\n(.*?)\n\"\"\""s, s)
+    body = m.captures[1]; sig = strip(first(split(body, "\n")))
+    (occursin("(", sig) && occursin(")", sig)) || continue
+    inside = sig[nextind(sig, findfirst("(", sig).start):findlast(")", sig).start-1]
+    for raw in split(inside, ",")
+      p = strip(split(split(raw, "::")[1], "=")[1]); p = strip(split(p, ";")[end])
+      occursin(r"^[A-Za-z][A-Za-z0-9_!]*$", p) || continue
+      occursin(Regex("`\\Q"*p*"\\E`"), body) || println(file, ": ", sig, "  UNDOCUMENTED `", p, "`")
+    end
+  end
+end'
 ```
 
 - Triage (drop false positives — universally standard math; the real Julia operators `×`/`⋅`/`≈`; pervasive
-  shorthand `L²`/`N³`/`O(N²)`; `#`-comment hits; kwarg names correctly backticked), then fix EVERY genuine
-  finding in one pass.
-- Rebuild: `julia --project=docs docs/make.jl` (doctests + cross-references + render) — must be clean.
-- Commit + push (no `[skip ci]`; the docs site must redeploy).
+  shorthand `L²`/`N³`/`O(N²)`; `#`-comment hits; kwarg names correctly backticked; a subscript index run
+  `A_{ij}`; a thin-wrapper math variable in a ``…`` span), then fix EVERY genuine finding in one pass — and
+  **fix the class, not the line** (an `ik` letter-product or a stray unbraced fraction is a sample of a
+  sweepable class).
+- Rebuild: `julia --project=docs docs/make.jl` (both lints + `checkdocs = :exports` + doctests + render) —
+  must be clean. The gratuitous-``\,``, upright-differential, and braced-fraction conventions are the
+  `notation.md` house set (the fraction one is build-enforced by `lint_notation_variants`).
+- Commit + push on `master` (no `[skip ci]`; the docs site must redeploy).
 
 ## Report
 

@@ -93,7 +93,7 @@ end
                                 source_1, source_2, source_3,
                                 wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i}\\,(k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. `divergence` uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
+Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. `divergence` uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
@@ -197,9 +197,9 @@ Each output component is the source component multiplied coefficientwise by ``\\
 wavenumber of the differentiation axis:
 
 ```math
-\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}\\, k_i\\, \\hat\\varphi(k),
+\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}  k_i  \\hat\\varphi(k),
 \\qquad
-\\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}\\, k_j\\, \\hat u_i(k).
+\\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}  k_j  \\hat u_i(k).
 ```
 """
 function gradient! end
@@ -306,9 +306,9 @@ The result is the coefficientwise contraction of the source with ``\\mathrm{i}``
 vector, summed over the three axes:
 
 ```math
-\\widehat{\\nabla\\cdot u}(k) = \\mathrm{i}\\,(k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
+\\widehat{\\nabla\\cdot u}(k) = \\mathrm{i} (k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
 \\qquad
-\\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i}\\,(k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
+\\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i} (k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
 ```
 """
 function divergence! end
@@ -388,7 +388,7 @@ end
 
 Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field and write it into `destination`,
 returning `destination`. The curl is the vector field whose components are, with ``\\varepsilon_{ijk}``
-the Levi-Civita symbol, ``(\\nabla\\times u)_i = \\varepsilon_{ijk}\\, \\partial_{x_j} u_k``; written out
+the Levi-Civita symbol, ``(\\nabla\\times u)_i = \\varepsilon_{ijk}  \\partial_{x_j} u_k``; written out
 cyclically,
 
 ```math
@@ -408,13 +408,13 @@ The arguments are:
 - `multipliers` — the wavenumber symbols for the field's grid.
 
 The spectral symbol is a coefficientwise multiply by ``\\mathrm{i}`` times the cross product with the
-wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}\\, k \\times \\hat u(k)``, componentwise:
+wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  k \\times \\hat u(k)``, componentwise:
 
 ```math
 \\begin{gathered}
-\\widehat{(\\nabla\\times u)_1}(k) = \\mathrm{i}\\,(k_2 \\hat u_3 - k_3 \\hat u_2), \\\\
-\\widehat{(\\nabla\\times u)_2}(k) = \\mathrm{i}\\,(k_3 \\hat u_1 - k_1 \\hat u_3), \\\\
-\\widehat{(\\nabla\\times u)_3}(k) = \\mathrm{i}\\,(k_1 \\hat u_2 - k_2 \\hat u_1).
+\\widehat{(\\nabla\\times u)_1}(k) = \\mathrm{i} (k_2 \\hat u_3 - k_3 \\hat u_2), \\\\
+\\widehat{(\\nabla\\times u)_2}(k) = \\mathrm{i} (k_3 \\hat u_1 - k_1 \\hat u_3), \\\\
+\\widehat{(\\nabla\\times u)_3}(k) = \\mathrm{i} (k_1 \\hat u_2 - k_2 \\hat u_1).
 \\end{gathered}
 ```
 """
@@ -425,7 +425,7 @@ function curl! end
     _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral,
                    multipliers::FieldSpectralMultipliers)
 
-Compute the coefficientwise curl ``\\nabla\\times u`` componentwise as ``\\mathrm{i}\\,(k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this kernel with the aliasing guard.
+Compute the coefficientwise curl ``\\nabla\\times u`` componentwise as ``\\mathrm{i} (k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this kernel with the aliasing guard.
 """
 function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
@@ -495,7 +495,7 @@ field and write it into `destination`, returning `destination`. It is the symmet
 ``\\nabla u``, the second-order tensor field
 
 ```math
-S_{ij} = \\tfrac12\\,(\\partial_{x_j} u_i + \\partial_{x_i} u_j),
+S_{ij} = \\tfrac{1}{2} (\\partial_{x_j} u_i + \\partial_{x_i} u_j),
 ```
 
 formed directly. It is the fused symmetric peer of [`curl`](@ref), which extracts the *antisymmetric* part
@@ -510,10 +510,10 @@ The arguments are:
 - `field` — the vector field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol symmetrizes ``\\mathrm{i}\\,k_j\\,\\hat u_i`` in its two indices:
+The spectral symbol symmetrizes ``\\mathrm{i} k_j \\hat u_i`` in its two indices:
 
 ```math
-\\widehat{S_{ij}}(k) = \\tfrac{\\mathrm{i}}{2}\\,\\bigl(k_j\\,\\hat u_i(k) + k_i\\,\\hat u_j(k)\\bigr).
+\\widehat{S_{ij}}(k) = \\tfrac{\\mathrm{i}}{2} \\bigl(k_j \\hat u_i(k) + k_i \\hat u_j(k)\\bigr).
 ```
 """
 function symmetric_gradient! end
@@ -606,7 +606,7 @@ The arguments are:
 The spectral symbol is a coefficientwise multiply by ``-|k|^2``:
 
 ```math
-\\widehat{\\Delta f}(k) = -|k|^2\\, \\hat f(k), \\qquad |k|^2 = k_1^2 + k_2^2 + k_3^2.
+\\widehat{\\Delta f}(k) = -|k|^2  \\hat f(k), \\qquad |k|^2 = k_1^2 + k_2^2 + k_3^2.
 ```
 """
 function laplacian! end
@@ -658,7 +658,7 @@ solves Poisson's equation ``\\Delta\\psi = f``; because the Laplacian annihilate
 solution is fixed uniquely by requiring its mean to vanish:
 
 ```math
-\\Delta\\psi = f, \\qquad \\int_\\Omega \\psi \\, dx = 0.
+\\Delta\\psi = f, \\qquad \\int_\\Omega \\psi \\,\\mathrm{d}x = 0.
 ```
 
 For a vector or tensor field the same solve is applied to each component, so the tensor order is
@@ -681,7 +681,7 @@ The spectral symbol divides by ``-|k|^2`` away from the origin and sets the zero
 ```math
 \\widehat{\\Delta^{-1} f}(k) =
 \\begin{cases}
--\\,\\hat f(k) / |k|^2, & k \\ne 0, \\\\
+- \\hat f(k) / |k|^2, & k \\ne 0, \\\\
 0, & k = 0.
 \\end{cases}
 ```
@@ -735,7 +735,7 @@ longitudinal (curl-free) part of the field and keeps the divergence-free part, s
 gradient of the pressure-like potential that solves the divergence:
 
 ```math
-\\mathbb P u = u - \\nabla\\, \\Delta^{-1}(\\nabla\\cdot u).
+\\mathbb P u = u - \\nabla  \\Delta^{-1}(\\nabla\\cdot u).
 ```
 
 !!! warning
@@ -750,11 +750,11 @@ The arguments are:
 - `field` — the vector field to project, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol subtracts the longitudinal part ``k_i\\,(k\\cdot\\hat u)/|k|^2`` from
+The spectral symbol subtracts the longitudinal part ``k_i (k\\cdot\\hat u)/|k|^2`` from
 ``\\hat u_i`` at every nonzero wavevector, and leaves the zero Fourier mode unchanged:
 
 ```math
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)\\, \\hat u_j(k), \\qquad k \\ne 0.
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)  \\hat u_j(k), \\qquad k \\ne 0.
 ```
 """
 function helmholtz_projection! end

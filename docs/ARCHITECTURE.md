@@ -120,7 +120,7 @@ A field — or values sampled at scattered points — is a **section** ``s``, a 
 projection ``\pi``:
 
 ```math
-B \;\xrightarrow{\,s\,}\; E \;\xrightarrow{\,\pi\,}\; B, \qquad \pi \circ s = \operatorname{id}_B,
+B \;\xrightarrow{ s }\; E \;\xrightarrow{ \pi }\; B, \qquad \pi \circ s = \operatorname{id}_B,
 ```
 
 with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
@@ -159,7 +159,7 @@ equivalently, only when it commutes with the rfft isomorphism.
   numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
   both representations, because the Fourier transform commutes with them.
 - **Adding constants** — in physical space, every grid value shifts; in spectral
-  space, ``\mathcal F(f + c) = \mathcal F(f) + c\,N\,\delta_{k,0}`` under the unnormalized-forward convention,
+  space, ``\mathcal F(f + c) = \mathcal F(f) + c N \delta_{k,0}`` under the unnormalized-forward convention,
   with ``N`` the total grid-point count (`prod(grid_size)`) and ``k`` the wavenumber — so only the zero
   mode (``k = 0``) changes, scaled by ``N``. This is why
   `_spectral_constant_scale` exists and why constant kernels in spectral
@@ -245,7 +245,7 @@ correspondence is never left implicit: `gradient` ``\equiv \nabla``, `divergence
 ``\equiv \nabla\times``, `laplacian` ``\equiv \Delta``, `inverse_laplacian`
 ``\equiv \Delta^{-1}``, `helmholtz_projection` ``\equiv \mathbb{P}``, `inner`
 ``\equiv \langle\cdot,\cdot\rangle``, `l2norm` ``\equiv \lVert\cdot\rVert``, `integral`
-``\equiv \int\,d\mu``, `convolve` ``\equiv \star``, `interpolate`/`anterpolate`
+``\equiv \int\,\mathrm{d}\mu``, `convolve` ``\equiv \star``, `interpolate`/`anterpolate`
 ``\equiv W``/``W^\top``, `to_spectral`/`to_physical` ``\equiv \mathcal F``/``\mathcal F^{-1}``,
 a field in spectral representation written ``\hat f``. (In a `"""` docstring the LaTeX backslashes
 are escaped `\\`; in a `.md` page they are raw. Plain `#` comments stay Unicode — they are not
@@ -313,7 +313,7 @@ Two constructors by design:
   choice for its derivative is zero. This is standard pseudospectral practice and
   keeps derivatives of real fields exactly real.
 - Squared multipliers keep the **true ``k^2``** at Nyquist. The Laplacian of the
-  Nyquist mode is perfectly well defined (``-k_N^2\,\mathrm{mode}``); zeroing it would silently
+  Nyquist mode is perfectly well defined (``-k_N^2 \mathrm{mode}``); zeroing it would silently
   remove grid-scale dissipation and corrupt `inverse_laplacian`.
 
 Reference tests pin this down: multipliers vs `fftfreq`/`rfftfreq`, transform
@@ -323,8 +323,8 @@ vs the squared wavenumber kept) — see `docs/TESTING.md`.
 **Operators are multipliers — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
 `to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
 ``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
-``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k)\,\cdot`` (``ik``,
-``ik\cdot``, ``ik\times``, ``-|k|^2``):
+``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k) \cdot`` (``\mathrm{i}k``,
+``\mathrm{i}k\cdot``, ``\mathrm{i}k\times``, ``-|k|^2``):
 
 ```math
 \begin{CD}
@@ -528,7 +528,7 @@ this is mandatory — total water and latent heat must be conserved as vapour pa
 between droplets and the fields — so the design fixes anterpolation as the adjoint of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
-as the pushforward of point masses, ``\sum_p q_p\,\delta_{x_p}`` (regularized to ``\sum_p q_p\,w(\cdot - x_p)``,
+as the pushforward of point masses, ``\sum_p q_p \delta_{x_p}`` (regularized to ``\sum_p q_p w(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
@@ -539,10 +539,10 @@ The two inner products are concrete pairings against the measure each base carri
 fiber contraction — the ordinary product for scalars, the dot product for vectors):
 
 ```math
-\langle a, b\rangle_{\text{pts}} = \frac1M \sum_{p=1}^{M} a_p\cdot b_p,
+\langle a, b\rangle_{\text{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
 \qquad\qquad
 \langle f, g\rangle_{\text{grid}} = \frac{1}{|\Omega|}\int_{\Omega} f(x)\cdot g(x)\,\mathrm{d}x
-= \frac1N \sum_{x} f(x)\cdot g(x),
+= \frac{1}{N} \sum_{x} f(x)\cdot g(x),
 ```
 
 each normalized by its total measure — the ``M`` particles, and the box volume ``|\Omega|`` (equivalently
@@ -554,13 +554,13 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ```math
 \sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f(x)\cdot(W^{\top} q)(x),
 \qquad\qquad
-W\,\bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
+W \bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
 \quad (\phi \in \Pi_d),
 ```
 
 the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
-normalizing each side by its base count gives the measure-weighted ``M\,\langle W f, q\rangle_{\text{pts}} =
-N\,\langle f, W^{\top} q\rangle_{\text{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
+normalizing each side by its base count gives the measure-weighted ``M \langle W f, q\rangle_{\text{pts}} =
+N \langle f, W^{\top} q\rangle_{\text{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
 normalizations). Intrinsically the pair is a
 **pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map from the point base
 ``B_{\text{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
@@ -570,7 +570,7 @@ the fiber and changes only the base, ``B_{\text{points}} \times V = \iota^{*}(\O
 
 ```math
 \begin{CD}
-B_{\text{points}} \times V @>{\iota\,\times\,\mathrm{id}_V}>> \Omega \times V \\
+B_{\text{points}} \times V @>{\iota \times \mathrm{id}_V}>> \Omega \times V \\
 @V{\pi}VV @VV{\pi}V \\
 B_{\text{points}} @>>{\iota}> \Omega
 \end{CD}
@@ -578,8 +578,8 @@ B_{\text{points}} @>>{\iota}> \Omega
 
 Interpolation is the **pullback of the section**, ``W = \iota^{*} \otimes \mathrm{id}_V`` (fiber-preserving —
 the trivial bundle leaves the fiber by the identity; ``(Wf)_p = f(x_p)``); anterpolation the
-**pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p\,\delta_{x_p}``, the
-Dirac mass above regularized by the stencil) — for the uniform measures ``\iota_{*} = (N/M)\,W^{\top}``, the
+**pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p \delta_{x_p}``, the
+Dirac mass above regularized by the stencil) — for the uniform measures ``\iota_{*} = (N/M) W^{\top}``, the
 scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exact L²-adjoint. They have
 **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — so the adjointness
 *is* their adjunction ``\langle \iota^{*} f, q\rangle_{\text{pts}} = \langle f, \iota_{*} q\rangle_{\text{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
@@ -594,8 +594,8 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
 - **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
   values (the gather/scatter kernels below); approximate, conserving, the production default.
 - **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
-  inverse/forward DFT ``f(x_p) = \tfrac1N\sum_k \hat f(k)\,e^{\mathrm{i} k\cdot(x_p-o)}`` and its adjoint
-  ``(W^\top q)(k) = \sum_p q_p\,e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
+  inverse/forward DFT ``f(x_p) = \tfrac{1}{N}\sum_k \hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}`` and its adjoint
+  ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
   grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
@@ -603,7 +603,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
   ``\varepsilon`` on the resolved sub-Nyquist band). The adjoint relation carries
-  the measure factor as for the splines: ``M\,\langle W\hat f, q\rangle_{\text{pts}} = N\,\langle \hat f, W^\top q\rangle_{\text{grid}}``.
+  the measure factor as for the splines: ``M \langle W\hat f, q\rangle_{\text{pts}} = N \langle \hat f, W^\top q\rangle_{\text{grid}}``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -611,7 +611,7 @@ code (Lalescu et al. 2022). At its core it is Hermite interpolation
 with the node derivatives supplied by finite differences, which makes the interpolant
 simultaneously local, high-order, and smooth; in the cubic four-point case it reduces to
 the Catmull–Rom spline (Catmull & Rom 1974). Concretely `f(x)` is a tensor-product
-weighted sum ``\sum w_{i_1} w_{i_2} w_{i_3}\, f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
+weighted sum ``\sum w_{i_1} w_{i_2} w_{i_3}  f(c+i)`` over a compact ``(2n{+}2)^3`` stencil
 (``n`` the per-axis finite-difference half-width) — ``c`` the grid cell containing ``x`` and ``i`` the
 integer node offset within the stencil — with closed-form polynomial weights ``w``. Lalescu's **two hierarchies** share this stencil: the **smooth**
 hierarchy (`LalescuSpline(n, m)`) is a two-point Hermite of degree ``2m{+}1`` that matches the
@@ -745,19 +745,19 @@ value at the Nyquist frequency to be a real attenuation rather than a phase (dec
 
 `Reductions` is the **L² / measure** family — the third operation family, integrating a section over its
 base against the measure the base carries (`Grid3D`'s uniform cell volume, `PointSet`'s counting measure;
-decision 18). `integral` (``\equiv \int\,d\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
+decision 18). `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
 `l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
-(``\equiv \langle\cdot, w\,\cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w\,g\rangle`` —
+(``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
 the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
 point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
 `integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
-and the integral ``(|\Omega|/N)\,\hat f(0)``, no transform. The **radial**
+and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**
 pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
 its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
 ``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Physics (kinetic
-energy ``\tfrac12\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22.
+energy ``\tfrac{1}{2}\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22.
 
 ## 13. Decision log
 
@@ -895,10 +895,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
     Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
-    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M)\,W^\top`` (``N`` grid points, ``M`` sample
+    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M) W^\top`` (``N`` grid points, ``M`` sample
     points) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
-    verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
+    verified via `inner` as ``M \mathrm{inner}(Wf, q) = N \mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
     the reduction deferral of items 6/11/[§9](@ref "9. Performance model and CPU threading"). The package's operations split into **vertical**
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
@@ -918,21 +918,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
     ``\mathrm{mean}(f) = \tfrac{1}{\text{count}}\sum f`` — per base:
 
-    - `Grid3D` (``N`` cells): ``\mathrm{integral}(f) = \int_\Omega f\,dx = (\lvert\Omega\rvert/N)\sum f``, ``\mathrm{mean}(f) = \tfrac1N\sum f``.
-    - `PointSet` (``M`` points): ``\mathrm{integral}(f) = \sum f``, ``\mathrm{mean}(f) = \tfrac1M\sum f``.
+    - `Grid3D` (``N`` cells): ``\mathrm{integral}(f) = \int_\Omega f\,\mathrm{d}x = (\lvert\Omega\rvert/N)\sum f``, ``\mathrm{mean}(f) = \tfrac{1}{N}\sum f``.
+    - `PointSet` (``M`` points): ``\mathrm{integral}(f) = \sum f``, ``\mathrm{mean}(f) = \tfrac{1}{M}\sum f``.
 
-    So `mean` is the arithmetic average over base elements in both cases — ``\tfrac1M\sum`` over points
-    (a plain sample mean), ``\tfrac1N\sum`` over the grid (which, the grid being uniform, equals the
+    So `mean` is the arithmetic average over base elements in both cases — ``\tfrac{1}{M}\sum`` over points
+    (a plain sample mean), ``\tfrac{1}{N}\sum`` over the grid (which, the grid being uniform, equals the
     domain average ``\langle\cdot\rangle``). Names and conventions:
 
-    - `integral(f)` — the **extensive** ``\int f\,d\mu`` (the one quantity that scales with the base measure).
+    - `integral(f)` — the **extensive** ``\int f\,\mathrm{d}\mu`` (the one quantity that scales with the base measure).
     - `mean(f)`, `std(f)`, `var(f)` — extend `Statistics` (we own the types ⇒ not piracy);
       **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
     - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \mathrm{mean}(\mathrm{dot}(f, g))`` → **scalar**
       (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
       convention above and the intensive quantities of homogeneous turbulence (kinetic energy
-      ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``); for points it is ``\tfrac1M\sum \mathrm{dot}``, consistent with `mean`. Not the
-      textbook extensive ``\int f\cdot g\,dx`` — that is `integral(dot(f,g))` if ever needed.
+      ``\tfrac{1}{2} \mathrm{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``); for points it is ``\tfrac{1}{M}\sum \mathrm{dot}``, consistent with `mean`. Not the
+      textbook extensive ``\int f\cdot g\,\mathrm{d}x`` — that is `integral(dot(f,g))` if ever needed.
     - ``\mathrm{l2norm}(f) = \sqrt{\mathrm{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
       fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
     - `maximum`/`minimum`/`extrema` — extend `Base` for scalar sections; vector/tensor sup of
@@ -948,11 +948,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     allocation-free as a `dot` over the array plus two plane corrections. `integral` and `mean` are
     representation-invariant too, by a different route — the zero (DC) Fourier mode: under the
     unnormalized-forward convention the DC coefficient is ``\hat f(0) = \sum_x f(x)`` (real for a real
-    field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N)\,\hat f(0)`` with no transform,
+    field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N) \hat f(0)`` with no transform,
     read from the same zero-mode slot the constant-add writes (invariant 4). `lpnorm` (for ``p \ne 2``),
     `std`/`var`, and `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only.
-    **Physics stays consumer-side**: energy ``\tfrac12\,\mathrm{inner}(u,u)``, enstrophy
-    ``\tfrac12\,\mathrm{inner}(\omega,\omega)``, dissipation ``\nu\,\mathrm{inner}(\omega,\omega)``, rms ``\sqrt{\mathrm{inner}}``, intensities from `std`. The FP-ordering
+    **Physics stays consumer-side**: energy ``\tfrac{1}{2} \mathrm{inner}(u,u)``, enstrophy
+    ``\tfrac{1}{2} \mathrm{inner}(\omega,\omega)``, dissipation ``\nu \mathrm{inner}(\omega,\omega)``, rms ``\sqrt{\mathrm{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — so they are implemented with a defined summation
     order and a tolerance-based test (not the bitwise one used for the threaded assignments).
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
@@ -986,7 +986,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *Interpolation is the base-changing sibling of the multiplier, not a multiplier.* The gather weights
     `{W(x_p, x_g)}_g` are a discrete grid measure of **total mass 1** (partition of unity), so
-    ``u(x_p) = \int u\,d\mu_{x_p}`` is integration of the field against a unit-mass kernel measure centered at
+    ``u(x_p) = \int u\,\mathrm{d}\mu_{x_p}`` is integration of the field against a unit-mass kernel measure centered at
     the point — the same *species* as a homogeneous filter. Two differences make it its own operation
     ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"), in `Interpolation`, not under the multiplier family): (i) its codomain is the **unstructured
     point base**, which has no wavenumbers, so it is a **base-change** (grid↔point), *not* a Fourier
@@ -1003,8 +1003,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
     conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with the
     grid carrying ``\Delta x^3`` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
-    now **done**: both measures being uniform, it is ``(N/M)\,W^\top`` (a scalar rescaling, no new operation),
-    verified via `inner` as ``M\,\mathrm{inner}(Wf, q) = N\,\mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
+    now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new operation),
+    verified via `inner` as ``M \mathrm{inner}(Wf, q) = N \mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
     *The multiplier family (designed here; realized as `Convolution`, decision 20) carries three research-grounded guardrails.*
@@ -1096,7 +1096,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
       is precisely *"the energy spectrum is the radially-resolved inner"* (decision 19's L²/integration
       structure, refined by the spectral radial coordinate). The consumer's energy spectrum over the
-      shell wavenumber ``\kappa`` (``= |k|``) is ``E(\kappa) = \tfrac12\,\mathrm{spectrum}``; the
+      shell wavenumber ``\kappa`` (``= |k|``) is ``E(\kappa) = \tfrac{1}{2} \mathrm{spectrum}``; the
       neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
       refinement is exact; on a de-aliased field the high-``|k|`` shells are empty.
 
@@ -1136,7 +1136,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
     under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
-    stay consumer-side: the energy spectrum ``E(k) = \tfrac12\,\mathrm{radial\_spectrum}``, the integral/Taylor scales from
+    stay consumer-side: the energy spectrum ``E(k) = \tfrac{1}{2} \mathrm{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
@@ -1154,20 +1154,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     second-order statistics of two compatible, equal-order fields, refining the **mixed** `inner(f, g)` exactly as
     the single-field forms refine `inner(f, f)`. The **co-spectrum** bins the Parseval-weighted cross-power
     density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (``c`` indexing the fiber components) over ``|k|``-shells (``\sum_\kappa E_{fg} = \mathrm{inner}(f, g)``);
-    the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f}\,\hat g)/N``
+    the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f} \hat g)/N``
     binned over ``|r|``-shells (``C_{fg}(0) = \mathrm{inner}(f, g)``). Two properties fall out of the math and are
     pinned by tests: each is **symmetric** in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,
     and the ``\pm r`` folding of the min-image shells symmetrizes the correlation (``C_{fg}(-r) = C_{gf}(r)``, so the
-    radial average is ``\tfrac12(C_{fg}+C_{gf})``) — and the single-field forms are exactly the ``g = f`` case
-    (``\mathrm{Re}(\hat f\,\overline{\hat f}) = |\hat f|^2``; asserted bit-identical). Unlike the power spectrum the
+    radial average is ``\tfrac{1}{2}(C_{fg}+C_{gf})``) — and the single-field forms are exactly the ``g = f`` case
+    (``\mathrm{Re}(\hat f \overline{\hat f}) = |\hat f|^2``; asserted bit-identical). Unlike the power spectrum the
     co-spectrum **may be negative** in a shell (anticorrelated modes — the canonical use is a momentum/scalar flux
     co-spectrum, where sign is physical). Implementation reuses the single-field code: the binning helpers
     (`_radial_spectrum_bin`, `_correlation_field_from` + `_radial_average`) are shared, the two-field methods only swap
-    the per-mode density (``|\hat f|^2 \to \mathrm{Re}(\hat f\,\overline{\hat g})``) / the per-component spectrum
-    (``|\hat f|^2 \to \overline{\hat f}\,\hat g``, Hermitian for real ``f, g`` ⇒ the c2r reconstruction is exactly real).
+    the per-mode density (``|\hat f|^2 \to \mathrm{Re}(\hat f \overline{\hat g})``) / the per-component spectrum
+    (``|\hat f|^2 \to \overline{\hat f} \hat g``, Hermitian for real ``f, g`` ⇒ the c2r reconstruction is exactly real).
     These are **new methods on the existing `Reductions` generics** — no export change, the 198/118 parity baselines
     are unchanged. Verified CPU (`test/reductions.jl`: analytical oracles — an orthogonal pair ``\cos x \perp \sin x``
-    giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac12`` in adjacent shells that cancel to ``\mathrm{inner} = 0``;
+    giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac{1}{2}`` in adjacent shells that cancel to ``\mathrm{inner} = 0``;
     the ``g = f`` consistency; the ``f \leftrightarrow g`` symmetry; and an independent binned-circshift cross-correlation
     on a random pair) + GPU (ROCm device-vs-CPU parity, `test/gpu/suite.jl`); benchmarked (`reductions` class).
 
@@ -1178,20 +1178,20 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\hat W``, then `radial_correlation` of the deconvolved field gives ``\xi(r) = \langle\delta(x)\delta(x+r)\rangle``
     and ``g(r) = 1 + \xi(r)`` (the ``i=j`` self term is the shot noise, isolated in the ``r=0`` shell, so
     ``g`` at ``r>0`` is clean). With ``\hat\rho(k) = \sum_i e^{-\mathrm{i} k \cdot x_i}``,
-    ``S(k) = |\hat\rho|^2/M = 1 + \bar n\,\hat h(k)`` (Ornstein–Zernike) and ``g = 1 + h``. We already owned
+    ``S(k) = |\hat\rho|^2/M = 1 + \bar n \hat h(k)`` (Ornstein–Zernike) and ``g = 1 + h``. We already owned
     anterpolate + the transforms + both radial reductions; the **one new neutral primitive is the
     assignment-window deconvolution**, the rest is the consumer recipe (invariant 12). Three corrections, all
     handled:
 
     - **Assignment-window deconvolution (`assignment_window`, `Convolution`).** Scattering with kernel ``W``
-      gives ``\hat\rho_g = \hat W(k)\,\hat\rho``, so the measured spectrum is suppressed by ``|\hat W(k)|^2`` —
+      gives ``\hat\rho_g = \hat W(k) \hat\rho``, so the measured spectrum is suppressed by ``|\hat W(k)|^2`` —
       divide it out (a `convolve` by ``1/\hat W``). Shipped for the **linear (CIC) positive** assignment:
       ``\hat W(k) = \prod_a \operatorname{sinc}^2(k_a\Delta x_a/2)``, no in-band zeros. (Higher positive
       B-splines / the signed-kernel closed forms remain future.)
     - **Shot noise.** The ``i=j`` self term is a constant ``+1`` floor in ``S(k)`` (a ``\delta(r)`` at the
       origin): in the binned ``g(r)`` it lands entirely in the ``r=0`` shell, so evaluating ``g`` at ``r>0`` is the
       subtraction (no extra step). Consumer-side by convention.
-    - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac23 k_\mathrm{Nyq}``, and ``g(r)``
+    - **Aliasing / resolution.** The grid folds high-``k`` at Nyquist — trust ``k \lesssim \tfrac{2}{3} k_\mathrm{Nyq}``, and ``g(r)``
       below a few grid cells is unreliable regardless of corrections. FFT-RDF resolves **intermediate /
       large-scale clustering** (e.g. inertial-range preferential concentration), *not* a sharp contact
       peak (interlacing — Sefusatti et al. — is a future refinement). This matches the intended consumer
@@ -1237,15 +1237,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     representation (the Fourier coefficients of ``\sum_p q_p\delta_{x_p}``).
 
     *`DirectDFT` (done).* The literal ``O(NM)`` sum (``N`` the grid-point count, ``o`` the grid origin):
-    type-2 ``f(x_p) = \tfrac1N\sum_{\text{stored }k}
-    \alpha(k)\,\mathrm{Re}(\hat f(k)\,e^{\mathrm{i} k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
+    type-2 ``f(x_p) = \tfrac{1}{N}\sum_{\text{stored }k}
+    \alpha(k) \mathrm{Re}(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)})`` (the rfft half-spectrum reconstruction, with
     the Parseval weight ``\alpha`` of decision 18 — ``1`` on the ``k_x=0``/even-Nyquist planes, ``2`` else),
     type-1 ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}``. It is the *definition* of the
     spectral-domain pair, so it is at once a transparent exact baseline, the **divergence-free
     reference** (it reproduces the band-limited field exactly — verified ``\sim 10^{-16}`` off-grid —
     where the splines break ``\nabla\cdot u=0``), and the **oracle** that will validate `NUFFT`. It
     matches `to_physical` at the grid nodes and `to_spectral` from node samples (both exact to round-off),
-    and satisfies ``M\,\langle W\hat f, q\rangle_{\mathrm{pts}} = N\,\langle \hat f, W^\top q\rangle_{\mathrm{grid}}`` (the
+    and satisfies ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^\top q\rangle_{\mathrm{grid}}`` (the
     measure factor, as for the splines — decision 17). Two simple KernelAbstractions kernels (type-2
     over points, type-1 over modes — no atomics), the per-axis wavenumbers + ``\alpha`` built host→device
     like the multipliers; no FFT, window, or oversampling. Stateless `DirectDFT()`; CPU + GPU-portable.
@@ -1291,7 +1291,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     returns a **lazy** `Broadcasted` over the three per-axis squared-wavenumber vectors instead of a
     materialized ``O(N^3)`` array (``N`` the points per axis), so the Laplacian (``-|k|^2\hat f``),
     inverse Laplacian (``-\hat f/|k|^2``) and Helmholtz projection
-    (``\hat f_i - k_i\,(k_j\hat f_j)/|k|^2``) fuse it into their own broadcasts without ever allocating
+    (``\hat f_i - k_i (k_j\hat f_j)/|k|^2``) fuse it into their own broadcasts without ever allocating
     it. *(b)* The `laplacian!`, `inverse_laplacian!` and `helmholtz_projection!` kernels were rewritten
     so their former per-call temporaries (the longitudinal coefficient ``k_j\hat f_j/|k|^2``, the safe
     ``1/|k|^2`` that is ``1`` at the zero mode) are **fused** into the component assignments rather than
@@ -1313,7 +1313,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (the ``|k|``-shell power spectrum) and `radial_correlation` (the ``|r|``-shell two-point correlation) —
     binned by looping over the shells and, for each shell ``s``, reducing a masked broadcast (sum of the
     per-mode value over the modes whose rounded shell index equals ``s``). The number of shells scales with
-    the grid — ``\lceil \sqrt{3}\,N/2\rceil`` (``N`` the points per axis), ``\approx 220`` at ``N = 256`` —
+    the grid — ``\lceil \sqrt{3} N/2\rceil`` (``N`` the points per axis), ``\approx 220`` at ``N = 256`` —
     and each iteration allocates a full-grid temporary: the Boolean shell mask, and (because on the GPU
     stack a `mapreduce` over a `Broadcasted` materializes its argument rather than fusing) the masked
     product too. That is ``O(N)`` full-grid temporaries per *single* diagnostic call. On the GPU these are
@@ -1373,7 +1373,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `norm!`/`lpnorm` (a pointwise magnitude), `dev!` (the trace it subtracts), `std`/`var` (deviations), and
     the radial diagnostics (occasional, ``O(1)``-bounded). The spectral `inner` is the subtle case (``N``
     the points per axis): `inner(f, f)` — an energy or `l2norm` — is allocation-free, since
-    ``\overline{\hat f}\,\hat f = |\hat f|^2`` is real and the whole Parseval sum, correction planes
+    ``\overline{\hat f} \hat f = |\hat f|^2`` is real and the whole Parseval sum, correction planes
     included, is a fused `sum(abs2, …)`; but the mixed `inner(f, g)` of two distinct fields allocates an
     ``O(N^2)`` kₓ-plane correction, because a `dot` over the strided plane view (which would fuse, no
     temporary) is unsupported on the GPU (rocBLAS `dotc` has no strided method — verified on the device).
@@ -1397,8 +1397,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     names stay consumer-side).
 
     *The four, by family.*
-    - `combine!(dest, α, a, β, b)` (`FieldAlgebra`) writes the real-weighted combination ``\alpha\,a +
-      \beta\,b`` of two same-representation fields ``a, b`` with real weights ``\alpha, \beta``, in one fused
+    - `combine!(dest, α, a, β, b)` (`FieldAlgebra`) writes the real-weighted combination ``\alpha a +
+      \beta b`` of two same-representation fields ``a, b`` with real weights ``\alpha, \beta``, in one fused
       pass. It was a genuine gap: `add!` is unit-weight (``a+b``) and `multiply!` scales a single field, so
       the weighted combination (an axpby) had no form and the consumer reached into field storage with
       hand-rolled broadcasts at nine call sites. It completes the package's own ``\alpha/\beta`` accumulation
@@ -1416,8 +1416,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `FiberSections`, so it lands on **both** fields and point-values (mirroring ``\operatorname{tr}``, which
       already lived on both) with the formula written once.
     - `symmetric_gradient`/`!` (`DifferentialOperators`) forms the symmetric part of a vector field's
-      gradient, ``S_{ij} = \tfrac12\,(\partial_{x_j} u_i + \partial_{x_i} u_j)`` for a vector field ``u``,
-      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm i}{2}\,(k_j \hat u_i + k_i \hat u_j)`` with the
+      gradient, ``S_{ij} = \tfrac{1}{2} (\partial_{x_j} u_i + \partial_{x_i} u_j)`` for a vector field ``u``,
+      **directly** — spectrally ``\hat S_{ij} = \tfrac{\mathrm i}{2} (k_j \hat u_i + k_i \hat u_j)`` with the
       same Nyquist-correct derivative wavenumbers ``k`` as `gradient` — skipping the full nine-component
       gradient tensor ``\nabla u`` that `sym(gradient(u))` builds only to symmetrize. It is the **fused
       symmetric peer of `curl`**, which already extracts the *antisymmetric* part of ``\nabla u`` (as a
@@ -1425,7 +1425,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       consumer, exactly as the package says `curl` where the consumer says "vorticity".
     - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
       product of two fields ``f, g`` in spectral representation against a real Fourier multiplier ``w(k)``,
-      ``\langle f, w\,g\rangle = \tfrac1{N^2}\sum_k \alpha(k)\,w(k)\sum_c \operatorname{Re}(\hat f_c\,
+      ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \operatorname{Re}(\hat f_c 
       \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight, ``N`` the grid-point
       count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
       fused pass with no filtered field materialized. It is the **reduction-dual of `convolve`** (apply a
@@ -1464,7 +1464,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *Why the package owns it.* Translation is a **coordinate-only** operation on the field, with no physics
     in it — the exact sibling of the derivative and cutoff multipliers the package already owns — and by the
     shift theorem it *is* a convolution: with the Dirac delta displaced to ``h``, whose transfer
-    function is the pure phase ``\hat g(k) = e^{-\mathrm i\, k\cdot h}`` at wavenumber ``k``. So it needs
+    function is the pure phase ``\hat g(k) = e^{-\mathrm i  k\cdot h}`` at wavenumber ``k``. So it needs
     no new operation, only a new kernel (decision 20): `convolve!` already applies a scalar kernel to any
     tensor order, with its accumulation weights, alias-safely. **Only the builder was missing** —
     the package exposes no function-of-wavenumbers constructor, and the allocation helper `similar_field` is
@@ -1480,7 +1480,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     axis: the **Nyquist** frequency of an even-length axis (with ``N_a`` points and spacing ``\Delta x_a``
     along axis ``a``), the mode that is its own conjugate partner and where the kernel is therefore forced to
     be real. The two obvious candidates each fail, and they fail *differently*:
-    - The **true phase** ``e^{-\mathrm i\, k\cdot h}`` built from the signed wavenumbers is complex at
+    - The **true phase** ``e^{-\mathrm i  k\cdot h}`` built from the signed wavenumbers is complex at
       Nyquist for a fractional displacement, so it returns coefficients that are no real field's — the
       inverse transform then silently keeps only their Hermitian part. (Whole-cell displacements are safe:
       the factor there is ``(-1)^m`` for a displacement of ``m`` cells, which is real.)

@@ -13,7 +13,10 @@ and need not repeat the convention.
 | Indices | ``i, j, k, \dots`` | Italic, taken in order; used freely alongside ``\mathrm{i}`` (upright versus italic tells them apart). |
 | Repeated index | ``a_i b_i`` | An index repeated within a term is summed over the three components ``1, 2, 3`` (Einstein convention); an explicit ``\sum`` is reserved for the grid, point, and mode sums below. |
 | Partial derivative | ``\partial_{x_i}``, ``\partial^2_{x_i x_i}`` | The coordinate is subscripted, not the fiber index; a second derivative repeats the coordinate, so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f`` (with the repeated ``i`` summed). |
+| Differential | ``\mathrm{d}x``, ``\mathrm{d}\mu`` | Upright ``\mathrm{d}`` (matching the imaginary unit), with a thin space before it: ``\int_\Omega f \,\mathrm{d}\mu``. Never a bare italic ``d``. |
 | Summations | ``\sum_x``, ``\sum_p``, ``\sum_k`` | Over the ``N`` grid points, over the ``M`` points, and over the Fourier modes. |
+| Fractions | ``\tfrac{1}{2}``, ``\frac{1}{N}`` | Every macro argument is braced, both numerator and denominator, so no argument boundary is ever ambiguous. |
+| Spacing | juxtaposition | Adjacent factors sit side by side (``C_K \varepsilon^{2/3} \kappa^{-5/3}``), never separated by a thin space; a thin space appears only before the differential above. |
 | Delimiters | ``\Bigl(\;\Bigr)`` | Fixed-size `\Bigl \dots \Bigr` is preferred to auto-sized `\left \dots \right`, which over-inflates around subscripted sums. |
 
 ## Base and fiber
@@ -43,6 +46,6 @@ and need not repeat the convention.
 | ``\cdot``, ``\times`` | the fiber dot and cross products | `dot` (`⋅`), `cross` (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | `inner` |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
-| ``\int f\,d\mu`` | the integral against the base measure | `integral` |
+| ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |
 | ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter) | `interpolate`, `anterpolate` |

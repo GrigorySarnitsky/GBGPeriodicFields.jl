@@ -99,6 +99,12 @@ function lint_notation_variants()
   banned = [
     (r"\\partial_[ijk]",
      "bare-index partial — write \\partial_{x_i} (subscript the coordinate, not the fiber index)"),
+    # An unbraced fraction numerator (\frac1{N}, \tfrac12) renders correctly but leaves an argument
+    # boundary implicit; the house rule braces every macro argument (notation.md). A braced numerator
+    # (\frac{1}{N}) puts a "{" — not a digit — right after frac, so it never trips this. Works on both
+    # .md (\frac) and .jl (\\frac) since the match is "…frac<digit>" regardless of the leading escape.
+    (r"\\[dt]?frac[0-9]",
+     "unbraced fraction argument — brace it: \\tfrac{1}{2}, \\frac{1}{N} (not \\tfrac12 / \\frac1{N})"),
   ]
   srcs = _doc_lint_sources()
   problems = String[]

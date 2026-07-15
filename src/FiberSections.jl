@@ -499,7 +499,7 @@ _trace_tensor_rhs(symbol, kind) = _sum_terms([_tensor_component(symbol, kind, d,
 """
     _det_tensor_rhs(symbol, kind)
 
-Build the right-hand side for the fiberwise determinant ``\\det(A) = \\varepsilon_{ijk}\\,A_{1i} A_{2j} A_{3k}``,
+Build the right-hand side for the fiberwise determinant ``\\det(A) = \\varepsilon_{ijk} A_{1i} A_{2j} A_{3k}``,
 the third principal invariant ``I_3`` of the ``3\\times3`` tensor `symbol` (`kind` is `:field` or
 `:fiber`), expanded by cofactors along the first row:
 
@@ -525,7 +525,7 @@ end
 """
     _sym_kernel_body()
 
-Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` for
+Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top)`` for
 a section argument named `A`, writing into `destination`. The `half` local takes the section's real
 scalar type from `section_scalar_type(A)`. The kernel only shuffles indices, so callers wrap it
 through their alias guard.
@@ -540,7 +540,7 @@ end
 """
     _skew_kernel_body()
 
-Build the body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)``. See `_sym_kernel_body` for the shared structure.
+Build the body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top)``. See `_sym_kernel_body` for the shared structure.
 """
 _skew_kernel_body() = quote
   half = inv(section_scalar_type(A)(2))
@@ -552,7 +552,7 @@ end
 """
     _dev_kernel_body()
 
-Build the body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I``. See `_sym_kernel_body` for the shared structure.
+Build the body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I``. See `_sym_kernel_body` for the shared structure.
 """
 _dev_kernel_body() = quote
   third = inv(section_scalar_type(A)(3))

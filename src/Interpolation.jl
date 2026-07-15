@@ -99,11 +99,11 @@ fractional position along axis ``a`` and ``w`` the scheme's per-axis weight poly
 the tensor-product gather
 
 ```math
-f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\;
+f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)\\;
 f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
 ```
 
-and anterpolation is its transpose, adding ``w_{i_1}(t_1)\\, w_{i_2}(t_2)\\, w_{i_3}(t_3)\\, q_p`` (with
+and anterpolation is its transpose, adding ``w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)  q_p`` (with
 ``q_p`` the value carried at ``x_p``) onto each of those same nodes. Concretely a scheme is a tensor product of 1D weight polynomials: a compact
 stencil of ``N_2 = 2n{+}2`` nodes, each weight a degree-``(M_2-1)`` polynomial in the fractional cell
 position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, power]`) is precomputed
@@ -126,7 +126,7 @@ reproduces the field value and the derivatives of order ``1, \\dots, m`` at the 
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
 ``2n{+}1``-node stencil about that node (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
-(``w_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]\\, t^p``).
+(``w_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]  t^p``).
 
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
@@ -517,7 +517,7 @@ end
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
 [`interpolate!`](@ref) under the same `scheme` — computing
-``\\mathrm{field} = \\alpha\\,(W^\\top q) + \\beta\\,\\mathrm{field}``; returns `field`. This is the
+``\\mathrm{field} = \\alpha (W^\\top q) + \\beta \\mathrm{field}``; returns `field`. This is the
 in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
@@ -616,9 +616,9 @@ baseline and as the oracle that validates the fast [`NUFFT`](@ref); for many poi
 
 ```math
 \\begin{aligned}
-f(x_p) &= \\frac1N \\sum_{k} \\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}
-        = \\frac1N \\sum_{\\text{stored }k} \\alpha(k)\\, \\mathrm{Re}\\!\\bigl(\\hat f(k)\\, e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr), \\\\
-(W^\\top q)(k) &= \\sum_p q_p\\, e^{-\\mathrm{i} k\\cdot (x_p - o)},
+f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
+        = \\frac{1}{N} \\sum_{\\text{stored }k} \\alpha(k)  \\mathrm{Re}\\!\\bigl(\\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr), \\\\
+(W^\\top q)(k) &= \\sum_p q_p  e^{-\\mathrm{i} k\\cdot (x_p - o)},
 \\end{aligned}
 ```
 

@@ -6,7 +6,7 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 one exists — and an in-place `!` form. The families are:
 
   * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
-    combination [`combine!`](@ref) (``\\alpha\\,a + \\beta\\,b``), real scaling, and scalar-field
+    combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
     multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition, weighted combination,
     and real scaling are the vector-space structure; scalar-field multiplication is the module action over
     the scalar fields.
@@ -455,13 +455,13 @@ end
 """
     combine!(destination, α::Real, a, β::Real, b)
 
-Overwrite `destination` with the real-weighted linear combination ``\\alpha\\,a + \\beta\\,b`` of two
+Overwrite `destination` with the real-weighted linear combination ``\\alpha a + \\beta b`` of two
 compatible fields, and return `destination`.
 
 Reach for `combine!` with a preallocated destination when you need a real-weighted combination of two
 fields in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
 (``a + b``), and [`multiply!`](@ref), which scales a single field; the allocating equivalent is the
-operator expression ``\\alpha\\,a + \\beta\\,b``, which builds scratch fields instead. The combination is
+operator expression ``\\alpha a + \\beta b``, which builds scratch fields instead. The combination is
 linear and representation-preserving, so it is defined for both physical-space and spectral
 representation.
 
@@ -471,11 +471,11 @@ The arguments are:
 - `β`, `b` — the real weight and the second field.
 
 The write is coefficientwise, so it needs no alias guard: `a`, `b`, or both may be `destination` itself.
-In particular `combine!(u, 1, u, β, k)` computes the scaled accumulate ``u \\leftarrow u + \\beta\\,k`` in
+In particular `combine!(u, 1, u, β, k)` computes the scaled accumulate ``u \\leftarrow u + \\beta k`` in
 place.
 
 ```math
-\\mathrm{destination} = \\alpha\\, a + \\beta\\, b.
+\\mathrm{destination} = \\alpha  a + \\beta  b.
 ```
 """
 function combine! end
@@ -749,7 +749,7 @@ Contraction of two fields is nonlinear and is defined only in physical-space rep
 Pointwise over the base, with summation over the repeated fiber indices:
 
 ```math
-(u \\cdot v)(x) = u_i(x)\\, v_i(x), \\qquad (A : B)(x) = A_{ij}(x)\\, B_{ij}(x).
+(u \\cdot v)(x) = u_i(x)  v_i(x), \\qquad (A : B)(x) = A_{ij}(x)  B_{ij}(x).
 ```
 """
 function dot! end
@@ -843,7 +843,7 @@ Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (sum
 
 ```math
 \\begin{gathered}
-(u \\times v)_i = \\varepsilon_{ijk}\\, u_j v_k, \\\\
+(u \\times v)_i = \\varepsilon_{ijk}  u_j v_k, \\\\
 (u \\times v)_1 = u_2 v_3 - u_3 v_2, \\quad
 (u \\times v)_2 = u_3 v_1 - u_1 v_3, \\quad
 (u \\times v)_3 = u_1 v_2 - u_2 v_1.
@@ -917,7 +917,7 @@ end
          B::TensorFieldPhysical{2}[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
 
-Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\mathrm{destination} = \\alpha\\,(A B) + \\beta\\,\\mathrm{destination}``.
+Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\mathrm{destination} = \\alpha (A B) + \\beta \\mathrm{destination}``.
 
 A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector.
 
@@ -1240,7 +1240,7 @@ Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (sum
 fiber indices):
 
 ```math
-\\det(A) = \\varepsilon_{ijk}\\, A_{1i}\\, A_{2j}\\, A_{3k}.
+\\det(A) = \\varepsilon_{ijk}  A_{1i}  A_{2j}  A_{3k}.
 ```
 """
 function det! end
@@ -1278,7 +1278,7 @@ det(A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = det!(similar_field(
     sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     sym!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the symmetric part ``\\operatorname{sym}(A) = \\tfrac12\\,(A + A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the symmetric part ``\\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function sym! end
 
@@ -1297,7 +1297,7 @@ function sym end
     skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     skew!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the skew-symmetric part ``\\operatorname{skew}(A) = \\tfrac12\\,(A - A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the skew-symmetric part ``\\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top)`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function skew! end
 
@@ -1316,7 +1316,7 @@ function skew end
     dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the deviatoric part ``\\operatorname{dev}(A) = A - \\tfrac13\\,\\operatorname{tr}(A)\\,I`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the deviatoric part ``\\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I`` of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 """
 function dev! end
 

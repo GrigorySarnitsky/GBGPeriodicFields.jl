@@ -180,7 +180,7 @@ deliberately materialize one field and are the exceptions (use `maximum(abs, …
 **(g) Allocation-bounded radial diagnostics — the same GC trap, in the binning.** The same device-GC
 hazard as (f) lived in the *diagnostics*. `radial_spectrum` / `radial_correlation` binned by looping over
 the ``|k|``- (or ``|r|``-) shells and reducing a masked broadcast per shell. The shell count scales with
-the grid (``\approx \sqrt{3}\,N/2``, ``\approx 220`` at ``N = 256``, with ``N`` the per-axis size here — not
+the grid (``\approx \sqrt{3} N/2``, ``\approx 220`` at ``N = 256``, with ``N`` the per-axis size here — not
 the total ``N`` of §2), and each iteration allocates a
 full-grid mask — and, because a `mapreduce` over a `Broadcasted` *materializes* on this GPU stack rather
 than fusing, the masked product too: ``O(N)`` full-grid temporaries per call, which the host-triggered GC

@@ -59,7 +59,7 @@ export convolve, convolve!, ⋆, spectral_cutoff, spectral_band, squared_wavenum
     _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
 
 Apply the coefficientwise spectral product that realizes the periodic convolution in spectral
-representation, writing ``\\mathrm{dst} \\mathrel{.=} \\alpha\\,\\hat g \\cdot \\hat f + \\beta\\,\\mathrm{dst}``
+representation, writing ``\\mathrm{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\mathrm{dst}``
 (``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
 The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
 `source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
@@ -92,18 +92,18 @@ As a real physical object the periodic convolution is the kernel-weighted local 
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
 ```math
-(f \\star g)(x) = \\int_\\Omega f(y)\\, g(x - y)\\, dy ,
+(f \\star g)(x) = \\int_\\Omega f(y)  g(x - y)\\,\\mathrm{d}y ,
 ```
 
 with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus; on the grid
-this is the circular sum ``(f \\star g)[n] = \\sum_m f[m]\\, g[n - m]`` with indices modulo the grid
+this is the circular sum ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` with indices modulo the grid
 size. By the convolution theorem (the forward transform unnormalized) it is exactly the
 coefficientwise product of the transforms, which is what this operation computes — ``\\hat g`` =
 `kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``
 accumulate:
 
 ```math
-\\widehat{\\mathrm{destination}}(k) = \\alpha\\, \\hat f(k)\\, \\hat g(k) + \\beta\\, \\widehat{\\mathrm{destination}}(k).
+\\widehat{\\mathrm{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\mathrm{destination}}(k).
 ```
 
 - `field` — the field to filter, in spectral representation.
@@ -113,7 +113,7 @@ accumulate:
   product is coefficientwise.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
-  ``\\alpha\\,(f \\star g) + \\beta\\,\\mathrm{destination}``.
+  ``\\alpha (f \\star g) + \\beta \\mathrm{destination}``.
 
 !!! warning "A real field needs a Hermitian kernel"
     The stored half-spectrum holds only the modes with ``k_1 \\ge 0``; the rest are implied by the
@@ -269,7 +269,7 @@ special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 - `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
 
 ```math
-\\hat g(k) = \\mathbb 1\\!\\left[\\, |k| \\le k_c \\,\\right].
+\\hat g(k) = \\mathbb 1\\!\\left[  |k| \\le k_c  \\right].
 ```
 
 The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the consumer's.
@@ -301,7 +301,7 @@ As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tenso
 tents:
 
 ```math
-W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}\\,
+W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a} 
        \\max\\!\\Bigl(0,\\; 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
 ```
 
@@ -373,8 +373,8 @@ assembled per axis from that wavenumber's component ``k_a`` and the displacement
 axis:
 
 ```math
-\\hat g(k) = \\mathrm{e}^{-\\mathrm{i}\\, k \\cdot h}
-          = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i}\\,\\sin(k_a h_a) \\bigr].
+\\hat g(k) = \\mathrm{e}^{-\\mathrm{i}  k \\cdot h}
+          = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(k_a h_a) \\bigr].
 ```
 
 !!! warning "At the Nyquist frequency the phase becomes a real attenuation"

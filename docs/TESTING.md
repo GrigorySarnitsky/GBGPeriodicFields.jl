@@ -104,7 +104,7 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
   small absolute floor.
 - The same trap appears for **inner products of independent fields** (e.g. ``\langle \nabla\varphi, u\rangle``): they
   are near-orthogonal, so the common value of two equal inner products is small relative
-  to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product ``\lVert a\rVert\,\lVert b\rVert``, not
+  to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product ``\lVert a\rVert \lVert b\rVert``, not
   by the (tiny) result.
 
 **Pick the right oracle.** Operators → analytic closed form. Representation parity and
@@ -245,12 +245,12 @@ transpose/sym/skew/dev, norms, and the differential operators), exercised in bot
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
 gate and the GPU `materialize!` fallback also asserted; and the **L²/measure reductions**
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
-fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac12``) and manual references,
-across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac1N\sum`` grid, ``\tfrac1M\sum``
+fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac{1}{2}``) and manual references,
+across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac{1}{N}\sum`` grid, ``\tfrac{1}{M}\sum``
 points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the
-energy identity ``\tfrac12\,\mathrm{inner}(u,u) = \tfrac12\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
+energy identity ``\tfrac{1}{2} \mathrm{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
 physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
-no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, w\,g\rangle`` (the
+no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, w g\rangle`` (the
 ``w \equiv 1`` reduction to `inner`, the ``w = |k|^2`` Dirichlet energy checked against both
 ``-\langle f, \Delta f\rangle`` and ``\langle \nabla f, \nabla f\rangle``, the idempotent-band identity
 ``\lVert w \star f\rVert^2``, and the ``f \leftrightarrow g`` symmetry — scalar/vector/tensor, spectral-only),
@@ -263,7 +263,7 @@ its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point au
 against an **independent binned-circshift autocorrelation** and ``C(0) = \mathrm{inner}(f,f)``, all orders /
 both grids), the **two-field co-spectra** `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
 cross-power / cross-correlation, refining the *mixed* `inner(f, g)`: analytical oracles — an orthogonal
-pair ``\cos x \perp \sin x`` ⇒ zero, and ``\cos x \pm \cos 2x`` ⇒ ``\pm\tfrac12`` in adjacent shells
+pair ``\cos x \perp \sin x`` ⇒ zero, and ``\cos x \pm \cos 2x`` ⇒ ``\pm\tfrac{1}{2}`` in adjacent shells
 cancelling to ``\mathrm{inner} = 0`` (the co-spectrum **may be negative**); the ``f \leftrightarrow g``
 symmetry; the ``g = f`` reduction to the single-field forms (bit-identical); and an **independent
 binned-circshift cross-correlation** on a random pair — scalar/vector/tensor, both grids; the shared
