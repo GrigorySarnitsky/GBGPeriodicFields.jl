@@ -504,7 +504,7 @@ end
 """
     multiply!(destination, scalar::Real, field)
     multiply!(destination, field, scalar::Real)
-    multiply!(destination, scalar_field, field)
+    multiply!(destination, scalar_field::ScalarFieldPhysical, field)
     multiply!(destination, scalar_field, constant)
 
 Multiply a field in place by a real number or by a scalar field, and return `destination`.
@@ -518,8 +518,8 @@ function multiply! end
 
 """
     divide!(destination, field, scalar::Real)
-    divide!(destination, field, scalar_field)
-    divide!(destination, numerator, scalar_field)
+    divide!(destination, field, scalar_field::ScalarFieldPhysical)
+    divide!(destination, numerator, scalar_field::ScalarFieldPhysical)
 
 Divide a field in place, and return `destination`.
 
