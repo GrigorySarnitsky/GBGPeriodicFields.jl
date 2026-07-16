@@ -69,6 +69,20 @@ spectral_field_shape
 set_fft_threads!
 ```
 
+## HDF5 persistence
+
+Serialize a field to, and reconstruct it from, an HDF5 file — for checkpoint/restart, or to dump a
+full-resolution snapshot for later analysis. Provided by a **package extension**, so these are available
+only when the `HDF5` package is loaded; the core carries no HDF5 dependency. Each field becomes one
+self-describing HDF5 group, and the consumer owns the file — every method takes an open `File` or `Group`,
+so a whole iteration snapshot (several fields, plus the consumer's own time and iteration attributes) goes
+into one file.
+
+```@docs
+write_field
+read_field
+```
+
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors extending the package — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, and the broadcast machinery.

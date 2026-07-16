@@ -1,0 +1,103 @@
+# HDF5 persistence (the weak-dependency extension): every field type writes to / reads from an HDF5 *group*
+# in a file the consumer owns, exactly (data, grid geometry, element type, tensor order, representation).
+# Loading HDF5 here triggers the extension `GBGPeriodicFieldsHDF5Ext`.
+using Test
+using GBGPeriodicFields
+using HDF5
+using Random
+
+@testset "HDF5 persistence (extension)" begin
+  @test length(methods(write_field)) ≥ 1        # the extension actually loaded
+  @test length(methods(read_field)) ≥ 1
+
+  mktempdir() do dir
+    path = joinpath(dir, "fields.h5")
+    Random.seed!(1)
+
+    @testset "exact round-trip: every field type ($T)" for T in (Float64, Float32)
+      # a non-cubic, shifted box exercises the full Grid3D round-trip; grid (8,8,6) ⇒ rfft (5,8,6). A
+      # random complex array is a structurally valid spectral field — enough for the serialization test.
+      grid = Grid3D((8, 8, 6), (T(2π), T(4π), T(2π)); origin = (T(0.1), T(0.2), T(0.3)))
+      fields = [
+        "scalar_physical" => ScalarFieldPhysical(rand(T, 8, 8, 6), grid),
+        "scalar_spectral" => ScalarFieldSpectral(rand(Complex{T}, 5, 8, 6), grid),
+        "vector_physical" => VectorFieldPhysical(rand(T, 8, 8, 6, 3), grid),
+        "vector_spectral" => VectorFieldSpectral(rand(Complex{T}, 5, 8, 6, 3), grid),
+        "tensor_physical" => TensorFieldPhysical(rand(T, 8, 8, 6, 3, 3), grid),
+        "tensor_spectral" => TensorFieldSpectral(rand(Complex{T}, 5, 8, 6, 3, 3), grid),
+      ]
+      h5open(path, "w") do file
+        for (name, f) in fields
+          write_field(file, name, f)
+        end
+      end
+      h5open(path, "r") do file
+        for (name, f) in fields
+          r = read_field(file, name)
+          @test nameof(typeof(r)) == nameof(typeof(f))          # same field type
+          @test field_data(r) == field_data(f)                  # data bit-for-bit
+          @test eltype(field_data(r)) == eltype(field_data(f))  # real vs complex preserved
+          @test field_scalar_type(r) == T                       # element type preserved
+          @test field_tensor_order(r) == field_tensor_order(f)
+          g = field_grid(r)
+          @test g.grid_size == grid.grid_size
+          @test g.domain_size == grid.domain_size
+          @test g.origin == grid.origin
+          @test g.grid_spacing == grid.grid_spacing             # geometry exact
+          @test field_layout(r).fft_dims == field_layout(f).fft_dims
+        end
+      end
+    end
+
+    @testset "consumer owns the file: sugar + a full snapshot bundle" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      u = VectorFieldPhysical(rand(8, 8, 8, 3), grid)
+      ω = VectorFieldPhysical(rand(8, 8, 8, 3), grid)
+      # a whole "iteration snapshot": several fields plus the consumer's OWN time/iteration attributes, in
+      # one file — the package serializes the fields, the consumer owns the bundling and the clock.
+      h5open(path, "w") do file
+        file["note"] = "run-42"                     # the user's own data, beside the fields
+        snap = create_group(file, "step_0100")
+        write_field(snap, "velocity", u)            # verb form, into a group they made
+        snap["vorticity"] = ω                       # the setindex! sugar
+        attrs(snap)["time"] = 1.25                   # consumer-owned metadata (the package has no time)
+        attrs(snap)["iteration"] = 100
+      end
+      h5open(path, "r") do file
+        @test field_data(read_field(file, "step_0100/velocity")) == field_data(u)     # by path
+        @test field_data(read_field(file["step_0100"], "vorticity")) == field_data(ω) # by group handle
+        @test attrs(file["step_0100"])["time"] == 1.25
+      end
+    end
+
+    @testset "self-describing as plain HDF5" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      h5open(path, "w") do file
+        write_field(file, "u", ScalarFieldSpectral(rand(ComplexF64, 5, 8, 8), grid))
+      end
+      h5open(path, "r") do file
+        g = file["u"]
+        @test attrs(g)["type"] == "GBGPeriodicFields.ScalarFieldSpectral"
+        @test attrs(g)["version"] == 1
+        @test attrs(g)["representation"] == "spectral"
+        @test attrs(g)["tensor_order"] == 0
+        @test collect(attrs(g)["grid_size"]) == [8, 8, 8]
+        @test Set(keys(g)) == Set(["data"])
+      end
+    end
+
+    @testset "error paths" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      h5open(path, "w") do file
+        file["plain"] = [1.0, 2.0]
+        write_field(file, "field", ScalarFieldPhysical(rand(8, 8, 8), grid))
+        create_group(file, "tagless")
+      end
+      h5open(path, "r") do file
+        @test_throws ArgumentError read_field(file, "plain")    # a dataset, not a group
+        @test_throws ArgumentError read_field(file, "absent")   # no such object
+        @test_throws ArgumentError read_field(file, "tagless")  # a group, but no field type tag
+      end
+    end
+  end
+end

@@ -46,6 +46,8 @@ export FiberVector,
        VectorFieldSpectral,
        TensorFieldPhysical,
        TensorFieldSpectral,
+       write_field,
+       read_field,
        FieldTransformPlans,
        FieldSpectralMultipliers,
        to_physical!,
@@ -1434,6 +1436,58 @@ count at plan construction). Returns `n`. Code that parallelizes across many fie
 should build plans under `set_fft_threads!(1)` to avoid FFTW×Julia thread oversubscription.
 """
 set_fft_threads!(n::Integer) = (FFTW.set_num_threads(Int(n)); Int(n))
+
+
+# --- HDF5 persistence: bare generics declared here so `?write_field` and the docs work without HDF5
+# present; the methods (on `HDF5.File` / `Group`) live in `ext/GBGPeriodicFieldsHDF5Ext.jl`, loaded
+# automatically when the HDF5 package is. ---
+
+"""
+    write_field(parent, name, field) -> group
+
+Persist a `field` — any of the six field types, scalar / vector / tensor in either representation — as a
+**new HDF5 group** `name` under `parent` (an open HDF5 `File` or `Group`), returning that group. This is
+how you checkpoint a field for restart, dump a full-resolution snapshot for later analysis, or hand a
+field to another tool; the reload with [`read_field`](@ref) is exact.
+
+The group is **self-describing**: the field's numeric array becomes the dataset `data`, and its metadata
+become attributes — a `type` tag, a schema `version`, the [`Grid3D`](@ref) geometry (`grid_size`,
+`domain_size`, `origin`), the Fourier layout (`fft_dims`), the element type, and the tensor order — so any
+HDF5 tool can read it. A **physical** field stores a real array; a field in **spectral** representation
+stores its complex half-spectrum. Device (GPU) arrays are copied to the host on write. The sugar
+`parent[name] = field` is equivalent.
+
+`parent` is a handle you opened and own — this never opens or closes a file. So a solver dumps a whole
+iteration snapshot (velocity, vorticity, …) into one file under separate names and attaches its own `time`
+/ `iteration` attributes: the package serializes the fields, and the consumer owns the bundling and any
+notion of time. Provided by a package extension: available only when the `HDF5` package is loaded.
+
+# Arguments
+- `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
+- `name` — the name of the group to create.
+- `field` — the field to write (any scalar / vector / tensor field, physical or spectral).
+"""
+function write_field end
+
+
+"""
+    read_field(parent, name) -> field
+
+Reconstruct the field written by [`write_field`](@ref) from the HDF5 group `name` under `parent` (an open
+HDF5 `File` or `Group`), dispatching on the stored `type` attribute to return the matching field type
+(`ScalarFieldPhysical`, `VectorFieldSpectral`, …). The reload is **exact** — the array data, the
+[`Grid3D`](@ref) geometry, the Fourier layout, the element type, and the tensor order are recovered
+bit-for-bit.
+
+The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
+device afterward if needed. Provided by a package extension: available only when the `HDF5` package is
+loaded.
+
+# Arguments
+- `parent` — an open HDF5 `File` or `Group` holding the group.
+- `name` — the name (or path) of the field group under `parent`.
+"""
+function read_field end
 
 
 end # module Fields

@@ -1530,3 +1530,52 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     unit modulus on the resolved band — over both element types, a mixed-parity grid, GPU device-parity, and
     a benchmark. The method-set baselines (206 field / 122 point-value methods) are untouched: like
     `convolve` itself, this is a new generic in `Convolution`.
+
+
+29. **HDF5 field persistence — `write_field` / `read_field`, a weak-dependency extension.** The sibling
+    consumer `GBGStreamingStatistics` ships `write_histogram` / `read_histogram` to persist its durable
+    summaries to HDF5; the request was the field analogue, so a solver can **checkpoint a field for
+    restart**, dump a **full-resolution snapshot** for later analysis, or hand a field to another tool as
+    easily as it dumps statistics. The demos already hand-rolled HDF5 for their plotted curves; this makes
+    the fields themselves first-class.
+
+    *Persistence, not a mathematical operation — so it does not touch the math API.* Serializing a field is
+    I/O, not an operation on sections, so the rule that design changes be justified by established
+    mathematics ([§2](@ref "2. The central principle: the architecture follows established mathematics")),
+    which governs the *operation set*, does not bar it — and the mechanism keeps it out of the way:
+    `write_field` / `read_field` are a **weak-dependency package extension** (`[weakdeps]` HDF5 +
+    `[extensions]`, methods in `ext/GBGPeriodicFieldsHDF5Ext.jl`), so the HDF5 binary never enters the core
+    and a user who does not persist pays nothing. Bare `function write_field end` stubs and their docstrings
+    live in `Fields`, so `?write_field` and the manual work without HDF5 loaded; the methods appear only when
+    it is. This mirrors the sibling exactly.
+
+    *The line held (invariant 12 — no time).* A field is a self-describing object — its numeric array plus
+    its `Grid3D` geometry, Fourier layout, element type, and tensor order — so it maps onto **one HDF5
+    group**: the array is the dataset `data`, and everything else is attributes (a `type` tag, a schema
+    `version`, the grid geometry, the `fft_dims`, the element type, the tensor order, the representation).
+    The primitive is **one field at a time**, and — the load-bearing choice — it takes an *open* `File` or
+    `Group`, never a path. So the consumer bundles a whole **iteration snapshot** (velocity, vorticity, …)
+    into one file under separate names and attaches *its own* `time` / `iteration` attributes: the package
+    serializes the fields, the consumer owns the bundling and every notion of time. There is no `Snapshot`
+    type and no clock in the field layer. A field group and a `GBGStreamingStatistics` histogram group share
+    the same self-describing-group convention, so a run's fields and its statistics can live in one file.
+
+    *Both representations, host and device.* A physical field stores a real array; a field in spectral
+    representation stores its complex half-spectrum (HDF5 round-trips complex arrays). Device (GPU) arrays
+    are copied to the host on write via `Array(…)` — backend-agnostic, a no-op on the CPU — and the reload is
+    a host field the consumer moves to a device if wanted. On read, `read_field` dispatches on the stored
+    `type` tag and reconstructs through the public constructor: the element type follows the stored array (real or
+    complex), the tensor order follows its dimensionality, and the grid spacing is recomputed bit-for-bit, so
+    the reload is **exact**. The sugar `parent[name] = field` is `setindex!` for `write_field`, made strictly
+    more specific than HDF5's own array-writing `setindex!` so it never clashes.
+
+    *Scope.* Every field type (the six: scalar / vector / tensor × physical / spectral); no compression or
+    chunking options until a consumer needs them; no snapshot / time type (invariant 12).
+
+    *Verification.* The round-trip test `test/hdf5.jl` covers every field type over both element types,
+    asserting the data (real and complex), the full `Grid3D` geometry, the element type, the tensor order,
+    and the layout are recovered bit-for-bit; it exercises the `setindex!` sugar, a snapshot bundle carrying consumer-owned
+    `time` / `iteration` attributes, the self-describing attributes read back as plain HDF5, and the error
+    paths (a dataset instead of a group, an absent name, a group with no type tag). The method-set baselines
+    (206 field / 122 point-value methods) are untouched — `write_field` / `read_field` are new generics, and
+    their methods exist only under the extension.
