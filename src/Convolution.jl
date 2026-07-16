@@ -214,7 +214,8 @@ end
 
 
 """
-    spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+    spectral_band(reference::AbstractFieldSpectral,
+                  multipliers::FieldSpectralMultipliers,
                   wavenumber_low, wavenumber_high)
 
 Build an isotropic sharp spectral band-pass kernel as a scalar field in spectral representation, on
@@ -284,7 +285,8 @@ end
 
 
 """
-    assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+    assignment_window(reference::AbstractFieldSpectral,
+                      multipliers::FieldSpectralMultipliers)
 
 Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation,
 on `reference`'s grid and array backend, for deconvolving a gridded point density.

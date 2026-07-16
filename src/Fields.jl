@@ -877,8 +877,10 @@ end
 
 
 """
-    _check_field_domain_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
-    _check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+    _check_field_domain_compatibility(a::AbstractFieldPhysical,
+                                      b::AbstractFieldPhysical)
+    _check_field_domain_compatibility(a::AbstractFieldSpectral,
+                                      b::AbstractFieldSpectral)
 
 Check that two fields in the same representation share scalar type, grid, and Fourier layout.
 

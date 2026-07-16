@@ -185,7 +185,8 @@ point_values(sampled_values::AbstractPointValues) = sampled_values.data
 
 
 """
-    pointvalue_tensor_order(sampled_values::AbstractPointValues{T, R}) where {T<:AbstractFloat, R}
+    pointvalue_tensor_order(sampled_values::AbstractPointValues{T, R}) where
+        {T<:AbstractFloat, R}
 
 Return the tensor order `R` of `sampled_values`.
 """

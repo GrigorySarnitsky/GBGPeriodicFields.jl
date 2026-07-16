@@ -907,7 +907,8 @@ end
 
 
 """
-    NUFFT(reference::AbstractFieldSpectral; tol = 1e-10, oversampling = 2, width = 0, beta = 0)
+    NUFFT(reference::AbstractFieldSpectral;
+          tol = 1e-10, oversampling = 2, width = 0, beta = 0)
 
 The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
 (nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at

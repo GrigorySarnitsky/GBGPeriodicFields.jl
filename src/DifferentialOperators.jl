@@ -77,7 +77,8 @@ export gradient!,
 
 
 """
-    _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T})
+    _apply_spectral_derivative!(destination_component, source_component,
+                                wavenumber, ::Type{T})
 
 Apply a coefficientwise first derivative along one axis, computing `destination_component .= im * wavenumber .* source_component`, where `wavenumber` is a `_wavenumber_broadcast_view`. This kernel is the building block that `gradient` and `divergence` share.
 """
@@ -116,8 +117,8 @@ end
 
 
 """
-    _apply_spectral_inverse_laplacian!(destination_data, source_data, squared_wavenumber,
-                                       ::Type{T})
+    _apply_spectral_inverse_laplacian!(destination_data, source_data,
+                                       squared_wavenumber, ::Type{T})
 
 Apply the coefficientwise zero-mean inverse Laplacian, computing `-source_data ./ squared_wavenumber` at every nonzero wavevector and setting the zero Fourier mode to zero.
 """
@@ -130,7 +131,8 @@ end
 
 
 """
-    _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2,
+    _apply_spectral_helmholtz_projection!(destination_component_1,
+                                          destination_component_2,
                                           destination_component_3, source_component_1,
                                           source_component_2, source_component_3,
                                           wavenumber_1, wavenumber_2, wavenumber_3,
@@ -557,7 +559,8 @@ end
 
 
 """
-    symmetric_gradient(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+    symmetric_gradient(field::VectorFieldSpectral,
+                       multipliers::FieldSpectralMultipliers)
 
 Allocating form of [`symmetric_gradient!`](@ref): allocate the result and return it, the symmetric
 gradient ``\\operatorname{sym}\\nabla u`` — the symmetric part of ``\\nabla u`` as a second-order tensor
@@ -701,7 +704,8 @@ end
 
 
 """
-    inverse_laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+    inverse_laplacian(field::AbstractFieldSpectral,
+                      multipliers::FieldSpectralMultipliers)
 
 Allocating form of [`inverse_laplacian!`](@ref): allocate the result and return it, the zero-mean inverse
 Laplacian ``\\Delta^{-1} f`` (the zero Fourier mode is set to zero). Representation-preserving (scalar,
@@ -800,7 +804,8 @@ end
 
 
 """
-    helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+    helmholtz_projection(field::VectorFieldSpectral,
+                         multipliers::FieldSpectralMultipliers)
 
 Allocating form of [`helmholtz_projection!`](@ref): allocate the result and return it, the Helmholtz
 (Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with the zero Fourier

@@ -164,7 +164,8 @@ _spectral_zero_mode_data(field::ScalarFieldSpectral) = view(field_data(field), 1
 
 """
     _spectral_zero_mode_component_data(field::VectorFieldSpectral, component)
-    _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, second_index)
+    _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index,
+                                       second_index)
 
 Return a `1×1×1` view of the zero Fourier coefficient of one component of a vector or second-order tensor field in spectral representation.
 """
@@ -200,7 +201,8 @@ end
 
 
 """
-    _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical, field::AbstractFieldPhysical)
+    _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysical,
+                                 field::AbstractFieldPhysical)
 
 Reshape a scalar field's data with singleton fiber dimensions so it broadcasts against the fiber components of `field`. Used by pointwise scalar-field multiplication and division so the scalar acts on every component.
 """
@@ -733,10 +735,12 @@ const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
 
 
 """
-    dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical, v::VectorFieldPhysical)
+    dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical,
+         v::VectorFieldPhysical)
     dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
     dot!(destination::ScalarFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
-    dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
+    dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2},
+         B::TensorFieldPhysical{2})
     dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::FiberTensor2)
     dot!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2}, B::FiberTensor2)
 
@@ -831,7 +835,8 @@ end
 
 
 """
-    cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, v::VectorFieldPhysical)
+    cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical,
+           v::VectorFieldPhysical)
     cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
@@ -911,11 +916,14 @@ end
 """
     mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2},
          u::VectorFieldPhysical[, α, β])
-    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2}, a::FiberVector[, α, β])
-    mul!(destination::VectorFieldSpectral, A::FiberTensor2, u::VectorFieldSpectral[, α, β])
+    mul!(destination::VectorFieldPhysical, A::TensorFieldPhysical{2},
+         a::FiberVector[, α, β])
+    mul!(destination::VectorFieldSpectral, A::FiberTensor2,
+         u::VectorFieldSpectral[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2},
          B::TensorFieldPhysical{2}[, α, β])
-    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2}, B::FiberTensor2[, α, β])
+    mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2},
+         B::FiberTensor2[, α, β])
 
 Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\mathrm{destination} = \\alpha (A B) + \\beta \\mathrm{destination}``.
 
