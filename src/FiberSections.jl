@@ -91,7 +91,7 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 
 
 """
-    with_threading(f; enabled = true)
+    with_threading(f; enabled::Union{Nothing, Bool} = true)
 
 Run `f()` with the CPU-threading decision forced to `enabled`, then restore the previous setting.
 Pass `true` or `false` to force the threaded or serial path, or `nothing` to follow the automatic
@@ -104,7 +104,7 @@ with_threading(f; enabled::Union{Nothing, Bool} = true) =
 
 
 """
-    set_threading_cutoff!(n)
+    set_threading_cutoff!(n::Integer)
 
 Set [`threading_cutoff`](@ref) to `n` and return it. A CPU field assignment whose destination has
 fewer than `n` elements then runs serially instead of threaded. Raise `n` to keep small
@@ -141,7 +141,7 @@ end
 
 
 """
-    _index_ranges(axis, n)
+    _index_ranges(axis::AbstractUnitRange, n::Integer)
 
 Partition the index range `axis` into at most `n` contiguous, near-equal `UnitRange`s.
 """

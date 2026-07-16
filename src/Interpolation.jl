@@ -438,9 +438,12 @@ end
 
 
 """
-    interpolate!(out, field::AbstractFieldPhysical, points, scheme = CatmullRom)
-    interpolate!(out, field::AbstractFieldSpectral, points, scheme::DirectDFT)
-    interpolate!(out, field::AbstractFieldSpectral, points, scheme::NUFFT)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical,
+                 points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
+                 points::PointSet, scheme::DirectDFT)
+    interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
+                 points::PointSet, scheme::NUFFT)
 
 Interpolate `field` to the off-grid `points`, writing the gathered values into `out`; returns `out`. This
 is the in-place home of the gather ``W``; for a freshly allocated result use [`interpolate`](@ref), and
@@ -513,7 +516,10 @@ end
 
 
 """
-    anterpolate!(field, points, quantities, scheme = CatmullRom, α = true, β = false)
+    anterpolate!(field::AbstractFieldPhysical, points::PointSet,
+                 quantities::AbstractPointValues,
+                 scheme::AbstractSplineScheme = CatmullRom,
+                 α::Real = true, β::Real = false)
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
 [`interpolate!`](@ref) under the same `scheme` — computing

@@ -262,6 +262,17 @@ And **a backtick span holds only well-formed Julia** — a name/type/call/expres
 looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\ge``). The real operators
 `×`/`⋅`/`≈` backticked *are* code and stay.
 
+**A docstring signature mirrors the code's types, and only the docstring wraps.** An argument typed in
+the actual method is typed in the docstring; one the code leaves untyped stays untyped — so an untyped
+codegen builder or kernel body (`_vector_component(symbol, kind, i)`, `_apply_convolution!(…)`) keeps its
+untyped header, while a fully-typed method shows the types (`anterpolate!(field::AbstractFieldPhysical,
+points::PointSet, …)`). Wrapping to ≤ ~88 columns is **docstring-only**: the source `function` definition
+is left exactly as written, however long (it is not a rendered surface, so its length does not matter). A
+generic multi-dispatch *summary* (the `add!`/`subtract!`/`combine!`/`multiply!`/`divide!` M2 family) types
+the args carrying one type across the overloads (`α::Real`) and keeps generic the ones that span types (a
+field argument; `constant` = `Real`/`FiberVector`/`FiberTensor2`) — `add!(destination, a, b, fields...)` is
+such a summary, with no variadic method in the code to mirror.
+
 **Neutral reference register — never "knob".** A tunable argument is an **option** (or *keyword argument*,
 *setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
 Applies to docstrings, the four design docs, the doc pages, `#` comments, and `@testset` names.
