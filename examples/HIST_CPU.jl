@@ -54,7 +54,7 @@ include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O,
 
 # ## Parameters
 #
-# The options of the run. `smoke()` / `fast()` / `huge()` / `mega()` select ``32^{3}`` / ``64^{3}`` /
+# The options of the run. The `smoke()` / `fast()` / `huge()` / `mega()` configurations select ``32^{3}`` / ``64^{3}`` /
 # ``192^{3}`` / ``256^{3}``.
 
 Base.@kwdef struct Params
@@ -85,7 +85,7 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_s
 # separation; it is also a comfortable fit on a 12 GB GPU. The CFL is conservative (0.3) because the
 # statistics-window ``\Delta t`` is frozen (for a uniform Lagrangian axis): over a long averaging window a
 # CFL-tight, marginally-resolved run can hit a velocity peak the frozen ``\Delta t`` cannot handle and blow
-# up. `n_spinup` clears the initial energy overshoot; `n_stats` time-averages over a few of the forcing's
+# up. The `n_spinup` steps clear the initial energy overshoot; `n_stats` time-averages over a few of the forcing's
 # energy-oscillation periods (the band-rescaling forcing makes ``k(t)`` oscillate about its mean rather than
 # settle flat). Heavy: minutes on a GPU, much longer on the CPU.
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
@@ -168,7 +168,7 @@ end
 # entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
 # ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
 # (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
-# `convolve` (scaling preserves ``\nabla\cdot u = 0``). `convolve!` into the scratch `ws.tmp` keeps it
+# `convolve` (scaling preserves ``\nabla\cdot u = 0``). Applying `convolve!` into the scratch `ws.tmp` keeps it
 # allocation-free, no scalar indexing.
 
 function force!(uh, band, ws, p)
@@ -190,7 +190,7 @@ end
 # exactly what lets the GPU twin run unattended (an allocating style would grow the device memory pool
 # every step until it wedges).
 
-# Physical velocity & vorticity of a spectral field, into the given buffers. `uh` is preserved by
+# Physical velocity & vorticity of a spectral field, into the given buffers. The `uh` buffer is preserved by
 # transforming a COPY of it — `to_physical!` may overwrite its spectral source as scratch.
 function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   curl!(ws.ωh, uh, m)                          # ω̂ = ∇×û  (û preserved)

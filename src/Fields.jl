@@ -1184,7 +1184,7 @@ end
 """
     _axis_wavenumber_values(number_of_points, domain_length, half_dimension)
 
-Return `(derivative_wavenumber, squared_wavenumber)` as host vectors for one spatial axis. `half_dimension` marks the real-FFT half axis, which stores only the nonnegative frequencies. On even-length axes the derivative wavenumber is zeroed at the Nyquist mode (so derivatives of real fields stay real) while the squared wavenumber keeps the true ``k^2`` (correct Laplacian) — the deliberate Nyquist split, stored as two independent families.
+Return `(derivative_wavenumber, squared_wavenumber)` as host vectors for one spatial axis. The `half_dimension` flag marks the real-FFT half axis, which stores only the nonnegative frequencies. On even-length axes the derivative wavenumber is zeroed at the Nyquist mode (so derivatives of real fields stay real) while the squared wavenumber keeps the true ``k^2`` (correct Laplacian) — the deliberate Nyquist split, stored as two independent families.
 """
 function _axis_wavenumber_values(number_of_points::Int, domain_length::T, half_dimension::Bool) where {T<:AbstractFloat}
   wavenumber_unit = 2 * T(π) / domain_length

@@ -37,7 +37,7 @@ A grid cell is a triple ``(i, j, k)``, so the scalar field over the grid is the 
 As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
 ``(i, j, k)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
 them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}`` and the differential
-multipliers ``\mathrm{i} k_a`` act on). ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
+multipliers ``\mathrm{i} k_a`` act on). The factor ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
 each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
 is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
 nature of the transfer. A point's *position* ``x_p \in \mathbb R^3`` is a separate object from the value it
@@ -221,7 +221,7 @@ transform round trip (the inverse transform being the Hermitian projector).
 
 ## Reductions (`Reductions`, [Architecture](architecture.md) §12)
 
-The L²/measure structure (`src/Reductions.jl`). `integral` is **extensive** (against the base measure —
+The L²/measure structure (`src/Reductions.jl`). The `integral` is **extensive** (against the base measure —
 grid cell volume, point counting); `inner` is the **normalized** L² product (declared above); `l2norm`
 ``=\sqrt{\langle f,f\rangle}``:
 

@@ -184,7 +184,7 @@ _aliases_destination(destination, operands...) = any(operand -> (operand isa Abs
 """
     _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
 
-Run `kernel!(destination, operands...)` while protecting against destination/input aliasing. If `destination` aliases any field in `operands`, run the kernel into a fresh field of tensor order `output_order` and copy the result back; otherwise run in place. Used by index-shuffling operations (cross product, transpose, sym/skew/dev) that read several source components while writing each destination component. `mul!` deliberately skips this guard and documents the no-alias requirement instead, matching the LinearAlgebra convention.
+Run `kernel!(destination, operands...)` while protecting against destination/input aliasing. If `destination` aliases any field in `operands`, run the kernel into a fresh field of tensor order `output_order` and copy the result back; otherwise run in place. Used by index-shuffling operations (cross product, transpose, sym/skew/dev) that read several source components while writing each destination component. The `mul!` operation deliberately skips this guard and documents the no-alias requirement instead, matching the LinearAlgebra convention.
 """
 function _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
   if _aliases_destination(destination, operands...)

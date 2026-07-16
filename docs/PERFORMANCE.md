@@ -178,7 +178,7 @@ deliberately materialize one field and are the exceptions (use `maximum(abs, …
 [Decision 24.]
 
 **(g) Allocation-bounded radial diagnostics — the same GC trap, in the binning.** The same device-GC
-hazard as (f) lived in the *diagnostics*. `radial_spectrum` / `radial_correlation` binned by looping over
+hazard as (f) lived in the *diagnostics*. The `radial_spectrum` / `radial_correlation` reductions binned by looping over
 the ``|k|``- (or ``|r|``-) shells and reducing a masked broadcast per shell. The shell count scales with
 the grid (``\approx \sqrt{3} N/2``, ``\approx 220`` at ``N = 256``, with ``N`` the per-axis size here — not
 the total ``N`` of §2), and each iteration allocates a
@@ -218,7 +218,7 @@ example (`examples/HIST_CPU.jl`) now plans with `MEASURE`.
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
-`Pkg.test()`, exactly like the GPU tests. `build_suite(; array_type, types, sizes)` builds a
+`Pkg.test()`, exactly like the GPU tests. A call to `build_suite(; array_type, types, sizes)` builds a
 `BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
 `ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.

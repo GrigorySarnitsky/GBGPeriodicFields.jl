@@ -82,7 +82,7 @@ _cell_measure(::AbstractPointValues{T}) where {T} = one(T)
     _fiberwise(section, whole_reduce, over_base_reduce)
 
 Apply a reduction that **keeps the fiber and integrates the base away**, returning a fiber value:
-a scalar for tensor order `0`, a `FiberVector` for `1`, a `FiberTensor2` for `2`. `whole_reduce(data)`
+a scalar for tensor order `0`, a `FiberVector` for `1`, a `FiberTensor2` for `2`. The `whole_reduce(data)` helper
 is used for the scalar case (reduce the whole array); `over_base_reduce(data, base_dims)` reduces only
 the leading base dimensions for higher orders. The (tiny) reduced array is copied to the host before
 the `SVector`/`SMatrix` build, so no device array is scalar-indexed.

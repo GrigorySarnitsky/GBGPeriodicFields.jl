@@ -171,6 +171,17 @@ sits inside a math span.
 `label:`-colon tags, or comma splices. **Concise means few words, not missing verbs** — the goal is
 compact prose that still reads as sentences aloud; restore the grammar without adding fluff.
 
+**A sentence opens with a capitalized ordinary word — never a lowercase code identifier or a math
+formula.** A lowercase start is the defect, so **reword** so an ordinary word leads — never capitalize
+the identifier, whose binding is lowercase by nature (`` `divergence` uses this kernel`` → "The
+`divergence` operator uses this kernel"; a formula opener `` ``n = 0`` is linear`` → "The case ``n = 0``
+is linear"). **Exempt** (a fragment, or not rendered): a **bullet / list item** — including a §13
+decision-log entry and an argument-doc bullet; a `#` **code** comment — *but* a Literate example's
+full-line `# ` line **renders as prose**, so it is **not** exempt; and a **capitalized**
+type/module/file opener (`Point`, `DirectDFT`, `RESULTS.md`), which already begins with a capital. The
+`/check-docs` sentence-opener scan flags this class (it triages out the `e.g.`/`i.e.` abbreviations and
+the end-of-line ``\checkmark`` markers it also catches).
+
 **Correctness is verified, not asserted.** Check every formula, normalization, adjoint relation, and
 especially every **cross-scheme equivalence** by expanding it (degree, reproduction, indices, types)
 against the code — a plausible "X is just Y" is a false claim until the expansion matches. This session

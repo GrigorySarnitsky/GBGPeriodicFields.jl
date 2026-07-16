@@ -165,7 +165,7 @@ Local, ``C^0``, Lagrange interpolation: the unique degree-``2n{+}1`` polynomial 
 nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
 `coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly, but is only ``C^0`` (the
-interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. ``n = 0`` is
+interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
 linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_polys`.
 
 # References

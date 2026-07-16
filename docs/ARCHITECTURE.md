@@ -224,7 +224,7 @@ Operation names follow *what the operation is* — the same mathematics-first pr
 
 The discriminator that places a new operation: a *generic transformation with a natural verb* is a
 verb (convolution → `convolve`); a *canonically named operator* is its noun (the Laplacian →
-`laplacian`). `gradient`/`laplacian`/`helmholtz_projection` are nouns because they are the names of
+`laplacian`). The operators `gradient`/`laplacian`/`helmholtz_projection` are nouns because they are the names of
 those operators, not by a noun preference.
 
 ### Documentation policy
@@ -440,7 +440,7 @@ destination, output_order, operands)` runs the kernel into a fresh
 free in the common case. It exists because index-shuffling operations (cross
 products, transpose, sym/skew/dev) read several source components while writing
 each destination component — in-place aliasing would consume already-overwritten
-data. `mul!` deliberately skips the guard and documents that the destination must
+data. The `mul!` operation deliberately skips the guard and documents that the destination must
 not alias the inputs, matching `LinearAlgebra.mul!` semantics.
 
 ## 8. Broadcasting
@@ -493,7 +493,7 @@ floating-point adds (pairwise on the host, differently on threads/GPU), so they 
 not bitwise** like the assignments here. (The only already-threaded part is a *prior* step in a couple of them:
 `lpnorm` for ``p \ne 2`` builds the pointwise fiber magnitude ``\lvert f\rvert`` via the vertical
 `norm` — an `_assign!`-routed fiberwise op, hence threaded — then reduces *that* with the plain
-`sum`/`maximum`. `inner`/`l2norm`/`integral`/`mean` build no such field, so they are a single,
+`sum`/`maximum`. The reductions `inner`/`l2norm`/`integral`/`mean` build no such field, so they are a single,
 unthreaded `dot`/`sum`.) Threading them further (custom chunk-partial accumulation) is
 the remaining work; expected speedup then saturates at socket bandwidth over single-core (typically
 2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl —
@@ -748,12 +748,12 @@ value at the Nyquist frequency to be a real attenuation rather than a phase (dec
 
 `Reductions` is the **L² / measure** family — the third operation family, integrating a section over its
 base against the measure the base carries (`Grid3D`'s uniform cell volume, `PointSet`'s counting measure;
-decision 18). `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
+decision 18). The `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
 `l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
 (``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
 the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
-point-values** (representation-free). `inner`/`l2norm` *also* act on a field in **spectral** representation
+point-values** (representation-free). The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
 `integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
 and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**

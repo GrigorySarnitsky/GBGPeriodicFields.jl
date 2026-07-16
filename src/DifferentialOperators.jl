@@ -93,7 +93,7 @@ end
                                 source_1, source_2, source_3,
                                 wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. `divergence` uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
+Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. The `divergence` operator uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
@@ -400,7 +400,7 @@ cyclically,
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
-fresh result instead. `destination` may alias `field`: the aliased call is detected and computed through
+fresh result instead. The `destination` may alias `field`: the aliased call is detected and computed through
 a guard temporary, at the cost of one field-sized allocation.
 
 The arguments are:
@@ -744,7 +744,7 @@ gradient of the pressure-like potential that solves the divergence:
     physical space even though it acts coefficientwise in spectral representation.
 
 Use this in-place form when `destination` is already allocated; the allocating
-[`helmholtz_projection`](@ref) returns a fresh result instead. `destination` may alias `field`: the
+[`helmholtz_projection`](@ref) returns a fresh result instead. The `destination` may alias `field`: the
 aliased call is detected and computed through a guard temporary, at the cost of one field-sized
 allocation.
 

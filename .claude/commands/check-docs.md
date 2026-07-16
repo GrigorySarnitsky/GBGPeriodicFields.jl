@@ -136,7 +136,7 @@ grep -rnoP '``[^`]*``' src/*.jl $DOCS_MD | grep -P '(?<![\\A-Za-z])(?<!\{)[a-z]{
 grep -rnP '[^`\s]```[^`]|[^`]```[^`\s]' src/*.jl $DOCS_MD | grep -vP '^\S+:\d+:\s*```'  # split-formula: a ``math`` span abutting a `code` span (3 inline backticks); a documented ```math``` fence-name is a false positive
 grep -rnE '§[0-9]|docs/(src|ARCHITECTURE|FORMALIZATION|TESTING|PERFORMANCE)|ARCHITECTURE\.md|inspiration/' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'  # dead ref on a user-facing docstring: a §-number / design-doc path (must read complete at the REPL); drop #-comment hits
 grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed citation block (two citations joined by ';') → one per bullet line
-grep -rnE '\. `[a-z][a-z_]*!?`' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose sentence opens with a lowercase code identifier → capitalize the lead word or reword (args / bullets exempt)
+grep -rnE '\. (`[a-z]|``)' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose SENTENCE opens with a lowercase code identifier OR a math formula → REWORD to lead with a capitalized word (NEVER capitalize the lowercase binding); exempt: bullets / list items (incl. §13 entries, arg-docs), `#` code comments, a CAPITALIZED type/module opener; FPs: e.g./i.e. abbreviations, end-of-line ``\checkmark`` markers
 ```
 
 Two deterministic backstops that are not one-line greps:
