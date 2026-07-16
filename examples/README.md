@@ -51,17 +51,17 @@ and the PNGs `structure_functions` (the headline two-panel figure), `spectrum`, 
 
 Incompressible Navier–Stokes in **rotational form**, so the nonlinear step maps onto the package:
 
-```
-∂û/∂t = P[(u×ω)^] − ν k² û + f̂ ,   ω = ∇×u ,   P = Leray (Helmholtz) projection
+```math
+\frac{\partial \hat u}{\partial t} = \mathbb{P}\bigl[\widehat{u\times\omega}\bigr] - \nu k^2 \hat u + \hat f, \qquad \omega = \nabla\times u, \qquad \mathbb{P} = \text{Leray (Helmholtz) projection}
 ```
 
-- **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via `exp(−νk²Δt)`, the
-  nonlinear term explicit; `Δt` from advective CFL. The whole step is **in-place over a preallocated
+- **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via $\exp(-\nu k^2 \Delta t)$, the
+  nonlinear term explicit; $\Delta t$ from advective CFL. The whole step is **in-place over a preallocated
   workspace** — `curl!`, `to_physical!`/`to_spectral!`, `cross!`, `helmholtz_projection!`, `convolve!`,
   and raw-array AXPYs write into preallocated buffers, so a step allocates no fields.
 - **De-aliasing:** 2/3 rule, the package's `spectral_cutoff` sharp low-pass kernel (`convolve!`).
-- **Forcing:** rescale the lowest shells (`1 ≤ |k| ≤ 2`) to a fixed energy each step — deterministic,
-  unconditionally stationary (scaling preserves `∇·u = 0`).
+- **Forcing:** rescale the lowest shells ($1 \le |k| \le 2$) to a fixed energy each step — deterministic,
+  unconditionally stationary (scaling preserves $\nabla\cdot u = 0$).
 - **Particles:** a few thousand tracers, RK2 advection on the start-of-step velocity via `interpolate`,
   positions wrapped periodically; per-tracer velocity recorded for the Lagrangian statistics. *(The
   time loop is the consumer's — the package has no concept of time, by design.)*
@@ -70,34 +70,34 @@ Incompressible Navier–Stokes in **rotational form**, so the nonlinear step map
 
 `Grid3D`, the field types, `FieldTransformPlans` + the in-place `to_physical!`/`to_spectral!`,
 `FieldSpectralMultipliers`, the in-place `curl!`, `cross!`, `helmholtz_projection!`, `divergence`; the
-**L²/measure reductions** `inner`/`l2norm` (energy `½ inner(u,u)`, dissipation `ν inner(ω,ω)`, the
-divergence check `l2norm(∇·u)`), `radial_spectrum` (the energy spectrum `E(k)`) and
-**`radial_correlation`** (the shell-averaged velocity autocorrelation `C(r)`, whose integral is the
-integral length `L`, and from which the Eulerian per-component structure function follows as
-`S⁽ᴱ⁾(r) = ⅔(C(0)−C(r))`); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the `exp(−νk²Δt)`
+**L²/measure reductions** `inner`/`l2norm` (energy $\tfrac{1}{2}\langle u, u\rangle$, dissipation $\nu\langle\omega, \omega\rangle$, the
+divergence check $\lVert\nabla\cdot u\rVert$), `radial_spectrum` (the energy spectrum $E(k)$) and
+**`radial_correlation`** (the shell-averaged velocity autocorrelation $C(r)$, whose integral is the
+integral length $L$, and from which the Eulerian per-component structure function follows as
+$S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the $\exp(-\nu k^2 \Delta t)$
 integrating factor, the IC envelope); and `interpolate` (grid→point). The hot loop uses the **in-place,
 allocation-free** `!` forms throughout — the spectral operators allocate ~0 bytes (`docs/ARCHITECTURE.md`
 decision 24) — and the CFL speed uses `maximum(abs, field_data(u))` rather than `lpnorm` (the latter
 materializes a magnitude field). Built-in correctness cross-checks: the Parseval identity
-`½ inner(û,û) == ½⟨|u|²⟩` and `‖∇·u‖ ≈ roundoff` (both asserted).
+$\tfrac{1}{2}\langle\hat u, \hat u\rangle = \tfrac{1}{2}\langle |u|^2\rangle$ and $\lVert\nabla\cdot u\rVert \approx \text{roundoff}$ (both asserted).
 
 ### Reading the plots (and the Reynolds-number caveat)
 
 The headline `structure_functions` figure shows the Eulerian and Lagrangian **per-component**
-structure functions (one third of the trace `⟨|δu|²⟩`), each normalized by its Kolmogorov inertial scaling —
-`S⁽ᴱ⁾(Δx) / [(11/9) C₂ ε²ᐟ³ Δx²ᐟ³]` vs `Δx/η`, and `S⁽ᴸ⁾(Δt) / [C₀ ε Δt]` vs `Δt/τ_η` (`C₂=2.1`,
-`C₀=6.0`). A K41 inertial range shows as a **plateau at 1**. Marked on each panel are the **Taylor** and
-**integral** scales — `λ/η` and `L/η` (Eulerian), `√(τ_η·τ_u)/τ_η` and `τ_u/τ_η` (Lagrangian) — where the
-integral length `L` and time `τ_u` are measured as the **integrals of the velocity autocorrelations**
-(`L = ∫ρ(r)dr` from `radial_correlation`; `τ_u = ∫ρ_L(τ)dτ` from the tracked particles); the
-`autocorrelation` figure shows the two `ρ` curves. The Lagrangian Taylor-time marker uses the
-log-midpoint proxy `√(τ_η·τ_u)` — so it needs no acceleration statistics.
+structure functions (one third of the trace $\langle |\delta u|^2\rangle$), each normalized by its Kolmogorov inertial scaling —
+$S^{(E)}(\Delta x) / [\tfrac{11}{9} C_2 \varepsilon^{2/3} \Delta x^{2/3}]$ vs $\Delta x/\eta$, and $S^{(L)}(\Delta t) / [C_0 \varepsilon \Delta t]$ vs $\Delta t/\tau_\eta$ ($C_2 = 2.1$,
+$C_0 = 6.0$). A K41 inertial range shows as a **plateau at 1**. Marked on each panel are the **Taylor** and
+**integral** scales — $\lambda/\eta$ and $L/\eta$ (Eulerian), $\sqrt{\tau_\eta \tau_u}/\tau_\eta$ and $\tau_u/\tau_\eta$ (Lagrangian) — where the
+integral length $L$ and time $\tau_u$ are measured as the **integrals of the velocity autocorrelations**
+($L = \int \rho(r)\,\mathrm{d}r$ from `radial_correlation`; $\tau_u = \int \rho_L(\tau)\,\mathrm{d}\tau$ from the tracked particles); the
+`autocorrelation` figure shows the two $\rho$ curves. The Lagrangian Taylor-time marker uses the
+log-midpoint proxy $\sqrt{\tau_\eta \tau_u}$ — so it needs no acceleration statistics.
 
-At the default **32³** (`Re_λ ≈ 16`) there is essentially no inertial range, so the normalized curves
-form a hump rather than a plateau, and `λ ≈ L` (the scales have not separated) — expected, not a bug.
-**`--huge` (192³, `Re_λ ≈ 93`)** separates them cleanly (`λ/η ≈ 19`, `L/η ≈ 43`) and the Eulerian curve
+At the default **32³** ($\mathrm{Re}_\lambda \approx 16$) there is essentially no inertial range, so the normalized curves
+form a hump rather than a plateau, and $\lambda \approx L$ (the scales have not separated) — expected, not a bug.
+**`--huge` (192³, $\mathrm{Re}_\lambda \approx 93$)** separates them cleanly ($\lambda/\eta \approx 19$, $L/\eta \approx 43$) and the Eulerian curve
 approaches the plateau. The `spectrum` concentrates energy at large scales and falls through the
-dissipation range; `E(t)`, `ε(t)` are statistically steady past the spin-up.
+dissipation range; $E(t)$, $\varepsilon(t)$ are statistically steady past the spin-up.
 
 ### Options
 
@@ -116,19 +116,19 @@ twin (`allowscalar(false)`) forced most of them in.
 **Closed:**
 
 - ✅ **Reductions over a field** (`Reductions`): `integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/…
-- ✅ **Apply a diagonal spectral operator `f(k)`** (`Convolution`): `convolve!` + `spectral_cutoff`.
-- ✅ **`|k|`-field and shell-band utilities** (`Convolution`): `squared_wavenumber_field`, `spectral_band`.
-- ✅ **Energy spectrum `E(k)`** (`Reductions`): `radial_spectrum`.
-- ✅ **Eulerian structure function without a hand-rolled spatial shift** — `S⁽ᴱ⁾(r) = ⅔(C(0)−C(r))` reads
+- ✅ **Apply a diagonal spectral operator $f(k)$** (`Convolution`): `convolve!` + `spectral_cutoff`.
+- ✅ **$|k|$-field and shell-band utilities** (`Convolution`): `squared_wavenumber_field`, `spectral_band`.
+- ✅ **Energy spectrum $E(k)$** (`Reductions`): `radial_spectrum`.
+- ✅ **Eulerian structure function without a hand-rolled spatial shift** — $S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$ reads
   straight off the FFT-based `radial_correlation` (the shell-averaged velocity autocorrelation), so the
-  earlier `circshift` reach-in is gone; the integral length `L = ∫ρ(r)dr` comes from the same call.
+  earlier `circshift` reach-in is gone; the integral length $L = \int \rho(r)\,\mathrm{d}r$ comes from the same call.
 
 **Still open** (the script hand-rolls these, both representation-neutral):
 
 1. **Random solenoidal field generator** with a target spectrum (an initial-condition helper). The
    script builds the random field + envelope + Helmholtz projection by hand.
 2. *Minor:* `gradient(vector)→tensor` for the velocity-gradient tensor, which the script sidesteps via
-   the homogeneous identity `ε = ν⟨|ω|²⟩`; and the Lagrangian autocorrelation / structure function are
+   the homogeneous identity $\varepsilon = \nu\langle |\omega|^2\rangle$; and the Lagrangian autocorrelation / structure function are
    host-side loops over the recorded per-particle velocities (inherent to particle tracking).
 
 Forcing and time integration themselves stay a *consumer* concern (the package has no time / forcing).
@@ -155,13 +155,13 @@ over a preallocated workspace and the package's in-place operators are allocatio
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
 representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the earlier 12 GB ceiling, below
-the 320³ RX 7900 XTX run behind the figures above — reaches `Re_λ ≈ 109`, `k_max·η ≈ 1.33` (comfortably resolved), and sustains **≈ 87
+the 320³ RX 7900 XTX run behind the figures above — reaches $\mathrm{Re}_\lambda \approx 109$, $k_{\max}\eta \approx 1.33$ (comfortably resolved), and sustains **≈ 87
 ms/step** (9000 steps, ≈ 785 s of simulation), with the spectral-`inner` Parseval check matching the
-physical energy to all printed digits and `‖∇·u‖_rel ≈ 1.6e-7` (Float32 roundoff). It fits 12 GB because
+physical energy to all printed digits and $\lVert\nabla\cdot u\rVert_{\text{rel}} \approx 1.6\times 10^{-7}$ (Float32 roundoff). It fits 12 GB because
 the working set stays ≈ 6 GB (≈ 8 GB peak through the snapshots) — both the time loop and the radial
-binning are allocation-bounded. This is about the practical `Re_λ` ceiling for the scheme: a lower `ν`
-raises `Re_λ` but drops `k_max·η` below ≈ 1.1, where the marginally-resolved flow blows up over a long
-averaging window. `--huge` (192³, `Re_λ ≈ 93`) is the lighter, very comfortable fit. An *allocating* style would instead grow the device pool every step until it
+binning are allocation-bounded. This is about the practical $\mathrm{Re}_\lambda$ ceiling for the scheme: a lower $\nu$
+raises $\mathrm{Re}_\lambda$ but drops $k_{\max}\eta$ below ≈ 1.1, where the marginally-resolved flow blows up over a long
+averaging window. `--huge` (192³, $\mathrm{Re}_\lambda \approx 93$) is the lighter, very comfortable fit. An *allocating* style would instead grow the device pool every step until it
 wedges or `hipMalloc` aborts — which is exactly why a real GPU DNS preallocates.
 
 The only non-package pieces left (gap list) are the random-solenoidal IC generator and the host-side
