@@ -418,7 +418,7 @@ modes whose rounded magnitude falls in shell ``i``:
 ```math
 \\begin{gathered}
 P(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
-P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\!\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
+P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
 \\end{gathered}
 ```
 
@@ -530,8 +530,8 @@ spectrum, inverse-transforms it, and normalizes:
 
 ```math
 \\begin{gathered}
-C(r) = \\frac{1}{N} \\sum_x f(x)\\cdot f(x+r) = \\frac{1}{N} \\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r), \\\\
-C_{fg}(r) = \\frac{1}{N} \\sum_x f(x)\\cdot g(x+r) = \\frac{1}{N} \\mathcal F^{-1}\\!\\Bigl(\\textstyle\\sum_c \\overline{\\hat f_c} \\hat g_c\\Bigr)(r),
+C(r) = \\frac{1}{N} \\sum_x f(x)\\cdot f(x+r) = \\frac{1}{N} \\mathcal F^{-1}\\Bigl(\\textstyle\\sum_c |\\hat f_c|^2\\Bigr)(r), \\\\
+C_{fg}(r) = \\frac{1}{N} \\sum_x f(x)\\cdot g(x+r) = \\frac{1}{N} \\mathcal F^{-1}\\Bigl(\\textstyle\\sum_c \\overline{\\hat f_c} \\hat g_c\\Bigr)(r),
 \\end{gathered}
 ```
 

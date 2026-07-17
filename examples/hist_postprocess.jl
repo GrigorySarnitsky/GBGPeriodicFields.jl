@@ -152,7 +152,7 @@ function eulerian_panel(b)
   ymax = maximum(y)
   plt = plot(x, y; xscale = :log10, lw = 2, label = "",
              xlabel = L"\Delta x / \eta",
-             ylabel = L"S^{(E)}(\Delta x)\,/\,\left(\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}\right)",
+             ylabel = L"S^{(E)}(\Delta x)\,/\,\bigl(\tfrac{11}{9}\,C_2\,\varepsilon^{2/3}\,\Delta x^{2/3}\bigr)",
              title = "Eulerian structure function", ylims = (0, 1.28 * ymax),
              left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
   mark_scale!(plt, b["lambda"] / η, L"\lambda/\eta", 1.20 * ymax)
@@ -169,7 +169,7 @@ function lagrangian_panel(b)
   ymax = maximum(y)
   plt = plot(x, y; xscale = :log10, lw = 2, label = "",
              xlabel = L"\Delta t / \tau_\eta",
-             ylabel = L"S^{(L)}(\Delta t)\,/\,\left(C_0\,\varepsilon\,\Delta t\right)",
+             ylabel = L"S^{(L)}(\Delta t)\,/\,(C_0\,\varepsilon\,\Delta t)",
              title = "Lagrangian structure function", ylims = (0, 1.28 * ymax),
              left_margin = 8mm, bottom_margin = 5mm, right_margin = 5mm)
   τ_u = b["tau_u"]

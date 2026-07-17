@@ -263,6 +263,37 @@ And **a backtick span holds only well-formed Julia** — a name/type/call/expres
 looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\ge``). The real operators
 `×`/`⋅`/`≈` backticked *are* code and stay.
 
+**Math spacing and command support — standard LaTeX idiom.** These are the conventions a fluent LaTeX
+author writes by default; the defects they head off — manual spacing, reflexive ``\\left``/``\\right`` — are
+novice tells, not subtle bugs. **Never:**
+- **manually space around a relation or binary operator** — ``\\;``/``\\:``/``\\,`` next to
+  ``=``/``<``/``\\in``/``+``/``-`` doubles the space TeX already puts there; write ``a = b``, not ``a \\;=\\; b``,
+  and let TeX space it.
+- **put ``\\!`` before an opening/closing delimiter that follows an operator or name** (``\\bigl``/``\\Bigl``/``\\bigr``)
+  — as in ``\\max\\!\\bigl(``, ``\\mathrm{Re}\\!\\bigl(``, ``\\mathcal F^{-1}\\!\\Bigl(``: there is already no gap there
+  (Op–Open and Ord–Open spacing is zero), so the ``\\!`` only jams the delimiter into the name; write
+  ``\\max\\bigl(``.
+- **double a negative thin as ``\\!\\!`` before ``\\sum``/``\\int``** — it overshoots into an overlap; juxtapose.
+- **write ``\\mathbb{…}`` on anything but a capital ``A``–``Z`` or ``k``** — KaTeX's blackboard font covers only
+  those glyphs, so ``\\mathbb{1}`` (or any digit) falls back to a *plain* glyph with the font silently dropped;
+  for the indicator/identity write ``\\mathbf{1}`` (or ``\\boldsymbol{1}``). KaTeX supports a subset of LaTeX, so
+  for anything tool-specific consult KaTeX's published support table — do not assume parity.
+- **use ``\\left``/``\\right`` for auto-sized delimiters** — size every delimiter by hand instead
+  (``\\bigl``/``\\Bigl`` … ``\\bigr``/``\\Bigr``): those are Open/Close atoms (no added gap, and the size is the one
+  you chose), where ``\\left … \\right`` is an Inner atom that adds a spurious gap around the fence (so
+  ``f\\bigl(x\\bigr)`` closes up where ``f\\left(x\\right)`` leaves a gap). **Sole exception:** a system / cases
+  written ``\\left\\{ … \\right.`` — an auto-sized left brace closed by a null ``\\right.``.
+
+**These are correct — do NOT "fix" them:** ``\\sim\\!`` and relation-modifier tightening; ``\\,\\mathrm{d}x`` (the thin
+space before an upright differential is wanted); ``\\quad``/``\\qquad`` for display-equation separation; and
+``\\mathrm{Re}`` versus ``\\operatorname{Re}`` before a delimiter (identical output — Ord–Open = Op–Open
+= 0 — so do not churn between them).
+
+**Why this list exists:** every rule is standard LaTeX idiom plus a few documented exceptions, not a matter of
+taste. When unsure, reach for a standard LaTeX reference (and KaTeX's support table for what it supports), never
+a plausible-sounding typographic argument — the one convention here once justified by taste, the retired
+``\\left`` "over-inflates around subscripted sums" claim, was simply wrong.
+
 **A docstring signature mirrors the code's types, and only the docstring wraps.** An argument typed in
 the actual method is typed in the docstring; one the code leaves untyped stays untyped — so an untyped
 codegen builder or kernel body (`_vector_component(symbol, kind, i)`, `_apply_convolution!(…)`) keeps its

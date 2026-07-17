@@ -99,7 +99,7 @@ fractional position along axis ``a`` and ``w`` the scheme's per-axis weight poly
 the tensor-product gather
 
 ```math
-f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)\\;
+f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)
 f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
 ```
 
@@ -630,7 +630,7 @@ baseline and as the oracle that validates the fast [`NUFFT`](@ref); for many poi
 ```math
 \\begin{aligned}
 f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
-        = \\frac{1}{N} \\sum_{\\text{stored }k} \\alpha(k)  \\mathrm{Re}\\!\\bigl(\\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr), \\\\
+        = \\frac{1}{N} \\sum_{\\text{stored }k} \\alpha(k)  \\mathrm{Re}\\bigl(\\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}\\bigr), \\\\
 (W^\\top q)(k) &= \\sum_p q_p  e^{-\\mathrm{i} k\\cdot (x_p - o)},
 \\end{aligned}
 ```

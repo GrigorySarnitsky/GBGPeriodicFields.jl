@@ -120,7 +120,7 @@ A field — or values sampled at scattered points — is a **section** ``s``, a 
 projection ``\pi``:
 
 ```math
-B \;\xrightarrow{ s }\; E \;\xrightarrow{ \pi }\; B, \qquad \pi \circ s = \operatorname{id}_B,
+B \xrightarrow{ s } E \xrightarrow{ \pi } B, \qquad \pi \circ s = \operatorname{id}_B,
 ```
 
 with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
@@ -180,7 +180,7 @@ The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution
 @V{\mathcal F}VV               @VV{\mathcal F}V \\
 (\hat f,\hat g)  @>>{\cdot}>   \hat f \cdot \hat g
 \end{CD}
-\qquad\qquad \mathcal F(f \star g) \;=\; \hat f \cdot \hat g .
+\qquad\qquad \mathcal F(f \star g) = \hat f \cdot \hat g .
 ```
 
 The coefficientwise product *downstairs* is **convolution** upstairs (offered as `convolve` ``\equiv \star``,
@@ -335,7 +335,7 @@ f      @>{\mathcal F}>>   \hat f \\
 @V{L}VV                   @VV{\hat L}V \\
 Lf     @>>{\mathcal F}>   \widehat{Lf}
 \end{CD}
-\qquad\qquad \mathcal F\circ L \;=\; \hat L\circ\mathcal F .
+\qquad\qquad \mathcal F\circ L = \hat L\circ\mathcal F .
 ```
 
 This commuting square *is* invariant 2 (one object, two representations) and the entire design of
@@ -555,9 +555,9 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
 
 ```math
-\sum_{p} (W f)_p\cdot q_p \;=\; \sum_{x} f(x)\cdot(W^{\top} q)(x),
+\sum_{p} (W f)_p\cdot q_p = \sum_{x} f(x)\cdot(W^{\top} q)(x),
 \qquad\qquad
-W \bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) \;=\; \operatorname{eval}_{\text{pts}} \phi
+W \bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) = \operatorname{eval}_{\text{pts}} \phi
 \quad (\phi \in \Pi_d),
 ```
 

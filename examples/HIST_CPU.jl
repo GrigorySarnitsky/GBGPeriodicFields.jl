@@ -15,7 +15,7 @@
 #
 # ```math
 # \frac{\partial \hat{u}}{\partial t}
-#   = \mathbb{P} \widehat{u\times\omega} \;-\; \nu \kappa^{2} \hat{u} \;+\; \hat{f},
+#   = \mathbb{P} \widehat{u\times\omega} - \nu \kappa^{2} \hat{u} + \hat{f},
 # ```
 #
 # where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the

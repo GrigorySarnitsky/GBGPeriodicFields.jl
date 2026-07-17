@@ -175,7 +175,7 @@ spectral product. The neutral kernel builders: `spectral_cutoff` is the sharp lo
 coordinate consumers build symbols from; and `assignment_window` the linear/CIC mass-assignment window
 
 ```math
-\hat W(k) = \prod_{a=1}^{3}\operatorname{sinc}^2\!\Bigl(\tfrac{k_a \Delta x_a}{2}\Bigr),
+\hat W(k) = \prod_{a=1}^{3}\operatorname{sinc}^2\Bigl(\tfrac{k_a \Delta x_a}{2}\Bigr),
 \qquad \operatorname{sinc} y = \tfrac{\sin y}{y},
 ```
 
@@ -191,7 +191,7 @@ multiplier is the separable product
 
 ```math
 \hat g_h(k) = \prod_{a=1}^{3}
-  \bigl[  \cos(\kappa_a h_a) \;-\; \mathrm{i} \sin(\tilde\kappa_a h_a)  \bigr].
+  \bigl[  \cos(\kappa_a h_a) - \mathrm{i} \sin(\tilde\kappa_a h_a)  \bigr].
 ```
 
 Three statements, each expanded against the code and tested:
@@ -246,8 +246,8 @@ the rfft half-spectrum (each ``k_x>0`` mode stands for its conjugate partner, so
 self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 
 ```math
-\langle f, g\rangle = \frac{1}{N^2} \mathrm{Re}\!\Bigl(2\!\!\sum_{k_x\ge0}\!\!\hat f \overline{\hat g}
-\;-\;\sum_{k_x=0}\hat f \overline{\hat g}\;-\;\sum_{k_x=N_x/2}\hat f \overline{\hat g}\Bigr) \quad\checkmark
+\langle f, g\rangle = \frac{1}{N^2} \mathrm{Re}\Bigl(2\sum_{k_x\ge0}\hat f \overline{\hat g}
+-\sum_{k_x=0}\hat f \overline{\hat g}-\sum_{k_x=N_x/2}\hat f \overline{\hat g}\Bigr) \quad\checkmark
 ```
 
 (the Nyquist sum only for even ``N_x``). **`radial_spectrum`** bins this with the half-spectrum weight
@@ -256,9 +256,9 @@ self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 inverse):
 
 ```math
-P(\kappa_i) = \frac{1}{N^2}\!\!\sum_{\mathrm{round}(|k|/\Delta k)=i}\!\!\alpha(k)\sum_c |\hat f_c(k)|^2,
+P(\kappa_i) = \frac{1}{N^2}\sum_{\mathrm{round}(|k|/\Delta k)=i}\alpha(k)\sum_c |\hat f_c(k)|^2,
 \qquad
-C(r) = \frac{1}{N} \mathcal F^{-1}\!\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
+C(r) = \frac{1}{N} \mathcal F^{-1}\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
 ```
 
 with ``P(\kappa)`` the shell **power spectrum** (the consumer's physics energy spectrum is
@@ -272,7 +272,7 @@ negative.
 **`weighted_inner`** applies a real Fourier multiplier ``w(k)`` inside the same Parseval sum,
 
 ```math
-\langle f, w g\rangle = \frac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}\!\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
+\langle f, w g\rangle = \frac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
 ```
 
 generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. For ``w=|k|^2`` (the
@@ -335,7 +335,7 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 \sum_n (W^{\top} q)_n
 = \sum_n\sum_p (W_b)_{pn} q_p
 = \sum_p \Bigl(\textstyle\sum_n (W_b)_{pn}\Bigr) q_p
-= \sum_p q_p \;\in V \qquad\checkmark
+= \sum_p q_p \in V \qquad\checkmark
 ```
 
 (uses the partition-of-unity row sum ``\sum_n (W_b)_{pn} = 1``).
@@ -353,7 +353,7 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 ``1`` on the self-conjugate planes and ``2`` else):
 
 ```math
-\text{type-2 (interpolate)}\quad f(x_p) = \frac{1}{N}\!\!\sum_{\text{stored }k}\!\!\alpha(k) \mathrm{Re}\!\bigl(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}\bigr),
+\text{type-2 (interpolate)}\quad f(x_p) = \frac{1}{N}\sum_{\text{stored }k}\alpha(k) \mathrm{Re}\bigl(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}\bigr),
 \qquad
 \text{type-1 (anterpolate)}\quad (W^{\top}q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)} .
 ```

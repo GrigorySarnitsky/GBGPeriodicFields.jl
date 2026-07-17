@@ -271,7 +271,7 @@ special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 - `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
 
 ```math
-\\hat g(k) = \\mathbb 1\\!\\bigl[ |k| \\le k_c \\bigr].
+\\hat g(k) = \\mathbf{1}\\bigl[ |k| \\le k_c \\bigr].
 ```
 
 The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the consumer's.
@@ -305,7 +305,7 @@ tents:
 
 ```math
 W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a} 
-       \\max\\!\\Bigl(0,\\; 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
+       \\max\\Bigl(0,\\; 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
 ```
 
 each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the
@@ -314,7 +314,7 @@ transfer function ``\\hat W(k)``, the squared sinc
 
 ```math
 \\begin{gathered}
-\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\!\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr), \\\\
+\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}^2\\Bigl(\\tfrac{k_a \\Delta x_a}{2}\\Bigr), \\\\
 \\operatorname{sinc}(y) = \\frac{\\sin y}{y},
 \\end{gathered}
 ```
