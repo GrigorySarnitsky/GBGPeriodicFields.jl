@@ -8,7 +8,10 @@ reader would** and hunts what a grep cannot — a quantity or normalization defi
 mathematical or convention error, a structure/design smell, an unreachable citation, a cold-read gap.
 
 Each hat is a **fresh agent** that reads ONLY the reader-text manuscript (no `src/`, no `CLAUDE.md`, no
-memory — it judges the docs as written, from its own expertise) and banks its findings to a file. The
+memory — it judges the docs as written, from its own expertise) and banks its findings to a file. **One
+exception:** the `latex-typesetter` hat (#7) also reads the authored **source** (`src/`, `docs/`,
+`examples/`) and the **`CLAUDE.md` §Style** rulebook — typesetting idiom lives in the source markup, not the
+rendered output, and the house style it enforces is defined in `CLAUDE.md`. The
 panel is **collect-only**: it never edits `src/` or `docs/`; you act only when the user says fix. It runs
 **sequentially**, so a token-out loses at most the current hat; the hat order is **priority** (most
 critical first).
@@ -23,7 +26,10 @@ Does **not** reliably catch: mechanical, pattern-matchable idioms — gratuitous
 `\tfrac`/`\frac`, a bare italic imaginary unit `i` / differential `d`, bare-index `\partial_i`,
 formula-in-backticks. A hat that *reads* the TeX may not *flag* these (a panel once read the `\,` overuse
 and waved it through). **Those belong to `/check-docs`'s deterministic scans** (several are build-enforced)
-— do not lean on the panel for them.
+— do not lean on the panel for them. (The `latex-typesetter` hat now comes closest: it reads the authored
+**source** against the `CLAUDE.md` §Style rulebook, so it is a real judgment-level backstop — but
+`/check-docs` stays the enforcement, and the hat is told to spend its effort on the context calls a grep
+cannot make.)
 
 ## The panel (12 hats)
 
@@ -39,7 +45,7 @@ self-containedness and structure without the design docs as a crutch.
 | 4 | `differential-geometer` | the *intrinsic* structure — the fiber-bundle / section model, base vs fiber, the measure taxonomy, and the adjoint/duality claims as maps between the right spaces; the category/type errors a value-check can't see (a fiber `ℝ^N⊗V` flattened to `ℝ^N`, the `N/M` measure-adjoint, an object conflated with its representation) | FULL |
 | 5 | `gpu-kernel-practitioner` | the allocation / backend / performance claims — allocation-free in-place, no scalar indexing, plan reuse, kernel fusion, CPU/CUDA/ROCm parity, `Float32`/`Float64` | FULL |
 | 6 | `structure-consistency` | infer the implicit docstring template, then flag every outlier against it | SITEONLY |
-| 7 | `latex-typesetter` | every formula's TeX idiom read as source, in the house style (upright `\mathrm{i}`/`\mathrm{d}`, component notation, `\Bigl` preferred, braced fractions, no gratuitous `\,`) | FULL |
+| 7 | `latex-typesetter` | every formula's TeX idiom, judged against the **`CLAUDE.md` §Style** rulebook and reading the authored **source** (not just the rendered output): upright `\mathrm{i}`/`\mathrm{d}`, component notation, braced fractions, no gratuitous `\,`, no manual `\;`/`\!` spacing, no `\left`/`\right` (bar the `\left\{ … \right.` system), `\mathbb` only on `A`–`Z`/`k` | FULL + source + CLAUDE.md |
 | 8 | `api-user` | build/drive the library from the docs alone — arg coverage, return shapes/representations, exported-vs-documented agreement | FULL |
 | 9 | `normalization-convention-auditor` | every normalization factor & indexing convention correct *and* identical across pages (the `1/N`, the multiplier signs, `fftfreq`/rFFT-Nyquist, the Parseval/spectrum factors, the `N/M` adjoint) | FULL |
 | 10 | `citations-integrity` | consistent author-year, inline↔reference-block matching with verbatim DOIs, no inaccessible source, no overclaim | FULL |
