@@ -1443,49 +1443,49 @@ set_fft_threads!(n::Integer) = (FFTW.set_num_threads(Int(n)); Int(n))
 # automatically when the HDF5 package is. ---
 
 """
-    write_field(parent, name, field) -> group
+    write_field(parent::HDF5.H5DataStore, name::AbstractString, field::AbstractField)
 
-Persist a `field` — any of the six field types, scalar / vector / tensor in either representation — as a
-**new HDF5 group** `name` under `parent` (an open HDF5 `File` or `Group`), returning that group. This is
-how you checkpoint a field for restart, dump a full-resolution snapshot for later analysis, or hand a
-field to another tool; the reload with [`read_field`](@ref) is exact.
+Persist `field` — any of the six field types, scalar / vector / tensor in either representation — as a
+**new HDF5 group** `name` under `parent`. Use it to checkpoint a field for restart, save a full-resolution
+snapshot for later analysis, or pass a field to another tool; the reload with [`read_field`](@ref) is exact.
 
 The group is **self-describing**: the field's numeric array becomes the dataset `data`, and its metadata
 become attributes — a `type` tag, a schema `version`, the [`Grid3D`](@ref) geometry (`grid_size`,
 `domain_size`, `origin`), the Fourier layout (`fft_dims`), the element type, and the tensor order — so any
 HDF5 tool can read it. A **physical** field stores a real array; a field in **spectral** representation
-stores its complex half-spectrum. Device (GPU) arrays are copied to the host on write. The sugar
+stores its complex half-spectrum. A device (GPU) array is copied to the host on write. The sugar
 `parent[name] = field` is equivalent.
 
-`parent` is a handle you opened and own — this never opens or closes a file. So a solver dumps a whole
-iteration snapshot (velocity, vorticity, …) into one file under separate names and attaches its own `time`
-/ `iteration` attributes: the package serializes the fields, and the consumer owns the bundling and any
-notion of time. Provided by a package extension: available only when the `HDF5` package is loaded.
+Because `parent` is a handle you opened and own, this never opens or closes a file: a consumer bundles a
+whole snapshot (velocity, vorticity, …) into one file under separate names and attaches its own `time` /
+`iteration` attributes — the package serializes the fields, and the consumer owns the bundling and any
+notion of time.
 
-# Arguments
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
-- `field` — the field to write (any scalar / vector / tensor field, physical or spectral).
+- `field` — the field to write.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded. Returns the created group.
 """
 function write_field end
 
 
 """
-    read_field(parent, name) -> field
+    read_field(parent::HDF5.H5DataStore, name::AbstractString)
 
-Reconstruct the field written by [`write_field`](@ref) from the HDF5 group `name` under `parent` (an open
-HDF5 `File` or `Group`), dispatching on the stored `type` attribute to return the matching field type
-(`ScalarFieldPhysical`, `VectorFieldSpectral`, …). The reload is **exact** — the array data, the
-[`Grid3D`](@ref) geometry, the Fourier layout, the element type, and the tensor order are recovered
-bit-for-bit.
+Reconstruct the field written by [`write_field`](@ref) from the HDF5 group `name` under `parent`,
+dispatching on the stored `type` attribute to return the matching field type (`ScalarFieldPhysical`,
+`VectorFieldSpectral`, …). The reload is **exact** — the array data, the [`Grid3D`](@ref) geometry, the
+Fourier layout, the element type, and the tensor order are recovered bit-for-bit.
 
 The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
-device afterward if needed. Provided by a package extension: available only when the `HDF5` package is
-loaded.
+device afterward if needed.
 
-# Arguments
 - `parent` — an open HDF5 `File` or `Group` holding the group.
 - `name` — the name (or path) of the field group under `parent`.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded. Returns the reconstructed
+field.
 """
 function read_field end
 
