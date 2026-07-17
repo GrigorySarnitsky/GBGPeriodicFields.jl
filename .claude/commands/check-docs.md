@@ -102,8 +102,10 @@ definitions; this command runs all of them.
 - Run the deterministic grep/awk guards below, plus a bare-module-name scan and a glyph-vs-backtick scan
   (Unicode math *outside* a backtick span). The block has two tiers: **must-be-empty** scans (tables,
   formula-in-backticks, stray `$…$`, neutral register, bare-index ∂, the gratuitous-``\,``, the unbraced
-  fraction, wide signatures) and **triage** heuristics (code-in-math letter-products, split formulas, dead
-  docstring refs, crammed citations, sentence-opening lowercase identifiers) whose hits mix real signal with
+  fraction, the spacing/command idioms (``\!`` before ``\bigl``/``\Bigl``, ``\!\!``, ``\mathbb`` on a digit),
+  wide signatures) and **triage** heuristics (``\left``/``\right`` and manual ``\;``/``\:`` spacing,
+  code-in-math letter-products, split formulas, dead docstring refs, crammed citations, sentence-opening
+  lowercase identifiers) whose hits mix real signal with
   false positives. Two non-grep backstops follow: a **DOI cross-check** (every docstring DOI is in
   `ARCHITECTURE.md` §References, verbatim) and the deterministic **argument-coverage** sweep (from each
   signature, positional + keyword; §Style — check 2). Inline-math-on-one-line and canonical notation are
@@ -127,10 +129,15 @@ grep -rniE '\b(knobs?|tweaks?)\b' docs src examples               # neutral regi
 grep -rnE '\\partial_[ijk]' src $DOCS_MD                          # bare-index ∂ → \partial_{x_i}; build-enforced
 grep -rnP '\\\\,(?!\\\\mathrm\{d\})' src/*.jl; grep -rnP '\\,(?!\\mathrm\{d\})' $DOCS_MD  # gratuitous thin space → keep only the differential \,\mathrm{d}, else a plain space (never delete: \varepsilon\,r → \varepsilon r, not \varepsilonr)
 grep -rnP '\\\\[dt]?frac[0-9]' src/*.jl; grep -rnP '\\[dt]?frac[0-9]' $DOCS_MD  # unbraced fraction numerator → \frac{1}{N} (build-enforced by lint_notation_variants)
+grep -rnP '\\\\!\\\\[bB]ig[lr]' src/*.jl; grep -rnP '\\!\\[bB]ig[lr]' $DOCS_MD  # \! before a fixed-size delimiter (\max\!\bigl) → drop it; there is already no gap there, so it only jams the delimiter into the name
+grep -rnP '\\\\!\\\\!' src/*.jl; grep -rnP '\\!\\!' $DOCS_MD  # \!\! double negative thin (2\!\!\sum overshoots into an overlap) → juxtapose
+grep -rnP '\\\\mathbb\s*\{?\s*[0-9]' src/*.jl; grep -rnP '\\mathbb\s*\{?\s*[0-9]' $DOCS_MD  # \mathbb on a digit (\mathbb{1} falls back to a plain glyph — KaTeX's bb font has no digit) → \mathbf{1}
 
 # ---- TRIAGE (heuristics: real signal mixed with false positives — read each, then fix the genuine class) ----
 grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # formula-in-backticks → ``LaTeX`` (FP: the real Julia operators ×/⋅/≈; a documented anti-pattern example)
 grep -rnE '\$[^$]*[\\_^{}][^$]*\$' $DOCS_MD                        # stray TeX $…$ → use ``…`` / ```math``` (scope to sources, NOT docs/build)
+grep -rnP '\\\\(left|right)(?![a-zA-Z])' src/*.jl; grep -rnP '\\(left|right)(?![a-zA-Z])' $DOCS_MD  # \left/\right auto-sized delimiter → size by hand with \bigl/\Bigl (FP: the \left\{ … \right. system idiom + notation.md's delimiter row; \leftarrow/\rightarrow arrows are excluded)
+grep -rnP '\\\\[;:]' src/*.jl; grep -rnP '\\[;:]' $DOCS_MD  # manual \;/\: spacing around a relation/binary op (\;=\;) → write the operator bare and let TeX space it (FP: a \; separating args after a comma, \max(0,\; 1))
 awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/*.jl  # wide docstring signatures (>88 col) — FNR (per-file), NOT NR; hand-wrap the ones a reader would scroll
 grep -rnoP '``[^`]*``' src/*.jl $DOCS_MD | grep -P '(?<![\\A-Za-z])(?<!\{)[a-z]{2,}' | grep -vP '\\(mathrm|texttt|text|operatorname|hat|[dt]?frac|sqrt|langle|rangle|partial|nabla|Delta|Omega|kappa|varepsilon|sum|prod|int|star|equiv|cdot|times|otimes|lVert|rVert|le|ge|to|mapsto|quad|left|right|Bigl|Bigr|begin|end|sin|cos|exp|log|max|min|Re|Im|det|tr)'  # code-in-math: a bare multi-letter run inside a math span (a letter-product, e.g. `ik`→\mathrm{i}k, `conj`→\overline{}) → \mathrm{…}; SUBSCRIPT index runs (A_{ij}) and #-comment lines are fine
 grep -rnP '[^`\s]```[^`]|[^`]```[^`\s]' src/*.jl $DOCS_MD | grep -vP '^\S+:\d+:\s*```'  # split-formula: a ``math`` span abutting a `code` span (3 inline backticks); a documented ```math``` fence-name is a false positive
