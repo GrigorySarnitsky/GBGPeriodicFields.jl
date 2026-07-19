@@ -443,6 +443,15 @@ each destination component — in-place aliasing would consume already-overwritt
 data. The `mul!` operation deliberately skips the guard and documents that the destination must
 not alias the inputs, matching `LinearAlgebra.mul!` semantics.
 
+A third resolution exists beside the guard and the `mul!` contract: make the kernel itself
+alias-safe. `helmholtz_projection!` once guarded like the index shufflers (its three per-component
+broadcasts re-read all three source components); its one-pass kernel now reads every source value of
+a mode into registers before writing any of that mode's destinations, so the aliased call — the
+natural spelling of projecting a field in place — is computed directly, bitwise-identical to the
+non-aliased one, with no temporary (decision 32). The guard remains the right tool where a fused
+single pass cannot exist (the index shufflers read across the fiber at one point, which a
+per-component broadcast cannot reorder around).
+
 ## 8. Broadcasting
 
 `Fields` broadcast storage-wise: a field in a broadcast stands for its data array,
@@ -1305,6 +1314,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     materialized; the projection recomputes the longitudinal part inline for each component, which is
     safe because the kernel always receives a destination distinct from the source — the aliased
     `helmholtz_projection!(x, x)` allocates its guard temporary upstream ([§7](@ref "7. Aliasing policy")).
+    (The projection has since moved on from both details: its one-pass kernel computes the longitudinal
+    part once per mode and serves the aliased call directly, guard retired — decision 32.)
     Net: each of the three now allocates ``\sim 0`` bytes in place (measured), with identical arithmetic
     and results (the full suite is unchanged) — so a preallocated, in-place pseudospectral step allocates
     nothing per step and runs on a 12 GB consumer GPU with **no manual `GC.gc()` / `reclaim`, at flat
@@ -1682,3 +1693,60 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     resolved to. The cost is that the floor now tracks current stable closely, and that sibling packages
     declaring `julia = "1.11"` — `GBGIsotropicTurbulence` does — must be bumped in step, or they claim
     support for a Julia their dependency no longer builds on.
+
+32. **The one-pass Helmholtz kernel, and a convolution fused into the projection and the divergence
+    (the operator ∘ kernel family).** Two requests from the consumer package `GBGIsotropicTurbulence`
+    ("IT") — items 1 and 6 of its 2026-07 memory and compute audits — triaged adversarially and landed
+    as one kernel rewrite, because they touch the same code.
+
+    *The one-pass projection.* `helmholtz_projection!` — the Leray/Helmholtz projection ``\mathbb P``,
+    which removes a vector field's curl-free part — used to run as three fused broadcasts, one per
+    output component, each recomputing the longitudinal factor ``k_j \hat u_j / |k|^2`` (the
+    wavenumber-parallel part of the field, ``k`` the wavenumber vector and ``\hat u`` the field's
+    spectral coefficients) from all three source components: nine component reads per mode for three
+    writes, and an in-place call (destination aliasing the source) was detected and routed through a
+    guard temporary costing one full vector field per call — the single largest transient in IT's
+    measured budget, and the one op whose *natural* call is in place. It is now a single portable
+    `KernelAbstractions` kernel (the package's third KA site, after the transfer kernels and the shell
+    binning): per mode, the three source values are read into registers, the longitudinal factor is
+    computed once, and the three destinations are written. Three reads for three writes, and
+    **alias-safe by construction** — all of a mode's reads precede its writes, and modes are disjoint —
+    so the guard and its temporary are retired ([§7](@ref "7. Aliasing policy")) and the aliased call is
+    bitwise-identical to the non-aliased one. Two implementation notes worth recording: the sources are
+    deliberately **not** marked `@Const`, whose no-other-writes promise the aliased call would break;
+    and the KA launch keeps a small size-independent host-side bookkeeping allocation (measured
+    ``\sim``1.5–7 KB, thread-count-dependent), which the allocation audit's fraction-of-a-field
+    threshold absorbs — the field-sized temporary is what is gone. Measured on the 12700K, the rewrite
+    is 2.7–6.5× faster than the three-broadcast form (``64^3``–``128^3`` Float64, one and four
+    threads) — the memory fix paid compute, as predicted: the projection is bandwidth-bound, and nine
+    reads became three.
+
+    *The kernel-composed forms.* `helmholtz_projection!` and `divergence!` gain trailing
+    `kernel[, α, β]` arities: `op!(dest, f, multipliers, kernel)` and
+    `op!(dest, f, multipliers, kernel, α, β)`, with the four-argument form delegating with `one(T)`,
+    `zero(T)` (invariant 10) and allocating `op(f, multipliers, kernel)` wrappers. The mathematics is
+    the [§4](@ref "4. Spectral machinery") multiplier picture closing under composition: a
+    coefficientwise kernel ``\hat g`` (a Fourier symbol, as `convolve!` takes it) commutes through both
+    operators — scalar times matrix symbol for ``\mathbb P``, scalar times the contraction
+    ``\mathrm{i} k \cdot`` for the divergence — so "operator then convolve" is itself one Fourier
+    multiplier, and the fused form computes it in the operator's own pass. The consumer pattern it
+    serves is mask-dealiasing: every dealiased right-hand side in a pseudospectral solver is the
+    operator followed immediately by `convolve!` with the dealias kernel, so fusing saves that pass's
+    full read and write of the destination (two passes of the field's class per evaluation). **The
+    `α`/`β` pair is load-bearing, not completeness**: the fused form *replaces* a `convolve!` that
+    carries `α`/`β` — IT already rides the ``-\nabla\cdot`` sign of its scalar advection on
+    `convolve!`'s `α` — so shipping less would strand the very chains being fused; and `β` collapses
+    IT's phase-shift dealiasing tail entirely, as two projection calls — the primary with the dealias
+    kernel at ``\alpha = 1/2``, the displaced evaluation with the **composed** kernel (dealias ∘
+    shift-back, built once at setup by the kernel composition `convolve(g₁, g₂)`) at
+    ``\alpha = 1/2``, ``\beta = 1`` — eliminating
+    the standalone shift-back, average, and truncation passes (four passes per evaluation at wiring
+    time; two more were already banked consumer-side by rewriting the average as `convolve!`'s
+    five-argument form). `curl!` deliberately does **not** get the kernel arity: IT's curls feed
+    transforms directly, so there is no consumer — the absence is the invariant-1 discipline, recorded
+    here. Validity is unchanged: spectral-only, the kernel under `convolve!`'s Hermitian reality
+    condition, and the Nyquist split untouched (per-mode scalars multiply regardless of their Nyquist
+    values). Guards: the fused-equals-sequential equalities, the α/β references, the bitwise aliased
+    projection, and the kernel-aliasing case in `test/differentialoperators.jl`; zero-allocation pins
+    for every new arity and the aliased call in `test/allocations.jl`; device-vs-host parity in
+    `test/gpu/suite.jl`; the fused-vs-sequential benchmark rows in the `operators` class.

@@ -108,6 +108,39 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test maximum(abs, field_data(div_after)) < 1e-12
   end
 
+  @testset "kernel-composed operators: a convolution fused into ℙ and ∇· (decision 32)" begin
+    u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
+    us = to_spectral(u, plans_for(u))
+    m = FieldSpectralMultipliers(us)
+    g = spectral_cutoff(us, m, 2.5)                     # nontrivial: removes the |k| > 2.5 shells
+
+    # the fused form equals the sequential operator-then-convolve composition, coefficient for
+    # coefficient (α = 1 makes the fused scale exactly ĝ, so the products round identically)
+    @test field_data(helmholtz_projection(us, m, g)) == field_data(convolve(helmholtz_projection(us, m), g))
+    @test field_data(divergence(us, m, g)) == field_data(convolve(divergence(us, m), g))
+
+    A = TensorFieldPhysical{2}((x, y, z) -> fill(sin(x) * cos(y), 3, 3), grid)
+    As = to_spectral(A, plans_for(A))
+    @test field_data(divergence(As, m, g)) == field_data(convolve(divergence(As, m), g))
+
+    # α/β accumulate against a hand-built reference, and the α = −1 sign fold (exact: (−1)·x = −x)
+    sequential = convolve(helmholtz_projection(us, m), g)
+    accumulated = VectorFieldSpectral(copy(field_data(us)), grid)
+    helmholtz_projection!(accumulated, us, m, g, T(1 // 2), T(2))
+    @test field_data(accumulated) ≈ T(1 // 2) .* field_data(sequential) .+ T(2) .* field_data(us)
+    negated = F.similar_field(us, Val(0))
+    divergence!(negated, us, m, g, T(-1), T(0))
+    @test field_data(negated) == .-field_data(convolve(divergence(us, m), g))
+    taccumulated = VectorFieldSpectral(copy(field_data(us)), grid)
+    divergence!(taccumulated, As, m, g, T(1 // 2), T(2))
+    @test field_data(taccumulated) ≈ T(1 // 2) .* field_data(convolve(divergence(As, m), g)) .+ T(2) .* field_data(us)
+
+    # the kernel may alias the destination (the product is coefficientwise)
+    kernel_as_destination = ScalarFieldSpectral(copy(field_data(g)), grid)
+    divergence!(kernel_as_destination, us, m, kernel_as_destination)
+    @test field_data(kernel_as_destination) == field_data(convolve(divergence(us, m), g))
+  end
+
   @testset "anisotropic domain (2π, 4π, 6π): wavenumber scaling" begin
     # Lx ≠ Ly ≠ Lz, so the 2π/L factor in the wavenumbers is non-trivial: a dropped
     # length factor (assuming L = 2π on every axis) would corrupt the y and z
@@ -167,13 +200,15 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     hdest = F.similar_field(us, Val(1)); helmholtz_projection!(hdest, us, m)
     @test field_data(hdest) ≈ field_data(helmholtz_projection(us, m))
 
-    # aliasing branch: curl! / helmholtz_projection! with destination === source
+    # aliasing: curl! guards with a temporary; helmholtz_projection! computes the aliased call
+    # directly (the one-pass kernel reads a mode's three components before writing them), so its
+    # aliased result is bitwise-identical to the non-aliased one
     expected_curl = field_data(curl(us, m))
     aliased = to_spectral(u, plans_for(u)); curl!(aliased, aliased, m)
     @test field_data(aliased) ≈ expected_curl
     expected_projection = field_data(helmholtz_projection(us, m))
     aliased_projection = to_spectral(u, plans_for(u)); helmholtz_projection!(aliased_projection, aliased_projection, m)
-    @test field_data(aliased_projection) ≈ expected_projection
+    @test field_data(aliased_projection) == expected_projection
   end
 
   @testset "Nyquist mode end-to-end (the derivative / squared split)" begin
@@ -216,6 +251,9 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test_throws MethodError laplacian(phi, m)
     @test_throws MethodError inverse_laplacian(phi, m)
     @test_throws MethodError helmholtz_projection(u, m)
+    g_absence = spectral_cutoff(to_spectral(phi, plans_for(phi)), m, 2.5)
+    @test_throws MethodError divergence(u, m, g_absence)                 # kernel-composed forms too
+    @test_throws MethodError helmholtz_projection(u, m, g_absence)
   end
 
 end

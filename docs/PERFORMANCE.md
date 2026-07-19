@@ -259,6 +259,28 @@ anonymous vararg closure (uninferrable component count), and a forwarded `Functi
 untyped in the signature (Julia declines to specialize on it). All three are pinned at zero bytes by
 `test/allocations.jl`. [Decision 30.]
 
+**(j) A multi-output kernel beats broadcast recomputation — the one-pass Helmholtz projection.** The
+projection writes three output components that share one intermediate (the longitudinal factor
+``k_j\hat u_j/|k|^2``), which a broadcast cannot express: the three-broadcast form recomputed the
+shared dot product per component — nine component reads and three divisions per mode for three
+writes. The one-pass `KernelAbstractions` kernel (decision 32) reads each source component once,
+computes the factor once, and writes all three components — and, reading a whole mode before writing
+it, serves the aliased in-place call with no guard temporary. Measured on the 12700K
+(``64^3``–``128^3``, `Float64`; the fused-vs-three-broadcast ratio):
+
+| threads | ``64^3`` | ``128^3`` |
+|---|---|---|
+| 1 | 3.9× | 4.1× |
+| 4 | 6.5× | 2.7× |
+
+Two costs worth recording. The KA launch allocates a small **size-independent** host-side bookkeeping
+(~1.5 KB serial, ~7 KB at four threads — task spawning), where the broadcast route allocated
+~0.3 KB; the allocation audit's fraction-of-a-field threshold absorbs it, and the field-sized guard
+temporary of the aliased call (~0.84 MB at the audit size, IT's 3.19-unit transient at ``256^3``) is
+what is gone. And the kernel-composed form (`helmholtz_projection!(…, kernel)`, decision 32) adds one
+scalar-field read to the same pass — measured +6–16% over the plain projection, against ~+50% for the
+separate `convolve!` pass it replaces.
+
 
 ## 5. The benchmark suite
 
@@ -270,7 +292,8 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
-`symmetric_gradient!`), **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
+`symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
+decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
 paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the

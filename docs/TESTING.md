@@ -125,7 +125,10 @@ For each public operation, a test must establish:
       wavenumber scaling is actually exercised and a dropped length factor is visible.
 - [ ] **The in-place `!` form** with a caller-supplied destination, including the
       **aliasing branch** for alias-guarded operations (cross, transpose, sym/skew/dev,
-      the curl/Helmholtz wrappers) — and, for `mul!`, the LinearAlgebra no-alias contract.
+      the curl wrapper) — and, for `mul!`, the LinearAlgebra no-alias contract. An op whose kernel is
+      alias-safe *by construction* (the one-pass `helmholtz_projection!`, decision 32) asserts the
+      aliased call **bitwise equal** to the non-aliased one instead — a stronger check than the
+      guard's tolerance.
 - [ ] **Allocation-free** (invariant 13): every in-place `!` operator gets an `@allocated` assertion in
       `allocations.jl` — on preallocated buffers with a distinct destination it allocates ``\sim 0``
       field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
@@ -218,8 +221,11 @@ zero-mode constant invariant; the **point-value algebra** — the `Points` modul
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
 `test/interpolation.jl`; the in-place `!` forms with caller-supplied destinations
-and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`,
-`helmholtz_projection!`); the intentional absences in both representations (nonlinear products absent in spectral,
+and the alias guards (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!`), plus the guard-free
+aliased `helmholtz_projection!` (bitwise-equal to non-aliased; decision 32); the
+kernel-composed operator forms (`helmholtz_projection!`/`divergence!` with a trailing kernel and
+`α`/`β`, equal to the sequential operator-then-`convolve!` composition, with the ``\alpha = -1`` sign
+fold and kernel-aliasing cases); the intentional absences in both representations (nonlinear products absent in spectral,
 differential operators absent in physical) and the physical/spectral symmetry of every
 linear field/fiber operation; the differential operators by
 analytic round-trip, including an anisotropic ``(2\pi, 4\pi, 6\pi)`` box that exercises the

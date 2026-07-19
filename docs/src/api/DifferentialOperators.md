@@ -36,7 +36,8 @@ helmholtz_projection
 
 ## Internal API
 
-The coefficientwise spectral kernels and the aliasing-aware wrappers, documented for contributors.
+The coefficientwise spectral kernels and the one-pass projection launcher, documented for
+contributors.
 
 ### Functions
 

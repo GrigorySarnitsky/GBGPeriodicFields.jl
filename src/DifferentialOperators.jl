@@ -13,12 +13,12 @@ physical-space meaning and the spectral symbol it applies.
 The operation families are:
 
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
-- [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field.
+- [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
 - [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the local rotation rate of a vector field and preserves the tensor order.
 - [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
-- [`helmholtz_projection`](@ref) ``\\equiv \\mathbb P`` projects a vector field onto its divergence-free part.
+- [`helmholtz_projection`](@ref) ``\\equiv \\mathbb P`` projects a vector field onto its divergence-free part, in one pass whose destination may alias its source; an optional kernel argument composes a convolution into the same pass.
 
 The Nyquist frequency is treated differently by symbol: first-derivative wavenumbers are zeroed at the
 Nyquist frequency on even-length axes, while squared wavenumbers keep the true squared wavenumber
@@ -48,6 +48,13 @@ using ..Fields:
 using ..FiberSections:
   _assign!,
   @_assign!
+
+
+# The fused Helmholtz projection writes three destination components per mode from one shared
+# longitudinal factor, which a single broadcast cannot express — so it is a portable
+# KernelAbstractions kernel, like the transfer kernels in Interpolation and the shell binning in
+# Reductions.
+using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 
 
 export gradient!,
@@ -94,13 +101,37 @@ end
                                 source_1, source_2, source_3,
                                 wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T})
 
+    _apply_spectral_divergence!(destination_component,
+                                source_1, source_2, source_3,
+                                wavenumber_1, wavenumber_2, wavenumber_3,
+                                kernel_data, alpha, beta, ::Type{T})
+
 Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. The `divergence` operator uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
+
+The eleven-argument form composes the contraction with a coefficientwise kernel and the
+``\\alpha``/``\\beta`` accumulate in the same fused pass, computing
+``\\mathrm{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\mathrm{dst}``
+with ``\\hat g`` = `kernel_data`, branching on `iszero(beta)` to overwrite or accumulate — the
+divergence analogue of `_apply_convolution!`.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
   wavenumber_1, wavenumber_2, wavenumber_3, ::Type{T}) where {T<:AbstractFloat}
-  
+
   imaginary_unit = Complex{T}(zero(T), one(T))
   @_assign! destination_component .= imaginary_unit .* (wavenumber_1 .* source_component_1 .+  wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)
+  return destination_component
+end
+
+
+function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
+  wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha, beta, ::Type{T}) where {T<:AbstractFloat}
+
+  imaginary_unit = Complex{T}(zero(T), one(T))
+  if iszero(beta)
+    @_assign! destination_component .= alpha .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3))
+  else
+    @_assign! destination_component .= alpha .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)) .+ beta .* destination_component
+  end
   return destination_component
 end
 
@@ -131,34 +162,88 @@ end
 
 
 """
-    _apply_spectral_helmholtz_projection!(destination_component_1,
-                                          destination_component_2,
-                                          destination_component_3, source_component_1,
-                                          source_component_2, source_component_3,
-                                          wavenumber_1, wavenumber_2, wavenumber_3,
-                                          squared_wavenumber, ::Type{T})
+    _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
 
-Apply the coefficientwise Leray/Helmholtz projection ``\\mathbb P`` onto the divergence-free subspace by subtracting the longitudinal part ``k_i (k_j \\hat s_j)/|k|^2`` from each component. The kernel leaves the zero Fourier mode unchanged.
+Read the coefficientwise kernel value at one mode, or return the multiplicative identity `true`
+when no kernel is attached (`kernel_data === nothing`). Dispatch on `Nothing` lets one fused
+operator kernel serve both its plain and kernel-composed forms with the branch compiled away.
 """
-function _apply_spectral_helmholtz_projection!(destination_component_1, destination_component_2, destination_component_3,
-    source_component_1, source_component_2, source_component_3, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber, ::Type{T}) where {T<:AbstractFloat}
-  # Allocation-free: the longitudinal coefficient kⱼŝⱼ/|k|² and the safe |k|² (1 at the zero mode) are
-  # fused into each component's broadcast rather than materialized as scratch arrays, so the projection
-  # runs fully in place. This matters in allocating hot loops, especially on GPU where per-call scratch
-  # would otherwise grow the memory pool. Correct because every caller passes distinct destination and
-  # source arrays (the aliased path of `helmholtz_projection!` allocates its own temporary upstream), so
-  # recomputing kⱼŝⱼ from the unmodified source for each component has no read-after-write hazard.
-  @_assign! destination_component_1 .= source_component_1 .- wavenumber_1 .*
-    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
-    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
-  @_assign! destination_component_2 .= source_component_2 .- wavenumber_2 .*
-    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
-    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
-  @_assign! destination_component_3 .= source_component_3 .- wavenumber_3 .*
-    (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3) ./
-    ifelse.(squared_wavenumber .== zero(T), one(T), squared_wavenumber)
+@inline _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3) =
+  @inbounds kernel_data[mode_1, mode_2, mode_3]
+@inline _optional_kernel_value(::Nothing, mode_1, mode_2, mode_3) = true
 
-  return nothing
+
+# One work-item per mode: the Leray/Helmholtz projection onto the divergence-free subspace,
+# optionally composed with a coefficientwise kernel (`kernel_data`, or `nothing` for the plain
+# projection) and the α/β accumulate, in one pass. The longitudinal coefficient kⱼŝⱼ/|k|² is
+# computed once into a register and subtracted from all three components, so each source component
+# is read once where the former three-broadcast form read each of them three times. The zero
+# Fourier mode is left unchanged (safe denominator one, wavenumbers zero). The wavenumber arguments
+# are the six 1-D multiplier arrays — the derivative family for the numerator, the squared family
+# for the denominator, per their Nyquist split (invariant 5).
+#
+# All of a mode's source values are read before any of its destinations are written and modes are
+# disjoint, so destination may alias source; the sources are deliberately NOT marked @Const, whose
+# no-other-writes promise the aliased call would break.
+@kernel function _helmholtz_projection_kernel!(destination_1, destination_2, destination_3,
+    source_1, source_2, source_3,
+    @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    @Const(squared_wavenumber_1), @Const(squared_wavenumber_2), @Const(squared_wavenumber_3),
+    kernel_data, alpha, beta)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    wavenumber_value_1 = wavenumber_1[mode_1]
+    wavenumber_value_2 = wavenumber_2[mode_2]
+    wavenumber_value_3 = wavenumber_3[mode_3]
+    squared = squared_wavenumber_1[mode_1] + squared_wavenumber_2[mode_2] + squared_wavenumber_3[mode_3]
+
+    source_value_1 = source_1[mode_1, mode_2, mode_3]
+    source_value_2 = source_2[mode_1, mode_2, mode_3]
+    source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+    longitudinal = (wavenumber_value_1 * source_value_1 + wavenumber_value_2 * source_value_2 + wavenumber_value_3 * source_value_3) /
+                   ifelse(iszero(squared), one(squared), squared)
+    scale = alpha * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
+
+    projected_1 = scale * (source_value_1 - wavenumber_value_1 * longitudinal)
+    projected_2 = scale * (source_value_2 - wavenumber_value_2 * longitudinal)
+    projected_3 = scale * (source_value_3 - wavenumber_value_3 * longitudinal)
+
+    if iszero(beta)
+      destination_1[mode_1, mode_2, mode_3] = projected_1
+      destination_2[mode_1, mode_2, mode_3] = projected_2
+      destination_3[mode_1, mode_2, mode_3] = projected_3
+    else
+      destination_1[mode_1, mode_2, mode_3] = projected_1 + beta * destination_1[mode_1, mode_2, mode_3]
+      destination_2[mode_1, mode_2, mode_3] = projected_2 + beta * destination_2[mode_1, mode_2, mode_3]
+      destination_3[mode_1, mode_2, mode_3] = projected_3 + beta * destination_3[mode_1, mode_2, mode_3]
+    end
+  end
+end
+
+
+"""
+    _apply_helmholtz_projection!(destination, field, multipliers, kernel_data, alpha, beta)
+
+Launch `_helmholtz_projection_kernel!` over the spectral mode grid on the backend of
+`destination`'s storage, passing the six one-dimensional multiplier arrays and the already-converted
+`alpha`/`beta`. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
+plain projection. Shared by every `helmholtz_projection!` method.
+"""
+function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
+    multipliers::FieldSpectralMultipliers, kernel_data, alpha::T, beta::T) where {T<:AbstractFloat}
+  destination_component_1 = _vector_component_data(destination, 1)
+  backend = get_backend(field_data(destination))
+  _helmholtz_projection_kernel!(backend)(
+    destination_component_1, _vector_component_data(destination, 2), _vector_component_data(destination, 3),
+    _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
+    multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+    multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3,
+    kernel_data, alpha, beta;
+    ndrange = size(destination_component_1))
+  synchronize(backend)
+  return destination
 end
 
 
@@ -291,6 +376,9 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
+    divergence!(destination, field, multipliers, kernel::ScalarFieldSpectral)
+    divergence!(destination, field, multipliers, kernel::ScalarFieldSpectral, α, β)
+
 Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field and write it into
 `destination`, returning `destination`. Differentiating lowers the tensor order by one: a vector field
 ``u`` gives the scalar field ``\\nabla\\cdot u = \\partial_{x_i} u_i``, and a second-order tensor field
@@ -312,6 +400,29 @@ vector, summed over the three axes:
 \\qquad
 \\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i} (k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
 ```
+
+# The kernel-composed form
+
+Passing a `kernel` composes the divergence with a periodic convolution in the same fused pass. As a
+real physical object the result is the kernel-weighted local average of the divergence,
+``g \\star (\\nabla\\cdot u)`` — a single operator, because convolution and divergence both act
+coefficientwise in spectral representation, so their symbols simply multiply. The additional
+arguments are:
+
+- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation,
+  exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); it may
+  alias `destination`, since the product is coefficientwise.
+- `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
+  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
+
+```math
+\\widehat{\\mathrm{destination}}(k) = \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k)
+                                    + \\beta  \\widehat{\\mathrm{destination}}(k),
+```
+
+and likewise per component for a second-order tensor `field`. The composed form replaces a
+`divergence!` followed by a `convolve!` — one fused pass instead of two, saving a full read and a
+full write of `destination` per call.
 """
 function divergence! end
 
@@ -352,12 +463,71 @@ function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpec
 end
 
 
+function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+  return divergence!(destination, field, multipliers, kernel, one(T), zero(T))
+end
+
+
+function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, field)
+  _check_field_domain_compatibility(field, kernel)
+  _check_multipliers_compatibility(field, multipliers)
+
+  _apply_spectral_divergence!(field_data(destination),
+    _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
+    _wavenumber_broadcast_view(multipliers, Val(1)), _wavenumber_broadcast_view(multipliers, Val(2)), _wavenumber_broadcast_view(multipliers, Val(3)),
+    field_data(kernel), T(alpha), T(beta), T)
+
+  return destination
+end
+
+
+function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpectral{2, T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+  return divergence!(destination, field, multipliers, kernel, one(T), zero(T))
+end
+
+
+function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpectral{2, T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, field)
+  _check_field_domain_compatibility(field, kernel)
+  _check_multipliers_compatibility(field, multipliers)
+
+  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
+  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
+  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
+  kernel_data = field_data(kernel)
+  alpha_value = T(alpha)
+  beta_value = T(beta)
+
+  _apply_spectral_divergence!(_vector_component_data(destination, 1),
+    _tensor2_component_data(field, 1, 1), _tensor2_component_data(field, 1, 2), _tensor2_component_data(field, 1, 3),
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+
+  _apply_spectral_divergence!(_vector_component_data(destination, 2),
+    _tensor2_component_data(field, 2, 1), _tensor2_component_data(field, 2, 2), _tensor2_component_data(field, 2, 3),
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+
+  _apply_spectral_divergence!(_vector_component_data(destination, 3),
+    _tensor2_component_data(field, 3, 1), _tensor2_component_data(field, 3, 2), _tensor2_component_data(field, 3, 3),
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+
+  return destination
+end
+
+
 """
     divergence(field, multipliers::FieldSpectralMultipliers)
+    divergence(field, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
 
 Allocating form of [`divergence!`](@ref): allocate the result and return it. A vector field ``u`` gives
 its scalar divergence ``\\nabla\\cdot u``; a second-order tensor field ``A`` gives the vector field
-``\\nabla\\cdot A``. See `divergence!` for the componentwise definition and the spectral kernel.
+``\\nabla\\cdot A``. With a `kernel` the result is the divergence convolved with the kernel,
+``g \\star (\\nabla\\cdot u)``, in one pass. See `divergence!` for the componentwise definition, the
+spectral kernel, and the kernel-composed form.
 """
 function divergence end
 
@@ -371,6 +541,18 @@ end
 function divergence(field::TensorFieldSpectral{2}, multipliers::FieldSpectralMultipliers)
   destination = similar_field(field, Val(1))
   return divergence!(destination, field, multipliers)
+end
+
+
+function divergence(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+  destination = similar_field(field, Val(0))
+  return divergence!(destination, field, multipliers, kernel)
+end
+
+
+function divergence(field::TensorFieldSpectral{2}, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+  destination = similar_field(field, Val(1))
+  return divergence!(destination, field, multipliers, kernel)
 end
 
 
@@ -734,6 +916,9 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
+    helmholtz_projection!(destination, field, multipliers, kernel::ScalarFieldSpectral)
+    helmholtz_projection!(destination, field, multipliers, kernel::ScalarFieldSpectral, α, β)
+
 Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
 field and write it into `destination`, returning `destination`. The projection removes the
 longitudinal (curl-free) part of the field and keeps the divergence-free part, subtracting the
@@ -748,9 +933,9 @@ gradient of the pressure-like potential that solves the divergence:
     physical space even though it acts coefficientwise in spectral representation.
 
 Use this in-place form when `destination` is already allocated; the allocating
-[`helmholtz_projection`](@ref) returns a fresh result instead. The `destination` may alias `field`: the
-aliased call is detected and computed through a guard temporary, at the cost of one field-sized
-allocation.
+[`helmholtz_projection`](@ref) returns a fresh result instead. The `destination` may alias `field`
+at no cost: the projection is computed in a single pass that reads all three components of a mode
+before writing any of them, so the aliased call needs no temporary.
 
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`.
@@ -763,53 +948,64 @@ The spectral symbol subtracts the longitudinal part ``k_i (k\\cdot\\hat u)/|k|^2
 ```math
 \\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)  \\hat u_j(k), \\qquad k \\ne 0.
 ```
+
+# The kernel-composed form
+
+Passing a `kernel` composes the projection with a periodic convolution in the same fused pass. As a
+real physical object the result is the kernel-weighted local average of the projected field,
+``g \\star (\\mathbb P u)`` — a single operator, because convolution and projection both act
+coefficientwise in spectral representation, so the scalar symbol ``\\hat g`` multiplies the
+projection symbol. The additional arguments are:
+
+- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation,
+  exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); one
+  scalar kernel weights all three components.
+- `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
+  (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
+
+```math
+\\widehat{\\mathrm{destination}}_i(k) = \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k)
+                                      + \\beta  \\widehat{\\mathrm{destination}}_i(k).
+```
+
+The composed form replaces a `helmholtz_projection!` followed by a `convolve!` — one fused pass
+instead of two, saving a full read and a full write of `destination` per call.
 """
 function helmholtz_projection! end
-
-
-"""
-    _helmholtz_projection_noalias!(destination::VectorFieldSpectral,
-                                   field::VectorFieldSpectral,
-                                   multipliers::FieldSpectralMultipliers)
-
-Apply the Helmholtz projection (see `_apply_spectral_helmholtz_projection!`) assuming `destination` does not alias `field`. The public `helmholtz_projection!` wraps this with the aliasing guard.
-"""
-function _helmholtz_projection_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
-  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
-  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
-  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
-  squared_wavenumber = _squared_wavenumber_broadcast(multipliers)
-
-  _apply_spectral_helmholtz_projection!(
-    _vector_component_data(destination, 1), _vector_component_data(destination, 2), _vector_component_data(destination, 3),
-    _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
-    wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber, T)
-  return destination
-end
 
 
 function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
+  return _apply_helmholtz_projection!(destination, field, multipliers, nothing, one(T), zero(T))
+end
 
-  if field_data(destination) === field_data(field)
-    temporary = similar_field(destination, Val(1))
-    _helmholtz_projection_noalias!(temporary, field, multipliers)
-    copyto!(field_data(destination), field_data(temporary))
-    return destination
-  end
 
-  return _helmholtz_projection_noalias!(destination, field, multipliers)
+function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+  return helmholtz_projection!(destination, field, multipliers, kernel, one(T), zero(T))
+end
+
+
+function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
+    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, field)
+  _check_field_domain_compatibility(field, kernel)
+  _check_multipliers_compatibility(field, multipliers)
+  return _apply_helmholtz_projection!(destination, field, multipliers, field_data(kernel), T(alpha), T(beta))
 end
 
 
 """
     helmholtz_projection(field::VectorFieldSpectral,
                          multipliers::FieldSpectralMultipliers)
+    helmholtz_projection(field, multipliers, kernel::ScalarFieldSpectral)
 
 Allocating form of [`helmholtz_projection!`](@ref): allocate the result and return it, the Helmholtz
 (Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with the zero Fourier
-mode left unchanged. See `helmholtz_projection!` for the spectral form.
+mode left unchanged. With a `kernel` the result is the projection convolved with the kernel,
+``g \\star (\\mathbb P u)``, in one pass. See `helmholtz_projection!` for the spectral form and the
+kernel-composed form.
 """
 function helmholtz_projection end
 
@@ -817,6 +1013,12 @@ function helmholtz_projection end
 function helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
   destination = similar_field(field, Val(1))
   return helmholtz_projection!(destination, field, multipliers)
+end
+
+
+function helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+  destination = similar_field(field, Val(1))
+  return helmholtz_projection!(destination, field, multipliers, kernel)
 end
 
 

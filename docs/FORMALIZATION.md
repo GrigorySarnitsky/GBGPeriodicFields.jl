@@ -152,9 +152,31 @@ part of ``\nabla u``'s multiplier ``\mathrm{i}k_j\hat u_i``,
 
 formed without materializing the full gradient tensor and sharing the derivative-wavenumber Nyquist zeroing.
 
-**Backs** [Architecture](architecture.md) §4, decision 27.
+**The kernel-composed forms** (decision 32): for a scalar Fourier symbol ``\hat g : K \to \mathbb C``
+(``K`` the stored mode set; the kernel `convolve!` takes) and the operator multipliers above, the
+scalar commutes through both the matrix symbol and the contraction — per mode ``k``, with
+``\hat u(k) \in \mathbb C^3``,
+
+```math
+\hat g (I - \hat k\hat k^{\top}) \hat u = (I - \hat k\hat k^{\top}) (\hat g \hat u)
+\in \mathbb C^3, \qquad
+\hat g  \bigl(\mathrm{i}k\cdot\hat u\bigr) = \mathrm{i}k\cdot(\hat g \hat u) \in \mathbb C
+\qquad\checkmark
+```
+
+so the composition "operator then convolve" is itself a single Fourier multiplier (the product of
+symbols), and `helmholtz_projection!(dest, f, m, kernel, α, β)` /
+`divergence!(dest, f, m, kernel, α, β)` compute ``\alpha \hat g  \hat L \hat u + \beta 
+\widehat{\mathrm{dest}}`` in one pass. **Alias safety of the one-pass projection**: the kernel is a
+mode-local map — the values written at mode ``k`` depend only on values read at mode ``k``, and every
+read of a mode precedes its writes — so `destination === field` computes the same function
+(bitwise-tested). The Nyquist split is inherited unchanged: the composed symbol is a product of
+per-mode scalars, so each factor keeps its own family's Nyquist value.
+
+**Backs** [Architecture](architecture.md) §4, §7, decisions 27, 32.
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
-``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, and ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``)
+``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``,
+the fused-equals-sequential kernel compositions, and the bitwise aliased projection)
 and `test/adjointness.jl` (self-adjointness, idempotent projection, negative-semidefinite Laplacian).
 
 ## Convolution (`Convolution`, [Architecture](architecture.md) §11)

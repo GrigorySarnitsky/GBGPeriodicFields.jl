@@ -105,9 +105,16 @@ end
       @alloc_below threshold laplacian!(svd, sv, multipliers)
       @alloc_below threshold inverse_laplacian!(svd, sv, multipliers)
       @alloc_below threshold helmholtz_projection!(svd, sv, multipliers)
+      @alloc_below threshold helmholtz_projection!(svd, svd, multipliers)                       # aliased in place — the one-pass kernel needs no guard temporary (decision 32)
+      @alloc_below threshold helmholtz_projection!(svd, sv, multipliers, kernel)                # kernel-composed ℙ
+      @alloc_below threshold helmholtz_projection!(svd, sv, multipliers, kernel, T(0.5), T(1))
       @alloc_below threshold curl!(svd, sv, multipliers)
       @alloc_below threshold divergence!(ssd, sv, multipliers)            # vector → scalar
       @alloc_below threshold divergence!(svd, st, multipliers)            # tensor → vector
+      @alloc_below threshold divergence!(ssd, sv, multipliers, kernel)                          # kernel-composed ∇·
+      @alloc_below threshold divergence!(ssd, sv, multipliers, kernel, T(0.5), T(1))
+      @alloc_below threshold divergence!(svd, st, multipliers, kernel)
+      @alloc_below threshold divergence!(svd, st, multipliers, kernel, T(0.5), T(1))
       @alloc_below threshold gradient!(svd, ss, multipliers)             # scalar → vector
       @alloc_below threshold gradient!(std_, sv, multipliers)            # vector → tensor
       @alloc_below threshold symmetric_gradient!(std_, sv, multipliers)  # vector → tensor, fused sym∇

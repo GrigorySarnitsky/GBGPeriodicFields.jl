@@ -256,6 +256,13 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(symmetric_gradient(u_spec_d, mult_d), symmetric_gradient(u_spec_h, mult_h))  # fused sym∇
       @test matches(helmholtz_projection(u_spec_d, mult_d), helmholtz_projection(u_spec_h, mult_h))
 
+      # the aliased in-place projection: the one-pass kernel computes destination === source with
+      # no guard temporary (decision 32)
+      aliased_h = to_spectral(u, plans_for(u));  aliased_d = to_spectral(ud, plans_for(ud))
+      helmholtz_projection!(aliased_h, aliased_h, mult_h)
+      helmholtz_projection!(aliased_d, aliased_d, mult_d)
+      @test matches(aliased_d, aliased_h)
+
       # spectral linear tensor ops are coefficientwise (valid in spectral representation)
       A_spec_h = to_spectral(A, plans_for(A))
       A_spec_d = to_spectral(Ad, plans_for(Ad))
@@ -263,6 +270,18 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(sym(A_spec_d), sym(A_spec_h))
       @test matches(combine!(F.similar_field(A_spec_d, Val(2)), 2.0, A_spec_d, -3.0, A_spec_d),  # combine! spectral
                     combine!(F.similar_field(A_spec_h, Val(2)), 2.0, A_spec_h, -3.0, A_spec_h))
+
+      # kernel-composed operators (a convolution fused into ℙ and ∇·; decision 32), incl. α/β
+      kernel_h = spectral_cutoff(u_spec_h, mult_h, T(5) / 2)
+      kernel_d = spectral_cutoff(u_spec_d, mult_d, T(5) / 2)
+      @test matches(helmholtz_projection(u_spec_d, mult_d, kernel_d),
+                    helmholtz_projection(u_spec_h, mult_h, kernel_h))
+      @test matches(divergence(u_spec_d, mult_d, kernel_d), divergence(u_spec_h, mult_h, kernel_h))
+      @test matches(divergence(A_spec_d, mult_d, kernel_d), divergence(A_spec_h, mult_h, kernel_h))
+      composed_h = T(1) * u_spec_h;  composed_d = on_device(composed_h)
+      helmholtz_projection!(composed_h, u_spec_h, mult_h, kernel_h, T(3), T(5))
+      helmholtz_projection!(composed_d, u_spec_d, mult_d, kernel_d, T(3), T(5))
+      @test matches(composed_d, composed_h)
     end
 
     @testset "convolution (apply a Fourier kernel)" begin
