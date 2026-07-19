@@ -233,13 +233,39 @@ Three statements, each expanded against the code and tested:
   factor is the exact phase — the Nyquist one reducing to ``\cos(\pi m_a) = (-1)^{m_a}`` — and the
   convolution is exactly the index shift, `circshift` by ``m`` cells. ``\checkmark``
 
-**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28.
+**The exponential radial kernel** (`exponential_convolve!`, decision 33) is the symbol
+``\hat g(k) = \exp(c |k|^2 + s \hat w(k))`` with ``c, s \in \mathbb R`` and ``\hat w`` a real-valued
+per-mode field, evaluated lazily (never materialized). Three statements, each expanded against the
+code and tested:
+
+- **Reality is automatic.** ``|k|^2`` is real and even in ``k`` and ``\hat w`` is required real and
+  (as a stored half-spectrum of a real field) Hermitian, so ``\hat g`` is real and even —
+  ``\hat g(-k) = \hat g(k) = \overline{\hat g(k)}`` — and a real field stays real for **every**
+  ``c, s``; no Nyquist split arises (the exponent uses the true squared wavenumber, invariant 5's
+  Laplacian family). ``\checkmark``
+- **It is the heat semigroup's symbol.** The Laplacian's symbol is ``-|k|^2``, so the operator
+  ``e^{-c\Delta}`` has symbol ``\exp(-c \cdot (-|k|^2)) = \exp(c|k|^2)`` — for ``c \le 0`` the
+  periodic Gaussian smoothing at length ``\sqrt{-2c}`` — exact on the grid because operator and
+  exponent share the same wavenumber family. ``\checkmark``
+- **A scalar exponent offset is redundant.** ``\exp(c|k|^2 + s_0) = e^{s_0} \exp(c|k|^2)`` for a
+  constant ``s_0``, which is the accumulate weight ``\alpha``'s job — hence the deliberate absence of
+  a scalar-offset method; only the per-mode ``s \hat w`` earns a signature slot. ``\checkmark``
+
+The **kernel-composed combination** (`combine!(dest, α, a, β, b, kernel)` and the exponential
+two-operand form) is the distribution of a diagonal symbol over a linear combination — per mode,
+``\hat g (\alpha \hat a + \beta \hat b) = \alpha \hat g \hat a + \beta \hat g \hat b`` — computed
+as the left-hand side in one coefficientwise pass; with ``b = \mathrm{dest}`` it is the filtered
+accumulate, alias-safe because the map is mode-local. ``\checkmark``
+
+**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33.
 **Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
 `circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, and
 the physical-space intentional absence (the ``\operatorname{sinc}^2`` window is checked by `test/rdf.jl`); and for `translation_kernel`, `circshift` on a *random* field (one
 with Nyquist content, so the Nyquist factor is exercised), the exact `DirectDFT` evaluation at the displaced
 nodes for a sub-cell displacement, and the reality check that the displaced half-spectrum survives a
-transform round trip (the inverse transform being the Hermitian projector).
+transform round trip (the inverse transform being the Hermitian projector); and for the decision-33
+pair, the stored-kernel equality oracles, the single-mode eigenvalue ``e^{c}\cos x``, and
+fused-equals-sequential for both two-operand forms.
 
 ## Reductions (`Reductions`, [Architecture](architecture.md) §12)
 

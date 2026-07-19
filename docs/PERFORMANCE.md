@@ -281,6 +281,29 @@ what is gone. And the kernel-composed form (`helmholtz_projection!(…, kernel)`
 scalar-field read to the same pass — measured +6–16% over the plain projection, against ~+50% for the
 separate `convolve!` pass it replaces.
 
+**(k) A lazy kernel is a reuse question, not a free win — and the naive A/B forgets the build pass.**
+The exponential family (decision 33) evaluates ``\exp(c|k|^2)`` per mode instead of reading a stored
+kernel field. Whether that pays depends on what the stored route would actually do:
+
+| comparison (vector field) | CPU ``128^3`` F64, 4 threads | GPU ``256^3`` F32, RX 7900 XTX |
+|---|---|---|
+| lazy vs stored kernel, kernel **fixed** | 9.1 vs 5.4 ms — stored 1.7× | 0.94 vs 0.87 ms — stored 1.08× |
+| lazy vs rebuild + apply, exponent **varies** | comparable (the rebuild pays the same `exp`) | 0.94 vs 0.46 + 0.87 ms — **lazy 1.4×** |
+| two-operand fused vs sequential `combine!` + `convolve!` | 9.9 vs 11.3 ms — **fused 1.14×** | 1.11 vs 1.68 ms — **fused 1.5×** |
+| kerneled `combine!` vs the sequential pair | 7.4 vs 11.3 ms — **fused 1.5×** | 1.13 vs 1.68 ms — **fused 1.5×** |
+
+Three lessons. The *fusion* forms (the bottom two rows) win on both backends — they save a
+destination write and re-read, which no amount of `exp` cost eats. The *lazy-vs-stored* single-operand
+trade is governed by reuse: a fixed kernel amortizes its build and then wins on pure bandwidth
+(the per-mode exponential costs more than the field read it saves — dramatically so on CPU, where
+`exp` is expensive and the broadcast re-evaluates it once per fiber component); a varying exponent
+forces the stored route to pay a full build pass per change, and the lazy form then wins. And the
+measurement trap: an A/B of `exponential_convolve!` against a prebuilt `convolve!` silently compares
+against a route whose build pass happened outside the timer — state which reuse pattern is being
+measured before quoting a ratio. A possible future optimization — hoisting the exponential over the
+fiber in a mode-loop kernel, the decision-32 shape — would cut the CPU vector case's threefold `exp`
+re-evaluation; it waits for a CPU-bound consumer (the audits' consumer runs GPU-first).
+
 
 ## 5. The benchmark suite
 
@@ -293,7 +316,9 @@ runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU w
 Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
-decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector + the builders `spectral_cutoff` /
+decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` and the kernel-composed
+`combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
+`combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
 paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the

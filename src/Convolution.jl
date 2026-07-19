@@ -17,6 +17,11 @@ convolves with — the package supplies the operation, not the physical meaning.
 
 - [`convolve`](@ref) / [`convolve!`](@ref) — convolve a field with a kernel; the in-place form adds
   ``\\alpha``/``\\beta`` accumulation, and `convolve(g₁, g₂)` composes two kernels into one.
+- [`exponential_convolve!`](@ref) / [`exponential_convolve`](@ref) — convolve with the exponential
+  radial kernel, computed from the wavenumber arrays on the fly instead of stored as a field; the
+  two-operand form filters a weighted combination in the same pass.
+- The kernel-composed [`combine!`](@ref) method — the weighted combination of two fields convolved
+  with a stored kernel, in one fused pass.
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
   its annular band-pass generalization.
 - [`squared_wavenumber_field`](@ref) — the squared-wavenumber radial coordinate of spectral space, as
@@ -46,8 +51,12 @@ using ..FiberSections:
   _assign!,
   @_assign!
 
-export convolve, convolve!, ⋆, spectral_cutoff, spectral_band, squared_wavenumber_field, assignment_window,
-       translation_kernel
+# Extended with the kernel-composed method (the weighted combination convolved in the same pass);
+# the generic and its docstring live in FieldAlgebra, the kerneled method here with the kernels.
+import ..FieldAlgebra: combine!
+
+export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
+       spectral_band, squared_wavenumber_field, assignment_window, translation_kernel
 
 
 ####################################################
@@ -175,6 +184,276 @@ const ⋆ = convolve
 
 
 ####################################################
+#        Kernel-composed combination               #
+####################################################
+
+
+"""
+    _apply_convolution_combination!(destination_data, a_data, b_data, kernel_data,
+                                    alpha, beta)
+
+Apply the fused kernel-times-combination product, computing
+``\\mathrm{dst} \\mathrel{.=} \\hat g \\cdot (\\alpha \\hat a + \\beta \\hat b)`` in one
+coefficientwise pass (``\\hat g`` = `kernel_data`). The scalar `kernel_data` broadcasts over the
+fiber components exactly as in `_apply_convolution!`, and the product is coefficientwise, so the
+destination may alias either operand or the kernel.
+"""
+function _apply_convolution_combination!(destination_data, a_data, b_data, kernel_data, alpha, beta)
+  @_assign! destination_data .= kernel_data .* (alpha .* a_data .+ beta .* b_data)
+  return destination_data
+end
+
+
+# The kernel-composed method of FieldAlgebra's `combine!` (documented in its home docstring): the
+# weighted combination convolved with a kernel in the same fused pass. It is defined here, not in
+# FieldAlgebra, because the kernel is a Convolution concept — and only for fields in spectral
+# representation, since a kernel is a spectral object (the physical absence is a validity absence,
+# invariant 1).
+function combine!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
+    β::Real, b::AbstractFieldSpectral{T, R}, kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
+  check_field_compatibility(destination, a)
+  check_field_compatibility(destination, b)
+  _check_field_domain_compatibility(a, kernel)
+  _apply_convolution_combination!(field_data(destination), field_data(a), field_data(b),
+    field_data(kernel), T(α), T(β))
+  return destination
+end
+
+
+####################################################
+#        Exponential convolution                   #
+####################################################
+
+
+"""
+    _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
+                                    coefficient, alpha, beta)
+
+    _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
+                                    coefficient, offset_scale, offset_data, alpha, beta)
+
+Apply the coefficientwise product with the exponential radial kernel, computing
+``\\mathrm{dst} \\mathrel{.=} \\alpha \\exp(c |k|^2) \\cdot \\hat f + \\beta \\mathrm{dst}``
+(the eight-argument form adds ``+ s \\hat w`` inside the exponential, with ``\\hat w`` =
+`offset_data` and ``s`` = `offset_scale`). The `squared_wavenumber` is the lazy
+`_squared_wavenumber_broadcast`, so the kernel is evaluated per mode inside the fused assignment and
+never materialized. The call branches on `iszero(beta)` to overwrite or accumulate; the product is
+coefficientwise, hence alias-safe.
+"""
+function _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
+    coefficient, alpha, beta)
+  if iszero(beta)
+    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber) .* source_data
+  else
+    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber) .* source_data .+ beta .* destination_data
+  end
+  return destination_data
+end
+
+
+function _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
+    coefficient, offset_scale, offset_data, alpha, beta)
+  if iszero(beta)
+    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data
+  else
+    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data .+ beta .* destination_data
+  end
+  return destination_data
+end
+
+
+"""
+    _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
+                                    coefficient, alpha, beta)
+
+    _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
+                                    coefficient, offset_scale, offset_data, alpha, beta)
+
+Apply the exponential radial kernel to a weighted combination, computing
+``\\mathrm{dst} \\mathrel{.=} \\exp(c |k|^2) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` (the
+eight-argument form adds ``+ s \\hat w`` inside the exponential) — the exponential twin of
+`_apply_convolution_combination!`, with the kernel evaluated lazily per mode instead of read from a
+stored field. Coefficientwise, hence alias-safe.
+"""
+function _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
+    coefficient, alpha, beta)
+  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber) .* (alpha .* a_data .+ beta .* b_data)
+  return destination_data
+end
+
+
+function _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
+    coefficient, offset_scale, offset_data, alpha, beta)
+  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* (alpha .* a_data .+ beta .* b_data)
+  return destination_data
+end
+
+
+"""
+    exponential_convolve!(destination, field, multipliers, coefficient::Real)
+    exponential_convolve!(destination, field, multipliers, coefficient::Real, α, β)
+    exponential_convolve!(destination, field, multipliers, coefficient::Real,
+                          offset_scale::Real, offset::ScalarFieldSpectral)
+    exponential_convolve!(destination, field, multipliers, coefficient::Real,
+                          offset_scale::Real, offset::ScalarFieldSpectral, α, β)
+    exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers,
+                          coefficient::Real)
+    exponential_convolve!(destination, α::Real, a, β::Real, b, multipliers,
+                          coefficient::Real, offset_scale::Real,
+                          offset::ScalarFieldSpectral)
+
+Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, evaluated from
+the wavenumber arrays on the fly — the kernel is never built or stored as a field — writing the
+result into `destination` in place.
+
+For a coefficient ``c \\le 0`` this is, as a real physical object, convolution with the periodic
+Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field at the length scale
+``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
+``\\exp(c |k|^2)``, the true squared wavenumber kept at the Nyquist frequency (the Laplacian
+convention), so the kernel is real, even, and positive — a valid kernel for every real field. The
+optional per-mode term ``s \\hat w`` generalizes the exponent to a consumer-supplied symbol.
+
+Choose between this and a stored kernel by reuse. When the exponent changes between applications —
+so a stored kernel would be rebuilt each time — the lazy form wins: it removes the kernel's build
+pass, its residency, and its per-application field read, reading three one-dimensional wavenumber
+arrays instead (measured ``\\approx 1.4\\times`` over rebuild-then-[`convolve!`](@ref) on a GPU at
+``256^3``). When one **fixed** kernel is applied many times, a stored kernel with `convolve!` is the
+faster route: the per-mode exponential costs more than the field read it saves
+(``\\approx 1.1\\times`` on a GPU; ``\\approx 2\\times`` on a CPU, where the exponential is expensive
+and is evaluated once per fiber component). The two-operand forms win outright on both backends
+(``\\approx 1.4``–``1.7\\times`` over the sequential `combine!`-then-`convolve!` pair), fusing away
+the combination's destination write and re-read as well.
+
+The arguments are:
+- `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
+  since the product is coefficientwise.
+- `field` — the field to filter, in spectral representation.
+- `α`, `a`, `β`, `b` — in the two-operand forms, the real weights and fields of the combination
+  ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref) takes them; with
+  `b === destination` the filtered accumulate runs in place.
+- `multipliers` — the wavenumber arrays for the field's grid; the kernel is evaluated from their
+  squared-wavenumber family.
+- `coefficient` — the real factor ``c`` on ``|k|^2`` in the exponent, dimensionless as received (the
+  consumer folds its own physical factors before the call).
+- `offset_scale`, `offset` — the real scale ``s`` and the per-mode field ``\\hat w`` of the optional
+  exponent term ``s \\hat w``; `offset` is a scalar field in spectral representation holding real
+  values (as [`squared_wavenumber_field`](@ref) does). The pair enters as scale times field so a
+  changed scale costs nothing — the resident ``\\hat w`` is built once.
+- `α`, `β` — in the single-operand forms, real accumulation weights as in `convolve!`; the
+  short forms overwrite (``\\alpha = 1``, ``\\beta = 0``).
+
+!!! warning "The offset must be real-valued"
+    The exponential of a real, even symbol keeps a real field real. A complex-valued `offset` breaks
+    that Hermitian symmetry exactly as a consumer-built kernel can under `convolve!`, and the inverse
+    transform then silently keeps only the Hermitian part. There is deliberately no *scalar* exponent
+    offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
+
+The single-operand accumulate form computes
+
+```math
+\\widehat{\\mathrm{destination}}(k) = \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k)
+                                    + \\beta  \\widehat{\\mathrm{destination}}(k),
+```
+
+and the two-operand forms apply the same kernel to the combination,
+``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the
+lazy-kernel twin of the kernel-composed `combine!` method. Spectral representation only. Returns the
+modified `destination`.
+"""
+function exponential_convolve! end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, alpha::Real, beta::Real) where {T<:AbstractFloat, R}
+  check_field_compatibility(destination, field)
+  _check_multipliers_compatibility(field, multipliers)
+  _apply_exponential_convolution!(field_data(destination), field_data(field),
+    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(alpha), T(beta))
+  return destination
+end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real) where {T<:AbstractFloat, R}
+  return exponential_convolve!(destination, field, multipliers, coefficient, one(T), zero(T))
+end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
+    offset::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat, R}
+  check_field_compatibility(destination, field)
+  _check_field_domain_compatibility(field, offset)
+  _check_multipliers_compatibility(field, multipliers)
+  _apply_exponential_convolution!(field_data(destination), field_data(field),
+    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
+    T(alpha), T(beta))
+  return destination
+end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
+    multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
+    offset::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
+  return exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset, one(T), zero(T))
+end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
+    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
+    coefficient::Real) where {T<:AbstractFloat, R}
+  check_field_compatibility(destination, a)
+  check_field_compatibility(destination, b)
+  _check_multipliers_compatibility(a, multipliers)
+  _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  return destination
+end
+
+
+function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
+    β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
+    coefficient::Real, offset_scale::Real, offset::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
+  check_field_compatibility(destination, a)
+  check_field_compatibility(destination, b)
+  _check_field_domain_compatibility(a, offset)
+  _check_multipliers_compatibility(a, multipliers)
+  _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
+    T(α), T(β))
+  return destination
+end
+
+
+"""
+    exponential_convolve(field, multipliers, coefficient::Real)
+    exponential_convolve(field, multipliers, coefficient::Real,
+                         offset_scale::Real, offset::ScalarFieldSpectral)
+
+Allocating form of [`exponential_convolve!`](@ref): allocate the result and return the field
+convolved with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)`` — for ``c \\le 0`` the
+periodic Gaussian smoothing ``e^{-c\\Delta}`` of the field. See `exponential_convolve!` for the
+kernel, the argument meanings, and the two-operand forms; the representation and tensor order are
+preserved.
+"""
+function exponential_convolve end
+
+
+function exponential_convolve(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+    coefficient::Real)
+  destination = similar_field(field, Val(field_tensor_order(field)))
+  return exponential_convolve!(destination, field, multipliers, coefficient)
+end
+
+
+function exponential_convolve(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
+    coefficient::Real, offset_scale::Real, offset::ScalarFieldSpectral)
+  destination = similar_field(field, Val(field_tensor_order(field)))
+  return exponential_convolve!(destination, field, multipliers, coefficient, offset_scale, offset)
+end
+
+
+####################################################
 #        Kernel builders                           #
 ####################################################
 
@@ -190,7 +469,9 @@ Use it as the neutral radial coordinate of spectral space: a consumer builds a F
 — a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
 Germano subgrid filter — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
 The package supplies the coordinate, while ``\\nu``, ``\\Delta t``, and any filter width stay
-consumer-side.
+consumer-side. For a symbol of the exponential family specifically,
+[`exponential_convolve!`](@ref) applies ``\\exp(c |k|^2 + s \\hat w)`` straight from the wavenumber
+arrays, with no kernel field built at all.
 
 - `reference` — a field in spectral representation whose grid and backend the result matches.
 - `multipliers` — the wavenumber arrays for that grid, checked for compatibility with `reference`.

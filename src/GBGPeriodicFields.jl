@@ -30,7 +30,8 @@ one operation family:
 - [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
   `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.
-- [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref) together with the
+- [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form
+  `exponential_convolve` and the kernel-composed `combine!` method, together with the
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
   `assignment_window`, and `translation_kernel`.
 - [`Points`](@ref) supplies the point-data types and their fiberwise algebra, mirroring the
@@ -146,6 +147,8 @@ using .Convolution:
   convolve!,
   convolve,
   ⋆,
+  exponential_convolve!,
+  exponential_convolve,
   spectral_cutoff,
   spectral_band,
   squared_wavenumber_field,
@@ -266,6 +269,8 @@ export FiberVector,
        convolve!,
        convolve,
        ⋆,
+       exponential_convolve!,
+       exponential_convolve,
        spectral_cutoff,
        spectral_band,
        squared_wavenumber_field,

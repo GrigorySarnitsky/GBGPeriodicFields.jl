@@ -267,6 +267,90 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test approx(field_data(aliased), field_data(reference))
     end
 
+    @testset "exponential_convolve: the lazy exp(c|k|² + s·ŵ) kernel (decision 33)" begin
+      m = FieldSpectralMultipliers(phi_s)
+      coefficient = T(-0.037)
+
+      # oracle 1: the same kernel built as a stored field and applied with convolve
+      k2 = squared_wavenumber_field(phi_s, m)
+      stored = scalar_kernel(exp.(coefficient .* field_data(k2)))
+      @test field_data(exponential_convolve(phi_s, m, coefficient)) == field_data(convolve(phi_s, stored))
+      u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
+                        plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
+      @test field_data(exponential_convolve(u_s, m, coefficient)) == field_data(convolve(u_s, stored))
+
+      # oracle 2 (independent): a single mode is an eigenvector — exp(c·1)·cos(x) for cos(x)
+      cosx = ScalarFieldPhysical((x, y, z) -> cos(x), grid)
+      cosx_s = to_spectral(cosx, plans_for(cosx))
+      smoothed = to_physical(exponential_convolve(cosx_s, m, coefficient), plans_for(cosx))
+      @test approx(field_data(smoothed), exp(coefficient) .* field_data(cosx))
+
+      # α/β accumulate against a hand-built reference
+      dest0 = randn(Complex{T}, shape0)
+      dest = scalar_kernel(copy(dest0))
+      exponential_convolve!(dest, phi_s, m, coefficient, T(0.5), T(-1.5))
+      @test approx(field_data(dest),
+                   T(0.5) .* (exp.(coefficient .* field_data(k2)) .* field_data(phi_s)) .+ T(-1.5) .* dest0)
+
+      # the per-mode offset enters as scale × field: exp(c|k|² + s·ŵ) with ŵ = |k|²
+      offset_scale = T(0.011)
+      stored_off = scalar_kernel(exp.(coefficient .* field_data(k2) .+ offset_scale .* field_data(k2)))
+      @test field_data(exponential_convolve(phi_s, m, coefficient, offset_scale, k2)) ==
+            field_data(convolve(phi_s, stored_off))
+
+      # the two-operand forms == combine! then exponential_convolve!, in one pass
+      b_s = scalar_kernel(randn(Complex{T}, shape0))
+      sequential = scalar_kernel(zeros(Complex{T}, shape0))
+      combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
+      exponential_convolve!(sequential, sequential, m, coefficient)
+      fused = scalar_kernel(zeros(Complex{T}, shape0))
+      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient)
+      @test field_data(fused) == field_data(sequential)
+      combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
+      exponential_convolve!(sequential, sequential, m, coefficient, offset_scale, k2)
+      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient, offset_scale, k2)
+      @test field_data(fused) == field_data(sequential)
+
+      # aliasing: b === destination is the filtered accumulate in place
+      inplace = scalar_kernel(copy(field_data(b_s)))
+      exponential_convolve!(inplace, T(0.3), phi_s, T(0.7), inplace, m, coefficient)
+      @test field_data(inplace) == field_data(exponential_convolve(
+        scalar_kernel(T(0.3) .* field_data(phi_s) .+ T(0.7) .* field_data(b_s)), m, coefficient))
+    end
+
+    @testset "kernel-composed combine!: ĝ ⊙ (α·a + β·b) in one pass (decision 33)" begin
+      m = FieldSpectralMultipliers(phi_s)
+      g = spectral_cutoff(phi_s, m, T(3))
+      b_s = scalar_kernel(randn(Complex{T}, shape0))
+
+      sequential = scalar_kernel(zeros(Complex{T}, shape0))
+      combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
+      convolve!(sequential, sequential, g)
+      fused = scalar_kernel(zeros(Complex{T}, shape0))
+      returned = combine!(fused, T(0.3), phi_s, T(0.7), b_s, g)
+      @test returned === fused
+      @test field_data(fused) == field_data(sequential)
+
+      # the scalar kernel broadcasts over the fiber: the R=1 path
+      u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
+                        plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
+      v_s = VectorFieldSpectral(randn(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
+      vseq = VectorFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
+      combine!(vseq, T(0.3), u_s, T(0.7), v_s)
+      convolve!(vseq, vseq, g)
+      vfused = VectorFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
+      combine!(vfused, T(0.3), u_s, T(0.7), v_s, g)
+      @test field_data(vfused) == field_data(vseq)
+
+      # aliasing: b === destination (the kernel-filtered accumulate) and kernel === destination
+      inplace = scalar_kernel(copy(field_data(b_s)))
+      combine!(inplace, T(0.3), phi_s, T(0.7), inplace, g)
+      @test field_data(inplace) == field_data(sequential)
+      kernel_dest = scalar_kernel(copy(field_data(g)))
+      combine!(kernel_dest, T(0.3), phi_s, T(0.7), b_s, kernel_dest)
+      @test field_data(kernel_dest) == field_data(sequential)
+    end
+
   end
 end
 
@@ -286,6 +370,10 @@ end
     @test_throws MethodError convolve(phi, ones_kernel)    # no physical-space convolution (spectral only)
     @test_throws MethodError convolve(phi_s, phi)          # the kernel must be in spectral representation
     @test_throws MethodError translation_kernel(phi, FieldSpectralMultipliers(phi_s), (0.1, 0.0, 0.0))
+    mult_absence = FieldSpectralMultipliers(phi_s)
+    @test_throws MethodError exponential_convolve(phi, mult_absence, -0.1)          # spectral-only too
+    @test_throws MethodError exponential_convolve!(phi, phi, mult_absence, -0.1)
+    @test_throws MethodError combine!(phi, 0.3, phi, 0.7, phi, ones_kernel)         # kerneled combine! likewise
   end
 
   @testset "mixed-parity grid (8, 7, 6): odd axis (no Nyquist) + even axes, all 3 directions" begin

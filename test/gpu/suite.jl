@@ -310,6 +310,22 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       convolve!(device_dest, phi_spec_d, cutoff_d, T(3), T(5))
       @test matches(device_dest, host_dest)
 
+      # the lazy exponential kernel and the kernel-composed combine! (decision 33)
+      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20),
+                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20))
+      k2_h = squared_wavenumber_field(phi_spec_h, mult_h)
+      k2_d = squared_wavenumber_field(phi_spec_d, mult_d)
+      @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
+                    exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
+      combined_h = T(1) * u_spec_h;  combined_d = on_device(combined_h)
+      exponential_convolve!(combined_h, T(3) / 10, u_spec_h, T(7) / 10, combined_h, mult_h, T(-1) / 20)
+      exponential_convolve!(combined_d, T(3) / 10, u_spec_d, T(7) / 10, combined_d, mult_d, T(-1) / 20)
+      @test matches(combined_d, combined_h)
+      kerneled_h = T(1) * u_spec_h;  kerneled_d = on_device(kerneled_h)
+      combine!(kerneled_h, T(3) / 10, u_spec_h, T(7) / 10, kerneled_h, cutoff_h)
+      combine!(kerneled_d, T(3) / 10, u_spec_d, T(7) / 10, kerneled_d, cutoff_d)
+      @test matches(kerneled_d, kerneled_h)
+
       # spectral_band (annular) and squared_wavenumber_field build entirely on-device (no scalar index)
       @test matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
       @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))

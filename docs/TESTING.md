@@ -288,7 +288,12 @@ and **convolution** (`test/convolution.jl`): periodic convolution as the coeffic
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β
 accumulate form (incl. R=2), in-place aliasing safety, a **mixed-parity (8,7,6) grid** (odd axis +
-Nyquist), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
+Nyquist), the **lazy exponential kernel** `exponential_convolve!` (decision 33: equality against the
+same kernel stored and applied with `convolve!`, the independent single-mode eigenvalue oracle
+``e^{c}\cos x``, the α/β accumulate, the scale-times-field offset, both two-operand forms equal to
+the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
+**kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
+``b = \mathrm{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
 membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on

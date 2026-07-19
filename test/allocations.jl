@@ -133,6 +133,14 @@ end
       @alloc_below threshold convolve!(std_, st, kernel)
       @alloc_below threshold convolve!(svd, sv, kernel, T(0.5), T(1))
       @alloc_below threshold convolve!(std_, st, kernel, T(0.5), T(1))
+      # the lazy exponential kernel and the kernel-composed combination (decision 33)
+      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1))
+      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.5), T(1))
+      @alloc_below threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
+      @alloc_below threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
+      @alloc_below threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
 
       # ----- add! / subtract!: physical + spectral, R = 0/1/2, field·field + field·constant + reversed -----
       for (d, a, c) in ((psd, ps, const_real), (pvd, pu, const_vec), (ptd, pt, const_ten),

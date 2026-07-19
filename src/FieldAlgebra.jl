@@ -456,6 +456,7 @@ end
 
 """
     combine!(destination, α::Real, a, β::Real, b)
+    combine!(destination, α::Real, a, β::Real, b, kernel::ScalarFieldSpectral)
 
 Overwrite `destination` with the real-weighted linear combination ``\\alpha a + \\beta b`` of two
 compatible fields, and return `destination`.
@@ -479,6 +480,24 @@ place.
 ```math
 \\mathrm{destination} = \\alpha  a + \\beta  b.
 ```
+
+# The kernel-composed form
+
+Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, exactly as `convolve!` takes
+it — convolves the combination with the kernel in the same fused pass. As a real physical object the
+result is the kernel-weighted local average of the combination, ``g \\star (\\alpha a + \\beta b)``;
+in spectral representation it is one coefficientwise product,
+
+```math
+\\widehat{\\mathrm{destination}}(k) = \\hat g(k)  \\bigl(\\alpha \\hat a(k) + \\beta \\hat b(k)\\bigr),
+```
+
+replacing a `combine!` followed by a `convolve!` — one pass instead of two, saving a full read and a
+full write of `destination` per call. This form exists only in spectral representation (a kernel is a
+spectral object); `α`/`β` keep their combination-weight roles, and with `b === destination` it
+computes the kernel-filtered accumulate in place. The scalar kernel broadcasts over the fiber, so one
+method serves every tensor order, and the write stays coefficientwise — `a`, `b`, or the `kernel` may
+alias `destination`.
 """
 function combine! end
 

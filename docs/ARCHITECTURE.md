@@ -750,8 +750,15 @@ ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its ann
 physical offset ``h``). The first four are real and even in the wavenumber ``k``; `translation_kernel` is
 the one **complex** kernel, and the reality condition a complex kernel must meet — the Hermitian symmetry
 ``\hat g(-k) = \overline{\hat g(k)}``, equivalently a real physical-space kernel ``g`` — is what forces its
-value at the Nyquist frequency to be a real attenuation rather than a phase (decision 28). See decisions
-20, 21, 22, 28.
+value at the Nyquist frequency to be a real attenuation rather than a phase (decision 28). Two fused
+forms extend the family without a stored kernel or an extra pass (decision 33):
+`exponential_convolve!`/`exponential_convolve` apply the exponential radial kernel
+``\exp(c |k|^2 + s \hat w)`` evaluated lazily from the wavenumber arrays (for ``c \le 0`` the periodic
+Gaussian ``e^{-c\Delta}``; ``\hat w`` an optional real per-mode exponent field entered as scale times
+field, ``s`` its scale), in single-field and weighted-two-field forms; and the kernel-composed
+`combine!` method convolves a weighted combination ``\hat g \cdot (\alpha \hat a + \beta \hat b)`` in
+the same fused pass — the decision-32 composition idiom (the operation's own verb, a trailing kernel
+argument) applied to the combination. See decisions 20, 21, 22, 28, 33.
 
 ## 12. Reductions
 
@@ -1750,3 +1757,67 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     projection, and the kernel-aliasing case in `test/differentialoperators.jl`; zero-allocation pins
     for every new arity and the aliased call in `test/allocations.jl`; device-vs-host parity in
     `test/gpu/suite.jl`; the fused-vs-sequential benchmark rows in the `operators` class.
+
+33. **The exponential radial kernel and the kernel-composed combination (the lazy-kernel pair).** Two
+    requests from `GBGIsotropicTurbulence`'s audits — items 2 and 7 — landed as one broadcast-builder
+    family in `Convolution`, because the second is the first with a two-field prologue.
+
+    *The exponential family.* `exponential_convolve!` (allocating `exponential_convolve`) applies the
+    exponential radial kernel ``\exp(c |k|^2 + s \hat w)`` — ``c`` a real coefficient on the squared
+    wavenumber ``|k|^2``, ``\hat w`` an optional real per-mode exponent field with real scale ``s`` —
+    evaluated **lazily from the three one-dimensional wavenumber arrays** inside the fused assignment.
+    The kernel is never built, so against the stored-kernel route (`squared_wavenumber_field` →
+    consumer broadcast → `convolve!`) it removes the kernel's residency, its build pass, and its full
+    field read per application, reading ``O(N)`` wavenumber rows instead (``N`` the points per axis).
+    The measured trade is a **reuse question** ([`PERFORMANCE.md`](performance.md) finding (k)): with a
+    varying exponent — the consumer's case, whose stage substeps differ — the lazy form beats
+    rebuild-then-apply by ``\approx 1.4\times`` on the GPU; with one fixed kernel applied many times
+    the stored route keeps a ``\approx 1.1\times`` (GPU) to ``\approx 2\times`` (CPU) edge, the
+    per-mode exponential costing more than the field read it saves. The two-operand fused forms below
+    win on both backends regardless (``\approx 1.4``–``1.7\times``).
+    For ``c \le 0`` the kernel is, as a real physical object, the periodic Gaussian: the operator
+    ``e^{-c\Delta}``, smoothing at length ``\sqrt{-2c}`` — and the identification is exact on the
+    grid because the exponent uses the same true-Nyquist squared-wavenumber family as the Laplacian's
+    own symbol (invariant 5).
+
+    *The boundary, and two signature decisions made against the request's framing.* The consumer
+    framed the exponent as built from a diffusivity and a substep; neither crosses PF's boundary
+    (invariant 12) — the consumer folds them into the dimensionless ``c``, and the name "rate" was
+    declined (a rate is per-unit-time, and the array that would cross is the dimensionless product,
+    not the rate). Working the consumer's stage structure sharpened the offset into its final shape:
+    a **scalar** exponent offset does not exist, because ``\exp(c|k|^2 + s_0) = e^{s_0} \exp(c|k|^2)``
+    folds into the accumulate weight ``\alpha`` — a deliberate absence; and the **per-mode** offset
+    enters as **scale times field** (``s \hat w``, not a pre-scaled array), because the consumer's
+    substeps vary per stage — with a bare offset array every stage would pay a full array rebuild,
+    while the scalar ``s`` is free and the resident ``\hat w`` is built once.
+
+    *The kernel-composed combination.* `combine!` gains the method
+    `combine!(dest, α, a, β, b, kernel)` — the weighted combination convolved with a stored kernel,
+    ``\hat g \cdot (\alpha \hat a + \beta \hat b)``, in one coefficientwise pass — and
+    `exponential_convolve!` carries the same two-operand form with its lazy kernel. The consumer
+    evidence is the integrating-factor state update (a `combine!` followed immediately by a
+    `convolve!` with the factor, per stage per field — two full passes of the destination saved per
+    site, about six vector plus six scalar passes per three-stage step); the lazy twin additionally
+    retires the factor's per-stage build. A third proposed consumer — the phase-shift average — was
+    found not to be an instance of this form at all (its kernel lands on one operand), and is served
+    instead by decision 32's ``\beta`` accumulate; the correction is recorded there. With
+    ``b === \mathrm{dest}`` the method computes the kernel-filtered accumulate in place
+    (coefficientwise, hence alias-safe with no guard), which is why it carries **no** second trailing
+    accumulate pair — two ``\alpha``/``\beta`` roles in one signature is the glyph-collision failure
+    mode, and the aliasing provides the accumulate for free.
+
+    *Naming and the method-set bookkeeping.* The kerneled combination is a **method of `combine!`
+    with a trailing kernel argument** — the decision-32 composition idiom (`divergence!` and
+    `helmholtz_projection!` compose the same way) — not a new verb; the earlier `weighted_inner`
+    naming (decision 27) is the *reductions* family's convention and stands there. The method is
+    defined in `Convolution` (the kernel is a `Convolution` concept; `FieldAlgebra` precedes it in
+    the include order and never sees kernels), which also keeps the `FieldAlgebra` method-parity
+    baseline untouched by construction — the parity count filters on the defining module. Validity:
+    spectral-only (a kernel is a spectral object; the physical absence is a validity absence), the
+    exponential kernel real, even, and positive — Hermitian-safe by construction — and a
+    complex-valued ``\hat w`` breaks reality exactly as any consumer-built kernel can under
+    `convolve!` (the docstring warns; the trust model is unchanged). Guards: stored-kernel equality
+    oracles, the single-mode eigenvalue oracle ``e^{c}\cos x``, fused-equals-sequential for both
+    two-operand forms, the in-place filtered accumulate, and the absences in `test/convolution.jl`;
+    zero-allocation pins in `test/allocations.jl`; device parity in `test/gpu/suite.jl`; and the
+    `convolution` benchmark rows whose baseline is the sequential `combine!` + `convolve!` pair.
