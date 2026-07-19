@@ -25,14 +25,18 @@
 # component twice and a diagonal once; the spectral `inner` corrects sub-plane Parseval slabs).
 #
 # EXCLUSIONS (each has a reason, none is an oversight):
-#   * the transforms — FFTW's internal passes are FFTW's, not this package's (the same line IT's
-#     compute audit draws), and FFT plans reject wrapped storage anyway;
-#   * `radial_correlation` — it contains a transform; its binning shares the audited spectrum
-#     kernel's structure and its allocation bound is guarded in `allocations.jl`;
-#   * the interpolation/anterpolation transfer — a per-point stencil-touch model, not a per-field
-#     pass model; a stencil-count audit is a recorded possible extension;
+#   * the transform INTERIORS — FFTW's internal passes are FFTW's, not this package's (the same line
+#     IT's compute audit draws), and FFT plans reject wrapped storage anyway. An operation
+#     *containing* a transform still audits its countable stages: `radial_correlation`'s input read
+#     and its physical binning kernel are cases below — the wrapper never reaches the FFT, because
+#     `similar` on a CountingArray yields plain storage;
+#   * the anterpolation SCATTER — its `Atomix.@atomic` accumulate needs pointer atomics a wrapper
+#     array does not provide. The GATHER is audited at its exact per-point stencil counts
+#     (M·(2n+2)³ reads per component); extending the atomics onto the wrapper is the
+#     recorded route to the scatter;
 #   * O(N) configuration arrays (the 1-D wavenumber multipliers, shell vectors, Parseval weight
-#     vector) — only field-shaped storage is wrapped, exactly the scope of IT's pass ledger.
+#     vector) and the per-point POSITIONS — only field- and point-value-shaped storage is wrapped,
+#     exactly the scope of IT's pass ledger.
 #
 # REGENERATION. PASS_AUDIT_PRINT=1 julia --project=. test/pass_audit.jl prints every measured count;
 # review each change against the fused ideal — a raised count is a fusion regression unless a new
@@ -40,7 +44,7 @@
 
 using Test
 using GBGPeriodicFields
-using GBGPeriodicFields: field_data
+using GBGPeriodicFields: field_data, point_values
 using Statistics: mean                        # extended on sections in Reductions (not re-exported)
 import KernelAbstractions
 
@@ -131,6 +135,8 @@ carr(f) = field_data(f)                       # the CountingArray behind a field
 # Multipliers and kernels are built over PLAIN storage (uncounted, as intended): `similar` on a
 # CountingArray yields a plain Array, and the convenience constructor copies host wavenumbers into it.
 const multipliers = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(ComplexF64, shape0), grid))
+const vector_plans = FieldTransformPlans(VectorFieldPhysical(zeros(grid.grid_size..., 3), grid),
+                                         VectorFieldSpectral(zeros(ComplexF64, shape1), grid))
 const kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
 const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)
 
@@ -276,6 +282,39 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     gs2 = vspec()
     audit(() -> radial_spectrum(fs, gs2, multipliers), "radial_spectrum co-spectrum",
       Traffic("f", carr(fs), (3M, 0)), Traffic("g", carr(gs2), (3M, 0)))
+  end
+
+  # ------------------------------------------------- radial correlation (its countable stages)
+  # The transform interior is FFTW's, but the wrapper never reaches it: the power-spectrum build
+  # writes a plain scratch (`similar` on a CountingArray yields an `Array`), so the public call
+  # audits the input-side contract, and the fused physical binning kernel (decision 34) is audited
+  # directly on its raw input.
+  @testset "radial_correlation stages" begin
+    f = vspec()
+    audit(() -> radial_correlation(f, vector_plans), "radial_correlation input read",
+      Traffic("f", carr(f), (3M, 0)))
+    correlation_data = counting(randn(grid.grid_size..., 3))
+    audit(() -> GBGPeriodicFields.Reductions._radial_average(grid, correlation_data, P),
+      "physical shell binning (decision-34 kernel)",
+      Traffic("correlation field", correlation_data, (3P, 0)))
+  end
+
+  # ------------------------------------------------- point transfer (the gather)
+  # Per-point stencil counts, exact: a CatmullRom (n = 1) gather reads (2n+2)³ = 64 field values
+  # per point per component and writes one output slot per point per component; positions stay
+  # plain (coordinate reads are three per point, by inspection of the kernel). The scatter waits on
+  # atomics over the wrapper (see the header exclusions).
+  @testset "interpolation gather" begin
+    number_of_points = 10
+    positions = hcat(2π .* rand(number_of_points), 4π .* rand(number_of_points),
+                     6π .* rand(number_of_points))
+    points = PointSet(positions)
+    u = vphys()
+    gathered = VectorPointValues(counting(zeros(number_of_points, 3)))
+    stencil = 4^3                               # CatmullRom: n = 1 ⇒ (2n+2)³ nodes
+    audit(() -> interpolate!(gathered, u, points, CatmullRom), "interpolate! CatmullRom gather",
+      Traffic("field", carr(u), (3 * stencil * number_of_points, 0)),
+      Traffic("output", point_values(gathered), (0, 3 * number_of_points)))
   end
 
 end

@@ -1954,11 +1954,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     frozen count sits the fused ideal, and a count above its ideal must carry a **named holder** or
     the suite fails — the gap register transplanted intact. CPU-only, like the allocation audit and
     for the same reason: the code is generic, so the pass structure is backend-independent, while
-    launch counts and achieved bandwidth stay benchmark-side. Excluded with reasons: the transforms
-    (FFTW's internal passes are FFTW's; plans reject wrapped storage), `radial_correlation` (contains
-    a transform; its binning shares the audited spectrum kernel), the point transfer (a per-point
-    stencil-touch model — a recorded possible extension), and O(N) configuration arrays (only
-    field-shaped storage is wrapped, IT's own scope line).
+    launch counts and achieved bandwidth stay benchmark-side. Excluded with reasons — each exclusion cut to its
+    true width: the transform **interiors** (FFTW's internal passes are FFTW's; plans reject wrapped
+    storage — but an operation *containing* a transform still audits its countable stages, and
+    `radial_correlation`'s input read and its decision-34 physical binning kernel are audited, the
+    wrapper never reaching the FFT because `similar` on it yields plain storage); the anterpolation
+    **scatter** (its `Atomix` accumulate needs pointer atomics a wrapper cannot provide — the
+    *gather* is audited at its exact per-point stencil arithmetic, ``M (2n+2)^3`` field reads per
+    component, and extending the atomics onto the wrapper is the recorded route to the scatter); and
+    O(N) configuration arrays and point positions (only field- and point-value-shaped storage is
+    wrapped, IT's own scope line).
 
     *What the first measurement found.* The decision-32/33/34 kernels sit **at their ideals** — the
     one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its `β = 0`
