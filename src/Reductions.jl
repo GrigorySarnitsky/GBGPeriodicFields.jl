@@ -25,7 +25,14 @@ Each family links to the home where its formula lives:
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
   spectral generalization ``\\langle f, w g\\rangle``.
-- `maximum`, `minimum`, `extrema` — the ``L^\\infty`` end, extending `Base` for scalar sections.
+- `maximum`, `minimum`, `extrema` — the ``L^\\infty`` end, extending `Base`. The bare forms take a
+  scalar section; the mapped forms below extend them to every tensor order.
+- The **mapped forms** — each reduction above also accepts a leading function, applied to the fiber
+  value at every base point: `mean(det, A)` averages a determinant over the base and
+  `maximum(norm, u)` takes a supremum of magnitude, each in a single pass that never builds the mapped
+  quantity as a section. Naming that map is also what makes an order statistic well posed on a vector
+  or tensor section, where the bare `maximum` refuses to guess. They mirror the standard-library
+  `mean(f, itr)` and `maximum(f, itr)` spellings and, mapping the fiber nonlinearly, are physical-only.
 - [`radial_spectrum`](@ref) and [`radial_correlation`](@ref) — a Fourier-dual pair (Wiener–Khinchin)
   that resolves `inner` over a radial coordinate, the shell-binned power spectrum over ``|k|`` and its
   physical-space two-point correlation over ``|r|``, each also in a two-field co-spectrum form.
@@ -40,7 +47,7 @@ using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectra
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
   field_grid, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
-  _squared_wavenumber_broadcast
+  _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data
 using ..FieldAlgebra: _spectral_zero_mode_data, _spectral_zero_mode_component_data, _spectral_constant_scale
 using ..Points: AbstractPointValues, npoints
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
@@ -100,6 +107,143 @@ function _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce)
 end
 
 
+"""
+    _FiberGather{V}(fiber_map)
+
+A callable that assembles the fiber value of type `V` from its components and applies `fiber_map` to
+it. It exists as a struct rather than a closure so the component count is a **type-level** quantity:
+an anonymous `(values...) -> fiber_map(V(values))` leaves the tuple length uninferrable, `V(values)`
+then cannot be built in registers, and the reduction allocates per base point — measured at about four
+and a half times the tensor section's own size. The `Vararg{Any, N}` signature restores that inference.
+"""
+struct _FiberGather{V, F} <: Function
+  fiber_map::F
+end
+
+_FiberGather{V}(fiber_map::F) where {V, F} = _FiberGather{V, F}(fiber_map)
+
+(gather::_FiberGather{V})(values::Vararg{Any, N}) where {V, N} = gather.fiber_map(V(values))
+
+
+# Base elements per pairwise-recursion leaf, matching Base's own reduction blocking: large enough that
+# the vectorized leaf loop dominates the recursion, small enough to keep the summation error at the
+# pairwise O(log n) rather than the sequential O(n).
+const _FIBER_REDUCTION_BLOCK = 1024
+
+
+"""
+    _fiber_at(components, index, ::Val{NC})
+
+Gather the `NC` component values of one base point into a tuple, by linear index. The component arrays
+are the contiguous per-component slices of a fiber-last section, so each is a unit-stride stream.
+"""
+@inline _fiber_at(components, index, ::Val{NC}) where {NC} =
+  ntuple(component -> @inbounds(components[component][index]), Val(NC))
+
+
+"""
+    _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{NC}, lo, hi)
+
+Reduce base points `lo:hi` on the **CPU**, assembling each fiber value of type `V` from `components`,
+applying `fiber_map`, and combining with `combine`. The recursion splits until a leaf of
+`_FIBER_REDUCTION_BLOCK` points, which runs as one vectorized loop.
+
+The shape is Base's own `mapreduce` blocking, reproduced here because the generic path does not apply
+to a fused fiber gather: reducing the equivalent lazy `Broadcasted` forgoes the vectorized loop and
+runs several times slower, and the sequential alternative would give up pairwise summation's ``O(\\log n)``
+error growth for ``O(n)``.
+"""
+function _fiber_loop_reduce(fiber_map::FiberMap, combine::Combine, components, ::Type{V},
+                            ::Val{NC}, lo::Int, hi::Int) where {FiberMap, Combine, V, NC}
+  if hi - lo < _FIBER_REDUCTION_BLOCK
+    accumulator = fiber_map(V(_fiber_at(components, lo, Val(NC))))
+    @inbounds @simd for index in (lo + 1):hi
+      accumulator = combine(accumulator, fiber_map(V(_fiber_at(components, index, Val(NC)))))
+    end
+    return accumulator
+  end
+  middle = (lo + hi) >> 1
+  return combine(_fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), lo, middle),
+                 _fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), middle + 1, hi))
+end
+
+
+"""
+    _reduce_fiber(backend, fiber_map, combine, components, V, ::Val{NC})
+
+Reduce a section's fiber values on `backend`, gathering each fiber of type `V` from its `NC` component
+arrays. The two backends take different routes because they reward opposite things: a CPU wants the
+vectorized blocked loop of [`_fiber_loop_reduce`](@ref), while a GPU has no such loop to lose and is
+served by one fused pass over a lazy `Broadcasted`, which also spares it a section write and read-back.
+"""
+function _reduce_fiber end
+
+function _reduce_fiber(::KernelAbstractions.CPU, fiber_map::FiberMap, combine::Combine, components,
+                       ::Type{V}, ::Val{NC}) where {FiberMap, Combine, V, NC}
+  count = length(first(components))
+  # Delegate an empty base so Base raises its own empty-reduction error rather than indexing out of range.
+  count == 0 && return _reduce_fiber_broadcast(fiber_map, combine, components, V, Val(NC))
+  return _fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), 1, count)
+end
+
+_reduce_fiber(::Any, fiber_map::FiberMap, combine::Combine, components, ::Type{V},
+              ::Val{NC}) where {FiberMap, Combine, V, NC} =
+  _reduce_fiber_broadcast(fiber_map, combine, components, V, Val(NC))
+
+_reduce_fiber_broadcast(fiber_map::FiberMap, combine::Combine, components, ::Type{V},
+                        ::Val{NC}) where {FiberMap, Combine, V, NC} =
+  mapreduce(identity, combine,
+            Broadcast.instantiate(Broadcast.broadcasted(_FiberGather{V}(fiber_map), components...)))
+
+
+"""
+    _fiber_mapreduce(fiber_map, combine, section)
+
+Reduce with `combine` over the base, applying `fiber_map` to the **fiber value** at each base point:
+the scalar itself for tensor order `0`, the `FiberVector` for `1`, the `FiberTensor2` for `2`. This
+backs the mapped forms of the reductions, so a nonlinear fiber invariant is reduced **without
+materializing it as a section** — the mapped value exists only per base point, in registers.
+
+The fiber is gathered from the section's per-component arrays, because the fiber-last layout makes each
+component a contiguous slice but places the components of one base point a whole base apart, so a fiber
+cannot be reinterpreted into a `StaticArray` in place. How those components are then reduced is chosen
+per backend by [`_reduce_fiber`](@ref) — a vectorized blocked loop on a CPU, one fused pass over a lazy
+`Broadcasted` on a GPU — since the two reward opposite things.
+
+One spelling to avoid either way: the multi-argument `mapreduce(fiber_map, combine, components...)` is
+fused by GPUArrays but falls back on the CPU to a route that materializes a full section-sized array.
+
+The `fiber_map::FiberMap` type parameter — here and on every public form that forwards to this one — is
+required, not decoration. Julia declines to specialize on an argument of `Function` type that a method
+only passes along instead of calling, so without it the map arrives boxed and the reduction allocates
+on every call; naming its type in the signature forces the specialization that keeps the whole family
+allocation-free.
+"""
+function _fiber_mapreduce(fiber_map::FiberMap, combine::Combine,
+                          section::Union{AbstractFieldPhysical{T, R}, AbstractPointValues{T, R}}
+                          ) where {FiberMap, Combine, T, R}
+  # `T` and `R` are matched as static parameters rather than read back with `section_scalar_type` /
+  # `_tensor_order`, so the fiber type below is a compile-time type rather than a runtime lookup. This
+  # is for clarity, not for allocation: what keeps the family at zero bytes is the forced specialization
+  # on `fiber_map` (see the docstring) — matching the parameters here changed nothing on its own.
+  # Tensor order 0 needs no gather: the data array *is* the sequence of fiber values, so the backend's
+  # own `mapreduce` already takes its best route on either device.
+  R == 0 && return mapreduce(fiber_map, combine, field_data(section))
+  backend = get_backend(field_data(section))
+  if R == 1
+    components = ntuple(index -> _vector_component_data(section, index), Val(3))
+    return _reduce_fiber(backend, fiber_map, combine, components, FiberVector{T}, Val(3))
+  elseif R == 2
+    # Column-major fiber order, matching the `FiberTensor2` (`SMatrix`) constructor.
+    components = ntuple(Val(9)) do index
+      _tensor2_component_data(section, (index - 1) % 3 + 1, (index - 1) ÷ 3 + 1)
+    end
+    return _reduce_fiber(backend, fiber_map, combine, components, FiberTensor2{T}, Val(9))
+  end
+  throw(ArgumentError("reductions are implemented for tensor order ≤ 2 (got R = $R)"))
+end
+
+
 ###################################
 #        Reductions               #
 ###################################
@@ -107,6 +251,7 @@ end
 
 """
     integral(f)
+    integral(fiber_map, f)
 
 The base integral ``\\int_\\Omega f \\,\\mathrm{d}\\mu`` of a section (`integral` ``\\equiv \\int\\,\\mathrm{d}\\mu``) — the
 measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
@@ -127,10 +272,43 @@ periodic trapezoidal rule integrates the represented modes exactly. For a field 
 representation** the same value comes from the zero (DC) Fourier mode with no inverse transform,
 ``\\int_\\Omega f\\,\\mathrm{d}\\mu = \\tfrac{|\\Omega|}{N} \\hat f(0)``, since the DC coefficient
 ``\\hat f(0) = \\sum_x f(x)`` is real for a real field.
+
+# The mapped form
+
+Given a leading function `fiber_map`, the integrand becomes that function of the section's fiber value
+at each base point rather than the fiber value itself:
+
+```math
+\\int_\\Omega (\\texttt{fiber\\_map} \\circ f) \\,\\mathrm{d}\\mu.
+```
+
+The map receives the scalar for a scalar section, the `FiberVector` for a vector
+section, and the `FiberTensor2` for a tensor section, so `integral(det, A)` integrates a determinant
+and `integral(norm, u)` a magnitude. The mapped value is formed one base point at a time and consumed
+by the reduction immediately, so nothing section-sized is built — where writing the same quantity as
+`integral(det(A))` first materializes a whole determinant field. Passing `identity` recovers the bare
+form. The same leading function is taken by `mean` (which divides by the base count instead of weighting
+by the measure) and by `maximum`/`minimum`/`extrema`; for the order statistics it is also what makes
+them well posed above tensor order zero, the bare forms being scalar-only by design.
+
+The mapped form is the cheaper route on both backends — one pass that allocates nothing, against a
+materialized section plus a second pass over it — by roughly two and a half times on a CPU and a
+quarter on a GPU. It gets there by different means on each, chosen internally: a vectorized blocked
+loop on a CPU, a single fused pass on a GPU.
+
+!!! note
+    The fiber map's own cost can outweigh the choice of route. `LinearAlgebra.norm` applied to a fiber
+    uses the overflow-safe scaled algorithm, several times the cost of the plain
+    ``\\sqrt{\\sum_i u_i^2}`` that the fieldwise `norm` evaluates, which is enough to make
+    `maximum(norm, u)` dearer than `lpnorm(u, Inf)` on a CPU despite allocating nothing; passing a plain
+    magnitude instead reverses that. Pick the map for the accuracy the result needs.
 """
 function integral end
 integral(section::ReducibleSection) =
   _fiberwise(section, sum, (data, base) -> sum(data; dims = base)) .* _cell_measure(section)
+
+integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
+  _fiber_mapreduce(fiber_map, +, section) * _cell_measure(section)
 
 
 # `mean`, `std`, `var` (extending Statistics) — intensive, fiber-preserving base reductions.
@@ -138,6 +316,9 @@ integral(section::ReducibleSection) =
 # (1/|Ω|)∫_Ω f dx on a grid, a plain sample mean over points. `std`/`var` are the per-fiber-component
 # base moments.
 mean(section::ReducibleSection) = _fiberwise(section, mean, (data, base) -> mean(data; dims = base))
+
+mean(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
+  _fiber_mapreduce(fiber_map, +, section) / _base_count(section)
 
 var(section::ReducibleSection; corrected::Bool = true) =
   _fiberwise(section, data -> var(data; corrected = corrected),
@@ -614,6 +795,24 @@ for reducer in (:maximum, :minimum, :extrema)
   @eval $reducer(field::AbstractFieldPhysical{T, 0}) where {T} = $reducer(field_data(field))
   @eval $reducer(values::AbstractPointValues{T, 0}) where {T} = $reducer(field_data(values))
 end
+
+# The mapped forms carry no such restriction, at every tensor order: naming the fiber map is what
+# removes the ambiguity the bare forms refuse to guess, so `maximum(norm, u)` is well posed where
+# `maximum(u)` is not — and it fuses, where the equivalent `lpnorm(u, Inf)` materializes a magnitude
+# section first.
+for (reducer, combine) in ((:maximum, :max), (:minimum, :min))
+  @eval $reducer(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
+    _fiber_mapreduce(fiber_map, $combine, section)
+end
+
+# Two passes rather than one. A single-pass form is available — reduce pairs under `Base._extrema_rf`,
+# for which the GPU backend does register a neutral element — but that is an undocumented Base internal,
+# and a reduction that costs one extra streaming pass is not worth taking a dependency on a name Base
+# may rename. A custom pair-combiner is not an escape: the GPU path demands an explicit neutral element
+# for any operator outside its known set, and that would have to be built from `fiber_map`'s result
+# type, which is not knowable here.
+extrema(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
+  (minimum(fiber_map, section), maximum(fiber_map, section))
 
 
 end # module Reductions

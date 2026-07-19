@@ -214,6 +214,51 @@ tests and short runs); the escape hatch already exists,
 input arrays while planning, so build the plans on scratch fields before seeding data. The forced-HIT CPU
 example (`examples/HIST_CPU.jl`) now plans with `MEASURE`.
 
+**(i) A fused reduction needs a different shape per backend — get that right and it wins on both.** The
+mapped forms (decision 30) reduce a function of the fiber value at every base point without
+materializing it. A single formulation cannot serve both devices, and the first implementation shipped
+the GPU's shape to the CPU, where it ran *slower* than the materializing route it was meant to replace.
+Splitting it fixes that. Measured with the **same map on both sides** (`mean(det, A)` against
+`mean(det(A))`, ``N = 128``, `Float64`):
+
+| backend | fused | materialize + reduce | |
+|---|---|---|---|
+| CPU (vectorized blocked loop) | **5.1 ms**, 0 B | 13.0 ms, 16.8 MB | fused 2.5× faster |
+| GPU, RX 7900 XTX (fused `Broadcasted`) | **0.55 ms**, 0 B | 0.69 ms, 16.8 MB | fused 1.3× faster |
+
+Decomposing the CPU side shows why one shape could not do both, and it is not the layout:
+
+| step | ``N = 128``, `Float64`, 1 thread | factor |
+|---|---|---|
+| `maximum` over a contiguous array | 0.56 ms | baseline |
+| reducing a lazy `Broadcasted` instead (one stream, no gather) | 3.1 ms | **5.6×** |
+| three strided streams instead of one | 6.4 ms | 2× |
+| building the `StaticArray` per base point | 5.6–6.4 ms | free |
+| `LinearAlgebra.norm` instead of naive ``\sqrt{\sum_i u_i^2}`` | 27.7 ms | **4.3×** |
+
+The dominant term is the reduction losing its vectorized blocked loop, which costs more than the extra
+section of traffic that materializing pays — so on a CPU the fix is simply not to reduce a lazy
+expression: the implementation runs its own blocked loop over the component arrays instead. A GPU has no
+such loop to forfeit (thread-parallel, bandwidth-bound), so index arithmetic hides behind memory latency
+and the skipped section write and read-back is pure profit; it keeps the fused `Broadcasted`. Blocking
+the CPU loop pairwise, as Base's own reduction does, additionally makes it the **most accurate** route
+(relative error ``1.2\times10^{-16}``, against ``3.7\times10^{-15}`` for the lazy form and
+``1.6\times10^{-16}`` for materializing). The strided gather that fiber-last layout (invariant 3) forces
+contributes only ``2\times``, and the `StaticArray` build is free.
+
+The last row is a **measurement trap worth recording**: `LinearAlgebra.norm` on a fiber uses the
+overflow-safe scaled 2-norm, ``4.3\times`` the plain magnitude the fieldwise `norm` evaluates. So
+comparing `maximum(norm, u)` against `lpnorm(u, Inf)` varies the algorithm *and* the route together and
+reads as a fusion penalty that is not the fusion — given the same formula the fused form is 1.8 ms
+against 4.2 ms. This analysis reported the confounded number twice before decomposing it. Vary one thing
+at a time here.
+
+Three formulations that look equivalent are not, and each silently reintroduces allocation: a
+multi-argument `mapreduce` (fused by `GPUArrays`, but materializing a full section on the CPU), an
+anonymous vararg closure (uninferrable component count), and a forwarded `Function`-typed argument left
+untyped in the signature (Julia declines to specialize on it). All three are pinned at zero bytes by
+`test/allocations.jl`. [Decision 30.]
+
 
 ## 5. The benchmark suite
 
@@ -235,7 +280,9 @@ multiplier-weighted `weighted_inner`, the spectral Parseval
 and the radial pair `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
 inverse rfft, diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their
-binning). Run it:
+binning), including the **mapped forms** `maximum(norm, u)` / `mean(norm, u)` / `mean(det, A)` /
+`mean(tr, A)`, whose `maximum(norm, u)` row pairs with the `lpnorm vec Inf` row as a direct A/B — the
+same quantity, one materializing a magnitude section and one not. Run it:
 
 ```sh
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time

@@ -8,6 +8,7 @@ using Random: MersenneTwister
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
 using Statistics: mean, std, var      # extended on sections in the Reductions module (not re-exported)
+                                      # `det`/`tr`/`norm` (the fiber maps below) come from the package's re-export
 
 @testset "L²/measure reductions" begin
   for T in (Float64, Float32)
@@ -90,6 +91,54 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
       tp = TensorPointValues(ones(T, 3, 3, 3))                   # M=3 points × 3×3
       @test mean(tp) isa FiberTensor2{T}
       @test mean(tp) ≈ ones(T, 3, 3)
+    end
+
+    # ---- the mapped forms: reduce a nonlinear fiber invariant with no intermediate section ----
+    @testset "mapped reductions — mean/integral/maximum of a fiber map ($T)" begin
+      # A constant diagonal tensor has analytically known invariants: det = 2·3·4, tr = 2+3+4.
+      diagonal = zeros(T, N, N, N, 3, 3)
+      diagonal[:, :, :, 1, 1] .= T(2)
+      diagonal[:, :, :, 2, 2] .= T(3)
+      diagonal[:, :, :, 3, 3] .= T(4)
+      D = TensorFieldPhysical(diagonal, g)
+      @test mean(det, D) ≈ T(24)
+      @test mean(tr, D) ≈ T(9)
+      @test mean(det, D) isa T                                   # element type preserved
+      @test integral(det, D) ≈ T(24) * prod(g.domain_size)       # extensive = |Ω|·intensive
+      @test maximum(det, D) ≈ T(24) && minimum(det, D) ≈ T(24)
+
+      # The identity map must reproduce the bare, fiber-preserving reductions exactly.
+      v = VectorFieldPhysical((x, y, z) -> (T(1), T(2), T(2)), g)
+      @test mean(identity, v) ≈ mean(v)
+      @test integral(identity, v) ≈ integral(v)
+      @test mean(identity, D) ≈ mean(D)
+
+      # Analytic: ⟨sin²x⟩ = 1/2 over a full period.
+      sx = ScalarFieldPhysical((x, y, z) -> sin(x), g)
+      @test mean(abs2, sx) ≈ T(0.5) atol = atol
+
+      # `maximum(norm, ·)` is the fused peer of the materializing `lpnorm(·, Inf)`.
+      @test maximum(norm, v) ≈ T(3)
+      @test maximum(norm, v) ≈ lpnorm(v, Inf)
+      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z) * cos(x)), g)
+      @test maximum(norm, u) ≈ lpnorm(u, Inf) atol = atol
+      @test extrema(norm, u) == (minimum(norm, u), maximum(norm, u))
+
+      # Random tensor against an independent per-point reduction (explicit loop, not the package's).
+      rng = MersenneTwister(20260719)
+      noise = randn(rng, T, N, N, N, 3, 3)
+      A = TensorFieldPhysical(noise, g)
+      fiber_at(x, y, z) = FiberTensor2{T}(ntuple(k -> noise[x, y, z, (k - 1) % 3 + 1, (k - 1) ÷ 3 + 1], 9))
+      manual_mean = sum(det(fiber_at(x, y, z)) for x in 1:N, y in 1:N, z in 1:N) / N^3
+      manual_max = maximum(det(fiber_at(x, y, z)) for x in 1:N, y in 1:N, z in 1:N)
+      @test mean(det, A) ≈ manual_mean atol = atol
+      @test maximum(det, A) ≈ manual_max atol = atol
+
+      # Point-values base: the same maps against the counting measure.
+      vp = VectorPointValues(T[1 2 3; 4 5 6])
+      @test mean(norm, vp) ≈ (sqrt(T(14)) + sqrt(T(77))) / 2
+      @test maximum(norm, vp) ≈ sqrt(T(77))
+      @test integral(norm, vp) ≈ sqrt(T(14)) + sqrt(T(77))       # counting ⇒ raw sum
     end
 
     @testset "spectral inner via Parseval == physical inner ($T)" begin
@@ -402,5 +451,13 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     @test_throws MethodError maximum(spec)
     # radial_spectrum is the mirror image — spectral-only, no physical-field method
     @test_throws MethodError radial_spectrum(ScalarFieldPhysical((x, y, z) -> sin(x), g), m)
+
+    # The mapped forms apply a nonlinear map to the fiber, so they are physical-only for the same
+    # reason `lpnorm`/`std` are: a coefficientwise map has no meaning on a spectral representation.
+    @test_throws MethodError mean(abs2, spec)
+    @test_throws MethodError integral(abs2, spec)
+    @test_throws MethodError maximum(abs2, spec)
+    @test_throws MethodError minimum(abs2, spec)
+    @test_throws MethodError extrema(abs2, spec)
   end
 end

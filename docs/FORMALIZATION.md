@@ -240,6 +240,31 @@ forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real fie
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
 the constant-add writes; `std`/`var`/`lpnorm`/`maximum` have no single-coefficient form.
 
+**The mapped forms** (decision 30). Write ``V`` for the fiber — the vector space over one base point, so
+``V = \mathbb{R}`` at tensor order ``0``, ``\mathbb{R}^3`` at order ``1``, ``\mathbb{R}^{3\times3}`` at
+order ``2`` — and ``f_n \in V`` for the fiber value of the section at base point ``n``. Given a map
+``\varphi : V \to W`` into any space ``W`` carrying the reducing operation, the mapped reductions are the
+bare ones applied to ``\varphi \circ f``:
+
+```math
+\mathrm{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \qquad
+\int_\Omega (\varphi \circ f)\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n \varphi(f_n)\ (\text{grid}), \quad
+\sum_p \varphi(f_p)\ (\text{points}), \quad\checkmark
+```
+
+The order statistics reduce the same mapped values, with a maximum or a minimum in place of the sum.
+Two consequences are worth stating
+because they are what the tests pin. Taking the identity map recovers the bare reduction
+exactly, ``\mathrm{mean}(\mathrm{id}, f) = \mathrm{mean}(f)``, including its fiber-valued result at
+order ``1`` and ``2``. And with ``\varphi = \lVert\cdot\rVert`` the order statistic coincides with the
+existing supremum norm, ``\max_n \lVert f_n\rVert = \lVert f\rVert_\infty``, so `maximum(norm, u)` and
+`lpnorm(u, Inf)` are the same number by different routes — the first without materializing
+``\varphi \circ f`` as a section. The mapped forms exist only on physical fields and point-values:
+``\varphi`` is nonlinear in general, so it has no coefficientwise meaning on a spectral representation
+(invariant 1). Tests: `test/reductions.jl` (the analytic diagonal-tensor invariants, the identity-map
+agreement, the `lpnorm` coincidence, an independent per-point reduction, and the spectral
+absence), `test/allocations.jl` (the family allocates zero bytes), `test/gpu/suite.jl` (device parity).
+
 **`inner` in spectral representation** (Parseval, no transform): the discrete Parseval identity
 ``\tfrac{1}{N}\sum_x f_x\cdot g_x = \tfrac{1}{N^2}\sum_{\text{all }k}\hat f(k) \overline{\hat g(k)}`` together with
 the rfft half-spectrum (each ``k_x>0`` mode stands for its conjugate partner, so it counts twice; the

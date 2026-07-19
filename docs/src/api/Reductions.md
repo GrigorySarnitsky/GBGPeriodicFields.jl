@@ -29,6 +29,8 @@ radial_correlation
 
 The `mean`, `std`, and `var` moments (extending `Statistics`) and the `maximum`, `minimum`, and `extrema` order statistics (extending `Base`) are also defined for sections; they are method extensions of the standard-library generics rather than package exports, and are described in the module summary above.
 
+Each reduction also has a **mapped** form taking a leading function, applied to the fiber value at every base point — `mean(det, A)`, `maximum(norm, u)` — which reduces a nonlinear invariant in one pass without building it as a section. That form is documented on [`integral`](@ref), including when to prefer it on a CPU; `mean`, `maximum`, `minimum`, and `extrema` take the same leading function. `Statistics` gives `var` and `std` no such spelling, so neither does this package.
+
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors — the base

@@ -2,10 +2,10 @@ name: CI
 
 on:
   # Every commit is authored locally and the FULL matrix is run before it is pushed
-  # (`julia +1.11` 1-thread + `julia +release` 4-thread, both installed via juliaup),
-  # so a push-triggered run would only re-verify what is already green. Kept manual
-  # plus on release tags — the one thing a single local run cannot give is a
-  # from-scratch clean-environment resolve, which a tagged release then exercises.
+  # (`julia +release`, serial and 4-thread lanes), so a push-triggered run would only
+  # re-verify what is already green. Kept manual plus on release tags — the one thing
+  # a single local run cannot give is a from-scratch clean-environment resolve, which
+  # a tagged release then exercises.
   workflow_dispatch:
   push:
     tags: '*'
@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - version: '1.11'   # the package's minimum (compat floor)
+          - version: '1.12'   # the package's minimum (compat floor)
             threads: '1'
           - version: '1'      # current stable, threaded lane
             threads: '4'

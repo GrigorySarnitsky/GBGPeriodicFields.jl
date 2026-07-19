@@ -12,8 +12,8 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 Aqua = "0.8"
 HDF5 = "0.17"
 # LoweredCodeUtils 3.6.0 added a `SelectiveEvalController` arg to `add_active_gotos!` that JET 0.11.3
-# (Julia 1.12's latest JET) can't call → JET fails to precompile. JET differs by Julia version, though:
-# on 1.11 (CI's compat floor) it is 0.9.x, needing LoweredCodeUtils 0.10.x; on 1.12 it is 0.11.3,
-# needing 3.x. So allow BOTH lines while excluding the breaking 3.6 — 0.10.x for 1.11, 3.5.x for 1.12.
-# Lift when a JET release supports the new signature. (test/jet.jl is the only JET consumer.)
-LoweredCodeUtils = "0.1 - 3.5"
+# (Julia 1.12's latest JET) can't call → JET fails to precompile, taking the whole suite down before a
+# single test runs. Bound it below 3.6. The lower bound was once opened to 0.1 to also admit the 0.10.x
+# that Julia 1.11's older JET 0.9.x needed; with 1.11 dropped from the compat range that is no longer
+# required. Lift when a JET release supports the new signature. (test/jet.jl is the only JET consumer.)
+LoweredCodeUtils = "3 - 3.5"

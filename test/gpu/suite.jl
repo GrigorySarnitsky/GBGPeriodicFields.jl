@@ -389,6 +389,20 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(l2norm(vfd), l2norm(vf))
       @test eq(lpnorm(vfd, Inf), lpnorm(vf, Inf)) && eq(lpnorm(vfd, 4), lpnorm(vf, 4))
 
+      # Mapped forms: the fiber is gathered per base point through a lazy broadcast, so the whole
+      # reduction stays one on-device pass with no intermediate section and no scalar indexing.
+      tf = TensorFieldPhysical(rand(T, size(field_data(vf))..., 3), grid)
+      tfd = on_device(tf)
+      @test eq(mean(det, tfd), mean(det, tf))
+      @test eq(mean(tr, tfd), mean(tr, tf))
+      @test eq(mean(norm, vfd), mean(norm, vf))
+      @test eq(mean(abs2, sfd), mean(abs2, sf))
+      @test eq(integral(det, tfd), integral(det, tf))
+      @test eq(mean(identity, vfd), mean(vf))              # identity map ⇒ the bare fiber reduction
+      @test eq(maximum(norm, vfd), maximum(norm, vf))
+      @test eq(minimum(norm, vfd), minimum(norm, vf))
+      @test eq(maximum(norm, vfd), lpnorm(vf, Inf))        # fused peer of the materializing form
+
       # spectral (Parseval) inner / l2norm: device == CPU, and equal to the physical inner
       vf_spec_h = to_spectral(vf, plans_for(vf)); vf_spec_d = to_spectral(vfd, plans_for(vfd))
       @test eq(inner(vf_spec_d, vf_spec_d), inner(vf_spec_h, vf_spec_h))

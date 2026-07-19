@@ -759,8 +759,11 @@ via Parseval's theorem (equal to the physical inner, no transform; the rfft half
 and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**
 pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
 its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
-``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Physics (kinetic
-energy ``\tfrac{1}{2}\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22.
+``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Each reduction
+additionally has a **mapped** form taking a leading function — a map applied to the section's fiber value
+at every base point, so `mean(det, A)` averages a determinant and `maximum(norm, u)` takes a supremum of
+magnitude, each reduced in one pass with no intermediate section (decision 30). Physics (kinetic
+energy ``\tfrac{1}{2}\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22, 30.
 
 ## 13. Decision log
 
@@ -828,7 +831,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `@_assign!` macro for hand-written kernels); FFTW threads are matched to Julia's at load.
     Hybrid policy: on when `nthreads() > 1` and above a `2^14` serial cutoff, with a
     task-local `with_threading` ScopedValue override; the GPU path stays on the
-    `materialize!` fallback. `[compat] julia` was raised to 1.11 (for ScopedValue).
+    `materialize!` fallback. `[compat] julia` was raised to 1.11 here (for ScopedValue); the floor has
+    since moved again, to 1.12 (decision 31).
     Reductions remain deferred (separate FP-ordering design).
 13. Interpolation-layer design fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")):
     grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
@@ -1569,6 +1573,75 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the reload is **exact**. The sugar `parent[name] = field` is `setindex!` for `write_field`, made strictly
     more specific than HDF5's own array-writing `setindex!` so it never clashes.
 
+
+30. **Mapped reductions — a leading function on every measure reduction.** The consumer
+    `GBGIsotropicTurbulence` audited its memory and found a recurring shape: to average a nonlinear
+    invariant of a tensor field — the determinant of a strain tensor, the magnitude of a velocity — it had
+    to build that invariant as a **whole section** first and then reduce it, paying one field of scratch
+    for a single number. Here a *section* is a field or a set of point-values, and its **fiber value** at a
+    base point is the scalar, vector, or ``3 \times 3`` tensor sitting over that point. So each reduction
+    gained a form taking a leading function, applied to the fiber value at every base point:
+    `mean(det, A)` averages a determinant, `maximum(norm, u)` takes a supremum of magnitude, and the
+    mapped quantity is consumed as it is formed rather than stored.
+
+    *The standard library sets the surface, including where it stops.* The mapped spellings mirror
+    `Statistics`' `mean(f, itr)` and `Base`'s `sum`/`maximum`/`minimum`/`extrema` with a leading function,
+    so `mean`, `maximum`, `minimum`, `extrema`, and the package's own `integral` (the extensive peer of
+    `mean`) take one. `Statistics` gives `var` and `std` **no** such method, so neither does this package:
+    inventing a spelling the standard library declines to have would be exactly the "for completeness"
+    addition invariant 1 exists to refuse. Being a nonlinear map of the fiber, the mapped forms are
+    **physical-only**, like `lpnorm` and `std` before them.
+
+    *It reconciles an older deliberate absence rather than overturning it.* The bare
+    `maximum`/`minimum`/`extrema` are scalar-section-only on purpose: the supremum of a vector or tensor
+    section is ambiguous between the components and the magnitude, and the package refuses to guess
+    ([§12](@ref "12. Reductions")). The mapped form does not guess — the caller *names* the map, so
+    `maximum(norm, u)` is well posed where `maximum(u)` is not. The absence was of an ambiguous operation,
+    and naming the map is precisely the condition that removes the ambiguity, so the mapped forms carry no
+    tensor-order restriction. They also give a fused peer to `lpnorm(u, Inf)`, which computes the same
+    supremum of magnitude by materializing a magnitude section first.
+
+    *Fiber-last layout dictates the implementation, and hides two allocation traps.* Because components are
+    stored last (invariant 3), a base point's components sit a whole base apart, so a fiber cannot be
+    reinterpreted into a `StaticArray` in place; the fiber is instead gathered through a lazy `Broadcasted`
+    over the component arrays, which reduces in one pass on both backends. Two spellings that look
+    equivalent are not, and each silently allocates:
+    - the multi-argument `mapreduce(fiber_map, combine, components...)` is fused by `GPUArrays` but falls
+      back on the CPU to a route that materializes a full section-sized array;
+    - an anonymous `(values...) -> fiber_map(V(values))` leaves the component count uninferrable, so the
+      fiber cannot be built in registers and the reduction allocates per base point — measured at about
+      four and a half times the tensor section's own size. A callable struct carrying the fiber type
+      restores the inference.
+
+    A third trap sits in the public signatures: Julia declines to specialize on an argument of `Function`
+    type that a method only forwards instead of calling, so each mapped form names its map's type as a
+    parameter. Without that, the map arrives boxed and every call allocates. All three are guarded by the
+    `@allocated` audit, which pins the whole family at zero bytes.
+
+    *The reduction is split by backend, so the fused route wins on both.* How a reduction consumes its
+    input is where the backends disagree, and a single formulation cannot serve both. Reducing a
+    contiguous array uses a vectorized blocked loop; reducing a lazy `Broadcasted` forgoes that loop, at
+    a measured ``5.6\times`` on the reduction alone — more than materializing an extra section costs in
+    traffic. A GPU has no such loop to forfeit: its reduction is thread-parallel and bandwidth-bound, so
+    index arithmetic hides behind memory latency and the section write and read-back that fusing skips
+    is pure profit. The implementation therefore reduces through a **vectorized blocked loop over the
+    component arrays on a CPU** and **one fused pass over a lazy `Broadcasted` on a GPU**. Measured with
+    the same map on both sides (`mean(det, A)` against `mean(det(A))`, ``N = 128``, `Float64`), the fused
+    route then costs 5.1 ms against 13.0 ms on a CPU and 0.55 ms against 0.69 ms on a GPU — cheaper on
+    both, allocating nothing against one full section. The CPU loop blocks pairwise like Base's own
+    reduction, which also makes it the *most accurate* of the routes (relative error ``1.2\times10^{-16}``
+    against the lazy form's ``3.7\times10^{-15}``). The strided gather that fiber-last layout forces
+    costs only about ``2\times``, and building the `StaticArray` per base point is free.
+
+    *A caveat that outranks the route, recorded because it misled this analysis twice.* The fiber map's
+    own cost can outweigh the choice of reduction entirely. `LinearAlgebra.norm` applied to a fiber uses
+    the overflow-safe scaled 2-norm, measured at ``4.3\times`` the plain ``\sqrt{\sum_i u_i^2}`` that the
+    fieldwise `norm` evaluates. Comparing `maximum(norm, u)` against `lpnorm(u, Inf)` therefore varies the
+    algorithm *and* the route at once, and reads as a fusion penalty that is not the fusion at all —
+    given the same formula, the fused form is 1.8 ms against 4.2 ms. Vary one thing at a time when
+    measuring this family. The `integral` docstring carries the practical form of both points for the
+    reader who never opens this file.
+
     *Scope.* Every field type (the six: scalar / vector / tensor × physical / spectral); no compression or
     chunking options until a consumer needs them; no snapshot / time type (invariant 12).
 
@@ -1579,3 +1652,33 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     paths (a dataset instead of a group, an absent name, a group with no type tag). The method-set baselines
     (206 field / 122 point-value methods) are untouched — `write_field` / `read_field` are new generics, and
     their methods exist only under the extension.
+
+
+31. **The Julia compat floor moved 1.11 → 1.12, on a measurement rather than a preference.** The package
+    declared `julia = "1.11"`, and CI ran that as an explicit compat-floor lane beside current stable. The
+    floor is now 1.12, so the matrix differs only in thread count (`-t1` against `-t4`) and the local
+    pre-commit run is a single lane.
+
+    *What the measurement showed, which is the opposite of the obvious guess.* On 1.11 the package **runs
+    faster** — every operation measured, on a ``64^3`` grid in `Float64`: `mean(det, A)` 0.241 ms against
+    0.251, the threaded assignment `add!` 0.296 against 0.338, `radial_spectrum` 1.743 against 2.288,
+    `inner` 0.012 against 0.017. What is slower is **compilation**, by a wide margin and concentrated in
+    exactly the generated and broadcast-heavy surfaces this package is built from: first-call cost for
+    `add!` (the `_assign!` primitive) is ``4.5\times`` higher on 1.11, and the `KernelAbstractions` binning
+    path ``1.4\times``. That is why the two slowest testsets were `threading.jl` and the radial-diagnostic
+    allocation audit, and why a full `Pkg.test()` took 31 minutes on 1.11 against 5.4 on 1.12.
+
+    *Why "make it as fast" was not on the table.* The gap is Julia 1.11's compiler working on our
+    `@eval`-generated method families and fused broadcasts, not a pathology in the package — there is
+    nothing here to fix. Baking the workload into the precompile image with `PrecompileTools` would
+    relocate the cost to precompile time rather than remove it, for a standing maintenance surface. So the
+    choice was to pay 31 minutes per pre-commit check or to drop the lane; since the local run is
+    mandatory (CI is manual-only, [`TESTING.md`](testing.md)), the tax fell on every commit.
+
+    *What it buys, and what it costs.* Dropped with it: the per-version manifest dance (the gitignored
+    top-level `Manifest.toml` is Julia-version-specific, so running the second lane meant moving it aside
+    and restoring it — a footgun that bit twice while gathering the numbers above), and the wide lower
+    bound on the `LoweredCodeUtils` test pin, which existed only to admit the older `JET` that 1.11
+    resolved to. The cost is that the floor now tracks current stable closely, and that sibling packages
+    declaring `julia = "1.11"` — `GBGIsotropicTurbulence` does — must be bumped in step, or they claim
+    support for a Julia their dependency no longer builds on.

@@ -276,6 +276,18 @@ end
       @alloc_below threshold mean(ss)
       @alloc_below threshold mean(vs)
       @alloc_below threshold mean(ts)
+      # The mapped forms reduce a nonlinear fiber invariant with no intermediate section: the fiber is
+      # gathered per base point through a lazy broadcast, so nothing section-sized is ever built. They
+      # are the fused peers of the materializing `lpnorm(·, Inf)` / `mean(det(A))` spellings.
+      @alloc_below threshold mean(det, pt)
+      @alloc_below threshold mean(tr, pt)
+      @alloc_below threshold mean(norm, pv)
+      @alloc_below threshold mean(abs2, ps)
+      @alloc_below threshold integral(det, pt)
+      @alloc_below threshold maximum(norm, pv)                 # fused peer of lpnorm(pv, Inf)
+      @alloc_below threshold minimum(norm, pv)
+      @alloc_below threshold extrema(norm, pv)
+      @alloc_below threshold mean(norm, VectorPointValues(rand(T, 64, 3)))   # point-values base
     end
   end
 end

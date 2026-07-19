@@ -4,10 +4,10 @@
 # restricts reports to GBGPeriodicFields' own modules, filtering out Base-internal
 # abstract-interpretation false positives (e.g. inside `@sync`).
 #
-# This is a *per-Julia-version* static check and complements, but does not replace, the
-# multi-version CI: JET analyzes the running Julia, so it cannot catch version-divergence
-# (e.g. linear `Broadcasted` indexing being valid on 1.12 but not 1.11) — that is the CI
-# 1.11/nightly lanes' job.
+# This is a *per-Julia-version* static check: JET analyzes the running Julia, so it cannot catch
+# divergence between Julia versions on its own. With the compat floor at 1.12 (decision 31) the CI
+# matrix runs a single version, so that coverage now comes from the floor lane tracking the declared
+# minimum rather than from a second, older lane.
 
 using Test
 using JET

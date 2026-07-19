@@ -29,4 +29,13 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   group["radial_correlation vec | $tag"] = @benchmarkable radial_correlation($us, $correlation_plans)  # Wiener–Khinchin: inverse rfft + shell average
   group["co-spectrum vec.vec | $tag"] = @benchmarkable radial_spectrum($us, $vs, $m)   # cross-power: same binning, Re(f̂·conj ĝ) density
   group["cross-correlation vec.vec | $tag"] = @benchmarkable radial_correlation($us, $vs, $correlation_plans)  # cross-corr: inverse rfft of conj(f̂)·ĝ
+
+  # Mapped forms: one fused pass that gathers the fiber per base point, against the two-pass spellings
+  # they replace. `maximum(norm, u)` pairs directly with `lpnorm vec Inf` above (same quantity, one
+  # materializing a magnitude section and one not), so the two rows read as an A/B.
+  A = tensor_phys(AT, T, grid)
+  group["maximum(norm) vec | $tag"] = @benchmarkable maximum(norm, $u)   # fused peer of lpnorm(u, Inf)
+  group["mean(norm) vec | $tag"]    = @benchmarkable mean(norm, $u)
+  group["mean(det) tensor | $tag"]  = @benchmarkable mean(det, $A)       # cubic fiber invariant, no det field
+  group["mean(tr) tensor | $tag"]   = @benchmarkable mean(tr, $A)
 end
