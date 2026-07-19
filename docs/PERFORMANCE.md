@@ -192,6 +192,11 @@ per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (s
 (``\approx 87`` ms/step) now runs to completion on the RX 6700 XT at a flat ``\sim\!6`` GB
 (``\approx 8`` GB peak) through its snapshots, where the per-shell form wedged at the first one. The scatter contends on the small accumulator set, acceptable for an *occasional* diagnostic
 (not a per-step call); a privatized histogram is a possible future optimization. [Decision 25.]
+Decision 34 later fused the remaining ``O(1)`` staging — the shell-index, magnitude, and weighted
+planes — into the binning kernels themselves (shell, fiber contraction, and Parseval weight derived
+per element from the index; the shell count analytic from the corner), taking `radial_spectrum` from
+three staged spectral planes per call to its ``\sim``1.4 KB accumulator and leaving
+`radial_correlation` only its substance (the power field and the allocating inverse transform).
 
 **(h) FFTW `ESTIMATE` can badly mis-plan single-precision transforms — pass `MEASURE` for production.**
 `FieldTransformPlans` builds its FFTW plans with the default `ESTIMATE` flag (instant, but it *guesses*

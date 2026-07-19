@@ -528,57 +528,77 @@ weighted_inner(f::AbstractFieldSpectral{T}, w::ScalarFieldSpectral{T}) where {T<
 
 # =============================================================================
 # Radial shell binning — the device-friendly histogram shared by the spectrum
-# (|k|-shells) and the correlation (|r|-shells).
+# (|k|-shells) and the correlation (|r|-shells). Fully fused (decision 34): each
+# kernel derives its shell index, fiber contraction, and weight from the mode or
+# grid index inline, so no shell-index, magnitude, or weighted full-grid array is
+# ever materialized — the only per-call arrays are the tiny shell accumulators.
 # =============================================================================
 
-# Scatter-add every element of `values` into one of `length(value_bins)` shell accumulators, keyed by the
-# 0-based `shell_index` (same shape as `values`): one atomic add of the value and one of the population
-# count per element. Portable KernelAbstractions + Atomix, exactly like the anterpolation scatter.
-@kernel function _shell_bin_kernel!(value_bins, count_bins, @Const(values), @Const(shell_index))
-  element = @index(Global, Linear)
-  bin = shell_index[element] + 1
-  Atomix.@atomic value_bins[bin] += values[element]
-  Atomix.@atomic count_bins[bin] += 1
+# The fiber-contracted density of one mode: |f̂|² for the power spectrum (no second field), or
+# Re(f̂ · conj ĝ) for the cross-power. Dispatch on Nothing compiles the branch away, as
+# `_optional_kernel_value` does for the operator kernels.
+@inline _mode_density(value, ::Nothing, mode_1, mode_2, mode_3, component) = abs2(value)
+@inline _mode_density(value, g_data, mode_1, mode_2, mode_3, component) =
+  @inbounds real(value * conj(g_data[mode_1, mode_2, mode_3, component]))
+
+
+# One work-item per stored mode: derive |k| from the three 1-D squared-wavenumber arrays (the same
+# left-associated sum the lazy |k|² broadcast evaluates), contract the fiber inline, weight by the
+# rfft Parseval factor computed from the plane index (1 on the kx = 0 plane and, on an even axis,
+# the Nyquist plane; 2 otherwise), and scatter-add into the shell accumulator. Atomic adds, exactly
+# like the anterpolation scatter. This replaces the former staged route (a materialized shell-index
+# array, a fiber-contracted magnitude array, and a Parseval-weighted array — three full spectral
+# planes per call); the wedge history of the per-shell masked route it in turn replaced is decision 25.
+@kernel function _spectral_shell_bin_kernel!(value_bins, @Const(f_data), g_data,
+    @Const(squared_wavenumber_1), @Const(squared_wavenumber_2), @Const(squared_wavenumber_3),
+    fundamental, nyquist_plane, ::Val{NC}) where {NC}
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    squared = squared_wavenumber_1[mode_1] + squared_wavenumber_2[mode_2] + squared_wavenumber_3[mode_3]
+    shell = round(Int, sqrt(squared) / fundamental)
+    weight = ifelse(mode_1 == 1 || mode_1 == nyquist_plane,
+                    one(fundamental), one(fundamental) + one(fundamental))
+    accumulated = zero(fundamental)
+    for component in 1:NC
+      accumulated += _mode_density(f_data[mode_1, mode_2, mode_3, component], g_data,
+                                   mode_1, mode_2, mode_3, component)
+    end
+    Atomix.@atomic value_bins[shell + 1] += weight * accumulated
+  end
 end
 
 
-# Bin `values` into `number_of_shells` accumulators by the 0-based `shell_index` (same shape) in a SINGLE
-# scatter-add pass, returning the per-shell value sum and population count as host vectors. This replaces a
-# per-shell masked reduction `sum(values .* (shell_index .== shell))` looped over the shells — which
-# allocates one full-grid temporary per shell (the mask, and on this GPU stack the masked product too,
-# since mapreduce-over-broadcast materializes). The shell count grows as O(N) (N the points per axis), so
-# that is O(N) full-grid temporaries per diagnostic call, and the GPU GC — triggered by host pressure,
-# blind to the device buffer a dead array owns — does
-# not reclaim them promptly, so the pool climbs to the device limit and the allocator wedges (decision 25).
-# One pass keeps it to O(1) temporaries (`values`, `shell_index`, the tiny bins). Device-clean: no scalar
-# indexing, the only host transfer the two small bin vectors.
-function _bin_by_shell(values, shell_index, number_of_shells)
-  backend = get_backend(values)
-  value_bins = similar(values, eltype(values), number_of_shells)
-  count_bins = similar(values, Int, number_of_shells)
-  fill!(value_bins, zero(eltype(values)))
-  fill!(count_bins, 0)
-  _shell_bin_kernel!(backend)(value_bins, count_bins, values, shell_index; ndrange = length(values))
-  synchronize(backend)
-  return Array(value_bins), Array(count_bins)
-end
-
-
-# Shared |k|-shell binning for the power/cross-power spectra. `per_mode_quantity` is the fiber-contracted
-# real density — ``Σ_c |f̂_c|²`` (power) or ``Σ_c Re(f̂_c conj ĝ_c)`` (cross) — an (Nkx, Ny, Nz) array.
-# Apply the rfft Parseval weight, normalize by N², and sum the modes whose rounded |k| falls in each
-# shell; shells run 0…corner at the box-fundamental width, so ∑ over shells = the spectral `inner` exactly.
-function _radial_spectrum_bin(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-                              per_mode_quantity) where {T<:AbstractFloat}
+# Shared |k|-shell binning for the power/cross-power spectra: one fused scatter-add pass over the
+# stored modes (`g` is `nothing` for the power spectrum, the second field for the cross-power).
+# Normalize by N² and sum the modes whose rounded |k| falls in each shell; shells run 0…corner at the
+# box-fundamental width, so ∑ over shells = the spectral `inner` exactly. The shell count comes from
+# the corner mode analytically: the separable |k|² is maximized componentwise, so its corner value is
+# the sum of the three per-axis maxima (three O(N) reductions over the 1-D multiplier arrays —
+# bitwise the same sum the kernel forms for that mode, so no bin can overflow).
+function _radial_spectrum_bin(f::AbstractFieldSpectral{T}, g,
+                              multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   _check_multipliers_compatibility(f, multipliers)
   grid = field_grid(f)
   fundamental = 2 * T(π) / T(maximum(grid.domain_size))           # the unit shell width (= 1 for a 2π box)
-  shell_index = round.(Int, sqrt.(_squared_wavenumber_broadcast(multipliers)) ./ fundamental)  # shell per mode
-  number_of_shells = Int(maximum(shell_index)) + 1
-  weighted = _parseval_weight(f) .* per_mode_quantity            # Parseval-weighted (co-)energy per mode
-  normalization = T(prod(grid.grid_size))^2
-  shell_sum, _ = _bin_by_shell(weighted, shell_index, number_of_shells)   # one scatter-add pass; counts unused here
-  spectrum = shell_sum ./ normalization
+  corner_squared = maximum(multipliers.squared_wavenumber_1) + maximum(multipliers.squared_wavenumber_2) +
+                   maximum(multipliers.squared_wavenumber_3)
+  number_of_shells = round(Int, sqrt(corner_squared) / fundamental) + 1
+
+  spatial_shape = size(field_data(f))[1:3]
+  components = length(field_data(f)) ÷ prod(spatial_shape)
+  f_data = reshape(field_data(f), spatial_shape..., components)
+  g_data = g === nothing ? nothing : reshape(field_data(g), spatial_shape..., components)
+  nyquist_plane = iseven(grid.grid_size[1]) ? spatial_shape[1] : 0
+
+  backend = get_backend(field_data(f))
+  value_bins = similar(field_data(f), T, number_of_shells)
+  fill!(value_bins, zero(T))
+  _spectral_shell_bin_kernel!(backend)(value_bins, f_data, g_data,
+    multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3,
+    fundamental, nyquist_plane, Val(components); ndrange = spatial_shape)
+  synchronize(backend)
+
+  spectrum = Array(value_bins) ./ T(prod(grid.grid_size))^2
   shells = T.(0:(number_of_shells - 1)) .* fundamental
   return shells, spectrum
 end
@@ -619,18 +639,15 @@ This reduction acts on the spectral representation only, being a Parseval reduct
 refinement); on a de-aliased field the high-``|k|`` shells are empty. For a non-cubic box the shells
 beyond ``\\min(N_i)/2`` are incompletely sampled (only corner modes contribute) — the standard
 isotropic-spectrum caveat — but the total still equals `inner`. The reduction is GPU-portable: a single
-scatter-add binning pass over the modes, costing more than a plain reduction like `inner` by its ``O(N)``
-shell-index array and the atomic binning.
+scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
+Parseval weight from its index — no full-grid staging array is built — costing more than a plain
+reduction like `inner` only by the atomic binning and a square root per mode.
 """
 function radial_spectrum end
 
 function radial_spectrum(f::AbstractFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
-  # Σ_c |f̂_c|² over the fiber, a real (Nkx, Ny, Nz) array (abs2 already drops the fiber for R = 0).
-  R = field_tensor_order(f)
-  fiber_dims = ntuple(d -> d + 3, R)
-  magnitude_squared = R == 0 ? abs2.(field_data(f)) :
-    dropdims(sum(abs2, field_data(f); dims = fiber_dims); dims = fiber_dims)
-  return _radial_spectrum_bin(f, multipliers, magnitude_squared)
+  # The fiber contraction Σ_c |f̂_c|² happens inside the binning kernel — nothing is materialized.
+  return _radial_spectrum_bin(f, nothing, multipliers)
 end
 
 function radial_spectrum(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
@@ -639,58 +656,69 @@ function radial_spectrum(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T
   field_tensor_order(f) == field_tensor_order(g) ||
     throw(ArgumentError("radial_spectrum(f, g, multipliers) needs equal tensor orders " *
                         "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
-  # Σ_c Re(f̂_c · conj(ĝ_c)) over the fiber, the real co-energy density per mode (an (Nkx, Ny, Nz) array).
-  R = field_tensor_order(f)
-  fiber_dims = ntuple(d -> d + 3, R)
-  cross_density = real.(field_data(f) .* conj.(field_data(g)))
-  cross_power = R == 0 ? cross_density : dropdims(sum(cross_density; dims = fiber_dims); dims = fiber_dims)
-  return _radial_spectrum_bin(f, multipliers, cross_power)
+  # The fiber contraction Σ_c Re(f̂_c · conj(ĝ_c)) happens inside the binning kernel.
+  return _radial_spectrum_bin(f, g, multipliers)
 end
 
 
-# Minimum-image separation magnitude ``|r|`` at each grid point, as an (Nx, Ny, Nz) array on the
-# field's backend: along axis a the separation index is `min(i, Nₐ − i)`, scaled by the spacing `Δxₐ`,
-# so distances fold at the half-box (the autocorrelation is periodic and even). Built per-axis on the
-# host then bulk-copied to the backend (no scalar indexing of device memory), like `_parseval_weight`.
-function _separation_magnitude(grid, backend_reference::AbstractArray{T}) where {T}
-  axis_distance(a) = begin
-    n = grid.grid_size[a]
-    spacing = T(grid.grid_spacing[a])
-    host = T[min(i, n - i) * spacing for i in 0:(n - 1)]
-    device = similar(backend_reference, T, n)
-    copyto!(device, host)
-    return reshape(device, ntuple(d -> d == a ? n : 1, 3))
+# One work-item per grid point: the minimum-image separation is derived from the index — along axis
+# a the separation index is min(i − 1, Nₐ − (i − 1)), scaled by the spacing Δxₐ, so distances fold at
+# the half-box (the autocorrelation is periodic and even) — the fiber is contracted inline, and the
+# value and a population count are scatter-added into the |r|-shell accumulators. No separation,
+# shell-index, or fiber-contracted array is materialized; the counts feed the shell average.
+@kernel function _physical_shell_bin_kernel!(value_bins, count_bins, @Const(data),
+    spacing_1, spacing_2, spacing_3, points_1, points_2, points_3, bin_width, ::Val{NC}) where {NC}
+  index_1, index_2, index_3 = @index(Global, NTuple)
+  @inbounds begin
+    distance_1 = min(index_1 - 1, points_1 - (index_1 - 1)) * spacing_1
+    distance_2 = min(index_2 - 1, points_2 - (index_2 - 1)) * spacing_2
+    distance_3 = min(index_3 - 1, points_3 - (index_3 - 1)) * spacing_3
+    separation = sqrt(distance_1^2 + distance_2^2 + distance_3^2)
+    shell = round(Int, separation / bin_width)
+    accumulated = zero(bin_width)
+    for component in 1:NC
+      accumulated += data[index_1, index_2, index_3, component]
+    end
+    Atomix.@atomic value_bins[shell + 1] += accumulated
+    Atomix.@atomic count_bins[shell + 1] += 1
   end
-  d1, d2, d3 = axis_distance(1), axis_distance(2), axis_distance(3)
-  return sqrt.(d1 .^ 2 .+ d2 .^ 2 .+ d3 .^ 2)
 end
 
 
-# Inverse-transform a per-component complex spectrum (already written into the spectral field `power`)
-# into the real two-point correlation field: c2r per component, fiber-contract, normalize by N. The
-# per-component cross spectrum conj(f̂_c)·ĝ_c (and its g = f case |f̂_c|²) is Hermitian for real f, g, so
-# the c2r reconstruction is exactly real even though the cross-correlation itself is not even in r.
-function _correlation_field_from(power::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
-  number_of_points = prod(field_grid(power).grid_size)
-  tensor_order = field_tensor_order(power)
-  autocorrelation = to_physical(power, plans)                    # c2r per component (unnormalized correlation)
-  data = field_data(autocorrelation)
-  fiber_dims = ntuple(d -> d + 3, tensor_order)
-  return (tensor_order == 0 ? data : dropdims(sum(data; dims = fiber_dims); dims = fiber_dims)) ./ T(number_of_points)
-end
-
-
-# Radially average a real physical (Nx, Ny, Nz) correlation field over minimum-image |r| shells (bin
-# width = the finest grid spacing) — the shared back half of both `radial_correlation` methods. The
-# ±r folding of the min-image shells symmetrizes the cross-correlation (C_fg(−r) = C_gf(r)).
-function _radial_average(grid, correlation_field::AbstractArray{T}) where {T<:AbstractFloat}
-  separation = _separation_magnitude(grid, correlation_field)
+# Radially average a real physical correlation field — handed as the raw (Nx, Ny, Nz[, fiber]) c2r
+# output, its fiber contracted inside the kernel — over minimum-image |r| shells (bin width = the
+# finest grid spacing): the shared back half of both `radial_correlation` methods, one fused
+# scatter-add pass. The ±r folding of the min-image shells symmetrizes the cross-correlation
+# (C_fg(−r) = C_gf(r)). The 1/N correlation normalization is folded into the per-shell average
+# (bins are tiny), and the shell count comes from the corner analytically — the same
+# min(i, N − i)·Δx maximum, attained at i = N ÷ 2 per axis, that the kernel computes for that point.
+function _radial_average(grid, correlation_data::AbstractArray{T}, number_of_points) where {T<:AbstractFloat}
   bin_width = T(minimum(grid.grid_spacing))
-  shell_index = round.(Int, separation ./ bin_width)
-  number_of_shells = Int(maximum(shell_index)) + 1
+  corner_1 = T(grid.grid_size[1] ÷ 2) * T(grid.grid_spacing[1])
+  corner_2 = T(grid.grid_size[2] ÷ 2) * T(grid.grid_spacing[2])
+  corner_3 = T(grid.grid_size[3] ÷ 2) * T(grid.grid_spacing[3])
+  corner = sqrt(corner_1^2 + corner_2^2 + corner_3^2)
+  number_of_shells = round(Int, corner / bin_width) + 1
   separations = T.(0:(number_of_shells - 1)) .* bin_width
-  shell_sum, population = _bin_by_shell(correlation_field, shell_index, number_of_shells)  # one scatter-add pass
-  correlation = [iszero(population[s]) ? zero(T) : shell_sum[s] / population[s] for s in 1:number_of_shells]
+
+  spatial_shape = size(correlation_data)[1:3]
+  components = length(correlation_data) ÷ prod(spatial_shape)
+  data = reshape(correlation_data, spatial_shape..., components)
+
+  backend = get_backend(correlation_data)
+  value_bins = similar(correlation_data, T, number_of_shells)
+  count_bins = similar(correlation_data, Int, number_of_shells)
+  fill!(value_bins, zero(T))
+  fill!(count_bins, 0)
+  _physical_shell_bin_kernel!(backend)(value_bins, count_bins, data,
+    T(grid.grid_spacing[1]), T(grid.grid_spacing[2]), T(grid.grid_spacing[3]),
+    grid.grid_size[1], grid.grid_size[2], grid.grid_size[3], bin_width, Val(components);
+    ndrange = spatial_shape)
+  synchronize(backend)
+
+  shell_sum, population = Array(value_bins), Array(count_bins)
+  correlation = [iszero(population[s]) ? zero(T) : shell_sum[s] / population[s] / T(number_of_points)
+                 for s in 1:number_of_shells]
   return separations, correlation
 end
 
@@ -741,10 +769,13 @@ transform plus a single binning pass.
 function radial_correlation end
 
 function radial_correlation(f::AbstractFieldSpectral{T}, plans::FieldTransformPlans) where {T<:AbstractFloat}
-  # Power spectrum per fiber component, |f̂_c(k)|² (real, in the complex coefficient array).
+  # Power spectrum per fiber component, |f̂_c(k)|² (real, in the complex coefficient array; Hermitian,
+  # so the c2r reconstruction below is exactly real). The transform output is the one materialized
+  # field; its fiber contraction and 1/N normalization happen inside the binning.
   power = similar_field(f, Val(field_tensor_order(f)))
   @_assign! field_data(power) .= complex.(abs2.(field_data(f)))
-  return _radial_average(field_grid(f), _correlation_field_from(power, plans))
+  autocorrelation = to_physical(power, plans)                    # c2r per component (unnormalized)
+  return _radial_average(field_grid(f), field_data(autocorrelation), prod(field_grid(f).grid_size))
 end
 
 function radial_correlation(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
@@ -756,7 +787,8 @@ function radial_correlation(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectra
   # Cross-power spectrum per fiber component, conj(f̂_c)·ĝ_c (Hermitian for real f, g ⇒ c2r is real).
   power = similar_field(f, Val(field_tensor_order(f)))
   @_assign! field_data(power) .= conj.(field_data(f)) .* field_data(g)
-  return _radial_average(field_grid(f), _correlation_field_from(power, plans))
+  crosscorrelation = to_physical(power, plans)
+  return _radial_average(field_grid(f), field_data(crosscorrelation), prod(field_grid(f).grid_size))
 end
 
 

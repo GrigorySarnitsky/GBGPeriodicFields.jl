@@ -460,6 +460,14 @@ Style promotion is one-sided by design — define a single binary rule per style
 pair, never symmetric mixed-representation rules. The broadcast layer doubles as
 the compatibility enforcement for broadcast-mediated methods ([§5](@ref "5. Validation design")).
 
+**The broadcast layer is internal machinery, not a public contract.** A consumer *can* dot-broadcast
+fields — Julia's dispatch makes that unpreventable without hostile piracy against `Base` idiom — and
+the expression will fuse and return a field; but nothing about that surface is specified, verified,
+or guarded. In particular it can express what the method set deliberately withholds (invariant 1): a
+`.*` between two fields in spectral representation compiles and computes the banned coefficientwise
+product, with none of the named operations' checks. The public contract is the named method set; the
+broadcast layer exists to implement it (decision 35).
+
 ## 9. Performance model and CPU threading
 
 Elementwise field operations are memory-bandwidth-bound streaming; FFTs dominate
@@ -1188,6 +1196,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`_radial_spectrum_bin`, `_correlation_field_from` + `_radial_average`) are shared, the two-field methods only swap
     the per-mode density (``|\hat f|^2 \to \mathrm{Re}(\hat f \overline{\hat g})``) / the per-component spectrum
     (``|\hat f|^2 \to \overline{\hat f} \hat g``, Hermitian for real ``f, g`` ⇒ the c2r reconstruction is exactly real).
+    (The helper set has since been consolidated: the staging fused into the binning kernels themselves and
+    `_correlation_field_from` folded into the correlation methods — decision 34; the sharing structure is unchanged.)
     These are **new methods on the existing `Reductions` generics** — no export change, the 198/118 parity baselines
     are unchanged. Verified CPU (`test/reductions.jl`: analytical oracles — an orthogonal pair ``\cos x \perp \sin x``
     giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac{1}{2}`` in adjacent shells that cancel to ``\mathrm{inner} = 0``;
@@ -1350,7 +1360,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The fix replaces the per-shell loop with a single **scatter-add** pass — one portable
     `KernelAbstractions` + `Atomix` histogram kernel (`_shell_bin_kernel!`, driven by `_bin_by_shell`) that
     sweeps the array once and, per element, atomically adds the value (and a unit population count) into the
-    accumulator of its shell, keyed by a precomputed integer shell index. Per-call full-grid temporaries
+    accumulator of its shell, keyed by a precomputed integer shell index. (Decision 34 later fused even
+    that staging away: the shell index and the binned quantity are now derived per element inside the
+    kernels, and the precomputed-index pair retired.) Per-call full-grid temporaries
     drop from ``O(N)`` to ``O(1)`` (the shell-index array, the binned quantity, and the tiny
     length-``(\text{number of shells})`` accumulators): the spectrum keeps the value sum (normalized by
     ``N^2``), the correlation divides it by the per-shell population. This is the *same* atomic scatter the
@@ -1821,3 +1833,100 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     two-operand forms, the in-place filtered accumulate, and the absences in `test/convolution.jl`;
     zero-allocation pins in `test/allocations.jl`; device parity in `test/gpu/suite.jl`; and the
     `convolution` benchmark rows whose baseline is the sequential `combine!` + `convolve!` pair.
+
+34. **The radial diagnostics fuse their staging into the binning kernels.** The audits' item 5: each
+    `radial_spectrum` call staged three full spectral planes — a fiber-contracted magnitude array, an
+    integer shell-index array, and a Parseval-weighted array — before the decision-25 scatter-add pass
+    consumed them (measured 1.6 of IT's units at ``256^3``, reproduced here; the cross-power form
+    staged a fourth, fiber-shaped, plane), and `radial_correlation` staged a separation-magnitude and
+    a shell-index array of its own. All of it is now derived **per element inside the kernels**: the
+    spectral kernel computes a mode's ``|k|`` from the three one-dimensional squared-wavenumber arrays
+    (the same left-associated sum the lazy ``|k|^2`` broadcast evaluates, so shell assignment is
+    bitwise-unchanged), contracts the fiber inline (``\sum_c |\hat f_c|^2``, or
+    ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` for the cross form — one kernel, the second
+    field `nothing`-dispatched away), and reads the rfft Parseval weight off the plane index; the
+    physical kernel derives the minimum-image separation from the grid index and folds the ``1/N``
+    correlation normalization into the tiny per-shell average. The shell count is computed
+    **analytically from the corner**: the separable ``|k|^2`` (and the min-image ``|r|``) is maximized
+    componentwise, so the corner value is the same floating-point sum the kernel forms for that
+    element — three ``O(N)`` reductions over one-dimensional arrays (spectrum) or pure host
+    arithmetic (correlation), and no bin can overflow by construction. Each kernel allocates only the
+    accumulators it uses (the spectrum drops the population counter the correlation needs).
+
+    Measured at the audit size: `radial_spectrum` fell from three staged planes to ``\sim 1.4`` KB —
+    the shell accumulator plus launch bookkeeping — and moved from the bounded-diagnostic guard to a
+    tight fraction-of-a-field pin in `test/allocations.jl` (scalar, vector, tensor, and cross forms).
+    `radial_correlation` keeps exactly its substance: the per-component power field it builds and the
+    allocating inverse transform (whose input copy is invariant-11 semantics — a recorded possible
+    trim is `to_physical!` with a package-built physical destination, destroying the scratch it no
+    longer needs; not taken, since the wedge-class problem was the ``O(N)``-temporary staging, which
+    is gone). The decision-25 helpers `_shell_bin_kernel!`/`_bin_by_shell` — the precomputed-index
+    histogram this fusion supersedes — are retired (that entry carries the pointer); the identities
+    (``\sum_\kappa P = \langle f,f\rangle``, ``C(0) = \langle f,f\rangle``, the ``g = f`` reductions
+    bit-identical to the single-field forms) held through the rewrite unchanged.
+
+35. **The audit-response declines, recorded: no general fusion API, two memory items deferred, and
+    the counterparty's standing reservation.** The 2026-07 audit exchange with `GBGIsotropicTurbulence`
+    ("IT") shipped five items (decisions 32–34). This entry records what was *declined or deferred*,
+    because a decline is a decision, not a gap.
+
+    *No general fusion API.* After two rounds of fusion requests the natural follow-up was "expose a
+    general fusion mechanism and stop shipping one-offs." Declined, on five grounds. **(a)** The
+    general mechanism already exists de facto — Julia's dot-broadcast fuses over fields — and it is
+    precisely the problem: it is unguarded, able to express what the method set deliberately withholds
+    (a `.*` of two fields in spectral representation is the banned coefficientwise product), and no
+    type system can help, since a legitimate kernel *is* a `ScalarFieldSpectral` — kernel application
+    and the banned field product are indistinguishable at the type level. The broadcast layer is
+    therefore internal machinery, not a public contract ([§8](@ref "8. Broadcasting")). **(b)** The
+    public method set is the spec (invariant 1); a fusion surface erases it. **(c)** Verification does
+    not fuse: each named operation carries alias analysis, the `α`/`β` branch, Nyquist reasoning
+    (decision 28 needed *both* wavenumber families to keep a displaced field real), the Hermitian
+    reality condition, allocation pins, device parity, and bitwise threading identity — a
+    client-composed kernel carries none of them, and the consumer's own architecture ("raise, don't
+    reimplement") exists because it does not want to own kernel correctness. **(d)** The triage
+    protocol is where correctness happens: across two rounds it caught a wrong signature, a missing
+    `β`, an invariant-12 boundary violation, and produced two fusions larger than requested — a
+    compiler would have delivered none of that. **(e)** Demand is measurably exhausted: everything
+    that survived triage instantiates one structure — sections in spectral representation as a module
+    over the ring of Fourier symbols — whose operations the named set now covers (ring multiplication
+    is kernel composition, the ring-weighted combination is decision 33, operator ∘ symbol is
+    decision 32), and with the five items landed IT's frozen pass ledger sits at its fused ideal.
+    Two **validity-closed escalation paths** are recorded for when demand materializes, not built:
+    radial real symbols ``\sigma(|k|^2)`` as closure kernels (real and even by construction, hence
+    Hermitian-safe and Nyquist-unambiguous; `exponential_convolve!` is the family's first instance,
+    and a third functional form — a Gaussian filter, hyperviscosity ``\exp(-\nu (|k|^2)^p \tau)`` —
+    is the trigger to generalize); and a stdlib-shaped physical `map!(φ, dest, sections...)`, the
+    section-valued sibling of the mapped reductions (every pointwise fiber map is valid in physical
+    representation), waiting for a consumer needing a fiber map outside the shipped algebra.
+
+    *Deferred: symmetric second-order tensor storage (IT item 3).* Mathematically legitimate — the
+    symmetric tensors ``\mathrm{Sym}^2(V)`` are a genuine subbundle, so a six-component storage type
+    clears the [§2](@ref "2. The central principle: the architecture follows established mathematics")
+    bar — but it is the largest surface on the table (two field types, a symmetric fiber type,
+    six-component transform plans, and a combinatorial decision over the 206-method algebra), and a
+    symmetric type wired into only a few operations is exactly the partial surface invariant 1 exists
+    to prevent. It is also dominated on its own motivating episode by item 4 below, which composes
+    with it. Revisit when a consumer needs the symmetric type as a first-class algebra citizen, not as
+    storage for one diagnostic.
+
+    *Deferred: an in-place real-to-complex transform mode (IT item 4).* Requested "when convenient"
+    with its consumer archived, so the no-speculative-structure rule settles it — and the design cost
+    is real: in-place r2c needs the padded first dimension ``2(N_1/2+1)`` (``N_1`` the first-axis
+    points), making the physical data a non-contiguous view, which collides with invariant 3's
+    contiguity guarantee (relied on by FFT batching and the threading chunking) and needs a
+    rocFFT/cuFFT in-place story. It is, though, the largest-reach memory lever on the table; if
+    memory genuinely binds, un-archiving the consumer to make this concrete beats pursuing the
+    symmetric storage. The wider byte-level buffer-sharing framing is a scratch-arena design, and the
+    package's stance is that the consumer owns buffers.
+
+    *The counterparty's standing reservation, quoted so ground (e) stays honest.* IT pre-registered —
+    deliberately not raising it now — that its post-wiring ledger sits *near but not at* the fused
+    ideal: the residual is the two-output stage update
+    ``(\hat h, \hat u) \leftarrow (\hat N + a \hat h,\ \mathcal E \odot (\hat u + b \hat h))`` — a
+    module map with **two outputs** sharing an intermediate, outside the ring structure the shipped
+    set closes (not ring multiplication, not the ring-weighted combination, not operator ∘ symbol) —
+    of order 13 % of its pass traffic under the mask strategies. If the regenerated ledger confirms it
+    once the five items are wired, it returns as a round-3 request with consumer evidence, per the
+    demand protocol. It would not fail the §2 bar (a map into a direct sum of section spaces with
+    ring-weighted entries is honest structure); the questions it will face are surface shape — the
+    package has no two-destination operation — and whether the measured share justifies one.

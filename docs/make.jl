@@ -137,6 +137,10 @@ makedocs(
   format    = Documenter.HTML(
     canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/stable",
     collapselevel = 1,
+    # The architecture document is deliberately one page (the top-level design doc with its
+    # append-only decision log), and its rendered size now exceeds Documenter's default hard
+    # size_threshold. Exempt that one page; every other page keeps the guard.
+    size_threshold_ignore = ["architecture.md"],
   ),
   checkdocs = :exports,
   doctest   = true,

@@ -273,6 +273,13 @@ end
       @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
       @alloc_below threshold weighted_inner(vs, wkernel)       # vector self-pairing (weight broadcasts over fiber)
       @alloc_below threshold weighted_inner(ss, ss, wkernel)   # mixed scalar
+      # radial_spectrum: since decision 34 the shell index, fiber contraction, and Parseval weight are
+      # derived per mode inside the binning kernel, so the only arrays are the tiny shell accumulators
+      m = FieldSpectralMultipliers(vs)
+      @alloc_below threshold radial_spectrum(ss, m)
+      @alloc_below threshold radial_spectrum(vs, m)
+      @alloc_below threshold radial_spectrum(ts, m)
+      @alloc_below threshold radial_spectrum(vs, vs, m)        # the cross-power form shares the kernel
       @alloc_below threshold maximum(ps)                   # scalar-section maximum
       @alloc_below threshold minimum(ps)
       @alloc_below threshold extrema(ps)
@@ -335,11 +342,13 @@ end
 
 
 # The documented diagnostic allocators: `norm!`/`lpnorm` materialize the pointwise magnitude, `dev!` the
-# trace it subtracts, and the radial diagnostics a bounded O(1) set (the power field + one inverse
-# transform + the shell-index arrays; decision 25). They are NOT alloc-free by design — they are
-# occasional diagnostics, not hot-loop calls. This guard only bounds them — at most a handful of fields —
-# so a regression to O(N) extra (or, for the radial binning, back to O(shells) ≈ 220 fields) is caught
-# while the legitimate few-field temporaries are allowed.
+# trace it subtracts, and `radial_correlation` a bounded O(1) set — the per-component power field it
+# transforms plus the allocating inverse transform (whose input copy is invariant-11 semantics); its
+# staging arrays fused into the binning kernel (decision 34). They are NOT alloc-free by design — they
+# are diagnostics whose cost is a few whole fields, not hot-loop calls. This guard only bounds them so a
+# regression to O(N) extra (or, for the binning, back to O(shells) ≈ 220 fields) is caught while the
+# legitimate few-field temporaries are allowed. `radial_spectrum` no longer belongs here: since its
+# staging fused away it allocates only the shell accumulators, and it is pinned tight in the main audit.
 @testset "documented diagnostic allocators are bounded (not O(shells))" begin
   for T in (Float64, Float32)
     @testset "$T" begin
@@ -359,8 +368,8 @@ end
       @alloc_below bound norm!(ps, pv)
       @alloc_below bound dev!(ptd, pt)
       @alloc_below bound lpnorm(pv, 3)
-      @alloc_below bound radial_spectrum(vs, m)
       @alloc_below bound radial_correlation(vs, vplans)
+      @alloc_below bound radial_correlation(vs, vs, vplans)
     end
   end
 end
