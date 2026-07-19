@@ -599,7 +599,10 @@ explicitly checked (not "should work", *done and verified*):
    in `test/gpu/suite.jl` (device-vs-CPU under `allowscalar(false)`). The `docs/TESTING.md` §4
    coverage contract is the spec — and for an in-place `!` operator that includes an `@allocated`
    assertion in `test/allocations.jl` (invariant 13: allocation-free, measured on the CPU; a deliberate
-   materializer gets a bounded guard instead).
+   materializer gets a bounded guard instead) **and a `test/pass_audit.jl` row** (decision 36: exact
+   per-array element reads/writes measured via the `CountingArray` harness, frozen beside the fused
+   ideal, a named holder for any gap — the layer that catches an unfused recompute, which every other
+   layer passes; `PASS_AUDIT_PRINT=1` regenerates).
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
@@ -762,6 +765,12 @@ those are the usual rot. Then the mechanical bar:
    documented allocators are bounded (`norm!`/`dev!`/`lpnorm`/`radial_correlation` materialize by design — `radial_spectrum` is pinned tight since decision 34 fused its staging; the
    spectral *vector* `inner` allocates only its O(N²) Parseval-correction planes — a strided-view `dot`,
    which would fuse, is unavailable on the GPU). Locks the GPU hot-loop discipline (decisions 24, 25).
+   `test/pass_audit.jl`: the **element-traffic ledger** (decision 36) —
+   a `CountingArray` harness measures each audited op's exact per-array reads/writes against a frozen
+   fused-ideal table with named holders for gaps (the decision-32/33/34 kernels sit at ideal; the
+   standing gaps are the per-component-formula family: `gradient!` 3×, `curl!`/`cross!` 2×,
+   `symmetric_gradient!` 5×, `mul!`'s vector operand 3×, broadcast kernels re-read a scalar kernel per
+   fiber component — each a priced candidate for a one-pass rewrite when a consumer's ledger warrants).
    GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface (fields, the PointValues algebra, the interpolation/anterpolation transfer, convolution, and the L²/measure reductions) on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing

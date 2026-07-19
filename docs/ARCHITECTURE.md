@@ -1930,3 +1930,51 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     demand protocol. It would not fail the §2 bar (a map into a direct sum of section spaces with
     ring-weighted entries is honest structure); the questions it will face are surface shape — the
     package has no two-destination operation — and whether the measured share justifies one.
+
+36. **The pass audit: element traffic measured per operation against a frozen fused ideal.** The
+    audit exchange proved a hole in the verification stool: an *unfused* operation passes every
+    existing layer — the correctness oracles (right values), the allocation audit (recomputation
+    allocates nothing), static analysis — and only a benchmark number drifts, with no ideal beside it
+    to notice. The three-broadcast Helmholtz projection read every source component three times per
+    mode from decision 24 until decision 32, and no test failed. Since the pointwise operations are
+    bandwidth-bound streaming ([`PERFORMANCE.md`](performance.md) §2), their element traffic *is*
+    their cost — so `test/pass_audit.jl` now measures it and pins it exactly.
+
+    *Method — measured, not transcribed.* IT's compute audit (its decision 34) freezes an
+    analytically transcribed per-step pass ledger with a fused-ideal bound (live-ins read once,
+    live-outs written once, intermediates free) and a named-holder gap register; that is the honest
+    form for a *schedule* its author owns. The package has no schedule (invariant 12), so its unit is
+    the **operation** — and, per its own testing philosophy (verify against ground truth, never the
+    code's own account), it *measures* rather than transcribes: a test-local `CountingArray`
+    (`getindex`/`setindex!` under atomic counters) slides beneath the field types through the generic
+    storage of invariant 6, flows through the field broadcast, `_assign!`, and the
+    KernelAbstractions CPU kernels alike, and every audited call asserts each participating array's
+    **exact absolute element counts** — absolute, not per-array multiples, because legitimate
+    patterns break multiples (`sym!` reads an off-diagonal twice and a diagonal once). Beside each
+    frozen count sits the fused ideal, and a count above its ideal must carry a **named holder** or
+    the suite fails — the gap register transplanted intact. CPU-only, like the allocation audit and
+    for the same reason: the code is generic, so the pass structure is backend-independent, while
+    launch counts and achieved bandwidth stay benchmark-side. Excluded with reasons: the transforms
+    (FFTW's internal passes are FFTW's; plans reject wrapped storage), `radial_correlation` (contains
+    a transform; its binning shares the audited spectrum kernel), the point transfer (a per-point
+    stencil-touch model — a recorded possible extension), and O(N) configuration arrays (only
+    field-shaped storage is wrapped, IT's own scope line).
+
+    *What the first measurement found.* The decision-32/33/34 kernels sit **at their ideals** — the
+    one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its `β = 0`
+    forms provably never read the destination, the KA kernel reads a composed `ĝ` once per mode
+    where the broadcast family re-reads a scalar kernel once per fiber component, and the fused
+    radial binning reads the field once. The standing gaps are all one family — **per-component
+    formula granularity**: `gradient!` re-reads its scalar source per output (3×), `curl!` and
+    `cross!` read each source component per formula containing it (2×), `symmetric_gradient!` 5×,
+    `mul!`'s vector operand 3×, and the broadcast kernels re-read a scalar kernel per fiber
+    component — each now frozen with its holder named, so any of them is a known, priced candidate
+    for a decision-32-style one-pass rewrite the day a consumer's ledger makes one worth it. Two
+    curiosities the exact counters caught: `LinearAlgebra`'s generic `dot` (and the component
+    reduction under `mean`) peeks one element to type its accumulator (+1 read, frozen with its
+    holder), while the fused mapped reductions peek nothing.
+
+    *Regeneration.* `PASS_AUDIT_PRINT=1 julia --project=. test/pass_audit.jl` prints every measured
+    cell; a raised count is a fusion regression unless a new holder justifies it, and a deliberate
+    change freezes its new values in the same commit, citing the decision — IT's regeneration
+    protocol, verbatim.

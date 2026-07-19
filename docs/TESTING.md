@@ -65,6 +65,10 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
   `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`dev!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),
+  `pass_audit.jl` (the element-traffic ledger, decision 36: a `CountingArray` harness measures every
+  audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
+  above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
+  sees; CPU-only, `PASS_AUDIT_PRINT=1` regenerates the cells),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
@@ -129,6 +133,10 @@ For each public operation, a test must establish:
       alias-safe *by construction* (the one-pass `helmholtz_projection!`, decision 32) asserts the
       aliased call **bitwise equal** to the non-aliased one instead — a stronger check than the
       guard's tolerance.
+- [ ] **Element traffic** (decision 36): a new or rewritten operation gets a `pass_audit.jl` row —
+      its exact per-array read and write counts measured through the `CountingArray` harness and
+      frozen beside the fused ideal, with a named holder for any deliberate gap. This is the layer
+      that catches an unfused recompute, which correctness, allocation, and static analysis all pass.
 - [ ] **Allocation-free** (invariant 13): every in-place `!` operator gets an `@allocated` assertion in
       `allocations.jl` — on preallocated buffers with a distinct destination it allocates ``\sim 0``
       field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
