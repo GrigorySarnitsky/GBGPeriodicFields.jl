@@ -950,6 +950,18 @@ Here `physical` provides the real-space storage array, `spectral` provides the r
 `fft_flags` is an optional backend-specific FFT planner flag, and `fft_timelimit` is the planner time limit used when `fft_flags` is provided.
 Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
 
+!!! warning "CPU planner choice: the default `ESTIMATE` can badly mis-plan single-precision transforms"
+    On the CPU the plans are FFTW plans, and with `fft_flags` unset FFTW picks the algorithm by its
+    built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
+    on a Zen 5 desktop, the `Float32` transforms ran 3.4–5.4× slower than a timed plan at ``256^3``,
+    and at ``512^3`` no faster than `Float64`, in both directions and at every thread count. For a
+    long CPU run, pass `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`): the one-time timed plan search
+    costs seconds and removes the guess. `MEASURE` **overwrites both reference arrays while
+    planning**, so construct the plans on scratch or zero-filled fields before seeding data. The
+    setting is CPU-specific — the GPU FFT libraries take no planner flag and are unaffected — and
+    the default stays `ESTIMATE` because it is instant, deterministic, and right for tests and short
+    sessions.
+
 The fields are
 - `grid::G`: the [`Grid3D`](@ref) for which the plans were constructed.
 - `fourier_layout::L`: the [`RealFourierLayout`](@ref) for which the plans were constructed.
