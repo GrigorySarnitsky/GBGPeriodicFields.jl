@@ -49,10 +49,18 @@ now part of the suite, §5.)
 
 What bounds each public operation class — the mental model a benchmark either confirms or refutes.
 
-- **FFT transforms** (`to_physical`/`to_spectral`) → bound by **FFTW** (CPU) / **rocFFT** (GPU). The
+- **FFT transforms** (`to_physical`/`to_spectral`) → bound by **FFTW** (CPU) / **rocFFT**/**cuFFT**
+  (GPU). The
   package adds only the normalization convention and the fiber-last layout (`docs/ARCHITECTURE.md`
   §3–4); the transform itself is the library's. Not something we tune — but the dominant cost of any
-  spectral step, so it is benchmarked to track the libraries and our plan/layout overhead.
+  spectral step, so it is benchmarked to track the libraries and our plan/layout overhead. The GPU
+  libraries have no FFTW-style planner search, and the tuning surfaces they *do* have are currently
+  out of reach from Julia — recorded here so nobody re-discovers them: cuFFT offers a patient-JIT
+  plan property (LTO-finalized kernels — slower planning for faster execution) and LTO load/store
+  callbacks that fuse user ops into the transform's own passes, none of it wrapped by CUDA.jl's FFT
+  interface ([cuFFT docs](https://docs.nvidia.com/cuda/cufft/)); rocFFT has an offline tuner
+  producing per-size/per-architecture solution maps, not surfaced by AMDGPU.jl. The one reachable
+  lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 5).
 - **Field algebra (M2 + M3), spectral differential operators, and convolution** → **memory-bandwidth-bound**. A
   fiberwise add, contraction, wavenumber multiply, or kernel multiply (`convolve`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
@@ -509,6 +517,10 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
      kernels host-side via AMD `comgr` → 0% GPU, 100% CPU, VRAM pool reserved, no output, for
      minutes. *Never kill a cold first run* — a killed compile never persists to `~/.cache/comgr`, so
      the next run restarts cold. `characterize.jl` warms the cache with one trivial kernel up front.
+     A further mitigation for the rocFFT share of the compile: setting the `ROCFFT_RTC_CACHE_PATH`
+     environment variable to a writable file makes rocFFT persist its runtime-compiled FFT kernels
+     there and reuse them across processes, turning that part of the cold start into a one-time cost
+     ([rocFFT runtime compilation](https://rocm.docs.amd.com/projects/rocFFT/en/docs-6.1.0/how-to/runtime-compilation.html)).
    - **The 256³ working set overflows 12 GB VRAM, and HIP segfaults instead of erroring** — the crash
      is `hipMallocFromPoolAsync` in `libamdhip64.so`. Two compounding causes, two fixes: (i) holding
      *all six classes'* fields live for one (size, type) exceeds 12 GB at 256³ (a 4-class sweep fit;
