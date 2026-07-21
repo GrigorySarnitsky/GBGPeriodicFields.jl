@@ -8,6 +8,7 @@
 using Test
 using GBGPeriodicFields
 using Base.Broadcast: broadcasted
+using Random
 
 const F = GBGPeriodicFields.Fields
 const FS = GBGPeriodicFields.FiberSections   # the threading primitives moved here (Phase A)
@@ -18,6 +19,46 @@ const grid = Grid3D((32, 31, 30), (2π, 2π, 2π))     # 29760 elements ≥ the 
 ser(f) = with_threading(enabled = false) do; f(); end
 thr(f) = with_threading(enabled = true) do; f(); end
 bitwise(f) = field_data(ser(f)) == field_data(thr(f))
+
+# --- support for the KernelAbstractions reproducibility testset at the foot of this file.
+# A digest, so a subprocess can report a whole array over one line of stdout. The definition is
+# written once and textually embedded in the subprocess source below, so the two cannot drift.
+const KA_DIGEST_SOURCE = """
+function ka_digest(a)
+  h = 0xcbf29ce484222325                      # FNV-1a, 64-bit
+  for byte in reinterpret(UInt8, vec(collect(a)))
+    h = (h ⊻ byte) * 0x100000001b3
+  end
+  return h
+end
+"""
+eval(Meta.parse(KA_DIGEST_SOURCE))
+
+const KA_SEED = 20260721
+const KA_POINTS = 4_000
+
+# The inputs are seeded and drawn single-threaded, so every thread count builds the same ones. The
+# spectral field is filled directly rather than transformed: FFTW matches its thread count to Julia's,
+# so routing through `to_spectral` would put FFTW's own reproducibility inside a test about KA kernels.
+const KA_SETUP_SOURCE = """
+const T = Float64
+ka_grid = Grid3D((32, 32, 32), (2π, 2π, 2π))
+ka_shape = spectral_field_shape(ka_grid, RealFourierLayout(), Val(1))
+Random.seed!($(KA_SEED))
+ka_us = VectorFieldSpectral(rand(Complex{T}, ka_shape), ka_grid)
+ka_m = FieldSpectralMultipliers(ka_us)
+ka_points = PointSet(T(2π) .* rand(T, $(KA_POINTS), 3))
+ka_field = ScalarFieldPhysical(rand(T, 32, 32, 32), ka_grid)
+ka_values = ScalarPointValues(rand(T, $(KA_POINTS)))
+"""
+
+const KA_PROBE_SOURCE = """
+using GBGPeriodicFields, Random
+$(KA_DIGEST_SOURCE)
+$(KA_SETUP_SOURCE)
+println(ka_digest(field_data(helmholtz_projection(ka_us, ka_m))))
+println(ka_digest(point_values(interpolate(ka_field, ka_points))))
+"""
 
 
 @testset "threading.jl" begin
@@ -129,7 +170,9 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     @test bitwise(() -> divergence(us, m))
     @test bitwise(() -> curl(us, m))
     @test bitwise(() -> gradient(us, m))                            # vector → tensor
-    @test bitwise(() -> helmholtz_projection(us, m))
+    # `helmholtz_projection` deliberately absent: it is a KernelAbstractions kernel, which never
+    # consults the `with_threading` override `bitwise` toggles, so the check would compare a code
+    # path against itself. It is covered by the KA testset below, which varies the thread count.
 
     # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite
     # via the three-argument form; β ≠ 0 accumulate below).
@@ -140,6 +183,43 @@ bitwise(f) = field_data(ser(f)) == field_data(thr(f))
     with_threading(enabled = false) do; convolve!(cacc_s, phis, kernel, 3.0, 5.0); end
     with_threading(enabled = true)  do; convolve!(cacc_t, phis, kernel, 3.0, 5.0); end
     @test field_data(cacc_s) == field_data(cacc_t)                  # α/β accumulate branch (β ≠ 0)
+  end
+
+  @testset "KernelAbstractions kernels reproducible across thread counts" begin
+    # The `bitwise` helper above cannot reach a KernelAbstractions kernel, so it must not be used
+    # for one: `with_threading` sets `_assign!`'s override, and a KA launch never consults it —
+    # KA partitions by `Threads.nthreads()` — so both of that helper's lanes execute identical
+    # code and the comparison degenerates to `x == x`. Reproducibility is therefore established
+    # two ways here: repeats within this process, and one subprocess at a different `-t`.
+    #
+    # The two `Atomix` scatter-add kernels are EXEMPT from bitwise equality by nature. Floating
+    # point addition is not associative, so a nondeterministic accumulation order perturbs the
+    # last bits, and the order genuinely varies run to run. Measured on a Ryzen 9800X3D over
+    # twelve trials, at both 8 and 16 threads: every trial differed, `anterpolate!` by 2–3 ulp of
+    # the field's scale and `radial_spectrum` only inside numerically-zero shells (max |Δ| =
+    # 1.4e-47). They are held to a tolerance instead, which still fails a broken scatter — that
+    # would differ by O(1), not by an ulp.
+    include_string(@__MODULE__, KA_SETUP_SOURCE)   # the same source the subprocess runs
+
+    # disjoint writes, no atomics → bitwise-reproducible repeat to repeat
+    projections = [field_data(helmholtz_projection(ka_us, ka_m)) for _ in 1:4]
+    @test all(==(projections[1]), projections)
+    gathers = [point_values(interpolate(ka_field, ka_points)) for _ in 1:4]
+    @test all(==(gathers[1]), gathers)
+
+    # Atomix accumulate → equal to tolerance, not bitwise
+    scatters = [field_data(anterpolate(ka_grid, ka_points, ka_values)) for _ in 1:4]
+    @test all(s -> isapprox(s, scatters[1], rtol = 1e-10), scatters)
+    spectra = [radial_spectrum(ka_us, ka_m)[2] for _ in 1:4]
+    @test all(s -> isapprox(s, spectra[1], rtol = 1e-10), spectra)
+
+    # the genuine cross-thread-count comparison the `bitwise` helper cannot make: recompute the two
+    # deterministic kernels in a subprocess launched at a different thread count and compare digests
+    other_threads = Threads.nthreads() == 1 ? 4 : 1
+    probe_output = readchomp(`$(Base.julia_cmd()) --project=$(Base.active_project()) -t$other_threads -e $KA_PROBE_SOURCE`)
+    probe_projection, probe_gather = split(probe_output)
+    @test probe_projection == string(ka_digest(projections[1]))
+    @test probe_gather == string(ka_digest(gathers[1]))
   end
 
 end

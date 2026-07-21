@@ -516,6 +516,27 @@ the remaining work; expected speedup then saturates at socket bandwidth over sin
 2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl —
 a consumer concern, since the package allocates serially via `similar`).
 
+**The KernelAbstractions sites thread on their own terms — and two of them are not bitwise.** Three
+operations are written as portable `KernelAbstractions` kernels rather than as broadcasts: the
+one-pass `helmholtz_projection!` (decision 32), the gather/scatter transfer kernels
+([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), and the radial
+shell binning (decisions 25, 34). On a CPU array these launch on the `CPU()` backend, which
+partitions the index range by `Threads.nthreads()` itself. Two consequences follow, and neither is a
+defect to fix — they are the price of leaving the broadcast route, to be weighed whenever a further
+kernel rewrite is proposed. First, a KA kernel **never consults the `_assign!` policy above**: the
+serial cutoff and the `with_threading` override do not reach it, so it threads by KA's rules at every
+size. Second, the two kernels that accumulate through `Atomix` — the anterpolation scatter and the
+shell binning — sum in a **nondeterministic order**, and floating-point addition is not associative,
+so they are **not bitwise-reproducible**: not across thread counts, and not even between two runs at
+one thread count. Measured on a Ryzen 9800X3D over twelve trials at 8 and 16 threads, every trial
+differed, `anterpolate!` by 2–3 ulp of the field's scale and `radial_spectrum` only inside
+numerically-zero shells (max ``\lvert \Delta \rvert`` = 1.4e-47). The two kernels with **disjoint**
+writes — the projection and the gather — are bitwise-reproducible, and were measured to be so across
+1, 2, 4 and 8 threads. `test/threading.jl` encodes exactly this split: bitwise equality asserted for
+the disjoint pair (including against a subprocess launched at a different thread count, the one
+comparison the in-process `with_threading` toggle cannot make), a tolerance for the `Atomix` pair —
+the same tolerance-not-bitwise treatment the reductions above receive, and for the same reason.
+
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
 
 Lagrangian particle tracking by a consumer ([§1](@ref "1. Purpose and scope")) requires two transfer operations

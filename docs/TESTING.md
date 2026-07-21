@@ -70,7 +70,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
   sees; CPU-only, `PASS_AUDIT_PRINT=1` regenerates the cells),
   `aqua.jl` (package checks),
-  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane),
+  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane, and
+  covers the `KernelAbstractions` kernels separately, since they thread outside the `_assign!`
+  policy — bitwise for the disjoint-write pair, to a tolerance for the two `Atomix` accumulators),
   and `jet.jl` (JET `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
@@ -257,7 +259,13 @@ and the **L²/measure reductions** added alongside; and CPU threading — every 
 (field ops, the codegen contractions/products including `mul!`'s ``\beta=0``/``\beta\ne0`` branches,
 transpose/sym/skew/dev, norms, and the differential operators), exercised in both the
 default and a `JULIA_NUM_THREADS=4` lane (`test/threading.jl`), with the override / cutoff
-gate and the GPU `materialize!` fallback also asserted; and the **L²/measure reductions**
+gate and the GPU `materialize!` fallback also asserted — and, separately, the three
+`KernelAbstractions` kernels, which thread by KA's own partitioning rather than through
+`_assign!` and so cannot be checked by toggling `with_threading` at all: the disjoint-write pair
+(`helmholtz_projection`, the gather) is asserted bitwise, including against a subprocess launched
+at a different thread count, while the two `Atomix` accumulators (the anterpolation scatter, the
+shell binning) are held to a tolerance because a nondeterministic summation order perturbs their
+last bits ([`ARCHITECTURE.md`](architecture.md) §9); and the **L²/measure reductions**
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
 fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac{1}{2}``) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac{1}{N}\sum`` grid, ``\tfrac{1}{M}\sum``

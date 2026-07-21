@@ -781,7 +781,14 @@ those are the usual rot. Then the mechanical bar:
    `_to_broadcasted` + the `@_assign!` macro); FFTW threads match Julia's at load (`__init__`).
    Hybrid policy: on when `nthreads() > 1` above a `2^14` cutoff, with a `with_threading`
    ScopedValue override; GPU stays on the `materialize!` fallback. Tested bitwise in
-   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). **Discipline:** raw
+   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The **three
+   `KernelAbstractions` sites are outside this policy** and are covered separately in the same file:
+   a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
+   `with_threading` override, so toggling it compares a path against itself — the check varies the
+   thread count across a subprocess instead. The disjoint-write pair (`helmholtz_projection!`, the
+   gather) is bitwise-reproducible; the two `Atomix` accumulators (anterpolation scatter, shell
+   binning) are **not** — a nondeterministic summation order costs `anterpolate!` 2–3 ulp, so they
+   are tolerance-tested like the reductions (`docs/ARCHITECTURE.md` §9). **Discipline:** raw
    elementwise writes go through `_assign!`/`@_assign!`, not bare `.=`. The L²/measure reductions
    now exist (`src/Reductions.jl`, item 8) on `sum`/`dot`/`maximum` and are tolerance-tested; only
    *threading* them (custom chunk accumulation) remains deferred.
