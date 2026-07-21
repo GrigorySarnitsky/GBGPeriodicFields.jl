@@ -488,9 +488,14 @@ serial in a time loop) wants `nthreads()` FFTW threads, the default.
 `Fields`. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
 array wrappers keep the standard fused broadcast, so **invariant 6 holds by dispatch**, not
 discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
-instantiated `Broadcasted` over contiguous chunks (each chunk a fused `copyto!`; fusion
-preserved, one memory pass), **bitwise-identical to serial** because each output index is
-written once. A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
+instantiated `Broadcasted` over contiguous chunks (fusion preserved — one `Broadcasted`
+tree, no temporaries, one memory pass), **bitwise-identical to serial** because each output index is
+written once. One measured caveat: the chunk loop indexes the tree per element through a
+`CartesianIndex`, which does not vectorize — ~4.7× slower per core than the serial
+`materialize!`, so threading currently *inverts* on the streaming ops at low thread counts
+([`PERFORMANCE.md`](performance.md) §4 finding (l); the recorded fix direction is per-chunk
+`materialize!` over sliced broadcast arguments, and a plain index-style swap is measured *not* to
+help). A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
 the one-element zero-mode views — serial. Policy is **hybrid**: threaded when
 `nthreads() > 1` and above the cutoff, with a task-local `ScopedValue` override
 (`with_threading(enabled = …)`) for nested-parallel callers.
@@ -2045,3 +2050,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     band is unmeasured, and the tiebreaks above were settled two to four octaves below it. Closing
     that is a prerequisite for revisiting them, and it is only partly possible off-cluster: a
     single-socket workstation can extend the grid sweep but cannot exhibit a NUMA effect at all.
+
+    *The same target fixes a portability bar: `aarch64`.* Arrhenius's GPU nodes are GH200
+    superchips, so the CUDA device is hosted by a Grace CPU — an ARM (`aarch64`) host — and
+    production will eventually run on both partitions. The package must therefore stay buildable on
+    ARM, and **no design decision or dependency may be adopted that is x86-only** — the canonical
+    tempting example is swapping the FFT provider to MKL, which has no `aarch64` build; any
+    x86-intrinsic tuning falls under the same bar. Nothing in the current dependency tree is known
+    to be x86-only (pure Julia plus JLL artifacts published for `aarch64-linux`), but nothing has
+    ever been built or tested on ARM either — a coverage gap recorded in
+    [`PERFORMANCE.md`](performance.md) §7.

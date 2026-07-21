@@ -228,7 +228,11 @@ pitfall on a new CPU, not a package issue. The default stays `ESTIMATE` (cheap, 
 tests and short runs); the escape hatch already exists,
 `FieldTransformPlans(phys, spec; fft_flags = FFTW.MEASURE)` (or `FFTW.PATIENT`). `MEASURE` overwrites its
 input arrays while planning, so build the plans on scratch fields before seeding data. The forced-HIT CPU
-example (`examples/HIST_CPU.jl`) now plans with `MEASURE`.
+example (`examples/HIST_CPU.jl`) now plans with `MEASURE`. **Update (2026-07-21, the 512³ sweep):** the
+mis-plan persists into the CPU production band — at 512³ the `ESTIMATE`d scalar `Float32` c2r ties the
+`Float64` one to three digits (402.297 vs 402.195 ms, t8), single precision buying *nothing* — so the
+`RESULTS.md` 9800X3D `Float32` FFT columns at 256³–512³ should be read as `ESTIMATE`-planned (the package
+default, deliberately what the suite measures), not as the CPU's `Float32` capability.
 
 **(i) A fused reduction needs a different shape per backend — get that right and it wins on both.** The
 mapped forms (decision 30) reduce a function of the fiber value at every base point without
@@ -319,6 +323,29 @@ against a route whose build pass happened outside the timer — state which reus
 measured before quoting a ratio. A possible future optimization — hoisting the exponential over the
 fiber in a mode-loop kernel, the decision-32 shape — would cut the CPU vector case's threefold `exp`
 re-evaluation; it waits for a CPU-bound consumer (the audits' consumer runs GPU-first).
+
+**(l) The threaded `_assign!` inner loop runs at ~8.6 GB/s per thread — mid thread counts sit *above*
+serial on the streaming ops.** Found by the first 512³ CPU sweep (2026-07-21) and visible, unnoticed, in
+every committed CPU column before it: on **both** measured CPUs, at **every** grid size, `add!`/
+`gradient!`/`symmetric_gradient!` and the rest of the `_assign!`-routed streaming family run *slower* at
+2 and 4 threads than at 1, with 8 threads only marginally recovering (9800X3D `add!` scalar `Float64`,
+t1→t2→t4→t8: 64³ 40 µs → 368 → 185 → 95; 512³ 83.9 ms → 187.6 → 94.2 → 73.6). The serial path is
+`materialize!` — SIMD, ~41 GB/s on one Zen 5 core, already near the desktop's DRAM ceiling — while the
+threaded path (`_assign_threaded!`) indexes the fused `Broadcasted` **element by element through a
+`CartesianIndex`**, which does not vectorize: measured single-threaded at 512³, 375 ms against
+`materialize!`'s 79 ms, a **4.7× per-core penalty**. Every threaded lane is that loop divided by its
+thread count until the aggregate hits DRAM (375/2 = 187.5, 375/4 = 93.8 — reproducing the sweep cells to
+three digits). Two corollaries, both measured: **linear indexing plus `@simd` — the alternative the
+implementation's own comment contemplates, legal now that the compat floor is 1.12 — does not help**
+(365 ms; `Broadcasted` `getindex` stays scalar either way), so the fix is not an index-style swap but
+per-chunk `materialize!` over sliced broadcast arguments; and the ops that thread through **other**
+routes are unaffected (FFTW threads itself; the KernelAbstractions kernels partition natively —
+`anterpolate!` scales 3.4 s → 562 ms, t1→t8, in the same sweep). Consequences while the fix is pending:
+on a 2-channel desktop, `JULIA_NUM_THREADS=1` is the *fastest* CPU configuration for the streaming ops
+below ~256³ and within ~15% of t8 at 512³; on the many-channel node of decision 37
+(`docs/ARCHITECTURE.md`), where serial is ~1/12 of socket bandwidth, the slow loop still saturates the
+socket eventually but wastes ~4.7× the cores doing it. The threading *tests* are unaffected (bitwise
+identity holds — the loop is slow, not wrong).
 
 
 ## 5. The benchmark suite
@@ -434,7 +461,10 @@ device-parameterised suite; the manual save→`judge` regression workflow; and t
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
 across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
 CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
-a 512³ `Float32` point for the bandwidth-bound classes. The decision-27 additions (`combine!`, `det!`,
+a 512³ `Float32` point for the bandwidth-bound classes, and the **9800X3D sweep covers 64³–512³, both
+element types, all classes** — the first data in the CPU production band of `docs/ARCHITECTURE.md`
+decision 37 (a 512³ `Float64` CPU sweep needs tens of GB of host RAM, which a 123 GB workstation clears
+with room to spare; it was these lanes that exposed finding (l)). The decision-27 additions (`combine!`, `det!`,
 `symmetric_gradient!`, `weighted_inner`) are wired into their classes and CPU-verified (0 allocations for
 `combine!`/`det!`/`symmetric_gradient!`; the small bounded guard for `weighted_inner`); they enter the
 committed `RESULTS.md` table on its next GPU-host refresh.
@@ -508,3 +538,17 @@ committed `RESULTS.md` table on its next GPU-host refresh.
    and a HIP OOM **wedges** the allocator (GPU 0 %, one host core spinning, VRAM full) rather than
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
+
+6. **`aarch64` is a production host architecture with zero coverage.** The recorded production
+   target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
+   superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the
+   CPU partition is x86-64 EPYC. The GPU path's host code will therefore eventually build and run
+   on ARM, and nothing in this package has ever been compiled, tested, or benchmarked on that
+   architecture. No blocker is *known*: the stack is pure Julia plus JLL artifacts published for
+   `aarch64-linux` (FFTW, HDF5), and CUDA.jl runs on `aarch64` hosts, Grace Hopper among them. But
+   "no known blocker" is not "verified", and none of the x86-measured CPU findings transfer —
+   finding (h)'s `ESTIMATE` mis-planning is a Zen 5 heuristic artifact, and NEON changes FFTW's
+   codelet landscape entirely. Standing guard until access lands: **never adopt an x86-only
+   dependency or recommendation** — the MKL FFTW provider, which has no `aarch64` build, is the
+   canonical tempting example — and when it does land, the first step on an Arrhenius node is the
+   test matrix, then this benchmark suite.

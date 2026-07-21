@@ -3,7 +3,11 @@
 Julia package: real-valued scalar/vector/second-order-tensor fields on 3D rectangular
 periodic domains, with physical-space and real-to-complex (rfft) spectral
 representations, on CPU (`Array`) and GPU (`CuArray`, `ROCArray`) — **single node, shared-memory only**
-(CPU multithreading and a single GPU; distributed/multi-node and multi-GPU are out of scope). Built as the field
+(CPU multithreading and a single GPU; distributed/multi-node and multi-GPU are out of scope). Production
+target: **NAISS Arrhenius** (decision 37) — CPU nodes carry the beyond-GPU-VRAM grids (the CPU path's
+tuning target, not small tests), and the GPU nodes have **`aarch64` (Grace) hosts**, so **never adopt an
+x86-only dependency or recommendation** (e.g. the MKL FFT provider); nothing in the tree is known
+x86-only, but nothing has been built on ARM yet (`docs/PERFORMANCE.md` §7 gap 6). Built as the field
 layer for pseudospectral fluid/turbulence solvers, with the interpolation/anterpolation point layer for
 Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithreading is implemented (hybrid, behind the
 `_assign!` primitive — see `docs/ARCHITECTURE.md` §9).
@@ -781,7 +785,12 @@ those are the usual rot. Then the mechanical bar:
    `_to_broadcasted` + the `@_assign!` macro); FFTW threads match Julia's at load (`__init__`).
    Hybrid policy: on when `nthreads() > 1` above a `2^14` cutoff, with a `with_threading`
    ScopedValue override; GPU stays on the `materialize!` fallback. Tested bitwise in
-   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The **three
+   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). **Known defect (2026-07-21,
+   `PERFORMANCE.md` §4 finding (l)):** the threaded chunk loop indexes the `Broadcasted` per element via
+   `CartesianIndex` and does not vectorize — ~8.6 GB/s/thread vs `materialize!`'s ~41 on one Zen 5 core —
+   so t2/t4 run *slower than serial* on the streaming ops at every measured size (both CPUs, all along).
+   Linear+`@simd` indexing measured NOT to fix it; the fix direction is per-chunk `materialize!` over
+   sliced broadcast arguments (correctness unaffected — bitwise tests hold; fix awaiting a design pass). The **three
    `KernelAbstractions` sites are outside this policy** and are covered separately in the same file:
    a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
    `with_threading` override, so toggling it compares a path against itself — the check varies the
