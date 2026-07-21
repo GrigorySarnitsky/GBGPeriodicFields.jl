@@ -467,7 +467,14 @@ decision 37 (a 512³ `Float64` CPU sweep needs tens of GB of host RAM, which a 1
 with room to spare; it was these lanes that exposed finding (l)). The decision-27 additions (`combine!`, `det!`,
 `symmetric_gradient!`, `weighted_inner`) are wired into their classes and CPU-verified (0 allocations for
 `combine!`/`det!`/`symmetric_gradient!`; the small bounded guard for `weighted_inner`); they enter the
-committed `RESULTS.md` table on its next GPU-host refresh.
+committed `RESULTS.md` table on its next GPU-host refresh. **Done (2026-07-21):** both GPU archives are
+refreshed — the RX 7900 XTX (2026-07-20) and the RTX 5070 Ti — so every decision-27/32/33/34 row
+(`combine!`, `det!`, `symmetric_gradient!`, `weighted_inner`, the kernel-composed
+`helmholtz_projection!`/`divergence!`/`combine!` arities, `exponential_convolve!`, and the fused radial
+diagnostics) now carries both GPU columns at 64³–256³, both element types. The refresh also re-confirmed
+the §6 atomic-scatter contrast on the fused decision-34 kernels: `radial_spectrum` vector `Float64` 256³
+is 65.95 ms on the 7900 XTX against 1.371 ms on the 5070 Ti — a ~48× CUDA lead on what is now a pure
+scatter-add (its staging planes are gone, so the atomics are the whole story).
 
 **Gaps:**
 
