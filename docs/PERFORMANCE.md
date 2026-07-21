@@ -17,10 +17,21 @@ that matters.
   "moving the necessary bytes efficiently," and adding cores or tuning arithmetic helps only until
   the memory system saturates. The roofline ceiling for this package is the bandwidth roof, not the
   compute roof ([roofline](https://developer.nvidia.com/blog/accelerating-hpc-applications-with-nsight-compute-roofline-analysis/)).
-- **GPU-first (invariant 6).** Production runs on the GPU; the CPU path is for development, testing,
-  and small problems. When an optimization helps one platform and hurts the other — which *happens*,
-  and is proven below — the GPU wins. CPU multithreading is a supported feature (`docs/ARCHITECTURE.md`
-  §9), but it is not the platform performance is optimized *for*.
+- **GPU-first, and the CPU path targets a whole cluster node.** Production runs on the GPU, and where
+  an optimization helps one platform and hurts the other — which *happens*, and is proven below — the
+  GPU wins across the range both can run. The CPU path is not, however, a convenience for toy problems.
+  It carries two roles that must not be confused. Development and small tests run on the CPU because
+  that is where a workstation is, and at those grids performance rarely decides anything. The role the
+  CPU path is tuned *for* is the other one: **a single large CPU node, running the resolutions that do
+  not fit one GPU's memory.** Distributed and multi-GPU execution are out of scope
+  (`docs/ARCHITECTURE.md` §1), so the ceiling is whatever one node holds — and on a CPU node that
+  ceiling is high. A NAISS Arrhenius thin CPU node pairs two 128-core AMD EPYC 9755 processors with
+  768 GB of DDR5, a fat node carries 3 TB, and one GH200 in the GPU partition offers 96 GB of HBM.
+  Counting one scalar field in either representation as ``8 N^3`` bytes in `Float64` and a solver's
+  live set at order 25 such fields, a single GH200 runs out near ``768^3`` while a thin CPU node
+  reaches roughly ``1536^3`` and a fat node beyond it. The CPU therefore owns a band of resolutions
+  no single GPU can reach, and inside that band it is the production platform, not a fallback. CPU
+  multithreading (`docs/ARCHITECTURE.md` §9) is the mechanism that band rests on.
 - **Measure before you optimize, and measure on the production platform.** No optimization is kept
   without a same-session side-by-side comparison showing it helps the GPU. This session's record is instructive: of the
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap

@@ -513,8 +513,12 @@ not bitwise** like the assignments here. (The only already-threaded part is a *p
 `sum`/`maximum`. The reductions `inner`/`l2norm`/`integral`/`mean` build no such field, so they are a single,
 unthreaded `dot`/`sum`.) Threading them further (custom chunk-partial accumulation) is
 the remaining work; expected speedup then saturates at socket bandwidth over single-core (typically
-2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl —
-a consumer concern, since the package allocates serially via `similar`).
+2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl).
+Placement is **not** settled by `similar`, which reserves address space without touching pages: the
+first *write* decides, so a threaded `_assign!` fill distributes pages across domains while a serial
+one concentrates them. On the two-socket cluster node decision 37 names as the CPU path's target, that
+difference is the dominant bandwidth risk, and no measurement of it exists — a single-socket
+workstation cannot produce one.
 
 **The KernelAbstractions sites thread on their own terms — and two of them are not bitwise.** Three
 operations are written as portable `KernelAbstractions` kernels rather than as broadcasts: the
@@ -2004,3 +2008,40 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     cell; a raised count is a fusion regression unless a new holder justifies it, and a deliberate
     change freezes its new values in the same commit, citing the decision — IT's regeneration
     protocol, verbatim.
+
+37. **The CPU path's performance target is one cluster node, not small problems — and that reopens the
+    GPU-first tiebreaks.** The performance model ([§9](@ref "9. Performance model and CPU threading"),
+    `PERFORMANCE.md` §1) recorded the CPU path as serving "development, testing, and small problems",
+    and every platform tiebreak below was licensed by that sentence. It understated the role. The CPU
+    path does serve development and small tests — but at those grids performance seldom decides
+    anything, so that role sets no tuning target. The role that does is the opposite of small: **a
+    single large CPU node, running the resolutions that exceed one GPU's memory.** Since distributed
+    and multi-GPU execution are out of scope ([§1](@ref "1. Purpose and scope")), the memory ceiling of
+    a run is whatever one node holds, and a CPU node holds far more than a GPU. On NAISS Arrhenius —
+    the concrete target — a thin CPU node pairs two 128-core AMD EPYC 9755 processors with 768 GB of
+    DDR5 and a fat node carries 3 TB, while the GPU partition's GH200 offers 96 GB of HBM. Taking one
+    scalar field in either representation as ``8 N^3`` bytes in `Float64` (the physical array and the
+    rfft half-spectrum agree to within a part in ``N``) and a solver's live set at order 25 fields, one
+    GH200 stops near ``768^3`` where a thin CPU node reaches about ``1536^3``. The two partitions are
+    also distinct machines, so the split is clean: GPU work runs on GPU nodes, CPU work on CPU nodes.
+
+    *What this reopens.* Three recorded results rest on the understated premise, and each was measured
+    outside the regime that now matters. The **loop order** ([`PERFORMANCE.md`](performance.md) §4b)
+    kept the ``x``-inner stencil traversal for the transfer kernels at a measured ``0.75\times`` CPU
+    regression, justified on two grounds — that "the CPU's large caches absorb the strided access", and
+    that the GPU is the production platform. At ``1536^3`` a single `Float64` vector field is 87 GB
+    against 512 MB of L3 per socket, so the first ground fails outright, and the second no longer holds in this
+    band; the regression there is plausibly worse than the measured figure, not better. The **pass
+    audit's standing gaps** (decision 36) — `gradient!` re-reading its source ``3\times``,
+    `symmetric_gradient!` ``5\times`` — are close to free while a field is cache-resident and become
+    pure DRAM traffic once it is not, so they price very differently here. And **NUMA first-touch**,
+    which [§9](@ref "9. Performance model and CPU threading") sets aside as a consumer concern, is a
+    two-socket node's dominant risk: `similar` reserves address space without touching pages, so the
+    placement is decided by whichever code writes first, and a threaded `_assign!` write distributes
+    while a serial fill concentrates. Whether that lands well is a measurement nobody has taken.
+
+    *The measurement gap this exposes.* `benchmark/characterize.jl` sweeps ``64^3``–``256^3`` by
+    default, and no CPU column above ``256^3`` has ever been recorded — so the entire CPU production
+    band is unmeasured, and the tiebreaks above were settled two to four octaves below it. Closing
+    that is a prerequisite for revisiting them, and it is only partly possible off-cluster: a
+    single-socket workstation can extend the grid sweep but cannot exhibit a NUMA effect at all.
