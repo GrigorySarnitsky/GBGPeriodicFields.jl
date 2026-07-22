@@ -1,5 +1,6 @@
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 GBGPeriodicFields = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"

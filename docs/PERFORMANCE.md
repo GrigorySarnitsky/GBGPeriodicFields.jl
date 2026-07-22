@@ -249,6 +249,11 @@ mis-plan persists into the CPU production band — at 512³ the `ESTIMATE`d scal
 `Float64` one to three digits (402.297 vs 402.195 ms, t8), single precision buying *nothing* — so the
 `RESULTS.md` 9800X3D `Float32` FFT columns at 256³–512³ should be read as `ESTIMATE`-planned (the package
 default, deliberately what the suite measures), not as the CPU's `Float32` capability.
+**Update (2026-07-22):** the pair is now a standing measurement — every CPU FFT row in the suite carries
+a `measure` twin planned with `FFTW.MEASURE` (built on scratch fields, per the overwrite caveat above), so
+`RESULTS.md` shows the `ESTIMATE` experience and the tuned production path side by side and this finding's
+delta is re-measured per host, size, and type on every sweep. GPU rows have no twin — the device FFT
+libraries take no planner flag.
 
 **(i) A fused reduction needs a different shape per backend — get that right and it wins on both.** The
 mapped forms (decision 30) reduce a function of the fiber value at every base point without
@@ -378,7 +383,10 @@ A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* p
 `ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
 
-Classes covered: **FFT** transforms, **field algebra** (M2 + M3, representative — including the weighted
+Classes covered: **FFT** transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
+the default-`ESTIMATE` experience and the tuned production path sit side by side and finding (h) is
+re-measured per host/size/type on every sweep; GPU rows have no twin, the device FFT libraries taking no
+planner flag), **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
 decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` and the kernel-composed
