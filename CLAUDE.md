@@ -67,9 +67,12 @@ conceptual model and the writing/docstring conventions are recorded once — in
    `import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm`.
 8. No fiber-fiber methods (e.g. `dot(::FiberVector, ::FiberVector)`) — the fiber
    types are StaticArrays aliases and already have them.
-9. Aliasing: in-place ops whose destination may alias an input go through
-   `_guard_noalias!`; `mul!` is exempt and instead documents that destination must
-   not alias (LinearAlgebra convention).
+9. Aliasing is safe **by construction**: every fused pass (the one-pass spectral operators and
+   the `_fiberwise_pass!` executor behind the algebra) reads all of an element's sources into
+   registers before writing any of its outputs, so in-place aliased calls are computed directly,
+   bitwise-identical to non-aliased — the former `_guard_noalias!` family is retired (decisions
+   38/39). `mul!` keeps its documented contract that destination must not alias (LinearAlgebra
+   convention), without widening it.
 10. α/β kernels: five-argument forms convert `T(α)`, `T(β)` and branch on
     `iszero(β_value)` (overwrite vs accumulate); three-argument forms delegate with
     `one(T)`, `zero(T)`.
@@ -93,7 +96,8 @@ conceptual model and the writing/docstring conventions are recorded once — in
     materialized array's full bytes are counted; on the GPU it is a device buffer behind a tiny host
     wrapper, invisible to `@allocated`, so a GPU measurement would miss the very leak that wedges a hot
     loop. A new in-place op — or any function claimed allocation-free — **must** be added to that audit.
-    Deliberate materializers (`norm!`/`lpnorm`/`dev!`/`std`/`var`, `radial_correlation` (the power
+    Deliberate materializers (`norm!`/`lpnorm`/`std`/`var` — `dev!` left the list when decision 39
+    fused its trace into a register, `radial_correlation` (the power
     field + its transform; `radial_spectrum` is pinned tight since decision 34), the mixed
     spectral `inner(f, g)` — a strided-view `dot` being unavailable on the GPU) are the documented
     exceptions and get a *bounded* regression guard, not a zero guard.
@@ -106,8 +110,9 @@ conceptual model and the writing/docstring conventions are recorded once — in
   `_vector_component`/`_tensor_component` (kinds `:field`/`:fiber`), `_sum_terms`,
   `_product`, `_vector_kernel_body`/`_tensor_kernel_body` (with `alpha_beta` flag),
   `_scalar_kernel_body`, the contraction/decomposition formula builders, and `section_scalar_type`
-  (real `T` for any section). The alias guard `_guard_noalias!` stays per-consumer (it allocates
-  via the base's `similar_*`).
+  (real `T` for any section), and the **fused fiberwise executor** `_fiberwise_pass!` (decision 39:
+  one KA kernel + one slab-threaded linear `@simd` CPU loop running every stamped values function;
+  the former per-consumer alias guards are retired — fused passes are alias-safe by construction).
 - Generators emit **methods only — never docstrings**. One docstring per operation,
   on the bare binding: `function f end` for package-owned generics, the bare imported
   name for Base/LinearAlgebra functions. Docstrings list a few canonical signatures
@@ -657,7 +662,7 @@ those are the usual rot. Then the mechanical bar:
    ambiguities, behaviour tested in `test/fieldalgebra.jl`. Fiber ops use full
    **StaticArrays** (a package dependency — `StaticArraysCore` gave only the types).
    `mul!` keeps the LinearAlgebra no-alias contract; cross and the unary
-   index-shuffles (transpose, sym/skew/dev) are alias-guarded via `_guard_noalias!`.
+   index-shuffles (transpose, sym/skew/dev) are alias-safe by construction (decision 39).
 3. **DifferentialOperators.jl** — **done**: the duplicate `FieldSpectralMultipliers`
    and its helpers removed and imported from Fields, export dropped, and the umbrella
    now re-exports the Fields version (verified: every Fields export surfaces as the
@@ -680,7 +685,7 @@ those are the usual rot. Then the mechanical bar:
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the weighted combination `combine!` (physical+spectral, alias-safe accumulate) and the
    determinant `det` (per-point LU oracle, spectral absence), the spectral zero-mode invariant, in-place
-   forms and the unary alias guards, the
+   forms and the aliased unary in-place calls, the
    physical/spectral symmetry of the linear field/fiber operations, and the
    intentional absences. `test/differentialoperators.jl`: gradient/divergence/curl/
    symmetric_gradient/laplacian/inverse_laplacian/helmholtz by analytic round-trips, incl. in-place
@@ -785,12 +790,11 @@ those are the usual rot. Then the mechanical bar:
    `_to_broadcasted` + the `@_assign!` macro); FFTW threads match Julia's at load (`__init__`).
    Hybrid policy: on when `nthreads() > 1` above a `2^14` cutoff, with a `with_threading`
    ScopedValue override; GPU stays on the `materialize!` fallback. Tested bitwise in
-   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). **Known defect (2026-07-21,
-   `PERFORMANCE.md` §4 finding (l)):** the threaded chunk loop indexes the `Broadcasted` per element via
-   `CartesianIndex` and does not vectorize — ~8.6 GB/s/thread vs `materialize!`'s ~41 on one Zen 5 core —
-   so t2/t4 run *slower than serial* on the streaming ops at every measured size (both CPUs, all along).
-   Linear+`@simd` indexing measured NOT to fix it; the fix direction is per-chunk `materialize!` over
-   sliced broadcast arguments (correctness unaffected — bitwise tests hold; fix awaiting a design pass). The **three
+   `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The 2026-07-21 threading
+   inversion (finding (l): the old per-element chunk loop ran ~8.6 GB/s/thread vs `materialize!`'s ~41,
+   so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced
+   operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the CPU archive columns predate the fix
+   until the Stage-D re-sweep lands. The **three
    `KernelAbstractions` sites are outside this policy** and are covered separately in the same file:
    a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
    `with_threading` override, so toggling it compares a path against itself — the check varies the

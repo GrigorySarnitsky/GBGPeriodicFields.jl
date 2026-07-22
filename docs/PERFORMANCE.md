@@ -153,7 +153,15 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 | speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | **0.75×** (regression) |
 
 Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the strided access and its
-`z`-inner form vectorizes better, but the GPU is the production platform.
+`z`-inner form vectorizes better, but the GPU is the production platform. **Re-measured
+(2026-07-22), and x-inner now stands on CPU evidence too:** decision 37 reopened this tiebreak
+because its cache justification dies in the CPU production band, so the A/B was repeated at 512³
+`Float64` (10⁶ points, Ryzen 9800X3D) — and the old penalty does not reproduce there. The z-inner
+nest gains only ~9–10% on the 4³ Catmull–Rom stencil and **loses 23%** (serial; 5% at eight
+threads) on the 8³ Lalescu stencil, whose per-point working set no longer fits the reuse the old
+measurement enjoyed. A per-backend loop order would also break gather bit-identity across
+backends for at most a single-digit win on one scheme; the split is rejected and the x-inner nest
+is the recorded choice for both platforms.
 
 **(c) Rejected by measurement.** Two "obvious" optimizations that did not survive:
 
@@ -353,7 +361,13 @@ on a 2-channel desktop, `JULIA_NUM_THREADS=1` is the *fastest* CPU configuration
 below ~256³ and within ~15% of t8 at 512³; on the many-channel node of decision 37
 (`docs/ARCHITECTURE.md`), where serial is ~1/12 of socket bandwidth, the slow loop still saturates the
 socket eventually but wastes ~4.7× the cores doing it. The threading *tests* are unaffected (bitwise
-identity holds — the loop is slow, not wrong).
+identity holds — the loop is slow, not wrong). **Fixed (2026-07-22, decision 38):** the threaded path
+now runs the standard fused `materialize!` per contiguous slab of the largest axis, so each slab
+executes the same SIMD kernel as serial — measured on the probe, 512³ `Float64` `add!`: t2
+187.7 → **73.3 ms** (the DRAM ceiling, previously reached only at t8), t8 unchanged at the ceiling,
+and 64³ t8 97 → 28 µs (threading now *wins* at small sizes). The archived CPU columns predate the
+fix until the next sweep replaces them — read pre-fix t2–t8 numbers as measurements of the retired
+loop.
 
 
 ## 5. The benchmark suite

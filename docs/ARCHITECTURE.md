@@ -433,24 +433,16 @@ original file; runtime introspection supersedes that.)
 
 ## 7. Aliasing policy
 
-`_aliases_destination` detects backing-array sharing between the destination and
-any field operand (constant fibers never alias). `_guard_noalias!(kernel!,
-destination, output_order, operands)` runs the kernel into a fresh
-`similar_field` and copies back only when aliasing is detected, so the guard is
-free in the common case. It exists because index-shuffling operations (cross
-products, transpose, sym/skew/dev) read several source components while writing
-each destination component — in-place aliasing would consume already-overwritten
-data. The `mul!` operation deliberately skips the guard and documents that the destination must
-not alias the inputs, matching `LinearAlgebra.mul!` semantics.
-
-A third resolution exists beside the guard and the `mul!` contract: make the kernel itself
-alias-safe. `helmholtz_projection!` once guarded like the index shufflers (its three per-component
-broadcasts re-read all three source components); its one-pass kernel now reads every source value of
-a mode into registers before writing any of that mode's destinations, so the aliased call — the
-natural spelling of projecting a field in place — is computed directly, bitwise-identical to the
-non-aliased one, with no temporary (decision 32). The guard remains the right tool where a fused
-single pass cannot exist (the index shufflers read across the fiber at one point, which a
-per-component broadcast cannot reorder around).
+Alias safety is **by construction**: every fused pass — the one-pass spectral operators
+(decisions 32 and 38's operator kernels) and the generic fiberwise executor behind the algebra
+(decision 39) — reads all of an element's source values into registers before writing any of that
+element's destinations, and elements are disjoint, so an in-place call (`curl!(u, u, m)`,
+`transpose!(A, A)`, `sym!(A, A)`) is computed directly and is bitwise-identical to the
+non-aliased call, with no temporary. The former guard family (`_guard_noalias!` and its
+point-value twin), which ran an aliased call through a fresh field and a copy-back, is retired —
+decision 39 removed its last callers. The one remaining aliasing rule is contractual: `mul!`
+documents that the destination must not alias the inputs, matching `LinearAlgebra.mul!` semantics
+(its fused pass happens to be alias-safe too, but the documented contract is not widened).
 
 ## 8. Broadcasting
 
@@ -490,12 +482,11 @@ array wrappers keep the standard fused broadcast, so **invariant 6 holds by disp
 discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
 instantiated `Broadcasted` over contiguous chunks (fusion preserved — one `Broadcasted`
 tree, no temporaries, one memory pass), **bitwise-identical to serial** because each output index is
-written once. One measured caveat: the chunk loop indexes the tree per element through a
-`CartesianIndex`, which does not vectorize — ~4.7× slower per core than the serial
-`materialize!`, so threading currently *inverts* on the streaming ops at low thread counts
-([`PERFORMANCE.md`](performance.md) §4 finding (l); the recorded fix direction is per-chunk
-`materialize!` over sliced broadcast arguments, and a plain index-style swap is measured *not* to
-help). A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
+written once. The threaded path splits the destination's slab axis — the last among the largest,
+so a whole-vector-field write splits a grid axis, never the length-3 fiber — and runs the standard
+fused `materialize!` per slab over sliced views of the operands, so each slab executes the same
+SIMD kernel the serial path uses (decision 38; its per-element predecessor ran ~4.7× slower per
+core and *inverted* at low thread counts — [`PERFORMANCE.md`](performance.md) §4 finding (l)). A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
 the one-element zero-mode views — serial. Policy is **hybrid**: threaded when
 `nthreads() > 1` and above the cutoff, with a task-local `ScopedValue` override
 (`with_threading(enabled = …)`) for nested-parallel callers.
@@ -955,7 +946,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
-    Lalescu on the RX 6700 XT; ~25% slower on CPU for wide stencils, which invariant 6 accepts).
+    Lalescu on the RX 6700 XT), re-affirmed on CPU in the decision-37 production band: the 512³
+    Zen 5 A/B found z-inner ~10% ahead only on the narrow Catmull–Rom stencil and 23% *behind* on
+    the wide Lalescu one, so x-inner stands on both platforms and the reopened tiebreak is closed
+    (`PERFORMANCE.md` §4b).
     The L²/volume-weighted (measure-consistent) adjoint is ``(N/M) W^\top`` (``N`` grid points, ``M`` sample
     points) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
@@ -2060,3 +2054,54 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     to be x86-only (pure Julia plus JLL artifacts published for `aarch64-linux`), but nothing has
     ever been built or tested on ARM either — a coverage gap recorded in
     [`PERFORMANCE.md`](performance.md) §7.
+
+38. **The threaded assignment runs the real engine per slab, and the fused operators leave the
+    broadcast route.** Finding (l) (`PERFORMANCE.md` §4) showed the threaded `_assign!` path
+    indexing the fused `Broadcasted` element by element — a loop that does not vectorize (~8.6 GB/s
+    per thread against `materialize!`'s ~41 on one Zen 5 core), so two and four threads ran *slower*
+    than serial on every streaming operation, on both archived CPUs, at every size, unnoticed since
+    the feature landed. Two rewrites follow. *The broadcast route:* `_assign_threaded!` now splits
+    the destination's slab axis (the last among the largest, so a whole-vector-field write splits a
+    grid axis and never the length-3 fiber) and runs the standard fused `materialize!` per slab over
+    view-sliced operands — each slab executes the same SIMD kernel as serial, each element is
+    written once from the same expression, bitwise identity preserved; a `Val` function barrier
+    keeps the slicing inferred (a runtime axis boxed kilobytes per slab), and the allocation audit
+    absorbs the remaining size-independent per-task bookkeeping with an explicit field-destination
+    floor. Measured: 512³ `Float64` `add!` at two threads fell 187.7 → 73.3 ms — the DRAM ceiling,
+    which previously took all eight. *The operator kernels:* `gradient!` (both arities), `curl!`,
+    and `symmetric_gradient!` are one-pass kernels in the decision-32 shape — a KernelAbstractions
+    kernel on a device, a slab-threaded stride-1 `@simd` loop on the CPU (the KA CPU backend was
+    measured at 17.7 GB/s single-thread, hence the loop) — every source coefficient read once per
+    mode, the audit rows at their fused ideals, `curl!`'s alias guard retired (its fused pass reads
+    a mode before writing it), and each verified **bitwise** against captured oracles of the
+    replaced broadcasts. The serial trade is recorded honestly: `symmetric_gradient!`'s nine-output
+    loop spills registers and gives back ~5% single-threaded at 512³ while gaining 1.54× at eight
+    threads; a two-pass split is the fallback if a serial consumer ever needs it.
+
+39. **One generic fused executor runs the fiberwise algebra; the alias-guard family is retired.**
+    The table-stamped algebra ran one broadcast per output component, re-reading shared sources
+    once per formula (the audit's holders: `cross!` 2×, `mul!`'s vector operand 3×, `sym!`'s
+    off-diagonals 2×, `det!`'s cofactor rows 2×, the scalar-field action and divisor once per
+    output component, `convolve!`'s scalar kernel once per fiber component) and wrapped the index
+    shuffles in `_guard_noalias!` — a field-sized temporary on every aliased call. Now a pure
+    scalar **values function** per operation maps one element's source values (plus fiber
+    constants) to the tuple of outputs, and one portable executor (`_fiberwise_pass!`) streams it:
+    sources read once into registers, every output written from them, the α/β convention owned
+    centrally, alias-safe by construction. The backend split follows decision 30 — one
+    KernelAbstractions kernel on a device, a slab-threaded `@simd` loop over the **linear** index
+    range on the CPU — and linear indexing is what makes the executor base-agnostic: contiguous
+    component views index identically for a 3-D grid and a 1-D point set, so fields and
+    point-values share it, and the values functions are stamped from the same per-component
+    formula builders the broadcasts used (a `:scalar` accessor kind plus `_undot`), keeping every
+    formula written once. Routed through it: `cross!`, the `mul!` family, `transpose!`, `sym!`,
+    `skew!`, `dev!`, `det!`, the scalar-field action/division, and the kernel-composed
+    `convolve!`/`combine!` fiber paths (α folded into the values so the broadcast's own association
+    is preserved); `dot!`/`tr!`/the norms stay broadcasts — their traffic was already ideal. The
+    exponential family's fiber extrusion stays a named holder: its per-mode coefficient is the
+    lazy cartesian ``|k|^2``, which the linear executor cannot see — the priced fix is the
+    finding-(k) mode-loop hoist. `dev!` stopped materializing its trace (now a per-element
+    register) and left the documented-allocators list. Every routed operation verified **bitwise**
+    against captured oracles (54 cases: both element types, physical and spectral, field and
+    fiber-constant patterns, aliased shuffles through the former guard path, α/β accumulates, the
+    point-value mirrors), and both parity baselines (206 + 122) are byte-identical — the public
+    surface never moved.

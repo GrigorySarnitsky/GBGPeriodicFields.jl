@@ -728,7 +728,7 @@ takes one scalar per entry of `arrays` (that array's element at the running inde
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
 Every array element is read once and every output written once, and all of an element's reads
 happen before its writes, so a target may alias a source array — the index-shuffle guard is
-unnecessary on this path. The generic method launches [`_fiberwise_values_kernel!`](@ref) on the
+unnecessary on this path. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
 backend; the `KernelAbstractions.CPU` method runs a slab-threaded `@simd` loop over the linear
 range (component views are contiguous, so linear indexing is stride-1) through the same
 [`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
