@@ -25,6 +25,12 @@ module FiberSections
 
 using Base.ScopedValues: ScopedValue
 
+# The fused fiberwise executor below launches one portable KernelAbstractions kernel on a device
+# and a slab-threaded plain loop on the CPU, dispatched on the backend (the decision-30 idiom;
+# the `import` carries `KernelAbstractions.CPU` for that dispatch).
+import KernelAbstractions
+using KernelAbstractions: @kernel, @index, get_backend, synchronize
+
 export AbstractFiberSection,
        with_threading,
        set_threading_cutoff!,
@@ -335,16 +341,18 @@ end
 """
     _vector_component(symbol, kind, i)
 
-Build the expression that accesses component `i` of a vector argument named `symbol`. With `kind = :field` it reads a field's component view (`_vector_component_data`); with `kind = :fiber` it indexes a constant `SVector`. The builders splice the result into kernel formulas so that each per-component formula is written once.
+Build the expression that accesses component `i` of a vector argument named `symbol`. With `kind = :field` it reads a field's component view (`_vector_component_data`); with `kind = :fiber` it indexes a constant `SVector`; with `kind = :scalar` it emits the positional scalar argument name `symbol_i` for a fused values function ([`_fiberwise_pass!`](@ref)). The builders splice the result into kernel formulas so that each per-component formula is written once.
 """
-_vector_component(symbol, kind, i)    = kind === :field ? :(_vector_component_data( $symbol, $i))     : :($symbol[$i])
+_vector_component(symbol, kind, i)    = kind === :field  ? :(_vector_component_data( $symbol, $i)) :
+                                        kind === :scalar ? Symbol(symbol, "_", i)                  : :($symbol[$i])
 
 """
     _tensor_component(symbol, kind, i, j)
 
-Build the expression that accesses component `(i, j)` of a second-order tensor argument named `symbol`. With `kind = :field` it reads a field's component view (`_tensor2_component_data`); with `kind = :fiber` it indexes a constant `SMatrix`.
+Build the expression that accesses component `(i, j)` of a second-order tensor argument named `symbol`. With `kind = :field` it reads a field's component view (`_tensor2_component_data`); with `kind = :fiber` it indexes a constant `SMatrix`; with `kind = :scalar` it emits the positional scalar argument name `symbol_ij` for a fused values function.
 """
-_tensor_component(symbol, kind, i, j) = kind === :field ? :(_tensor2_component_data($symbol, $i, $j)) : :($symbol[$i, $j])
+_tensor_component(symbol, kind, i, j) = kind === :field  ? :(_tensor2_component_data($symbol, $i, $j)) :
+                                        kind === :scalar ? Symbol(symbol, "_", i, j)                   : :($symbol[$i, $j])
 
 
 """
@@ -632,6 +640,233 @@ _dev_kernel_body() = quote
   $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
       _tensor_component(:A, :field, i, j); alpha_beta = false))
 end
+
+
+
+#########################################################
+#        Fused fiberwise executor (values functions)    #
+#########################################################
+#
+# One portable executor runs every fused fiberwise operation: a pure scalar "values function"
+# maps one element's source values (plus any fiber constants) to the tuple of output values, and
+# the executor streams it over the common linear index range — sources read once into registers,
+# every output written from them, invariant 10's α/β owned centrally. The values functions are
+# stamped below from the SAME per-component formula builders the broadcast kernels use (`kind =
+# :scalar` names the positional scalar arguments; `_undot` drops the dots), so each formula stays
+# written exactly once. All of an element's reads happen before its writes, which makes the pass
+# alias-safe by construction and retires the index-shuffle guard for the operations routed here.
+
+
+"""
+    _undot(expr)
+
+Lower a dotted formula expression to its per-element form: dotted operators (`.+`, `.*`, …) lose
+their dots and dotted calls `f.(x)` become plain calls, recursively. The formula builders above
+emit dotted (broadcast) expressions; the fused values functions evaluate the same tree one
+element at a time, so the arithmetic — and hence the result — is bitwise-identical.
+"""
+function _undot(expr)
+  expr isa Expr || return expr
+  if expr.head === :call && expr.args[1] isa Symbol && startswith(String(expr.args[1]), '.')
+    return Expr(:call, Symbol(String(expr.args[1])[2:end]), map(_undot, expr.args[2:end])...)
+  elseif expr.head === :. && length(expr.args) == 2 && expr.args[2] isa Expr && expr.args[2].head === :tuple
+    return Expr(:call, expr.args[1], map(_undot, expr.args[2].args)...)
+  end
+  return Expr(expr.head, map(_undot, expr.args)...)
+end
+
+
+"""
+    _write_values!(targets, values, alpha, n)
+
+Write `alpha * values[i]` into `targets[i][n]` for every output, unrolled over the (static)
+output count. The real `alpha` keeps the multiply exact for `alpha = 1`, so the plain
+(non-``\\alpha``/``\\beta``) forms stay bitwise-identical to their broadcast predecessors.
+"""
+@inline function _write_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, alpha, n) where {N}
+  ntuple(i -> (@inbounds targets[i][n] = alpha * values[i]; nothing), Val(N))
+  return nothing
+end
+
+
+"""
+    _accumulate_values!(targets, values, alpha, beta, n)
+
+The ``\\beta \\ne 0`` counterpart of [`_write_values!`](@ref): write
+`alpha * values[i] + beta * targets[i][n]`, mirroring the accumulate branch of the broadcast
+kernel bodies expression for expression.
+"""
+@inline function _accumulate_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, alpha, beta, n) where {N}
+  ntuple(i -> (@inbounds targets[i][n] = alpha * values[i] + beta * targets[i][n]; nothing), Val(N))
+  return nothing
+end
+
+
+# One work-item per element: apply the values function and write every output, the α/β branch
+# uniform across items. The source arrays are deliberately not @Const: a target may alias a
+# source (the aliased cross!/transpose! in place), and all of an element's reads precede its
+# writes, so the aliased call is safe and bitwise-identical to the non-aliased one.
+@kernel function _fiberwise_values_kernel!(f, targets, arrays, constants, alpha, beta)
+  n = @index(Global, Linear)
+  @inbounds begin
+    values = f(map(array -> array[n], arrays)..., constants...)
+    if iszero(beta)
+      _write_values!(targets, values, alpha, n)
+    else
+      _accumulate_values!(targets, values, alpha, beta, n)
+    end
+  end
+end
+
+
+"""
+    _fiberwise_pass!(backend, f, targets, arrays, constants, alpha, beta)
+
+Run one fused fiberwise pass `targets ← α f(arrays…, constants…) [+ β targets]` over the common
+linear index range of the participating storage. Here `f` is a pure scalar values function: it
+takes one scalar per entry of `arrays` (that array's element at the running index) followed by
+the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
+Every array element is read once and every output written once, and all of an element's reads
+happen before its writes, so a target may alias a source array — the index-shuffle guard is
+unnecessary on this path. The generic method launches [`_fiberwise_values_kernel!`](@ref) on the
+backend; the `KernelAbstractions.CPU` method runs a slab-threaded `@simd` loop over the linear
+range (component views are contiguous, so linear indexing is stride-1) through the same
+[`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
+element is written once from the same expression.
+"""
+function _fiberwise_pass!(backend, f::F, targets, arrays, constants, alpha, beta) where {F}
+  _fiberwise_values_kernel!(backend)(f, targets, arrays, constants, alpha, beta;
+                                     ndrange = length(targets[1]))
+  synchronize(backend)
+  return nothing
+end
+
+function _fiberwise_pass!(::KernelAbstractions.CPU, f::F, targets::NTuple{NT, Any},
+    arrays, constants, alpha, beta) where {F, NT}
+  elements = eachindex(targets[1])
+  _use_threads(NT * length(elements)) ||
+    return _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, elements)
+  @sync for slab in _index_ranges(elements, Threads.nthreads())
+    Threads.@spawn _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, slab)
+  end
+  return nothing
+end
+
+
+"""
+    _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, elements)
+
+Run [`_fiberwise_pass!`](@ref)'s loop over one contiguous slab of the linear index range, the
+``\\beta`` branch hoisted out of the loop (invariant 10's overwrite-vs-accumulate split).
+"""
+function _fiberwise_slab!(f::F, targets, arrays, constants, alpha, beta, elements) where {F}
+  if iszero(beta)
+    @inbounds @simd for n in elements
+      _write_values!(targets, f(map(array -> array[n], arrays)..., constants...), alpha, n)
+    end
+  else
+    @inbounds @simd for n in elements
+      _accumulate_values!(targets, f(map(array -> array[n], arrays)..., constants...), alpha, beta, n)
+    end
+  end
+  return nothing
+end
+
+
+#############################################
+#        Stamped values functions           #
+#############################################
+#
+# Signature convention: the indexed-array scalars come first, in the order the call site packs
+# its `arrays` tuple (vector components 1:3, tensor components row-major 11, 12, …, 33), followed
+# by the fiber constants verbatim. A suffix names the operand kinds left-to-right: `_ff` both
+# fields, `_fc` field then fiber constant, `_cf` fiber constant then field. Each body is the
+# corresponding formula builder's expression, undotted — the formula is still written only once.
+# The generated methods carry no docstrings, per the codegen rule; `half`/`third` take the real
+# scalar type from the first argument, exactly as the broadcast bodies took `section_scalar_type`.
+
+@eval @inline _cross_values_ff(u_1, u_2, u_3, v_1, v_2, v_3) =
+  ($([_undot(_cross_formula(:u, :scalar, :v, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _cross_values_fc(u_1, u_2, u_3, a) =
+  ($([_undot(_cross_formula(:u, :scalar, :a, :fiber)(i)) for i in 1:3]...),)
+
+@eval @inline _cross_values_cf(u_1, u_2, u_3, a) =
+  ($([_undot(_cross_formula(:a, :fiber, :u, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _tensor_vector_values_ff(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33,
+                                       u_1, u_2, u_3) =
+  ($([_undot(_tensor_vector_formula(:A, :scalar, :u, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _tensor_vector_values_fc(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33, a) =
+  ($([_undot(_tensor_vector_formula(:A, :scalar, :a, :fiber)(i)) for i in 1:3]...),)
+
+@eval @inline _tensor_vector_values_cf(u_1, u_2, u_3, A) =
+  ($([_undot(_tensor_vector_formula(:A, :fiber, :u, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _vector_tensor_values_ff(u_1, u_2, u_3,
+                                       A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33) =
+  ($([_undot(_vector_tensor_formula(:u, :scalar, :A, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _vector_tensor_values_fc(u_1, u_2, u_3, A) =
+  ($([_undot(_vector_tensor_formula(:u, :scalar, :A, :fiber)(i)) for i in 1:3]...),)
+
+@eval @inline _vector_tensor_values_cf(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33, a) =
+  ($([_undot(_vector_tensor_formula(:a, :fiber, :A, :scalar)(i)) for i in 1:3]...),)
+
+@eval @inline _tensor_tensor_values_ff(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33,
+                                       B_11, B_12, B_13, B_21, B_22, B_23, B_31, B_32, B_33) =
+  ($([_undot(_tensor_tensor_formula(:A, :scalar, :B, :scalar)(i, j)) for i in 1:3 for j in 1:3]...),)
+
+@eval @inline _tensor_tensor_values_fc(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33, B) =
+  ($([_undot(_tensor_tensor_formula(:A, :scalar, :B, :fiber)(i, j)) for i in 1:3 for j in 1:3]...),)
+
+@eval @inline _tensor_tensor_values_cf(B_11, B_12, B_13, B_21, B_22, B_23, B_31, B_32, B_33, A) =
+  ($([_undot(_tensor_tensor_formula(:A, :fiber, :B, :scalar)(i, j)) for i in 1:3 for j in 1:3]...),)
+
+@eval @inline _transpose_values(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33) =
+  ($([_undot(_transpose_formula(:A, :scalar)(i, j)) for i in 1:3 for j in 1:3]...),)
+
+@eval @inline function _sym_values(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33)
+  half = inv(real(typeof(A_11))(2))
+  return ($([i == j ? Symbol("A_", i, i) :
+             :(half * ($(Symbol("A_", i, j)) + $(Symbol("A_", j, i)))) for i in 1:3 for j in 1:3]...),)
+end
+
+@eval @inline function _skew_values(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33)
+  half = inv(real(typeof(A_11))(2))
+  return ($([i == j ? :(zero(real(typeof(A_11)))) :
+             :(half * ($(Symbol("A_", i, j)) - $(Symbol("A_", j, i)))) for i in 1:3 for j in 1:3]...),)
+end
+
+@eval @inline function _dev_values(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33)
+  third = inv(real(typeof(A_11))(3))
+  trace = $(_undot(_trace_tensor_rhs(:A, :scalar)))
+  return ($([i == j ? :($(Symbol("A_", i, i)) - third * trace) :
+             Symbol("A_", i, j) for i in 1:3 for j in 1:3]...),)
+end
+
+@eval @inline _det_values(A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33) =
+  ($(_undot(_det_tensor_rhs(:A, :scalar))),)
+
+# The scalar-field action family: one scalar array broadcasts over the fiber, so the fused form
+# reads it once per element where the broadcast route read it once per output component. The
+# products commute bitwise (IEEE multiplication), so operand order here need not mirror the
+# replaced broadcasts.
+@inline _scale_vector_values(s, u_1, u_2, u_3) = (s * u_1, s * u_2, s * u_3)
+@inline _scale_tensor_values(s, A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33) =
+  (s * A_11, s * A_12, s * A_13, s * A_21, s * A_22, s * A_23, s * A_31, s * A_32, s * A_33)
+@inline _scale_fiber_vector_values(s, a) = (s * a[1], s * a[2], s * a[3])
+@inline _scale_fiber_tensor_values(s, A) =
+  (s * A[1, 1], s * A[1, 2], s * A[1, 3], s * A[2, 1], s * A[2, 2], s * A[2, 3],
+   s * A[3, 1], s * A[3, 2], s * A[3, 3])
+@inline _divide_vector_values(s, u_1, u_2, u_3) = (u_1 / s, u_2 / s, u_3 / s)
+@inline _divide_tensor_values(s, A_11, A_12, A_13, A_21, A_22, A_23, A_31, A_32, A_33) =
+  (A_11 / s, A_12 / s, A_13 / s, A_21 / s, A_22 / s, A_23 / s, A_31 / s, A_32 / s, A_33 / s)
+@inline _divide_fiber_vector_values(s, a) = (a[1] / s, a[2] / s, a[3] / s)
+@inline _divide_fiber_tensor_values(s, A) =
+  (A[1, 1] / s, A[1, 2] / s, A[1, 3] / s, A[2, 1] / s, A[2, 2] / s, A[2, 3] / s,
+   A[3, 1] / s, A[3, 2] / s, A[3, 3] / s)
 
 
 end # module FiberSections

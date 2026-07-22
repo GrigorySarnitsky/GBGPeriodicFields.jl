@@ -35,7 +35,15 @@ using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_as
                        _transpose_formula,
                        _norm_scalar_rhs, _norm_vector_rhs, _norm_tensor_rhs,
                        _sym_kernel_body, _skew_kernel_body, _dev_kernel_body,
-                       _trace_tensor_rhs, _det_tensor_rhs
+                       _trace_tensor_rhs, _det_tensor_rhs,
+                       _fiberwise_pass!,
+                       _cross_values_ff, _cross_values_fc, _cross_values_cf,
+                       _tensor_vector_values_ff, _tensor_vector_values_fc, _tensor_vector_values_cf,
+                       _vector_tensor_values_ff, _vector_tensor_values_fc, _vector_tensor_values_cf,
+                       _tensor_tensor_values_ff, _tensor_tensor_values_fc, _tensor_tensor_values_cf,
+                       _transpose_values, _sym_values, _skew_values, _dev_values, _det_values
+
+using KernelAbstractions: get_backend
 using ..Fields: fiber_shape, FiberVector, FiberTensor2
 import Base: +, -, *, /
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
@@ -476,27 +484,11 @@ end
 #   M3 — contractions (reuse builders)
 ####################################
 #
-# The per-component contraction formulas and the kernel-body assembly are imported from
-# FieldAlgebra and reused verbatim: the generated bodies reach components/storage through the
-# section interface above, so they apply to point values unchanged. Only the thin wrappers
-# (point-count checks, the alias guard, the allocator) are point-value specific.
-
-# Alias guard — the point-value counterpart of FieldAlgebra's `_guard_noalias!`, for the
-# index-shuffling operations (cross, transpose, sym/skew/dev) that read several source components
-# while writing each destination component.
-_aliases_destination_pv(destination, operands...) =
-  any(operand -> (operand isa AbstractPointValues) && (field_data(operand) === field_data(destination)), operands)
-
-function _guard_noalias_pv!(kernel!, destination, output_order::Val, operands::Tuple)
-  if _aliases_destination_pv(destination, operands...)
-    temporary = similar_pointvalues(destination, output_order)
-    kernel!(temporary, operands...)
-    copyto!(field_data(destination), field_data(temporary))
-    return destination
-  end
-  return kernel!(destination, operands...)
-end
-
+# The per-component contraction formulas and the fused values functions are imported from
+# FiberSections and reused verbatim: the fused passes reach components/storage through the
+# section interface above, so they apply to point values unchanged, alias-safe by construction
+# (an element's reads precede its writes). Only the thin wrappers (point-count checks, the
+# allocator) are point-value specific.
 
 # --- Inner products (scalar result) ---
 @eval _dot_components_pv!(destination, u::VectorPointValues, v::VectorPointValues) = $(_scalar_kernel_body(_dot_vector_rhs(:u, :field, :v, :field)))
@@ -534,26 +526,46 @@ end
 
 
 # --- Cross products (vector result; index-shuffling ⇒ alias-guarded) ---
-@eval _cross_components_pv!(destination, u::VectorPointValues, v::VectorPointValues) = $(_vector_kernel_body(_cross_formula(:u, :field, :v, :field); alpha_beta = false))
-@eval _cross_components_pv!(destination, u::VectorPointValues, a::FiberVector) = $(_vector_kernel_body(_cross_formula(:u, :field, :a, :fiber); alpha_beta = false))
-@eval _cross_components_pv!(destination, a::FiberVector, u::VectorPointValues) = $(_vector_kernel_body(_cross_formula(:a, :fiber, :u, :field); alpha_beta = false))
+function _cross_components_pv!(destination, u::VectorPointValues, v::VectorPointValues)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _cross_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(component -> _vector_component_data(u, component), Val(3))..., ntuple(component -> _vector_component_data(v, component), Val(3))...), (), one_value, zero(one_value))
+  return destination
+end
+
+function _cross_components_pv!(destination, u::VectorPointValues, a::FiberVector)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _cross_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
+  return destination
+end
+
+function _cross_components_pv!(destination, a::FiberVector, u::VectorPointValues)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _cross_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
+  return destination
+end
 
 function cross!(destination::VectorPointValues{T}, u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, u)
   _check_npoints_match(u, v)
-  return _guard_noalias_pv!(_cross_components_pv!, destination, Val(1), (u, v))
+  return _cross_components_pv!(destination, u, v)
 end
 
 cross(u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), u, v)
 
 function cross!(destination::VectorPointValues{T}, u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, u)
-  return _guard_noalias_pv!(_cross_components_pv!, destination, Val(1), (u, a))
+  return _cross_components_pv!(destination, u, a)
 end
 
 function cross!(destination::VectorPointValues{T}, a::FiberVector{T}, u::VectorPointValues{T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, u)
-  return _guard_noalias_pv!(_cross_components_pv!, destination, Val(1), (a, u))
+  return _cross_components_pv!(destination, a, u)
 end
 
 cross(u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), u, a)
@@ -561,15 +573,69 @@ cross(a::FiberVector{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = cro
 
 
 # --- Tensor-vector and tensor-tensor products (α/β; no alias guard, like mul!) ---
-@eval _tensor_vector_components_pv!(destination, A::TensorPointValues{2}, u::VectorPointValues, α_value, β_value) = $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :u, :field); alpha_beta = true))
-@eval _tensor_vector_components_pv!(destination, A::TensorPointValues{2}, a::FiberVector, α_value, β_value) = $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :a, :fiber); alpha_beta = true))
-@eval _tensor_vector_components_pv!(destination, A::FiberTensor2, u::VectorPointValues, α_value, β_value) = $(_vector_kernel_body(_tensor_vector_formula(:A, :fiber, :u, :field); alpha_beta = true))
-@eval _vector_tensor_components_pv!(destination, u::VectorPointValues, A::TensorPointValues{2}, α_value, β_value) = $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :field); alpha_beta = true))
-@eval _vector_tensor_components_pv!(destination, a::FiberVector, A::TensorPointValues{2}, α_value, β_value) = $(_vector_kernel_body(_vector_tensor_formula(:a, :fiber, :A, :field); alpha_beta = true))
-@eval _vector_tensor_components_pv!(destination, u::VectorPointValues, A::FiberTensor2, α_value, β_value) = $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :fiber); alpha_beta = true))
-@eval _tensor_tensor_components_pv!(destination, A::TensorPointValues{2}, B::TensorPointValues{2}, α_value, β_value) = $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :field); alpha_beta = true))
-@eval _tensor_tensor_components_pv!(destination, A::TensorPointValues{2}, B::FiberTensor2, α_value, β_value) = $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :fiber); alpha_beta = true))
-@eval _tensor_tensor_components_pv!(destination, A::FiberTensor2, B::TensorPointValues{2}, α_value, β_value) = $(_tensor_kernel_body(_tensor_tensor_formula(:A, :fiber, :B, :field); alpha_beta = true))
+function _tensor_vector_components_pv!(destination, A::TensorPointValues{2}, u::VectorPointValues, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_vector_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))..., ntuple(component -> _vector_component_data(u, component), Val(3))...), (), α_value, β_value)
+  return destination
+end
+function _tensor_vector_components_pv!(destination, A::TensorPointValues{2}, a::FiberVector, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_vector_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (a,), α_value, β_value)
+  return destination
+end
+function _tensor_vector_components_pv!(destination, A::FiberTensor2, u::VectorPointValues, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_vector_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (A,), α_value, β_value)
+  return destination
+end
+function _vector_tensor_components_pv!(destination, u::VectorPointValues, A::TensorPointValues{2}, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _vector_tensor_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(component -> _vector_component_data(u, component), Val(3))..., ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), α_value, β_value)
+  return destination
+end
+function _vector_tensor_components_pv!(destination, a::FiberVector, A::TensorPointValues{2}, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _vector_tensor_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (a,), α_value, β_value)
+  return destination
+end
+function _vector_tensor_components_pv!(destination, u::VectorPointValues, A::FiberTensor2, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _vector_tensor_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (A,), α_value, β_value)
+  return destination
+end
+function _tensor_tensor_components_pv!(destination, A::TensorPointValues{2}, B::TensorPointValues{2}, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_tensor_values_ff,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))..., ntuple(n -> _tensor2_component_data(B, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), α_value, β_value)
+  return destination
+end
+function _tensor_tensor_components_pv!(destination, A::TensorPointValues{2}, B::FiberTensor2, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_tensor_values_fc,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (B,), α_value, β_value)
+  return destination
+end
+function _tensor_tensor_components_pv!(destination, A::FiberTensor2, B::TensorPointValues{2}, α_value, β_value)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _tensor_tensor_values_cf,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(B, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (A,), α_value, β_value)
+  return destination
+end
 
 # Five-argument mul!: `destination = α * product + β * destination`. As with LinearAlgebra.mul!,
 # the destination must not alias the inputs (no guard).
@@ -648,11 +714,17 @@ end
 
 
 # --- Transpose (index shuffle ⇒ alias-guarded) ---
-@eval _transpose_components_pv!(destination, A) = $(_tensor_kernel_body(_transpose_formula(:A, :field); alpha_beta = false))
+function _transpose_components_pv!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _transpose_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 function transpose!(destination::TensorPointValues{2, T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, A)
-  return _guard_noalias_pv!(_transpose_components_pv!, destination, Val(2), (A,))
+  return _transpose_components_pv!(destination, A)
 end
 
 transpose(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = transpose!(similar_pointvalues(A, Val(2)), A)
@@ -688,7 +760,13 @@ tr(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = tr!(similar_pointvalue
 
 # --- Determinant (scalar result) ---
 # Body from the shared `_det_tensor_rhs` builder in FiberSections — the same the field determinant uses.
-@eval _det_components_pv!(destination, A::TensorPointValues{2}) = $(_scalar_kernel_body(_det_tensor_rhs(:A, :field)))
+function _det_components_pv!(destination, A::TensorPointValues{2})
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _det_values,
+                   (point_values(destination),),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 function det!(destination::ScalarPointValues{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, A)
@@ -698,14 +776,33 @@ end
 det(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = det!(similar_pointvalues(A, Val(0)), A)
 
 
-# --- Symmetric / skew / deviatoric decompositions (index-shuffling ⇒ alias-guarded) ---
-# Bodies from the shared `_sym_kernel_body` / `_skew_kernel_body` / `_dev_kernel_body` builders in
-# FiberSections (scalar type via `section_scalar_type`) — the same the field decompositions use.
-@eval _sym_components_pv!(destination, A) = $(_sym_kernel_body())
+# --- Symmetric / skew / deviatoric decompositions (fused; the values functions in FiberSections
+# carry the shared formulas, the same the field decompositions use). An element's nine components
+# are read into registers before any output is written, so the guard wrap is retired and `dev!`
+# computes its trace per element instead of materializing it.
+function _sym_components_pv!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _sym_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
-@eval _skew_components_pv!(destination, A) = $(_skew_kernel_body())
+function _skew_components_pv!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _skew_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
-@eval _dev_components_pv!(destination, A) = $(_dev_kernel_body())
+function _dev_components_pv!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(point_values(destination)), _dev_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 for (kernel, bang, allocating) in (
     (:_sym_components_pv!,  :sym!,  :sym),
@@ -715,7 +812,7 @@ for (kernel, bang, allocating) in (
 
   @eval function $bang(destination::TensorPointValues{2, T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat}
     _check_npoints_match(destination, A)
-    return _guard_noalias_pv!($kernel, destination, Val(2), (A,))
+    return $kernel(destination, A)
   end
 
   @eval $allocating(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = $bang(similar_pointvalues(A, Val(2)), A)

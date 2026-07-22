@@ -92,7 +92,19 @@ using ..FiberSections:
   _skew_kernel_body,
   _dev_kernel_body,
   _trace_tensor_rhs,
-  _det_tensor_rhs
+  _det_tensor_rhs,
+  _fiberwise_pass!,
+  _cross_values_ff, _cross_values_fc, _cross_values_cf,
+  _tensor_vector_values_ff, _tensor_vector_values_fc, _tensor_vector_values_cf,
+  _vector_tensor_values_ff, _vector_tensor_values_fc, _vector_tensor_values_cf,
+  _tensor_tensor_values_ff, _tensor_tensor_values_fc, _tensor_tensor_values_cf,
+  _transpose_values, _sym_values, _skew_values, _dev_values, _det_values,
+  _scale_vector_values, _scale_tensor_values,
+  _scale_fiber_vector_values, _scale_fiber_tensor_values,
+  _divide_vector_values, _divide_tensor_values,
+  _divide_fiber_vector_values, _divide_fiber_tensor_values
+
+using KernelAbstractions: get_backend
 
 
 import Base: +, -, *, /, transpose
@@ -172,31 +184,6 @@ Return a `1×1×1` view of the zero Fourier coefficient of one component of a ve
 _spectral_zero_mode_component_data(field::VectorFieldSpectral, component) = view(field_data(field), 1:1, 1:1, 1:1, component:component)
 
 _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, second_index) = view(field_data(field), 1:1, 1:1, 1:1, first_index:first_index, second_index:second_index)
-
-
-"""
-    _aliases_destination(destination, operands...)
-
-Return `true` if `destination` shares its backing array with any field among `operands`. Constant fibers are not fields and never alias. Used by `_guard_noalias!`.
-"""
-_aliases_destination(destination, operands...) = any(operand -> (operand isa AbstractField) && (field_data(operand) === field_data(destination)), operands)
-
-
-"""
-    _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
-
-Run `kernel!(destination, operands...)` while protecting against destination/input aliasing. If `destination` aliases any field in `operands`, run the kernel into a fresh field of tensor order `output_order` and copy the result back; otherwise run in place. Used by index-shuffling operations (cross product, transpose, sym/skew/dev) that read several source components while writing each destination component. The `mul!` operation deliberately skips this guard and documents the no-alias requirement instead, matching the LinearAlgebra convention.
-"""
-function _guard_noalias!(kernel!, destination, output_order::Val, operands::Tuple)
-  if _aliases_destination(destination, operands...)
-    temporary = similar_field(destination, output_order)
-    kernel!(temporary, operands...)
-    copyto!(field_data(destination), field_data(temporary))
-    return destination
-  end
-  return kernel!(destination, operands...)
-end
-
 
 
 
@@ -596,8 +583,21 @@ function _multiply_by_scalar_field!(destination::AbstractFieldPhysical, scalar_f
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
-  @_assign! field_data(destination) .= _scalar_field_broadcast_data(scalar_field, field) .* field_data(field)
-
+  # The fiber cases fuse so the scalar field is read once per element, not once per output
+  # component; the scalar-by-scalar case is a single ideal broadcast already.
+  order = field_tensor_order(field)
+  one_value = one(section_scalar_type(destination))
+  if order == 1
+    _fiberwise_pass!(get_backend(field_data(destination)), _scale_vector_values,
+                     ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                     (field_data(scalar_field), ntuple(component -> _vector_component_data(field, component), Val(3))...), (), one_value, zero(one_value))
+  elseif order == 2
+    _fiberwise_pass!(get_backend(field_data(destination)), _scale_tensor_values,
+                     ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                     (field_data(scalar_field), ntuple(n -> _tensor2_component_data(field, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), one_value, zero(one_value))
+  else
+    @_assign! field_data(destination) .= _scalar_field_broadcast_data(scalar_field, field) .* field_data(field)
+  end
   return destination
 end
 
@@ -606,31 +606,43 @@ end
 # are emitted from their per-component formulas via the kernel-body builders.
 # The multiplication kernels serve both representations, because the operation
 # is linear in the scalar field and therefore stays coefficient-wise.
-@eval function _multiply_scalar_field_by_fiber_vector!(destination, scalar_field, a::FiberVector)
+function _multiply_scalar_field_by_fiber_vector!(destination, scalar_field, a::FiberVector)
   _check_field_domain_compatibility(scalar_field, destination)
-  scalar_data = field_data(scalar_field)
-  $(_vector_kernel_body(i -> _product(:scalar_data, _vector_component(:a, :fiber, i)); alpha_beta = false))
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _scale_fiber_vector_values,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (field_data(scalar_field),), (a,), one_value, zero(one_value))
+  return destination
 end
 
 
-@eval function _multiply_scalar_field_by_fiber_tensor2!(destination, scalar_field, A::FiberTensor2)
+function _multiply_scalar_field_by_fiber_tensor2!(destination, scalar_field, A::FiberTensor2)
   _check_field_domain_compatibility(scalar_field, destination)
-  scalar_data = field_data(scalar_field)
-  $(_tensor_kernel_body((i, j) -> _product(:scalar_data, _tensor_component(:A, :fiber, i, j)); alpha_beta = false))
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _scale_fiber_tensor_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (field_data(scalar_field),), (A,), one_value, zero(one_value))
+  return destination
 end
 
 
-@eval function _divide_fiber_vector_by_scalar_field!(destination::VectorFieldPhysical, a::FiberVector, scalar_field::ScalarFieldPhysical)
+function _divide_fiber_vector_by_scalar_field!(destination::VectorFieldPhysical, a::FiberVector, scalar_field::ScalarFieldPhysical)
   _check_field_domain_compatibility(scalar_field, destination)
-  scalar_data = field_data(scalar_field)
-  $(_vector_kernel_body(i -> :($(_vector_component(:a, :fiber, i)) ./ scalar_data); alpha_beta = false))
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _divide_fiber_vector_values,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (field_data(scalar_field),), (a,), one_value, zero(one_value))
+  return destination
 end
 
 
-@eval function _divide_fiber_tensor2_by_scalar_field!(destination::TensorFieldPhysical{2}, A::FiberTensor2, scalar_field::ScalarFieldPhysical)
+function _divide_fiber_tensor2_by_scalar_field!(destination::TensorFieldPhysical{2}, A::FiberTensor2, scalar_field::ScalarFieldPhysical)
   _check_field_domain_compatibility(scalar_field, destination)
-  scalar_data = field_data(scalar_field)
-  $(_tensor_kernel_body((i, j) -> :($(_tensor_component(:A, :fiber, i, j)) ./ scalar_data); alpha_beta = false))
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _divide_fiber_tensor_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (field_data(scalar_field),), (A,), one_value, zero(one_value))
+  return destination
 end
 
 
@@ -685,8 +697,20 @@ function divide!(destination::AbstractFieldPhysical, field::AbstractFieldPhysica
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
-  @_assign! field_data(destination) .= field_data(field) ./ _scalar_field_broadcast_data(scalar_field, field)
-
+  # The fiber cases fuse so the divisor is read once per element, not once per output component.
+  order = field_tensor_order(field)
+  one_value = one(section_scalar_type(destination))
+  if order == 1
+    _fiberwise_pass!(get_backend(field_data(destination)), _divide_vector_values,
+                     ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                     (field_data(scalar_field), ntuple(component -> _vector_component_data(field, component), Val(3))...), (), one_value, zero(one_value))
+  elseif order == 2
+    _fiberwise_pass!(get_backend(field_data(destination)), _divide_tensor_values,
+                     ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                     (field_data(scalar_field), ntuple(n -> _tensor2_component_data(field, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), one_value, zero(one_value))
+  else
+    @_assign! field_data(destination) .= field_data(field) ./ _scalar_field_broadcast_data(scalar_field, field)
+  end
   return destination
 end
 
@@ -885,23 +909,38 @@ Allocating form of [`cross!`](@ref) (`cross` ``\\equiv \\times``): allocate the 
 cross
 
 
-# Cross-product kernels (vector result). Index-shuffling reads several source
-# components per written component, so the public methods wrap these through
-# `_guard_noalias!`.
-@eval _cross_components_noalias!(destination, u::_VectorField, v::_VectorField) =
-  $(_vector_kernel_body(_cross_formula(:u, :field, :v, :field); alpha_beta = false))
+# Cross-product kernels (vector result), fused: each element's source components are read into
+# registers before any output is written, so the pass is alias-safe by construction and the
+# former `_guard_noalias!` wrap is retired.
+function _cross_components!(destination, u::_VectorField, v::_VectorField)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(component -> _vector_component_data(u, component), Val(3))..., ntuple(component -> _vector_component_data(v, component), Val(3))...), (), one_value, zero(one_value))
+  return destination
+end
 
-@eval _cross_components_noalias!(destination, u::_VectorField, a::FiberVector) =
-  $(_vector_kernel_body(_cross_formula(:u, :field, :a, :fiber); alpha_beta = false))
+function _cross_components!(destination, u::_VectorField, a::FiberVector)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
+  return destination
+end
 
-@eval _cross_components_noalias!(destination, a::FiberVector, u::_VectorField) =
-  $(_vector_kernel_body(_cross_formula(:a, :fiber, :u, :field); alpha_beta = false))
+function _cross_components!(destination, a::FiberVector, u::_VectorField)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
+  return destination
+end
 
 
 function cross!(destination::VectorFieldPhysical{T}, u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
   check_field_compatibility(u, v)
   check_field_compatibility(destination, u)
-  return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (u, v))
+  return _cross_components!(destination, u, v)
 end
 
 function cross(u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
@@ -913,12 +952,12 @@ for (VectorField,) in ((:VectorFieldPhysical,), (:VectorFieldSpectral,))
 
   @eval function cross!(destination::$VectorField{T}, u::$VectorField{T}, a::FiberVector{T}) where {T<:AbstractFloat}
     check_field_compatibility(destination, u)
-    return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (u, a))
+    return _cross_components!(destination, u, a)
   end
 
   @eval function cross!(destination::$VectorField{T}, a::FiberVector{T}, u::$VectorField{T}) where {T<:AbstractFloat}
     check_field_compatibility(destination, u)
-    return _guard_noalias!(_cross_components_noalias!, destination, Val(1), (a, u))
+    return _cross_components!(destination, a, u)
   end
 
   @eval cross(u::$VectorField{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cross!(similar_field(u, Val(1)), u, a)
@@ -962,34 +1001,70 @@ mul!
 
 # Tensor-vector kernels (vector result, α/β accumulation). No alias guard:
 # mul! documents that the destination must not alias the inputs.
-@eval _tensor_vector_components!(destination, A::_Tensor2Field, u::_VectorField, α_value, β_value) =
-  $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :u, :field); alpha_beta = true))
+function _tensor_vector_components!(destination, A::_Tensor2Field, u::_VectorField, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_vector_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))..., ntuple(component -> _vector_component_data(u, component), Val(3))...), (), α_value, β_value)
+  return destination
+end
 
-@eval _tensor_vector_components!(destination, A::_Tensor2Field, a::FiberVector, α_value, β_value) =
-  $(_vector_kernel_body(_tensor_vector_formula(:A, :field, :a, :fiber); alpha_beta = true))
+function _tensor_vector_components!(destination, A::_Tensor2Field, a::FiberVector, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_vector_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (a,), α_value, β_value)
+  return destination
+end
 
-@eval _tensor_vector_components!(destination, A::FiberTensor2, u::_VectorField, α_value, β_value) =
-  $(_vector_kernel_body(_tensor_vector_formula(:A, :fiber, :u, :field); alpha_beta = true))
+function _tensor_vector_components!(destination, A::FiberTensor2, u::_VectorField, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_vector_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (A,), α_value, β_value)
+  return destination
+end
 
-@eval _vector_tensor_components!(destination, u::_VectorField, A::_Tensor2Field, α_value, β_value) =
-  $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :field); alpha_beta = true))
+function _vector_tensor_components!(destination, u::_VectorField, A::_Tensor2Field, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _vector_tensor_values_ff,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   (ntuple(component -> _vector_component_data(u, component), Val(3))..., ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), α_value, β_value)
+  return destination
+end
 
-@eval _vector_tensor_components!(destination, a::FiberVector, A::_Tensor2Field, α_value, β_value) =
-  $(_vector_kernel_body(_vector_tensor_formula(:a, :fiber, :A, :field); alpha_beta = true))
+function _vector_tensor_components!(destination, a::FiberVector, A::_Tensor2Field, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _vector_tensor_values_cf,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (a,), α_value, β_value)
+  return destination
+end
 
-@eval _vector_tensor_components!(destination, u::_VectorField, A::FiberTensor2, α_value, β_value) =
-  $(_vector_kernel_body(_vector_tensor_formula(:u, :field, :A, :fiber); alpha_beta = true))
+function _vector_tensor_components!(destination, u::_VectorField, A::FiberTensor2, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _vector_tensor_values_fc,
+                   ntuple(component -> _vector_component_data(destination, component), Val(3)),
+                   ntuple(component -> _vector_component_data(u, component), Val(3)), (A,), α_value, β_value)
+  return destination
+end
 
 
-# Tensor-tensor kernels (tensor result, α/β accumulation).
-@eval _tensor_tensor_components!(destination, A::_Tensor2Field, B::_Tensor2Field, α_value, β_value) =
-  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :field); alpha_beta = true))
+# Tensor-tensor kernels (tensor result, α/β accumulation), fused like the tensor-vector family.
+function _tensor_tensor_components!(destination, A::_Tensor2Field, B::_Tensor2Field, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_tensor_values_ff,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))..., ntuple(n -> _tensor2_component_data(B, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...), (), α_value, β_value)
+  return destination
+end
 
-@eval _tensor_tensor_components!(destination, A::_Tensor2Field, B::FiberTensor2, α_value, β_value) =
-  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :field, :B, :fiber); alpha_beta = true))
+function _tensor_tensor_components!(destination, A::_Tensor2Field, B::FiberTensor2, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_tensor_values_fc,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (B,), α_value, β_value)
+  return destination
+end
 
-@eval _tensor_tensor_components!(destination, A::FiberTensor2, B::_Tensor2Field, α_value, β_value) =
-  $(_tensor_kernel_body(_tensor_tensor_formula(:A, :fiber, :B, :field); alpha_beta = true))
+function _tensor_tensor_components!(destination, A::FiberTensor2, B::_Tensor2Field, α_value, β_value)
+  _fiberwise_pass!(get_backend(field_data(destination)), _tensor_tensor_values_cf,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(B, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (A,), α_value, β_value)
+  return destination
+end
 
 
 # --- Tensor-vector mul! (five-argument forms) ---
@@ -1133,15 +1208,22 @@ Pointwise over the base:
 transpose!
 
 
-@eval _transpose_components_noalias!(destination, A) =
-  $(_tensor_kernel_body(_transpose_formula(:A, :field); alpha_beta = false))
+# Fused: each element's nine components are read into registers before any output is written,
+# so the in-place transpose needs no guard temporary and may alias freely.
+function _transpose_components!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _transpose_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 
 for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
 
   @eval function transpose!(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
     check_field_compatibility(destination, A)
-    return _guard_noalias!(_transpose_components_noalias!, destination, Val(2), (A,))
+    return _transpose_components!(destination, A)
   end
 
   @eval transpose(A::$Tensor2Field{T}) where {T<:AbstractFloat} = transpose!(similar_field(A, Val(2)), A)
@@ -1284,7 +1366,13 @@ only. See [`det!`](@ref) for the componentwise formula. (A single `FiberTensor2`
 det
 
 
-@eval _det_components!(destination, A::TensorFieldPhysical{2}) = $(_scalar_kernel_body(_det_tensor_rhs(:A, :field)))
+function _det_components!(destination, A::TensorFieldPhysical{2})
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _det_values,
+                   (field_data(destination),),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 
 function det!(destination::ScalarFieldPhysical{T}, A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat}
@@ -1376,27 +1464,46 @@ Allocate the result and compute the deviatoric part of a second-order tensor: fi
 function dev end
 
 
-# Decomposition kernels — bodies from the shared `_sym_kernel_body` / `_skew_kernel_body` /
-# `_dev_kernel_body` builders in FiberSections (the same builders the point algebra uses, so the
-# formula is written once). Index-shuffling, so wrapped by the guard.
-@eval _sym_components_noalias!(destination, A) = $(_sym_kernel_body())
+# Decomposition kernels — the values functions in FiberSections carry the shared formulas (the
+# same source the point algebra uses, so each is written once). Fused: an element's nine
+# components are read into registers before any output is written, so the former guard wrap is
+# retired, and `dev!` no longer materializes its trace field (the trace is computed per element).
+function _sym_components!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _sym_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
-@eval _skew_components_noalias!(destination, A) = $(_skew_kernel_body())
+function _skew_components!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _skew_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
-@eval _dev_components_noalias!(destination, A) = $(_dev_kernel_body())
+function _dev_components!(destination, A)
+  one_value = one(section_scalar_type(destination))
+  _fiberwise_pass!(get_backend(field_data(destination)), _dev_values,
+                   ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
+  return destination
+end
 
 
 for (kernel, bang, allocating) in (
-    (:_sym_components_noalias!,  :sym!,  :sym),
-    (:_skew_components_noalias!, :skew!, :skew),
-    (:_dev_components_noalias!,  :dev!,  :dev),
+    (:_sym_components!,  :sym!,  :sym),
+    (:_skew_components!, :skew!, :skew),
+    (:_dev_components!,  :dev!,  :dev),
   )
 
   for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
 
     @eval function $bang(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
       check_field_compatibility(destination, A)
-      return _guard_noalias!($kernel, destination, Val(2), (A,))
+      return $kernel(destination, A)
     end
 
     @eval $allocating(A::$Tensor2Field{T}) where {T<:AbstractFloat} = $bang(similar_field(A, Val(2)), A)

@@ -19,7 +19,8 @@
 # constant path updates only the zero mode), tensor orders R = 0/1/2, the field·field / field·constant /
 # constant·field argument patterns, the three-argument and five-argument (α/β) forms, the field surface
 # AND the point-value surface, and the grid↔point spline transfer. The deliberate allocators
-# (`norm!`/`dev!`/`lpnorm`/`std`/`var` materialize one field by design; the radial diagnostics allocate a
+# (`norm!`/`lpnorm`/`std`/`var` materialize one field by design — `dev!` no longer does, its trace fused
+# into the executor pass; the radial diagnostics allocate a
 # bounded O(1) set per call) get a *bounded* guard instead of a zero guard — enough to catch a regression
 # to O(N) or O(shells) without forbidding their one-field temporary.
 #
@@ -214,8 +215,9 @@ end
       @alloc_below field_threshold sym!(ptd, pt)
       @alloc_below field_threshold sym!(std_, st)
       @alloc_below field_threshold skew!(ptd, pt)
+      @alloc_below field_threshold dev!(ptd, pt)   # fused: the trace is a register, not a field (was a documented materializer)
       @alloc_below field_threshold skew!(std_, st)
-      @alloc_below field_threshold tr!(psd, pt)                # linear tensor → scalar, fused (unlike dev!)
+      @alloc_below field_threshold tr!(psd, pt)                # linear tensor → scalar, fused
       @alloc_below field_threshold tr!(ssd, st)
       @alloc_below field_threshold det!(psd, pt)               # nonlinear tensor → scalar, fused (physical only)
 
@@ -350,10 +352,11 @@ end
 end
 
 
-# The documented diagnostic allocators: `norm!`/`lpnorm` materialize the pointwise magnitude, `dev!` the
-# trace it subtracts, and `radial_correlation` a bounded O(1) set — the per-component power field it
+# The documented diagnostic allocators: `norm!`/`lpnorm` materialize the pointwise magnitude, and
+# `radial_correlation` a bounded O(1) set — the per-component power field it
 # transforms plus the allocating inverse transform (whose input copy is invariant-11 semantics); its
-# staging arrays fused into the binning kernel (decision 34). They are NOT alloc-free by design — they
+# staging arrays fused into the binning kernel (decision 34). (`dev!` left this list when the fused
+# executor made its trace a per-element register — it is pinned in the main audit now.) They are NOT alloc-free by design — they
 # are diagnostics whose cost is a few whole fields, not hot-loop calls. This guard only bounds them so a
 # regression to O(N) extra (or, for the binning, back to O(shells) ≈ 220 fields) is caught while the
 # legitimate few-field temporaries are allowed. `radial_spectrum` no longer belongs here: since its
@@ -375,7 +378,6 @@ end
 
       bound = 8 * sizeof(field_data(pv))            # ≤ 8 physical vector fields; an O(shells) regression is ~220
       @alloc_below bound norm!(ps, pv)
-      @alloc_below bound dev!(ptd, pt)
       @alloc_below bound lpnorm(pv, 3)
       @alloc_below bound radial_correlation(vs, vplans)
       @alloc_below bound radial_correlation(vs, vs, vplans)

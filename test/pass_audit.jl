@@ -155,8 +155,7 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     s = sphys(); parent(carr(s)) .+= 2        # nonzero divisor
     audit(() -> divide!(d, a, s), "divide! by a scalar field",
       Traffic("a", carr(a), (3P, 0)), Traffic("dest", carr(d), (0, 3P)),
-      Traffic("divisor", carr(s), (3P, 0), (P, 0),
-              "the scalar field broadcasts over the fiber: one read per output component"))
+      Traffic("divisor", carr(s), (P, 0)))                # fused: the divisor is read once per element
   end
 
   # ---------------------------------------------------------------- M3 field algebra (physical)
@@ -166,27 +165,22 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     audit(() -> dot!(sd, u, v), "dot!",
       Traffic("u", carr(u), (3P, 0)), Traffic("v", carr(v), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
     audit(() -> cross!(w, u, v), "cross!",
-      Traffic("u", carr(u), (6P, 0), (3P, 0),
-              "each source component appears in two output component formulas"),
-      Traffic("v", carr(v), (6P, 0), (3P, 0),
-              "each source component appears in two output component formulas"),
+      Traffic("u", carr(u), (3P, 0)),                     # fused one-pass (was 6P: two formulas per component)
+      Traffic("v", carr(v), (3P, 0)),
       Traffic("dest", carr(w), (0, 3P)))
     audit(() -> mul!(w, A, u), "mul! tensor·vector",
       Traffic("A", carr(A), (9P, 0)),
-      Traffic("u", carr(u), (9P, 0), (3P, 0),
-              "each vector component appears in all three output component formulas"),
+      Traffic("u", carr(u), (3P, 0)),                     # fused one-pass (was 9P: read per output formula)
       Traffic("dest", carr(w), (0, 3P)))
     audit(() -> transpose!(B, A), "transpose!",
       Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
     audit(() -> sym!(B, A), "sym!",
-      Traffic("A", carr(A), (15P, 0), (9P, 0),
-              "each off-diagonal component feeds two output formulas (the diagonal one)"),
+      Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: off-diagonals fed two formulas)
       Traffic("dest", carr(B), (0, 9P)))
     audit(() -> tr!(sd, A), "tr!",
       Traffic("A", carr(A), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
     audit(() -> det!(sd, A), "det!",
-      Traffic("A", carr(A), (15P, 0), (9P, 0),
-              "the cofactor expansion reads the second and third rows twice"),
+      Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: cofactor re-reads)
       Traffic("dest", carr(sd), (0, P)))
   end
 
