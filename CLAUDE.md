@@ -806,7 +806,9 @@ those are the usual rot. Then the mechanical bar:
    so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced
    operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the Enteropia archive is re-swept post-fix
    (`e6e8a76`); the Aiporetne columns refresh on that host's next sweep. The **three
-   `KernelAbstractions` sites are outside this policy** and are covered separately in the same file:
+   `KernelAbstractions` sites are outside this policy** (the KA-everywhere trio — helmholtz, the
+   transfer, the binning; the decision-38/39 kernels run *gated* CPU loops instead) and are covered
+   separately in the same file:
    a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
    `with_threading` override, so toggling it compares a path against itself — the check varies the
    thread count across a subprocess instead. The disjoint-write pair (`helmholtz_projection!`, the
