@@ -127,7 +127,9 @@ reproduces the field value and the derivatives of order ``1, \\dots, m`` at the 
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
 ``2n{+}1``-node stencil about that node (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
-(``w_q(t) = \\sum_r \\mathrm{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
+(``w_q(t) = \\sum_r \\texttt{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
+
+The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
 
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
@@ -167,11 +169,9 @@ nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0`
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
 `coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly, but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
-linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_polys`.
+linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_polys`. The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
 
-# References
-
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+Reference: C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -501,6 +501,7 @@ Evaluate `field` at a single off-grid position `x` (a length-3 indexable), retur
 `SVector{3}`, or an `SMatrix{3,3}` for a scalar, vector, or second-order-tensor field. This is the
 ergonomic face of a one-point [`interpolate`](@ref) gather: it builds a one-point set and runs the spline
 kernel. For many points, call [`interpolate`](@ref) with a [`PointSet`](@ref) instead.
+The `scheme` keyword selects the transfer scheme, `CatmullRom` by default.
 """
 function (field::AbstractFieldPhysical)(x; scheme::AbstractSplineScheme = CatmullRom)
   T = field_scalar_type(field)
@@ -524,7 +525,7 @@ end
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
 [`interpolate!`](@ref) under the same `scheme` — computing
-``\\mathrm{field} = \\alpha (W^\\top q) + \\beta \\mathrm{field}``; returns `field`. This is the
+``\\texttt{field} = \\alpha (W^\\top q) + \\beta \\texttt{field}``; returns `field`. This is the
 in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
@@ -942,9 +943,7 @@ relation, and like it reconstructs the band-limited field (divergence-free).
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.
 
-# References
-
-  * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
 struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
   width::Int

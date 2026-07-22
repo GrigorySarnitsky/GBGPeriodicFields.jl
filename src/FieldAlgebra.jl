@@ -500,7 +500,7 @@ place.
 
 # The kernel-composed form
 
-Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, exactly as `convolve!` takes
+Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, a scalar field in spectral representation (a `ScalarFieldSpectral`), exactly as `convolve!` takes
 it — convolves the combination with the kernel in the same fused pass. As a real physical object the
 result is the kernel-weighted local average of the combination, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,

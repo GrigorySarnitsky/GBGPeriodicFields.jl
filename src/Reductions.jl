@@ -488,7 +488,7 @@ otherwise), ``N`` the number of grid points, and ``c`` indexing the fiber compon
   = \\frac{1}{N^2} \\sum_{k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
 ```
 
-It equals the naive ``\\mathrm{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent
+It equals the naive ``\\texttt{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent
 projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the single-weight pairing
 ``\\langle f, w g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
 symmetric in `f`, `g` and may be negative.
@@ -747,8 +747,8 @@ C_{fg}(r) = \\frac{1}{N} \\sum_x f(x)\\cdot g(x+r) = \\frac{1}{N} \\mathcal F^{-
 ```
 
 followed by the shell average ``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
-separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\mathrm{inner}(f, f)`` and
-``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\mathrm{inner}(f, g)`` — `inner` resolved over physical
+separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\texttt{inner}(f, f)`` and
+``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\texttt{inner}(f, g)`` — `inner` resolved over physical
 separation exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair: ``\\mathcal F C = |\\hat f|^2``,
 ``\\mathcal F C_{fg} = \\overline{\\hat f} \\hat g``). The one-argument form is the ``g = f`` case; the
 radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
@@ -763,7 +763,7 @@ directions; shells from there out to the corner keep only the box-diagonal direc
 sampled). And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
 the field correlating with its own periodic image, not a true infinite-domain correlation — so a consumer
 extracts an integral scale only out to where ``C`` has decayed (e.g. the first zero crossing), not the full
-curve. As with the spectrum the *total* is unaffected: ``C(0) = \\mathrm{inner}(f, f)`` exactly.
+curve. As with the spectrum the *total* is unaffected: ``C(0) = \\texttt{inner}(f, f)`` exactly.
 
 It takes spectral input only, since it needs the inverse transform, and it is GPU-portable: one inverse
 transform plus a single binning pass.

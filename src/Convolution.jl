@@ -544,7 +544,7 @@ Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spect
 Use it as the neutral radial coordinate of spectral space: a consumer builds a Fourier symbol from it
 — a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
 subgrid test filter of the dynamic procedure of Germano and coworkers (an LES closure choice) — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
-The package supplies the coordinate, while ``\\nu``, ``\\Delta t``, and any filter width stay
+The package supplies the coordinate, while ``\\nu`` and ``\\Delta t`` (a viscosity and a step size — physics) and any filter width stay
 consumer-side. For a symbol of the exponential family specifically,
 [`exponential_convolve!`](@ref) applies ``\\exp(c |k|^2 + s \\hat w)`` straight from the wavenumber
 arrays, with no kernel field built at all.
