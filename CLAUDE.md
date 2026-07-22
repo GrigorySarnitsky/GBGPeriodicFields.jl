@@ -958,7 +958,7 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   split (shear-flow anisotropy diagnostics); higher positive-B-spline / signed-kernel RDF windows +
   interlacing; matrix-valued convolution kernels (threaded reductions landed — decision 40). Shear-flow support (Rogallo
   time-dependent multipliers + remeshing) stays consumer-side.
-- **The canary-judge benchmark lane (designed 2026-07-22, not built).** The last unautomated
+- **The canary-judge benchmark lane — BUILT (`benchmark/regress.jl`, 2026-07-22).** The last unautomated
   regression layer: achieved-TIME regressions (SIMD loss, launch drift, library bumps) — the class
   `pass_audit`/`allocations`/JET cannot see, and the one that let the threading inversion sit in the
   committed table for six weeks. Shape: a per-mechanism canary suite (~10 ops × one size/type,
@@ -967,8 +967,11 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   25% tolerance (≥2× documented jitter) with a nonzero exit on regression, an explicit
   `tN ≤ 1.1·t1` streaming-op assertion, and the pass-audit refreeze protocol (an intended slowdown
   refreezes its baseline in the same commit, with the reason). Per-host, never cross-host; both
-  backends; NOT CI (cost policy; cloud runners are noise). ~1–2 h to build + Enteropia baselines;
-  Aiporetne baselines land with that host's pending post-rewrite re-sweep.
+  backends; NOT CI (cost policy; cloud runners are noise). Enteropia baselines committed
+  (`benchmark/baselines/`: cpu-t1, cpu-t8, cuda; calibration 100 samples × 5 evals — 20 samples
+  let µs-canaries false-alarm); Aiporetne's freeze lands with that host's pending re-sweep.
+  **Definition-of-done addition: a perf-relevant change runs `regress.jl` green, or refreezes with
+  its reason in the same commit.**
 - **The audit-exchange declines and standing candidates (decision 35).** No general fusion API — the
   named-op + adversarial-triage protocol IS the fusion mechanism; the broadcast layer is internal, not a
   public contract (§8). Two **validity-closed escalation paths**, recorded not built: radial real

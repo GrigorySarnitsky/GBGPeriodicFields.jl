@@ -517,15 +517,21 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
    ceiling is safe. `Enteropia` now also contributes its **9800X3D** CPU thread sweep beside the
    i7-12700K (host `Aiporetne`).
-3. **Automated time-regression detection** — designed, on the roadmap (the "canary-judge lane" in
-   `CLAUDE.md`'s planned directions), not built. The stack automates traffic (`pass_audit`),
-   allocation, and inference regressions but leaves achieved *time* to a manually triggered
-   `judge` — the gap that let finding (l)'s threading inversion sit in the committed table
-   unnoticed. The designed shape: a per-mechanism canary suite (minutes, not the full sweep),
-   frozen per-host baselines committed beside the code, `BenchmarkTools.judge` at a 25% tolerance
-   with a hard exit code, a ``t_N \le 1.1 t_1`` streaming assertion, and the pass-audit refreeze
-   protocol for intended slowdowns. Deliberately **not** push-triggered CI (cost policy; shared
-   runners are noise): the `BenchmarkGroup` layout still keeps
+3. **Automated time-regression detection — BUILT (`benchmark/regress.jl`, 2026-07-22).** One
+   canary per execution *mechanism* (twelve: the broadcast route, each fused-kernel class, the
+   tree reductions, FFT, transfer gather/scatter, the binning) at ``128^3`` `Float64`,
+   ``\sim``1–2 minutes per backend, judged on minimum times against a **committed** per-host
+   baseline (`benchmark/baselines/<host>-<backend>[-tN].json`) at a 25% tolerance with a hard
+   exit code, plus the CPU serial-vs-threaded alarm ``t_\mathrm{threaded} \le 1.1
+   t_\mathrm{serial}`` on every override-governed canary — the alarm finding (l) lacked.
+   Refreeze protocol: an intended slowdown reruns with `--freeze` **in the same commit**, with the
+   reason. Calibration lesson from its first run, recorded so it is not relearned: 20 samples of a
+   ``\sim``250 µs canary let minima jitter ``\sim 2\times`` at eight threads and false-alarm;
+   the frozen calibration is 100 samples × 5 evals (batch-averaged minima), which held 12/12
+   invariant across repeated judges on both backends. Enteropia baselines (cpu-t1, cpu-t8, cuda)
+   are committed; Aiporetne's freeze with that host's pending re-sweep. Deliberately **not**
+   push-triggered CI (cost policy; shared runners are noise): the `BenchmarkGroup` layout still
+   keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or
    [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in if a CI story ever
    changes.
