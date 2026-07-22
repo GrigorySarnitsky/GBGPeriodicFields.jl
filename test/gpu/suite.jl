@@ -317,6 +317,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       k2_d = squared_wavenumber_field(phi_spec_d, mult_d)
       @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
                     exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
+      # the fiber-extruded offset: a VECTOR field with the per-mode ŵ (the pass-audit ŵ row's GPU twin)
+      @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
+                    exponential_convolve(u_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
       combined_h = T(1) * u_spec_h;  combined_d = on_device(combined_h)
       exponential_convolve!(combined_h, T(3) / 10, u_spec_h, T(7) / 10, combined_h, mult_h, T(-1) / 20)
       exponential_convolve!(combined_d, T(3) / 10, u_spec_d, T(7) / 10, combined_d, mult_d, T(-1) / 20)
