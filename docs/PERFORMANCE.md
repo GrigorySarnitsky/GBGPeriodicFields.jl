@@ -517,9 +517,18 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
    ceiling is safe. `Enteropia` now also contributes its **9800X3D** CPU thread sweep beside the
    i7-12700K (host `Aiporetne`).
-3. **Automated CI regression** — deferred. The `BenchmarkGroup` layout keeps
-   [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) (PR-over-PR CPU
-   comparison) or [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in later.
+3. **Automated time-regression detection** — designed, on the roadmap (the "canary-judge lane" in
+   `CLAUDE.md`'s planned directions), not built. The stack automates traffic (`pass_audit`),
+   allocation, and inference regressions but leaves achieved *time* to a manually triggered
+   `judge` — the gap that let finding (l)'s threading inversion sit in the committed table
+   unnoticed. The designed shape: a per-mechanism canary suite (minutes, not the full sweep),
+   frozen per-host baselines committed beside the code, `BenchmarkTools.judge` at a 25% tolerance
+   with a hard exit code, a `tN ≤ 1.1·t1` streaming assertion, and the pass-audit refreeze
+   protocol for intended slowdowns. Deliberately **not** push-triggered CI (cost policy; shared
+   runners are noise): the `BenchmarkGroup` layout still keeps
+   [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or
+   [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in if a CI story ever
+   changes.
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values.
