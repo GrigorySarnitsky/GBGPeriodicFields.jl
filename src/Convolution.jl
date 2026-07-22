@@ -49,7 +49,10 @@ using ..Fields:
 
 using ..FiberSections:
   _assign!,
-  @_assign!
+  @_assign!,
+  _fiberwise_pass!
+
+using KernelAbstractions: get_backend
 
 # Extended with the kernel-composed method (the weighted combination convolved in the same pass);
 # the generic and its docstring live in FieldAlgebra, the kerneled method here with the kernels.
@@ -75,12 +78,45 @@ The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber com
 call branches on `iszero(beta)` to overwrite or accumulate. The product is coefficientwise, so it is
 aliasing-safe: `destination_data` may be `source_data` or the kernel.
 """
-function _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 3}, source_data, kernel_data, alpha, beta)
   if iszero(beta)
     @_assign! destination_data .= alpha .* kernel_data .* source_data
   else
     @_assign! destination_data .= alpha .* kernel_data .* source_data .+ beta .* destination_data
   end
+  return destination_data
+end
+
+# The fiber cases fuse through the generic executor so the scalar kernel is read once per mode,
+# not once per fiber component. The values functions fold α as `(α ĝ) f̂` — the broadcast's own
+# association — so the fused result is bitwise-identical; the executor's own α is then the exact
+# one(T), and its β carries the accumulate (reading the destination only when β ≠ 0).
+@inline function _convolve_vector_values(kernel_value, source_1, source_2, source_3, alpha)
+  scaled = alpha * kernel_value
+  return (scaled * source_1, scaled * source_2, scaled * source_3)
+end
+
+@inline function _convolve_tensor_values(kernel_value, source_11, source_12, source_13,
+    source_21, source_22, source_23, source_31, source_32, source_33, alpha)
+  scaled = alpha * kernel_value
+  return (scaled * source_11, scaled * source_12, scaled * source_13,
+          scaled * source_21, scaled * source_22, scaled * source_23,
+          scaled * source_31, scaled * source_32, scaled * source_33)
+end
+
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 4}, source_data, kernel_data, alpha, beta)
+  _fiberwise_pass!(get_backend(destination_data), _convolve_vector_values,
+                   ntuple(component -> view(destination_data, :, :, :, component), Val(3)),
+                   (kernel_data, ntuple(component -> view(source_data, :, :, :, component), Val(3))...),
+                   (alpha,), one(alpha), beta)
+  return destination_data
+end
+
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 5}, source_data, kernel_data, alpha, beta)
+  _fiberwise_pass!(get_backend(destination_data), _convolve_tensor_values,
+                   ntuple(n -> view(destination_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (kernel_data, ntuple(n -> view(source_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...),
+                   (alpha,), one(alpha), beta)
   return destination_data
 end
 
@@ -198,8 +234,47 @@ coefficientwise pass (``\\hat g`` = `kernel_data`). The scalar `kernel_data` bro
 fiber components exactly as in `_apply_convolution!`, and the product is coefficientwise, so the
 destination may alias either operand or the kernel.
 """
-function _apply_convolution_combination!(destination_data, a_data, b_data, kernel_data, alpha, beta)
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 3}, a_data, b_data, kernel_data, alpha, beta)
   @_assign! destination_data .= kernel_data .* (alpha .* a_data .+ beta .* b_data)
+  return destination_data
+end
+
+# The fiber cases fuse like `_apply_convolution!` above: ĝ read once per mode. The executor's β
+# is zero — the combination's own β lives inside the values (the `b === destination` filtered
+# accumulate stays safe: an element's operands are read before its destination is written).
+@inline function _combine_kernel_vector_values(kernel_value, a_1, a_2, a_3, b_1, b_2, b_3, alpha, beta)
+  return (kernel_value * (alpha * a_1 + beta * b_1),
+          kernel_value * (alpha * a_2 + beta * b_2),
+          kernel_value * (alpha * a_3 + beta * b_3))
+end
+
+@inline function _combine_kernel_tensor_values(kernel_value,
+    a_11, a_12, a_13, a_21, a_22, a_23, a_31, a_32, a_33,
+    b_11, b_12, b_13, b_21, b_22, b_23, b_31, b_32, b_33, alpha, beta)
+  return (kernel_value * (alpha * a_11 + beta * b_11), kernel_value * (alpha * a_12 + beta * b_12),
+          kernel_value * (alpha * a_13 + beta * b_13), kernel_value * (alpha * a_21 + beta * b_21),
+          kernel_value * (alpha * a_22 + beta * b_22), kernel_value * (alpha * a_23 + beta * b_23),
+          kernel_value * (alpha * a_31 + beta * b_31), kernel_value * (alpha * a_32 + beta * b_32),
+          kernel_value * (alpha * a_33 + beta * b_33))
+end
+
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 4}, a_data, b_data, kernel_data, alpha, beta)
+  _fiberwise_pass!(get_backend(destination_data), _combine_kernel_vector_values,
+                   ntuple(component -> view(destination_data, :, :, :, component), Val(3)),
+                   (kernel_data,
+                    ntuple(component -> view(a_data, :, :, :, component), Val(3))...,
+                    ntuple(component -> view(b_data, :, :, :, component), Val(3))...),
+                   (alpha, beta), one(alpha), zero(alpha))
+  return destination_data
+end
+
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 5}, a_data, b_data, kernel_data, alpha, beta)
+  _fiberwise_pass!(get_backend(destination_data), _combine_kernel_tensor_values,
+                   ntuple(n -> view(destination_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
+                   (kernel_data,
+                    ntuple(n -> view(a_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...,
+                    ntuple(n -> view(b_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...),
+                   (alpha, beta), one(alpha), zero(alpha))
   return destination_data
 end
 

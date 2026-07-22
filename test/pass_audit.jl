@@ -237,12 +237,10 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     g = counted_kernel()
     audit(() -> convolve!(d, f, g), "convolve! vector",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
-      Traffic("kernel", carr(g), (3M, 0), (M, 0),
-              "the broadcast re-reads the scalar kernel once per fiber component"))
+      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
     audit(() -> convolve!(d, f, g, 0.5, 2.0), "convolve! α/β",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)),
-      Traffic("kernel", carr(g), (3M, 0), (M, 0),
-              "the broadcast re-reads the scalar kernel once per fiber component"))
+      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1), "exponential_convolve!",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers, -0.1),
@@ -250,8 +248,7 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     audit(() -> combine!(d, 0.3, a, 0.7, b, g), "combine!∘kernel",
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
-      Traffic("kernel", carr(g), (3M, 0), (M, 0),
-              "the broadcast re-reads the scalar kernel once per fiber component"))
+      Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
   end
 
   # ---------------------------------------------------------------- reductions
