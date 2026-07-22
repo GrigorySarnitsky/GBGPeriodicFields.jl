@@ -223,18 +223,76 @@ Launch `_helmholtz_projection_kernel!` over the spectral mode grid on the backen
 `alpha`/`beta`. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
 plain projection. Shared by every `helmholtz_projection!` method.
 """
+# The gated CPU twin of the projection kernel (the decision-38 pattern): the same per-mode
+# arithmetic as `_helmholtz_projection_kernel!`, expression for expression, so the two engines are
+# bitwise-equal — but run as a slab-threaded stride-1 loop through the `_use_threads` gate, which a
+# KA launch cannot consult. Alias-safe for the same reason as the kernel: all of a mode's reads
+# precede its writes.
+function _helmholtz_projection_modes!(::KernelAbstractions.CPU,
+    destination_1, destination_2, destination_3, source_1, source_2, source_3,
+    wavenumber_1, wavenumber_2, wavenumber_3,
+    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+    kernel_data, alpha, beta)
+  axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
+  _foreach_outer_slab(axes(source_1, 3), 3 * length(source_1)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      wavenumber_value_3 = wavenumber_3[mode_3]
+      squared_3 = squared_wavenumber_3[mode_3]
+      for mode_2 in axis_2
+        wavenumber_value_2 = wavenumber_2[mode_2]
+        squared_23 = squared_wavenumber_2[mode_2] + squared_3
+        @simd for mode_1 in axis_1
+          wavenumber_value_1 = wavenumber_1[mode_1]
+          squared = squared_wavenumber_1[mode_1] + squared_23
+          source_value_1 = source_1[mode_1, mode_2, mode_3]
+          source_value_2 = source_2[mode_1, mode_2, mode_3]
+          source_value_3 = source_3[mode_1, mode_2, mode_3]
+          longitudinal = (wavenumber_value_1 * source_value_1 + wavenumber_value_2 * source_value_2 + wavenumber_value_3 * source_value_3) /
+                         ifelse(iszero(squared), one(squared), squared)
+          scale = alpha * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
+          projected_1 = scale * (source_value_1 - wavenumber_value_1 * longitudinal)
+          projected_2 = scale * (source_value_2 - wavenumber_value_2 * longitudinal)
+          projected_3 = scale * (source_value_3 - wavenumber_value_3 * longitudinal)
+          if iszero(beta)
+            destination_1[mode_1, mode_2, mode_3] = projected_1
+            destination_2[mode_1, mode_2, mode_3] = projected_2
+            destination_3[mode_1, mode_2, mode_3] = projected_3
+          else
+            destination_1[mode_1, mode_2, mode_3] = projected_1 + beta * destination_1[mode_1, mode_2, mode_3]
+            destination_2[mode_1, mode_2, mode_3] = projected_2 + beta * destination_2[mode_1, mode_2, mode_3]
+            destination_3[mode_1, mode_2, mode_3] = projected_3 + beta * destination_3[mode_1, mode_2, mode_3]
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+function _helmholtz_projection_modes!(backend,
+    destination_1, destination_2, destination_3, source_1, source_2, source_3,
+    wavenumber_1, wavenumber_2, wavenumber_3,
+    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+    kernel_data, alpha, beta)
+  _helmholtz_projection_kernel!(backend)(
+    destination_1, destination_2, destination_3, source_1, source_2, source_3,
+    wavenumber_1, wavenumber_2, wavenumber_3,
+    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+    kernel_data, alpha, beta;
+    ndrange = size(destination_1))
+  synchronize(backend)
+  return nothing
+end
+
+
 function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
     multipliers::FieldSpectralMultipliers, kernel_data, alpha::T, beta::T) where {T<:AbstractFloat}
-  destination_component_1 = _vector_component_data(destination, 1)
-  backend = get_backend(field_data(destination))
-  _helmholtz_projection_kernel!(backend)(
-    destination_component_1, _vector_component_data(destination, 2), _vector_component_data(destination, 3),
+  _helmholtz_projection_modes!(get_backend(field_data(destination)),
+    _vector_component_data(destination, 1), _vector_component_data(destination, 2), _vector_component_data(destination, 3),
     _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
     multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
     multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3,
-    kernel_data, alpha, beta;
-    ndrange = size(destination_component_1))
-  synchronize(backend)
+    kernel_data, alpha, beta)
   return destination
 end
 

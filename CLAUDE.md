@@ -805,10 +805,10 @@ those are the usual rot. Then the mechanical bar:
    inversion (finding (l): the old per-element chunk loop ran ~8.6 GB/s/thread vs `materialize!`'s ~41,
    so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced
    operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the Enteropia archive is re-swept post-fix
-   (`e6e8a76`); the Aiporetne columns refresh on that host's next sweep. The **three
-   `KernelAbstractions` sites are outside this policy** (the KA-everywhere trio — helmholtz, the
-   transfer, the binning; the decision-38/39 kernels run *gated* CPU loops instead) and are covered
-   separately in the same file:
+   (`e6e8a76`); the Aiporetne columns refresh on that host's next sweep. The **two
+   `KernelAbstractions` families outside this policy** (the transfer and the binning — the
+   atomic/irregular kernels; helmholtz joined the gated loops in decision 40, and the
+   decision-38/39 kernels were gated from birth) are covered separately in the same file:
    a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
    `with_threading` override, so toggling it compares a path against itself — the check varies the
    thread count across a subprocess instead. The disjoint-write pair (`helmholtz_projection!`, the
@@ -816,8 +816,9 @@ those are the usual rot. Then the mechanical bar:
    binning) are **not** — a nondeterministic summation order costs `anterpolate!` 2–3 ulp, so they
    are tolerance-tested like the reductions (`docs/ARCHITECTURE.md` §9). **Discipline:** raw
    elementwise writes go through `_assign!`/`@_assign!`, not bare `.=`. The L²/measure reductions
-   now exist (`src/Reductions.jl`, item 8) on `sum`/`dot`/`maximum` and are tolerance-tested; only
-   *threading* them (custom chunk accumulation) remains deferred.
+   now exist (`src/Reductions.jl`, item 8) and are **threaded on the decision-40 fixed tree** —
+   bitwise thread-count-invariant on CPU (the cross-`-t` subprocess check in `test/threading.jl`
+   asserts it); tolerances remain for cross-backend comparisons only.
 6. **Point layer** (`Points` objects/algebra + `Interpolation` transfer) — point-data types and their **full fiberwise algebra**
    done and tested (CPU `test/pointvalues_algebra.jl` + `test/interpolation.jl`; GPU ROCm;
    122-method point-value parity baseline, zero ambiguities). The algebra reuses the
@@ -955,7 +956,7 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   existing `inner` machinery when it lands; decision 27); anisotropic / tensor-valued radial spectra
   `E_ij(κ)` + the Craya–Herring longitudinal/transverse
   split (shear-flow anisotropy diagnostics); higher positive-B-spline / signed-kernel RDF windows +
-  interlacing; matrix-valued convolution kernels; threaded reductions. Shear-flow support (Rogallo
+  interlacing; matrix-valued convolution kernels (threaded reductions landed — decision 40). Shear-flow support (Rogallo
   time-dependent multipliers + remeshing) stays consumer-side.
 - **The canary-judge benchmark lane (designed 2026-07-22, not built).** The last unautomated
   regression layer: achieved-TIME regressions (SIMD loss, launch drift, library bumps) — the class

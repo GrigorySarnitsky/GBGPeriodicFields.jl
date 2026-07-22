@@ -42,7 +42,7 @@ turbulence intensities from these reductions.
 """
 module Reductions
 
-using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!
+using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!, _use_threads
 using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
   field_grid, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
@@ -169,6 +169,145 @@ end
 
 
 """
+    _spawn_depth()
+
+Number of top tree levels [`_fiber_tree_reduce`](@ref) and [`_indexed_tree_reduce`](@ref) evaluate
+as spawned tasks: enough binary splits to give every thread work, plus one level of slack for load
+balancing. Zero when a single thread is available.
+"""
+_spawn_depth() = Threads.nthreads() == 1 ? 0 : (8 * sizeof(Int) - leading_zeros(Threads.nthreads() - 1)) + 1
+
+
+"""
+    _fiber_tree_reduce(fiber_map, combine, components, V, ::Val{NC}, lo, hi, depth)
+
+Threaded form of [`_fiber_loop_reduce`](@ref) with the **identical reduction tree**: it splits at
+the same midpoints the serial recursion uses and combines left-before-right, evaluating the top
+`depth` levels as spawned tasks and every subtree below as the untouched serial recursion — so the
+result is **bitwise-identical to serial at every thread count** (the tree is a function of the
+element count alone, never of the schedule).
+"""
+function _fiber_tree_reduce(fiber_map::FiberMap, combine::Combine, components, ::Type{V},
+                            ::Val{NC}, lo::Int, hi::Int, depth::Int) where {FiberMap, Combine, V, NC}
+  if depth <= 0 || hi - lo < _FIBER_REDUCTION_BLOCK
+    return _fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), lo, hi)
+  end
+  middle = (lo + hi) >> 1
+  right_task = Threads.@spawn _fiber_tree_reduce(fiber_map, combine, components, V, Val(NC),
+                                                 middle + 1, hi, depth - 1)
+  left = _fiber_tree_reduce(fiber_map, combine, components, V, Val(NC), lo, middle, depth - 1)
+  return combine(left, fetch(right_task)::typeof(left))
+end
+
+
+"""
+    _indexed_leaf_reduce(element, combine, lo, hi)
+
+Reduce `element(i)` over `i in lo:hi` with `combine`, as one vectorized loop below the pairwise
+block size and by the fixed midpoint recursion above it — the array-kernel sibling of
+[`_fiber_loop_reduce`](@ref), sharing its tree so accuracy and determinism carry over.
+"""
+function _indexed_leaf_reduce(element::E, combine::C, lo::Int, hi::Int) where {E, C}
+  if hi - lo < _FIBER_REDUCTION_BLOCK
+    accumulator = element(lo)
+    @inbounds @simd for index in (lo + 1):hi
+      accumulator = combine(accumulator, element(index))
+    end
+    return accumulator
+  end
+  middle = (lo + hi) >> 1
+  return combine(_indexed_leaf_reduce(element, combine, lo, middle),
+                 _indexed_leaf_reduce(element, combine, middle + 1, hi))
+end
+
+
+"""
+    _indexed_tree_reduce(element, combine, lo, hi)
+
+Reduce `element(i)` over `i in lo:hi`, spawning the top [`_spawn_depth`](@ref) levels of the fixed
+midpoint tree when [`_use_threads`](@ref) allows and running [`_indexed_leaf_reduce`](@ref) below —
+the same tree at every thread count, so the result is bitwise thread-count-invariant.
+"""
+function _indexed_tree_reduce(element::E, combine::C, lo::Int, hi::Int) where {E, C}
+  _use_threads(hi - lo + 1) || return _indexed_leaf_reduce(element, combine, lo, hi)
+  return _indexed_tree_step(element, combine, lo, hi, _spawn_depth())
+end
+
+function _indexed_tree_step(element::E, combine::C, lo::Int, hi::Int, depth::Int) where {E, C}
+  if depth <= 0 || hi - lo < _FIBER_REDUCTION_BLOCK
+    return _indexed_leaf_reduce(element, combine, lo, hi)
+  end
+  middle = (lo + hi) >> 1
+  right_task = Threads.@spawn _indexed_tree_step(element, combine, middle + 1, hi, depth - 1)
+  left = _indexed_tree_step(element, combine, lo, middle, depth - 1)
+  return combine(left, fetch(right_task)::typeof(left))
+end
+
+
+"""
+    _tree_sum(data)
+
+Sum a CPU array (or contiguous view) through [`_indexed_tree_reduce`](@ref)'s fixed pairwise tree —
+threaded above the gate, bitwise thread-count-invariant, and with no accumulator-typing peek (the
+first element seeds the accumulator inside the tree itself).
+"""
+_tree_sum(data) = _tree_sum(KernelAbstractions.get_backend(data), data)
+_tree_sum(::KernelAbstractions.CPU, data) =
+  _indexed_tree_reduce(index -> (@inbounds data[index]), +, 1, length(data))
+_tree_sum(::Any, data) = sum(data)                      # a device runs its own parallel reduce
+
+
+"""
+    _tree_dims_reduce(scalar_reduce, data, base_count)
+
+Apply `scalar_reduce` (a whole-array tree reduction) to each fiber component of `data` — the
+component slices over the leading `base_count` base axes are contiguous, so each reduces linearly —
+returning the array of per-component results the `dims`-style Base call used to produce.
+"""
+_tree_dims_reduce(scalar_reduce::F, data, base_count::Int) where {F} =
+  _tree_dims_reduce(KernelAbstractions.get_backend(data), scalar_reduce, data, base_count)
+# The generic method serves a device too: the per-component views reduce through the closure,
+# whose scalar kernels (`_tree_sum`, `_tree_var`) dispatch to the device's own reduce — no scalar
+# indexing occurs, only whole-view reductions.
+_tree_dims_reduce(::Any, scalar_reduce::F, data, base_count::Int) where {F} =
+  _tree_dims_components(scalar_reduce, data, base_count)
+_tree_dims_reduce(::KernelAbstractions.CPU, scalar_reduce::F, data, base_count::Int) where {F} =
+  _tree_dims_components(scalar_reduce, data, base_count)
+function _tree_dims_components(scalar_reduce::F, data, base_count::Int) where {F}
+  fiber_axes = ntuple(d -> axes(data, base_count + d), ndims(data) - base_count)
+  # The first component's value types the results array AND fills its slot — computed once, so the
+  # element-traffic ledger stays at one read per element.
+  indices = CartesianIndices(fiber_axes)
+  first_value = scalar_reduce(view(data, ntuple(_ -> Colon(), base_count)..., Tuple(first(indices))...))
+  results = Array{typeof(first_value)}(undef, length.(fiber_axes))
+  results[first(indices)] = first_value
+  for fiber_index in Iterators.drop(indices, 1)
+    component = view(data, ntuple(_ -> Colon(), base_count)..., Tuple(fiber_index)...)
+    results[fiber_index] = scalar_reduce(component)
+  end
+  # Singleton base axes, so the caller's `dropdims(...; dims = base)` sees the shape a Base
+  # `dims`-reduction would have produced.
+  return reshape(results, ntuple(_ -> 1, base_count)..., length.(fiber_axes)...)
+end
+
+
+"""
+    _tree_var(data; corrected)
+
+Variance through two fixed-tree passes — the mean, then the summed squared deviation — matching
+the `corrected` convention of `Statistics.var`.
+"""
+_tree_var(data; corrected::Bool = true) = _tree_var(KernelAbstractions.get_backend(data), data; corrected)
+_tree_var(::Any, data; corrected::Bool = true) = var(data; corrected)
+function _tree_var(::KernelAbstractions.CPU, data; corrected::Bool = true)
+  count = length(data)
+  mean_value = _tree_sum(data) / count
+  squared = _indexed_tree_reduce(index -> (@inbounds abs2(data[index] - mean_value)), +, 1, count)
+  return squared / (corrected ? count - 1 : count)
+end
+
+
+"""
     _reduce_fiber(backend, fiber_map, combine, components, V, ::Val{NC})
 
 Reduce a section's fiber values on `backend`, gathering each fiber of type `V` from its `NC` component
@@ -183,7 +322,8 @@ function _reduce_fiber(::KernelAbstractions.CPU, fiber_map::FiberMap, combine::C
   count = length(first(components))
   # Delegate an empty base so Base raises its own empty-reduction error rather than indexing out of range.
   count == 0 && return _reduce_fiber_broadcast(fiber_map, combine, components, V, Val(NC))
-  return _fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), 1, count)
+  _use_threads(count) || return _fiber_loop_reduce(fiber_map, combine, components, V, Val(NC), 1, count)
+  return _fiber_tree_reduce(fiber_map, combine, components, V, Val(NC), 1, count, _spawn_depth())
 end
 
 _reduce_fiber(::Any, fiber_map::FiberMap, combine::Combine, components, ::Type{V},
@@ -305,7 +445,7 @@ loop on a CPU, a single fused pass on a GPU.
 """
 function integral end
 integral(section::ReducibleSection) =
-  _fiberwise(section, sum, (data, base) -> sum(data; dims = base)) .* _cell_measure(section)
+  _fiberwise(section, _tree_sum, (data, base) -> _tree_dims_reduce(_tree_sum, data, length(base))) .* _cell_measure(section)
 
 integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) * _cell_measure(section)
@@ -315,18 +455,20 @@ integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
 # `mean(f) = (1/count)·Σf`: the arithmetic average over base elements — the volume average
 # (1/|Ω|)∫_Ω f dx on a grid, a plain sample mean over points. `std`/`var` are the per-fiber-component
 # base moments.
-mean(section::ReducibleSection) = _fiberwise(section, mean, (data, base) -> mean(data; dims = base))
+mean(section::ReducibleSection) =
+  _fiberwise(section, data -> _tree_sum(data) / length(data),
+             (data, base) -> _tree_dims_reduce(component -> _tree_sum(component) / length(component), data, length(base)))
 
 mean(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) / _base_count(section)
 
 var(section::ReducibleSection; corrected::Bool = true) =
-  _fiberwise(section, data -> var(data; corrected = corrected),
-             (data, base) -> var(data; dims = base, corrected = corrected))
+  _fiberwise(section, data -> _tree_var(data; corrected = corrected),
+             (data, base) -> _tree_dims_reduce(component -> _tree_var(component; corrected = corrected), data, length(base)))
 
 std(section::ReducibleSection; corrected::Bool = true) =
-  _fiberwise(section, data -> std(data; corrected = corrected),
-             (data, base) -> std(data; dims = base, corrected = corrected))
+  _fiberwise(section, data -> sqrt(_tree_var(data; corrected = corrected)),
+             (data, base) -> _tree_dims_reduce(component -> sqrt(_tree_var(component; corrected = corrected)), data, length(base)))
 
 
 # Spectral representation: `integral` and `mean` are carried entirely by the zero (DC) Fourier mode, so
@@ -384,7 +526,13 @@ function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
   _base_count(f) == _base_count(g) ||
     throw(DimensionMismatch("sections have different base sizes: $(_base_count(f)) and $(_base_count(g))"))
-  return LinearAlgebra.dot(field_data(f), field_data(g)) / _base_count(f)
+  a, b = field_data(f), field_data(g)
+  # The fixed-tree dot on CPU (threaded, bitwise thread-count-invariant, no typing peek); a device
+  # keeps its own parallel `dot` (decision-30 polarity).
+  if KernelAbstractions.get_backend(a) isa KernelAbstractions.CPU
+    return _indexed_tree_reduce(index -> (@inbounds a[index] * b[index]), +, 1, length(a)) / _base_count(f)
+  end
+  return LinearAlgebra.dot(a, b) / _base_count(f)
 end
 
 
@@ -407,7 +555,9 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
     # Parseval sum is a fused `abs2` mapreduce, the correction planes included. `sum(abs2, view)` reduces
     # the strided kₓ plane WITHOUT a product-broadcast, so this branch is **allocation-free** (unlike the
     # general f ≠ g branch below). `l2norm(f) = sqrt(inner(f, f))` therefore allocates nothing either.
-    total = sum(abs2, data_f)                                     # Σ_stored |f̂|²  (fused, real)
+    total = KernelAbstractions.get_backend(data_f) isa KernelAbstractions.CPU ?
+      _indexed_tree_reduce(index -> (@inbounds abs2(data_f[index])), +, 1, length(data_f)) :
+      sum(abs2, data_f)                                         # Σ_stored |f̂|²  (fused, real)
     correction = sum(abs2, selectdim(data_f, 1, 1))
     even_nx && (correction += sum(abs2, selectdim(data_f, 1, size(data_f, 1))))
     return (2 * total - correction) / normalization
@@ -418,7 +568,9 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   # no strided method), so reduce the product-broadcast instead — this materializes O(N²) per call (one kₓ
   # plane × fiber, twice): small vs the O(N³) field, but allocated each call. A GPU hot loop forms an energy
   # as `inner(f, f)` (the fused branch above) or uses the physical `inner` (a contiguous `dot`), not this.
-  total = LinearAlgebra.dot(data_g, data_f)                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
+  total = (KernelAbstractions.get_backend(data_g) isa KernelAbstractions.CPU ?
+      _indexed_tree_reduce(index -> (@inbounds conj(data_g[index]) * data_f[index]), +, 1, length(data_g)) :
+      LinearAlgebra.dot(data_g, data_f))                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
   plane(i) = sum(conj.(selectdim(data_g, 1, i)) .* selectdim(data_f, 1, i))
   correction = plane(1)
   even_nx && (correction += plane(size(data_f, 1)))
@@ -827,10 +979,18 @@ end
 
 # `maximum`/`minimum`/`extrema` (extending Base) — the L∞ end, for scalar sections only (the sup of a
 # vector/tensor magnitude is `lpnorm(f, Inf)`, deliberately not an ambiguous `maximum` of components).
-for reducer in (:maximum, :minimum, :extrema)
-  @eval $reducer(field::AbstractFieldPhysical{T, 0}) where {T} = $reducer(field_data(field))
-  @eval $reducer(values::AbstractPointValues{T, 0}) where {T} = $reducer(field_data(values))
+_tree_extreme(data, combine::C) where {C} = _tree_extreme(KernelAbstractions.get_backend(data), data, combine)
+_tree_extreme(::KernelAbstractions.CPU, data, combine::C) where {C} =
+  _indexed_tree_reduce(index -> (@inbounds data[index]), combine, 1, length(data))
+_tree_extreme(::Any, data, combine::C) where {C} = reduce(combine, data)   # the device's own reduce
+
+for (reducer, combine) in ((:maximum, :max), (:minimum, :min))
+  @eval $reducer(field::AbstractFieldPhysical{T, 0}) where {T} = _tree_extreme(field_data(field), $combine)
+  @eval $reducer(values::AbstractPointValues{T, 0}) where {T} = _tree_extreme(field_data(values), $combine)
 end
+# Two fixed-tree passes, matching the mapped extrema's recorded two-pass stance.
+extrema(field::AbstractFieldPhysical{T, 0}) where {T} = (minimum(field), maximum(field))
+extrema(values::AbstractPointValues{T, 0}) where {T} = (minimum(values), maximum(values))
 
 # The mapped forms carry no such restriction, at every tensor order: naming the fiber map is what
 # removes the ambiguity the bare forms refuse to guess, so `maximum(norm, u)` is well posed where

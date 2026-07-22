@@ -261,13 +261,10 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     u, v = vphys(), vphys()
     A = tphys()
     audit(() -> inner(u, v), "inner physical (mixed)",
-      Traffic("u", carr(u), (3P + 1, 0), (3P, 0),
-              "LinearAlgebra's generic dot peeks the first element to type its accumulator"),
-      Traffic("v", carr(v), (3P + 1, 0), (3P, 0),
-              "LinearAlgebra's generic dot peeks the first element to type its accumulator"))
+      Traffic("u", carr(u), (3P, 0)),                   # the fixed-tree dot seeds from its first element — no typing peek (decision 40)
+      Traffic("v", carr(v), (3P, 0)))
     audit(() -> mean(u), "mean vector",
-      Traffic("u", carr(u), (3P + 1, 0), (3P, 0),
-              "the component reduction peeks one element to type its accumulator"))
+      Traffic("u", carr(u), (3P, 0)))                   # per-component tree sums — no peek (decision 40)
     audit(() -> maximum(norm, u), "maximum(norm, u) — fused mapped form",
       Traffic("u", carr(u), (3P, 0)))
     audit(() -> mean(det, A), "mean(det, A) — fused mapped form",

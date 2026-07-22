@@ -70,9 +70,10 @@ the parity baseline and ambiguity check pass, and the suite is green.
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
   sees; CPU-only, `PASS_AUDIT_PRINT=1` regenerates the cells),
   `aqua.jl` (package checks),
-  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane, and
-  covers the `KernelAbstractions` kernels separately, since they thread outside the `_assign!`
-  policy — bitwise for the disjoint-write pair, to a tolerance for the two `Atomix` accumulators),
+  `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
+  the `KernelAbstractions` kernels separately — bitwise for the disjoint-write pair, to a tolerance
+  for the two `Atomix` accumulators — and asserts the decision-40 reductions **bitwise
+  thread-count-invariant**, in-process and across a subprocess at a different `-t`),
   and `jet.jl` (`JET` `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus

@@ -105,13 +105,14 @@ Pass `true` or `false` to force the threaded or serial path, or `nothing` to fol
 `f()` and is restored afterwards, including on exceptions. Use `enabled = false` around a region
 that already parallelizes at a higher level, to avoid oversubscription.
 
-!!! warning "Three operations thread outside this override"
-    The override (and the cutoff) governs the fused broadcast assignments and the fused CPU loops
-    behind the algebra and the spectral operators. Three operations run as portable device-style
-    kernels on **every** backend and partition by `Threads.nthreads()` directly, ignoring this
-    setting: `helmholtz_projection!`, the grid↔point transfer (`interpolate!`/`anterpolate!`), and
-    the radial diagnostics (`radial_spectrum`/`radial_correlation`). To run those serially, start
-    Julia with one thread.
+!!! warning "Two operation families thread outside this override"
+    The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
+    behind the algebra and the spectral operators (`helmholtz_projection!` included), and the
+    fixed-tree reductions. Two operation families run as portable device-style kernels on **every**
+    backend and partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
+    transfer (`interpolate!`/`anterpolate!`) and the radial diagnostics
+    (`radial_spectrum`/`radial_correlation`) — the kernels with atomic or irregular access, which a
+    gated loop cannot serve. To run those serially, start Julia with one thread.
 """
 with_threading(f; enabled::Union{Nothing, Bool} = true) =
   Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)
@@ -133,9 +134,9 @@ set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 Return the element count at or above which a CPU field assignment is split across `Base.Threads`
 workers rather than run serially. Here an assignment is a fused elementwise write into field
 storage — the [`_assign!`](@ref) primitive behind the broadcast route, and the same gate guards the
-fused CPU loops behind the algebra and the spectral operators. Three operations sit outside the
-gate and thread by `Threads.nthreads()` regardless (see the warning on [`with_threading`](@ref)):
-`helmholtz_projection!`, the grid↔point transfer, and the radial diagnostics. The count is measured as the destination array's length (grid points
+fused CPU loops behind the algebra and the spectral operators, and the fixed-tree reductions. Two
+operation families sit outside the gate and thread by `Threads.nthreads()` regardless (see the
+warning on [`with_threading`](@ref)): the grid↔point transfer and the radial diagnostics. The count is measured as the destination array's length (grid points
 times fiber components), and it applies on the CPU only, since GPU arrays are never threaded. The
 default is `16384`, and [`set_threading_cutoff!`](@ref) changes it.
 """

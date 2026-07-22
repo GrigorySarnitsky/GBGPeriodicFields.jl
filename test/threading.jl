@@ -9,6 +9,7 @@ using Test
 using GBGPeriodicFields
 using Base.Broadcast: broadcasted
 using Random
+import Statistics
 
 const F = GBGPeriodicFields.Fields
 const FS = GBGPeriodicFields.FiberSections   # the threading primitives moved here (Phase A)
@@ -220,6 +221,44 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     probe_projection, probe_gather = split(probe_output)
     @test probe_projection == string(ka_digest(projections[1]))
     @test probe_gather == string(ka_digest(gathers[1]))
+  end
+
+  @testset "reductions: fixed-tree, thread-count-invariant (bitwise)" begin
+    # Decision 40: every CPU reduction runs the SAME midpoint tree at every thread count (spawned
+    # top levels, serial leaves), so its value is bitwise-identical serial vs threaded AND across
+    # thread counts — unlike the tolerance-tested Atomix kernels, these carry an exact contract.
+    red_grid = Grid3D((24, 24, 24), (2π, 2π, 2π))
+    Random.seed!(KA_SEED + 1)
+    red_phi = ScalarFieldPhysical(rand(T, 24, 24, 24), red_grid)
+    red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
+    red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
+    red_us = VectorFieldSpectral(rand(Complex{T}, F.spectral_field_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
+    red_ops = (() -> inner(red_u, red_u), () -> inner(red_us, red_us), () -> l2norm(red_us),
+               () -> integral(red_u), () -> Statistics.mean(red_A), () -> Statistics.mean(det, red_A),
+               () -> Statistics.std(red_phi), () -> maximum(red_phi), () -> extrema(red_phi))
+    for op in red_ops
+      @test (with_threading(enabled = false) do; op() end) == (with_threading(enabled = true) do; op() end)
+    end
+
+    # the cross-thread-count half, via the same subprocess mechanism as the KA testset
+    reduction_probe = """
+    using GBGPeriodicFields, Random, Statistics
+    $(KA_DIGEST_SOURCE)
+    const T = Float64
+    red_grid = Grid3D((24, 24, 24), (T(2π), T(2π), T(2π)))
+    Random.seed!($(KA_SEED + 1))
+    red_phi = ScalarFieldPhysical(rand(T, 24, 24, 24), red_grid)
+    red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
+    red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
+    values = Float64[inner(red_u, red_u), integral(red_u)..., Statistics.mean(det, red_A),
+                     Statistics.std(red_phi), maximum(red_phi)]
+    println(ka_digest(values))
+    """
+    local_values = Float64[inner(red_u, red_u), integral(red_u)..., Statistics.mean(det, red_A),
+                           Statistics.std(red_phi), maximum(red_phi)]
+    other = Threads.nthreads() == 1 ? 4 : 1
+    red_output = readchomp(`$(Base.julia_cmd()) --project=$(Base.active_project()) -t$other -e $reduction_probe`)
+    @test red_output == string(ka_digest(local_values))
   end
 
 end

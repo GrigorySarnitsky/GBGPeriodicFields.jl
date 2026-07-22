@@ -508,8 +508,9 @@ not bitwise** like the assignments here. (The only already-threaded part is a *p
 `lpnorm` for ``p \ne 2`` builds the pointwise fiber magnitude ``\lvert f\rvert`` via the vertical
 `norm` — an `_assign!`-routed fiberwise op, hence threaded — then reduces *that* with the plain
 `sum`/`maximum`. The reductions `inner`/`l2norm`/`integral`/`mean` build no such field, so they are a single,
-unthreaded `dot`/`sum`.) Threading them further (custom chunk-partial accumulation) is
-the remaining work; expected speedup then saturates at socket bandwidth over single-core (typically
+unthreaded `dot`/`sum`.) That remaining work landed as decision 40: every CPU reduction now runs a
+fixed midpoint tree, spawned at its top levels through the same gate, bitwise thread-count-invariant;
+the speedup saturates at socket bandwidth over single-core (typically
 2–6×; more on multi-socket nodes, where thread pinning and NUMA first-touch matter — ThreadPinning.jl).
 Placement is **not** settled by `similar`, which reserves address space without touching pages: the
 first *write* decides, so a threaded `_assign!` fill distributes pages across domains while a serial
@@ -521,16 +522,17 @@ workstation cannot produce one.
 bitwise.** The fused operations of decisions 38/39 (`gradient!`, `curl!`, `symmetric_gradient!`, the
 fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a device only**; on a
 CPU array they run slab-threaded plain loops that pass through the same `_use_threads` gate as the
-broadcast route, so the cutoff and the `with_threading` override govern them. Three sites, however,
-are KA kernels **on every backend** — the one-pass `helmholtz_projection!` (decision 32), the
-gather/scatter transfer kernels
+broadcast route, so the cutoff and the `with_threading` override govern them. Two operation families, however,
+are KA kernels **on every backend** — the gather/scatter transfer kernels
 ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), and the radial
 shell binning (decisions 25, 34) — and on a CPU array these launch on the `CPU()` backend, which
-partitions the index range by `Threads.nthreads()` itself. Two consequences follow for that trio,
+partitions the index range by `Threads.nthreads()` itself (`helmholtz_projection!` left this set when
+decision 40 gave it a gated loop twin, so what remains is exactly the atomic/irregular kernels — the
+exemption is structural, not historical). Two consequences follow for that pair,
 and neither is a defect to fix — they are the price of their kernel shapes. First, a KA launch
 **never consults the `_assign!` policy above**: the serial cutoff and the `with_threading` override
-do not reach those three operations, which thread by KA's rules at every size (the exclusion is
-stated on `with_threading`'s own docstring). Second, the two kernels that accumulate through `Atomix` — the anterpolation scatter and the
+do not reach those two operation families, which thread by KA's rules at every size (the
+exclusion is stated on `with_threading`'s own docstring). Second, the two kernels that accumulate through `Atomix` — the anterpolation scatter and the
 shell binning — sum in a **nondeterministic order**, and floating-point addition is not associative,
 so they are **not bitwise-reproducible**: not across thread counts, and not even between two runs at
 one thread count. Measured on a Ryzen 9800X3D over twelve trials at 8 and 16 threads, every trial
@@ -2112,3 +2114,32 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     fiber-constant patterns, aliased shuffles through the former guard path, α/β accumulates, the
     point-value mirrors), and both parity baselines (206 + 122) are byte-identical — the public
     surface never moved.
+
+40. **The reductions thread on a fixed tree — bitwise thread-count-invariant — and
+    `helmholtz_projection!` joins the gated loops.** The last §9 deferral closes. Every CPU
+    reduction — `inner` (physical and the spectral Parseval forms), `l2norm`, `integral`, `mean`,
+    `std`/`var`, `maximum`/`minimum`/`extrema`, and the whole mapped-form family — now reduces
+    through one **fixed midpoint tree**: a binary recursion whose splits are a function of the
+    element count alone, its top ``\lceil \log_2 \mathrm{nthreads} \rceil + 1`` levels evaluated as
+    spawned tasks (through the same `_use_threads` gate as every other route) and its leaves as the
+    existing pairwise-blocked `@simd` loops. Because the tree never depends on the schedule, the
+    result is **bitwise-identical at every thread count** — serial equals two threads equals
+    sixty-four — which the threading suite asserts both by toggling the override and across a
+    subprocess launched at a different `-t`. This is deliberately stronger than the tolerance
+    framing the reductions previously carried: that framing remains for **cross-backend**
+    comparisons (a GPU reduction tree is the device's own), while same-backend CPU values now carry
+    an exact contract. The chunk-indexed, fixed-combine design is also the post-task-migration
+    idiom (no `threadid()` state anywhere), and accuracy inherits the pairwise story — the tree
+    only deepens it. Two ledger holders retired on the way: the fixed-tree kernels seed their
+    accumulator from the first element, so the "+1 typing peek" rows of `inner` and `mean` froze at
+    ideal (and the audit immediately caught — and priced away — a first-component double pass in
+    the new dims reducer, doing exactly its job). The switch changes reduction values once, in the
+    last bits (a different, deeper summation tree), absorbed by the analytic oracles.
+    `weighted_inner` stays serial for now: its coefficient is the lazy cartesian ``|k|^2``, the
+    finding-(k) class, deferred with the exponential family's hoist. Measured honestly on the
+    2-channel desktop the gains are 10–25% at eight threads (serial streaming already sits near the
+    read ceiling there); the beneficiary is the decision-37 node, where serial is a twelfth of the
+    socket. Finally, `helmholtz_projection!` gains the decision-38-shape gated `::CPU` loop twin —
+    bitwise-equal to its KernelAbstractions engine, verified — so the policy-exempt set shrinks to
+    the operations whose kernels are structurally atomic/irregular: the grid↔point transfer and the
+    radial binning. The exemption is now a principle, not a history.
