@@ -79,6 +79,15 @@ end
       # A spectral vector field is this many bytes; allow only a small fraction (a field-sized temp fails).
       field_bytes = sizeof(field_data(spectral_vector()))
       threshold = field_bytes ÷ 16
+      # The FIELD-destination ops additionally absorb the threaded `_assign!` path's size-independent
+      # per-task bookkeeping (slab views, rebuilt `Broadcasted` nodes, task objects — measured ≤ ~3.5 KB
+      # per thread, worst on the deep lazy-|k|² trees; the same class as the KA launch's documented
+      # 1.5–7 KB). The floor scales with the thread count and stays far below the smallest real field
+      # temporary here (a `Float32` scalar spectral field is ~60 KB), so a leaked field still fails.
+      # Point-value ops keep the plain `threshold`: their smallest real temporary (a scalar point
+      # array, ~16 KB `Float32`) must remain above the bound, and they never take the threaded path
+      # at this M.
+      field_threshold = threshold + 4096 * Threads.nthreads()
 
       # constants for the linear-in-field variants
       const_real = T(2)
@@ -102,113 +111,113 @@ end
       qs_pos = scalar_points(); point_values(qs_pos) .= rand(T, M) .+ one(T)     # nonzero divisor
 
       # ----- spectral differential operators (lazy |k|² + fused kernels; decision 24) -----
-      @alloc_below threshold laplacian!(svd, sv, multipliers)
-      @alloc_below threshold inverse_laplacian!(svd, sv, multipliers)
-      @alloc_below threshold helmholtz_projection!(svd, sv, multipliers)
-      @alloc_below threshold helmholtz_projection!(svd, svd, multipliers)                       # aliased in place — the one-pass kernel needs no guard temporary (decision 32)
-      @alloc_below threshold helmholtz_projection!(svd, sv, multipliers, kernel)                # kernel-composed ℙ
-      @alloc_below threshold helmholtz_projection!(svd, sv, multipliers, kernel, T(0.5), T(1))
-      @alloc_below threshold curl!(svd, sv, multipliers)
-      @alloc_below threshold divergence!(ssd, sv, multipliers)            # vector → scalar
-      @alloc_below threshold divergence!(svd, st, multipliers)            # tensor → vector
-      @alloc_below threshold divergence!(ssd, sv, multipliers, kernel)                          # kernel-composed ∇·
-      @alloc_below threshold divergence!(ssd, sv, multipliers, kernel, T(0.5), T(1))
-      @alloc_below threshold divergence!(svd, st, multipliers, kernel)
-      @alloc_below threshold divergence!(svd, st, multipliers, kernel, T(0.5), T(1))
-      @alloc_below threshold gradient!(svd, ss, multipliers)             # scalar → vector
-      @alloc_below threshold gradient!(std_, sv, multipliers)            # vector → tensor
-      @alloc_below threshold symmetric_gradient!(std_, sv, multipliers)  # vector → tensor, fused sym∇
+      @alloc_below field_threshold laplacian!(svd, sv, multipliers)
+      @alloc_below field_threshold inverse_laplacian!(svd, sv, multipliers)
+      @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers)
+      @alloc_below field_threshold helmholtz_projection!(svd, svd, multipliers)                       # aliased in place — the one-pass kernel needs no guard temporary (decision 32)
+      @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel)                # kernel-composed ℙ
+      @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel, T(0.5), T(1))
+      @alloc_below field_threshold curl!(svd, sv, multipliers)
+      @alloc_below field_threshold divergence!(ssd, sv, multipliers)            # vector → scalar
+      @alloc_below field_threshold divergence!(svd, st, multipliers)            # tensor → vector
+      @alloc_below field_threshold divergence!(ssd, sv, multipliers, kernel)                          # kernel-composed ∇·
+      @alloc_below field_threshold divergence!(ssd, sv, multipliers, kernel, T(0.5), T(1))
+      @alloc_below field_threshold divergence!(svd, st, multipliers, kernel)
+      @alloc_below field_threshold divergence!(svd, st, multipliers, kernel, T(0.5), T(1))
+      @alloc_below field_threshold gradient!(svd, ss, multipliers)             # scalar → vector
+      @alloc_below field_threshold gradient!(std_, sv, multipliers)            # vector → tensor
+      @alloc_below field_threshold symmetric_gradient!(std_, sv, multipliers)  # vector → tensor, fused sym∇
 
       # ----- transforms, all tensor orders (plans reuse their own work buffers; invariant 11) -----
-      @alloc_below threshold to_physical!(psd, ss, scalar_plans)
-      @alloc_below threshold to_physical!(pvd, sv, vector_plans)
-      @alloc_below threshold to_physical!(ptd, st, tensor_plans)
-      @alloc_below threshold to_spectral!(ssd, ps, scalar_plans)
-      @alloc_below threshold to_spectral!(svd, pu, vector_plans)
-      @alloc_below threshold to_spectral!(std_, pt, tensor_plans)
+      @alloc_below field_threshold to_physical!(psd, ss, scalar_plans)
+      @alloc_below field_threshold to_physical!(pvd, sv, vector_plans)
+      @alloc_below field_threshold to_physical!(ptd, st, tensor_plans)
+      @alloc_below field_threshold to_spectral!(ssd, ps, scalar_plans)
+      @alloc_below field_threshold to_spectral!(svd, pu, vector_plans)
+      @alloc_below field_threshold to_spectral!(std_, pt, tensor_plans)
 
       # ----- convolution: scalar / vector / tensor fiber broadcast, three- and five-argument -----
-      @alloc_below threshold convolve!(ssd, ss, kernel)
-      @alloc_below threshold convolve!(svd, sv, kernel)
-      @alloc_below threshold convolve!(std_, st, kernel)
-      @alloc_below threshold convolve!(svd, sv, kernel, T(0.5), T(1))
-      @alloc_below threshold convolve!(std_, st, kernel, T(0.5), T(1))
+      @alloc_below field_threshold convolve!(ssd, ss, kernel)
+      @alloc_below field_threshold convolve!(svd, sv, kernel)
+      @alloc_below field_threshold convolve!(std_, st, kernel)
+      @alloc_below field_threshold convolve!(svd, sv, kernel, T(0.5), T(1))
+      @alloc_below field_threshold convolve!(std_, st, kernel, T(0.5), T(1))
       # the lazy exponential kernel and the kernel-composed combination (decision 33)
-      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1))
-      @alloc_below threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.5), T(1))
-      @alloc_below threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel)
-      @alloc_below threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
-      @alloc_below threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel)
-      @alloc_below threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
-      @alloc_below threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
+      @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1))
+      @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.5), T(1))
+      @alloc_below field_threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below field_threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
+      @alloc_below field_threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
+      @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
 
       # ----- add! / subtract!: physical + spectral, R = 0/1/2, field·field + field·constant + reversed -----
       for (d, a, c) in ((psd, ps, const_real), (pvd, pu, const_vec), (ptd, pt, const_ten),
                         (ssd, ss, const_real), (svd, sv, const_vec), (std_, st, const_ten))
-        @alloc_below threshold add!(d, a, a)              # field · field
-        @alloc_below threshold add!(d, a, c)              # field · constant
-        @alloc_below threshold add!(d, c, a)              # constant · field (reversed; the spectral zero-mode path)
-        @alloc_below threshold subtract!(d, a, a)
-        @alloc_below threshold subtract!(d, a, c)
-        @alloc_below threshold subtract!(d, c, a)
+        @alloc_below field_threshold add!(d, a, a)              # field · field
+        @alloc_below field_threshold add!(d, a, c)              # field · constant
+        @alloc_below field_threshold add!(d, c, a)              # constant · field (reversed; the spectral zero-mode path)
+        @alloc_below field_threshold subtract!(d, a, a)
+        @alloc_below field_threshold subtract!(d, a, c)
+        @alloc_below field_threshold subtract!(d, c, a)
       end
 
       # ----- combine! (axpby α·a + β·b): physical + spectral, R = 0/1/2; coefficientwise ⇒ alias-safe -----
       for (d, a) in ((psd, ps), (pvd, pu), (ptd, pt), (ssd, ss), (svd, sv), (std_, st))
-        @alloc_below threshold combine!(d, T(2), a, T(3), a)
+        @alloc_below field_threshold combine!(d, T(2), a, T(3), a)
       end
 
       # ----- mul!: field·field contractions (physical) + constant-matrix actions (linear; both reps), α/β
       # (mul! is the matrix/tensor contraction; Real scaling is `multiply!`/`*`, tested below) -----
-      @alloc_below threshold mul!(pvd, pt, pu)                       # tensor-field · vector-field
-      @alloc_below threshold mul!(pvd, pt, pu, T(0.5), T(1))         #   accumulate
-      @alloc_below threshold mul!(ptd, pt, pt)                       # tensor-field · tensor-field
-      @alloc_below threshold mul!(ptd, pt, pt, T(0.5), T(1))
-      @alloc_below threshold mul!(pvd, const_ten, pu)               # constant matrix · vector-field (physical)
-      @alloc_below threshold mul!(svd, const_ten, sv)               # constant matrix · vector-field (spectral)
-      @alloc_below threshold mul!(svd, const_ten, sv, T(0.5), T(1))
+      @alloc_below field_threshold mul!(pvd, pt, pu)                       # tensor-field · vector-field
+      @alloc_below field_threshold mul!(pvd, pt, pu, T(0.5), T(1))         #   accumulate
+      @alloc_below field_threshold mul!(ptd, pt, pt)                       # tensor-field · tensor-field
+      @alloc_below field_threshold mul!(ptd, pt, pt, T(0.5), T(1))
+      @alloc_below field_threshold mul!(pvd, const_ten, pu)               # constant matrix · vector-field (physical)
+      @alloc_below field_threshold mul!(svd, const_ten, sv)               # constant matrix · vector-field (spectral)
+      @alloc_below field_threshold mul!(svd, const_ten, sv, T(0.5), T(1))
 
       # ----- multiply!: scalar-field action, physical + spectral, with α/β where it applies -----
-      @alloc_below threshold multiply!(pvd, ps, pu)                  # scalar-field · vector-field
-      @alloc_below threshold multiply!(ptd, ps, pt)                  # scalar-field · tensor-field
-      @alloc_below threshold multiply!(psd, ps, ps)                  # scalar-field · scalar-field
-      @alloc_below threshold multiply!(pvd, const_vec, ps)          # constant · scalar-field → vector
-      @alloc_below threshold multiply!(ptd, const_ten, ps)          # constant · scalar-field → tensor
-      @alloc_below threshold multiply!(pvd, const_real, pu)        # Real · field (physical)
-      @alloc_below threshold multiply!(svd, const_real, sv)       # Real · field (spectral)
-      @alloc_below threshold multiply!(svd, const_vec, ss)        # constant · scalar-field (spectral)
+      @alloc_below field_threshold multiply!(pvd, ps, pu)                  # scalar-field · vector-field
+      @alloc_below field_threshold multiply!(ptd, ps, pt)                  # scalar-field · tensor-field
+      @alloc_below field_threshold multiply!(psd, ps, ps)                  # scalar-field · scalar-field
+      @alloc_below field_threshold multiply!(pvd, const_vec, ps)          # constant · scalar-field → vector
+      @alloc_below field_threshold multiply!(ptd, const_ten, ps)          # constant · scalar-field → tensor
+      @alloc_below field_threshold multiply!(pvd, const_real, pu)        # Real · field (physical)
+      @alloc_below field_threshold multiply!(svd, const_real, sv)       # Real · field (spectral)
+      @alloc_below field_threshold multiply!(svd, const_vec, ss)        # constant · scalar-field (spectral)
 
       # ----- divide!: physical field / scalar-field and / Real, spectral / Real -----
-      @alloc_below threshold divide!(pvd, pu, psd2)                  # vector-field / scalar-field
-      @alloc_below threshold divide!(ptd, pt, psd2)                  # tensor-field / scalar-field
-      @alloc_below threshold divide!(pvd, pu, const_real)          # field / Real (physical)
-      @alloc_below threshold divide!(svd, sv, const_real)         # field / Real (spectral)
-      @alloc_below threshold divide!(pvd, const_vec, psd2)         # constant / scalar-field → vector
+      @alloc_below field_threshold divide!(pvd, pu, psd2)                  # vector-field / scalar-field
+      @alloc_below field_threshold divide!(ptd, pt, psd2)                  # tensor-field / scalar-field
+      @alloc_below field_threshold divide!(pvd, pu, const_real)          # field / Real (physical)
+      @alloc_below field_threshold divide!(svd, sv, const_real)         # field / Real (spectral)
+      @alloc_below field_threshold divide!(pvd, const_vec, psd2)         # constant / scalar-field → vector
 
       # ----- dot!: fiber inner products → scalar field, physical + spectral, field·field + field·constant -----
-      @alloc_below threshold dot!(psd, pu, pv2)                      # vector · vector
-      @alloc_below threshold dot!(psd, pt, pt)                       # tensor : tensor
-      @alloc_below threshold dot!(psd, pu, const_vec)              # field · constant (physical)
-      @alloc_below threshold dot!(ssd, sv, const_vec)             # field · constant (spectral)
-      @alloc_below threshold dot!(ssd, st, const_ten)             # tensor : constant (spectral)
+      @alloc_below field_threshold dot!(psd, pu, pv2)                      # vector · vector
+      @alloc_below field_threshold dot!(psd, pt, pt)                       # tensor : tensor
+      @alloc_below field_threshold dot!(psd, pu, const_vec)              # field · constant (physical)
+      @alloc_below field_threshold dot!(ssd, sv, const_vec)             # field · constant (spectral)
+      @alloc_below field_threshold dot!(ssd, st, const_ten)             # tensor : constant (spectral)
 
       # ----- cross!: physical field·field + field·constant + reversed; spectral field·constant -----
-      @alloc_below threshold cross!(pvd, pu, pv2)
-      @alloc_below threshold cross!(pvd, pu, const_vec)
-      @alloc_below threshold cross!(pvd, const_vec, pu)
-      @alloc_below threshold cross!(svd, sv, const_vec)
-      @alloc_below threshold cross!(svd, const_vec, sv)
+      @alloc_below field_threshold cross!(pvd, pu, pv2)
+      @alloc_below field_threshold cross!(pvd, pu, const_vec)
+      @alloc_below field_threshold cross!(pvd, const_vec, pu)
+      @alloc_below field_threshold cross!(svd, sv, const_vec)
+      @alloc_below field_threshold cross!(svd, const_vec, sv)
 
       # ----- transpose! / sym! / skew!: tensor index shuffles, physical + spectral -----
-      @alloc_below threshold transpose!(ptd, pt)
-      @alloc_below threshold transpose!(std_, st)
-      @alloc_below threshold sym!(ptd, pt)
-      @alloc_below threshold sym!(std_, st)
-      @alloc_below threshold skew!(ptd, pt)
-      @alloc_below threshold skew!(std_, st)
-      @alloc_below threshold tr!(psd, pt)                # linear tensor → scalar, fused (unlike dev!)
-      @alloc_below threshold tr!(ssd, st)
-      @alloc_below threshold det!(psd, pt)               # nonlinear tensor → scalar, fused (physical only)
+      @alloc_below field_threshold transpose!(ptd, pt)
+      @alloc_below field_threshold transpose!(std_, st)
+      @alloc_below field_threshold sym!(ptd, pt)
+      @alloc_below field_threshold sym!(std_, st)
+      @alloc_below field_threshold skew!(ptd, pt)
+      @alloc_below field_threshold skew!(std_, st)
+      @alloc_below field_threshold tr!(psd, pt)                # linear tensor → scalar, fused (unlike dev!)
+      @alloc_below field_threshold tr!(ssd, st)
+      @alloc_below field_threshold det!(psd, pt)               # nonlinear tensor → scalar, fused (physical only)
 
       # ----- point-value algebra (mirrors the physical surface; same generated bodies, different base) -----
       @alloc_below threshold add!(qvd, qv, qv)

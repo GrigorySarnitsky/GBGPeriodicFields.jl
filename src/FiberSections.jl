@@ -172,27 +172,99 @@ end
 
 
 """
+    _slab_axis(dimensions)
+
+Pick the axis a threaded assignment is split along: the **last among the largest**, so each slab
+is a large contiguous block and a trailing fiber axis of length 3 never caps the parallelism (a
+whole-vector-field write `(N, N, N, 3)` splits along the third axis, not the fourth).
+"""
+function _slab_axis(dimensions::Dims)
+  best = 1
+  for dimension in 2:length(dimensions)
+    dimensions[dimension] >= dimensions[best] && (best = dimension)
+  end
+  return best
+end
+
+
+"""
+    _broadcast_sliceable(argument)
+
+Return whether every leaf of a broadcast argument tree is a type [`_slice_broadcast_argument`](@ref)
+knows how to slice or pass through — arrays, numbers, `Ref`s, and nested `Broadcasted` trees over
+them. Anything else makes the threaded path bail out to the serial `materialize!` (the safe
+polarity; the field kernels only ever build trees of these types).
+"""
+_broadcast_sliceable(argument::Base.Broadcast.Broadcasted) = all(_broadcast_sliceable, argument.args)
+_broadcast_sliceable(::AbstractArray) = true
+_broadcast_sliceable(::Number) = true
+_broadcast_sliceable(::Ref) = true
+_broadcast_sliceable(::Any) = false
+
+
+"""
+    _slice_broadcast_argument(argument, axis::Val, slab)
+
+Restrict one broadcast argument to the `slab` range of broadcast axis `axis`. An array spanning
+that axis is viewed to the slab (a view re-bases its axes, so all sliced operands land on matching
+`OneTo` axes); an array with a singleton or missing `axis` passes through unchanged (broadcasting
+extrudes it exactly as in the full assignment); a nested `Broadcasted` is rebuilt over its sliced
+arguments; scalars and `Ref`s are shape-free and pass through. The axis is a `Val` so the whole
+recursive slice specializes: with it a runtime `Int` would leave every view and rebuilt node
+un-inferred, boxing kilobytes per slab where the specialized form allocates only the small wrapper
+objects themselves.
+"""
+_slice_broadcast_argument(argument::Base.Broadcast.Broadcasted, axis::Val, slab::UnitRange{Int}) =
+  Base.Broadcast.broadcasted(argument.f,
+                             map(a -> _slice_broadcast_argument(a, axis, slab), argument.args)...)
+
+function _slice_broadcast_argument(argument::AbstractArray, ::Val{A}, slab::UnitRange{Int}) where {A}
+  (ndims(argument) < A || size(argument, A) == 1) && return argument
+  return view(argument, ntuple(d -> d == A ? slab : Colon(), Val(ndims(argument)))...)
+end
+
+_slice_broadcast_argument(argument, ::Val, ::UnitRange{Int}) = argument
+
+
+"""
     _assign_threaded!(destination, broadcasted)
 
-Thread a fused broadcast assignment over contiguous chunks of `destination`'s linear index range.
-Each task converts its linear indices to Cartesian ones and writes the corresponding broadcast
-elements, so fusion is preserved (one `Broadcasted` tree, no temporaries) and the result is
-bitwise-identical to serial, since each index is written by exactly one task. Cartesian indexing
-of the `Broadcasted` works on every supported Julia version and correctly remaps singleton operand
-axes, whereas linear indexing of a multidimensional `Broadcasted` is only supported on Julia 1.12
-or newer. The method falls back to serial when the axes do not match, which is defensive because
-the field kernels always match.
+Thread a fused broadcast assignment by splitting the [`_slab_axis`](@ref) of `destination` into
+contiguous slabs and running the standard fused `Broadcast.materialize!` on each slab in its own
+task — the destination viewed to the slab, the `Broadcasted` tree rebuilt over
+[`_slice_broadcast_argument`](@ref)-sliced operands. Each slab therefore executes the same
+SIMD-vectorized broadcast kernel the serial path uses, only over a sub-range: fusion is preserved
+(no temporaries), and the result is bitwise-identical to serial, since each element is written
+exactly once from the same fused expression and no value crosses a slab boundary. This replaced a
+per-element `CartesianIndex` loop over the whole `Broadcasted`, which does not vectorize — measured
+at ~4.7× slower per core than `materialize!`, so threading *inverted* at low thread counts
+(2026-07-21; the finding and the numbers live with the benchmarks). The method falls back to serial
+when the axes do not match or an argument type is not sliceable, which is defensive because the
+field kernels always match and only build sliceable trees.
 """
 function _assign_threaded!(destination, broadcasted::Base.Broadcast.Broadcasted)
   instantiated = Base.Broadcast.instantiate(broadcasted)
   axes(instantiated) == axes(destination) || return Base.Broadcast.materialize!(destination, instantiated)
+  _broadcast_sliceable(instantiated)      || return Base.Broadcast.materialize!(destination, instantiated)
 
-  cartesian = CartesianIndices(destination)
-  @sync for chunk in _index_ranges(Base.OneTo(length(destination)), Threads.nthreads())
-    Threads.@spawn @inbounds for linear_index in chunk
-      index = cartesian[linear_index]
-      destination[index] = instantiated[index]
-    end
+  # One dynamic dispatch converts the runtime axis into a `Val`, so slicing and the per-slab
+  # `materialize!` below all specialize (the function barrier `_assign_slabs!`).
+  return _assign_slabs!(destination, instantiated, Val(_slab_axis(size(destination))))
+end
+
+
+"""
+    _assign_slabs!(destination, instantiated, axis::Val)
+
+Run the slab tasks of [`_assign_threaded!`](@ref): partition the given axis of `destination` with
+[`_index_ranges`](@ref) and `materialize!` each slab's sliced assignment in its own task. Separated
+behind a `Val` function barrier so every slice and kernel call compiles for the concrete axis.
+"""
+function _assign_slabs!(destination, instantiated, axis::Val{A}) where {A}
+  @sync for slab in _index_ranges(axes(destination, A), Threads.nthreads())
+    Threads.@spawn Base.Broadcast.materialize!(
+      _slice_broadcast_argument(destination, axis, slab),
+      _slice_broadcast_argument(instantiated, axis, slab))
   end
   return destination
 end
