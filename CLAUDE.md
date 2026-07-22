@@ -793,8 +793,8 @@ those are the usual rot. Then the mechanical bar:
    `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The 2026-07-21 threading
    inversion (finding (l): the old per-element chunk loop ran ~8.6 GB/s/thread vs `materialize!`'s ~41,
    so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced
-   operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the CPU archive columns predate the fix
-   until the Stage-D re-sweep lands. The **three
+   operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the Enteropia archive is re-swept post-fix
+   (`e6e8a76`); the Aiporetne columns refresh on that host's next sweep. The **three
    `KernelAbstractions` sites are outside this policy** and are covered separately in the same file:
    a KA launch partitions by `Threads.nthreads()` itself and never consults the cutoff or the
    `with_threading` override, so toggling it compares a path against itself — the check varies the
