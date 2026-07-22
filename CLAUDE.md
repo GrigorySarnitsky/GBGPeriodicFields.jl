@@ -800,7 +800,11 @@ those are the usual rot. Then the mechanical bar:
    serial), routed in via the field broadcast `copyto!` and the kernel assignments (codegen
    `_to_broadcasted` + the `@_assign!` macro); FFTW threads match Julia's at load (`__init__`).
    Hybrid policy: on when `nthreads() > 1` above a `2^14` cutoff, with a `with_threading`
-   ScopedValue override; GPU stays on the `materialize!` fallback. Tested bitwise in
+   ScopedValue override; GPU stays on the `materialize!` fallback. **The execution-route policy is
+   recorded in `docs/ARCHITECTURE.md` §9** — a new op is placed by structure: single-output at-ideal
+   → broadcast; multi-output fiberwise → the executor; cartesian-coefficient → a decision-38 kernel
+   pair; reductions → the fixed tree; atomics/irregular (and only that) → KA-everywhere, the sole
+   policy-exempt class. Tested bitwise in
    `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The 2026-07-21 threading
    inversion (finding (l): the old per-element chunk loop ran ~8.6 GB/s/thread vs `materialize!`'s ~41,
    so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced

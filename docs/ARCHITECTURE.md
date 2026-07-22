@@ -518,6 +518,38 @@ one concentrates them. On the two-socket cluster node decision 37 names as the C
 difference is the dominant bandwidth risk, and no measurement of it exists — a single-socket
 workstation cannot produce one.
 
+**The execution-route policy — which mechanism a new or rewritten operation takes.** The routes
+below were each adopted by measurement (decisions 30, 38, 39, 40); together they form the standing
+rule, so a future operation is placed by its *structure*, not by precedent-mining:
+
+1. **Single-output elementwise work whose traffic is already at the fused ideal** takes the
+   **broadcast route** (`@_assign!`): one fused expression, the threading gate and slab
+   `materialize!` on CPU, the device's native broadcast elsewhere. (`add!`, `combine!`,
+   `laplacian!`, the scalar `convolve!`.)
+2. **Multi-output fiberwise work with shared source reads and no coordinate-dependent
+   coefficient** takes the **fused executor** (`_fiberwise_pass!`): a values function stamped from
+   the shared formula tables, one KernelAbstractions kernel on a device, the gated linear `@simd`
+   loop on CPU. (`cross!`, the `mul!` family, the shuffles and decompositions, `det!`, the
+   scalar-field actions, the fiber cases of `convolve!`.)
+3. **Elementwise work whose coefficient depends on the mode's cartesian index** (wavenumbers)
+   takes a **decision-38-shape pair**: a hand-written KA kernel for devices and a gated cartesian
+   `@simd` loop for CPU, both from one set of per-mode expressions. (`gradient!`, `curl!`,
+   `symmetric_gradient!`, `helmholtz_projection!`. The exponential family currently broadcasts
+   over the lazy ``|k|^2`` and is the recorded candidate for this shape — the finding-(k) hoist.)
+4. **Reductions** take the **backend split of decisions 30/40**: the fixed midpoint tree on CPU —
+   gated, spawned at its top levels, bitwise thread-count-invariant — and the device's own
+   parallel reduce elsewhere.
+5. **Atomic accumulation or data-dependent irregular access** — and only that — takes
+   **KernelAbstractions on every backend** (the transfer gather/scatter, the shell binning): a
+   gated loop cannot serve atomics or per-point stencils, so these are the only operations outside
+   the threading policy, and the atomic ones are tolerance-tested where reordering perturbs last
+   bits.
+
+Whatever the route, three obligations are constant: a migration is verified **bitwise against the
+implementation it replaces** (or against an oracle when the arithmetic legitimately changes), the
+pass-audit row lands at its fused ideal or carries a named holder, and alias safety is either by
+construction (an element's reads precede its writes) or a documented contract (`mul!`).
+
 **The kernel sites split into two classes for the threading policy — and two kernels are not
 bitwise.** The fused operations of decisions 38/39 (`gradient!`, `curl!`, `symmetric_gradient!`, the
 fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a device only**; on a
