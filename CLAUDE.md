@@ -376,6 +376,16 @@ implies they are missing something they cannot get; present every diagnostic on 
 (the trace structure functions and their K41 normalizations are standard turbulence — describe them, at
 most cite a public source).
 
+**Standing open item (2026-07-22 battery remainder).** The economy `/check-docs` run (13 Sonnet
+lanes + main-thread synthesis; raw findings in `.claude/check-docs-2026-07-22-findings.json`) fixed
+every verified `certain` finding and the cheap `likely` ones. Deferred to the next docs session:
+the remaining `likely`/`triage` cold-reader glosses and argument-coverage judgments (most are
+thin-wrapper false positives — triage each against the at-home rule), the FORMALIZATION display-wrap
+and inner-notation touch-ups, the **file-wide LaTeX pass on `examples/gpu/rocm/HIST_ROCm.jl`** (the
+GPU sibling never got the HIST_CPU treatment — Unicode/plain math throughout its rendered prose),
+and the full independent re-derivation sweep of the ~314 inventoried formulas (the changed set was
+verified at authorship; the unchanged set rests on the FORMALIZATION↔test chain until re-derived).
+
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified
 2026-07-05: `<!-- … -->` rendered literally on the page) — so a TODO lives in this file, and a placeholder

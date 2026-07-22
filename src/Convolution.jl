@@ -338,11 +338,12 @@ end
 
 
 """
-    _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
-                                    coefficient, alpha, beta)
+    _apply_exponential_combination!(destination_data, a_data, b_data,
+                                    squared_wavenumber, coefficient, alpha, beta)
 
-    _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
-                                    coefficient, offset_scale, offset_data, alpha, beta)
+    _apply_exponential_combination!(destination_data, a_data, b_data,
+                                    squared_wavenumber, coefficient,
+                                    offset_scale, offset_data, alpha, beta)
 
 Apply the exponential radial kernel to a weighted combination, computing
 ``\\mathrm{dst} \\mathrel{.=} \\exp(c |k|^2) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` (the
@@ -542,7 +543,7 @@ Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spect
 
 Use it as the neutral radial coordinate of spectral space: a consumer builds a Fourier symbol from it
 — a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
-Germano subgrid filter — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
+subgrid test filter of the dynamic procedure of Germano and coworkers (an LES closure choice) — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
 The package supplies the coordinate, while ``\\nu``, ``\\Delta t``, and any filter width stay
 consumer-side. For a symbol of the exponential family specifically,
 [`exponential_convolve!`](@ref) applies ``\\exp(c |k|^2 + s \\hat w)`` straight from the wavenumber

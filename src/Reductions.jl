@@ -365,7 +365,7 @@ from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a 
 shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
 
 The arguments `f` and `g` are two compatible sections of equal fiber order. On a grid the pairing is the
-equal-weight average over the ``N`` cells; on a point-set it is the average over the ``M`` points:
+equal-weight average over the ``N`` cells (``\\Omega`` is the periodic box, ``|\\Omega|`` its volume); on a point-set it is the average over the ``M`` points:
 
 ```math
 \\begin{aligned}
@@ -627,7 +627,7 @@ with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum 
 ``k_x = 0`` and even-``N_x`` Nyquist planes, ``2`` otherwise), and shell width ``\\Delta k`` (the box
 fundamental). Each form **refines** [`inner`](@ref):
 ``\\sum_\\kappa P(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa P_{fg}(\\kappa) = \\langle f, g\\rangle``
-— the L² (co-)energy split across isotropic ``|k|``-shells of unit-fundamental width. The one-argument
+— the L² (co-)energy split across isotropic ``|k|``-shells one fundamental wavenumber wide (the box's smallest nonzero wavenumber, ``\\Delta k = 2\\pi / \\max_a L_a``). The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
 is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
 spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's physics kinetic-energy
@@ -727,13 +727,15 @@ end
     radial_correlation(f, plans)
     radial_correlation(f, g, plans)
 
-The **radial (shell-averaged) two-point correlation** of a field is the physical-space Wiener–Khinchin
-dual of [`radial_spectrum`](@ref). The one-argument form is the **autocorrelation** ``C(r)``, and the
+The **radial (shell-averaged) two-point correlation** of a field is the physical-space dual of
+[`radial_spectrum`](@ref) under the Wiener–Khinchin theorem — the statement that the autocorrelation
+and the power spectrum are a Fourier-transform pair. The one-argument form is the **autocorrelation** ``C(r)``, and the
 two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
 compatible, equal-order fields. The fields `f` (and `g`) are in spectral representation, and `plans` are
 their transform plans (matching the tensor order). It returns `(separations, correlation)`, where
 `separations` are the
-bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell
+bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell (each separation taken as its nearest periodic
+replica, so no distance exceeds half the box)
 ``|r| \\approx r``. By the (cross-)correlation theorem the kernel forms the fiber-summed (cross-)power
 spectrum, inverse-transforms it, and normalizes:
 
@@ -807,9 +809,11 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 \\lVert f\\rVert_p &= \\Bigl(\\frac{1}{|\\Omega|} \\int_\\Omega |f(x)|^p\\,\\mathrm{d}x\\Bigr)^{1/p}
   = \\Bigl(\\frac{1}{N} \\sum_x |f(x)|^p\\Bigr)^{1/p} && (\\texttt{Grid3D}), \\\\
 \\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_p |f_p|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
-\\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|. &&
+\\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|, &&
 \\end{aligned}
 ```
+
+Here ``\\Omega`` is the periodic box and ``|\\Omega|`` its volume.
 
 It is physical-space only.
 """

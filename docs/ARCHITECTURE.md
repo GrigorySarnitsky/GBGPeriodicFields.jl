@@ -407,8 +407,9 @@ once, while the public surface (and its deliberate absences) stays bit-identical
   pointwise norms, sym/skew/dev — fed through the kernel-body builders. Per-family
   flags: `has_beta` (α/β accumulation for the `mul!` families; five-argument forms
   convert `T(α)`, `T(β)`, three-argument forms delegate `one(T)`, `zero(T)`) and
-  `alias_guard` (cross and the unary index-shuffles — transpose, sym, skew, dev —
-  wrap through `_guard_noalias!`; `mul!` is exempt and documents the no-alias
+  the routing through the fused executor (cross and the unary index-shuffles —
+  transpose, sym, skew, dev — run alias-safe by construction, an element's sources
+  read before its outputs are written, decision 39; `mul!` documents the no-alias
   contract instead, per LinearAlgebra convention). The `sym`/`skew`/`dev` methods
   on bare `FiberTensor2` remain explicit StaticArrays one-liners.
 - **M4 — public wrappers/operators (done, folded into M3)**: the allocating
@@ -516,9 +517,10 @@ one concentrates them. On the two-socket cluster node decision 37 names as the C
 difference is the dominant bandwidth risk, and no measurement of it exists — a single-socket
 workstation cannot produce one.
 
-**The KernelAbstractions sites thread on their own terms — and two of them are not bitwise.** Three
+**The KernelAbstractions sites thread on their own terms — and two of them are not bitwise.** Several
 operations are written as portable `KernelAbstractions` kernels rather than as broadcasts: the
-one-pass `helmholtz_projection!` (decision 32), the gather/scatter transfer kernels
+one-pass `helmholtz_projection!` (decision 32) and its decision-38 siblings (`gradient!`, `curl!`,
+`symmetric_gradient!`), the decision-39 fiberwise executor, the gather/scatter transfer kernels
 ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), and the radial
 shell binning (decisions 25, 34). On a CPU array these launch on the `CPU()` backend, which
 partitions the index range by `Threads.nthreads()` itself. Two consequences follow, and neither is a
@@ -532,7 +534,7 @@ one thread count. Measured on a Ryzen 9800X3D over twelve trials at 8 and 16 thr
 differed, `anterpolate!` by 2–3 ulp of the field's scale and `radial_spectrum` only inside
 numerically-zero shells (max ``\lvert \Delta \rvert`` = 1.4e-47). The two kernels with **disjoint**
 writes — the projection and the gather — are bitwise-reproducible, and were measured to be so across
-1, 2, 4 and 8 threads. `test/threading.jl` encodes exactly this split: bitwise equality asserted for
+1, 2, 4 and 8 threads. The threading suite (`test/threading.jl`) encodes exactly this split: bitwise equality asserted for
 the disjoint pair (including against a subprocess launched at a different thread count, the one
 comparison the in-process `with_threading` toggle cannot make), a tolerance for the `Atomix` pair —
 the same tolerance-not-bitwise treatment the reductions above receive, and for the same reason.

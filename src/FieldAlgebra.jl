@@ -300,6 +300,39 @@ for (bang, operator, reducer) in ((:add!, :+, :_add_values), (:subtract!, :-, :_
 end
 
 
+"""
+    +(a, b, fields...)
+
+Allocating fieldwise addition: add fields — or a field and a compatible constant — and return a
+new field; the in-place home is [`add!`](@ref). The unary `+` returns its field unchanged.
+"""
++
+
+"""
+    -(a, b)
+
+Allocating fieldwise subtraction (or unary negation): the in-place home is [`subtract!`](@ref).
+"""
+-
+
+"""
+    *(a, b)
+
+Allocating multiplication: a real scale, a scalar-field action, or a fiber-constant contraction,
+returning a new field. The in-place homes are [`multiply!`](@ref) and, for the tensor
+contractions, [`mul!`](@ref). There is deliberately no spectral field-times-field method — that
+coefficientwise product is a convolution and lives under `convolve`'s name, in the `Convolution` module.
+"""
+*
+
+"""
+    /(a, b)
+
+Allocating division by a real or, in physical representation only, by a scalar field; the
+in-place home is [`divide!`](@ref).
+"""
+/
+
 +(field::AbstractField) = field
 
 
@@ -458,7 +491,7 @@ The arguments are:
 - `β`, `b` — the real weight and the second field.
 
 The write is coefficientwise, so it needs no alias guard: `a`, `b`, or both may be `destination` itself.
-In particular `combine!(u, 1, u, β, k)` computes the scaled accumulate ``u \\leftarrow u + \\beta k`` in
+In particular `combine!(u, 1, u, β, g)` computes the scaled accumulate ``u \\leftarrow u + \\beta g`` in
 place.
 
 ```math
@@ -1214,6 +1247,16 @@ function _transpose_components!(destination, A)
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
   return destination
 end
+
+
+"""
+    transpose(A)
+
+Allocating form of [`transpose!`](@ref): allocate the result and return the transpose
+``A^\\top`` of a second-order tensor field, in either representation. See `transpose!` for the
+componentwise definition.
+"""
+transpose
 
 
 for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))

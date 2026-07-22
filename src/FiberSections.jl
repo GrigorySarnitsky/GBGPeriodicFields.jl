@@ -571,7 +571,7 @@ _norm_tensor_rhs(symbol, kind) =
 """
     _trace_tensor_rhs(symbol, kind)
 
-Build the right-hand side for the fiberwise trace ``\\operatorname{tr}(A) = A_{ii} = A_{11} + A_{22} + A_{33}``, the sum of the diagonal components of the tensor `symbol` (`kind` is `:field` or `:fiber`). It feeds `_scalar_kernel_body`, and `_dev_kernel_body` reuses it for the trace it subtracts. The trace is linear, so the same body serves both physical-space and spectral representation.
+Build the right-hand side for the fiberwise trace ``\\operatorname{tr}(A) = A_{ii} = A_{11} + A_{22} + A_{33}``, the sum of the diagonal components of the tensor `symbol` (`kind` is `:field` or `:fiber`). It feeds `_scalar_kernel_body`, and the fused `_dev_values` function reuses it for the trace it subtracts. The trace is linear, so the same body serves both physical-space and spectral representation.
 """
 _trace_tensor_rhs(symbol, kind) = _sum_terms([_tensor_component(symbol, kind, d, d) for d in 1:3])
 
@@ -610,7 +610,7 @@ end
 # One portable executor runs every fused fiberwise operation: a pure scalar "values function"
 # maps one element's source values (plus any fiber constants) to the tuple of output values, and
 # the executor streams it over the common linear index range — sources read once into registers,
-# every output written from them, invariant 10's α/β owned centrally. The values functions are
+# every output written from them, the package-wide α/β accumulate convention owned centrally. The values functions are
 # stamped below from the SAME per-component formula builders the broadcast kernels use (`kind =
 # :scalar` names the positional scalar arguments; `_undot` drops the dots), so each formula stays
 # written exactly once. All of an element's reads happen before its writes, which makes the pass
@@ -682,7 +682,7 @@ end
 """
     _fiberwise_pass!(backend, f, targets, arrays, constants, alpha, beta)
 
-Run one fused fiberwise pass `targets ← α f(arrays…, constants…) [+ β targets]` over the common
+Run one fused fiberwise pass — every target element receives `alpha * f(element values..., constants...)`, plus `beta` times its prior value when the accumulate is requested — over the common
 linear index range of the participating storage. Here `f` is a pure scalar values function: it
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
@@ -717,7 +717,7 @@ end
     _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, elements)
 
 Run [`_fiberwise_pass!`](@ref)'s loop over one contiguous slab of the linear index range, the
-``\\beta`` branch hoisted out of the loop (invariant 10's overwrite-vs-accumulate split).
+``\\beta`` branch hoisted out of the loop (the package-wide overwrite-vs-accumulate convention: ``\\beta = 0`` never reads the destination).
 """
 function _fiberwise_slab!(f::F, targets, arrays, constants, alpha, beta, elements) where {F}
   if iszero(beta)

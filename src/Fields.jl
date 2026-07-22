@@ -11,9 +11,12 @@ This module provides the following.
   * **Grid and layout** — [`Grid3D`](@ref) describes the periodic domain geometry, and
     [`RealFourierLayout`](@ref) describes the real-to-complex transform layout.
   * **Fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref), and
-    [`FiberTensor4`](@ref) are StaticArrays aliases naming one individual tensor value of a given order.
+    [`FiberTensor4`](@ref) are `StaticArrays` aliases naming one individual tensor value of a given order.
   * **Field types** — the scalar, vector, and second-order tensor field types each come in a
-    physical-space and a spectral representation.
+    physical-space and a spectral representation (higher orders exist as `TensorFieldPhysical{R}` /
+    `TensorFieldSpectral{R}`).
+  * **Persistence** — [`write_field`](@ref) and [`read_field`](@ref) map a field to and from one
+    self-describing HDF5 group (methods load with the `HDF5` package, as a weak-dependency extension).
   * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
     [`to_spectral`](@ref) move a field between the two representations. The allocating forms preserve
     their input, while the in-place `!` forms may overwrite the source.

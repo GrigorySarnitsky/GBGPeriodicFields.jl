@@ -215,7 +215,8 @@ end
 
 
 """
-    _apply_helmholtz_projection!(destination, field, multipliers, kernel_data, alpha, beta)
+    _apply_helmholtz_projection!(destination, field, multipliers,
+                                 kernel_data, alpha, beta)
 
 Launch `_helmholtz_projection_kernel!` over the spectral mode grid on the backend of
 `destination`'s storage, passing the six one-dimensional multiplier arrays and the already-converted
@@ -857,7 +858,8 @@ end
 
 """
     divergence(field, multipliers::FieldSpectralMultipliers)
-    divergence(field, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+    divergence(field, multipliers::FieldSpectralMultipliers,
+               kernel::ScalarFieldSpectral)
 
 Allocating form of [`divergence!`](@ref): allocate the result and return it. A vector field ``u`` gives
 its scalar divergence ``\\nabla\\cdot u``; a second-order tensor field ``A`` gives the vector field
@@ -1212,7 +1214,8 @@ end
     )
 
     helmholtz_projection!(destination, field, multipliers, kernel::ScalarFieldSpectral)
-    helmholtz_projection!(destination, field, multipliers, kernel::ScalarFieldSpectral, α, β)
+    helmholtz_projection!(destination, field, multipliers,
+                          kernel::ScalarFieldSpectral, α, β)
 
 Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
 field and write it into `destination`, returning `destination`. The projection removes the
@@ -1241,7 +1244,8 @@ The spectral symbol subtracts the longitudinal part ``k_i (k\\cdot\\hat u)/|k|^2
 ``\\hat u_i`` at every nonzero wavevector, and leaves the zero Fourier mode unchanged:
 
 ```math
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)  \\hat u_j(k), \\qquad k \\ne 0.
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)  \\hat u_j(k),
+\\qquad \\delta_{ij} \\text{ the Kronecker delta}, \\qquad k \\ne 0.
 ```
 
 # The kernel-composed form

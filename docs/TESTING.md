@@ -64,7 +64,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
-  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (`dev!` left the list when decision 39 fused its trace into a register) (its power field + the allocating transform; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),
+  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),
   `pass_audit.jl` (the element-traffic ledger, decision 36: a `CountingArray` harness measures every
   audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
@@ -73,7 +73,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane, and
   covers the `KernelAbstractions` kernels separately, since they thread outside the `_assign!`
   policy — bitwise for the disjoint-write pair, to a tolerance for the two `Atomix` accumulators),
-  and `jet.jl` (JET `@test_call` static analysis of the public operations).
+  and `jet.jl` (`JET` `@test_call` static analysis of the public operations).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
@@ -144,7 +144,7 @@ For each public operation, a test must establish:
       field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
       are counted, whereas GPU `@allocated` reports only the host wrapper of a device buffer and would miss
       the materialization that wedges a hot loop (the code is generic, so a CPU materialization is a GPU
-      one). A deliberate materializer (`norm!`/`dev!`/`lpnorm`/`std`/`var`, `radial_correlation`, the
+      one). A deliberate materializer (`norm!`/`lpnorm`/`std`/`var`, `radial_correlation`, the
       mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an O(N)/O(shells) regression.
 - [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).

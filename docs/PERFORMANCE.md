@@ -27,7 +27,7 @@ that matters.
   (`docs/ARCHITECTURE.md` §1), so the ceiling is whatever one node holds — and on a CPU node that
   ceiling is high. A NAISS Arrhenius thin CPU node pairs two 128-core AMD EPYC 9755 processors with
   768 GB of DDR5, a fat node carries 3 TB, and one GH200 in the GPU partition offers 96 GB of HBM.
-  Counting one scalar field in either representation as ``8 N^3`` bytes in `Float64` and a solver's
+  Counting one scalar field in either representation as ``8 N^3`` bytes in `Float64` (``N`` the per-axis grid size) and a solver's
   live set at order 25 such fields, a single GH200 runs out near ``768^3`` while a thin CPU node
   reaches roughly ``1536^3`` and a fat node beyond it. The CPU therefore owns a band of resolutions
   no single GPU can reach, and inside that band it is the production platform, not a fallback. CPU
@@ -182,7 +182,7 @@ read-modify-write + a full-grid prescale). On gfx1031 `Float32` atomic-add is na
 is emulated (CAS loop) ⇒ ≈**1.3–1.7×** slower; contention is worst at *moderate* clustering
 (~2 pts/cell), not extreme (extreme stays cache-hot).
 
-**(e) CPU vs GPU.** The transfer threads on CPU through KernelAbstractions' `CPU()` backend with no
+**(e) CPU vs GPU.** The transfer threads on CPU through `KernelAbstractions`' `CPU()` backend with no
 code change, scaling ≈**4.5–5.7×** on 8 threads before the bandwidth plateau; the GPU is ≈**9–22×**
 the 8-thread CPU (≈ the 384-vs-~60 GB/s bandwidth ratio for the heavy schemes, more for the light
 ones via parallelism).
@@ -523,7 +523,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    `judge` — the gap that let finding (l)'s threading inversion sit in the committed table
    unnoticed. The designed shape: a per-mechanism canary suite (minutes, not the full sweep),
    frozen per-host baselines committed beside the code, `BenchmarkTools.judge` at a 25% tolerance
-   with a hard exit code, a `tN ≤ 1.1·t1` streaming assertion, and the pass-audit refreeze
+   with a hard exit code, a ``t_N \le 1.1 t_1`` streaming assertion, and the pass-audit refreeze
    protocol for intended slowdowns. Deliberately **not** push-triggered CI (cost policy; shared
    runners are noise): the `BenchmarkGroup` layout still keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or

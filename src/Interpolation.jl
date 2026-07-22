@@ -20,7 +20,7 @@ and ``1/N``:
 M \\langle Wf, q \\rangle_{\\text{pts}} = \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\text{grid}}.
 ```
 
-This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
+Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. Conservation holds **only** when both directions use the same weights;
 mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields a value while
@@ -118,7 +118,8 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
     LalescuSpline(n, m = 1; T = Float64)
 
 Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
-TurTLE's `beta_n{n}_m{m}` (TurTLE's `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
+the `beta_n{n}_m{m}` weights of TurTLE, the reference pseudospectral turbulence solver with Lagrangian
+particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the finite-difference
 half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
 coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
@@ -126,7 +127,7 @@ reproduces the field value and the derivatives of order ``1, \\dots, m`` at the 
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
 ``2n{+}1``-node stencil about that node (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
-(``w_q(t) = \\sum_p \\mathrm{coefficients}[q, p{+}1]  t^p``).
+(``w_q(t) = \\sum_r \\mathrm{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
 
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
@@ -527,7 +528,7 @@ Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoi
 in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
-with the weights' partition of unity the total deposited quantity is conserved. Other communities name
+with the weights' partition of unity — at any position the stencil weights sum to exactly one — the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
 (particle-in-cell), *projection* (particle-source-in-cell), or *gridding* (nonuniform FFTs);
 *anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990). The `scheme` (an
