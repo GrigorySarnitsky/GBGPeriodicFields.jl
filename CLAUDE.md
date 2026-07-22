@@ -915,6 +915,15 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).
 - **Deferred until a consumer makes them concrete** (the §2 rule against speculative structure):
+  the **weighted point measure** (recorded 2026-07-22): the measure-with-density on the unstructured
+  base — `integral(q, w) = Σ wₚ qₚ`, `mean`/`inner`/`l2norm` against a per-point density `w` over the
+  counting measure — the point-base sibling of `weighted_inner`, reusing the whole reduction
+  machinery. Consumer: Voronoi-cell volumes as quadrature weights for clustering-PDF diagnostics
+  (preferential concentration à la Monchaux, Bourgoin & Cartellier 2010). The **tessellation itself
+  is declined**: canonical mathematics but the wrong computational kind (combinatorial geometry —
+  reuses no package mechanism, foreign heavy dependency, GPU-hostile, would found a fourth operation
+  family for one diagnostic) — the consumer owns the geometry that produces the weights, the package
+  owns the measure algebra. Trigger: the consumer's Voronoi diagnostic landing with real weights;
   the fused **quadratic-form reduction** `⟨v,A·v⟩ = mean(v_i A_ij v_j)` (a bilinear reduction; the IT
   request flagged it "for completeness of the fused-reduction set", its win a single vector intermediate at
   diagnostic cadence, its consumer — enstrophy production `⟨ω·S·ω⟩` — not yet live; a small add on the
