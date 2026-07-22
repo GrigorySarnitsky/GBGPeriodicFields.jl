@@ -243,6 +243,11 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
       Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1), "exponential_convolve!",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+    w = counted_kernel()
+    audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, w), "exponential_convolve! ŵ offset",
+      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
+      Traffic("ŵ", carr(w), (3M, 0), (M, 0),
+              "the broadcast extrudes the per-mode offset field over the fiber, one read per output component — the finding-(k) mode-loop hoist is the priced fix"))
     audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers, -0.1),
       "exponential_convolve! two-operand",
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
