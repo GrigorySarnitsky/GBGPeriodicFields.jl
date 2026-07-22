@@ -365,9 +365,9 @@ identity holds — the loop is slow, not wrong). **Fixed (2026-07-22, decision 3
 now runs the standard fused `materialize!` per contiguous slab of the largest axis, so each slab
 executes the same SIMD kernel as serial — measured on the probe, 512³ `Float64` `add!`: t2
 187.7 → **73.3 ms** (the DRAM ceiling, previously reached only at t8), t8 unchanged at the ceiling,
-and 64³ t8 97 → 28 µs (threading now *wins* at small sizes). The archived CPU columns predate the
-fix until the next sweep replaces them — read pre-fix t2–t8 numbers as measurements of the retired
-loop.
+and 64³ t8 97 → 28 µs (threading now *wins* at small sizes). Both hosts' CPU columns in
+`RESULTS.md` are re-swept post-fix (Enteropia and Aiporetne, 2026-07-22); pre-fix t2–t8 numbers
+survive only in superseded archives and measure the retired loop.
 
 
 ## 5. The benchmark suite
@@ -528,8 +528,9 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    reason. Calibration lesson from its first run, recorded so it is not relearned: 20 samples of a
    ``\sim``250 µs canary let minima jitter ``\sim 2\times`` at eight threads and false-alarm;
    the frozen calibration is 100 samples × 5 evals (batch-averaged minima), which held 12/12
-   invariant across repeated judges on both backends. Enteropia baselines (cpu-t1, cpu-t8, cuda)
-   are committed; Aiporetne's freeze with that host's pending re-sweep. Deliberately **not**
+   invariant across repeated judges on both backends. Baselines for both hosts are committed —
+   Enteropia (cpu-t1, cpu-t8, cuda) and Aiporetne (cpu-t1, cpu-t8, rocm; frozen 2026-07-22 with
+   that host's post-rewrite re-sweep, its freeze-run inversion alarm 8/8 ok). Deliberately **not**
    push-triggered CI (cost policy; shared runners are noise): the `BenchmarkGroup` layout still
    keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or

@@ -808,8 +808,8 @@ those are the usual rot. Then the mechanical bar:
    `test/threading.jl` (run the threaded lane with `JULIA_NUM_THREADS=4`). The 2026-07-21 threading
    inversion (finding (l): the old per-element chunk loop ran ~8.6 GB/s/thread vs `materialize!`'s ~41,
    so t2/t4 were slower than serial) is **fixed by decision 38** — per-slab `materialize!` over sliced
-   operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; the Enteropia archive is re-swept post-fix
-   (`e6e8a76`); the Aiporetne columns refresh on that host's next sweep. The **two
+   operands, bitwise-identical, 512³ t2 `add!` 187.7 → 73.3 ms; both hosts' archives are re-swept
+   post-fix (Enteropia `e6e8a76`; Aiporetne 2026-07-22 — 12700K + 7900 XTX, thread scaling monotone). The **two
    `KernelAbstractions` families outside this policy** (the transfer and the binning — the
    atomic/irregular kernels; helmholtz joined the gated loops in decision 40, and the
    decision-38/39 kernels were gated from birth) are covered separately in the same file:
@@ -971,9 +971,10 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   25% tolerance (≥2× documented jitter) with a nonzero exit on regression, an explicit
   `tN ≤ 1.1·t1` streaming-op assertion, and the pass-audit refreeze protocol (an intended slowdown
   refreezes its baseline in the same commit, with the reason). Per-host, never cross-host; both
-  backends; NOT CI (cost policy; cloud runners are noise). Enteropia baselines committed
-  (`benchmark/baselines/`: cpu-t1, cpu-t8, cuda; calibration 100 samples × 5 evals — 20 samples
-  let µs-canaries false-alarm); Aiporetne's freeze lands with that host's pending re-sweep.
+  backends; NOT CI (cost policy; cloud runners are noise). Both hosts' baselines are committed under
+  `benchmark/baselines/` — Enteropia (cpu-t1, cpu-t8, cuda) and Aiporetne (cpu-t1, cpu-t8, rocm;
+  frozen 2026-07-22 with that host's post-rewrite re-sweep, its inversion alarm 8/8 ok); calibration
+  100 samples × 5 evals — 20 samples let µs-canaries false-alarm.
   **Definition-of-done addition: a perf-relevant change runs `regress.jl` green, or refreezes with
   its reason in the same commit.**
 - **The audit-exchange declines and standing candidates (decision 35).** No general fusion API — the
