@@ -377,6 +377,44 @@ and 64³ t8 97 → 28 µs (threading now *wins* at small sizes). Both hosts' CPU
 `RESULTS.md` are re-swept post-fix (Enteropia and Aiporetne, 2026-07-22); pre-fix t2–t8 numbers
 survive only in superseded archives and measure the retired loop.
 
+**(m) `exp` producing a `Float32` subnormal costs ~16× per element — and a fixed benchmark exponent
+measured exactly that.** On x86 an arithmetic result in the subnormal band — between the smallest
+normal ``\approx 1.2\times10^{-38}`` and the underflow-to-zero point ``\approx 1.4\times10^{-45}``
+for `Float32` — is produced through a microcode assist: measured 37.1 ns/element, against 2.4 for a
+normal result and 1.2 for a full underflow to exact zero. For the lazy kernel
+``\exp(c\lvert k\rvert^2)`` the affected arguments, ``c\lvert k\rvert^2 \in [-103, -87]``, form a
+spherical shell in ``k``-space; the benchmark's former fixed ``c = -0.1`` put ~11% of a ``64^3``
+grid's modes inside it, inflating the `Float32` `exponential_convolve!` cell to 2.7–3.1× its
+`Float64` twin (the blend ``1 + 0.11 \times 15 \approx 2.6``; the sublinear ``64^3 \to 128^3`` size
+step was the tell), so the row measured libm underflow handling, not the operation. The benchmark
+coefficient is now scale-aware — ``c = -4/\lvert k\rvert^2_{\mathrm{corner}}``, the kernel spanning
+``[e^{-4}, 1]`` at every size — verified to close the ``64^3`` type gap from 3.0× to 1.05–1.08×;
+cells swept before 2026-07-23 carry the old exponent. The operation keeps exact semantics (no
+flush-to-zero guard): `Float64`'s band (arguments below ``\approx -708``) is unreachable by physical
+kernels, GPUs flush subnormals natively, and a `Float32` CPU consumer with a genuinely deep kernel —
+an aggressive Gaussian filter — pays the shell honestly; the `exponential_convolve!` docstring
+carries the caveat.
+
+**(n) The shell-binning atomics contend on an accumulator smaller than a dozen cache lines —
+threading inverts at small grids, and `Float32` bins double the collisions.** The radial family
+(`radial_spectrum`, `radial_correlation`, the co-spectra) ends in one `Atomix.@atomic` add per
+stored mode into a packed bins array of 57 (``64^3``) to 223 (``256^3``) entries — on x86 a CAS
+loop that must own the bin's cache line exclusively, so true same-bin contention (serialized
+retries) stacks with false sharing (different bins on one 64-byte line). A model scatter (4M adds,
+eight threads) reproduces the table: serial 4.6 ns/element; threaded over 57 packed bins 17–19 ns —
+threading *quadruples* the per-add cost, the table's ``64^3`` inversion (t8 1.3–1.6× slower than
+t1); `Float32` packed at 223 bins runs 1.51× `Float64` (16 bins per line versus 8 — the table's t8
+type reversal, 1.44–1.5×); one-bin-per-line padding equalizes the types and finally scales at 223
+bins (2.7–2.8 ns) yet still trails serial at 57 (same-bin collisions, ``\approx 8/57`` per add). At
+production sizes the mode reads are DRAM-bound and the contention hides, so the anomaly is confined
+to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Candidates when a
+consumer's cadence makes it matter: bin padding (backend-uniform; kills the `Float32` reversal, not
+the ``64^3`` inversion); per-thread private bins with an ordered merge on CPU (kills both *and*
+makes the CPU binning bitwise thread-invariant, retiring one of `docs/ARCHITECTURE.md` §9's two
+tolerance-tested accumulators, at the price of splitting the deliberately single-source
+KernelAbstractions kernel); workgroup-local bins on GPU — the same redesign's lever on the ~80×
+CUDA-over-ROCm `Float64` radial gap, which is this kernel under RDNA3's CAS-loop `Float64` atomics.
+
 
 ## 5. The benchmark suite
 
@@ -392,7 +430,8 @@ re-measured per host/size/type on every sweep; GPU rows have no twin, the device
 planner flag), **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
-decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` and the kernel-composed
+decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
+size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
@@ -554,7 +593,11 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    changes.
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
-   §3); the tables here are indicative magnitudes, not contract values.
+   §3); the tables here are indicative magnitudes, not contract values. The allocating kernel
+   *builders* (`spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` /
+   `assignment_window` / `translation_kernel`) are the noisy extreme: their threaded ``256^3``
+   cells swung ±50% between two same-day sweeps (GC timing on paid-once allocating passes) — read
+   them as indicative only, never as regressions.
 5. **GPU at 256³ — three traps, none a rocFFT bug** (RX 6700 XT, gfx1031, 12 GB, ROCm 7.2.4).
    Earlier notes blamed "rocFFT 256³ planning"; that was wrong. The facts, measured:
    - **256³ FFT works.** Scalar and vector r2c/c2r at 256³ take ~1 s to plan and ~15–20 ms to run;

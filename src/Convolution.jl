@@ -400,6 +400,13 @@ and is evaluated once per fiber component). The two-operand forms win outright o
 (``\\approx 1.4``–``1.7\\times`` over the sequential `combine!`-then-`convolve!` pair), fusing away
 the combination's destination write and re-read as well.
 
+On a CPU a deeply damped kernel has one further `Float32` cost cliff: modes whose factor lands in the
+subnormal range — exponent arguments ``c \\lvert k\\rvert^2 + s \\hat w`` between about ``-103`` and
+``-87`` — are produced through a hardware assist at roughly ``16\\times`` the usual per-element cost,
+so a kernel deep enough to cross that band pays a multiple of its whole pass. The `Float64` band
+(arguments below about ``-708``) is beyond any physical kernel, and the GPU backends flush subnormals
+to zero, so both are unaffected; where the band matters, use `Float64` or a milder exponent.
+
 The arguments are:
 - `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
   since the product is coefficientwise.

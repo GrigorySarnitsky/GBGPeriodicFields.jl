@@ -15,8 +15,14 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["convolve! vector | $tag"] = @benchmarkable (convolve!($uout, $u, $kernel); bench_sync(field_data($uout)))
   # decision 33: the lazy exponential kernel (evaluates exp per mode instead of reading a stored
   # kernel field) and the kernel-composed combination (combine! + convolve! as one pass — the
-  # sequential pair above is its baseline)
-  coefficient = T(-0.1); weight_a = T(0.3); weight_b = T(0.7)
+  # sequential pair above is its baseline). The exponent coefficient is scale-aware,
+  # c = -4/|k|²_corner, so exp spans [e⁻⁴, 1] at every grid size — the range of a realistic
+  # integrating factor, and the same measurement at every size. The former fixed c = -0.1 put an
+  # ~11% shell of a 64³ grid's modes in Float32's subnormal band, so that cell measured the x86
+  # subnormal assist (~16× per element) instead of the operation (PERFORMANCE.md finding (m)).
+  corner_squared = maximum(m.squared_wavenumber_1) + maximum(m.squared_wavenumber_2) +
+                   maximum(m.squared_wavenumber_3)
+  coefficient = -T(4) / T(corner_squared); weight_a = T(0.3); weight_b = T(0.7)
   group["exponential_convolve! scalar | $tag"] = @benchmarkable (exponential_convolve!($sout, $s, $m, $coefficient); bench_sync(field_data($sout)))
   group["exponential_convolve! vector | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient); bench_sync(field_data($uout)))
   group["combine!∘kernel vector | $tag"] = @benchmarkable (combine!($uout, $weight_a, $u, $weight_b, $uout, $kernel); bench_sync(field_data($uout)))
