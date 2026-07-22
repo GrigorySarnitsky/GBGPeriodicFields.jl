@@ -10,6 +10,7 @@
 # benchmark/report.jl. See docs/PERFORMANCE.md §6.
 
 using BenchmarkTools
+using Dates
 
 const BACKEND = isempty(ARGS) ? "cpu" : ARGS[1]
 const USECUDA = BACKEND == "cuda"
@@ -63,7 +64,17 @@ USEGPU && (BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true)
 const CHAR_SKIP = haskey(ENV, "CHAR_SKIP") ? split(ENV["CHAR_SKIP"], ",") : String[]
 const RUN_CLASSES = filter(c -> !(c in CHAR_SKIP), collect(CLASSES))
 
-combined = BenchmarkGroup()
+# Stamp the archive with its measurement vintage (commit + sweep date) as BenchmarkGroup tags:
+# report.jl prints a per-column vintage line from them, so a column measured at an older commit is
+# visible as such instead of silently inheriting the report's HEAD (the 2026-07-22 decision-40
+# reductions skew — one host's archive swept hours before a threading feature landed — is the
+# motivating incident).
+run_commit = try
+  readchomp(`git rev-parse --short HEAD`)
+catch
+  "unknown"
+end
+combined = BenchmarkGroup(["commit=$(run_commit)", "measured=$(Dates.format(Dates.now(), "yyyy-mm-dd"))"])
 for class in RUN_CLASSES
   combined[class] = BenchmarkGroup()
 end

@@ -437,7 +437,12 @@ tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows t
 and assembles it into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
-that one script; it stamps the date, commit, and host.
+that one script; it stamps the date, commit, and host. `characterize.jl` additionally stamps **each
+archive JSON** with its own measurement vintage (`commit=`/`measured=` BenchmarkGroup tags), and
+`report.jl` prints the per-column vintages in the header — so a column measured at an older commit is
+visible as such instead of silently inheriting the report's HEAD (the 2026-07-22 decision-40
+reductions skew, one host's archive swept hours before a threading feature landed, is the motivating
+incident).
 
 A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT). The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the

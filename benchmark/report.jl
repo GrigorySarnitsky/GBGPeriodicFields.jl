@@ -36,6 +36,31 @@ paths  = ARGS
 groups = [(label_of(p), BenchmarkTools.load(p)[1]) for p in paths]
 labels = first.(groups)
 
+# Each archive may carry vintage tags stamped by characterize.jl ("commit=…", "measured=…"); a
+# column from an unstamped (older) archive falls back to the header prose for its vintage. This
+# line is what keeps a stale column from silently claiming the report's HEAD feature state.
+function vintage_of(group)
+  tag_value(prefix) = begin
+    i = findfirst(t -> t isa AbstractString && startswith(t, prefix), group.tags)
+    i === nothing ? nothing : String(group.tags[i])[(length(prefix) + 1):end]
+  end
+  commit = tag_value("commit=")
+  commit === nothing && return nothing
+  measured = tag_value("measured=")
+  return measured === nothing ? commit : "$(commit) @ $(measured)"
+end
+
+vintages = Dict{Union{String, Nothing}, Vector{String}}()
+for (label, group) in groups
+  push!(get!(vintages, vintage_of(group), String[]), label)
+end
+vintage_parts = String[]
+for key in sort(collect(keys(vintages)); by = k -> something(k, "￿"))
+  columns = join(vintages[key], ", ")
+  push!(vintage_parts, key === nothing ? "unstamped (vintage in the prose above): " * columns :
+                                         "`" * key * "`: " * columns)
+end
+
 commit = try
   readchomp(`git rev-parse --short HEAD`)
 catch
@@ -74,7 +99,9 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         "The GPU sweep builds one (op-class, grid, element-type) at a time so ",
         "the working set stays bounded (PERFORMANCE.md §7). **Regenerate** with ",
         "`benchmark/characterize.sh` plus the per-card / per-CPU archive in `benchmark/results/` ",
-        "(PERFORMANCE.md §6). ~10% jitter.\n")
+        "(PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was ",
+        "measured at, stamped into its JSON by `characterize.jl`: ", join(vintage_parts, "; "),
+        ". ~10% jitter.\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
