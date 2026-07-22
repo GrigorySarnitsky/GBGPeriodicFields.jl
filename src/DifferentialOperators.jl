@@ -47,13 +47,17 @@ using ..Fields:
 
 using ..FiberSections:
   _assign!,
-  @_assign!
+  @_assign!,
+  _use_threads,
+  _index_ranges
 
 
-# The fused Helmholtz projection writes three destination components per mode from one shared
-# longitudinal factor, which a single broadcast cannot express — so it is a portable
-# KernelAbstractions kernel, like the transfer kernels in Interpolation and the shell binning in
-# Reductions.
+# The fused operators write several destination components per mode from shared source reads,
+# which a single broadcast cannot express — so they are portable KernelAbstractions kernels on a
+# device (like the transfer kernels in Interpolation and the shell binning in Reductions) and
+# plain slab-threaded `@simd` loops on the CPU, dispatched on the backend (the `import` carries
+# `KernelAbstractions.CPU` for that dispatch, the decision-30 idiom).
+import KernelAbstractions
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 
 
@@ -81,19 +85,6 @@ export gradient!,
 # multipliers (`FieldSpectralMultipliers`) and their compatibility and
 # broadcast-view helpers live in Fields and are imported above; the Nyquist
 # split between derivative and squared wavenumbers is handled there.
-
-
-"""
-    _apply_spectral_derivative!(destination_component, source_component,
-                                wavenumber, ::Type{T})
-
-Apply a coefficientwise first derivative along one axis, computing `destination_component .= im * wavenumber .* source_component`, where `wavenumber` is a `_wavenumber_broadcast_view`. This kernel is the building block that `gradient` and `divergence` share.
-"""
-function _apply_spectral_derivative!(destination_component, source_component, wavenumber, ::Type{T}) where {T<:AbstractFloat}
-  imaginary_unit = Complex{T}(zero(T), one(T))
-  @_assign! destination_component .= imaginary_unit .* wavenumber .* source_component
-  return destination_component
-end
 
 
 """
@@ -247,6 +238,365 @@ function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field
 end
 
 
+####################################################
+#        Fused multi-output operator passes        #
+####################################################
+#
+# The per-component-formula operators below — `gradient!` (both arities), `curl!`, and
+# `symmetric_gradient!` — formerly ran one broadcast per output component, re-reading every shared
+# source component once per formula containing it (the pass audit's standing gaps: 3×, 2×, 5×).
+# Each is now one pass per mode: all needed source values are read once into registers and every
+# output component is written from them, so the audit rows sit at their fused ideals. Execution is
+# split by backend, the decision-30 shape: any non-CPU backend launches a KernelAbstractions
+# kernel (the decision-32 Helmholtz precedent), while the CPU runs a plain typed loop — stride-1
+# `@simd` inner axis, per-axis wavenumbers hoisted one loop level up — because per-element access
+# through either a `Broadcasted` tree or the KA CPU backend runs well below the SIMD streaming
+# rate (measured 8.6 and 17.7 GB/s against `materialize!`'s 41 on one Zen 5 core). The CPU loop
+# threads by splitting the outermost mode axis into contiguous slabs through the same
+# gate/cutoff/override as the broadcast route (`_use_threads`), which a KA launch cannot consult.
+# The arithmetic mirrors the replaced broadcasts expression for expression — `(i k) û`, not
+# `i (k û)` — so the rewrite is bitwise-identical to the broadcast form it replaces.
+
+
+"""
+    _foreach_outer_slab(slab_body!, outer_axis, element_count)
+
+Run `slab_body!` over the whole `outer_axis` serially, or — when [`_use_threads`](@ref) allows for
+`element_count` written elements — over contiguous slabs of it, one task per slab. The caller's
+`slab_body!` loops modes with the outer axis restricted to the given range, so each element is
+written by exactly one task and the threaded result is bitwise-identical to serial.
+"""
+function _foreach_outer_slab(slab_body!::F, outer_axis, element_count) where {F}
+  _use_threads(element_count) || return slab_body!(outer_axis)
+  @sync for slab in _index_ranges(outer_axis, Threads.nthreads())
+    Threads.@spawn slab_body!(slab)
+  end
+  return nothing
+end
+
+
+# --- gradient, scalar → vector -------------------------------------------------------------
+
+# One work-item per mode: the source read once, the three components of i k ŝ written from it.
+# An order-raising operator cannot alias (scalar source, vector destination), so the sources are
+# @Const (unlike the aliasable Helmholtz projection and curl).
+@kernel function _scalar_gradient_kernel!(destination_1, destination_2, destination_3,
+    @Const(source), @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    imaginary_unit)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    source_value = source[mode_1, mode_2, mode_3]
+    destination_1[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_1[mode_1]) * source_value
+    destination_2[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_2[mode_2]) * source_value
+    destination_3[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_3[mode_3]) * source_value
+  end
+end
+
+
+"""
+    _scalar_gradient_modes!(backend, destination_1, destination_2, destination_3,
+                            source, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+
+Run the fused scalar-gradient pass over every mode: read the source coefficient once, write the
+three components of ``\\mathrm{i} k \\hat s``. The generic method launches
+`_scalar_gradient_kernel!` on the backend; the `CPU` method runs the slab-threaded `@simd` loop.
+"""
+function _scalar_gradient_modes!(backend, destination_1, destination_2, destination_3,
+    source, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  _scalar_gradient_kernel!(backend)(destination_1, destination_2, destination_3,
+                                    source, wavenumber_1, wavenumber_2, wavenumber_3,
+                                    imaginary_unit; ndrange = size(destination_1))
+  synchronize(backend)
+  return nothing
+end
+
+function _scalar_gradient_modes!(::KernelAbstractions.CPU, destination_1, destination_2, destination_3,
+    source, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  axis_1, axis_2 = axes(source, 1), axes(source, 2)
+  _foreach_outer_slab(axes(source, 3), 3 * length(source)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      scaled_wavenumber_3 = imaginary_unit * wavenumber_3[mode_3]
+      for mode_2 in axis_2
+        scaled_wavenumber_2 = imaginary_unit * wavenumber_2[mode_2]
+        @simd for mode_1 in axis_1
+          source_value = source[mode_1, mode_2, mode_3]
+          destination_1[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_1[mode_1]) * source_value
+          destination_2[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value
+          destination_3[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+# --- gradient, vector → tensor -------------------------------------------------------------
+
+# One work-item per mode: the three source components read once each, the nine components of
+# i k_j û_i written from them. Order-raising, so no aliasing and the sources are @Const.
+@kernel function _vector_gradient_kernel!(
+    destination_11, destination_12, destination_13,
+    destination_21, destination_22, destination_23,
+    destination_31, destination_32, destination_33,
+    @Const(source_1), @Const(source_2), @Const(source_3),
+    @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    imaginary_unit)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    scaled_wavenumber_1 = imaginary_unit * wavenumber_1[mode_1]
+    scaled_wavenumber_2 = imaginary_unit * wavenumber_2[mode_2]
+    scaled_wavenumber_3 = imaginary_unit * wavenumber_3[mode_3]
+    source_value_1 = source_1[mode_1, mode_2, mode_3]
+    source_value_2 = source_2[mode_1, mode_2, mode_3]
+    source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+    destination_11[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_1
+    destination_12[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_1
+    destination_13[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_1
+    destination_21[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_2
+    destination_22[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_2
+    destination_23[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_2
+    destination_31[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_3
+    destination_32[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_3
+    destination_33[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_3
+  end
+end
+
+
+"""
+    _vector_gradient_modes!(backend, destinations::NTuple{9}, sources::NTuple{3},
+                            wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+
+Run the fused vector-gradient pass over every mode: read the three source coefficients once,
+write the nine components of ``\\mathrm{i} k_j \\hat u_i``. Destinations are ordered row-major —
+`(1,1), (1,2), (1,3), (2,1), …` — matching `_tensor2_component_data`.
+"""
+function _vector_gradient_modes!(backend, destinations::NTuple{9, AbstractArray},
+    sources::NTuple{3, AbstractArray}, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  _vector_gradient_kernel!(backend)(destinations..., sources...,
+                                    wavenumber_1, wavenumber_2, wavenumber_3,
+                                    imaginary_unit; ndrange = size(destinations[1]))
+  synchronize(backend)
+  return nothing
+end
+
+function _vector_gradient_modes!(::KernelAbstractions.CPU, destinations::NTuple{9, AbstractArray},
+    sources::NTuple{3, AbstractArray}, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  destination_11, destination_12, destination_13,
+    destination_21, destination_22, destination_23,
+    destination_31, destination_32, destination_33 = destinations
+  source_1, source_2, source_3 = sources
+  axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
+  _foreach_outer_slab(axes(source_1, 3), 9 * length(source_1)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      scaled_wavenumber_3 = imaginary_unit * wavenumber_3[mode_3]
+      for mode_2 in axis_2
+        scaled_wavenumber_2 = imaginary_unit * wavenumber_2[mode_2]
+        @simd for mode_1 in axis_1
+          scaled_wavenumber_1 = imaginary_unit * wavenumber_1[mode_1]
+          source_value_1 = source_1[mode_1, mode_2, mode_3]
+          source_value_2 = source_2[mode_1, mode_2, mode_3]
+          source_value_3 = source_3[mode_1, mode_2, mode_3]
+          destination_11[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_1
+          destination_12[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_1
+          destination_13[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_1
+          destination_21[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_2
+          destination_22[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_2
+          destination_23[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_2
+          destination_31[mode_1, mode_2, mode_3] = scaled_wavenumber_1 * source_value_3
+          destination_32[mode_1, mode_2, mode_3] = scaled_wavenumber_2 * source_value_3
+          destination_33[mode_1, mode_2, mode_3] = scaled_wavenumber_3 * source_value_3
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+# --- curl ------------------------------------------------------------------------------------
+
+# One work-item per mode: the three source components read once, the three components of
+# i (k × û) written from them. All of a mode's reads precede its writes and modes are disjoint,
+# so destination may alias source and the former guard temporary is retired (the decision-32
+# Helmholtz argument); the sources are deliberately NOT @Const, whose no-other-writes promise the
+# aliased call would break.
+@kernel function _curl_kernel!(destination_1, destination_2, destination_3,
+    source_1, source_2, source_3,
+    @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    imaginary_unit)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    wavenumber_value_1 = wavenumber_1[mode_1]
+    wavenumber_value_2 = wavenumber_2[mode_2]
+    wavenumber_value_3 = wavenumber_3[mode_3]
+    source_value_1 = source_1[mode_1, mode_2, mode_3]
+    source_value_2 = source_2[mode_1, mode_2, mode_3]
+    source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+    destination_1[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_2 * source_value_3 - wavenumber_value_3 * source_value_2)
+    destination_2[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_3 * source_value_1 - wavenumber_value_1 * source_value_3)
+    destination_3[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_1 * source_value_2 - wavenumber_value_2 * source_value_1)
+  end
+end
+
+
+"""
+    _curl_modes!(backend, destination_1, destination_2, destination_3,
+                 source_1, source_2, source_3,
+                 wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+
+Run the fused curl pass over every mode: read the three source coefficients once, write the three
+components of ``\\mathrm{i} (k \\times \\hat u)``. Alias-safe by construction — all of a mode's
+reads precede its writes — so the destination may alias the source with no guard temporary.
+"""
+function _curl_modes!(backend, destination_1, destination_2, destination_3,
+    source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  _curl_kernel!(backend)(destination_1, destination_2, destination_3,
+                         source_1, source_2, source_3,
+                         wavenumber_1, wavenumber_2, wavenumber_3,
+                         imaginary_unit; ndrange = size(destination_1))
+  synchronize(backend)
+  return nothing
+end
+
+function _curl_modes!(::KernelAbstractions.CPU, destination_1, destination_2, destination_3,
+    source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
+  _foreach_outer_slab(axes(source_1, 3), 3 * length(source_1)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      wavenumber_value_3 = wavenumber_3[mode_3]
+      for mode_2 in axis_2
+        wavenumber_value_2 = wavenumber_2[mode_2]
+        @simd for mode_1 in axis_1
+          wavenumber_value_1 = wavenumber_1[mode_1]
+          source_value_1 = source_1[mode_1, mode_2, mode_3]
+          source_value_2 = source_2[mode_1, mode_2, mode_3]
+          source_value_3 = source_3[mode_1, mode_2, mode_3]
+          destination_1[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_2 * source_value_3 - wavenumber_value_3 * source_value_2)
+          destination_2[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_3 * source_value_1 - wavenumber_value_1 * source_value_3)
+          destination_3[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_1 * source_value_2 - wavenumber_value_2 * source_value_1)
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+# --- symmetric gradient ----------------------------------------------------------------------
+
+# One work-item per mode: the three source components read once, the six distinct components of
+# (i/2)(k_j û_i + k_i û_j) computed once and the nine entries written (each off-diagonal value to
+# its symmetric pair). Order-raising, so no aliasing and the sources are @Const. Diagonal entries
+# collapse to i k_i û_i, mirroring the broadcast form they replace expression for expression.
+@kernel function _symmetric_gradient_kernel!(
+    destination_11, destination_12, destination_13,
+    destination_21, destination_22, destination_23,
+    destination_31, destination_32, destination_33,
+    @Const(source_1), @Const(source_2), @Const(source_3),
+    @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    imaginary_unit, half_imaginary)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    wavenumber_value_1 = wavenumber_1[mode_1]
+    wavenumber_value_2 = wavenumber_2[mode_2]
+    wavenumber_value_3 = wavenumber_3[mode_3]
+    source_value_1 = source_1[mode_1, mode_2, mode_3]
+    source_value_2 = source_2[mode_1, mode_2, mode_3]
+    source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+    destination_11[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_1) * source_value_1
+    destination_22[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_2) * source_value_2
+    destination_33[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_3) * source_value_3
+
+    symmetric_12 = half_imaginary * (wavenumber_value_2 * source_value_1 + wavenumber_value_1 * source_value_2)
+    destination_12[mode_1, mode_2, mode_3] = symmetric_12
+    destination_21[mode_1, mode_2, mode_3] = symmetric_12
+
+    symmetric_13 = half_imaginary * (wavenumber_value_3 * source_value_1 + wavenumber_value_1 * source_value_3)
+    destination_13[mode_1, mode_2, mode_3] = symmetric_13
+    destination_31[mode_1, mode_2, mode_3] = symmetric_13
+
+    symmetric_23 = half_imaginary * (wavenumber_value_3 * source_value_2 + wavenumber_value_2 * source_value_3)
+    destination_23[mode_1, mode_2, mode_3] = symmetric_23
+    destination_32[mode_1, mode_2, mode_3] = symmetric_23
+  end
+end
+
+
+"""
+    _symmetric_gradient_modes!(backend, destinations::NTuple{9}, sources::NTuple{3},
+                               wavenumber_1, wavenumber_2, wavenumber_3,
+                               imaginary_unit, half_imaginary)
+
+Run the fused symmetric-gradient pass over every mode: read the three source coefficients once,
+compute the six distinct components of ``\\tfrac{\\mathrm{i}}{2}(k_j \\hat u_i + k_i \\hat u_j)``
+once each, and write all nine entries. Destinations are ordered row-major, matching
+`_tensor2_component_data`.
+"""
+function _symmetric_gradient_modes!(backend, destinations::NTuple{9, AbstractArray},
+    sources::NTuple{3, AbstractArray}, wavenumber_1, wavenumber_2, wavenumber_3,
+    imaginary_unit, half_imaginary)
+  _symmetric_gradient_kernel!(backend)(destinations..., sources...,
+                                       wavenumber_1, wavenumber_2, wavenumber_3,
+                                       imaginary_unit, half_imaginary; ndrange = size(destinations[1]))
+  synchronize(backend)
+  return nothing
+end
+
+function _symmetric_gradient_modes!(::KernelAbstractions.CPU, destinations::NTuple{9, AbstractArray},
+    sources::NTuple{3, AbstractArray}, wavenumber_1, wavenumber_2, wavenumber_3,
+    imaginary_unit, half_imaginary)
+  destination_11, destination_12, destination_13,
+    destination_21, destination_22, destination_23,
+    destination_31, destination_32, destination_33 = destinations
+  source_1, source_2, source_3 = sources
+  axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
+  _foreach_outer_slab(axes(source_1, 3), 9 * length(source_1)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      wavenumber_value_3 = wavenumber_3[mode_3]
+      for mode_2 in axis_2
+        wavenumber_value_2 = wavenumber_2[mode_2]
+        @simd for mode_1 in axis_1
+          wavenumber_value_1 = wavenumber_1[mode_1]
+          source_value_1 = source_1[mode_1, mode_2, mode_3]
+          source_value_2 = source_2[mode_1, mode_2, mode_3]
+          source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+          destination_11[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_1) * source_value_1
+          destination_22[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_2) * source_value_2
+          destination_33[mode_1, mode_2, mode_3] = (imaginary_unit * wavenumber_value_3) * source_value_3
+
+          symmetric_12 = half_imaginary * (wavenumber_value_2 * source_value_1 + wavenumber_value_1 * source_value_2)
+          destination_12[mode_1, mode_2, mode_3] = symmetric_12
+          destination_21[mode_1, mode_2, mode_3] = symmetric_12
+
+          symmetric_13 = half_imaginary * (wavenumber_value_3 * source_value_1 + wavenumber_value_1 * source_value_3)
+          destination_13[mode_1, mode_2, mode_3] = symmetric_13
+          destination_31[mode_1, mode_2, mode_3] = symmetric_13
+
+          symmetric_23 = half_imaginary * (wavenumber_value_3 * source_value_2 + wavenumber_value_2 * source_value_3)
+          destination_23[mode_1, mode_2, mode_3] = symmetric_23
+          destination_32[mode_1, mode_2, mode_3] = symmetric_23
+        end
+      end
+    end
+  end
+  return nothing
+end
+
 
 
 ##########################
@@ -296,12 +646,13 @@ function gradient!(destination::VectorFieldSpectral{T}, field::ScalarFieldSpectr
   _check_field_domain_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
-  source = field_data(field)
-
-  _apply_spectral_derivative!(_vector_component_data(destination, 1), source, _wavenumber_broadcast_view(multipliers, Val(1)), T)
-  _apply_spectral_derivative!(_vector_component_data(destination, 2), source, _wavenumber_broadcast_view(multipliers, Val(2)), T)
-  _apply_spectral_derivative!(_vector_component_data(destination, 3), source, _wavenumber_broadcast_view(multipliers, Val(3)), T)
-
+  _scalar_gradient_modes!(get_backend(field_data(destination)),
+                          _vector_component_data(destination, 1),
+                          _vector_component_data(destination, 2),
+                          _vector_component_data(destination, 3),
+                          field_data(field),
+                          multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+                          Complex{T}(zero(T), one(T)))
   return destination
 end
 
@@ -310,26 +661,11 @@ function gradient!(destination::TensorFieldSpectral{2, T}, field::VectorFieldSpe
   _check_field_domain_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
-  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
-  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
-  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
-
-  field_component_1 = _vector_component_data(field, 1)
-  field_component_2 = _vector_component_data(field, 2)
-  field_component_3 = _vector_component_data(field, 3)
-
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 1, 1), field_component_1, wavenumber_1, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 1, 2), field_component_1, wavenumber_2, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 1, 3), field_component_1, wavenumber_3, T)
-
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 2, 1), field_component_2, wavenumber_1, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 2, 2), field_component_2, wavenumber_2, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 2, 3), field_component_2, wavenumber_3, T)
-
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 3, 1), field_component_3, wavenumber_1, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 3, 2), field_component_3, wavenumber_2, T)
-  _apply_spectral_derivative!(_tensor2_component_data(destination, 3, 3), field_component_3, wavenumber_3, T)
-
+  destinations = ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))
+  sources = ntuple(n -> _vector_component_data(field, n), Val(3))
+  _vector_gradient_modes!(get_backend(field_data(destination)), destinations, sources,
+                          multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+                          Complex{T}(zero(T), one(T)))
   return destination
 end
 
@@ -584,8 +920,9 @@ cyclically,
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
-fresh result instead. The `destination` may alias `field`: the aliased call is detected and computed through
-a guard temporary, at the cost of one field-sized allocation.
+fresh result instead. The `destination` may alias `field` freely: the fused pass reads all three source
+coefficients of a mode before writing any component of it, so the aliased call needs no guard temporary
+and is bitwise-identical to the non-aliased one.
 
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`.
@@ -606,43 +943,20 @@ wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  k \\times \\h
 function curl! end
 
 
-"""
-    _curl_noalias!(destination::VectorFieldSpectral, field::VectorFieldSpectral,
-                   multipliers::FieldSpectralMultipliers)
-
-Compute the coefficientwise curl ``\\nabla\\times u`` componentwise as ``\\mathrm{i} (k \\times \\hat u)``, assuming `destination` does not alias `field`. The public `curl!` wraps this kernel with the aliasing guard.
-"""
-function _curl_noalias!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
-  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
-  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
-  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
-  imaginary_unit = Complex{T}(zero(T), one(T))
-
-  field_component_1 = _vector_component_data(field, 1)
-  field_component_2 = _vector_component_data(field, 2)
-  field_component_3 = _vector_component_data(field, 3)
-
-  @_assign! _vector_component_data(destination, 1) .= imaginary_unit .* (wavenumber_2 .* field_component_3 .- wavenumber_3 .* field_component_2)
-  @_assign! _vector_component_data(destination, 2) .= imaginary_unit .* (wavenumber_3 .* field_component_1 .- wavenumber_1 .* field_component_3)
-  @_assign! _vector_component_data(destination, 3) .= imaginary_unit .* (wavenumber_1 .* field_component_2 .- wavenumber_2 .* field_component_1)
-
-  return destination
-end
-
-
 function curl!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
-  if field_data(destination) === field_data(field)
-    temporary = similar_field(destination, Val(1))
-    _curl_noalias!(temporary, field, multipliers)
-    copyto!(field_data(destination), field_data(temporary))
-
-    return destination
-  end
-
-  return _curl_noalias!(destination, field, multipliers)
+  # Alias-safe by construction — the fused pass reads a mode's three source coefficients before
+  # writing any of its components — so the former guard temporary is retired (decision 32's argument).
+  _curl_modes!(get_backend(field_data(destination)),
+               _vector_component_data(destination, 1), _vector_component_data(destination, 2),
+               _vector_component_data(destination, 3),
+               _vector_component_data(field, 1), _vector_component_data(field, 2),
+               _vector_component_data(field, 3),
+               multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+               Complex{T}(zero(T), one(T)))
+  return destination
 end
 
 
@@ -708,34 +1022,15 @@ function symmetric_gradient!(destination::TensorFieldSpectral{2, T}, field::Vect
   _check_field_domain_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
-  wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
-  wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
-  wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
-
-  field_component_1 = _vector_component_data(field, 1)
-  field_component_2 = _vector_component_data(field, 2)
-  field_component_3 = _vector_component_data(field, 3)
-
+  # Diagonal Sᵢᵢ = i·kᵢ·ûᵢ (the ½(kᵢûᵢ + kᵢûᵢ) collapses); off-diagonal Sᵢⱼ = (i/2)(kⱼûᵢ + kᵢûⱼ),
+  # computed once per symmetric pair inside the fused pass. An order-raising operator writes a tensor
+  # from a vector, so destination and source occupy distinct storage and cannot alias.
+  destinations = ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))
+  sources = ntuple(n -> _vector_component_data(field, n), Val(3))
   imaginary_unit = Complex{T}(zero(T), one(T))
-  half_imaginary = imaginary_unit * inv(T(2))
-
-  # Diagonal Sᵢᵢ = i·kᵢ·ûᵢ (the ½(kᵢûᵢ + kᵢûᵢ) collapses); off-diagonal Sᵢⱼ = (i/2)(kⱼûᵢ + kᵢûⱼ), written
-  # from the same expression for the symmetric pair. An order-raising operator writes a tensor from a
-  # vector, so destination and source occupy distinct storage and cannot alias — no guard needed (like
-  # `gradient!`).
-  @_assign! _tensor2_component_data(destination, 1, 1) .= imaginary_unit .* wavenumber_1 .* field_component_1
-  @_assign! _tensor2_component_data(destination, 2, 2) .= imaginary_unit .* wavenumber_2 .* field_component_2
-  @_assign! _tensor2_component_data(destination, 3, 3) .= imaginary_unit .* wavenumber_3 .* field_component_3
-
-  @_assign! _tensor2_component_data(destination, 1, 2) .= half_imaginary .* (wavenumber_2 .* field_component_1 .+ wavenumber_1 .* field_component_2)
-  @_assign! _tensor2_component_data(destination, 2, 1) .= half_imaginary .* (wavenumber_2 .* field_component_1 .+ wavenumber_1 .* field_component_2)
-
-  @_assign! _tensor2_component_data(destination, 1, 3) .= half_imaginary .* (wavenumber_3 .* field_component_1 .+ wavenumber_1 .* field_component_3)
-  @_assign! _tensor2_component_data(destination, 3, 1) .= half_imaginary .* (wavenumber_3 .* field_component_1 .+ wavenumber_1 .* field_component_3)
-
-  @_assign! _tensor2_component_data(destination, 2, 3) .= half_imaginary .* (wavenumber_3 .* field_component_2 .+ wavenumber_2 .* field_component_3)
-  @_assign! _tensor2_component_data(destination, 3, 2) .= half_imaginary .* (wavenumber_3 .* field_component_2 .+ wavenumber_2 .* field_component_3)
-
+  _symmetric_gradient_modes!(get_backend(field_data(destination)), destinations, sources,
+                             multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+                             imaginary_unit, imaginary_unit * inv(T(2)))
   return destination
 end
 

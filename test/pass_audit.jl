@@ -195,9 +195,11 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     φ, u = sspec(), vspec()
     sd, vd, td = sspec(), vspec(), tspec()
     audit(() -> gradient!(vd, φ, multipliers), "gradient! scalar→vector",
-      Traffic("φ", carr(φ), (3M, 0), (M, 0),
-              "one derivative kernel per output component re-reads the source"),
+      Traffic("φ", carr(φ), (M, 0)),                    # fused one-pass (was 3M: one broadcast per output)
       Traffic("dest", carr(vd), (0, 3M)))
+    audit(() -> gradient!(td, u, multipliers), "gradient! vector→tensor",
+      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (each component once)
+      Traffic("dest", carr(td), (0, 9M)))
     audit(() -> divergence!(sd, u, multipliers), "divergence! vector→scalar",
       Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(sd), (0, M)))
     audit(() -> divergence!(sd, u, multipliers, kernel), "divergence!∘kernel",
@@ -205,12 +207,10 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     audit(() -> divergence!(sd, u, multipliers, kernel, 0.5, 2.0), "divergence!∘kernel α/β",
       Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(sd), (M, M)))
     audit(() -> curl!(vd, u, multipliers), "curl!",
-      Traffic("u", carr(u), (6M, 0), (3M, 0),
-              "each source component appears in two output component formulas"),
+      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 6M: two formulas per component)
       Traffic("dest", carr(vd), (0, 3M)))
     audit(() -> symmetric_gradient!(td, u, multipliers), "symmetric_gradient!",
-      Traffic("u", carr(u), (15M, 0), (3M, 0),
-              "each source component is read by its diagonal formula once and by the four off-diagonal formulas containing it"),
+      Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 15M: five formulas per component)
       Traffic("dest", carr(td), (0, 9M)))
     audit(() -> laplacian!(vd, u, multipliers), "laplacian! vector",
       Traffic("u", carr(u), (3M, 0)), Traffic("dest", carr(vd), (0, 3M)))

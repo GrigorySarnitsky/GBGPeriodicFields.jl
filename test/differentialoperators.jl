@@ -200,12 +200,12 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     hdest = F.similar_field(us, Val(1)); helmholtz_projection!(hdest, us, m)
     @test field_data(hdest) ≈ field_data(helmholtz_projection(us, m))
 
-    # aliasing: curl! guards with a temporary; helmholtz_projection! computes the aliased call
-    # directly (the one-pass kernel reads a mode's three components before writing them), so its
-    # aliased result is bitwise-identical to the non-aliased one
+    # aliasing: curl! and helmholtz_projection! both compute the aliased call directly (each fused
+    # pass reads a mode's three source components before writing any), so the aliased result is
+    # bitwise-identical to the non-aliased one — no guard temporary on either
     expected_curl = field_data(curl(us, m))
     aliased = to_spectral(u, plans_for(u)); curl!(aliased, aliased, m)
-    @test field_data(aliased) ≈ expected_curl
+    @test field_data(aliased) == expected_curl
     expected_projection = field_data(helmholtz_projection(us, m))
     aliased_projection = to_spectral(u, plans_for(u)); helmholtz_projection!(aliased_projection, aliased_projection, m)
     @test field_data(aliased_projection) == expected_projection
