@@ -253,7 +253,10 @@ default, deliberately what the suite measures), not as the CPU's `Float32` capab
 a `measure` twin planned with `FFTW.MEASURE` (built on scratch fields, per the overwrite caveat above), so
 `RESULTS.md` shows the `ESTIMATE` experience and the tuned production path side by side and this finding's
 delta is re-measured per host, size, and type on every sweep. GPU rows have no twin — the device FFT
-libraries take no planner flag.
+libraries take no planner flag. First sweep with the twins (12700K): even this host — no `Float32`/`Float64`
+*inversion* — leaves 1.7–1.8× to the planner at ``256^3`` `Float32` single-threaded (1.2–1.4× elsewhere at
+t1), while at t8 the pair is within jitter: the planner choice matters most exactly where a long serial
+production run lives, and threading largely hides it.
 
 **(i) A fused reduction needs a different shape per backend — get that right and it wins on both.** The
 mapped forms (decision 30) reduce a function of the fiber value at every base point without
