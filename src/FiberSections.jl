@@ -602,46 +602,6 @@ function _det_tensor_rhs(symbol, kind)
 end
 
 
-"""
-    _sym_kernel_body()
-
-Build the body of the symmetric-part kernel ``\\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top)`` for
-a section argument named `A`, writing into `destination`. The `half` local takes the section's real
-scalar type from `section_scalar_type(A)`. The kernel only shuffles indices, so callers wrap it
-through their alias guard.
-"""
-_sym_kernel_body() = quote
-  half = inv(section_scalar_type(A)(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? _tensor_component(:A, :field, i, i) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .+ $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
-
-
-"""
-    _skew_kernel_body()
-
-Build the body of the skew-symmetric-part kernel ``\\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top)``. See `_sym_kernel_body` for the shared structure.
-"""
-_skew_kernel_body() = quote
-  half = inv(section_scalar_type(A)(2))
-  $(_tensor_kernel_body((i, j) -> i == j ? :(zero(section_scalar_type(A))) :
-      :(half .* ($(_tensor_component(:A, :field, i, j)) .- $(_tensor_component(:A, :field, j, i)))); alpha_beta = false))
-end
-
-
-"""
-    _dev_kernel_body()
-
-Build the body of the deviatoric-part kernel ``\\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I``. See `_sym_kernel_body` for the shared structure.
-"""
-_dev_kernel_body() = quote
-  third = inv(section_scalar_type(A)(3))
-  trace = $(_trace_tensor_rhs(:A, :field))
-  $(_tensor_kernel_body((i, j) -> i == j ? :($(_tensor_component(:A, :field, i, i)) .- third .* trace) :
-      _tensor_component(:A, :field, i, j); alpha_beta = false))
-end
-
-
 
 #########################################################
 #        Fused fiberwise executor (values functions)    #

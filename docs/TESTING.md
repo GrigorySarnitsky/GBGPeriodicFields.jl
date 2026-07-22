@@ -130,7 +130,7 @@ For each public operation, a test must establish:
 - [ ] **An anisotropic domain** — at least one test with ``L_x \ne L_y \ne L_z``, so the ``2\pi/L``
       wavenumber scaling is actually exercised and a dropped length factor is visible.
 - [ ] **The in-place `!` form** with a caller-supplied destination, including the
-      **aliasing branch** for alias-guarded operations (cross, transpose, sym/skew/dev,
+      **aliased in-place branch** for the by-construction alias-safe operations (cross, transpose, sym/skew/dev,
       the curl wrapper) — and, for `mul!`, the LinearAlgebra no-alias contract. An op whose kernel is
       alias-safe *by construction* (the one-pass `helmholtz_projection!`, decision 32) asserts the
       aliased call **bitwise equal** to the non-aliased one instead — a stronger check than the

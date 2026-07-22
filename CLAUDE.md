@@ -216,7 +216,7 @@ explicit matrix inverse.
 **Docstrings vs comments.** Prefer docstrings; reserve plain comments for non-intuitive
 *why* (rationale a good name can't convey — the Nyquist split, the α/β branch, aliasing
 reasoning, "irregular corner kept explicit because…"). Hand-written internal machinery
-(codegen builders, alias guards, shared Fields helpers, spectral kernels) carries
+(codegen builders, the fused executor, shared Fields helpers, spectral kernels) carries
 docstrings; they surface in each module's **Internal API** docs section via
 `@autodocs ... Public = false`. The `@eval`-generated methods/kernels carry none (the
 formula docstring lives on the builder) — consistent with "generators emit methods only —
@@ -680,7 +680,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, ~2200 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, ~2800 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the weighted combination `combine!` (physical+spectral, alias-safe accumulate) and the
@@ -777,9 +777,10 @@ those are the usual rot. Then the mechanical bar:
    `test/pass_audit.jl`: the **element-traffic ledger** (decision 36) —
    a `CountingArray` harness measures each audited op's exact per-array reads/writes against a frozen
    fused-ideal table with named holders for gaps (the decision-32/33/34 kernels sit at ideal; the
-   standing gaps are the per-component-formula family: `gradient!` 3×, `curl!`/`cross!` 2×,
-   `symmetric_gradient!` 5×, `mul!`'s vector operand 3×, broadcast kernels re-read a scalar kernel per
-   fiber component — each a priced candidate for a one-pass rewrite when a consumer's ledger warrants).
+   per-component-formula family's former gaps (`gradient!` 3×, `curl!`/`cross!` 2×,
+   `symmetric_gradient!` 5×, `mul!` 3×, the scalar-kernel fiber re-reads) were retired at their fused
+   ideals by decisions 38/39; the one remaining holder is the exponential ŵ fiber extrusion, priced
+   as the finding-(k) hoist).
    GPU coverage is opt-in and lives
    outside `Pkg.test()` in `test/gpu/` (per-backend environments; `test/gpu/suite.jl`
    exercises the public surface (fields, the PointValues algebra, the interpolation/anterpolation transfer, convolution, and the L²/measure reductions) on device arrays across Float64 and Float32 with `allowscalar(false)`, comparing

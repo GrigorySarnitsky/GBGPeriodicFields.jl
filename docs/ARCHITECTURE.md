@@ -1998,7 +1998,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `cross!` read each source component per formula containing it (2×), `symmetric_gradient!` 5×,
     `mul!`'s vector operand 3×, and the broadcast kernels re-read a scalar kernel per fiber
     component — each now frozen with its holder named, so any of them is a known, priced candidate
-    for a decision-32-style one-pass rewrite the day a consumer's ledger makes one worth it. Two
+    for a decision-32-style one-pass rewrite the day a consumer's ledger makes one worth it. (Since
+    retired: decisions 38/39 took the whole family to its fused ideals; the one holder standing is
+    the exponential ŵ fiber extrusion.) Two
     curiosities the exact counters caught: `LinearAlgebra`'s generic `dot` (and the component
     reduction under `mean`) peeks one element to type its accumulator (+1 read, frozen with its
     holder), while the fused mapped reductions peek nothing.
@@ -2031,7 +2033,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     that the GPU is the production platform. At ``1536^3`` a single `Float64` vector field is 87 GB
     against 512 MB of L3 per socket, so the first ground fails outright, and the second no longer holds in this
     band; the regression there is plausibly worse than the measured figure, not better. The **pass
-    audit's standing gaps** (decision 36) — `gradient!` re-reading its source ``3\times``,
+    audit's standing gaps** (decision 36; since retired by decisions 38/39) — `gradient!` re-reading its source ``3\times``,
     `symmetric_gradient!` ``5\times`` — are close to free while a field is cache-resident and become
     pure DRAM traffic once it is not, so they price very differently here. And **NUMA first-touch**,
     which [§9](@ref "9. Performance model and CPU threading") sets aside as a consumer concern, is a

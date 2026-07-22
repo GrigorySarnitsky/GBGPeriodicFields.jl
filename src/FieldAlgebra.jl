@@ -30,7 +30,7 @@ compile-time constant fiber, which keeps the operation coefficient-wise; the mis
 deliberate.
 
 `mul!` follows the `LinearAlgebra` convention that the destination must not share storage with an input,
-while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-guarded and
+while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each fused pass reads an element's sources before writing any output) and
 may be called with the destination aliasing an input.
 
 Every operation in this module is also defined for point-values (`AbstractPointValues`): the same
@@ -88,9 +88,6 @@ using ..FiberSections:
   _norm_scalar_rhs,
   _norm_vector_rhs,
   _norm_tensor_rhs,
-  _sym_kernel_body,
-  _skew_kernel_body,
-  _dev_kernel_body,
   _trace_tensor_rhs,
   _det_tensor_rhs,
   _fiberwise_pass!,
