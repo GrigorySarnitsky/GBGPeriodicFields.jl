@@ -140,10 +140,13 @@ As a real physical object the periodic convolution is the kernel-weighted local 
 (f \\star g)(x) = \\int_\\Omega f(y)  g(x - y)\\,\\mathrm{d}y ,
 ```
 
-with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus; on the grid
-this is the circular sum ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` with indices modulo the grid
-size. By the convolution theorem (the forward transform unnormalized) it is exactly the
-coefficientwise product of the transforms, which is what this operation computes — ``\\hat g`` =
+with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus. On the grid
+the operation computes the **circular sum** ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
+modulo the grid size) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, the
+dimensionless convention that makes a kernel act as a per-mode transfer function (``\\hat g \\equiv 1``
+is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/N``
+times it. By the convolution theorem (the forward transform unnormalized) the circular sum is exactly
+the coefficientwise product of the transforms, which is what this operation computes — ``\\hat g`` =
 `kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``
 accumulate:
 
@@ -395,10 +398,11 @@ pass, its residency, and its per-application field read, reading three one-dimen
 arrays instead (measured ``\\approx 1.4\\times`` over rebuild-then-[`convolve!`](@ref) on a GPU at
 ``256^3``). When one **fixed** kernel is applied many times, a stored kernel with `convolve!` is the
 faster route: the per-mode exponential costs more than the field read it saves
-(``\\approx 1.1\\times`` on a GPU; ``\\approx 2\\times`` on a CPU, where the exponential is expensive
-and is evaluated once per fiber component). The two-operand forms win outright on both backends
-(``\\approx 1.4``–``1.7\\times`` over the sequential `combine!`-then-`convolve!` pair), fusing away
-the combination's destination write and re-read as well.
+(``\\approx 1.1\\times`` on a GPU; ``\\approx 1.7\\times`` on a CPU, where the exponential is expensive
+and is evaluated once per fiber component). The two-operand forms win on both backends —
+``\\approx 1.5\\times`` over the sequential `combine!`-then-`convolve!` pair, except the CPU
+two-operand exponential at ``\\approx 1.1\\times`` — fusing away the combination's destination write
+and re-read as well.
 
 On a CPU a deeply damped kernel has one further `Float32` cost cliff: modes whose factor lands in the
 subnormal range — exponent arguments ``c \\lvert k\\rvert^2 + s \\hat w`` between about ``-103`` and

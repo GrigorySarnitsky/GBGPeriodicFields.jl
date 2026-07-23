@@ -644,8 +644,8 @@ f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
 ```
 
 reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
-Parseval weight ``\\alpha(k) = 1`` on the self-conjugate ``k_x = 0`` plane (and the even-``N_x`` Nyquist
-plane) and ``2`` elsewhere. Interpolation reproduces the band-limited field **exactly**, so it is
+Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded rfft
+axis and, on an even-length folded axis, its Nyquist plane — and ``2`` elsewhere. Interpolation reproduces the band-limited field **exactly**, so it is
 pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
 `DirectDFT()` and pass it as the `scheme`.

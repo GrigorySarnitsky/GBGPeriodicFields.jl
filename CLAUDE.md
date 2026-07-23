@@ -243,7 +243,7 @@ in a `.md` page raw `` `` ``), display as a ```` ```math ```` block. Use **stand
 notation** (∇, Δ, ⟨·,·⟩, ‖·‖, ∫, 𝔽, etc.). **Every code object is explicitly bound to its math
 symbol on first mention** — `laplacian` ``\\equiv \\Delta``, `gradient` ``\\equiv \\nabla``,
 `divergence` ``\\equiv \\nabla\\cdot``, `curl` ``\\equiv \\nabla\\times``, `inner`
-``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert``, `convolve`
+``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``, `convolve`
 ``\\equiv \\star``, `helmholtz_projection` ``\\equiv \\mathbb{P}``, `to_spectral`/`to_physical`
 ``\\equiv \\mathcal F``/``\\mathcal F^{-1}``, the spectral representation written ``\\hat f`` — so the
 reader always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
@@ -384,13 +384,25 @@ main-thread triage at full strength, per the cost-mode policy above: the 13-find
 block fell to the list-item exemption the rule itself states; the FORMALIZATION display-wrap and
 inner-notation touch-ups landed; `mean`/`var`/`std`/`maximum`/`minimum`/`extrema` gained their
 rubric-compliant function docstrings — `var` documenting its Bessel correction, verified against the
-code; the HIST_ROCm LaTeX pass landed 2026-07-22). The ONE remaining item: the full independent
-re-derivation sweep of the ~314 inventoried formulas (the changed set was verified at authorship; the
-unchanged set rests on the FORMALIZATION↔test chain until re-derived) — the agreed shape: a
-deterministic inventory rebuild grouped by implementing module, ~12 cheap lanes re-deriving each
-formula against the source with evidence-bearing verdicts plus FORMALIZATION-entry/test-link status,
-then main-thread adversarial confirmation of every mismatch, a ~10% audit of matches, and a
-coverage-gap ledger.
+code; the HIST_ROCm LaTeX pass landed 2026-07-22). The re-derivation sweep CLOSED the remainder
+2026-07-23: eleven sequential economy lanes over a rebuilt 659-formula inventory (a deliberate
+superset of the ~314 — every relational span included), each formula independently re-derived against
+the implementing code with evidence-bearing verdicts, every mismatch adversarially confirmed in the
+main thread, ~10% of matches audited. Result: 597 MATCH, 38 MEASURED accepted, **22 MISMATCH — all
+fixed** (continuum-vs-discrete exactness qualifiers on `inner`/`lpnorm` and `convolve`'s cell-volume
+bridge; resolved-band scoping of ``\mathbb P^2 = \mathbb P`` and the dissipation identity; the
+inverse-Laplacian mean-free compatibility condition; stale performance anchors realigned to finding
+(k); the folded-axis ``k_x`` shorthand bound to `fft_dims[1]`; the ``64^3`` shell count 57→56;
+notation drift), 2 principled UNVERIFIABLEs, `lpnorm` gained its typed FORMALIZATION entry. **Two
+code questions remain open for the user** (from the sweep, recorded, not decided): (1) the spectral
+reductions hardcode array dimension 1 as the folded rfft axis, never consulting `fft_dims` — a legal
+permuted `RealFourierLayout` would silently corrupt spectral `inner`/`weighted_inner`/`radial_*`
+(transforms and `DirectDFT` are general); restrict with a validation throw, or generalize? (2)
+`helmholtz_projection!` divides the derivative-family numerator by the true ``|k|^2``, so at
+mixed-Nyquist modes it is neither exactly idempotent nor exactly solenoidalizing — an
+``a \cdot a`` denominator would restore both; moot for de-aliased consumers. Candidate test
+additions ledgered: a non-mean-free `inverse_laplacian` input, a `det(AB) = \det A \det B`
+assertion.
 
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified

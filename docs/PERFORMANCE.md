@@ -400,14 +400,16 @@ carries the caveat.
 **(n) The shell-binning atomics contend on an accumulator smaller than a dozen cache lines —
 threading inverts at small grids, and `Float32` bins double the collisions.** The radial family
 (`radial_spectrum`, `radial_correlation`, the co-spectra) ends in one `Atomix.@atomic` add per
-stored mode into a packed bins array of 57 (``64^3``) to 223 (``256^3``) entries — on x86 a CAS
+stored mode into a packed bins array of 56 (``64^3``) to 223 (``256^3``) entries — on x86 a CAS
 loop that must own the bin's cache line exclusively, so true same-bin contention (serialized
 retries) stacks with false sharing (different bins on one 64-byte line). A model scatter (4M adds,
-eight threads) reproduces the table: serial 4.6 ns/element; threaded over 57 packed bins 17–19 ns —
+eight threads) reproduces the table: serial 4.6 ns/element; threaded over a ``64^3``-scale packed bin
+array 17–19 ns —
 threading *quadruples* the per-add cost, the table's ``64^3`` inversion (t8 1.3–1.6× slower than
 t1); `Float32` packed at 223 bins runs 1.51× `Float64` (16 bins per line versus 8 — the table's t8
 type reversal, 1.44–1.5×); one-bin-per-line padding equalizes the types and finally scales at 223
-bins (2.7–2.8 ns) yet still trails serial at 57 (same-bin collisions, ``\approx 8/57`` per add). At
+bins (2.7–2.8 ns) yet still trails serial at the ``64^3`` count (same-bin collisions, ``\approx 8/56``
+per add). At
 production sizes the mode reads are DRAM-bound and the contention hides, so the anomaly is confined
 to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Candidates when a
 consumer's cadence makes it matter: bin padding (backend-uniform; kills the `Float32` reversal, not

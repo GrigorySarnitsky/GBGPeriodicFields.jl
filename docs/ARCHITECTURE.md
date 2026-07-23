@@ -109,7 +109,8 @@ subbundles of the total space's tangent bundle.)
 Transfer between sections over *different* bases is the interpolation/anterpolation
 pair: pulling a grid section back to points (evaluation — pairing with a Dirac mass ``\delta_x`` — ``f(x) = \langle \delta_x, f\rangle``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
-is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)") and the `Interpolation` module docstring; the interpolation weights are
+is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"); the `Interpolation` module docstring carries its concrete face (the
+shared-weight adjoint identity with the ``M``/``N`` measure factors); the interpolation weights are
 themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
 base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
@@ -246,7 +247,7 @@ code object is **explicitly identified with its mathematical symbol on first men
 correspondence is never left implicit: `gradient` ``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl`
 ``\equiv \nabla\times``, `laplacian` ``\equiv \Delta``, `inverse_laplacian`
 ``\equiv \Delta^{-1}``, `helmholtz_projection` ``\equiv \mathbb{P}``, `inner`
-``\equiv \langle\cdot,\cdot\rangle``, `l2norm` ``\equiv \lVert\cdot\rVert``, `integral`
+``\equiv \langle\cdot,\cdot\rangle``, `l2norm` ``\equiv \lVert\cdot\rVert_2``, `integral`
 ``\equiv \int\,\mathrm{d}\mu``, `convolve` ``\equiv \star``, `interpolate`/`anterpolate`
 ``\equiv W``/``W^\top``, `to_spectral`/`to_physical` ``\equiv \mathcal F``/``\mathcal F^{-1}``,
 a field in spectral representation written ``\hat f``. (In a `"""` docstring the LaTeX backslashes
@@ -902,8 +903,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
     **adjointness / structural identities** on randomized band-limited fields
     (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-**semidefinite** Laplacian — negative-definite
-    on the zero-mean subspace, its kernel being the constant mode — idempotent Helmholtz
-    projection — the discrete energy/entropy structure). Intentional-absence tests are
+    on the zero-mean subspace, its kernel being the constant mode — resolved-band-idempotent
+    Helmholtz projection — the discrete energy/entropy structure). Intentional-absence tests are
     symmetric across representations: nonlinear products absent in spectral; the
     differential operators absent in physical (spectral-only — no finite-difference
     operators yet). `Aqua.test_all` was added, which required `[compat]` bounds for every
@@ -1853,9 +1854,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The measured trade is a **reuse question** ([`PERFORMANCE.md`](performance.md) finding (k)): with a
     varying exponent — the consumer's case, whose stage substeps differ — the lazy form beats
     rebuild-then-apply by ``\approx 1.4\times`` on the GPU; with one fixed kernel applied many times
-    the stored route keeps a ``\approx 1.1\times`` (GPU) to ``\approx 2\times`` (CPU) edge, the
+    the stored route keeps a ``\approx 1.1\times`` (GPU) to ``\approx 1.7\times`` (CPU) edge, the
     per-mode exponential costing more than the field read it saves. The two-operand fused forms below
-    win on both backends regardless (``\approx 1.4``–``1.7\times``).
+    win on both backends regardless (``\approx 1.1``–``1.5\times``, the CPU two-operand case the low
+    end — the finding-(k) table of `PERFORMANCE.md` is the source of record).
     For ``c \le 0`` the kernel is, as a real physical object, the periodic Gaussian: the operator
     ``e^{-c\Delta}``, smoothing at length ``\sqrt{-2c}`` — and the identification is exact on the
     grid because the exponent uses the same true-Nyquist squared-wavenumber family as the Laplacian's

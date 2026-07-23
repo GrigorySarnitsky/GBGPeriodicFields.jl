@@ -75,7 +75,8 @@ f(x) = \frac{1}{N} \sum_{k} \hat f(k) e^{\mathrm{i} k\cdot x},
 so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequences used elsewhere:
 
 - **Half-spectrum + conjugate symmetry.** ``f`` real ``\Rightarrow`` ``\hat f(-k) = \overline{\hat f(k)}``,
-  so only ``k_x \ge 0`` is stored (`rfft_shape`: length ``N_x/2{+}1`` on the rfft axis); the ``k_x = 0``
+  so only ``k_x \ge 0`` is stored (`rfft_shape`: length ``N_x/2{+}1`` on the rfft axis — the folded
+  axis is `fft_dims[1]`, the first by default, and ``x`` names it throughout); the ``k_x = 0``
   plane, and on an even axis the Nyquist plane (the highest stored frequency, ``k_x = \pi/\Delta x``),
   are self-conjugate.
 - **Adding a real constant** ``c`` touches only the zero mode, scaled by ``N``:
@@ -139,10 +140,22 @@ one-line spectral check:
 
 ```math
 \nabla\cdot(\nabla\times u) = 0\ \ \bigl(k\cdot(k\times\hat u)=0\bigr), \qquad
-\nabla\times(\nabla\phi) = 0\ \ \bigl(k\times \mathrm{i}k\hat\phi=0\bigr), \qquad
-\mathbb P^2 = \mathbb P, \qquad
-\langle \Delta\phi,\phi\rangle = -\lVert\nabla\phi\rVert^2 \le 0. \quad\checkmark
+\nabla\times(\nabla\phi) = 0\ \ \bigl(k\times \mathrm{i}k\hat\phi=0\bigr), \quad\checkmark
 ```
+
+unconditional (curl, divergence, and gradient share the one derivative-wavenumber family), and on
+the resolved band — every mode off the even-axis Nyquist planes —
+
+```math
+\mathbb P^2 = \mathbb P, \qquad
+\langle \Delta\phi,\phi\rangle = -\lVert\nabla\phi\rVert^2 \le 0, \quad\checkmark
+```
+
+where the restriction is the family split itself: ``\mathbb P`` divides the derivative-wavenumber
+numerator by the true ``|k|^2``, and ``\Delta`` keeps the true ``k^2`` against ``\nabla``'s zeroed
+derivative family, so on a Nyquist plane with mixed content the two equalities break and only the
+sign ``\langle\Delta\phi,\phi\rangle \le 0`` survives (`test/adjointness.jl` scopes its fixtures
+sub-Nyquist and asserts the sign unconditionally).
 
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-\hat k\hat k^{\top}``, ``-|k|^2`` are
 real symmetric.)
@@ -182,7 +195,7 @@ per-mode scalars, so each factor keeps its own family's Nyquist value.
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
 ``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``,
 the fused-equals-sequential kernel compositions, and the bitwise aliased projection)
-and `test/adjointness.jl` (self-adjointness, idempotent projection, negative-semidefinite Laplacian).
+and `test/adjointness.jl` (self-adjointness, resolved-band idempotent projection, negative-semidefinite Laplacian).
 
 ## Convolution (`Convolution`, [Architecture](architecture.md) §11)
 
@@ -362,6 +375,14 @@ generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve
 squared-wavenumber symbol, true ``k^2`` at Nyquist) it is the Dirichlet energy ``\langle f,-\Delta g\rangle``;
 and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` **iff** ``w`` is idempotent
 (``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only.
+
+**`lpnorm`** is the ``p``-family around that ``L^2`` pair: on a grid
+``\lVert f\rVert_p = \bigl(\tfrac{1}{N}\sum_n \lVert f_n\rVert^p\bigr)^{1/p}`` and on a point-set the
+``M``-normalized analogue, with ``\lVert f_n\rVert`` the fiber Euclidean magnitude; ``p = 2``
+delegates to `l2norm` ``= \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
+``\max_n \lVert f_n\rVert`` (`src/Reductions.jl`). Physical fields and point-values only.
+``\checkmark`` **Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
+``p = \infty`` coincidence with `maximum(norm, u)`).
 
 **Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27.
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac{1}{2}``,

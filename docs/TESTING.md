@@ -27,8 +27,8 @@ agree, not that either is correct. Two kinds of oracle are used:
 - **Structural identities** — relations the operators must satisfy for *any* input: the
   vector-calculus identities (``\nabla\cdot(\nabla\times u) = 0``, ``\nabla\times(\nabla\varphi) = 0``) and, on a periodic box,
   the adjoint relations (divergence as the negative gradient adjoint, self-adjoint curl, a
-  self-adjoint negative-semidefinite Laplacian, a self-adjoint idempotent Helmholtz
-  projection). Tested on randomized band-limited fields, they pin the discrete
+  self-adjoint negative-semidefinite Laplacian, a self-adjoint Helmholtz projection idempotent on
+  the resolved band). Tested on randomized band-limited fields, they pin the discrete
   energy/entropy structure of the scheme.
 
 **The public method set is the spec.** Two mechanisms enforce this:
@@ -249,8 +249,8 @@ point-value parity baselines and zero ambiguities; `Aqua.test_all` (ambiguities,
 Project/compat consistency, stale dependencies, type piracy, persistent tasks); the
 operator adjoint/structural identities on randomized band-limited fields — divergence as
 the negative gradient adjoint, self-adjoint curl, a self-adjoint negative-semidefinite
-Laplacian (with the dissipation identity), and a self-adjoint idempotent Helmholtz
-projection — with the L² inner product computed inline (the global L² `inner` now lives in the
+Laplacian (with the dissipation identity), and a self-adjoint Helmholtz projection idempotent on
+the resolved band — with the L² inner product computed inline (the global L² `inner` now lives in the
 `Reductions` module, below); and GPU
 parity on ROCm across `Float64` and `Float32` (`allowscalar(false)`) — the public field
 surface (including the `mul!` ``\beta = 0`` / ``\beta \ne 0`` branches), confirmed on an AMD Radeon, plus

@@ -515,7 +515,7 @@ end
 """
     _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)
 
-Return a per-component function `i -> expr` for the tensor-on-vector left action, whose component `i` is ``\\sum_j A_{ij} u_j``. Its output feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the tensor-on-vector left action, whose component `i` is ``A_{ij} u_j`` (the repeated fiber index summed). Its output feeds `_vector_kernel_body`.
 """
 _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
   i -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, j), _vector_component(u_symbol, u_kind, j)) for j in 1:3])
@@ -524,7 +524,7 @@ _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind) =
 """
     _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)
 
-Return a per-component function `i -> expr` for the vector-on-tensor right action, whose component `i` is ``\\sum_j u_j A_{ji}``. Its output feeds `_vector_kernel_body`.
+Return a per-component function `i -> expr` for the vector-on-tensor right action, whose component `i` is ``u_j A_{ji}`` (the repeated fiber index summed). Its output feeds `_vector_kernel_body`.
 """
 _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
   i -> _sum_terms([_product(_vector_component(u_symbol, u_kind, j), _tensor_component(A_symbol, A_kind, j, i)) for j in 1:3])
@@ -533,7 +533,7 @@ _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind) =
 """
     _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)
 
-Return a per-component function `(i, j) -> expr` for the tensor-tensor product, whose component `(i, j)` is ``\\sum_k A_{ik} B_{kj}``. Its output feeds `_tensor_kernel_body`.
+Return a per-component function `(i, j) -> expr` for the tensor-tensor product, whose component `(i, j)` is ``A_{ik} B_{kj}`` (the repeated fiber index summed). Its output feeds `_tensor_kernel_body`.
 """
 _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind) =
   (i, j) -> _sum_terms([_product(_tensor_component(A_symbol, A_kind, i, k), _tensor_component(B_symbol, B_kind, k, j)) for k in 1:3])

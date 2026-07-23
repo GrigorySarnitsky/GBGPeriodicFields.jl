@@ -1194,13 +1194,19 @@ end
     )
 
 Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field ``f`` and
-write it into `destination`, returning `destination`. The result is the zero-mean field ``\\psi`` that
-solves Poisson's equation ``\\Delta\\psi = f``; because the Laplacian annihilates constants, the
-solution is fixed uniquely by requiring its mean to vanish:
+write it into `destination`, returning `destination`. For a mean-free right-hand side the result is
+the zero-mean field ``\\psi`` solving Poisson's equation — on a periodic box the system is solvable
+only when ``\\int_\\Omega f\\,\\mathrm{d}x = 0``, since any periodic ``\\psi`` has
+``\\int_\\Omega \\Delta\\psi\\,\\mathrm{d}x = 0`` — and because the Laplacian annihilates constants,
+the solution is fixed uniquely by requiring its mean to vanish:
 
 ```math
-\\Delta\\psi = f, \\qquad \\int_\\Omega \\psi \\,\\mathrm{d}x = 0.
+\\Delta\\psi = f, \\qquad \\int_\\Omega f\\,\\mathrm{d}x = 0, \\qquad \\int_\\Omega \\psi \\,\\mathrm{d}x = 0.
 ```
+
+A general input is projected onto that compatible part: the result's zero Fourier mode is set to
+zero unconditionally, so the operator returns the zero-mean solution of ``\\Delta\\psi = f - \\bar f``
+(``\\bar f`` the input's mean); the per-mode form below is the unconditional statement.
 
 For a vector or tensor field the same solve is applied to each component, so the tensor order is
 preserved.
