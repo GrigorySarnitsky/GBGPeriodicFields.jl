@@ -252,7 +252,10 @@ threaded above the gate, bitwise thread-count-invariant, and with no accumulator
 first element seeds the accumulator inside the tree itself).
 """
 _tree_sum(data) = _tree_sum(KernelAbstractions.get_backend(data), data)
+# An empty section must not reach the tree (the leaf seeds from element(lo), an out-of-bounds
+# read on an empty range — decision 43); the empty sum is zero, matching Base and the device.
 _tree_sum(::KernelAbstractions.CPU, data) =
+  isempty(data) ? zero(eltype(data)) :
   _indexed_tree_reduce(index -> (@inbounds data[index]), +, 1, length(data))
 _tree_sum(::Any, data) = sum(data)                      # a device runs its own parallel reduce
 
@@ -301,6 +304,9 @@ _tree_var(data; corrected::Bool = true) = _tree_var(KernelAbstractions.get_backe
 _tree_var(::Any, data; corrected::Bool = true) = var(data; corrected)
 function _tree_var(::KernelAbstractions.CPU, data; corrected::Bool = true)
   count = length(data)
+  # The Statistics convention: the variance of an empty sample is NaN (and the second tree
+  # pass below must not run on an empty range — decision 43).
+  count == 0 && return zero(eltype(data)) / zero(eltype(data))
   mean_value = _tree_sum(data) / count
   squared = _indexed_tree_reduce(index -> (@inbounds abs2(data[index] - mean_value)), +, 1, count)
   return squared / (corrected ? count - 1 : count)
@@ -497,7 +503,9 @@ bare form exists only at tensor order zero: the maximum of a vector or tensor se
 (which component?), and naming a fiber map in the mapped form `maximum(φ, f)` is what makes it well
 posed — `maximum(norm, u)` takes the largest fiber magnitude in one fused pass with no intermediate
 section. Physical fields and point-values only. The materializing route to the same supremum is
-[`lpnorm`](@ref)`(f, Inf)`.
+[`lpnorm`](@ref)`(f, Inf)`. An order statistic has no neutral element, so reducing an empty section
+(a zero-point set) throws an `ArgumentError` — the same contract as reducing an empty collection in
+`Base` — rather than fabricating a value.
 """
 maximum
 
@@ -600,6 +608,9 @@ function inner(f::ReducibleSection, g::ReducibleSection)
   # The fixed-tree dot on CPU (threaded, bitwise thread-count-invariant, no typing peek); a device
   # keeps its own parallel `dot` (decision-30 polarity).
   if KernelAbstractions.get_backend(a) isa KernelAbstractions.CPU
+    # The empty dot is zero (so the normalized inner of an empty base is 0/0 = NaN, like
+    # `mean`); the tree itself must never see an empty range (decision 43).
+    isempty(a) && return zero(eltype(a)) / _base_count(f)
     return _indexed_tree_reduce(index -> (@inbounds a[index] * b[index]), +, 1, length(a)) / _base_count(f)
   end
   return LinearAlgebra.dot(a, b) / _base_count(f)
@@ -866,9 +877,11 @@ the L² energy); the package keeps the neutral power-spectrum name, physics stay
 
 This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
 `inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
-refinement); on a de-aliased field the high-``|k|`` shells are empty. For a non-cubic box the shells
-beyond ``\\min(N_i)/2`` are incompletely sampled (only corner modes contribute) — the standard
-isotropic-spectrum caveat — but the total still equals `inner`. The reduction is GPU-portable: a single
+refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box the shells
+beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
+with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor \\, 2\\pi/L_a`` the per-axis Nyquist wavenumber — are
+incompletely sampled (only corner modes contribute), the standard isotropic-spectrum caveat; the total
+still equals `inner`. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
 reduction like `inner` only by the atomic binning and a square root per mode.
@@ -1061,7 +1074,10 @@ end
 # `maximum`/`minimum`/`extrema` (extending Base) — the L∞ end, for scalar sections only (the sup of a
 # vector/tensor magnitude is `lpnorm(f, Inf)`, deliberately not an ambiguous `maximum` of components).
 _tree_extreme(data, combine::C) where {C} = _tree_extreme(KernelAbstractions.get_backend(data), data, combine)
+# An order statistic has no neutral element: an empty section throws, mirroring Base's
+# empty-collection contract and the device branch — never a fabricated zero (decision 43).
 _tree_extreme(::KernelAbstractions.CPU, data, combine::C) where {C} =
+  isempty(data) ? throw(ArgumentError("reducing over an empty section is not allowed")) :
   _indexed_tree_reduce(index -> (@inbounds data[index]), combine, 1, length(data))
 _tree_extreme(::Any, data, combine::C) where {C} = reduce(combine, data)   # the device's own reduce
 

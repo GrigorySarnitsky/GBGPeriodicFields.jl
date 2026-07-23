@@ -106,3 +106,41 @@ matmat(A, B) = [sum(A[i, k] * B[k, j] for k in 1:3) for i in 1:3, j in 1:3]
     end
   end
 end
+
+
+@testset "coverage-axes closure: α = 0, aliasing, guard wiring ($TP)" for TP in (Float64, Float32)
+  u = VectorPointValues(rand(TP, 6, 3))
+  v = VectorPointValues(rand(TP, 6, 3))
+  A = TensorPointValues(rand(TP, 6, 3, 3))
+
+  # α = 0, β ≠ 0 for the point-value mul! — the one α/β op on this base, branch never asserted
+  dest = VectorPointValues(rand(TP, 6, 3))
+  before = copy(point_values(dest))
+  mul!(dest, A, u, TP(0), TP(2))
+  @test point_values(dest) == 2 .* before
+
+  # aliased in-place calls: the module claims decision-39 alias-safety but had no guard for it
+  ref_add = point_values(u) .+ point_values(v)
+  ua = VectorPointValues(copy(point_values(u))); add!(ua, ua, v)
+  @test point_values(ua) == ref_add
+  vb = VectorPointValues(copy(point_values(v))); add!(vb, u, vb)
+  @test point_values(vb) == ref_add
+  ref_cross = cross(u, v)
+  vx = VectorPointValues(copy(point_values(v))); cross!(vx, u, vx)      # dest ≡ b
+  @test point_values(vx) == point_values(ref_cross)
+  for (op!, op) in ((transpose!, transpose), (sym!, sym), (skew!, skew), (dev!, dev))
+    ref_u = op(A)
+    aliased = TensorPointValues(copy(point_values(A)))
+    op!(aliased, aliased)
+    @test point_values(aliased) == point_values(ref_u)
+  end
+
+  # the npoints-mismatch guards fire through the public algebra (only the internal check had a test)
+  short = VectorPointValues(rand(TP, 5, 3))
+  @test_throws DimensionMismatch add!(VectorPointValues(zeros(TP, 6, 3)), u, short)
+  @test_throws DimensionMismatch dot!(ScalarPointValues(zeros(TP, 6)), u, short)
+
+  # M = 0 algebra runs clean (probe-verified, decision 43)
+  @test isempty(point_values(add!(ScalarPointValues(zeros(TP, 0)),
+                                  ScalarPointValues(zeros(TP, 0)), ScalarPointValues(zeros(TP, 0)))))
+end

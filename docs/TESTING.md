@@ -164,6 +164,42 @@ For each public operation, a test must establish:
 `(8, 7, 6)`) so the Nyquist split is exercised; where the Nyquist mode matters, include a
 field that actually populates it and confirm the derivative of a real field stays real.
 
+**The coverage axes — the explicit denominator (2026-07-23).** The checklist above is exhaustive
+only over the axes it names; a bug class living on an *unnamed* axis is invisible to it by
+construction. Three defects taught this in one week (decisions 41/42 and the `NUFFT` layout
+wrapper): each sat on an input-space axis that existed in the type system yet was never varied by
+any test — the rfft fold `fft_dims` had exactly one value ever constructed, and the adjointness
+fixtures deliberately dodged the Nyquist band. So the denominator is written down. Every
+operation's coverage is judged against the full axis list:
+
+1. representation (physical/spectral, including the asserted intentional absences);
+2. tensor order ``R``;
+3. element type (`Float64`/`Float32`) **on the CPU lane** — GPU parity alone leaves the default
+   `Pkg.test()` blind to the `Float32` numerics;
+4. rfft layout — the fold must follow a non-default `fft_dims` (the permuted-layout lane, §2);
+5. axis parity (even and odd, folded and unfolded);
+6. grid-size cubicity (distinct extents, e.g. `(8, 6, 4)` — a cubic-only suite cannot see a
+   transposed extent);
+7. domain-length anisotropy (distinct per-axis ``2\pi/L`` factors appearing *in the oracle's own
+   formula*, so a dropped factor cannot cancel);
+8. origin ``\ne 0`` where the operation consumes coordinates (the transfer layer);
+9. degenerate bases (an empty `PointSet`; an axis of length 1 or 2) — pinned or asserted-absent;
+10. α/β including the ``\alpha = 0, \beta \ne 0`` branch (the pure ``\beta``-rescale);
+11. aliasing patterns per arity (`dest === a` and `dest === b` are different hazards);
+12. Nyquist content — at least one fixture populating the Nyquist planes, including the mixed case
+    (Nyquist on one axis, resolved on another); a deliberately band-limited fixture states why
+    (the dissipation identity is the standing example);
+13. backend (GPU parity — remembering parity is shared-bug-blind, so an analytic oracle on some
+    CPU lane must also cover the non-default shapes);
+14. thread count (bitwise for the gated routes, tolerance for the two `Atomix` accumulators).
+
+**The rule.** A new type parameter, constructor argument, or admissible input region is a new
+axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA
+with its reason. "Exhaustive" means exhaustive over this written list — an axis missing from the
+list is the failure mode, so extending the list is part of extending the type system. The
+cross-file permuted-layout lane (§2) and the anisotropic-box operator and radial testsets are the
+reference implementations.
+
 
 ## 5. GPU testing
 

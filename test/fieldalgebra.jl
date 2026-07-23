@@ -440,3 +440,127 @@ end
   B = TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid)
   @test field_data(det(A * B)) ≈ field_data(det(A) * det(B)) rtol = rtol
 end
+
+
+@testset "coverage-axes closure: α = 0, aliasing, the constant family, permuted fold ($TP)" for TP in (Float64, Float32)
+  g8 = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
+  layout_d = RealFourierLayout()
+  layout_p = RealFourierLayout((2, 1, 3))
+  x = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8)
+  y = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8)
+  A2 = TensorFieldPhysical{2}(rand(TP, 8, 6, 4, 3, 3), g8)
+
+  # α = 0, β ≠ 0 — the pure β-rescale branch of the two α/β-capable algebra ops, previously
+  # asserted nowhere in the package (0·op + β·dest is exact for finite operands)
+  dest = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8)
+  before = copy(field_data(dest))
+  mul!(dest, A2, x, TP(0), TP(2))
+  @test field_data(dest) == 2 .* before
+  dest2 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8)
+  combine!(dest2, TP(0), x, TP(2), y)                       # α = 0 annihilates the first operand
+  @test field_data(dest2) == 2 .* field_data(y)
+
+  # destination-aliasing for the M2 family — both directions, previously untested anywhere;
+  # the field ± constant path is the branchy one (`===`-checked copy), so it is the key case
+  ref_add = x + y
+  xa = VectorFieldPhysical(copy(field_data(x)), g8); add!(xa, xa, y)          # dest ≡ a
+  @test field_data(xa) == field_data(ref_add)
+  yb = VectorFieldPhysical(copy(field_data(y)), g8); add!(yb, x, yb)          # dest ≡ b
+  @test field_data(yb) == field_data(ref_add)
+  ref_sub = x - y
+  xs = VectorFieldPhysical(copy(field_data(x)), g8); subtract!(xs, xs, y)
+  @test field_data(xs) == field_data(ref_sub)
+  ys = VectorFieldPhysical(copy(field_data(y)), g8); subtract!(ys, x, ys)
+  @test field_data(ys) == field_data(ref_sub)
+  kv = FiberVector{TP}(TP[1, 2, 3])
+  xc = VectorFieldPhysical(copy(field_data(x)), g8); add!(xc, xc, kv)         # aliased constant add
+  @test field_data(xc) == field_data(x + kv)
+  xcs = VectorFieldPhysical(copy(field_data(x)), g8); subtract!(xcs, xcs, kv)
+  @test field_data(xcs) == field_data(x - kv)
+  sm = ScalarFieldPhysical(rand(TP, 8, 6, 4), g8)
+  sma = ScalarFieldPhysical(copy(field_data(sm)), g8); multiply!(sma, sma, TP(3))
+  @test field_data(sma) == field_data(sm * TP(3))
+  smd = ScalarFieldPhysical(copy(field_data(sm)), g8); divide!(smd, smd, TP(3))
+  @test field_data(smd) == field_data(sm / TP(3))
+  # cross!: dest ≡ b — the antisymmetric direction (only dest ≡ a was ever tested)
+  ref_cross = cross(x, y)
+  yx = VectorFieldPhysical(copy(field_data(y)), g8); cross!(yx, x, yx)
+  @test field_data(yx) == field_data(ref_cross)
+  # norm!: the scalar-operand self-alias is shape-compatible and was untested
+  sn = ScalarFieldPhysical(copy(field_data(sm)), g8); norm!(sn, sn)
+  @test field_data(sn) == field_data(norm(sm))
+
+  # spectral in-place aliasing for the fused unary quartet — physical aliasing is tested, but
+  # every spectral exercise used a fresh destination; decision 39 claims bitwise equality
+  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(2))), g8)
+  plans_t = FieldTransformPlans(A2, t_scaff)
+  As2 = to_spectral(A2, plans_t)
+  for (op!, op) in ((transpose!, transpose), (sym!, sym), (skew!, skew), (dev!, dev))
+    ref_u = op(As2)
+    aliased = TensorFieldSpectral{2}(copy(field_data(As2)), g8)
+    op!(aliased, aliased)
+    @test field_data(aliased) == field_data(ref_u)
+  end
+
+  # tensor-tensor mul! with a FiberTensor2 constant — four methods (both orders × both
+  # representations) with previously ZERO coverage of any kind; per-point matmul oracle
+  C = FiberTensor2{TP}(TP[1 2 0; 0 1 3; 1 0 1])
+  Cm = Matrix(C)
+  ref_AC = similar(field_data(A2)); ref_CA = similar(field_data(A2))
+  for l in 1:4, j in 1:6, i in 1:8
+    ref_AC[i, j, l, :, :] .= field_data(A2)[i, j, l, :, :] * Cm
+    ref_CA[i, j, l, :, :] .= Cm * field_data(A2)[i, j, l, :, :]
+  end
+  destT = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), g8)
+  mul!(destT, A2, C); @test field_data(destT) ≈ ref_AC
+  mul!(destT, C, A2); @test field_data(destT) ≈ ref_CA
+  destTs = TensorFieldSpectral{2}(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(2))), g8)
+  mul!(destTs, As2, C); @test field_data(to_physical(destTs, plans_t)) ≈ ref_AC
+  mul!(destTs, C, As2); @test field_data(to_physical(destTs, plans_t)) ≈ ref_CA
+
+  # the spectral constant family — reversed-order and subtract directions were value-uncovered
+  # (allocation-only); round-trip oracles, plus the physical tensor family full-array
+  s_scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(0))), g8)
+  plans_s = FieldTransformPlans(sm, s_scaff)
+  ss = to_spectral(sm, plans_s)
+  c = TP(0.7)
+  @test field_data(to_physical(ss - c, plans_s)) ≈ field_data(sm) .- c
+  @test field_data(to_physical(c - ss, plans_s)) ≈ c .- field_data(sm)
+  v_scaff = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(1))), g8)
+  plans_v = FieldTransformPlans(x, v_scaff)
+  us = to_spectral(x, plans_v)
+  kv_shape = reshape(collect(kv), 1, 1, 1, 3)
+  @test field_data(to_physical(kv - us, plans_v)) ≈ kv_shape .- field_data(x)
+  Ct = reshape(Cm, 1, 1, 1, 3, 3)
+  @test field_data(to_physical(C + As2, plans_t)) ≈ Ct .+ field_data(A2)
+  @test field_data(to_physical(As2 - C, plans_t)) ≈ field_data(A2) .- Ct
+  @test field_data(to_physical(C - As2, plans_t)) ≈ Ct .- field_data(A2)
+  @test field_data(A2 + C) ≈ field_data(A2) .+ Ct
+  @test field_data(C + A2) ≈ field_data(A2) .+ Ct
+  @test field_data(A2 - C) ≈ field_data(A2) .- Ct
+  @test field_data(C - A2) ≈ Ct .- field_data(A2)
+
+  # tr and det on the non-cubic grid, both element types, against direct per-point formulas
+  # (tr was F64-cubic-only; det's F32 exercise was the multiplicativity identity, not an oracle)
+  ref_tr = field_data(A2)[:, :, :, 1, 1] .+ field_data(A2)[:, :, :, 2, 2] .+ field_data(A2)[:, :, :, 3, 3]
+  @test field_data(tr(A2)) ≈ ref_tr
+  @test field_data(to_physical(tr(As2), plans_s)) ≈ ref_tr
+  ref_det = [det(Matrix{TP}(field_data(A2)[i, j, l, :, :])) for i in 1:8, j in 1:6, l in 1:4]
+  @test field_data(det(A2)) ≈ ref_det
+
+  # permuted-fold representatives, one per executor family (broadcast M2, fiberwise-executor
+  # M3, the zero-mode constant path): the algebra is coefficientwise, so these pin that no
+  # code path silently assumes the fold sits on array dimension 1
+  p_scaff = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_p, Val(1))), g8, layout_p)
+  p1 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
+  p2 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
+  plans_p = FieldTransformPlans(p1, p_scaff)
+  p1s = to_spectral(p1, plans_p); p2s = to_spectral(p2, plans_p)
+  @test field_data(to_physical(p1s + p2s, plans_p)) ≈ field_data(p1) .+ field_data(p2)
+  @test field_data(to_physical(p1s + kv, plans_p)) ≈ field_data(p1) .+ kv_shape   # zero-mode path
+  ps_scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_p, Val(0))), g8, layout_p)
+  ps_phys = ScalarFieldPhysical(zeros(TP, 8, 6, 4), g8, layout_p)
+  plans_ps = FieldTransformPlans(ps_phys, ps_scaff)
+  @test field_data(to_physical(dot(p1s, kv), plans_ps)) ≈
+        dropdims(sum(kv_shape .* field_data(p1), dims = 4), dims = 4)
+end

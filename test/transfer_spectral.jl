@@ -209,3 +209,169 @@ end
   fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tol = tol))))
   @test isapprox(fast, exact; rtol = 50 * tol, atol = 50 * tol)
 end
+
+
+@testset "non-zero origin: spectral transfer ($TP)" for TP in (Float64, Float32)
+  origin = (TP(0.4), TP(-0.7), TP(1.1))
+  grid_o = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)); origin = origin)
+  layout_o = RealFourierLayout()
+  spacing = grid_o.grid_spacing
+  fundamental = ntuple(a -> TP(2π) / grid_o.domain_size[a], 3)
+  tol = TP === Float64 ? 1e-11 : 1e-4
+
+  # node match on a random field (Nyquist content included): the DirectDFT phase is anchored
+  # at the origin, so the nodes sit at origin + (i-1)Δ — a dropped or sign-flipped origin
+  # misplaces every node and fails loudly
+  phys = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_o)
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_o, layout_o, Val(0))),
+                                 grid_o)
+  plans = FieldTransformPlans(phys, scaffold)
+  fh = to_spectral(phys, plans)
+  node_coordinates = Matrix{TP}(undef, 8 * 6 * 4, 3)
+  n = 0
+  for l in 1:4, j in 1:6, i in 1:8                            # x fastest ⇒ vec (column-major) order
+    n += 1
+    node_coordinates[n, 1] = origin[1] + (i - 1) * spacing[1]
+    node_coordinates[n, 2] = origin[2] + (j - 1) * spacing[2]
+    node_coordinates[n, 3] = origin[3] + (l - 1) * spacing[3]
+  end
+  nodes = PointSet(node_coordinates)
+  @test isapprox(vec(Array(point_values(interpolate(fh, nodes, DirectDFT())))),
+                 vec(Array(field_data(to_physical(fh, plans)))); rtol = tol, atol = tol)
+
+  # analytic absolute-coordinate oracle: the band-limited closed form must be reproduced at
+  # arbitrary absolute positions — a relative-only consistency check cannot catch an origin
+  # convention that is wrong the same way on both sides
+  band_fn(x, y) = cos(fundamental[1] * x) + sin(fundamental[2] * y)
+  band = ScalarFieldPhysical(
+    [band_fn(origin[1] + (i - 1) * spacing[1], origin[2] + (j - 1) * spacing[2])
+     for i in 1:8, j in 1:6, l in 1:4], grid_o)
+  bh = to_spectral(band, plans)
+  rng = MersenneTwister(11)
+  P = Matrix{TP}(undef, 30, 3)
+  for p in 1:30, a in 1:3
+    P[p, a] = origin[a] + grid_o.domain_size[a] * rand(rng, TP)
+  end
+  points = PointSet(P)
+  got = Array(point_values(interpolate(bh, points, DirectDFT())))
+  expected = [band_fn(P[p, 1], P[p, 2]) for p in 1:30]
+  @test isapprox(got, expected; rtol = 20 * tol, atol = 20 * tol)
+
+  # NUFFT locates points relative to the origin too — it must agree with its oracle here
+  nufft_tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
+  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tol = nufft_tol))))
+  @test isapprox(fast, got; rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+
+  # the adjoint relation M·⟨Wf̂,q⟩ = N·⟨f̂,Wᵀq⟩ must hold with the phase anchored at the
+  # origin on both sides — a one-sided origin error breaks it
+  q = ScalarPointValues(rand(MersenneTwister(12), TP, 30))
+  left = 30 * inner(interpolate(bh, points, DirectDFT()), q)
+  right = 8 * 6 * 4 * inner(bh, anterpolate(bh, points, q, DirectDFT()))
+  @test isapprox(left, right; rtol = TP === Float64 ? 1e-10 : 2e-3)
+end
+
+
+@testset "hostile base: odd fold + anisotropic + origin, both verbs, both schemes ($TP)" for TP in (Float64, Float32)
+  # Everything at once, detection-optimal: the fold sits on an ODD axis (N = 7 — the spectral
+  # schemes' own even/odd Nyquist split had never met a CPU oracle on an odd fold), the lengths
+  # are unequal, and the origin is nonzero. Gather AND scatter both get independent oracles.
+  origin = (TP(0.4), TP(-0.7), TP(1.1))
+  grid_h = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)); origin = origin)
+  layout_h = RealFourierLayout((2, 1, 3))                     # fold on spatial axis 2, N = 7 odd
+  spacing = grid_h.grid_spacing
+  fundamental = ntuple(a -> TP(2π) / grid_h.domain_size[a], 3)
+  tol = TP === Float64 ? 1e-11 : 2e-4
+
+  phys = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_h, layout_h)
+  scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_h, layout_h, Val(0))),
+                              grid_h, layout_h)
+  plans = FieldTransformPlans(phys, scaff)
+  fh = to_spectral(phys, plans)
+
+  node_coordinates = Matrix{TP}(undef, 8 * 7 * 6, 3)
+  n = 0
+  for l in 1:6, j in 1:7, i in 1:8                            # x fastest ⇒ vec (column-major) order
+    n += 1
+    node_coordinates[n, 1] = origin[1] + (i - 1) * spacing[1]
+    node_coordinates[n, 2] = origin[2] + (j - 1) * spacing[2]
+    node_coordinates[n, 3] = origin[3] + (l - 1) * spacing[3]
+  end
+  nodes = PointSet(node_coordinates)
+  node_values = vec(Array(field_data(to_physical(fh, plans))))
+  # gather: DirectDFT at the nodes == to_physical, Nyquist content included
+  @test isapprox(vec(Array(point_values(interpolate(fh, nodes, DirectDFT())))), node_values;
+                 rtol = tol, atol = tol)
+  # scatter: the forward DFT of the node samples IS to_spectral — an independent oracle for
+  # anterpolate on the same hostile base
+  deposited = anterpolate(fh, nodes, ScalarPointValues(node_values), DirectDFT())
+  @test isapprox(field_data(deposited), field_data(fh); rtol = 100 * tol, atol = 100 * tol)
+
+  # band-limited analytic reconstruction off-grid, and genuine out-of-box periodicity (whole
+  # periods added per axis — never exercised for the spectral schemes before)
+  band_fn(x, y) = cos(fundamental[1] * x) + sin(fundamental[2] * y)
+  band = ScalarFieldPhysical(
+    [band_fn(origin[1] + (i - 1) * spacing[1], origin[2] + (j - 1) * spacing[2])
+     for i in 1:8, j in 1:7, l in 1:6], grid_h, layout_h)
+  bh = to_spectral(band, plans)
+  rng = MersenneTwister(21)
+  P = Matrix{TP}(undef, 20, 3)
+  for p in 1:20, a in 1:3
+    P[p, a] = origin[a] + grid_h.domain_size[a] * rand(rng, TP)
+  end
+  points = PointSet(P)
+  inside = Array(point_values(interpolate(bh, points, DirectDFT())))
+  @test isapprox(inside, [band_fn(P[p, 1], P[p, 2]) for p in 1:20]; rtol = 20 * tol, atol = 20 * tol)
+  offsets = reshape(TP[2, -1, 3] .* collect(grid_h.domain_size), 1, 3)
+  outside = PointSet(P .+ offsets)
+  @test isapprox(Array(point_values(interpolate(bh, outside, DirectDFT()))), inside;
+                 rtol = 20 * tol, atol = 20 * tol)
+
+  # NUFFT on the hostile base: gather vs its oracle (incl. a non-default oversampling — σ ≠ 2
+  # was never constructed before), out-of-box points, the adjoint relation (pins the scatter
+  # with the origin on both sides), and the R = 2 tensor case DirectDFT already covers
+  nufft_tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
+  fast = NUFFT(bh; tol = nufft_tol)
+  @test isapprox(Array(point_values(interpolate(bh, points, fast))), inside;
+                 rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+  wide = NUFFT(bh; tol = nufft_tol, oversampling = 3)
+  @test isapprox(Array(point_values(interpolate(bh, points, wide))), inside;
+                 rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+  @test isapprox(Array(point_values(interpolate(bh, outside, fast))), inside;
+                 rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+  q = ScalarPointValues(rand(MersenneTwister(22), TP, 20))
+  left = 20 * inner(interpolate(bh, points, fast), q)
+  right = 8 * 7 * 6 * inner(bh, anterpolate(bh, points, q, fast))
+  @test isapprox(left, right; rtol = TP === Float64 ? 1e-6 : 5e-3)
+
+  # α = 0, β ≠ 0 for the spectral-scheme scatters (the pure β-rescale branch)
+  dest0 = ScalarFieldSpectral(copy(field_data(bh)), grid_h, layout_h)
+  before0 = copy(field_data(dest0))
+  anterpolate!(dest0, points, q, DirectDFT(), TP(0), TP(2))
+  @test field_data(dest0) == 2 .* before0
+  anterpolate!(dest0, points, q, fast, TP(0), TP(2))
+  @test field_data(dest0) == 4 .* before0
+
+  # the bang gather called by name, overwriting a dirty (NaN-prefilled) output
+  dirty = ScalarPointValues(fill(TP(NaN), 20))
+  interpolate!(dirty, bh, points, DirectDFT())
+  @test isapprox(Array(point_values(dirty)), inside; rtol = 20 * tol, atol = 20 * tol)
+
+  # R = 2: NUFFT over a tensor field (never constructed before; DirectDFT is the oracle)
+  t_phys = TensorFieldPhysical{2}(zeros(TP, 8, 7, 6, 3, 3), grid_h, layout_h)
+  for l in 1:6, j in 1:7, i in 1:8
+    field_data(t_phys)[i, j, l, :, :] .= band_fn(origin[1] + (i - 1) * spacing[1],
+                                                 origin[2] + (j - 1) * spacing[2])
+  end
+  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, spectral_field_shape(grid_h, layout_h, Val(2))),
+                                   grid_h, layout_h)
+  plans_t = FieldTransformPlans(t_phys, t_scaff)
+  th = to_spectral(t_phys, plans_t)
+  exact_t = Array(point_values(interpolate(th, points, DirectDFT())))
+  fast_t = Array(point_values(interpolate(th, points, NUFFT(th; tol = nufft_tol))))
+  @test isapprox(fast_t, exact_t; rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+
+  # M = 0: the zero-work launches are sane (probe-verified, decision 43) and stay pinned
+  empty_points = PointSet(zeros(TP, 0, 3))
+  @test npoints(interpolate(bh, empty_points, DirectDFT())) == 0
+  @test npoints(interpolate(bh, empty_points, fast)) == 0
+end

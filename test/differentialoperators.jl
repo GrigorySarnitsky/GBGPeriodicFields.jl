@@ -300,28 +300,127 @@ end
 end
 
 
-@testset "permuted rfft layout: operators keep their analytic values" begin
-  grid_p = Grid3D((8, 6, 4), (2π, 2π, 2π))
-  layout_p = RealFourierLayout((2, 1, 3))                     # fold on spatial axis 2
-  xs = [(i - 1) * 2π / 8 for i in 1:8]
-  ys = [(j - 1) * 2π / 6 for j in 1:6]
-  s = ScalarFieldPhysical([sin(xs[i]) * cos(ys[j]) for i in 1:8, j in 1:6, l in 1:4],
-                          grid_p, layout_p)
-  s_scaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_p, layout_p, Val(0))),
+
+@testset "permuted rfft layout + anisotropic box: the operator set vs closed forms ($TP)" for TP in (Float64, Float32)
+  # One deliberately hostile base: non-cubic sizes (8,6,4), unequal lengths (2π,4π,6π) so every
+  # per-axis 2π/L factor differs, and a permuted rfft fold (axis 2). The closed-form oracles
+  # carry the per-axis fundamentals explicitly, so an axis mix-up or a dropped length factor
+  # is loud, in both element types (the F32 numerics previously ran only under GPU parity).
+  atol_c = TP === Float64 ? 1e-12 : 2e-4
+  sizes = (8, 6, 4)
+  lengths = (TP(2π), TP(4π), TP(6π))
+  kf = ntuple(a -> TP(2π) / lengths[a], 3)                   # fundamentals (1, 1/2, 1/3)
+  grid_p = Grid3D(sizes, lengths)
+  layout_p = RealFourierLayout((2, 1, 3))                    # fold on spatial axis 2
+  xs = [(i - 1) * lengths[1] / sizes[1] for i in 1:8]
+  ys = [(j - 1) * lengths[2] / sizes[2] for j in 1:6]
+  zs = [(l - 1) * lengths[3] / sizes[3] for l in 1:4]
+
+  s = ScalarFieldPhysical(
+    [sin(kf[1] * xs[i]) * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p, layout_p)
+  s_scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(0))),
                                    grid_p, layout_p)
   plans_s = FieldTransformPlans(s, s_scaffold)
-  v_scaffold_p = VectorFieldPhysical(zeros(T, 8, 6, 4, 3), grid_p, layout_p)
-  v_scaffold_s = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_p, layout_p, Val(1))),
+  v_scaffold_p = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  v_scaffold_s = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(1))),
                                      grid_p, layout_p)
   plans_v = FieldTransformPlans(v_scaffold_p, v_scaffold_s)
+  t_scaffold_p = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), grid_p, layout_p)
+  t_scaffold_s = TensorFieldSpectral{2}(
+    zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(2))), grid_p, layout_p)
+  plans_t = FieldTransformPlans(t_scaffold_p, t_scaffold_s)
   sh = to_spectral(s, plans_s)
   m = FieldSpectralMultipliers(sh)
+
+  # gradient and laplacian: ∇s = (kf₁ cos·cos, −kf₂ sin·sin, 0), Δs = −(kf₁² + kf₂²)·s
   g = to_physical(gradient(sh, m), plans_v)
-  expected_x = [cos(xs[i]) * cos(ys[j]) for i in 1:8, j in 1:6, l in 1:4]
-  expected_y = [-sin(xs[i]) * sin(ys[j]) for i in 1:8, j in 1:6, l in 1:4]
-  @test view(field_data(g), :, :, :, 1) ≈ expected_x atol = 1e-12
-  @test view(field_data(g), :, :, :, 2) ≈ expected_y atol = 1e-12
-  @test maximum(abs, view(field_data(g), :, :, :, 3)) ≤ 1e-12
+  @test view(field_data(g), :, :, :, 1) ≈
+        [kf[1] * cos(kf[1] * xs[i]) * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test view(field_data(g), :, :, :, 2) ≈
+        [-kf[2] * sin(kf[1] * xs[i]) * sin(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test maximum(abs, view(field_data(g), :, :, :, 3)) ≤ atol_c
   lap = to_physical(laplacian(sh, m), plans_s)
-  @test field_data(lap) ≈ -2 .* field_data(s) atol = 1e-12
+  @test field_data(lap) ≈ -(kf[1]^2 + kf[2]^2) .* field_data(s) atol = atol_c
+
+  # u = (sin(kf₂ y), sin(kf₃ z), sin(kf₁ x)) is solenoidal with closed-form curl and symmetric
+  # gradient; v = u + ∇s has divergence Δs and the exact Helmholtz projection ℙv = u
+  u = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  v = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  for l in 1:4, j in 1:6, i in 1:8
+    field_data(u)[i, j, l, 1] = sin(kf[2] * ys[j])
+    field_data(u)[i, j, l, 2] = sin(kf[3] * zs[l])
+    field_data(u)[i, j, l, 3] = sin(kf[1] * xs[i])
+    field_data(v)[i, j, l, 1] = field_data(u)[i, j, l, 1] + kf[1] * cos(kf[1] * xs[i]) * cos(kf[2] * ys[j])
+    field_data(v)[i, j, l, 2] = field_data(u)[i, j, l, 2] - kf[2] * sin(kf[1] * xs[i]) * sin(kf[2] * ys[j])
+    field_data(v)[i, j, l, 3] = field_data(u)[i, j, l, 3]
+  end
+  uh = to_spectral(u, plans_v)
+  vh = to_spectral(v, plans_v)
+  @test maximum(abs, field_data(to_physical(divergence(uh, m), plans_s))) ≤ atol_c
+  @test field_data(to_physical(divergence(vh, m), plans_s)) ≈
+        -(kf[1]^2 + kf[2]^2) .* field_data(s) atol = atol_c
+  curl_u = to_physical(curl(uh, m), plans_v)
+  @test view(field_data(curl_u), :, :, :, 1) ≈
+        [-kf[3] * cos(kf[3] * zs[l]) for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test view(field_data(curl_u), :, :, :, 2) ≈
+        [-kf[1] * cos(kf[1] * xs[i]) for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test view(field_data(curl_u), :, :, :, 3) ≈
+        [-kf[2] * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  S = to_physical(symmetric_gradient(uh, m), plans_t)
+  @test view(field_data(S), :, :, :, 1, 2) ≈
+        [kf[2] * cos(kf[2] * ys[j]) / 2 for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test view(field_data(S), :, :, :, 1, 3) ≈
+        [kf[1] * cos(kf[1] * xs[i]) / 2 for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test view(field_data(S), :, :, :, 2, 3) ≈
+        [kf[3] * cos(kf[3] * zs[l]) / 2 for i in 1:8, j in 1:6, l in 1:4] atol = atol_c
+  @test maximum(abs, view(field_data(S), :, :, :, 1, 1)) ≤ atol_c
+  @test maximum(abs, view(field_data(S), :, :, :, 2, 2)) ≤ atol_c
+  @test maximum(abs, view(field_data(S), :, :, :, 3, 3)) ≤ atol_c
+  @test field_data(to_physical(helmholtz_projection(vh, m), plans_v)) ≈ field_data(u) atol = atol_c
+  @test field_data(to_physical(inverse_laplacian(laplacian(sh, m), m), plans_s)) ≈
+        field_data(s) atol = atol_c
+
+  # mixed-Nyquist closed forms: f = cos(kN₁x)·cos(kN₂y) is pure Nyquist on two axes at once —
+  # the derivative family zeroes both (gradient and curl annihilate it), the squared family
+  # keeps the true k² (the laplacian scales it exactly, invariant 5)
+  kN = (sizes[1] ÷ 2 * kf[1], sizes[2] ÷ 2 * kf[2])
+  f_nyq = ScalarFieldPhysical(
+    [cos(kN[1] * xs[i]) * cos(kN[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p, layout_p)
+  fh_nyq = to_spectral(f_nyq, plans_s)
+  @test maximum(abs, field_data(to_physical(gradient(fh_nyq, m), plans_v))) ≤ atol_c
+  @test field_data(to_physical(laplacian(fh_nyq, m), plans_s)) ≈
+        -(kN[1]^2 + kN[2]^2) .* field_data(f_nyq) atol = 40 * atol_c
+  w_nyq = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
+  view(field_data(w_nyq), :, :, :, 3) .= field_data(f_nyq)
+  @test maximum(abs, field_data(to_physical(curl(to_spectral(w_nyq, plans_v), m), plans_v))) ≤ atol_c
+
+  # kernel-composed arities on a FULL-SPECTRUM random field (Nyquist content flows through the
+  # decision-42 projector and the kernel product): fused == sequential, and the α = 0, β ≠ 0
+  # branch — previously asserted nowhere in the package — must reduce to dest ← β·dest
+  vr = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), grid_p, layout_p)
+  vrh = to_spectral(vr, plans_v)
+  w = squared_wavenumber_field(sh, m)
+  @test field_data(symmetric_gradient(vrh, m)) ≈ field_data(sym(gradient(vrh, m)))
+  fused_div = F.similar_field(sh, Val(0))
+  divergence!(fused_div, vrh, m, w)
+  @test field_data(fused_div) ≈ field_data(convolve(divergence(vrh, m), w))
+  fused_helm = F.similar_field(vrh, Val(1))
+  helmholtz_projection!(fused_helm, vrh, m, w)
+  @test field_data(fused_helm) ≈ field_data(convolve(helmholtz_projection(vrh, m), w))
+  before_helm = copy(field_data(fused_helm))
+  helmholtz_projection!(fused_helm, vrh, m, w, TP(0), TP(2))
+  @test field_data(fused_helm) == 2 .* before_helm
+  before_div = copy(field_data(fused_div))
+  divergence!(fused_div, vrh, m, w, TP(0), TP(2))
+  @test field_data(fused_div) == 2 .* before_div
+
+  # dest === source aliasing for the coefficientwise pair (previously unpinned anywhere)
+  lap_ref = laplacian(vrh, m)
+  aliased = VectorFieldSpectral(copy(field_data(vrh)), grid_p, layout_p)
+  laplacian!(aliased, aliased, m)
+  @test field_data(aliased) == field_data(lap_ref)
+  inv_ref = inverse_laplacian(vrh, m)
+  aliased_inv = VectorFieldSpectral(copy(field_data(vrh)), grid_p, layout_p)
+  inverse_laplacian!(aliased_inv, aliased_inv, m)
+  @test field_data(aliased_inv) == field_data(inv_ref)
 end

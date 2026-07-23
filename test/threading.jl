@@ -171,6 +171,10 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     @test bitwise(() -> divergence(us, m))
     @test bitwise(() -> curl(us, m))
     @test bitwise(() -> gradient(us, m))                            # vector → tensor
+    @test bitwise(() -> symmetric_gradient(us, m))                  # fused sym∇ (gated kernel pair)
+    @test bitwise(() -> laplacian(us, m))                           # vector Δ (coefficientwise)
+    As = gradient(us, m)
+    @test bitwise(() -> divergence(As, m))                          # tensor2 → vector arity
     # `helmholtz_projection` deliberately absent: it is a KernelAbstractions kernel, which never
     # consults the `with_threading` override `bitwise` toggles, so the check would compare a code
     # path against itself. It is covered by the KA testset below, which varies the thread count.

@@ -70,6 +70,12 @@ function read_field(parent::HDF5.H5DataStore, name::AbstractString)
   haskey(attrs(g), "type") || throw(ArgumentError(
     "read_field: group \"$name\" has no `type` attribute — it was not written by write_field"))
   tag = attrs(g)["type"]
+  haskey(g, "data") || throw(ArgumentError(
+    "read_field: field group \"$name\" has no `data` dataset — the group is incomplete"))
+  for attribute in ("grid_size", "domain_size", "origin", "fft_dims")
+    haskey(attrs(g), attribute) || throw(ArgumentError(
+      "read_field: field group \"$name\" is missing the `$attribute` attribute — the group is incomplete"))
+  end
   data = read(g["data"])
   grid = _reconstruct_grid(g, real(eltype(data)))
   layout = RealFourierLayout(Tuple(Int.(attrs(g)["fft_dims"])))

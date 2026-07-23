@@ -255,6 +255,10 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(gradient(u_spec_d, mult_d), gradient(u_spec_h, mult_h))          # vector -> tensor
       @test matches(symmetric_gradient(u_spec_d, mult_d), symmetric_gradient(u_spec_h, mult_h))  # fused sym∇
       @test matches(helmholtz_projection(u_spec_d, mult_d), helmholtz_projection(u_spec_h, mult_h))
+      @test matches(laplacian(u_spec_d, mult_d), laplacian(u_spec_h, mult_h))        # vector Δ
+      A_spec_h = gradient(u_spec_h, mult_h)
+      A_spec_d = gradient(u_spec_d, mult_d)
+      @test matches(divergence(A_spec_d, mult_d), divergence(A_spec_h, mult_h))      # tensor2 -> vector
 
       # the aliased in-place projection: the one-pass kernel computes destination === source with
       # no guard temporary (decision 32)
@@ -268,6 +272,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       A_spec_d = to_spectral(Ad, plans_for(Ad))
       @test matches(transpose(A_spec_d), transpose(A_spec_h))
       @test matches(sym(A_spec_d), sym(A_spec_h))
+      @test matches(skew(A_spec_d), skew(A_spec_h))
+      @test matches(dev(A_spec_d), dev(A_spec_h))
+      @test matches(tr(A_spec_d), tr(A_spec_h))
       @test matches(combine!(F.similar_field(A_spec_d, Val(2)), 2.0, A_spec_d, -3.0, A_spec_d),  # combine! spectral
                     combine!(F.similar_field(A_spec_h, Val(2)), 2.0, A_spec_h, -3.0, A_spec_h))
 

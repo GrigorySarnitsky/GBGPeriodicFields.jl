@@ -160,3 +160,52 @@ end
     end
   end
 end
+
+
+@testset "origin-aware sampling, explicit multipliers, guard errors ($TP)" for TP in (Float64, Float32)
+  # the function-sampling constructors evaluate at origin + (i-1)Δ — no test ever set a
+  # non-zero origin on this path (the HDF5 origin case supplies a raw array, bypassing it)
+  origin = (TP(0.4), TP(-0.7), TP(1.1))
+  grid_o = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)); origin = origin)
+  s = ScalarFieldPhysical((x, y, z) -> x, grid_o)
+  @test field_data(s)[3, 1, 1] ≈ origin[1] + 2 * grid_o.grid_spacing[1]
+  u = VectorFieldPhysical((x, y, z) -> (y, z, x), grid_o)
+  @test field_data(u)[1, 2, 1, 1] ≈ origin[2] + grid_o.grid_spacing[2]
+  @test field_data(u)[1, 1, 2, 2] ≈ origin[3] + grid_o.grid_spacing[3]
+  A = TensorFieldPhysical{2}((x, y, z) -> fill(z, 3, 3), grid_o)
+  @test field_data(A)[1, 1, 3, 2, 2] ≈ origin[3] + 2 * grid_o.grid_spacing[3]
+
+  # the explicit multiplier constructors (documented public API, never previously called):
+  # feeding the convenience constructor's own arrays back must reproduce it field for field
+  grid_m = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
+  layout_m = RealFourierLayout((2, 1, 3))
+  ref = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_m, layout_m, Val(0))),
+                            grid_m, layout_m)
+  mc = FieldSpectralMultipliers(ref)
+  for built in (
+      FieldSpectralMultipliers(grid_m, layout_m,
+        mc.wavenumber_1, mc.wavenumber_2, mc.wavenumber_3,
+        mc.squared_wavenumber_1, mc.squared_wavenumber_2, mc.squared_wavenumber_3),
+      FieldSpectralMultipliers(ref,
+        mc.wavenumber_1, mc.wavenumber_2, mc.wavenumber_3,
+        mc.squared_wavenumber_1, mc.squared_wavenumber_2, mc.squared_wavenumber_3),
+    )
+    @test built.wavenumber_1 == mc.wavenumber_1 && built.wavenumber_2 == mc.wavenumber_2 &&
+          built.wavenumber_3 == mc.wavenumber_3
+    @test built.squared_wavenumber_1 == mc.squared_wavenumber_1 &&
+          built.squared_wavenumber_2 == mc.squared_wavenumber_2 &&
+          built.squared_wavenumber_3 == mc.squared_wavenumber_3
+    @test built.fourier_layout.fft_dims == (2, 1, 3)
+  end
+
+  # one representative per previously-untested guard class
+  @test_throws DimensionMismatch FieldSpectralMultipliers(grid_m, layout_m,
+    mc.wavenumber_1[1:2], mc.wavenumber_2, mc.wavenumber_3,
+    mc.squared_wavenumber_1, mc.squared_wavenumber_2, mc.squared_wavenumber_3)
+  @test_throws ArgumentError RealFourierLayout((1, 1, 3))          # not a permutation
+  @test_throws DimensionMismatch ScalarFieldPhysical(zeros(TP, 8, 6, 5), grid_m)
+  mismatched = ScalarFieldSpectral(
+    zeros(Complex{TP}, spectral_field_shape(grid_m, RealFourierLayout(), Val(0))), grid_m)
+  physical_m = ScalarFieldPhysical(zeros(TP, 8, 6, 4), grid_m, layout_m)
+  @test_throws ArgumentError FieldTransformPlans(physical_m, mismatched)
+end

@@ -149,6 +149,7 @@ end
       @alloc_below field_threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel)
       @alloc_below field_threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
       @alloc_below field_threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below field_threshold combine!(ssd, T(0.3), ss, T(0.7), ss, kernel)
       @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
       @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
 

@@ -624,7 +624,12 @@ away, never a fact the reader needs.
 ## Verification workflow
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
-the per-operation coverage contract. Before optimizing or benchmarking, read
+the per-operation coverage contract. Its §4 now carries the explicit **coverage-axes list**
+(the denominator over which "exhaustive" is defined: representation, R, eltype-on-CPU, layout
+fold, parity, cubicity, length anisotropy, origin, degenerate bases, the α=0/β≠0 branch,
+aliasing patterns, Nyquist content, backend, threads); a new type parameter or admissible input
+region adds its axis row and its suite lane in the same change — an axis missing from the list
+is exactly how the decision-41/42 bugs stayed invisible. Before optimizing or benchmarking, read
 `docs/PERFORMANCE.md` — the performance model, best practices, recorded findings, and the
 benchmark coverage contract.
 
@@ -716,7 +721,16 @@ those are the usual rot. Then the mechanical bar:
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
    operators), `convolution.jl` (the translation kernel's folded-axis Nyquist oracle),
    `transfer_spectral.jl` (`DirectDFT`/`NUFFT`), `reductions.jl` (Parseval/shell/weighted +
-   `radial_correlation`), and `hdf5.jl` (`fft_dims` persistence).
+   `radial_correlation`), and `hdf5.jl` (`fft_dims` persistence). The **coverage-axes closure
+   lane** (decision 43) spans ten files: `coverage-axes closure` testsets in `fieldalgebra.jl`
+   (α=0, aliasing both directions, the tensor-constant `mul!` quartet, the reversed/subtract
+   constant family, permuted-fold representatives), `convolution.jl` (builders + the lazy
+   exponential off the default box, anisotropic `translation_kernel`, α=0, dest≡kernel),
+   `pointvalues_algebra.jl` and `interpolation_transfer.jl` (α=0, aliasing, guard wiring,
+   M=0), the `hostile base` spectral-transfer testset (odd fold + anisotropy + origin, both
+   verbs, R=2 NUFFT, out-of-box), the anisotropic radial + `empty base (M = 0)` reductions
+   testsets (the decision-43 out-of-bounds fix), the `origin-aware sampling` fields testset,
+   `adjointness.jl`'s full-spectrum lane, and the HDF5 corrupted-group paths.
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the weighted combination `combine!` (physical+spectral, alias-safe accumulate) and the
    determinant `det` (per-point LU oracle, spectral absence), the spectral zero-mode invariant, in-place

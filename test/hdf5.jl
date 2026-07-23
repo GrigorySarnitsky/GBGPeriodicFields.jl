@@ -49,10 +49,10 @@ using Random
       end
     end
 
-    @testset "permuted rfft layout: fft_dims round-trips" begin
-      grid = Grid3D((8, 8, 6), (2π, 4π, 2π))
-      layout = RealFourierLayout((2, 1, 3))                   # fold on spatial axis 2 ⇒ data (8, 5, 6)
-      f = VectorFieldSpectral(rand(ComplexF64, 8, 5, 6, 3), grid, layout)
+    @testset "permuted rfft layout: fft_dims round-trips ($T)" for T in (Float64, Float32)
+      grid = Grid3D((8, 7, 6), (T(2π), T(4π), T(2π)))
+      layout = RealFourierLayout((2, 1, 3))                   # odd fold on spatial axis 2 ⇒ data (8, 4, 6)
+      f = VectorFieldSpectral(rand(Complex{T}, 8, 4, 6, 3), grid, layout)
       h5open(path, "w") do file
         write_field(file, "permuted", f)
       end
@@ -60,6 +60,7 @@ using Random
         r = read_field(file, "permuted")
         @test field_layout(r).fft_dims == (2, 1, 3)
         @test field_data(r) == field_data(f)
+        @test field_scalar_type(r) == T
       end
     end
 
@@ -111,6 +112,23 @@ using Random
         @test_throws ArgumentError read_field(file, "plain")    # a dataset, not a group
         @test_throws ArgumentError read_field(file, "absent")   # no such object
         @test_throws ArgumentError read_field(file, "tagless")  # a group, but no field type tag
+      end
+    end
+
+    @testset "error paths: corrupted field groups" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      h5open(path, "w") do file
+        write_field(file, "bogus_tag", ScalarFieldPhysical(rand(8, 8, 8), grid))
+        attrs(file["bogus_tag"])["type"] = "GBGPeriodicFields.NoSuchField"
+        write_field(file, "no_data", ScalarFieldPhysical(rand(8, 8, 8), grid))
+        HDF5.delete_object(file["no_data"], "data")
+        write_field(file, "no_geometry", ScalarFieldPhysical(rand(8, 8, 8), grid))
+        HDF5.delete_attribute(file["no_geometry"], "grid_size")
+      end
+      h5open(path, "r") do file
+        @test_throws ArgumentError read_field(file, "bogus_tag")    # present but unrecognized tag
+        @test_throws ArgumentError read_field(file, "no_data")      # tagged group missing its data
+        @test_throws ArgumentError read_field(file, "no_geometry")  # missing a geometry attribute
       end
     end
   end

@@ -2227,3 +2227,50 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\mathbb P u = u - \nabla \Delta^{-1}(\nabla\cdot u)`` becomes the resolved-band description
     (``\Delta^{-1}`` keeps the true ``k^2`` per invariant 5); the projector definition is primary.
     Full-spectrum Nyquist-content identities are pinned in `test/differentialoperators.jl`.
+
+43. **The coverage-axes audit — the explicit denominator, its closure lanes, and the one bug it
+    found** (2026-07-23; the follow-up the decision-41/42 defects demanded). The three
+    layout/Nyquist defects shared one cause: the suite was exhaustive only over the axes it
+    named, and no written list of axes existed — so an axis living solely in the type system
+    (`fft_dims` with one value ever constructed) was invisible to every sweep. The denominator
+    is now written down (`docs/TESTING.md` §4, fourteen axes: representation, tensor order,
+    element type on the CPU lane, layout fold, axis parity, grid-size cubicity, domain-length
+    anisotropy, origin, degenerate bases, the ``\alpha = 0`` branch, aliasing patterns, Nyquist
+    content, backend, thread count), with the rule that a new type parameter or admissible
+    input region adds its axis row and its suite lane in the same change. Five sequential audit
+    lanes filled the operation × axis matrix and every finding was closed as fixed or
+    dismissed-with-reason. The closure testsets (~300 assertions across ten test files) include
+    the full operator set against closed forms on a non-cubic anisotropic permuted box in both
+    element types with mixed-Nyquist oracles; the kernel-composed arities on full-spectrum
+    fixtures; `adjointness.jl`'s new full-spectrum lane (the decision-42-exact identities; the
+    dissipation identity alone stays band-limited — invariant 5's design); the
+    ``\alpha = 0, \beta \ne 0`` branch of every α/β-capable operation, previously asserted
+    nowhere in the package; destination-aliasing in both directions, including the branchy
+    field ± constant path and `cross!` with the destination aliasing the second operand; the
+    four never-exercised tensor-constant `mul!` methods; the reversed and subtract directions
+    of the spectral constant family; every kernel builder and the lazy exponential kernel off
+    the default box; the anisotropic `translation_kernel`; the spectral transfer on an odd fold
+    with origin, out-of-box points, tensor order two, and a non-default oversampling — with
+    independent oracles for both verbs; the point-algebra aliasing block; guard wiring through
+    the public entries; the HDF5 corruption paths (plus two new `ArgumentError` guards in the
+    extension for a missing `data` dataset or geometry attribute); and the anisotropic radial
+    family with single-mode placement oracles. The audit's one genuine code bug, found by the
+    degenerate-input probe lane: the CPU fixed-tree reductions seeded their accumulator from
+    the first element before checking emptiness — an `@inbounds` out-of-bounds read on an
+    M = 0 point set — whose user-visible symptom was `maximum`/`minimum`/`extrema` fabricating
+    `0.0` on an empty section instead of erroring, a silent no-data-versus-zero trap for the
+    Lagrangian consumers whose point sets legitimately empty. The four tree entries now guard
+    emptiness with deliberate per-operation semantics mirroring the stdlib counterpart and the
+    device branch: an order statistic throws the Base empty-collection `ArgumentError`, the
+    mean family (`mean`, `var`, `std`, `l2norm`, the normalized `inner`) is NaN, and the raw
+    sum is zero, so `integral` over no points is exactly zero; the fiber (mapped) path already
+    had its guard. Every other probed degenerate — axes of length one and two, the Nyquist
+    split there, zero-work kernel launches across all three transfer schemes, out-of-box
+    periodic wrap, the ``\alpha = \beta = 0`` NaN-prefill — behaved exactly as the documented
+    invariants promise and is now pinned. The audit's meta-result: beyond this one bug, every
+    previously unexercised path proved correct once tested — decision 39's bitwise
+    alias-safety, `assignment_window`'s true-``k`` Nyquist convention, the NUFFT tensor path,
+    the radial shell bound at any aspect ratio (structural: the corner bound is the sum of the
+    same per-axis maxima the kernel forms, and rounding is monotone) — and the one docstring
+    defect (`radial_spectrum`'s non-cubic caveat naming ``\min(N_i)/2``, wrong once lengths and
+    sizes decorrelate) was corrected to the per-axis inscribed-sphere form.

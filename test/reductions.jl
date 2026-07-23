@@ -488,3 +488,70 @@ end
     @test correlation[1] ≈ inner(sp, sp) atol = atol          # C(0) = ⟨|f|²⟩
   end
 end
+
+
+@testset "anisotropic box: the radial family, shell width Δk = 2π/max L ($T)" for T in (Float64, Float32)
+  # Unequal domain lengths give unequal per-axis fundamentals (1, 1/2, 1/3): the shell width, the
+  # per-mode |k|, and each single-mode wavenumber are three genuinely different scales here, so a
+  # dropped 2π/L factor or a wrong shell width cannot cancel out of these oracles.
+  atol = T === Float64 ? 1e-11 : 1e-3
+  grid_a = Grid3D((8, 8, 8), (T(2π), T(4π), T(6π)))
+  layout_a = RealFourierLayout()
+  phys = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid_a)
+  phys2 = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid_a)
+  scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_a, layout_a, Val(1))),
+                                 grid_a)
+  plans = FieldTransformPlans(phys, scaffold)
+  sp = to_spectral(phys, plans)
+  sp2 = to_spectral(phys2, plans)
+  m = FieldSpectralMultipliers(sp)
+
+  shells, spectrum = radial_spectrum(sp, m)
+  @test sum(spectrum) ≈ inner(sp, sp) atol = atol               # Parseval closure, full Nyquist content
+  @test shells[2] - shells[1] ≈ T(2π) / T(6π) atol = atol       # Δk = the coarsest fundamental 2π/max L
+  _, cospectrum = radial_spectrum(sp, sp2, m)
+  @test sum(cospectrum) ≈ inner(sp, sp2) atol = atol
+
+  # single-mode placement oracles: cos(x) has |k| = 1 ⇒ shell round(1/Δk) = 3 (bin 4);
+  # cos(y·2π/L₂) has |k| = 1/2 ⇒ shell round((1/2)/(1/3)) = 2 (bin 3) — mode, fundamental, and
+  # shell width all differ, so the placement pins the anisotropic Δk arithmetic exactly
+  sscaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_a, layout_a, Val(0))),
+                                  grid_a)
+  cos_x = ScalarFieldPhysical([cos((i - 1) * T(2π) / 8) for i in 1:8, j in 1:8, l in 1:8], grid_a)
+  cos_y = ScalarFieldPhysical([cos(T(1) / 2 * (j - 1) * T(4π) / 8) for i in 1:8, j in 1:8, l in 1:8],
+                              grid_a)
+  splans = FieldTransformPlans(cos_x, sscaffold)
+  _, spec_x = radial_spectrum(to_spectral(cos_x, splans), m)
+  @test isapprox(spec_x[4], T(1) / 2; atol = atol) && argmax(spec_x) == 4
+  _, spec_y = radial_spectrum(to_spectral(cos_y, splans), m)
+  @test isapprox(spec_y[3], T(1) / 2; atol = atol) && argmax(spec_y) == 3
+
+  separations, correlation = radial_correlation(sp, plans)
+  @test correlation[1] ≈ inner(sp, sp) atol = atol              # C(0) = ⟨|f|²⟩ at unequal spacings
+  @test separations[2] - separations[1] ≈ minimum(grid_a.grid_spacing) atol = atol
+  _, cocorrelation = radial_correlation(sp, sp2, plans)
+  @test cocorrelation[1] ≈ inner(sp, sp2) atol = atol
+end
+
+
+@testset "empty base (M = 0): deliberate semantics, no out-of-bounds ($T)" for T in (Float64, Float32)
+  # The CPU fixed tree seeded its accumulator from element(1) BEFORE checking emptiness — an
+  # @inbounds out-of-bounds read on an empty section, which fabricated maximum(q) = 0 instead
+  # of erroring (decision 43). Each guard mirrors the op's stdlib counterpart: order statistics
+  # throw (the Base empty-collection contract), the mean family is NaN (Statistics), and the
+  # raw sum is zero, so `integral` over no points is exactly zero.
+  q = ScalarPointValues(zeros(T, 0))
+  @test_throws ArgumentError maximum(q)
+  @test_throws ArgumentError minimum(q)
+  @test_throws ArgumentError extrema(q)
+  @test isnan(mean(q))
+  @test isnan(var(q))
+  @test isnan(std(q))
+  @test isnan(l2norm(q))
+  @test isnan(inner(q, q))
+  @test integral(q) == 0
+  vq = VectorPointValues(zeros(T, 0, 3))
+  @test all(isnan, mean(vq))                                # fiber-preserving mean: a NaN fiber
+  @test integral(vq) == zero(FiberVector{T})
+  @test_throws ArgumentError maximum(norm, vq)              # the mapped path delegates to Base
+end

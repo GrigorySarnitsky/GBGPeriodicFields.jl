@@ -282,3 +282,39 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
     end
   end
 end
+
+
+@testset "coverage-axes closure: α = 0, the bang gather, callable vector, guard wiring ($TP)" for TP in (Float64, Float32)
+  grid_s = Grid3D((8, 7, 6), (TP(2π), TP(2π), TP(2π)))
+  field = VectorFieldPhysical(rand(TP, 8, 7, 6, 3), grid_s)
+  rng = MersenneTwister(31)
+  P = TP(2π) .* rand(rng, TP, 5, 3)
+  points = PointSet(P)
+  q = VectorPointValues(rand(rng, TP, 5, 3))
+
+  # α = 0, β ≠ 0: the spline scatter reduces to the pure β-rescale (asserted nowhere before)
+  dest = VectorFieldPhysical(rand(TP, 8, 7, 6, 3), grid_s)
+  before = copy(field_data(dest))
+  anterpolate!(dest, points, q, CatmullRom, TP(0), TP(2))
+  @test field_data(dest) == 2 .* before
+
+  # the bang gather called by name, overwriting a dirty output (only the allocating wrapper
+  # was ever exercised)
+  dirty = VectorPointValues(fill(TP(NaN), 5, 3))
+  interpolate!(dirty, field, points, CatmullRom)
+  @test point_values(dirty) ≈ point_values(interpolate(field, points, CatmullRom))
+
+  # the callable field(x) on a vector field (was scalar-only)
+  @test collect(field(TP.(P[1, :]))) ≈ vec(point_values(interpolate(field, PointSet(P[1:1, :]), CatmullRom)))
+
+  # the npoints-mismatch guards fire through the public verbs (only the internal check had a test)
+  mismatched = VectorPointValues(rand(rng, TP, 4, 3))
+  @test_throws DimensionMismatch interpolate!(mismatched, field, points, CatmullRom)
+  @test_throws DimensionMismatch anterpolate!(dest, points, mismatched, CatmullRom)
+
+  # M = 0: empty gather and scatter are sane (probe-verified, decision 43) and stay pinned
+  empty_points = PointSet(zeros(TP, 0, 3))
+  @test npoints(interpolate(field, empty_points, CatmullRom)) == 0
+  empty_q = VectorPointValues(zeros(TP, 0, 3))
+  @test maximum(abs, field_data(anterpolate(grid_s, empty_points, empty_q, CatmullRom))) == 0
+end

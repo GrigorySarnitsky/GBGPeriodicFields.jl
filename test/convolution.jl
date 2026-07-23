@@ -436,3 +436,86 @@ end
                    rtol = TP === Float64 ? 1e-10 : 2e-4)
   end
 end
+
+
+@testset "coverage-axes closure: α = 0, aliasing, builders off the default box ($TP)" for TP in (Float64, Float32)
+  # One hostile base for the whole module: odd axis (N=7), anisotropic lengths, permuted fold
+  # (axis 3) — the builders and the lazy exponential kernel had zero exposure to any of these.
+  # Fixtures are rand, so the DC coefficient is nonzero (the standard fixtures' DC is exactly
+  # zero, which made full-array checks blind to a DC-specific bug).
+  rtol_c = TP === Float64 ? 1e-10 : 3e-4
+  grid_c = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))
+  layout_c = RealFourierLayout((3, 2, 1))                   # fold on spatial axis 3 (even)
+  f = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_c, layout_c)
+  scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_c, layout_c, Val(0))),
+                              grid_c, layout_c)
+  plans = FieldTransformPlans(f, scaff)
+  fs = to_spectral(f, plans)
+  m = FieldSpectralMultipliers(fs)
+
+  # squared_wavenumber_field vs the hand-built per-axis sum (true k², Nyquist included)
+  kx = [TP(i - 1 <= 4 ? i - 1 : i - 1 - 8) for i in 1:8]                       # N=8 full axis, 2π
+  ky = [TP(j - 1 <= 3 ? j - 1 : j - 1 - 7) * TP(2π) / TP(4π) for j in 1:7]     # N=7 full axis, 4π
+  kz = [TP(l - 1) * TP(2π) / TP(6π) for l in 1:4]                              # N=6 folded, 6π
+  expected_w2 = [kx[i]^2 + ky[j]^2 + kz[l]^2 for i in 1:8, j in 1:7, l in 1:4]
+  w2 = squared_wavenumber_field(fs, m)
+  @test isapprox(real(field_data(w2)), expected_w2; rtol = rtol_c, atol = rtol_c)
+  @test maximum(abs, imag(field_data(w2))) == 0
+
+  # spectral_band membership under the permuted anisotropic box (edge-free bounds)
+  band = spectral_band(fs, m, TP(0.55), TP(1.15))
+  expected_band = [TP(0.55)^2 < expected_w2[i, j, l] < TP(1.15)^2 ? one(TP) : zero(TP)
+                   for i in 1:8, j in 1:7, l in 1:4]
+  @test real(field_data(band)) == expected_band
+
+  # assignment_window vs the ∏ sinc²(k_a Δx_a / 2) closed form (true k, per-axis spacing)
+  sinc_sq(k, d) = k == 0 ? one(TP) : (sin(k * d / 2) / (k * d / 2))^2
+  Δ = grid_c.grid_spacing
+  expected_win = [sinc_sq(kx[i], Δ[1]) * sinc_sq(ky[j], Δ[2]) * sinc_sq(kz[l], Δ[3])
+                  for i in 1:8, j in 1:7, l in 1:4]
+  @test isapprox(real(field_data(assignment_window(fs, m))), expected_win; rtol = rtol_c, atol = rtol_c)
+
+  # the lazy exponential kernel == the stored-kernel convolve route (permuted + odd + aniso)
+  c = -TP(0.3)
+  stored = ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c, layout_c)
+  ref_route = convolve(fs, stored)
+  @test isapprox(field_data(exponential_convolve(fs, m, c)), field_data(ref_route);
+                 rtol = rtol_c, atol = rtol_c)
+
+  # translation kernel on the anisotropic box: h is a physical length, so unequal Δx_a is the
+  # exact hazard — one cell on the L=4π odd axis, and an odd 3-cell shift on the folded even axis
+  moved_y = to_physical(convolve(fs, translation_kernel(fs, m, (zero(TP), Δ[2], zero(TP)))), plans)
+  @test isapprox(field_data(moved_y), circshift(field_data(f), (0, 1, 0)); rtol = 20 * rtol_c)
+  moved_z = to_physical(convolve(fs, translation_kernel(fs, m, (zero(TP), zero(TP), 3 * Δ[3]))), plans)
+  @test isapprox(field_data(moved_z), circshift(field_data(f), (0, 0, 3)); rtol = 20 * rtol_c)
+
+  # α = 0, β ≠ 0 for every α/β form in the module (previously asserted nowhere)
+  other = ScalarFieldSpectral(rand(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
+  dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  before = copy(field_data(dst))
+  convolve!(dst, other, stored, TP(0), TP(2))
+  @test field_data(dst) == 2 .* before
+  exponential_convolve!(dst, other, m, c, TP(0), TP(2))
+  @test field_data(dst) == 4 .* before
+  fused = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
+  exponential_convolve!(fused, TP(0), other, TP(2), fs, m, c)     # two-operand: α = 0 drops a
+  @test isapprox(field_data(fused), 2 .* field_data(exponential_convolve(fs, m, c));
+                 rtol = rtol_c, atol = rtol_c)
+  combine!(fused, TP(0), other, TP(2), fs, stored)                # kernel-composed combine!
+  @test isapprox(field_data(fused), 2 .* field_data(ref_route); rtol = rtol_c, atol = rtol_c)
+
+  # aliasing directions never exercised: convolve! dest ≡ kernel (documented safe), the
+  # two-operand exponential and kernel-composed combine! with dest ≡ a
+  kern_dst = ScalarFieldSpectral(copy(field_data(stored)), grid_c, layout_c)
+  convolve!(kern_dst, fs, kern_dst)
+  @test field_data(kern_dst) == field_data(ref_route)
+  combined = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
+  combine!(combined, TP(1 // 2), fs, TP(2), other)          # the sequential reference input
+  a_dst = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  exponential_convolve!(a_dst, TP(1 // 2), a_dst, TP(2), other, m, c)
+  @test isapprox(field_data(a_dst), field_data(exponential_convolve(combined, m, c));
+                 rtol = rtol_c, atol = rtol_c)
+  a_dst2 = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
+  combine!(a_dst2, TP(1 // 2), a_dst2, TP(2), other, stored)
+  @test isapprox(field_data(a_dst2), field_data(convolve(combined, stored)); rtol = rtol_c, atol = rtol_c)
+end
