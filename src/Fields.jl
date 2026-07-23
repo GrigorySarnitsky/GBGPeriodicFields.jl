@@ -19,7 +19,8 @@ This module provides the following.
     self-describing HDF5 group (methods load with the `HDF5` package, as a weak-dependency extension).
   * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
     [`to_spectral`](@ref) move a field between the two representations. The allocating forms preserve
-    their input, while the in-place `!` forms may overwrite the source.
+    their input, while the in-place `!` forms may overwrite the source; `set_fft_threads!` sets the
+    thread count `FFTW` bakes into plans built afterwards.
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
     spectral differential operators multiply by.
   * **Broadcasting** — a dotted assignment writes into the destination's storage, an out-of-place dotted
@@ -954,7 +955,7 @@ Here `physical` provides the real-space storage array, `spectral` provides the r
 Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
 
 !!! warning "CPU planner choice: the default `ESTIMATE` can badly mis-plan single-precision transforms"
-    On the CPU the plans are FFTW plans, and with `fft_flags` unset FFTW picks the algorithm by its
+    On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
     on a Zen 5 desktop, the `Float32` transforms ran 3.4–5.4× slower than a timed plan at ``256^3``,
     and at ``512^3`` no faster than `Float64`, in both directions and at every thread count. For a
@@ -1013,7 +1014,7 @@ Here `physical` is the destination, `spectral` is the source, and `transform_pla
 
 !!! warning "The source is used as scratch"
     The inverse transform uses `spectral` as scratch space and may overwrite it: on return its
-    coefficients are left in an undefined state (the FFTW CPU backend destroys them — complex-to-real
+    coefficients are left in an undefined state (the `FFTW` CPU backend destroys them — complex-to-real
     transforms have no input-preserving algorithm in the multidimensional case; some GPU backends
     happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref)
     when `spectral` must be preserved.
@@ -1043,7 +1044,7 @@ Here `spectral` is the destination, `physical` is the source, and `transform_pla
 
 !!! warning "The source may be overwritten"
     The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the
-    right to use real-to-complex inputs as scratch); the FFTW CPU backend preserves it, but do not
+    right to use real-to-complex inputs as scratch); the `FFTW` CPU backend preserves it, but do not
     rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be
     preserved.
 
@@ -1277,6 +1278,7 @@ the three per-axis squared-wavenumber vectors (reshaped to the three spatial dim
 Laplacian, inverse Laplacian, and Helmholtz projection.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
+over a spectral field's coefficients ``\\hat s``
 (``-|k|^2 \\hat s``, ``\\hat s_i - k_i k_j \\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
 operators allocation-free in place: no ``O(N^3)`` ``|k|^2`` scratch is built, which on the GPU would
 otherwise accumulate in the memory pool on each call.
@@ -1432,7 +1434,7 @@ end
 """
     _init_fft_threads()
 
-Set FFTW's thread count to match Julia's (one when threading is off). FFTW bakes the thread
+Set `FFTW`'s thread count to match Julia's (one when threading is off). `FFTW` bakes the thread
 count into each plan, so this runs at package load, before any `FieldTransformPlans` is built.
 Retune afterwards with [`set_fft_threads!`](@ref).
 """
@@ -1446,9 +1448,10 @@ end
 """
     set_fft_threads!(n)
 
-Set the number of threads FFTW uses, effective for plans built afterwards (FFTW fixes the
+Set the number of threads `FFTW` uses, effective for plans built afterwards (`FFTW` fixes the
 count at plan construction). Returns `n`. Code that parallelizes across many fields at once
-should build plans under `set_fft_threads!(1)` to avoid FFTW×Julia thread oversubscription.
+should build plans under `set_fft_threads!(1)` to avoid `FFTW`×Julia thread oversubscription (more
+active threads than cores, contending instead of helping).
 """
 set_fft_threads!(n::Integer) = (FFTW.set_num_threads(Int(n)); Int(n))
 
@@ -1465,7 +1468,8 @@ Persist `field` — any of the six field types, scalar / vector / tensor in eith
 snapshot for later analysis, or pass a field to another tool; the reload with [`read_field`](@ref) is exact.
 
 The group is **self-describing**: the field's numeric array becomes the dataset `data`, and its metadata
-become attributes — a `type` tag, a schema `version`, the [`Grid3D`](@ref) geometry (`grid_size`,
+become attributes — a `type` tag, a schema `version`, a `representation` tag (`"physical"` or
+`"spectral"`), the [`Grid3D`](@ref) geometry (`grid_size`,
 `domain_size`, `origin`), the Fourier layout (`fft_dims`), the element type, and the tensor order — so any
 HDF5 tool can read it. A **physical** field stores a real array; a field in **spectral** representation
 stores its complex half-spectrum. A device (GPU) array is copied to the host on write. The sugar

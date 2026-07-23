@@ -7,6 +7,18 @@ surface), run to completion in one invocation — not a single check, not a sing
 one check or one file, and do not ask which check to run. Cover every cell, fix every genuine finding in
 one pass, rebuild, and report the matrix.
 
+## Cost modes — economy cheapens the lanes, never the fix
+
+An **economy** run (requested in any words — "economical", "cheap", "budget") may run the scan/review
+lanes on a cheaper agent model: that is the ONLY thing it economizes. The **fix phase is never
+reduced**: the main thread — at its own (strongest) model, full effort — verifies every finding and
+closes every one in the same run, as *fixed* or as *dismissed with a written reason*, including the
+expensive judgment calls (cold-reader glosses, argument-coverage triage against the at-home rule, the
+class sweeps the findings demand). Deferring findings to a later session is NOT an outcome of any
+mode. The two modes must produce identical end states — zero open findings, clean build — and differ
+only in what the lanes cost. (Policy set 2026-07-23, after the 2026-07-22 economy run deferred its
+judgment tail as a standing remainder; that deferral is the failure mode this paragraph forbids.)
+
 ## Surfaces (ALL of them)
 
 1. `docs/ARCHITECTURE.md` — every section §1–§13 and §References.
@@ -197,5 +209,5 @@ end'
 Report the full matrix: which surfaces × checks were run, the findings (class and count) with fixes, and
 what was verified clean — including the `FORMALIZATION.md` coverage (every nontrivial operation has a typed
 entry, each test-linked), the **family lane**'s one-home/notation audit of each `f`/`f!` pair, and the
-**cold-reader lane**'s pass over the exported docstrings. Done only when every cell is covered and the build
-is clean.
+**cold-reader lane**'s pass over the exported docstrings. Done only when every cell is covered, every
+finding is closed (fixed, or dismissed with its reason), and the build is clean — in ANY cost mode.

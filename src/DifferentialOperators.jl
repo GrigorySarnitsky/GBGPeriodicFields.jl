@@ -966,7 +966,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field and write it into `destination`,
+Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field ``u`` and write it into `destination`,
 returning `destination`. The curl is the vector field whose components are, with ``\\varepsilon_{ijk}``
 the Levi-Civita symbol, ``(\\nabla\\times u)_i = \\varepsilon_{ijk}  \\partial_{x_j} u_k``; written out
 cyclically,
@@ -1050,7 +1050,7 @@ end
     )
 
 Compute the symmetric gradient (`symmetric_gradient` ``\\equiv \\operatorname{sym}\\nabla``) of a vector
-field and write it into `destination`, returning `destination`. It is the symmetric part of the gradient
+field ``u`` and write it into `destination`, returning `destination`. It is the symmetric part of the gradient
 ``\\nabla u``, the second-order tensor field
 
 ```math
@@ -1193,7 +1193,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field and
+Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field ``f`` and
 write it into `destination`, returning `destination`. The result is the zero-mean field ``\\psi`` that
 solves Poisson's equation ``\\Delta\\psi = f``; because the Laplacian annihilates constants, the
 solution is fixed uniquely by requiring its mean to vanish:
@@ -1276,7 +1276,7 @@ end
                           kernel::ScalarFieldSpectral, α, β)
 
 Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
-field and write it into `destination`, returning `destination`. The projection removes the
+field ``u`` and write it into `destination`, returning `destination`. The projection removes the
 longitudinal (curl-free) part of the field and keeps the divergence-free part, subtracting the
 gradient of the pressure-like potential that solves the divergence:
 

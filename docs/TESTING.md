@@ -64,7 +64,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `eltype_genericity.jl` (Float64/Float32),
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
-  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`/`std`/`var`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),
+  `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`std`/`var`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),
   `pass_audit.jl` (the element-traffic ledger, decision 36: a `CountingArray` harness measures every
   audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
@@ -74,7 +74,8 @@ the parity baseline and ambiguity check pass, and the suite is green.
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write pair, to a tolerance
   for the two `Atomix` accumulators — and asserts the decision-40 reductions **bitwise
   thread-count-invariant**, in-process and across a subprocess at a different `-t`),
-  and `jet.jl` (`JET` `@test_call` static analysis of the public operations).
+  and `jet.jl` (`JET` `@test_call` static analysis of the public operations), and `hdf5.jl` (the
+  `write_field`/`read_field` HDF5 persistence round trip, run with the `HDF5` weak dependency loaded).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
@@ -272,7 +273,8 @@ fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, 
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac{1}{N}\sum`` grid, ``\tfrac{1}{M}\sum``
 points), the extensive/intensive ``\mathrm{integral} = \mathrm{measure} \cdot \mathrm{mean}`` relation (incl. an anisotropic box), the
 energy identity ``\tfrac{1}{2} \mathrm{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
-physical inner, scalar/vector/tensor, on even-``N_x`` and odd-``N_x`` grids to hit both the Nyquist and
+physical inner, scalar/vector/tensor, on even- and odd-``N_x`` grids (``N_x`` the first-axis point
+count) to hit both the Nyquist and
 no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, w g\rangle`` (the
 ``w \equiv 1`` reduction to `inner`, the ``w = |k|^2`` Dirichlet energy checked against both
 ``-\langle f, \Delta f\rangle`` and ``\langle \nabla f, \nabla f\rangle``, the idempotent-band identity
@@ -280,7 +282,7 @@ no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, 
 the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
 read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
 still absent on spectral fields), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
-spectrum ``P(\kappa)``, checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
+spectrum ``P(\kappa)`` (``\kappa`` the wavenumber-shell magnitude), checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
 against an **independent binned-circshift autocorrelation** and ``C(0) = \mathrm{inner}(f,f)``, all orders /

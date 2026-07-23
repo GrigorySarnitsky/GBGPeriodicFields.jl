@@ -5,7 +5,7 @@ Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
 `PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
-design that does not depend on which base is used, and it groups three families of
+design that does not depend on which base is used, and it groups four families of
 contributor-facing machinery:
 
 - the [`AbstractFiberSection`](@ref) supertype, which both fields and point-values subtype;
@@ -13,7 +13,10 @@ contributor-facing machinery:
   ([`with_threading`](@ref), [`threading_cutoff`](@ref), and [`set_threading_cutoff!`](@ref));
 - the fiberwise-algebra code generators — the per-component builders behind operations such as `dot`, `cross`, and `norm` —
   written once here so that one set of generated kernels serves both field and point-value
-  sections.
+  sections;
+- the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
+  slab-threaded CPU loop that run every stamped per-element values function, the execution route
+  for multi-output fiberwise operations.
 
 The base-specific halves live elsewhere. `Fields` (grid) and `Points` (point set) hold the
 concrete types, the section-interface accessors (`field_data`, `_vector_component_data`, and

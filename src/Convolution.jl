@@ -659,7 +659,8 @@ Use it in the pair-correlation route. Depositing ``M`` points on the grid with t
 assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density) spreads each point's
 mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
 ``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by
-``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function.
+``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function ``g(r)``
+(the pair density at separation ``r`` relative to an uncorrelated uniform gas).
 
 - `reference` — a field in spectral representation whose grid and backend the window matches.
 - `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
@@ -731,7 +732,8 @@ without touching any amplitude, unlike the real and even [`spectral_cutoff`](@re
   `Grid3D` the field lives on.
 
 As a real physical object the translation is the convolution with a Dirac delta displaced to ``h`` and
-periodized on the box, ``g = \\delta(x - h)``, whose sifting property gives
+periodized on the box, ``g = \\delta(x - h)``, whose sifting property (integrating against a delta
+evaluates the integrand at the delta's location) gives
 ``(f \\star g)(x) = f(x - h)`` exactly. On the grid that ``g`` is the band-limited (periodic-sinc)
 interpolation stencil centred at ``h``, so the convolution re-samples the trigonometric interpolant of
 ``f`` at the displaced nodes ``x_n - h``, and collapses to a plain index shift when ``h`` is a whole

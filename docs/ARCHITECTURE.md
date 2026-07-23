@@ -172,7 +172,8 @@ equivalently, only when it commutes with the rfft isomorphism.
   that coefficientwise product *is* convolution, exposed under its true name as `convolve`
   (the `Convolution` module, decision 20), never as `*`.
 
-The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution-theorem square**:
+The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution-theorem square**
+(``\star`` denoting periodic convolution, the package's `convolve`):
 
 ```math
 \begin{CD}
@@ -496,7 +497,9 @@ Two plug points route work through `_assign!`: the field broadcast style's `copy
 whole-field dotted ops and the field-level algebra), and the kernel assignments — the
 codegen body builders emit `_assign!(target, …)` (via `_to_broadcasted`, which rewrites a
 dotted formula into a lazy `broadcasted` tree at codegen time), and the hand-written
-`FieldAlgebra` / `DifferentialOperators` kernels use the `@_assign!` macro in place of `.=`. No
+`FieldAlgebra` / `DifferentialOperators` kernels use the `@_assign!` macro in place of `.=`. (The
+decision-39 fused executor is the third route: its stamped per-element values functions run inside
+`_fiberwise_pass!`'s own kernel and slab loop, governed by the same gate — the route policy below.) No
 types, signatures, or method tables change — the 206-method surface and the zero-ambiguity
 property are preserved. **Discipline:** a raw elementwise write must go through
 `_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
@@ -736,7 +739,7 @@ kernels (the scatter accumulates atomically); the smooth per-axis weights are ge
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
 to name two new objects: off-grid locations and the field values there. The package names
 them in its base/fiber vocabulary, *not* as particles — deliberately, because
-GBGPeriodicFields is a **math backend** ([§1](@ref "1. Purpose and scope")): "particle"/"tracer" is the consumer's
+`GBGPeriodicFields` is a **math backend** ([§1](@ref "1. Purpose and scope")): "particle"/"tracer" is the consumer's
 interpretation (a location with physical attributes and an equation of motion), not a
 primitive here. The organizing principle reuses the existing base/fiber split: a field is a
 *section* — fibers (scalar, `FiberVector`, `FiberTensor2`) over a *base* — and so far the
@@ -1358,7 +1361,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     window — so `NUFFT` generalizes the decision-22 RDF deconvolution). The one new ingredient is that
     window ``\psi`` (exp-of-semicircle, GPU-trivial) and its transform ``\hat\psi``
     (host quadrature, the ``z=\sin\theta`` substitution regularizing the endpoint); the stencil width
-    and the shape parameter ``\beta`` follow the Barnett–Magland–af Klinteberg ES rule for the tolerance.
+    and the shape parameter ``\beta`` (the ES-kernel constant of the NUFFT literature — unrelated to
+    the package's ``\alpha``/``\beta`` accumulation weights) follow the Barnett–Magland–af Klinteberg
+    ES rule for the tolerance.
     Verified against `DirectDFT` (and `to_physical`) to the requested tolerance ``\varepsilon``
     (the default requests `tol = 1e-10`; the exponential-of-semicircle window over-delivers, ``\sim 10^{-12}`` measured there) for scalar and
     vector fields, with the NUFFT pair an **exact adjoint** (``\sim 10^{-15}``).
@@ -1526,8 +1531,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
       product of two fields ``f, g`` in spectral representation against a real Fourier multiplier ``w(k)``,
       ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}(\hat f_c 
-      \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight, ``N`` the grid-point
-      count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
+      \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight — a fixed
+      per-mode function, distinct from the scalar accumulation weight ``\alpha`` of `combine!` above —
+      ``N`` the grid-point count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
       fused pass with no filtered field materialized. It is the **reduction-dual of `convolve`** (apply a
       spectral symbol, then reduce) and generalizes `inner` (the ``w \equiv 1`` case); ``w = |k|^2`` gives the
       ``H^1``/Dirichlet energy ``\langle f, -\Delta g\rangle``. Spectral representation only, like the

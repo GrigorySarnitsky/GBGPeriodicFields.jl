@@ -32,18 +32,22 @@ V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 
 \end{aligned}
 ```
 
-A grid cell is a triple ``(i, j, k)``, so the scalar field over the grid is the 3-axis tensor product
-``\mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}`` (the array ``f_{ijk}``) — one real per cell.
+A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (the letter ``k`` is reserved for the
+wavenumber below), so the scalar field over the grid is the 3-axis tensor product
+``\mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}`` (the array ``f_{i_1 i_2 i_3}``) — one real per cell.
 As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
-``(i, j, k)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
-them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}`` and the differential
-multipliers ``\mathrm{i} k_a`` act on). The factor ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
+``(i_1, i_2, i_3)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
+them — it is what the tensor-product stencil weights ``w_{i_1}w_{i_2}w_{i_3}`` (the per-axis transfer
+weights, defined in the interpolation section below) and the differential
+multipliers ``\mathrm{i} k_a`` (``k_a`` a component of the wavenumber ``k``, set up with the transforms
+below) act on). The factor ``\otimes V`` then attaches the fiber, so a grid section is a ``V``-value *at
 each cell* (``\cong V^N``; a single real only in the scalar case ``R = 0``). The point base ``\mathbb R^M``
 is **unstructured** — ``M`` scattered points, no product — which is exactly the structured-to-unstructured
 nature of the transfer. A point's *position* ``x_p \in \mathbb R^3`` is a separate object from the value it
 carries: the positions are the `PointSet` geometry (``\mathbb R^M \otimes \mathbb R^3 \cong \mathbb R^{3M}``,
 themselves a vector-valued section over the points) and enter only through the transfer weights
-``w_n(x_p)``, whereas ``\Gamma_P`` is the space of *values* — a ``V`` per point. So ``\Gamma_P`` is
+``w_n(x_p)`` (the interpolation stencil weight of grid node ``n`` at position ``x_p``, defined in the
+interpolation section), whereas ``\Gamma_P`` is the space of *values* — a ``V`` per point. So ``\Gamma_P`` is
 ``\mathbb R^{3M}`` only when the sampled field is a vector (``V = \mathbb R^3``); in general it is
 ``\mathbb R^M \otimes V``, just as the grid value space is not ``\mathbb R^{3N}``.
 
@@ -61,18 +65,19 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 ## Representations and transforms (`Fields`, [Architecture](architecture.md) §4)
 
 ``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
-`plan_rfft`/`plan_irfft`):
+`plan_rfft`/`plan_irfft`), with ``x`` ranging over the ``N`` grid nodes and ``k`` over the wavenumbers:
 
 ```math
 \hat f(k) = \sum_{x} f(x) e^{-\mathrm{i} k\cdot x}, \qquad
-f(x) = \frac{1}{N} \sum_{k} \hat f(k) e^{\mathrm{i} k\cdot x}, \qquad N = N_x N_y N_z,
+f(x) = \frac{1}{N} \sum_{k} \hat f(k) e^{\mathrm{i} k\cdot x},
 ```
 
 so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequences used elsewhere:
 
 - **Half-spectrum + conjugate symmetry.** ``f`` real ``\Rightarrow`` ``\hat f(-k) = \overline{\hat f(k)}``,
   so only ``k_x \ge 0`` is stored (`rfft_shape`: length ``N_x/2{+}1`` on the rfft axis); the ``k_x = 0``
-  plane, and on an even axis the Nyquist plane, are self-conjugate.
+  plane, and on an even axis the Nyquist plane (the highest stored frequency, ``k_x = \pi/\Delta x``),
+  are self-conjugate.
 - **Adding a real constant** ``c`` touches only the zero mode, scaled by ``N``:
   ``\mathcal F(f + c) = \hat f + c N \delta_{k,0}`` (`_spectral_constant_scale = prod(grid_size)`), since
   the unnormalized forward sums ``N`` copies of ``c`` at ``k = 0``. ``\checkmark``
@@ -105,7 +110,7 @@ the spectral representation of ``\operatorname{tr}A``). The **third** invariant,
 components, hence
 **nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
-``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dst}=\alpha(\cdot)+\beta \mathrm{dst}``,
+``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dest}=\alpha(\cdot)+\beta \mathrm{dest}``,
 and the weighted combination ``\alpha a+\beta b`` (`combine!`) is its linear two-field peer — coefficientwise,
 hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plain `add!`.
 
@@ -123,7 +128,7 @@ representation (`src/DifferentialOperators.jl`):
 ```math
 \begin{aligned}
 \nabla &\to \mathrm{i}k, & \nabla\cdot &\to \mathrm{i}k\cdot, & \nabla\times &\to \mathrm{i}k\times,\\
-\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to I - \hat k \hat k^{\top}\ \ (\hat k = k/|k|).
+\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \hat k \hat k^{\top}\ \ (\hat k = k/|k|).
 \end{aligned}
 ```
 
@@ -139,7 +144,7 @@ one-line spectral check:
 \langle \Delta\phi,\phi\rangle = -\lVert\nabla\phi\rVert^2 \le 0. \quad\checkmark
 ```
 
-(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``I-\hat k\hat k^{\top}``, ``-|k|^2`` are
+(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-\hat k\hat k^{\top}``, ``-|k|^2`` are
 real symmetric.)
 
 The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
@@ -158,7 +163,7 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 ``\hat u(k) \in \mathbb C^3``,
 
 ```math
-\hat g (I - \hat k\hat k^{\top}) \hat u = (I - \hat k\hat k^{\top}) (\hat g \hat u)
+\hat g (\mathrm{id} - \hat k\hat k^{\top}) \hat u = (\mathrm{id} - \hat k\hat k^{\top}) (\hat g \hat u)
 \in \mathbb C^3, \qquad
 \hat g  \bigl(\mathrm{i}k\cdot\hat u\bigr) = \mathrm{i}k\cdot(\hat g \hat u) \in \mathbb C
 \qquad\checkmark
@@ -187,7 +192,7 @@ applies a scalar kernel ``\hat g`` (a `ScalarFieldSpectral`, broadcast over the 
 
 ```math
 \mathcal F(f \star g) = \hat f\cdot\hat g, \qquad
-\widehat{\mathrm{dst}} = \alpha \hat f \hat g + \beta \widehat{\mathrm{dst}}. \quad\checkmark
+\widehat{\mathrm{dest}} = \alpha \hat f \hat g + \beta \widehat{\mathrm{dest}}. \quad\checkmark
 ```
 
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
@@ -274,8 +279,10 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 ``=\sqrt{\langle f,f\rangle}``:
 
 ```math
-\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\text{grid}),\quad \sum_p f_p\ (\text{points});
-\qquad \int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\mathrm{mean}. \quad\checkmark
+\begin{gathered}
+\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\text{grid}),\quad \sum_p f_p\ (\text{points}); \\
+\int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\mathrm{mean}. \quad\checkmark
+\end{gathered}
 ```
 
 **`integral` and `mean` in spectral representation** (the zero mode, no transform): the unnormalized
@@ -295,9 +302,11 @@ order ``2`` — and ``f_n \in V`` for the fiber value of the section at base poi
 bare ones applied to ``\varphi \circ f``:
 
 ```math
-\mathrm{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \qquad
+\begin{gathered}
+\mathrm{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \\
 \int_\Omega (\varphi \circ f)\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n \varphi(f_n)\ (\text{grid}), \quad
 \sum_p \varphi(f_p)\ (\text{points}), \quad\checkmark
+\end{gathered}
 ```
 
 The order statistics reduce the same mapped values, with a maximum or a minimum in place of the sum.
@@ -329,9 +338,10 @@ self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 inverse):
 
 ```math
-P(\kappa_i) = \frac{1}{N^2}\sum_{\mathrm{round}(|k|/\Delta k)=i}\alpha(k)\sum_c |\hat f_c(k)|^2,
-\qquad
+\begin{gathered}
+P(\kappa_i) = \frac{1}{N^2}\sum_{\mathrm{round}(|k|/\Delta k)=i}\alpha(k)\sum_c |\hat f_c(k)|^2, \\
 C(r) = \frac{1}{N} \mathcal F^{-1}\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
+\end{gathered}
 ```
 
 with ``P(\kappa)`` the shell **power spectrum** (the consumer's physics energy spectrum is
@@ -356,7 +366,7 @@ and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`
 **Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27.
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac{1}{2}``,
 the spectral `integral`/`mean` against the physical reductions (``\langle c\rangle=c``, ``\int c\,\mathrm{d}x=c|\Omega|``),
-``\sum E=\mathrm{inner}``, ``C(0)=\mathrm{inner}`` against an independent binned-circshift oracle, the
+``\sum_i P(\kappa_i)=\langle f,f\rangle``, ``C(0)=\langle f,f\rangle`` against an independent binned-circshift oracle, the
 co-spectrum signs, and `weighted_inner` against ``\langle f,-\Delta g\rangle`` and the idempotent-band identity.
 
 ## Interpolation / anterpolation (`Interpolation`, [Architecture](architecture.md) §10)
@@ -368,9 +378,10 @@ stencil weights, `src/Interpolation.jl`), a **partition of unity** — for each 
 **fiber-preserving** (the trivial bundle leaves the fiber by the identity):
 
 ```math
-W := W_b \otimes \mathrm{id}_V : \Gamma_G \to \Gamma_P,
-\qquad
+\begin{gathered}
+W := W_b \otimes \mathrm{id}_V : \Gamma_G \to \Gamma_P, \\
 W^{\top} := W_b^{\top} \otimes \mathrm{id}_V : \Gamma_P \to \Gamma_G .
+\end{gathered}
 ```
 
 **Adjoint, raw (counting) form.** For ``f \in \Gamma_G``, ``q \in \Gamma_P``:
@@ -415,7 +426,7 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 
 **Backs** [Architecture](architecture.md) §10 and the `Interpolation` module docstring.
 **Checked by** `test/interpolation_transfer.jl` — the measure-weighted adjointness
-``M \mathrm{inner}(Wf, q) = N \mathrm{inner}(f, W^{\top}q)``, conservation (partition of unity), and
+``M \langle Wf, q\rangle_{\text{pts}} = N \langle f, W^{\top}q\rangle_{\text{grid}}``, conservation (partition of unity), and
 polynomial reproduction.
 
 ## Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`, [Architecture](architecture.md) §10, decision 23)
@@ -426,9 +437,10 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 ``1`` on the self-conjugate planes and ``2`` else):
 
 ```math
-\text{type-2 (interpolate)}\quad f(x_p) = \frac{1}{N}\sum_{\text{stored }k}\alpha(k) \mathrm{Re}\bigl(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}\bigr),
-\qquad
+\begin{gathered}
+\text{type-2 (interpolate)}\quad f(x_p) = \frac{1}{N}\sum_{\text{stored }k}\alpha(k) \mathrm{Re}\bigl(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}\bigr), \\
 \text{type-1 (anterpolate)}\quad (W^{\top}q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)} .
+\end{gathered}
 ```
 
 Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes), and the

@@ -200,15 +200,17 @@ the component broadcasts — each now allocates ``\sim 0`` bytes in place (measu
 step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
 (`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``) sustains **≈ 34 ms/step**
 (8000 steps, ≈ 270 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
-use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`/`dev!`
-deliberately materialize one field and are the exceptions (use `maximum(abs, …)` for a CFL speed).
-[Decision 24.]
+use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`
+deliberately materialize one field and are the exceptions (`dev!` left the list when decision 39 fused
+its trace into a register; use `maximum(abs, …)` for a CFL speed).
+[Decision 24; decisions 38/39 later retired the alias-guard copies — aliased in-place calls are now
+computed directly and stay zero-byte — and the decision-40 threaded reductions run on the same audit.]
 
 **(g) Allocation-bounded radial diagnostics — the same GC trap, in the binning.** The same device-GC
 hazard as (f) lived in the *diagnostics*. The `radial_spectrum` / `radial_correlation` reductions binned by looping over
 the ``|k|``- (or ``|r|``-) shells and reducing a masked broadcast per shell. The shell count scales with
-the grid (``\approx \sqrt{3} N/2``, ``\approx 220`` at ``N = 256``, with ``N`` the per-axis size here — not
-the total ``N`` of §2), and each iteration allocates a
+the grid (``\approx \sqrt{3} N_a/2``, ``\approx 220`` at ``N_a = 256``, with ``N_a`` the per-axis point
+count), and each iteration allocates a
 full-grid mask — and, because a `mapreduce` over a `Broadcasted` *materializes* on this GPU stack rather
 than fusing, the masked product too: ``O(N)`` full-grid temporaries per call, which the host-triggered GC
 does not reclaim. A single ``256^3`` `radial_correlation` snapshot churned several GB and wedged a 12 GB
@@ -222,7 +224,7 @@ per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (s
 Decision 34 later fused the remaining ``O(1)`` staging — the shell-index, magnitude, and weighted
 planes — into the binning kernels themselves (shell, fiber contraction, and Parseval weight derived
 per element from the index; the shell count analytic from the corner), taking `radial_spectrum` from
-three staged spectral planes per call to its ``\sim``1.4 KB accumulator and leaving
+three staged spectral planes per call to its ``\sim\!1.4`` KB accumulator and leaving
 `radial_correlation` only its substance (the power field and the allocating inverse transform).
 
 **(h) FFTW `ESTIMATE` can badly mis-plan single-precision transforms — pass `MEASURE` for production.**
@@ -363,7 +365,7 @@ three digits). Two corollaries, both measured: **linear indexing plus `@simd` �
 implementation's own comment contemplates, legal now that the compat floor is 1.12 — does not help**
 (365 ms; `Broadcasted` `getindex` stays scalar either way), so the fix is not an index-style swap but
 per-chunk `materialize!` over sliced broadcast arguments; and the ops that thread through **other**
-routes are unaffected (FFTW threads itself; the KernelAbstractions kernels partition natively —
+routes are unaffected (FFTW threads itself; the `KernelAbstractions` kernels partition natively —
 `anterpolate!` scales 3.4 s → 562 ms, t1→t8, in the same sweep). Consequences while the fix is pending:
 on a 2-channel desktop, `JULIA_NUM_THREADS=1` is the *fastest* CPU configuration for the streaming ops
 below ~256³ and within ~15% of t8 at 512³; on the many-channel node of decision 37
@@ -503,7 +505,7 @@ launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 67
 `Float32` — and adds a 512³ `Float32` point; the 5070 Ti covers the full 256³ matrix (both element
 types, all six classes). Across vendors the **reductions** class shows the widest gap and the
 clearest architectural signature: the radial diagnostics (`radial_spectrum`/`radial_correlation`)
-bin on an Atomix scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
+bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
 `radial_spectrum` at 256³ is ≈12× faster on the 5070 Ti than the 7900 XTX in `Float32`, widening to
 ≈32× in `Float64` (92 → 2.9 ms); the extra `Float64` factor is the emulated-atomic penalty of §4(d)
 (RDNA has no native global `Float64` atomics), the 7900 XTX paying ≈4.3× for `Float32`→`Float64` on

@@ -78,7 +78,9 @@ export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, Lagr
     AbstractTransferScheme
 
 Supertype of **all** grid↔point transfer schemes — the parameter that fixes how the adjoint pair
-`interpolate` ``= W`` / `anterpolate` ``= W^\\top`` is realized. A scheme is a choice of *kernel* and
+`interpolate` ``= W`` (the gather that evaluates a field at each point) / `anterpolate` ``= W^\\top``
+(its transpose, the scatter that deposits per-point values onto the grid) is realized. A scheme is a
+choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
 exact transfers ([`DirectDFT`](@ref) and [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
@@ -120,12 +122,13 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
 the `beta_n{n}_m{m}` weights of TurTLE, the reference pseudospectral turbulence solver with Lagrangian
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
-of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the finite-difference
-half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
+of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the
+finite-difference half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
 coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the polynomial that
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
-``2n{+}1``-node stencil about that node (Fornberg weights). Smoothness is ``C^m`` with ``0 \\le m \\le 2n``; the weights
+``2n{+}1``-node stencil about that node (Fornberg weights). The second argument `m` sets the
+smoothness, ``C^m`` with ``0 \\le m \\le 2n``; the weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 (``w_q(t) = \\sum_r \\texttt{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
 
@@ -169,7 +172,9 @@ nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0`
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
 `coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly, but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
-linear interpolation over the two bracketing nodes. Matches TurTLE's `Lagrange_polys`. The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
+linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of TurTLE, the reference
+pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
+type the weight coefficients are stored in (`Float64` by default).
 
 Reference: C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
@@ -238,8 +243,8 @@ end
     _hermite_weight_matrix(n, m)
 
 Build the ``(2n{+}2) \\times (2m{+}2)`` matrix of smooth-spline weight-polynomial coefficients (row `q`
-is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column `p+1` is
-the ``t^p`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
+is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column `r+1` is
+the ``t^r`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
 (offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
 ``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
@@ -277,7 +282,7 @@ end
 
 Build the ``(2n{+}2) \\times (2n{+}2)`` matrix of Lagrange cardinal-polynomial coefficients over the
 stencil offsets ``\\{-n, \\dots, n{+}1\\}`` (row `q` is the cardinal polynomial of node `q`; column
-`p+1` is the ``t^p`` coefficient). Each is the degree-``2n{+}1`` polynomial that is one at its own node
+`r+1` is the ``t^r`` coefficient). Each is the degree-``2n{+}1`` polynomial that is one at its own node
 and zero at the others (the inverse of the offsets' Vandermonde matrix). See [`LagrangeSpline`](@ref).
 """
 function _lagrange_weight_matrix(n::Int)
@@ -540,7 +545,8 @@ field in **spectral representation**; each scheme's own docstring gives the weig
 
   - `α` scales the deposited contribution.
   - `β` sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0`` accumulates
-    onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling scatter).
+    onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling scatter —
+    a deposit that accumulates onto a field the same points also sample).
 
 `field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
 must cover the same number of points. The transfer runs as a portable scatter kernel on the field's array
@@ -578,11 +584,11 @@ end
     anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::DirectDFT)
     anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT)
 
-Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order holding the
-deposited (scattered) quantities, and return it. The spline schemes deposit onto a physical-space field
-on `grid`; the spectral schemes deposit into a field in spectral representation like `reference` (same
-grid and layout). See [`anterpolate!`](@ref) for the schemes and the ``\\alpha``/``\\beta`` accumulate
-form.
+Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order, deposit
+(scatter) the per-point `quantities` from the positions in `points` onto it, and return it. The spline
+schemes deposit onto a physical-space field on `grid`; the spectral schemes deposit into a field in
+spectral representation like `reference` (same grid and layout). See `anterpolate!` for the schemes and
+the ``\\alpha``/``\\beta`` accumulate form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues, scheme::AbstractSplineScheme = CatmullRom) where {T<:AbstractFloat}
   R = pointvalue_tensor_order(quantities)
@@ -624,9 +630,9 @@ _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_va
 The **exact** spectral-domain transfer scheme: it interpolates and anterpolates by the literal ``O(NM)``
 discrete Fourier sum over the field's stored Fourier modes ``k`` and the ``M`` points (``x_p`` the
 ``p``-th point position, ``q_p`` the value carried there), with ``N = N_x N_y N_z`` the grid-point
-count — no window, no oversampling, no FFT.
-It is the *definition* of the spectral-domain adjoint pair, so it serves both as a transparent exact
-baseline and as the oracle that validates the fast [`NUFFT`](@ref); for many points or modes, prefer
+count — none of the fast scheme's apparatus (no spreading window, no oversampled grid, no FFT — the
+machinery of [`NUFFT`](@ref), which it validates as the oracle). It is the *definition* of the
+spectral-domain adjoint pair and the transparent exact baseline; for many points or modes, prefer
 `NUFFT`. It acts on a field in **spectral representation**:
 
 ```math

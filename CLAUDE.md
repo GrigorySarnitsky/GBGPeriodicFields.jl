@@ -378,15 +378,19 @@ most cite a public source).
 
 **Standing open item (2026-07-22 battery remainder).** The economy `/check-docs` run (13 Sonnet
 lanes + main-thread synthesis; raw findings in `.claude/check-docs-2026-07-22-findings.json`) fixed
-every verified `certain` finding and the cheap `likely` ones. Deferred to the next docs session:
-the remaining `likely`/`triage` cold-reader glosses and argument-coverage judgments (most are
-thin-wrapper false positives — triage each against the at-home rule), the FORMALIZATION display-wrap
-and inner-notation touch-ups, and the full independent re-derivation sweep of the ~314 inventoried
-formulas (the changed set was verified at authorship; the unchanged set rests on the
-FORMALIZATION↔test chain until re-derived). The file-wide LaTeX pass on
-`examples/gpu/rocm/HIST_ROCm.jl` landed 2026-07-22 (the HIST_CPU treatment: LaTeX prose throughout,
-the in-control-flow comment moved to `##`, verified by a Literate build with zero prose math glyphs
-and an all-identifier backtick-span audit; code byte-identical).
+every verified `certain` finding and the cheap `likely` ones; the 2026-07-23 completion pass closed
+the rest — **all 134 findings are now fixed or dismissed-with-reason** (five cheap relocation lanes +
+main-thread triage at full strength, per the cost-mode policy above: the 13-finding sentence-opener
+block fell to the list-item exemption the rule itself states; the FORMALIZATION display-wrap and
+inner-notation touch-ups landed; `mean`/`var`/`std`/`maximum`/`minimum`/`extrema` gained their
+rubric-compliant function docstrings — `var` documenting its Bessel correction, verified against the
+code; the HIST_ROCm LaTeX pass landed 2026-07-22). The ONE remaining item: the full independent
+re-derivation sweep of the ~314 inventoried formulas (the changed set was verified at authorship; the
+unchanged set rests on the FORMALIZATION↔test chain until re-derived) — the agreed shape: a
+deterministic inventory rebuild grouped by implementing module, ~12 cheap lanes re-deriving each
+formula against the source with evidence-bearing verdicts plus FORMALIZATION-entry/test-link status,
+then main-thread adversarial confirmation of every mismatch, a ~10% audit of matches, and a
+coverage-gap ledger.
 
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified
@@ -467,7 +471,11 @@ every `src/` docstring, and every `docs/src` page. The `/check-docs` command (`.
 encodes this exact protocol; running it — or the equivalent surface-parallel fan-out — is the default
 reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
 next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
-because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review.
+because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review. **An
+*economy* run cheapens only the scan lanes (a cheaper agent model) — the fix phase always completes at
+full strength in the main thread, closing every finding as fixed or dismissed-with-reason in the same
+run; both modes end with zero open findings (policy 2026-07-23, after the 2026-07-22 economy run
+deferred its judgment tail).**
 
 **The review unit is the operation family and the cold read — the two defects a per-docstring pass
 structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula

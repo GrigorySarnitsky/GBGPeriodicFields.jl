@@ -451,6 +451,73 @@ integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) * _cell_measure(section)
 
 
+"""
+    mean(f)
+    mean(φ, f)
+
+The arithmetic average of a section over its base, fiber-preserving: on a grid the equal-weight
+cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set the sample mean
+``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
+second-order tensor field's one `FiberTensor2`. The mapped form `mean(φ, f)` averages
+``\\varphi(f_n)`` for a fiber map `φ` (for example `mean(det, A)`) in one fused pass with no
+intermediate section; the map is nonlinear in general, so the mapped forms exist on physical fields
+and point-values only. On a field in spectral representation the mean is read from the zero (DC)
+Fourier mode in ``O(1)``, equal to the physical value with no transform. See [`integral`](@ref) for
+the extensive (measure-weighted) sibling.
+"""
+mean
+
+"""
+    var(f)
+
+The per-fiber-component sample variance of a section over its base: the Bessel-corrected mean of
+the squared deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's
+``N`` cells and ``\\tfrac{1}{M-1}\\sum_p`` over a point-set's ``M`` points (matching
+`Statistics.var`'s default correction), fiber-preserving. It runs as two fused passes — the mean,
+then the squared deviations — with no intermediate deviation section on the CPU. Physical fields
+and point-values only. See [`std`](@ref) for its square root and [`mean`](@ref) for the first
+moment.
+"""
+var
+
+"""
+    std(f)
+
+The per-fiber-component standard deviation: the square root of [`var`](@ref), over the same grid
+and point-set bases with the same Bessel correction. See `var` for the definition.
+"""
+std
+
+"""
+    maximum(f)
+    maximum(φ, f)
+
+The largest value of a scalar section over its base — a grid's cells or a point-set's points. The
+bare form exists only at tensor order zero: the maximum of a vector or tensor section is ill posed
+(which component?), and naming a fiber map in the mapped form `maximum(φ, f)` is what makes it well
+posed — `maximum(norm, u)` takes the largest fiber magnitude in one fused pass with no intermediate
+section. Physical fields and point-values only. The materializing route to the same supremum is
+[`lpnorm`](@ref)`(f, Inf)`.
+"""
+maximum
+
+"""
+    minimum(f)
+    minimum(φ, f)
+
+The smallest value of a scalar section over its base — the mirror of [`maximum`](@ref); see there
+for the bases, the scalar-only restriction, and the mapped form.
+"""
+minimum
+
+"""
+    extrema(f)
+
+The pair `(minimum(f), maximum(f))` of a scalar section over its base, in one call. See
+[`maximum`](@ref).
+"""
+extrema
+
 # `mean`, `std`, `var` (extending Statistics) — intensive, fiber-preserving base reductions.
 # `mean(f) = (1/count)·Σf`: the arithmetic average over base elements — the volume average
 # (1/|Ω|)∫_Ω f dx on a grid, a plain sample mean over points. `std`/`var` are the per-fiber-component
@@ -914,7 +981,8 @@ only ``|r| \\le \\min_a L_a/2`` — the sphere inscribed in the min-image box �
 directions; shells from there out to the corner keep only the box-diagonal directions (incompletely
 sampled). And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
 the field correlating with its own periodic image, not a true infinite-domain correlation — so a consumer
-extracts an integral scale only out to where ``C`` has decayed (e.g. the first zero crossing), not the full
+extracts an integral scale (the area under the normalized correlation curve) only out to where ``C``
+has decayed (e.g. the first zero crossing), not the full
 curve. As with the spectrum the *total* is unaffected: ``C(0) = \\texttt{inner}(f, f)`` exactly.
 
 It takes spectral input only, since it needs the inverse transform, and it is GPU-portable: one inverse
@@ -952,7 +1020,8 @@ end
 The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``),
 where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
 the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
-`p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed in a CFL condition).
+`p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed entering a CFL
+time-step bound).
 On a grid the average is the equal-weight sum over the ``N`` cells; on a point-set it is the sum over the
 ``M`` points:
 

@@ -303,15 +303,17 @@ end
 """
     +(a, b, fields...)
 
-Allocating fieldwise addition: add fields — or a field and a compatible constant — and return a
-new field; the in-place home is [`add!`](@ref). The unary `+` returns its field unchanged.
+Allocating sectionwise addition: add fields or point-value collections — or a section and a
+compatible constant — and return a new section; the in-place home is [`add!`](@ref). The unary `+`
+returns its section unchanged.
 """
 +
 
 """
     -(a, b)
 
-Allocating fieldwise subtraction (or unary negation): the in-place home is [`subtract!`](@ref).
+Allocating sectionwise subtraction (or unary negation), for fields and point-value collections
+alike; the in-place home is [`subtract!`](@ref).
 """
 -
 
@@ -319,7 +321,8 @@ Allocating fieldwise subtraction (or unary negation): the in-place home is [`sub
     *(a, b)
 
 Allocating multiplication: a real scale, a scalar-field action, or a fiber-constant contraction,
-returning a new field. The in-place homes are [`multiply!`](@ref) and, for the tensor
+returning a new section (fields and point-value collections alike). The in-place homes are
+[`multiply!`](@ref) and, for the tensor
 contractions, [`mul!`](@ref). There is deliberately no spectral field-times-field method — that
 coefficientwise product is a convolution and lives under `convolve`'s name, in the `Convolution` module.
 """
@@ -328,8 +331,8 @@ coefficientwise product is a convolution and lives under `convolve`'s name, in t
 """
     /(a, b)
 
-Allocating division by a real or, in physical representation only, by a scalar field; the
-in-place home is [`divide!`](@ref).
+Allocating division of a field or point-value collection by a real — or, physical representation
+only, by a scalar section; the in-place home is [`divide!`](@ref).
 """
 /
 
@@ -491,7 +494,7 @@ The arguments are:
 - `β`, `b` — the real weight and the second field.
 
 The write is coefficientwise, so it needs no alias guard: `a`, `b`, or both may be `destination` itself.
-In particular `combine!(u, 1, u, β, g)` computes the scaled accumulate ``u \\leftarrow u + \\beta g`` in
+In particular `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b`` in
 place.
 
 ```math

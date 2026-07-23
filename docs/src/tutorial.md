@@ -74,7 +74,8 @@ true
 The *fiberwise* (pointwise, within-fiber) algebra — `dot`, `cross`, `norm`, … — preserves the base. The
 *global* reductions in [`Reductions`](@ref GBGPeriodicFields.Reductions) integrate the base away against
 its measure: `inner` ``\equiv \langle\cdot,\cdot\rangle`` is the normalized L² product, so `inner(u, u)`
-is ``\langle |u|^2\rangle`` (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
+is ``\langle |u|^2\rangle``, the domain average of ``|u|^2`` — single-argument angle brackets denote
+that average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
 
 ```jldoctest tutorial
 julia> field_tensor_order(cross(u, u))    # u × u
