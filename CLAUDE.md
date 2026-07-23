@@ -471,11 +471,11 @@ every `src/` docstring, and every `docs/src` page. The `/check-docs` command (`.
 encodes this exact protocol; running it — or the equivalent surface-parallel fan-out — is the default
 reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
 next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
-because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review. **An
-*economy* run cheapens only the scan lanes (a cheaper agent model) — the fix phase always completes at
-full strength in the main thread, closing every finding as fixed or dismissed-with-reason in the same
-run; both modes end with zero open findings (policy 2026-07-23, after the 2026-07-22 economy run
-deferred its judgment tail).**
+because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review. **Cheap
+(economy) scan lanes are the DEFAULT — full-strength lanes only on explicit request — and the fix
+phase always completes at full strength in the main thread, closing every finding as fixed or
+dismissed-with-reason in the same run; every mode ends with zero open findings (policy 2026-07-23,
+after the 2026-07-22 economy run deferred its judgment tail).**
 
 **The review unit is the operation family and the cold read — the two defects a per-docstring pass
 structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula

@@ -7,17 +7,20 @@ surface), run to completion in one invocation — not a single check, not a sing
 one check or one file, and do not ask which check to run. Cover every cell, fix every genuine finding in
 one pass, rebuild, and report the matrix.
 
-## Cost modes — economy cheapens the lanes, never the fix
+## Cost modes — cheap lanes by default; the fix is never economized
 
-An **economy** run (requested in any words — "economical", "cheap", "budget") may run the scan/review
-lanes on a cheaper agent model: that is the ONLY thing it economizes. The **fix phase is never
-reduced**: the main thread — at its own (strongest) model, full effort — verifies every finding and
-closes every one in the same run, as *fixed* or as *dismissed with a written reason*, including the
-expensive judgment calls (cold-reader glosses, argument-coverage triage against the at-home rule, the
-class sweeps the findings demand). Deferring findings to a later session is NOT an outcome of any
-mode. The two modes must produce identical end states — zero open findings, clean build — and differ
-only in what the lanes cost. (Policy set 2026-07-23, after the 2026-07-22 economy run deferred its
-judgment tail as a standing remainder; that deferral is the failure mode this paragraph forbids.)
+The scan/review lanes run on a **cheaper agent model by default** (the economy mode is the standard
+one — Sonnet-class lanes; lane cost is the ONLY thing it reduces). Run the lanes at full strength
+only when the user explicitly asks for it (in any words — "strong lanes", "full-price scan",
+"expensive lanes"). In EVERY mode the **fix phase is never reduced**: the main thread — at its own
+(strongest) model, full effort — verifies every finding and closes every one in the same run, as
+*fixed* or as *dismissed with a written reason*, including the expensive judgment calls (cold-reader
+glosses, argument-coverage triage against the at-home rule, the class sweeps the findings demand).
+Deferring findings to a later session is NOT an outcome of any mode. All modes produce the identical
+end state — zero open findings, clean build — and differ only in what the lanes cost. (Policy:
+full-fix-in-any-mode set 2026-07-23, after the 2026-07-22 economy run deferred its judgment tail as
+a standing remainder — the failure mode this paragraph forbids; cheap-lanes-by-default set
+2026-07-23.)
 
 ## Surfaces (ALL of them)
 
@@ -97,7 +100,8 @@ definitions; this command runs all of them.
 
 ## Mechanism
 
-- Fan out subagents across the surfaces in parallel — each runs checks 1–6 on its surface via the
+- Fan out subagents across the surfaces in parallel, **on the cheaper (economy) lane model by
+  default** (see Cost modes above) — each runs checks 1–6 on its surface via the
   positive procedures above, reading `src/` as ground truth, and returns genuine findings with evidence and
   a proposed fix.
 - Two **cross-cutting lanes** (their grouping is not per-surface, so the surface agents cannot run them):
