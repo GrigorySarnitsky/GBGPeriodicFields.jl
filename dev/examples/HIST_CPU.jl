@@ -1,7 +1,7 @@
 # # Forced HIT — building a pseudospectral DNS on GBGPeriodicFields
 #
 # A *small, demonstration* pseudospectral DNS of forced homogeneous-isotropic turbulence, written the
-# way a real consumer would use **GBGPeriodicFields**. It plots the Eulerian and Lagrangian second-order
+# way a real consumer would use `GBGPeriodicFields`. It plots the Eulerian and Lagrangian second-order
 # velocity structure functions — each compensated by its Kolmogorov (K41) inertial scaling, side by side —
 # alongside the energy spectrum, the stationarity history, and the velocity
 # autocorrelations. The goal is a readable, **performance-first** end-to-end workflow: the time loop is
@@ -79,15 +79,18 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1,
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_stride = 2, snap_stride = 40)
 
 # A high-Reynolds configuration (`--huge`) — ``192^{3}`` at a lower viscosity, so the Reynolds number
-# (``\mathrm{Re}_\lambda \approx 93``) and the scale separation ``\lambda \ll L``, ``\tau_\eta \ll \tau_u``
-# are large enough to read off the plots; the grid resolves it (``\kappa_{\max}\eta \approx 1.13``). At
+# (``\mathrm{Re}_\lambda \approx 93``, built on the Taylor microscale ``\lambda``) and the scale
+# separation ``\lambda \ll L``, ``\tau_\eta \ll \tau_u`` (the box size ``L``; the Kolmogorov time
+# ``\tau_\eta`` against the integral time ``\tau_u``) are large enough to read off the plots; the grid
+# resolves it (``\kappa_{\max}\eta \approx 1.13`` — the highest resolved wavenumber times the
+# Kolmogorov length ``\eta``). At
 # fixed forcing ``\mathrm{Re}_\lambda`` is set by ``\nu``, not the grid, so ``192^{3}`` already gives the
 # separation; it is also a comfortable fit on a 12 GB GPU. The CFL is conservative (0.3) because the
 # statistics-window ``\Delta t`` is frozen (for a uniform Lagrangian axis): over a long averaging window a
 # CFL-tight, marginally-resolved run can hit a velocity peak the frozen ``\Delta t`` cannot handle and blow
 # up. The `n_spinup` steps clear the initial energy overshoot; `n_stats` time-averages over a few of the forcing's
-# energy-oscillation periods (the band-rescaling forcing makes ``k(t)`` oscillate about its mean rather than
-# settle flat). Heavy: minutes on a GPU, much longer on the CPU.
+# energy-oscillation periods (the band-rescaling forcing makes the turbulent kinetic energy ``k(t)``
+# oscillate about its mean rather than settle flat). Heavy: minutes on a GPU, much longer on the CPU.
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
                 rec_stride = 4, snap_stride = 60)
 
