@@ -64,7 +64,8 @@ RULES:
 - EVERY finding needs EVIDENCE: quote the exact rendered text and name the page (the "PAGE:" banner) + section. For a contradiction, quote BOTH sides and name the axis of disagreement.
 - Severity: blocker (wrong/misleading) / major / minor / nit. Confidence: high / medium / low — a marked-low suspicion is welcome; do not inflate.
 - resolution_hint is optional and advisory only.
-- NOTE: report what you actually see NOW in the document, not what you might expect from a prior version. This package is physics-free and time-free BY DESIGN — do NOT flag the absence of a solver, time-stepping, or turbulence physics as a gap.`
+- NOTE: report what you actually see NOW in the document, not what you might expect from a prior version. This package is physics-free and time-free BY DESIGN — do NOT flag the absence of a solver, time-stepping, or turbulence physics as a gap.
+- OUTPUT DISCIPLINE (HARD LIMIT — do not exceed): report at most your 25 MOST SIGNIFICANT findings, ranked most-severe first. Keep each finding's description to <= 90 words, and quote only the DECISIVE phrase (<= 20 words) on each side — never paste a long passage. The banked markdown file is the durable record and the returned object mirrors it, so a bloated findings list is duplicated on output; an unbounded dump overran the output-token cap and lost the whole hat's work. Be selective: 15 sharp findings beat 50 padded ones.`
 
 // PRIORITY order (most important first): a token-out truncates the tail, i.e. the least-critical lens.
 const hats = [

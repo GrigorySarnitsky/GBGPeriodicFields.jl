@@ -139,6 +139,12 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   so it does not re-flag settled items; a still-open finding stays visible.
 - **A flagged instance is a sample of a class** — when you do fix (later, on the user's word), fix the
   class across every surface, not just the quoted line.
+- **Bounded output per hat.** Each hat is capped at its ~25 most significant findings with tight quotes
+  (the preamble enforces it): the banked file and the returned object mirror each other, so an unbounded
+  dump doubles on output and overran the 64k output-token cap (it killed two hats on the 2026-07-23 run).
+  A hat that would exceed the cap is being insufficiently selective, not thorough — 15 sharp findings beat
+  50 padded ones. A killed hat is simply re-run standalone (same persona, the cap in its prompt) to fill
+  its `NN-<key>.md` gap; the other hats' banked files are untouched.
 
 ## Output
 
