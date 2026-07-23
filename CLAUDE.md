@@ -485,7 +485,12 @@ because the checks were repeatedly run one-at-a-time, surface-by-surface, across
 (economy) scan lanes are the DEFAULT — full-strength lanes only on explicit request — and the fix
 phase always completes at full strength in the main thread, closing every finding as fixed or
 dismissed-with-reason in the same run; every mode ends with zero open findings (policy 2026-07-23,
-after the 2026-07-22 economy run deferred its judgment tail).**
+after the 2026-07-22 economy run deferred its judgment tail). The same cost policy governs
+`/check-consistency` (the 12-hat rendered-docs panel): economy is the default — ten hats on the
+cheap scan model, the two mathematician hats (`spectral-methods-mathematician`,
+`differential-geometer`) anchored at full strength, because a cheap hat's false positive is caught
+by the main-thread verification but a subtle-math false negative has no downstream verifier;
+verification/consolidation/fix are never economized; `strength: "full"` only on explicit request.**
 
 **The review unit is the operation family and the cold read — the two defects a per-docstring pass
 structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula

@@ -1,5 +1,9 @@
 // /check-consistency panel — a fresh-eyed 12-expert audit of the RENDERED docs, sequential & collect-only.
-// Args (absolute paths): { full, siteonly, rawhtml, pile }
+// Args (absolute paths): { full, siteonly, rawhtml, pile, strength }
+//   strength — 'economy' (DEFAULT: ten hats on the cheap scan model, the two mathematician hats
+//              anchored at the session model) | 'full' (every hat at the session model, on
+//              explicit request only). The main-thread verification/consolidation that follows the
+//              panel is never economized — same policy as /check-docs (2026-07-23).
 //   full     — manuscript of every page incl. the design docs (for most hats).
 //   siteonly — manuscript with the design docs withheld (for the two no-design-doc hats).
 //   rawhtml  — docs/build (the style-editor also inspects the raw HTML for silent-render failures).
@@ -18,6 +22,7 @@ export const meta = {
 // args may arrive as a JSON string rather than an object (a Workflow-invocation quirk) — parse defensively,
 // otherwise every ${…} path below interpolates to "undefined" and the hats fall back to their scratchpad.
 const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const STRENGTH = A.strength === 'full' ? 'full' : 'economy'
 const FULL = A.full
 const SITEONLY = A.siteonly
 const RAWHTML = A.rawhtml
@@ -69,10 +74,14 @@ const hats = [
   { key: 'software-architect', substrate: `The whole rendered site incl. the design docs: ${FULL}`,
     persona: `You are a SOFTWARE ARCHITECT and senior Julia programmer reviewing the DOCUMENTED design — the API pages and the design docs (their rationale, invariants, decision log). Judge the design as a Julia expert would, from the docs as written: are the documented signatures idiomatic Julia (argument order, positional vs keyword, multiple dispatch, the f/f! in-place convention, return types, naming); is the type and module decomposition coherent and each abstraction earned (no premature generality, no leaky abstraction, single-source-of-truth respected — the base⊗fiber section model, the physical/spectral representation split, the code-generation layer); does the documented interface compose cleanly, hide its internals, and match what a Julia user expects (constructors, immutability, the claimed allocation discipline); are there over- or under-abstractions, god-objects, or coupling smells visible in the documented design; is the decision log's rationale sound and internally consistent (no decision contradicting another or the current API — the "public method set is the spec" invariant, the intentional-absence rules)? Flag design / API / architecture concerns and any place the documented design fights itself or good Julia practice. (You judge the docs as written; a separate code-level pass would read the source.)` },
 
-  { key: 'spectral-methods-mathematician', substrate: `The whole rendered site incl. the design docs: ${FULL}`,
+  // anchor: this hat's value is subtle mathematical instinct — a cheap miss is invisible and
+  // uncompensated (a false negative has no downstream verifier), so it never runs economized.
+  { key: 'spectral-methods-mathematician', anchor: true, substrate: `The whole rendered site incl. the design docs: ${FULL}`,
     persona: `You are an APPLIED MATHEMATICIAN expert in pseudospectral / Fourier methods on the periodic torus. Check every field operation's stated mathematics against established spectral-methods theory AND against itself across pages. Cover: the forward/inverse transform pair and EXACTLY where the 1/N normalization lives (unnormalized forward, normalized inverse — is it stated consistently, and do integral/mean via the DC mode carry the right |Omega|/N and prod(grid_size) factors?); the spectral differential operators (the i*kappa multiplier and its SIGN, the zeroing of the derivative wavenumber at the Nyquist mode on even axes vs the squared wavenumber keeping the true k^2 for the Laplacian — these are deliberately different and must not be "unified"); the convolution theorem (periodic convolution = coefficientwise product f-hat*g-hat, offered as convolve not *, with a Hermitian-kernel reality condition) and any dealiasing / spectral cutoff / truncation; Parseval / Plancherel for the L² reductions and the radial power spectrum (the rfft half-spectrum weighting, sum(spectrum)==inner==C(0)); the real-transform Hermitian symmetry (conjugate-symmetric half-spectrum, the Nyquist plane); and the interpolation/anterpolation transfer — the L²-adjoint W / Wᵀ pair, the spline order and SMOOTHNESS CLASS (Catmull-Rom C¹, the smooth LalescuSpline vs the C⁰ LagrangeSpline, reproduction degree), and the exact DirectDFT vs the windowed NUFFT. Flag any operation whose stated formula, sign, normalization, or smoothness/order claim is wrong, or clashes with another operation's convention on another page.` },
 
-  { key: 'differential-geometer', substrate: `The whole rendered site incl. the design docs: ${FULL}`,
+  // anchor: same reason — the category/type-error class this hat exists for is exactly where
+  // model strength matters most and misses cannot be recovered by main-thread verification.
+  { key: 'differential-geometer', anchor: true, substrate: `The whole rendered site incl. the design docs: ${FULL}`,
     persona: `You are a PURE MATHEMATICIAN — differential geometry, measure theory, and functional analysis — auditing the package's INTRINSIC / structural mathematics, the coordinate-free apparatus the applied hats leave alone. The package is built on a fiber-bundle model: a field (or point-values) is a SECTION of a flat tensor bundle E = B x V over a base B (a right inverse of the projection pi, with pi ∘ s = id_B), the base being the structured grid or the unstructured point set and V the tensor fiber; operations split into VERTICAL (fiberwise, base-independent) and HORIZONTAL (grid-bound / differential); and there is an L² / MEASURE structure — each base carries a measure (the grid's uniform cell volume, the point set's counting measure) that gives the reductions, the inner products, and the interpolation/anterpolation adjoint pair. Read the design docs (the architecture's bundle foundation and decision log, the formalization's typed statements) and judge, as a structural mathematician, whether the language is used CORRECTLY and CONSISTENTLY — base vs fiber, vertical vs horizontal, a section vs its physical/spectral representation — or whether a passage conflates two KINDS of object: a vector space with an integer (the fiber V vs the tensor order R), an operator with its parameter, a section space (ℝ^N ⊗ V) flattened to ℝ^N (the fiber silently dropped), a map whose domain/codomain is left unchecked on its FIBER factor, an all-ones vector on the grid confused with one on the points. Verify that every map carries an honest domain and codomain (the interpolation W as a map between WHICH section spaces; the anterpolation Wᵀ as its adjoint under WHICH inner product — and is the measure factor right, the N/M between the counting transpose and the measure-consistent one?); that the measure taxonomy is coherent (the distinct roles "measure" plays — the base measure of the reductions, the spectral multiplier, the transfer kernel — kept distinct; the pushforward of point masses / Dirac measures stated correctly); and that the adjoint / self-adjointness / idempotence / duality claims (⟨Wf,q⟩ = ⟨f,Wᵀq⟩, divergence as the negative gradient adjoint, self-adjoint curl, the Helmholtz projection as an idempotent, Parseval as a unitary) hold as stated BETWEEN THE RIGHT SPACES, not merely as scalar formulas. Also judge the coordinate-free EXPOSITION: flag where intrinsic language (a pullback, a pushforward, the section spaces, honest sums/integrals) would be both more correct and clearer than coordinate/matrix machinery that buries the base⊗fiber structure — while ALLOWING the formalization page its sanctioned coordinate/component expansions (flag those only where the mathematics is actually WRONG, not for being in coordinates). Your quarry is the category/type error, the incorrect domain/codomain, the measure/adjoint slip, the structure conflation — the class of defect that is invisible to a value-check because a sentence can read true yet be structurally false.` },
 
   { key: 'gpu-kernel-practitioner', substrate: `The whole rendered site incl. the design docs: ${FULL}`,
@@ -127,8 +136,10 @@ ${h.substrate}
 When your review is complete, FIRST use the Write tool to save your findings as readable markdown to:
   ${PILE}/${nn}-${h.key}.md
 (a title line naming your hat, then one clearly-formatted section per finding: type / severity / confidence / locations-with-quotes / contradicts / description). THEN return the structured object with hat="${h.key}".`
-  const r = await agent(prompt, { label: h.key, phase: 'Panel', schema: SCHEMA, agentType: 'general-purpose' })
+  const economized = STRENGTH === 'economy' && !h.anchor
+  const r = await agent(prompt, { label: h.key, phase: 'Panel', schema: SCHEMA, agentType: 'general-purpose',
+                                  ...(economized ? { model: 'sonnet' } : {}) })
   results.push(r)
-  log(`[${nn}/${hats.length}] ${h.key}: ${r && r.findings ? r.findings.length : 0} findings -> ${nn}-${h.key}.md`)
+  log(`[${nn}/${hats.length}] ${h.key}${economized ? ' (economy)' : ' (anchor/full)'}: ${r && r.findings ? r.findings.length : 0} findings -> ${nn}-${h.key}.md`)
 }
 return { results }

@@ -56,8 +56,26 @@ The hats live in `.claude/commands/check-consistency/panel.js` (their personas a
 this table is the map). Two mathematicians sit adjacent by design — `spectral-methods-mathematician` (applied
 Fourier/numerics) then `differential-geometer` (intrinsic geometry / measure theory / functional analysis) —
 the applied one catching the concrete sign/normalization bugs, the pure one the structural/category errors.
-Scale the panel to the ask: this full 12-hat run is the "thorough audit" (~2 M tokens, tens of minutes); for
-a quick check, run a subset.
+Scale the panel to the ask: the full 12-hat run is the "thorough audit" (tens of minutes; cost per the modes
+below); for a quick check, run a subset.
+
+## Cost modes (mirrors `/check-docs` — policy 2026-07-23)
+
+**Economy is the DEFAULT.** Ten of the twelve hats run on the cheap scan model (Sonnet); the two
+mathematician hats — `spectral-methods-mathematician` and `differential-geometer` — are **anchors** that
+always run at the session's full-strength model. The asymmetry is deliberate: a cheap hat's *false
+positive* is caught downstream (the discipline already verifies every Tier-1/2 finding against `src/` and
+the built HTML in the main thread, at full strength), but a *false negative* — a subtle category error or
+structurally-false-but-plausible sentence read past — has no downstream verifier, and those two hats exist
+precisely for that class. The other ten lenses are enumerative or rule-anchored (matrix-diffing, template
+outliers, arg coverage, citations, style, the written §Style typesetting rulebook, the cold read), the
+kind of narrow evidence-cited scan the cheap lanes have proven strong at (the 659-formula Phase-B sweep
+and the five coverage-axes lanes both ran on them), and the panel's cross-hat redundancy means the
+anchors' domains overlap most of what a cheap hat could miss. Net: roughly a 3–4× panel-cost cut for a
+little extra false-positive noise, absorbed by the verification step. **Never economized:** the
+main-thread verification, the consolidation/ranking, and any later fix pass — the same rule as
+`/check-docs`. **Full strength** (every hat at the session model) runs only on explicit request: pass
+`strength: "full"` in the Workflow args.
 
 ## Run it
 
@@ -92,7 +110,8 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
               args: { full:     "$SCRATCH/manuscript-full.md",
                       siteonly: "$SCRATCH/manuscript-siteonly.md",
                       rawhtml:  "$REPO/docs/build",
-                      pile:     "$REPO/.claude/doc-review" } })
+                      pile:     "$REPO/.claude/doc-review",
+                      strength: "economy" } })   # the default; "full" only on explicit request
    ```
    Each hat banks `.claude/doc-review/NN-<key>.md` and returns a structured findings object; you are
    notified when the workflow completes.
