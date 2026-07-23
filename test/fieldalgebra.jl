@@ -430,3 +430,13 @@ end
   end
 
 end
+
+
+@testset "det multiplicativity: det(AB) = det(A)·det(B) ($T)" for T in (Float64, Float32)
+  rtol = T === Float64 ? 1e-10 : 1e-3
+  N = 4
+  grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
+  A = TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid)
+  B = TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid)
+  @test field_data(det(A * B)) ≈ field_data(det(A) * det(B)) rtol = rtol
+end

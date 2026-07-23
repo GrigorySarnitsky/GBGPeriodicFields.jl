@@ -45,7 +45,7 @@ module Reductions
 using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!, _use_threads
 using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
-  field_grid, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
+  field_grid, field_layout, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data
 using ..FieldAlgebra: _spectral_zero_mode_data, _spectral_zero_mode_component_data, _spectral_constant_scale
@@ -608,8 +608,9 @@ end
 
 # Spectral (Parseval) inner product. For real fields the normalized physical inner ⟨f,g⟩ =
 # (1/N)·Σₓ dot(f,g) equals, by Parseval's theorem, a weighted sum over the rfft coefficients. The rfft stores
-# only kₓ ≥ 0, so each mode counts twice (it stands for itself and its unstored conjugate partner)
-# EXCEPT the self-conjugate kₓ=0 plane and — when Nₓ is even — the Nyquist plane, which count once.
+# only the folded axis's (fft_dims[1], axis 1 by default) nonnegative frequencies, so each mode counts
+# twice (it stands for itself and its unstored conjugate partner) EXCEPT that axis's self-conjugate
+# zero plane and — when it is even — its Nyquist plane, which count once (decision 41).
 # With Sₜ = Σ_stored Σ_c f̂_c conj(ĝ_c) = dot(ĝ, f̂):
 #   ⟨f,g⟩ = Re(2·Sₜ − S_{kₓ=0} − S_{Nyquist}) / N²,   N = prod(grid_size)   (Nyquist term: even Nₓ only)
 # computed as a `dot` over the whole array (contiguous ⇒ allocation-free) plus two small correction-plane
@@ -619,7 +620,8 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   data_f = field_data(f)
   data_g = field_data(g)
   normalization = T(prod(field_grid(f).grid_size))^2
-  even_nx = iseven(field_grid(f).grid_size[1])
+  folded_dimension = field_layout(f).fft_dims[1]
+  even_fold = iseven(field_grid(f).grid_size[folded_dimension])
   if data_f === data_g
     # f === g (an L² norm / kinetic energy — the hot-loop case): conj(f̂)·f̂ = |f̂|² is real, so the entire
     # Parseval sum is a fused `abs2` mapreduce, the correction planes included. `sum(abs2, view)` reduces
@@ -628,8 +630,8 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
     total = KernelAbstractions.get_backend(data_f) isa KernelAbstractions.CPU ?
       _indexed_tree_reduce(index -> (@inbounds abs2(data_f[index])), +, 1, length(data_f)) :
       sum(abs2, data_f)                                         # Σ_stored |f̂|²  (fused, real)
-    correction = sum(abs2, selectdim(data_f, 1, 1))
-    even_nx && (correction += sum(abs2, selectdim(data_f, 1, size(data_f, 1))))
+    correction = sum(abs2, selectdim(data_f, folded_dimension, 1))
+    even_fold && (correction += sum(abs2, selectdim(data_f, folded_dimension, size(data_f, folded_dimension))))
     return (2 * total - correction) / normalization
   end
   # General f ≠ g. The whole-array term is a contiguous `dot` (allocation-free); the self-conjugate kₓ=0
@@ -641,9 +643,9 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   total = (KernelAbstractions.get_backend(data_g) isa KernelAbstractions.CPU ?
       _indexed_tree_reduce(index -> (@inbounds conj(data_g[index]) * data_f[index]), +, 1, length(data_g)) :
       LinearAlgebra.dot(data_g, data_f))                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
-  plane(i) = sum(conj.(selectdim(data_g, 1, i)) .* selectdim(data_f, 1, i))
+  plane(i) = sum(conj.(selectdim(data_g, folded_dimension, i)) .* selectdim(data_f, folded_dimension, i))
   correction = plane(1)
-  even_nx && (correction += plane(size(data_f, 1)))
+  even_fold && (correction += plane(size(data_f, folded_dimension)))
   return real(2 * total - correction) / normalization
 end
 
@@ -672,17 +674,18 @@ l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
 
 # The rfft half-spectrum Parseval weight, as a (Nkx, 1, 1) array on the field's backend so it
 # broadcasts over the spectral coefficients: each stored mode counts twice (it stands for its unstored
-# conjugate partner) EXCEPT the self-conjugate kₓ=0 plane and — for even Nₓ — the Nyquist plane, which
-# count once. The tiny host vector is built then bulk-copied to the device (no scalar indexing of
+# conjugate partner) EXCEPT the folded axis's self-conjugate zero plane and — when that axis is
+# even — its Nyquist plane, which count once. The folded axis is the layout's fft_dims[1] (decision 41). The tiny host vector is built then bulk-copied to the device (no scalar indexing of
 # device memory, invariant 6). Same weighting as the spectral `inner` above, here per mode.
 function _parseval_weight(f::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
-  number_of_kx = size(field_data(f), 1)
-  weight_host = fill(T(2), number_of_kx)
+  folded_dimension = field_layout(f).fft_dims[1]
+  folded_length = size(field_data(f), folded_dimension)
+  weight_host = fill(T(2), folded_length)
   weight_host[1] = T(1)
-  iseven(field_grid(f).grid_size[1]) && (weight_host[number_of_kx] = T(1))
-  weight_device = similar(field_data(f), T, number_of_kx)
+  iseven(field_grid(f).grid_size[folded_dimension]) && (weight_host[folded_length] = T(1))
+  weight_device = similar(field_data(f), T, folded_length)
   copyto!(weight_device, weight_host)
-  return reshape(weight_device, number_of_kx, 1, 1)
+  return reshape(weight_device, ntuple(d -> d == folded_dimension ? folded_length : 1, 3))
 end
 
 
@@ -702,9 +705,9 @@ The arguments are:
 - `w` — the weight, a `ScalarFieldSpectral` holding a **real** multiplier ``w(k)`` (only its real part is used). Build it with the neutral kernels: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `squared_wavenumber_field` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
-half-spectrum weight ``\\alpha(k)`` (``1`` on the folded first axis's zero plane and, when that axis has
-even length, its Nyquist plane; ``2`` otherwise — the spectral reductions assume the default layout,
-whose folded rfft axis is the first), ``N`` the number of grid points, and ``c`` indexing the fiber components,
+half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
+even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
+`fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` indexing the fiber components,
 
 ```math
 \\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) (w \\star g)(x)
@@ -767,19 +770,21 @@ weighted_inner(f::AbstractFieldSpectral{T}, w::ScalarFieldSpectral{T}) where {T<
 
 # One work-item per stored mode: derive |k| from the three 1-D squared-wavenumber arrays (the same
 # left-associated sum the lazy |k|² broadcast evaluates), contract the fiber inline, weight by the
-# rfft Parseval factor computed from the plane index (1 on the kx = 0 plane and, on an even axis,
-# the Nyquist plane; 2 otherwise), and scatter-add into the shell accumulator. Atomic adds, exactly
+# rfft Parseval factor computed from the folded-axis plane index (1 on that axis's zero plane and,
+# when it is even, its Nyquist plane; 2 otherwise — the folded dimension arrives as a `Val`,
+# decision 41), and scatter-add into the shell accumulator. Atomic adds, exactly
 # like the anterpolation scatter. This replaces the former staged route (a materialized shell-index
 # array, a fiber-contracted magnitude array, and a Parseval-weighted array — three full spectral
 # planes per call); the wedge history of the per-shell masked route it in turn replaced is decision 25.
 @kernel function _spectral_shell_bin_kernel!(value_bins, @Const(f_data), g_data,
     @Const(squared_wavenumber_1), @Const(squared_wavenumber_2), @Const(squared_wavenumber_3),
-    fundamental, nyquist_plane, ::Val{NC}) where {NC}
+    fundamental, nyquist_index, ::Val{FD}, ::Val{NC}) where {FD, NC}
   mode_1, mode_2, mode_3 = @index(Global, NTuple)
   @inbounds begin
     squared = squared_wavenumber_1[mode_1] + squared_wavenumber_2[mode_2] + squared_wavenumber_3[mode_3]
     shell = round(Int, sqrt(squared) / fundamental)
-    weight = ifelse(mode_1 == 1 || mode_1 == nyquist_plane,
+    folded_mode = FD == 1 ? mode_1 : FD == 2 ? mode_2 : mode_3
+    weight = ifelse(folded_mode == 1 || folded_mode == nyquist_index,
                     one(fundamental), one(fundamental) + one(fundamental))
     accumulated = zero(fundamental)
     for component in 1:NC
@@ -811,14 +816,15 @@ function _radial_spectrum_bin(f::AbstractFieldSpectral{T}, g,
   components = length(field_data(f)) ÷ prod(spatial_shape)
   f_data = reshape(field_data(f), spatial_shape..., components)
   g_data = g === nothing ? nothing : reshape(field_data(g), spatial_shape..., components)
-  nyquist_plane = iseven(grid.grid_size[1]) ? spatial_shape[1] : 0
+  folded_dimension = field_layout(f).fft_dims[1]
+  nyquist_index = iseven(grid.grid_size[folded_dimension]) ? spatial_shape[folded_dimension] : 0
 
   backend = get_backend(field_data(f))
   value_bins = similar(field_data(f), T, number_of_shells)
   fill!(value_bins, zero(T))
   _spectral_shell_bin_kernel!(backend)(value_bins, f_data, g_data,
     multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3,
-    fundamental, nyquist_plane, Val(components); ndrange = spatial_shape)
+    fundamental, nyquist_index, Val(folded_dimension), Val(components); ndrange = spatial_shape)
   synchronize(backend)
 
   spectrum = Array(value_bins) ./ T(prod(grid.grid_size))^2
@@ -847,8 +853,8 @@ P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\
 ```
 
 with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on
-the folded first axis's zero and even-length Nyquist planes, ``2`` otherwise — the default layout's
-folded rfft axis, which these reductions assume), and shell width ``\\Delta k`` (the box
+the folded axis's zero and even-length Nyquist planes, ``2`` otherwise — the folded rfft axis is the
+layout's `fft_dims[1]`), and shell width ``\\Delta k`` (the box
 fundamental). Each form **refines** [`inner`](@ref):
 ``\\sum_\\kappa P(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa P_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells one fundamental wavenumber wide (the box's smallest nonzero wavenumber, ``\\Delta k = 2\\pi / \\max_a L_a``). The one-argument

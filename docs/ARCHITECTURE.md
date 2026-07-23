@@ -903,8 +903,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     in-place and alias-guard coverage, a Nyquist end-to-end test, and the operator
     **adjointness / structural identities** on randomized band-limited fields
     (``\nabla\cdot = -\nabla^\top``, self-adjoint curl, negative-**semidefinite** Laplacian — negative-definite
-    on the zero-mean subspace, its kernel being the constant mode — resolved-band-idempotent
-    Helmholtz projection — the discrete energy/entropy structure). Intentional-absence tests are
+    on the zero-mean subspace, its kernel being the constant mode — exactly idempotent Helmholtz
+    projection (decision 42) — the discrete energy/entropy structure). Intentional-absence tests are
     symmetric across representations: nonlinear products absent in spectral; the
     differential operators absent in physical (spectral-only — no finite-difference
     operators yet). `Aqua.test_all` was added, which required `[compat]` bounds for every
@@ -2183,3 +2183,33 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     bitwise-equal to its KernelAbstractions engine, verified — so the policy-exempt set shrinks to
     the operations whose kernels are structurally atomic/irregular: the grid↔point transfer and the
     radial binning. The exemption is now a principle, not a history.
+
+41. **The spectral reductions follow the layout's folded axis** (decided 2026-07-23; a Phase-B
+    formula-sweep finding). `_parseval_weight`, the spectral `inner`'s correction planes, and the
+    shell-binning kernel all folded **array dimension 1** unconditionally, while `RealFourierLayout`
+    admits any `fft_dims` permutation and the transforms and `DirectDFT` were already general — so a
+    legal permuted layout silently corrupted the spectral `inner`, `weighted_inner`, and the radial
+    family. Generalized: the folded dimension is read from `fft_dims[1]` — the Parseval weight is
+    reshaped along it, the correction planes select it, and the shell kernel takes it as a `Val` and
+    picks the folded mode index — with the default layout bitwise unchanged. Why the tests never
+    caught it: no test ever *constructed* a non-default layout, so the hardcoded dimension always
+    coincided with the fold on every tested path. `test/reductions.jl` now runs the Parseval, shell,
+    and weighted identities under permuted layouts (`(2, 1, 3)`, `(3, 2, 1)`, a mixed-parity grid),
+    and `test/gpu/suite.jl` carries a device-parity case.
+
+42. **The Helmholtz projector joins the derivative family whole — exact idempotency and exact
+    solenoidality** (decided 2026-07-23; a Phase-B formula-sweep finding). The one-pass kernel
+    divided the derivative-wavenumber numerator ``a`` by the **true** ``|k|^2``, so at a
+    mixed-Nyquist mode (``a \cdot a < |k|^2``) the projector was neither exactly idempotent nor
+    exactly divergence-annihilating — the identities held sub-Nyquist only, and
+    `test/adjointness.jl` deliberately scoped its fixtures to dodge it (its own header conceded the
+    restriction). The denominator is now ``a \cdot a``, squared in-register from the same loaded
+    wavenumber values (the kernel drops its three squared-wavenumber array arguments), making
+    ``\mathbb P = \mathrm{id} - \hat a\hat a^{\top}`` the exact orthogonal projector onto the kernel
+    of the discrete divergence: ``\mathbb P^2 = \mathbb P`` and ``\nabla\cdot(\mathbb P u) = 0`` at
+    **every** mode, the zero and pure-Nyquist modes passing through as the identity. Sub-Nyquist the
+    two families coincide value for value, so resolved-band results are bitwise unchanged and every
+    existing analytic and parity test holds as-is. The composite
+    ``\mathbb P u = u - \nabla \Delta^{-1}(\nabla\cdot u)`` becomes the resolved-band description
+    (``\Delta^{-1}`` keeps the true ``k^2`` per invariant 5); the projector definition is primary.
+    Full-spectrum Nyquist-content identities are pinned in `test/differentialoperators.jl`.

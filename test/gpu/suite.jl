@@ -466,6 +466,18 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
 
+      # Permuted rfft layout: the Parseval fold follows fft_dims on the device too — the spectral
+      # inner's correction planes and the shell kernel's weight axis are selected by the layout.
+      permuted_layout = RealFourierLayout((2, 1, 3))
+      permuted_h = ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, permuted_layout, Val(0))),
+                                       grid, permuted_layout)
+      permuted_d = on_device(permuted_h)
+      pmult_h = FieldSpectralMultipliers(permuted_h); pmult_d = FieldSpectralMultipliers(permuted_d)
+      @test eq(inner(permuted_d, permuted_d), inner(permuted_h, permuted_h))
+      pshells_d, pspectrum_d = radial_spectrum(permuted_d, pmult_d)
+      pshells_h, pspectrum_h = radial_spectrum(permuted_h, pmult_h)
+      @test pshells_d == pshells_h && eq(pspectrum_d, pspectrum_h)
+
       # radial_correlation: the inverse rfft + masked-reduction binning run on-device; the returned
       # host vectors match the CPU, and C(0) == inner (the Wiener–Khinchin dual of radial_spectrum).
       seps_d, corr_d = radial_correlation(vf_spec_d, plans_for(vfd))

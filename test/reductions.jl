@@ -461,3 +461,27 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     @test_throws MethodError extrema(abs2, spec)
   end
 end
+
+
+@testset "permuted rfft layout: the fold follows fft_dims ($T)" for T in (Float64, Float32)
+  atol = T === Float64 ? 1e-11 : 1e-3
+  grid = Grid3D((8, 6, 4), (T(2π), T(2π), T(2π)))
+  for dims in ((2, 1, 3), (3, 2, 1))
+    layout = RealFourierLayout(dims)
+    phys = VectorFieldPhysical(rand(T, 8, 6, 4, 3), grid, layout)
+    phys2 = VectorFieldPhysical(rand(T, 8, 6, 4, 3), grid, layout)
+    scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid, layout)
+    plans = FieldTransformPlans(phys, scaffold)
+    sp = to_spectral(phys, plans)
+    sp2 = to_spectral(phys2, plans)
+    m = FieldSpectralMultipliers(sp)
+    # Parseval under the permuted fold: the doubled and self-conjugate planes sit on axis dims[1],
+    # not on axis 1 — pre-generalization these all read the wrong planes and fail.
+    @test inner(sp, sp) ≈ inner(phys, phys) atol = atol
+    @test inner(sp, sp2) ≈ inner(phys, phys2) atol = atol
+    shells, spectrum = radial_spectrum(sp, m)
+    @test sum(spectrum) ≈ inner(sp, sp) atol = atol
+    ones_w = ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(grid, layout, Val(0))), grid, layout)
+    @test weighted_inner(sp, ones_w) ≈ inner(sp, sp) atol = atol
+  end
+end

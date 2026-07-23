@@ -257,3 +257,44 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
   end
 
 end
+
+
+@testset "helmholtz projection: exactly idempotent and solenoidal with Nyquist content ($T)" for T in (Float64, Float32)
+  rtol = T === Float64 ? 1e-11 : 1e-4
+  N = 8
+  grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
+  layout = RealFourierLayout()
+  phys = VectorFieldPhysical(rand(T, N, N, N, 3), grid)
+  scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid)
+  plans = FieldTransformPlans(phys, scaffold)
+  uh = to_spectral(phys, plans)          # a full spectrum: the Nyquist planes carry content
+  m = FieldSpectralMultipliers(uh)
+  projected = helmholtz_projection(uh, m)
+  # The discrete divergence is annihilated at every mode, the mixed-Nyquist planes included
+  # (decision 42: the projector's denominator is the derivative-family |a|²).
+  residual = maximum(abs, field_data(divergence(projected, m)))
+  original = maximum(abs, field_data(divergence(uh, m)))
+  @test residual ≤ rtol * original
+  # Exact idempotency, not only on the resolved band.
+  twice = helmholtz_projection(projected, m)
+  @test field_data(twice) ≈ field_data(projected) rtol = rtol
+end
+
+
+@testset "inverse_laplacian: a non-mean-free input is projected onto the compatible part ($T)" for T in (Float64, Float32)
+  N = 8
+  grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
+  layout = RealFourierLayout()
+  phys = ScalarFieldPhysical(rand(T, N, N, N) .+ T(3), grid)     # mean far from zero
+  scaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+  plans = FieldTransformPlans(phys, scaffold)
+  fh = to_spectral(phys, plans)
+  m = FieldSpectralMultipliers(fh)
+  psi = inverse_laplacian(fh, m)
+  @test field_data(psi)[1, 1, 1] == 0                    # the zero mode is set to exactly zero
+  back = laplacian(psi, m)
+  expected = field_data(to_spectral(phys, plans))        # a fresh copy of the coefficients …
+  expected[1, 1, 1] = 0                                  # … with the mean projected out
+  atol = (T === Float64 ? 1e-9 : 1e-1) * maximum(abs, expected)
+  @test field_data(back) ≈ expected atol = atol          # Δψ = f − f̄, per mode
+end

@@ -129,35 +129,41 @@ representation (`src/DifferentialOperators.jl`):
 ```math
 \begin{aligned}
 \nabla &\to \mathrm{i}k, & \nabla\cdot &\to \mathrm{i}k\cdot, & \nabla\times &\to \mathrm{i}k\times,\\
-\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \hat k \hat k^{\top}\ \ (\hat k = k/|k|).
+\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \hat a \hat a^{\top}\ \ (\hat a = a/|a|).
 \end{aligned}
 ```
 
 **Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the **derivative** wavenumber is
 **zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}k_N`` would break reality), while the
-**squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). Identities, each a
-one-line spectral check:
+**squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). Here ``a``
+denotes the derivative-wavenumber vector, so ``\mathbb P``'s ``\hat a`` in the table is the unit
+derivative wavenumber — the projector is built entirely from that one family (decision 42), and
+sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 
 ```math
+\begin{gathered}
 \nabla\cdot(\nabla\times u) = 0\ \ \bigl(k\cdot(k\times\hat u)=0\bigr), \qquad
-\nabla\times(\nabla\phi) = 0\ \ \bigl(k\times \mathrm{i}k\hat\phi=0\bigr), \quad\checkmark
+\nabla\times(\nabla\phi) = 0\ \ \bigl(k\times \mathrm{i}k\hat\phi=0\bigr), \\
+\mathbb P^2 = \mathbb P, \qquad \nabla\cdot(\mathbb P u) = 0, \quad\checkmark
+\end{gathered}
 ```
 
-unconditional (curl, divergence, and gradient share the one derivative-wavenumber family), and on
-the resolved band — every mode off the even-axis Nyquist planes —
+all four unconditional — the first two because curl, divergence, and gradient share the one
+derivative-wavenumber family, the last two because ``\mathbb P = \mathrm{id} - \hat a\hat a^{\top}``
+is built entirely from that same family (decision 42), the Nyquist planes included. The dissipation
+identity alone is scoped: on the resolved band — every mode off the even-axis Nyquist planes —
 
 ```math
-\mathbb P^2 = \mathbb P, \qquad
 \langle \Delta\phi,\phi\rangle = -\lVert\nabla\phi\rVert^2 \le 0, \quad\checkmark
 ```
 
-where the restriction is the family split itself: ``\mathbb P`` divides the derivative-wavenumber
-numerator by the true ``|k|^2``, and ``\Delta`` keeps the true ``k^2`` against ``\nabla``'s zeroed
-derivative family, so on a Nyquist plane with mixed content the two equalities break and only the
-sign ``\langle\Delta\phi,\phi\rangle \le 0`` survives (`test/adjointness.jl` scopes its fixtures
-sub-Nyquist and asserts the sign unconditionally).
+since ``\Delta`` keeps the true ``k^2`` (invariant 5) against ``\nabla``'s Nyquist-zeroed derivative
+family; with Nyquist content only the sign ``\langle\Delta\phi,\phi\rangle \le 0`` survives
+(`test/adjointness.jl` scopes its dissipation fixtures sub-Nyquist and asserts the sign
+unconditionally; the projector identities are pinned with full-spectrum Nyquist content in
+`test/differentialoperators.jl`).
 
-(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-\hat k\hat k^{\top}``, ``-|k|^2`` are
+(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-\hat a\hat a^{\top}``, ``-|k|^2`` are
 real symmetric.)
 
 The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
@@ -176,7 +182,7 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 ``\hat u(k) \in \mathbb C^3``,
 
 ```math
-\hat g (\mathrm{id} - \hat k\hat k^{\top}) \hat u = (\mathrm{id} - \hat k\hat k^{\top}) (\hat g \hat u)
+\hat g (\mathrm{id} - \hat a\hat a^{\top}) \hat u = (\mathrm{id} - \hat a\hat a^{\top}) (\hat g \hat u)
 \in \mathbb C^3, \qquad
 \hat g  \bigl(\mathrm{i}k\cdot\hat u\bigr) = \mathrm{i}k\cdot(\hat g \hat u) \in \mathbb C
 \qquad\checkmark
@@ -195,7 +201,7 @@ per-mode scalars, so each factor keeps its own family's Nyquist value.
 **Checked by** `test/differentialoperators.jl` (analytic round-trips, the Nyquist split,
 ``\nabla\cdot(\nabla\times)=0``, ``\nabla\times\nabla=0``, ``\operatorname{sym}\nabla u=\operatorname{sym}(\nabla u)``,
 the fused-equals-sequential kernel compositions, and the bitwise aliased projection)
-and `test/adjointness.jl` (self-adjointness, resolved-band idempotent projection, negative-semidefinite Laplacian).
+and `test/adjointness.jl` (self-adjointness, exactly idempotent projection, negative-semidefinite Laplacian).
 
 ## Convolution (`Convolution`, [Architecture](architecture.md) §11)
 

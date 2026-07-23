@@ -179,7 +179,6 @@ operator kernel serve both its plain and kernel-composed forms with the branch c
 @kernel function _helmholtz_projection_kernel!(destination_1, destination_2, destination_3,
     source_1, source_2, source_3,
     @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
-    @Const(squared_wavenumber_1), @Const(squared_wavenumber_2), @Const(squared_wavenumber_3),
     kernel_data, alpha, beta)
 
   mode_1, mode_2, mode_3 = @index(Global, NTuple)
@@ -187,7 +186,12 @@ operator kernel serve both its plain and kernel-composed forms with the branch c
     wavenumber_value_1 = wavenumber_1[mode_1]
     wavenumber_value_2 = wavenumber_2[mode_2]
     wavenumber_value_3 = wavenumber_3[mode_3]
-    squared = squared_wavenumber_1[mode_1] + squared_wavenumber_2[mode_2] + squared_wavenumber_3[mode_3]
+    # The denominator is the derivative-family |a|², squared from the same values the numerator
+    # reads — NOT the true-|k|² family — so ℙ = id − a aᵀ/(a·a) is exactly idempotent and exactly
+    # annihilates the discrete divergence at every mode, Nyquist planes included (decision 42).
+    # Sub-Nyquist the two families coincide bitwise, so resolved-band results are unchanged.
+    squared = wavenumber_value_1 * wavenumber_value_1 + wavenumber_value_2 * wavenumber_value_2 +
+              wavenumber_value_3 * wavenumber_value_3
 
     source_value_1 = source_1[mode_1, mode_2, mode_3]
     source_value_2 = source_2[mode_1, mode_2, mode_3]
@@ -272,12 +276,10 @@ end
 function _helmholtz_projection_modes!(backend,
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     kernel_data, alpha, beta)
   _helmholtz_projection_kernel!(backend)(
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     kernel_data, alpha, beta;
     ndrange = size(destination_1))
   synchronize(backend)
@@ -291,7 +293,6 @@ function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field
     _vector_component_data(destination, 1), _vector_component_data(destination, 2), _vector_component_data(destination, 3),
     _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
     multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
-    multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3,
     kernel_data, alpha, beta)
   return destination
 end
@@ -1287,8 +1288,14 @@ longitudinal (curl-free) part of the field and keeps the divergence-free part, s
 gradient of the pressure-like potential that solves the divergence:
 
 ```math
-\\mathbb P u = u - \\nabla  \\Delta^{-1}(\\nabla\\cdot u).
+\\mathbb P u = u - \\nabla  \\Delta^{-1}(\\nabla\\cdot u),
 ```
+
+an identity exact on the resolved band (the inverse Laplacian keeps the true ``k^2`` while the
+projector is built from the derivative family — the two coincide off the Nyquist planes). The
+implemented operator is the **exact orthogonal projector onto the kernel of the discrete
+divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
+mode — the Nyquist planes included.
 
 !!! warning
     The inverse Laplacian ``\\Delta^{-1}`` is nonlocal, so ``\\mathbb P`` is a nonlocal operator in
@@ -1304,12 +1311,15 @@ The arguments are:
 - `field` — the vector field to project, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol subtracts the longitudinal part ``k_i (k\\cdot\\hat u)/|k|^2`` from
-``\\hat u_i`` at every nonzero wavevector, and leaves the zero Fourier mode unchanged:
+The spectral symbol subtracts the longitudinal part ``a_i (a\\cdot\\hat u)/|a|^2`` from
+``\\hat u_i``, with ``a`` the derivative wavenumber — the Nyquist-zeroed family the gradient and
+divergence use, equal to ``k`` on the resolved band — and passes every mode with ``a = 0``
+unchanged (the zero mode, and the pure-Nyquist corners where the whole derivative wavenumber
+vanishes):
 
 ```math
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{k_i k_j}{|k|^2}\\Bigr)  \\hat u_j(k),
-\\qquad \\delta_{ij} \\text{ the Kronecker delta}, \\qquad k \\ne 0.
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{|a|^2}\\Bigr)  \\hat u_j(k),
+\\qquad \\delta_{ij} \\text{ the Kronecker delta}, \\qquad a \\ne 0.
 ```
 
 # The kernel-composed form
