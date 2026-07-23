@@ -298,3 +298,30 @@ end
   atol = (T === Float64 ? 1e-9 : 1e-1) * maximum(abs, expected)
   @test field_data(back) ≈ expected atol = atol          # Δψ = f − f̄, per mode
 end
+
+
+@testset "permuted rfft layout: operators keep their analytic values" begin
+  grid_p = Grid3D((8, 6, 4), (2π, 2π, 2π))
+  layout_p = RealFourierLayout((2, 1, 3))                     # fold on spatial axis 2
+  xs = [(i - 1) * 2π / 8 for i in 1:8]
+  ys = [(j - 1) * 2π / 6 for j in 1:6]
+  s = ScalarFieldPhysical([sin(xs[i]) * cos(ys[j]) for i in 1:8, j in 1:6, l in 1:4],
+                          grid_p, layout_p)
+  s_scaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_p, layout_p, Val(0))),
+                                   grid_p, layout_p)
+  plans_s = FieldTransformPlans(s, s_scaffold)
+  v_scaffold_p = VectorFieldPhysical(zeros(T, 8, 6, 4, 3), grid_p, layout_p)
+  v_scaffold_s = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_p, layout_p, Val(1))),
+                                     grid_p, layout_p)
+  plans_v = FieldTransformPlans(v_scaffold_p, v_scaffold_s)
+  sh = to_spectral(s, plans_s)
+  m = FieldSpectralMultipliers(sh)
+  g = to_physical(gradient(sh, m), plans_v)
+  expected_x = [cos(xs[i]) * cos(ys[j]) for i in 1:8, j in 1:6, l in 1:4]
+  expected_y = [-sin(xs[i]) * sin(ys[j]) for i in 1:8, j in 1:6, l in 1:4]
+  @test view(field_data(g), :, :, :, 1) ≈ expected_x atol = 1e-12
+  @test view(field_data(g), :, :, :, 2) ≈ expected_y atol = 1e-12
+  @test maximum(abs, view(field_data(g), :, :, :, 3)) ≤ 1e-12
+  lap = to_physical(laplacian(sh, m), plans_s)
+  @test field_data(lap) ≈ -2 .* field_data(s) atol = 1e-12
+end

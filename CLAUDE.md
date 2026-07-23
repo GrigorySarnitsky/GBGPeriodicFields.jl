@@ -711,7 +711,12 @@ those are the usual rot. Then the mechanical bar:
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
    `Pkg.test()` green, ~2800 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
-   `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation.
+   `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
+   **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
+   multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
+   operators), `convolution.jl` (the translation kernel's folded-axis Nyquist oracle),
+   `transfer_spectral.jl` (`DirectDFT`/`NUFFT`), `reductions.jl` (Parseval/shell/weighted +
+   `radial_correlation`), and `hdf5.jl` (`fft_dims` persistence).
    `test/fieldalgebra.jl`: M2 + M3 arithmetic and contractions in both
    representations, the weighted combination `combine!` (physical+spectral, alias-safe accumulate) and the
    determinant `det` (per-point LU oracle, spectral absence), the spectral zero-mode invariant, in-place

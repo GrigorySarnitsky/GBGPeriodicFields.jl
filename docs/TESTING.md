@@ -62,6 +62,13 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
+  the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in
+  `fields.jl` (a transform round-trip + both multiplier families vs `rfftfreq`/`fftfreq`, odd and
+  even folds), `differentialoperators.jl` (analytic gradient/Laplacian), `convolution.jl` (the
+  translation kernel's circshift oracle, a live Nyquist factor on the folded axis),
+  `transfer_spectral.jl` (`DirectDFT` at the nodes + `NUFFT` vs its oracle), `reductions.jl`
+  (Parseval/shell/weighted + `radial_correlation`, odd and even folds), and `hdf5.jl` (`fft_dims`
+  persistence) — every layer whose correctness rests on the fold following `fft_dims`,
   `adjointness.jl` (operator structure on random fields),
   `randomized.jl` (property-based: algebraic laws on random fields / point-values / kernels),
   `allocations.jl` (a **comprehensive** `@allocated` audit, both element types: the *entire* in-place `!` surface — spectral operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`std`/`var`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, a strided-view `dot` being unavailable on GPU; guards the GPU hot-loop discipline, decisions 24/25/34),

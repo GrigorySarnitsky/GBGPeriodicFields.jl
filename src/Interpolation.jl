@@ -614,6 +614,12 @@ _wrap_field(data, grid, ::Val{0}) = ScalarFieldPhysical(data, grid)
 _wrap_field(data, grid, ::Val{1}) = VectorFieldPhysical(data, grid)
 _wrap_field(data, grid, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid)
 
+# Layout-taking forms for work fields derived from a reference: the fold must follow the
+# reference's fft_dims (decision 41), which the field constructors' default would drop.
+_wrap_field(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
+_wrap_field(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
+_wrap_field(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid, layout)
+
 _single_point_value(values::ScalarPointValues) = Array(point_values(values))[1]
 _single_point_value(values::VectorPointValues) = SVector{3}(Array(point_values(values))[1, :])
 _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_values(values))[1, :, :])
@@ -976,8 +982,8 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversa
   data = field_data(reference)
   oversampled_size = ntuple(d -> σ * grid.grid_size[d], 3)
   oversampled_grid = Grid3D(oversampled_size, grid.domain_size; origin = grid.origin)
-  physical_template = _wrap_field(similar(data, T, physical_field_shape(oversampled_grid, Val(R))), oversampled_grid, Val(R))
-  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, spectral_field_shape(oversampled_grid, layout, Val(R))), oversampled_grid, Val(R))
+  physical_template = _wrap_field(similar(data, T, physical_field_shape(oversampled_grid, Val(R))), oversampled_grid, layout, Val(R))
+  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, spectral_field_shape(oversampled_grid, layout, Val(R))), oversampled_grid, layout, Val(R))
   plans = FieldTransformPlans(physical_template, spectral_template)
   deconvolution = _nufft_deconvolution(reference, σ, w, β)
   total_oversampling = T(prod(oversampled_size) / prod(grid.grid_size))
@@ -1183,10 +1189,11 @@ function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantit
 end
 
 
-# Spectral-field wrappers (the spectral siblings of `_wrap_field`), for the oversampled work fields.
-_wrap_field_spectral(data, grid, ::Val{0}) = ScalarFieldSpectral(data, grid)
-_wrap_field_spectral(data, grid, ::Val{1}) = VectorFieldSpectral(data, grid)
-_wrap_field_spectral(data, grid, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid)
+# Spectral-field wrappers (the spectral siblings of `_wrap_field`), for the oversampled work
+# fields; they carry the reference's Fourier layout so a permuted fold survives (decision 41).
+_wrap_field_spectral(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid, layout)
+_wrap_field_spectral(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
+_wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
 
 
 end # module Interpolation

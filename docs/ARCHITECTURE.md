@@ -2195,7 +2195,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     caught it: no test ever *constructed* a non-default layout, so the hardcoded dimension always
     coincided with the fold on every tested path. `test/reductions.jl` now runs the Parseval, shell,
     and weighted identities under permuted layouts (`(2, 1, 3)`, `(3, 2, 1)`, a mixed-parity grid),
-    and `test/gpu/suite.jl` carries a device-parity case.
+    and `test/gpu/suite.jl` carries a device-parity case. The follow-up layout sweep (same
+    session) extends the lane across every layer whose correctness rests on `fft_dims`:
+    `test/fields.jl` (a permuted transform round-trip + both multiplier families against
+    `rfftfreq`/`fftfreq` on every axis, odd and even folds), `test/differentialoperators.jl`
+    (analytic gradient/Laplacian under a permuted fold), `test/convolution.jl` (the translation
+    kernel's circshift oracle with a live Nyquist factor on the folded axis),
+    `test/transfer_spectral.jl` (`DirectDFT` at the nodes + `NUFFT` against its oracle),
+    `test/hdf5.jl` (`fft_dims` persistence), and the reductions set gains `radial_correlation`.
+    The sweep immediately caught a third site: the `NUFFT` constructor allocated its oversampled
+    work fields with the layout-correct shapes but wrapped them through the layout-dropping
+    `_wrap_field`/`_wrap_field_spectral` helpers, so a permuted reference threw a shape mismatch at
+    construction (the embed maps and the deconvolution were already general). The wrappers gained
+    layout-taking forms and the constructor threads the reference's layout through both templates;
+    the bare-grid spline `anterpolate` keeps the default-layout form, having no reference to
+    inherit from.
 
 42. **The Helmholtz projector joins the derivative family whole — exact idempotency and exact
     solenoidality** (decided 2026-07-23; a Phase-B formula-sweep finding). The one-pass kernel

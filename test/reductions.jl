@@ -465,11 +465,12 @@ end
 
 @testset "permuted rfft layout: the fold follows fft_dims ($T)" for T in (Float64, Float32)
   atol = T === Float64 ? 1e-11 : 1e-3
-  grid = Grid3D((8, 6, 4), (T(2π), T(2π), T(2π)))
+  # mixed parity: the (2,1,3) fold is odd (N=7, no Nyquist plane), the (3,2,1) fold even (N=6)
+  grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))
   for dims in ((2, 1, 3), (3, 2, 1))
     layout = RealFourierLayout(dims)
-    phys = VectorFieldPhysical(rand(T, 8, 6, 4, 3), grid, layout)
-    phys2 = VectorFieldPhysical(rand(T, 8, 6, 4, 3), grid, layout)
+    phys = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
+    phys2 = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
     scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid, layout)
     plans = FieldTransformPlans(phys, scaffold)
     sp = to_spectral(phys, plans)
@@ -483,5 +484,7 @@ end
     @test sum(spectrum) ≈ inner(sp, sp) atol = atol
     ones_w = ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(grid, layout, Val(0))), grid, layout)
     @test weighted_inner(sp, ones_w) ≈ inner(sp, sp) atol = atol
+    separations, correlation = radial_correlation(sp, plans)  # end-to-end under the permuted fold
+    @test correlation[1] ≈ inner(sp, sp) atol = atol          # C(0) = ⟨|f|²⟩
   end
 end

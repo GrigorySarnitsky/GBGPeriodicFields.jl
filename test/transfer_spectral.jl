@@ -169,3 +169,43 @@ end
     end
   end
 end
+
+
+@testset "permuted rfft layout: spectral transfer ($TP)" for TP in (Float64, Float32)
+  grid_p = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
+  layout_p = RealFourierLayout((2, 1, 3))                     # fold on spatial axis 2
+  xs = [(i - 1) * TP(2π) / 8 for i in 1:8]
+  ys = [(j - 1) * TP(2π) / 6 for j in 1:6]
+  zs = [(l - 1) * TP(2π) / 4 for l in 1:4]
+  phys = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p, layout_p)
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(0))),
+                                 grid_p, layout_p)
+  plans = FieldTransformPlans(phys, scaffold)
+  fh = to_spectral(phys, plans)
+
+  # DirectDFT at the nodes == to_physical, Nyquist content included (exact at the sample points)
+  node_coordinates = Matrix{TP}(undef, 8 * 6 * 4, 3)
+  n = 0
+  for l in 1:4, j in 1:6, i in 1:8                            # x fastest ⇒ vec (column-major) order
+    n += 1
+    node_coordinates[n, 1] = xs[i]
+    node_coordinates[n, 2] = ys[j]
+    node_coordinates[n, 3] = zs[l]
+  end
+  nodes = PointSet(node_coordinates)
+  at_nodes = interpolate(fh, nodes, DirectDFT())
+  tol_nodes = TP === Float64 ? 1e-11 : 1e-4
+  @test isapprox(vec(Array(point_values(at_nodes))), vec(Array(field_data(to_physical(fh, plans))));
+                 rtol = tol_nodes, atol = tol_nodes)
+
+  # NUFFT vs its DirectDFT oracle off-grid, on a band-limited field under the permuted fold
+  band = ScalarFieldPhysical([sin(xs[i]) * cos(ys[j]) + TP(3) / 10 for i in 1:8, j in 1:6, l in 1:4],
+                             grid_p, layout_p)
+  bh = to_spectral(band, plans)
+  rng = MersenneTwister(7)
+  points = PointSet(TP(2π) .* rand(rng, TP, 40, 3))
+  tol = TP === Float64 ? TP(1e-8) : TP(1e-4)
+  exact = Array(point_values(interpolate(bh, points, DirectDFT())))
+  fast = Array(point_values(interpolate(bh, points, NUFFT(bh; tol = tol))))
+  @test isapprox(fast, exact; rtol = 50 * tol, atol = 50 * tol)
+end

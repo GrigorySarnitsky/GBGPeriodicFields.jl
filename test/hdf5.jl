@@ -49,6 +49,20 @@ using Random
       end
     end
 
+    @testset "permuted rfft layout: fft_dims round-trips" begin
+      grid = Grid3D((8, 8, 6), (2π, 4π, 2π))
+      layout = RealFourierLayout((2, 1, 3))                   # fold on spatial axis 2 ⇒ data (8, 5, 6)
+      f = VectorFieldSpectral(rand(ComplexF64, 8, 5, 6, 3), grid, layout)
+      h5open(path, "w") do file
+        write_field(file, "permuted", f)
+      end
+      h5open(path, "r") do file
+        r = read_field(file, "permuted")
+        @test field_layout(r).fft_dims == (2, 1, 3)
+        @test field_data(r) == field_data(f)
+      end
+    end
+
     @testset "consumer owns the file: sugar + a full snapshot bundle" begin
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       u = VectorFieldPhysical(rand(8, 8, 8, 3), grid)

@@ -129,3 +129,34 @@ const layout = RealFourierLayout()
   end
 
 end
+
+
+@testset "permuted rfft layout: transforms and both multiplier families ($TP)" for TP in (Float64, Float32)
+  grid_p = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))        # mixed parity + anisotropic lengths
+  for dims in ((2, 1, 3), (3, 2, 1))                          # odd fold (N=7), then even fold (N=6)
+    layout_p = RealFourierLayout(dims)
+    field = VectorFieldPhysical(rand(TP, 8, 7, 6, 3), grid_p, layout_p)
+    scaffold = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(1))),
+                                   grid_p, layout_p)
+    plans = FieldTransformPlans(field, scaffold)
+    back = to_physical(to_spectral(field, plans), plans)
+    @test field_data(back) ≈ field_data(field)
+
+    # The multiplier arrays index spatial axes; only the layout's first transform axis is
+    # rfft-folded. Both families vs rfftfreq/fftfreq on every axis (invariant 5: the derivative
+    # family zeroes an even axis's Nyquist, the squared family keeps the true k² there).
+    m = FieldSpectralMultipliers(to_spectral(field, plans))
+    wavenumbers = (Array(m.wavenumber_1), Array(m.wavenumber_2), Array(m.wavenumber_3))
+    squares = (Array(m.squared_wavenumber_1), Array(m.squared_wavenumber_2),
+               Array(m.squared_wavenumber_3))
+    for axis in 1:3
+      n = grid_p.grid_size[axis]
+      scale = TP(2π) / grid_p.domain_size[axis]
+      full = scale .* collect(TP, axis == dims[1] ? rfftfreq(n, n) : fftfreq(n, n))
+      derivative = copy(full)
+      iseven(n) && (derivative[n ÷ 2 + 1] = 0)
+      @test vec(wavenumbers[axis]) ≈ derivative
+      @test vec(squares[axis]) ≈ full .^ 2
+    end
+  end
+end

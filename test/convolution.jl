@@ -416,3 +416,23 @@ end
                    field_data(half_shifted); rtol = 1e-10)
   end
 end
+
+
+@testset "permuted rfft layout: translation kernel ⇔ circshift ($TP)" for TP in (Float64, Float32)
+  grid_p = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
+  layout_p = RealFourierLayout((2, 1, 3))         # fold on spatial axis 2 (even ⇒ a live Nyquist factor)
+  f = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p, layout_p)
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(0))),
+                                 grid_p, layout_p)
+  plans = FieldTransformPlans(f, scaffold)
+  fh = to_spectral(f, plans)
+  m = FieldSpectralMultipliers(fh)
+  # whole-cell shifts on each axis; the odd shifts along the folded axis flip its Nyquist sign
+  for shift_cells in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 3, 0))
+    h = ntuple(a -> TP(shift_cells[a]) * grid_p.grid_spacing[a], 3)
+    kernel = translation_kernel(fh, m, h)
+    moved = to_physical(convolve(fh, kernel), plans)
+    @test isapprox(field_data(moved), circshift(field_data(f), shift_cells);
+                   rtol = TP === Float64 ? 1e-10 : 2e-4)
+  end
+end
