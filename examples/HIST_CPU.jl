@@ -8,6 +8,11 @@
 # fully in-place over a preallocated workspace (no per-step allocation) — both how a real DNS is written
 # and what lets the GPU twin run hassle-free (no manual garbage collection).
 #
+# **This is a demonstration, not the production solver.** The full pseudospectral DNS built on this
+# package is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl) — that is where the
+# complete physics, the tested solver machinery, and the real runs live. This page exists to show how
+# the field layer is driven end to end, small enough to read in one sitting.
+#
 # **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
 # the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
 # ``\kappa = \lvert\mathbf{k}\rvert`` for its magnitude, ``\nu`` for the kinematic viscosity, and

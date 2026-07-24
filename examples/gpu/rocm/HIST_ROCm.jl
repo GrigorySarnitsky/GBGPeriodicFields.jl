@@ -8,6 +8,10 @@
 # GPU rule into a checked guarantee. Default element type is `Float32`, the
 # realistic consumer-GPU precision.
 #
+# Like its CPU sibling this is a DEMONSTRATION, not the production solver: the full pseudospectral
+# DNS built on this package is GBGIsotropicTurbulence.jl, documented at
+# https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl .
+#
 # Read `HIST_CPU.jl` first; this file flags only what CHANGES for the GPU:
 #
 # - All field storage is built from device arrays (`dev(...)`); the FFT plans,
