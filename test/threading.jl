@@ -181,14 +181,10 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # `helmholtz_projection` belongs here since decision 40 gave it a gated CPU loop beside its
     # device kernel: the `with_threading` override `bitwise` toggles now reaches it, so the two
     # lanes really do execute different code. Its cross-thread-count digest is checked below.
-    #
-    # The `bitwise` assertion above is only meaningful if the CPU call actually reaches that gated
-    # loop rather than falling back to the KA-on-CPU launch (which ignores the override, making the
-    # check compare a path against itself). Decision 42 once broke exactly this — it dropped the
-    # kernel's squared-wavenumber arguments but left the gated loop's signature stale, so its arity
-    # no longer matched and dispatch silently fell through to the generic launch. Pin the dispatch
-    # target so that can never recur unseen: a CPU helmholtz call must resolve to the
-    # `KernelAbstractions.CPU` specialization, not the untyped-backend fallback.
+    # The `bitwise` assertion above is meaningful only if the CPU call actually reaches that gated
+    # loop rather than the KA-on-CPU launch (which ignores the override, so the check would compare a
+    # path against itself). A concrete anchor that it does — the class-wide reachability guard is the
+    # separate testset below (decision 47).
     let comp = F._vector_component_data
       d = similar_field(us, Val(1))
       target = which(DifferentialOperators._helmholtz_projection_modes!,
@@ -207,6 +203,54 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     with_threading(enabled = false) do; convolve!(cacc_s, phis, kernel, 3.0, 5.0); end
     with_threading(enabled = true)  do; convolve!(cacc_t, phis, kernel, 3.0, 5.0); end
     @test field_data(cacc_s) == field_data(cacc_t)                  # α/β accumulate branch (β ≠ 0)
+  end
+
+  @testset "backend-dispatch pairs stay reachable (the decision-47 class)" begin
+    # Every operation with a device kernel AND a gated/blocked CPU twin dispatches through
+    # `get_backend(x)`: a `::KernelAbstractions.CPU` method (the threaded CPU body — a gated `@simd`
+    # loop or a fixed reduction tree) beside a generic-backend method (the device launch / device
+    # reduce). If the `::CPU` method's arity drifts from what the call site passes, it silently stops
+    # being a dispatch candidate and CPU execution reverts to the generic path — losing the
+    # `with_threading`/cutoff gate and, for reductions, bitwise thread-count-invariance. That is
+    # exactly how the gated `helmholtz_projection!` loop went dead for a day (decision 47): decision
+    # 42 dropped the kernel's three squared-wavenumber arguments but left the loop's signature stale.
+    #
+    # Guard the whole class, not the one instance that broke: enumerate every function in the three
+    # modules that owns a `::KernelAbstractions.CPU` method, and require each such method's arity to
+    # have a matching-arity generic sibling — otherwise the CPU method is unreachable from its
+    # dispatcher. The frozen count makes a newly-added pair announce itself (add it, confirm it is
+    # guarded) and makes a lost generic twin fail rather than pass silently.
+    function _cpu_and_generic_arities(f)
+      cpu, generic = Set{Int}(), Set{Int}()
+      for method in methods(f)
+        parameters = Base.unwrap_unionall(method.sig).parameters
+        length(parameters) < 2 && continue
+        first_argument = parameters[2]
+        first_argument = first_argument isa TypeVar ? first_argument.ub : first_argument
+        argument_count = length(parameters) - 1
+        first_argument === KA.CPU && push!(cpu, argument_count)
+        first_argument === Any && push!(generic, argument_count)
+      end
+      return cpu, generic
+    end
+
+    dispatch_pairs = 0
+    for mod in (GBGPeriodicFields.DifferentialOperators, FS, GBGPeriodicFields.Reductions)
+      for name in names(mod; all = true)
+        isdefined(mod, name) || continue
+        f = getfield(mod, name)
+        f isa Function || continue
+        cpu, generic = _cpu_and_generic_arities(f)
+        isempty(cpu) && continue                       # not a backend-dispatch pair
+        # every threaded-CPU arity is reachable: a generic sibling of the same arity exists, so the
+        # `::CPU` method wins on CPU arrays (more specific first argument) rather than falling through
+        @test issubset(cpu, generic)
+        dispatch_pairs += 1
+      end
+    end
+    # the five DifferentialOperators `_*_modes!`, the FiberSections `_fiberwise_pass!`, and the five
+    # Reductions `_tree_*`/`_reduce_fiber` — eleven pairs. Bump this when a new one is added.
+    @test dispatch_pairs == 11
   end
 
   @testset "kernel sites reproducible across thread counts" begin
