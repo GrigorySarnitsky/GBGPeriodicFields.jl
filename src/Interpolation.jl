@@ -960,7 +960,7 @@ It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) 
 `tol` on the resolved sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint
 relation, and like it reconstructs the band-limited field (divergence-free).
 
-!!! warning
+!!! warning "A plan holds an oversampled work grid"
     A `NUFFT` plan holds an oversampled work grid of about ``\\sigma^3`` times the field's memory (eight
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.

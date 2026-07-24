@@ -211,6 +211,9 @@ end
 
 Add fields, or a field and a constant, in place, and return `destination`.
 
+Use this in-place form when `destination` is already allocated; the allocating `+`
+returns a fresh result instead.
+
 Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical-space representation and coefficient-wise on fields in spectral representation.
 
 The constant variants pair a scalar field with a `Real`, a vector field with a `FiberVector`, and a second-order tensor field with a `FiberTensor2`, in either argument order. In physical-space representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
@@ -224,6 +227,9 @@ function add! end
     subtract!(destination, constant, field)
 
 Subtract fields, or a field and a constant, in place, and return `destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating `-`
+returns a fresh result instead.
 
 Field-field subtraction computes `a - b - fields...`; it is storage-wise and representation-preserving. The constant variants mirror [`add!`](@ref): they accept a `Real` for a scalar field, a `FiberVector` for a vector field, and a `FiberTensor2` for a second-order tensor field. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
@@ -549,6 +555,9 @@ end
 
 Multiply a field in place by a real number or by a scalar field, and return `destination`.
 
+Use this in-place form when `destination` is already allocated; the allocating `*`
+returns a fresh result instead.
+
 Multiplication by a real number is representation-preserving and is defined for fields in both physical-space and spectral representation, in either argument order.
 
 Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical-space representation; in spectral representation the product of two fields is a convolution, which this module does not provide. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
@@ -562,6 +571,9 @@ function multiply! end
     divide!(destination, numerator, scalar_field::ScalarFieldPhysical)
 
 Divide a field in place, and return `destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating `/`
+returns a fresh result instead.
 
 Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical-space representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field).
 """
@@ -823,6 +835,9 @@ const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
 
 Compute a fiberwise inner product in place, and return `destination`.
 
+Use this in-place form when `destination` is already allocated; the allocating [`dot`](@ref)
+returns a fresh result instead.
+
 For two vector fields this is the Euclidean scalar product; for two second-order tensor fields it is the Frobenius double contraction. Either argument order is accepted.
 
 Contraction of two fields is nonlinear and is defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
@@ -918,6 +933,9 @@ end
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
 Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in place, and return `destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating [`cross`](@ref)
+returns a fresh result instead.
 
 Cross products of two fields are nonlinear and are defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise.
 
@@ -1019,9 +1037,12 @@ end
 
 Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\texttt{destination} = \\alpha (A B) + \\beta \\texttt{destination}``.
 
+Use this in-place form when `destination` is already allocated; the allocating `*`
+returns a fresh result instead.
+
 A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector.
 
-!!! warning
+!!! warning "The destination must not alias an input"
     As with `LinearAlgebra.mul!`, `destination` must not share storage with any input, and this is not checked.
 
 Pointwise over the base, with summation over the repeated fiber indices:
@@ -1231,6 +1252,9 @@ end
 
 Transpose the fiber indices of a second-order tensor field in place (`transpose` ``\\equiv (\\cdot)^\\top``), and return `destination`.
 
+Use this in-place form when `destination` is already allocated; the allocating [`transpose`](@ref)
+returns a fresh result instead.
+
 The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, it writes a materialized tensor field rather than a lazy wrapper.
 
 Pointwise over the base:
@@ -1286,6 +1310,9 @@ end
 
 Compute the fiberwise norm of a physical-space field (`norm` ``\\equiv |\\cdot|``) in place, and return `destination`.
 
+Use this in-place form when `destination` is already allocated; the allocating [`norm`](@ref)
+returns a fresh result instead.
+
 The norm is nonlinear, so it is defined only in physical-space representation.
 
 Pointwise over the base — the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
@@ -1339,6 +1366,9 @@ end
 
 Compute the fiberwise trace (`tr` ``\\equiv \\operatorname{tr}``) of a second-order tensor field in place, and return `destination`. The trace is linear and representation-preserving, so it is defined for both representations.
 
+Use this in-place form when `destination` is already allocated; the allocating [`tr`](@ref)
+returns a fresh result instead.
+
 Pointwise over the base, it contracts the two fiber indices to a scalar — the first tensor invariant:
 
 ```math
@@ -1384,6 +1414,9 @@ end
 
 Compute the fiberwise determinant (`det` ``\\equiv \\det``) of a second-order tensor field in place, and
 return `destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating [`det`](@ref)
+returns a fresh result instead.
 
 The determinant is cubic in the tensor's components — the third principal invariant ``I_3``, the signed
 factor by which ``A`` scales volumes as a linear map. Unlike the linear trace [`tr!`](@ref), it is
@@ -1439,6 +1472,9 @@ det(A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = det!(similar_field(
 
 Compute the symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 
+Use this in-place form when `destination` is already allocated; the allocating [`sym`](@ref)
+returns a fresh result instead.
+
 Pointwise over the base:
 
 ```math
@@ -1464,6 +1500,9 @@ function sym end
 
 Compute the skew-symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
 
+Use this in-place form when `destination` is already allocated; the allocating [`skew`](@ref)
+returns a fresh result instead.
+
 Pointwise over the base:
 
 ```math
@@ -1488,6 +1527,9 @@ function skew end
     dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
 Compute the deviatoric (trace-free) part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+
+Use this in-place form when `destination` is already allocated; the allocating [`dev`](@ref)
+returns a fresh result instead.
 
 Pointwise over the base, with ``I`` the identity tensor:
 

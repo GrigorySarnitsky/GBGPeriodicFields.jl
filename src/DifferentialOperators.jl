@@ -1212,7 +1212,7 @@ zero unconditionally, so the operator returns the zero-mean solution of ``\\Delt
 For a vector or tensor field the same solve is applied to each component, so the tensor order is
 preserved.
 
-!!! warning
+!!! warning "The inverse Laplacian is nonlocal"
     As the inverse of a differential operator, ``\\Delta^{-1}`` is nonlocal: unlike the Laplacian it
     has no local partial-derivative formula, and the value at any point depends on the whole field.
 
@@ -1297,7 +1297,7 @@ implemented operator is the **exact orthogonal projector onto the kernel of the 
 divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
 mode — the Nyquist planes included.
 
-!!! warning
+!!! warning "The projection is nonlocal in physical space"
     The inverse Laplacian ``\\Delta^{-1}`` is nonlocal, so ``\\mathbb P`` is a nonlocal operator in
     physical space even though it acts coefficientwise in spectral representation.
 

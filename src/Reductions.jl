@@ -443,7 +443,7 @@ materialized section plus a second pass over it — by roughly two and a half ti
 quarter on a GPU. It gets there by different means on each, chosen internally: a vectorized blocked
 loop on a CPU, a single fused pass on a GPU.
 
-!!! note
+!!! note "The fiber map's own cost can dominate"
     The fiber map's own cost can outweigh the choice of route. `LinearAlgebra.norm` applied to a fiber
     uses the overflow-safe scaled algorithm, several times the cost of the plain
     ``\\sqrt{\\sum_i u_i^2}`` that the fieldwise `norm` evaluates, which is enough to make

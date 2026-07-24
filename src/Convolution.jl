@@ -134,6 +134,9 @@ end
 Convolve `field` with the kernel whose transfer function is `kernel`, writing the result into
 `destination` in place; both `field` and `destination` are in spectral representation.
 
+Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
+returns a fresh result instead.
+
 As a real physical object the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
@@ -385,6 +388,9 @@ end
 Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, evaluated from
 the wavenumber arrays on the fly — the kernel is never built or stored as a field — writing the
 result into `destination` in place.
+
+Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
+returns a fresh result instead.
 
 For a coefficient ``c \\le 0`` this is, as a real physical object, convolution with the periodic
 Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field at the length scale
