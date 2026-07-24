@@ -172,6 +172,18 @@ unconditionally; the projector identities are pinned with full-spectrum Nyquist 
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-(a a^{\top})/(a \cdot a)``, ``-|k|^2`` are
 real symmetric.)
 
+The **curl is self-adjoint** on the same pairing,
+
+```math
+\langle \nabla\times u, v\rangle = \langle u, \nabla\times v\rangle, \quad\checkmark
+```
+
+because its multiplier is ``\mathrm{i}`` times the real antisymmetric matrix ``[a]_\times`` (the cross-product
+matrix of the derivative wavenumber ``a``, so ``[a]_\times^{\top} = -[a]_\times``): the transpose flips the
+antisymmetric matrix's sign and conjugating the pairing's other slot flips ``\mathrm{i}``'s, and the two
+cancel. Unconditional — it needs only that one derivative-wavenumber family, Nyquist planes included.
+Pinned in `test/adjointness.jl`.
+
 The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
 of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its multiplier is the symmetric
 part of ``\nabla u``'s multiplier ``\mathrm{i}k_j\hat u_i``,
@@ -327,7 +339,8 @@ the constant-add writes; `std`/`var`/`lpnorm`/`maximum` have no single-coefficie
 **The mapped forms** (decision 30). Write ``V`` for the fiber — the vector space over one base point, so
 ``V = \mathbb{R}`` at tensor order ``0``, ``\mathbb{R}^3`` at order ``1``, ``\mathbb{R}^{3\times3}`` at
 order ``2`` — and ``f_n \in V`` for the fiber value of the section at base point ``n``. Given a map
-``\varphi : V \to W`` into any space ``W`` carrying the reducing operation, the mapped reductions are the
+``\varphi : V \to U`` into any space ``U`` carrying the reducing operation (``W`` on this page is the
+gather operator, so the generic codomain takes another letter), the mapped reductions are the
 bare ones applied to ``\varphi \circ f``:
 
 ```math

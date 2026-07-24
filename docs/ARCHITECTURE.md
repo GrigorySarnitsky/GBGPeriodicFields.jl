@@ -101,8 +101,11 @@ worlds:
 
 (The vertical/horizontal language is the bundle-theoretic one — fiber directions versus the
 connection's base directions — applied here by analogy to *operations*: the fiberwise algebra
-is order-zero and fiber-preserving, the differential operators are the connection's covariant
-derivative, order one. Strictly, *vertical* (``\ker \mathrm{d}\pi``, the kernel of the bundle
+is order-zero and fiber-preserving, while the horizontal family is built from the connection's
+covariant derivative, order one. Built *from* rather than *equal to*: `gradient`, `divergence`,
+`curl` and `symmetric_gradient` are that derivative, but `inverse_laplacian` and
+`helmholtz_projection` invert or project with it and are **nonlocal** — no local
+partial-derivative formula, the value at a point depending on the whole field. Strictly, *vertical* (``\ker \mathrm{d}\pi``, the kernel of the bundle
 projection ``\pi``'s differential — canonical) and *horizontal* (a connection-chosen complement) are
 subbundles of the total space's tangent bundle.)
 
