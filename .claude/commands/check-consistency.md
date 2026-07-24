@@ -139,6 +139,20 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   so it does not re-flag settled items; a still-open finding stays visible.
 - **A flagged instance is a sample of a class** — when you do fix (later, on the user's word), fix the
   class across every surface, not just the quoted line.
+- **The per-hat files are the work list; `00-SUMMARY.md` is a reading aid.** The consolidated summary is
+  written **for the user** — deduplicated, ranked, scannable — and consolidation is *lossy by design*,
+  which is exactly what makes it readable. So a fix pass **must be driven from the banked `NN-*.md`
+  files**, enumerating every finding in every hat and closing it by number; the summary is never the
+  input. Two failures on the 2026-07-24 run prove the point, and both survived that run's fix pass
+  untouched because it worked from the summary: `structure-consistency` filed 20 findings and the
+  summary folded 19 of them into a single parenthetical inside an unrelated cluster (only its blocker
+  was closed; the other 19 surfaced later the same day, and only because the banked file was opened
+  directly); and `cold-reader`'s "operation family" finding,
+  filed **major / high confidence / contradiction**, was relayed as "soft — no single page is wrong",
+  which was false, since "the third of three" and "each of eight submodules owns one" cannot both hold.
+  **A severity in the summary never overrides the hat's own** — re-read the hat before downgrading
+  anything. Report closure **per hat and per finding number** ("06: 20/20 closed"), so the count is
+  auditable against the banked files rather than against the summary's clusters.
 - **Bounded output per hat.** Each hat is capped at its ~25 most significant findings with tight quotes
   (the preamble enforces it): the banked file and the returned object mirror each other, so an unbounded
   dump doubles on output and overran the 64k output-token cap (it killed two hats on the 2026-07-23 run).

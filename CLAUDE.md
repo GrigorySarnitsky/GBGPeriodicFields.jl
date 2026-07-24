@@ -553,7 +553,7 @@ after the 2026-07-22 economy run deferred its judgment tail). The same cost poli
 cheap scan model, the two mathematician hats (`spectral-methods-mathematician`,
 `differential-geometer`) anchored at full strength, because a cheap hat's false positive is caught
 by the main-thread verification but a subtle-math false negative has no downstream verifier;
-verification/consolidation/fix are never economized; `strength: "full"` only on explicit request.**
+verification/consolidation/fix are never economized; **a fix pass is driven from the banked per-hat reports, never from the consolidated summary** — consolidation is lossy by design (the 2026-07-24 run buried 19 of one hat's 20 findings in a parenthetical and downgraded another hat's major contradiction to "soft"), so the summary is the user's reading artifact and the `NN-*.md` files are the work list, closed by finding number and a hat's own severity respected; `strength: "full"` only on explicit request.**
 
 **The review unit is the operation's whole variant set and the cold read — the two defects a per-docstring pass
 structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula
