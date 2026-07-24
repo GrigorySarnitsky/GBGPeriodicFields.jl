@@ -11,7 +11,10 @@
 # **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
 # the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
 # ``\kappa = \lvert\mathbf{k}\rvert`` for its magnitude, ``\nu`` for the kinematic viscosity, and
-# ``\mathbb{P}`` for the Leray–Helmholtz projection onto divergence-free fields, the demo advances
+# ``\mathbb{P}`` for the Leray–Helmholtz projection onto divergence-free fields. The wavenumber vector
+# is set bold here, where the package pages set it plain, because this page follows the turbulence
+# convention in which italic ``k`` denotes the turbulent kinetic energy; the two never collide as a
+# result. With that notation the demo advances
 #
 # ```math
 # \frac{\partial \hat{u}}{\partial t}
@@ -270,7 +273,7 @@ function random_solenoidal(grid, m, plans, ws, ksq, band, p; kp = 2.0)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
   envelope = spectral_kernel(uh, exp.(-(ksq ./ kp^2)))    # concentrate at large scales
   convolve!(uh, uh, envelope)                             # apply it (alias-safe, coefficientwise)
-  helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-guarded)
+  helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-safe, one pass)
   force!(uh, band, ws, p)                                 # set the forced-band energy
   return uh
 end
@@ -383,7 +386,7 @@ function run_hist(p::Params)
   η   = (p.ν^3 / ε)^(1 / 4)                 # Kolmogorov length
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
-  kmaxη = (2 / 3) * (p.N / 2) * η
+  kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
   divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
