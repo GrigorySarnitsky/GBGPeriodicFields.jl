@@ -384,8 +384,10 @@ function field_data end
 
 Scalar field in physical-space representation, stored as its values on a three-dimensional physical grid.
 
-Here `values_at_grid` contains the real scalar values, `grid` is the [`Grid3D`](@ref)
-on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
+The fields are
+- `values_at_grid`: the real scalar values, one per grid point.
+- `grid`: the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
 The function constructor constructs a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
 Here `f` is called as `f(x, y, z)`, `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
@@ -440,8 +442,10 @@ end
 
 Scalar field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-Here `fourier_coefficients` contains the complex Fourier coefficients in real-FFT storage, `grid` is the [`Grid3D`](@ref)
-associated with the physical domain, and `fourier_layout` is the [`RealFourierLayout`](@ref) specifying the transformed dimensions and the real-FFT half dimension.
+The fields are
+- `fourier_coefficients`: the complex Fourier coefficients, in real-FFT storage.
+- `grid`: the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout`: the [`RealFourierLayout`](@ref) giving the transformed dimensions and the real-FFT half dimension.
 
 The coefficient array has shape `spectral_field_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
@@ -498,8 +502,10 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
 
 Vector field in physical-space representation, stored as its components on a three-dimensional physical grid.
 
-Here `values_at_grid` contains the real vector components with storage order `values_at_grid[i, j, k, α]`, where `α = 1, 2, 3`,
-`grid` is the [`Grid3D`](@ref) on which the values are sampled, and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
+The fields are
+- `values_at_grid`: the real vector components, stored `values_at_grid[i, j, k, α]` with `α = 1, 2, 3`.
+- `grid`: the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
 The function constructor constructs a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
 Here `f` is called as `f(x, y, z)` and must return a three-component indexable object, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
@@ -558,9 +564,10 @@ end
 
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-Here `fourier_coefficients` contains the complex vector Fourier coefficients in real-FFT storage, with the component index last:
-`fourier_coefficients[i, j, k, α]`, where `α = 1, 2, 3`. The spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))`,
-and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(1))`. The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
+The fields are
+- `fourier_coefficients`: the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with `α = 1, 2, 3`; its spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))` and the whole array `spectral_field_shape(grid, fourier_layout, Val(1))`.
+- `grid`: the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout`: the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
@@ -626,9 +633,10 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
 
 Tensor field of order ``R \\ge 2`` in physical-space representation, stored as its components on a three-dimensional physical grid.
 
-Here `values_at_grid` contains the real tensor components with storage order `values_at_grid[i, j, k, α₁, ..., αᵣ]`,
-where each tensor index has length `3`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
-and `fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field.
+The fields are
+- `values_at_grid`: the real tensor components, stored `values_at_grid[i, j, k, α₁, ..., αᵣ]` with each tensor index of length `3`.
+- `grid`: the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
 The array has shape `physical_field_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
@@ -710,10 +718,10 @@ end
 
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-Here `fourier_coefficients` contains the complex tensor Fourier coefficients in real-FFT storage, with the tensor indices last:
-`fourier_coefficients[i, j, k, α₁, ..., αᵣ]`, where each tensor index has length `3`. The spatial part has shape
-`spectral_field_shape(grid, fourier_layout, Val(0))`, and the full array has shape `spectral_field_shape(grid, fourier_layout, Val(R))`.
-The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
+The fields are
+- `fourier_coefficients`: the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, α₁, ..., αᵣ]` with each of length `3`; its spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))` and the whole array `spectral_field_shape(grid, fourier_layout, Val(R))`.
+- `grid`: the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout`: the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
@@ -984,8 +992,11 @@ end
 
 Forward and inverse FFT plans connecting compatible fields represented in physical and spectral space.
 
-Here `physical` provides the real-space storage array, `spectral` provides the real-to-complex Fourier coefficient array,
-`fft_flags` is an optional backend-specific FFT planner flag, and `fft_timelimit` is the planner time limit used when `fft_flags` is provided.
+The fields are
+- `physical`: the field supplying the real-space storage array to plan against.
+- `spectral`: the field supplying the real-to-complex Fourier coefficient array.
+- `fft_flags`: an optional backend-specific FFT planner flag.
+- `fft_timelimit`: the planner time limit, used when `fft_flags` is given.
 Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
 
 !!! warning "CPU planner choice: the default `ESTIMATE` can badly mis-plan single-precision transforms"
