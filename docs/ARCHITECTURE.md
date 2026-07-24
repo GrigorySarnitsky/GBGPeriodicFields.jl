@@ -2282,3 +2282,37 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     same per-axis maxima the kernel forms, and rounding is monotone) — and the one docstring
     defect (`radial_spectrum`'s non-cubic caveat naming ``\min(N_i)/2``, wrong once lengths and
     sizes decorrelate) was corrected to the per-axis inscribed-sphere form.
+
+44. **The section allocators become public: `similar_field` and `similar_pointvalues`** (decided
+    2026-07-24; a `/check-consistency` panel finding). Both build a section carrying a reference's
+    representation, tensor order, base grid and storage backend — the allocation a consumer needs for
+    the scratch an in-place loop writes into — yet both were documented as Internal API, under a
+    heading stating they are not public. The evidence that this was a gap rather than a boundary is
+    the flagship example: `examples/HIST_CPU.jl`, which exists to show how a real consumer writes
+    against the package, hand-rolled the equivalent thirteen times in `make_workspace`, spelling out
+    `spectral_field_shape`, `zeros`, an element type and a concrete field constructor for each scratch
+    field. Two facts settle the direction. A consumer cannot reach the idiom without them, since the
+    concrete constructors demand exactly the shape and element-type knowledge the allocator exists to
+    encapsulate; and the GPU twin needed a parallel hand-rolled copy differing only in a `dev(...)`
+    wrapper, where the allocator carries the backend for free. Both are now exported and documented
+    in their own API-page sections, and both examples build their whole workspace through them. The
+    allocated storage is **uninitialized** (`similar`, not `zeros`), which the docstrings state and
+    the examples handle by zeroing what they allocate. The method-parity baselines (206 field / 122
+    point-value methods) are untouched: those lock the algebra generics, and these are separate ones.
+
+45. **`Grid3D` enforces its own uniformity** (decided 2026-07-24; a `/check-consistency` panel
+    finding). The type is documented as a uniform grid, so its spacing is not independent data — it
+    is `domain_size ./ grid_size` along every axis. But `grid_spacing` is *stored* (the transfer
+    kernels read it directly, and recomputing it per launch buys nothing), and Julia's generated
+    four-argument constructor is public, so a caller could hand in a spacing bearing no relation to
+    the domain and get a silently self-contradictory grid. Nothing in the tree did: the only
+    four-argument call site was the two-argument convenience constructor itself, with the HDF5
+    reader, the NUFFT oversampled grid and the tests all going through the two-argument form — and
+    the reader in fact re-derives the spacing on load, so a persisted inconsistent grid would not
+    have survived its own round trip. The failure it invites is the quiet kind: the spline transfer
+    kernels turn a position into a cell index with the stored spacing, so a wrong value mislocates
+    every interpolated point instead of raising anything. An inner constructor now rejects a spacing
+    that contradicts the domain, and a non-positive grid size with it. The comparison is a relative
+    floating-point tolerance rather than equality, so a spacing reached by an equivalent but
+    different arithmetic route is still accepted; that case is pinned in `test/fields.jl`, along with
+    both rejections and the `Float32` tolerance.

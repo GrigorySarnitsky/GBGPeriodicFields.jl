@@ -65,6 +65,12 @@ physical_field_shape
 spectral_field_shape
 ```
 
+## Field allocation
+
+```@docs
+similar_field
+```
+
 ## FFT thread configuration
 
 ```@docs

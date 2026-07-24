@@ -30,11 +30,17 @@ pointvalue_tensor_order
 npoints
 ```
 
+## Point-value allocation
+
+```@docs
+similar_pointvalues
+```
+
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors
-extending the package — the section interface the `FieldAlgebra` builders reuse, the allocator, and
-the broadcast style.
+extending the package — the section interface the `FieldAlgebra` builders reuse and the broadcast
+style.
 
 ### Types
 

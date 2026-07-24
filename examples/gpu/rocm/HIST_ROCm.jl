@@ -151,13 +151,17 @@ spectral_kernel(reference, w) = ScalarFieldSpectral(Complex{FT}.(w), field_grid(
 # the `AMDGPU` memory pool never grows (no wedge, no manual GC / `reclaim`). An allocating loop would
 # pile up device temporaries faster than Julia's host-triggered GC frees them; preallocation is the
 # fix (see `examples/README.md`). This is how a real GPU DNS is written: performance first.
-function make_workspace(grid, layout, p)
-  spectral_vector() = VectorFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(1)))), grid)
-  physical_vector() = VectorFieldPhysical(dev(zeros(FT, p.N, p.N, p.N, 3)), grid)
+function make_workspace(physical_reference, spectral_reference)
+  ## `similar_field` copies the reference's representation, grid AND storage backend, so on this
+  ## device twin the scratch lands in GPU memory without a `dev(...)` in sight — the same source as
+  ## `HIST_CPU.jl`. Its storage is uninitialized, hence the zeroing.
+  scratch(reference, order) = (field = similar_field(reference, order); field .= 0; field)
+  spectral_vector() = scratch(spectral_reference, Val(1))
+  physical_vector() = scratch(physical_reference, Val(1))
   return (ωh = spectral_vector(), k1 = spectral_vector(), k2 = spectral_vector(),
           ustar = spectral_vector(), uhc = spectral_vector(), tmp = spectral_vector(),
           Nt = spectral_vector(),                          # (u×ω)^ scratch (distinct helmholtz source)
-          Ek = ScalarFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(0)))), grid),
+          Ek = scratch(spectral_reference, Val(0)),        # the integrating factor: a scalar kernel
           u = physical_vector(), ω0 = physical_vector(), ω = physical_vector(),
           uω = physical_vector(), uxω = physical_vector())
 end
@@ -339,7 +343,7 @@ function run_hist(p::Params)
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels (device).
   dealias = spectral_cutoff(uspec0, m, (2 / 3) * (p.N / 2) * (2π / p.L))
   band    = spectral_band(uspec0, m, FT(0.5 * (2π / p.L)), FT((p.k_force + 0.5) * (2π / p.L)))
-  ws   = make_workspace(grid, layout, p)                  # preallocated device scratch (a step allocates nothing)
+  ws   = make_workspace(uphys0, uspec0)                   # preallocated device scratch (a step allocates nothing)
   Δx   = p.L / p.N
 
   # Initial condition, then de-alias it.

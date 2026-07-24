@@ -66,6 +66,7 @@ export FiberVector,
        fiber_shape,
        physical_field_shape,
        spectral_field_shape,
+       similar_field,
        set_fft_threads!
 
 
@@ -151,14 +152,36 @@ The fields are
 - `grid_spacing::NTuple{3, T}`: the spacing between adjacent grid points in each spatial direction.
 - `origin::NTuple{3, T}`: the physical coordinates of the first grid point.
 
-The two-argument constructor computes `grid_spacing = domain_size ./ grid_size`.
+The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along
+every axis. The two-argument constructor computes it and is the one to prefer; the four-argument form
+checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain, since
+a grid whose stored spacing disagrees with its domain would silently mislocate every interpolated
+point rather than fail. The comparison is a floating-point tolerance, so a spacing computed by a
+different but equivalent route is accepted. Each grid size must also be positive.
 """
 struct Grid3D{T<:AbstractFloat}
   grid_size::NTuple{3, Int}
   domain_size::NTuple{3, T}
   grid_spacing::NTuple{3, T}
   origin::NTuple{3, T}
+
+  function Grid3D{T}(grid_size::NTuple{3, Int}, domain_size::NTuple{3, T}, grid_spacing::NTuple{3, T},
+      origin::NTuple{3, T}) where {T<:AbstractFloat}
+
+    all(size -> size > 0, grid_size) ||
+      throw(ArgumentError("grid_size must be positive along every axis, got $grid_size"))
+    implied_spacing = domain_size ./ T.(grid_size)
+    all(axis -> isapprox(grid_spacing[axis], implied_spacing[axis]; rtol = sqrt(eps(T))), 1:3) ||
+      throw(ArgumentError("grid_spacing $grid_spacing contradicts domain_size ./ grid_size = $implied_spacing; " *
+                          "a Grid3D is uniform, so the two must agree"))
+    return new{T}(grid_size, domain_size, grid_spacing, origin)
+  end
 end
+
+
+Grid3D(grid_size::NTuple{3, Int}, domain_size::NTuple{3, T}, grid_spacing::NTuple{3, T},
+       origin::NTuple{3, T}) where {T<:AbstractFloat} =
+  Grid3D{T}(grid_size, domain_size, grid_spacing, origin)
 
 
 function Grid3D(grid_size::NTuple{3, Int}, domain_size::NTuple{3, T}; origin::NTuple{3, T} = (zero(T), zero(T), zero(T))) where {T<:AbstractFloat}

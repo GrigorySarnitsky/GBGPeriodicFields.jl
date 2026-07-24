@@ -60,7 +60,8 @@ export Point,
        point_coordinates,
        point_values,
        pointvalue_tensor_order,
-       npoints
+       npoints,
+       similar_pointvalues
 
 
 ####################################

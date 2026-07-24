@@ -32,6 +32,24 @@ const layout = RealFourierLayout()
     @test eltype(field_data(sp)) == Float64
   end
 
+  @testset "Grid3D enforces its own uniformity" begin
+    # The four-argument constructor takes a spacing the caller supplies, and a value that
+    # contradicts domain_size ./ grid_size would mislocate every interpolated point silently
+    # (the transfer kernels read grid_spacing directly), so it is rejected rather than stored.
+    sizes, lengths, o = (8, 7, 6), (2π, 4π, 6π), (0.0, 0.0, 0.0)
+    consistent = lengths ./ Float64.(sizes)
+    @test Grid3D(sizes, lengths, consistent, o).grid_spacing == consistent
+    @test Grid3D(sizes, lengths).grid_spacing == consistent          # the two-argument form agrees
+    @test_throws ArgumentError Grid3D(sizes, lengths, (1.0, 1.0, 1.0), o)
+    @test_throws ArgumentError Grid3D(sizes, lengths, (consistent[1], 2 * consistent[2], consistent[3]), o)
+    @test_throws ArgumentError Grid3D((0, 7, 6), lengths, consistent, o)
+    # a spacing reached by an equivalent but different arithmetic route must still be accepted
+    @test Grid3D(sizes, lengths, ntuple(a -> lengths[a] / sizes[a], 3), o) isa Grid3D
+    # and the tolerance is relative, so it holds at Float32 as well
+    @test Grid3D(sizes, Float32.(lengths), Float32.(lengths) ./ Float32.(sizes),
+                 Float32.(o)) isa Grid3D{Float32}
+  end
+
   @testset "FFT round-trip (scalar/vector/tensor)" begin
     for (field, R) in (
         (ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid), 0),

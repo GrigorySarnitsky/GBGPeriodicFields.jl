@@ -51,7 +51,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   (`module FieldAlgebraTests; include("fieldalgebra.jl"); end`), so per-file helpers and
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
-- **Per-module behaviour files** — `fields.jl`, `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
+- **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check: a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
   combination `combine!` and the determinant `det`),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
   `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`),

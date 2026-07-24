@@ -23,8 +23,9 @@ one operation family:
 
 - [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
   the FFT transform plans, the transforms [`to_physical`](@ref) and
-  [`to_spectral`](@ref) between the two representations, and the HDF5 persistence pair
-  `write_field`/`read_field` (available once `HDF5` is loaded).
+  [`to_spectral`](@ref) between the two representations, the allocator [`similar_field`](@ref) that
+  builds compatible scratch, and the HDF5 persistence pair `write_field`/`read_field` (available once
+  `HDF5` is loaded).
 - [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
   `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
   `divide!`, the contractions `dot` and `cross`, the tensor product `mul!`, the transpose
@@ -37,8 +38,8 @@ one operation family:
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
   `assignment_window`, and `translation_kernel`.
-- [`Points`](@ref) supplies the point-data types and their fiberwise algebra, mirroring the
-  physical field surface.
+- [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the physical
+  field surface, and the matching allocator `similar_pointvalues`.
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
@@ -99,6 +100,7 @@ using .Fields:
   fiber_shape,
   physical_field_shape,
   spectral_field_shape,
+  similar_field,
   FieldSpectralMultipliers,
   set_fft_threads!
 
@@ -171,7 +173,8 @@ using .Points:
   point_coordinates,
   point_values,
   pointvalue_tensor_order,
-  npoints
+  npoints,
+  similar_pointvalues
 
 
 using .Interpolation:
@@ -231,6 +234,7 @@ export FiberVector,
        fiber_shape,
        physical_field_shape,
        spectral_field_shape,
+       similar_field,
        add!,
        subtract!,
        combine!,
@@ -295,6 +299,7 @@ export FiberVector,
        point_values,
        pointvalue_tensor_order,
        npoints,
+       similar_pointvalues,
        interpolate,
        interpolate!,
        anterpolate,
