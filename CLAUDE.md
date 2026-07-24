@@ -460,7 +460,14 @@ turbulent kinetic energy there); and §13 decision-log mentions of the retired `
 as history, only current-state surfaces being reworded. One finding was a coverage gap rather than a
 docs defect and is fixed in the suite: decision 40 gave `helmholtz_projection!` a gated CPU loop, so
 the `with_threading` toggle reaches it and `test/threading.jl` now asserts it bitwise there (the
-assertion had stayed in the KA testset, where the docs still claimed it belonged).
+assertion had stayed in the KA testset, where the docs still claimed it belonged). **That C6
+assertion was VACUOUS when added and was fixed by decision 47:** decision 42 had already severed the
+gated loop from dispatch (it dropped the kernel's squared-wavenumber arguments but left the loop's
+signature stale, so the arity no longer matched and CPU helmholtz fell through to the
+override-ignoring KA-on-CPU launch), so the `with_threading` toggle reached nothing and `bitwise`
+compared a path against itself. The canary lane caught the resulting slowdown; the fix restored the
+loop and added a dispatch-target guard so a device-kernel/gated-CPU-twin pair diverging is caught at
+test time, not in a later benchmark.
 
 **The docstring-template uniformity pass is CLOSED (2026-07-24).** The `/check-consistency` panel's
 `structure-consistency` hat filed 20 findings; the consolidated summary compressed 19 of them into one

@@ -315,7 +315,8 @@ writes. The one-pass `KernelAbstractions` kernel (decision 32) reads each source
 computes the factor once, and writes all three components — and, reading a whole mode before writing
 it, serves the aliased in-place call with no guard temporary. Measured on the 12700K
 (``64^3``–``128^3``, `Float64`; the fused-vs-three-broadcast ratio), against the KA-on-CPU path this
-operation ran before decision 40 replaced it with a gated CPU loop of the same shape:
+operation ran before decision 40 replaced it with a gated CPU loop of the same shape (decision 42
+briefly severed that loop and decision 47 restored it — see the canary lane, §7 gap 3):
 
 | threads | ``64^3`` | ``128^3`` |
 |---|---|---|
@@ -598,7 +599,13 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    keeps
    [AirspeedVelocity.jl](https://github.com/MilesCranmer/AirspeedVelocity.jl) or
    [PkgBenchmark.jl](https://github.com/JuliaCI/PkgBenchmark.jl) a drop-in if a CI story ever
-   changes.
+   changes. **First live catch (2026-07-24):** the `t1` helmholtz canary flagged at 1.27× baseline,
+   which turned out not to be a slowdown but a dead-code bug — decision 42 had dropped the kernel's
+   squared-wavenumber arguments while leaving the gated `::CPU` loop's signature stale, so the loop
+   fell out of dispatch and CPU helmholtz silently reverted to the KA-on-CPU launch decision 40 had
+   escaped. Restoring the loop returned the canary to baseline **without a refreeze** — the check
+   working exactly as designed, catching an achieved-time regression the allocation and pass audits
+   cannot see (decision 47).
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values. The allocating kernel

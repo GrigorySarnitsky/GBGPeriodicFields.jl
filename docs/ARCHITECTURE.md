@@ -2255,7 +2255,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     socket. Finally, `helmholtz_projection!` gains the decision-38-shape gated `::CPU` loop twin —
     bitwise-equal to its KernelAbstractions engine, verified — so the policy-exempt set shrinks to
     the operations whose kernels are structurally atomic/irregular: the grid↔point transfer and the
-    radial binning. The exemption is now a principle, not a history.
+    radial binning. The exemption is now a principle, not a history. (Decision 42 then accidentally
+    severed this loop from dispatch for a day; decision 47 restored it and added the guard that pins
+    it live.)
 
 41. **The spectral reductions follow the layout's folded axis** (decided 2026-07-23; a Phase-B
     formula-sweep finding). `_parseval_weight`, the spectral `inner`'s correction planes, and the
@@ -2291,7 +2293,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     exactly divergence-annihilating — the identities held sub-Nyquist only, and
     `test/adjointness.jl` deliberately scoped its fixtures to dodge it (its own header conceded the
     restriction). The denominator is now ``a \cdot a``, squared in-register from the same loaded
-    wavenumber values (the kernel drops its three squared-wavenumber array arguments), making
+    wavenumber values (**both** the KA kernel and the gated `::CPU` loop drop their three
+    squared-wavenumber array arguments — the loop was missed on the first pass; decision 47), making
     ``\mathbb P = \mathrm{id} - (a a^{\top})/(a \cdot a)`` the exact orthogonal projector onto the kernel
     of the discrete divergence: ``\mathbb P^2 = \mathbb P`` and ``\nabla\cdot(\mathbb P u) = 0`` at
     **every** mode, the zero and pure-Nyquist modes passing through as the identity. Sub-Nyquist the
@@ -2417,3 +2420,34 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     carries no `tensor_order` and no grid geometry — that the two families coexist in one file with
     neither reader accepting the other's groups, and the five corrupted-group error paths. The testset
     grew from 143 to 207 assertions.
+
+47. **The gated `helmholtz_projection!` CPU loop, dead since decision 42, is restored — and the
+    canary lane caught it** (2026-07-24). Decision 42 rewrote the projector's denominator to the
+    derivative-family ``a \cdot a``, computed in-register, and dropped the three squared-wavenumber
+    array arguments. It updated the KA kernel, the generic launch method, and the dispatcher — but
+    left the gated `::CPU` loop (decision 40) with its old six-array signature. With the dispatcher
+    now passing three wavenumber arrays where the loop demanded six, the loop's arity no longer
+    matched, so it silently stopped being a dispatch candidate and every CPU call fell through to the
+    generic `KernelAbstractions`-on-`CPU()` launch — the ~17 GB/s single-thread path decision 40
+    existed to escape. The gated loop had become dead code, and its stale body still read the
+    *true*-``|k|^2`` array, so had the arity ever been fixed without the body it would have computed
+    the wrong Nyquist denominator.
+
+    *No numerical harm occurred*, because CPU and GPU both ran the one correct KA kernel: parity and
+    the full-spectrum Nyquist tests passed throughout. Three things did break. Decision 40's stated
+    reach — cutoff and `with_threading` governing helmholtz — was false for a day. The
+    `with_threading` bitwise assertion added for a 2026-07-24 consistency finding was **vacuous**: it
+    toggled an override the live path ignores, comparing a path against itself. And the operation ran
+    slower, which is what surfaced it — the canary lane (`benchmark/regress.jl`), on its first live
+    exercise, flagged the `t1` helmholtz canary at 1.27× its frozen baseline, the exact
+    achieved-time regression the allocation and pass audits cannot see.
+
+    The fix drops the three squared arguments from the loop and squares ``a`` in-register, mirroring
+    the kernel; the loop is verified **bitwise-equal** to the KA kernel on a Nyquist-bearing field,
+    and divergence-annihilating at every mode. The canary returned to baseline **without a refreeze**
+    — proof the baseline was right and the code had drifted, not the reverse. The gap that let a
+    dispatch fall through unseen is closed by a **dispatch-target guard** in `test/threading.jl`: a
+    CPU helmholtz call must resolve to the `KernelAbstractions.CPU` specialization, not the
+    untyped-backend fallback. The lesson generalizes — an operation with a device kernel *and* a
+    gated CPU twin has **two** bodies to keep in sync, and only the guard makes "they diverged"
+    visible at test time rather than in a benchmark weeks later.

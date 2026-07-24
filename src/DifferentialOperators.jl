@@ -235,19 +235,22 @@ plain projection. Shared by every `helmholtz_projection!` method.
 function _helmholtz_projection_modes!(::KernelAbstractions.CPU,
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     kernel_data, alpha, beta)
+  # The denominator is the derivative-family |a|², squared from the same values the numerator reads —
+  # NOT a stored true-|k|² array — so ℙ = id − a aᵀ/(a·a) is exactly idempotent and annihilates the
+  # discrete divergence at every mode, Nyquist planes included (decision 42). This mirrors the KA
+  # kernel; the two must agree bit-for-bit, since GPU parity compares them.
   axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
   _foreach_outer_slab(axes(source_1, 3), 3 * length(source_1)) do outer_modes
     @inbounds for mode_3 in outer_modes
       wavenumber_value_3 = wavenumber_3[mode_3]
-      squared_3 = squared_wavenumber_3[mode_3]
+      squared_3 = wavenumber_value_3 * wavenumber_value_3
       for mode_2 in axis_2
         wavenumber_value_2 = wavenumber_2[mode_2]
-        squared_23 = squared_wavenumber_2[mode_2] + squared_3
+        squared_23 = wavenumber_value_2 * wavenumber_value_2 + squared_3
         @simd for mode_1 in axis_1
           wavenumber_value_1 = wavenumber_1[mode_1]
-          squared = squared_wavenumber_1[mode_1] + squared_23
+          squared = wavenumber_value_1 * wavenumber_value_1 + squared_23
           source_value_1 = source_1[mode_1, mode_2, mode_3]
           source_value_2 = source_2[mode_1, mode_2, mode_3]
           source_value_3 = source_3[mode_1, mode_2, mode_3]

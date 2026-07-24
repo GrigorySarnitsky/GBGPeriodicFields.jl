@@ -13,6 +13,8 @@ import Statistics
 
 const F = GBGPeriodicFields.Fields
 const FS = GBGPeriodicFields.FiberSections   # the threading primitives moved here (Phase A)
+const DifferentialOperators = GBGPeriodicFields.DifferentialOperators
+import KernelAbstractions as KA              # for the helmholtz dispatch-target guard
 const T = Float64
 const grid = Grid3D((32, 31, 30), (2π, 2π, 2π))     # 29760 elements ≥ the default 2^14 cutoff
 
@@ -179,6 +181,22 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # `helmholtz_projection` belongs here since decision 40 gave it a gated CPU loop beside its
     # device kernel: the `with_threading` override `bitwise` toggles now reaches it, so the two
     # lanes really do execute different code. Its cross-thread-count digest is checked below.
+    #
+    # The `bitwise` assertion above is only meaningful if the CPU call actually reaches that gated
+    # loop rather than falling back to the KA-on-CPU launch (which ignores the override, making the
+    # check compare a path against itself). Decision 42 once broke exactly this — it dropped the
+    # kernel's squared-wavenumber arguments but left the gated loop's signature stale, so its arity
+    # no longer matched and dispatch silently fell through to the generic launch. Pin the dispatch
+    # target so that can never recur unseen: a CPU helmholtz call must resolve to the
+    # `KernelAbstractions.CPU` specialization, not the untyped-backend fallback.
+    let comp = F._vector_component_data
+      d = similar_field(us, Val(1))
+      target = which(DifferentialOperators._helmholtz_projection_modes!,
+        Tuple{KA.CPU, map(typeof, (comp(d, 1), comp(d, 2), comp(d, 3),
+          comp(us, 1), comp(us, 2), comp(us, 3),
+          m.wavenumber_1, m.wavenumber_2, m.wavenumber_3, nothing, 1.0, 0.0))...})
+      @test target.sig.parameters[2] === KA.CPU                    # the gated loop, not the fallback
+    end
 
     # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite
     # via the three-argument form; β ≠ 0 accumulate below).
