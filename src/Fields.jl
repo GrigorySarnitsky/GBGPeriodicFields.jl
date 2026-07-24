@@ -6,7 +6,7 @@ three-dimensional rectangular periodic domains, for CPU and GPU array backends. 
 object, and the physical-space and spectral types (for example `ScalarFieldPhysical` and
 `ScalarFieldSpectral`) are two representations of the **same** field.
 
-This module provides the following.
+The parts are:
 
   * **Grid and layout** — [`Grid3D`](@ref) describes the periodic domain geometry, and
     [`RealFourierLayout`](@ref) describes the real-to-complex transform layout.

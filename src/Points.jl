@@ -5,7 +5,7 @@ The unstructured base of the package's fiber-bundle model: off-grid sample posit
 field values sampled at them. A point set plays the role the grid plays in `Fields`, and point
 values are sections over it.
 
-This module provides three things.
+The parts are:
 
   * **Positions.** [`Point`](@ref) is a single coordinate triple, and [`PointSet`](@ref) holds
     `M` positions in a structure-of-arrays layout. A point set carries no grid; a periodic

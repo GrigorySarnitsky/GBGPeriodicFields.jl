@@ -15,7 +15,7 @@ value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, and `in
 zero (DC) Fourier mode. The remaining reductions (`lpnorm`, `std`/`var`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
-Each family links to the home where its formula lives:
+The parts are, each linking to the home where its formula lives:
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
 - `mean`, `std`, `var` — the **intensive**, **fiber-preserving** base moments (they extend

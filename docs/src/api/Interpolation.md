@@ -28,7 +28,7 @@ NUFFT
 
 ## Internal API
 
-The scheme supertype `AbstractSplineScheme`, the spline-weight generators (Fornberg finite
+These symbols are not part of the public interface; they are documented for contributors. The scheme supertype `AbstractSplineScheme`, the spline-weight generators (Fornberg finite
 differences + a small linear solve), the periodic cell-finding, and the in-kernel helpers —
 documented for contributors.
 

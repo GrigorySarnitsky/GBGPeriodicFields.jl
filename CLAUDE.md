@@ -461,7 +461,21 @@ docstrings, not the ~17 the classifier first suggested: `norm!` takes two argume
 no arguments at all, so the threshold never applies to them.
 Rule 2 (type docstrings) is done as well — the six field types, `FieldTransformPlans` and the three
 point-value types all carry `The fields are` bullets, collapsing three tiers of depth to one.
-**Remaining:** the mechanical remainder — findings 6 (`sym`/`skew`/`dev`
+**Done in the mechanical remainder:** 6 (the `sym`/`skew`/`dev` wrappers now open with the corpus's
+`Allocating form of …`), 12 (Interpolation's `# API` header dropped — its `# References` block stays,
+being the citation policy's sanctioned docstring form), 14 (closed by rule 2), 16 (`tr`'s wrapper
+gained the ``I_1`` identification its sibling `det` already carried), 17 (the three Internal-API
+sections that skipped the disclaimer now open with it), 19 (the umbrella opens with a noun phrase
+like all eight submodules), 20 (one lead-in, `The parts are:`, across the five that differed).
+**Finding 10 is dismissed with reason:** it asks the `dot`/`cross` wrappers to shed their
+representation-validity prose, but the cross-referencing rule states that a function's
+validity/absence clauses *always stay* — only the re-derived formula is cut — and invariant 1 makes
+those clauses load-bearing, since a deliberate absence must be visible where a user meets it.
+**Remaining:** findings 7 (`convolve!` places its formula before the arguments, against both its
+siblings and the corpus), 8 (return-value documentation folded into the opening sentence vs a
+separate trailing one), 13 (module-docstring bullets vs page section headers; `Points` promises a
+fiberwise-algebra family its page has no section for), 18 (`exponential_convolve!`'s fused
+two-operand form lacks the `The kernel-composed form` subheading its three peers carry) — findings 6 (`sym`/`skew`/`dev`
 wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
 arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs
 trailing), 10 (`dot`/`cross` wrappers re-derive validity prose their homes own), 11 (`NUFFT` bullets

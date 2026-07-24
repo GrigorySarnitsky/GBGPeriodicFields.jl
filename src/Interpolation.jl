@@ -38,7 +38,7 @@ default [`CatmullRom`](@ref)), and the spectral-domain exact [`DirectDFT`](@ref)
 that act on a field in spectral representation. The point-value data types and their fiberwise algebra
 live in the `Points` module.
 
-# API
+The parts are:
 
   * **Interpolation** (grid → point, *gather*; `interpolate` ``\\equiv W``): [`interpolate`](@ref) and
     the in-place [`interpolate!`](@ref), plus the callable `f(x)` (and its broadcast `f.(xs)`) as the

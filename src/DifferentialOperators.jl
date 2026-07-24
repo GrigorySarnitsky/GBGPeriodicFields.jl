@@ -10,7 +10,7 @@ symbols are held in a [`FieldSpectralMultipliers`](@ref), built from a field wit
 an allocating form and an in-place `!` form, and each per-operator docstring gives both the
 physical-space meaning and the spectral symbol it applies.
 
-The operators are:
+The parts are:
 
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
 - [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.

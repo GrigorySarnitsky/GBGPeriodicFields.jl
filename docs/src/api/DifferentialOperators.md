@@ -36,7 +36,7 @@ helmholtz_projection
 
 ## Internal API
 
-The coefficientwise spectral kernels and the one-pass projection launcher, documented for
+These symbols are not part of the public interface; they are documented for contributors. The coefficientwise spectral kernels and the one-pass projection launcher, documented for
 contributors.
 
 ```@autodocs

@@ -52,7 +52,7 @@ norm
 
 ## Internal API
 
-The code-generation machinery, documented for contributors adding operations: the expression and kernel-body builders, the contraction formula builders, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
+These symbols are not part of the public interface; they are documented for contributors adding operations — the code-generation machinery: the expression and kernel-body builders, the contraction formula builders, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.FieldAlgebra]

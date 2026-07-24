@@ -3,7 +3,7 @@
 
 Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor fields defined in
 [`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
-one exists — and an in-place `!` form. The families are:
+one exists — and an in-place `!` form. The parts are:
 
   * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
@@ -1414,7 +1414,7 @@ function tr! end
     tr(A::TensorFieldPhysical{2})
     tr(A::TensorFieldSpectral{2})
 
-Allocating form of [`tr!`](@ref): allocate the scalar-field result and return the fiberwise trace of a second-order tensor field. See [`tr!`](@ref) for the componentwise definition and the physical/spectral validity. (A single `FiberTensor2` value already has `LinearAlgebra.tr`.)
+Allocating form of [`tr!`](@ref): allocate the scalar-field result and return the fiberwise trace — the first principal invariant ``I_1`` — of a second-order tensor field. See [`tr!`](@ref) for the componentwise definition and the physical/spectral validity. (A single `FiberTensor2` value already has `LinearAlgebra.tr`.)
 """
 tr
 
@@ -1521,7 +1521,7 @@ function sym! end
     sym(A::TensorFieldSpectral{2})
     sym(A::FiberTensor2)
 
-Allocate the result and compute the symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`sym!`](@ref): allocate the result and return the symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function sym end
 
@@ -1549,7 +1549,7 @@ function skew! end
     skew(A::TensorFieldSpectral{2})
     skew(A::FiberTensor2)
 
-Allocate the result and compute the skew-symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`skew!`](@ref): allocate the result and return the skew-symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function skew end
 
@@ -1577,7 +1577,7 @@ function dev! end
     dev(A::TensorFieldSpectral{2})
     dev(A::FiberTensor2)
 
-Allocate the result and compute the deviatoric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`dev!`](@ref): allocate the result and return the deviatoric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
 """
 function dev end
 

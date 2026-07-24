@@ -21,7 +21,7 @@ with_threading
 
 ## Internal API
 
-The CPU-threading primitives and the fiberwise-algebra code generators — not part of the public
+These symbols are not part of the public interface; they are documented for contributors. The CPU-threading primitives and the fiberwise-algebra code generators — not part of the public
 interface, documented for contributors extending the package's algebra.
 
 ```@autodocs
