@@ -135,7 +135,12 @@ makedocs(
   sitename  = "GBGPeriodicFields.jl",
   modules   = [GBGPeriodicFields, GBGPeriodicFields.FiberSections, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators, GBGPeriodicFields.Convolution, GBGPeriodicFields.Points, GBGPeriodicFields.Interpolation, GBGPeriodicFields.Reductions],
   format    = Documenter.HTML(
-    canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/stable",
+    # The canonical URL disambiguates the versioned copies Documenter deploys (dev, stable, each
+    # tagged version) for anything that indexes them. It points at the deployment ROOT, not at
+    # /stable: no version tag has ever been cut, so Documenter has only ever built dev and
+    # /stable/ is a 404 — a canonical pointing at a dead URL being strictly worse than none.
+    # The root redirects to whatever the default version is, so it stays correct either way.
+    canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl",
     collapselevel = 1,
     # The architecture document is deliberately one page (the top-level design doc with its
     # append-only decision log), and its rendered size now exceeds Documenter's default hard
