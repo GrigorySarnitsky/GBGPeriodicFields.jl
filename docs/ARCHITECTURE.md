@@ -65,7 +65,17 @@ A field, and a collection of values sampled at scattered locations, are both
 of a base ``B`` and a fiber ``V``. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
 **tensor order** ``R``: ``V = \mathbb R`` (``R = 0``, scalar), ``\mathbb R^3`` (``R = 1``, vector, `FiberVector`),
 ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
-and higher (`FiberTensor3/4`). A section
+and higher (`FiberTensor3/4`).
+
+That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
+structure: components are referred to one fixed rectangular frame, indices are neither raised nor
+lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
+trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
+organizes the code without promising machinery on manifolds — the tensors are Cartesian tensors in the
+classical continuum-mechanics sense. **Do not introduce curvilinear-coordinate machinery, explicit
+metric tensors, or a vector/covector distinction** unless the package design changes to need them: each
+would make the frame a variable the whole operation set has to carry, and none has a consumer. A
+section
 assigns a fiber value to each base point; the fiber-last data layout ([§3](@ref "3. Types and memory layout")) is exactly
 that section, stored base-indexed.
 

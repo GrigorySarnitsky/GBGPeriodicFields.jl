@@ -15,7 +15,9 @@ Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithr
 Before any structural or design change, read `docs/ARCHITECTURE.md`. It explains why
 the architecture is the way it is; do not re-litigate recorded decisions without the
 user. **Design changes must be justified by established mathematics** — the
-differential-geometry / fiber-bundle framing of §2 (fields and point-values as sections
+differential-geometry / fiber-bundle framing of §2 (whose fiber carries the **Cartesian Euclidean**
+structure on one fixed orthonormal frame: introduce no curvilinear-coordinate machinery, explicit
+metric tensors, or vector/covector distinction unless the design changes to need them) (fields and point-values as sections
 of a flat tensor bundle over a base; the vertical fiberwise / horizontal grid-bound
 operation split) — **not by convenience**: "it's convenient", "for symmetry", or "for
 completeness" is never a valid justification (cf. invariant 1's deliberate absences). The
