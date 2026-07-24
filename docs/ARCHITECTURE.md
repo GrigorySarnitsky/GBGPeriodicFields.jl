@@ -16,7 +16,7 @@ its own, without opening the source or another document. (Universally standard m
 
 The package is the field layer for pseudospectral simulation of incompressible
 fluid dynamics and turbulence on three-dimensional rectangular periodic domains. Its
-primary consumer is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl/), a direct numerical simulation of
+primary consumer is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl), a direct numerical simulation of
 homogeneous isotropic turbulence built on it; the operation families below were shaped by
 what that solver needs, which is why a proposed addition without a consumer is deferred
 rather than built. It
