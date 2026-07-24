@@ -437,8 +437,6 @@ The arguments are:
   exponent term ``s \\hat w``; `offset` is a scalar field in spectral representation holding real
   values (as [`squared_wavenumber_field`](@ref) does). The pair enters as scale times field so a
   changed scale costs nothing — the resident ``\\hat w`` is built once.
-- `α`, `β` — in the single-operand forms, real accumulation weights as in `convolve!`; the
-  short forms overwrite (``\\alpha = 1``, ``\\beta = 0``).
 
 !!! warning "The offset must be real-valued"
     The exponential of a real, even symbol keeps a real field real. A complex-valued `offset` breaks
@@ -453,10 +451,15 @@ The single-operand accumulate form computes
                                     + \\beta  \\widehat{\\texttt{destination}}(k),
 ```
 
-and the two-operand forms apply the same kernel to the combination,
-``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the
-lazy-kernel twin of the kernel-composed `combine!` method. Spectral representation only. Returns the
-modified `destination`.
+Spectral representation only. Returns the modified `destination`.
+
+# The two-operand form
+
+Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a weighted combination,
+``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the lazy-kernel
+twin of the kernel-composed [`combine!`](@ref) method, and the same fusion the kernel-composed
+`divergence!` and `helmholtz_projection!` arities perform. With `b === destination` it is the
+filtered accumulate, computed in place.
 """
 function exponential_convolve! end
 

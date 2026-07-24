@@ -471,11 +471,18 @@ like all eight submodules), 20 (one lead-in, `The parts are:`, across the five t
 representation-validity prose, but the cross-referencing rule states that a function's
 validity/absence clauses *always stay* — only the re-derived formula is cut — and invariant 1 makes
 those clauses load-bearing, since a deliberate absence must be visible where a user meets it.
-**Remaining:** findings 7 (`convolve!` places its formula before the arguments, against both its
-siblings and the corpus), 8 (return-value documentation folded into the opening sentence vs a
-separate trailing one), 13 (module-docstring bullets vs page section headers; `Points` promises a
-fiberwise-algebra family its page has no section for), 18 (`exponential_convolve!`'s fused
-two-operand form lacks the `The kernel-composed form` subheading its three peers carry) — findings 6 (`sym`/`skew`/`dev`
+Findings 13 and 18 are done: the `Points` page gained the point-value-algebra section its module
+docstring had promised (the operations live on the `FieldAlgebra` page, generated from one shared
+builder, and the section says so), and `exponential_convolve!`'s fused two-operand form gained the
+demoted subheading its three peers carry. **13's other half is dismissed with reason:** the hat also
+wanted `DifferentialOperators`/`Convolution` module bullets to match their page section headers, but
+the rubric *mandates* that API pages be math-grouped under hand-written headers, so a module listing
+operations while its page groups them by family is the design, not drift.
+**Remaining — two:** finding 7 (`convolve!` places its physical/spectral formulas before the argument
+bullets, where `exponential_convolve!`, `combine!` and every DifferentialOperators operator place
+them after) and finding 8 (return-value documentation folded into the opening sentence — the
+majority — versus a separate trailing sentence in `convolve!`, `exponential_convolve!`,
+`write_field`, `read_field` and `set_fft_threads!`) — findings 6 (`sym`/`skew`/`dev`
 wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
 arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs
 trailing), 10 (`dot`/`cross` wrappers re-derive validity prose their homes own), 11 (`NUFFT` bullets
