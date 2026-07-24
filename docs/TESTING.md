@@ -59,7 +59,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
-  `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial pair `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
+  `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
   the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in

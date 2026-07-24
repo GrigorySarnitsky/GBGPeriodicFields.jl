@@ -2,7 +2,7 @@
 
 This package provides tools for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
 
-The package is aimed primarily at fluid-dynamics and turbulence simulations, with physical-space and real-to-complex spectral representations designed for both CPU and GPU array backends. It also targets Lagrangian particle simulations through interpolation tools for evaluating fields between grid nodes.
+The package is aimed primarily at fluid-dynamics and turbulence simulations, with physical-space and real-to-complex spectral representations designed for both CPU and GPU array backends, with HDF5 field persistence. It also targets Lagrangian particle simulations through interpolation tools for evaluating fields between grid nodes.
 
 The package's primary consumer is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl), a pseudospectral direct numerical simulation of homogeneous isotropic turbulence built on these fields — the place to see the field layer driving a full solver.
 

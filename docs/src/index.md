@@ -2,7 +2,7 @@
 
 `GBGPeriodicFields.jl` is a package for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
 
-The package is aimed primarily at fluid-dynamics and turbulence simulations. Fields are physical objects, while physical-space and nonredundant spectral representations are storage and manipulation choices. The implementation is designed for both CPU and GPU array backends, and includes an unstructured **point layer**: evaluating fields at off-grid positions (interpolation) and depositing per-point quantities back onto the grid (anterpolation) — the field layer for Lagrangian-particle methods.
+The package is aimed primarily at fluid-dynamics and turbulence simulations. Fields are physical objects, while physical-space and nonredundant spectral representations are storage and manipulation choices. The implementation is designed for both CPU and GPU array backends, with HDF5 field persistence, and includes an unstructured **point layer**: evaluating fields at off-grid positions (interpolation) and depositing per-point quantities back onto the grid (anterpolation) — the field layer for Lagrangian-particle methods.
 
 This package is not intended to be a ready-to-use DNS solver; rather, it is a toolkit for building fluid-dynamics and general field solvers.
 
@@ -40,7 +40,7 @@ on the package — the performance-first, allocation-free pattern, with results.
 ## Main components
 
 - [`FiberSections`](api/FiberSections.md): the base-agnostic foundation — the `AbstractFiberSection` supertype shared by fields and point-values, the CPU-threading primitive, and the fiberwise-algebra code generators (each per-component formula written once, reused by `FieldAlgebra` and `Points`).
-- [`Fields`](api/Fields.md): grids, Cartesian fiber types, field representations (physical and spectral), FFT transforms, field utilities, and broadcasting support.
+- [`Fields`](api/Fields.md): grids, Cartesian fiber types, field representations (physical and spectral), FFT transforms, field utilities, broadcasting support, and HDF5 persistence.
 - [`FieldAlgebra`](api/FieldAlgebra.md): fiberwise algebraic operations on fields — vector-space operations, scalar actions, vector and tensor products, contractions, norms, and tensor decompositions.
 - [`DifferentialOperators`](api/DifferentialOperators.md): spectral differential operators — gradient, divergence, curl, the fused symmetric gradient, Laplacian, inverse Laplacian, and Helmholtz projection.
 - [`Convolution`](api/Convolution.md): periodic convolution of a field with a kernel, in spectral representation — `convolve`/`convolve!` (with the infix alias `⋆`) apply a Fourier kernel (a `ScalarFieldSpectral` transfer function) as the coefficientwise product ``\hat f \cdot \hat g``; `spectral_cutoff`/`spectral_band` build sharp low-pass/band-pass kernels, `squared_wavenumber_field` the ``|k|^2`` radial coordinate, `assignment_window` the mass-assignment deconvolution window, `translation_kernel` the phase ``e^{-\mathrm{i} k\cdot h}`` that displaces a field by a physical offset ``h``, and `exponential_convolve`/`exponential_convolve!` apply the lazy exponential radial kernel ``\exp(c |k|^2 + s \hat w)`` with no kernel field built (plus the kernel-composed `combine!`, the weighted combination convolved in one pass).

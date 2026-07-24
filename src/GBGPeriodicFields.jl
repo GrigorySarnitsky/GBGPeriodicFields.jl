@@ -11,7 +11,7 @@
 
 Real-valued scalar, vector, and second-order-tensor fields on three-dimensional
 rectangular periodic domains, carried in physical-space and real-to-complex spectral
-representations, on both CPU and GPU array backends.
+representations, on both CPU and GPU array backends, with HDF5 field persistence.
 
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
