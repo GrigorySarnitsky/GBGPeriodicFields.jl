@@ -38,7 +38,8 @@ The umbrella assembles its public surface from the submodules below:
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
   `assignment_window`, and `translation_kernel`.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the physical
-  field surface, and the matching allocator `similar_pointvalues`.
+  field surface, the matching allocator `similar_pointvalues`, and the HDF5 persistence pair
+  `write_points`/`read_points` (available once `HDF5` is loaded).
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
@@ -173,7 +174,9 @@ using .Points:
   point_values,
   pointvalue_tensor_order,
   npoints,
-  similar_pointvalues
+  similar_pointvalues,
+  write_points,
+  read_points
 
 
 using .Interpolation:
@@ -299,6 +302,8 @@ export FiberVector,
        pointvalue_tensor_order,
        npoints,
        similar_pointvalues,
+       write_points,
+       read_points,
        interpolate,
        interpolate!,
        anterpolate,

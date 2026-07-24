@@ -1,9 +1,12 @@
-# HDF5 persistence for the fields — loaded automatically when both GBGPeriodicFields and HDF5 are present
+# HDF5 persistence for the sections — loaded automatically when both GBGPeriodicFields and HDF5 are present
 # (a weak-dependency package extension, so the core stays free of the HDF5 binary). A field maps to a
 # self-describing HDF5 *group*: its numeric array is the dataset `data`, and its `Grid3D` geometry, Fourier
 # layout, element type, tensor order, representation, and a type/version tag are attributes. Both
 # representations are handled — a physical field stores a real array, a field in spectral representation
-# its complex half-spectrum. The consumer owns the file, so every method takes an open `File`/`Group`.
+# its complex half-spectrum. The point layer mirrors this: a `PointSet` and each point-value type map to
+# their own self-describing group, positions and values kept separate because they are separate objects
+# (the base, and sections over it). The consumer owns the file, so every method takes an open
+# `File`/`Group`.
 module GBGPeriodicFieldsHDF5Ext
 
 using HDF5
@@ -15,6 +18,11 @@ using GBGPeriodicFields.Fields:
   Grid3D, RealFourierLayout,
   field_data, field_grid, field_layout, field_tensor_order, field_scalar_type
 import GBGPeriodicFields.Fields: write_field, read_field
+using GBGPeriodicFields.Points:
+  PointSet, AbstractPointValues,
+  ScalarPointValues, VectorPointValues, TensorPointValues,
+  point_coordinates, point_values, pointvalue_tensor_order, npoints
+import GBGPeriodicFields.Points: write_points, read_points
 
 const SCHEMA_VERSION = 1
 
@@ -26,6 +34,14 @@ _type_tag(::VectorFieldPhysical) = "GBGPeriodicFields.VectorFieldPhysical"
 _type_tag(::VectorFieldSpectral) = "GBGPeriodicFields.VectorFieldSpectral"
 _type_tag(::TensorFieldPhysical) = "GBGPeriodicFields.TensorFieldPhysical"
 _type_tag(::TensorFieldSpectral) = "GBGPeriodicFields.TensorFieldSpectral"
+_type_tag(::PointSet)            = "GBGPeriodicFields.PointSet"
+_type_tag(::ScalarPointValues)   = "GBGPeriodicFields.ScalarPointValues"
+_type_tag(::VectorPointValues)   = "GBGPeriodicFields.VectorPointValues"
+_type_tag(::TensorPointValues)   = "GBGPeriodicFields.TensorPointValues"
+
+# A point object carries its own array: a PointSet its (M, 3) coordinates, point values their samples.
+_point_array(points::PointSet) = point_coordinates(points)
+_point_array(values::AbstractPointValues) = point_values(values)
 
 
 # --- write: create the subgroup, store the host array as `data` and the metadata as attributes ---
@@ -105,5 +121,60 @@ function _reconstruct_grid(g, ::Type{T}) where {T<:AbstractFloat}
   origin = Tuple(T.(attrs(g)["origin"]))
   return Grid3D(grid_size, domain_size; origin = origin)
 end
+# --- the point layer: same shape as the field methods above. A point object has no grid and no
+# representation, so its group carries only the array, the element type, the point count, and — for
+# values — the tensor order. Positions and values stay separate groups: they are separate objects, and
+# several value sets often share one stored set of positions. ---
+
+function write_points(parent::HDF5.H5DataStore, name::AbstractString,
+    points::Union{PointSet, AbstractPointValues})
+
+  g = create_group(parent, name)
+  array = _point_array(points)
+  g["data"] = Array(array)                   # Array(...) copies a device array to the host; no-op on CPU
+  a = attrs(g)
+  a["type"] = _type_tag(points)
+  a["version"] = SCHEMA_VERSION
+  a["eltype"] = string(eltype(array))        # stored for self-description; reconstruction uses `data`
+  a["npoints"] = npoints(points)
+  points isa AbstractPointValues && (a["tensor_order"] = pointvalue_tensor_order(points))
+  return g
+end
+
+
+# the sugar: `parent[name] = points`, mirroring the field method above.
+function Base.setindex!(parent::Union{HDF5.File,HDF5.Group},
+    points::Union{PointSet, AbstractPointValues}, name::AbstractString)
+
+  write_points(parent, name, points)
+  return parent
+end
+
+
+function read_points(parent::HDF5.H5DataStore, name::AbstractString)
+  haskey(parent, name) ||
+    throw(ArgumentError("read_points: no object named \"$name\" under the given parent"))
+  g = parent[name]
+  g isa HDF5.Group ||
+    throw(ArgumentError("read_points: \"$name\" is a dataset, not a point group"))
+  haskey(attrs(g), "type") || throw(ArgumentError(
+    "read_points: group \"$name\" has no `type` attribute — it was not written by write_points"))
+  tag = attrs(g)["type"]
+  haskey(g, "data") || throw(ArgumentError(
+    "read_points: point group \"$name\" has no `data` dataset — the group is incomplete"))
+  data = read(g["data"])
+  if tag == "GBGPeriodicFields.PointSet"
+    return PointSet(data)
+  elseif tag == "GBGPeriodicFields.ScalarPointValues"
+    return ScalarPointValues(data)
+  elseif tag == "GBGPeriodicFields.VectorPointValues"
+    return VectorPointValues(data)
+  elseif tag == "GBGPeriodicFields.TensorPointValues"
+    return TensorPointValues(data)          # the order follows the array's dimensionality
+  else
+    throw(ArgumentError("read_points: unrecognized point type tag \"$tag\" in group \"$name\""))
+  end
+end
+
 
 end # module GBGPeriodicFieldsHDF5Ext

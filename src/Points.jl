@@ -61,7 +61,9 @@ export Point,
        point_values,
        pointvalue_tensor_order,
        npoints,
-       similar_pointvalues
+       similar_pointvalues,
+       write_points,
+       read_points
 
 
 ####################################
@@ -966,5 +968,61 @@ end
 # The grid↔point transfer (interpolation `f(x)` / `interpolate` and its adjoint `anterpolate`) lives
 # in the `Interpolation` module; `Points` owns only the point-data types and their fiberwise algebra.
 # See the module docstring and docs/ARCHITECTURE.md §10.
+
+# --- HDF5 persistence: bare generics declared here so `?write_points` and the docs work without HDF5
+# present; the methods (on `HDF5.File` / `Group`) live in `ext/GBGPeriodicFieldsHDF5Ext.jl`, loaded
+# automatically when the HDF5 package is. The field pair is `write_field`/`read_field` in `Fields`. ---
+
+"""
+    write_points(parent::HDF5.H5DataStore, name::AbstractString, points::PointSet)
+    write_points(parent::HDF5.H5DataStore, name::AbstractString, values::AbstractPointValues)
+
+Persist a point object — a [`PointSet`](@ref) of positions, or any of the three point-value types — as a
+**new HDF5 group** `name` under `parent`, returning the group it created. Use it to checkpoint the
+unstructured base and its samples for restart, or to hand them to another tool; the reload with
+[`read_points`](@ref) is exact. It is the point-layer twin of `write_field`, which persists a field.
+
+The group is **self-describing**: the numeric array becomes the dataset `data`, and the metadata become
+attributes — a `type` tag, a schema `version`, the element type, the point count, and, for point values,
+the tensor order — so any HDF5 tool can read it. A device (GPU) array is copied to the host on write.
+The sugar `parent[name] = points` is equivalent.
+
+Positions and values are written **separately**, one group each, because they are separate objects: a
+`PointSet` is the base, and point values are sections over it. A consumer that wants them together writes
+both under one parent group, which also lets several value sets share one stored set of positions.
+
+Because `parent` is a handle you opened and own, this never opens or closes a file, and the package
+attaches no notion of time — the consumer bundles a snapshot and owns any `time` / `iteration`
+attributes.
+
+The arguments are:
+- `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
+- `name` — the name of the group to create.
+- `points`, `values` — the `PointSet` or point-value section to write.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded.
+"""
+function write_points end
+
+
+"""
+    read_points(parent::HDF5.H5DataStore, name::AbstractString)
+
+Reconstruct the point object written by [`write_points`](@ref) from the HDF5 group `name` under `parent`,
+dispatching on the stored `type` attribute to return it in the matching type ([`PointSet`](@ref),
+[`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), [`TensorPointValues`](@ref)). The reload is
+**exact** — the array data, the element type, the point count, and the tensor order are recovered
+bit-for-bit. It is the point-layer twin of `read_field`.
+
+The reconstructed object is a host (CPU) one regardless of where the written one lived; move it to a
+device afterward if needed.
+
+- `parent` — an open HDF5 `File` or `Group` holding the group.
+- `name` — the name (or path) of the group under `parent`.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded.
+"""
+function read_points end
+
 
 end # module Points

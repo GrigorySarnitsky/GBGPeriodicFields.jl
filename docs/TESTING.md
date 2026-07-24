@@ -82,7 +82,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   for the two `Atomix` accumulators — and asserts the decision-40 reductions **bitwise
   thread-count-invariant**, in-process and across a subprocess at a different `-t`),
   and `jet.jl` (`JET` `@test_call` static analysis of the public operations), and `hdf5.jl` (the
-  `write_field`/`read_field` HDF5 persistence round trip, run with the `HDF5` weak dependency loaded).
+  `write_field`/`read_field` and `write_points`/`read_points` HDF5 persistence round trips — every field
+  type, every point type, the self-description attributes, and the corrupted-group error paths for both
+  families — run with the `HDF5` weak dependency loaded).
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`

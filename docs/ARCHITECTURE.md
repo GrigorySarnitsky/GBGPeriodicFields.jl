@@ -2371,3 +2371,39 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     floating-point tolerance rather than equality, so a spacing reached by an equivalent but
     different arithmetic route is still accepted; that case is pinned in `test/fields.jl`, along with
     both rejections and the `Float32` tolerance.
+
+46. **HDF5 persistence extends to the point layer — `write_points` / `read_points`** (decided
+    2026-07-24). Decision 29 gave fields a serializer and stopped there, which left a plain asymmetry:
+    a solver could checkpoint the velocity field it was integrating but not the point set it was
+    advecting through that field, so a restart could not reconstruct the state it had. Since the point
+    layer exists for consumer-side Lagrangian methods ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), the half that cannot be persisted is the
+    half a restart most needs. The pair mirrors the field pair exactly, in the same weak-dependency
+    extension, with the same bare generics and docstrings in the core so `?write_points` works without
+    `HDF5` loaded.
+
+    *Why decision 29's reasoning carries over unchanged.* Serializing a section is I/O, not an operation
+    on sections, so the rule that design changes be justified by established mathematics ([§2](@ref "2. The central principle: the architecture follows established mathematics")) —
+    which governs the *operation set* — does not bar it, exactly as for fields. Invariant 12 is
+    untouched as well: a `PointSet` is a set of positions, not a particle with a history, and the
+    package still attaches no notion of time. The consumer owns the file, bundles a snapshot, and writes
+    its own `time` / `iteration` attributes.
+
+    *The group is simpler than a field's, because a point object carries less.* A field group must
+    describe its `Grid3D` geometry, its Fourier layout and its representation; a point object has none
+    of those. So the group holds the array as the dataset `data` plus four attributes — a `type` tag, a
+    schema `version`, the element type, and the point count — with a fifth, `tensor_order`, on a
+    point-value section but *not* on a `PointSet`, which is a base and has no fiber. The tensor order is
+    recovered on read from the array's dimensionality, as a field's is.
+
+    *Positions and values are separate groups, deliberately.* They are separate objects — the base, and
+    sections over it — and one stored set of positions is often shared by several value sets, so
+    embedding the coordinates in every value group would duplicate the largest array in the file. A
+    consumer that wants them bundled writes both under one parent group, which costs nothing and keeps
+    the choice with the consumer.
+
+    *Verification.* `test/hdf5.jl` covers both element types across all four point types (including a
+    third-order `TensorPointValues`, whose order must survive as the array's dimensionality), the
+    `parent[name] = points` sugar, the self-description attributes — asserting that a `PointSet` group
+    carries no `tensor_order` and no grid geometry — that the two families coexist in one file with
+    neither reader accepting the other's groups, and the five corrupted-group error paths. The testset
+    grew from 143 to 207 assertions.

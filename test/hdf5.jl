@@ -9,6 +9,8 @@ using Random
 @testset "HDF5 persistence (extension)" begin
   @test length(methods(write_field)) ≥ 1        # the extension actually loaded
   @test length(methods(read_field)) ≥ 1
+  @test length(methods(write_points)) ≥ 1       # …and its point-layer twin
+  @test length(methods(read_points)) ≥ 1
 
   mktempdir() do dir
     path = joinpath(dir, "fields.h5")
@@ -129,6 +131,88 @@ using Random
         @test_throws ArgumentError read_field(file, "bogus_tag")    # present but unrecognized tag
         @test_throws ArgumentError read_field(file, "no_data")      # tagged group missing its data
         @test_throws ArgumentError read_field(file, "no_geometry")  # missing a geometry attribute
+      end
+    end
+    @testset "exact round-trip: the point layer ($T)" for T in (Float64, Float32)
+      # The point layer has no grid and no representation, so a group carries only the array, the
+      # element type, the point count and (for values) the tensor order. M = 5 with a deliberately
+      # non-round coordinate set, so an element-type slip would show.
+      M = 5
+      Random.seed!(7)
+      positions = PointSet(T.(2π .* rand(M, 3)))
+      scalars   = ScalarPointValues(T.(randn(M)))
+      vectors   = VectorPointValues(T.(randn(M, 3)))
+      tensors   = TensorPointValues(T.(randn(M, 3, 3)))
+      third     = TensorPointValues{3}(T.(randn(M, 3, 3, 3)))
+
+      h5open(path, "w") do file
+        write_points(file, "positions", positions)
+        write_points(file, "scalars", scalars)
+        write_points(file, "vectors", vectors)
+        write_points(file, "tensors", tensors)
+        file["third"] = third                          # the setindex! sugar, as for fields
+      end
+
+      h5open(path, "r") do file
+        back_positions = read_points(file, "positions")
+        @test back_positions isa PointSet
+        @test point_coordinates(back_positions) == point_coordinates(positions)
+        @test eltype(point_coordinates(back_positions)) === T
+        @test npoints(back_positions) == M
+
+        for (name, original, Type_, order) in (("scalars", scalars, ScalarPointValues, 0),
+                                               ("vectors", vectors, VectorPointValues, 1),
+                                               ("tensors", tensors, TensorPointValues, 2),
+                                               ("third",   third,   TensorPointValues, 3))
+          back = read_points(file, name)
+          @test back isa Type_
+          @test point_values(back) == point_values(original)     # bit-for-bit
+          @test eltype(point_values(back)) === T
+          @test pointvalue_tensor_order(back) == order           # recovered from the array's dimensionality
+          @test npoints(back) == M
+        end
+      end
+    end
+
+    @testset "point groups are self-describing, and independent of the field ones" begin
+      Random.seed!(11)
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      positions = PointSet(2π .* rand(4, 3))
+      h5open(path, "w") do file
+        write_points(file, "positions", positions)
+        write_points(file, "q", VectorPointValues(randn(4, 3)))
+        write_field(file, "u", VectorFieldPhysical(rand(8, 8, 8, 3), grid))
+      end
+      h5open(path, "r") do file
+        a = attrs(file["positions"])
+        @test a["type"] == "GBGPeriodicFields.PointSet"
+        @test a["npoints"] == 4
+        @test !haskey(a, "tensor_order")                        # a base carries no fiber
+        @test !haskey(a, "grid_size")                           # and no grid geometry
+        @test haskey(attrs(file["q"]), "tensor_order")
+        @test attrs(file["q"])["tensor_order"] == 1
+        # the two families share one file and neither reader accepts the other's groups
+        @test read_field(file, "u") isa VectorFieldPhysical
+        @test_throws ArgumentError read_points(file, "u")       # a field group, unrecognized tag here
+        @test_throws ArgumentError read_field(file, "positions") # a point group, no geometry attributes
+      end
+    end
+
+    @testset "error paths: corrupted point groups" begin
+      h5open(path, "w") do file
+        file["plain_points"] = [1.0, 2.0]
+        write_points(file, "bogus_tag", PointSet(rand(3, 3)))
+        attrs(file["bogus_tag"])["type"] = "GBGPeriodicFields.NoSuchPointThing"
+        write_points(file, "no_data", PointSet(rand(3, 3)))
+        HDF5.delete_object(file["no_data"], "data")
+        create_group(file, "tagless_points")
+      end
+      h5open(path, "r") do file
+        @test_throws ArgumentError read_points(file, "plain_points")    # a dataset, not a group
+        @test_throws ArgumentError read_points(file, "absent")          # no such object
+        @test_throws ArgumentError read_points(file, "tagless_points")  # a group, but no type tag
+        @test_throws ArgumentError read_points(file, "bogus_tag")       # present but unrecognized tag
+        @test_throws ArgumentError read_points(file, "no_data")         # tagged group missing its data
       end
     end
   end
