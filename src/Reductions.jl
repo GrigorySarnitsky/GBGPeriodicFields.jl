@@ -62,7 +62,7 @@ export integral, inner, weighted_inner, l2norm, lpnorm, radial_spectrum, radial_
 
 
 # Physical fields and point-values: representation-free / physical-space sections whose base measure
-# is the naive one. Spectral fields are excluded from ReducibleSection: they carry only the reductions
+# is the naive one. Fields in spectral representation are excluded from ReducibleSection: they carry only the reductions
 # that have a spectral form — the Parseval `inner`/`l2norm` and the zero-mode `integral`/`mean` — each
 # defined separately on AbstractFieldSpectral below.
 const ReducibleSection = Union{AbstractFieldPhysical, AbstractPointValues}

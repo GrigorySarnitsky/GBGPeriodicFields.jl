@@ -1321,7 +1321,7 @@ the three per-axis squared-wavenumber vectors (reshaped to the three spatial dim
 Laplacian, inverse Laplacian, and Helmholtz projection.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
-over a spectral field's coefficients ``\\hat s``
+over the coefficients ``\\hat s`` of a field in spectral representation
 (``-|k|^2 \\hat s``, ``\\hat s_i - k_i k_j \\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
 operators allocation-free in place: no ``O(N^3)`` ``|k|^2`` scratch is built, which on the GPU would
 otherwise accumulate in the memory pool on each call.

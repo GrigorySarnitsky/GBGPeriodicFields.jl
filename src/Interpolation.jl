@@ -670,7 +670,7 @@ struct DirectDFT <: AbstractTransferScheme end
 
 
 # True signed wavenumbers and the rfft half-spectrum Parseval weight along one array axis of a
-# spectral field. `stored_length` is the array's size on this axis (halved on the rfft axis `is_half`),
+# field in spectral representation. `stored_length` is the array's size on this axis (halved on the rfft axis `is_half`),
 # `number_of_points` the corresponding grid size. Returns `(k, α)` host vectors: `k` the TRUE
 # wavenumber (Nyquist kept, unlike the derivative multipliers); `α = 1` on the half-axis self-conjugate
 # modes (kₓ = 0 and even-Nₓ Nyquist) and 2 elsewhere, all-ones on the full axes — so the per-mode weight
@@ -694,7 +694,7 @@ function _dft_axis(stored_length::Int, number_of_points::Int, domain_length::T, 
 end
 
 
-# Build the three per-axis wavenumber + weight device vectors for a spectral field (host build →
+# Build the three per-axis wavenumber + weight device vectors for a field in spectral representation (host build →
 # backend copy, mirroring `Fields._axis_wavenumber_arrays`). The half (rfft) axis is `fft_dims[1]`.
 function _dft_axes(field::AbstractFieldSpectral{T}) where {T}
   grid = field_grid(field)
@@ -947,7 +947,7 @@ spreads the transfer onto an oversampled grid through a smooth compact window an
 it is far cheaper than the exact ``O(NM)`` sum once the point and mode counts grow; for a few points or
 modes, `DirectDFT` is simpler and exact.
 
-Build a plan once from a `reference` spectral field, which fixes the grid, layout, element type, and
+Build a plan once from a `reference` field in spectral representation, which fixes the grid, layout, element type, and
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
 like the reference. The options:
 

@@ -649,7 +649,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    (both element types), and a **512³ `Float32`** point is now in `RESULTS.md` for the bandwidth-bound
    classes (`fft`, `algebra`, `operators`, `convolution`). But 512³ is *not* free even at 24 GB:
    `transfer` is omitted (its NUFFT oversamples ×2 to a 1024³ work grid) and `reductions` is omitted
-   (the radial reductions hold a ≈24 GB live set at 512³ — vector physical + spectral fields + the
+   (the radial reductions hold a ≈24 GB live set at 512³ — vector fields in both representations + the
    inverse-rfft plans). A 512³ `Float64` sweep of the heavy classes exceeds 24 GB,
    and a HIP OOM **wedges** the allocator (GPU 0 %, one host core spinning, VRAM full) rather than
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help

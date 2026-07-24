@@ -326,7 +326,7 @@ no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, 
 ``\lVert w \star f\rVert^2``, and the ``f \leftrightarrow g`` symmetry — scalar/vector/tensor, spectral-only),
 the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
 read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
-still absent on spectral fields), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
+still absent in spectral representation), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
 spectrum ``P(\kappa)`` (``\kappa`` the wavenumber-shell magnitude), checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
@@ -345,7 +345,7 @@ the identity map reproducing the bare fiber-valued reductions, the analytic ``\l
 the coincidence ``\max_n \lVert u_n\rVert = \lVert u\rVert_\infty`` linking `maximum(norm, u)` to the
 materializing `lpnorm(u, Inf)`, a random tensor against an **independent explicit per-point reduction**,
 the counting-measure forms on point-values, and the spectral absence of the whole family),
-and the intentional absence of the *measure* reductions on spectral fields;
+and the intentional absence of the *measure* reductions in spectral representation;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
 ``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
 ``\exp(-\mathrm{i} k_a m \Delta x_a)`` (a shift of ``m`` cells, with ``\Delta x_a`` the grid spacing along axis ``a``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent

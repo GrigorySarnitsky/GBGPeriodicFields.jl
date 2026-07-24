@@ -205,7 +205,7 @@ end
 # exactly what lets the GPU twin run unattended (an allocating style would grow the device memory pool
 # every step until it wedges).
 
-# Physical velocity & vorticity of a spectral field, into the given buffers. The `uh` buffer is preserved by
+# Physical velocity & vorticity of a field in spectral representation, into the given buffers. The `uh` buffer is preserved by
 # transforming a COPY of it — `to_physical!` may overwrite its spectral source as scratch.
 function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   curl!(ws.ωh, uh, m)                          # ω̂ = ∇×û  (û preserved)

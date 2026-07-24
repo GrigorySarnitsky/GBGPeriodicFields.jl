@@ -59,7 +59,7 @@ abstract type AbstractFiberSection{T<:AbstractFloat, R} end
     section_scalar_type(section::AbstractFiberSection)
 
 Return the real scalar type `T` of any section. Because it is defined once on
-`AbstractFiberSection{T}`, it yields the real `T` for fields (including spectral fields, whose
+`AbstractFiberSection{T}`, it yields the real `T` for fields (including those in spectral representation, whose
 data is `Complex{T}`) and for point-values alike, which lets the shared `sym`/`skew`/`dev`
 kernels obtain `T` without dispatching on the concrete base.
 """
