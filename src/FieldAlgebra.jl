@@ -8,8 +8,9 @@ one exists — and an in-place `!` form. The families are:
   * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
     multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition, weighted combination,
-    and real scaling are the vector-space structure; scalar-field multiplication is the module action over
-    the scalar fields.
+    and real scaling are the vector-space structure; scalar-field multiplication is the action that makes
+    fields a *module* over the ring of scalar fields — the algebraic sense of the word, not a Julia
+    module: scaling a field by another field rather than by a number.
   * **Contraction and product operations** — [`dot!`](@ref) computes the vector Euclidean and tensor
     Frobenius inner products (`⋅`), [`cross!`](@ref) the cross product (`×`), [`mul!`](@ref) the
     tensor-on-vector action (left and right) and the tensor-on-tensor product — contracted (matrix)

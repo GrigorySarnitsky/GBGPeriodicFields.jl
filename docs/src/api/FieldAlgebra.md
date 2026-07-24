@@ -5,7 +5,7 @@ Modules = [GBGPeriodicFields.FieldAlgebra]
 Order   = [:module]
 ```
 
-## Vector-space and module operations
+## Vector-space and scalar-field-scaling operations
 
 ```@docs
 add!

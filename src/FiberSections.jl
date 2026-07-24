@@ -127,6 +127,9 @@ with_threading(f; enabled::Union{Nothing, Bool} = true) =
 Set [`threading_cutoff`](@ref) to `n` and return it. A CPU field assignment whose destination has
 fewer than `n` elements then runs serially instead of threaded. Raise `n` to keep small
 operations off the thread pool, or lower it to thread smaller writes.
+
+The cutoff is a single process-wide setting, unlike [`with_threading`](@ref), whose override is
+dynamically scoped and therefore task-local. Set it once at startup rather than around a call.
 """
 set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
 
