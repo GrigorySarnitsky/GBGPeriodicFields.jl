@@ -157,6 +157,24 @@ reader's copy of the notation. Two audiences, one rule each: a **module docstrin
   second copy of the formula. The bare operators `+ - * /` carry thin allocating docstrings so the
   pairing is documented and REPL-visible.
 
+**The four shape rules (user-decided 2026-07-24; the `/check-consistency` uniformity pass).** The
+rubric above says what a docstring must *contain*; these fix the *shape*, so the same content is not
+written four ways. **(1) Arguments.** A docstring documenting **three or more arguments, or any
+keyword argument**, uses the bulleted form led by `The arguments are:`; with fewer, the arguments are
+bound in running prose and there are no bullets. Never mix the two within one docstring. **(2) Types.**
+A type that stores named, user-readable fields documents them under `The fields are`, one bullet per
+field; prose is reserved for the one-sentence identity above that list. **(3) Admonitions.** Every
+`!!!` block carries a **custom descriptive title** stating the caveat (`!!! warning "The destination
+must not alias an input"`), never a bare `!!! warning` rendering as "Warning" — a reader skimming the
+page should learn the hazard without opening the block. **(4) The in-place steer.** Every `!` form
+that *has* an allocating sibling carries this sentence verbatim, after the identity paragraph and
+before the arguments: *"Use this in-place form when `destination` is already allocated; the allocating
+[`f`](@ref) returns a fresh result instead."* An operator sibling (`+`, `-`, `*`, `/`) is written in
+plain backticks, not `@ref` — the bare operators sit on no `@docs` block, so a link would not resolve.
+A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_threads!`,
+`set_threading_cutoff!`) take no such sentence; `to_physical!`/`to_spectral!` already steer to their
+siblings for the stronger input-preservation reason (invariant 11) and are not doubled.
+
 **API pages are math-grouped.** Group public objects into the operation **families of
 `ARCHITECTURE.md` §2** under hand-written `###` headers via explicit `@docs` blocks (not `@autodocs`,
 which cannot express a semantic group). Each object appears **once**, in the family whose defining
@@ -426,6 +444,26 @@ as history, only current-state surfaces being reworded. One finding was a covera
 docs defect and is fixed in the suite: decision 40 gave `helmholtz_projection!` a gated CPU loop, so
 the `with_threading` toggle reaches it and `test/threading.jl` now asserts it bitwise there (the
 assertion had stayed in the KA testset, where the docs still claimed it belonged).
+
+**Standing open item — the docstring-template uniformity pass (started 2026-07-24).** The
+`/check-consistency` panel's `structure-consistency` hat filed 20 findings; the consolidated summary
+compressed 19 of them into a single parenthetical, so only its blocker was closed in the first fix
+pass. The four shape rules above were then user-decided and the pass began. **Done:** rule 3
+(admonition titles, 5 sites) and rule 4 (the in-place steer, 16 sites) — commit `5c238029`.
+**Remaining:** rule 1 (argument shape — ~17 docstrings, chiefly the FieldAlgebra M2/M3 family, the
+Convolution builders, `write_field`, `interpolate`/`anterpolate`, and the two radial reductions);
+rule 2 (type docstrings — the six field types, the three point-value types, and `FieldTransformPlans`,
+which currently mixes both shapes); and the mechanical remainder — findings 6 (`sym`/`skew`/`dev`
+wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
+arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs
+trailing), 10 (`dot`/`cross` wrappers re-derive validity prose their homes own), 11 (`NUFFT` bullets
+its options where the spline schemes inline theirs), 12 (the Interpolation module docstring is alone
+in embedding "API"/"References" sub-headers), 13 (module-docstring bullets vs page section headers;
+`Points` promises a fiberwise-algebra family with no matching section), 14, 16, 17 (the Internal-API
+disclaimer opens 5 of 8 sections), 18, 19 (the umbrella opens imperative where all eight submodules
+open with a noun phrase), 20 (five distinct lead-ins for the module bullet list). The per-hat report
+`.claude/doc-review/06-structure-consistency.md` is the authority — **not** the consolidated summary,
+which under-itemized it.
 
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified
