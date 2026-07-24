@@ -800,7 +800,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, ~2800 tests; threaded lane `JULIA_NUM_THREADS=4`). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **3180 tests** across 58 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in CUDA parity suite is **308**). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
