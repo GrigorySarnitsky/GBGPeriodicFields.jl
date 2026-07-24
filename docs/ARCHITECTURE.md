@@ -558,7 +558,7 @@ construction (an element's reads precede its writes) or a documented contract (`
 bitwise.** The fused operations of decisions 38/39 (`gradient!`, `curl!`, `symmetric_gradient!`, the
 fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a device only**; on a
 CPU array they run slab-threaded plain loops that pass through the same `_use_threads` gate as the
-broadcast route, so the cutoff and the `with_threading` override govern them. Two operation families, however,
+broadcast route, so the cutoff and the `with_threading` override govern them. Two groups of operations, however,
 are KA kernels **on every backend** — the gather/scatter transfer kernels
 ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), and the radial
 shell binning (decisions 25, 34) — and on a CPU array these launch on the `CPU()` backend, which
@@ -567,7 +567,7 @@ decision 40 gave it a gated loop twin, so what remains is exactly the atomic/irr
 exemption is structural, not historical). Two consequences follow for those two families,
 and neither is a defect to fix — they are the price of their kernel shapes. First, a KA launch
 **never consults the `_assign!` policy above**: the serial cutoff and the `with_threading` override
-do not reach those two operation families, which thread by KA's rules at every size (the
+do not reach those two groups, which thread by KA's rules at every size (the
 exclusion is stated on `with_threading`'s own docstring). Second, the two kernels that accumulate through `Atomix` — the anterpolation scatter and the
 shell binning — sum in a **nondeterministic order**, and floating-point addition is not associative,
 so they are **not bitwise-reproducible**: not across thread counts, and not even between two runs at
@@ -809,7 +809,7 @@ for it (seen in a few papers) is a misnomer.
 
 ## 11. Convolution
 
-`Convolution` is the **kernel-multiplier** family: periodic (circular) convolution of a field with a
+`Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
 product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``, also exported as the infix operator `⋆`) apply a kernel supplied as a
 `ScalarFieldSpectral` transfer function ``\hat g``, which multiplies every fiber component (one method for

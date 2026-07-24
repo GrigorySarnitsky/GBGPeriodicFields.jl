@@ -2,7 +2,8 @@
     Reductions
 
 The **L² / measure structure** on sections — the third operation family, alongside the fiberwise algebra
-and the differential operators. A reduction integrates a section over
+and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
+family, as two further roles of the one integration structure. A reduction integrates a section over
 its **base** against the measure the base carries: a `Grid3D` uses its uniform quadrature (the cell
 volume), and a `PointSet` uses its **counting** measure (unit weight per point,
 forced because a `PointSet` is grid-free). One set of formulas serves both fields and point-values,

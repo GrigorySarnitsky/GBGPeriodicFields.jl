@@ -18,8 +18,7 @@ carries a point layer that evaluates fields between grid nodes for Lagrangian-pa
 methods. A field is one real physical object; the physical and spectral forms are two
 representations of that same object.
 
-The umbrella assembles its public surface from the submodules below, each of which owns
-one operation family:
+The umbrella assembles its public surface from the submodules below:
 
 - [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
   the FFT transform plans, the transforms [`to_physical`](@ref) and
@@ -45,7 +44,7 @@ one operation family:
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
   `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`/`std`/`var` and the order statistics
   `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
-  and the radial pair `radial_spectrum` and `radial_correlation`. Each reduction also has a mapped
+  and the radial reductions `radial_spectrum` and `radial_correlation`. Each reduction also has a mapped
   form taking a leading fiber map, which reduces a nonlinear invariant without building it.
 
 [`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share.
