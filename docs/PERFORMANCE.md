@@ -177,6 +177,21 @@ is the recorded choice for both platforms.
   scatter touches particles. Sorting + node-centric deposition is a *dense*-particle (PIC) technique;
   wrong for this regime. (If deterministic anterpolation ever becomes a hard requirement, it is the
   available — slow-at-sparse — answer.)
+- **Storing the Helmholtz denominator as a precomputed derivative-squared wavenumber family**
+  (rather than squaring ``a`` in-register — decision 42 dropped exactly these arrays, and after
+  decision 47 restored the gated CPU loop the question was whether to bring them back). Measured
+  head-to-head, in-register vs a stored ``a^2`` array, same projection otherwise: **CPU in-register
+  wins everywhere** — Float64 ``+4\%`` (``128^3``/``256^3``), Float32 ``+10\%`` — because a register
+  multiply of the already-loaded ``a`` beats an extra stride-1 load, and the stored form keeps three
+  more arrays resident. On the **GPU it splits**: stored is ``\approx 6\%`` faster in **Float64**
+  (the squaring is rate-limited to ``\sim 1/64`` on a consumer Blackwell card, and the ``@Const`` 1-D
+  reads are cheap), while in-register is neutral-to-faster in **Float32**. So there is no global
+  winner, and the only gain is on GPU Float64 — not the production case (DNS runs Float32). Capturing
+  it needs a per-backend kernel split, which re-introduces the two-bodies-in-sync coupling that
+  produced the decision-47 dead-loop bug, for a single-digit win on a non-hot path. **Kept
+  in-register**; the arrays stay dropped. This also retires the original (wrong) hypothesis that
+  decision 42's in-register arithmetic cost the regression the canary flagged — it did not; the dead
+  loop did (decision 47), and the arithmetic is free-to-favourable on every path that matters.
 
 **(d) Anterpolation and contention.** The scatter costs ≈**2.2–2.7×** the gather (atomic
 read-modify-write + a full-grid prescale). On gfx1031 `Float32` atomic-add is native but `Float64`
