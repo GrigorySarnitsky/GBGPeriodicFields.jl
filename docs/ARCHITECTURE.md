@@ -151,6 +151,54 @@ Reductions, convolution, and the grid↔point transfer are the same L²/integrat
 roles — the **measure taxonomy** (decision 19). Which operation is valid in which representation, the naming rules, and the
 documentation policy follow.
 
+### The invariants
+
+Thirteen rules constrain every change, and the rest of this document refers to them by number. They
+are collected here so a reader meeting "invariant 6" has somewhere to look; each is stated in one line,
+with a pointer to the section that develops it.
+
+1. **The public method set is the spec.** Deliberate absences encode representation validity — there is
+   no spectral field-times-field multiplication (the coefficientwise product is a convolution, offered
+   under its true name in [§11](@ref "11. Convolution")), no spectral division by a scalar field, no spectral pointwise
+   norms. Operations linear in the field exist in both representations; nonlinear ones are
+   physical-space only. A missing combination is never added for completeness (see the next subsection).
+2. **A field is a real physical object**, and physical and spectral are two *representations* of it.
+   Complex arrays are storage detail, never user-facing — hence "a field in spectral representation",
+   not "a spectral field".
+3. **The data layout is fiber-last**, ``(N_x, N_y, N_z[, 3[, 3]])``, so component slices are
+   contiguous; FFT batching and CPU threading both rely on it ([§3](@ref "3. Types and memory layout")).
+4. **The transform normalization is `AbstractFFTs`'**: forward unnormalized, inverse normalized. Adding
+   a physical constant in spectral representation therefore updates **only** the zero Fourier mode,
+   scaled by the grid-point count, rather than every coefficient ([§4](@ref "4. Spectral machinery")).
+5. **The Nyquist split is deliberate.** On an even-length axis the derivative wavenumber is zeroed at
+   the Nyquist frequency, so derivatives of real fields stay real, while the squared wavenumber keeps
+   the true ``k^2``, so the Laplacian and Poisson-type solves stay correct. The two families are not
+   unified ([§4](@ref "4. Spectral machinery")).
+6. **The package is GPU-portable by construction**: storage is a generic `AbstractArray`, no package
+   method scalar-indexes a device array, allocation goes through `similar`/`similar_field`, and fused
+   broadcast assignments are preferred ([§9](@ref "9. Performance model and CPU threading")).
+7. **No type piracy**: a `Base` or `LinearAlgebra` function is imported before it is extended.
+8. **No fiber-fiber methods.** The fiber types are `StaticArrays` aliases and already carry their own
+   algebra, so the package does not redefine it.
+9. **Aliasing is safe by construction.** Every fused pass reads an element's sources into registers
+   before writing any of its outputs, so an in-place aliased call is computed directly and is
+   bitwise-identical to the non-aliased one; the former guard family is retired. `mul!` keeps
+   `LinearAlgebra`'s documented contract that the destination must not alias ([§7](@ref "7. Aliasing policy")).
+10. **The ``\alpha``/``\beta`` convention.** A five-argument form converts both weights to the field's
+    scalar type and branches on ``\beta = 0`` (overwrite) versus ``\beta \ne 0`` (accumulate); a
+    three-argument form delegates to it with ``\alpha = 1``, ``\beta = 0``.
+11. **The transform input contract.** The allocating transforms preserve their input; the in-place ones
+    may overwrite the source, and the inverse real transform uses its spectral input as scratch on some
+    backends but not others. Never rely on a `!`-transform's source surviving ([§4](@ref "4. Spectral machinery")).
+12. **This is a math backend — no time, and no particles.** The terminology stays domain-neutral
+    (base and fiber, point and value), and the package introduces no advection, time integration, or
+    per-step state; trajectory dynamics belong to the consumer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
+13. **Allocation-free is an enforced contract.** Every in-place `!` operator allocates no field-sized
+    scratch when called on preallocated buffers with a destination distinct from its sources. This is
+    load-bearing on a GPU: a per-call device temporary escapes Julia's garbage collector, which
+    triggers on host pressure and cannot see the device buffer a dead array owns, so the pool grows
+    every step until the run wedges ([§9](@ref "9. Performance model and CPU threading")).
+
 ### Representation validity lives in the method set
 
 Seeing each representation as a **basis for a grid section's data** — the nodal basis

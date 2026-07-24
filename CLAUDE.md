@@ -38,6 +38,8 @@ conceptual model and the writing/docstring conventions are recorded once — in
 
 ## Core invariants — do not violate
 
+*These are the operative statements. A one-line-each **rendered** copy lives in `docs/ARCHITECTURE.md` §2 ("The invariants"), because the design docs cite them by number dozens of times and a reader of the site had nowhere to look them up. The two are a deliberate duplication: **edit both in the same change**, the rendered list being the compressed form of whatever is stated here.*
+
 1. **The public method set is the spec.** Deliberate absences encode representation
    validity: no spectral field×field *multiplication* (`*`/`multiply!`) — the
    coefficientwise product is a convolution, offered under its true name as `convolve`
