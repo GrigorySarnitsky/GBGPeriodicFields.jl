@@ -459,8 +459,9 @@ radial reductions, and a lead-in for `convolve!`/`write_field`). Rule 1 turned o
 docstrings, not the ~17 the classifier first suggested: `norm!` takes two arguments in every overload
 (its three signatures merely name the second one three ways), and the six allocating wrappers document
 no arguments at all, so the threshold never applies to them.
-**Remaining:** rule 2 (type docstrings — the six field types, the three point-value types, and `FieldTransformPlans`,
-which currently mixes both shapes); and the mechanical remainder — findings 6 (`sym`/`skew`/`dev`
+Rule 2 (type docstrings) is done as well — the six field types, `FieldTransformPlans` and the three
+point-value types all carry `The fields are` bullets, collapsing three tiers of depth to one.
+**Remaining:** the mechanical remainder — findings 6 (`sym`/`skew`/`dev`
 wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
 arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs
 trailing), 10 (`dot`/`cross` wrappers re-derive validity prose their homes own), 11 (`NUFFT` bullets
