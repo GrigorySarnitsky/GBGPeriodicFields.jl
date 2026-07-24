@@ -856,9 +856,13 @@ end
 
 The **radial (shell-binned) power spectrum** resolves a field's L² energy over wavenumber-magnitude
 shells. Write ``P(\\kappa)`` for the one-argument **power spectrum** and ``P_{fg}(\\kappa)`` for the
-two-argument **co-spectrum** (cross-power) of two compatible, equal-order fields; `f` and `g` are in
-spectral representation and `multipliers` supplies the per-axis wavenumbers ``k``
-([`FieldSpectralMultipliers`](@ref)). It returns `(shells, spectrum)`, where `shells` are the bin-center
+two-argument **co-spectrum** (cross-power) of two compatible, equal-order fields.
+
+The arguments are:
+- `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
+- `multipliers` — the per-axis wavenumbers ``k`` for the field's grid ([`FieldSpectralMultipliers`](@ref)).
+
+It returns `(shells, spectrum)`, where `shells` are the bin-center
 wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber (co-)energy over the
 modes whose rounded magnitude falls in shell ``i``:
 
@@ -980,8 +984,13 @@ The **radial (shell-averaged) two-point correlation** of a field is the physical
 [`radial_spectrum`](@ref) under the Wiener–Khinchin theorem — the statement that the autocorrelation
 and the power spectrum are a Fourier-transform pair. The one-argument form is the **autocorrelation** ``C(r)``, and the
 two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
-compatible, equal-order fields. The fields `f` (and `g`) are in spectral representation, and `plans` are
-their transform plans (matching the tensor order). It returns `(separations, correlation)`, where
+compatible, equal-order fields.
+
+The arguments are:
+- `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
+- `plans` — their transform plans, matching the tensor order.
+
+It returns `(separations, correlation)`, where
 `separations` are the
 bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell (each separation taken as its nearest periodic
 replica, so no distance exceeds half the box)

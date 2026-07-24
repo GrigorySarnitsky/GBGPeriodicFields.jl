@@ -161,7 +161,11 @@ reader's copy of the notation. Two audiences, one rule each: a **module docstrin
 rubric above says what a docstring must *contain*; these fix the *shape*, so the same content is not
 written four ways. **(1) Arguments.** A docstring documenting **three or more arguments, or any
 keyword argument**, uses the bulleted form led by `The arguments are:`; with fewer, the arguments are
-bound in running prose and there are no bullets. Never mix the two within one docstring. **(2) Types.**
+bound in running prose and there are no bullets. Never mix the two within one docstring. Count the
+arguments a *signature* takes, not the distinct names across type-specialized variants (`norm!` takes
+two in every overload and stays prose, though its three signatures name the second one three ways).
+A **thin allocating wrapper is exempt**: it documents no arguments at all, leading with the
+one-sentence meaning and `@ref`-linking the home, so the threshold never applies to it. **(2) Types.**
 A type that stores named, user-readable fields documents them under `The fields are`, one bullet per
 field; prose is reserved for the one-sentence identity above that list. **(3) Admonitions.** Every
 `!!!` block carries a **custom descriptive title** stating the caveat (`!!! warning "The destination
@@ -449,10 +453,13 @@ assertion had stayed in the KA testset, where the docs still claimed it belonged
 `/check-consistency` panel's `structure-consistency` hat filed 20 findings; the consolidated summary
 compressed 19 of them into a single parenthetical, so only its blocker was closed in the first fix
 pass. The four shape rules above were then user-decided and the pass began. **Done:** rule 3
-(admonition titles, 5 sites) and rule 4 (the in-place steer, 16 sites) — commit `5c238029`.
-**Remaining:** rule 1 (argument shape — ~17 docstrings, chiefly the FieldAlgebra M2/M3 family, the
-Convolution builders, `write_field`, `interpolate`/`anterpolate`, and the two radial reductions);
-rule 2 (type docstrings — the six field types, the three point-value types, and `FieldTransformPlans`,
+(admonition titles, 5 sites), rule 4 (the in-place steer, 16 sites) — commit `5c238029` — and rule 1
+(argument shape, 10 sites: the `add!`/`subtract!`/`multiply!`/`divide!`/`dot!`/`cross!` family, the two
+radial reductions, and a lead-in for `convolve!`/`write_field`). Rule 1 turned out to reach ten
+docstrings, not the ~17 the classifier first suggested: `norm!` takes two arguments in every overload
+(its three signatures merely name the second one three ways), and the six allocating wrappers document
+no arguments at all, so the threshold never applies to them.
+**Remaining:** rule 2 (type docstrings — the six field types, the three point-value types, and `FieldTransformPlans`,
 which currently mixes both shapes); and the mechanical remainder — findings 6 (`sym`/`skew`/`dev`
 wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
 arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs

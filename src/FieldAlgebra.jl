@@ -214,9 +214,14 @@ Add fields, or a field and a constant, in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating `+`
 returns a fresh result instead.
 
+The arguments are:
+- `destination` — the field that receives the sum; it shares the domain and tensor order of the operands.
+- `a`, `b`, `fields...` — two or more fields to add.
+- `field`, `constant` — the field-and-constant variants, in either argument order: a `Real` with a scalar field, a `FiberVector` with a vector field, a `FiberTensor2` with a second-order tensor field.
+
 Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical-space representation and coefficient-wise on fields in spectral representation.
 
-The constant variants pair a scalar field with a `Real`, a vector field with a `FiberVector`, and a second-order tensor field with a `FiberTensor2`, in either argument order. In physical-space representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
+In physical-space representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
 """
 function add! end
 
@@ -231,7 +236,12 @@ Subtract fields, or a field and a constant, in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating `-`
 returns a fresh result instead.
 
-Field-field subtraction computes `a - b - fields...`; it is storage-wise and representation-preserving. The constant variants mirror [`add!`](@ref): they accept a `Real` for a scalar field, a `FiberVector` for a vector field, and a `FiberTensor2` for a second-order tensor field. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
+The arguments are:
+- `destination` — the field that receives the difference.
+- `a`, `b`, `fields...` — the fields to subtract in order.
+- `field`, `constant` — the field-and-constant variants, with the constant typed as in [`add!`](@ref); the reversed order computes `constant - field`.
+
+Field-field subtraction computes `a - b - fields...`; it is storage-wise and representation-preserving. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
 function subtract! end
 
@@ -558,6 +568,12 @@ Multiply a field in place by a real number or by a scalar field, and return `des
 Use this in-place form when `destination` is already allocated; the allocating `*`
 returns a fresh result instead.
 
+The arguments are:
+- `destination` — the field that receives the product.
+- `scalar` — a `Real` factor, accepted in either argument order.
+- `scalar_field` — a scalar field factor, multiplying the other operand pointwise.
+- `field`, `constant` — the operand being scaled: a field of any tensor order, or a constant `FiberVector` or `FiberTensor2` paired with a scalar field.
+
 Multiplication by a real number is representation-preserving and is defined for fields in both physical-space and spectral representation, in either argument order.
 
 Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical-space representation; in spectral representation the product of two fields is a convolution, which this module does not provide. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
@@ -574,6 +590,12 @@ Divide a field in place, and return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating `/`
 returns a fresh result instead.
+
+The arguments are:
+- `destination` — the field that receives the quotient.
+- `field`, `numerator` — the dividend: a field of any tensor order, a `Real`, or a constant `FiberVector` or `FiberTensor2`.
+- `scalar` — a `Real` divisor.
+- `scalar_field` — a scalar field divisor, dividing pointwise.
 
 Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical-space representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field).
 """
@@ -838,6 +860,11 @@ Compute a fiberwise inner product in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating [`dot`](@ref)
 returns a fresh result instead.
 
+The arguments are:
+- `destination` — the scalar field that receives the contraction.
+- `u`, `v` — two vector fields, or `A`, `B` two second-order tensor fields.
+- `a`, `B` — a constant `FiberVector` or `FiberTensor2` contracted against the field, in either argument order.
+
 For two vector fields this is the Euclidean scalar product; for two second-order tensor fields it is the Frobenius double contraction. Either argument order is accepted.
 
 Contraction of two fields is nonlinear and is defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise.
@@ -936,6 +963,11 @@ Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in place, and re
 
 Use this in-place form when `destination` is already allocated; the allocating [`cross`](@ref)
 returns a fresh result instead.
+
+The arguments are:
+- `destination` — the vector field that receives the product.
+- `u`, `v` — the two vector fields.
+- `a` — a constant `FiberVector` crossed with the field, in either argument order.
 
 Cross products of two fields are nonlinear and are defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise.
 

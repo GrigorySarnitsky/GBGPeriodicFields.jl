@@ -1514,6 +1514,7 @@ whole snapshot (velocity, vorticity, …) into one file under separate names and
 `iteration` attributes — the package serializes the fields, and the consumer owns the bundling and any
 notion of time.
 
+The arguments are:
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
 - `field` — the field to write.

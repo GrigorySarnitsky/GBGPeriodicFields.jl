@@ -158,6 +158,7 @@ accumulate:
 \\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
 ```
 
+The arguments are:
 - `field` — the field to filter, in spectral representation.
 - `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation;
   one scalar kernel serves scalar, vector, and tensor `field`s.
