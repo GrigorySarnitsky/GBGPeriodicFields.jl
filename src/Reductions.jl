@@ -509,7 +509,7 @@ bare form exists only at tensor order zero: the maximum of a vector or tensor se
 (which component?), and naming a fiber map in the mapped form `maximum(φ, f)` is what makes it well
 posed — `maximum(norm, u)` takes the largest fiber magnitude in one fused pass with no intermediate
 section. Physical fields and point-values only. The materializing route to the same supremum is
-[`lpnorm`](@ref)`(f, Inf)`. An order statistic has no neutral element, so reducing an empty section
+[`lpnorm(f, Inf)`](@ref lpnorm). An order statistic has no neutral element, so reducing an empty section
 (a zero-point set) throws an `ArgumentError` — the same contract as reducing an empty collection in
 `Base` — rather than fabricating a value.
 """

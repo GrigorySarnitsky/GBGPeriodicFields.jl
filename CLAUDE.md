@@ -181,6 +181,15 @@ A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_th
 `set_threading_cutoff!`) take no such sentence; `to_physical!`/`to_spectral!` already steer to their
 siblings for the stronger input-preservation reason (invariant 11) and are not doubled.
 
+**An `## Internal API` section splits by heading only when it holds both kinds.** A section documenting
+**both types and functions** uses `### Types` and `### Functions` over two `@autodocs` blocks (`Fields`,
+`Points`, `Interpolation`); one documenting **only functions** uses a single unlabelled block and no `###`
+at all (`Convolution`, `DifferentialOperators`, `FieldAlgebra`, `FiberSections`, `Reductions`). The split
+tracks the content, never the page. Every such section also opens with the same disclaimer sentence.
+**And a `@ref` never abuts a second code span** — ``[`f`](@ref)`(args)` `` renders as two adjacent
+monospace chips with a visible seam, so write the whole call as the link text with an explicit target,
+``[`lpnorm(f, Inf)`](@ref lpnorm)``.
+
 **API pages are math-grouped.** Group public objects into the operation **families of
 `ARCHITECTURE.md` §2** under hand-written `###` headers via explicit `@docs` blocks (not `@autodocs`,
 which cannot express a semantic group). Each object appears **once**, in the family whose defining
