@@ -22,11 +22,14 @@ The umbrella assembles its public surface from the submodules below, each of whi
 one operation family:
 
 - [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
-  the FFT transform plans, and the transforms [`to_physical`](@ref) and
-  [`to_spectral`](@ref) between the two representations.
-- [`FieldAlgebra`](@ref) provides the fiberwise algebra: the weighted combination [`combine!`](@ref),
-  the contractions `dot` and `cross`, the tensor product `mul!`, the transpose `transpose!`, the norm
-  `norm`, the trace and determinant `tr`/`det`, and the [`sym`](@ref)/`skew`/`dev` decompositions.
+  the FFT transform plans, the transforms [`to_physical`](@ref) and
+  [`to_spectral`](@ref) between the two representations, and the HDF5 persistence pair
+  `write_field`/`read_field` (available once `HDF5` is loaded).
+- [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
+  `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
+  `divide!`, the contractions `dot` and `cross`, the tensor product `mul!`, the transpose
+  `transpose!`, the norm `norm`, the trace and determinant `tr`/`det`, and the
+  [`sym`](@ref)/`skew`/`dev` decompositions.
 - [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
   `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.
@@ -39,8 +42,10 @@ one operation family:
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
-  `weighted_inner`, `l2norm`, and `lpnorm`, plus the radial diagnostics `radial_spectrum` and
-  `radial_correlation`.
+  `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`/`std`/`var` and the order statistics
+  `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
+  and the radial pair `radial_spectrum` and `radial_correlation`. Each reduction also has a mapped
+  form taking a leading fiber map, which reduces a nonlinear invariant without building it.
 
 [`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share.
 """

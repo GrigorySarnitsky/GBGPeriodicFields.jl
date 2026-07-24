@@ -101,7 +101,7 @@ Apply a coefficientwise contraction with the wavenumber vector, computing ``\\ma
 
 The eleven-argument form composes the contraction with a coefficientwise kernel and the
 ``\\alpha``/``\\beta`` accumulate in the same fused pass, computing
-``\\mathrm{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\mathrm{dst}``
+``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\texttt{dst}``
 with ``\\hat g`` = `kernel_data`, branching on `iszero(beta)` to overwrite or accumulate — the
 divergence analogue of `_apply_convolution!`.
 """
@@ -812,8 +812,8 @@ arguments are:
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
-\\widehat{\\mathrm{destination}}(k) = \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k)
-                                    + \\beta  \\widehat{\\mathrm{destination}}(k),
+\\widehat{\\texttt{destination}}(k) = \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k)
+                                    + \\beta  \\widehat{\\texttt{destination}}(k),
 ```
 
 and likewise per component for a second-order tensor `field`. The composed form replaces a
@@ -1337,8 +1337,8 @@ projection symbol. The additional arguments are:
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
-\\widehat{\\mathrm{destination}}_i(k) = \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k)
-                                      + \\beta  \\widehat{\\mathrm{destination}}_i(k).
+\\widehat{\\texttt{destination}}_i(k) = \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k)
+                                      + \\beta  \\widehat{\\texttt{destination}}_i(k).
 ```
 
 The composed form replaces a `helmholtz_projection!` followed by a `convolve!` — one fused pass

@@ -298,7 +298,7 @@ function random_solenoidal(grid, m, plans, ws, ksq, band, p; kp = 2.0)
   uh = to_spectral(VectorFieldPhysical(dev(randn(rng, FT, p.N, p.N, p.N, 3)), grid), plans)
   envelope = spectral_kernel(uh, exp.(-(ksq ./ FT(kp)^2)))           # concentrate at large scales
   convolve!(uh, uh, envelope)                                        # apply it (alias-safe, coefficientwise)
-  helmholtz_projection!(uh, uh, m)                                   # make solenoidal (alias-guarded)
+  helmholtz_projection!(uh, uh, m)                                   # make solenoidal (alias-safe, one pass)
   force!(uh, band, ws, p)                                            # set the forced-band energy
   return uh
 end
@@ -407,7 +407,7 @@ function run_hist(p::Params)
   η   = (p.ν^3 / ε)^(1 / 4)                 # Kolmogorov length
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
-  kmaxη = (2 / 3) * (p.N / 2) * η
+  kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~`Float32` roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
   divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)

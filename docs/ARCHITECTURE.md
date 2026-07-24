@@ -564,7 +564,7 @@ are KA kernels **on every backend** — the gather/scatter transfer kernels
 shell binning (decisions 25, 34) — and on a CPU array these launch on the `CPU()` backend, which
 partitions the index range by `Threads.nthreads()` itself (`helmholtz_projection!` left this set when
 decision 40 gave it a gated loop twin, so what remains is exactly the atomic/irregular kernels — the
-exemption is structural, not historical). Two consequences follow for that pair,
+exemption is structural, not historical). Two consequences follow for those two families,
 and neither is a defect to fix — they are the price of their kernel shapes. First, a KA launch
 **never consults the `_assign!` policy above**: the serial cutoff and the `with_threading` override
 do not reach those two operation families, which thread by KA's rules at every size (the
@@ -573,11 +573,11 @@ shell binning — sum in a **nondeterministic order**, and floating-point additi
 so they are **not bitwise-reproducible**: not across thread counts, and not even between two runs at
 one thread count. Measured on a Ryzen 9800X3D over twelve trials at 8 and 16 threads, every trial
 differed, `anterpolate!` by 2–3 ulp of the field's scale and `radial_spectrum` only inside
-numerically-zero shells (max ``\lvert \Delta \rvert`` = 1.4e-47). The two kernels with **disjoint**
-writes — the projection and the gather — are bitwise-reproducible, and were measured to be so across
-1, 2, 4 and 8 threads. The threading suite (`test/threading.jl`) encodes exactly this split: bitwise equality asserted for
-the disjoint pair (including against a subprocess launched at a different thread count, the one
-comparison the in-process `with_threading` toggle cannot make), a tolerance for the `Atomix` pair —
+numerically-zero shells (max ``\lvert \Delta \rvert`` = 1.4e-47). The remaining kernel with **disjoint**
+writes — the gather — is bitwise-reproducible, and was measured to be so across
+1, 2, 4 and 8 threads, as is `helmholtz_projection!` on the gated loop it moved to. The threading suite (`test/threading.jl`) encodes exactly this split: bitwise equality asserted for
+the disjoint writers (including against a subprocess launched at a different thread count, the one
+comparison the in-process `with_threading` toggle cannot make for a KA kernel), a tolerance for the `Atomix` pair —
 the same tolerance-not-bitwise treatment the reductions above receive, and for the same reason.
 
 ## 10. Interpolation and anterpolation (the grid↔point transfer layer)
@@ -735,7 +735,8 @@ kernels (the scatter accumulates atomically); the smooth per-axis weights are ge
 (Fornberg 1988) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
 `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
 (`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
-`min(2m+1, 2n)`; the Lagrange scheme to degree `2n+1`.
+`min(2m+1, 2n)` for `n ≥ 1`; the Lagrange scheme to degree `2n+1`. The bound needs that scope because
+the two-point `n = 0` stencil is linear and reproduces degree 1, where the formula would read 0.
 
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
 to name two new objects: off-grid locations and the field values there. The package names
@@ -802,6 +803,8 @@ for it (seen in a few papers) is a misnomer.
 - C. T. Crowe, M. P. Sharma, D. E. Stock, [*The Particle-Source-In-Cell (PSI-CELL) model for gas–droplet flows*](https://doi.org/10.1115/1.3448756), J. Fluids Eng. **99**(2) (1977) 325–332.
 - A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370 (an early use of "anterpolation" for the adjoint of interpolation).
 - C. S. Peskin, [*The immersed boundary method*](https://doi.org/10.1017/S0962492902000077), Acta Numerica **11** (2002) 479–517 (spreading = adjoint of interpolation).
+- R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition / charge assignment; the NGP and CIC windows).
+- C. K. Birdsall, A. B. Langdon, [*Plasma Physics via Computer Simulation*](https://doi.org/10.1201/9781315275048), Adam Hilger, Bristol, 1991 (deposition / charge assignment).
 - E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
 
 ## 11. Convolution
@@ -980,7 +983,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement
     ``\le`` 1e-15) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
     after reading the TurTLE source, Lalescu's smooth spline being a *two-point* Hermite, not a
-    central-node hybrid. Reproduction is ``\min(2m{+}1, 2n)`` (smooth) / ``2n{+}1`` (Lagrange); the
+    central-node hybrid. Reproduction is ``\min(2m{+}1, 2n)`` for ``n \ge 1`` (smooth) / ``2n{+}1`` (Lagrange); the
     closed-form Catmull–Rom and the Lagrange cardinal
     basis are independent anchors, with partition of unity (⇒ conservation). Kernels are portable
     across CPU / CUDA / AMDGPU via **KernelAbstractions** (new dep) with the atomic scatter via
@@ -996,7 +999,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The L²/volume-weighted (measure-consistent) adjoint is ``(N/M) W^\top`` (``N`` grid points, ``M`` sample
     points) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
-    verified via `inner` as ``M \mathrm{inner}(Wf, q) = N \mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
+    verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
     the reduction deferral of items 6/11/[§9](@ref "9. Performance model and CPU threading"). The package's operations split into **vertical**
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
@@ -1014,10 +1017,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     measure is counting. Consequences:
 
     `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
-    ``\mathrm{mean}(f) = \tfrac{1}{\text{count}}\sum f`` — per base:
+    ``\texttt{mean}(f) = \tfrac{1}{\text{count}}\sum f`` — per base:
 
-    - `Grid3D` (``N`` cells): ``\mathrm{integral}(f) = \int_\Omega f\,\mathrm{d}x = (\lvert\Omega\rvert/N)\sum f``, ``\mathrm{mean}(f) = \tfrac{1}{N}\sum f``.
-    - `PointSet` (``M`` points): ``\mathrm{integral}(f) = \sum f``, ``\mathrm{mean}(f) = \tfrac{1}{M}\sum f``.
+    - `Grid3D` (``N`` cells): ``\texttt{integral}(f) = \int_\Omega f\,\mathrm{d}x = (\lvert\Omega\rvert/N)\sum f``, ``\texttt{mean}(f) = \tfrac{1}{N}\sum f``.
+    - `PointSet` (``M`` points): ``\texttt{integral}(f) = \sum f``, ``\texttt{mean}(f) = \tfrac{1}{M}\sum f``.
 
     So `mean` is the arithmetic average over base elements in both cases — ``\tfrac{1}{M}\sum`` over points
     (a plain sample mean), ``\tfrac{1}{N}\sum`` over the grid (which, the grid being uniform, equals the
@@ -1026,12 +1029,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - `integral(f)` — the **extensive** ``\int f\,\mathrm{d}\mu`` (the one quantity that scales with the base measure).
     - `mean(f)`, `std(f)`, `var(f)` — extend `Statistics` (we own the types ⇒ not piracy);
       **intensive**, **fiber-preserving** (`mean(VectorField) → FiberVector`, base reduced).
-    - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \mathrm{mean}(\mathrm{dot}(f, g))`` → **scalar**
+    - `inner(f, g)` — the **normalized** L² inner product ``\langle f, g\rangle = \texttt{mean}(\texttt{dot}(f, g))`` → **scalar**
       (fiber-contracting). *Normalized* (intensive) by deliberate choice: it matches the `mean`
       convention above and the intensive quantities of homogeneous turbulence (kinetic energy
-      ``\tfrac{1}{2} \mathrm{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``); for points it is ``\tfrac{1}{M}\sum \mathrm{dot}``, consistent with `mean`. Not the
+      ``\tfrac{1}{2} \texttt{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``); for points it is ``\tfrac{1}{M}\sum \texttt{dot}``, consistent with `mean`. Not the
       textbook extensive ``\int f\cdot g\,\mathrm{d}x`` — that is `integral(dot(f,g))` if ever needed.
-    - ``\mathrm{l2norm}(f) = \sqrt{\mathrm{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
+    - ``\texttt{l2norm}(f) = \sqrt{\texttt{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
       fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
     - `maximum`/`minimum`/`extrema` — extend `Base` for scalar sections; vector/tensor sup of
       magnitude via `lpnorm(·, Inf)`.
@@ -1040,7 +1043,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     `inner`/`l2norm` are representation-invariant (Parseval): the physical reductions came first, and the
     **spectral `inner`/`l2norm` are now implemented** — for two fields in spectral representation
-    ``\mathrm{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
+    ``\texttt{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
     counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
     rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
     as a `dot` over the array plus two plane corrections — allocation-free in the `inner(f, f)`/`l2norm` case, while the mixed `inner(f, g)` materializes its two correction planes (decision 26). `integral` and `mean` are
@@ -1049,8 +1052,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N) \hat f(0)`` with no transform,
     read from the same zero-mode slot the constant-add writes (invariant 4). `lpnorm` (for ``p \ne 2``),
     `std`/`var`, and `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only.
-    **Physics stays consumer-side**: energy ``\tfrac{1}{2} \mathrm{inner}(u,u)``, enstrophy
-    ``\tfrac{1}{2} \mathrm{inner}(\omega,\omega)``, dissipation ``\nu \mathrm{inner}(\omega,\omega)``, rms ``\sqrt{\mathrm{inner}}``, intensities from `std`. The FP-ordering
+    **Physics stays consumer-side**: energy ``\tfrac{1}{2} \texttt{inner}(u,u)``, enstrophy
+    ``\tfrac{1}{2} \texttt{inner}(\omega,\omega)``, dissipation ``\nu \texttt{inner}(\omega,\omega)``, rms ``\sqrt{\texttt{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — so they are implemented with a defined summation
     order and a tolerance-based test (not the bitwise one used for the threaded assignments).
 19. **The measure taxonomy — one L²/integration structure, three roles for "measure"; the recorded
@@ -1058,7 +1061,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (reductions, interpolation, and convolution) not by coincidence but
     because all three are facets of the **same L²/integration structure on sections** ([§2](@ref "2. The central principle: the architecture follows established mathematics")). This entry
     fixes the taxonomy so the three never get conflated and so the multiplier family starts from a
-    recorded design. The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.10): on a uniform
+    recorded design. The math anchor (Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3),
+    3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014, Thm 2.5.10): on a uniform
     periodic box every **homogeneous (translation-invariant) linear operator is a Fourier multiplier** — a
     coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
@@ -1102,7 +1106,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with the
     grid carrying ``\Delta x^3`` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
     now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new operation),
-    verified via `inner` as ``M \mathrm{inner}(Wf, q) = N \mathrm{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
+    verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
     *The multiplier family (designed here; realized as `Convolution`, decision 20) carries three research-grounded guardrails.*
@@ -1194,7 +1198,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       reduction — spectral-representation only, like the Parseval `inner` — and the architectural framing
       is precisely *"the energy spectrum is the radially-resolved inner"* (decision 19's L²/integration
       structure, refined by the spectral radial coordinate). The consumer's energy spectrum over the
-      shell wavenumber ``\kappa`` (``= |k|``) is ``E(\kappa) = \tfrac{1}{2} \mathrm{spectrum}``; the
+      shell wavenumber ``\kappa`` (``= |k|``) is ``E(\kappa) = \tfrac{1}{2} \texttt{spectrum}``; the
       neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
       refinement is exact; on a de-aliased field the high-``|k|`` shells are empty.
 
@@ -1234,13 +1238,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
     under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
-    stay consumer-side: the energy spectrum ``E(k) = \tfrac{1}{2} \mathrm{radial\_spectrum}``, the integral/Taylor scales from
+    stay consumer-side: the energy spectrum ``E(k) = \tfrac{1}{2} \texttt{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
     *The physical dual — `radial_correlation` (done).* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle``
     (full fiber contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)/N``
-    binned over minimum-image ``|r|`` shells. ``C(0) = \langle |f|^2\rangle = \mathrm{inner}(f, f)`` (the
+    binned over minimum-image ``|r|`` shells. ``C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)`` (the
     variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
     as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
     its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
@@ -1251,9 +1255,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The two-field co-spectra — `radial_spectrum(f, g)` / `radial_correlation(f, g)` (done).* The mixed
     second-order statistics of two compatible, equal-order fields, refining the **mixed** `inner(f, g)` exactly as
     the single-field forms refine `inner(f, f)`. The **co-spectrum** bins the Parseval-weighted cross-power
-    density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (``c`` indexing the fiber components) over ``|k|``-shells (``\sum_\kappa P_{fg} = \mathrm{inner}(f, g)``);
+    density ``\sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})`` (``c`` indexing the fiber components) over ``|k|``-shells (``\sum_\kappa P_{fg} = \texttt{inner}(f, g)``);
     the **cross-correlation** ``C_{fg}(r) = \langle f(x)\cdot g(x+r)\rangle = \mathcal F^{-1}(\overline{\hat f} \hat g)/N``
-    binned over ``|r|``-shells (``C_{fg}(0) = \mathrm{inner}(f, g)``). Two properties fall out of the math and are
+    binned over ``|r|``-shells (``C_{fg}(0) = \texttt{inner}(f, g)``). Two properties fall out of the math and are
     pinned by tests: each is **symmetric** in ``f, g`` — ``\mathrm{Re}`` is conjugation-symmetric for the spectrum,
     and the ``\pm r`` folding of the min-image shells symmetrizes the correlation (``C_{fg}(-r) = C_{gf}(r)``, so the
     radial average is ``\tfrac{1}{2}(C_{fg}+C_{gf})``) — and the single-field forms are exactly the ``g = f`` case
@@ -1267,7 +1271,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `_correlation_field_from` folded into the correlation methods — decision 34; the sharing structure is unchanged.)
     These are **new methods on the existing `Reductions` generics** — no export change, the 198/118 parity baselines
     are unchanged. Verified CPU (`test/reductions.jl`: analytical oracles — an orthogonal pair ``\cos x \perp \sin x``
-    giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac{1}{2}`` in adjacent shells that cancel to ``\mathrm{inner} = 0``;
+    giving zero, and ``\cos x \pm \cos 2x`` giving ``\pm\tfrac{1}{2}`` in adjacent shells that cancel to ``\texttt{inner} = 0``;
     the ``g = f`` consistency; the ``f \leftrightarrow g`` symmetry; and an independent binned-circshift cross-correlation
     on a random pair) + GPU (ROCm device-vs-CPU parity, `test/gpu/suite.jl`); benchmarked (`reductions` class).
 
@@ -1314,7 +1318,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     counting), **not** a `radial_distribution_function` function: that scoping held.
 
     *Phasing — all done.* **Phase 1:** `radial_correlation(f, plans)` (the field duality; neutral, no new
-    math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \mathrm{inner}``
+    math), ``\Delta r`` = the finest grid spacing, minimum-image ``|r|`` binning, ``C(0) = \texttt{inner}``
     exact. **Phase 2:** `assignment_window` (the linear/CIC ``\prod \operatorname{sinc}^2`` deconvolution
     window, `Convolution`) + the documented point-RDF recipe, validated against direct ``O(M^2)`` counting.
     **Co-spectra (done):** the two-field `radial_spectrum(f, g)` / `radial_correlation(f, g)` (the
@@ -1330,8 +1334,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The object.* The transfer layer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) had one scheme family — the physical-domain local splines.
     This adds the **spectral-domain** transfer: evaluation/deposition between Fourier coefficients and
     scattered points, the exact off-grid form of the field. Both families are unified under a new
-    supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the L²-adjoint
-    contract; a scheme is a choice of *(kernel, representation)*. The spectral schemes dispatch on a
+    supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the adjoint
+    contract (the counting-transpose pairing, which the ``N/M`` rescaling above turns into the exact
+    L² adjoint); a scheme is a choice of *(kernel, representation)*. The spectral schemes dispatch on a
     field in spectral representation (invariant 2: hand ``W`` whichever representation it acts on — a
     spectral solver hands ``\hat f`` for free); `anterpolate` returns a section, here in spectral
     representation (the Fourier coefficients of ``\sum_p q_p\delta_{x_p}``).
@@ -1516,7 +1521,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - `det`/`det!` (`FieldAlgebra`) is the fiberwise determinant, the **third principal invariant** ``I_3``
       (the signed factor by which the tensor scales volumes as a linear map) — the sibling of the trace
       ``\operatorname{tr}`` (the first invariant ``I_1``) the
-      package already carried; the gap was the missing invariant, not a completeness fill. Being cubic
+      package already carried; the gap was the missing invariant, not a completeness fill. The second
+      invariant ``I_2`` stays absent, having no consumer — and a consumer that wants it can build it
+      from the two that ship, as ``I_2 = \tfrac{1}{2}(I_1^2 - \operatorname{tr}(A^2))``. Being cubic
       in the components it is **nonlinear**, so it is physical-space only (there is no spectral
       determinant), exactly like `norm`. It reuses the shared per-component formula builder in
       `FiberSections`, so it lands on **both** fields and point-values (mirroring ``\operatorname{tr}``, which
@@ -1549,8 +1556,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     is not yet live — so by the [§2](@ref "2. The central principle: the architecture follows established mathematics") rule against speculative structure it waits until that consumer
     lands, when it is a small addition on the existing `inner` machinery.
 
-    *Scope and verification.* The public method set grows to **206** field methods (`combine!` adds 2,
-    `det`/`det!` 1 each) and **122** point-value methods (`det`/`det!` 1 each); `symmetric_gradient` and
+    *Scope and verification.* The public method set grows to **206** field methods (from the 202 the
+    earlier trace addition left, `combine!` adding 2 and `det`/`det!` 1 each) and **122** point-value
+    methods (from 120, `det`/`det!` 1 each); `symmetric_gradient` and
     `weighted_inner` live in other modules and leave those baselines untouched. Each operation carries the
     full definition-of-done: a CPU behaviour test against an independent oracle over both element types (and
     both grids where they apply), GPU device-parity, the `test/allocations.jl` guard
@@ -1884,7 +1892,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     retires the factor's per-stage build. A third proposed consumer — the phase-shift average — was
     found not to be an instance of this form at all (its kernel lands on one operand), and is served
     instead by decision 32's ``\beta`` accumulate; the correction is recorded there. With
-    ``b === \mathrm{dest}`` the method computes the kernel-filtered accumulate in place
+    ``b === \texttt{dest}`` the method computes the kernel-filtered accumulate in place
     (coefficientwise, hence alias-safe with no guard), which is why it carries **no** second trailing
     accumulate pair — two ``\alpha``/``\beta`` roles in one signature is the glyph-collision failure
     mode, and the aliasing provides the accumulate for free.
@@ -2068,8 +2076,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a run is whatever one node holds, and a CPU node holds far more than a GPU. On NAISS Arrhenius —
     the concrete target — a thin CPU node pairs two 128-core AMD EPYC 9755 processors with 768 GB of
     DDR5 and a fat node carries 3 TB, while the GPU partition's GH200 offers 96 GB of HBM. Taking one
-    scalar field in either representation as ``8 N^3`` bytes in `Float64` (the physical array and the
-    rfft half-spectrum agree to within a part in ``N``) and a solver's live set at order 25 fields, one
+    scalar field in either representation as 8 bytes per grid point in `Float64` (the physical array and
+    the rfft half-spectrum agree to within a part in the per-axis size) and a solver's live set at order 25 fields, one
     GH200 stops near ``768^3`` where a thin CPU node reaches about ``1536^3``. The two partitions are
     also distinct machines, so the split is clean: GPU work runs on GPU nodes, CPU work on CPU nodes.
 
@@ -2160,7 +2168,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     reduction — `inner` (physical and the spectral Parseval forms), `l2norm`, `integral`, `mean`,
     `std`/`var`, `maximum`/`minimum`/`extrema`, and the whole mapped-form family — now reduces
     through one **fixed midpoint tree**: a binary recursion whose splits are a function of the
-    element count alone, its top ``\lceil \log_2 \mathrm{nthreads} \rceil + 1`` levels evaluated as
+    element count alone, its top ``\lceil \log_2 \texttt{nthreads} \rceil + 1`` levels evaluated as
     spawned tasks (through the same `_use_threads` gate as every other route) and its leaves as the
     existing pairwise-blocked `@simd` loops. Because the tree never depends on the schedule, the
     result is **bitwise-identical at every thread count** — serial equals two threads equals
@@ -2219,7 +2227,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/adjointness.jl` deliberately scoped its fixtures to dodge it (its own header conceded the
     restriction). The denominator is now ``a \cdot a``, squared in-register from the same loaded
     wavenumber values (the kernel drops its three squared-wavenumber array arguments), making
-    ``\mathbb P = \mathrm{id} - \hat a\hat a^{\top}`` the exact orthogonal projector onto the kernel
+    ``\mathbb P = \mathrm{id} - (a a^{\top})/(a \cdot a)`` the exact orthogonal projector onto the kernel
     of the discrete divergence: ``\mathbb P^2 = \mathbb P`` and ``\nabla\cdot(\mathbb P u) = 0`` at
     **every** mode, the zero and pure-Nyquist modes passing through as the identity. Sub-Nyquist the
     two families coincide value for value, so resolved-band results are bitwise unchanged and every

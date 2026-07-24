@@ -62,7 +62,9 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 \langle f, g\rangle_{\text{grid}} := \frac{1}{N} \sum_{n=1}^{N} f_n\cdot g_n .
 ```
 
-## Representations and transforms (`Fields`, [Architecture](architecture.md) §4)
+## Representations and transforms (`Fields`)
+
+Design rationale: [Architecture](architecture.md) §4.
 
 ``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
 `plan_rfft`/`plan_irfft`), with ``x`` ranging over the ``N`` grid nodes and ``k`` over the wavenumbers:
@@ -87,7 +89,9 @@ so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequ
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
 behaviour, and transform input-preservation — and `test/fieldalgebra.jl` (the constant/zero-mode invariant).
 
-## Fiberwise algebra (`FieldAlgebra` / `FiberSections`, [Architecture](architecture.md) §2, §6)
+## Fiberwise algebra (`FieldAlgebra` / `FiberSections`)
+
+Design rationale: [Architecture](architecture.md) §2, §6.
 
 The **vertical** operations act inside the fiber ``V`` at each base point, identically over grid and
 point bases (one set of generated kernels, `src/FiberSections.jl`). A `FiberVector` is ``\mathbb R^3``, a
@@ -111,7 +115,7 @@ the spectral representation of ``\operatorname{tr}A``). The **third** invariant,
 components, hence
 **nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
-``\checkmark`` the `mul!` family carries the α/β accumulate ``\mathrm{dest}=\alpha(\cdot)+\beta \mathrm{dest}``,
+``\checkmark`` the `mul!` family carries the α/β accumulate ``\texttt{dest}=\alpha(\cdot)+\beta \texttt{dest}``,
 and the weighted combination ``\alpha a+\beta b`` (`combine!`) is its linear two-field peer — coefficientwise,
 hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plain `add!`.
 
@@ -120,7 +124,9 @@ hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plai
 mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, the determinant (against a
 per-point LU oracle), the weighted combination, and the sym/skew/dev identities.
 
-## Differential operators (`DifferentialOperators`, [Architecture](architecture.md) §4)
+## Differential operators (`DifferentialOperators`)
+
+Design rationale: [Architecture](architecture.md) §4.
 
 Each operator ``L`` is **diagonalized** by ``\mathcal F`` into a pointwise multiplier ``\hat L`` — the
 intertwiner square ``\mathcal F\circ L = \hat L\circ\mathcal F`` — applied coefficientwise in spectral
@@ -129,14 +135,14 @@ representation (`src/DifferentialOperators.jl`):
 ```math
 \begin{aligned}
 \nabla &\to \mathrm{i}k, & \nabla\cdot &\to \mathrm{i}k\cdot, & \nabla\times &\to \mathrm{i}k\times,\\
-\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \hat a \hat a^{\top}\ \ (\hat a = a/|a|).
+\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \frac{a a^{\top}}{a \cdot a}.
 \end{aligned}
 ```
 
 **Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the **derivative** wavenumber is
 **zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}k_N`` would break reality), while the
 **squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). Here ``a``
-denotes the derivative-wavenumber vector, so ``\mathbb P``'s ``\hat a`` in the table is the unit
+denotes the derivative-wavenumber vector, so the ``a`` in ``\mathbb P``'s multiplier above is that
 derivative wavenumber — the projector is built entirely from that one family (decision 42), and
 sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 
@@ -149,7 +155,7 @@ sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 ```
 
 all four unconditional — the first two because curl, divergence, and gradient share the one
-derivative-wavenumber family, the last two because ``\mathbb P = \mathrm{id} - \hat a\hat a^{\top}``
+derivative-wavenumber family, the last two because ``\mathbb P = \mathrm{id} - (a a^{\top})/(a \cdot a)``
 is built entirely from that same family (decision 42), the Nyquist planes included. The dissipation
 identity alone is scoped: on the resolved band — every mode off the even-axis Nyquist planes —
 
@@ -163,7 +169,7 @@ family; with Nyquist content only the sign ``\langle\Delta\phi,\phi\rangle \le 0
 unconditionally; the projector identities are pinned with full-spectrum Nyquist content in
 `test/differentialoperators.jl`).
 
-(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-\hat a\hat a^{\top}``, ``-|k|^2`` are
+(``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-(a a^{\top})/(a \cdot a)``, ``-|k|^2`` are
 real symmetric.)
 
 The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
@@ -182,7 +188,7 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 ``\hat u(k) \in \mathbb C^3``,
 
 ```math
-\hat g (\mathrm{id} - \hat a\hat a^{\top}) \hat u = (\mathrm{id} - \hat a\hat a^{\top}) (\hat g \hat u)
+\hat g \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) \hat u = \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) (\hat g \hat u)
 \in \mathbb C^3, \qquad
 \hat g  \bigl(\mathrm{i}k\cdot\hat u\bigr) = \mathrm{i}k\cdot(\hat g \hat u) \in \mathbb C
 \qquad\checkmark
@@ -191,7 +197,7 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 so the composition "operator then convolve" is itself a single Fourier multiplier (the product of
 symbols), and `helmholtz_projection!(dest, f, m, kernel, α, β)` /
 `divergence!(dest, f, m, kernel, α, β)` compute ``\alpha \hat g  \hat L \hat u + \beta 
-\widehat{\mathrm{dest}}`` in one pass. **Alias safety of the one-pass projection**: the kernel is a
+\widehat{\texttt{dest}}`` in one pass. **Alias safety of the one-pass projection**: the kernel is a
 mode-local map — the values written at mode ``k`` depend only on values read at mode ``k``, and every
 read of a mode precedes its writes — so `destination === field` computes the same function
 (bitwise-tested). The Nyquist split is inherited unchanged: the composed symbol is a product of
@@ -203,7 +209,9 @@ per-mode scalars, so each factor keeps its own family's Nyquist value.
 the fused-equals-sequential kernel compositions, and the bitwise aliased projection)
 and `test/adjointness.jl` (self-adjointness, exactly idempotent projection, negative-semidefinite Laplacian).
 
-## Convolution (`Convolution`, [Architecture](architecture.md) §11)
+## Convolution (`Convolution`)
+
+Design rationale: [Architecture](architecture.md) §11.
 
 By the convolution theorem, periodic convolution is the coefficientwise spectral product; `convolve`
 applies a scalar kernel ``\hat g`` (a `ScalarFieldSpectral`, broadcast over the fiber) with α/β accumulate
@@ -211,7 +219,7 @@ applies a scalar kernel ``\hat g`` (a `ScalarFieldSpectral`, broadcast over the 
 
 ```math
 \mathcal F(f \star g) = \hat f\cdot\hat g, \qquad
-\widehat{\mathrm{dest}} = \alpha \hat f \hat g + \beta \widehat{\mathrm{dest}}. \quad\checkmark
+\widehat{\texttt{dest}} = \alpha \hat f \hat g + \beta \widehat{\texttt{dest}}. \quad\checkmark
 ```
 
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
@@ -278,7 +286,7 @@ code and tested:
 The **kernel-composed combination** (`combine!(dest, α, a, β, b, kernel)` and the exponential
 two-operand form) is the distribution of a diagonal symbol over a linear combination — per mode,
 ``\hat g (\alpha \hat a + \beta \hat b) = \alpha \hat g \hat a + \beta \hat g \hat b`` — computed
-as the left-hand side in one coefficientwise pass; with ``b = \mathrm{dest}`` it is the filtered
+as the left-hand side in one coefficientwise pass; with ``b = \texttt{dest}`` it is the filtered
 accumulate, alias-safe because the map is mode-local. ``\checkmark``
 
 **Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33.
@@ -291,7 +299,9 @@ transform round trip (the inverse transform being the Hermitian projector); and 
 pair, the stored-kernel equality oracles, the single-mode eigenvalue ``e^{c}\cos x``, and
 fused-equals-sequential for both two-operand forms.
 
-## Reductions (`Reductions`, [Architecture](architecture.md) §12)
+## Reductions (`Reductions`)
+
+Design rationale: [Architecture](architecture.md) §12.
 
 The L²/measure structure (`src/Reductions.jl`). The `integral` is **extensive** (against the base measure —
 grid cell volume, point counting); `inner` is the **normalized** L² product (declared above); `l2norm`
@@ -300,7 +310,7 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 ```math
 \begin{gathered}
 \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\text{grid}),\quad \sum_p f_p\ (\text{points}); \\
-\int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\mathrm{mean}. \quad\checkmark
+\int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\texttt{mean}. \quad\checkmark
 \end{gathered}
 ```
 
@@ -308,7 +318,7 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real field), so
 
 ```math
-\mathrm{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
+\texttt{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
 ```
 
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
@@ -322,7 +332,7 @@ bare ones applied to ``\varphi \circ f``:
 
 ```math
 \begin{gathered}
-\mathrm{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \\
+\texttt{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \\
 \int_\Omega (\varphi \circ f)\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n \varphi(f_n)\ (\text{grid}), \quad
 \sum_p \varphi(f_p)\ (\text{points}), \quad\checkmark
 \end{gathered}
@@ -331,7 +341,7 @@ bare ones applied to ``\varphi \circ f``:
 The order statistics reduce the same mapped values, with a maximum or a minimum in place of the sum.
 Two consequences are worth stating
 because they are what the tests pin. Taking the identity map recovers the bare reduction
-exactly, ``\mathrm{mean}(\mathrm{id}, f) = \mathrm{mean}(f)``, including its fiber-valued result at
+exactly, ``\texttt{mean}(\mathrm{id}, f) = \texttt{mean}(f)``, including its fiber-valued result at
 order ``1`` and ``2``. And with ``\varphi = \lVert\cdot\rVert`` the order statistic coincides with the
 existing supremum norm, ``\max_n \lVert f_n\rVert = \lVert f\rVert_\infty``, so `maximum(norm, u)` and
 `lpnorm(u, Inf)` are the same number by different routes — the first without materializing
@@ -396,7 +406,9 @@ the spectral `integral`/`mean` against the physical reductions (``\langle c\rang
 ``\sum_i P(\kappa_i)=\langle f,f\rangle``, ``C(0)=\langle f,f\rangle`` against an independent binned-circshift oracle, the
 co-spectrum signs, and `weighted_inner` against ``\langle f,-\Delta g\rangle`` and the idempotent-band identity.
 
-## Interpolation / anterpolation (`Interpolation`, [Architecture](architecture.md) §10)
+## Interpolation / anterpolation (`Interpolation`)
+
+Design rationale: [Architecture](architecture.md) §10.
 
 The base gather ``W_b : \mathbb R^N \to \mathbb R^M`` has entries ``(W_b)_{pn} = w_n(x_p)`` (the local
 stencil weights, `src/Interpolation.jl`), a **partition of unity** — for each point the row sums to one,
@@ -456,7 +468,9 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 ``M \langle Wf, q\rangle_{\text{pts}} = N \langle f, W^{\top}q\rangle_{\text{grid}}``, conservation (partition of unity), and
 polynomial reproduction.
 
-## Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`, [Architecture](architecture.md) §10, decision 23)
+## Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)
+
+Design rationale: [Architecture](architecture.md) §10, decision 23.
 
 The exact Fourier transfer between a field's spectral coefficients and off-grid points, and its fast
 windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above. `DirectDFT` is the literal

@@ -571,7 +571,7 @@ cross(u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cro
 cross(a::FiberVector{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), a, u)
 
 
-# --- Tensor-vector and tensor-tensor products (α/β; no alias guard, like mul!) ---
+# --- Tensor-vector and tensor-tensor products (α/β; destination must not alias, like mul!) ---
 function _tensor_vector_components_pv!(destination, A::TensorPointValues{2}, u::VectorPointValues, α_value, β_value)
   one_value = one(section_scalar_type(destination))
   _fiberwise_pass!(get_backend(point_values(destination)), _tensor_vector_values_ff,

@@ -493,12 +493,12 @@ The arguments are:
 - `α`, `a` — the real weight and the first field.
 - `β`, `b` — the real weight and the second field.
 
-The write is coefficientwise, so it needs no alias guard: `a`, `b`, or both may be `destination` itself.
+The write is coefficientwise, so aliasing is safe without a guard temporary: `a`, `b`, or both may be `destination` itself.
 In particular `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b`` in
 place.
 
 ```math
-\\mathrm{destination} = \\alpha  a + \\beta  b.
+\\texttt{destination} = \\alpha  a + \\beta  b.
 ```
 
 # The kernel-composed form
@@ -509,7 +509,7 @@ result is the kernel-weighted local average of the combination, ``g \\star (\\al
 in spectral representation it is one coefficientwise product,
 
 ```math
-\\widehat{\\mathrm{destination}}(k) = \\hat g(k)  \\bigl(\\alpha \\hat a(k) + \\beta \\hat b(k)\\bigr),
+\\widehat{\\texttt{destination}}(k) = \\hat g(k)  \\bigl(\\alpha \\hat a(k) + \\beta \\hat b(k)\\bigr),
 ```
 
 replacing a `combine!` followed by a `convolve!` — one pass instead of two, saving a full read and a
@@ -1016,12 +1016,12 @@ end
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2},
          B::FiberTensor2[, α, β])
 
-Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\mathrm{destination} = \\alpha (A B) + \\beta \\mathrm{destination}``.
+Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\texttt{destination} = \\alpha (A B) + \\beta \\texttt{destination}``.
 
 A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector.
 
 !!! warning
-    As with `LinearAlgebra.mul!`, `destination` must not share storage with any input; this operation carries no alias guard.
+    As with `LinearAlgebra.mul!`, `destination` must not share storage with any input, and this is not checked.
 
 Pointwise over the base, with summation over the repeated fiber indices:
 
@@ -1032,7 +1032,7 @@ Pointwise over the base, with summation over the repeated fiber indices:
 mul!
 
 
-# Tensor-vector kernels (vector result, α/β accumulation). No alias guard:
+# Tensor-vector kernels (vector result, α/β accumulation). Destination must not alias:
 # mul! documents that the destination must not alias the inputs.
 function _tensor_vector_components!(destination, A::_Tensor2Field, u::_VectorField, α_value, β_value)
   _fiberwise_pass!(get_backend(field_data(destination)), _tensor_vector_values_ff,
@@ -1235,7 +1235,7 @@ The operation is linear and representation-preserving, so it is defined for both
 Pointwise over the base:
 
 ```math
-\\mathrm{destination}_{ij} = A_{ji}.
+\\texttt{destination}_{ij} = A_{ji}.
 ```
 """
 transpose!

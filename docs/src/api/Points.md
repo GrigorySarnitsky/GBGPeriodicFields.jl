@@ -33,8 +33,8 @@ npoints
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors
-extending the package — the section interface the `FieldAlgebra` builders reuse, the allocator, the
-broadcast style, and the alias guard.
+extending the package — the section interface the `FieldAlgebra` builders reuse, the allocator, and
+the broadcast style.
 
 ### Types
 

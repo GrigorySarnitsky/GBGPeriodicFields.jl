@@ -402,6 +402,31 @@ divergence-annihilating at every mode, bitwise-unchanged sub-Nyquist). The ledge
 landed: the non-mean-free `inverse_laplacian` input and the ``\det(AB) = \det A \det B``
 assertion.
 
+**The 12-hat `/check-consistency` panel is CLOSED (2026-07-24).** The first live economy-tiered run
+(ten Sonnet scan hats + the two mathematician anchors on Opus; banked per-hat reports in
+`.claude/doc-review/`) collected **91 findings** in 14 clusters, and the fix pass closed every one as
+fixed or dismissed-with-reason. Both blockers were real and are gone: the notation glossary's
+``\lvert k\rvert`` row (literal `|` characters eaten as GFM column delimiters, so the row fragmented
+in the built HTML and ``\kappa`` was never defined despite pervasive use — a third instance of the
+hazard the table rule already names, now swept corpus-wide by a code-span parser and found to have
+exactly that one member), and the six public statistics rendering under the Reductions page's
+"Internal API" heading (fixed with a `nameof`-filtered `@autodocs` pair, since they are deliberately
+not re-exported and a bare `@docs mean` cannot resolve). The anchors independently re-derived and
+**confirmed the core spectral and structural mathematics sound** — every finding was formatting,
+staleness, notation, or completeness, none a math error. The two hats that overran the 64k output cap
+were re-run standalone and the recurrence guard is in `panel.js` (`599390a5`). Judgment calls worth
+knowing: the ``\hat a`` unit-vector introduced by the decision-42 edits was retired in favour of the
+explicit ``(a a^{\top})/(a \cdot a)`` the operator actually computes (the hat means *spectral
+representation* package-wide and cannot move); the Parseval multiplicity ``\alpha(k)`` **kept** its
+glyph against invariant 10's accumulation ``\alpha``, resolved by a Notation-page gloss rather than a
+rename, because the two are distinguished by the mode argument and every site already glosses it; the
+example's bold ``\mathbf{k}`` **stays**, now declared as a local override (italic ``k`` is the
+turbulent kinetic energy there); and §13 decision-log mentions of the retired `_guard_noalias!` stay
+as history, only current-state surfaces being reworded. One finding was a coverage gap rather than a
+docs defect and is fixed in the suite: decision 40 gave `helmholtz_projection!` a gated CPU loop, so
+the `with_threading` toggle reaches it and `test/threading.jl` now asserts it bitwise there (the
+assertion had stayed in the KA testset, where the docs still claimed it belonged).
+
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified
 2026-07-05: `<!-- … -->` rendered literally on the page) — so a TODO lives in this file, and a placeholder

@@ -231,6 +231,17 @@ and [`field_tensor_order`](@ref), and obtains the stored data through [`field_da
 abstract type AbstractFieldSpectral{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
 
+"""
+    AbstractField
+
+Either representation of a field: the union of [`AbstractFieldPhysical`](@ref) and
+[`AbstractFieldSpectral`](@ref).
+
+It names the argument type of the operations that do not care which representation they are handed —
+the grid, layout, element-type and tensor-order accessors, and the compatibility checks. An operation
+valid in only one representation is typed with that representation instead, which is how the method
+set encodes representation validity.
+"""
 const AbstractField = Union{AbstractFieldPhysical, AbstractFieldSpectral}
 
 

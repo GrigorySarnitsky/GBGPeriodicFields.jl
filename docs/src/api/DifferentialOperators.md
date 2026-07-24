@@ -39,8 +39,6 @@ helmholtz_projection
 The coefficientwise spectral kernels and the one-pass projection launcher, documented for
 contributors.
 
-### Functions
-
 ```@autodocs
 Modules = [GBGPeriodicFields.DifferentialOperators]
 Public  = false

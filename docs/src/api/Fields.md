@@ -24,6 +24,7 @@ RealFourierLayout
 ## Field types
 
 ```@docs
+GBGPeriodicFields.Fields.AbstractField
 AbstractFieldPhysical
 AbstractFieldSpectral
 ScalarFieldPhysical
@@ -39,6 +40,7 @@ TensorFieldSpectral
 ```@docs
 FieldTransformPlans
 FieldSpectralMultipliers
+FieldSpectralMultipliers(::AbstractFieldSpectral)
 ```
 
 ## Transform operations
@@ -93,6 +95,7 @@ These symbols are not part of the public interface; they are documented for cont
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:type, :constant]
+Filter  = t -> t !== GBGPeriodicFields.Fields.AbstractField
 ```
 
 ### Functions

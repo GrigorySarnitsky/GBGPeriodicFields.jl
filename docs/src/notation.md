@@ -23,15 +23,21 @@ and need not repeat the convention.
 
 | Symbol | Meaning | Code |
 |---|---|---|
-| ``f``, ``g`` | a field — a section of the tensor bundle over the base | — |
+| ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use) | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | `Grid3D` |
 | ``N`` | the grid-point count ``\prod_i N_i`` | `prod(grid_size)` |
 | ``M`` | the number of points | `npoints` |
-| ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``|k|`` its magnitude) | `FieldSpectralMultipliers` |
+| ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | `FieldSpectralMultipliers` |
+| ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | `radial_spectrum` |
 | ``h`` | a physical displacement (``h_a`` is its component along axis ``a``); ``\Delta`` is reserved for the Laplacian, and ``\Delta x_a`` for the grid spacing | `translation_kernel` |
 | ``\hat f`` | the field ``f`` in spectral representation | `to_spectral(f)` |
+
+The worked turbulence example sets the wavenumber vector bold, as ``\mathbf{k}``, because it follows
+the turbulence convention in which italic ``k`` is the turbulent kinetic energy. That override is
+local to the example and is declared there; everywhere else the wavenumber vector is the plain ``k``
+of the table above.
 
 ## Operators
 
@@ -45,8 +51,21 @@ and need not repeat the convention.
 | ``\mathcal{F}``, ``\mathcal{F}^{-1}`` | the forward and inverse transforms | `to_spectral`, `to_physical` |
 | ``\cdot``, ``\times`` | the fiber dot and cross products | `dot` (`⋅`), `cross` (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | `inner` |
+| ``\langle\cdot\rangle`` | the base average of a single argument (the same measure, one slot) | `mean` |
 | ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude | `norm` |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |
 | ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter) | `interpolate`, `anterpolate` |
+
+## Scalar weights
+
+Two distinct quantities are written ``\alpha``, and the argument tells them apart: the caller's
+accumulation weight is always the bare ``\alpha``, while the half-spectrum Parseval weight is always
+written with its mode argument as ``\alpha(k)``. They never denote the same thing.
+
+| Symbol | Meaning | Code |
+|---|---|---|
+| ``\alpha``, ``\beta`` | the caller's accumulation weights in ``\texttt{destination} \leftarrow \alpha (\dots) + \beta \texttt{destination}`` | the trailing `α`, `β` arguments |
+| ``\alpha(k)`` | the half-spectrum Parseval weight of mode ``k``: ``1`` on a self-conjugate plane of the folded axis, ``2`` elsewhere, so that a sum over stored modes equals the sum over the full spectrum | `inner`, `radial_spectrum` |
+| ``w`` | a multiplier weighting an inner product mode by mode | `weighted_inner` |

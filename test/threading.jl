@@ -175,9 +175,10 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     @test bitwise(() -> laplacian(us, m))                           # vector Δ (coefficientwise)
     As = gradient(us, m)
     @test bitwise(() -> divergence(As, m))                          # tensor2 → vector arity
-    # `helmholtz_projection` deliberately absent: it is a KernelAbstractions kernel, which never
-    # consults the `with_threading` override `bitwise` toggles, so the check would compare a code
-    # path against itself. It is covered by the KA testset below, which varies the thread count.
+    @test bitwise(() -> helmholtz_projection(us, m))                # gated CPU loop twin (decision 40)
+    # `helmholtz_projection` belongs here since decision 40 gave it a gated CPU loop beside its
+    # device kernel: the `with_threading` override `bitwise` toggles now reaches it, so the two
+    # lanes really do execute different code. Its cross-thread-count digest is checked below.
 
     # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite
     # via the three-argument form; β ≠ 0 accumulate below).
@@ -190,12 +191,15 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     @test field_data(cacc_s) == field_data(cacc_t)                  # α/β accumulate branch (β ≠ 0)
   end
 
-  @testset "KernelAbstractions kernels reproducible across thread counts" begin
+  @testset "kernel sites reproducible across thread counts" begin
     # The `bitwise` helper above cannot reach a KernelAbstractions kernel, so it must not be used
     # for one: `with_threading` sets `_assign!`'s override, and a KA launch never consults it —
     # KA partitions by `Threads.nthreads()` — so both of that helper's lanes execute identical
     # code and the comparison degenerates to `x == x`. Reproducibility is therefore established
     # two ways here: repeats within this process, and one subprocess at a different `-t`.
+    # `helmholtz_projection` is included for its cross-`-t` digest: on a CPU array it runs the
+    # decision-40 gated loop rather than a KA kernel, and that loop must be thread-count-invariant
+    # too (its in-process toggle check lives in the gated-operations testset above).
     #
     # The two `Atomix` scatter-add kernels are EXEMPT from bitwise equality by nature. Floating
     # point addition is not associative, so a nondeterministic accumulation order perturbs the

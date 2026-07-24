@@ -52,9 +52,7 @@ norm
 
 ## Internal API
 
-The code-generation machinery, documented for contributors adding operations: the expression and kernel-body builders, the contraction formula builders, the aliasing guard, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
-
-### Functions
+The code-generation machinery, documented for contributors adding operations: the expression and kernel-body builders, the contraction formula builders, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.FieldAlgebra]

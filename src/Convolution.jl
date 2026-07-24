@@ -71,8 +71,8 @@ export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, sp
     _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
 
 Apply the coefficientwise spectral product that realizes the periodic convolution in spectral
-representation, writing ``\\mathrm{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\mathrm{dst}``
-(``\\mathrm{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
+representation, writing ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\texttt{dst}``
+(``\\texttt{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
 The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
 `source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
 call branches on `iszero(beta)` to overwrite or accumulate. The product is coefficientwise, so it is
@@ -151,7 +151,7 @@ the coefficientwise product of the transforms, which is what this operation comp
 accumulate:
 
 ```math
-\\widehat{\\mathrm{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\mathrm{destination}}(k).
+\\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
 ```
 
 - `field` — the field to filter, in spectral representation.
@@ -161,7 +161,7 @@ accumulate:
   product is coefficientwise.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
-  ``\\alpha (f \\star g) + \\beta \\mathrm{destination}``.
+  ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
 !!! warning "A real field needs a Hermitian kernel"
     The stored half-spectrum holds only the modes with ``k_1 \\ge 0``; the rest are implied by the
@@ -232,7 +232,7 @@ const ⋆ = convolve
                                     alpha, beta)
 
 Apply the fused kernel-times-combination product, computing
-``\\mathrm{dst} \\mathrel{.=} \\hat g \\cdot (\\alpha \\hat a + \\beta \\hat b)`` in one
+``\\texttt{dst} \\mathrel{.=} \\hat g \\cdot (\\alpha \\hat a + \\beta \\hat b)`` in one
 coefficientwise pass (``\\hat g`` = `kernel_data`). The scalar `kernel_data` broadcasts over the
 fiber components exactly as in `_apply_convolution!`, and the product is coefficientwise, so the
 destination may alias either operand or the kernel.
@@ -311,7 +311,7 @@ end
                                     coefficient, offset_scale, offset_data, alpha, beta)
 
 Apply the coefficientwise product with the exponential radial kernel, computing
-``\\mathrm{dst} \\mathrel{.=} \\alpha \\exp(c |k|^2) \\cdot \\hat f + \\beta \\mathrm{dst}``
+``\\texttt{dst} \\mathrel{.=} \\alpha \\exp(c |k|^2) \\cdot \\hat f + \\beta \\texttt{dst}``
 (the eight-argument form adds ``+ s \\hat w`` inside the exponential, with ``\\hat w`` =
 `offset_data` and ``s`` = `offset_scale`). The `squared_wavenumber` is the lazy
 `_squared_wavenumber_broadcast`, so the kernel is evaluated per mode inside the fused assignment and
@@ -349,7 +349,7 @@ end
                                     offset_scale, offset_data, alpha, beta)
 
 Apply the exponential radial kernel to a weighted combination, computing
-``\\mathrm{dst} \\mathrel{.=} \\exp(c |k|^2) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` (the
+``\\texttt{dst} \\mathrel{.=} \\exp(c |k|^2) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` (the
 eight-argument form adds ``+ s \\hat w`` inside the exponential) — the exponential twin of
 `_apply_convolution_combination!`, with the kernel evaluated lazily per mode instead of read from a
 stored field. Coefficientwise, hence alias-safe.
@@ -415,9 +415,12 @@ The arguments are:
 - `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
-- `α`, `a`, `β`, `b` — in the two-operand forms, the real weights and fields of the combination
-  ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref) takes them; with
-  `b === destination` the filtered accumulate runs in place.
+- `α`, `β` — in the single-operand forms, where they trail the argument list, the usual accumulation
+  weights: the result is written as ``\\alpha (\\text{filtered } f) + \\beta\\,\\texttt{destination}``.
+- `α`, `a`, `β`, `b` — in the two-operand forms, where they lead it, the real weights and fields of
+  the combination ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref)
+  takes them; with `b === destination` the filtered accumulate runs in place. The two roles never
+  share a signature, which is why one pair of glyphs can serve both.
 - `multipliers` — the wavenumber arrays for the field's grid; the kernel is evaluated from their
   squared-wavenumber family.
 - `coefficient` — the real factor ``c`` on ``|k|^2`` in the exponent, dimensionless as received (the
@@ -438,8 +441,8 @@ The arguments are:
 The single-operand accumulate form computes
 
 ```math
-\\widehat{\\mathrm{destination}}(k) = \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k)
-                                    + \\beta  \\widehat{\\mathrm{destination}}(k),
+\\widehat{\\texttt{destination}}(k) = \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k)
+                                    + \\beta  \\widehat{\\texttt{destination}}(k),
 ```
 
 and the two-operand forms apply the same kernel to the combination,
@@ -554,7 +557,7 @@ Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spect
 
 Use it as the neutral radial coordinate of spectral space: a consumer builds a Fourier symbol from it
 — a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
-subgrid test filter of the dynamic procedure of Germano and coworkers (an LES closure choice) — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
+subgrid test filter of the dynamic Germano procedure (an LES closure choice) — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
 The package supplies the coordinate, while ``\\nu`` and ``\\Delta t`` (a viscosity and a step size — physics) and any filter width stay
 consumer-side. For a symbol of the exponential family specifically,
 [`exponential_convolve!`](@ref) applies ``\\exp(c |k|^2 + s \\hat w)`` straight from the wavenumber
@@ -659,7 +662,8 @@ end
 Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation,
 on `reference`'s grid and array backend, for deconvolving a gridded point density.
 
-Use it in the pair-correlation route. Depositing ``M`` points on the grid with the positive linear
+Use it when a pair correlation is estimated from points deposited on a grid rather than counted
+directly. Depositing ``M`` points on the grid with the positive linear
 assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density) spreads each point's
 mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
 ``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by
@@ -674,7 +678,7 @@ tents:
 
 ```math
 W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a} 
-       \\max\\Bigl(0,\\; 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
+       \\max\\Bigl(0, 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
 ```
 
 each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the

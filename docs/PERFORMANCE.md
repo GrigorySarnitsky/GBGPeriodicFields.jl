@@ -27,7 +27,7 @@ that matters.
   (`docs/ARCHITECTURE.md` §1), so the ceiling is whatever one node holds — and on a CPU node that
   ceiling is high. A NAISS Arrhenius thin CPU node pairs two 128-core AMD EPYC 9755 processors with
   768 GB of DDR5, a fat node carries 3 TB, and one GH200 in the GPU partition offers 96 GB of HBM.
-  Counting one scalar field in either representation as ``8 N^3`` bytes in `Float64` (``N`` the per-axis grid size) and a solver's
+  Counting one scalar field in either representation as 8 bytes per grid point in `Float64` and a solver's
   live set at order 25 such fields, a single GH200 runs out near ``768^3`` while a thin CPU node
   reaches roughly ``1536^3`` and a fat node beyond it. The CPU therefore owns a band of resolutions
   no single GPU can reach, and inside that band it is the production platform, not a fallback. CPU
@@ -73,7 +73,7 @@ What bounds each public operation class — the mental model a benchmark either 
     flight at once to hide latency
     ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
     Scattered (unsorted) points naturally *spread* access and feed that parallelism; and at the
-    grids we run the field is largely **cache-resident** (a 256³ `Float32` field is 67 MB, inside the
+    grids we run the field is largely **cache-resident** (a 256³ scalar `Float32` field is 67 MB, inside the
     RX 6700 XT's 96 MB Infinity Cache), so there is little locality left to win.
   - **CPU**: bound by the cache hierarchy + hardware prefetchers, which *reward* locality — the
     opposite pull.
@@ -150,13 +150,14 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 
 | | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
 |---|---|---|---|
-| speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | **0.75×** (regression) |
+| speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | 0.75× (i7-12700K, 2026-06 — **superseded**, see below) |
 
 Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the strided access and its
 `z`-inner form vectorizes better, but the GPU is the production platform. **Re-measured
 (2026-07-22), and x-inner now stands on CPU evidence too:** decision 37 reopened this tiebreak
 because its cache justification dies in the CPU production band, so the A/B was repeated at 512³
-`Float64` (10⁶ points, Ryzen 9800X3D) — and the old penalty does not reproduce there. The z-inner
+`Float64` (≈5×10⁶ points, the harness's one-per-27-cells density, Ryzen 9800X3D) — and the old
+penalty does not reproduce there. The z-inner
 nest gains only ~9–10% on the 4³ Catmull–Rom stencil and **loses 23%** (serial; 5% at eight
 threads) on the 8³ Lalescu stencil, whose per-point working set no longer fits the reuse the old
 measurement enjoyed. A per-backend loop order would also break gather bit-identity across
@@ -307,12 +308,14 @@ untyped in the signature (Julia declines to specialize on it). All three are pin
 
 **(j) A multi-output kernel beats broadcast recomputation — the one-pass Helmholtz projection.** The
 projection writes three output components that share one intermediate (the longitudinal factor
-``k_j\hat u_j/|k|^2``), which a broadcast cannot express: the three-broadcast form recomputed the
+``a_j\hat u_j/(a \cdot a)``, with ``a`` the derivative wavenumber — decision 42's exact
+denominator), which a broadcast cannot express: the three-broadcast form recomputed the
 shared dot product per component — nine component reads and three divisions per mode for three
 writes. The one-pass `KernelAbstractions` kernel (decision 32) reads each source component once,
 computes the factor once, and writes all three components — and, reading a whole mode before writing
 it, serves the aliased in-place call with no guard temporary. Measured on the 12700K
-(``64^3``–``128^3``, `Float64`; the fused-vs-three-broadcast ratio):
+(``64^3``–``128^3``, `Float64`; the fused-vs-three-broadcast ratio), against the KA-on-CPU path this
+operation ran before decision 40 replaced it with a gated CPU loop of the same shape:
 
 | threads | ``64^3`` | ``128^3`` |
 |---|---|---|
@@ -508,10 +511,11 @@ launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 67
 types, all six classes). Across vendors the **reductions** class shows the widest gap and the
 clearest architectural signature: the radial diagnostics (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
-`radial_spectrum` at 256³ is ≈12× faster on the 5070 Ti than the 7900 XTX in `Float32`, widening to
-≈32× in `Float64` (92 → 2.9 ms); the extra `Float64` factor is the emulated-atomic penalty of §4(d)
-(RDNA has no native global `Float64` atomics), the 7900 XTX paying ≈4.3× for `Float32`→`Float64` on
-this op against the 5070 Ti's ≈1.7×. The full operation × type × grid × thread/backend matrix is in
+`radial_spectrum` on a vector field at 256³ is ≈3.5× faster on the 5070 Ti than the 7900 XTX in
+`Float32`, widening to ≈49× in `Float64` (67.1 → 1.38 ms); the extra `Float64` factor is the
+emulated-atomic penalty of §4(d) (RDNA has no native global `Float64` atomics), the 7900 XTX paying
+≈21× for `Float32`→`Float64` on this op against the 5070 Ti's ≈1.5×. Those are the post-decision-34
+figures, the staging planes fused away, so the atomics are the whole measurement. The full operation × type × grid × thread/backend matrix is in
 `RESULTS.md`:
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |

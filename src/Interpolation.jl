@@ -17,14 +17,18 @@ field over the ``N`` grid cells. Written with the normalized inner product ``\\l
 and ``1/N``:
 
 ```math
-M \\langle Wf, q \\rangle_{\\text{pts}} = \\sum_p (Wf)_p \\cdot q_p = \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\text{grid}}.
+\\begin{aligned}
+M \\langle Wf, q \\rangle_{\\text{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
+&= \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\text{grid}}.
+\\end{aligned}
 ```
 
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. Conservation holds **only** when both directions use the same weights;
-mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields a value while
-its adjoint returns a field, the one asymmetry in the API. Each scheme's own docstring gives the gather
+mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields point values while
+its adjoint returns a field — one of two asymmetries between the pair, the other being the ``\\alpha``/``\\beta``
+accumulation weights that only the scatter takes. Each scheme's own docstring gives the gather
 and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
@@ -526,6 +530,12 @@ end
     anterpolate!(field::AbstractFieldPhysical, points::PointSet,
                  quantities::AbstractPointValues,
                  scheme::AbstractSplineScheme = CatmullRom,
+                 α::Real = true, β::Real = false)
+    anterpolate!(field::AbstractFieldSpectral, points::PointSet,
+                 quantities::AbstractPointValues, scheme::DirectDFT,
+                 α::Real = true, β::Real = false)
+    anterpolate!(field::AbstractFieldSpectral, points::PointSet,
+                 quantities::AbstractPointValues, scheme::NUFFT,
                  α::Real = true, β::Real = false)
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of

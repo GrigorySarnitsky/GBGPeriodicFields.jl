@@ -474,7 +474,7 @@ the extensive (measure-weighted) sibling.
 mean
 
 """
-    var(f)
+    var(f; corrected = true)
 
 The per-fiber-component sample variance of a section over its base: the Bessel-corrected mean of
 the squared deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's
@@ -483,14 +483,19 @@ the squared deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)
 then the squared deviations — with no intermediate deviation section on the CPU. Physical fields
 and point-values only. See [`std`](@ref) for its square root and [`mean`](@ref) for the first
 moment.
+
+- **`corrected`** — divide by the count minus one (the sample convention, the default, matching
+  `Statistics.var`) or by the count itself. A grid holds the *complete* population of a field rather
+  than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
+  follows the standard library rather than the base.
 """
 var
 
 """
-    std(f)
+    std(f; corrected = true)
 
 The per-fiber-component standard deviation: the square root of [`var`](@ref), over the same grid
-and point-set bases with the same Bessel correction. See `var` for the definition.
+and point-set bases. See `var` for the definition and for what `corrected` selects.
 """
 std
 
@@ -879,7 +884,7 @@ This reduction acts on the spectral representation only, being a Parseval reduct
 `inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
 refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box the shells
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
-with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor \\, 2\\pi/L_a`` the per-axis Nyquist wavenumber — are
+with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` the per-axis Nyquist wavenumber — are
 incompletely sampled (only corner modes contribute), the standard isotropic-spectrum caveat; the total
 still equals `inner`. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
@@ -1058,8 +1063,6 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 \\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|, &&
 \\end{aligned}
 ```
-
-Here ``\\Omega`` is the periodic box and ``|\\Omega|`` its volume.
 
 It is physical-space only.
 """
