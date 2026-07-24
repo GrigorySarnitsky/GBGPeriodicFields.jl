@@ -183,12 +183,19 @@ is the recorded choice for both platforms.
   head-to-head, in-register vs a stored ``a^2`` array, same projection otherwise: **CPU in-register
   wins everywhere** — Float64 ``+4\%`` (``128^3``/``256^3``), Float32 ``+10\%`` — because a register
   multiply of the already-loaded ``a`` beats an extra stride-1 load, and the stored form keeps three
-  more arrays resident. On the **GPU it splits**: stored is ``\approx 6\%`` faster in **Float64**
-  (the squaring is rate-limited to ``\sim 1/64`` on a consumer Blackwell card, and the ``@Const`` 1-D
-  reads are cheap), while in-register is neutral-to-faster in **Float32**. So there is no global
-  winner, and the only gain is on GPU Float64 — not the production case (DNS runs Float32). Capturing
-  it needs a per-backend kernel split, which re-introduces the two-bodies-in-sync coupling that
-  produced the decision-47 dead-loop bug, for a single-digit win on a non-hot path. **Kept
+  more arrays resident. On the **GPU** in-register ties in **Float32** but is ``\approx 6\%`` *slower*
+  in **Float64** — and that lone reversal is a **test-hardware artifact, not a production signal**.
+  The kernel is memory-bound (the F64/F32 time ratio is ``\approx 2.1\times`` at ``256^3``, tracking
+  the ``2\times`` byte ratio, not any compute ratio); the reason dropping three squaring-multiplies
+  helps in F64 is that the **RTX 5070 Ti's consumer-Blackwell FP64 runs at ``\sim 1/64`` rate**, so
+  its FP64 ALU becomes co-limiting alongside memory and the extra multiplies tip it over. The
+  production GPU is **GH200** (decision 37 — Grace-Hopper, **full-rate ``1{:}2`` FP64**), where that
+  ALU has ``\sim 32\times`` the F64 throughput and cannot be co-limiting on a memory-bound kernel — so
+  the F64 case is expected to behave like F32 (a tie), and the stored array's extra reads to help
+  nowhere. That is an inference from the memory-bound measurement and the known FP64 rates, **not**
+  measured on a GH200 (none on hand). Even taking the ``6\%`` at face value, capturing it needs a
+  per-backend kernel split — re-introducing the two-bodies-in-sync coupling that produced the
+  decision-47 dead-loop bug — for a win seen only on a card the production runs will not use. **Kept
   in-register**; the arrays stay dropped. This also retires the original (wrong) hypothesis that
   decision 42's in-register arithmetic cost the regression the canary flagged — it did not; the dead
   loop did (decision 47), and the arithmetic is free-to-favourable on every path that matters.
