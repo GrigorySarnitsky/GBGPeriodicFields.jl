@@ -1053,7 +1053,8 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Transform a field from spectral space to physical space in-place.
+Transform a field from spectral space to physical space in place, returning the modified
+`physical` destination.
 
 Here `physical` is the destination, `spectral` is the source, and `transform_plans` provides the inverse FFT plan.
 
@@ -1063,8 +1064,6 @@ Here `physical` is the destination, `spectral` is the source, and `transform_pla
     transforms have no input-preserving algorithm in the multidimensional case; some GPU backends
     happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref)
     when `spectral` must be preserved.
-
-Returns the modified destination field.
 """
 function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   _check_field_matches_context(physical, transform_plans)
@@ -1083,7 +1082,8 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Transform a field from physical space to spectral space in-place.
+Transform a field from physical space to spectral space in place, returning the modified
+`spectral` destination.
 
 Here `spectral` is the destination, `physical` is the source, and `transform_plans` provides the forward FFT plan.
 
@@ -1092,8 +1092,6 @@ Here `spectral` is the destination, `physical` is the source, and `transform_pla
     right to use real-to-complex inputs as scratch); the `FFTW` CPU backend preserves it, but do not
     rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be
     preserved.
-
-Returns the modified destination field.
 """
 function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   _check_field_matches_context(spectral, transform_plans)
@@ -1493,8 +1491,8 @@ end
 """
     set_fft_threads!(n)
 
-Set the number of threads `FFTW` uses, effective for plans built afterwards (`FFTW` fixes the
-count at plan construction). Returns `n`. Code that parallelizes across many fields at once
+Set the number of threads `FFTW` uses and return `n`, effective for plans built afterwards (`FFTW`
+fixes the count at plan construction). Code that parallelizes across many fields at once
 should build plans under `set_fft_threads!(1)` to avoid `FFTW`×Julia thread oversubscription (more
 active threads than cores, contending instead of helping).
 """
@@ -1509,7 +1507,7 @@ set_fft_threads!(n::Integer) = (FFTW.set_num_threads(Int(n)); Int(n))
     write_field(parent::HDF5.H5DataStore, name::AbstractString, field::AbstractField)
 
 Persist `field` — any of the six field types, scalar / vector / tensor in either representation — as a
-**new HDF5 group** `name` under `parent`. Use it to checkpoint a field for restart, save a full-resolution
+**new HDF5 group** `name` under `parent`, returning the group it created. Use it to checkpoint a field for restart, save a full-resolution
 snapshot for later analysis, or pass a field to another tool; the reload with [`read_field`](@ref) is exact.
 
 The group is **self-describing**: the field's numeric array becomes the dataset `data`, and its metadata
@@ -1530,7 +1528,7 @@ The arguments are:
 - `name` — the name of the group to create.
 - `field` — the field to write.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded. Returns the created group.
+Provided by a package extension, so it is available only when `HDF5` is loaded.
 """
 function write_field end
 
@@ -1539,8 +1537,8 @@ function write_field end
     read_field(parent::HDF5.H5DataStore, name::AbstractString)
 
 Reconstruct the field written by [`write_field`](@ref) from the HDF5 group `name` under `parent`,
-dispatching on the stored `type` attribute to return the matching field type (`ScalarFieldPhysical`,
-`VectorFieldSpectral`, …). The reload is **exact** — the array data, the [`Grid3D`](@ref) geometry, the
+dispatching on the stored `type` attribute to return the reconstructed field in the matching type
+(`ScalarFieldPhysical`, `VectorFieldSpectral`, …). The reload is **exact** — the array data, the [`Grid3D`](@ref) geometry, the
 Fourier layout, the element type, and the tensor order are recovered bit-for-bit.
 
 The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
@@ -1549,8 +1547,7 @@ device afterward if needed.
 - `parent` — an open HDF5 `File` or `Group` holding the group.
 - `name` — the name (or path) of the field group under `parent`.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded. Returns the reconstructed
-field.
+Provided by a package extension, so it is available only when `HDF5` is loaded.
 """
 function read_field end
 

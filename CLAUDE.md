@@ -449,50 +449,27 @@ docs defect and is fixed in the suite: decision 40 gave `helmholtz_projection!` 
 the `with_threading` toggle reaches it and `test/threading.jl` now asserts it bitwise there (the
 assertion had stayed in the KA testset, where the docs still claimed it belonged).
 
-**Standing open item — the docstring-template uniformity pass (started 2026-07-24).** The
-`/check-consistency` panel's `structure-consistency` hat filed 20 findings; the consolidated summary
-compressed 19 of them into a single parenthetical, so only its blocker was closed in the first fix
-pass. The four shape rules above were then user-decided and the pass began. **Done:** rule 3
-(admonition titles, 5 sites), rule 4 (the in-place steer, 16 sites) — commit `5c238029` — and rule 1
-(argument shape, 10 sites: the `add!`/`subtract!`/`multiply!`/`divide!`/`dot!`/`cross!` family, the two
-radial reductions, and a lead-in for `convolve!`/`write_field`). Rule 1 turned out to reach ten
-docstrings, not the ~17 the classifier first suggested: `norm!` takes two arguments in every overload
-(its three signatures merely name the second one three ways), and the six allocating wrappers document
-no arguments at all, so the threshold never applies to them.
-Rule 2 (type docstrings) is done as well — the six field types, `FieldTransformPlans` and the three
-point-value types all carry `The fields are` bullets, collapsing three tiers of depth to one.
-**Done in the mechanical remainder:** 6 (the `sym`/`skew`/`dev` wrappers now open with the corpus's
-`Allocating form of …`), 12 (Interpolation's `# API` header dropped — its `# References` block stays,
-being the citation policy's sanctioned docstring form), 14 (closed by rule 2), 16 (`tr`'s wrapper
-gained the ``I_1`` identification its sibling `det` already carried), 17 (the three Internal-API
-sections that skipped the disclaimer now open with it), 19 (the umbrella opens with a noun phrase
-like all eight submodules), 20 (one lead-in, `The parts are:`, across the five that differed).
-**Finding 10 is dismissed with reason:** it asks the `dot`/`cross` wrappers to shed their
-representation-validity prose, but the cross-referencing rule states that a function's
-validity/absence clauses *always stay* — only the re-derived formula is cut — and invariant 1 makes
-those clauses load-bearing, since a deliberate absence must be visible where a user meets it.
-Findings 13 and 18 are done: the `Points` page gained the point-value-algebra section its module
-docstring had promised (the operations live on the `FieldAlgebra` page, generated from one shared
-builder, and the section says so), and `exponential_convolve!`'s fused two-operand form gained the
-demoted subheading its three peers carry. **13's other half is dismissed with reason:** the hat also
-wanted `DifferentialOperators`/`Convolution` module bullets to match their page section headers, but
-the rubric *mandates* that API pages be math-grouped under hand-written headers, so a module listing
-operations while its page groups them by family is the design, not drift.
-**Remaining — two:** finding 7 (`convolve!` places its physical/spectral formulas before the argument
-bullets, where `exponential_convolve!`, `combine!` and every DifferentialOperators operator place
-them after) and finding 8 (return-value documentation folded into the opening sentence — the
-majority — versus a separate trailing sentence in `convolve!`, `exponential_convolve!`,
-`write_field`, `read_field` and `set_fft_threads!`) — findings 6 (`sym`/`skew`/`dev`
-wrappers use an opener no other allocating wrapper uses), 7 (`convolve!` places its formula before the
-arguments, against both its siblings and the corpus), 8 (return-value documentation folded vs
-trailing), 10 (`dot`/`cross` wrappers re-derive validity prose their homes own), 11 (`NUFFT` bullets
-its options where the spline schemes inline theirs), 12 (the Interpolation module docstring is alone
-in embedding "API"/"References" sub-headers), 13 (module-docstring bullets vs page section headers;
-`Points` promises a fiberwise-algebra family with no matching section), 14, 16, 17 (the Internal-API
-disclaimer opens 5 of 8 sections), 18, 19 (the umbrella opens imperative where all eight submodules
-open with a noun phrase), 20 (five distinct lead-ins for the module bullet list). The per-hat report
-`.claude/doc-review/06-structure-consistency.md` is the authority — **not** the consolidated summary,
-which under-itemized it.
+**The docstring-template uniformity pass is CLOSED (2026-07-24).** The `/check-consistency` panel's
+`structure-consistency` hat filed 20 findings; the consolidated summary compressed 19 of them into one
+parenthetical, so the first fix pass closed only its blocker. All 20 are now closed — **18 fixed, 2
+dismissed with reason** — under four user-decided shape rules recorded in the docstring rubric above
+(the ≥3-arguments-or-a-keyword threshold, `The fields are` on every type with stored fields, a custom
+descriptive title on every admonition, and the verbatim in-place steer). Commits `5c238029`,
+`7229de78`, `878d0af1`, `b41de4fe`, `0db08c87`, `a7b88ab2` and the closing one.
+
+**The two dismissals.** Finding 10 asked the `dot`/`cross` wrappers to shed their
+representation-validity prose, but the cross-referencing rule says a function's validity/absence
+clauses *always* stay — only a re-derived formula is cut — and invariant 1 makes those clauses
+load-bearing, a deliberate absence having to be visible where a user meets it. Half of finding 13
+asked `DifferentialOperators`/`Convolution` module bullets to match their page section headers, but
+the rubric *mandates* math-grouped pages under hand-written headers, so a module listing operations
+while its page groups them by family is the design.
+
+**Two scope corrections worth keeping.** Rule 1 reaches ten docstrings, not the ~17 a naive classifier
+suggests: arity counts what a signature takes rather than the distinct names across type-specialized
+overloads (`norm!` takes two in all three of its), and a thin allocating wrapper documents no arguments
+at all. And finding 12 is half-applied on purpose — Interpolation's `# API` header really was unique
+and is gone, but its `# References` block stays, that being the citation policy's own docstring form.
 
 **Open items are tracked here, never as hidden comments in the rendered docs.** Every `docs/` rationale
 doc is Documenter-rendered, and an **inline HTML comment there leaks as visible escaped text** (verified

@@ -132,10 +132,21 @@ end
     convolve!(destination, field, kernel::ScalarFieldSpectral, α, β)
 
 Convolve `field` with the kernel whose transfer function is `kernel`, writing the result into
-`destination` in place; both `field` and `destination` are in spectral representation.
+`destination` in place and returning `destination`; both `field` and `destination` are in spectral
+representation.
 
 Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
 returns a fresh result instead.
+
+The arguments are:
+- `field` — the field to filter, in spectral representation.
+- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation;
+  one scalar kernel serves scalar, vector, and tensor `field`s.
+- `destination` — the field written with the result; it may alias `field` or `kernel`, since the
+  product is coefficientwise.
+- `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
+  overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
+  ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
 As a real physical object the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
@@ -158,16 +169,6 @@ accumulate:
 \\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
 ```
 
-The arguments are:
-- `field` — the field to filter, in spectral representation.
-- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation;
-  one scalar kernel serves scalar, vector, and tensor `field`s.
-- `destination` — the field written with the result; it may alias `field` or `kernel`, since the
-  product is coefficientwise.
-- `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
-  overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
-  ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
-
 !!! warning "A real field needs a Hermitian kernel"
     The stored half-spectrum holds only the modes with ``k_1 \\ge 0``; the rest are implied by the
     reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
@@ -179,7 +180,6 @@ The arguments are:
     of no real field, and the inverse transform then silently keeps only their Hermitian part.
 
 Spectral representation only: on the torus convolution is the coefficientwise spectral product.
-Returns the modified `destination`.
 """
 function convolve! end
 
@@ -388,7 +388,7 @@ end
 
 Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, evaluated from
 the wavenumber arrays on the fly — the kernel is never built or stored as a field — writing the
-result into `destination` in place.
+result into `destination` in place and returning `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
 returns a fresh result instead.
@@ -451,7 +451,7 @@ The single-operand accumulate form computes
                                     + \\beta  \\widehat{\\texttt{destination}}(k),
 ```
 
-Spectral representation only. Returns the modified `destination`.
+Spectral representation only.
 
 # The two-operand form
 
