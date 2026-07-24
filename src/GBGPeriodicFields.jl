@@ -13,6 +13,10 @@ Real-valued scalar, vector, and second-order-tensor fields on three-dimensional
 rectangular periodic domains, carried in physical-space and real-to-complex spectral
 representations, on both CPU and GPU array backends, with HDF5 field persistence.
 
+The tensors are **Cartesian** — components on one fixed orthonormal frame, with no
+curvilinear coordinates and no metric machinery — so this is an applied field toolkit
+rather than a general differential-geometry package.
+
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
 methods. A field is one real physical object; the physical and spectral forms are two

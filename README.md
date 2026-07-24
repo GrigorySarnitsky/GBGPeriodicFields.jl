@@ -1,6 +1,6 @@
 # GBGPeriodicFields.jl
 
-This package provides tools for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains.
+This package provides tools for representing, transforming, and manipulating scalar, vector, and tensor fields on three-dimensional rectangular periodic domains. The tensors are **Cartesian** — components on one fixed orthonormal frame, with no curvilinear coordinates and no metric machinery — so this is an applied field toolkit rather than a general differential-geometry package.
 
 The package is aimed primarily at fluid-dynamics and turbulence simulations, with physical-space and real-to-complex spectral representations designed for both CPU and GPU array backends, with HDF5 field persistence. It also targets Lagrangian particle simulations through interpolation tools for evaluating fields between grid nodes.
 
