@@ -6,6 +6,8 @@ The package is aimed primarily at fluid-dynamics and turbulence simulations. Fie
 
 This package is not intended to be a ready-to-use DNS solver; rather, it is a toolkit for building fluid-dynamics and general field solvers.
 
+[`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl/) is such a solver, and the package's primary consumer: a pseudospectral direct numerical simulation of homogeneous isotropic turbulence built on these fields. Its documentation is the place to see the surface below driving a full solver rather than a worked example.
+
 A few words of vocabulary, used throughout the docs. A **field** — and its off-grid **point-values** — is a *section*: one **fiber** value (a scalar, a vector, or a second-order tensor) attached to every point of a **base** (the structured grid, or an unstructured set of points). Every operation is one of three kinds: it acts *within* each fiber (the pointwise algebra — add, contract, transpose), it *differentiates along the base* (the spectral differential operators), or it *pairs a section against the base's measure* — the reductions, periodic convolution, and the grid↔point transfer, which are one integration structure in three roles. The design behind this split is the [Architecture](architecture.md) page; you do not need it to use the package.
 
 ## Installation

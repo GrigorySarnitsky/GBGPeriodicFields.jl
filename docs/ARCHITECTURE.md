@@ -15,7 +15,11 @@ its own, without opening the source or another document. (Universally standard m
 ## 1. Purpose and scope
 
 The package is the field layer for pseudospectral simulation of incompressible
-fluid dynamics and turbulence on three-dimensional rectangular periodic domains. It
+fluid dynamics and turbulence on three-dimensional rectangular periodic domains. Its
+primary consumer is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl/), a direct numerical simulation of
+homogeneous isotropic turbulence built on it; the operation families below were shaped by
+what that solver needs, which is why a proposed addition without a consumer is deferred
+rather than built. It
 provides scalar, vector, and second-order tensor fields with two storage
 representations — physical and spectral (the spectral one stored non-redundantly as the
 real-to-complex / `rfft` half-spectrum) — plus
