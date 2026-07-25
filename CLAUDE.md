@@ -178,7 +178,11 @@ page should learn the hazard without opening the block. **(4) The in-place steer
 that *has* an allocating sibling carries this sentence verbatim, after the identity paragraph and
 before the arguments: *"Use this in-place form when `destination` is already allocated; the allocating
 [`f`](@ref) returns a fresh result instead."* An operator sibling (`+`, `-`, `*`, `/`) is written in
-plain backticks, not `@ref` — the bare operators sit on no `@docs` block, so a link would not resolve.
+plain backticks, not `@ref`, as a style choice — the glyph reads better unlinked. (The operators **do**
+now sit on the FieldAlgebra `@docs` block, paired after their in-place homes like `dot!`/`dot`, so a
+link *would* resolve; they were previously mis-swept into that page's Internal API by the `Public =
+false` autodocs — the same public-but-unexported-Base-extension class as the stats on the Reductions
+page. The bare backtick stays the convention regardless.)
 A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_threads!`,
 `set_threading_cutoff!`) take no such sentence; `to_physical!`/`to_spectral!` already steer to their
 siblings for the stronger input-preservation reason (invariant 11) and are not doubled.

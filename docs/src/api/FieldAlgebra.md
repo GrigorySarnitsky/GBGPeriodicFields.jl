@@ -9,10 +9,14 @@ Order   = [:module]
 
 ```@docs
 add!
++
 subtract!
+-
 combine!
 multiply!
+*
 divide!
+/
 ```
 
 ## Contraction and product operations
@@ -58,4 +62,5 @@ These symbols are not part of the public interface; they are documented for cont
 Modules = [GBGPeriodicFields.FieldAlgebra]
 Public  = false
 Order   = [:function]
+Filter  = f -> !(nameof(f) in (:+, :-, :*, :/))
 ```
