@@ -447,7 +447,7 @@ loop on a CPU, a single fused pass on a GPU.
     The fiber map's own cost can outweigh the choice of route. `LinearAlgebra.norm` applied to a fiber
     uses the overflow-safe scaled algorithm, several times the cost of the plain
     ``\\sqrt{\\sum_i u_i^2}`` that the fieldwise `norm` evaluates, which is enough to make
-    `maximum(norm, u)` dearer than `lpnorm(u, Inf)` on a CPU despite allocating nothing; passing a plain
+    `maximum(norm, u)` costlier than `lpnorm(u, Inf)` on a CPU despite allocating nothing; passing a plain
     magnitude instead reverses that. Pick the map for the accuracy the result needs.
 """
 function integral end
