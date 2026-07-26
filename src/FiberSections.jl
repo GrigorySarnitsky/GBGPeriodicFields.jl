@@ -654,27 +654,27 @@ end
 
 
 """
-    _write_values!(targets, values, alpha, n)
+    _write_values!(targets, values, α, n)
 
-Write `alpha * values[i]` into `targets[i][n]` for every output, unrolled over the (static)
-output count. The real `alpha` keeps the multiply exact for `alpha = 1`, so the plain
+Write `α * values[i]` into `targets[i][n]` for every output, unrolled over the (static)
+output count. The real `α` keeps the multiply exact for `α = 1`, so the plain
 (non-``\\alpha``/``\\beta``) forms stay bitwise-identical to their broadcast predecessors.
 """
-@inline function _write_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, alpha, n) where {N}
-  ntuple(i -> (@inbounds targets[i][n] = alpha * values[i]; nothing), Val(N))
+@inline function _write_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, α, n) where {N}
+  ntuple(i -> (@inbounds targets[i][n] = α * values[i]; nothing), Val(N))
   return nothing
 end
 
 
 """
-    _accumulate_values!(targets, values, alpha, beta, n)
+    _accumulate_values!(targets, values, α, β, n)
 
 The ``\\beta \\ne 0`` counterpart of [`_write_values!`](@ref): write
-`alpha * values[i] + beta * targets[i][n]`, mirroring the accumulate branch of the broadcast
+`α * values[i] + β * targets[i][n]`, mirroring the accumulate branch of the broadcast
 kernel bodies expression for expression.
 """
-@inline function _accumulate_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, alpha, beta, n) where {N}
-  ntuple(i -> (@inbounds targets[i][n] = alpha * values[i] + beta * targets[i][n]; nothing), Val(N))
+@inline function _accumulate_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, α, β, n) where {N}
+  ntuple(i -> (@inbounds targets[i][n] = α * values[i] + β * targets[i][n]; nothing), Val(N))
   return nothing
 end
 
@@ -683,23 +683,23 @@ end
 # uniform across items. The source arrays are deliberately not @Const: a target may alias a
 # source (the aliased cross!/transpose! in place), and all of an element's reads precede its
 # writes, so the aliased call is safe and bitwise-identical to the non-aliased one.
-@kernel function _fiberwise_values_kernel!(f, targets, arrays, constants, alpha, beta)
+@kernel function _fiberwise_values_kernel!(f, targets, arrays, constants, α, β)
   n = @index(Global, Linear)
   @inbounds begin
     values = f(map(array -> array[n], arrays)..., constants...)
-    if iszero(beta)
-      _write_values!(targets, values, alpha, n)
+    if iszero(β)
+      _write_values!(targets, values, α, n)
     else
-      _accumulate_values!(targets, values, alpha, beta, n)
+      _accumulate_values!(targets, values, α, β, n)
     end
   end
 end
 
 
 """
-    _fiberwise_pass!(backend, f, targets, arrays, constants, alpha, beta)
+    _fiberwise_pass!(backend, f, targets, arrays, constants, α, β)
 
-Run one fused fiberwise pass — every target element receives `alpha * f(element values..., constants...)`, plus `beta` times its prior value when the accumulate is requested — over the common
+Run one fused fiberwise pass — every target element receives `α * f(element values..., constants...)`, plus `β` times its prior value when the accumulate is requested — over the common
 linear index range of the participating storage. Here `f` is a pure scalar values function: it
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
@@ -711,39 +711,39 @@ range (component views are contiguous, so linear indexing is stride-1) through t
 [`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
 element is written once from the same expression.
 """
-function _fiberwise_pass!(backend, f::F, targets, arrays, constants, alpha, beta) where {F}
-  _fiberwise_values_kernel!(backend)(f, targets, arrays, constants, alpha, beta;
+function _fiberwise_pass!(backend, f::F, targets, arrays, constants, α, β) where {F}
+  _fiberwise_values_kernel!(backend)(f, targets, arrays, constants, α, β;
                                      ndrange = length(targets[1]))
   synchronize(backend)
   return nothing
 end
 
 function _fiberwise_pass!(::KernelAbstractions.CPU, f::F, targets::NTuple{NT, Any},
-    arrays, constants, alpha, beta) where {F, NT}
+    arrays, constants, α, β) where {F, NT}
   elements = eachindex(targets[1])
   _use_threads(NT * length(elements)) ||
-    return _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, elements)
+    return _fiberwise_slab!(f, targets, arrays, constants, α, β, elements)
   @sync for slab in _index_ranges(elements, Threads.nthreads())
-    Threads.@spawn _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, slab)
+    Threads.@spawn _fiberwise_slab!(f, targets, arrays, constants, α, β, slab)
   end
   return nothing
 end
 
 
 """
-    _fiberwise_slab!(f, targets, arrays, constants, alpha, beta, elements)
+    _fiberwise_slab!(f, targets, arrays, constants, α, β, elements)
 
 Run [`_fiberwise_pass!`](@ref)'s loop over one contiguous slab of the linear index range, the
 ``\\beta`` branch hoisted out of the loop (the package-wide overwrite-vs-accumulate convention: ``\\beta = 0`` never reads the destination).
 """
-function _fiberwise_slab!(f::F, targets, arrays, constants, alpha, beta, elements) where {F}
-  if iszero(beta)
+function _fiberwise_slab!(f::F, targets, arrays, constants, α, β, elements) where {F}
+  if iszero(β)
     @inbounds @simd for n in elements
-      _write_values!(targets, f(map(array -> array[n], arrays)..., constants...), alpha, n)
+      _write_values!(targets, f(map(array -> array[n], arrays)..., constants...), α, n)
     end
   else
     @inbounds @simd for n in elements
-      _accumulate_values!(targets, f(map(array -> array[n], arrays)..., constants...), alpha, beta, n)
+      _accumulate_values!(targets, f(map(array -> array[n], arrays)..., constants...), α, β, n)
     end
   end
   return nothing

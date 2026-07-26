@@ -69,21 +69,21 @@ export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, sp
 
 
 """
-    _apply_convolution!(destination_data, source_data, kernel_data, alpha, beta)
+    _apply_convolution!(destination_data, source_data, kernel_data, α, β)
 
 Apply the coefficientwise spectral product that realizes the periodic convolution in spectral
 representation, writing ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\texttt{dst}``
 (``\\texttt{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
 The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
 `source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
-call branches on `iszero(beta)` to overwrite or accumulate. The product is coefficientwise, so it is
+call branches on `iszero(β)` to overwrite or accumulate. The product is coefficientwise, so it is
 aliasing-safe: `destination_data` may be `source_data` or the kernel.
 """
-function _apply_convolution!(destination_data::AbstractArray{<:Any, 3}, source_data, kernel_data, alpha, beta)
-  if iszero(beta)
-    @_assign! destination_data .= alpha .* kernel_data .* source_data
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 3}, source_data, kernel_data, α, β)
+  if iszero(β)
+    @_assign! destination_data .= α .* kernel_data .* source_data
   else
-    @_assign! destination_data .= alpha .* kernel_data .* source_data .+ beta .* destination_data
+    @_assign! destination_data .= α .* kernel_data .* source_data .+ β .* destination_data
   end
   return destination_data
 end
@@ -92,32 +92,32 @@ end
 # not once per fiber component. The values functions fold α as `(α ĝ) f̂` — the broadcast's own
 # association — so the fused result is bitwise-identical; the executor's own α is then the exact
 # one(T), and its β carries the accumulate (reading the destination only when β ≠ 0).
-@inline function _convolve_vector_values(kernel_value, source_1, source_2, source_3, alpha)
-  scaled = alpha * kernel_value
+@inline function _convolve_vector_values(kernel_value, source_1, source_2, source_3, α)
+  scaled = α * kernel_value
   return (scaled * source_1, scaled * source_2, scaled * source_3)
 end
 
 @inline function _convolve_tensor_values(kernel_value, source_11, source_12, source_13,
-    source_21, source_22, source_23, source_31, source_32, source_33, alpha)
-  scaled = alpha * kernel_value
+    source_21, source_22, source_23, source_31, source_32, source_33, α)
+  scaled = α * kernel_value
   return (scaled * source_11, scaled * source_12, scaled * source_13,
           scaled * source_21, scaled * source_22, scaled * source_23,
           scaled * source_31, scaled * source_32, scaled * source_33)
 end
 
-function _apply_convolution!(destination_data::AbstractArray{<:Any, 4}, source_data, kernel_data, alpha, beta)
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 4}, source_data, kernel_data, α, β)
   _fiberwise_pass!(get_backend(destination_data), _convolve_vector_values,
                    ntuple(component -> view(destination_data, :, :, :, component), Val(3)),
                    (kernel_data, ntuple(component -> view(source_data, :, :, :, component), Val(3))...),
-                   (alpha,), one(alpha), beta)
+                   (α,), one(α), β)
   return destination_data
 end
 
-function _apply_convolution!(destination_data::AbstractArray{<:Any, 5}, source_data, kernel_data, alpha, beta)
+function _apply_convolution!(destination_data::AbstractArray{<:Any, 5}, source_data, kernel_data, α, β)
   _fiberwise_pass!(get_backend(destination_data), _convolve_tensor_values,
                    ntuple(n -> view(destination_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    (kernel_data, ntuple(n -> view(source_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...),
-                   (alpha,), one(alpha), beta)
+                   (α,), one(α), β)
   return destination_data
 end
 
@@ -185,10 +185,10 @@ function convolve! end
 
 
 function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat, R}
+    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(field, kernel)
-  _apply_convolution!(field_data(destination), field_data(field), field_data(kernel), T(alpha), T(beta))
+  _apply_convolution!(field_data(destination), field_data(field), field_data(kernel), T(α), T(β))
   return destination
 end
 
@@ -234,7 +234,7 @@ const ⋆ = convolve
 
 """
     _apply_convolution_combination!(destination_data, a_data, b_data, kernel_data,
-                                    alpha, beta)
+                                    α, β)
 
 Apply the fused kernel-times-combination product, computing
 ``\\texttt{dst} \\mathrel{.=} \\hat g \\cdot (\\alpha \\hat a + \\beta \\hat b)`` in one
@@ -242,47 +242,47 @@ coefficientwise pass (``\\hat g`` = `kernel_data`). The scalar `kernel_data` bro
 fiber components exactly as in `_apply_convolution!`, and the product is coefficientwise, so the
 destination may alias either operand or the kernel.
 """
-function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 3}, a_data, b_data, kernel_data, alpha, beta)
-  @_assign! destination_data .= kernel_data .* (alpha .* a_data .+ beta .* b_data)
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 3}, a_data, b_data, kernel_data, α, β)
+  @_assign! destination_data .= kernel_data .* (α .* a_data .+ β .* b_data)
   return destination_data
 end
 
 # The fiber cases fuse like `_apply_convolution!` above: ĝ read once per mode. The executor's β
 # is zero — the combination's own β lives inside the values (the `b === destination` filtered
 # accumulate stays safe: an element's operands are read before its destination is written).
-@inline function _combine_kernel_vector_values(kernel_value, a_1, a_2, a_3, b_1, b_2, b_3, alpha, beta)
-  return (kernel_value * (alpha * a_1 + beta * b_1),
-          kernel_value * (alpha * a_2 + beta * b_2),
-          kernel_value * (alpha * a_3 + beta * b_3))
+@inline function _combine_kernel_vector_values(kernel_value, a_1, a_2, a_3, b_1, b_2, b_3, α, β)
+  return (kernel_value * (α * a_1 + β * b_1),
+          kernel_value * (α * a_2 + β * b_2),
+          kernel_value * (α * a_3 + β * b_3))
 end
 
 @inline function _combine_kernel_tensor_values(kernel_value,
     a_11, a_12, a_13, a_21, a_22, a_23, a_31, a_32, a_33,
-    b_11, b_12, b_13, b_21, b_22, b_23, b_31, b_32, b_33, alpha, beta)
-  return (kernel_value * (alpha * a_11 + beta * b_11), kernel_value * (alpha * a_12 + beta * b_12),
-          kernel_value * (alpha * a_13 + beta * b_13), kernel_value * (alpha * a_21 + beta * b_21),
-          kernel_value * (alpha * a_22 + beta * b_22), kernel_value * (alpha * a_23 + beta * b_23),
-          kernel_value * (alpha * a_31 + beta * b_31), kernel_value * (alpha * a_32 + beta * b_32),
-          kernel_value * (alpha * a_33 + beta * b_33))
+    b_11, b_12, b_13, b_21, b_22, b_23, b_31, b_32, b_33, α, β)
+  return (kernel_value * (α * a_11 + β * b_11), kernel_value * (α * a_12 + β * b_12),
+          kernel_value * (α * a_13 + β * b_13), kernel_value * (α * a_21 + β * b_21),
+          kernel_value * (α * a_22 + β * b_22), kernel_value * (α * a_23 + β * b_23),
+          kernel_value * (α * a_31 + β * b_31), kernel_value * (α * a_32 + β * b_32),
+          kernel_value * (α * a_33 + β * b_33))
 end
 
-function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 4}, a_data, b_data, kernel_data, alpha, beta)
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 4}, a_data, b_data, kernel_data, α, β)
   _fiberwise_pass!(get_backend(destination_data), _combine_kernel_vector_values,
                    ntuple(component -> view(destination_data, :, :, :, component), Val(3)),
                    (kernel_data,
                     ntuple(component -> view(a_data, :, :, :, component), Val(3))...,
                     ntuple(component -> view(b_data, :, :, :, component), Val(3))...),
-                   (alpha, beta), one(alpha), zero(alpha))
+                   (α, β), one(α), zero(α))
   return destination_data
 end
 
-function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 5}, a_data, b_data, kernel_data, alpha, beta)
+function _apply_convolution_combination!(destination_data::AbstractArray{<:Any, 5}, a_data, b_data, kernel_data, α, β)
   _fiberwise_pass!(get_backend(destination_data), _combine_kernel_tensor_values,
                    ntuple(n -> view(destination_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    (kernel_data,
                     ntuple(n -> view(a_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...,
                     ntuple(n -> view(b_data, :, :, :, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9))...),
-                   (alpha, beta), one(alpha), zero(alpha))
+                   (α, β), one(α), zero(α))
   return destination_data
 end
 
@@ -310,36 +310,36 @@ end
 
 """
     _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
-                                    coefficient, alpha, beta)
+                                    coefficient, α, β)
 
     _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
-                                    coefficient, offset_scale, offset_data, alpha, beta)
+                                    coefficient, offset_scale, offset_data, α, β)
 
 Apply the coefficientwise product with the exponential radial kernel, computing
 ``\\texttt{dst} \\mathrel{.=} \\alpha \\exp(c |k|^2) \\cdot \\hat f + \\beta \\texttt{dst}``
 (the eight-argument form adds ``+ s \\hat w`` inside the exponential, with ``\\hat w`` =
 `offset_data` and ``s`` = `offset_scale`). The `squared_wavenumber` is the lazy
 `_squared_wavenumber_broadcast`, so the kernel is evaluated per mode inside the fused assignment and
-never materialized. The call branches on `iszero(beta)` to overwrite or accumulate; the product is
+never materialized. The call branches on `iszero(β)` to overwrite or accumulate; the product is
 coefficientwise, hence alias-safe.
 """
 function _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
-    coefficient, alpha, beta)
-  if iszero(beta)
-    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber) .* source_data
+    coefficient, α, β)
+  if iszero(β)
+    @_assign! destination_data .= α .* exp.(coefficient .* squared_wavenumber) .* source_data
   else
-    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber) .* source_data .+ beta .* destination_data
+    @_assign! destination_data .= α .* exp.(coefficient .* squared_wavenumber) .* source_data .+ β .* destination_data
   end
   return destination_data
 end
 
 
 function _apply_exponential_convolution!(destination_data, source_data, squared_wavenumber,
-    coefficient, offset_scale, offset_data, alpha, beta)
-  if iszero(beta)
-    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data
+    coefficient, offset_scale, offset_data, α, β)
+  if iszero(β)
+    @_assign! destination_data .= α .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data
   else
-    @_assign! destination_data .= alpha .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data .+ beta .* destination_data
+    @_assign! destination_data .= α .* exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* source_data .+ β .* destination_data
   end
   return destination_data
 end
@@ -347,11 +347,11 @@ end
 
 """
     _apply_exponential_combination!(destination_data, a_data, b_data,
-                                    squared_wavenumber, coefficient, alpha, beta)
+                                    squared_wavenumber, coefficient, α, β)
 
     _apply_exponential_combination!(destination_data, a_data, b_data,
                                     squared_wavenumber, coefficient,
-                                    offset_scale, offset_data, alpha, beta)
+                                    offset_scale, offset_data, α, β)
 
 Apply the exponential radial kernel to a weighted combination, computing
 ``\\texttt{dst} \\mathrel{.=} \\exp(c |k|^2) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` (the
@@ -360,15 +360,15 @@ eight-argument form adds ``+ s \\hat w`` inside the exponential) — the exponen
 stored field. Coefficientwise, hence alias-safe.
 """
 function _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
-    coefficient, alpha, beta)
-  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber) .* (alpha .* a_data .+ beta .* b_data)
+    coefficient, α, β)
+  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber) .* (α .* a_data .+ β .* b_data)
   return destination_data
 end
 
 
 function _apply_exponential_combination!(destination_data, a_data, b_data, squared_wavenumber,
-    coefficient, offset_scale, offset_data, alpha, beta)
-  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* (alpha .* a_data .+ beta .* b_data)
+    coefficient, offset_scale, offset_data, α, β)
+  @_assign! destination_data .= exp.(coefficient .* squared_wavenumber .+ offset_scale .* offset_data) .* (α .* a_data .+ β .* b_data)
   return destination_data
 end
 
@@ -465,11 +465,11 @@ function exponential_convolve! end
 
 
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    multipliers::FieldSpectralMultipliers, coefficient::Real, alpha::Real, beta::Real) where {T<:AbstractFloat, R}
+    multipliers::FieldSpectralMultipliers, coefficient::Real, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
   _apply_exponential_convolution!(field_data(destination), field_data(field),
-    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(alpha), T(beta))
+    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
   return destination
 end
 
@@ -482,13 +482,13 @@ end
 
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
     multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
-    offset::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat, R}
+    offset::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(field, offset)
   _check_multipliers_compatibility(field, multipliers)
   _apply_exponential_convolution!(field_data(destination), field_data(field),
     _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
-    T(alpha), T(beta))
+    T(α), T(β))
   return destination
 end
 

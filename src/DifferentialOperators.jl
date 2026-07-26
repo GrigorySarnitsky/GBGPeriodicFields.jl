@@ -95,14 +95,14 @@ export gradient!,
     _apply_spectral_divergence!(destination_component,
                                 source_1, source_2, source_3,
                                 wavenumber_1, wavenumber_2, wavenumber_3,
-                                kernel_data, alpha, beta, ::Type{T})
+                                kernel_data, α, β, ::Type{T})
 
 Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. The `divergence` operator uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
 
 The eleven-argument form composes the contraction with a coefficientwise kernel and the
 ``\\alpha``/``\\beta`` accumulate in the same fused pass, computing
 ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\texttt{dst}``
-with ``\\hat g`` = `kernel_data`, branching on `iszero(beta)` to overwrite or accumulate — the
+with ``\\hat g`` = `kernel_data`, branching on `iszero(β)` to overwrite or accumulate — the
 divergence analogue of `_apply_convolution!`.
 """
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
@@ -115,13 +115,13 @@ end
 
 
 function _apply_spectral_divergence!(destination_component, source_component_1, source_component_2, source_component_3,
-  wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha, beta, ::Type{T}) where {T<:AbstractFloat}
+  wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α, β, ::Type{T}) where {T<:AbstractFloat}
 
   imaginary_unit = Complex{T}(zero(T), one(T))
-  if iszero(beta)
-    @_assign! destination_component .= alpha .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3))
+  if iszero(β)
+    @_assign! destination_component .= α .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3))
   else
-    @_assign! destination_component .= alpha .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)) .+ beta .* destination_component
+    @_assign! destination_component .= α .* kernel_data .* (imaginary_unit .* (wavenumber_1 .* source_component_1 .+ wavenumber_2 .* source_component_2 .+ wavenumber_3 .* source_component_3)) .+ β .* destination_component
   end
   return destination_component
 end
@@ -179,7 +179,7 @@ operator kernel serve both its plain and kernel-composed forms with the branch c
 @kernel function _helmholtz_projection_kernel!(destination_1, destination_2, destination_3,
     source_1, source_2, source_3,
     @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
-    kernel_data, alpha, beta)
+    kernel_data, α, β)
 
   mode_1, mode_2, mode_3 = @index(Global, NTuple)
   @inbounds begin
@@ -199,20 +199,20 @@ operator kernel serve both its plain and kernel-composed forms with the branch c
 
     longitudinal = (wavenumber_value_1 * source_value_1 + wavenumber_value_2 * source_value_2 + wavenumber_value_3 * source_value_3) /
                    ifelse(iszero(squared), one(squared), squared)
-    scale = alpha * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
+    scale = α * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
 
     projected_1 = scale * (source_value_1 - wavenumber_value_1 * longitudinal)
     projected_2 = scale * (source_value_2 - wavenumber_value_2 * longitudinal)
     projected_3 = scale * (source_value_3 - wavenumber_value_3 * longitudinal)
 
-    if iszero(beta)
+    if iszero(β)
       destination_1[mode_1, mode_2, mode_3] = projected_1
       destination_2[mode_1, mode_2, mode_3] = projected_2
       destination_3[mode_1, mode_2, mode_3] = projected_3
     else
-      destination_1[mode_1, mode_2, mode_3] = projected_1 + beta * destination_1[mode_1, mode_2, mode_3]
-      destination_2[mode_1, mode_2, mode_3] = projected_2 + beta * destination_2[mode_1, mode_2, mode_3]
-      destination_3[mode_1, mode_2, mode_3] = projected_3 + beta * destination_3[mode_1, mode_2, mode_3]
+      destination_1[mode_1, mode_2, mode_3] = projected_1 + β * destination_1[mode_1, mode_2, mode_3]
+      destination_2[mode_1, mode_2, mode_3] = projected_2 + β * destination_2[mode_1, mode_2, mode_3]
+      destination_3[mode_1, mode_2, mode_3] = projected_3 + β * destination_3[mode_1, mode_2, mode_3]
     end
   end
 end
@@ -220,11 +220,11 @@ end
 
 """
     _apply_helmholtz_projection!(destination, field, multipliers,
-                                 kernel_data, alpha, beta)
+                                 kernel_data, α, β)
 
 Launch `_helmholtz_projection_kernel!` over the spectral mode grid on the backend of
 `destination`'s storage, passing the six one-dimensional multiplier arrays and the already-converted
-`alpha`/`beta`. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
+`α`/`β`. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
 plain projection. Shared by every `helmholtz_projection!` method.
 """
 # The gated CPU twin of the projection kernel (the decision-38 pattern): the same per-mode
@@ -235,7 +235,7 @@ plain projection. Shared by every `helmholtz_projection!` method.
 function _helmholtz_projection_modes!(::KernelAbstractions.CPU,
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    kernel_data, alpha, beta)
+    kernel_data, α, β)
   # The denominator is the derivative-family |a|², squared from the same values the numerator reads —
   # NOT a stored true-|k|² array — so ℙ = id − a aᵀ/(a·a) is exactly idempotent and annihilates the
   # discrete divergence at every mode, Nyquist planes included (decision 42). This mirrors the KA
@@ -256,18 +256,18 @@ function _helmholtz_projection_modes!(::KernelAbstractions.CPU,
           source_value_3 = source_3[mode_1, mode_2, mode_3]
           longitudinal = (wavenumber_value_1 * source_value_1 + wavenumber_value_2 * source_value_2 + wavenumber_value_3 * source_value_3) /
                          ifelse(iszero(squared), one(squared), squared)
-          scale = alpha * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
+          scale = α * _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)
           projected_1 = scale * (source_value_1 - wavenumber_value_1 * longitudinal)
           projected_2 = scale * (source_value_2 - wavenumber_value_2 * longitudinal)
           projected_3 = scale * (source_value_3 - wavenumber_value_3 * longitudinal)
-          if iszero(beta)
+          if iszero(β)
             destination_1[mode_1, mode_2, mode_3] = projected_1
             destination_2[mode_1, mode_2, mode_3] = projected_2
             destination_3[mode_1, mode_2, mode_3] = projected_3
           else
-            destination_1[mode_1, mode_2, mode_3] = projected_1 + beta * destination_1[mode_1, mode_2, mode_3]
-            destination_2[mode_1, mode_2, mode_3] = projected_2 + beta * destination_2[mode_1, mode_2, mode_3]
-            destination_3[mode_1, mode_2, mode_3] = projected_3 + beta * destination_3[mode_1, mode_2, mode_3]
+            destination_1[mode_1, mode_2, mode_3] = projected_1 + β * destination_1[mode_1, mode_2, mode_3]
+            destination_2[mode_1, mode_2, mode_3] = projected_2 + β * destination_2[mode_1, mode_2, mode_3]
+            destination_3[mode_1, mode_2, mode_3] = projected_3 + β * destination_3[mode_1, mode_2, mode_3]
           end
         end
       end
@@ -279,11 +279,11 @@ end
 function _helmholtz_projection_modes!(backend,
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    kernel_data, alpha, beta)
+    kernel_data, α, β)
   _helmholtz_projection_kernel!(backend)(
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
-    kernel_data, alpha, beta;
+    kernel_data, α, β;
     ndrange = size(destination_1))
   synchronize(backend)
   return nothing
@@ -291,12 +291,12 @@ end
 
 
 function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
-    multipliers::FieldSpectralMultipliers, kernel_data, alpha::T, beta::T) where {T<:AbstractFloat}
+    multipliers::FieldSpectralMultipliers, kernel_data, α::T, β::T) where {T<:AbstractFloat}
   _helmholtz_projection_modes!(get_backend(field_data(destination)),
     _vector_component_data(destination, 1), _vector_component_data(destination, 2), _vector_component_data(destination, 3),
     _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
     multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
-    kernel_data, alpha, beta)
+    kernel_data, α, β)
   return destination
 end
 
@@ -869,7 +869,7 @@ end
 
 
 function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
   _check_field_domain_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
@@ -877,7 +877,7 @@ function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpec
   _apply_spectral_divergence!(field_data(destination),
     _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
     _wavenumber_broadcast_view(multipliers, Val(1)), _wavenumber_broadcast_view(multipliers, Val(2)), _wavenumber_broadcast_view(multipliers, Val(3)),
-    field_data(kernel), T(alpha), T(beta), T)
+    field_data(kernel), T(α), T(β), T)
 
   return destination
 end
@@ -890,7 +890,7 @@ end
 
 
 function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpectral{2, T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
   _check_field_domain_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
@@ -899,20 +899,20 @@ function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpec
   wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
   wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
   kernel_data = field_data(kernel)
-  alpha_value = T(alpha)
-  beta_value = T(beta)
+  α_value = T(α)
+  β_value = T(β)
 
   _apply_spectral_divergence!(_vector_component_data(destination, 1),
     _tensor2_component_data(field, 1, 1), _tensor2_component_data(field, 1, 2), _tensor2_component_data(field, 1, 3),
-    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α_value, β_value, T)
 
   _apply_spectral_divergence!(_vector_component_data(destination, 2),
     _tensor2_component_data(field, 2, 1), _tensor2_component_data(field, 2, 2), _tensor2_component_data(field, 2, 3),
-    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α_value, β_value, T)
 
   _apply_spectral_divergence!(_vector_component_data(destination, 3),
     _tensor2_component_data(field, 3, 1), _tensor2_component_data(field, 3, 2), _tensor2_component_data(field, 3, 3),
-    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, alpha_value, beta_value, T)
+    wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α_value, β_value, T)
 
   return destination
 end
@@ -1364,11 +1364,11 @@ end
 
 
 function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, alpha::Real, beta::Real) where {T<:AbstractFloat}
+    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
   _check_field_domain_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
-  return _apply_helmholtz_projection!(destination, field, multipliers, field_data(kernel), T(alpha), T(beta))
+  return _apply_helmholtz_projection!(destination, field, multipliers, field_data(kernel), T(α), T(β))
 end
 
 
