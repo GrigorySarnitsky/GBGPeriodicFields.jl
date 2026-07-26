@@ -17,7 +17,7 @@ The parts are:
   * **A full fiberwise algebra on the point values.** Addition, real scaling, scalar
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
     invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
-    carry. The algebra reuses the shared `FiberSections` formula builders and fused
+    carry — see [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
 The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
