@@ -358,6 +358,18 @@ such a summary, with no variadic method in the code to mirror.
 *setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
 Applies to docstrings, the four design docs, the doc pages, `#` comments, and `@testset` names.
 
+**Greek scalars — Unicode `α`/`β`, with two named exceptions.** The axpby accumulation scalars are written
+**Unicode `α`/`β`** everywhere — arguments, locals (`α_value`/`β_value`), kernel bodies, and docstrings —
+matching the `@eval` codegen, which itself emits Unicode `α`/`β` (so there is **no** codegen friction; the
+earlier "Unicode is friction in generated code" rationale was wrong). A hand-written op spelling them ASCII
+`alpha`/`beta` is **drift, not a choice** — do not reintroduce it (a `/check-consistency` sweep should flag
+it). **Two deliberate ASCII holdouts, not to be "unified":** the `alpha_beta::Bool` codegen flag (it names the
+α/β *variant*, not the scalar — `α_β::Bool` would read as a scalar product); and the **NUFFT** window-shape
+`beta` with its quadrature locals `omega`/`theta` — a self-consistent implementation block whose `beta` is a
+public **keyword argument + struct field** in the English register of `tol`/`width`/`oversampling` (a Unicode
+`β` keyword would be an odd Greek among English, and the rename is breaking). TurTLE's `beta_n{n}_m{m}` weight
+name is external and likewise stays.
+
 **Cost register, not time — a docstring frames expense, never temporal cadence.** The package carries no
 concept of time (invariant 12), so a **docstring must not describe *when* or *how often* a consumer calls
 an operation** — never "per-step call", "occasional diagnostic", "every step", "each timestep", "hot loop"
