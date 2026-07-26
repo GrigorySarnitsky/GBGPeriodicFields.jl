@@ -33,9 +33,8 @@ and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
 Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
-(portable KernelAbstractions gather/scatter kernels on CPU / CUDA / AMDGPU, with an atomic scatter; the
-default [`CatmullRom`](@ref)), and the spectral-domain exact [`DirectDFT`](@ref) / fast [`NUFFT`](@ref)
-that act on a field in spectral representation. The point-value data types and their fiberwise algebra
+(the default [`CatmullRom`](@ref)), which act on a physical field, and the spectral-domain exact
+[`DirectDFT`](@ref) / fast [`NUFFT`](@ref) that act on a field in spectral representation. The point-value data types and their fiberwise algebra
 live in the `Points` module.
 
 The parts are:
@@ -466,8 +465,7 @@ over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a
 representation** in the Fourier basis; each scheme's own docstring gives the weights it applies.
 
 The `out` argument must match `field` in tensor order (scalar, vector, or second-order tensor) and cover the same
-number of points as `points`. The transfer runs as a portable gather kernel on the field's array backend
-(CPU / CUDA / AMDGPU). The spline schemes are exact at grid nodes and for polynomials up to the scheme's
+number of points as `points`. The spline schemes are exact at grid nodes and for polynomials up to the scheme's
 reproduction degree and approximate otherwise; the spectral schemes reconstruct the band-limited field
 exactly (`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
@@ -559,8 +557,7 @@ field in **spectral representation**; each scheme's own docstring gives the weig
     a deposit that accumulates onto a field the same points also sample).
 
 Both `field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
-must cover the same number of points. The transfer runs as a portable scatter kernel on the field's array
-backend (CPU / CUDA / AMDGPU).
+must cover the same number of points.
 
 Reference: A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
 equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
