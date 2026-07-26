@@ -465,7 +465,7 @@ acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
 over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in **spectral
 representation** in the Fourier basis; each scheme's own docstring gives the weights it applies.
 
-`out` must match `field` in tensor order (scalar, vector, or second-order tensor) and cover the same
+The `out` argument must match `field` in tensor order (scalar, vector, or second-order tensor) and cover the same
 number of points as `points`. The transfer runs as a portable gather kernel on the field's array backend
 (CPU / CUDA / AMDGPU). The spline schemes are exact at grid nodes and for polynomials up to the scheme's
 reproduction degree and approximate otherwise; the spectral schemes reconstruct the band-limited field
@@ -558,7 +558,7 @@ field in **spectral representation**; each scheme's own docstring gives the weig
     onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling scatter —
     a deposit that accumulates onto a field the same points also sample).
 
-`field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
+Both `field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
 must cover the same number of points. The transfer runs as a portable scatter kernel on the field's array
 backend (CPU / CUDA / AMDGPU).
 

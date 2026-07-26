@@ -30,7 +30,7 @@ contracting two fields — is defined only in physical-space representation, exc
 compile-time constant fiber, which keeps the operation coefficient-wise; the missing combinations are
 deliberate.
 
-`mul!` follows the `LinearAlgebra` convention that the destination must not share storage with an input,
+The `mul!` product follows the `LinearAlgebra` convention that the destination must not share storage with an input,
 while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each fused pass reads an element's sources before writing any output) and
 may be called with the destination aliasing an input.
 
