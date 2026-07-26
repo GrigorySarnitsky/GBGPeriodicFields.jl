@@ -949,7 +949,7 @@ tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpol
 like the reference. The options:
 
   - `tol` — the target accuracy; the window width and shape default to the values that reach it.
-  - `oversampling` — the linear oversampling factor of the work grid (default `2`).
+  - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2** (a value of 1 leaves no spectral guard band, so the gridding breaks down).
   - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
   - `beta` — the window shape parameter; `0` (default) picks it from the width.
 
@@ -982,6 +982,7 @@ end
 function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversampling::Integer = 2,
                width::Integer = 0, beta::Real = 0) where {T<:AbstractFloat, R}
   σ = Int(oversampling)
+  σ ≥ 2 || throw(ArgumentError("NUFFT oversampling must be at least 2 (got $σ): with no oversampling the work grid has no spectral guard band, so the windowed gridding aliases across the whole resolved band and cannot reach the requested tolerance."))
   w = width > 0 ? Int(width) : _nufft_width(tol)
   β = beta > 0 ? T(beta) : _nufft_beta(w, T)
   grid = field_grid(reference)

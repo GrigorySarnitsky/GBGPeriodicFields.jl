@@ -336,6 +336,8 @@ end
   wide = NUFFT(bh; tol = nufft_tol, oversampling = 3)
   @test isapprox(Array(point_values(interpolate(bh, points, wide))), inside;
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
+  # oversampling must be ≥ 2: σ = 1 has no spectral guard band, so the plan build rejects it
+  @test_throws ArgumentError NUFFT(bh; tol = nufft_tol, oversampling = 1)
   @test isapprox(Array(point_values(interpolate(bh, outside, fast))), inside;
                  rtol = 50 * nufft_tol, atol = 50 * nufft_tol)
   q = ScalarPointValues(rand(MersenneTwister(22), TP, 20))
