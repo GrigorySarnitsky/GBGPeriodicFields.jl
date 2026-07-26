@@ -18,7 +18,7 @@ stay physical-only.
 The parts are, each linking to the home where its formula lives:
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
-- `mean`, `std`, `var` — the **intensive**, **fiber-preserving** base moments (they extend
+- [`mean`](@ref), [`std`](@ref), [`var`](@ref) — the **intensive**, **fiber-preserving** base moments (they extend
   `Statistics`; the `mean` of a vector field is a `FiberVector`): `mean` is the plain arithmetic
   average over the ``N`` grid cells or the ``M`` points, and `std`/`var` keep the `Statistics`
   keyword `corrected = true` (the default divides by the count minus one).
@@ -26,7 +26,7 @@ The parts are, each linking to the home where its formula lives:
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
   spectral generalization ``\\langle f, w g\\rangle``.
-- `maximum`, `minimum`, `extrema` — the ``L^\\infty`` end, extending `Base`. The bare forms take a
+- [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
   scalar section; the mapped forms below extend them to every tensor order.
 - The **mapped forms** — each reduction above also accepts a leading function, applied to the fiber
   value at every base point: `mean(det, A)` averages a determinant over the base and
