@@ -1111,6 +1111,19 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   split (shear-flow anisotropy diagnostics); higher positive-B-spline / signed-kernel RDF windows +
   interlacing; matrix-valued convolution kernels (threaded reductions landed — decision 40). Shear-flow support (Rogallo
   time-dependent multipliers + remeshing) stays consumer-side.
+- **`var`/`std` — two fixes (recorded 2026-07-27, user-directed; do when tokens reset).** A design review
+  found both mis-scoped. **(1) Spectral form:** they are physical-only by *scoping, not validity* —
+  `var(f) = inner(f, f) − mean(f)²` (spectrally `Σ_{k≠0} |f̂_k|²`, the fluctuation energy), both terms
+  already spectral-available, so they were wrongly grouped with the genuinely-physical-only
+  `lpnorm`/`maximum` (which have no Parseval form). **(2) Per-component vs covariance:** fiber-preserving
+  `var`/`std` on a vector/tensor field return the *basis-dependent diagonal* of the covariance tensor
+  `R_ij = ⟨u'_i u'_j⟩ ∈ Sym²(V)`, dropping the off-diagonal covariances — fiber-preserving `mean` is
+  coordinate-free (linear) but fiber-preserving `var` is not (quadratic). **Definite fix:** document both
+  honestly — the per-component / diagonal-of-covariance meaning for R>0, and physical-only-by-scoping (not
+  validity). **Optional builds (consumer-gated):** spectral `var`/`std` (a thin delegation to
+  `inner − mean²`); a `cov` returning the `Sym²(V)` covariance (Reynolds-stress) tensor — a consumer-side
+  diagnostic (invariant 12) in the `E_ij(κ)` family (`R_ij = Σ_{k≠0} û_i conj(û_j)`), tying to the
+  symmetric-storage item (decision 35, IT item 3).
 - **The canary-judge benchmark lane — BUILT (`benchmark/regress.jl`, 2026-07-22).** The last unautomated
   regression layer: achieved-TIME regressions (SIMD loss, launch drift, library bumps) — the class
   `pass_audit`/`allocations`/JET cannot see, and the one that let the threading inversion sit in the
