@@ -1151,6 +1151,27 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   Pre-registered round-3 candidate from IT: the **two-output stage update**
   `(ĥ, û) ← (N̂ + a·ĥ, ℰ⊙(û + b·ĥ))` (~13% of its pass traffic; a module map into a direct sum — would
   pass §2; the open questions are the two-destination surface shape and whether the share justifies it).
+- **`map!` / `map` — design approved, scheduled to build (2026-07-27, user-directed).** The decision-35
+  physical `map!` candidate is spec'd and green-lit; build it to full definition-of-done. **Module:**
+  `FieldAlgebra` (physical-field methods) + `Points` (point-value methods) — it is a *vertical/fiberwise*
+  op (family 1), so **not** `Reductions` (it does not reduce against the measure) and **not**
+  `FiberSections` (internal foundation, no public exports); it also falls under the FieldAlgebra
+  nonlinear-aliasing warning. **Engine:** reuse `_fiberwise_pass!` (it already takes a runtime `f` and
+  keeps `targets`/`arrays` separate, so an *order-changing* map like `exp∘det` : tensor→scalar works; it is
+  KA-GPU + slab-threaded-CPU, allocation-free, `@_assign!`-routed) — no new engine. **Surface:** extend
+  `Base.map!` / `Base.map` (`import Base: map, map!`; not piracy, we own the types). **Validity:** methods
+  on `AbstractFieldPhysical` and `AbstractPointValues` only; a spectral field gets **no** method
+  (invariant 1 — arbitrary φ is nonlinear ⇒ physical-only). **Shapes:** multi-input `map!(φ, dest, f, g, …)`
+  (φ takes the input fibers' tuple, returns the output fiber); optional α/β accumulate (the engine already
+  carries it, overwrite = `true`/`false`); the allocating `map(φ, f)` infers the output tensor order from φ
+  via `Base.promote_op(φ, fiber_type)` or a sample fiber. **Parallelism:** embarrassingly parallel —
+  disjoint writes, no atomics — so it scales cleanly and is bitwise thread-count-invariant on CPU; φ must
+  be a pure, GPU-safe function (no captured state, no scalar indexing). **Definition-of-done:** a CPU
+  oracle test + GPU parity in `test/gpu/suite.jl` + the `@allocated` zero in `test/allocations.jl` + a
+  `test/pass_audit.jl` row; a benchmark in the fiberwise class; the four guiding docs (ARCHITECTURE
+  decision + section, FORMALIZATION typed entry, TESTING §4 axes, PERFORMANCE); and CLAUDE.md (module list;
+  record it as decision-35's first `map!` instance). Its docstring lands under the FieldAlgebra
+  nonlinear-aliasing warning.
 
 ## Working agreements
 
