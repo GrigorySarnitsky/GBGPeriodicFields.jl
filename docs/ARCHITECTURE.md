@@ -254,6 +254,14 @@ The coefficientwise product *downstairs* is **convolution** upstairs (offered as
 [§11](@ref "11. Convolution")); the pointwise product ``f \cdot g`` transforms to a convolution with **no** coefficientwise spectral
 form — exactly why those nonlinear operations are physical-space only.
 
+The same finiteness makes a nonlinear result **aliased**. A product doubles the spectral band — the
+determinant (a triple product) triples it, a transcendental such as the norm is unbounded — so content
+beyond the grid's Nyquist (highest resolved) wavenumber folds back onto the resolved modes when the
+physical result is transformed to spectral representation. The gridpoint values themselves stay exact; the
+aliasing is a spectral-representation artifact, and de-aliasing — the sharp low-pass `spectral_cutoff`, or
+phase-shift via `translation_kernel` ([§11](@ref "11. Convolution")) — is the consumer's choice, the
+package supplying the tools rather than the strategy.
+
 The consequence is a hard project invariant: **a missing method is a statement,
 not an omission**. The 206-method public surface of `FieldAlgebra` is the
 machine-checkable encoding of the validity table above. Any refactor must
