@@ -1103,6 +1103,39 @@ end
 #        Field Spectral Multipliers       #
 ###########################################
 
+# The zero (DC) Fourier coefficient and its scale. These state invariant 4 and the rfft storage
+# layout — where the constant lives and what it is scaled by — so they are representation facts,
+# not algebra, and every module that reads the DC mode (the constant-add family, the spectral
+# reductions) takes them from here.
+
+"""
+    _spectral_constant_scale(field::AbstractFieldSpectral)
+
+Return `prod(grid_size)`, the factor by which a physical constant scales the zero Fourier coefficient under the unnormalized-forward FFT convention. Adding a real constant in spectral representation multiplies it by this scale and writes only the zero mode.
+"""
+_spectral_constant_scale(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat} = prod(T.(field_grid(field).grid_size))
+
+
+"""
+    _spectral_zero_mode_data(field::ScalarFieldSpectral)
+
+Return a `1×1×1` view of the zero Fourier coefficient of a scalar field in spectral representation; constant additions in spectral representation write only here.
+"""
+_spectral_zero_mode_data(field::ScalarFieldSpectral) = view(field_data(field), 1:1, 1:1, 1:1)
+
+
+"""
+    _spectral_zero_mode_component_data(field::VectorFieldSpectral, component)
+    _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index,
+                                       second_index)
+
+Return a `1×1×1` view of the zero Fourier coefficient of one component of a vector or second-order tensor field in spectral representation.
+"""
+_spectral_zero_mode_component_data(field::VectorFieldSpectral, component) = view(field_data(field), 1:1, 1:1, 1:1, component:component)
+
+_spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, second_index) = view(field_data(field), 1:1, 1:1, 1:1, first_index:first_index, second_index:second_index)
+
+
 ####################################################
 #        Spectral kernels — the protocol           #
 ####################################################

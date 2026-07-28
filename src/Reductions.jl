@@ -48,12 +48,12 @@ turbulence intensities from these reductions.
 module Reductions
 
 using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!, _use_threads
-using ..Fields: AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
+using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
+  _spectral_constant_scale, AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
   field_grid, field_layout, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data
-using ..FieldAlgebra: _spectral_zero_mode_data, _spectral_zero_mode_component_data, _spectral_constant_scale
 using ..Points: AbstractPointValues, npoints
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
