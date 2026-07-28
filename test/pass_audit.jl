@@ -184,6 +184,21 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
       Traffic("dest", carr(sd), (0, P)))
   end
 
+  # ---------------------------------------------------------------- map! (arbitrary φ via _fiberwise_pass!)
+  # The adapter assembles each fiber from register reads and flattens the result, so map! rides the
+  # fused executor at its ideal: every input component read once, every output written once — no φ can
+  # inflate it. map!(det, …) has the same ledger as det! itself.
+  @testset "map! (arbitrary φ)" begin
+    u, v, w, sd = vphys(), vphys(), vphys(), sphys()
+    A, B = tphys(), tphys()
+    audit(() -> map!(det, sd, A), "map!(det) tensor→scalar",
+      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(sd), (0, P)))
+    audit(() -> map!(x -> 2x, B, A), "map!(2x) tensor→tensor",
+      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+    audit(() -> map!((a, b) -> a + b, w, u, v), "map!(+) multi-input vector",
+      Traffic("u", carr(u), (3P, 0)), Traffic("v", carr(v), (3P, 0)), Traffic("dest", carr(w), (0, 3P)))
+  end
+
   # ---------------------------------------------------------------- spectral differential operators
   @testset "spectral operators" begin
     φ, u = sspec(), vspec()

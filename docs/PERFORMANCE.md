@@ -62,7 +62,7 @@ What bounds each public operation class — the mental model a benchmark either 
   producing per-size/per-architecture solution maps, not surfaced by AMDGPU.jl. The one reachable
   lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 5).
 - **Field algebra (M2 + M3), spectral differential operators, and convolution** → **memory-bandwidth-bound**. A
-  fiberwise add, contraction, wavenumber multiply, or kernel multiply (`convolve`) reads and writes `O(1)` numbers per grid point
+  fiberwise add, contraction, wavenumber multiply, kernel multiply (`convolve`), or arbitrary fiber map (`map!` — its adapter assembles the fiber in registers, adding no memory traffic over the named ops, so it tracks `det!`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
   §4); on GPU, the figure of merit is achieved bandwidth, not occupancy.

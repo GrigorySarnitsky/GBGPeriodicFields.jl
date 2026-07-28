@@ -52,11 +52,13 @@ the parity baseline and ambiguity check pass, and the suite is green.
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
 - **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check: a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
-  combination `combine!` and the determinant `det`),
+  combination `combine!`, the determinant `det`, and the arbitrary-φ `map!` / `map` — decision 48 —
+  against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
+  physical-only absence),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
   `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`),
   `interpolation.jl` (the point-data types),
-  `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det`),
+  `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values),

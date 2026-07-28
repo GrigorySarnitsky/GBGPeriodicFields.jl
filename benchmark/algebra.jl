@@ -14,4 +14,10 @@ function add_algebra!(group, AT, ::Type{T}, grid, tag) where {T}
   group["norm! vec | $tag"]       = @benchmarkable (norm!($sdest, $u); bench_sync(field_data($sdest)))
   group["tr! tensor | $tag"]      = @benchmarkable (tr!($sdest, $A); bench_sync(field_data($sdest)))
   group["det! tensor | $tag"]     = @benchmarkable (det!($sdest, $A); bench_sync(field_data($sdest)))
+  # map! (arbitrary φ) rides the same fused executor: map!(det, …) should track det! (the adapter is
+  # register-only), and the multi-input form the corresponding named binary op.
+  group["map!(det) tensor | $tag"] = @benchmarkable (map!(det, $sdest, $A); bench_sync(field_data($sdest)))
+  group["map!(+) vec | $tag"]      = @benchmarkable (map!(bench_add, $vdest, $u, $v); bench_sync(field_data($vdest)))
 end
+
+bench_add(a, b) = a + b     # named (not a closure) so the benchmark buffer stays stable across evals

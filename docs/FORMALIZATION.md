@@ -124,6 +124,24 @@ hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plai
 mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, the determinant (against a
 per-point LU oracle), the weighted combination, and the sym/skew/dev identities.
 
+The **arbitrary fiber map** (`map!`/`map`, decision 48) lifts a chosen map on the fibers,
+``\varphi : V_1 \times \dots \times V_m \to W``, to a section map applied pointwise over the base: at each
+base point ``x``, ``\texttt{destination}(x) = \varphi\bigl(s_1(x), \dots, s_m(x)\bigr)`` for sources
+``s_1, \dots, s_m``. The output fiber space ``W`` — hence `destination`'s tensor order — is ``\varphi``'s
+codomain, which need not match the inputs' (``\varphi = \det`` sends ``V = \mathbb R^{3\times3} \to
+\mathbb R``). It is the section-valued companion of the mapped reductions (which instead reduce ``\varphi``
+over the base) and the arbitrary-``\varphi`` generalization of the named vertical operations above; a
+general ``\varphi`` is nonlinear, so — like ``\det`` and the norm — it is **physical-space only** on
+fields (invariant 1), and representation-free on point-values. The single-source form carries the α/β
+accumulate ``\texttt{destination} = \alpha\,\varphi(\texttt{source}) + \beta\,\texttt{destination}``.
+``\checkmark``
+
+**Backs** [Architecture](architecture.md) §2, decision 48, and the `map!` / `map` docstring.
+**Checked by** `test/fieldalgebra.jl` and `test/pointvalues_algebra.jl` (against the named operations as
+oracles, ``\exp\circ\det`` hand references, order changes, multi-input, α/β, aliasing, and the
+physical-only absence), GPU parity in `test/gpu/suite.jl`, allocation-freedom in `test/allocations.jl`,
+and the fused-ideal element traffic in `test/pass_audit.jl`.
+
 ## Differential operators (`DifferentialOperators`)
 
 Design rationale: [Architecture](architecture.md) §4.
