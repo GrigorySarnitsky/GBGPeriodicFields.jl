@@ -366,7 +366,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)                  # a half-cell displacement
       shift_h = translation_kernel(phi_spec_h, mult_h, offset)
       shift_d = translation_kernel(phi_spec_d, mult_d, offset)
-      @test kernel_matches(shift_d, shift_h)                                          # the builder itself
+      @test kernel_matches(shift_d, shift_h)
+      # M2: a compressed kernel through the OPERATORS' kernel arity, on device — the lazy per-axis
+      # product crossing a KA launch inside helmholtz/divergence, not only inside convolve!
+      @test matches(helmholtz_projection(u_spec_d, mult_d, shift_d),
+                    helmholtz_projection(u_spec_h, mult_h, shift_h))
+      @test matches(divergence(u_spec_d, mult_d, shift_d), divergence(u_spec_h, mult_h, shift_h))                                          # the builder itself
       @test matches(convolve(phi_spec_d, shift_d), convolve(phi_spec_h, shift_h))   # scalar field
       @test matches(convolve(u_spec_d, shift_d), convolve(u_spec_h, shift_h))       # over a vector fiber
       @test matches(convolve(A_spec_d, shift_d), convolve(A_spec_h, shift_h))       # over a tensor fiber (R=2)

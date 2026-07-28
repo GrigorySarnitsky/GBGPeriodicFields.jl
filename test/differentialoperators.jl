@@ -4,6 +4,7 @@
 
 using Test
 using GBGPeriodicFields
+using Random: MersenneTwister
 
 const T = Float64
 const gs = (8, 8, 8)
@@ -423,4 +424,47 @@ end
   aliased_inv = VectorFieldSpectral(copy(field_data(vrh)), grid_p, layout_p)
   inverse_laplacian!(aliased_inv, aliased_inv, m)
   @test field_data(aliased_inv) == field_data(inv_ref)
+end
+
+
+# Decision 50 + the module-placement panel's M2: a kernel argument accepts EITHER storage class —
+# one held as a field, or a compressed AbstractSpectralKernel evaluated per mode. This testset is the
+# guard that the gap cannot reappear: it walks every kernel-taking entry point in the package and
+# requires the two classes to agree bitwise. When a new kernel family lands, add it to `kernels`.
+@testset "every kernel-taking entry point accepts both storage classes" begin
+  for TP in (Float64, Float32)
+    gk = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)))
+    lk = RealFourierLayout()
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(gk, lk, Val(0))), gk, lk)
+    mk = FieldSpectralMultipliers(s0)
+    compressed = translation_kernel(s0, mk, (TP(0.3), TP(-0.7), TP(1.1)))
+    stored = materialize_kernel(compressed)
+    rng = MersenneTwister(50)
+    u = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk, lk)
+    A = TensorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3, 3), gk, lk)
+    both(build) = field_data(build(compressed)) == field_data(build(stored))
+
+    @test both(k -> convolve(u, k))                                     # Convolution
+    @test both(k -> helmholtz_projection(u, mk, k))                     # DifferentialOperators
+    @test both(k -> divergence(u, mk, k))
+    @test both(k -> divergence(A, mk, k))                               # tensor fiber signature
+    # the in-place forms, overwrite and α/β
+    for (dest_order, build) in ((1, (d, k) -> helmholtz_projection!(d, u, mk, k)),
+                                (0, (d, k) -> divergence!(d, u, mk, k)),
+                                (1, (d, k) -> divergence!(d, A, mk, k)))
+      dc = similar_field(u, Val(dest_order)); ds = similar_field(u, Val(dest_order))
+      build(dc, compressed); build(ds, stored)
+      @test field_data(dc) == field_data(ds)
+    end
+    ac = 2 * divergence(u, mk, stored); as = 2 * divergence(u, mk, stored)
+    divergence!(ac, u, mk, compressed, TP(1 // 2), TP(2))
+    divergence!(as, u, mk, stored, TP(1 // 2), TP(2))
+    @test field_data(ac) == field_data(as)
+    # the kernel-composed combine! (Convolution) takes both too
+    b = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk, lk)
+    cc = similar_field(u, Val(1)); cs = similar_field(u, Val(1))
+    combine!(cc, TP(1 // 3), u, TP(2 // 3), b, compressed)
+    combine!(cs, TP(1 // 3), u, TP(2 // 3), b, stored)
+    @test field_data(cc) == field_data(cs)
+  end
 end

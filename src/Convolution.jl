@@ -38,7 +38,10 @@ convolves with — the package supplies the operation, not the physical meaning.
 """
 module Convolution
 
+import ..Fields: _kernel_data, _check_kernel_compatibility   # extended for the kernels below
 using ..Fields:
+  AbstractSpectralKernel,
+  SpectralKernel,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
   FieldSpectralMultipliers,
@@ -109,7 +112,7 @@ The fields are:
     ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms. This type is for kernels that
     genuinely do factor, whose canonical case is a per-axis phase.
 """
-struct SeparableKernel{T, V, G, L}
+struct SeparableKernel{T, V, G, L} <: AbstractSpectralKernel{T}
   factor_1::V
   factor_2::V
   factor_3::V
@@ -129,7 +132,6 @@ its stored array; a [`SeparableKernel`](@ref) yields the **lazy** product of its
 instantiated `Broadcasted`, which both the broadcast route and the linear-indexed fiberwise executor
 consume exactly as they consume an array, so no operator body changes to accept one.
 """
-_kernel_data(kernel::ScalarFieldSpectral) = field_data(kernel)
 _kernel_data(kernel::SeparableKernel) =
   Base.Broadcast.instantiate(Base.broadcasted(*, kernel.factor_1, kernel.factor_2, kernel.factor_3))
 
@@ -141,9 +143,6 @@ Check that `kernel` was built for `field`'s base and spectral layout. A kernel h
 to the field-to-field domain check; a [`SeparableKernel`](@ref) compares the grid and layout it stored
 at construction, and the per-axis factor lengths against the field's stored spectral shape.
 """
-_check_kernel_compatibility(field, kernel::ScalarFieldSpectral) =
-  _check_field_domain_compatibility(field, kernel)
-
 function _check_kernel_compatibility(field, kernel::SeparableKernel)
   (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
     throw(ArgumentError("the separable kernel was built for a different grid or spectral layout than the field"))
@@ -220,9 +219,7 @@ function materialize_kernel(kernel::SeparableKernel{T}) where {T}
 end
 
 
-# Every kernel argument below takes either storage class: a kernel held as a full field, or the
-# axis-factored `SeparableKernel` whose product is evaluated per mode.
-const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, SeparableKernel{T}}
+
 
 
 """

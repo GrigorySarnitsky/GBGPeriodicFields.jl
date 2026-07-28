@@ -28,6 +28,9 @@ module DifferentialOperators
 
 
 using ..Fields:
+  SpectralKernel,
+  _kernel_data,
+  _check_kernel_compatibility,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
   VectorFieldSpectral,
@@ -762,7 +765,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-    divergence!(destination, field, multipliers, kernel::ScalarFieldSpectral)
+    divergence!(destination, field, multipliers, kernel::SpectralKernel)
     divergence!(destination, field, multipliers, kernel::ScalarFieldSpectral, α, β)
 
 Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field and write it into
@@ -850,42 +853,42 @@ end
 
 
 function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}) where {T<:AbstractFloat}
   return divergence!(destination, field, multipliers, kernel, one(T), zero(T))
 end
 
 
 function divergence!(destination::ScalarFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
-  _check_field_domain_compatibility(field, kernel)
+  _check_kernel_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
 
   _apply_spectral_divergence!(field_data(destination),
     _vector_component_data(field, 1), _vector_component_data(field, 2), _vector_component_data(field, 3),
     _wavenumber_broadcast_view(multipliers, Val(1)), _wavenumber_broadcast_view(multipliers, Val(2)), _wavenumber_broadcast_view(multipliers, Val(3)),
-    field_data(kernel), T(α), T(β), T)
+    _kernel_data(kernel), T(α), T(β), T)
 
   return destination
 end
 
 
 function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpectral{2, T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}) where {T<:AbstractFloat}
   return divergence!(destination, field, multipliers, kernel, one(T), zero(T))
 end
 
 
 function divergence!(destination::VectorFieldSpectral{T}, field::TensorFieldSpectral{2, T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
-  _check_field_domain_compatibility(field, kernel)
+  _check_kernel_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
 
   wavenumber_1 = _wavenumber_broadcast_view(multipliers, Val(1))
   wavenumber_2 = _wavenumber_broadcast_view(multipliers, Val(2))
   wavenumber_3 = _wavenumber_broadcast_view(multipliers, Val(3))
-  kernel_data = field_data(kernel)
+  kernel_data = _kernel_data(kernel)
   α_value = T(α)
   β_value = T(β)
 
@@ -908,7 +911,7 @@ end
 """
     divergence(field, multipliers::FieldSpectralMultipliers)
     divergence(field, multipliers::FieldSpectralMultipliers,
-               kernel::ScalarFieldSpectral)
+               kernel::SpectralKernel)
 
 Allocating form of [`divergence!`](@ref): allocate the result and return it. A vector field ``u`` gives
 its scalar divergence ``\\nabla\\cdot u``; a second-order tensor field ``A`` gives the vector field
@@ -931,13 +934,13 @@ function divergence(field::TensorFieldSpectral{2}, multipliers::FieldSpectralMul
 end
 
 
-function divergence(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+function divergence(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::SpectralKernel)
   destination = similar_field(field, Val(0))
   return divergence!(destination, field, multipliers, kernel)
 end
 
 
-function divergence(field::TensorFieldSpectral{2}, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+function divergence(field::TensorFieldSpectral{2}, multipliers::FieldSpectralMultipliers, kernel::SpectralKernel)
   destination = similar_field(field, Val(1))
   return divergence!(destination, field, multipliers, kernel)
 end
@@ -1268,7 +1271,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-    helmholtz_projection!(destination, field, multipliers, kernel::ScalarFieldSpectral)
+    helmholtz_projection!(destination, field, multipliers, kernel::SpectralKernel)
     helmholtz_projection!(destination, field, multipliers,
                           kernel::ScalarFieldSpectral, α, β)
 
@@ -1345,24 +1348,24 @@ end
 
 
 function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}) where {T<:AbstractFloat}
   return helmholtz_projection!(destination, field, multipliers, kernel, one(T), zero(T))
 end
 
 
 function helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers,
-    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat}
+    kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat}
   _check_field_domain_compatibility(destination, field)
-  _check_field_domain_compatibility(field, kernel)
+  _check_kernel_compatibility(field, kernel)
   _check_multipliers_compatibility(field, multipliers)
-  return _apply_helmholtz_projection!(destination, field, multipliers, field_data(kernel), T(α), T(β))
+  return _apply_helmholtz_projection!(destination, field, multipliers, _kernel_data(kernel), T(α), T(β))
 end
 
 
 """
     helmholtz_projection(field::VectorFieldSpectral,
                          multipliers::FieldSpectralMultipliers)
-    helmholtz_projection(field, multipliers, kernel::ScalarFieldSpectral)
+    helmholtz_projection(field, multipliers, kernel::SpectralKernel)
 
 Allocating form of [`helmholtz_projection!`](@ref): allocate the result and return it, the Helmholtz
 (Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with the zero Fourier
@@ -1379,7 +1382,7 @@ function helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpec
 end
 
 
-function helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::ScalarFieldSpectral)
+function helmholtz_projection(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers, kernel::SpectralKernel)
   destination = similar_field(field, Val(1))
   return helmholtz_projection!(destination, field, multipliers, kernel)
 end

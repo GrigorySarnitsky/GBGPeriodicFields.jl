@@ -2572,7 +2572,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     separable one. Both the broadcast route and the linear-indexed fiberwise executor consume that lazy
     product exactly as they consume an array — verified including inside the `KernelAbstractions` device
     kernel — so no operator body changed to accept one; the kernel arguments merely widened to a union of
-    the two storage classes.
+    the two storage classes. That widening initially reached only within `Convolution` — every operator
+    arity outside it stayed hard-typed to a stored kernel, so a `SeparableKernel` threw a `MethodError`
+    at `helmholtz_projection!`, `divergence!` and `weighted_inner`. The module-placement panel of
+    2026-07-28 caught the overclaim and the gap: the kernel *protocol* (`AbstractSpectralKernel`, the
+    `_kernel_data` and `_check_kernel_compatibility` generics, the `SpectralKernel` union) now lives in
+    `Fields`, the one module every kernel-applying module can see, and the arities are genuinely widened
+    package-wide — pinned by a test that walks every kernel-taking entry point and requires the two
+    storage classes to agree bitwise.
 
     Two operations come with the type. Composition stays inside the family (the factors multiply axis by
     axis) — but composing two *translation* kernels is deliberately **not** the same operator as one

@@ -1103,6 +1103,62 @@ end
 #        Field Spectral Multipliers       #
 ###########################################
 
+####################################################
+#        Spectral kernels — the protocol           #
+####################################################
+
+"""
+    AbstractSpectralKernel{T}
+
+Supertype of every spectral kernel that is **not** stored as a field: a coefficientwise multiplier
+supplied in a compressed form and evaluated per mode, rather than held as one coefficient per mode.
+`Convolution` defines the concrete kernels (the axis-factored `SeparableKernel`, and the radial
+family); this supertype and the two generics below live here so that every module which *applies* a
+kernel — `Convolution`, `DifferentialOperators`, `Reductions` — can name one type, whichever of them
+is included first.
+
+A concrete kernel implements two methods: [`_kernel_data`](@ref), returning the multiplier it
+contributes to a fused pass, and [`_check_kernel_compatibility`](@ref), checking it against the field
+it is applied to.
+"""
+abstract type AbstractSpectralKernel{T} end
+
+
+"""
+    _kernel_data(kernel)
+
+The coefficientwise multiplier a kernel contributes to a fused pass. A kernel held as a field yields
+its stored array; a compressed kernel yields whatever its own pass consumes — typically a lazy
+expression over the wavenumber arrays, never a materialized field.
+"""
+function _kernel_data end
+
+
+"""
+    _check_kernel_compatibility(field, kernel)
+
+Check that `kernel` was built for `field`'s base and spectral layout, throwing if not. A kernel held
+as a field defers to the field-to-field domain check; a compressed kernel checks whatever it stored.
+"""
+function _check_kernel_compatibility end
+
+
+_kernel_data(kernel::ScalarFieldSpectral) = field_data(kernel)
+_check_kernel_compatibility(field, kernel::ScalarFieldSpectral) =
+  _check_field_domain_compatibility(field, kernel)
+
+
+"""
+    SpectralKernel{T}
+
+Either storage class of a spectral kernel: one held as a `ScalarFieldSpectral` (one coefficient per
+mode) or an [`AbstractSpectralKernel`](@ref) evaluated per mode. Operations that apply a kernel accept
+this union, so a compressed kernel is passable everywhere a stored one is.
+"""
+const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, AbstractSpectralKernel{T}}
+
+
+
 """
     FieldSpectralMultipliers(
       grid::Grid3D{T},
