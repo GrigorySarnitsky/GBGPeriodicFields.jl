@@ -7,7 +7,7 @@ using Test
 using Random: MersenneTwister
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
-using Statistics: mean, std, var      # extended on sections in the Reductions module (not re-exported)
+using Statistics: mean, std, var, cov      # extended on sections in the Reductions module (not re-exported)
                                       # `det`/`tr`/`norm` (the fiber maps below) come from the package's re-export
 
 @testset "L²/measure reductions" begin
@@ -445,9 +445,9 @@ using Statistics: mean, std, var      # extended on sections in the Reductions m
     @test radial_spectrum(spec, m)[2] == zeros(length(radial_spectrum(spec, m)[2]))  # spectral-only, zero field ⇒ 0
     @test mean(spec) === 0.0                  # zero-mode measure reductions defined (zero field ⇒ 0)
     @test integral(spec) === 0.0
-    @test_throws MethodError lpnorm(spec, 2)  # lpnorm / std / var / maximum have no single-coefficient form
-    @test_throws MethodError std(spec)
-    @test_throws MethodError var(spec)
+    @test var(spec) ≈ 0                       # std / var now read from Parseval (inner − mean²), scalar-only (decision 49)
+    @test std(spec) ≈ 0
+    @test_throws MethodError lpnorm(spec, 2)  # lpnorm / maximum have no single-coefficient form, stay physical-only
     @test_throws MethodError maximum(spec)
     # radial_spectrum is the mirror image — spectral-only, no physical-field method
     @test_throws MethodError radial_spectrum(ScalarFieldPhysical((x, y, z) -> sin(x), g), m)
@@ -554,4 +554,49 @@ end
   @test all(isnan, mean(vq))                                # fiber-preserving mean: a NaN fiber
   @test integral(vq) == zero(FiberVector{T})
   @test_throws ArgumentError maximum(norm, vq)              # the mapped path delegates to Base
+end
+
+
+# var/std restricted to scalar sections + their spectral (Parseval) form, and the covariance tensor cov
+# as the vector second moment (decision 49).
+@testset "var / std (scalar-only, spectral) + cov" begin
+  rtolof(TP) = TP === Float64 ? 1e-9 : 1e-3
+  for TP in (Float64, Float32)
+    g = Grid3D((6, 4, 8), (TP(2π), TP(4π), TP(6π)))
+    rng = MersenneTwister(49)
+    s = ScalarFieldPhysical(rand(rng, TP, 6, 4, 8), g)
+    u = VectorFieldPhysical(rand(rng, TP, 6, 4, 8, 3), g)
+    A = TensorFieldPhysical(rand(rng, TP, 6, 4, 8, 3, 3), g)
+    layout = RealFourierLayout()
+    sspec = to_spectral(s, FieldTransformPlans(ScalarFieldPhysical(zeros(TP, 6, 4, 8), g),
+                                               ScalarFieldSpectral(zeros(Complex{TP}, 4, 4, 8), g, layout)))
+    N = 6 * 4 * 8
+    m = sum(field_data(s)) / N
+    var_ref = sum((field_data(s) .- m) .^ 2) / (N - 1)
+    @test var(s) ≈ var_ref                                   # scalar var vs an explicit two-pass reference
+    @test std(s) ≈ sqrt(var_ref)
+    @test var(s; corrected = false) ≈ sum((field_data(s) .- m) .^ 2) / N
+    @test isapprox(var(sspec), var(s); rtol = rtolof(TP))    # spectral == physical (physical-only-by-scoping closed)
+    @test isapprox(std(sspec), std(s); rtol = rtolof(TP))
+
+    @test_throws ArgumentError var(u)                         # scalar-only: a clear error, not a per-component fiber
+    @test_throws ArgumentError std(u)
+    @test_throws ArgumentError var(A)
+
+    R = cov(u)                                                # the covariance tensor vs a per-point reference
+    @test R isa FiberTensor2{TP}
+    @test R ≈ transpose(R)                                    # symmetric
+    d = field_data(u); means = ntuple(i -> sum(d[:, :, :, i]) / N, 3)
+    Rref = [sum((d[:, :, :, i] .- means[i]) .* (d[:, :, :, j] .- means[j])) / (N - 1) for i in 1:3, j in 1:3]
+    @test Array(R) ≈ Rref
+    @test Array(cov(u; corrected = false)) ≈ Rref .* ((N - 1) / N)     # population
+    @test [R[i, i] for i in 1:3] ≈ [sum((d[:, :, :, i] .- means[i]) .^ 2) / (N - 1) for i in 1:3]   # diagonal = per-component variance
+    @test !hasmethod(cov, Tuple{VectorFieldSpectral})         # physical-only (the outer product is nonlinear)
+
+    vp = VectorPointValues(rand(rng, TP, 20, 3)); Mp = 20     # cov on a point set (counting measure)
+    Rp = cov(vp); dp = point_values(vp); mp = ntuple(i -> sum(dp[:, i]) / Mp, 3)
+    Rpref = [sum((dp[:, i] .- mp[i]) .* (dp[:, j] .- mp[j])) / (Mp - 1) for i in 1:3, j in 1:3]
+    @test Array(Rp) ≈ Rpref
+    @test var(ScalarPointValues(rand(rng, TP, 20))) isa Real  # scalar point-value var still works
+  end
 end

@@ -32,7 +32,7 @@
 using Test
 using GBGPeriodicFields                       # exports `mul!` (re-exported), so no LinearAlgebra import
 using GBGPeriodicFields: field_data, point_values
-using Statistics: mean, std, var              # `Reductions` extends these; bring them into scope to call
+using Statistics: mean, std, var, cov              # `Reductions` extends these; bring them into scope to call
 
 
 # Warm up `expr` once, then assert a single call allocates strictly less than `bound` bytes. A thrown
@@ -317,8 +317,9 @@ end
       @alloc_below threshold integral(pt)
       @alloc_below threshold mean(ps)
       @alloc_below threshold mean(pv)
-      @alloc_below threshold std(pv)
-      @alloc_below threshold var(pv)
+      @alloc_below threshold std(ps)                       # var/std are scalar-only now (decision 49)
+      @alloc_below threshold var(ps)
+      @alloc_below threshold cov(pv)                       # the covariance tensor of a vector field: O(fiber), no field
       # spectral integral/mean read the zero (DC) mode via a tiny device→host copy (O(1)/O(fiber)), no field
       @alloc_below threshold integral(ss)
       @alloc_below threshold integral(vs)

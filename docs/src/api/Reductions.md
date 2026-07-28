@@ -22,13 +22,13 @@ lpnorm
 
 ## Moments and order statistics
 
-These extend the standard-library generics — `mean`, `std`, and `var` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, so they are reached through `using Statistics` and `Base` and are used exactly as their stdlib counterparts are. Extending rather than renaming is why they are not package exports; they are part of the public interface all the same.
+These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, so they are reached through `using Statistics` and `Base` and are used exactly as their stdlib counterparts are. Extending rather than renaming is why they are not package exports; they are part of the public interface all the same.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Reductions]
 Public  = false
 Order   = [:function]
-Filter  = f -> nameof(f) in (:mean, :std, :var, :maximum, :minimum, :extrema)
+Filter  = f -> nameof(f) in (:mean, :std, :var, :cov, :maximum, :minimum, :extrema)
 ```
 
 ## Radial reductions
@@ -50,5 +50,5 @@ that makes a threaded reduction bitwise thread-count-invariant.
 Modules = [GBGPeriodicFields.Reductions]
 Public  = false
 Order   = [:function]
-Filter  = f -> !(nameof(f) in (:mean, :std, :var, :maximum, :minimum, :extrema))
+Filter  = f -> !(nameof(f) in (:mean, :std, :var, :cov, :maximum, :minimum, :extrema))
 ```

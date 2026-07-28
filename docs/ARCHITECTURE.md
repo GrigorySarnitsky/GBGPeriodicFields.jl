@@ -2492,3 +2492,29 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and so cannot route through a physical-only map, and the named nonlinear ones (`det`, `norm`) already
     share the same executor a level down — `map!` serves the *un-named* maps, and the named operations
     stay named to keep the representation-validity encoding intact.
+
+49. **`var`/`std` are scalar-only, gain a spectral form, and the vector second moment is the new
+    covariance `cov`** (2026-07-28). The fiber-preserving `var`/`std` — a per-component variance /
+    standard deviation for a vector or tensor section — were two mistakes wearing one API. First, they
+    were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
+    \langle f\rangle^2 = \sum_{k \ne 0} |\hat f_k|^2`` (the fluctuation energy), both terms already
+    Parseval-available, so they were wrongly grouped with the genuinely physical-only `lpnorm`/`maximum`.
+    Second, the per-component value is only the **basis-dependent diagonal** of the covariance tensor
+    ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second moment —
+    and ``\operatorname{std} = \sqrt{\operatorname{var}}`` has *no canonical vector form* at all: the
+    matrix square root of the covariance is not a standard deviation, the per-component root is
+    basis-dependent, and ``\sqrt{\operatorname{tr} R}`` is a scalar RMS — three different objects. And
+    `var`-as-covariance could not even be uniform (a vector's covariance is rank 2, a tensor's rank 4,
+    which the package does not carry).
+
+    So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
+    *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision
+    to cancellation when the mean dominates its fluctuations, which the docstring notes). A vector or
+    tensor section raises a clear error pointing to `cov`. The new **`cov`** (extending `Statistics.cov`,
+    not re-exported, like `mean`/`var`/`std`) returns the symmetric covariance ``FiberTensor2`` of a
+    vector section — its diagonal the per-component variances (the normal stresses, in a turbulence
+    reading), its off-diagonal the covariances (the shear stresses) a per-component `var` discarded —
+    computed in one fused mapped pass as ``\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u``
+    (reusing decision 48's `map!` machinery through the mapped `mean`), Bessel-scaled. It is physical-only
+    (the outer product is nonlinear). The 206/122 parity baselines are unchanged — these are `Statistics`
+    extensions, outside the M2 + M3 surface.

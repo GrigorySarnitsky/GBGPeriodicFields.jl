@@ -11,17 +11,21 @@ dispatched on `AbstractFiberSection`.
 
 The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
 quantities. Several also act on fields in **spectral representation**, returning the identical physical
-value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, and `integral`/`mean` from the
-zero (DC) Fourier mode. The remaining reductions (`lpnorm`, `std`/`var`, `maximum`/`minimum`/`extrema`)
+value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integral`/`mean` from the
+zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval (``\\operatorname{var} = \\langle f,
+f\\rangle - \\langle f\\rangle^2``). The remaining reductions (`lpnorm`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
 The parts are, each linking to the home where its formula lives:
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
-- [`mean`](@ref), [`std`](@ref), [`var`](@ref) — the **intensive**, **fiber-preserving** base moments (they extend
-  `Statistics`; the `mean` of a vector field is a `FiberVector`): `mean` is the plain arithmetic
-  average over the ``N`` grid cells or the ``M`` points, and `std`/`var` keep the `Statistics`
-  keyword `corrected = true` (the default divides by the count minus one).
+- [`mean`](@ref) — the **intensive**, **fiber-preserving** arithmetic average over the ``N`` grid cells or
+  the ``M`` points (it extends `Statistics`; the `mean` of a vector field is a `FiberVector`).
+- [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
+  by default). `std`/`var` are **scalar-only**: the sample standard deviation and variance are unambiguous
+  only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
+  tensor [`cov`](@ref) ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
+  per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
@@ -54,7 +58,7 @@ using ..Points: AbstractPointValues, npoints
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
-import Statistics: mean, std, var
+import Statistics: mean, std, var, cov
 import Base: maximum, minimum, extrema
 import LinearAlgebra
 
@@ -477,26 +481,38 @@ mean
 """
     var(f; corrected = true)
 
-The per-fiber-component sample variance of a section over its base: the Bessel-corrected mean of
-the squared deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's
-``N`` cells and ``\\tfrac{1}{M-1}\\sum_p`` over a point-set's ``M`` points (matching
-`Statistics.var`'s default correction), fiber-preserving. It runs as two fused passes — the mean,
-then the squared deviations — with no intermediate deviation section on the CPU. Physical fields
-and point-values only. See [`std`](@ref) for its square root and [`mean`](@ref) for the first
-moment.
+The sample **variance** of a **scalar** section over its base: the Bessel-corrected mean of the squared
+deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's ``N`` cells and
+``\\tfrac{1}{M-1}\\sum_p`` over a point set's ``M`` points (matching `Statistics.var`'s default correction).
+
+`var`/`std` are **scalar-only**: the sample variance is unambiguous only for a scalar section. A vector
+field's coordinate-free second moment is the covariance tensor [`cov`](@ref); a per-component variance
+would be only its basis-dependent diagonal, so it is not offered — calling `var`/`std` on a vector or
+tensor section raises a clear error pointing to `cov`.
+
+In physical representation it runs as two fused passes — the mean, then the squared deviations — with no
+intermediate deviation section (the numerically stable form). In **spectral** representation it is read
+from Parseval as ``\\langle f, f\\rangle - \\langle f\\rangle^2 = \\sum_{k\\ne 0} |\\hat f_k|^2`` — the
+fluctuation energy, equal to the physical value with no inverse transform; that one-pass form loses
+precision to cancellation when the mean dominates the fluctuations, so prefer the physical form there.
 
 - **`corrected`** — divide by the count minus one (the sample convention, the default, matching
   `Statistics.var`) or by the count itself. A grid holds the *complete* population of a field rather
   than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
   follows the standard library rather than the base.
+
+See [`std`](@ref) for its square root, [`cov`](@ref) for the vector second moment, and [`mean`](@ref) for
+the first moment.
 """
 var
 
 """
     std(f; corrected = true)
 
-The per-fiber-component standard deviation: the square root of [`var`](@ref), over the same grid
-and point-set bases. See `var` for the definition and for what `corrected` selects.
+The sample **standard deviation** of a **scalar** section: the square root of [`var`](@ref), over the same
+grid and point-set bases and in spectral representation. Like `var` it is **scalar-only** — `std = √var`
+has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
+use [`cov`](@ref) for the vector second moment. See `var` for what `corrected` selects.
 """
 std
 
@@ -543,13 +559,61 @@ mean(section::ReducibleSection) =
 mean(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) / _base_count(section)
 
-var(section::ReducibleSection; corrected::Bool = true) =
-  _fiberwise(section, data -> _tree_var(data; corrected = corrected),
-             (data, base) -> _tree_dims_reduce(component -> _tree_var(component; corrected = corrected), data, length(base)))
+# `var`/`std` are SCALAR-ONLY (decision 49). The sample variance/standard deviation is unambiguous only
+# for a scalar section: for a vector the coordinate-free second central moment is the covariance tensor
+# `cov`, and a per-component `var` would be only its basis-dependent diagonal; `std = √var` has no
+# canonical vector form (the matrix square root of the covariance is not a standard deviation). So there
+# is deliberately no `var`/`std` on a vector or tensor section — use `cov` for the vector second moment.
+var(field::AbstractFieldPhysical{T, 0}; corrected::Bool = true) where {T} = _tree_var(field_data(field); corrected = corrected)
+var(values::AbstractPointValues{T, 0}; corrected::Bool = true) where {T} = _tree_var(field_data(values); corrected = corrected)
+std(field::AbstractFieldPhysical{T, 0}; corrected::Bool = true) where {T} = sqrt(_tree_var(field_data(field); corrected = corrected))
+std(values::AbstractPointValues{T, 0}; corrected::Bool = true) where {T} = sqrt(_tree_var(field_data(values); corrected = corrected))
 
-std(section::ReducibleSection; corrected::Bool = true) =
-  _fiberwise(section, data -> sqrt(_tree_var(data; corrected = corrected)),
-             (data, base) -> _tree_dims_reduce(component -> sqrt(_tree_var(component; corrected = corrected)), data, length(base)))
+# A clear error for the scalar-only restriction — a vector/tensor section would otherwise fall through to
+# Statistics' iterable `var`/`std` and fail to iterate the section with a cryptic message.
+_var_scalar_only(::AbstractFiberSection) =
+  throw(ArgumentError("`var`/`std` are defined for scalar sections only; the second moment of a vector section is the covariance tensor `cov`"))
+var(section::AbstractFiberSection; corrected::Bool = true) = _var_scalar_only(section)
+std(section::AbstractFiberSection; corrected::Bool = true) = _var_scalar_only(section)
+
+
+"""
+    cov(u; corrected = true)
+
+The **covariance tensor** ``R_{ij} = \\langle u'_i u'_j\\rangle`` of a vector section over its base — the
+coordinate-free second central moment of a vector-valued field or point set, the vector analogue of the
+scalar [`var`](@ref). It returns one symmetric `FiberTensor2`: the diagonal holds the per-component
+variances (the *normal* stresses, in a turbulence reading), the off-diagonal the component covariances
+(the *shear* stresses) that a per-component variance would discard.
+
+Use this for the second moment of a vector field. `var`/`std` are deliberately scalar-only: a
+per-component `var` would be only the basis-dependent diagonal of this tensor, and `std = √var` has no
+canonical vector form, so the covariance tensor is the honest object. The mean ``\\bar u`` is subtracted
+first, so this is the covariance of the fluctuations, not the raw second moment ``\\langle u_i u_j\\rangle``.
+
+The argument is:
+- **`corrected`** — divide by the base count minus one (the sample convention, the default, matching
+  `Statistics.cov`); `false` divides by the count (the population covariance).
+
+Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
+pass as ``\\operatorname{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled), over the grid
+cell-average measure and the point counting measure alike.
+"""
+function cov end
+
+# The covariance reuses the mapped `mean` with the outer-product fiber map (a `FiberVector → FiberTensor2`
+# map), then subtracts the outer product of the mean — one fused reduction pass plus O(1) fiber algebra.
+_outer_product(x) = x * transpose(x)
+
+function _covariance(u, corrected::Bool)
+  average = mean(u)
+  count = _base_count(u)
+  population = mean(_outer_product, u) - average * transpose(average)
+  return corrected ? population * count / (count - 1) : population
+end
+
+cov(u::AbstractFieldPhysical{T, 1}; corrected::Bool = true) where {T} = _covariance(u, corrected)
+cov(u::AbstractPointValues{T, 1}; corrected::Bool = true) where {T} = _covariance(u, corrected)
 
 
 # Spectral representation: `integral` and `mean` are carried entirely by the zero (DC) Fourier mode, so
@@ -557,8 +621,8 @@ std(section::ReducibleSection; corrected::Bool = true) =
 # coefficient is f̂(0) = Σₓ f(x), real for a real field — the same zero-mode slot the constant-add writes.
 # `_real_zero_mode` copies just that slot to the host (GPU-safe; no scalar indexing of the device array)
 # and returns a real fiber value; `mean = f̂(0)/N` and `integral = ΔV·f̂(0)` then equal the physical
-# reductions (up to FFT round-off). `std`/`var`/`lpnorm`/`maximum` have no single-coefficient form and
-# stay physical-only.
+# reductions (up to FFT round-off). `lpnorm`/`maximum` have no single-coefficient form and stay
+# physical-only; scalar `std`/`var` read from Parseval (`inner − mean²`), below.
 _real_zero_mode(field::ScalarFieldSpectral) = real(only(Array(_spectral_zero_mode_data(field))))
 
 function _real_zero_mode(field::VectorFieldSpectral)
@@ -575,6 +639,18 @@ end
 integral(field::AbstractFieldSpectral) = _real_zero_mode(field) * _cell_measure(field)
 
 mean(field::AbstractFieldSpectral) = _real_zero_mode(field) / _spectral_constant_scale(field)
+
+# `var`/`std` in spectral representation — SCALAR-ONLY, and physical-only-by-scoping now closed: the sample
+# variance is the fluctuation energy `inner(f, f) - mean(f)²` (`Σ_{k≠0} |f̂_k|²` by Parseval), equal to the
+# physical value with no inverse transform. It is the one-pass form, so a field whose mean dominates its
+# fluctuations loses precision to cancellation (the physical two-pass does not) — prefer the physical form
+# there. `std` is the square root.
+function var(field::ScalarFieldSpectral; corrected::Bool = true)
+  count = prod(field_grid(field).grid_size)
+  population = inner(field, field) - mean(field)^2
+  return corrected ? population * count / (count - 1) : population
+end
+std(field::ScalarFieldSpectral; corrected::Bool = true) = sqrt(var(field; corrected = corrected))
 
 
 """
@@ -604,7 +680,7 @@ exactly); under aliasing — both fields carrying Nyquist content, say — the d
 For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
 no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
 `l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
-`lpnorm`, `std`/`var`, and `maximum`/`minimum`/`extrema` remain physical-only.
+`lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
 """
 function inner end
 function inner(f::ReducibleSection, g::ReducibleSection)
