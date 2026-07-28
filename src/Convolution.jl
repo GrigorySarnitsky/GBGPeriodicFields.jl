@@ -55,14 +55,12 @@ using ..Fields:
 
 using ..FiberSections:
   _assign!,
+  _foreach_outer_slab,
   @_assign!,
   _fiberwise_pass!
 
 import KernelAbstractions
 using KernelAbstractions: get_backend
-
-# The gated slab loop the decision-38/40 kernel pairs use for their CPU twin.
-using ..DifferentialOperators: _foreach_outer_slab
 
 # Extended with the kernel-composed method (the weighted combination convolved in the same pass);
 # the generic and its docstring live in FieldAlgebra, the kerneled method here with the kernels.

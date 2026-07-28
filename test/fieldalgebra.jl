@@ -635,6 +635,23 @@ end
   ro = map(det, Ao); rob = copy(field_data(ro)); map!(det, ro, Ao, 0.0, 2.0)
   @test field_data(ro) ≈ 2 .* rob
 
+  # Permuted rfft layout (decision 41): the ALLOCATING map must carry the reference's layout, not
+  # default it. It did not, and `map` was broken on every permuted fold from the day it shipped —
+  # the destination mismatched its source and the call threw. The axis this pins is metadata
+  # propagation through an allocating operation, not the fold's effect on any transform.
+  @testset "permuted rfft layout: map carries the layout" begin
+    gp = Grid3D((8, 6, 4), (2π, 2π, 2π))
+    for fold in ((2, 1, 3), (3, 2, 1), (1, 3, 2))
+      lp = RealFourierLayout(fold)
+      Ap = TensorFieldPhysical(rand(MersenneTwister(41), 8, 6, 4, 3, 3), gp, lp)
+      up = VectorFieldPhysical(rand(MersenneTwister(42), 8, 6, 4, 3), gp, lp)
+      @test field_layout(map(det, Ap)).fft_dims == fold              # tensor → scalar
+      @test field_layout(map(x -> 2x, Ap)).fft_dims == fold          # order-preserving
+      @test field_layout(map(x -> x * transpose(x), up)).fft_dims == fold   # vector → tensor
+      @test field_data(map(det, Ap)) ≈ field_data(det(Ap))           # and still correct
+    end
+  end
+
   # Physical-space only (invariant 1): no map! method for a field in spectral representation (Base.map!
   # needs AbstractArray, so this is a genuine absence; the allocating map delegates to map!, and
   # Base.map's catch-all makes its own hasmethod uninformative).

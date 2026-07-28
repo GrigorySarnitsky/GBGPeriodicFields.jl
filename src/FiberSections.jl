@@ -741,6 +741,23 @@ end
 
 
 """
+    _foreach_outer_slab(slab_body!, outer_axis, element_count)
+
+Run `slab_body!` over the whole `outer_axis` serially, or — when [`_use_threads`](@ref) allows for
+`element_count` written elements — over contiguous slabs of it, one task per slab. The caller's
+`slab_body!` loops modes with the outer axis restricted to the given range, so each element is
+written by exactly one task and the threaded result is bitwise-identical to serial.
+"""
+function _foreach_outer_slab(slab_body!::F, outer_axis, element_count) where {F}
+  _use_threads(element_count) || return slab_body!(outer_axis)
+  @sync for slab in _index_ranges(outer_axis, Threads.nthreads())
+    Threads.@spawn slab_body!(slab)
+  end
+  return nothing
+end
+
+
+"""
     _fiberwise_slab!(f, targets, arrays, constants, α, β, elements)
 
 Run [`_fiberwise_pass!`](@ref)'s loop over one contiguous slab of the linear index range, the

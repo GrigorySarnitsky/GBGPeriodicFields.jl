@@ -119,8 +119,6 @@ using ..FiberSections:
   _divide_fiber_vector_values, _divide_fiber_tensor_values,
   _MapValues, _section_order, _fiber_type, _fiber_order
 
-using ..Fields: physical_field_shape
-
 using KernelAbstractions: get_backend
 
 
@@ -1725,15 +1723,12 @@ end
 end
 
 
-# Allocate a field in physical representation of a given tensor order, like `reference` (grid, backend, element type).
-function _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R}
-  data = similar(field_data(reference), section_scalar_type(reference),
-                 physical_field_shape(field_grid(reference), Val(R)))
-  return _map_output_field(data, field_grid(reference), Val(R))
-end
-_map_output_field(data, grid, ::Val{0}) = ScalarFieldPhysical(data, grid)
-_map_output_field(data, grid, ::Val{1}) = VectorFieldPhysical(data, grid)
-_map_output_field(data, grid, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid)
+# Allocate the map's result through the package's own allocator, which carries the reference's grid,
+# spectral layout, element type and backend. Building the field from a bare constructor instead drops
+# the layout to its default, which broke `map` on every permuted `RealFourierLayout` (decision 41)
+# from the day it shipped — the destination then mismatched its source and the call threw.
+_allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R} =
+  similar_field(reference, Val(R))
 
 
 """
