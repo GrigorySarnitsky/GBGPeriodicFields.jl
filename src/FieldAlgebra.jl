@@ -1682,7 +1682,7 @@ end
 #############################################
 #
 # The physical, section-valued sibling of the mapped reductions: apply an arbitrary fiber map φ per base
-# point through the shared `_fiberwise_pass!` executor. Physical fields here, point-values in `Points`;
+# point through the shared `_fiberwise_pass!` executor. Fields in physical representation here, point-values in `Points`;
 # both reuse `_map_pass!` and the `FiberSections` adapter. Arbitrary φ is nonlinear ⇒ physical-only
 # (invariant 1) and aliased in spectral representation (the module warning above).
 
