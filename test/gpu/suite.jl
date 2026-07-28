@@ -54,6 +54,11 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
   atol = T === Float32 ? 1.0f-4 : 1e-8
   matches(device_field, host_field) =
     isapprox(Array(field_data(device_field)), field_data(host_field); rtol = rtol, atol = atol)
+  # An axis-factored kernel holds no field, so compare the materialized product of its per-axis
+  # factors (built on whichever backend the kernel lives on).
+  kernel_array(k) = Array(copy(GBGPeriodicFields.Convolution._kernel_data(k)))
+  kernel_matches(device_kernel, host_kernel) =
+    isapprox(kernel_array(device_kernel), kernel_array(host_kernel); rtol = rtol, atol = atol)
 
   # Same-backend forward+inverse plans for a physical field (host or device): the zero
   # spectral array is allocated with `similar(field_data(physical), ...)`, so it lands
@@ -356,12 +361,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
       @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
-      @test matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
+      @test kernel_matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
       # translation_kernel — the one complex kernel; the per-axis cos/sin phase builds on-device
       offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)                  # a half-cell displacement
       shift_h = translation_kernel(phi_spec_h, mult_h, offset)
       shift_d = translation_kernel(phi_spec_d, mult_d, offset)
-      @test matches(shift_d, shift_h)                                          # the builder itself
+      @test kernel_matches(shift_d, shift_h)                                          # the builder itself
       @test matches(convolve(phi_spec_d, shift_d), convolve(phi_spec_h, shift_h))   # scalar field
       @test matches(convolve(u_spec_d, shift_d), convolve(u_spec_h, shift_h))       # over a vector fiber
       @test matches(convolve(A_spec_d, shift_d), convolve(A_spec_h, shift_h))       # over a tensor fiber (R=2)

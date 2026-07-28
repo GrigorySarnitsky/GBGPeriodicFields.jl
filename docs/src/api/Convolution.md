@@ -26,6 +26,16 @@ spectral_band
 squared_wavenumber_field
 assignment_window
 translation_kernel
+translation_kernel!
+```
+
+## Kernel storage
+
+A kernel that factors over the axes is held as its per-axis factors rather than as a field, and applied identically.
+
+```@docs
+SeparableKernel
+inv
 ```
 
 ## Internal API

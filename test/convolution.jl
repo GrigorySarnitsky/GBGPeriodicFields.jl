@@ -16,6 +16,7 @@
 using Test
 using Random
 using GBGPeriodicFields
+kernel_array(k) = Array(copy(GBGPeriodicFields.Convolution._kernel_data(k)))   # materialize a lazy kernel for inspection
 
 const F = GBGPeriodicFields.Fields
 const ELEMENT_TYPES = (Float64, Float32)
@@ -91,7 +92,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       dx = grid.grid_spacing
 
       # a zero displacement is the identity kernel
-      @test approx(field_data(translation_kernel(phi_s, mult, (T(0), T(0), T(0)))), ones(Complex{T}, shape0))
+      @test approx(kernel_array(translation_kernel(phi_s, mult, (T(0), T(0), T(0)))), ones(Complex{T}, shape0))
 
       # analytic oracle: translating cos(2x + 0.3)·sin(y) by Δ gives cos(2(x − Δ₁) + 0.3)·sin(y − Δ₂)
       offset = (T(0.37), T(-0.21), T(0.11))
@@ -143,7 +144,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # a pure phase of unit modulus on every resolved mode — the attenuation is confined to the
       # Nyquist frequencies, which are the modes whose derivative wavenumber is zeroed but whose
       # squared wavenumber is not
-      kernel_values = field_data(translation_kernel(phi_s, mult, (T(0.3), T(0.4), T(-0.2))))
+      kernel_values = kernel_array(translation_kernel(phi_s, mult, (T(0.3), T(0.4), T(-0.2))))
       derivative = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
       squared = (Array(mult.squared_wavenumber_1), Array(mult.squared_wavenumber_2), Array(mult.squared_wavenumber_3))
       at_nyquist(axis, index) = iszero(derivative[axis][index]) && !iszero(squared[axis][index])
@@ -473,7 +474,7 @@ end
   Δ = grid_c.grid_spacing
   expected_win = [sinc_sq(kx[i], Δ[1]) * sinc_sq(ky[j], Δ[2]) * sinc_sq(kz[l], Δ[3])
                   for i in 1:8, j in 1:7, l in 1:4]
-  @test isapprox(real(field_data(assignment_window(fs, m))), expected_win; rtol = rtol_c, atol = rtol_c)
+  @test isapprox(real(kernel_array(assignment_window(fs, m))), expected_win; rtol = rtol_c, atol = rtol_c)
 
   # the lazy exponential kernel == the stored-kernel convolve route (permuted + odd + aniso)
   c = -TP(0.3)
@@ -518,4 +519,65 @@ end
   a_dst2 = ScalarFieldSpectral(copy(field_data(fs)), grid_c, layout_c)
   combine!(a_dst2, TP(1 // 2), a_dst2, TP(2), other, stored)
   @test isapprox(field_data(a_dst2), field_data(convolve(combined, stored)); rtol = rtol_c, atol = rtol_c)
+end
+
+
+# The axis-factored SeparableKernel (decision 50): translation_kernel and assignment_window return
+# their three per-axis factors instead of a materialized field. Every assertion here is against the
+# materialized product as the oracle — the representation change must be bit-for-bit invisible.
+@testset "SeparableKernel: axis-factored kernels == their materialized product" begin
+  for TP in (Float64, Float32)
+    gs = (8, 7, 6)                                   # mixed parity: even, odd, even
+    g = Grid3D(gs, (TP(2π), TP(2π), TP(2π)))
+    layout = RealFourierLayout()
+    spec_shape = spectral_field_shape(g, layout, Val(0))
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, spec_shape), g, layout)
+    mult = FieldSpectralMultipliers(s0)
+    rng = MersenneTwister(50)
+    h = (TP(0.3), TP(-0.7), TP(1.1))
+    kernel = translation_kernel(s0, mult, h)
+    @test kernel isa GBGPeriodicFields.Convolution.SeparableKernel
+    # the oracle: the same kernel as a stored field
+    oracle = ScalarFieldSpectral(copy(kernel_array(kernel)), g, layout)
+
+    for R in (0, 1, 2)
+      shape = R == 0 ? spec_shape : R == 1 ? (spec_shape..., 3) : (spec_shape..., 3, 3)
+      data = rand(rng, Complex{TP}, shape...)
+      f = R == 0 ? ScalarFieldSpectral(data, g, layout) :
+          R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout)
+      # overwrite branch: bitwise equal to the stored kernel, at every tensor order
+      @test field_data(convolve(f, kernel)) == field_data(convolve(f, oracle))
+      # α/β accumulate branch (the fiberwise executor's other path)
+      lazy_dest = similar_field(f, Val(R)); stored_dest = similar_field(f, Val(R))
+      field_data(lazy_dest) .= data; field_data(stored_dest) .= data
+      convolve!(lazy_dest, f, kernel, TP(1 // 2), TP(2))
+      convolve!(stored_dest, f, oracle, TP(1 // 2), TP(2))
+      @test field_data(lazy_dest) == field_data(stored_dest)
+    end
+
+    # composition stays inside the family and equals the materialized product
+    other = translation_kernel(s0, mult, (TP(-0.2), TP(0.5), TP(0.25)))
+    @test kernel_array(convolve(kernel, other)) ≈ kernel_array(kernel) .* kernel_array(other)
+
+    # the reciprocal deconvolves: inv(window) ⋆ (window ⋆ f) == f (the window is zero-free in band)
+    window = assignment_window(s0, mult)
+    @test window isa GBGPeriodicFields.Convolution.SeparableKernel
+    @test eltype(window.factor_1) === TP                    # real factors, not complex storage
+    fs = ScalarFieldSpectral(rand(rng, Complex{TP}, spec_shape), g, layout)
+    @test isapprox(field_data(convolve(convolve(fs, window), inv(window))), field_data(fs);
+                   rtol = TP === Float64 ? 1e-12 : 1.0f-4)
+
+    # translation_kernel! rebuilds in place, equal to a fresh build for the new displacement
+    h2 = (TP(-0.4), TP(0.9), TP(0.15))
+    updated = translation_kernel(s0, mult, h)
+    translation_kernel!(updated, mult, h2)
+    @test kernel_array(updated) ≈ kernel_array(translation_kernel(s0, mult, h2))
+
+    # the domain check catches a kernel built for another grid
+    other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
+    other_spec = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other_grid, layout, Val(0))),
+                                     other_grid, layout)
+    foreign = translation_kernel(other_spec, FieldSpectralMultipliers(other_spec), h)
+    @test_throws ArgumentError convolve(fs, foreign)
+  end
 end

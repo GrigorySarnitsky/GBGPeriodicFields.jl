@@ -156,6 +156,8 @@ using .DifferentialOperators:
 
 
 using .Convolution:
+  SeparableKernel,
+  translation_kernel!,
   convolve!,
   convolve,
   ⋆,
@@ -292,6 +294,8 @@ export FiberVector,
        squared_wavenumber_field,
        assignment_window,
        translation_kernel,
+       translation_kernel!,
+       SeparableKernel,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,

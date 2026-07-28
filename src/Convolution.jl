@@ -29,8 +29,12 @@ convolves with — the package supplies the operation, not the physical meaning.
   a scalar field in spectral representation, from which a consumer builds a Fourier symbol.
 - [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, for deconvolving a
   gridded point density.
-- [`translation_kernel`](@ref) — the kernel that translates a field by a physical displacement, the
-  shift theorem's phase.
+- [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the kernel that translates a field by a
+  physical displacement, the shift theorem's phase.
+- [`SeparableKernel`](@ref) — the storage the two builders above return: a kernel that factors over the
+  axes, held as its three per-axis factors and evaluated per mode, so it costs kilobytes rather than a
+  field. It is applied exactly like a kernel held as a field, and `inv` gives the reciprocal that
+  deconvolves by it.
 """
 module Convolution
 
@@ -40,6 +44,7 @@ using ..Fields:
   FieldSpectralMultipliers,
   field_data,
   field_grid,
+  field_layout,
   field_scalar_type,
   field_tensor_order,
   similar_field,
@@ -60,7 +65,126 @@ using KernelAbstractions: get_backend
 import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
-       spectral_band, squared_wavenumber_field, assignment_window, translation_kernel
+       spectral_band, squared_wavenumber_field, assignment_window, translation_kernel,
+       SeparableKernel, translation_kernel!
+
+
+####################################################
+#        Separable (axis-factored) kernel          #
+####################################################
+
+
+"""
+    SeparableKernel
+
+A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a \\sigma_a(k_a)``, stored as its
+three one-dimensional per-axis factors rather than as a full field. The factors are evaluated into
+the product one mode at a time, so the kernel never occupies a field's worth of memory: three arrays
+of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the hundreds of
+megabytes a ``256^3`` kernel would take — and applying it reads no kernel storage at all.
+
+Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
+[`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
+kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of a fused operator.
+Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
+``1/\\prod_a \\sigma_a = \\prod_a (1/\\sigma_a)`` — the deconvolution an assignment window is built for.
+
+The fields are:
+- **`factor_1`, `factor_2`, `factor_3`** — the per-axis factors, each shaped to broadcast along its
+  own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
+- **`grid`**, **`layout`** — the base and spectral layout the factors were built for, which a call
+  checks the field against.
+
+!!! note "Separable, not radial"
+    A kernel that depends only on the wavenumber magnitude is *radial*, not separable — a function of
+    ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms. This type is for kernels that
+    genuinely do factor, whose canonical case is a per-axis phase.
+"""
+struct SeparableKernel{T, V, G, L}
+  factor_1::V
+  factor_2::V
+  factor_3::V
+  grid::G
+  layout::L
+end
+
+SeparableKernel{T}(factor_1::V, factor_2::V, factor_3::V, grid::G, layout::L) where {T, V, G, L} =
+  SeparableKernel{T, V, G, L}(factor_1, factor_2, factor_3, grid, layout)
+
+
+"""
+    _kernel_data(kernel)
+
+The coefficientwise multiplier a kernel contributes to a fused pass. A kernel held as a field yields
+its stored array; a [`SeparableKernel`](@ref) yields the **lazy** product of its per-axis factors — an
+instantiated `Broadcasted`, which both the broadcast route and the linear-indexed fiberwise executor
+consume exactly as they consume an array, so no operator body changes to accept one.
+"""
+_kernel_data(kernel::ScalarFieldSpectral) = field_data(kernel)
+_kernel_data(kernel::SeparableKernel) =
+  Base.Broadcast.instantiate(Base.broadcasted(*, kernel.factor_1, kernel.factor_2, kernel.factor_3))
+
+
+"""
+    _check_kernel_compatibility(field, kernel)
+
+Check that `kernel` was built for `field`'s base and spectral layout. A kernel held as a field defers
+to the field-to-field domain check; a [`SeparableKernel`](@ref) compares the grid and layout it stored
+at construction, and the per-axis factor lengths against the field's stored spectral shape.
+"""
+_check_kernel_compatibility(field, kernel::ScalarFieldSpectral) =
+  _check_field_domain_compatibility(field, kernel)
+
+function _check_kernel_compatibility(field, kernel::SeparableKernel)
+  (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
+    throw(ArgumentError("the separable kernel was built for a different grid or spectral layout than the field"))
+  stored = size(field_data(field))
+  factors = (length(kernel.factor_1), length(kernel.factor_2), length(kernel.factor_3))
+  all(d -> stored[d] == factors[d], 1:3) ||
+    throw(DimensionMismatch("separable kernel factor lengths $(factors) do not match the field's stored spectral shape $(stored[1:3])"))
+  return nothing
+end
+
+
+"""
+    inv(kernel::SeparableKernel)
+
+The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a \\sigma_a = \\prod_a
+(1/\\sigma_a)`` — so it is formed per axis, at ``O(N)`` cost, with no field materialized. Applying it
+**deconvolves** by `kernel`, which is what a mass-assignment window is built for
+([`assignment_window`](@ref)).
+
+!!! warning "The factors must have no zeros"
+    Every per-axis factor must be non-zero at every stored mode; a zero yields a non-finite reciprocal.
+    An `assignment_window` satisfies this on the resolved band, whereas a phase kernel does not in
+    general (a displacement can drive an even axis's Nyquist factor to zero).
+"""
+Base.inv(kernel::SeparableKernel{T}) where {T} =
+  SeparableKernel{T}(inv.(kernel.factor_1), inv.(kernel.factor_2), inv.(kernel.factor_3),
+                     kernel.grid, kernel.layout)
+
+
+# Composing two separable kernels stays inside the family: the product factors axis by axis, so the
+# composition is formed from three O(N) products and never materializes either kernel.
+#
+# A caution the type cannot enforce: composing two *translation* kernels is not the same operator as
+# one kernel for the summed displacement. Off the Nyquist plane the per-axis phases multiply as
+# expected, but at an even axis's Nyquist the factor is the real cos(π hₐ/Δxₐ) (decision 28), and
+# cos(a)·cos(b) ≠ cos(a + b). Add displacements to compose translations; compose kernels only when the
+# coefficientwise product is what is actually meant.
+function convolve(first_kernel::SeparableKernel{T}, second_kernel::SeparableKernel{T}) where {T}
+  (first_kernel.grid == second_kernel.grid && first_kernel.layout == second_kernel.layout) ||
+    throw(ArgumentError("the separable kernels were built for different grids or spectral layouts"))
+  return SeparableKernel{T}(first_kernel.factor_1 .* second_kernel.factor_1,
+                            first_kernel.factor_2 .* second_kernel.factor_2,
+                            first_kernel.factor_3 .* second_kernel.factor_3,
+                            first_kernel.grid, first_kernel.layout)
+end
+
+
+# Every kernel argument below takes either storage class: a kernel held as a full field, or the
+# axis-factored `SeparableKernel` whose product is evaluated per mode.
+const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, SeparableKernel{T}}
 
 
 ####################################################
@@ -185,16 +309,16 @@ function convolve! end
 
 
 function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    kernel::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
+    kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
-  _check_field_domain_compatibility(field, kernel)
-  _apply_convolution!(field_data(destination), field_data(field), field_data(kernel), T(α), T(β))
+  _check_kernel_compatibility(field, kernel)
+  _apply_convolution!(field_data(destination), field_data(field), _kernel_data(kernel), T(α), T(β))
   return destination
 end
 
 
 function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
-    kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
+    kernel::SpectralKernel{T}) where {T<:AbstractFloat, R}
   return convolve!(destination, field, kernel, one(T), zero(T))
 end
 
@@ -211,7 +335,7 @@ preserved.
 function convolve end
 
 
-function convolve(field::AbstractFieldSpectral, kernel::ScalarFieldSpectral)
+function convolve(field::AbstractFieldSpectral, kernel::SpectralKernel)
   destination = similar_field(field, Val(field_tensor_order(field)))
   return convolve!(destination, field, kernel)
 end
@@ -293,12 +417,12 @@ end
 # representation, since a kernel is a spectral object (the physical absence is a validity absence,
 # invariant 1).
 function combine!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
-    β::Real, b::AbstractFieldSpectral{T, R}, kernel::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
+    β::Real, b::AbstractFieldSpectral{T, R}, kernel::SpectralKernel{T}) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, a)
   check_field_compatibility(destination, b)
-  _check_field_domain_compatibility(a, kernel)
+  _check_kernel_compatibility(a, kernel)
   _apply_convolution_combination!(field_data(destination), field_data(a), field_data(b),
-    field_data(kernel), T(α), T(β))
+    _kernel_data(kernel), T(α), T(β))
   return destination
 end
 
@@ -718,9 +842,9 @@ function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldS
   w1 = reshape(axis(multipliers.squared_wavenumber_1, spacing[1]), :, 1, 1)
   w2 = reshape(axis(multipliers.squared_wavenumber_2, spacing[2]), 1, :, 1)
   w3 = reshape(axis(multipliers.squared_wavenumber_3, spacing[3]), 1, 1, :)
-  window = similar_field(reference, Val(0))
-  @_assign! field_data(window) .= Complex{T}.(w1 .* w2 .* w3)
-  return window
+  # Real factors: a real multiplier against a complex field is cheaper than a complex one, and the
+  # window is real by construction (an even function of each k_a).
+  return SeparableKernel{T}(w1, w2, w3, field_grid(reference), field_layout(reference))
 end
 
 
@@ -802,8 +926,31 @@ function translation_kernel(reference::AbstractFieldSpectral, multipliers::Field
   phase_1 = reshape(axis_phase(multipliers.squared_wavenumber_1, multipliers.wavenumber_1, offset[1]), :, 1, 1)
   phase_2 = reshape(axis_phase(multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2]), 1, :, 1)
   phase_3 = reshape(axis_phase(multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3]), 1, 1, :)
-  kernel = similar_field(reference, Val(0))
-  @_assign! field_data(kernel) .= phase_1 .* phase_2 .* phase_3
+  # The three factors ARE the kernel: their product is evaluated per mode, never materialized.
+  return SeparableKernel{T}(phase_1, phase_2, phase_3, field_grid(reference), field_layout(reference))
+end
+
+
+"""
+    translation_kernel!(kernel::SeparableKernel, multipliers, offset)
+
+Rebuild `kernel` in place for a new displacement `offset`, overwriting its per-axis factors. Use this
+in-place form when a displacement changes and the kernel is already allocated; the allocating
+[`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
+not a field, so rebuilding per call is cheap.
+
+The arguments are the `kernel` to overwrite, the `multipliers` supplying both wavenumber families, and
+the physical `offset` ``h`` as a three-tuple. The displacement convention and the Nyquist treatment are
+[`translation_kernel`](@ref)'s.
+"""
+function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
+    offset::NTuple{3, Real}) where {T}
+  axis_phase!(destination, squared_wavenumber, derivative_wavenumber, displacement) =
+    (d = T(displacement);
+     destination .= Complex{T}.(cos.(sqrt.(squared_wavenumber) .* d), .-sin.(derivative_wavenumber .* d)))
+  axis_phase!(vec(kernel.factor_1), multipliers.squared_wavenumber_1, multipliers.wavenumber_1, offset[1])
+  axis_phase!(vec(kernel.factor_2), multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2])
+  axis_phase!(vec(kernel.factor_3), multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3])
   return kernel
 end
 

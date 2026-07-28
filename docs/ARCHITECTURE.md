@@ -2518,3 +2518,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (reusing decision 48's `map!` machinery through the mapped `mean`), Bessel-scaled. It is physical-only
     (the outer product is nonlinear). The 206/122 parity baselines are unchanged — these are `Statistics`
     extensions, outside the M2 + M3 surface.
+
+50. **The separable kernels are stored as their per-axis factors, not as fields** (2026-07-28).
+    `translation_kernel` and `assignment_window` build a kernel that **factors over the axes**,
+    ``\hat g(k) = \prod_a \sigma_a(k_a)``, and both already computed the three one-dimensional factors
+    internally before materializing their product into a full field on the last line. That last line is
+    now gone: both return a `SeparableKernel` holding the three factors, and the product is evaluated one
+    mode at a time inside the pass that consumes it.
+
+    The saving is a *representation* change with no numerical content — every result is **bitwise
+    identical** to the materialized kernel, at every tensor order and on both the overwrite and the
+    ``\alpha``/``\beta`` branch, which is what the tests assert against the stored product as oracle. What
+    changes is the cost: three ``O(N)`` arrays in place of ``O(N^3)`` coefficients (5 KiB against 16.2 MiB
+    at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads **no kernel storage at
+    all** — a kernel application drops from three field-sized streams to two. Decision 28's Nyquist
+    treatment survives unchanged and unexamined, because the per-axis factors are produced by exactly the
+    code that was already correct.
+
+    The mechanism is that a kernel's contribution to a fused pass is fetched through `_kernel_data`,
+    which yields a stored array for a kernel held as a field and an **instantiated `Broadcasted`** for a
+    separable one. Both the broadcast route and the linear-indexed fiberwise executor consume that lazy
+    product exactly as they consume an array — verified including inside the `KernelAbstractions` device
+    kernel — so no operator body changed to accept one; the kernel arguments merely widened to a union of
+    the two storage classes.
+
+    Two operations come with the type. Composition stays inside the family (the factors multiply axis by
+    axis) — but composing two *translation* kernels is deliberately **not** the same operator as one
+    kernel for the summed displacement, because at an even axis's Nyquist the real factor
+    ``\cos(\pi h_a/\Delta x_a)`` obeys ``\cos a\cos b \ne \cos(a+b)``; displacements compose by addition,
+    which is the more correct route as well as the cheaper one. And `inv` gives the reciprocal kernel,
+    separable because ``1/\prod_a \sigma_a = \prod_a (1/\sigma_a)`` — the deconvolution an assignment
+    window exists for, which retires the one place the point-density recipe reached into kernel storage.
+
+    Deliberately **not** done here: a general `SeparableSymbol(σ₁, σ₂, σ₃)` closure. Per-axis factors
+    supplied as functions of ``k_a`` would be silently ambiguous about *which* wavenumber family they are
+    handed — the true ``|k_a|`` that keeps its Nyquist value, or the derivative ``k_a`` that is zeroed
+    there (invariant 5) — which is precisely the trap decision 28 documents. Storing the factors, built by
+    the package, keeps that choice where it was already made correctly. The radial fragment
+    ``\sigma(|k|^2)`` is a separate closure-shaped escalation and is not this decision.
