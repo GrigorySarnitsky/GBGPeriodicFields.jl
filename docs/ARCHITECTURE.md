@@ -2531,7 +2531,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\alpha``/``\beta`` branch, which is what the tests assert against the stored product as oracle. What
     changes is the cost: three ``O(N)`` arrays in place of ``O(N^3)`` coefficients (5 KiB against 16.2 MiB
     at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads **no kernel storage at
-    all** — a kernel application drops from three field-sized streams to two. Decision 28's Nyquist
+    all** — a kernel application drops from three field-sized streams to two.
+
+    Fewer streams did **not** hand back a free speed-up, and finding out why fixed the implementation.
+    Applying the kernel is bandwidth-bound, so the saved stream is worth having only if evaluating the
+    product costs less than the read it replaces, and *how* the product is indexed decides that. Handing
+    the lazy product to the linear-indexed fiberwise executor makes every element convert a linear index
+    to a cartesian one — an integer division, which a GPU emulates — and that measured **0.29×** a stored
+    kernel at ``256^3``. A hand-written three-dimensional kernel removed the conversion but lost as much
+    again to warp fragmentation, because the folded axis is ``N/2 + 1`` — 129 at ``256^3`` — so its rows
+    do not align to a warp (**0.55×** on a scalar field, worse than doing nothing). What works is the
+    plainest form: **one flat broadcast** over the whole section, the per-axis factors carrying singleton
+    axes so they extend along the remaining mode axes and along the fiber. Broadcasting indexes them
+    cartesian *and* keeps the launch flat and coalesced. Measured against the stored kernel at ``256^3``
+    on an RTX 5070 Ti: **1.37× (scalar) and 1.00× (vector) in `Float32`**, and 0.96× / 0.77× in
+    `Float64` — the `Float64` shortfall being the extra complex multiplies against a consumer card's
+    1/64-rate FP64, which full-rate production hardware does not pay. The lesson is the general one for
+    this package: reach for the broadcast route before a hand-written kernel, and measure the launch
+    shape, not only the arithmetic. Decision 28's Nyquist
     treatment survives unchanged and unexamined, because the per-axis factors are produced by exactly the
     code that was already correct.
 

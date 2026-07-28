@@ -446,6 +446,34 @@ KernelAbstractions kernel); workgroup-local bins on GPU — the same redesign's 
 CUDA-over-ROCm `Float64` radial gap, which is this kernel under RDNA3's CAS-loop `Float64` atomics.
 
 
+**(o) An axis-factored kernel is bandwidth-bound like the stored kernel it replaces, so what decides
+its speed is how the per-axis product is INDEXED and how the launch is SHAPED — not how few streams it
+reads.** Decision 50 stores a separable kernel as three ``O(N)`` per-axis factors instead of an
+``O(N^3)`` field, which removes one field-sized stream from every application (three down to two). That
+alone predicts a speed-up; it does not deliver one, and the two failed attempts are the instructive
+part. Handing the lazy product to the **linear-indexed** fiberwise executor makes every element convert
+a linear index to a cartesian one — an integer division, emulated on a GPU — measured **0.29×** a stored
+kernel (vector, ``256^3``, `Float64`, RTX 5070 Ti). Replacing that with a hand-written **three-dimensional**
+`KernelAbstractions` kernel removed the conversion and gained nothing (0.78× vector) while *halving* the
+scalar case to **0.55×**: the folded axis is ``N/2 + 1`` — **129** at ``256^3`` — so a three-dimensional
+launch fragments warps against a row length that is not a multiple of the warp size, where the stored
+path's flat launch stays coalesced. What works is the plainest form, **one flat broadcast** over the
+whole section with the factors carrying singleton axes (they extend along the remaining mode axes and
+along the fiber): cartesian indexing *and* a flat, coalesced launch.
+
+| ``256^3``, against the stored kernel | `Float64` | `Float32` |
+|---|---:|---:|
+| scalar field | 0.96× | **1.37×** |
+| vector field | 0.77× | **1.00×** |
+
+`Float32` — the realistic GPU precision — is at parity or ahead, with the kernel's residency gone
+(129 MiB → ~10 KiB). The `Float64` shortfall is the extra complex multiplies meeting this consumer
+card's **1/64-rate FP64**; full-rate production hardware (the decision-37 GH200) does not pay it, so
+the `Float32` column is the better predictor there. Two rules generalize: **reach for the broadcast
+route before a hand-written kernel** (§9's execution-route policy, here vindicated by measurement —
+Julia's broadcast machinery picked a better launch than the hand-rolled kernel did), and when a fused
+pass underperforms, **measure the launch shape before blaming the arithmetic**.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

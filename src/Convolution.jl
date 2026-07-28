@@ -187,6 +187,37 @@ end
 const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, SeparableKernel{T}}
 
 
+"""
+    _apply_separable_convolution!(destination_data, source_data, kernel, α, β)
+
+Apply a [`SeparableKernel`](@ref) as one broadcast over the whole section, writing
+``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\texttt{dst}``. The three per-axis
+factors carry singleton axes, so they broadcast along the remaining mode axes **and** along the fiber,
+and one expression serves scalar, vector, and tensor fields exactly as the stored-kernel path does.
+
+Two things this shape gets right, both measured rather than assumed. Broadcasting indexes the factors
+**cartesian**, so no element pays the linear-to-cartesian conversion that dominated an earlier attempt
+to hand the lazy product to the linear-indexed fused executor (an integer division, emulated on a GPU:
+3.4× slower than a stored kernel at ``256^3``). And it leaves the launch **flat**, which a hand-written
+three-dimensional kernel does not: the folded axis is ``N/2 + 1`` long — 129 at ``256^3`` — so a
+three-dimensional launch fragments warps against a non-power-of-two row and loses roughly half the
+achievable bandwidth, where the flat broadcast stays coalesced.
+
+The kernel value is associated as the stored path associates it, so an axis-factored kernel and its
+materialized product agree bit for bit.
+"""
+function _apply_separable_convolution!(destination_data, source_data, kernel::SeparableKernel, α, β)
+  factor_1, factor_2, factor_3 = kernel.factor_1, kernel.factor_2, kernel.factor_3
+  if iszero(β)
+    @_assign! destination_data .= α .* factor_1 .* factor_2 .* factor_3 .* source_data
+  else
+    @_assign! destination_data .= α .* factor_1 .* factor_2 .* factor_3 .* source_data .+
+                                  β .* destination_data
+  end
+  return nothing
+end
+
+
 ####################################################
 #        Convolution kernel                        #
 ####################################################
@@ -312,6 +343,9 @@ function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFiel
     kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
   _check_kernel_compatibility(field, kernel)
+  kernel isa SeparableKernel &&
+    return (_apply_separable_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
+            destination)
   _apply_convolution!(field_data(destination), field_data(field), _kernel_data(kernel), T(α), T(β))
   return destination
 end

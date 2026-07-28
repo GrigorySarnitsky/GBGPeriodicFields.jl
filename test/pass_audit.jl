@@ -256,6 +256,23 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     audit(() -> convolve!(d, f, g, 0.5, 2.0), "convolve! α/β",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)),
       Traffic("kernel", carr(g), (M, 0)))                 # fused: ĝ read once per mode (was 3M)
+    # The axis-factored kernel (decision 50) carries NO field-sized stream — there is no kernel Traffic
+    # row here because there is no kernel array to count, which is the point. What this pins is that the
+    # source and destination stay at the fused ideal: swapping a stored kernel for the lazy per-axis
+    # product must not push the executor into re-reading a source per output component.
+    #
+    # A caveat on the ledger, not on the operation: this file counts ELEMENT reads, not bytes. Per mode
+    # the separable kernel reads one entry from each of three O(N) axis arrays where a stored kernel read
+    # one entry from an O(N³) field, so by element count it is three reads against one. The win is in
+    # bytes moved: the three axis arrays total kilobytes and stay resident, while the stored kernel is a
+    # field-sized DRAM stream. The axis arrays are deliberately left uncounted rather than recorded as a
+    # 3M "regression" the ledger would otherwise imply.
+    separable = translation_kernel(ScalarFieldSpectral(zeros(ComplexF64, shape0), grid), multipliers, (0.3, -0.7, 1.1))
+    audit(() -> convolve!(d, f, separable), "convolve! vector ∘ separable kernel",
+      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
+    audit(() -> convolve!(d, f, separable, 0.5, 2.0), "convolve! α/β ∘ separable kernel",
+      Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (3M, 3M)))
+
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1), "exponential_convolve!",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     w = counted_kernel()

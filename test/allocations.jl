@@ -150,6 +150,19 @@ _map_add(a, b) = a + b
       @alloc_below field_threshold convolve!(std_, st, kernel)
       @alloc_below field_threshold convolve!(svd, sv, kernel, T(0.5), T(1))
       @alloc_below field_threshold convolve!(std_, st, kernel, T(0.5), T(1))
+
+      # ----- the axis-factored SeparableKernel (decision 50): the builders allocate three O(N) axis
+      # arrays where they used to allocate a whole field, and applying one materializes nothing. The
+      # builder rows are the load-bearing ones: a regression to a materialized kernel fails them.
+      separable = translation_kernel(ss, multipliers, (T(0.3), T(-0.7), T(1.1)))
+      @alloc_below field_threshold translation_kernel(ss, multipliers, (T(0.3), T(-0.7), T(1.1)))
+      @alloc_below field_threshold assignment_window(ss, multipliers)
+      @alloc_below field_threshold inv(separable)                       # reciprocal: three O(N) axes
+      @alloc_below threshold translation_kernel!(separable, multipliers, (T(0.1), T(0.2), T(0.3)))
+      @alloc_below field_threshold convolve!(ssd, ss, separable)        # applying it materializes nothing
+      @alloc_below field_threshold convolve!(svd, sv, separable)
+      @alloc_below field_threshold convolve!(std_, st, separable)
+      @alloc_below field_threshold convolve!(svd, sv, separable, T(0.5), T(1))
       # the lazy exponential kernel and the kernel-composed combination (decision 33)
       @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1))
       @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.5), T(1))

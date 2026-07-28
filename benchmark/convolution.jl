@@ -29,7 +29,16 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(field_data(spectral_cutoff($s, $m, 2)))
   group["spectral_band | $tag"]    = @benchmarkable bench_sync(field_data(spectral_band($s, $m, 1, 3)))
   group["squared_wavenumber_field | $tag"] = @benchmarkable bench_sync(field_data(squared_wavenumber_field($s, $m)))
-  group["assignment_window | $tag"] = @benchmarkable bench_sync(field_data(assignment_window($s, $m)))
+  # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
+  # and there is no field to sync on — sync one factor instead.
+  group["assignment_window | $tag"] = @benchmarkable bench_sync(assignment_window($s, $m).factor_1)
   offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)     # a half-cell displacement
-  group["translation_kernel | $tag"] = @benchmarkable bench_sync(field_data(translation_kernel($s, $m, $offset)))
+  group["translation_kernel | $tag"] = @benchmarkable bench_sync(translation_kernel($s, $m, $offset).factor_1)
+  # Applying an axis-factored kernel against applying the same kernel stored as a field: same result,
+  # one field-sized stream fewer (the kernel is never read from memory).
+  separable = translation_kernel(s, m, offset)
+  stored = ScalarFieldSpectral(copy(Base.copy(GBGPeriodicFields.Convolution._kernel_data(separable))),
+                               grid, field_layout(s))
+  group["convolve! vector ∘ separable | $tag"] = @benchmarkable (convolve!($uout, $u, $separable); bench_sync(field_data($uout)))
+  group["convolve! vector ∘ stored    | $tag"] = @benchmarkable (convolve!($uout, $u, $stored); bench_sync(field_data($uout)))
 end
