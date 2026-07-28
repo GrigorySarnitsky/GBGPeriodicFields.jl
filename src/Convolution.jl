@@ -88,7 +88,8 @@ The coefficientwise product of two spectral kernels, held as the pair rather tha
 Composition inside a family stays in that family (two radial symbols multiply into one radial symbol,
 two axis-factored kernels into one axis-factored kernel). Across families there is no such collapse:
 a radial symbol times an axis-factored phase is neither radial nor separable, so the composite keeps
-both operands and multiplies their per-mode values. It still stores nothing of field size, and it
+both operands and multiplies their per-mode values. Either order composes and gives the same operator,
+the product being coefficientwise, and a composite composes further in either position. It still stores nothing of field size, and it
 applies exactly like either operand.
 
 This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be

@@ -644,6 +644,16 @@ end
     crossed = convolve(cutoff, shift)
     @test crossed isa ProductKernel
     @test field_data(convolve(u, crossed)) ≈ field_data(convolve(convolve(u, cutoff), shift))
+    # the product is coefficientwise, so composing the other way round is the same operator
+    reversed = convolve(shift, cutoff)
+    @test reversed isa ProductKernel
+    @test field_data(convolve(u, reversed)) == field_data(convolve(u, crossed))
+    # a same-family pair must still collapse rather than fall to the general product method
+    @test convolve(shift, translation_kernel(s0, m, (TP(0.1), TP(0.2), TP(0.3)))) isa SeparableKernel
+    # and a product composes further, in either position
+    @test convolve(crossed, cutoff) isa ProductKernel
+    @test field_data(convolve(u, convolve(crossed, cutoff))) ≈
+          field_data(convolve(convolve(convolve(u, cutoff), shift), cutoff))
 
     # a kernel built for another base is rejected
     other = Grid3D((8, 7, 4), (TP(2π), TP(4π), TP(6π)))
