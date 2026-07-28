@@ -573,6 +573,15 @@ end
     translation_kernel!(updated, mult, h2)
     @test kernel_array(updated) ≈ kernel_array(translation_kernel(s0, mult, h2))
 
+    # materialize_kernel: the stored twin — same coefficients, same results, bitwise
+    stored = materialize_kernel(kernel)
+    @test stored isa ScalarFieldSpectral
+    @test field_data(stored) == kernel_array(kernel)                  # exactly the product
+    @test field_data(convolve(fs, stored)) == field_data(convolve(fs, kernel))
+    uv = VectorFieldSpectral(rand(rng, Complex{TP}, spec_shape..., 3), g, layout)
+    @test field_data(convolve(uv, stored)) == field_data(convolve(uv, kernel))
+    @test eltype(field_data(materialize_kernel(window))) === Complex{TP}   # real factors → complex field
+
     # the domain check catches a kernel built for another grid
     other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
     other_spec = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other_grid, layout, Val(0))),

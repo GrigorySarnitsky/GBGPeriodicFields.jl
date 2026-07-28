@@ -633,7 +633,19 @@ construction (an element's reads precede its writes) or a documented contract (`
 bitwise.** The fused operations of decisions 38/39 (`gradient!`, `curl!`, `symmetric_gradient!`, the
 fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a device only**; on a
 CPU array they run slab-threaded plain loops that pass through the same `_use_threads` gate as the
-broadcast route, so the cutoff and the `with_threading` override govern them. Two groups of operations, however,
+broadcast route, so the cutoff and the `with_threading` override govern them.
+
+One pairing the route list above does not name outright, because it mixes two of its entries, is worth
+recording since decision 50 added the second instance: an operation may take the **broadcast route on a
+device and a hand-written gated loop on a CPU**. `helmholtz_projection!` pairs a `KernelAbstractions`
+kernel with a gated CPU loop (decisions 38, 40); the axis-factored kernel of decision 50 pairs a
+*broadcast* with one. The reason is measured rather than aesthetic — a broadcast whose operands carry
+singleton axes indexes cartesian and launches flat, which is what a device wants, but does not vectorize
+on a CPU, where it ran at a fixed element rate independent of precision (`PERFORMANCE.md` finding (o)).
+Either way the pair is backend-dispatched and carries decision 47's dispatch-target guard, without which
+the CPU half is dead code the tests cannot see.
+
+Two groups of operations, however,
 are KA kernels **on every backend** — the gather/scatter transfer kernels
 ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")), and the radial
 shell binning (decisions 25, 34) — and on a CPU array these launch on the `CPU()` backend, which

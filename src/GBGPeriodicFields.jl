@@ -157,6 +157,7 @@ using .DifferentialOperators:
 
 using .Convolution:
   SeparableKernel,
+  materialize_kernel,
   translation_kernel!,
   convolve!,
   convolve,
@@ -296,6 +297,7 @@ export FiberVector,
        translation_kernel,
        translation_kernel!,
        SeparableKernel,
+       materialize_kernel,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff,

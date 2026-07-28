@@ -36,6 +36,7 @@ A kernel that factors over the axes is held as its per-axis factors rather than 
 ```@docs
 SeparableKernel
 inv
+materialize_kernel
 ```
 
 ## Internal API

@@ -70,7 +70,7 @@ import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
        spectral_band, squared_wavenumber_field, assignment_window, translation_kernel,
-       SeparableKernel, translation_kernel!
+       SeparableKernel, translation_kernel!, materialize_kernel
 
 
 ####################################################
@@ -90,6 +90,13 @@ megabytes a ``256^3`` kernel would take — and applying it reads no kernel stor
 Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
 kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of a fused operator.
+
+Whether that is also *faster* depends on the base. Applying it moves two field-sized streams where a
+stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a base
+small enough to sit in cache and overtakes it once the base is bound by memory — measured at roughly
+``0.5``–``0.9`` of the stored kernel's speed at ``64^3``–``128^3``, parity near ``256^3``, and
+``1.1``–``1.2`` times faster at ``256^3``–``512^3`` threaded on a CPU or in `Float32` on a GPU. On a
+small base where the difference matters, [`materialize_kernel`](@ref) trades the memory back.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
 ``1/\\prod_a \\sigma_a = \\prod_a (1/\\sigma_a)`` — the deconvolution an assignment window is built for.
 
@@ -183,6 +190,35 @@ function convolve(first_kernel::SeparableKernel{T}, second_kernel::SeparableKern
                             first_kernel.factor_2 .* second_kernel.factor_2,
                             first_kernel.factor_3 .* second_kernel.factor_3,
                             first_kernel.grid, first_kernel.layout)
+end
+
+
+"""
+    materialize_kernel(kernel::SeparableKernel)
+
+Evaluate an axis-factored kernel into a kernel held as a **field**, returning the `ScalarFieldSpectral`
+whose coefficients are the product of the per-axis factors. The result applies identically and gives
+bit-identical results — the two differ only in what they cost.
+
+Use this to trade memory back for speed on a **small base**. Applying an axis-factored kernel moves two
+field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
+depends on whether the base outgrows cache. Measured against a stored kernel on a vector field, the
+axis-factored form runs at roughly ``0.5``–``0.9`` of its speed at ``64^3``–``128^3``, reaches parity
+near ``256^3``, and is ``1.1``–``1.2`` times **faster** at ``256^3``–``512^3`` threaded on a CPU or in
+`Float32` on a GPU. So a run whose grids are small, or which applies one fixed kernel very many times
+with memory to spare, can materialize once and keep the field; a run at production resolution should
+not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about 10 KiB
+for the factors).
+
+!!! warning "This gives up the memory saving entirely"
+    The returned field costs the full ``O(N^3)`` the axis-factored form exists to avoid. Materialize
+    deliberately, for a measured reason on a specific base — not by default.
+"""
+function materialize_kernel(kernel::SeparableKernel{T}) where {T}
+  shape = (length(kernel.factor_1), length(kernel.factor_2), length(kernel.factor_3))
+  data = similar(kernel.factor_1, Complex{T}, shape)
+  @_assign! data .= kernel.factor_1 .* kernel.factor_2 .* kernel.factor_3
+  return ScalarFieldSpectral(data, kernel.grid, kernel.layout)
 end
 
 
