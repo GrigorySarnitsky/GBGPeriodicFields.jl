@@ -461,18 +461,41 @@ path's flat launch stays coalesced. What works is the plainest form, **one flat 
 whole section with the factors carrying singleton axes (they extend along the remaining mode axes and
 along the fiber): cartesian indexing *and* a flat, coalesced launch.
 
-| ``256^3``, against the stored kernel | `Float64` | `Float32` |
-|---|---:|---:|
-| scalar field | 0.96× | **1.37×** |
-| vector field | 0.77× | **1.00×** |
+The **CPU needs the opposite route**, and the same measurement says so. That five-operand broadcast,
+three of whose operands carry singleton axes, does not vectorize: it ran at a fixed ~330 M elements/s —
+the *same rate* in `Float32` as in `Float64`, the signature of an element-bound loop rather than a
+bandwidth-bound one. So the CPU takes a gated hand-written twin (§9's kernel-pair shape): the two outer
+factors hoisted to scalars, leaving an inner pass over contiguous storage for `@simd`. Loop order in
+that twin is worth stating, because the obvious choice is wrong — with the fiber components innermost
+the pass jumps between component blocks every row and the *threaded* case fell to 0.98×; walking each
+component's block start-to-end inside a thread's slab restored 1.14×.
 
-`Float32` — the realistic GPU precision — is at parity or ahead, with the kernel's residency gone
-(129 MiB → ~10 KiB). The `Float64` shortfall is the extra complex multiplies meeting this consumer
-card's **1/64-rate FP64**; full-rate production hardware (the decision-37 GH200) does not pay it, so
-the `Float32` column is the better predictor there. Two rules generalize: **reach for the broadcast
-route before a hand-written kernel** (§9's execution-route policy, here vindicated by measurement —
-Julia's broadcast machinery picked a better launch than the hand-rolled kernel did), and when a fused
-pass underperforms, **measure the launch shape before blaming the arithmetic**.
+Ratios against the stored kernel (vector field, ``>1`` = axis-factored faster):
+
+| | GPU F64 | GPU F32 | CPU t1 F64 | CPU t1 F32 | CPU t8 F64 | CPU t8 F32 |
+|---|---:|---:|---:|---:|---:|---:|
+| ``64^3``  | 0.67 | 0.68 | — | — | 0.45 | 0.30 |
+| ``128^3`` | 0.78 | 0.71 | 0.69 | 0.45 | 0.92 | 0.48 |
+| ``256^3`` | 0.77 | **1.00** | 0.94 | 0.55 | **1.14** | **1.18** |
+| ``512^3`` | — | — | 0.93 | 0.60 | **1.12** | **1.14** |
+
+The trend is the point: **the ratio improves with grid size on every platform**, because the saving is
+bytes not moved (two streams instead of three) while the cost is per-element arithmetic. Small grids sit
+in cache — the stored kernel's extra read is nearly free there, so the axis-factored form only pays for
+its arithmetic and loses. Past cache the pass becomes DRAM-bound and the missing stream wins: at
+``256^3``–``512^3`` threaded, the CPU is **1.12–1.18× faster**, and `Float32` on the GPU reaches parity.
+
+The `Float64` GPU column is a **consumer-card artifact, not the production case**. The two extra complex
+multiplies are 12 FP64 flops per element; the gap at ``256^3`` is 363 µs for 305 MFLOP, an implied
+**0.84 TFLOP/s** — precisely the RTX 5070 Ti's 1/64-rate FP64. On the decision-37 GH200 (full-rate FP64)
+the same work is ~9 µs, so `Float64` there should track the `Float32` column and land near 1.15×.
+
+Three rules generalize. **Reach for the broadcast route before a hand-written kernel on a device** —
+§9's execution-route policy, here vindicated by measurement, since Julia's broadcast machinery chose a
+better launch than the hand-rolled kernel did. **A broadcast over singleton-axis operands is the
+exception on a CPU**, where it does not vectorize and a hand-written twin is worth its keep. And when a
+fused pass underperforms, **measure the launch shape and the traversal order before blaming the
+arithmetic** — both failed attempts here were layout problems wearing an arithmetic costume.
 
 ## 5. The benchmark suite
 

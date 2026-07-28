@@ -14,6 +14,7 @@ import Statistics
 const F = GBGPeriodicFields.Fields
 const FS = GBGPeriodicFields.FiberSections   # the threading primitives moved here (Phase A)
 const DifferentialOperators = GBGPeriodicFields.DifferentialOperators
+const Convolution = GBGPeriodicFields.Convolution
 import KernelAbstractions as KA              # for the helmholtz dispatch-target guard
 const T = Float64
 const grid = Grid3D((32, 31, 30), (2π, 2π, 2π))     # 29760 elements ≥ the default 2^14 cutoff
@@ -195,6 +196,23 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
           comp(us, 1), comp(us, 2), comp(us, 3),
           m.wavenumber_1, m.wavenumber_2, m.wavenumber_3, nothing, 1.0, 0.0))...})
       @test target.sig.parameters[2] === KA.CPU                    # the gated loop, not the fallback
+    end
+
+    # The separable kernel is the second device-kernel / gated-CPU-twin pair (decision 50): the device
+    # route is one flat broadcast, the CPU route a hand-written slab loop. Same guard as helmholtz —
+    # a CPU call must resolve to the ::CPU twin, or the bitwise check below would compare the
+    # broadcast against itself and the twin would be dead code (decision 47's lesson).
+    let separable = translation_kernel(phis, m, (0.3, -0.7, 1.1)), d = similar_field(us, Val(1))
+      target = which(Convolution._separable_convolution_pass!,
+        Tuple{KA.CPU, typeof(field_data(d)), typeof(field_data(us)),
+              map(typeof, (separable.factor_1, separable.factor_2, separable.factor_3, 1.0, 0.0))...})
+      @test target.sig.parameters[2] === KA.CPU                    # the gated loop, not the broadcast
+      @test bitwise(() -> convolve(us, separable))                 # threaded == serial, bitwise
+      @test bitwise(() -> convolve(phis, separable))
+      sep_s = 2.0 * convolve(us, separable); sep_t = 2.0 * convolve(us, separable)   # equal, initialized
+      with_threading(enabled = false) do; convolve!(sep_s, us, separable, 0.5, 2.0); end
+      with_threading(enabled = true)  do; convolve!(sep_t, us, separable, 0.5, 2.0); end
+      @test field_data(sep_s) == field_data(sep_t)                 # the α/β accumulate branch
     end
 
     # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite

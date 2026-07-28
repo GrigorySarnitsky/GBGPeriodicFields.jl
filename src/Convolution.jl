@@ -58,7 +58,11 @@ using ..FiberSections:
   @_assign!,
   _fiberwise_pass!
 
+import KernelAbstractions
 using KernelAbstractions: get_backend
+
+# The gated slab loop the decision-38/40 kernel pairs use for their CPU twin.
+using ..DifferentialOperators: _foreach_outer_slab
 
 # Extended with the kernel-composed method (the weighted combination convolved in the same pass);
 # the generic and its docstring live in FieldAlgebra, the kerneled method here with the kernels.
@@ -207,7 +211,15 @@ The kernel value is associated as the stored path associates it, so an axis-fact
 materialized product agree bit for bit.
 """
 function _apply_separable_convolution!(destination_data, source_data, kernel::SeparableKernel, α, β)
-  factor_1, factor_2, factor_3 = kernel.factor_1, kernel.factor_2, kernel.factor_3
+  _separable_convolution_pass!(get_backend(destination_data), destination_data, source_data,
+                               kernel.factor_1, kernel.factor_2, kernel.factor_3, α, β)
+  return nothing
+end
+
+
+# Device route: one flat broadcast, which indexes the factors cartesian and keeps the launch coalesced.
+function _separable_convolution_pass!(backend, destination_data, source_data,
+    factor_1, factor_2, factor_3, α, β)
   if iszero(β)
     @_assign! destination_data .= α .* factor_1 .* factor_2 .* factor_3 .* source_data
   else
@@ -216,6 +228,58 @@ function _apply_separable_convolution!(destination_data, source_data, kernel::Se
   end
   return nothing
 end
+
+
+# CPU route (the decision-38 gated twin). The broadcast above is right for a device but wrong here: a
+# five-operand broadcast whose middle three carry singleton axes does not vectorize, and it runs at a
+# fixed ~330 M elements/s — the SAME rate in `Float32` as in `Float64`, the signature of an
+# element-bound loop rather than a bandwidth-bound one, roughly a sixth of what the stored kernel
+# achieves. This loop hoists the two outer factors to scalars, leaving an inner pass over contiguous
+# storage that `@simd` can widen. The product is associated exactly as the broadcast and the stored
+# path associate it, ``\alpha((\sigma_1\sigma_2)\sigma_3)\hat f``, so all three agree bit for bit.
+function _separable_convolution_pass!(::KernelAbstractions.CPU, destination_data, source_data,
+    factor_1, factor_2, factor_3, α, β)
+  destination = _fiber_flattened(destination_data)
+  source = _fiber_flattened(source_data)
+  axis_1, axis_2 = axes(destination, 1), axes(destination, 2)
+  components = axes(destination, 4)
+  # Component-major inside the slab: for its band of `mode_3`, a thread walks each fiber component's
+  # block from start to end, so every run is long and contiguous. The obvious order — components
+  # innermost — instead jumps between blocks every row, which costs the threaded pass more than the
+  # SIMD widening gains (measured 0.98× against 1.16× at 256³).
+  _foreach_outer_slab(axes(destination, 3), length(destination)) do outer_modes
+    @inbounds for component in components
+      for mode_3 in outer_modes
+        factor_value_3 = factor_3[mode_3]
+        for mode_2 in axis_2
+          factor_value_2 = factor_2[mode_2]
+          if iszero(β)
+            @simd for mode_1 in axis_1
+              destination[mode_1, mode_2, mode_3, component] =
+                α * ((factor_1[mode_1] * factor_value_2) * factor_value_3) *
+                source[mode_1, mode_2, mode_3, component]
+            end
+          else
+            @simd for mode_1 in axis_1
+              destination[mode_1, mode_2, mode_3, component] =
+                α * ((factor_1[mode_1] * factor_value_2) * factor_value_3) *
+                source[mode_1, mode_2, mode_3, component] +
+                β * destination[mode_1, mode_2, mode_3, component]
+            end
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+# The fiber components of a section's storage as one trailing axis, so a scalar, vector, and tensor
+# field share one loop. Reshaping shares storage.
+_fiber_flattened(data::AbstractArray{<:Any, 3}) = reshape(data, size(data)..., 1)
+_fiber_flattened(data::AbstractArray) =
+  reshape(data, size(data, 1), size(data, 2), size(data, 3), :)
 
 
 ####################################################
