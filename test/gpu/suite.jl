@@ -21,7 +21,7 @@
 
 using Test
 using GBGPeriodicFields
-using Statistics: mean      # extended on sections in the Reductions module (not re-exported)
+using Statistics: mean, std, var, cov      # extended on sections in the Reductions module (not re-exported)
 
 const F = GBGPeriodicFields.Fields
 const IP = GBGPeriodicFields.Points
@@ -434,8 +434,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
     @testset "L²/measure reductions" begin
       # Reductions return host scalars / fiber values; compare device vs CPU directly. (Summation
-      # order differs on the device, so this is a tolerance check, not bitwise.) `var`/`std` are
-      # CPU-verified only for now; the device-array Statistics path is a separate follow-up.
+      # order differs on the device, so this is a tolerance check, not bitwise.) `var`/`std` (scalar) and
+      # the covariance tensor `cov` run on the device through the same reduce / mapped-mean paths (decision 49).
       rtol = T == Float64 ? 1e-9 : 1.0f-3
       eq(a, b) = isapprox(a, b; rtol = rtol, atol = rtol)
       sf = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + T(0.3), grid)
@@ -448,6 +448,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(integral(vfd), integral(vf))
       @test eq(inner(vfd, vfd), inner(vf, vf))
       @test eq(l2norm(vfd), l2norm(vf))
+      @test eq(var(sfd), var(sf)) && eq(std(sfd), std(sf))     # scalar var/std on the device (decision 49)
+      @test eq(cov(vfd), cov(vf))                              # the covariance tensor of a vector field
       @test eq(lpnorm(vfd, Inf), lpnorm(vf, Inf)) && eq(lpnorm(vfd, 4), lpnorm(vf, 4))
 
       # Mapped forms: the fiber is gathered per base point through a lazy broadcast, so the whole

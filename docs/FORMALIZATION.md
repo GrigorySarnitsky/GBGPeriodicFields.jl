@@ -352,7 +352,26 @@ forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real fie
 ```
 
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
-the constant-add writes; `std`/`var`/`lpnorm`/`maximum` have no single-coefficient form.
+the constant-add writes; `lpnorm`/`maximum` have no single-coefficient form.
+
+**Variance, standard deviation, and covariance** (decision 49). ``\operatorname{var}``/``\operatorname{std}``
+are **scalar-only**: for a scalar section the sample variance is the Bessel-corrected mean squared
+deviation, and by Parseval ``\operatorname{var}(f) = \langle f, f\rangle - \langle f\rangle^2 =
+\tfrac{1}{N}\sum_{k\ne 0} |\hat f(k)|^2`` (the fluctuation energy), so it reads from **both**
+representations, ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
+second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \in
+\operatorname{Sym}^2(\mathbb R^3)``,
+
+```math
+R_{ij} = \frac{N}{N-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
+       = \frac{1}{N-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
+```
+
+a symmetric `FiberTensor2` whose diagonal is the per-component variance a fiber-preserving `var` would
+have returned; ``\operatorname{std} = \sqrt{\operatorname{var}}`` has no canonical vector form, so it is
+not offered. Physical-only (the outer product is nonlinear). **Checked by** `test/reductions.jl` (scalar
+var/std vs a two-pass reference and the equal spectral form; `cov` vs a per-point covariance, its
+symmetry, and its per-component diagonal) and GPU parity in `test/gpu/suite.jl`.
 
 **The mapped forms** (decision 30). Write ``V`` for the fiber — the vector space over one base point, so
 ``V = \mathbb{R}`` at tensor order ``0``, ``\mathbb{R}^3`` at order ``1``, ``\mathbb{R}^{3\times3}`` at
