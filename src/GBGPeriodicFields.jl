@@ -32,8 +32,9 @@ The umbrella assembles its public surface from the submodules below:
 - [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
   `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
   `divide!`, the contractions `dot` and `cross`, the tensor product `mul!`, the transpose
-  `transpose!`, the norm `norm`, the trace and determinant `tr`/`det`, and the
-  [`sym`](@ref)/`skew`/`dev` decompositions.
+  `transpose!`, the norm `norm`, the trace and determinant `tr`/`det`, the
+  [`sym`](@ref)/`skew`/`dev` decompositions, and [`map!`](@ref)/[`map`](@ref) applying an arbitrary fiber
+  map `φ` at every base point — the escape hatch for any pointwise operation not named here.
 - [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
   `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.

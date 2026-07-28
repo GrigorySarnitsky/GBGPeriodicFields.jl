@@ -87,7 +87,7 @@ worlds:
   sampled at scattered points ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). Same fibers, different base.
 - **Fiberwise algebra is the vertical (within-fiber) structure**: addition, real
   scaling, contraction with a constant fiber, dot/cross/tensor products, transpose,
-  sym/skew/dev, and norms all act inside fibers, pointwise in the base, and are
+  sym/skew/dev, norms, and an arbitrary fiber map (`map!`, the escape hatch) all act inside fibers, pointwise in the base, and are
   therefore **base-independent** — the very same operation on the very same fiber
   type, whether the base is a grid or a point set. This is the structural reason one
   set of generated kernels ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) serves fields and point-values verbatim, and the
@@ -151,7 +151,9 @@ here rather than repeated:
   operator-as-multiplier square are [§4](@ref "4. Spectral machinery").
 - **Vertical — fiberwise algebra** ([`FieldAlgebra`](@ref GBGPeriodicFields.FieldAlgebra) on fields, [`Points`](@ref GBGPeriodicFields.Points) on point-values): add/scale,
   the weighted combination `combine!`, contract (`dot`/`cross`), transpose, sym/skew/dev, the `tr`/`det`
-  invariants, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")).
+  invariants, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) — plus
+  [`map!`](@ref GBGPeriodicFields.FieldAlgebra.map!), the arbitrary-φ **escape hatch** (any un-named
+  pointwise fiber map, over the same fused executor; decision 48).
 - **Horizontal — differential operators** ([`DifferentialOperators`](@ref GBGPeriodicFields.DifferentialOperators)): `gradient`, `divergence`, `curl`,
   `symmetric_gradient`, `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
 - **Convolution** ([`Convolution`](@ref GBGPeriodicFields.Convolution)): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
@@ -2047,7 +2049,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     radial real symbols ``\sigma(|k|^2)`` as closure kernels (real and even by construction, hence
     Hermitian-safe and Nyquist-unambiguous; `exponential_convolve!` is the family's first instance,
     and a third functional form — a Gaussian filter, hyperviscosity ``\exp(-\nu (|k|^2)^p \tau)`` —
-    is the trigger to generalize); and a stdlib-shaped physical `map!(φ, dest, sections...)`, the
+    is the trigger to generalize); and a stdlib-shaped physical `map!(φ, dest, sections...)` (since
+    **built** — decision 48), the
     section-valued sibling of the mapped reductions (every pointwise fiber map is valid in physical
     representation), waiting for a consumer needing a fiber map outside the shipped algebra.
 

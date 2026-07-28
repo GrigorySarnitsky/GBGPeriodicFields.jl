@@ -22,6 +22,12 @@ one exists — and an in-place `!` form. The parts are:
     `!` form).
   * **Norm operations** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius
     norms.
+  * **Arbitrary fiber map** — [`map!`](@ref) and [`map`](@ref) apply *any* fiber map `φ` you supply at
+    every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
+    of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
+    sibling of the mapped reductions such as `mean(det, ·)`): `φ` may change the tensor order, and the
+    result's order is `φ`'s (`map(det, A)` gives a scalar field). Physical fields only, since an arbitrary
+    `φ` is nonlinear.
 
 Field-field and field-constant operations preserve the representation of their arguments: they act
 pointwise on fields in physical-space representation and coefficient-wise on fields in spectral
