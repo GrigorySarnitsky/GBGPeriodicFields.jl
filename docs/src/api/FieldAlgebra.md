@@ -54,6 +54,15 @@ norm!
 norm
 ```
 
+## Arbitrary fiber map
+
+The escape hatch for an arbitrary fiber map that is not one of the named operations above — physical fields here, point-values in [`Points`](@ref); see [`map!`](@ref) for the physical-space-only and aliasing caveats.
+
+```@docs
+map!
+map
+```
+
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors adding operations — the code-generation machinery: the expression and kernel-body builders, the contraction formula builders, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.

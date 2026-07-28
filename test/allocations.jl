@@ -52,6 +52,13 @@ macro alloc_below(bound, expr)
 end
 
 
+# Named maps for the map! rows: `@alloc_below` splices its expr twice (warm-up + measure), which would
+# give an anonymous closure two distinct types (only the second is timed, so it would read as a compile
+# allocation). A named function has one type across both splices, so it warms up correctly.
+_map_double(x) = 2x
+_map_add(a, b) = a + b
+
+
 @testset "allocation audit" begin
   for T in (Float64, Float32)
     @testset "$T" begin
@@ -222,6 +229,12 @@ end
       @alloc_below field_threshold tr!(ssd, st)
       @alloc_below field_threshold det!(psd, pt)               # nonlinear tensor → scalar, fused (physical only)
 
+      # ----- map! (arbitrary φ): the fused arbitrary-map pass, physical only (decision 35's map! instance) -----
+      @alloc_below field_threshold map!(det, psd, pt)                 # tensor → scalar
+      @alloc_below field_threshold map!(_map_double, ptd, pt)             # tensor → tensor
+      @alloc_below field_threshold map!(_map_add, pvd, pu, pv2)   # multi-input vector → vector
+      @alloc_below field_threshold map!(det, psd, pt, T(0.5), T(1))   # α/β accumulate
+
       # ----- point-value algebra (mirrors the physical surface; same generated bodies, different base) -----
       @alloc_below threshold add!(qvd, qv, qv)
       @alloc_below threshold add!(qvd, qv, const_vec)
@@ -236,6 +249,9 @@ end
       @alloc_below threshold sym!(qtd, qt)
       @alloc_below threshold tr!(qsd, qt)
       @alloc_below threshold det!(qsd, qt)
+      @alloc_below threshold map!(det, qsd, qt)                 # map! on point-values (representation-free)
+      @alloc_below threshold map!(_map_double, qtd, qt)
+      @alloc_below threshold map!(_map_add, qvd, qv, qv)
 
       # ----- grid↔point transfer (local spline; the particle-tracking hot path) -----
       points = PointSet(T(2π) .* rand(T, M, 3))

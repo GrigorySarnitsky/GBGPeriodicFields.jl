@@ -110,12 +110,15 @@ using ..FiberSections:
   _scale_vector_values, _scale_tensor_values,
   _scale_fiber_vector_values, _scale_fiber_tensor_values,
   _divide_vector_values, _divide_tensor_values,
-  _divide_fiber_vector_values, _divide_fiber_tensor_values
+  _divide_fiber_vector_values, _divide_fiber_tensor_values,
+  _MapValues, _section_order, _fiber_type, _fiber_order
+
+using ..Fields: physical_field_shape
 
 using KernelAbstractions: get_backend
 
 
-import Base: +, -, *, /, transpose
+import Base: +, -, *, /, transpose, map, map!
 import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm, tr, det
 
 
@@ -1665,6 +1668,132 @@ function dev(A::FiberTensor2{T}) where {T<:AbstractFloat}
     A[1, 2], A[2, 2] - trace_over_three, A[3, 2],
     A[1, 3], A[2, 3], A[3, 3] - trace_over_three,
   )
+end
+
+
+#############################################
+#          map! / map (arbitrary φ)         #
+#############################################
+#
+# The physical, section-valued sibling of the mapped reductions: apply an arbitrary fiber map φ per base
+# point through the shared `_fiberwise_pass!` executor. Physical fields here, point-values in `Points`;
+# both reuse `_map_pass!` and the `FiberSections` adapter. Arbitrary φ is nonlinear ⇒ physical-only
+# (invariant 1) and aliased in spectral representation (the module warning above).
+
+# Component arrays of a section in column-major (`Tuple(::SMatrix)`) order — the packing the adapter
+# assembles from and flattens to. Generic over any `AbstractFiberSection` through the shared accessors, so
+# it serves both physical fields and point-values.
+@inline _section_components(section, ::Val{0}) = (field_data(section),)
+@inline _section_components(section, ::Val{1}) =
+  ntuple(component -> _vector_component_data(section, component), Val(3))
+@inline _section_components(section, ::Val{2}) =
+  ntuple(k -> _tensor2_component_data(section, (k - 1) % 3 + 1, (k - 1) ÷ 3 + 1), Val(9))
+
+
+# Concatenate every source's component arrays into one flat tuple in argument order — the `arrays` a fused
+# pass reads. Recursion over the sources tuple unrolls and stays type-stable.
+@inline _cat_components(::Tuple{}) = ()
+@inline _cat_components(sources::Tuple) =
+  (_section_components(sources[1], _section_order(sources[1]))...,
+   _cat_components(Base.tail(sources))...)
+
+
+# The shared driver: pack targets/arrays, build the φ adapter, run one fused pass. Generic over the
+# section kind; the public methods validate compatibility before calling it.
+function _map_pass!(φ::F, destination, sources::Tuple, α::Real, β::Real) where {F}
+  scalar = section_scalar_type(destination)
+  orders = Base.map(_section_order, sources)
+  targets = _section_components(destination, _section_order(destination))
+  arrays = _cat_components(sources)
+  _fiberwise_pass!(get_backend(field_data(destination)), _MapValues(φ, orders),
+                   targets, arrays, (), scalar(α), scalar(β))
+  return destination
+end
+
+
+# The output tensor order φ produces on these inputs, inferred from its return type; `-1` when
+# un-inferrable (an unstable φ), which the allocating `map` turns into a clear error.
+@inline function _map_output_order(φ::F, sources::Tuple) where {F}
+  input_types = Base.map(source -> _fiber_type(section_scalar_type(source), _section_order(source)), sources)
+  return _fiber_order(Base.promote_op(φ, input_types...))
+end
+
+
+# Allocate a physical field of a given tensor order, like `reference` (grid, backend, element type).
+function _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R}
+  data = similar(field_data(reference), section_scalar_type(reference),
+                 physical_field_shape(field_grid(reference), Val(R)))
+  return _map_output_field(data, field_grid(reference), Val(R))
+end
+_map_output_field(data, grid, ::Val{0}) = ScalarFieldPhysical(data, grid)
+_map_output_field(data, grid, ::Val{1}) = VectorFieldPhysical(data, grid)
+_map_output_field(data, grid, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid)
+
+
+"""
+    map!(φ, destination, sources...)
+    map!(φ, destination, source, α, β)
+
+Apply an arbitrary fiber map `φ` at every base point, writing the result into `destination` — the
+section-valued companion of the mapped reductions (`mean(det, A)`, `maximum(norm, u)`): where those reduce
+`φ` of the fiber over the base, this writes it as a field. It fuses in one pass, building no intermediate
+section, and inherits the executor's parallelism (a device kernel on a GPU, a slab-threaded loop on a
+CPU); being a per-point transform with disjoint writes, it is bitwise thread-count-invariant.
+
+Use this when the operation is not one of the named fiberwise operations ([`det`](@ref), [`norm`](@ref),
+the algebra) — an arbitrary pointwise function of the fiber, a composition such as `exp ∘ det` included.
+Prefer the named operations where they exist (they carry their validity and their spectral forms); `map!`
+is the escape hatch for the unnamed, physical-only maps. Use this in-place form when `destination` is
+already allocated; the allocating [`map`](@ref) returns a fresh result instead.
+
+At every base point `x`, `destination`'s fiber is set to `φ` applied to the `sources`' fibers there;
+`map!(φ, dest, f, g)` sets it to `φ(f(x), g(x))`.
+
+The arguments are:
+- `φ` — the fiber map, applied to the input fiber value(s) and returning the output fiber value. It must be
+  a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
+  order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).
+- `destination` — the physical field (or point-value section) that receives the result; its tensor order
+  must match `φ`'s output.
+- `sources` — one or more compatible physical fields (or point-value sections) sharing `destination`'s
+  base; `φ` receives their fiber values in argument order.
+- `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α\\,φ(\\texttt{source}) + β\\,\\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
+
+!!! warning "Physical-space only, and the result is aliased in spectral representation"
+    An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
+    defined for physical fields only, and its result carries content above the grid's Nyquist: it is
+    aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
+    docstring). Point-value sections are representation-free and carry no such restriction.
+"""
+function map!(φ::F, destination::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+  for source in sources
+    _check_field_domain_compatibility(destination, source)
+  end
+  return _map_pass!(φ, destination, sources, true, false)
+end
+
+function map!(φ::F, destination::AbstractFieldPhysical, source::AbstractFieldPhysical,
+              α::Real, β::Real) where {F}
+  _check_field_domain_compatibility(destination, source)
+  return _map_pass!(φ, destination, (source,), α, β)
+end
+
+
+"""
+    map(φ, sources...)
+
+Allocating form of [`map!`](@ref): apply the fiber map `φ` at every base point and return a fresh section
+holding the result. The output's tensor order is inferred from `φ` (`map(det, A)` returns a scalar field);
+when it cannot be inferred, call `map!` with a preallocated `destination`. See [`map!`](@ref) for the
+arguments and the physical-space-only / aliasing caveats.
+"""
+function map(φ::F, source1::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+  all_sources = (source1, sources...)
+  order = _map_output_order(φ, all_sources)
+  order ≥ 0 ||
+    throw(ArgumentError("map: could not infer the output tensor order of `φ`; call `map!` with a preallocated `destination` instead"))
+  destination = _allocate_map_output(source1, Val(order))
+  return map!(φ, destination, all_sources...)
 end
 
 

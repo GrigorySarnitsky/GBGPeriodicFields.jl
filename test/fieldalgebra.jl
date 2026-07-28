@@ -5,6 +5,7 @@
 
 using Test
 using GBGPeriodicFields
+using Random
 
 const T = Float64
 const gs = (8, 8, 8)
@@ -563,4 +564,63 @@ end
   plans_ps = FieldTransformPlans(ps_phys, ps_scaff)
   @test field_data(to_physical(dot(p1s, kv), plans_ps)) ≈
         dropdims(sum(kv_shape .* field_data(p1), dims = 4), dims = 4)
+end
+
+
+# map! / map — the arbitrary-φ fiberwise operation (decision 35's first map! instance). Checked against
+# the named nonlinear operations as independent oracles, plus hand references, order changes, multi-input,
+# α/β, aliasing, output-order inference, and the physical-only absence.
+@testset "map! / map (arbitrary φ)" begin
+  for TP in (Float64, Float32)
+    gmap = Grid3D((6, 4, 8), (TP(2π), TP(4π), TP(6π)))   # anisotropic, mixed even lengths, non-cubic
+    rng = MersenneTwister(2024)
+    A = TensorFieldPhysical(rand(rng, TP, 6, 4, 8, 3, 3), gmap)
+    u = VectorFieldPhysical(rand(rng, TP, 6, 4, 8, 3), gmap)
+    w = VectorFieldPhysical(rand(rng, TP, 6, 4, 8, 3), gmap)
+    s = ScalarFieldPhysical(rand(rng, TP, 6, 4, 8), gmap)
+
+    # Equivalence with the named nonlinear fiber invariants (which are LinearAlgebra maps on the fiber).
+    @test field_data(map(det, A)) ≈ field_data(det(A))
+    @test field_data(map(tr, A)) ≈ field_data(tr(A))
+    @test field_data(map(norm, u)) ≈ field_data(norm(u))
+
+    # Composition, order-changing (tensor → scalar), with a hand reference and element-type preservation.
+    dref = field_data(det(A))
+    @test field_data(map(exp ∘ det, A)) ≈ exp.(dref)
+    @test eltype(field_data(map(exp ∘ det, A))) === TP
+
+    # Scalar → scalar, and a symmetric-part lambda vs the named `sym` (order-preserving).
+    @test field_data(map(x -> x^2 + one(TP), s)) ≈ field_data(s) .^ 2 .+ one(TP)
+    @test field_data(map(x -> (x + transpose(x)) / 2, A)) ≈ field_data(sym(A))
+    @test field_data(map(x -> 2x, A)) ≈ 2 .* field_data(A)
+
+    # Multi-input: order-changing (dot) and order-preserving (sum, cross) vs the named binary ops.
+    @test field_data(map((a, b) -> a + b, u, w)) ≈ field_data(u + w)
+    @test field_data(map((a, b) -> dot(a, b), u, w)) ≈ field_data(dot(u, w))
+    @test field_data(map((a, b) -> cross(a, b), u, w)) ≈ field_data(cross(u, w))
+
+    # In-place map! overwrites (α = 1, β = 0), from non-zero prior content, equal to the allocating map.
+    dest = map(exp ∘ det, A); map!(det, dest, A)
+    @test field_data(dest) ≈ dref
+
+    # α/β accumulate (single source): starting at det(A), 2·det + 1·det = 3·det.
+    acc = map(det, A); base = copy(field_data(acc)); map!(det, acc, A, TP(2), TP(1))
+    @test field_data(acc) ≈ 3 .* base
+
+    # Aliasing: destination === source is safe by construction (fused pass reads before it writes).
+    Aa = TensorFieldPhysical(copy(field_data(A)), gmap)
+    map!(x -> 2x, Aa, Aa)
+    @test field_data(Aa) ≈ 2 .* field_data(A)
+
+    # The allocating `map` infers the output tensor order from φ (scalar / vector / tensor).
+    @test map(det, A) isa ScalarFieldPhysical
+    @test map(x -> 2x, u) isa VectorFieldPhysical
+    @test map(x -> x * transpose(x), u) isa TensorFieldPhysical{2}     # vector → tensor (outer product)
+  end
+
+  # Physical-space only (invariant 1): no map! method for a field in spectral representation (Base.map!
+  # needs AbstractArray, so this is a genuine absence; the allocating map delegates to map!, and
+  # Base.map's catch-all makes its own hasmethod uninformative).
+  @test !hasmethod(map!, Tuple{typeof(det), ScalarFieldSpectral, TensorFieldSpectral{2}})
+  @test !hasmethod(map!, Tuple{typeof(det), VectorFieldSpectral, VectorFieldSpectral})
 end

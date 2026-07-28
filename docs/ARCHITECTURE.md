@@ -2459,3 +2459,33 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     untyped-backend fallback. The lesson generalizes — an operation with a device kernel *and* a
     gated CPU twin has **two** bodies to keep in sync, and only the guard makes "they diverged"
     visible at test time rather than in a benchmark weeks later.
+
+48. **`map!` / `map` — the arbitrary-fiber-map escape hatch, physical-only by construction**
+    (2026-07-28). The section-valued sibling of the mapped reductions (decision 30) and decision-35's
+    first `map!` instance: `map!(φ, destination, sources...)` applies an arbitrary fiber map φ to every
+    base point and *writes a section*, where `mean(φ, ·)` reduces it. It reuses the `_fiberwise_pass!`
+    executor unchanged — that executor already takes a runtime values function and keeps its `targets`
+    and `arrays` tuples separate, so an *order-changing* map (`exp ∘ det` : tensor → scalar) works with
+    no new machinery — so `map!` inherits the fused pass's parallelism (a device kernel on a GPU, a
+    slab-threaded loop on a CPU) and its allocation-free contract, and is embarrassingly parallel
+    (disjoint writes, no atomics), bitwise thread-count-invariant on the CPU.
+
+    The only φ-specific piece is a small adapter in `FiberSections` (`_MapValues`): it groups the flat
+    component scalars a fused pass hands it back into fibers (column-major, so assembly is a bare
+    `SMatrix` constructor and the flatten a bare `Tuple`), applies φ, and flattens the result — a struct,
+    not a closure, so the input count stays type-level, exactly `_FiberGather`'s reasoning for the
+    reductions. The public methods live where the vertical algebra lives: `FieldAlgebra` for physical
+    fields, `Points` for point-values (both over the shared `_map_pass!` driver), extending
+    `Base.map!` / `Base.map` (not piracy — the types are ours). It is **physical-only** for fields: an
+    arbitrary φ is nonlinear, so by invariant 1 there is no spectral method, and the result is aliased in
+    spectral representation (the FieldAlgebra module warning). Point-values are representation-free and
+    carry no such restriction. The allocating `map` infers the output tensor order from φ's return type
+    (`Base.promote_op`); when it cannot, it errors and steers to `map!` with a preallocated destination.
+
+    Why an escape hatch is allowed at all, against invariant 1's "the method set is the spec": `map!` is
+    **validity-closed** — physical-only-by-construction is its type signature, so it can only ever produce
+    a valid operation, never forge an invalid spectral one. It does **not** subsume the named algebra:
+    the linear fiber operations (`tr`, `sym`, `skew`, `dev`, `transpose`) exist in *both* representations
+    and so cannot route through a physical-only map, and the named nonlinear ones (`det`, `norm`) already
+    share the same executor a level down — `map!` serves the *un-named* maps, and the named operations
+    stay named to keep the representation-validity encoding intact.

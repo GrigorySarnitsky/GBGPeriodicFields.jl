@@ -144,3 +144,30 @@ end
   @test isempty(point_values(add!(ScalarPointValues(zeros(TP, 0)),
                                   ScalarPointValues(zeros(TP, 0)), ScalarPointValues(zeros(TP, 0)))))
 end
+
+
+# map! / map on point-values — the representation-free peer of the field map (no physical/spectral split),
+# checked against the named nonlinear operations, composition, order changes, multi-input, and α/β.
+@testset "point-value map! / map (arbitrary φ)" begin
+  for TP in (Float64, Float32)
+    M = 24
+    tv = TensorPointValues(rand(TP, M, 3, 3))
+    uv = VectorPointValues(rand(TP, M, 3)); wv = VectorPointValues(rand(TP, M, 3))
+    sv = ScalarPointValues(rand(TP, M))
+    dref = point_values(det(tv))
+    @test point_values(map(det, tv)) ≈ dref
+    @test point_values(map(norm, uv)) ≈ point_values(norm(uv))
+    @test point_values(map(exp ∘ det, tv)) ≈ exp.(dref)
+    @test point_values(map(x -> 2x, tv)) ≈ 2 .* point_values(tv)
+    @test point_values(map(x -> x^2 + one(TP), sv)) ≈ point_values(sv) .^ 2 .+ one(TP)
+    @test point_values(map((a, b) -> a + b, uv, wv)) ≈ point_values(uv + wv)
+    @test point_values(map((a, b) -> dot(a, b), uv, wv)) ≈ point_values(dot(uv, wv))
+    # output-order inference (scalar / tensor), in-place overwrite, and α/β accumulate
+    @test map(det, tv) isa ScalarPointValues
+    @test map(x -> x * transpose(x), uv) isa TensorPointValues
+    dest = map(exp ∘ det, tv); map!(det, dest, tv)
+    @test point_values(dest) ≈ dref
+    acc = map(det, tv); base = copy(point_values(acc)); map!(det, acc, tv, TP(2), TP(1))
+    @test point_values(acc) ≈ 3 .* base
+  end
+end

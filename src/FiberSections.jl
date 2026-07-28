@@ -34,6 +34,11 @@ using Base.ScopedValues: ScopedValue
 import KernelAbstractions
 using KernelAbstractions: @kernel, @index, get_backend, synchronize
 
+# The `map!` adapter below assembles fiber values (a `SVector` / `SMatrix`) from the flat component
+# scalars a fused pass hands it, applies the user map, and flattens the result — so it constructs the
+# fiber static arrays directly.
+using StaticArrays: SVector, SMatrix, StaticArray
+
 export AbstractFiberSection,
        with_threading,
        set_threading_cutoff!,
@@ -844,6 +849,116 @@ end
 @inline _divide_fiber_tensor_values(s, A) =
   (A[1, 1] / s, A[1, 2] / s, A[1, 3] / s, A[2, 1] / s, A[2, 2] / s, A[2, 3] / s,
    A[3, 1] / s, A[3, 2] / s, A[3, 3] / s)
+
+
+#############################################
+#        map! adapter (arbitrary φ)         #
+#############################################
+#
+# The public `map!`/`map` (FieldAlgebra for fields, Points for point-values) apply an arbitrary fiber
+# map φ over the base through the same `_fiberwise_pass!` executor as the stamped algebra. The executor
+# hands its values function the flat component scalars of every input; this adapter groups them back
+# into fibers, applies φ, and flattens the result — the only piece φ-specific, everything else reused.
+# The component packing is column-major (`Tuple(::SMatrix)` order) so assembly is a bare `SMatrix`
+# constructor and the flatten is a bare `Tuple`, no row/column permutation.
+
+"""
+    _section_order(section)
+
+The tensor order of a section as a `Val`, read from its `AbstractFiberSection{T, R}` type parameter —
+the compile-time quantity the `map!` adapter unrolls over.
+"""
+@inline _section_order(::AbstractFiberSection{T, R}) where {T, R} = Val(R)
+
+
+"""
+    _fiber_component_count(::Val{R})
+
+Number of stored scalar components of a fiber of tensor order `R` (`1`, `3`, `9`).
+"""
+@inline _fiber_component_count(::Val{0}) = 1
+@inline _fiber_component_count(::Val{1}) = 3
+@inline _fiber_component_count(::Val{2}) = 9
+
+
+"""
+    _assemble_fiber(::Val{R}, scalars, offset)
+
+Assemble one fiber of order `R` from the `scalars` tuple, reading `_fiber_component_count(Val(R))`
+entries starting after `offset`, in column-major order (so the tensor case is a direct `SMatrix`
+constructor). `scalars` is homogeneous in the section scalar type, so the tuple reads stay type-stable
+even when `offset` is not a literal.
+"""
+@inline _assemble_fiber(::Val{0}, scalars, offset) = @inbounds scalars[offset + 1]
+@inline _assemble_fiber(::Val{1}, scalars, offset) =
+  @inbounds SVector(scalars[offset + 1], scalars[offset + 2], scalars[offset + 3])
+@inline _assemble_fiber(::Val{2}, scalars, offset) =
+  @inbounds SMatrix{3, 3}(scalars[offset + 1], scalars[offset + 2], scalars[offset + 3],
+                          scalars[offset + 4], scalars[offset + 5], scalars[offset + 6],
+                          scalars[offset + 7], scalars[offset + 8], scalars[offset + 9])
+
+
+"""
+    _assemble_inputs(orders, scalars, offset)
+
+Split the flat `scalars` of all inputs into a tuple of assembled fibers, one per entry of `orders` (a
+tuple of `Val{R}`), advancing `offset` by each fiber's component count. The recursion is over the
+`orders` tuple, so it unrolls and the offsets fold to constants.
+"""
+@inline _assemble_inputs(::Tuple{}, scalars, offset) = ()
+@inline _assemble_inputs(orders::Tuple, scalars, offset) =
+  (_assemble_fiber(orders[1], scalars, offset),
+   _assemble_inputs(Base.tail(orders), scalars, offset + _fiber_component_count(orders[1]))...)
+
+
+"""
+    _flatten_fiber(value)
+
+Flatten an output fiber into the column-major tuple written to the targets: a scalar becomes a
+one-tuple, a `StaticArray` its `Tuple`.
+"""
+@inline _flatten_fiber(value::Number) = (value,)
+@inline _flatten_fiber(value::StaticArray) = Tuple(value)
+
+
+"""
+    _MapValues(φ, orders)
+
+The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`: it takes the flat input
+component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), applies `φ`, and flattens
+the result. A struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
+signature), exactly the reasoning behind `_FiberGather` for the mapped reductions.
+"""
+struct _MapValues{Orders, F} <: Function
+  φ::F
+  orders::Orders
+end
+
+@inline (map_values::_MapValues)(scalars::Vararg{Any, N}) where {N} =
+  _flatten_fiber(map_values.φ(_assemble_inputs(map_values.orders, scalars, 0)...))
+
+
+"""
+    _fiber_type(::Type{T}, ::Val{R})
+
+The concrete fiber type of order `R` over scalar `T` — `T`, `SVector{3, T}`, or `SMatrix{3, 3, T, 9}`
+— used to infer the output order of `φ` for the allocating `map`.
+"""
+@inline _fiber_type(::Type{T}, ::Val{0}) where {T} = T
+@inline _fiber_type(::Type{T}, ::Val{1}) where {T} = SVector{3, T}
+@inline _fiber_type(::Type{T}, ::Val{2}) where {T} = SMatrix{3, 3, T, 9}
+
+
+"""
+    _fiber_order(fiber_type)
+
+The tensor order (`0`, `1`, `2`) of a concrete fiber type, or `-1` when the type is not a recognized
+fiber (an un-inferrable `φ` return) — the allocating `map` uses `-1` to fall back to a clear error.
+"""
+@inline _fiber_order(::Type{<:Number}) = 0
+@inline _fiber_order(::Type{<:SVector{3}}) = 1
+@inline _fiber_order(::Type{<:SMatrix{3, 3}}) = 2
+@inline _fiber_order(::Type) = -1
 
 
 end # module FiberSections
