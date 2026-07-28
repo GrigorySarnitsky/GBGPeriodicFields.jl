@@ -490,6 +490,12 @@ multiplies are 12 FP64 flops per element; the gap at ``256^3`` is 363 µs for 30
 **0.84 TFLOP/s** — precisely the RTX 5070 Ti's 1/64-rate FP64. On the decision-37 GH200 (full-rate FP64)
 the same work is ~9 µs, so `Float64` there should track the `Float32` column and land near 1.15×.
 
+The same split applies to the kernel-composed `combine!`, which initially kept the linear-indexed
+route and so ran the rejected shape at ``R \ge 1`` — measured at roughly a third of the stored
+kernel's speed until it took the cartesian routes as well, after which it is **1.1×** *faster* than
+the stored kernel at ``256^3`` threaded. A kernel storage class is only as fast as the slowest entry
+point that accepts it.
+
 Three rules generalize. **Reach for the broadcast route before a hand-written kernel on a device** —
 §9's execution-route policy, here vindicated by measurement, since Julia's broadcast machinery chose a
 better launch than the hand-rolled kernel did. **A broadcast over singleton-axis operands is the

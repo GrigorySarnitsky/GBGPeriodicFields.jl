@@ -223,6 +223,55 @@ end
 
 
 """
+    _apply_separable_combination!(destination_data, a_data, b_data, kernel, α, β)
+
+Convolve a weighted combination with a [`SeparableKernel`](@ref) in one pass, writing
+``\\texttt{dst} \\mathrel{.=} \\hat g(\\alpha \\hat a + \\beta \\hat b)``. It takes the same
+cartesian routes as [`_apply_separable_convolution!`](@ref), and for the same measured reason.
+"""
+function _apply_separable_combination!(destination_data, a_data, b_data, kernel::SeparableKernel, α, β)
+  _separable_combination_pass!(get_backend(destination_data), destination_data, a_data, b_data,
+                               kernel.factor_1, kernel.factor_2, kernel.factor_3, α, β)
+  return nothing
+end
+
+
+# Device route: one flat broadcast (cartesian indexing, coalesced launch).
+function _separable_combination_pass!(backend, destination_data, a_data, b_data,
+    factor_1, factor_2, factor_3, α, β)
+  @_assign! destination_data .= factor_1 .* factor_2 .* factor_3 .* (α .* a_data .+ β .* b_data)
+  return nothing
+end
+
+
+# CPU route: the gated slab loop, component-major, matching the convolution twin.
+function _separable_combination_pass!(::KernelAbstractions.CPU, destination_data, a_data, b_data,
+    factor_1, factor_2, factor_3, α, β)
+  destination = _fiber_flattened(destination_data)
+  a = _fiber_flattened(a_data)
+  b = _fiber_flattened(b_data)
+  axis_1, axis_2 = axes(destination, 1), axes(destination, 2)
+  components = axes(destination, 4)
+  _foreach_outer_slab(axes(destination, 3), length(destination)) do outer_modes
+    @inbounds for component in components
+      for mode_3 in outer_modes
+        factor_value_3 = factor_3[mode_3]
+        for mode_2 in axis_2
+          factor_value_2 = factor_2[mode_2]
+          @simd for mode_1 in axis_1
+            destination[mode_1, mode_2, mode_3, component] =
+              ((factor_1[mode_1] * factor_value_2) * factor_value_3) *
+              (α * a[mode_1, mode_2, mode_3, component] + β * b[mode_1, mode_2, mode_3, component])
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+"""
     _apply_separable_convolution!(destination_data, source_data, kernel, α, β)
 
 Apply a [`SeparableKernel`](@ref) as one broadcast over the whole section, writing
@@ -550,6 +599,14 @@ function combine!(destination::AbstractFieldSpectral{T, R}, α::Real, a::Abstrac
   check_field_compatibility(destination, a)
   check_field_compatibility(destination, b)
   _check_kernel_compatibility(a, kernel)
+  # As in `convolve!`: an axis-factored kernel takes the cartesian route. Handing its lazy per-axis
+  # product to the linear-indexed executor below would make every element pay a linear-to-cartesian
+  # integer division — the 3.4x-slower shape `PERFORMANCE.md` finding (o) measured and rejected.
+  if kernel isa SeparableKernel
+    _apply_separable_combination!(field_data(destination), field_data(a), field_data(b), kernel,
+                                  T(α), T(β))
+    return destination
+  end
   _apply_convolution_combination!(field_data(destination), field_data(a), field_data(b),
     _kernel_data(kernel), T(α), T(β))
   return destination
