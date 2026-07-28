@@ -169,5 +169,12 @@ end
     @test point_values(dest) ≈ dref
     acc = map(det, tv); base = copy(point_values(acc)); map!(det, acc, tv, TP(2), TP(1))
     @test point_values(acc) ≈ 3 .* base
+    # α = 0, β ≠ 0 branch (the map result is discarded; the destination is pure-rescaled).
+    r0 = map(det, tv); r0base = copy(point_values(r0)); map!(det, r0, tv, TP(0), TP(2))
+    @test point_values(r0) ≈ 2 .* r0base
+    # degenerate base: an M = 0 point set maps cleanly to an empty result (single- and multi-input).
+    @test isempty(point_values(map(det, TensorPointValues(zeros(TP, 0, 3, 3)))))
+    @test isempty(point_values(map((a, b) -> a + b, VectorPointValues(zeros(TP, 0, 3)),
+                                                    VectorPointValues(zeros(TP, 0, 3)))))
   end
 end

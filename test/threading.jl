@@ -137,6 +137,9 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     @test bitwise(() -> norm(A))
     @test bitwise(() -> sf * u)             # scalar-field × vector (singleton-axis kernel)
     @test bitwise(() -> u / sf)             # division by a scalar field
+    @test bitwise(() -> map(det, A))        # map! (decision 48) rides the same slab-threaded executor
+    @test bitwise(() -> map(x -> 2x, A))    # tensor → tensor
+    @test bitwise(() -> map((a, b) -> a + b, u, v))   # multi-input
 
     # mul! both branches
     acc_s = 2.0 * (A * u); acc_t = 2.0 * (A * u)

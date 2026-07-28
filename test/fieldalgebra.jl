@@ -607,16 +607,33 @@ end
     acc = map(det, A); base = copy(field_data(acc)); map!(det, acc, A, TP(2), TP(1))
     @test field_data(acc) ≈ 3 .* base
 
+    # α = 0, β ≠ 0 branch: the map result is discarded and the destination is pure-rescaled (dest = β·dest).
+    r0 = map(det, A); r0base = copy(field_data(r0)); map!(det, r0, A, TP(0), TP(2))
+    @test field_data(r0) ≈ 2 .* r0base
+
     # Aliasing: destination === source is safe by construction (fused pass reads before it writes).
     Aa = TensorFieldPhysical(copy(field_data(A)), gmap)
     map!(x -> 2x, Aa, Aa)
     @test field_data(Aa) ≈ 2 .* field_data(A)
+
+    # Aliasing with multiple sources: destination === one of the sources (still read-before-write).
+    ua = VectorFieldPhysical(copy(field_data(u)), gmap); u_before = copy(field_data(u))
+    map!((a, b) -> a + b, ua, ua, w)     # dest ≡ first source
+    @test field_data(ua) ≈ u_before .+ field_data(w)
 
     # The allocating `map` infers the output tensor order from φ (scalar / vector / tensor).
     @test map(det, A) isa ScalarFieldPhysical
     @test map(x -> 2x, u) isa VectorFieldPhysical
     @test map(x -> x * transpose(x), u) isa TensorFieldPhysical{2}     # vector → tensor (outer product)
   end
+
+  # Parity (odd axis lengths) + non-zero origin: immaterial to a pointwise map, but on the coverage
+  # checklist — one representative field, the named-op equivalence, and the α=0/β≠0 branch.
+  godd = Grid3D((5, 4, 7), (2π, 2π, 2π); origin = (0.3, -0.7, 1.1))
+  Ao = TensorFieldPhysical(rand(MersenneTwister(9), 5, 4, 7, 3, 3), godd)
+  @test field_data(map(det, Ao)) ≈ field_data(det(Ao))
+  ro = map(det, Ao); rob = copy(field_data(ro)); map!(det, ro, Ao, 0.0, 2.0)
+  @test field_data(ro) ≈ 2 .* rob
 
   # Physical-space only (invariant 1): no map! method for a field in spectral representation (Base.map!
   # needs AbstractArray, so this is a genuine absence; the allocating map delegates to map!, and
