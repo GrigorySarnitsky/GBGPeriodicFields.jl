@@ -26,7 +26,7 @@ one exists — and an in-place `!` form. The parts are:
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
     of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
     sibling of the mapped reductions such as `mean(det, ·)`): `φ` may change the tensor order, and the
-    result's order is `φ`'s (`map(det, A)` gives a scalar field). Physical fields only, since an arbitrary
+    result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical-space representation, since an arbitrary
     `φ` is nonlinear.
 
 Field-field and field-constant operations preserve the representation of their arguments: they act
@@ -1688,7 +1688,7 @@ end
 
 # Component arrays of a section in column-major (`Tuple(::SMatrix)`) order — the packing the adapter
 # assembles from and flattens to. Generic over any `AbstractFiberSection` through the shared accessors, so
-# it serves both physical fields and point-values.
+# it serves both fields and point-values.
 @inline _section_components(section, ::Val{0}) = (field_data(section),)
 @inline _section_components(section, ::Val{1}) =
   ntuple(component -> _vector_component_data(section, component), Val(3))
@@ -1725,7 +1725,7 @@ end
 end
 
 
-# Allocate a physical field of a given tensor order, like `reference` (grid, backend, element type).
+# Allocate a field in physical representation of a given tensor order, like `reference` (grid, backend, element type).
 function _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R}
   data = similar(field_data(reference), section_scalar_type(reference),
                  physical_field_shape(field_grid(reference), Val(R)))
@@ -1759,15 +1759,15 @@ The arguments are:
 - `φ` — the fiber map, applied to the input fiber value(s) and returning the output fiber value. It must be
   a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
   order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).
-- `destination` — the physical field (or point-value section) that receives the result; its tensor order
+- `destination` — the field in physical representation (or point-value section) that receives the result; its tensor order
   must match `φ`'s output.
-- `sources` — one or more compatible physical fields (or point-value sections) sharing `destination`'s
+- `sources` — one or more compatible fields in physical representation (or point-value sections) sharing `destination`'s
   base; `φ` receives their fiber values in argument order.
 - `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α\\,φ(\\texttt{source}) + β\\,\\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
 
 !!! warning "Physical-space only, and the result is aliased in spectral representation"
     An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
-    defined for physical fields only, and its result carries content above the grid's Nyquist: it is
+    defined for fields in physical-space representation only, and its result carries content above the grid's Nyquist: it is
     aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
     docstring). Point-value sections are representation-free and carry no such restriction.
 """
