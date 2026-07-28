@@ -55,6 +55,10 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data
 using ..Points: AbstractPointValues, npoints
+# The one kernel family a weight may take: a real symbol of |k|². A separable kernel is deliberately
+# not accepted — a magnitude-dependent weight does not factor per axis, so it is not in that family.
+using ..Convolution: RadialKernel
+using ..Fields: _kernel_data, _check_kernel_compatibility
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
@@ -821,9 +825,9 @@ shell-index array and a scatter-add binning pass (and, for the correlation, an i
 function weighted_inner end
 
 function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
-                        w::ScalarFieldSpectral{T}) where {T<:AbstractFloat}
+                        w::Union{ScalarFieldSpectral{T}, RadialKernel{T}}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
-  _check_field_domain_compatibility(f, w)
+  _check_kernel_compatibility(f, w)
   field_tensor_order(f) == field_tensor_order(g) ||
     throw(ArgumentError("weighted_inner(f, g, w) needs equal tensor orders " *
                         "(got $(field_tensor_order(f)) and $(field_tensor_order(g)))"))
@@ -835,13 +839,13 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
   # `Base.broadcasted(...)` carries `Nothing` axes, so AMDGPU's `mapreducedim!` throws `axes(::Broadcasted, ::Int)`
   # (CPU tolerates it; the GPU does not). `instantiate` fills the axes without materializing, keeping the
   # reduction fused on both backends.
-  weight = Base.broadcasted(*, _parseval_weight(f), Base.broadcasted(real, field_data(w)))
+  weight = Base.broadcasted(*, _parseval_weight(f), Base.broadcasted(real, _kernel_data(w)))
   density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
   normalization = T(prod(field_grid(f).grid_size))^2
   return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
-weighted_inner(f::AbstractFieldSpectral{T}, w::ScalarFieldSpectral{T}) where {T<:AbstractFloat} =
+weighted_inner(f::AbstractFieldSpectral{T}, w::Union{ScalarFieldSpectral{T}, RadialKernel{T}}) where {T<:AbstractFloat} =
   weighted_inner(f, f, w)
 
 

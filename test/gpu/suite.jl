@@ -325,7 +325,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # must run entirely on-device (no scalar indexing) and match the host kernel.
       cutoff_h = spectral_cutoff(phi_spec_h, mult_h, T(3))
       cutoff_d = spectral_cutoff(phi_spec_d, mult_d, T(3))
-      @test matches(cutoff_d, cutoff_h)                                              # the builder itself
+      @test kernel_matches(cutoff_d, cutoff_h)                                              # the builder itself
       @test matches(convolve(phi_spec_d, cutoff_d), convolve(phi_spec_h, cutoff_h))  # scalar field
       @test matches(convolve(u_spec_d, cutoff_d), convolve(u_spec_h, cutoff_h))      # scalar kernel over a vector field
       A = TensorFieldPhysical{2}(tensor_a, grid); Ad = on_device(A)
@@ -358,7 +358,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(kerneled_d, kerneled_h)
 
       # spectral_band (annular) and squared_wavenumber_field build entirely on-device (no scalar index)
-      @test matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
+      @test kernel_matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
       @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
       @test kernel_matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))

@@ -26,8 +26,8 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["exponential_convolve! scalar | $tag"] = @benchmarkable (exponential_convolve!($sout, $s, $m, $coefficient); bench_sync(field_data($sout)))
   group["exponential_convolve! vector | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient); bench_sync(field_data($uout)))
   group["combine!∘kernel vector | $tag"] = @benchmarkable (combine!($uout, $weight_a, $u, $weight_b, $uout, $kernel); bench_sync(field_data($uout)))
-  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(field_data(spectral_cutoff($s, $m, 2)))
-  group["spectral_band | $tag"]    = @benchmarkable bench_sync(field_data(spectral_band($s, $m, 1, 3)))
+  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(materialize_kernel(spectral_cutoff($s, $m, 2)) |> field_data)
+  group["spectral_band | $tag"]    = @benchmarkable bench_sync(materialize_kernel(spectral_band($s, $m, 1, 3)) |> field_data)
   group["squared_wavenumber_field | $tag"] = @benchmarkable bench_sync(field_data(squared_wavenumber_field($s, $m)))
   # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
   # and there is no field to sync on — sync one factor instead.

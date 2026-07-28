@@ -137,7 +137,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test field_data(taccumulated) ≈ T(1 // 2) .* field_data(convolve(divergence(As, m), g)) .+ T(2) .* field_data(us)
 
     # the kernel may alias the destination (the product is coefficientwise)
-    kernel_as_destination = ScalarFieldSpectral(copy(field_data(g)), grid)
+    kernel_as_destination = ScalarFieldSpectral(copy(field_data(materialize_kernel(g))), grid)
     divergence!(kernel_as_destination, us, m, kernel_as_destination)
     @test field_data(kernel_as_destination) == field_data(convolve(divergence(us, m), g))
   end

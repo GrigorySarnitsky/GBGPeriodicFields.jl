@@ -2595,3 +2595,44 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     there (invariant 5) — which is precisely the trap decision 28 documents. Storing the factors, built by
     the package, keeps that choice where it was already made correctly. The radial fragment
     ``\sigma(|k|^2)`` is a separate closure-shaped escalation and is not this decision.
+
+51. **The radial kernel: a symbol of ``|k|^2``, evaluated per mode** (2026-07-29). The escalation
+    decision 35 recorded and IT's `lazy-per-mode-symbols.md` requested. `spectral_cutoff` and
+    `spectral_band` no longer build a field; they return a `RadialKernel` holding the symbol
+    ``\sigma`` itself, and `radial_kernel(σ, reference, multipliers)` builds one for any other symbol
+    — a smooth filter envelope, a hyperviscous ``\exp(-\nu(|k|^2)^p\tau)``, an integrating factor.
+    The kernel costs a closure and three references against ``O(N^3)`` coefficients, and the builders'
+    signatures are unchanged, so no call site moves.
+
+    Why the family is closed with no case analysis: ``|k|^2`` is real and **even** in every component,
+    so any real ``\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients are
+    always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist
+    (invariant 5), which is the value a magnitude symbol wants there. This is exactly the argument
+    decision 50 found *unavailable* for a separable closure, where per-axis factors are ambiguous
+    between the two wavenumber families; the radial case has one family, so the argument that killed
+    that closure does not carry over.
+
+    **Storage is a symbol, not a table, because a radial kernel has no cheap middle.** An axis-factored
+    kernel wins by evaluating its transcendentals ``3N`` times and multiplying per mode; ``|k|^2`` is a
+    function of the *sum* of the squared axis wavenumbers, so it does not factor and there is no
+    per-axis table to precompute — only the closure (``\sigma`` evaluated per mode, on a ``|k|^2`` that
+    is itself already lazy over three stored ``O(N)`` axis arrays) or a full field. Which wins follows
+    the crossover of `PERFORMANCE.md` finding (o) plus the symbol's own cost: a cheap ``\sigma`` (a
+    mask is one comparison) or one whose parameters **change per call** — the integrating factor, whose
+    substep varies every stage — favours the closure decisively, since a stored kernel must be rebuilt
+    and re-read; a fixed expensive ``\sigma`` applied many times can favour materializing, which
+    `materialize_kernel` provides.
+
+    Composition follows the families. Two radial symbols multiply into one radial symbol; a radial and
+    an axis-factored kernel do not collapse, so `convolve` returns a `ProductKernel` holding both and
+    multiplying their per-mode values — the cross-family composition that lets a mask and a
+    displacement apply in one pass. Only a *compressed* kernel may lead: `convolve(stored, compressed)`
+    stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
+    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — a
+    magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1).
+
+    One implementation trap, found on the device and worth the sentence: a symbol closure must capture
+    **values, never a type**. `spectral_band` first captured `T` to write `one(T)`/`zero(T)` in the
+    body, which makes the closure hold a `Type{Float64}` — not a bitstype, so a GPU launch rejects it
+    outright. Capturing the two values instead fixes it, and the `radial_kernel` docstring states the
+    rule.

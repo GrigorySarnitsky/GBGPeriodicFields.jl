@@ -35,6 +35,9 @@ A kernel that factors over the axes is held as its per-axis factors rather than 
 
 ```@docs
 SeparableKernel
+RadialKernel
+ProductKernel
+radial_kernel
 inv
 materialize_kernel
 ```

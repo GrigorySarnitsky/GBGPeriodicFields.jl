@@ -71,7 +71,189 @@ import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
        spectral_band, squared_wavenumber_field, assignment_window, translation_kernel,
-       SeparableKernel, translation_kernel!, materialize_kernel
+       SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
+
+
+####################################################
+#        Product of two kernels (any families)     #
+####################################################
+
+
+"""
+    ProductKernel
+
+The coefficientwise product of two spectral kernels, held as the pair rather than evaluated — what
+[`convolve`](@ref) returns when it composes kernels that are not both of one family.
+
+Composition inside a family stays in that family (two radial symbols multiply into one radial symbol,
+two axis-factored kernels into one axis-factored kernel). Across families there is no such collapse:
+a radial symbol times an axis-factored phase is neither radial nor separable, so the composite keeps
+both operands and multiplies their per-mode values. It still stores nothing of field size, and it
+applies exactly like either operand.
+
+This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be
+applied in a single pass instead of two.
+"""
+struct ProductKernel{T, A, B} <: AbstractSpectralKernel{T}
+  first_kernel::A
+  second_kernel::B
+end
+
+ProductKernel{T}(first_kernel::A, second_kernel::B) where {T, A, B} =
+  ProductKernel{T, A, B}(first_kernel, second_kernel)
+
+_kernel_data(kernel::ProductKernel) =
+  Base.Broadcast.instantiate(Base.broadcasted(*, _kernel_data(kernel.first_kernel),
+                                              _kernel_data(kernel.second_kernel)))
+
+function _check_kernel_compatibility(field, kernel::ProductKernel)
+  _check_kernel_compatibility(field, kernel.first_kernel)
+  _check_kernel_compatibility(field, kernel.second_kernel)
+  return nothing
+end
+
+Base.inv(kernel::ProductKernel{T}) where {T} =
+  ProductKernel{T}(inv(kernel.first_kernel), inv(kernel.second_kernel))
+
+
+# Cross-family and mixed-storage composition. The same-family methods above take precedence, so this
+# catches exactly the pairs that do not collapse — including a compressed kernel with a stored one.
+# NOTE the asymmetry, which is deliberate: only a COMPRESSED kernel may lead. A `ScalarFieldSpectral`
+# is also a field, so `convolve(stored_kernel, compressed)` cannot be composition — it is already, and
+# must remain, "apply a kernel to this scalar field". Compose in the other order, or materialize.
+convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::SpectralKernel{T}) where {T} =
+  ProductKernel{T}(first_kernel, second_kernel)
+
+
+####################################################
+#        Radial kernel (a symbol of |k|²)          #
+####################################################
+
+
+"""
+    RadialKernel
+
+A spectral kernel that depends only on the wavenumber **magnitude**, ``\\hat g(k) = \\sigma(|k|^2)``,
+stored as the function ``\\sigma`` rather than as its values. The symbol is evaluated one mode at a
+time from the wavenumber arrays the multipliers already hold, so the kernel occupies no field: a
+closure and three references, against the ``O(N^3)`` coefficients a stored kernel needs — bytes
+rather than the 129 MiB a ``256^3`` kernel would take.
+
+Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
+[`radial_kernel`](@ref) for any other symbol — a smooth filter envelope, a hyperviscous
+``\\exp(-\\nu (|k|^2)^p \\tau)``, an integrating factor. Apply it exactly like a kernel held as a
+field: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel argument, or to
+`weighted_inner` as a reduction weight.
+
+Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
+real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
+are always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist
+(invariant 5), which is the value a magnitude-dependent symbol wants there, so no case analysis is
+needed anywhere in the family.
+
+The fields are:
+- **`symbol`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+- **`multipliers`** — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
+- **`grid`**, **`layout`** — the base and spectral layout the kernel was built for, which a call checks
+  the field against.
+
+!!! note "Radial, not separable"
+    ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so it does not factor into per-axis
+    terms and cannot be stored per axis the way a [`SeparableKernel`](@ref) is. The two families are
+    disjoint: a phase depends on direction, a magnitude symbol does not.
+"""
+struct RadialKernel{T, F, M, G, L} <: AbstractSpectralKernel{T}
+  symbol::F
+  multipliers::M
+  grid::G
+  layout::L
+end
+
+RadialKernel{T}(symbol::F, multipliers::M, grid::G, layout::L) where {T, F, M, G, L} =
+  RadialKernel{T, F, M, G, L}(symbol, multipliers, grid, layout)
+
+
+"""
+    radial_kernel(symbol, reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+
+Build the [`RadialKernel`](@ref) for an arbitrary real symbol of the squared wavenumber — the general
+constructor behind [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the symbols the package
+does not name.
+
+The arguments are:
+- **`symbol`** — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
+  value. It must be pure and GPU-safe: capture only **values**, never a type — a closure holding a
+  `Type` is not a bitstype and a device rejects it at launch — and no mutable state or scalar indexing
+  of device arrays; anything it captures by value, such as a viscosity or a substep, is free to vary per call
+  because building a kernel allocates nothing of field size.
+- **`reference`** — a field in spectral representation fixing the base, layout and element type.
+- **`multipliers`** — the wavenumber arrays supplying ``|k|^2``.
+
+The physics stays with the consumer (invariant 12): an integrating factor is
+`radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the symbol is
+evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
+rebuild — where a stored kernel would pay a full field write each time.
+"""
+function radial_kernel(symbol::F, reference::AbstractFieldSpectral,
+    multipliers::FieldSpectralMultipliers) where {F}
+  _check_multipliers_compatibility(reference, multipliers)
+  T = field_scalar_type(reference)
+  return RadialKernel{T}(symbol, multipliers, field_grid(reference), field_layout(reference))
+end
+
+
+# The lazy per-mode multiplier: the symbol applied to the lazy |k|², itself an unfused broadcast over
+# the three O(N) squared-wavenumber axis arrays. Nothing of field size is built.
+_kernel_data(kernel::RadialKernel) =
+  Base.Broadcast.instantiate(Base.broadcasted(kernel.symbol,
+                                              _squared_wavenumber_broadcast(kernel.multipliers)))
+
+function _check_kernel_compatibility(field, kernel::RadialKernel)
+  (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
+    throw(ArgumentError("the radial kernel was built for a different grid or spectral layout than the field"))
+  return nothing
+end
+
+
+"""
+    inv(kernel::RadialKernel)
+
+The reciprocal kernel ``1/\\sigma(|k|^2)``, formed by composing the reciprocal with the symbol, so it
+is another [`RadialKernel`](@ref) and still costs no storage.
+
+!!! warning "The symbol must have no zeros on the resolved band"
+    A symbol that vanishes at any stored mode gives a non-finite reciprocal — a sharp mask is exactly
+    such a symbol, so inverting a [`spectral_cutoff`](@ref) is not meaningful.
+"""
+Base.inv(kernel::RadialKernel{T}) where {T} =
+  RadialKernel{T}(inv ∘ kernel.symbol, kernel.multipliers, kernel.grid, kernel.layout)
+
+
+# Composition inside the family: the symbols multiply, so the composite is another radial kernel.
+function convolve(first_kernel::RadialKernel{T}, second_kernel::RadialKernel{T}) where {T}
+  (first_kernel.grid == second_kernel.grid && first_kernel.layout == second_kernel.layout) ||
+    throw(ArgumentError("the radial kernels were built for different grids or spectral layouts"))
+  first_symbol, second_symbol = first_kernel.symbol, second_kernel.symbol
+  return RadialKernel{T}(squared -> first_symbol(squared) * second_symbol(squared),
+                         first_kernel.multipliers, first_kernel.grid, first_kernel.layout)
+end
+
+
+"""
+    materialize_kernel(kernel::RadialKernel)
+
+Evaluate a radial kernel into a kernel held as a field. See the [`SeparableKernel`](@ref) method for
+when the trade is worth making; the same crossover governs, and the same warning applies — the result
+costs the full ``O(N^3)`` the symbol form exists to avoid.
+"""
+function materialize_kernel(kernel::RadialKernel{T}) where {T}
+  data = similar(kernel.multipliers.squared_wavenumber_1, Complex{T},
+                 (length(kernel.multipliers.squared_wavenumber_1),
+                  length(kernel.multipliers.squared_wavenumber_2),
+                  length(kernel.multipliers.squared_wavenumber_3)))
+  @_assign! data .= _kernel_data(kernel)
+  return ScalarFieldSpectral(data, kernel.grid, kernel.layout)
+end
 
 
 ####################################################
@@ -262,6 +444,80 @@ function _separable_combination_pass!(::KernelAbstractions.CPU, destination_data
             destination[mode_1, mode_2, mode_3, component] =
               ((factor_1[mode_1] * factor_value_2) * factor_value_3) *
               (α * a[mode_1, mode_2, mode_3, component] + β * b[mode_1, mode_2, mode_3, component])
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+# The generic compressed route: one flat broadcast over the kernel's lazy per-mode values. Every
+# compressed kernel can be applied this way; the two families above additionally carry a hand-written
+# CPU twin, which the broadcast does not vectorize as well (`PERFORMANCE.md` finding (o)).
+function _apply_compressed_convolution!(destination_data, source_data, kernel, α, β)
+  kernel_data = _kernel_data(kernel)
+  if iszero(β)
+    @_assign! destination_data .= α .* kernel_data .* source_data
+  else
+    @_assign! destination_data .= α .* kernel_data .* source_data .+ β .* destination_data
+  end
+  return nothing
+end
+
+
+# A radial kernel applies through the same two routes as an axis-factored one, and for the same
+# measured reason (`PERFORMANCE.md` finding (o)): a device takes one flat broadcast, a CPU takes the
+# gated component-major loop, and both index the wavenumber axes CARTESIAN so no element pays a
+# linear-to-cartesian integer division. The squared wavenumber is summed as (k1 + k2) + k3, matching
+# the broadcast's own left association, so every route agrees bit for bit with a stored kernel.
+function _apply_radial_convolution!(destination_data, source_data, kernel::RadialKernel, α, β)
+  multipliers = kernel.multipliers
+  _radial_convolution_pass!(get_backend(destination_data), destination_data, source_data,
+                            kernel.symbol, multipliers.squared_wavenumber_1,
+                            multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3, α, β)
+  return nothing
+end
+
+function _radial_convolution_pass!(backend, destination_data, source_data, symbol,
+    squared_1, squared_2, squared_3, α, β)
+  kernel_data = Base.broadcasted(symbol,
+    Base.broadcasted(+, reshape(squared_1, :, 1, 1), reshape(squared_2, 1, :, 1),
+                     reshape(squared_3, 1, 1, :)))
+  if iszero(β)
+    @_assign! destination_data .= α .* kernel_data .* source_data
+  else
+    @_assign! destination_data .= α .* kernel_data .* source_data .+ β .* destination_data
+  end
+  return nothing
+end
+
+function _radial_convolution_pass!(::KernelAbstractions.CPU, destination_data, source_data, symbol::F,
+    squared_1, squared_2, squared_3, α, β) where {F}
+  destination = _fiber_flattened(destination_data)
+  source = _fiber_flattened(source_data)
+  axis_1, axis_2 = axes(destination, 1), axes(destination, 2)
+  components = axes(destination, 4)
+  _foreach_outer_slab(axes(destination, 3), length(destination)) do outer_modes
+    @inbounds for component in components
+      for mode_3 in outer_modes
+        squared_value_3 = squared_3[mode_3]
+        for mode_2 in axis_2
+          squared_value_2 = squared_2[mode_2]
+          if iszero(β)
+            @simd for mode_1 in axis_1
+              destination[mode_1, mode_2, mode_3, component] =
+                α * symbol((squared_1[mode_1] + squared_value_2) + squared_value_3) *
+                source[mode_1, mode_2, mode_3, component]
+            end
+          else
+            @simd for mode_1 in axis_1
+              destination[mode_1, mode_2, mode_3, component] =
+                α * symbol((squared_1[mode_1] + squared_value_2) + squared_value_3) *
+                source[mode_1, mode_2, mode_3, component] +
+                β * destination[mode_1, mode_2, mode_3, component]
+            end
           end
         end
       end
@@ -489,6 +745,14 @@ function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFiel
   _check_kernel_compatibility(field, kernel)
   kernel isa SeparableKernel &&
     return (_apply_separable_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
+            destination)
+  kernel isa RadialKernel &&
+    return (_apply_radial_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
+            destination)
+  # Any other compressed kernel (a cross-family product) takes the flat cartesian broadcast: still no
+  # kernel storage and no linear-to-cartesian conversion, just without a family-specific CPU twin.
+  kernel isa AbstractSpectralKernel &&
+    return (_apply_compressed_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
             destination)
   _apply_convolution!(field_data(destination), field_data(field), _kernel_data(kernel), T(α), T(β))
   return destination
@@ -933,16 +1197,15 @@ edges are the consumer's choice.
 """
 function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_low::Real, wavenumber_high::Real)
-  _check_multipliers_compatibility(reference, multipliers)
   T = field_scalar_type(reference)
-  kernel = similar_field(reference, Val(0))
-  kernel_data = field_data(kernel)
-  squared_wavenumber = _squared_wavenumber_broadcast(multipliers)
   low_squared = T(wavenumber_low)^2
   high_squared = T(wavenumber_high)^2
-  @_assign! kernel_data .= ifelse.((squared_wavenumber .>= low_squared) .& (squared_wavenumber .<= high_squared),
-                                   one(Complex{T}), zero(Complex{T}))
-  return kernel
+  # Capture VALUES, never the type `T`: a closure that captures `Type{Float64}` is not a bitstype, and
+  # a device rejects it at launch ("passing non-bitstype argument"). `one(T)`/`zero(T)` inside the body
+  # would do exactly that.
+  in_band, out_of_band = one(T), zero(T)
+  return radial_kernel(squared -> ifelse(low_squared <= squared <= high_squared, in_band, out_of_band),
+                       reference, multipliers)
 end
 
 

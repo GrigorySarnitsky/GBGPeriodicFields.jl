@@ -182,14 +182,14 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
     @testset "spectral_cutoff: a sharp 0/1 low-pass projection" begin
       m = FieldSpectralMultipliers(phi_s)
       cutoff = spectral_cutoff(phi_s, m, T(2.5))
-      vals = field_data(cutoff)
-      @test cutoff isa ScalarFieldSpectral
+      vals = kernel_array(cutoff)
+      @test cutoff isa RadialKernel                             # decision 51: a symbol, not a stored field
       @test all(v -> v == zero(Complex{T}) || v == one(Complex{T}), vals)   # a sharp 0/1 mask
       @test vals[1, 1, 1] == one(Complex{T})                                # |k| = 0 kept
       @test any(iszero, vals)                                               # high modes dropped
-      @test approx(field_data(convolve(cutoff, cutoff)), vals)              # idempotent: ĝ² = ĝ
+      @test approx(kernel_array(convolve(cutoff, cutoff)), vals)              # idempotent: ĝ² = ĝ
       once = convolve(phi_s, cutoff)
-      @test approx(field_data(convolve(once, cutoff)), field_data(once))    # convolving twice = once
+      @test approx(kernel_array(convolve(once, cutoff)), kernel_array(once))    # convolving twice = once
       masked_u = convolve(u_s, cutoff)                                      # scalar mask over a vector field
       for i in 1:3
         @test approx(field_data(masked_u)[:, :, :, i], field_data(u_s)[:, :, :, i] .* vals)
@@ -203,13 +203,13 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
     @testset "spectral_band: annular band-pass generalizing spectral_cutoff" begin
       m = FieldSpectralMultipliers(phi_s)
       band = spectral_band(phi_s, m, T(1.5), T(3.0))
-      vals = field_data(band)
-      @test band isa ScalarFieldSpectral
+      vals = kernel_array(band)
+      @test band isa RadialKernel
       @test all(v -> v == zero(Complex{T}) || v == one(Complex{T}), vals)    # a sharp 0/1 shell mask
       @test vals[1, 1, 1] == zero(Complex{T})                               # |k| = 0 excluded (low edge > 0)
-      @test approx(field_data(convolve(band, band)), vals)                  # idempotent projection
+      @test approx(kernel_array(convolve(band, band)), vals)                  # idempotent projection
       # the low-pass special case: spectral_cutoff(k) === spectral_band(0, k)
-      @test field_data(spectral_cutoff(phi_s, m, T(2.5))) == field_data(spectral_band(phi_s, m, T(0), T(2.5)))
+      @test kernel_array(spectral_cutoff(phi_s, m, T(2.5))) == kernel_array(spectral_band(phi_s, m, T(0), T(2.5)))
       # membership oracle: ĝ = 1 exactly on the closed shell 1.5 ≤ |k| ≤ 3.0
       k_squared = real.(field_data(squared_wavenumber_field(phi_s, m)))
       expected = map(k2 -> (T(1.5)^2 <= k2 <= T(3.0)^2) ? one(Complex{T}) : zero(Complex{T}), k_squared)
@@ -240,7 +240,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
                                     for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]])
       left = convolve(convolve(phi_s, g1), g2)
       right = convolve(phi_s, convolve(g1, g2))     # convolve(g1, g2) is the composed kernel
-      @test approx(field_data(left), field_data(right))
+      @test approx(kernel_array(left), kernel_array(right))
     end
 
     @testset "α/β accumulate form: dest = α·(f⋆g) + β·dest" begin
@@ -250,13 +250,13 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       alpha, beta = T(0.5), T(-1.5)
       returned = convolve!(dest, phi_s, g, alpha, beta)
       @test returned === dest
-      @test approx(field_data(dest), alpha .* (field_data(g) .* field_data(phi_s)) .+ beta .* dest0)
+      @test approx(field_data(dest), alpha .* (kernel_array(g) .* field_data(phi_s)) .+ beta .* dest0)
 
       # the R=2 in-place α/β path (scalar kernel broadcasts over the 2-index fiber)
       Adest0 = randn(Complex{T}, F.spectral_field_shape(grid, layout, Val(2)))
       Adest = TensorFieldSpectral{2}(copy(Adest0), grid)
       convolve!(Adest, A_s, g, alpha, beta)
-      @test approx(field_data(Adest), alpha .* (field_data(g) .* field_data(A_s)) .+ beta .* Adest0)
+      @test approx(field_data(Adest), alpha .* (kernel_array(g) .* field_data(A_s)) .+ beta .* Adest0)
     end
 
     @testset "in-place is aliasing-safe (destination === field)" begin
@@ -265,7 +265,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       reference = convolve(phi_s, g)
       aliased = scalar_kernel(copy(field_data(phi_s)))
       convolve!(aliased, aliased, g)
-      @test approx(field_data(aliased), field_data(reference))
+      @test approx(kernel_array(aliased), kernel_array(reference))
     end
 
     @testset "exponential_convolve: the lazy exp(c|k|² + s·ŵ) kernel (decision 33)" begin
@@ -347,7 +347,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       inplace = scalar_kernel(copy(field_data(b_s)))
       combine!(inplace, T(0.3), phi_s, T(0.7), inplace, g)
       @test field_data(inplace) == field_data(sequential)
-      kernel_dest = scalar_kernel(copy(field_data(g)))
+      kernel_dest = scalar_kernel(copy(field_data(materialize_kernel(g))))
       combine!(kernel_dest, T(0.3), phi_s, T(0.7), b_s, kernel_dest)
       @test field_data(kernel_dest) == field_data(sequential)
     end
@@ -467,7 +467,7 @@ end
   band = spectral_band(fs, m, TP(0.55), TP(1.15))
   expected_band = [TP(0.55)^2 < expected_w2[i, j, l] < TP(1.15)^2 ? one(TP) : zero(TP)
                    for i in 1:8, j in 1:7, l in 1:4]
-  @test real(field_data(band)) == expected_band
+  @test real(kernel_array(band)) == expected_band
 
   # assignment_window vs the ∏ sinc²(k_a Δx_a / 2) closed form (true k, per-axis spacing)
   sinc_sq(k, d) = k == 0 ? one(TP) : (sin(k * d / 2) / (k * d / 2))^2
@@ -588,5 +588,66 @@ end
                                      other_grid, layout)
     foreign = translation_kernel(other_spec, FieldSpectralMultipliers(other_spec), h)
     @test_throws ArgumentError convolve(fs, foreign)
+  end
+end
+
+
+# The radial kernel (decision 51): a symbol of |k|² evaluated per mode, never stored. Every assertion
+# is against the materialized product as the oracle — the representation must be bit-for-bit invisible.
+@testset "RadialKernel: a symbol of |k|² == its materialized values" begin
+  for TP in (Float64, Float32)
+    g = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))          # mixed parity + anisotropic
+    layout = RealFourierLayout()
+    shape = spectral_field_shape(g, layout, Val(0))
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, shape), g, layout)
+    m = FieldSpectralMultipliers(s0)
+    rng = MersenneTwister(51)
+
+    cutoff = spectral_cutoff(s0, m, TP(3))
+    @test cutoff isa RadialKernel
+    @test Base.summarysize(cutoff) < 1024                     # O(1): a closure and three references
+
+    for (name, kernel) in (("cutoff", cutoff),
+                           ("band", spectral_band(s0, m, TP(1), TP(3))),
+                           ("exp", radial_kernel(k2 -> exp(-TP(0.01) * k2), s0, m)),
+                           ("|k|²", radial_kernel(identity, s0, m)))
+      stored = materialize_kernel(kernel)
+      for R in (0, 1, 2)
+        shp = R == 0 ? shape : R == 1 ? (shape..., 3) : (shape..., 3, 3)
+        data = rand(rng, Complex{TP}, shp...)
+        f = R == 0 ? ScalarFieldSpectral(data, g, layout) :
+            R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout)
+        @test field_data(convolve(f, kernel)) == field_data(convolve(f, stored))
+        lazy = similar_field(f, Val(R)); sto = similar_field(f, Val(R))
+        field_data(lazy) .= data; field_data(sto) .= data
+        convolve!(lazy, f, kernel, TP(1 // 2), TP(2)); convolve!(sto, f, stored, TP(1 // 2), TP(2))
+        @test field_data(lazy) == field_data(sto)
+      end
+      # through the operators' kernel arity, and as a reduction weight
+      u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g, layout)
+      @test field_data(helmholtz_projection(u, m, kernel)) == field_data(helmholtz_projection(u, m, stored))
+      @test field_data(divergence(u, m, kernel)) == field_data(divergence(u, m, stored))
+      @test weighted_inner(u, kernel) ≈ weighted_inner(u, stored)
+    end
+
+    # the sharp mask is an idempotent projection, and |k|² reproduces the Dirichlet weight
+    u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g, layout)
+    @test field_data(convolve(convolve(u, cutoff), cutoff)) == field_data(convolve(u, cutoff))
+    @test weighted_inner(u, radial_kernel(identity, s0, m)) ≈
+          weighted_inner(u, squared_wavenumber_field(s0, m))
+
+    # composition: radial∘radial stays radial; radial∘separable is the cross-family product
+    warm = radial_kernel(k2 -> exp(-TP(0.02) * k2), s0, m)
+    @test convolve(cutoff, warm) isa RadialKernel
+    @test field_data(convolve(u, convolve(cutoff, warm))) ≈ field_data(convolve(convolve(u, cutoff), warm))
+    shift = translation_kernel(s0, m, (TP(0.3), TP(-0.7), TP(1.1)))
+    crossed = convolve(cutoff, shift)
+    @test crossed isa ProductKernel
+    @test field_data(convolve(u, crossed)) ≈ field_data(convolve(convolve(u, cutoff), shift))
+
+    # a kernel built for another base is rejected
+    other = Grid3D((8, 7, 4), (TP(2π), TP(4π), TP(6π)))
+    o0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other, layout, Val(0))), other, layout)
+    @test_throws ArgumentError convolve(u, spectral_cutoff(o0, FieldSpectralMultipliers(o0), TP(3)))
   end
 end
