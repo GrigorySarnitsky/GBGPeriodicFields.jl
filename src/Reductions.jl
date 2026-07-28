@@ -9,7 +9,7 @@ volume), and a `PointSet` uses its **counting** measure (unit weight per point,
 forced because a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
 dispatched on `AbstractFiberSection`.
 
-The measure reductions act on **physical fields and point-values** — representation-free, physical-space
+The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
 quantities. Several also act on fields in **spectral representation**, returning the identical physical
 value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, and `integral`/`mean` from the
 zero (DC) Fourier mode. The remaining reductions (`lpnorm`, `std`/`var`, `maximum`/`minimum`/`extrema`)
@@ -467,7 +467,7 @@ cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set t
 ``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
 second-order tensor field's one `FiberTensor2`. The mapped form `mean(φ, f)` averages
 ``\\varphi(f_n)`` for a fiber map `φ` (for example `mean(det, A)`) in one fused pass with no
-intermediate section; the map is nonlinear in general, so the mapped forms exist on physical fields
+intermediate section; the map is nonlinear in general, so the mapped forms exist on fields in physical representation
 and point-values only. On a field in spectral representation the mean is read from the zero (DC)
 Fourier mode in ``O(1)``, equal to the physical value with no transform. See [`integral`](@ref) for
 the extensive (measure-weighted) sibling.
@@ -682,7 +682,7 @@ bases: the grid cell-volume average and the point-set counting average.
 \\sqrt{\\frac{1}{M} \\sum_p |f_p|^2} \\quad (\\texttt{PointSet}).
 ```
 
-It is defined for physical fields and point-values, and — through the Parseval [`inner`](@ref) — for a
+It is defined for fields in physical representation and point-values, and — through the Parseval [`inner`](@ref) — for a
 field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))

@@ -42,8 +42,8 @@ The umbrella assembles its public surface from the submodules below:
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
   `assignment_window`, and `translation_kernel`.
-- [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the physical
-  field surface, the matching allocator `similar_pointvalues`, and the HDF5 persistence pair
+- [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
+  representation, the matching allocator `similar_pointvalues`, and the HDF5 persistence pair
   `write_points`/`read_points` (available once `HDF5` is loaded).
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.

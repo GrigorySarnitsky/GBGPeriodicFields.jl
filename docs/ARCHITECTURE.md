@@ -174,7 +174,7 @@ are collected here so a reader meeting "invariant 6" has somewhere to look; each
 with a pointer to the section that develops it.
 
 1. **The public method set is the spec.** Deliberate absences encode representation validity — there is
-   no spectral field-times-field multiplication (the coefficientwise product is a convolution, offered
+   no field-times-field multiplication in spectral representation (the coefficientwise product is a convolution, offered
    under its true name in [§11](@ref "11. Convolution")), no spectral division by a scalar field, no spectral pointwise
    norms. Operations linear in the field exist in both representations; nonlinear ones are
    physical-space only. A missing combination is never added for completeness (see the next subsection).
@@ -918,7 +918,7 @@ decision 18). The `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive s
 `l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
 (``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
 the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var` (extending `Statistics`)
-and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **physical fields and
+and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **fields in physical representation and
 point-values** (representation-free). The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
 `integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
@@ -1747,7 +1747,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     type and no clock in the field layer. A field group and a `GBGStreamingStatistics` histogram group share
     the same self-describing-group convention, so a run's fields and its statistics can live in one file.
 
-    *Both representations, host and device.* A physical field stores a real array; a field in spectral
+    *Both representations, host and device.* A field in physical representation stores a real array; a field in spectral
     representation stores its complex half-spectrum (HDF5 round-trips complex arrays). Device (GPU) arrays
     are copied to the host on write via `Array(…)` — backend-agnostic, a no-op on the CPU — and the reload is
     a host field the consumer moves to a device if wanted. On read, `read_field` dispatches on the stored

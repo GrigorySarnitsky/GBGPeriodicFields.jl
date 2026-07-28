@@ -38,7 +38,7 @@ similar_pointvalues
 
 ## Point-value algebra
 
-The point values carry the same fiberwise algebra as physical fields, through the very same generics —
+The point values carry the same fiberwise algebra as fields in physical representation, through the very same generics —
 `add!`, `subtract!`, `combine!`, `multiply!`, `divide!`, `dot!`, `cross!`, `mul!`, `transpose!`,
 `norm!`, `tr!`, `det!`, and the `sym`/`skew`/`dev` decompositions — extended here to accept
 `AbstractPointValues`. There is no second set of docstrings for them: each per-component formula is

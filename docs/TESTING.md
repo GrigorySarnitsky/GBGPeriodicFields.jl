@@ -363,7 +363,7 @@ the sequential `combine!`-then-convolve pair, and the in-place filtered accumula
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
 ``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
 membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
-real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on physical fields;
+real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
 a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the
 one frequency where the kernel is a real attenuation rather than a phase (a whole-cell displacement, odd and

@@ -376,7 +376,7 @@ exactly, ``\texttt{mean}(\mathrm{id}, f) = \texttt{mean}(f)``, including its fib
 order ``1`` and ``2``. And with ``\varphi = \lVert\cdot\rVert`` the order statistic coincides with the
 existing supremum norm, ``\max_n \lVert f_n\rVert = \lVert f\rVert_\infty``, so `maximum(norm, u)` and
 `lpnorm(u, Inf)` are the same number by different routes — the first without materializing
-``\varphi \circ f`` as a section. The mapped forms exist only on physical fields and point-values:
+``\varphi \circ f`` as a section. The mapped forms exist only on fields in physical representation and point-values:
 ``\varphi`` is nonlinear in general, so it has no coefficientwise meaning on a spectral representation
 (invariant 1). Tests: `test/reductions.jl` (the analytic diagonal-tensor invariants, the identity-map
 agreement, the `lpnorm` coincidence, an independent per-point reduction, and the spectral

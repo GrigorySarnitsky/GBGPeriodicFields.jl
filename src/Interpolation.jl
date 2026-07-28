@@ -33,7 +33,7 @@ and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
 Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
-(the default [`CatmullRom`](@ref)), which act on a physical field, and the spectral-domain exact
+(the default [`CatmullRom`](@ref)), which act on a field in physical representation, and the spectral-domain exact
 [`DirectDFT`](@ref) / fast [`NUFFT`](@ref) that act on a field in spectral representation. The point-value data types and their fiberwise algebra
 live in the `Points` module.
 

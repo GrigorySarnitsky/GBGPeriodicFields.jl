@@ -359,7 +359,7 @@ alike; the in-place home is [`subtract!`](@ref).
 Allocating multiplication: a real scale, a scalar-field action, or a fiber-constant contraction,
 returning a new section (fields and point-value collections alike). The in-place homes are
 [`multiply!`](@ref) and, for the tensor
-contractions, [`mul!`](@ref). There is deliberately no spectral field-times-field method — that
+contractions, [`mul!`](@ref). There is deliberately no field-times-field method in spectral representation — that
 coefficientwise product is a convolution and lives under `convolve`'s name, in the `Convolution` module.
 """
 *
