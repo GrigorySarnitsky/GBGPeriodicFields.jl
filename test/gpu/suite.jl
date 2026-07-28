@@ -169,6 +169,22 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(norm(Ad), norm(A))
     end
 
+    @testset "map! / map (arbitrary φ)" begin
+      A = TensorFieldPhysical{2}(tensor_a, grid)
+      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      v = VectorFieldPhysical((x, y, z) -> (cos(x), sin(2y), cos(z)), grid)
+      Ad, ud, vd = on_device.((A, u, v))
+      @test matches(map(det, Ad), map(det, A))                  # tensor → scalar
+      @test matches(map(exp ∘ det, Ad), map(exp ∘ det, A))      # composition + exp device intrinsic
+      @test matches(map(x -> 2x, Ad), map(x -> 2x, A))          # tensor → tensor
+      @test matches(map(norm, ud), map(norm, u))                # vector → scalar
+      @test matches(map((a, b) -> a + b, ud, vd), map((a, b) -> a + b, u, v))   # multi-input
+      # single-source α/β accumulate on device matches host
+      host_acc = map(det, A); device_acc = on_device(host_acc)
+      map!(det, host_acc, A, 2.0, 1.0); map!(det, device_acc, Ad, 2.0, 1.0)
+      @test matches(device_acc, host_acc)
+    end
+
     @testset "PointValues algebra" begin
       M = 12
       sv = ScalarPointValues(rand(T, M) .+ T(1))     # nonzero everywhere (division)

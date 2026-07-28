@@ -929,7 +929,9 @@ component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), ap
 the result. A struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
 signature), exactly the reasoning behind `_FiberGather` for the mapped reductions.
 """
-struct _MapValues{Orders, F} <: Function
+# The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct
+# kernel-argument structs positionally, so a mismatch would swap the fields on the device.
+struct _MapValues{F, Orders} <: Function
   φ::F
   orders::Orders
 end
