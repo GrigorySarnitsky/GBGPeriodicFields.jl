@@ -70,16 +70,17 @@ include("Reductions.jl")
 
 using .FiberSections:
   AbstractFiberSection,
+  FiberVector,
+  FiberTensor2,
+  FiberTensor3,
+  FiberTensor4,
+  fiber_shape,
   with_threading,
   set_threading_cutoff!,
   threading_cutoff
 
 
 using .Fields:
-  FiberVector,
-  FiberTensor2,
-  FiberTensor3,
-  FiberTensor4,
   Grid3D,
   RealFourierLayout,
   AbstractFieldPhysical,
@@ -102,7 +103,6 @@ using .Fields:
   field_layout,
   field_scalar_type,
   field_tensor_order,
-  fiber_shape,
   physical_field_shape,
   spectral_field_shape,
   similar_field,

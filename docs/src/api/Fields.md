@@ -8,10 +8,6 @@ Order   = [:module]
 ## Fiber types
 
 ```@docs
-FiberVector
-FiberTensor2
-FiberTensor3
-FiberTensor4
 ```
 
 ## Base and layout types
@@ -60,7 +56,6 @@ field_grid
 field_layout
 field_scalar_type
 field_tensor_order
-fiber_shape
 physical_field_shape
 spectral_field_shape
 ```

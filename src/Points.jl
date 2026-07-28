@@ -43,7 +43,7 @@ using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_as
                        _transpose_values, _sym_values, _skew_values, _dev_values, _det_values
 
 using KernelAbstractions: get_backend
-using ..Fields: fiber_shape, FiberVector, FiberTensor2
+using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
 import ..Fields: field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues

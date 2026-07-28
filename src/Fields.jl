@@ -34,13 +34,10 @@ using AbstractFFTs
 using LinearAlgebra
 import FFTW
 using Base.ScopedValues: ScopedValue
-using ..FiberSections: AbstractFiberSection, _assign!, _THREADING_OVERRIDE
+using ..FiberSections: AbstractFiberSection, _assign!, _THREADING_OVERRIDE,
+  FiberVector, FiberTensor2, FiberTensor3, FiberTensor4, fiber_shape
 
-export FiberVector,
-       FiberTensor2,
-       FiberTensor3,
-       FiberTensor4,
-       Grid3D,
+export Grid3D,
        RealFourierLayout,
        AbstractFieldPhysical,
        AbstractFieldSpectral,
@@ -63,7 +60,6 @@ export FiberVector,
        field_layout,
        field_scalar_type,
        field_tensor_order,
-       fiber_shape,
        physical_field_shape,
        spectral_field_shape,
        similar_field,
@@ -76,44 +72,7 @@ export FiberVector,
 #        Fixed Fiber Types        #
 ###################################
 
-"""
-    FiberVector{T}
 
-Static three-component Cartesian vector type used for individual vector values.
-
-This is an alias for `SVector{3, T}`, with scalar type `T`.
-"""
-const FiberVector{T} = SVector{3, T}
-
-
-"""
-    FiberTensor2{T}
-
-Static second-order Cartesian tensor type used for individual tensor values.
-
-This is an alias for `SMatrix{3, 3, T, 9}`, with scalar type `T`.
-"""
-const FiberTensor2{T} = SMatrix{3, 3, T, 9}
-
-
-"""
-    FiberTensor3{T}
-
-Static third-order Cartesian tensor type used for individual tensor values.
-
-This is an alias for `SArray{Tuple{3, 3, 3}, T, 3, 27}`, with scalar type `T`.
-"""
-const FiberTensor3{T} = SArray{Tuple{3, 3, 3}, T, 3, 27}
-
-
-"""
-    FiberTensor4{T}
-
-Static fourth-order Cartesian tensor type used for individual tensor values.
-
-This is an alias for `SArray{Tuple{3, 3, 3, 3}, T, 4, 81}`, with scalar type `T`.
-"""
-const FiberTensor4{T} = SArray{Tuple{3, 3, 3, 3}, T, 4, 81}
 
 
 
@@ -298,16 +257,7 @@ field_tensor_order(::AbstractFieldPhysical{T, R}) where {T<:AbstractFloat, R} = 
 field_tensor_order(::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R} = R
 
 
-"""
-    fiber_shape(::Val{R}) where {R}
 
-Return the tensor-fiber shape associated with tensor order `R`.
-
-For scalar fields, `R = 0` gives `()`. For higher tensor orders, each tensor index has length `3`,
-so `R = 1` gives `(3,)`, `R = 2` gives `(3, 3)`, and so on.
-"""
-fiber_shape(::Val{0}) = ()
-fiber_shape(::Val{R}) where {R} = ntuple(_ -> 3, Val(R))
 
 
 """

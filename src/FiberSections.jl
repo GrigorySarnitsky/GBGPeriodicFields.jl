@@ -37,9 +37,14 @@ using KernelAbstractions: @kernel, @index, get_backend, synchronize
 # The `map!` adapter below assembles fiber values (a `SVector` / `SMatrix`) from the flat component
 # scalars a fused pass hands it, applies the user map, and flattens the result — so it constructs the
 # fiber static arrays directly.
-using StaticArrays: SVector, SMatrix, StaticArray
+using StaticArrays: SVector, SMatrix, SArray, StaticArray
 
 export AbstractFiberSection,
+       FiberVector,
+       FiberTensor2,
+       FiberTensor3,
+       FiberTensor4,
+       fiber_shape,
        with_threading,
        set_threading_cutoff!,
        threading_cutoff
@@ -852,6 +857,66 @@ end
 
 
 #############################################
+#        The fiber: values at one point     #
+#############################################
+#
+# The fiber is the value space at a single base point, so it is base-agnostic by construction — the
+# same `FiberVector` serves a field over a grid and a point-value section over a scattered set. It
+# therefore lives here rather than with either base.
+
+"""
+    FiberVector{T}
+
+Static three-component Cartesian vector type used for individual vector values.
+
+This is an alias for `SVector{3, T}`, with scalar type `T`.
+"""
+const FiberVector{T} = SVector{3, T}
+
+
+"""
+    FiberTensor2{T}
+
+Static second-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SMatrix{3, 3, T, 9}`, with scalar type `T`.
+"""
+const FiberTensor2{T} = SMatrix{3, 3, T, 9}
+
+
+"""
+    FiberTensor3{T}
+
+Static third-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SArray{Tuple{3, 3, 3}, T, 3, 27}`, with scalar type `T`.
+"""
+const FiberTensor3{T} = SArray{Tuple{3, 3, 3}, T, 3, 27}
+
+
+"""
+    FiberTensor4{T}
+
+Static fourth-order Cartesian tensor type used for individual tensor values.
+
+This is an alias for `SArray{Tuple{3, 3, 3, 3}, T, 4, 81}`, with scalar type `T`.
+"""
+const FiberTensor4{T} = SArray{Tuple{3, 3, 3, 3}, T, 4, 81}
+
+
+"""
+    fiber_shape(::Val{R}) where {R}
+
+Return the tensor-fiber shape associated with tensor order `R`.
+
+For scalar fields, `R = 0` gives `()`. For higher tensor orders, each tensor index has length `3`,
+so `R = 1` gives `(3,)`, `R = 2` gives `(3, 3)`, and so on.
+"""
+fiber_shape(::Val{0}) = ()
+fiber_shape(::Val{R}) where {R} = ntuple(_ -> 3, Val(R))
+
+
+#############################################
 #        map! adapter (arbitrary φ)         #
 #############################################
 #
@@ -947,8 +1012,8 @@ The concrete fiber type of order `R` over scalar `T` — `T`, `SVector{3, T}`, o
 — used to infer the output order of `φ` for the allocating `map`.
 """
 @inline _fiber_type(::Type{T}, ::Val{0}) where {T} = T
-@inline _fiber_type(::Type{T}, ::Val{1}) where {T} = SVector{3, T}
-@inline _fiber_type(::Type{T}, ::Val{2}) where {T} = SMatrix{3, 3, T, 9}
+@inline _fiber_type(::Type{T}, ::Val{1}) where {T} = FiberVector{T}
+@inline _fiber_type(::Type{T}, ::Val{2}) where {T} = FiberTensor2{T}
 
 
 """
