@@ -1,10 +1,15 @@
 # Convolution benchmarks: periodic convolution as the coefficientwise spectral product f̂·ĝ — apply
-# a Fourier kernel ĝ (a ScalarFieldSpectral) to a field in spectral representation. The in-place
-# convolve! is a bandwidth-bound coefficientwise multiply (read the kernel + field, write the field),
-# the same cost profile as laplacian!; a scalar kernel over a vector field touches three components.
-# `bench_sync` forces GPU completion. `spectral_cutoff` builds a kernel (allocates + one mask pass),
-# and `translation_kernel` likewise (three per-axis cos/sin vectors, then one separable product pass) —
-# a kernel is built once and applied many times, so a builder's cost is amortized over its uses.
+# a Fourier kernel ĝ to a field in spectral representation. The in-place convolve! is a
+# bandwidth-bound coefficientwise multiply (read the kernel + field, write the field), the same cost
+# profile as laplacian!; a scalar kernel over a vector field touches three components.
+# `bench_sync` forces GPU completion.
+#
+# A kernel reaches convolve! in one of several storage classes, which compute the same coefficients
+# and differ only in cost, so each compressed class is swept AGAINST ITS MATERIALIZED TWIN: that
+# baseline is what makes a storage change legible, and comparing the classes to each other would not.
+# Builders are swept for regressions rather than hot-path cost — a kernel is built once and applied
+# many times — and a builder returning a compressed kernel is timed on one factor rather than on a
+# field it never allocates.
 
 function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   s = scalar_spec(AT, T, grid); sout = scalar_spec(AT, T, grid)
@@ -49,4 +54,18 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   radial_stored = materialize_kernel(radial)
   group["convolve! vector ∘ radial    | $tag"] = @benchmarkable (convolve!($uout, $u, $radial); bench_sync(field_data($uout)))
   group["convolve! vector ∘ radial-stored | $tag"] = @benchmarkable (convolve!($uout, $u, $radial_stored); bench_sync(field_data($uout)))
+  # The general radial builder, against the two named bands above: a symbol closure costs no more to
+  # build than a cutoff, so a consumer bringing its own symbol pays nothing for the generality.
+  smooth = k2 -> exp(-T(0.01) * k2)
+  group["radial_kernel | $tag"] = @benchmarkable bench_sync(radial_kernel($smooth, $s, $m).multipliers.squared_wavenumber_1)
+  # The documented escape hatch. Expanding a compressed kernel allocates the O(N³) field the class
+  # exists to avoid, so its cost is what a consumer trades away by materializing.
+  group["materialize_kernel radial | $tag"]    = @benchmarkable bench_sync(field_data(materialize_kernel($radial)))
+  group["materialize_kernel separable | $tag"] = @benchmarkable bench_sync(field_data(materialize_kernel($separable)))
+  # Rebuilding a separable kernel in place, against the allocating builder it replaces: both are O(N)
+  # per-axis work, so the difference is the three small allocations, not the trigonometry.
+  translation_scratch = translation_kernel(s, m, offset)
+  group["translation_kernel! | $tag"] = @benchmarkable bench_sync(translation_kernel!($translation_scratch, $m, $offset).factor_1)
+  # The reciprocal that deconvolves: O(N) per axis for a separable kernel, never a field.
+  group["inv separable | $tag"] = @benchmarkable bench_sync(inv($separable).factor_1)
 end

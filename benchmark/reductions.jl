@@ -10,7 +10,7 @@
 function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   s = scalar_phys(AT, T, grid)
   u = vector_phys(AT, T, grid); v = vector_phys(AT, T, grid)
-  us = vector_spec(AT, T, grid); vs = vector_spec(AT, T, grid)
+  us = vector_spec(AT, T, grid); vs = vector_spec(AT, T, grid); ss = scalar_spec(AT, T, grid)
   m = FieldSpectralMultipliers(us)
   weight = squared_wavenumber_field(scalar_spec(AT, T, grid), m)   # a realistic |k|² multiplier
   correlation_plans = plans_for(u, AT, T, grid)
@@ -24,6 +24,11 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   # mean, then the centred outer product) and accumulates nine numbers, so it prices the second
   # moment against the first that `mean vector` above measures.
   group["cov vector | $tag"]      = @benchmarkable cov($u)
+  # Scalar-only by decision 49, and available in both representations: the physical form streams the
+  # field twice (mean, then centred squares) while the spectral form is Parseval's ⟨f,f⟩ − mean², so
+  # the pair prices what skipping the transform is worth.
+  group["var scalar | $tag"]          = @benchmarkable var($s)
+  group["var spectral scalar | $tag"] = @benchmarkable var($ss)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes
   group["weighted_inner vec | $tag"]     = @benchmarkable weighted_inner($us, $weight)       # fused ⟨f, |k|²·f⟩ (no filtered field)
   group["weighted_inner vec.vec | $tag"] = @benchmarkable weighted_inner($us, $vs, $weight)  # mixed ⟨f, |k|²·g⟩

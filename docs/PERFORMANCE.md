@@ -546,7 +546,9 @@ baseline that makes a storage change legible (finding (o)), the **interpolation/
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the covariance
 tensor `cov` — the one reduction whose result is fiber-valued at ``R = 2``, so it streams a vector
-field and writes nine accumulators — the fused multiplier-weighted `weighted_inner`, the spectral Parseval
+field and writes nine accumulators — the scalar-only `var` in **both** representations, which prices what
+skipping the transform is worth (decision 49 gave it a Parseval form), the fused multiplier-weighted
+`weighted_inner`, the spectral Parseval
 `inner`, the spectral zero-mode `integral`/`mean` (an O(1) DC-coefficient read, not a streaming reduction),
 and the radial reductions `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an
