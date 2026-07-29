@@ -1181,6 +1181,12 @@ end
 # Two fixed-tree passes, matching the mapped extrema's recorded two-pass stance.
 extrema(field::AbstractFieldPhysical{T, 0}) where {T} = (minimum(field), maximum(field))
 extrema(values::AbstractPointValues{T, 0}) where {T} = (minimum(values), maximum(values))
+# `maximum`/`minimum` are absent above R = 0 by not being defined there, which is enough because `Base`
+# has no fallback that would accept a section. `extrema` DOES have one — it would iterate and return a
+# per-component pair, exactly the ill-posed answer the restriction exists to refuse — so the absence has
+# to be stated explicitly here rather than left to dispatch (decision 52).
+extrema(section::AbstractFiberSection) =
+  throw(ArgumentError("`extrema` is defined for scalar sections only; name a fiber map, as in `extrema(norm, u)`, which makes the order statistic well posed at any tensor order"))
 
 # The mapped forms carry no such restriction, at every tensor order: naming the fiber map is what
 # removes the ambiguity the bare forms refuse to guess, so `maximum(norm, u)` is well posed where

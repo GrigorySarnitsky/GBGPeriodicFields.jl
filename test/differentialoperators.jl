@@ -40,6 +40,33 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test maximum(abs, comp(field_data(g), 3)) < 1e-12
   end
 
+  # The tensor divergence had NO analytic oracle: its only value fixture was a tensor of nine IDENTICAL
+  # components, so A ≡ Aᵀ and contracting the wrong index was invisible, while every other assertion on
+  # it was self-referential (threaded vs serial, device vs host, compressed vs stored kernel — each
+  # comparing the same contraction against itself). This pins the convention (∇·A)ᵢ = ∂ⱼAᵢⱼ against a
+  # closed form, with a tensor whose components are all distinct and A ≠ Aᵀ (decision 52).
+  @testset "divergence (tensor -> vector): (∇·A)ᵢ = ∂ⱼAᵢⱼ, against a closed form" begin
+    # A₁₂ = sin y and A₂₃ = sin z are the only non-zero entries, so (∇·A) = (cos y, cos z, 0) exactly,
+    # and the transposed contraction ∂ⱼAⱼᵢ would give (0, 0, 0) instead.
+    A = TensorFieldPhysical{2}((x, y, z) -> [0.0 sin(y) 0.0; 0.0 0.0 sin(z); 0.0 0.0 0.0], grid)
+    As = to_spectral(A, plans_for(A))
+    m = FieldSpectralMultipliers(As)
+    d = to_physical(divergence(As, m), plans_for(zero_vector()))
+    @test comp(field_data(d), 1) ≈ field_data(scalar_field((x, y, z) -> cos(y)))
+    @test comp(field_data(d), 2) ≈ field_data(scalar_field((x, y, z) -> cos(z)))
+    @test maximum(abs, comp(field_data(d), 3)) < 1e-12
+    # and the convention is not the transpose's: ∇·A ≠ ∇·Aᵀ for this A
+    At = to_spectral(TensorFieldPhysical{2}((x, y, z) -> [0.0 0.0 0.0; sin(y) 0.0 0.0; 0.0 sin(z) 0.0], grid),
+                     plans_for(A))
+    dt = to_physical(divergence(At, m), plans_for(zero_vector()))
+    @test !isapprox(field_data(d), field_data(dt))
+    # ∇·(∇u) = Δu componentwise, an independent route through two operators
+    u = VectorFieldPhysical((x, y, z) -> (sin(y), sin(z), sin(x)), grid)
+    us = to_spectral(u, plans_for(u))
+    mu = FieldSpectralMultipliers(us)
+    @test field_data(divergence(gradient(us, mu), mu)) ≈ field_data(laplacian(us, mu))
+  end
+
   @testset "gradient (vector -> tensor): (∇u)ᵢⱼ = ∂ⱼuᵢ" begin
     u = VectorFieldPhysical((x, y, z) -> (sin(x), sin(y), sin(z)), grid)
     m = FieldSpectralMultipliers(to_spectral(u, plans_for(u)))
@@ -47,6 +74,19 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test tcomp(field_data(G), 1, 1) ≈ field_data(scalar_field((x, y, z) -> cos(x)))
     @test tcomp(field_data(G), 2, 2) ≈ field_data(scalar_field((x, y, z) -> cos(y)))
     @test tcomp(field_data(G), 3, 3) ≈ field_data(scalar_field((x, y, z) -> cos(z)))
+    # A DIAGONAL fixture cannot see the index convention this testset is named for: with
+    # u = (sin x, sin y, sin z) every off-diagonal entry is zero, so (∇u)₁₂ and (∇u)₂₁ are
+    # indistinguishable and transposing the whole operator passes silently. Pin it with a fixture whose
+    # gradient is genuinely off-diagonal (decision 52).
+    ushift = VectorFieldPhysical((x, y, z) -> (sin(y), sin(z), sin(x)), grid)
+    Gs = to_physical(gradient(to_spectral(ushift, plans_for(ushift)), m), plans_for(zero_tensor()))
+    @test tcomp(field_data(Gs), 1, 2) ≈ field_data(scalar_field((x, y, z) -> cos(y)))   # ∂_y u₁
+    @test tcomp(field_data(Gs), 2, 3) ≈ field_data(scalar_field((x, y, z) -> cos(z)))   # ∂_z u₂
+    @test tcomp(field_data(Gs), 3, 1) ≈ field_data(scalar_field((x, y, z) -> cos(x)))   # ∂_x u₃
+    @test maximum(abs, tcomp(field_data(Gs), 2, 1)) < 1e-12    # the transposed slots stay empty
+    @test maximum(abs, tcomp(field_data(Gs), 3, 2)) < 1e-12
+    @test maximum(abs, tcomp(field_data(Gs), 1, 3)) < 1e-12
+
     @test maximum(abs, tcomp(field_data(G), 1, 2)) < 1e-12
   end
 

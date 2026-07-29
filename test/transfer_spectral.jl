@@ -377,3 +377,32 @@ end
   @test npoints(interpolate(bh, empty_points, DirectDFT())) == 0
   @test npoints(interpolate(bh, empty_points, fast)) == 0
 end
+
+
+# A NUFFT plan's oversampled buffers are sized at the tensor order of the field it was built from. Used
+# at a HIGHER order the spread wrote fewer components than the extract read, and the surplus came back
+# as uninitialized scratch — NaN and 1e-310, silently, where DirectDFT handled the same call correctly.
+# Every fixture in this file builds field and point-values at the SAME order, so the mismatch was never
+# reachable (decision 52).
+@testset "NUFFT plan order must match the transfer's" begin
+  for TP in (Float64, Float32)
+    g = Grid3D((8, 8, 8), (TP(2π), TP(2π), TP(2π)))
+    layout = RealFourierLayout()
+    scalar_reference = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g, layout, Val(0))), g, layout)
+    vector_reference = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g, layout, Val(1))), g, layout)
+    points = PointSet(TP(2π) .* rand(MersenneTwister(52), TP, 6, 3))
+    vector_values = VectorPointValues(rand(MersenneTwister(53), TP, 6, 3))
+
+    scalar_plan = NUFFT(scalar_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
+    # a plan of lower order than the transfer is refused, not silently wrong
+    @test_throws ArgumentError anterpolate(scalar_reference, points, vector_values, scalar_plan)
+    @test_throws ArgumentError anterpolate!(vector_reference, points, vector_values, scalar_plan)
+    @test_throws ArgumentError interpolate(vector_reference, points, scalar_plan)
+
+    # the matching plan still works and is finite everywhere
+    vector_plan = NUFFT(vector_reference; tol = TP === Float64 ? 1e-8 : 1.0f-4)
+    deposited = anterpolate(vector_reference, points, vector_values, vector_plan)
+    @test all(isfinite, field_data(deposited))
+    @test field_tensor_order(deposited) == 1
+  end
+end

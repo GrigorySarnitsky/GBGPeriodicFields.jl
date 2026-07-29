@@ -2636,3 +2636,40 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     body, which makes the closure hold a `Type{Float64}` — not a bitstype, so a GPU launch rejects it
     outright. Capturing the two values instead fixes it, and the `radial_kernel` docstring states the
     rule.
+
+52. **An adversarial mutation audit of the test suite, and the two live bugs it found** (2026-07-29).
+    The suite was audited by *injecting* defects rather than by reading coverage: six defect classes —
+    each drawn from a real escape — proposed small, silent, plausible edits, and every one was applied
+    in an isolated worktree with the suite actually run, so "uncaught" is a measured fact rather than a
+    prediction. The framing was chosen because every defect found in the preceding review had been
+    invisible to a coverage read-through: an axis consulted and waved off with wrong reasoning, a
+    documented claim no test asserted, a property held by one function and silently absent in its
+    neighbour, a test that passed while comparing a path against itself, one direction of a symmetric
+    operation.
+
+    **Two live bugs came out of it, both confirmed by direct execution before any fix.** A `NUFFT` plan
+    used at a *higher* tensor order than the reference it was built from returned **NaN and
+    uninitialized memory** — the spread wrote fewer fibre components than the extract read — where
+    `DirectDFT` handled the identical call correctly; the plan's own order was never checked, only the
+    field's against the values'. And `extrema` **leaked** the scalar-only restriction that `maximum`
+    and `minimum` enforce: those are absent above ``R = 0`` by not being defined there, which suffices
+    because `Base` has no fallback that accepts a section — but `extrema` has one, so it iterated and
+    returned the per-component pair the restriction exists to refuse. An absence that relies on the
+    *absence of a fallback* is not an absence; it has to be stated.
+
+    **The audit's sharpest finding was fixture blindness, not missing tests.** The vector gradient's
+    testset is named for the index convention ``(\nabla u)_{ij} = \partial_j u_i``, but its fixture
+    ``u = (\sin x, \sin y, \sin z)`` has a **diagonal** gradient, so transposing the whole operator
+    passed silently — the name asserted a convention the fixture could not see. The tensor divergence
+    was worse: it had **no analytic oracle at all**, its only value fixture being a tensor of nine
+    identical components (hence ``A \equiv A^{\top}``, every index permutation invisible), with every
+    other assertion self-referential — threaded against serial, device against host, compressed kernel
+    against stored — each comparing one contraction against itself. Both now carry closed-form oracles
+    over deliberately asymmetric fixtures, and **both were verified by re-applying the mutation and
+    confirming the new tests fail**, which is the check that distinguishes a real test from a vacuous
+    one.
+
+    The general lesson is about fixtures rather than counts: a symmetric fixture cannot see an
+    asymmetric defect, and a self-referential assertion cannot see a defect shared by both sides. When
+    an operation's convention is stated in a name or a docstring, the fixture must be able to falsify
+    it.

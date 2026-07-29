@@ -580,6 +580,14 @@ end
     @test isapprox(std(sspec), std(s); rtol = rtolof(TP))
 
     @test_throws ArgumentError var(u)                         # scalar-only: a clear error, not a per-component fiber
+    # The same absence, for the order statistics. maximum/minimum are absent by not being defined
+    # above R = 0; `extrema` needed an explicit refusal, because Base HAS a fallback that would
+    # iterate the section and return a per-component pair — the ill-posed answer (decision 52).
+    @test_throws MethodError maximum(u)
+    @test_throws MethodError minimum(u)
+    @test_throws ArgumentError extrema(u)
+    @test_throws ArgumentError extrema(A)
+    @test extrema(s) == (minimum(s), maximum(s))              # the scalar case still works
     @test_throws ArgumentError std(u)
     @test_throws ArgumentError var(A)
 

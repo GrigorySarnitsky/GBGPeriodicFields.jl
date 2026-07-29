@@ -1121,6 +1121,12 @@ _fresh(template) = similar_field(template, similar(field_data(template)))
 
 
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+  # The plan's oversampled buffers are sized at the tensor order of the field it was built from, while
+  # the transfer's fibre count comes from the field/values being transferred. If the plan's order is
+  # LOWER, the spread writes fewer components than the extract reads and the surplus is uninitialized
+  # scratch — silently returning NaN and garbage rather than failing. Check it (decision 52).
+  field_tensor_order(scheme.oversampled_physical) == field_tensor_order(field) ||
+    throw(ArgumentError("this NUFFT plan was built at tensor order $(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a field of tensor order $(field_tensor_order(field)) — build the plan from a reference of the same order"))
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
@@ -1159,6 +1165,12 @@ end
 
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                       scheme::NUFFT, α::Real = true, β::Real = false)
+  # The plan's oversampled buffers are sized at the tensor order of the field it was built from, while
+  # the transfer's fibre count comes from the field/values being transferred. If the plan's order is
+  # LOWER, the spread writes fewer components than the extract reads and the surplus is uninitialized
+  # scratch — silently returning NaN and garbage rather than failing. Check it (decision 52).
+  field_tensor_order(scheme.oversampled_physical) == field_tensor_order(field) ||
+    throw(ArgumentError("this NUFFT plan was built at tensor order $(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a field of tensor order $(field_tensor_order(field)) — build the plan from a reference of the same order"))
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)

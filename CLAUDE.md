@@ -1068,6 +1068,18 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**Mutation audit (decision 52, 2026-07-29).** The suite was audited by INJECTING defects in isolated
+worktrees, not by reading coverage. It found two live bugs (a  plan used above its own tensor order
+returned NaN/uninitialized memory;  leaked the scalar-only absence that / enforce,
+because  HAS a fallback for it) and, more importantly, **fixture blindness**: the gradient testset was
+named for an index convention its diagonal fixture could not see, and the tensor divergence had no analytic
+oracle at all — nine identical components, so , with every other assertion self-referential. Both now
+have closed-form oracles over asymmetric fixtures, **each verified by re-applying the mutation and confirming
+the new test fails**. Standing rule from it: a symmetric fixture cannot see an asymmetric defect, and a
+self-referential assertion (threaded vs serial, device vs host, compressed vs stored) cannot see a defect
+shared by both sides — when a convention is stated in a name or docstring, the fixture must be able to
+falsify it.
+
 **Standing item — a testing-protocol and allocator review (user-directed 2026-07-28).** Two findings
 motivate it, both surfaced by the module-placement panel rather than by the suite. **(1) A missing
 coverage axis.** `map(φ, field)` was broken for every permuted `RealFourierLayout` from the day it
