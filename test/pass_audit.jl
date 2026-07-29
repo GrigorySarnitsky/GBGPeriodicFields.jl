@@ -45,8 +45,9 @@
 using Test
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data, point_values
-using Statistics: mean                        # extended on sections in Reductions (not re-exported)
+using Statistics                              # mean etc. are extended on sections in Reductions
 import KernelAbstractions
+include("public_surface.jl")
 
 const PRINT_COUNTS = get(ENV, "PASS_AUDIT_PRINT", "0") == "1"
 
@@ -99,7 +100,12 @@ Traffic(role, array, frozen) = Traffic(role, array, frozen, frozen, "")
 const AUDITED_OPS = Set{Symbol}()
 
 function audit(operation!, name::String, rows::Traffic...)
-  push!(AUDITED_OPS, Symbol(first(split(name))))
+  # Take the leading identifier, stopping at whitespace OR an opening paren: a row labelled
+  # "map!(det) tensor→scalar" names the operation `map!`. Splitting on whitespace alone recorded
+  # `Symbol("map!(det)")`, a phantom that matched nothing, so `map!` read as unaudited while two
+  # rows for it sat right there. The completeness guard then reported a gap that did not exist —
+  # which is the better failure, but only by luck of the label.
+  push!(AUDITED_OPS, Symbol(match(r"^[^\s(∘]+", name).match))
   foreach(r -> (r.array.reads[] = 0; r.array.writes[] = 0), rows)
   operation!()
   @testset "$name" begin
@@ -258,7 +264,7 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     audit(() -> helmholtz_projection!(aliased, aliased, multipliers), "helmholtz_projection! aliased",
       Traffic("dest === source", carr(aliased), (3M, 3M)))
     g = counted_kernel()
-    audit(() -> helmholtz_projection!(vd, u, multipliers, g), "helmholtz kernel read once per mode",
+    audit(() -> helmholtz_projection!(vd, u, multipliers, g), "helmholtz_projection! kernel read once per mode",
       Traffic("kernel", carr(g), (M, 0)))                   # the KA kernel reads ĝ once, not per component
   end
 
@@ -336,7 +342,7 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
       Traffic("f", carr(f), (3M, 0)))
     correlation_data = counting(randn(grid.grid_size..., 3))
     audit(() -> GBGPeriodicFields.Reductions._radial_average(grid, correlation_data, P),
-      "physical shell binning (decision-34 kernel)",
+      "_radial_average physical shell binning (decision-34 kernel)",
       Traffic("correlation field", correlation_data, (3P, 0)))
   end
 
@@ -370,15 +376,23 @@ end
     :to_spectral!          => "same — the transform interior is out of scope (see the header)",
     :anterpolate!          => "the scatter accumulates through Atomix, which a wrapper array cannot provide (header)",
     :translation_kernel!   => "an O(N) per-axis rebuild, not field-shaped traffic",
+    :copyto!               => "the broadcast interface: the field `copyto!` IS the `_assign!` route every audited operation writes through, measured through them rather than as a case of its own",
+    :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
     :set_fft_threads!      => "a configuration setter, not a field operation",
     :set_threading_cutoff! => "a configuration setter, not a field operation",
   )
-  required = Set(n for n in names(GBGPeriodicFields)
-                 if endswith(String(n), "!") && isdefined(GBGPeriodicFields, n) &&
-                    getfield(GBGPeriodicFields, n) isa Function)
+  required = inplace_operations()
   uncovered = setdiff(required, AUDITED_OPS, keys(exempt))
   isempty(uncovered) ||
     @error "in-place operations with no traffic row — add one, or exempt it with a reason" uncovered
   @test isempty(uncovered)
   @test isempty(setdiff(keys(exempt), required))
+
+  # A guard needs a guard. `AUDITED_OPS` is parsed out of row labels, so a typo or an unexpected
+  # label shape records a symbol naming nothing — which silently shrinks the covered set and can
+  # only ever be noticed as a false gap. Every captured name must be a real package operation.
+  phantoms = setdiff(AUDITED_OPS, all_package_functions())
+  isempty(phantoms) ||
+    @error "row labels that parse to no real operation — fix the label" phantoms
+  @test isempty(phantoms)
 end

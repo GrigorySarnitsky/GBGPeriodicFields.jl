@@ -22,6 +22,8 @@
 
 using Test
 using GBGPeriodicFields
+using Statistics
+include("public_surface.jl")
 
 # operation => (provenance, where the strongest oracle lives)
 const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
@@ -75,6 +77,34 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :interpolate        => (:analytic, "transfer_spectral.jl — exact reconstruction of a band-limited field"),
   :anterpolate        => (:property, "interpolation_transfer.jl — the adjoint relation and conservation"),
 
+  # ---- extensions of Base and Statistics generics ----
+  # These are public operations that `names(GBGPeriodicFields)` cannot see, because the package
+  # extends them rather than declaring them and deliberately does not re-export them. The field
+  # arithmetic is in this class, so the four operators a user reaches for first were invisible to
+  # every completeness guard until the domain was derived from method ownership.
+  :+                  => (:independent, "fieldalgebra.jl — explicit per-component sums"),
+  :-                  => (:independent, "fieldalgebra.jl — explicit per-component differences"),
+  :*                  => (:independent, "fieldalgebra.jl — explicit scalar and contraction references"),
+  :/                  => (:independent, "fieldalgebra.jl — explicit per-component quotients"),
+  :transpose          => (:independent, "fieldalgebra.jl — explicit index swap"),
+  :map                => (:independent, "fieldalgebra.jl — φ applied explicitly at every base point"),
+  :mean               => (:analytic, "reductions.jl — ⟨sin⟩ = 0; generated_analytic.jl — zero mean"),
+  :var                => (:analytic, "generated_analytic.jl — Σ A²/2 for a zero-mean fixture"),
+  :std                => (:analytic, "reductions.jl — √⟨sin²⟩ = 1/√2 on a zero-mean field"),
+  :cov                => (:independent, "reductions.jl — a per-point covariance reference"),
+  :maximum            => (:independent, "reductions.jl — Julia's own maximum over the raw array"),
+  :minimum            => (:independent, "reductions.jl — Julia's own minimum over the raw array"),
+  :extrema            => (:independent, "reductions.jl — the pair oracle, plus the scalar-only absence"),
+
+  :inv                => (:property, "convolution.jl — inv(g) ⋆ (g ⋆ f) == f, the deconvolution round trip"),
+
+  # The `AbstractArray` and broadcast interface. Extended so fields interoperate with Julia's array
+  # machinery; each returns storage or a shape, so there is no value to have an oracle for. They
+  # appear here rather than being filtered because an interface method IS reachable by a user, and a
+  # domain that quietly drops a class is the defect this whole file exists to prevent.
+  (op => (:structural, "the AbstractArray/broadcast interface: returns storage or a shape") for op in
+   (:axes, :copy, :eltype, :getindex, :ndims, :size))...,
+
   # ---- structural: metadata, storage and configuration, with no value to have an oracle for ----
   (op => (:structural, "returns metadata or storage, not a computed value") for op in
    (:field_data, :field_grid, :field_layout, :field_scalar_type, :field_tensor_order, :fiber_shape,
@@ -85,9 +115,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
 )
 
 @testset "oracle provenance is classified for every public operation" begin
-  public_ops = Set(n for n in names(GBGPeriodicFields)
-                   if isdefined(GBGPeriodicFields, n) && getfield(GBGPeriodicFields, n) isa Function &&
-                      !endswith(String(n), "!"))
+  public_ops = value_operations()
   unclassified = setdiff(public_ops, keys(ORACLE_PROVENANCE))
   isempty(unclassified) ||
     @error """a public operation has no recorded oracle provenance. Classify it — and if the honest

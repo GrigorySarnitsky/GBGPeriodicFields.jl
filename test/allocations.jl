@@ -33,6 +33,8 @@ using Test
 using GBGPeriodicFields                       # exports `mul!` (re-exported), so no LinearAlgebra import
 using GBGPeriodicFields: field_data, point_values
 using Statistics: mean, std, var, cov              # `Reductions` extends these; bring them into scope to call
+using Statistics
+include("public_surface.jl")
 
 
 # Warm up `expr` once, then assert a single call allocates strictly less than `bound` bytes. A thrown
@@ -431,16 +433,22 @@ end
 # every exported in-place operation must have been exercised above, or be named here with a reason.
 @testset "every exported in-place operation has an allocation row" begin
   exempt = Dict(
+    :copyto!               => "the broadcast interface: the field `copyto!` IS the `_assign!` route every audited operation writes through, measured through them rather than as a case of its own",
+    :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
     :set_fft_threads!      => "a configuration setter, not a field operation: it re-plans FFTW and allocates by design",
     :set_threading_cutoff! => "a configuration setter, not a field operation",
   )
-  required = Set(n for n in names(GBGPeriodicFields)
-                 if endswith(String(n), "!") && isdefined(GBGPeriodicFields, n) &&
-                    getfield(GBGPeriodicFields, n) isa Function)
+  required = inplace_operations()
   uncovered = setdiff(required, AUDITED_OPS, keys(exempt))
   isempty(uncovered) ||
     @error "in-place operations with no allocation row — add one, or exempt it with a reason" uncovered
   @test isempty(uncovered)
   # An exemption that no longer names a real operation is stale; drop it.
   @test isempty(setdiff(keys(exempt), required))
+
+  # A guard needs a guard: every captured name must be a real package function, so a bookkeeping
+  # slip cannot silently shrink the covered set (the sibling ledger had exactly that — see there).
+  phantoms = setdiff(AUDITED_OPS, all_package_functions())
+  isempty(phantoms) || @error "audited names that match no real function" phantoms
+  @test isempty(phantoms)
 end

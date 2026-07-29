@@ -2757,6 +2757,22 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     bar rather than a snapshot; the set is empty today and the assertion is what keeps it empty.
     *Proof:* a new exported operation in `Reductions`, tested nowhere, fails the registry.
 
+    **The registry's own domain was the next instance, found within the hour.** It derived the surface
+    from `names(GBGPeriodicFields)`, and the package deliberately does not re-export the generics it
+    *extends* rather than declares — so `map`/`map!` (decision 48), `mean`/`std`/`var`/`cov` (49), the
+    order statistics, and the field arithmetic `+ - * /` were all invisible to it, as they had been to
+    both ledgers. Scanning module namespaces instead reached those, and still missed `inv` (decision
+    50), whose method is defined under the qualified name `Base.inv` and therefore creates no binding
+    to scan. The derivation that holds walks the loaded modules and asks each function whether a
+    package module owns one of its methods — the one question whose answer cannot depend on how the
+    definition was spelled. Domain 58 → 103 → 113.
+
+    Widening it immediately paid: the traffic ledger parsed its row labels by splitting on whitespace,
+    so `"map!(det) tensor→scalar"` recorded `Symbol("map!(det)")` and four more rows recorded phantoms
+    naming nothing. `map!` read as unaudited while two rows for it sat in the file. Both ledgers now
+    assert that every captured name resolves to a real package function — the decision-54
+    *a guard needs a guard* lesson, applied a second time to a second guard.
+
     This is the fourth instance of one pattern, and the pattern is now the point. Decision 43 found
     a missing coverage axis, decision 48 shipped a bug through an axis waved off as not applicable,
     decision 53 found the guards enumerating what they check, and this one finds a review enumerating
