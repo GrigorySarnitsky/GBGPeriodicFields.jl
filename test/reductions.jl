@@ -608,3 +608,43 @@ end
     @test var(ScalarPointValues(rand(rng, TP, 20))) isa Real  # scalar point-value var still works
   end
 end
+
+
+# Contractibility of a section pair (external audit CODE-01). `inner` once required only equal base
+# COUNTS, which is not enough: a scalar and a vector field over one grid have equal counts and
+# unequal storage lengths, so the contraction indexed the shorter array past its end under
+# `@inbounds` — an out-of-bounds read that returned a plausible number because the memory beyond
+# happened to be zero. Equal counts also admitted a grid field against point values, whose bases are
+# unrelated. Every rejection below is a case that previously returned a number.
+@testset "inner rejects sections that are not contractible (audit CODE-01)" begin
+  grid = Grid3D((4, 4, 4), (2π, 2π, 2π))
+  scalar = ScalarFieldPhysical(reshape(collect(1.0:64), 4, 4, 4), grid)
+  vector = VectorFieldPhysical(ones(4, 4, 4, 3), grid)
+  tensor = TensorFieldPhysical{2}(ones(4, 4, 4, 3, 3), grid)
+  points = ScalarPointValues(rand(64))
+  grid32 = Grid3D((4, 4, 4), (2.0f0π, 2.0f0π, 2.0f0π))
+  scalar32 = ScalarFieldPhysical(rand(Float32, 4, 4, 4), grid32)
+
+  # Mismatched tensor order, both directions — the out-of-bounds pair.
+  @test_throws DimensionMismatch inner(scalar, vector)
+  @test_throws DimensionMismatch inner(vector, scalar)
+  @test_throws DimensionMismatch inner(vector, tensor)
+  @test_throws DimensionMismatch inner(tensor, vector)
+
+  # Unrelated bases at equal count.
+  @test_throws ArgumentError inner(scalar, points)
+  @test_throws ArgumentError inner(points, scalar)
+
+  # Mismatched scalar type.
+  @test_throws ArgumentError inner(scalar, scalar32)
+  @test_throws ArgumentError inner(scalar32, scalar)
+
+  # A different base size stays a DimensionMismatch, as before.
+  @test_throws DimensionMismatch inner(scalar, ScalarFieldPhysical(zeros(8, 8, 8), Grid3D((8, 8, 8), (2π, 2π, 2π))))
+
+  # And every legal pair still contracts, so the guard rejects only what it should.
+  @test inner(scalar, scalar) ≈ sum(abs2, 1.0:64) / 64
+  @test inner(vector, vector) ≈ 3.0
+  @test inner(points, points) isa Float64
+  @test inner(tensor, tensor) ≈ 9.0
+end

@@ -74,14 +74,14 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 107,
+  FiberSections         = 108,   # +1: section_tensor_order, the type-level order accessor
   Fields                = 85,
   FieldAlgebra          = 206,
   DifferentialOperators = 79,
   Convolution           = 53,
   Points                = 61,
   Interpolation         = 115,
-  Reductions            = 84,
+  Reductions            = 88,   # +4: _same_base_kind (3 methods) + _check_contractible (audit CODE-01)
 )
 
 function module_method_count(mod::Module)

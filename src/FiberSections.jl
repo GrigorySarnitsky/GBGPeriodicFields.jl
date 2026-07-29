@@ -79,6 +79,16 @@ kernels obtain `T` without dispatching on the concrete base.
 section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
 
 
+"""
+    section_tensor_order(section)
+
+The tensor order ``R`` of a section, read from its type. The peer of
+[`section_scalar_type`](@ref): both are type parameters, so a compatibility check written against
+them costs nothing at run time.
+"""
+section_tensor_order(::AbstractFiberSection{T, R}) where {T<:AbstractFloat, R} = R
+
+
 ###################################
 #        CPU threading            #
 ###################################

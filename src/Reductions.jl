@@ -47,7 +47,8 @@ turbulence intensities from these reductions.
 """
 module Reductions
 
-using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!, _use_threads
+using ..FiberSections: AbstractFiberSection, section_scalar_type, section_tensor_order,
+  _assign!, @_assign!, _use_threads
 using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   _spectral_constant_scale, AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
@@ -687,9 +688,41 @@ no inverse transform, applying the rfft half-spectrum weighting internally. This
 `lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
 """
 function inner end
-function inner(f::ReducibleSection, g::ReducibleSection)
+# Two sections may be contracted only when they are the same kind of section over the same base,
+# carrying the same fiber and scalar type. Base kind, tensor order and scalar type are all TYPE-level
+# here, so the whole predicate resolves at compile time and costs a contraction nothing.
+#
+# Equal base COUNT is not enough, and the gap was not academic: a scalar and a vector field over the
+# same grid have equal base counts and unequal storage lengths, so the loop below indexed the shorter
+# array past its end under `@inbounds` — an out-of-bounds read that returned a plausible number
+# because the memory beyond happened to be zero. A grid field and point values with matching counts
+# were likewise accepted, though their bases are unrelated.
+_same_base_kind(::AbstractFieldPhysical, ::AbstractFieldPhysical) = true
+_same_base_kind(::AbstractPointValues, ::AbstractPointValues) = true
+_same_base_kind(::ReducibleSection, ::ReducibleSection) = false
+
+
+function _check_contractible(f::ReducibleSection, g::ReducibleSection)
+  _same_base_kind(f, g) ||
+    throw(ArgumentError("a grid field and point values are sections over unrelated bases and " *
+                        "cannot be contracted, even when their base counts agree"))
+  section_tensor_order(f) == section_tensor_order(g) ||
+    throw(DimensionMismatch("sections have different tensor orders: " *
+                            "$(section_tensor_order(f)) and $(section_tensor_order(g))"))
+  section_scalar_type(f) === section_scalar_type(g) ||
+    throw(ArgumentError("sections have different scalar types: " *
+                        "$(section_scalar_type(f)) and $(section_scalar_type(g))"))
   _base_count(f) == _base_count(g) ||
     throw(DimensionMismatch("sections have different base sizes: $(_base_count(f)) and $(_base_count(g))"))
+  length(field_data(f)) == length(field_data(g)) ||
+    throw(DimensionMismatch("sections have different storage lengths: " *
+                            "$(length(field_data(f))) and $(length(field_data(g)))"))
+  return nothing
+end
+
+
+function inner(f::ReducibleSection, g::ReducibleSection)
+  _check_contractible(f, g)
   a, b = field_data(f), field_data(g)
   # The fixed-tree dot on CPU (threaded, bitwise thread-count-invariant, no typing peek); a device
   # keeps its own parallel `dot` (decision-30 polarity).
