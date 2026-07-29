@@ -13,13 +13,21 @@
 # canaries are additionally measured serial-vs-threaded through the with_threading override and
 # must satisfy threaded ≤ 1.1 × serial — the alarm the finding-(l) inversion lacked for six
 # weeks. (The transfer and binning canaries thread outside the override and skip that check.)
+#
+# EVERY canary is SYNCHRONIZED. A device launch is asynchronous, so timing a bare thunk measures the
+# launch, not the work: before this was added the CUDA `add!` canary read ~12 us for a 128^3 vector
+# pass whose 151 MB cannot move in under ~190 us, and the whole GPU lane was judging launch latency.
+# `canary_sync()` blocks on the backend after each thunk, and `--selfcheck` proves the wrapper is not
+# a no-op by timing a deliberately large device pass with and without it.
 
 using BenchmarkTools
 using Statistics: mean
 using Random
+import KernelAbstractions
 
 const BACKEND = isempty(ARGS) ? "cpu" : ARGS[1]
 const FREEZE = "--freeze" in ARGS
+const SELFCHECK = "--selfcheck" in ARGS
 const USECUDA = BACKEND == "cuda"
 const USEGPU = USECUDA || BACKEND in ("gpu", "rocm")
 
@@ -87,9 +95,30 @@ mkpath(baseline_dir)
 tag = USECUDA ? "cuda" : USEGPU ? "rocm" : "cpu-t$(Threads.nthreads())"
 baseline_path = joinpath(baseline_dir, "$(gethostname())-$(tag).json")
 
+# One handle for the backend every canary runs on; `synchronize` is a cheap no-op on the CPU.
+const CANARY_BACKEND = KernelAbstractions.get_backend(field_data(spectral_d))
+canary_sync() = KernelAbstractions.synchronize(CANARY_BACKEND)
+
 suite = BenchmarkGroup()
 for (name, _, thunk) in CANARIES
-  suite[name] = @benchmarkable $thunk() samples = 100 evals = 5 seconds = 3 gcsample = USEGPU
+  suite[name] = @benchmarkable ($thunk(); canary_sync()) samples = 100 evals = 5 seconds = 3 gcsample = USEGPU
+end
+
+# A guard for the guard: if `canary_sync()` did not actually block, an asynchronous launch would
+# time the same with and without it. Ratio on a device is large (the pass is bandwidth-bound); on the
+# CPU the work is synchronous anyway, so the check is skipped rather than given a meaningless bound.
+if SELFCHECK
+  probe() = add!(vector_d, physical_u, physical_v)
+  probe(); canary_sync()
+  bare   = minimum(@benchmark probe() samples = 50 evals = 1).time
+  synced = minimum(@benchmark (probe(); canary_sync()) samples = 50 evals = 1).time
+  println("sync self-check: bare $(BenchmarkTools.prettytime(bare)), ",
+          "synchronized $(BenchmarkTools.prettytime(synced)), ratio $(round(synced / bare, digits = 2))×")
+  if USEGPU && synced < 2 * bare
+    println("SELF-CHECK FAILED — synchronization is not blocking; every device timing below is launch latency")
+    exit(3)
+  end
+  USEGPU || println("  (CPU: work is synchronous, so a ratio near 1 is expected and proves nothing)")
 end
 
 println("canary: $(length(CANARIES)) mechanisms, $(N)³ $(T), host $(gethostname()), backend $(tag)")
