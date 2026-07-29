@@ -90,6 +90,14 @@ the parity baseline and ambiguity check pass, and the suite is green.
   a stale exemption naming a nonexistent operation fails too. It found four operations audited
   nowhere while their own siblings were — `subtract!` beside `add!`, `skew!`/`dev!` beside `sym!`,
   `norm!` beside `det!`/`tr!`.
+  `metadata_sweep.jl` (decision 53: a **generated** sweep asserting that every field-producing
+  operation propagates the grid, spectral layout, element type and tensor order of its inputs, over
+  four folds and both element types — 1016 assertions with a free oracle, since it checks metadata
+  rather than numbers. It also varies *order-carrying argument slots independently*, the sampling the
+  rest of the suite lacks: every other fixture builds its field, point-values and plan from one `R`,
+  so the suite runs down the diagonal of a cube and two real bugs lived off it. Verified by mutation
+  — dropping the layout in `materialize_kernel` or in `similar_field`'s vector arity fails it, and
+  both of those survived the whole suite before it existed),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write gather, to a tolerance

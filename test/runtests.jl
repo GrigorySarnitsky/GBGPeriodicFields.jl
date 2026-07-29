@@ -7,6 +7,7 @@
 
 module FieldsTests;                include("fields.jl");                end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
+module MetadataSweepTests;         include("metadata_sweep.jl");        end
 module DifferentialOperatorsTests; include("differentialoperators.jl"); end
 module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end
