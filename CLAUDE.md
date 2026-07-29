@@ -763,6 +763,17 @@ explicitly checked (not "should work", *done and verified*):
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
+   **A benchmark run owns the machine** (`docs/PERFORMANCE.md` §1): nothing else on the host while it
+   runs — no `Pkg.test()`, no docs build, no second lane, and never a foreground job alongside a GPU
+   sweep. A device benchmark is host-bound at small grids, so competing work inflates it by a roughly
+   fixed amount per case; check `uptime` and GPU utilisation first and wait for an idle box rather
+   than measure into a busy one. **And always ANALYSE the run, never merely report that it finished**
+   — diff against the previous archive, say which operations moved and in which direction, and
+   explain every systematic movement before naming a cause. Two discriminators do most of the work:
+   an *additive* penalty (constant in absolute time, its ratio collapsing as the grid grows) is
+   overhead rather than arithmetic, and a real regression shows up on **both** backends over the same
+   commit range, not one. An unexplained uniform shift is a measurement artefact until proven
+   otherwise — usually contention, and on this project it has never once been the driver.
 3. **The four guiding docs** — `docs/ARCHITECTURE.md` (a decision-log entry **and** the relevant
    section), `docs/FORMALIZATION.md` (a typed entry for any nontrivial new/changed statement — re-verify
    the expansion against the new code, link its test), `docs/TESTING.md` (§2 layout + §7 coverage), and

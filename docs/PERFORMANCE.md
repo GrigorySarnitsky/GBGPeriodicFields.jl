@@ -10,7 +10,7 @@ that matters.
 
 ## 1. Philosophy
 
-**Memory-bound, GPU-first, measure-don't-guess.** Three principles set everything below.
+**Memory-bound, GPU-first, measure-don't-guess.** Four principles set everything below.
 
 - **The baseline is memory bandwidth, not flops.** Every operation here has *low arithmetic
   intensity* — a handful of floating-point operations per element moved (§2). So "fast" means
@@ -37,6 +37,21 @@ that matters.
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
   hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
   *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
+
+- **A benchmark run owns the machine, and a number is not a result until it is explained.** Two
+  obligations, both learned the hard way. **Run benchmarks alone** — no test suite, no documentation
+  build, no second lane, nothing else on the host, and *especially* not while a GPU sweep is in
+  flight. A device benchmark is host-bound at small grids (the synchronisation and, on the GPU path,
+  the per-sample GC), so competing work inflates it by a roughly fixed amount per case; that alone
+  invented a 2.2× "regression" at ``64^3``, an inflated canary baseline, and a phantom "environment
+  shift" attributed to a driver, all in one session. Check `uptime` and the GPU's utilisation before
+  starting, and wait rather than measure into a busy box. **Then read what came back.** Running a
+  sweep and reporting that it completed is not a measurement: compare against the previous archive,
+  state which operations moved and in which direction, and account for every systematic movement
+  before naming a cause. The cheapest discriminator is whether a penalty is *additive* or
+  *proportional* — a fixed offset that is constant in absolute time while its ratio collapses with
+  grid size is overhead, not arithmetic — and the second is whether the same commit range moved the
+  other backend, since a real code regression is not confined to one device.
 
 A scope note carried from the architecture: **platform optima diverge**, so every result below is
 reported per platform, never as a single number. (The **L²/measure reductions** — `integral`, `inner`,
