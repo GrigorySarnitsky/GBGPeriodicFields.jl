@@ -95,9 +95,12 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         "pre-rewrite measurements — retired hardware is not re-swept; every live column (both CPUs, ",
         "RX 7900 XTX, RTX 5070 Ti) is measured at the decision-38/39 rewrite. ",
         "The GPU sweep builds one (op-class, grid, element-type) at a time so ",
-        "the working set stays bounded (PERFORMANCE.md §7). **Regenerate** with ",
-        "`benchmark/characterize.sh` plus the per-card / per-CPU archive in `benchmark/results/` ",
-        "(PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was ",
+        "the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes ",
+        "you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand ",
+        "over **every** archive in `benchmark/results/`, this table's own column list included. Do ",
+        "not use `characterize.sh` for a multi-host report: it passes only the lanes it just ",
+        "produced to `report.jl`, so the columns belonging to the other host and to retired cards ",
+        "would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was ",
         "measured at, stamped into its JSON by `characterize.jl`: ", join(vintage_parts, "; "),
         ". ~10% jitter.\n")
 
