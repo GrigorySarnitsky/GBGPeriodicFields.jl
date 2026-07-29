@@ -31,6 +31,14 @@ agree, not that either is correct. Two kinds of oracle are used:
   projection — decision 42). Tested on randomized band-limited fields, they pin the discrete
   energy/entropy structure of the scheme.
 
+**A fixture must be able to falsify the claim its test makes.** A symmetric fixture cannot see an
+asymmetric defect, and a self-referential assertion — threaded against serial, device against host,
+compressed kernel against stored — cannot see a defect shared by both sides. Both classes shipped
+here: a gradient testset *named* for an index convention whose fixture had a diagonal gradient, and a
+tensor divergence with no analytic oracle at all and nine identical components. Where a convention is
+stated in a name or a docstring, the fixture must be capable of contradicting it — and since that is
+a mechanical property, `generated_analytic.jl` obtains it by construction rather than by care.
+
 **The public method set is the spec.** Two mechanisms enforce this:
 
 - the **parity baseline** (`test/method_parity.jl`) locks the method counts two ways. The
@@ -98,6 +106,14 @@ the parity baseline and ambiguity check pass, and the suite is green.
   so the suite runs down the diagonal of a cube and two real bugs lived off it. Verified by mutation
   — dropping the layout in `materialize_kernel` or in `similar_field`'s vector arity fails it, and
   both of those survived the whole suite before it existed),
+  `generated_analytic.jl` (decision 53: closed-form oracles over a fixture family that is
+  **asymmetric by construction** — every component/axis slot draws a distinct amplitude, frequency
+  and phase, so a transposed index, a swapped axis or a dropped term shows up by signature rather
+  than by luck of the fixture. One rule per operator, written once as a formula in the fixture's own
+  parameters and instantiated automatically, so the oracle stays free while the symmetry that hid
+  two real defects is gone. Verified by mutation: transposing `gradient`'s destination packing gives
+  12 failures, contracting `divergence`'s wrong tensor index gives 2 — both of which the whole suite
+  passed before),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write gather, to a tolerance

@@ -2696,3 +2696,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     list and the canary suite all hand-enumerated, and the dispatch-pair scan covering three of eight
     modules. Prefer deriving the set to be checked from the code — `methods`, `names`, the export
     list — over writing it down, wherever the derivation is possible.
+
+54. **Four mechanical guards, each proven by mutation** (2026-07-29). Decision 53 answered *what*
+    forces a future addition to be tested — almost nothing — and this is the response. Every guard
+    replaces a convention with something that fails on its own, and none was believed until a
+    deliberate defect was injected and the guard was watched to fail.
+
+    **Derived parity.** The enumerated baseline names 28 generics in two modules, so decisions 48, 49
+    and 51 each added public surface invisibly. A derived count per module, over every function that
+    module owns, now moves whenever any method does. *Proof:* an untested generic in `Reductions`
+    fails it while both enumerated baselines stay green.
+
+    **Ledger completeness.** `allocations.jl` and `pass_audit.jl` were hand-written tables; each now
+    derives its requirement from the export list, and an exemption must carry a reason. *Proof:* on
+    its first run it found four operations audited nowhere while their own siblings were —
+    `subtract!` beside `add!`, `skew!`/`dev!` beside `sym!`, `norm!` beside `det!`.
+
+    **Reachability.** `which(...)` answers "what would run for these types", not "does the public
+    entry point get there" — the gap decision 47's dead loop lived in. A subprocess now gives each
+    gated CPU twin a throwing override and calls the *public* operation. *Proof:* hoisting the
+    generic kernel branch above the family branches makes two twins dead code; the probe fails on
+    exactly those two while every `which(...)` assertion stays green.
+
+    **Generated sweeps.** Metadata propagation is checked over four folds for every field-producing
+    operation, with order-carrying argument slots varied *independently* — the sampling the rest of
+    the suite lacks, since every other fixture builds field, point-values and plan from one ``R`` and
+    so runs down the diagonal of a cube. And the analytic oracles are generated over a fixture family
+    that is asymmetric by construction. *Proof:* dropping the layout in `materialize_kernel` or in
+    `similar_field`'s vector arity fails the first; transposing `gradient`'s packing or contracting
+    `divergence`'s wrong index fails the second. All four survived the entire suite beforehand.
+
+    Two lessons generalize past the guards themselves. **A guard needs a guard:** the reachability
+    probe first reported a live twin as dead, because the override was less specific than the method
+    it meant to replace — so it now asserts each override actually owns a method, separating "stale
+    probe" from "dead twin". And **generate where the oracle is free.** Metadata and asymmetry cost
+    nothing per case, which is why those two sweeps are generated; an analytic oracle costs one rule
+    per *operator*, not per case, which is why that one is generated too. What genuinely resists
+    generation is small: a claim with no value oracle at all, and the ambient method table (whether
+    `Base` supplies a fallback that swallows an intended absence — the `extrema` leak of decision 52).
