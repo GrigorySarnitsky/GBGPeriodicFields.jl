@@ -2658,7 +2658,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *absence of a fallback* is not an absence; it has to be stated.
 
     **The audit's sharpest finding was fixture blindness, not missing tests.** The vector gradient's
-    testset is named for the index convention ``(\nabla u)_{ij} = \partial_j u_i``, but its fixture
+    testset is named for the index convention ``(\nabla u)_{ij} = \partial_{x_j} u_i``, but its fixture
     ``u = (\sin x, \sin y, \sin z)`` has a **diagonal** gradient, so transposing the whole operator
     passed silently — the name asserted a convention the fixture could not see. The tensor divergence
     was worse: it had **no analytic oracle at all**, its only value fixture being a tensor of nine
@@ -2673,3 +2673,26 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     asymmetric defect, and a self-referential assertion cannot see a defect shared by both sides. When
     an operation's convention is stated in a name or a docstring, the fixture must be able to falsify
     it.
+
+53. **The parity baseline is derived, not enumerated** (2026-07-29). The mutation audit's structural
+    half asked what would fail automatically if a new operation shipped with no tests, and the answer
+    was: almost nothing. Of eight enforcement layers only the documentation gate
+    (`checkdocs = :exports`) reacts to a new export at all; every other layer is a hand-maintained
+    list. The parity baseline is the sharpest case, because it is the one that *claims* to enforce
+    invariant 1: it counts 28 enumerated generic names filtered to two modules, so decisions 48, 49
+    and 51 each added public surface — `map!`/`map`, `cov`, the kernel builders — and neither the 206
+    nor the 122 moved.
+
+    Beside it now sits a **derived** baseline: one frozen count per module, over every function that
+    module owns, counted across the methods defined in that module. Any new method anywhere moves a
+    number, which must then be refrozen deliberately — the pass-audit protocol applied to the method
+    table. Verified by adding an untested generic to `Reductions` and confirming the derived baseline
+    fails while both enumerated ones stay silent. The enumerated baseline stays, because it localizes a
+    change to the generic that moved; the derived one exists to make sure *something* moves.
+
+    The distinction generalizes past this one file. A guard that enumerates what it checks can only be
+    as complete as the last person's memory, and this package's guards are otherwise good enough that
+    the gap is invisible: the same audit found the allocation ledger, the traffic ledger, the JET call
+    list and the canary suite all hand-enumerated, and the dispatch-pair scan covering three of eight
+    modules. Prefer deriving the set to be checked from the code — `methods`, `names`, the export
+    list — over writing it down, wherever the derivation is possible.

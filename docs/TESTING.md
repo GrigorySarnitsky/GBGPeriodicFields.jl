@@ -33,8 +33,13 @@ agree, not that either is correct. Two kinds of oracle are used:
 
 **The public method set is the spec.** Two mechanisms enforce this:
 
-- the **parity baseline** (`test/method_parity.jl`) locks the per-generic method counts
-  (206 public methods) so a code-generation change cannot silently add or drop a method;
+- the **parity baseline** (`test/method_parity.jl`) locks the method counts two ways. The
+  per-generic list (206 public methods) is *enumerated* — it names 28 generics in two modules — and
+  is therefore blind to anything not on the list: decisions 48, 49 and 51 each added public surface
+  that never moved it. Beside it sits a **derived** baseline (decision 53), one frozen count per
+  module over every function that module owns, so *any* new method anywhere moves a number and must
+  be refrozen deliberately — the pass-audit protocol applied to the method table. Prefer adding to
+  the derived one; the enumerated one stays because it localizes a change to the generic that moved;
 - **intentional-absence tests** assert that invalid combinations *do not exist*
   (`@test_throws MethodError`), symmetrically across representations: nonlinear products
   are absent in spectral (field×field, division by a scalar field, pointwise norms), and

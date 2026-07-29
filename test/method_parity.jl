@@ -57,3 +57,54 @@ pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
   end
 
 end
+
+
+# ---------------------------------------------------------------------------------------------
+# Derived module baselines (decision 53).
+#
+# The hand-written baseline above enumerates 28 generic NAMES filtered to two modules, so it is
+# blind to everything else: decisions 48, 49 and 51 each added public surface — `map!`/`map` in
+# FieldAlgebra, `cov` in Reductions, the kernel builders in Convolution — and neither the 206 nor
+# the 122 moved. A baseline that cannot see a new generic does not enforce "the public method set
+# is the spec"; it enforces it for the names someone remembered to list.
+#
+# This one is DERIVED rather than enumerated: for each module, every function that module owns,
+# counted over the methods defined IN that module. Adding a method anywhere moves a number, and the
+# number must then be refrozen deliberately — the pass-audit protocol, applied to the method table.
+# Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
+# `m.module === mod` filter, so loading HDF5 does not perturb the counts.
+const MODULE_BASELINE = (
+  FiberSections         = 107,
+  Fields                = 85,
+  FieldAlgebra          = 206,
+  DifferentialOperators = 79,
+  Convolution           = 53,
+  Points                = 61,
+  Interpolation         = 115,
+  Reductions            = 84,
+)
+
+function module_method_count(mod::Module)
+  total = 0
+  for name in names(mod; all = true)
+    isdefined(mod, name) || continue
+    f = getfield(mod, name)
+    f isa Function || continue
+    total += count(m -> m.module === mod, methods(f))
+  end
+  return total
+end
+
+@testset "derived module baselines (decision 53)" begin
+  for (name, expected) in pairs(MODULE_BASELINE)
+    mod = getfield(GBGPeriodicFields, name)
+    measured = module_method_count(mod)
+    # On a mismatch the message says what to do, because the fix is a judgement, not a repair:
+    # confirm the new methods are intended and tested, then refreeze in the same commit.
+    measured == expected ||
+      @info "module method count moved — refreeze deliberately, with the reason" target = name expected measured
+    @test measured == expected
+  end
+  # The hand-written FieldAlgebra total must agree with the derived one, or one of them is stale.
+  @test MODULE_BASELINE.FieldAlgebra == 206
+end
