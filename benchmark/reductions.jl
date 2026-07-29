@@ -20,6 +20,10 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   group["l2norm vec | $tag"]      = @benchmarkable l2norm($u)
   group["lpnorm vec Inf | $tag"]  = @benchmarkable lpnorm($u, Inf)     # norm(u) alloc + sup
   group["maximum scalar | $tag"]  = @benchmarkable maximum($s)
+  # The one reduction with a fiber-valued result above R = 0: it streams the vector field twice (a
+  # mean, then the centred outer product) and accumulates nine numbers, so it prices the second
+  # moment against the first that `mean vector` above measures.
+  group["cov vector | $tag"]      = @benchmarkable cov($u)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes
   group["weighted_inner vec | $tag"]     = @benchmarkable weighted_inner($us, $weight)       # fused ⟨f, |k|²·f⟩ (no filtered field)
   group["weighted_inner vec.vec | $tag"] = @benchmarkable weighted_inner($us, $vs, $weight)  # mixed ⟨f, |k|²·g⟩

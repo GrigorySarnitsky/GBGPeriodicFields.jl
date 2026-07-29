@@ -10,7 +10,7 @@
 using GBGPeriodicFields
 using BenchmarkTools
 using Random
-using Statistics: mean      # extended on sections in the Reductions module (not re-exported)
+using Statistics: mean, cov # extended on sections in the Reductions module (not re-exported)
 using KernelAbstractions: synchronize, get_backend
 import FFTW                 # the MEASURE planner flag for the CPU fft twins (fft.jl)
 

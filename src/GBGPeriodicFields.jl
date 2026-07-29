@@ -41,19 +41,28 @@ The umbrella assembles its public surface from the submodules below:
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
   kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
-  `assignment_window`, and `translation_kernel`.
+  `assignment_window`, `translation_kernel`, and `radial_kernel` for any other symbol of the squared
+  wavenumber. A kernel is held either as a scalar field in spectral representation or in one of the
+  compressed classes `SeparableKernel`, `RadialKernel` and `ProductKernel`, which store a closed-form
+  multiplier instead of its coefficients; the classes are interchangeable and agree bit for bit, and
+  `materialize_kernel` expands a compressed one into a field.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
-  representation, the matching allocator `similar_pointvalues`, and the HDF5 persistence pair
-  `write_points`/`read_points` (available once `HDF5` is loaded).
+  representation — including the same [`map!`](@ref)/[`map`](@ref) escape hatch, which needs no
+  representation split here because point-values carry none — the matching allocator
+  `similar_pointvalues`, and the HDF5 persistence pair `write_points`/`read_points` (available once
+  `HDF5` is loaded).
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
-  `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`/`std`/`var` and the order statistics
-  `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
+  `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`, the scalar-only `std`/`var` and the
+  covariance tensor `cov` that carries a vector field's second moment coordinate-free, and the order
+  statistics `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
   and the radial reductions `radial_spectrum` and `radial_correlation`. Each reduction also has a mapped
   form taking a leading fiber map, which reduces a nonlinear invariant without building it.
 
-[`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share.
+[`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share. It owns
+the fiber types [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/`FiberTensor3`/`FiberTensor4`, which
+name the value at one base point and so belong to neither base in particular.
 """
 module GBGPeriodicFields
 

@@ -82,7 +82,12 @@ the parity baseline and ambiguity check pass, and the suite is green.
   against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
   physical-only absence),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
-  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`),
+  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`, and the
+  **kernel storage classes** — a walk that takes every kernel-taking entry point (`convolve`,
+  `convolve!` with ``\alpha``/``\beta``, `helmholtz_projection`, `divergence`, `weighted_inner`) over
+  tensor orders 0/1/2 and requires each compressed class — `SeparableKernel`, `RadialKernel` and the
+  `ProductKernel` that composing across them gives — to agree **bitwise** with its materialized twin,
+  plus the composition cases pinning which class each pairing lands in),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
@@ -127,6 +132,9 @@ the parity baseline and ambiguity check pass, and the suite is green.
   two real defects is gone. Verified by mutation: transposing `gradient`'s destination packing gives
   12 failures, contracting `divergence`'s wrong tensor index gives 2 — both of which the whole suite
   passed before),
+  `public_surface.jl` (not a testset: the shared derivation of the package's public surface — every
+  function a package module owns methods of, extensions of external generics included — which the two
+  ledgers and the oracle registry each derive their required set from),
   `oracle_registry.jl` (decision 55: the recorded oracle provenance of every public value-returning
   operation — analytic, independent, property, relational or structural, each naming the file its
   strongest oracle lives in. An operation with no entry fails, and so does one covered only against

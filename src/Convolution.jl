@@ -7,10 +7,16 @@ filters a field against a fixed kernel — the spectral sibling of the different
 same-base counterpart of `Interpolation`. The reductions, this module, and the grid↔point transfer
 realize one integration structure in three roles. On the torus the only convolution is the periodic one, and by the convolution
 theorem it is exactly a coefficientwise product of the transforms, so the operation lives in spectral
-representation. A kernel is supplied by its transfer function as a scalar field in spectral
-representation, and a scalar kernel multiplies every fiber component, so one operation serves scalar,
-vector, and tensor fields. The operation is named `convolve` (allocating infix `⋆`) rather than `*`,
-because the coefficientwise product would read as a pointwise multiplication, which it is not.
+representation. A kernel is supplied by its transfer function, and a scalar kernel multiplies every
+fiber component, so one operation serves scalar, vector, and tensor fields. The operation is named
+`convolve` (allocating infix `⋆`) rather than `*`, because the coefficientwise product would read as
+a pointwise multiplication, which it is not.
+
+A kernel reaches an operation in one of two storage classes, and they are interchangeable at every
+entry point that takes a kernel: a **scalar field in spectral representation**, holding one
+coefficient per mode; or one of the **compressed** classes below, which hold the parameters of a
+closed-form multiplier and evaluate it per mode. The two agree bit for bit, so the choice is one of
+memory and speed rather than of result.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
 scalar field in spectral representation that the consumer builds from `FieldSpectralMultipliers` and
@@ -31,10 +37,19 @@ convolves with — the package supplies the operation, not the physical meaning.
   gridded point density.
 - [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the kernel that translates a field by a
   physical displacement, the shift theorem's phase.
-- [`SeparableKernel`](@ref) — the storage the two builders above return: a kernel that factors over the
-  axes, held as its three per-axis factors and evaluated per mode, so it costs kilobytes rather than a
-  field. It is applied exactly like a kernel held as a field, and `inv` gives the reciprocal that
-  deconvolves by it.
+- [`radial_kernel`](@ref) — build a kernel from any real symbol of the squared wavenumber, which is
+  the route for a symbol this module does not name (a smooth filter, a hyperviscosity, an integrating
+  factor).
+- [`SeparableKernel`](@ref) — the compressed storage the two builders above it return: a kernel that
+  factors over the axes, held as its three per-axis factors, so it costs kilobytes rather than a
+  field. `inv` gives the reciprocal that deconvolves by it.
+- [`RadialKernel`](@ref) — the compressed storage returned by the two band builders and by
+  `radial_kernel`: a kernel depending on the mode only through ``|k|^2``, held as its symbol and
+  evaluated per mode, so it stores no coefficients at all.
+- [`ProductKernel`](@ref) — the product of a radial and a separable kernel, which is what composing
+  across the two families gives; it applies in a single pass like either factor alone.
+- [`materialize_kernel`](@ref) — expand a compressed kernel into a scalar field in spectral
+  representation, for a consumer that wants to inspect or modify the coefficients.
 """
 module Convolution
 
@@ -536,13 +551,11 @@ Apply a [`SeparableKernel`](@ref) as one broadcast over the whole section, writi
 factors carry singleton axes, so they broadcast along the remaining mode axes **and** along the fiber,
 and one expression serves scalar, vector, and tensor fields exactly as the stored-kernel path does.
 
-Two things this shape gets right, both measured rather than assumed. Broadcasting indexes the factors
-**cartesian**, so no element pays the linear-to-cartesian conversion that dominated an earlier attempt
-to hand the lazy product to the linear-indexed fused executor (an integer division, emulated on a GPU:
-3.4× slower than a stored kernel at ``256^3``). And it leaves the launch **flat**, which a hand-written
-three-dimensional kernel does not: the folded axis is ``N/2 + 1`` long — 129 at ``256^3`` — so a
-three-dimensional launch fragments warps against a non-power-of-two row and loses roughly half the
-achievable bandwidth, where the flat broadcast stays coalesced.
+The shape is chosen for two measured reasons. Broadcasting indexes the factors **cartesian**, so no
+element pays a linear-to-cartesian conversion — an integer division, emulated on a GPU. And the launch
+stays **flat**, which keeps it coalesced: the folded axis is ``N/2 + 1`` modes long — 129 at ``256^3``
+— so a three-dimensional launch fragments warps against a row length that is not a multiple of the
+warp size.
 
 The kernel value is associated as the stored path associates it, so an axis-factored kernel and its
 materialized product agree bit for bit.

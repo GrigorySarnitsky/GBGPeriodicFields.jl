@@ -5,9 +5,13 @@ Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
 `PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
-design that does not depend on which base is used, and it groups four families of
-contributor-facing machinery:
+design that does not depend on which base is used, and it groups five families of
+machinery:
 
+- the **fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
+  [`FiberTensor4`](@ref), `StaticArrays` aliases naming the value at one base point, together with
+  [`fiber_shape`](@ref). A fiber is base-agnostic by construction, so it belongs here and both the
+  field and point layers take their fiber vocabulary from this module;
 - the [`AbstractFiberSection`](@ref) supertype, which both fields and point-values subtype;
 - the CPU-threading, fused-assignment primitive [`_assign!`](@ref) and its policy controls
   ([`with_threading`](@ref), [`threading_cutoff`](@ref), and [`set_threading_cutoff!`](@ref));
@@ -19,10 +23,9 @@ contributor-facing machinery:
   for multi-output fiberwise operations.
 
 The base-specific halves live elsewhere. `Fields` (grid) and `Points` (point set) hold the
-concrete types, the section-interface accessors (`field_data`, `_vector_component_data`, and
-`_tensor2_component_data`), `fiber_shape`, and the broadcast styles, each extending the accessors
-for its own types, while `FieldAlgebra` and `Points` stamp the method tables from the builders
-here.
+concrete section types, the section-interface accessors (`field_data`, `_vector_component_data`,
+and `_tensor2_component_data`) and the broadcast styles, each extending the accessors for its own
+types, while `FieldAlgebra` and `Points` stamp the method tables from the builders here.
 """
 module FiberSections
 

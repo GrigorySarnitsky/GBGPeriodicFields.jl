@@ -41,4 +41,12 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
                                grid, field_layout(s))
   group["convolve! vector ∘ separable | $tag"] = @benchmarkable (convolve!($uout, $u, $separable); bench_sync(field_data($uout)))
   group["convolve! vector ∘ stored    | $tag"] = @benchmarkable (convolve!($uout, $u, $stored); bench_sync(field_data($uout)))
+  # The radial class against the same baseline. It stores no coefficients at all — a symbol and three
+  # references — so it removes the same stream as the axis-factored form while paying one extra add
+  # and the symbol evaluation per mode. Its own stored twin is the baseline, so the two compressed
+  # classes are read against a common reference rather than against each other.
+  radial = spectral_band(s, m, 1, 3)
+  radial_stored = materialize_kernel(radial)
+  group["convolve! vector ∘ radial    | $tag"] = @benchmarkable (convolve!($uout, $u, $radial); bench_sync(field_data($uout)))
+  group["convolve! vector ∘ radial-stored | $tag"] = @benchmarkable (convolve!($uout, $u, $radial_stored); bench_sync(field_data($uout)))
 end

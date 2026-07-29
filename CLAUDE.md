@@ -828,7 +828,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **3180 tests** across 58 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in CUDA parity suite is **308**). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **4745 tests** across 72 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in CUDA parity suite is **328**). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
@@ -920,7 +920,19 @@ those are the usual rot. Then the mechanical bar:
    pair count** on a clustered point set (the clustering peak + the g→1 baseline). `test/eltype_genericity.jl`:
    a representative cross-section in Float64 and Float32, asserting element-type
    preservation. `test/method_parity.jl`:
-   the full 206-method field baseline + the 122-method point-value baseline + ambiguity check. `test/aqua.jl`: `Aqua.test_all`
+   the full 206-method field baseline + the 122-method point-value baseline + ambiguity check, plus the
+   **derived** per-module baseline of decision 53 (one frozen count per module over every function that
+   module owns, so any new method anywhere moves a number — the enumerated lists name 28 generics in
+   two modules and so missed decisions 48, 49 and 51 entirely). `test/metadata_sweep.jl`: a generated
+   sweep asserting every field-producing operation propagates layout, grid, order and element type,
+   over four folds and both element types, with order-carrying argument slots varied **independently**.
+   `test/generated_analytic.jl`: closed-form oracles over a fixture family asymmetric by construction —
+   every component and axis slot drawing a distinct amplitude, frequency and phase. `test/oracle_registry.jl`
+   (decision 55): the recorded oracle provenance of every public value-returning operation, failing on
+   an unclassified operation and on one covered only against other package operations; its domain, and
+   the two ledgers', comes from `test/public_surface.jl`, which derives the public surface from method
+   ownership rather than from `names` (the latter cannot see an extended generic such as `map`, `cov`
+   or the field arithmetic). `test/aqua.jl`: `Aqua.test_all`
    (ambiguities, unbound args, piracy, compat, stale deps). `test/jet.jl`: JET `@test_call`
    static analysis of the public ops (filtered to package modules). `test/adjointness.jl`: operator
    adjointness and structural identities (div=-gradᵀ, self-adjoint curl, negative-definite

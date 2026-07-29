@@ -448,7 +448,7 @@ CUDA-over-ROCm `Float64` radial gap, which is this kernel under RDNA3's CAS-loop
 
 **(o) An axis-factored kernel is bandwidth-bound like the stored kernel it replaces, so what decides
 its speed is how the per-axis product is INDEXED and how the launch is SHAPED — not how few streams it
-reads.** Decision 50 stores a separable kernel as three ``O(N)`` per-axis factors instead of an
+reads.** Decision 50 stores a separable kernel (`SeparableKernel`) as three ``O(N)`` per-axis factors instead of an
 ``O(N^3)`` field, which removes one field-sized stream from every application (three down to two). That
 alone predicts a speed-up; it does not deliver one, and the two failed attempts are the instructive
 part. Handing the lazy product to the **linear-indexed** fiberwise executor makes every element convert
@@ -496,6 +496,21 @@ kernel's speed until it took the cartesian routes as well, after which it is **1
 the stored kernel at ``256^3`` threaded. A kernel storage class is only as fast as the slowest entry
 point that accepts it.
 
+**The radial class of decision 51 (`RadialKernel`) takes the same two routes, for the same reason.** A kernel depending
+on the mode only through ``|k|^2`` stores no coefficients at all — a symbol closure and three references
+to the squared-wavenumber rows — so it removes the same field-sized stream, and its arithmetic is one
+extra add plus the symbol evaluation. Everything above transfers: a device takes the flat broadcast, a
+CPU takes the gated component-major twin, and both index the wavenumber axes cartesian. The one
+addition is an ordering constraint the separable class does not have. The squared wavenumber must be
+summed ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``, matching the left association the broadcast itself
+uses, or the compressed and stored paths agree only to rounding rather than bit for bit — and the suite
+asserts the stronger form.
+
+The symbol is a **closure, and it must capture values rather than a type**. Capturing an element type —
+writing `one(T)` inside the closure with `T` closed over — makes the captured object a `Type`, which is
+not a bitstype, and a GPU launch rejects it outright. Hoist the constants to values before the closure
+is built.
+
 Three rules generalize. **Reach for the broadcast route before a hand-written kernel on a device** —
 §9's execution-route policy, here vindicated by measurement, since Julia's broadcast machinery chose a
 better launch than the hand-rolled kernel did. **A broadcast over singleton-axis operands is the
@@ -522,10 +537,16 @@ size measures the streaming pass and not the `Float32` subnormal band (finding (
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
-paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost), the **interpolation/anterpolation
+paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost, and
+a builder returning a compressed kernel is timed on one factor rather than a field it never allocates).
+Each **compressed kernel class** is additionally swept *against its materialized twin* at the point of
+application — `convolve!` on a vector field with the kernel axis-factored, radial, and stored — since
+the classes compute the same coefficients and only their cost differs, so the stored form is the
+baseline that makes a storage change legible (finding (o)), the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
-**L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the fused
-multiplier-weighted `weighted_inner`, the spectral Parseval
+**L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the covariance
+tensor `cov` — the one reduction whose result is fiber-valued at ``R = 2``, so it streams a vector
+field and writes nine accumulators — the fused multiplier-weighted `weighted_inner`, the spectral Parseval
 `inner`, the spectral zero-mode `integral`/`mean` (an O(1) DC-coefficient read, not a streaming reduction),
 and the radial reductions `radial_spectrum` / `radial_correlation` plus the two-field co-spectra
 `radial_spectrum(f, g)` / `radial_correlation(f, g)` — a single scatter-add shell-binning pass and an

@@ -613,9 +613,10 @@ rule, so a future operation is placed by its *structure*, not by precedent-minin
 3. **Elementwise work whose coefficient depends on the mode's cartesian index** (wavenumbers)
    takes a **decision-38-shape pair**: a hand-written KA kernel for devices and a gated cartesian
    `@simd` loop for CPU, both from one set of per-mode expressions. (`gradient!`, `curl!`,
-   `symmetric_gradient!`, `helmholtz_projection!`, and the axis-factored kernel's application of
-   decision 50 — which pairs a *broadcast* device route with a gated CPU loop rather than a
-   hand-written kernel with one, for the measured reason in `PERFORMANCE.md` finding (o). The
+   `symmetric_gradient!`, `helmholtz_projection!`, and the compressed kernels' application —
+   decision 50's axis-factored class and decision 51's radial one, which take the same route for the
+   same reason: a *broadcast* device route paired with a gated CPU loop, rather than a hand-written
+   kernel with one, for the measurement in `PERFORMANCE.md` finding (o). The
    exponential family currently broadcasts over the lazy ``|k|^2`` and is the recorded candidate for
    this shape — the finding-(k) hoist.)
 4. **Reductions** take the **backend split of decisions 30/40**: the fixed midpoint tree on CPU —

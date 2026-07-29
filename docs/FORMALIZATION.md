@@ -319,7 +319,41 @@ two-operand form) is the distribution of a diagonal symbol over a linear combina
 as the left-hand side in one coefficientwise pass; with ``b = \texttt{dest}`` it is the filtered
 accumulate, alias-safe because the map is mode-local. ``\checkmark``
 
-**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33.
+**Kernel storage is a representation, not a meaning.** A kernel *is* the multiplier function
+``\hat g : K \to \mathbb C`` on the stored half-spectrum ``K``; how its values reach an operation is a
+storage choice, and the package carries four. Write ``\kappa_a`` for the signed wavenumber of axis
+``a`` and ``|k|^2 = \sum_a \kappa_a^2``:
+
+- a **field**, ``\hat g`` tabulated as a `ScalarFieldSpectral`, one coefficient per mode
+  (``O(N^3)`` storage);
+- **separable** (`SeparableKernel`), ``\hat g(k) = \prod_{a=1}^{3} g_a(\kappa_a)`` held as its three factors
+  ``g_a : \mathbb R \to \mathbb C`` tabulated per axis (``O(N)``) — the class `translation_kernel`
+  and `assignment_window` return, both being products over axes by construction;
+- **radial** (`RadialKernel`), ``\hat g(k) = \sigma(|k|^2)`` held as the real symbol ``\sigma : \mathbb R \to \mathbb R``
+  itself and evaluated per mode (``O(1)``) — the class `spectral_cutoff`, `spectral_band` and
+  `radial_kernel` return;
+- a **product** (`ProductKernel`), ``\hat g = \sigma(|k|^2) \prod_a g_a(\kappa_a)``, which is what
+  composing across the two compressed families gives.
+
+Two statements, each expanded against the code and tested:
+
+- **The classes are interchangeable.** For every entry point taking a kernel, and every storage class,
+  the computed coefficients are those of the same ``\hat g``. The associations are chosen to make this
+  hold **bitwise**, not merely to rounding: the radial route sums ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``
+  in the order the stored path's broadcast associates it, and the separable route multiplies its factors
+  in axis order. ``\checkmark``
+- **Composition is closed within a family, and lands in the product class across families.** Radial
+  composed with radial is radial, ``\sigma_1 \sigma_2`` being again a function of ``|k|^2``; separable
+  composed with separable is separable, per axis; and radial composed with separable is a `ProductKernel`,
+  since ``\sigma(|k|^2)`` admits no factorization over axes and ``\prod_a g_a`` no reduction to
+  ``|k|^2``. Composition therefore never forces a materialization. ``\checkmark``
+
+The reciprocal `inv` is the pointwise ``1/\hat g``, defined on a class where that is again closed —
+separable (per axis) and radial (in the symbol) — and it is what deconvolves: ``\hat g^{-1}\hat g = 1``
+wherever ``\hat g`` is nonzero, which is why a sharp cutoff has no inverse and a window has one on its
+support.
+
+**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33, 50, 51.
 **Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
 `circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, and
 the physical-space intentional absence (the ``\operatorname{sinc}^2`` window is checked by `test/rdf.jl`); and for `translation_kernel`, `circshift` on a *random* field (one
@@ -327,7 +361,9 @@ with Nyquist content, so the Nyquist factor is exercised), the exact `DirectDFT`
 nodes for a sub-cell displacement, and the reality check that the displaced half-spectrum survives a
 transform round trip (the inverse transform being the Hermitian projector); and for the decision-33
 pair, the stored-kernel equality oracles, the single-mode eigenvalue ``e^{c}\cos x``, and
-fused-equals-sequential for both two-operand forms.
+fused-equals-sequential for both two-operand forms; and for the storage classes, the walk over every
+kernel-taking entry point that requires each class to agree **bitwise** with the materialized product,
+together with the composition cases that pin which class each pairing lands in.
 
 ## Reductions (`Reductions`)
 

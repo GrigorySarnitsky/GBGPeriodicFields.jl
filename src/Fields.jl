@@ -10,8 +10,6 @@ The parts are:
 
   * **Grid and layout** — [`Grid3D`](@ref) describes the periodic domain geometry, and
     [`RealFourierLayout`](@ref) describes the real-to-complex transform layout.
-  * **Fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref), and
-    [`FiberTensor4`](@ref) are `StaticArrays` aliases naming one individual tensor value of a given order.
   * **Field types** — the scalar, vector, and second-order tensor field types each come in a
     physical-space and a spectral representation (higher orders exist as `TensorFieldPhysical{R}` /
     `TensorFieldSpectral{R}`).
@@ -23,6 +21,12 @@ The parts are:
     thread count `FFTW` bakes into plans built afterwards.
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
     spectral differential operators multiply by.
+  * **Spectral kernels** — [`AbstractSpectralKernel`](@ref) is the supertype of every coefficientwise
+    multiplier that is not stored as a field. It lives here, rather than with the kernels themselves,
+    so every module that accepts one names a single type; `Convolution` defines the concrete classes.
+  * **Allocation** — [`similar_field`](@ref) returns uninitialized storage carrying a reference field's
+    representation, tensor order, grid and backend, which is how an operation builds scratch or a
+    result without naming a concrete field type.
   * **Broadcasting** — a dotted assignment writes into the destination's storage, an out-of-place dotted
     expression allocates a like field in the same representation, and physical and spectral
     representations cannot be mixed in one broadcast.
