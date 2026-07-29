@@ -757,7 +757,9 @@ explicitly checked (not "should work", *done and verified*):
    materializer gets a bounded guard instead) **and a `test/pass_audit.jl` row** (decision 36: exact
    per-array element reads/writes measured via the `CountingArray` harness, frozen beside the fused
    ideal, a named holder for any gap — the layer that catches an unfused recompute, which every other
-   layer passes; `PASS_AUDIT_PRINT=1` regenerates).
+   layer passes; `PASS_AUDIT_PRINT=1` regenerates). A new **public value-returning** operation also
+   needs its `test/oracle_registry.jl` classification (decision 55) — and if the honest answer is
+   `:relational`, that is a finding to close, not a label to record.
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
@@ -1067,6 +1069,18 @@ those are the usual rot. Then the mechanical bar:
    eigenvalue `e^c·cos x` + sequential pairs (`test/convolution.jl`), pinned allocation-free, GPU parity
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
+
+**Oracle provenance is enforced (decision 55, 2026-07-29).** `docs/TESTING.md` §1 opened with
+*verify against independent ground truth, never against the code's own other path* for a year with
+nothing checking it, so `weighted_inner` shipped verified entirely against `inner`, `laplacian`,
+`gradient` and `convolve` — every assertion sound, none of them independent of the package. The
+mutation audit could not see it, because it asked *would a defect be caught?* (yes — a relational
+chain terminating in an anchored reference does catch defects) and never *does this operation have an
+oracle independent of other package operations?* `test/oracle_registry.jl` now records a provenance
+for every public value-returning operation, and fails on two conditions: an operation with no entry,
+and an operation covered only relationally. **Standing rule: a new public operation is unfinished
+until it is classified there** — the classification is the moment to notice it has no independent
+oracle, rather than a year later.
 
 **Mutation audit (decision 52, 2026-07-29).** The suite was audited by INJECTING defects in isolated
 worktrees, not by reading coverage. It found two live bugs (a  plan used above its own tensor order

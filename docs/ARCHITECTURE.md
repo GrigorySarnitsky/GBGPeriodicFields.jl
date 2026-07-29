@@ -2734,3 +2734,31 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     per *operator*, not per case, which is why that one is generated too. What genuinely resists
     generation is small: a claim with no value oracle at all, and the ambient method table (whether
     `Base` supplies a fallback that swallows an intended absence — the `extrema` leak of decision 52).
+
+55. **Oracle provenance is an enumerated axis** (2026-07-29). §1 of `docs/TESTING.md` has always
+    opened with the bar — *verify against independent ground truth, never against the code's own
+    other path* — and nothing enforced it. So `weighted_inner` shipped and lived its whole life
+    without a single direct value: every assertion compared it to `inner`, to `laplacian`, to
+    `gradient`, or to a sharp band applied by `convolve`. Each of those is a real test and each
+    catches real defects; together they establish that `weighted_inner` is correct exactly insofar as
+    four other operators are.
+
+    The mutation audit of decision 52 could not see this, and the reason is worth recording, because
+    it is the same shape as the coverage-axes gap decision 43 closed. That audit asked *would a
+    defect be caught?* — and for `weighted_inner` the answer is yes, because a relational chain
+    terminating in an anchored reference does catch defects. The question it never asked is *does
+    this operation have an oracle that is independent of other package operations?* An axis nobody
+    enumerates is invisible to a review, and a review is where this one was supposed to be caught.
+
+    Every public value-returning operation now carries a recorded provenance in
+    `test/oracle_registry.jl` — analytic, independent, property, relational, or structural — with the
+    file its strongest oracle lives in. Two assertions do the work: an operation with no entry fails
+    the suite, and an operation classified `:relational` fails it too. The second is the standing
+    bar rather than a snapshot; the set is empty today and the assertion is what keeps it empty.
+    *Proof:* a new exported operation in `Reductions`, tested nowhere, fails the registry.
+
+    This is the fourth instance of one pattern, and the pattern is now the point. Decision 43 found
+    a missing coverage axis, decision 48 shipped a bug through an axis waved off as not applicable,
+    decision 53 found the guards enumerating what they check, and this one finds a review enumerating
+    what it asks. The defect is never the individual gap — it is that the list of things to check was
+    written by hand and believed. Derive the list from the code, and make the missing entry fail.

@@ -11,7 +11,16 @@ makes is checked against something independent of the package.
 
 **Verify against independent ground truth, never against the code's own other path.**
 A test that compares one package routine to another package routine only proves they
-agree, not that either is correct. Two kinds of oracle are used:
+agree, not that either is correct.
+
+That bar is **enforced, not stated** (decision 55). Every public value-returning operation carries a
+recorded oracle provenance in `test/oracle_registry.jl`, and two assertions hold the line: an
+operation with no entry fails the suite, and so does one whose only coverage is other package
+operations. The rule existed here for a year before anything checked it, which is how
+`weighted_inner` came to be verified entirely against `inner`, `laplacian`, `gradient` and
+`convolve` — every assertion sound, and none of them a value derived independently of the package.
+
+Four kinds of oracle are used:
 
 - **Analytic oracles** — for the differential operators. A field is taken to spectral
   representation, the operator applied, and the result compared to a *known closed
@@ -19,6 +28,10 @@ agree, not that either is correct. Two kinds of oracle are used:
   ``\nabla \times (0, 0, \sin x) = (0, -\cos x, 0)``, a Helmholtz-projected field is
   divergence-free. These catch sign, axis, and scaling
   errors that a self-consistent round-trip would silently reproduce.
+- **Independent computation** — a direct evaluation written out in the test, taking no package
+  routine but the one under test: a per-point LU for `det`, an explicit ``\sqrt{\sum_i u_i^2}`` for
+  `norm`, a binned `circshift` autocorrelation for `radial_correlation`, an ``O(M^2)`` pair count for
+  the point RDF. Slow and obviously correct, which is the trade being made.
 - **Trusted reference** — for representation parity and for the GPU path. The CPU path
   is pinned by analytic oracles and the parity baseline; *then* another computation of
   the same quantity (the spectral form, or the same operation on a device array) is
@@ -114,6 +127,10 @@ the parity baseline and ambiguity check pass, and the suite is green.
   two real defects is gone. Verified by mutation: transposing `gradient`'s destination packing gives
   12 failures, contracting `divergence`'s wrong tensor index gives 2 — both of which the whole suite
   passed before),
+  `oracle_registry.jl` (decision 55: the recorded oracle provenance of every public value-returning
+  operation — analytic, independent, property, relational or structural, each naming the file its
+  strongest oracle lives in. An operation with no entry fails, and so does one covered only against
+  other package operations; the second assertion is the standing bar, not a snapshot of today),
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write gather, to a tolerance
