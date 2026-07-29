@@ -661,3 +661,53 @@ end
     @test_throws ArgumentError convolve(u, spectral_cutoff(o0, FieldSpectralMultipliers(o0), TP(3)))
   end
 end
+
+
+# Class-wide completeness over the kernel storage classes (external audit CODE-11). `materialize_kernel`
+# was advertised for "a compressed kernel" and defined for two of the three, so `ProductKernel` — an
+# exported class with a perfectly good lazy data expression — raised a MethodError. The name-level
+# guards could not see it: `materialize_kernel` had methods, so every completeness ledger read it as
+# covered. The denominator has to be the SUBTYPE set, derived, not the generic's name.
+@testset "every kernel storage class supports the class-wide operations (audit CODE-11)" begin
+  kernel_supertype = GBGPeriodicFields.Fields.AbstractSpectralKernel
+
+  grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
+  layout = RealFourierLayout()
+  reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))),
+                                  grid, layout)
+  multipliers = FieldSpectralMultipliers(reference)
+  radial = spectral_band(reference, multipliers, 1, 3)
+  separable = translation_kernel(reference, multipliers, (0.1, 0.2, 0.3))
+  specimens = Dict(RadialKernel => radial,
+                   SeparableKernel => separable,
+                   ProductKernel => convolve(radial, separable))
+
+  # The sweep is only as complete as its specimen list, so derive the requirement: a new compressed
+  # class fails here until it is given a specimen, which is the moment to notice it needs methods.
+  declared = Set{Any}()
+  for name in names(GBGPeriodicFields.Convolution; all = true)
+    isdefined(GBGPeriodicFields.Convolution, name) || continue
+    candidate = getfield(GBGPeriodicFields.Convolution, name)
+    candidate isa Type || continue
+    (candidate <: kernel_supertype && candidate !== kernel_supertype) || continue
+    push!(declared, Base.typename(candidate).wrapper)
+  end
+  @test isempty(setdiff(declared, Set(keys(specimens))))
+
+  field = VectorFieldSpectral(randn(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(1))),
+                              grid, layout)
+  for (class, kernel) in specimens
+    # Every class materializes, onto the right base, agreeing with its own lazy data.
+    stored = materialize_kernel(kernel)
+    @test stored isa ScalarFieldSpectral
+    @test field_grid(stored) == grid
+    @test field_layout(stored) == layout
+    @test field_data(stored) == collect(GBGPeriodicFields.Convolution._kernel_data(kernel))
+    # And every class applies, bitwise-identically to its materialized twin.
+    lazy_out = similar_field(field, Val(1))
+    stored_out = similar_field(field, Val(1))
+    convolve!(lazy_out, field, kernel)
+    convolve!(stored_out, field, stored)
+    @test field_data(lazy_out) == field_data(stored_out)
+  end
+end

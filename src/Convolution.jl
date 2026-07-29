@@ -132,6 +132,29 @@ Base.inv(kernel::ProductKernel{T}) where {T} =
   ProductKernel{T}(inv(kernel.first_kernel), inv(kernel.second_kernel))
 
 
+"""
+    materialize_kernel(kernel::ProductKernel)
+
+Evaluate a product kernel into a kernel held as a field. See the [`SeparableKernel`](@ref) method for
+when the trade is worth making; the same crossover governs, and the same warning applies — the result
+costs the full ``O(N^3)`` the compressed forms exist to avoid.
+"""
+function materialize_kernel(kernel::ProductKernel{T}) where {T}
+  # A product stores no base of its own: its factors carry the grid and layout, and a call has
+  # already checked they agree, so either factor answers for both.
+  materialized = materialize_kernel(kernel.first_kernel)
+  @_assign! field_data(materialized) .= _kernel_data(kernel)
+  return materialized
+end
+
+
+# Materializing a kernel already held as a field is a copy: the product path above materializes its
+# first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
+# it with the full product. A stored factor must therefore not be aliased into the result.
+materialize_kernel(kernel::ScalarFieldSpectral) =
+  ScalarFieldSpectral(copy(field_data(kernel)), field_grid(kernel), field_layout(kernel))
+
+
 # Cross-family and mixed-storage composition. The same-family methods above take precedence, so this
 # catches exactly the pairs that do not collapse — including a compressed kernel with a stored one.
 # NOTE the asymmetry, which is deliberate: only a COMPRESSED kernel may lead. A `ScalarFieldSpectral`
