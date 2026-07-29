@@ -38,8 +38,15 @@ using Statistics: mean, std, var, cov              # `Reductions` extends these;
 # Warm up `expr` once, then assert a single call allocates strictly less than `bound` bytes. A thrown
 # error (e.g. a mistyped signature in this file) becomes a failed test rather than aborting the testset,
 # so one bad line cannot mask every check after it.
+# Every audited call records the operation it exercised, so the completeness testset at the foot of
+# this file can be DERIVED from the export list rather than trusted to memory (decision 53).
+const AUDITED_OPS = Set{Symbol}()
+
 macro alloc_below(bound, expr)
+  callee = (expr isa Expr && expr.head === :call && expr.args[1] isa Symbol) ? expr.args[1] : nothing
+  record = callee === nothing ? :() : :(push!(AUDITED_OPS, $(QuoteNode(callee))))
   quote
+    $record
     local limit = $(esc(bound))
     try
       $(esc(expr))                              # warm-up call (compilation, plan/first-touch)
@@ -414,4 +421,26 @@ end
       @alloc_below bound radial_correlation(vs, vs, vplans)
     end
   end
+end
+
+
+# ---------------------------------------------------------------------------------------------
+# Completeness (decision 53). The audit above is a hand-written list, and a hand-written list is
+# only as complete as the last person's memory — which is exactly how the (compressed kernel ×
+# operator) quadrant of decision 50 ended up with no row at all. Derive the requirement instead:
+# every exported in-place operation must have been exercised above, or be named here with a reason.
+@testset "every exported in-place operation has an allocation row" begin
+  exempt = Dict(
+    :set_fft_threads!      => "a configuration setter, not a field operation: it re-plans FFTW and allocates by design",
+    :set_threading_cutoff! => "a configuration setter, not a field operation",
+  )
+  required = Set(n for n in names(GBGPeriodicFields)
+                 if endswith(String(n), "!") && isdefined(GBGPeriodicFields, n) &&
+                    getfield(GBGPeriodicFields, n) isa Function)
+  uncovered = setdiff(required, AUDITED_OPS, keys(exempt))
+  isempty(uncovered) ||
+    @error "in-place operations with no allocation row — add one, or exempt it with a reason" uncovered
+  @test isempty(uncovered)
+  # An exemption that no longer names a real operation is stale; drop it.
+  @test isempty(setdiff(keys(exempt), required))
 end

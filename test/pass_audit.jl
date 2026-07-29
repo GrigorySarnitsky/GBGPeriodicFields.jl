@@ -94,7 +94,12 @@ end
 Traffic(role, array, frozen) = Traffic(role, array, frozen, frozen, "")
 
 
+# Each row records the operation it measures, taken from the leading token of its name (the naming
+# convention this file already follows), so completeness can be derived rather than remembered.
+const AUDITED_OPS = Set{Symbol}()
+
 function audit(operation!, name::String, rows::Traffic...)
+  push!(AUDITED_OPS, Symbol(first(split(name))))
   foreach(r -> (r.array.reads[] = 0; r.array.writes[] = 0), rows)
   operation!()
   @testset "$name" begin
@@ -148,6 +153,8 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     a, b, d = vphys(), vphys(), vphys()
     audit(() -> add!(d, a, b), "add! vector",
       Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
+    audit(() -> subtract!(d, a, b), "subtract! vector",
+      Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
     audit(() -> combine!(d, 0.5, a, 2.0, b), "combine! (α·a + β·b)",
       Traffic("a", carr(a), (3P, 0)), Traffic("b", carr(b), (3P, 0)), Traffic("dest", carr(d), (0, 3P)))
     audit(() -> multiply!(d, 2.5, a), "multiply! by a real",
@@ -182,6 +189,15 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
     audit(() -> det!(sd, A), "det!",
       Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: cofactor re-reads)
       Traffic("dest", carr(sd), (0, P)))
+    # The siblings of the rows above. They were absent while add!/sym!/transpose!/det! were audited —
+    # the family asymmetry the mutation audit flagged, and the reason completeness is now derived.
+    audit(() -> skew!(B, A), "skew!",
+      Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+    audit(() -> dev!(B, A), "dev!",
+      Traffic("A", carr(A), (9P, 0)),                     # at ideal: decision 39 fused the trace into a register
+      Traffic("dest", carr(B), (0, 9P)))
+    audit(() -> norm!(sd, u), "norm!",
+      Traffic("u", carr(u), (3P, 0)), Traffic("dest", carr(sd), (0, P)))
   end
 
   # ---------------------------------------------------------------- map! (arbitrary φ via _fiberwise_pass!)
@@ -342,4 +358,27 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
       Traffic("output", point_values(gathered), (0, 3 * number_of_points)))
   end
 
+end
+
+
+# ---------------------------------------------------------------------------------------------
+# Completeness (decision 53), derived from the export list rather than remembered. The exclusions
+# below are the ones this file's header already argues for; anything else must have a row.
+@testset "every exported in-place operation has a traffic row" begin
+  exempt = Dict(
+    :to_physical!          => "the transform interior is FFTW's, and FFT plans reject wrapped storage",
+    :to_spectral!          => "same — the transform interior is out of scope (see the header)",
+    :anterpolate!          => "the scatter accumulates through Atomix, which a wrapper array cannot provide (header)",
+    :translation_kernel!   => "an O(N) per-axis rebuild, not field-shaped traffic",
+    :set_fft_threads!      => "a configuration setter, not a field operation",
+    :set_threading_cutoff! => "a configuration setter, not a field operation",
+  )
+  required = Set(n for n in names(GBGPeriodicFields)
+                 if endswith(String(n), "!") && isdefined(GBGPeriodicFields, n) &&
+                    getfield(GBGPeriodicFields, n) isa Function)
+  uncovered = setdiff(required, AUDITED_OPS, keys(exempt))
+  isempty(uncovered) ||
+    @error "in-place operations with no traffic row — add one, or exempt it with a reason" uncovered
+  @test isempty(uncovered)
+  @test isempty(setdiff(keys(exempt), required))
 end
