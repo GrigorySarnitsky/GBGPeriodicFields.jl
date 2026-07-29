@@ -353,3 +353,90 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
   end
 
 end
+
+
+# ---------------------------------------------------------------------------------------------
+# REACHABILITY of the gated CPU twins (decision 53, guard 3).
+#
+# `which(...)` above answers "if someone called this with these types, what would run?" — it does
+# NOT answer "does the public entry point get there?". Those are different, and the difference is
+# where decision 47's dead loop lived: the twin stayed a perfectly good dispatch candidate and simply
+# lost its only caller. The mutation audit reproduced the class six times over; reordering a branch
+# in `convolve!` makes two hand-written twins unreachable while every `which(...)` assertion here
+# still passes.
+#
+# This probes reachability directly. In a SUBPROCESS (so the definitions cannot leak into the rest of
+# the suite), each twin is given a more-specific override that throws a distinct sentinel; then the
+# PUBLIC operation is called. If the sentinel escapes, the twin is on the live path. If the call
+# succeeds, the twin is dead code and the guard fails — which is the whole point.
+@testset "gated CPU twins are REACHED from the public API, not merely resolvable" begin
+  probe = """
+  using GBGPeriodicFields
+  import KernelAbstractions as KA
+  const M = GBGPeriodicFields
+  const C = M.Convolution
+  const D = M.DifferentialOperators
+  const FS = M.FiberSections
+
+  # A distinct sentinel per twin, so one subprocess can probe them all without interference.
+  struct Reached <: Exception; which::String; end
+
+  C._separable_convolution_pass!(::KA.CPU, d, s, f1, f2, f3, a, b) = throw(Reached("separable_convolution"))
+  C._separable_combination_pass!(::KA.CPU, d, x, y, f1, f2, f3, a, b) = throw(Reached("separable_combination"))
+  C._radial_convolution_pass!(::KA.CPU, d, s, sym, q1, q2, q3, a, b) = throw(Reached("radial_convolution"))
+  D._helmholtz_projection_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, k, a, b) = throw(Reached("helmholtz"))
+  # NOTE the exact signature: an override must be at least as specific as the method it replaces, or
+  # Julia keeps the real one and the probe reports "NOTHING" — indistinguishable from dead code. The
+  # assertion below that every override lives in Main is what tells the two apart.
+  FS._fiberwise_pass!(::KA.CPU, f::F, targets::NTuple{NT, Any}, arrays, constants, a, b) where {F, NT} =
+    throw(Reached("fiberwise_pass"))
+
+  g = Grid3D((8, 6, 4), (2π, 2π, 2π)); l = RealFourierLayout()
+  s0 = ScalarFieldSpectral(zeros(ComplexF64, 5, 6, 4), g, l)
+  m = FieldSpectralMultipliers(s0)
+  u = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
+  b = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
+  d = M.Fields.similar_field(u, Val(1))
+  sep = translation_kernel(s0, m, (0.3, -0.7, 1.1))
+  rad = spectral_cutoff(s0, m, 3.0)
+  up = VectorFieldPhysical(rand(8, 6, 4, 3), g)
+  vp = VectorFieldPhysical(rand(8, 6, 4, 3), g)
+
+  # Guard the guard: every override must actually own a method, or a signature drift would make this
+  # testset report dead code where the truth is a stale probe.
+  for (f, nm) in ((C._separable_convolution_pass!, "separable_convolution"),
+                  (C._separable_combination_pass!, "separable_combination"),
+                  (C._radial_convolution_pass!, "radial_convolution"),
+                  (D._helmholtz_projection_modes!, "helmholtz"),
+                  (FS._fiberwise_pass!, "fiberwise_pass"))
+    any(m -> m.module === Main, methods(f)) || println(nm, "=STALE-PROBE")
+  end
+
+  # (public call, the twin it must reach)
+  probes = [
+    (() -> convolve!(d, u, sep),                     "separable_convolution"),
+    (() -> combine!(d, 0.5, u, 0.5, b, sep),         "separable_combination"),
+    (() -> convolve!(d, u, rad),                     "radial_convolution"),
+    (() -> helmholtz_projection!(d, u, m),           "helmholtz"),
+    (() -> cross(up, vp),                            "fiberwise_pass"),
+  ]
+  for (call, expected) in probes
+    reached = try
+      call(); "NOTHING"
+    catch e
+      e isa Reached ? e.which : "OTHER:" * string(typeof(e))
+    end
+    println(expected, "=", reached)
+  end
+  """
+  output = readchomp(`$(Base.julia_cmd()) --project=$(Base.active_project()) -e $probe`)
+  results = Dict(split(line, "=")[1] => split(line, "=")[2]
+                 for line in split(output, '\n') if occursin('=', line))
+  for twin in ("separable_convolution", "separable_combination", "radial_convolution",
+               "helmholtz", "fiberwise_pass")
+    haskey(results, twin) || error("probe produced no line for $twin; output was:\n$output")
+    results[twin] == twin ||
+      @error "a gated CPU twin is NOT reached from its public entry point — it is dead code" twin reached = results[twin]
+    @test results[twin] == twin
+  end
+end
