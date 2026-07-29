@@ -83,6 +83,13 @@ the parity baseline and ambiguity check pass, and the suite is green.
   audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
   sees; CPU-only, `PASS_AUDIT_PRINT=1` regenerates the cells),
+  **Both ledgers derive their own completeness** (decision 53): every exported in-place (`!`)
+  operation must have a row in `allocations.jl` and in `pass_audit.jl`, or be named in that file's
+  exemption list with a reason, the requirement being read from the export list at run time rather
+  than remembered. A new in-place operation therefore cannot ship without a deliberate decision, and
+  a stale exemption naming a nonexistent operation fails too. It found four operations audited
+  nowhere while their own siblings were — `subtract!` beside `add!`, `skew!`/`dev!` beside `sym!`,
+  `norm!` beside `det!`/`tr!`.
   `aqua.jl` (package checks),
   `threading.jl` (CPU threading; runs in both the default and a `JULIA_NUM_THREADS` lane; covers
   the `KernelAbstractions` kernels separately — bitwise for the disjoint-write gather, to a tolerance
