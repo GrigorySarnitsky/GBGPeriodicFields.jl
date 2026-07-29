@@ -1190,6 +1190,12 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 It is physical-space only.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
+  # The domain is 1 <= p <= Inf, where the expression below is a norm. Outside it the formula still
+  # evaluates and returns something plausible, which is the problem: p = -Inf was treated as a
+  # maximum, p = 0 gave exactly 1 for every input, and a negative p produced a finite number that
+  # satisfies no norm axiom. A quantity that is not a norm must not be returned by `lpnorm`.
+  (p >= 1 && !isnan(p)) ||
+    throw(ArgumentError("lpnorm requires 1 <= p <= Inf; got p = $p"))
   p == 2 && return l2norm(section)
   magnitude = field_data(LinearAlgebra.norm(section))      # pointwise fiber magnitude (fiberwise norm)
   isinf(p) && return maximum(magnitude)

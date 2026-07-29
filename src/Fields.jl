@@ -133,6 +133,13 @@ struct Grid3D{T<:AbstractFloat}
 
     all(size -> size > 0, grid_size) ||
       throw(ArgumentError("grid_size must be positive along every axis, got $grid_size"))
+    # A non-finite or non-positive extent is not a domain. Left unchecked, it propagated: the spacing
+    # became NaN or negative, every wavenumber built from it followed, and the failure surfaced far
+    # from its cause as a field of NaNs rather than as a rejected grid.
+    all(length -> isfinite(length) && length > 0, domain_size) ||
+      throw(ArgumentError("domain_size must be finite and positive along every axis, got $domain_size"))
+    all(isfinite, origin) ||
+      throw(ArgumentError("origin must be finite along every axis, got $origin"))
     implied_spacing = domain_size ./ T.(grid_size)
     all(axis -> isapprox(grid_spacing[axis], implied_spacing[axis]; rtol = sqrt(eps(T))), 1:3) ||
       throw(ArgumentError("grid_spacing $grid_spacing contradicts domain_size ./ grid_size = $implied_spacing; " *
@@ -864,6 +871,14 @@ _same_tensor_order(a, b) = field_tensor_order(a) == field_tensor_order(b)
 _same_grid(a, b) = field_grid(a) == field_grid(b)
 _same_layout(a, b) = field_layout(a) == field_layout(b)
 
+# Storage family, compared by the array type's name rather than through KernelAbstractions: the
+# comparison is then a compile-time property of the types, so it costs a checked operation nothing,
+# and `Fields` needs no launch-layer dependency to express it. `Array` and `CuArray` differ; a plain
+# array and a view of one do not, which is intended — a view shares the host's storage family and is
+# a legitimate operand.
+_storage_family(a) = Base.typename(typeof(parent(field_data(a)))).wrapper
+_same_backend(a, b) = _storage_family(a) === _storage_family(b)
+
 
 """
     _check_same_domain(a, b)
@@ -874,6 +889,13 @@ function _check_same_domain(a, b)
   _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
   _same_grid(a, b)        || throw(ArgumentError("field grids must be equal"))
   _same_layout(a, b)      || throw(ArgumentError("field Fourier layouts must be equal"))
+  # Storage family belongs in the domain check, not below it in the launch layer. Without it a
+  # host/device pair passes every structural test and then fails inside a broadcast, a
+  # KernelAbstractions launch, or an FFT multiplication — so the error a user sees depends on which
+  # operation they happened to call, and on the backend.
+  _same_backend(a, b) ||
+    throw(ArgumentError("fields must live in the same storage family; got " *
+                        "$(_storage_family(a)) and $(_storage_family(b))"))
   return nothing
 end
 
@@ -912,6 +934,46 @@ end
 function check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
   _check_same_domain(a, b)
   _same_tensor_order(a, b) || throw(ArgumentError("field tensor orders must be equal"))
+  return nothing
+end
+
+
+"""
+    _context_grid(object)
+
+The base an object was built for. Every object that participates in a spectral operation — a field, a
+multiplier set, a compressed kernel — answers this and its peer [`_context_layout`](@ref), so one
+predicate ([`_check_matching_context`](@ref)) can compare any two of them. `Convolution` extends both
+for the kernel classes, which is what lets a kernel be checked against a field or a multiplier set
+without either side knowing the other's field names.
+"""
+function _context_grid end
+
+
+"""
+    _context_layout(object)
+
+The spectral layout an object was built for, the peer of [`_context_grid`](@ref).
+"""
+function _context_layout end
+
+_context_grid(field::AbstractField) = field_grid(field)
+_context_layout(field::AbstractField) = field_layout(field)
+
+
+"""
+    _check_matching_context(a, b)
+
+Check that two participants in a spectral operation were built for the same base and spectral layout,
+throwing otherwise. This is the package's one context predicate: an operation that mixes objects from
+different domains is rejected at the entry point rather than producing a wrong answer or failing later
+inside a kernel.
+"""
+function _check_matching_context(a, b)
+  _context_grid(a) == _context_grid(b) ||
+    throw(ArgumentError("$(nameof(typeof(a))) and $(nameof(typeof(b))) were built for different grids"))
+  _context_layout(a) == _context_layout(b) ||
+    throw(ArgumentError("$(nameof(typeof(a))) and $(nameof(typeof(b))) were built for different spectral layouts"))
   return nothing
 end
 
@@ -1331,6 +1393,9 @@ end
 
 
 _multipliers_scalar_type(::FieldSpectralMultipliers{T}) where {T<:AbstractFloat} = T
+
+_context_grid(multipliers::FieldSpectralMultipliers) = multipliers.grid
+_context_layout(multipliers::FieldSpectralMultipliers) = multipliers.fourier_layout
 
 
 """

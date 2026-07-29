@@ -75,7 +75,7 @@ end
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
   FiberSections         = 108,   # +1: section_tensor_order, the type-level order accessor
-  Fields                = 85,
+  Fields                = 92,   # +2 _storage_family/_same_backend (CODE-06); +3 the context protocol
   FieldAlgebra          = 206,
   DifferentialOperators = 79,
   Convolution           = 55,   # +2: materialize_kernel for ProductKernel and ScalarFieldSpectral (audit CODE-11)

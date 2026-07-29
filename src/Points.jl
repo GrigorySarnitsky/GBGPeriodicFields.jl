@@ -173,6 +173,14 @@ struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPo
   data::A
 
   function TensorPointValues{R}(data::A) where {R, T<:AbstractFloat, A<:AbstractArray{T}}
+    # The three point-value types partition tensor order, exactly as the field types do: order 0 is
+    # `ScalarPointValues`, order 1 is `VectorPointValues`, and this type covers 2 and above. Without
+    # the bound `TensorPointValues{0}` and `{1}` constructed happily, so two concrete types could
+    # represent one order — which makes the documented taxonomy false and any dispatch written against
+    # it unreliable.
+    (R isa Integer && R >= 2) ||
+      throw(ArgumentError("TensorPointValues requires an integer tensor order R >= 2; got R = $R. " *
+                          "Use ScalarPointValues for order 0 and VectorPointValues for order 1"))
     ndims(data) == R + 1 ||
       throw(DimensionMismatch("TensorPointValues{$R} data must have $(R + 1) dimensions; got $(ndims(data))"))
     size(data)[2:end] == fiber_shape(Val(R)) ||

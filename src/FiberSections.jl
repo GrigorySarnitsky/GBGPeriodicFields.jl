@@ -154,7 +154,14 @@ operations off the thread pool, or lower it to thread smaller writes.
 The cutoff is a single process-wide setting, unlike [`with_threading`](@ref), whose override is
 dynamically scoped and therefore task-local. Set it once at startup rather than around a call.
 """
-set_threading_cutoff!(n::Integer) = (_SERIAL_CUTOFF[] = Int(n); Int(n))
+function set_threading_cutoff!(n::Integer)
+  # A cutoff below one is not a threshold: at zero an EMPTY destination counts as threadable, and the
+  # partitioner then forms a zero-length block and a zero-step range, so an operation on an empty
+  # field fails inside the scheduler for a reason the caller cannot see.
+  n >= 1 || throw(ArgumentError("the threading cutoff must be at least 1; got $n"))
+  _SERIAL_CUTOFF[] = Int(n)
+  return Int(n)
+end
 
 
 """

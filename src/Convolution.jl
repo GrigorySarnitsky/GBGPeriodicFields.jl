@@ -53,8 +53,10 @@ convolves with — the package supplies the operation, not the physical meaning.
 """
 module Convolution
 
-import ..Fields: _kernel_data, _check_kernel_compatibility   # extended for the kernels below
+import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the kernels below
+  _context_grid, _context_layout
 using ..Fields:
+  _check_matching_context,
   AbstractSpectralKernel,
   SpectralKernel,
   AbstractFieldSpectral,
@@ -130,6 +132,13 @@ end
 
 Base.inv(kernel::ProductKernel{T}) where {T} =
   ProductKernel{T}(inv(kernel.first_kernel), inv(kernel.second_kernel))
+
+
+# Every kernel class answers the context protocol, so a kernel can be checked against a field, a
+# multiplier set or another kernel without any of those knowing its field names. A product defers to
+# its first factor: a call has already required the factors to agree.
+_context_grid(kernel::ProductKernel) = _context_grid(kernel.first_kernel)
+_context_layout(kernel::ProductKernel) = _context_layout(kernel.first_kernel)
 
 
 """
@@ -267,11 +276,21 @@ is another [`RadialKernel`](@ref) and still costs no storage.
 Base.inv(kernel::RadialKernel{T}) where {T} =
   RadialKernel{T}(inv ∘ kernel.symbol, kernel.multipliers, kernel.grid, kernel.layout)
 
+_context_grid(kernel::RadialKernel) = kernel.grid
+_context_layout(kernel::RadialKernel) = kernel.layout
+
 
 # Composition inside the family: the symbols multiply, so the composite is another radial kernel.
 function convolve(first_kernel::RadialKernel{T}, second_kernel::RadialKernel{T}) where {T}
-  (first_kernel.grid == second_kernel.grid && first_kernel.layout == second_kernel.layout) ||
-    throw(ArgumentError("the radial kernels were built for different grids or spectral layouts"))
+  _check_matching_context(first_kernel, second_kernel)
+  # The composite keeps ONE multiplier set, so it may only collapse when both operands evaluate their
+  # symbols against the same wavenumbers. Equal grid and layout do not imply that: the six-array
+  # constructor accepts any arrays of the right lengths, so two kernels can share a context and hold
+  # different coordinates, and composing them would have evaluated the second symbol at the first's
+  # ``|k|^2`` — silently the wrong kernel. Identical multipliers collapse; anything else stays a
+  # ProductKernel, which retains both operands and costs one extra symbol evaluation per mode.
+  first_kernel.multipliers === second_kernel.multipliers ||
+    return ProductKernel{T}(first_kernel, second_kernel)
   first_symbol, second_symbol = first_kernel.symbol, second_kernel.symbol
   return RadialKernel{T}(squared -> first_symbol(squared) * second_symbol(squared),
                          first_kernel.multipliers, first_kernel.grid, first_kernel.layout)
@@ -388,9 +407,40 @@ The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a \\sig
     An `assignment_window` satisfies this on the resolved band, whereas a phase kernel does not in
     general (a displacement can drive an even axis's Nyquist factor to zero).
 """
-Base.inv(kernel::SeparableKernel{T}) where {T} =
-  SeparableKernel{T}(inv.(kernel.factor_1), inv.(kernel.factor_2), inv.(kernel.factor_3),
-                     kernel.grid, kernel.layout)
+function Base.inv(kernel::SeparableKernel{T}) where {T}
+  # A zero factor entry inverts to a non-finite reciprocal, which then contaminates every mode of that
+  # plane. The factors are O(N), so this is checked rather than documented — the reciprocal is the
+  # deconvolution, and deconvolving by a kernel that annihilates a mode is not a recoverable
+  # operation. (A `RadialKernel` cannot be checked the same way without evaluating its symbol over the
+  # whole band, so there the precondition stays documented; see its `inv` above.)
+  all(factor -> all(!iszero, factor), (kernel.factor_1, kernel.factor_2, kernel.factor_3)) ||
+    throw(ArgumentError("this kernel has a zero factor entry and is therefore not invertible; " *
+                        "deconvolving by it would divide an annihilated mode by zero"))
+  return SeparableKernel{T}(inv.(kernel.factor_1), inv.(kernel.factor_2), inv.(kernel.factor_3),
+                            kernel.grid, kernel.layout)
+end
+
+
+"""
+    inv(kernel::ScalarFieldSpectral)
+
+The coefficientwise reciprocal of a kernel held as a field, which is the kernel that deconvolves by it.
+
+A kernel with a zero coefficient annihilates that mode, so no kernel undoes it and this throws rather
+than returning a non-finite coefficient. The check is a full pass over the coefficients, which an
+explicit inversion can afford; the axis-factored [`SeparableKernel`](@ref) method checks its ``O(N)``
+factors instead, and the radial method documents the precondition it cannot test cheaply.
+"""
+function Base.inv(kernel::ScalarFieldSpectral)
+  data = field_data(kernel)
+  all(!iszero, data) ||
+    throw(ArgumentError("this kernel has a zero coefficient and is therefore not invertible; " *
+                        "deconvolving by it would divide an annihilated mode by zero"))
+  return ScalarFieldSpectral(inv.(data), field_grid(kernel), field_layout(kernel))
+end
+
+_context_grid(kernel::SeparableKernel) = kernel.grid
+_context_layout(kernel::SeparableKernel) = kernel.layout
 
 
 # Composing two separable kernels stays inside the family: the product factors axis by axis, so the
@@ -1235,6 +1285,14 @@ edges are the consumer's choice.
 function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
     wavenumber_low::Real, wavenumber_high::Real)
   T = field_scalar_type(reference)
+  # The band is defined by |k|, so the edges must be non-negative and ordered. Squaring them first
+  # hid both errors: a negative cutoff squared to a positive threshold and was silently reinterpreted
+  # as its absolute value, and a reversed pair produced an empty kernel that filtered everything away
+  # without complaint.
+  (isfinite(wavenumber_low) && isfinite(wavenumber_high)) ||
+    throw(ArgumentError("band edges must be finite, got ($wavenumber_low, $wavenumber_high)"))
+  0 <= wavenumber_low <= wavenumber_high ||
+    throw(ArgumentError("band edges must satisfy 0 <= low <= high, got ($wavenumber_low, $wavenumber_high)"))
   low_squared = T(wavenumber_low)^2
   high_squared = T(wavenumber_high)^2
   # Capture VALUES, never the type `T`: a closure that captures `Type{Float64}` is not a bitstype, and
@@ -1431,6 +1489,12 @@ the physical `offset` ``h`` as a three-tuple. The displacement convention and th
 """
 function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
     offset::NTuple{3, Real}) where {T}
+  # The allocating builder derives its context from the reference field; this one is handed a kernel
+  # and a multiplier set that were built independently, so it has to check they agree. Without the
+  # check, multipliers from another domain of the same axis lengths rewrote the kernel with the wrong
+  # physical phase and the wrong displacement — a silent corruption, since every subsequent
+  # application succeeds and returns a plausible field.
+  _check_matching_context(kernel, multipliers)
   axis_phase!(destination, squared_wavenumber, derivative_wavenumber, displacement) =
     (d = T(displacement);
      destination .= Complex{T}.(cos.(sqrt.(squared_wavenumber) .* d), .-sin.(derivative_wavenumber .* d)))
