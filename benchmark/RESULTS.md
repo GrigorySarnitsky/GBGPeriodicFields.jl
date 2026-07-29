@@ -1,11 +1,11 @@
 # Benchmark results
 
-Minimum time per operation; `—` = not measured for that column (a device / grid / element-type combination not run). Generated 2026-07-29 at commit `6b4715e9` on Julia 1.12.6, assembled on host `Enteropia` — a **multi-host** report (each device names its own host below). Columns are the supplied runs; grids and element types are in the row labels. **CPUs** — thread sweep 1/2/4/8: **i7-12700K** (8 P-cores — `Aiporetne`, 64³–256³) and **Ryzen 9800X3D** (8 Zen 5 cores / 16 threads, 96 MB 3D V-Cache — `Enteropia`, 64³–**512³** both element types — the CPU production band of ARCHITECTURE.md decision 37; RAM bounds nothing at 123 GB); both CPU columns are measured at the decision-38/39 rewrite — slab-threaded assignments and the fused one-pass kernels, so thread scaling is monotone (the retired inversion the previous archive carried is finding (l) in PERFORMANCE.md §4). Both CPU columns now carry post-decision-40 threaded reductions — the fixed-tree reduce scaling monotonically with thread count (e.g. `maximum scalar` 128³ Float64, 9800X3D: 442 → 59 µs t1→t8) — so the reductions cells are cross-host comparable. **GPUs**, newest last: **GTX 1070** (Pascal, CUDA, 8 GB — `Enteropia`, pre-swap, 64³/128³ only); **RX 6700 XT** (gfx1031, ROCm, 12 GB — `Aiporetne`, pre-swap, 64³–256³); **RX 7900 XTX** (gfx1100, ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the `transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ and the radial diagnostics' working set hits the 24 GB ceiling); **RTX 5070 Ti** (Blackwell sm_120, CUDA, 16 GB — `Enteropia`, 64³–256³ both types; 512³ exceeds 16 GB — the `mul!` tensor field alone is 4.5 GB). Each office box was upgraded in place, the pre-swap card kept for the record: `Enteropia` GTX 1070 → RTX 5070 Ti (both CUDA), `Aiporetne` RX 6700 XT → RX 7900 XTX (both ROCm). The pre-swap archive columns (GTX 1070, RX 6700 XT) keep their pre-rewrite measurements — retired hardware is not re-swept; every live column (both CPUs, RX 7900 XTX, RTX 5070 Ti) is measured at the decision-38/39 rewrite. The GPU sweep builds one (op-class, grid, element-type) at a time so the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand over **every** archive in `benchmark/results/`, this table's own column list included. Do not use `characterize.sh` for a multi-host report: it passes only the lanes it just produced to `report.jl`, so the columns belonging to the other host and to retired cards would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was measured at, stamped into its JSON by `characterize.jl`: `48b6254a @ 2026-07-22`: CPU 12700K t1, CPU 12700K t2, CPU 12700K t4, CPU 12700K t8; `5934a78c @ 2026-07-22`: GPU 7900XTX; `66ce3186 @ 2026-07-29`: CPU 9800X3D t1, CPU 9800X3D t2, CPU 9800X3D t4, CPU 9800X3D t8; `6b4715e9 @ 2026-07-29`: GPU 5070TI; unstamped (vintage in the prose above): GPU 1070, GPU 6700XT. ~10% jitter.
+Minimum time per operation; `—` = not measured for that column (a device / grid / element-type combination not run). Generated 2026-07-30 at commit `01241dc4` on Julia 1.12.6, assembled on host `Enteropia` — a **multi-host** report (each device names its own host below). Columns are the supplied runs; grids and element types are in the row labels. **CPUs** — thread sweep 1/2/4/8: **i7-12700K** (8 P-cores — `Aiporetne`, 64³–256³) and **Ryzen 9800X3D** (8 Zen 5 cores / 16 threads, 96 MB 3D V-Cache — `Enteropia`, 64³–**512³** both element types — the CPU production band of ARCHITECTURE.md decision 37; RAM bounds nothing at 123 GB); both CPU columns are measured at the decision-38/39 rewrite — slab-threaded assignments and the fused one-pass kernels, so thread scaling is monotone (the retired inversion the previous archive carried is finding (l) in PERFORMANCE.md §4). Both CPU columns now carry post-decision-40 threaded reductions — the fixed-tree reduce scaling monotonically with thread count (e.g. `maximum scalar` 128³ Float64, 9800X3D: 442 → 59 µs t1→t8) — so the reductions cells are cross-host comparable. **GPUs**, newest last: **GTX 1070** (Pascal, CUDA, 8 GB — `Enteropia`, pre-swap, 64³/128³ only); **RX 6700 XT** (gfx1031, ROCm, 12 GB — `Aiporetne`, pre-swap, 64³–256³); **RX 7900 XTX** (gfx1100, ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the `transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ and the radial diagnostics' working set hits the 24 GB ceiling); **RTX 5070 Ti** (Blackwell sm_120, CUDA, 16 GB — `Enteropia`, 64³–256³ both types; 512³ exceeds 16 GB — the `mul!` tensor field alone is 4.5 GB). Each office box was upgraded in place, the pre-swap card kept for the record: `Enteropia` GTX 1070 → RTX 5070 Ti (both CUDA), `Aiporetne` RX 6700 XT → RX 7900 XTX (both ROCm). The pre-swap archive columns (GTX 1070, RX 6700 XT) keep their pre-rewrite measurements — retired hardware is not re-swept; every live column (both CPUs, RX 7900 XTX, RTX 5070 Ti) is measured at the decision-38/39 rewrite. The GPU sweep builds one (op-class, grid, element-type) at a time so the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand over **every** archive in `benchmark/results/`, this table's own column list included. Do not use `characterize.sh` for a multi-host report: it passes only the lanes it just produced to `report.jl`, so the columns belonging to the other host and to retired cards would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was measured at, stamped into its JSON by `characterize.jl`: `48b6254a @ 2026-07-22`: CPU 12700K t1, CPU 12700K t2, CPU 12700K t4, CPU 12700K t8; `5934a78c @ 2026-07-22`: GPU 7900XTX; `66ce3186 @ 2026-07-29`: CPU 9800X3D t1, CPU 9800X3D t2, CPU 9800X3D t4, CPU 9800X3D t8; `6b4715e9 @ 2026-07-29`: GPU 5070TI; unstamped (vintage in the prose above): GPU 1070, GPU 6700XT. ~10% jitter.
 
 ## fft
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | to_physical scalar measure | Float32 128^3 | 4.029 ms | 2.979 ms | 2.144 ms | 2.286 ms | 2.771 ms | 1.477 ms | 839.518 μs | 546.426 μs | — | — | — | — |
 | to_physical scalar measure | Float32 256^3 | 70.669 ms | 39.135 ms | 41.008 ms | 38.313 ms | 34.606 ms | 21.723 ms | 14.555 ms | 12.274 ms | — | — | — | — |
 | to_physical scalar measure | Float32 512^3 | — | — | — | — | 301.261 ms | 188.250 ms | 146.140 ms | 134.079 ms | — | — | — | — |
@@ -73,8 +73,8 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 ## algebra
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | add! scalar | Float32 128^3 | 415.446 μs | 232.867 μs | 171.971 μs | 72.717 μs | 162.582 μs | 84.421 μs | 45.281 μs | 37.121 μs | 351.303 μs | 1.943 ms | 1.146 ms | 77.671 μs |
 | add! scalar | Float32 256^3 | 8.457 ms | 7.574 ms | 5.893 ms | 5.483 ms | 3.588 ms | 3.018 ms | 2.923 ms | 2.982 ms | — | 6.480 ms | 1.935 ms | 344.823 μs |
 | add! scalar | Float32 512^3 | — | — | — | — | 40.949 ms | 36.473 ms | 36.592 ms | 37.172 ms | — | — | 7.478 ms | — |
@@ -158,8 +158,8 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 ## operators
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | curl! vec->vec | Float32 128^3 | 5.644 ms | 2.884 ms | 1.570 ms | 1.284 ms | 3.219 ms | 1.685 ms | 830.868 μs | 427.065 μs | 697.807 μs | 2.544 ms | 1.114 ms | 86.111 μs |
 | curl! vec->vec | Float32 256^3 | 47.565 ms | 23.207 ms | 18.167 ms | 17.606 ms | 25.621 ms | 13.981 ms | 8.920 ms | 8.988 ms | — | 10.865 ms | 1.562 ms | 594.926 μs |
 | curl! vec->vec | Float32 512^3 | — | — | — | — | 232.927 ms | 113.258 ms | 82.809 ms | 83.581 ms | — | — | 6.384 ms | — |
@@ -235,8 +235,8 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 ## convolution
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | assignment_window | Float32 128^3 | 1.848 ms | 519.172 μs | 460.198 μs | 358.481 μs | 1.154 μs | 1.160 μs | 1.166 μs | 1.164 μs | 296.642 μs | 1.855 ms | 991.293 μs | 94.101 μs |
 | assignment_window | Float32 256^3 | 27.534 ms | 4.133 ms | 5.588 ms | 3.470 ms | 2.210 μs | 2.243 μs | 2.241 μs | 2.238 μs | — | 3.952 ms | 1.684 ms | 91.061 μs |
 | assignment_window | Float32 512^3 | — | — | — | — | 4.464 μs | 4.483 μs | 4.500 μs | 4.453 μs | — | — | 5.043 ms | — |
@@ -392,8 +392,8 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 ## transfer
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | anterpolate! CatmullRom | Float32 128^3 | 28.888 ms | 13.922 ms | 7.765 ms | 4.633 ms | 20.855 ms | 11.115 ms | 5.964 ms | 3.436 ms | 2.280 ms | 4.864 ms | 1.343 ms | 204.432 μs |
 | anterpolate! CatmullRom | Float32 256^3 | 436.132 ms | 225.143 ms | 120.356 ms | 75.195 ms | 183.815 ms | 93.677 ms | 46.962 ms | 25.047 ms | — | 17.932 ms | 4.044 ms | 2.895 ms |
 | anterpolate! CatmullRom | Float32 512^3 | — | — | — | — | 2.941 s | 1.517 s | 773.032 ms | 442.369 ms | — | — | — | — |
@@ -461,8 +461,8 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 ## reductions
 
-| operation | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
-|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
+| operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 1070 | GPU 6700XT | GPU 7900XTX | GPU 5070TI |
+|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
 | co-spectrum vec.vec | Float32 128^3 | 8.254 ms | 7.184 ms | 7.518 ms | 8.042 ms | 7.032 ms | 5.074 ms | 5.969 ms | 6.108 ms | 2.099 ms | 27.761 ms | 1.656 ms | 292.543 μs |
 | co-spectrum vec.vec | Float32 256^3 | 67.299 ms | 48.661 ms | 44.719 ms | 41.361 ms | 55.384 ms | 37.273 ms | 33.013 ms | 30.621 ms | — | 97.666 ms | 3.211 ms | 959.020 μs |
 | co-spectrum vec.vec | Float32 512^3 | — | — | — | — | 441.104 ms | 270.373 ms | 191.364 ms | 155.118 ms | — | — | — | — |

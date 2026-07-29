@@ -107,8 +107,13 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
 for class in CLASSES
   println(io, "## ", class, "\n")
   allkeys = sort(unique(reduce(vcat, [classkeys(g, class) for (_, g) in groups]; init = String[])))
-  println(io, "| operation | ", join(labels, " | "), " |")
-  println(io, "|", repeat(":--|", length(labels) + 1))
+  # A benchmark key is "<operation> | <workload>", so a data row below carries TWO label cells
+  # before the timings. The header must declare both: while it named only `operation` every table
+  # had one more data column than it declared, and a Markdown renderer resolves that by dropping
+  # the overflow — so the last backend column silently vanished from the rendered page even though
+  # the committed text held it.
+  println(io, "| operation | workload | ", join(labels, " | "), " |")
+  println(io, "|", repeat(":--|", length(labels) + 2))
   for key in allkeys
     println(io, "| ", key, " | ", join((cell(g, class, key) for (_, g) in groups), " | "), " |")
   end
