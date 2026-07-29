@@ -1,4 +1,5 @@
-# Exhaustive characterization run: all op-classes over grids 64³–256³, on the backend chosen by
+# Exhaustive characterization run: all op-classes over the default grids for the backend (CPU
+# 64³–512³, device 64³–256³ — see CHAR_SIZES below), on the backend chosen by
 # ARGS[1] ("cpu" default; "gpu"/"rocm" = AMDGPU; "cuda" = NVIDIA), saving a BenchmarkTools JSON to
 # ARGS[2]. Runs **one (size, element-type) at a time** (build → run → free) so peak memory stays
 # bounded to a single grid + type — required on a memory-limited GPU, where building all classes for
@@ -43,12 +44,21 @@ end
 include(joinpath(@__DIR__, "benchmarks.jl"))
 
 # Both element types and the standard grids by default; one (class, size, type) is built at a time
-# (see the loop) to bound memory. `CHAR_SIZES` / `CHAR_TYPES` override the grids / element types —
-# e.g. `CHAR_SIZES=512 CHAR_TYPES=Float32` runs only the 512³ Float32 point (the large-grid sweep
-# that would OOM in Float64 even on a 24 GB card — the heavy classes' working sets approach the
-# ceiling and a HIP OOM segfaults rather than erroring; see docs/PERFORMANCE.md §7).
+# (see the loop) to bound memory. `CHAR_SIZES` / `CHAR_TYPES` override the grids / element types.
+#
+# The default grid set is BACKEND-DEPENDENT, and deliberately so. A CPU host carries the
+# beyond-VRAM grids — that is the CPU path's tuning target (decision 37) — so 512³ belongs in its
+# default sweep rather than behind an override. It sat behind one until 2026-07-29, which meant the
+# band existed in `RESULTS.md` and in no invocation anyone would repeat, so a routine run silently
+# DROPPED it from an archive that already carried it. That is exactly what happened.
+#
+# A device stops at 256³ because 512³ in `Float64` exceeds even a 24 GB card (the heavy classes'
+# working sets approach the ceiling, and a HIP OOM segfaults rather than erroring; see
+# docs/PERFORMANCE.md §7), and 16 GB cannot hold it at all. A 512³ GPU point is therefore an
+# explicit lane: `CHAR_SIZES=512 CHAR_TYPES=Float32 CHAR_SKIP=transfer,reductions`.
+const DEFAULT_CHAR_SIZES = USEGPU ? (64, 128, 256) : (64, 128, 256, 512)
 const CHAR_SIZES = haskey(ENV, "CHAR_SIZES") ?
-  Tuple(parse.(Int, split(ENV["CHAR_SIZES"], ","))) : (64, 128, 256)
+  Tuple(parse.(Int, split(ENV["CHAR_SIZES"], ","))) : DEFAULT_CHAR_SIZES
 _char_type(s) = s == "Float64" ? Float64 : s == "Float32" ? Float32 :
   error("CHAR_TYPES entry must be Float64 or Float32, got $(repr(s))")
 const CHAR_TYPES = haskey(ENV, "CHAR_TYPES") ?

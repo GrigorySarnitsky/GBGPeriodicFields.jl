@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Exhaustive characterization → benchmark/RESULTS.md. Sweeps the CPU thread count over powers of two
-# (1 2 4 8) and runs one GPU, each over grids 64³–256³ and all op-classes, then assembles a Markdown
+# (1 2 4 8) and runs one GPU, over each backend's default grids (CPU 64³–512³, device 64³–256³ —
+# a device cannot hold 512³ in Float64) and all op-classes, then assembles a Markdown
 # report. Raw JSON (benchmark/results/) is gitignored; RESULTS.md is the readable artifact. Takes
 # ~15–30 min. See docs/PERFORMANCE.md §6.
 #

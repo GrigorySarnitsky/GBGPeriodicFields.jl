@@ -41,7 +41,8 @@ julia --project=benchmark/gpu/rocm benchmark/gpu/rocm/runbenchmarks.jl
 ## The exhaustive report
 
 `runbenchmarks.jl` above is the quick, regression-sensitive run (grids 64³/128³). For the **full
-matrix** — the CPU thread sweep (1/2/4/8) and the GPU, each over grids 64³–256³ and every op-class,
+matrix** — the CPU thread sweep (1/2/4/8) and the GPU, over each backend's default grids (CPU
+64³–512³, device 64³–256³) and every op-class,
 run one grid size at a time to bound memory — use the driver:
 
 ```sh

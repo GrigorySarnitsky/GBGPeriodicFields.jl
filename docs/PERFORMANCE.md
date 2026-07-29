@@ -590,8 +590,9 @@ record the numbers here. Adding a platform = mirror `benchmark/gpu/rocm/` (a `Pr
 
 **Two scales.** The **tracked SUITE** (`runbenchmarks.jl`, grids 64³/128³) is the quick,
 regression-sensitive run used with `save`/`judge` above. The **exhaustive characterization**
-(`benchmark/characterize.sh`) runs the full matrix — every op-class (including FFT) over grids
-**64³–256³**, on the **CPU thread sweep 1/2/4/8** (powers of two up to the performance cores) and the
+(`benchmark/characterize.sh`) runs the full matrix — every op-class (including FFT) over each
+backend's default grids (**CPU 64³–512³**, **device 64³–256³**, since a device cannot hold 512³ in
+`Float64`), on the **CPU thread sweep 1/2/4/8** (powers of two up to the performance cores) and the
 **GPU** — building **one (grid size, element type) at a time** to bound memory (a 256³ `Float64`
 tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows the 12 GB GPU — gap 5),
 and assembles it into the committed report
@@ -646,7 +647,7 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 **Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
-(`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at grids 64³–256³,
+(`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),
 across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
 CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
 a 512³ `Float32` point for the bandwidth-bound classes, and the **9800X3D sweep covers 64³–512³, both
