@@ -29,6 +29,7 @@
 using Test
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
+using Statistics: mean, var      # extended on sections in Reductions (not re-exported)
 
 const GRID_POINTS = 16                      # Nyquist = 8; every frequency below stays exactly resolved
 const PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,
@@ -120,6 +121,44 @@ tensor_divergence(i) = (x, y, z) -> sum((n = tslot(i, j, j); amplitude(n) * freq
         expected = (x, y, z) -> (vector_gradient(i, j)(x, y, z) + vector_gradient(j, i)(x, y, z)) / 2
         @test isapprox(field_data(S)[:, :, :, i, j], reference(expected); rtol = rtol, atol = atol)
       end
+
+      # ---- the L²/measure reductions, against CLOSED FORMS rather than against each other ----
+      #
+      # This is the gap this family closes for the reductions. Every `weighted_inner` assertion in
+      # `reductions.jl` is RELATIONAL — it compares against `inner`, `laplacian`, `gradient`,
+      # `convolve`, or itself. Those chains do terminate in an independent reference (the physical
+      # `inner` is checked against a direct Σ|u|²/N), so they are not circular; but a defect shared
+      # by two members of a chain is invisible to it, and the rfft half-spectrum weight α(k) is
+      # shared by exactly the routines being compared.
+      #
+      # On this family the closed forms are exact and elementary, because every cross term vanishes:
+      # two terms on the same axis carry different frequencies, and two terms on different axes are
+      # independent with zero mean. So ⟨sin²⟩ = ½ gives
+      #     ⟨|u|²⟩       = Σᵢₐ A[i,a]² / 2
+      #     ⟨∇u : ∇u⟩    = Σᵢₐ (A[i,a]·q[i,a])² / 2        (each ∂ₐ brings down its own q)
+      # and both are computed here from the fixture's parameters, touching no other package routine.
+      inner_exact = sum(amplitude(vslot(i, a))^2 / 2 for i in 1:3, a in 1:3)
+      dirichlet_exact = sum((amplitude(vslot(i, a)) * frequency(vslot(i, a)))^2 / 2 for i in 1:3, a in 1:3)
+      scalar_inner_exact = sum(amplitude(a)^2 / 2 for a in 1:3)
+
+      @test isapprox(inner(u, u), TP(inner_exact); rtol = rtol)                    # physical
+      @test isapprox(inner(û, û), TP(inner_exact); rtol = rtol)                    # spectral, via Parseval
+      @test isapprox(l2norm(u), sqrt(TP(inner_exact)); rtol = rtol)
+      @test isapprox(inner(s, s), TP(scalar_inner_exact); rtol = rtol)
+      @test isapprox(weighted_inner(û, radial_kernel(identity, ŝ, m)), TP(dirichlet_exact); rtol = rtol)
+      # every component has zero mean (every frequency is ≥ 1), so the variance IS the energy
+      @test all(abs.(mean(u)) .< atol)
+      @test isapprox(var(s; corrected = false), TP(scalar_inner_exact); rtol = rtol)
+      @test isapprox(integral(s), TP(0); atol = atol * prod(g.domain_size))
+      # a sharp band keeps exactly the terms whose frequency lies in it — again from the parameters
+      for (lo, hi) in ((TP(0), TP(2.5)), (TP(2.5), TP(10)))
+        in_band = sum((n = vslot(i, a); lo <= frequency(n) <= hi ? amplitude(n)^2 / 2 : 0.0)
+                      for i in 1:3, a in 1:3)
+        @test isapprox(weighted_inner(û, spectral_band(ŝ, m, lo, hi)), TP(in_band); rtol = rtol)
+      end
+      # and the radial spectrum's shells must sum to the same closed form
+      _, spectrum = radial_spectrum(û, m)
+      @test isapprox(sum(spectrum), TP(inner_exact); rtol = rtol)
 
       # every slot of ∇u is distinguishable — the property that makes the assertions above falsifying
       signatures = [maximum(abs, field_data(G1)[:, :, :, i, j]) for i in 1:3, j in 1:3]
