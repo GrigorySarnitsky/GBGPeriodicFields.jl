@@ -217,3 +217,53 @@ using Random
     end
   end
 end
+
+
+# Persistence is a CONTRACT, not a best effort (external audit CODE-08, CODE-09).
+@testset "HDF5: the grid round-trips exactly, and the schema is enforced" begin
+  # CODE-08: the spacing was not stored, only recomputed. A grid built through the four-argument
+  # constructor may legitimately hold a spacing that is only APPROXIMATELY domain_size ./ grid_size
+  # (decision 45 accepts that), so a reload silently returned a different grid — and with it every
+  # interpolation position and cell measure. The fixture has to be a grid the convenience constructor
+  # cannot produce, or it proves nothing.
+  sizes = (8, 8, 8)
+  extent = (2π, 2π, 2π)
+  canonical = extent ./ sizes
+  perturbed = ntuple(d -> nextfloat(nextfloat(canonical[d])), 3)
+  @test perturbed != canonical
+  grid = Grid3D(sizes, extent, perturbed, (0.0, 0.0, 0.0))
+  field = ScalarFieldPhysical(rand(sizes...), grid)
+
+  mktempdir() do dir
+    path = joinpath(dir, "exact.h5")
+    h5open(path, "w") do io; write_field(io, "f", field); end
+    back = h5open(path, "r") do io; read_field(io, "f"); end
+    @test field_grid(back).grid_spacing == perturbed          # bit-for-bit, not merely ≈
+    @test field_grid(back) == grid
+    @test field_data(back) == field_data(field)
+  end
+
+  # CODE-09: every self-describing attribute is redundant with the type tag or the data, so a
+  # disagreement means the file is not what it claims. Each tampering below used to be accepted.
+  plain = ScalarFieldPhysical(rand(4, 4, 4), Grid3D((4, 4, 4), (2π, 2π, 2π)))
+  tamperings = (("version", 99),
+                ("representation", "spectral"),
+                ("eltype", "Float32"),
+                ("tensor_order", 2))
+  mktempdir() do dir
+    for (attribute, value) in tamperings
+      path = joinpath(dir, "$(attribute).h5")
+      h5open(path, "w") do io; write_field(io, "f", plain); end
+      h5open(path, "r+") do io
+        HDF5.delete_attribute(io["f"], attribute)
+        HDF5.attrs(io["f"])[attribute] = value
+      end
+      @test_throws ArgumentError h5open(path, "r") do io; read_field(io, "f"); end
+    end
+    # And an untampered file still reads, so the validation rejects only what it should.
+    path = joinpath(dir, "clean.h5")
+    h5open(path, "w") do io; write_field(io, "f", plain); end
+    back = h5open(path, "r") do io; read_field(io, "f"); end
+    @test field_data(back) == field_data(plain)
+  end
+end

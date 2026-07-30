@@ -80,7 +80,7 @@ const MODULE_BASELINE = (
   DifferentialOperators = 79,
   Convolution           = 55,   # +2: materialize_kernel for ProductKernel and ScalarFieldSpectral (audit CODE-11)
   Points                = 61,
-  Interpolation         = 115,
+  Interpolation         = 117,   # +2: the NUFFT plan context + transfer colocation (CODE-04, CODE-05)
   Reductions            = 88,   # +4: _same_base_kind (3 methods) + _check_contractible (audit CODE-01)
 )
 

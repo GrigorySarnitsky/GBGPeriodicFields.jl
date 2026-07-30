@@ -59,6 +59,11 @@ function write_field(parent::HDF5.H5DataStore, name::AbstractString, field::Abst
   a["grid_size"] = collect(grid.grid_size)
   a["domain_size"] = collect(grid.domain_size)
   a["origin"] = collect(grid.origin)
+  # The spacing is stored, not left to be recomputed. A Grid3D built through the four-argument
+  # constructor may legitimately hold a spacing that only APPROXIMATELY equals domain_size ./ grid_size
+  # (decision 45 accepts that), so recomputing it on read silently returned a different grid — and
+  # every interpolation position and cell measure with it.
+  a["grid_spacing"] = collect(grid.grid_spacing)
   a["fft_dims"] = collect(field_layout(field).fft_dims)
   return g
 end
@@ -93,6 +98,7 @@ function read_field(parent::HDF5.H5DataStore, name::AbstractString)
       "read_field: field group \"$name\" is missing the `$attribute` attribute — the group is incomplete"))
   end
   data = read(g["data"])
+  _validate_field_schema(g, name, tag, data)
   grid = _reconstruct_grid(g, real(eltype(data)))
   layout = RealFourierLayout(Tuple(Int.(attrs(g)["fft_dims"])))
   if tag == "GBGPeriodicFields.ScalarFieldPhysical"
@@ -113,13 +119,54 @@ function read_field(parent::HDF5.H5DataStore, name::AbstractString)
 end
 
 
-# The grid's real element type `T` is taken from the stored data (so it matches the field exactly); the
-# grid spacing is recomputed by the `Grid3D` constructor, bit-for-bit as on the original.
+# The group's self-describing attributes are CHECKED, not merely written. They were recorded for a
+# human or an external tool and then ignored on read, so the package did not enforce its own schema: a
+# file from a future version was accepted, and a group whose `representation`, `eltype` or
+# `tensor_order` contradicted its type tag and its data reconstructed silently into whatever the tag
+# said. Every attribute here is redundant with the tag or the data, which is exactly why a disagreement
+# means the file is not what it claims to be.
+function _validate_field_schema(g, name, tag, data)
+  a = attrs(g)
+  if haskey(a, "version")
+    version = Int(a["version"])
+    version <= SCHEMA_VERSION || throw(ArgumentError(
+      "read_field: group \"$name\" declares schema version $version, but this package understands " *
+      "up to $SCHEMA_VERSION — the file was written by a newer version"))
+  end
+  if haskey(a, "representation")
+    declared = a["representation"]
+    implied = occursin("Spectral", tag) ? "spectral" : "physical"
+    declared == implied || throw(ArgumentError(
+      "read_field: group \"$name\" declares representation \"$declared\" but its type tag \"$tag\" is $implied"))
+  end
+  if haskey(a, "eltype")
+    declared = a["eltype"]
+    string(real(eltype(data))) == declared || throw(ArgumentError(
+      "read_field: group \"$name\" declares eltype \"$declared\" but its data carries " *
+      "$(real(eltype(data)))"))
+  end
+  if haskey(a, "tensor_order")
+    declared = Int(a["tensor_order"])
+    # A field's data is the three base axes plus one axis per fiber index.
+    implied = ndims(data) - 3
+    declared == implied || throw(ArgumentError(
+      "read_field: group \"$name\" declares tensor_order $declared but its data has $(ndims(data)) " *
+      "dimensions, implying order $implied"))
+  end
+  return nothing
+end
+
+# The grid's real element type `T` is taken from the stored data, so it matches the field exactly. The
+# spacing is read back when the file carries it, which makes the round trip exact even for a grid whose
+# spacing is only approximately domain_size ./ grid_size; a file written before the attribute existed
+# has it recomputed, which reproduces what that writer stored.
 function _reconstruct_grid(g, ::Type{T}) where {T<:AbstractFloat}
   grid_size = Tuple(Int.(attrs(g)["grid_size"]))
   domain_size = Tuple(T.(attrs(g)["domain_size"]))
   origin = Tuple(T.(attrs(g)["origin"]))
-  return Grid3D(grid_size, domain_size; origin = origin)
+  haskey(attrs(g), "grid_spacing") || return Grid3D(grid_size, domain_size; origin = origin)
+  grid_spacing = Tuple(T.(attrs(g)["grid_spacing"]))
+  return Grid3D(grid_size, domain_size, grid_spacing, origin)
 end
 # --- the point layer: same shape as the field methods above. A point object has no grid and no
 # representation, so its group carries only the array, the element type, the point count, and — for

@@ -57,6 +57,8 @@ module Interpolation
 using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
 using ..FiberSections: _assign!, @_assign!
+import ..Fields: _context_grid, _context_layout      # extended for the NUFFT plan below
+using ..Fields: _check_matching_context
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
@@ -447,6 +449,34 @@ end
 
 
 """
+    _check_transfer_colocation(field, points, values)
+
+Check that the three operands of a grid↔point transfer carry the same scalar type and live in the same
+storage family, throwing otherwise.
+
+A transfer selects its launch backend from the field and then hands the point and value arrays to that
+one kernel, so a host/device mixture reaches a launch that can only see one of them, and a mixed
+precision reaches an internal locator that requires one scalar type. Both are public input errors, and
+without this check both surfaced from inside the implementation instead of at the call.
+"""
+function _check_transfer_colocation(field, points, values)
+  family(a) = Base.typename(typeof(parent(a))).wrapper
+  T = field_scalar_type(field)
+  eltype(point_coordinates(points)) === T ||
+    throw(ArgumentError("point coordinates are $(eltype(point_coordinates(points))) but the field is $T; " *
+                        "a transfer does not convert between precisions"))
+  eltype(field_data(values)) === T ||
+    throw(ArgumentError("point values are $(eltype(field_data(values))) but the field is $T"))
+  families = (family(field_data(field)), family(point_coordinates(points)), family(field_data(values)))
+  allequal(families) ||
+    throw(ArgumentError("a transfer launches one kernel, so its field, points and values must live in " *
+                        "the same storage family; got $families"))
+  return nothing
+end
+
+
+
+"""
     interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical,
                  points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
     interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
@@ -473,6 +503,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, po
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
+  _check_transfer_colocation(field, points, out)
   grid = field_grid(field)
   T = field_scalar_type(field)
   coefficients = _coefficients_as(scheme, T)
@@ -568,6 +599,7 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
+  _check_transfer_colocation(field, points, quantities)
   grid = field_grid(field)
   T = field_scalar_type(field)
   data = field_data(field)
@@ -781,6 +813,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
+  _check_transfer_colocation(field, points, out)
   grid = field_grid(field)
   T = field_scalar_type(field)
   data = field_data(field)
@@ -811,6 +844,7 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
+  _check_transfer_colocation(field, points, quantities)
   grid = field_grid(field)
   T = field_scalar_type(field)
   data = field_data(field)
@@ -964,10 +998,16 @@ relation, and like it reconstructs the band-limited field (divergence-free).
 
 Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
-struct NUFFT{T, PL, DC, PP, SP, MP} <: AbstractTransferScheme
+struct NUFFT{T, PL, DC, PP, SP, MP, LO} <: AbstractTransferScheme
   width::Int
   beta::T
   total_oversampling::T
+  # The context the plan was BUILT for, kept explicitly. Only the oversampled grid used to be stored,
+  # and the reference grid cannot be recovered from it, so a plan could not be checked against the
+  # field it was handed — a same-order field on another domain received this plan's index maps and
+  # deconvolution and came back silently wrong.
+  reference_grid::Grid3D{T}
+  reference_layout::LO
   oversampled_grid::Grid3D{T}
   oversampled_plans::PL
   deconvolution::DC
@@ -998,7 +1038,7 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversa
   map_1 = _nufft_index_map(data, grid.grid_size[1], oversampled_size[1], size(data, 1), 1 == layout.fft_dims[1])
   map_2 = _nufft_index_map(data, grid.grid_size[2], oversampled_size[2], size(data, 2), 2 == layout.fft_dims[1])
   map_3 = _nufft_index_map(data, grid.grid_size[3], oversampled_size[3], size(data, 3), 3 == layout.fft_dims[1])
-  return NUFFT(w, β, total_oversampling, oversampled_grid, plans, deconvolution,
+  return NUFFT(w, β, total_oversampling, grid, layout, oversampled_grid, plans, deconvolution,
                physical_template, spectral_template, map_1, map_2, map_3)
 end
 
@@ -1120,16 +1160,47 @@ end
 _fresh(template) = similar_field(template, similar(field_data(template)))
 
 
-function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
-  # The plan's oversampled buffers are sized at the tensor order of the field it was built from, while
-  # the transfer's fibre count comes from the field/values being transferred. If the plan's order is
-  # LOWER, the spread writes fewer components than the extract reads and the surplus is uninitialized
-  # scratch — silently returning NaN and garbage rather than failing. Check it (decision 52).
+# A NUFFT plan answers the context protocol, so it can be checked against the field it is handed with
+# the same predicate that compares a kernel to a field.
+_context_grid(scheme::NUFFT) = scheme.reference_grid
+_context_layout(scheme::NUFFT) = scheme.reference_layout
+
+
+"""
+    _check_nufft_compatibility(scheme::NUFFT, field::AbstractFieldSpectral)
+
+Check that a `NUFFT` plan may be used on `field`: same base, spectral layout, scalar type, storage
+family and tensor order.
+
+The plan precomputes index maps, an oversampled work grid and a deconvolution for one specific
+context. Applying it to a field from another context is not a shape error that surfaces on its own —
+a same-order field on a different domain has identical storage, so it silently receives the wrong
+deconvolution and the wrong index maps.
+"""
+function _check_nufft_compatibility(scheme::NUFFT{T}, field::AbstractFieldSpectral) where {T}
+  _check_matching_context(scheme, field)
+  field_scalar_type(field) === T ||
+    throw(ArgumentError("this NUFFT plan was built for scalar type $T, but the field carries " *
+                        "$(field_scalar_type(field))"))
+  Base.typename(typeof(parent(field_data(scheme.oversampled_spectral)))).wrapper ===
+      Base.typename(typeof(parent(field_data(field)))).wrapper ||
+    throw(ArgumentError("this NUFFT plan holds work buffers in a different storage family than the field"))
   field_tensor_order(scheme.oversampled_physical) == field_tensor_order(field) ||
-    throw(ArgumentError("this NUFFT plan was built at tensor order $(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a field of tensor order $(field_tensor_order(field)) — build the plan from a reference of the same order"))
+    throw(ArgumentError("this NUFFT plan was built at tensor order " *
+                        "$(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a " *
+                        "field of order $(field_tensor_order(field))"))
+  return nothing
+end
+
+
+function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+  # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
+  # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
+  _check_nufft_compatibility(scheme, field)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
+  _check_transfer_colocation(field, points, out)
   T = field_scalar_type(field)
   backend = get_backend(field_data(field))
   oversampled_spectral = _fresh(scheme.oversampled_spectral)
@@ -1165,15 +1236,13 @@ end
 
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                       scheme::NUFFT, α::Real = true, β::Real = false)
-  # The plan's oversampled buffers are sized at the tensor order of the field it was built from, while
-  # the transfer's fibre count comes from the field/values being transferred. If the plan's order is
-  # LOWER, the spread writes fewer components than the extract reads and the surplus is uninitialized
-  # scratch — silently returning NaN and garbage rather than failing. Check it (decision 52).
-  field_tensor_order(scheme.oversampled_physical) == field_tensor_order(field) ||
-    throw(ArgumentError("this NUFFT plan was built at tensor order $(field_tensor_order(scheme.oversampled_physical)); it cannot transfer a field of tensor order $(field_tensor_order(field)) — build the plan from a reference of the same order"))
+  # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
+  # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
+  _check_nufft_compatibility(scheme, field)
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
+  _check_transfer_colocation(field, points, quantities)
   T = field_scalar_type(field)
   backend = get_backend(field_data(field))
   oversampled_physical = _fresh(scheme.oversampled_physical)

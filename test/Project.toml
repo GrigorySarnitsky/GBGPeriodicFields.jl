@@ -1,11 +1,9 @@
 [deps]
 AbstractFFTs = "621f4979-c628-5d54-868e-fcf4e3e8185c"
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
+GBGPeriodicFields = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
-# KernelAbstractions is the package's own portable-kernel layer (a core dependency, not a GPU
-# vendor stack — the test environment stays backend-free); the pass audit extends get_backend
-# onto its CountingArray wrapper.
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 LoweredCodeUtils = "6f1432cf-f94c-5a45-995e-cdbf5db27b0b"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -15,9 +13,4 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 Aqua = "0.8"
 HDF5 = "0.17"
-# LoweredCodeUtils 3.6.0 added a `SelectiveEvalController` arg to `add_active_gotos!` that JET 0.11.3
-# (Julia 1.12's latest JET) can't call → JET fails to precompile, taking the whole suite down before a
-# single test runs. Bound it below 3.6. The lower bound was once opened to 0.1 to also admit the 0.10.x
-# that Julia 1.11's older JET 0.9.x needed; with 1.11 dropped from the compat range that is no longer
-# required. Lift when a JET release supports the new signature. (test/jet.jl is the only JET consumer.)
 LoweredCodeUtils = "3 - 3.5"
