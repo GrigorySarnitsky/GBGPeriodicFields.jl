@@ -89,13 +89,41 @@ import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
        spectral_band, squared_wavenumber_field, assignment_window, translation_kernel,
-       SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
+       StoredKernel, SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
 
 
 ####################################################
 #        Product of two kernels (any families)     #
 ####################################################
 
+
+"""
+    StoredKernel(field::ScalarFieldSpectral)
+
+Mark a scalar field in spectral representation as playing the **kernel** role, so that operations
+defined on kernels rather than on fields apply to it.
+
+A `ScalarFieldSpectral` is the storage class for a kernel held as one coefficient per mode, and it is
+accepted directly wherever a kernel is taken — this wrapper is not needed to *apply* one. It exists for
+the operations whose meaning depends on which role the field is playing. [`inv`](@ref) is the case:
+the coefficientwise reciprocal of a *kernel* is the kernel that deconvolves by it, a well-defined
+kernel-algebra operation, while the coefficientwise reciprocal of a *field* is a nonlinear operation on
+a field in spectral representation, which the package does not define (see the representation-validity
+rules in `docs/ARCHITECTURE.md`). The type cannot tell those apart; the call site can.
+
+Composition wraps automatically, because passing a field as a kernel argument already declares the
+role: `convolve(compressed, field)` yields a product whose stored factor is a `StoredKernel`, and that
+product inverts without any wrapping by the caller.
+"""
+struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: AbstractSpectralKernel{T}
+  field::F
+end
+
+
+_kernel_data(kernel::StoredKernel) = _kernel_data(kernel.field)
+_check_kernel_compatibility(field, kernel::StoredKernel) = _check_kernel_compatibility(field, kernel.field)
+_context_grid(kernel::StoredKernel) = _context_grid(kernel.field)
+_context_layout(kernel::StoredKernel) = _context_layout(kernel.field)
 
 """
     ProductKernel
@@ -166,8 +194,8 @@ end
 # Materializing a kernel already held as a field is a copy: the product path above materializes its
 # first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
 # it with the full product. A stored factor must therefore not be aliased into the result.
-materialize_kernel(kernel::ScalarFieldSpectral) =
-  ScalarFieldSpectral(copy(field_data(kernel)), field_grid(kernel), field_layout(kernel))
+materialize_kernel(kernel::StoredKernel) =
+  ScalarFieldSpectral(copy(_kernel_data(kernel)), _context_grid(kernel), _context_layout(kernel))
 
 
 # Cross-family and mixed-storage composition. The same-family methods above take precedence, so this
@@ -175,8 +203,12 @@ materialize_kernel(kernel::ScalarFieldSpectral) =
 # NOTE the asymmetry, which is deliberate: only a COMPRESSED kernel may lead. A `ScalarFieldSpectral`
 # is also a field, so `convolve(stored_kernel, compressed)` cannot be composition — it is already, and
 # must remain, "apply a kernel to this scalar field". Compose in the other order, or materialize.
-convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::SpectralKernel{T}) where {T} =
+convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::AbstractSpectralKernel{T}) where {T} =
   ProductKernel{T}(first_kernel, second_kernel)
+# A bare field passed as the kernel argument IS the role declaration, so wrap it rather than making the
+# caller do it: the resulting product then inverts and materializes like any other.
+convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::ScalarFieldSpectral{T}) where {T} =
+  ProductKernel{T}(first_kernel, StoredKernel(second_kernel))
 
 
 ####################################################
@@ -444,7 +476,7 @@ end
 
 
 """
-    inv(kernel::ScalarFieldSpectral)
+    inv(kernel::StoredKernel)
 
 The coefficientwise reciprocal of a kernel held as a field, which is the kernel that deconvolves by it.
 
@@ -453,12 +485,12 @@ than returning a non-finite coefficient. The check is a full pass over the coeff
 explicit inversion can afford; the axis-factored [`SeparableKernel`](@ref) method checks its ``O(N)``
 factors instead, and the radial method documents the precondition it cannot test cheaply.
 """
-function Base.inv(kernel::ScalarFieldSpectral)
-  data = field_data(kernel)
+function Base.inv(kernel::StoredKernel)
+  data = _kernel_data(kernel)
   all(!iszero, data) ||
     throw(ArgumentError("this kernel has a zero coefficient and is therefore not invertible; " *
                         "deconvolving by it would divide an annihilated mode by zero"))
-  return ScalarFieldSpectral(inv.(data), field_grid(kernel), field_layout(kernel))
+  return StoredKernel(ScalarFieldSpectral(inv.(data), _context_grid(kernel), _context_layout(kernel)))
 end
 
 _context_grid(kernel::SeparableKernel) = kernel.grid

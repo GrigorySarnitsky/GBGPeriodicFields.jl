@@ -1251,8 +1251,14 @@ _check_kernel_compatibility(field, kernel::ScalarFieldSpectral) =
     SpectralKernel{T}
 
 Either storage class of a spectral kernel: one held as a `ScalarFieldSpectral` (one coefficient per
-mode) or an [`AbstractSpectralKernel`](@ref) evaluated per mode. Operations that apply a kernel accept
-this union, so a compressed kernel is passable everywhere a stored one is.
+mode) or an `AbstractSpectralKernel` evaluated per mode. Operations that APPLY a kernel accept this
+union, so a compressed kernel is passable everywhere a stored one is and no wrapper is needed.
+
+The union exists because a field in spectral representation doubles as the stored kernel class, which
+is convenient for application and ambiguous for anything else: the coefficientwise reciprocal of a
+kernel is its deconvolution, while the same operation on a field is one the package does not define.
+Operations whose meaning depends on that distinction — `inv` is the case — take the `StoredKernel`
+marker instead of this union, and composition wraps a bare field into it automatically.
 """
 const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, AbstractSpectralKernel{T}}
 

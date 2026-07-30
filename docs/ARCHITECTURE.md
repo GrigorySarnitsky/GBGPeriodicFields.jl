@@ -2840,3 +2840,40 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     count operation NAMES and the generic had methods. The fix that matters is not the method; it is
     that the sweep now takes the **subtype set**, derived from the module namespace, so a new class
     fails until it is given a specimen.
+
+57. **`StoredKernel` — the kernel role, made explicit where it matters** (2026-07-30, user-decided).
+    A `ScalarFieldSpectral` serves two roles: a field in spectral representation, and the storage class
+    for a kernel held as one coefficient per mode. That doubling is what the `SpectralKernel` union
+    exists to express, and for *applying* a kernel it is exactly right — the coefficients are the
+    coefficients, whatever the object means.
+
+    It stops being right for operations whose meaning depends on the role. Decision 56 added `inv` on
+    a stored kernel so a mixed compressed/stored product could be inverted, and in doing so defined the
+    coefficientwise reciprocal of a field in spectral representation — which is a nonlinear operation
+    on a field, exactly the class invariant 1 excludes there. The value returned is not wrong; the
+    method's existence is, because a user writing `inv(f)` for a field gets an operation the spec says
+    the package does not have.
+
+    The fix is a marker rather than a restriction, because the ambiguity has a natural resolution:
+    **passing a field as a kernel argument already declares the role.** So `StoredKernel(f)` states it
+    where a caller means it, `inv` is defined on the marker instead of on the field type, and
+    composition wraps automatically — `convolve(compressed, f)` yields a product whose stored factor is
+    a `StoredKernel`, so a mixed product still inverts with nothing asked of the caller. Application is
+    untouched: the union still accepts a bare field everywhere a kernel is taken, so nothing that
+    worked before needs a wrapper.
+
+    Two options were weighed and rejected. Restricting `inv` to the compressed classes was cheapest —
+    the only consumer of the stored method is the mixed-product path — but it leaves a kernel that
+    exists only as coefficients, read from HDF5 or measured, with no inverse at all. Documenting the
+    role and keeping the method was cheaper still, and the reason it loses is worth stating: the risk
+    there is not a user harmed but the invariant eroded, and "the public method set is the spec" is
+    only true while the method set is kept honest.
+
+    The marker is also the shape the kernel protocol wants long-term. With a stored class that is a
+    real type, the `SpectralKernel` union could collapse to the abstract supertype and every
+    kernel-taking entry point would take one type. That is a breaking change and is not made here; it
+    is now a one-step move rather than a redesign.
+
+    The subtype sweep of decision 56 earned itself immediately: adding the class failed that testset
+    until it was given a specimen, which is precisely the moment to notice a new class needs the
+    class-wide methods.

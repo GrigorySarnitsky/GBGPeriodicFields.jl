@@ -680,6 +680,7 @@ end
   separable = translation_kernel(reference, multipliers, (0.1, 0.2, 0.3))
   specimens = Dict(RadialKernel => radial,
                    SeparableKernel => separable,
+                   StoredKernel => StoredKernel(materialize_kernel(radial)),
                    ProductKernel => convolve(radial, separable))
 
   # The sweep is only as complete as its specimen list, so derive the requirement: a new compressed

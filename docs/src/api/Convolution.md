@@ -34,6 +34,7 @@ translation_kernel!
 A kernel that factors over the axes is held as its per-axis factors rather than as a field, and applied identically.
 
 ```@docs
+StoredKernel
 SeparableKernel
 RadialKernel
 ProductKernel

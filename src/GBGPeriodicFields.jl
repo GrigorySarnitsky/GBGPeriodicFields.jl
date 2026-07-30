@@ -58,7 +58,9 @@ The umbrella assembles its public surface from the submodules below:
   wavenumber. A kernel is held either as a scalar field in spectral representation or in one of the
   compressed classes `SeparableKernel`, `RadialKernel` and `ProductKernel`, which store a closed-form
   multiplier instead of its coefficients; the classes are interchangeable and agree bit for bit, and
-  `materialize_kernel` expands a compressed one into a field.
+  `materialize_kernel` expands a compressed one into a field. A field passed as a kernel needs no
+  wrapper to be *applied*; `StoredKernel` marks it for the operations whose meaning depends on the
+  role it is playing, `inv` being the one.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
   representation — including the same [`map!`](@ref)/[`map`](@ref) escape hatch, which needs no
   representation split here because point-values carry none — the matching allocator
@@ -179,6 +181,7 @@ using .DifferentialOperators:
 
 
 using .Convolution:
+  StoredKernel,
   SeparableKernel,
   RadialKernel,
   ProductKernel,
@@ -322,6 +325,7 @@ export FiberVector,
        assignment_window,
        translation_kernel,
        translation_kernel!,
+       StoredKernel,
        SeparableKernel,
        RadialKernel,
        ProductKernel,

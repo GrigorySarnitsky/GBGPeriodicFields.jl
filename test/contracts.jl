@@ -138,7 +138,12 @@ end
   separable = translation_kernel(s, m, (0.1, 0.2, 0.3))
   stored = materialize_kernel(separable)
   @test inv(convolve(separable, stored)) isa ProductKernel
-  @test inv(stored) isa ScalarFieldSpectral
+  # A bare `ScalarFieldSpectral` is role-ambiguous — kernel or field — so `inv` is defined on the
+  # `StoredKernel` marker instead, and composition wraps automatically, which is why the mixed product
+  # above inverts with no wrapping by the caller.
+  @test inv(StoredKernel(stored)) isa StoredKernel
+  @test_throws MethodError inv(stored)
+  @test convolve(separable, stored).second_kernel isa StoredKernel
 
   # The reciprocal really deconvolves.
   u = VectorFieldSpectral(randn(ComplexF64,
@@ -147,7 +152,7 @@ end
   @test isapprox(field_data(convolve(convolve(u, separable), inv(separable))), field_data(u); rtol = 1e-12)
 
   # A sharp cutoff is exactly the kernel with zeros, so it is exactly the one with no inverse.
-  @test_throws ArgumentError inv(materialize_kernel(spectral_cutoff(s, m, 2)))
+  @test_throws ArgumentError inv(StoredKernel(materialize_kernel(spectral_cutoff(s, m, 2))))
 end
 
 
