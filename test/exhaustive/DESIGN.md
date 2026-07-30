@@ -63,12 +63,24 @@ The existing suite holds **1,424 assertions**. Those are what people write, so t
 classifying them, and **an assertion that cannot be classified is a missing axis value** — that is the
 mechanical form of the claim at the top.
 
-The classification today:
+The classification is implemented in `classify_checks.jl` and its output — not a list written here —
+is the axis. Running it over the 1,424 existing assertions yields:
 
 `correct` (independent reference) · `identity` (algebraic law) · `adjoint` · `representation-agreement` ·
-`invariance` (thread count, fold, storage relation) · `absence` (must throw) · `allocation` ·
-`element-traffic` · `metadata` · `round-trip` · `determinism` · `type-stability` · `domain-rejection` ·
-`completeness` · `has-example`
+`invariance` (thread count, fold, storage relation) · `absence` (throws) · `static-absence`
+(`hasmethod`) · `domain-rejection` · `allocation` · `element-traffic` · `metadata` · `schema-presence` ·
+`result-type` · `inequality` (sign, definiteness, bounds) · `structural` (a property of the result:
+realness, finiteness, zero pattern) · `round-trip` · `determinism` · `type-stability` · `completeness` ·
+`has-example`
+
+**Five of those were missing from the list originally written here** — `result-type`, `inequality`,
+`static-absence`, `schema-presence` and `structural` — and were added only because assertions fell
+through the classifier. That is the derivation doing its job on its first run, and it is the reason the
+axis may not be maintained by hand.
+
+One further class is named so it can be **excluded** rather than counted: a **fixture precondition**
+(`@test perturbed != canonical`) asserts the test's own setup is valid and makes no claim about the
+package.
 
 ## Axis 5 — sequence length
 
