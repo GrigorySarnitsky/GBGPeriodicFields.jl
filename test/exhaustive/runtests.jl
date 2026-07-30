@@ -32,99 +32,127 @@ const CITATIONS = Dict{Symbol, String}(
   :helmholtz_projection! => "ARCHITECTURE decision 56 — decision-38 kernel pair, same structure",
   :convolve!             => "ARCHITECTURE decision 56 — compressed-kernel pass, same structure",
   :mul!                  => "BY CONTRACT — mul! follows the LinearAlgebra convention that the " *
-                            "destination must not alias an input (invariant 9); failing here is the " *
-                            "contract being kept, not broken",
+                            "destination must not alias an input (invariant 9)",
 )
 
 const PHYSICAL = false
 const SPECTRAL = true
 
-multipliers() = FieldSpectralMultipliers(
-  ScalarFieldSpectral(zeros(ComplexF64, xshape(0, SPECTRAL)), XGRID, XLAYOUT))
-const XM = multipliers()
-const XV_PHYS = VectorFieldPhysical(rand(XN, XN, XN, 3), XGRID)
-const XA_PHYS = TensorFieldPhysical{2}(rand(XN, XN, XN, 3, 3), XGRID)
-const XKERNEL = translation_kernel(
-  ScalarFieldSpectral(zeros(ComplexF64, xshape(0, SPECTRAL)), XGRID, XLAYOUT), XM, (0.1, 0.2, 0.3))
-
-# (name, slot tensor orders, representation, call). The slot orders drive the pool, so a slot of a
-# different order draws from a different parent — which is why an order-CHANGING operation cannot be
-# given an offset-overlapping pair here, and is reported as such rather than as clean.
-const OPERATIONS = [
-  (:add!,                  [1, 1, 1], PHYSICAL, (d, a, b) -> add!(d, a, b)),
-  (:subtract!,             [1, 1, 1], PHYSICAL, (d, a, b) -> subtract!(d, a, b)),
-  (:combine!,              [1, 1, 1], PHYSICAL, (d, a, b) -> combine!(d, 0.3, a, 0.7, b)),
-  (:multiply!,             [1, 1],    PHYSICAL, (d, a) -> multiply!(d, a, 2.0)),
-  (:divide!,               [1, 1],    PHYSICAL, (d, a) -> divide!(d, a, 2.0)),
-  (:cross!,                [1, 1],    PHYSICAL, (d, a) -> cross!(d, a, XV_PHYS)),
-  (:dot!,                  [0, 1],    PHYSICAL, (d, a) -> dot!(d, a, XV_PHYS)),
-  (:mul!,                  [1, 1],    PHYSICAL, (d, a) -> mul!(d, XA_PHYS, a)),
-  (:sym!,                  [2, 2],    PHYSICAL, (d, a) -> sym!(d, a)),
-  (:skew!,                 [2, 2],    PHYSICAL, (d, a) -> skew!(d, a)),
-  (:dev!,                  [2, 2],    PHYSICAL, (d, a) -> dev!(d, a)),
-  (:transpose!,            [2, 2],    PHYSICAL, (d, a) -> transpose!(d, a)),
-  (:tr!,                   [0, 2],    PHYSICAL, (d, a) -> tr!(d, a)),
-  (:det!,                  [0, 2],    PHYSICAL, (d, a) -> det!(d, a)),
-  (:norm!,                 [0, 1],    PHYSICAL, (d, a) -> norm!(d, a)),
-  (:map!,                  [1, 1],    PHYSICAL, (d, a) -> map!(x -> 2x, d, a)),
-  (:laplacian!,            [0, 0],    SPECTRAL, (d, a) -> laplacian!(d, a, XM)),
-  (:inverse_laplacian!,    [0, 0],    SPECTRAL, (d, a) -> inverse_laplacian!(d, a, XM)),
-  (:gradient!,             [1, 0],    SPECTRAL, (d, a) -> gradient!(d, a, XM)),
-  (:divergence!,           [0, 1],    SPECTRAL, (d, a) -> divergence!(d, a, XM)),
-  (:curl!,                 [1, 1],    SPECTRAL, (d, a) -> curl!(d, a, XM)),
-  (:symmetric_gradient!,   [2, 1],    SPECTRAL, (d, a) -> symmetric_gradient!(d, a, XM)),
-  (:helmholtz_projection!, [1, 1],    SPECTRAL, (d, a) -> helmholtz_projection!(d, a, XM)),
-  (:convolve!,             [1, 1],    SPECTRAL, (d, a) -> convolve!(d, a, XKERNEL)),
-  (:exponential_convolve!, [0, 0],    SPECTRAL, (d, a) -> exponential_convolve!(d, a, XM, -0.1)),
-]
+# The operation table is built per configuration, because the multipliers, the helper operands and the
+# kernel all have to live on the same grid, layout and element type as the pool.
+function operations_for(c::Config)
+  T = c.eltype
+  sspec = ScalarFieldSpectral(zeros(Complex{T}, xshape(c, 0, SPECTRAL)), c.grid, c.layout)
+  m = FieldSpectralMultipliers(sspec)
+  v = VectorFieldPhysical(rand(T, xshape(c, 1, PHYSICAL)...), c.grid, c.layout)
+  A = TensorFieldPhysical{2}(rand(T, xshape(c, 2, PHYSICAL)...), c.grid, c.layout)
+  kernel = translation_kernel(sspec, m, ntuple(d -> T(0.5) * c.grid.grid_spacing[d], 3))
+  α, β = T(0.3), T(0.7)
+  return [
+    (:add!,                  [1, 1, 1], PHYSICAL, (d, a, b) -> add!(d, a, b)),
+    (:subtract!,             [1, 1, 1], PHYSICAL, (d, a, b) -> subtract!(d, a, b)),
+    (:combine!,              [1, 1, 1], PHYSICAL, (d, a, b) -> combine!(d, α, a, β, b)),
+    (:multiply!,             [1, 1],    PHYSICAL, (d, a) -> multiply!(d, a, T(2))),
+    (:divide!,               [1, 1],    PHYSICAL, (d, a) -> divide!(d, a, T(2))),
+    (:cross!,                [1, 1],    PHYSICAL, (d, a) -> cross!(d, a, v)),
+    (:dot!,                  [0, 1],    PHYSICAL, (d, a) -> dot!(d, a, v)),
+    (:mul!,                  [1, 1],    PHYSICAL, (d, a) -> mul!(d, A, a)),
+    (:sym!,                  [2, 2],    PHYSICAL, (d, a) -> sym!(d, a)),
+    (:skew!,                 [2, 2],    PHYSICAL, (d, a) -> skew!(d, a)),
+    (:dev!,                  [2, 2],    PHYSICAL, (d, a) -> dev!(d, a)),
+    (:transpose!,            [2, 2],    PHYSICAL, (d, a) -> transpose!(d, a)),
+    (:tr!,                   [0, 2],    PHYSICAL, (d, a) -> tr!(d, a)),
+    (:det!,                  [0, 2],    PHYSICAL, (d, a) -> det!(d, a)),
+    (:norm!,                 [0, 1],    PHYSICAL, (d, a) -> norm!(d, a)),
+    (:map!,                  [1, 1],    PHYSICAL, (d, a) -> map!(x -> 2x, d, a)),
+    # The α/β accumulate arities reach a different branch of the same passes (the destination is READ
+    # as well as written when β ≠ 0). Derived, not guessed: only these operations have such a form —
+    # `dot!` and `cross!` do not, and asserting otherwise is what produced this lane's first false
+    # finding, correctly surfaced as UNEXPLAINED because no decision could explain a MethodError.
+    (Symbol("mul!·αβ"),      [1, 1],    PHYSICAL, (d, a) -> mul!(d, A, a, α, β)),
+    (Symbol("map!·αβ"),      [1, 1],    PHYSICAL, (d, a) -> map!(x -> 2x, d, a, α, β)),
+    (:laplacian!,            [0, 0],    SPECTRAL, (d, a) -> laplacian!(d, a, m)),
+    (:inverse_laplacian!,    [0, 0],    SPECTRAL, (d, a) -> inverse_laplacian!(d, a, m)),
+    (:gradient!,             [1, 0],    SPECTRAL, (d, a) -> gradient!(d, a, m)),
+    (:divergence!,           [0, 1],    SPECTRAL, (d, a) -> divergence!(d, a, m)),
+    (:curl!,                 [1, 1],    SPECTRAL, (d, a) -> curl!(d, a, m)),
+    (:symmetric_gradient!,   [2, 1],    SPECTRAL, (d, a) -> symmetric_gradient!(d, a, m)),
+    (:helmholtz_projection!, [1, 1],    SPECTRAL, (d, a) -> helmholtz_projection!(d, a, m)),
+    (:convolve!,             [1, 1],    SPECTRAL, (d, a) -> convolve!(d, a, kernel)),
+    (Symbol("convolve!·αβ"), [1, 1],    SPECTRAL, (d, a) -> convolve!(d, a, kernel, α, β)),
+    (:exponential_convolve!, [0, 0],    SPECTRAL, (d, a) -> exponential_convolve!(d, a, m, -T(1) / 10)),
+    (Symbol("exponential_convolve!·αβ"), [0, 0], SPECTRAL,
+       (d, a) -> exponential_convolve!(d, a, m, -T(1) / 10, α, β)),
+    # divergence!'s α/β form is the KERNEL-COMPOSED arity of decision 32, so it takes a kernel too.
+    (Symbol("divergence!∘kernel·αβ"), [0, 1], SPECTRAL, (d, a) -> divergence!(d, a, m, kernel, α, β)),
+    (Symbol("helmholtz_projection!∘kernel·αβ"), [1, 1], SPECTRAL,
+       (d, a) -> helmholtz_projection!(d, a, m, kernel, α, β)),
+  ]
+end
 
 
 function run_aliasing_lane()
+  configs = configurations()
   println("═"^100)
-  println("LANE: storage aliasing — every in-place operation × every way its arguments can share storage")
+  println("LANE: storage aliasing — every in-place operation × every storage relation × ",
+          length(configs), " configurations")
+  println("      axes crossed: element type, grid shape/parity/anisotropy, spectral fold, thread count,")
+  println("                    storage kind (Array/SubArray), aliasing relation, tensor order, representation")
   println("═"^100)
-  broken = 0
+
+  # (operation, assignment) => the configurations in which it disagrees
+  failures = Dict{Tuple{Symbol, String}, Vector{String}}()
+  order_changing = Set{Symbol}()
+  cases = 0
+  for c in configs
+    previous = threading_cutoff()
+    set_threading_cutoff!(c.threaded ? 1 : typemax(Int))
+    for (name, orders, representation, call) in operations_for(c)
+      found = aliasing_failures(c, orders, representation, call)
+      cases += 5 ^ length(orders)
+      isempty(found) && length(unique(orders)) > 1 && push!(order_changing, name)
+      for assignment in found
+        push!(get!(failures, (name, assignment), String[]), c.name)
+      end
+    end
+    set_threading_cutoff!(previous)
+  end
+
+  affected = sort(unique(first(k) for k in keys(failures)); by = string)
   unexplained = String[]
-  order_changing = String[]
-  for (name, orders, representation, call) in OPERATIONS
-    failures = aliasing_failures(orders, representation, call)
-    if isempty(failures)
-      # An order-CHANGING operation draws its slots from different parents, so no assignment here
-      # aliases them. That is a property of the package, not a hole in this lane: two sections of
-      # different tensor order can share storage only if a caller hand-builds a field over a view of
-      # another field's array, and there is no verb for that — a component of a vector is obtained by
-      # contracting with a basis vector (`dot(u, e_x)`), which allocates its own storage. The package
-      # never wraps a component view in a field type either; its internal `selectdim` views are raw
-      # arrays inside one fused pass, always at the SAME base index, which is the case decision 39
-      # measured as safe. Listed for transparency, not as work to do.
-      length(unique(orders)) > 1 && push!(order_changing, string(name))
-      continue
+  for name in affected
+    entries = sort([(a, cs) for ((n, a), cs) in failures if n == name]; by = first)
+    println("\n  ", name)
+    for (assignment, in_configs) in entries
+      println("      ", rpad(assignment, 26),
+              length(in_configs) == length(configs) ? "in ALL $(length(configs)) configurations" :
+                                                     "in $(length(in_configs))/$(length(configs)): " * join(in_configs, ", "))
     end
-    broken += 1
-    citation = get(CITATIONS, name, nothing)
-    println("\n  ", name, "  — ", length(failures), " of 5^", length(orders), " assignments disagree")
-    for f in failures
-      println("      ", f)
-    end
+    # A row's name may carry arity qualifiers — `helmholtz_projection!∘kernel·αβ` — so normalize to the
+    # operation itself before looking up a citation, or the same known defect reads as a new finding
+    # under every qualified spelling.
+    base = Symbol(first(split(String(name), ('∘', '·'))))
+    citation = get(CITATIONS, base, nothing)
     if citation === nothing
       println("      NO CITATION — this is a new finding")
-      push!(unexplained, string(name))
+      push!(unexplained, String(name))
     else
       println("      cited: ", citation)
     end
   end
 
   println("\n", "─"^100)
-  println("SUMMARY  ", broken, " of ", length(OPERATIONS), " operations have assignments that change the answer")
+  println("SUMMARY  ", cases, " cases over ", length(configs), " configurations")
+  println("         ", length(affected), " operations have assignments that change the answer")
   isempty(unexplained) || println("         ", length(unexplained), " UNEXPLAINED: ", join(unexplained, ", "))
   isempty(order_changing) ||
     println("         NOT APPLICABLE to ", length(order_changing), " order-changing operations (",
-            join(order_changing, ", "), "):\n",
+            join(sort(string.(collect(order_changing))), ", "), "):\n",
             "         sections of different tensor order cannot share storage through the public API —\n",
             "         a component is obtained by contraction (`dot(u, e_x)`), which allocates. Not a gap.")
-  return broken, length(unexplained)
+  return length(affected), length(unexplained), cases
 end
 
-broken, unexplained = run_aliasing_lane()
+affected, unexplained, cases = run_aliasing_lane()
 println()
-exit(unexplained > 0 ? 2 : (broken > 0 ? 1 : 0))
+exit(unexplained > 0 ? 2 : (affected > 0 ? 1 : 0))

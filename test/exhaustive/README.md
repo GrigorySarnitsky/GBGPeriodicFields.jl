@@ -40,6 +40,15 @@ reason to call it green. Three things to look for:
 
 Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited finding.
 
+## Scale
+
+The aliasing lane crosses eight axes: element type, grid shape (parity, cubicity, anisotropy),
+spectral fold, thread count, storage kind, aliasing relation, tensor order and representation. That is
+**17,200 cases over 16 configurations in about 90 seconds**. The default suite runs 360 s for a few
+thousand assertions, which is the difference between a gate and a survey — this one buys two orders of
+magnitude more combinations for a quarter of the time, because a negative or consistency check is
+cheap and needs no oracle beyond "the answer must not change".
+
 ## Lanes
 
 - **`aliasing.jl`** — every in-place operation × every way its arguments can share storage. The slots
