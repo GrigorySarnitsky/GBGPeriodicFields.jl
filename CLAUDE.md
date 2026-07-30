@@ -796,6 +796,14 @@ those are the usual rot. Then the mechanical bar:
   these. `test/aqua.jl` runs `Aqua.test_all` for broader package checks (type piracy,
   compat bounds, stale deps, unbound type parameters, …).
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
+- The **exhaustive suite** is opt-in and separate too: `julia --project=. test/exhaustive/runtests.jl`
+  holds the full Cartesian product and is run occasionally, like `/check-docs`, not on every change. It
+  is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
+  not work, cites a decision beside a known gap rather than suppressing it, and names the combinations
+  it could not construct so its silence is never mistaken for a pass. Exit `0` clean, `1` all failures
+  cited, `2` an uncited finding. Its first lane crosses a shared storage pool over every in-place
+  operation and found **10 of 25** affected; nine were undocumented, and three had survived a
+  hand-written probe of the same property an hour before.
 - GPU tests are **opt-in and separate** (not part of `Pkg.test()`): per-backend
   environments under `test/gpu/` (`rocm/` and `cuda/`) run a backend-agnostic
   suite with scalar indexing disabled. Run on a machine with a device, e.g.

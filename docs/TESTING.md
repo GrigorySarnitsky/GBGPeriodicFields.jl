@@ -76,6 +76,18 @@ a mechanical property, `generated_analytic.jl` obtains it by construction rather
 the parity baseline and ambiguity check pass, and the suite is green.
 
 
+**A third lane, run occasionally.** `test/exhaustive/` holds the full Cartesian product and is **not**
+part of `Pkg.test()` — the same split the GPU suite and the benchmarks use, and for the same reason.
+The default suite is a gate and must stay fast (about six minutes); the exhaustive one is a survey and
+must stay complete, and giving both jobs to one lane means the survey gets trimmed until it stops being
+a survey.
+
+It is a **report, not a gate that has been silenced**: it runs blind to what the package has decided,
+prints everything that does not work, and where a failure matches a recorded decision or a documented
+contract it prints the citation *beside* the failure rather than suppressing it. It also reports what
+it could **not** construct — a lane whose silence would otherwise read as a pass. See
+`test/exhaustive/README.md`.
+
 ## 2. Layout
 
 - **`test/runtests.jl`** includes each module's file inside its own wrapper module
