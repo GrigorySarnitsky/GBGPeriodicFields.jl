@@ -44,7 +44,9 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 
 The aliasing lane crosses eight axes: element type, grid shape (parity, cubicity, anisotropy),
 spectral fold, thread count, storage kind, aliasing relation, tensor order and representation. That is
-**17,200 cases over 16 configurations in about 90 seconds**. `Pkg.test()` runs 360 s for a few
+**5,616 cases over 16 configurations in about 30 seconds.** It was 17,200 before decision 59: once a
+section must own its storage, most of the aliasing axis stopped being arithmetic to verify and became a
+construction to refuse, which is both cheaper and a stronger claim. `Pkg.test()` runs 360 s for a few
 thousand assertions, which is the difference between a gate and a survey — this one buys two orders of
 magnitude more combinations for a quarter of the time, because a negative or consistency check is
 cheap and needs no oracle beyond "the answer must not change".
@@ -56,3 +58,10 @@ cheap and needs no oracle beyond "the answer must not change".
   argument" builds each separately, and two independently constructed arrays never share storage, so a
   per-slot product reaches an aliasing pair with probability zero. The oracle is invariant 9 itself —
   the result must equal the same call on fresh disjoint copies.
+
+  Since decision 59 the lane has two halves. Sections own their storage, so the only way two of them
+  share memory is by being the same array, and the arithmetic half enumerates that fully rather than
+  sampling it. The other half asserts the **refusal has not reopened**: the borrowed-storage
+  constructions that closed the class must still be rejected, checked per configuration and per tensor
+  order rather than assumed from the constructor's source. A refusal that quietly stops refusing is a
+  silent reopening, and it reports as an uncited finding — exit 2.

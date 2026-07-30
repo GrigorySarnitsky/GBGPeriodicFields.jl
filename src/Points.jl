@@ -26,7 +26,8 @@ The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live 
 module Points
 
 using StaticArrays: SVector
-using ..FiberSections: AbstractFiberSection, section_scalar_type, _assign!, @_assign!,
+using ..FiberSections:
+  _check_owned_storage, AbstractFiberSection, section_scalar_type, _assign!, @_assign!,
                        _add_values, _subtract_values,
                        _scalar_kernel_body, _vector_kernel_body, _tensor_kernel_body,
                        _sum_terms, _vector_component, _tensor_component, _product,
@@ -100,6 +101,7 @@ struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
   function PointSet(coordinates::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
     size(coordinates, 2) == 3 ||
       throw(DimensionMismatch("PointSet coordinates must have shape (M, 3); got $(size(coordinates))"))
+    _check_owned_storage(coordinates, "a PointSet")
     return new{T, A}(coordinates)
   end
 end
@@ -152,6 +154,7 @@ struct VectorPointValues{T<:AbstractFloat, A<:AbstractArray{T, 2}} <: AbstractPo
   function VectorPointValues(data::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
     size(data, 2) == 3 ||
       throw(DimensionMismatch("VectorPointValues data must have shape (M, 3); got $(size(data))"))
+    _check_owned_storage(data, "a ScalarPointValues / VectorPointValues")
     return new{T, A}(data)
   end
 end
@@ -185,6 +188,7 @@ struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPo
       throw(DimensionMismatch("TensorPointValues{$R} data must have $(R + 1) dimensions; got $(ndims(data))"))
     size(data)[2:end] == fiber_shape(Val(R)) ||
       throw(DimensionMismatch("TensorPointValues{$R} data must have shape (M, $(fiber_shape(Val(R))...)); got $(size(data))"))
+    _check_owned_storage(data, "a TensorPointValues")
     return new{R, T, A}(data)
   end
 end

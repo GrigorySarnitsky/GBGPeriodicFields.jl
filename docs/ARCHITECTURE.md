@@ -2916,3 +2916,45 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     array is the same size, every structural check passes, and only a context comparison can tell them
     apart — which is why the operations that lacked one returned plausible wrong answers for months
     rather than failing.
+
+59. **A section owns its storage, which is what makes invariant 9 true** (2026-07-30, user-decided).
+    The exhaustive suite's first lane crossed a shared storage pool over every in-place operation and
+    found fourteen that returned a wrong answer, silently, across three execution routes. The cause is
+    one sentence: a fused pass reads element ``n`` and writes element ``n``, which is safe when the
+    destination IS an input and unsafe when one section's element ``n`` is another's element
+    ``n + m``. Two overlapping views at different base offsets are exactly that.
+
+    Three fixes were available and two were wrong. A `mightalias` guard on every pass would work but
+    puts a per-call test on paths decision 39 measured as guard-free, and leaves invariant 9 needing a
+    caveat forever. A **contiguity** requirement looks right and is not: `reshape(view(flat, 2:end), …)`
+    is densely strided, overlaps another dense view at an offset, and still corrupts — verified, not
+    reasoned. Contiguity is the wrong property; **ownership** is the right one.
+
+    So the constructors reject storage with a `SubArray` anywhere in its parent chain. Two sections can
+    then share memory only by being backed by the same array, which is the case the passes already
+    handle, so the class is not guarded against — it is unconstructible. The check is on ownership
+    rather than layout, so `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them all pass and
+    invariant 6 is untouched. Note that `isa DenseArray` would NOT have served: it is `false` for a
+    contiguous host view and `true` for the identical CUDA construction, so it answers differently per
+    backend.
+
+    **The cost is one foreclosed pattern**: a consumer keeping solver stages in one buffer and slicing
+    `view(stages, :, :, :, :, k)`. Those slices are contiguous and disjoint, hence safe, and they are
+    now refused. Accepted deliberately, on the principle that **relaxing a restriction later is safe
+    and tightening one is breaking** — if a consumer needs it, permitting views that are full in the
+    three base dimensions is a small non-breaking follow-up, and that class provably cannot produce a
+    base-index offset.
+
+    Two claims made while investigating this were wrong and are recorded so they are not repeated. "A
+    view-backed field cannot be transformed" — false; only the *allocating* `to_spectral` rejects one,
+    while `to_spectral!` accepts it, which is why views sat in the worst possible state: working for
+    the algebra, working for one transform, failing for the other, and corrupting under overlap. And
+    "a `mightalias` guard would reject `sym!(A, A)`" — false; the component views for target ``(i,j)``
+    and source ``(j,i)`` select disjoint memory, so `mightalias` is `false` on them. That mistaken
+    belief is why the defect was deferred for a day.
+
+    The invariant now says what is true rather than what was hoped: aliasing is safe by construction
+    **because** a section owns its storage. `test/exhaustive/` checks both halves — that no assignment
+    changes an answer, and that the refusal has not reopened — and the second is mutation-verified:
+    removing one constructor's check makes the lane name every reopened case and turn its exit from
+    0 to 2.

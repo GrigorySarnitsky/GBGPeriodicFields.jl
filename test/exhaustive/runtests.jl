@@ -21,18 +21,15 @@ include("aliasing.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
 # entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
+# Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
+# entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
+#
+# The nine entries this table carried for the fused-pass corruption are GONE, because decision 59 made
+# the input unconstructible rather than the arithmetic safe. A citation for a class that can no longer
+# be reached is not documentation, it is residue.
 const CITATIONS = Dict{Symbol, String}(
-  :cross!                => "ARCHITECTURE decision 56 — fused passes read element n and write element n",
-  :sym!                  => "ARCHITECTURE decision 56 — same",
-  :skew!                 => "ARCHITECTURE decision 56 — same",
-  :dev!                  => "ARCHITECTURE decision 56 — same",
-  :transpose!            => "ARCHITECTURE decision 56 — same",
-  :map!                  => "ARCHITECTURE decision 56 — same",
-  :curl!                 => "ARCHITECTURE decision 56 — decision-38 kernel pair, same structure",
-  :helmholtz_projection! => "ARCHITECTURE decision 56 — decision-38 kernel pair, same structure",
-  :convolve!             => "ARCHITECTURE decision 56 — compressed-kernel pass, same structure",
-  :mul!                  => "BY CONTRACT — mul! follows the LinearAlgebra convention that the " *
-                            "destination must not alias an input (invariant 9)",
+  :mul! => "BY CONTRACT — mul! follows the LinearAlgebra convention that the destination must not " *
+           "alias an input (invariant 9)",
 )
 
 const PHYSICAL = false
@@ -109,13 +106,24 @@ function run_aliasing_lane()
     set_threading_cutoff!(c.threaded ? 1 : typemax(Int))
     for (name, orders, representation, call) in operations_for(c)
       found = aliasing_failures(c, orders, representation, call)
-      cases += 5 ^ length(orders)
+      cases += 3 ^ length(orders)
       isempty(found) && length(unique(orders)) > 1 && push!(order_changing, name)
       for assignment in found
         push!(get!(failures, (name, assignment), String[]), c.name)
       end
     end
     set_threading_cutoff!(previous)
+  end
+
+  # The other half of the axis: the borrowed-storage constructions that closed the class must STAY
+  # closed. A refusal that stops refusing is a silent reopening, so it is checked per configuration and
+  # per tensor order rather than assumed from the constructor's source.
+  reopened = String[]
+  for c in configs, R in (0, 1, 2), cplx in (false, true)
+    for name in refused_constructions(c, R, cplx)
+      push!(reopened, "$(name) at R=$R $(cplx ? "spectral" : "physical") [$(c.name)]")
+    end
+    cases += 3
   end
 
   affected = sort(unique(first(k) for k in keys(failures)); by = string)
@@ -139,6 +147,12 @@ function run_aliasing_lane()
     else
       println("      cited: ", citation)
     end
+  end
+
+  if !isempty(reopened)
+    println("\n  BORROWED STORAGE ACCEPTED — decision 59's refusal has reopened:")
+    for r in reopened; println("      ", r); end
+    push!(unexplained, "borrowed-storage refusal")
   end
 
   println("\n", "─"^100)

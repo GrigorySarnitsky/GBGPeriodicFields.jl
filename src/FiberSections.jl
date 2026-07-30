@@ -89,6 +89,40 @@ them costs nothing at run time.
 section_tensor_order(::AbstractFiberSection{T, R}) where {T<:AbstractFloat, R} = R
 
 
+"""
+    _check_owned_storage(data, what::AbstractString)
+
+Reject storage that does not own its memory — a `SubArray` anywhere in the parent chain — so that two
+sections can share storage only by being backed by the *same* array.
+
+A section over a view is not a construction this package has a use for. Nothing in the library builds
+one; there is no verb that returns one; and on a periodic domain it is not even meaningful, since a
+sub-block of a periodic base is not itself periodic and a component slice of a vector field is a
+coordinate projection rather than a scalar section (a component is obtained by contracting with a basis
+vector, which allocates).
+
+What it *did* have was a silent wrong answer. A fused pass reads element ``n`` and writes element
+``n``, which is safe when the destination IS an input and unsafe when one section's element ``n`` is
+another's element ``n + m``. Two overlapping views at different base offsets produced exactly that, in
+fourteen operations across three execution routes, with no error — and no contiguity test excludes it,
+since `reshape(view(flat, 2:end), …)` is densely strided and still overlaps at an offset. Ownership is
+the property that does exclude it.
+
+The check is on ownership, not on layout: `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them
+all own their memory and are accepted, so backend genericity (invariant 6) is untouched. Allocate with
+`similar_field` or `similar_pointvalues` rather than slicing a larger buffer.
+"""
+function _check_owned_storage(data, what::AbstractString)
+  borrowed(a) = a isa SubArray || (a !== parent(a) && borrowed(parent(a)))
+  borrowed(data) &&
+    throw(ArgumentError("$what must own its storage; got a view into a larger array. Two sections " *
+                        "over overlapping views at different base offsets read and write the same " *
+                        "memory out of step, which no operation here detects. Allocate with " *
+                        "`similar_field` / `similar_pointvalues`, or `copy` the slice."))
+  return nothing
+end
+
+
 ###################################
 #        CPU threading            #
 ###################################

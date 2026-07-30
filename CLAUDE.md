@@ -72,12 +72,16 @@ conceptual model and the writing/docstring conventions are recorded once — in
    `import LinearAlgebra: dot, ⋅, cross, ×, mul!, transpose!, norm`.
 8. No fiber-fiber methods (e.g. `dot(::FiberVector, ::FiberVector)`) — the fiber
    types are StaticArrays aliases and already have them.
-9. Aliasing is safe **by construction**: every fused pass (the one-pass spectral operators and
-   the `_fiberwise_pass!` executor behind the algebra) reads all of an element's sources into
-   registers before writing any of its outputs, so in-place aliased calls are computed directly,
-   bitwise-identical to non-aliased — the former `_guard_noalias!` family is retired (decisions
-   38/39). `mul!` keeps its documented contract that destination must not alias (LinearAlgebra
-   convention), without widening it.
+9. Aliasing is safe **by construction**, and a section **owns its storage** so that it is. Every
+   fused pass (the one-pass spectral operators and the `_fiberwise_pass!` executor behind the
+   algebra) reads all of an element's sources into registers before writing any of its outputs, so
+   in-place aliased calls are computed directly, bitwise-identical to non-aliased — the former
+   `_guard_noalias!` family is retired (decisions 38/39). That argument holds only while one
+   section's element ``n`` is the other's element ``n``, so the constructors **reject borrowed
+   storage** — a `SubArray` anywhere in the parent chain — which leaves same-array as the only way
+   two sections can share memory (decision 59). Ownership, not layout: `Array`, `CuArray`, `ROCArray`
+   and a `reshape` of any of them all pass, so invariant 6 is untouched. `mul!` keeps its documented
+   contract that destination must not alias (LinearAlgebra convention), without widening it.
 10. α/β kernels: five-argument forms convert `T(α)`, `T(β)` and branch on
     `iszero(β_value)` (overwrite vs accumulate); three-argument forms delegate with
     `one(T)`, `zero(T)`.

@@ -38,7 +38,8 @@ using AbstractFFTs
 using LinearAlgebra
 import FFTW
 using Base.ScopedValues: ScopedValue
-using ..FiberSections: AbstractFiberSection, _assign!, _THREADING_OVERRIDE,
+using ..FiberSections:
+  _check_owned_storage, AbstractFiberSection, _assign!, _THREADING_OVERRIDE,
   FiberVector, FiberTensor2, FiberTensor3, FiberTensor4, fiber_shape
 
 export Grid3D,
@@ -366,6 +367,7 @@ struct ScalarFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T
 
   function ScalarFieldPhysical(values_at_grid::A, grid::G, fourier_layout::L) where {T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
     size(values_at_grid) == physical_field_shape(grid, Val(0)) || throw(DimensionMismatch("size(values_at_grid) must be equal to physical_field_shape(grid, Val(0))"))
+    _check_owned_storage(values_at_grid, "a ScalarFieldPhysical")
     return new{T, A, G, L}(values_at_grid, grid, fourier_layout)
   end
 end
@@ -425,6 +427,7 @@ struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, 
   function ScalarFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout}
     size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(0)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(0))"))
+    _check_owned_storage(fourier_coefficients, "a ScalarFieldSpectral")
     return new{T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end
@@ -485,6 +488,7 @@ struct VectorFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T
 
   function VectorFieldPhysical(values_at_grid::A, grid::G, fourier_layout::L) where {T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
     size(values_at_grid) == physical_field_shape(grid, Val(1)) || throw(DimensionMismatch("size(values_at_grid) must be equal to physical_field_shape(grid, Val(1))"))
+    _check_owned_storage(values_at_grid, "a VectorFieldPhysical")
     return new{T, A, G, L}(values_at_grid, grid, fourier_layout)
   end
 end
@@ -544,6 +548,7 @@ struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, 
   function VectorFieldSpectral(fourier_coefficients::Â, grid::G, fourier_layout::L) where {T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout}
     size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(1)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(1))"))
+    _check_owned_storage(fourier_coefficients, "a VectorFieldSpectral")
     return new{T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end
@@ -619,6 +624,7 @@ struct TensorFieldPhysical{R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T
   function TensorFieldPhysical{R}(values_at_grid::A, grid::G, fourier_layout::L) where {R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T}, L<:RealFourierLayout}
     (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
     size(values_at_grid) == physical_field_shape(grid, Val(R)) || throw(DimensionMismatch("size(values_at_grid) must be equal to physical_field_shape(grid, Val(R))"))
+    _check_owned_storage(values_at_grid, "a TensorFieldPhysical")
     return new{R, T, A, G, L}(values_at_grid, grid, fourier_layout)
   end
 end
@@ -699,6 +705,7 @@ struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, 
     (R isa Integer && R ≥ 2) || throw(ArgumentError("tensor order R must be an integer at least 2"))
     size(fourier_coefficients) == spectral_field_shape(grid, fourier_layout, Val(R)) ||
       throw(DimensionMismatch("size(fourier_coefficients) must be equal to spectral_field_shape(grid, fourier_layout, Val(R))"))
+    _check_owned_storage(fourier_coefficients, "a TensorFieldSpectral")
     return new{R, T, Â, G, L}(fourier_coefficients, grid, fourier_layout)
   end
 end

@@ -46,9 +46,12 @@ xshape(c::Config, R, cplx) =
   cplx ? GBGPeriodicFields.Fields.spectral_field_shape(c.grid, c.layout, Val(R)) :
          (c.grid.grid_size..., (R == 0 ? () : ntuple(_ -> 3, R))...)
 
-# The five storage configurations. `viewP@0` and `viewP@1` are the pair that matters: two views of one
-# parent offset by one along the first base axis, so one section's element n is the other's element n+1.
-const POOL_NAMES = ("plain", "plain2", "viewP@0", "viewP@1", "viewQ@0")
+# The pool. Since decision 59 a section must OWN its storage, so the view entries are no longer fields
+# that might misbehave — they are constructions that must be REFUSED, and the lane asserts that instead.
+# The aliasing axis is therefore fully enumerable rather than merely sampled: two sections can share
+# storage only by being backed by the same array, which is `plain ← plain`.
+const POOL_NAMES = ("plain", "plain2", "same-object")
+const REFUSED_NAMES = ("view offset", "view full", "reshape(view) offset")
 
 function build_pool(c::Config, R, cplx)
   shape = xshape(c, R, cplx)
@@ -60,13 +63,9 @@ function build_pool(c::Config, R, cplx)
      R == 1 ? VectorFieldSpectral(data, c.grid, c.layout) : TensorFieldSpectral{2}(data, c.grid, c.layout)) :
     (R == 0 ? ScalarFieldPhysical(data, c.grid, c.layout) :
      R == 1 ? VectorFieldPhysical(data, c.grid, c.layout) : TensorFieldPhysical{2}(data, c.grid, c.layout))
-  trailing = ntuple(_ -> Colon(), length(shape) - 3)
-  entries = [wrap(rand(T, shape...)),
-             wrap(rand(T, shape...)),
-             wrap(view(P, 1:shape[1], :, :, trailing...)),
-             wrap(view(P, 2:shape[1] + 1, :, :, trailing...)),
-             wrap(view(Q, 1:shape[1], :, :, trailing...))]
-  return (entries = entries, parents = (P, Q), pristine = (copy(P), copy(Q)), wrap = wrap)
+  shared = wrap(rand(T, shape...))
+  entries = [wrap(rand(T, shape...)), wrap(rand(T, shape...)), shared]
+  return (entries = entries, parents = (P, Q), pristine = (copy(P), copy(Q)), wrap = wrap, shared = shared)
 end
 
 
@@ -100,4 +99,39 @@ function aliasing_failures(c::Config, orders, complexvalued, operation!)
     end
   end
   return failures
+end
+
+
+"""
+    refused_constructions(config, R, complexvalued) -> Vector{String}
+
+Return the names of the borrowed-storage constructions this configuration FAILED to reject.
+
+Since decision 59 a section owns its storage, which is what makes the aliasing axis finite: two
+sections can share memory only by being the same array. These are the constructions that closed the
+class, so the lane checks they stay closed rather than checking the arithmetic that used to break.
+"""
+function refused_constructions(c::Config, R, cplx)
+  shape = xshape(c, R, cplx)
+  T = cplx ? Complex{c.eltype} : c.eltype
+  P = rand(T, (shape[1] + 1, shape[2:end]...)...)
+  flat = rand(T, prod(shape) + 1)
+  trailing = ntuple(_ -> Colon(), length(shape) - 3)
+  wrap(data) = cplx ?
+    (R == 0 ? ScalarFieldSpectral(data, c.grid, c.layout) :
+     R == 1 ? VectorFieldSpectral(data, c.grid, c.layout) : TensorFieldSpectral{2}(data, c.grid, c.layout)) :
+    (R == 0 ? ScalarFieldPhysical(data, c.grid, c.layout) :
+     R == 1 ? VectorFieldPhysical(data, c.grid, c.layout) : TensorFieldPhysical{2}(data, c.grid, c.layout))
+  candidates = (("view offset",          () -> wrap(view(P, 1:shape[1], :, :, trailing...))),
+                ("view full",            () -> wrap(view(rand(T, shape...), :, :, :, trailing...))),
+                ("reshape(view) offset", () -> wrap(reshape(view(flat, 2:prod(shape) + 1), shape...))))
+  accepted = String[]
+  for (name, build) in candidates
+    try
+      build()
+      push!(accepted, name)               # constructed when it should have been refused
+    catch
+    end
+  end
+  return accepted
 end

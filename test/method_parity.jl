@@ -76,7 +76,7 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 109,
+  FiberSections         = 110,   # + section_tensor_order, cartesian _index_ranges, _check_owned_storage
   Fields                = 105,
   FieldAlgebra          = 274,
   DifferentialOperators = 79,
