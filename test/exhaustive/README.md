@@ -29,10 +29,14 @@ reason to call it green. Three things to look for:
 
 - **`NO CITATION`** — a new finding. Nothing in the package's record explains it.
 - **a cited failure** — a known gap. Still a failure, still printed, still counted.
-- **`NOT REACHED`** — a combination the lane could not construct. This is the important one: a lane
-  that cannot build a case must say so rather than let its silence read as a pass. The aliasing lane
-  reports the order-changing operations here, because their slots have different tensor orders and so
-  cannot be given an offset-overlapping pair by this construction.
+- **`NOT REACHED` / `NOT APPLICABLE`** — a combination the lane did not construct, and why. This is
+  the important one: a lane that cannot build a case must say so rather than let its silence read as a
+  pass. The two are different, and the distinction is the point — `NOT REACHED` is a hole in the lane
+  and is work to do; `NOT APPLICABLE` is a combination the package's model does not admit. The
+  aliasing lane reports the order-changing operations as the latter: two sections of different tensor
+  order can share storage only if a caller hand-builds a field over a view of another field's array,
+  and there is no verb for that. A component of a vector field is obtained by contracting with a basis
+  vector, which allocates its own storage.
 
 Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited finding.
 

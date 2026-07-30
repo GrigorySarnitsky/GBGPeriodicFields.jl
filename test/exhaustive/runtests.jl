@@ -89,8 +89,14 @@ function run_aliasing_lane()
   for (name, orders, representation, call) in OPERATIONS
     failures = aliasing_failures(orders, representation, call)
     if isempty(failures)
-      # An order-CHANGING operation draws its slots from different parents, so this lane cannot build
-      # an offset-overlapping pair for it. Say so rather than reporting a clean bill it did not earn.
+      # An order-CHANGING operation draws its slots from different parents, so no assignment here
+      # aliases them. That is a property of the package, not a hole in this lane: two sections of
+      # different tensor order can share storage only if a caller hand-builds a field over a view of
+      # another field's array, and there is no verb for that — a component of a vector is obtained by
+      # contracting with a basis vector (`dot(u, e_x)`), which allocates its own storage. The package
+      # never wraps a component view in a field type either; its internal `selectdim` views are raw
+      # arrays inside one fused pass, always at the SAME base index, which is the case decision 39
+      # measured as safe. Listed for transparency, not as work to do.
       length(unique(orders)) > 1 && push!(order_changing, string(name))
       continue
     end
@@ -112,9 +118,10 @@ function run_aliasing_lane()
   println("SUMMARY  ", broken, " of ", length(OPERATIONS), " operations have assignments that change the answer")
   isempty(unexplained) || println("         ", length(unexplained), " UNEXPLAINED: ", join(unexplained, ", "))
   isempty(order_changing) ||
-    println("         NOT REACHED for ", length(order_changing), " order-changing operations (",
-            join(order_changing, ", "), ") — their slots have different tensor orders, so this lane\n",
-            "         cannot construct an offset-overlapping pair for them. Untested, not proven safe.")
+    println("         NOT APPLICABLE to ", length(order_changing), " order-changing operations (",
+            join(order_changing, ", "), "):\n",
+            "         sections of different tensor order cannot share storage through the public API —\n",
+            "         a component is obtained by contraction (`dot(u, e_x)`), which allocates. Not a gap.")
   return broken, length(unexplained)
 end
 
