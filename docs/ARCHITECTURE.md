@@ -2779,3 +2779,64 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     decision 53 found the guards enumerating what they check, and this one finds a review enumerating
     what it asks. The defect is never the individual gap — it is that the list of things to check was
     written by hand and believed. Derive the list from the code, and make the missing entry fail.
+
+56. **An external static audit, triaged and answered** (2026-07-30). A manual static review of `src/`,
+    `ext/`, `test/`, `docs/` and `benchmark/` at commit `2c6ff752` filed 57 findings. It was read as
+    evidence rather than as a work list: a sample was verified against the code first, and that sample
+    already showed three failure modes — **stale** (its benchmark part predates the same day's
+    benchmark commits), **severity-inflated**, and **understated**. The last mattered most, so it is
+    worth naming: what the report called a "partial, meaningless contraction" in `inner` was an
+    out-of-bounds read under `@inbounds` that returned a plausible number because the memory beyond
+    the array happened to be zero.
+
+    Four findings were **rejected** as recorded trade-offs rather than defects: manual-only CI for the
+    package tests and for the canary lane (a deliberate cost decision after the free tier was
+    exhausted), and the absence of `aarch64` and GH200 measurements (already `PERFORMANCE.md` §7 gap
+    6). Those are real limitations; none is news, and re-enabling push CI would reverse an explicit
+    decision.
+
+    **The user's rule governed the rest: no silent failures and no silent corruptions.** That decided
+    every open question. Where an operation returned a plausible wrong value it was made to throw;
+    where it already failed loudly but in the wrong place, the check moved to the entry point; and
+    where the honest answer was "this is not supported", the boundary was documented and pinned by a
+    test rather than enforced by a constructor.
+
+    **Compatibility became one protocol, not seven checks.** `_context_grid` / `_context_layout` are
+    generics that every participant in a spectral operation answers — fields and multiplier sets in
+    `Fields`, all three kernel classes in `Convolution`, the `NUFFT` plan in `Interpolation` — so a
+    single predicate compares any two of them without either module knowing the other's field names.
+    Storage family joined the field domain check, expressed as the array type's name so it costs
+    nothing at run time. The audit proposed a context descriptor struct; dispatch does the same work
+    without a new type.
+
+    **The tensor-order ceiling is `R < 3`, documented rather than enforced** (user-decided). The
+    reductions, `map` and the decompositions serve ``R \le 2``; storage, persistence, the vector-space
+    operations, `inner`/`l2norm` and the spline transfer serve higher orders, and general `R` was
+    deferred to ship the second-order surface a pseudospectral solver needs. Enforcement at the
+    constructor was considered and rejected: it would break the R=3 paths that legitimately work, and
+    it buys nothing, because above the ceiling every entry point either works or **throws** — verified,
+    not assumed. A contract lane pins exactly that property, so the boundary is visible and an
+    operation that ever starts returning a plausible wrong value there fails a test.
+
+    **One finding is confirmed and deliberately not fixed.** A fused pass reads element ``n`` and
+    writes element ``n``, which makes `sym!(A, A)` safe and makes two *different* views overlapping at
+    *different* base indices unsafe — `cross!` on views offset by one along an axis gives the wrong
+    answer, serially and threaded. A `mightalias` guard would reject `sym!(A, A)` itself, whose target
+    and source component views already have different footprints on one parent, and decision 39 made
+    that case guard-free after measurement. Rather than ship a check that might break a measured,
+    load-bearing property, the contract is now stated precisely in the docstring and the failing case
+    is recorded here.
+
+    **A crash the audit did not find turned up while testing its alias claim.** `eachindex` of a
+    non-contiguous view is `CartesianIndices`, not a range, and the fused executor's partitioner had a
+    method only for ranges — so an operation on a view-backed destination threw from inside the
+    scheduler at eight threads and succeeded at one. Storage is a generic `AbstractArray` by invariant
+    6, so that is a legitimate operand, and thread-count dependence is precisely what
+    `test/threading.jl` exists to catch. It was invisible because every fixture in that file is backed
+    by a plain `Array` — the fixture-blindness of decision 52, in a new place.
+
+    The generalizable lesson is about the **denominator** again. `materialize_kernel` was missing for
+    an exported kernel class while every completeness ledger read it as covered, because the ledgers
+    count operation NAMES and the generic had methods. The fix that matters is not the method; it is
+    that the sweep now takes the **subtype set**, derived from the module namespace, so a new class
+    fails until it is given a specimen.

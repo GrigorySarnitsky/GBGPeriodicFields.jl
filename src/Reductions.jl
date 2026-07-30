@@ -31,7 +31,8 @@ The parts are, each linking to the home where its formula lives:
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
   spectral generalization ``\\langle f, w g\\rangle``.
 - [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
-  scalar section; the mapped forms below extend them to every tensor order.
+  scalar section; the mapped forms below lift that restriction for any order the reductions serve
+  (``R \\le 2`` — see the umbrella's note on the supported tensor order).
 - The **mapped forms** — each reduction above also accepts a leading function, applied to the fiber
   value at every base point: `mean(det, A)` averages a determinant over the base and
   `maximum(norm, u)` takes a supremum of magnitude, each in a single pass that never builds the mapped
@@ -1227,7 +1228,7 @@ extrema(values::AbstractPointValues{T, 0}) where {T} = (minimum(values), maximum
 extrema(section::AbstractFiberSection) =
   throw(ArgumentError("`extrema` is defined for scalar sections only; name a fiber map, as in `extrema(norm, u)`, which makes the order statistic well posed at any tensor order"))
 
-# The mapped forms carry no such restriction, at every tensor order: naming the fiber map is what
+# The mapped forms carry no such restriction, at every order the reductions serve (R <= 2): naming the fiber map is what
 # removes the ambiguity the bare forms refuse to guess, so `maximum(norm, u)` is well posed where
 # `maximum(u)` is not — and it fuses, where the equivalent `lpnorm(u, Inf)` materializes a magnitude
 # section first.

@@ -326,7 +326,8 @@ A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a \\sigma_a(
 three one-dimensional per-axis factors rather than as a full field. The factors are evaluated into
 the product one mode at a time, so the kernel never occupies a field's worth of memory: three arrays
 of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the hundreds of
-megabytes a ``256^3`` kernel would take — and applying it reads no kernel storage at all.
+megabytes a ``256^3`` kernel would take — and applying it reads no FIELD-SIZED kernel stream: the
+three ``O(N)`` factors are read per mode, which is the saving, not zero kernel traffic.
 
 Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
@@ -1261,7 +1262,9 @@ end
                   multipliers::FieldSpectralMultipliers,
                   wavenumber_low, wavenumber_high)
 
-Build an isotropic sharp spectral band-pass kernel as a scalar field in spectral representation, on
+Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol
+itself rather than its coefficients, so it costs no field of storage. Use
+[`materialize_kernel`](@ref) to expand it into a scalar field in spectral representation. It is built on
 `reference`'s grid and array backend: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
 
@@ -1308,7 +1311,9 @@ end
     spectral_cutoff(reference::AbstractFieldSpectral,
                     multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
 
-Build an isotropic sharp low-pass kernel as a scalar field in spectral representation, on
+Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol itself
+rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
+expand it into a scalar field in spectral representation. It is built on
 `reference`'s grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
 
@@ -1408,9 +1413,11 @@ multiplies every fiber component, one call translates a whole vector or tensor f
 kernel depends on nothing but the displacement, one kernel serves every field it is applied to (its
 own cost is a single pass over the coefficients). To *sample* the field at the displaced positions
 ``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
-one complex kernel: on every resolved mode it is a pure phase of unit modulus, so it moves the field
-without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
-`assignment_window`.
+one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
+field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
+`assignment_window`. At the Nyquist frequency of an even-length axis the factor is instead the real
+number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
+half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
 - `reference` — a field in spectral representation whose grid and backend the kernel matches.
 - `multipliers` — the wavenumber arrays for that grid, checked against `reference`.

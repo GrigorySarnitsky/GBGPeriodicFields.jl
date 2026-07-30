@@ -17,6 +17,19 @@ The tensors are **Cartesian** — components on one fixed orthonormal frame, wit
 curvilinear coordinates and no metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
+!!! note "The supported tensor order is R < 3"
+    Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
+    surface, and every operation below is defined over them. The field and point-value types are
+    parameterized on `R`, so higher orders can be constructed and several layers serve them
+    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and the local-spline
+    transfer). Others do not: the fiber-preserving and mapped reductions, `map`, and the
+    decomposition family are defined for ``R \\le 2`` and **throw** above it.
+
+    General `R` was deferred rather than declined, to ship a usable field layer for the second-order
+    surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
+    raises — none returns a wrong answer — and a test lane pins that, so the boundary is visible
+    rather than a surprise. See `docs/ARCHITECTURE.md` decision 56.
+
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
 methods. A field is one real physical object; the physical and spectral forms are two
@@ -57,8 +70,9 @@ The umbrella assembles its public surface from the submodules below:
   `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`, the scalar-only `std`/`var` and the
   covariance tensor `cov` that carries a vector field's second moment coordinate-free, and the order
   statistics `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
-  and the radial reductions `radial_spectrum` and `radial_correlation`. Each reduction also has a mapped
-  form taking a leading fiber map, which reduces a nonlinear invariant without building it.
+  and the radial reductions `radial_spectrum` and `radial_correlation`. Five of them — `integral`,
+  `mean`, `maximum`, `minimum` and `extrema` — also take a **leading fiber map**, which reduces a
+  nonlinear invariant without building it; the others have no mapped form.
 
 [`FiberSections`](@ref) is the base-agnostic foundation that the field and point layers share. It owns
 the fiber types [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/`FiberTensor3`/`FiberTensor4`, which

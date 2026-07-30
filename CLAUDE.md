@@ -1143,6 +1143,23 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   plans + an `assignment_window`-style deconvolution), validated against `DirectDFT` to ε on the
   resolved sub-Nyquist band. **Future:** lift the Nyquist projection (lossless rfft Nyquist split in the
   zero-pad) if an exact-at-Nyquist consumer ever needs it.
+- **General tensor order `R >= 3` (deferred, decision 56).** The supported surface is `R < 3`. Storage,
+  HDF5 persistence, the vector-space operations, `inner`/`l2norm` and the local-spline transfer already
+  serve higher orders; the fiber-preserving and mapped reductions, `map`/`map!`, and the
+  `sym`/`skew`/`dev` decompositions are defined for `R <= 2` and **throw** above it. Deferred rather
+  than declined — the second-order surface is what a pseudospectral solver needs, and shipping it
+  first was the point. Closing it means generic fiber assembly above `R = 2` in `FiberSections`
+  (`_fiber_type`/`_assemble_fiber` are enumerated for 0/1/2) and a rank-generic stored-kernel
+  convolution. **The boundary is pinned by a test lane** (`test/contracts.jl`), whose property is that
+  above the ceiling every entry point either works or throws — never returns a wrong value — so that
+  lane is what must keep passing while this is open.
+- **Alias safety for partially overlapping distinct views (known limitation, decision 56).** A fused
+  pass reads element `n` and writes element `n`, so `sym!(A, A)` is safe while two *different* views
+  overlapping at *different* base indices are not: `cross!` on views offset by one along an axis
+  returns the wrong answer, serially and threaded, and the pair is not detected. A `mightalias` guard
+  is not the fix — it would reject `sym!(A, A)`, whose target and source component views already have
+  different footprints on one parent (decision 39 made that guard-free after measurement). A correct
+  guard has to compare **base** footprints while ignoring fiber-component permutation.
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).

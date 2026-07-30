@@ -149,3 +149,44 @@ end
   # A sharp cutoff is exactly the kernel with zeros, so it is exactly the one with no inverse.
   @test_throws ArgumentError inv(materialize_kernel(spectral_cutoff(s, m, 2)))
 end
+
+
+# The tensor-order ceiling is R < 3, stated in the umbrella docstring and recorded as decision 56.
+# Orders 0, 1 and 2 are the supported surface; higher orders are constructible and partially served,
+# because the field and point-value types are parameterized on R and several layers are order-generic.
+#
+# This lane pins the ACTUAL support matrix at R = 3, and its point is not the list but the property:
+# every entry point either produces a correct result or throws. Nothing above the ceiling may return a
+# WRONG answer, which is what makes documenting the ceiling sufficient and constructor rejection
+# unnecessary (it would also break the R = 3 paths that legitimately work). Should an operation ever
+# start returning a plausible wrong value here, this testset is what notices.
+@testset "the R < 3 ceiling: above it, operations work or throw — never silently wrong" begin
+  grid = Grid3D((4, 4, 4), (2π, 2π, 2π))
+  data = rand(4, 4, 4, 3, 3, 3)
+  third = TensorFieldPhysical{3}(data, grid)
+
+  # SERVED at R = 3, with the result checked rather than merely observed not to throw.
+  @test field_tensor_order(third) == 3
+  @test inner(third, third) ≈ sum(abs2, data) / 64
+  @test l2norm(third) ≈ sqrt(sum(abs2, data) / 64)
+  scaled = similar_field(third, Val(3))
+  multiply!(scaled, third, 2.0)
+  @test field_data(scaled) ≈ 2 .* data
+  summed = similar_field(third, Val(3))
+  add!(summed, third, third)
+  @test field_data(summed) ≈ 2 .* data
+
+  # NOT served at R = 3 — each throws, which is the contract. A future release may serve any of these;
+  # what may not happen is one of them returning a number.
+  @test_throws ArgumentError integral(third)                # extensive: fiber-preserving, so R<=2
+  @test_throws ArgumentError mean(third)                    # fiber-preserving: no R>2 fiber assembly
+  @test_throws ArgumentError mean(norm, third)              # mapped: same assembly
+  @test_throws MethodError map(x -> 2x, third)              # arbitrary fiber map
+  @test_throws MethodError sym!(similar_field(third, Val(3)), third)
+
+  # The point layer agrees with the field layer on where the ceiling falls.
+  values = TensorPointValues{3}(rand(6, 3, 3, 3))
+  @test pointvalue_tensor_order(values) == 3
+  @test inner(values, values) > 0
+  @test_throws ArgumentError mean(values)
+end

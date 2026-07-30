@@ -50,9 +50,19 @@ The `mul!` product follows the `LinearAlgebra` convention that the destination m
 while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each fused pass reads an element's sources before writing any output) and
 may be called with the destination aliasing an input.
 
-Every operation in this module is also defined for point-values (`AbstractPointValues`): the same
-fiberwise algebra applied to field values sampled at an unstructured point set. See the [`Points`](@ref)
-module.
+!!! warning "Alias-safe means the SAME section, not any shared storage"
+    The guarantee is that `destination` may **be** an input — `sym!(A, A)` — or be a section over the
+    same base indices. It does not extend to two *different* views that partially overlap at
+    **different** base indices: a fused pass reads element ``n`` and writes element ``n``, so where one
+    section's element ``n`` is another's element ``n + m`` a write can land on a source not yet read,
+    and the result is wrong. Such a pair is not detected. Build the destination on its own storage, or
+    make it the input itself. See `docs/ARCHITECTURE.md` decision 56.
+
+Most of this module is mirrored onto point-values (`AbstractPointValues`) — the same fiberwise algebra
+applied to field values sampled at an unstructured point set, generated from the same builders so no
+formula is written twice. The mirror covers the physical-representation surface, not every binding: the
+weighted combination `combine!` has no point-value method, for instance. See the [`Points`](@ref)
+module for what the point layer provides.
 """
 module FieldAlgebra
 
