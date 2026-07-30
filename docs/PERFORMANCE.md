@@ -563,7 +563,17 @@ trackable on its own).
 Each **compressed kernel class** is additionally swept *against its materialized twin* at the point of
 application — `convolve!` on a vector field with the kernel axis-factored, radial, and stored — since
 the classes compute the same coefficients and only their cost differs, so the stored form is the
-baseline that makes a storage change legible (finding (o)), the **interpolation/anterpolation
+baseline that makes a storage change legible (finding (o)). The class OPERATIONS join it: the general
+`radial_kernel` builder against the two named bands, `materialize_kernel` on both compressed classes
+(the escape hatch allocates the ``O(N^3)`` field the classes exist to avoid, so its cost is what a
+consumer trades away by materializing), the in-place `translation_kernel!` against its allocating
+sibling, and `inv` — whose row **doubled** when decision 56 gave it a zero policy, and deliberately so:
+that guard is three ``O(N)`` reductions over the axis factors, measured at **40.6 µs** on an RTX 5070 Ti
+against a **9.5 µs** reciprocal, so it dominates the operation. It is accepted rather than optimized
+away, because a kernel is inverted once and applied many times — this class is swept for regressions,
+not for hot-path cost — and because the alternative is returning a non-finite coefficient that poisons
+every later result. Read against an archive from before 2026-07-30, that step is the guard, not drift.
+Then the **interpolation/anterpolation
 transfer** (the spline schemes plus the spectral `NUFFT`; the exact `DirectDFT` is its oracle, not a swept regression target), and the
 **L²/measure reductions** (`integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`maximum`, the covariance
 tensor `cov` — the one reduction whose result is fiber-valued at ``R = 2``, so it streams a vector
