@@ -6,6 +6,9 @@ The full Cartesian product, run **occasionally** — not part of `Pkg.test()`.
 julia --project=. test/exhaustive/runtests.jl
 ```
 
+The design — the axes, how each is derived, the applicability guards, and the adversarial pass that
+shaped them — is in [`DESIGN.md`](DESIGN.md). Read that before adding a lane.
+
 ## Why it is separate
 
 `Pkg.test()` is a gate and must stay fast; it runs about six minutes. This is a survey and must
