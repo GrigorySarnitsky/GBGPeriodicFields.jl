@@ -25,18 +25,27 @@ struct Config
   grid::Grid3D
   layout::RealFourierLayout
   threaded::Bool
+  seed::Int
 end
 
-function configurations()
+function configurations(; seeds = (20260731,))
   cs = Config[]
   for T in (Float64, Float32)
     cubic = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
     mixed = Grid3D((8, 6, 5), (T(2π), T(4π), T(6π)))      # unequal, mixed parity, anisotropic
-    for (gname, grid) in (("cubic", cubic), ("mixed", mixed)),
+    # THE ORIGIN AXIS. Every configuration used origin 0, so an operation that forgets to subtract the
+    # origin — every position-dependent one: the transfer verbs, the translation kernel, the DFT phase —
+    # agreed with a correct implementation in every cell the suite ran. A shifted, non-commensurate
+    # origin is the fixture that can falsify it.
+    # The four-argument constructor is the only one taking an origin, and it enforces that the spacing
+    # matches `domain_size ./ grid_size` (decision 45), so the spacing is passed explicitly.
+    shifted = Grid3D((8, 6, 5), (T(2π), T(4π), T(6π)),
+                     (T(2π) / 8, T(4π) / 6, T(6π) / 5), (T(0.3), T(-1.1), T(0.7)))
+    for (gname, grid) in (("cubic", cubic), ("mixed", mixed), ("shifted", shifted)),
         (lname, layout) in (("fold1", RealFourierLayout()), ("fold2", RealFourierLayout((2, 1, 3)))),
-        threaded in (false, true)
-      push!(cs, Config("$(T)/$(gname)/$(lname)/$(threaded ? "threaded" : "serial")",
-                       T, grid, layout, threaded))
+        threaded in (false, true), seed in seeds
+      push!(cs, Config("$(T)/$(gname)/$(lname)/$(threaded ? "threaded" : "serial")/seed$(seed)",
+                       T, grid, layout, threaded, seed))
     end
   end
   return cs

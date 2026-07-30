@@ -27,11 +27,27 @@ a person writes all of them.
 ## Axis 1 — operation
 
 Derived by `test/public_surface.jl`: every function a package module owns methods of, extensions of
-external generics included (`map`, `cov`, `inv`, the field arithmetic). **Extended here to callable
-types** — `Grid3D`, the six field types, `PointSet`, the four kernel classes, `NUFFT`,
-`FieldTransformPlans` — because constructors are things people write tests for and a function-only
-derivation cannot see them. This gap is not hypothetical: `StoredKernel` could not be entered in the
-oracle registry for exactly this reason.
+external generics included (`map`, `cov`, `inv`, the field arithmetic).
+
+**And the lanes take their domain from it**, through the invocation engine in `invocations.jl`: for
+each operation the package-owned methods are read from the method table, each parameter slot is filled
+from a canonical pool covering every type the signatures mention, and `applicable` settles which
+combinations are real calls. Adding an operation to the package adds it to the sweep. An operation the
+engine cannot call is reported, not skipped.
+
+Three things the engine had to get right, each of which silently emptied the domain when it did not:
+
+- **Slot matching compares type CONSTRUCTORS, not `isa`.** A parameter is usually a `UnionAll` with
+  free type variables — `TensorFieldPhysical{2, T, A, G} where {A, G}` — and `object isa that` is false
+  for every object, so every slot came back empty and `det`, `tr`, `sym`, `to_physical` and fifty more
+  were reported unbuildable. `applicable` then settles each candidate exactly, so the looseness costs
+  work and never correctness.
+- **Method ownership includes the extension modules.** The persistence pair lives in
+  `GBGPeriodicFieldsHDF5Ext`, which is not a package module, so filtering on `PACKAGE_MODULES` alone
+  hid all four HDF5 operations behind "no buildable call".
+- **Zero-arity and variadic methods are still methods.** Skipping empty parameter lists lost
+  `threading_cutoff`; skipping a variadic tail lost the whole multi-input `map!`/`map` surface, which
+  is expanded to its one- and two-argument forms instead.
 
 ## Axis 2 — argument assignment
 
@@ -231,27 +247,51 @@ Unchanged from the current runner, and load-bearing:
 
 ---
 
-## What the suite does NOT reach — measured, not estimated
+## What the suite reaches, and what it does not — measured, not estimated
 
-The claim at the top is **not currently true**, and the honest thing is to say by how much. Every number
-below is measured by the suite itself, so it cannot drift into optimism.
+Every number here is measured by the suite itself, so it cannot drift into optimism.
 
-| gap | size | status |
-|---|---|---|
-| public operations reached by no lane | **39 of 112 (35%)** | Axis 1 claims a derivation; every lane carries a hand-written entry list |
-| applicable check-type cells not asserted | **539 of 1223** | reported by the ledger, by check type |
-| seed axis | **not implemented** | declared below; no lane varies or prints a seed |
-| sequence axis | **not implemented** | declared below; every lane is single-call |
-| origin axis | **not implemented** | every configuration uses origin `0` |
-| backend axis | **not run** | `_storage_family` has no builder without a device |
-| HDF5 persistence pair | **not reached** | four operations own no method until `HDF5` loads |
+| axis | status |
+|---|---|
+| public operations exercised | **112 of 112** — the invocation engine builds calls from the method table |
+| universal check types | **preservation, structural, metadata, determinism, result-type** over every invocation |
+| backend | **crossed** — CPU and CUDA, when the suite is run from a vendor environment |
+| origin | **crossed** — a shifted, non-commensurate origin is a configuration |
+| seed | **crossed** — part of the configuration, printed with every finding |
+| element type · grid · fold · threads | crossed, 24 configurations |
+| argument combinations per method | **SAMPLED** at a cap of 150; the number dropped is printed |
+| sequence length | **not implemented** — every lane is single-call |
+| per-operation correctness oracles | **7 of 112** have an independent reference; the rest rely on the gate |
 
-The operation-axis row is the one worth staring at, because it is **this document's own rule broken by
-this document's own lanes**: three hand-written entry lists under an axis that claims to be derived,
-shipped in the same change that recorded the rule against it. It was found by running the rule against
-the design afterwards, not by anyone noticing — which is the argument for the rule, not against it.
+The operation row was **39 of 112 (35%) exercised by nothing** one commit ago, because three lanes
+carried hand-written entry lists under an axis that claims to be derived — this document's own rule
+broken by its own lanes, shipped in the same change that recorded the rule. The invocation engine
+replaced the lists with the method table, which is what closed it.
 
-Two limitations are **structural** rather than unfinished, and no amount of work removes them:
+### How to cross the backend axis
+
+The vendor packages are not dependencies of the package or of `test/`, so the device pool exists only
+where one is loaded:
+
+```
+julia --project=test          test/exhaustive/runtests.jl     # CPU, plus HDF5 persistence
+julia --project=test/gpu/cuda test/exhaustive/runtests.jl     # CPU and CUDA
+julia --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
+```
+
+Determinism is asserted **bitwise on CPU** and to a tolerance on a device: a device reduction is not
+reproducible across launches — measured at 1 ulp for the ``R = 2`` `inner`, which is the parallel
+summation order rather than a defect — and the package's own position is that tolerances hold for
+cross-backend comparisons.
+
+Three limitations are **structural** rather than unfinished, and no amount of work removes them:
+
+- **Applicability is not meaning.** The engine builds a call because `applicable` says one exists, which
+  is not the same as the call meaning what a reader assumes. `norm(x, p)` is LinearAlgebra's p-norm, so
+  a two-input `map!(norm, dest, A, s)` silently reads the second FIELD as the exponent, giving `Inf`
+  wherever ``p < 1``. The lane reported that as a package defect and it was the engine's own doing. The
+  pool now holds wrapped closures of fixed arity so a wrong-arity call throws instead of being misread,
+  but the general hazard remains: a derived call set contains calls nobody meant.
 
 - **The check-type axis is derived from assertions people have written**, so it cannot contain a class
   nobody in this project has ever written. The product is complete relative to the suite's own

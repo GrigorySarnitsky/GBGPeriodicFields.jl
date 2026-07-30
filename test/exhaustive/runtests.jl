@@ -20,6 +20,8 @@ using Statistics
 include("aliasing.jl")
 include("references.jl")
 include("pools.jl")
+include("invocations.jl")
+include("checks.jl")
 include("ledger.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
@@ -262,6 +264,8 @@ end
 
 unswept = run_surface_lane()
 println()
+invocation_findings, invocation_cells, unbuilt = run_invocation_lane(configurations())
+println()
 disagreeing = run_reference_lane()
 println()
 affected, unexplained, cases = run_aliasing_lane()
@@ -274,7 +278,9 @@ println()
 println("═"^100)
 println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over five lanes")
 println("═"^100)
-println("  surface coverage             ", unswept, " public operations exercised by no lane")
+println("  surface coverage             ", unswept, " public operations exercised by no hand-written lane")
+println("  universal checks             ", invocation_findings, " findings over ", invocation_cells,
+        " invocations · ", unbuilt, " operations with no buildable call")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
@@ -287,5 +293,6 @@ println("  A gap in the ledger is a COVERAGE report, not a failure: it says a qu
 println("  admits has not been asked of that operation. The exit status is driven by the lanes that")
 println("  assert behaviour, so a survey number can grow without turning the report red.")
 
-exit(disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 || ledger_violations > 0 ? 2 :
+exit(disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 || ledger_violations > 0 ||
+     invocation_findings > 0 ? 2 :
      (affected > 0 ? 1 : 0))

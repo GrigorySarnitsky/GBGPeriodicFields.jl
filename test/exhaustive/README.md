@@ -34,14 +34,39 @@ mutation-verified in both places.
 
 | lane | what it sweeps | oracle |
 |---|---|---|
+| surface coverage | every public operation | is it exercised by any lane at all? |
+| universal checks | **every operation × every buildable call × every configuration × every backend** | five properties every operation must have (below) |
 | reference cross-validation | the spectral operators, every configuration | independent implementations in `references.jl`, built from raw arrays |
 | storage aliasing | every in-place operation × every storage relation | the same call on fresh disjoint copies |
 | context mismatch | every entry point × every derived mismatch axis | a mismatched argument must be refused |
 | applicability ledger | every operation × every check type | each cell implemented, or inapplicable for a derived reason |
 
-The first three assert behaviour and drive the exit status. **The ledger is a coverage report**: a gap
-there says a question the design admits has not been asked of that operation, which is a work list
+The universal checks are the ones that sweep the whole surface, because their oracles do not depend on
+what an operation computes:
+
+- **preservation** — an allocating call leaves every argument unchanged; an in-place call changes only
+  its destination
+- **structural** — a finite input gives a finite result
+- **metadata** — an allocating result carries its input's grid, layout and element type
+- **determinism** — repeating a call reproduces it (bitwise on CPU, to a tolerance on a device)
+- **result-type** — the value matches what inference promised, so a caller specializing on it is not
+  specializing on a lie
+
+All but the ledger assert behaviour and drive the exit status. **The ledger is a coverage report**: a
+gap there says a question the design admits has not been asked of that operation, which is a work list
 rather than a failure, so its count can grow without turning the report red.
+
+## Running it
+
+```
+julia --project=test          test/exhaustive/runtests.jl     # CPU, plus HDF5 persistence
+julia --project=test/gpu/cuda test/exhaustive/runtests.jl     # CPU and CUDA
+julia --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
+```
+
+The vendor packages are dependencies of neither the package nor `test/`, so the device pool exists only
+in a GPU environment. Run from one and the backend axis is crossed; run from `test/` and the lane says
+**NOT RUN** rather than passing quietly.
 
 ## How to read the output
 
