@@ -23,6 +23,26 @@ to write down is invisible to every check that starts from a list, however caref
 storage-aliasing lane found nine such defects the first time it ran, three of which had survived a
 deliberate hand-written probe of the same property an hour earlier.
 
+The context-mismatch lane did the same on its first run. Sweeping each operation against an argument
+differing in one derived quantity, it found that the **spectral** `inner` never checked tensor order:
+`inner(scalar, vector)` returned a plausible number and `inner(vector, tensor)` returned `NaN`, where
+both physical calls threw. The physical guard and its test had been added together and both stopped at
+one representation. Fixed in `src/Reductions.jl`, pinned in `test/reductions.jl`, and the fix
+mutation-verified in both places.
+
+## The lanes
+
+| lane | what it sweeps | oracle |
+|---|---|---|
+| reference cross-validation | the spectral operators, every configuration | independent implementations in `references.jl`, built from raw arrays |
+| storage aliasing | every in-place operation × every storage relation | the same call on fresh disjoint copies |
+| context mismatch | every entry point × every derived mismatch axis | a mismatched argument must be refused |
+| applicability ledger | every operation × every check type | each cell implemented, or inapplicable for a derived reason |
+
+The first three assert behaviour and drive the exit status. **The ledger is a coverage report**: a gap
+there says a question the design admits has not been asked of that operation, which is a work list
+rather than a failure, so its count can grow without turning the report red.
+
 ## How to read the output
 
 **It is a report, not a gate that has been silenced.** It runs blind to what the package has decided

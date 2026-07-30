@@ -748,6 +748,14 @@ end
 # reductions; the real part discards the round-off imaginary part of the (provably real) full-spectrum sum.
 function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
+  # The domain check settles the base — grid, layout, storage — and says nothing about the FIBER, so on
+  # its own it lets a scalar be contracted with a vector. The physical path never could: it routes
+  # through `_check_contractible`, which compares tensor orders. Parseval does not remove the
+  # requirement that the two sections have the same fiber, and without this the mismatch is silent —
+  # `inner(scalar, vector)` returned a plausible number and `inner(vector, tensor)` returned NaN.
+  field_tensor_order(f) == field_tensor_order(g) ||
+    throw(DimensionMismatch("sections have different tensor orders: " *
+                            "$(field_tensor_order(f)) and $(field_tensor_order(g))"))
   data_f = field_data(f)
   data_g = field_data(g)
   normalization = T(prod(field_grid(f).grid_size))^2

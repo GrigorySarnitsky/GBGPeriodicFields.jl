@@ -648,3 +648,41 @@ end
   @test inner(points, points) isa Float64
   @test inner(tensor, tensor) ≈ 9.0
 end
+
+
+# The same rejection in the OTHER representation. This is a separate testset because the two travel by
+# different routes — the physical path through `_check_contractible`, the spectral one through the
+# Parseval branch — and the testset above pinned only the first. The gap that left was real and silent:
+# `inner(scalar, vector)` in spectral representation returned a plausible number and
+# `inner(vector, tensor)` returned NaN, where both physical calls threw.
+#
+# Found by the exhaustive suite's context-mismatch lane, which sweeps each operation against an argument
+# differing in one derived quantity; nobody had thought to ask this pair. Pinned here because the survey
+# discovers and the gate keeps.
+@testset "spectral inner rejects mismatched tensor order (exhaustive lane, 2026-07-30)" begin
+  grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
+  layout = RealFourierLayout()
+  shape(R) = GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(R))
+  scalar = ScalarFieldSpectral(randn(ComplexF64, shape(0)...), grid, layout)
+  vector = VectorFieldSpectral(randn(ComplexF64, shape(1)...), grid, layout)
+  tensor = TensorFieldSpectral{2}(randn(ComplexF64, shape(2)...), grid, layout)
+
+  @test_throws DimensionMismatch inner(scalar, vector)
+  @test_throws DimensionMismatch inner(vector, scalar)
+  @test_throws DimensionMismatch inner(scalar, tensor)
+  @test_throws DimensionMismatch inner(tensor, scalar)
+  @test_throws DimensionMismatch inner(vector, tensor)
+  @test_throws DimensionMismatch inner(tensor, vector)
+
+  # Every matching pair still contracts, and still agrees with Parseval against its own physical form —
+  # so the new check rejects only what it should, and the branch it guards still computes.
+  physical = (ScalarFieldPhysical(randn(grid.grid_size...), grid, layout),
+              VectorFieldPhysical(randn(grid.grid_size..., 3), grid, layout),
+              TensorFieldPhysical{2}(randn(grid.grid_size..., 3, 3), grid, layout))
+  for (physical_field, spectral_like) in zip(physical, (scalar, vector, tensor))
+    plans = FieldTransformPlans(physical_field, spectral_like)
+    transformed = to_spectral(physical_field, plans)
+    @test inner(transformed, transformed) ≈ l2norm(transformed)^2
+    @test inner(transformed, transformed) ≈ inner(physical_field, physical_field)
+  end
+end

@@ -38,17 +38,55 @@ oracle registry for exactly this reason.
 For each operation, the product over its slots. Each slot's pool is keyed by its **declared parameter
 type** and is itself derived:
 
-| slot type | pool, derived from |
-|---|---|
-| kernel | concrete subtypes of `AbstractSpectralKernel` — the sweep that caught `StoredKernel` |
-| transfer scheme | concrete subtypes of `AbstractTransferScheme` |
-| section | tensor order × representation × storage relation (`distinct`, `dest≡a`, `dest≡b`) |
-| numeric parameter | the boundaries in the **validation code** (``0 \le lo \le hi``, ``p \ge 1``, ``tol > 0``), not invented values |
-| context object | matching / foreign-grid / foreign-layout / foreign-eltype |
-| point set | typical / `M = 0` / `M = 1` / clustered / on-node / outside the box |
+| slot type | pool | derivation mechanism |
+|---|---|---|
+| kernel | the concrete kernel classes | `subtypes(AbstractSpectralKernel)` — the sweep that caught `StoredKernel` |
+| transfer scheme | the concrete schemes | `subtypes(AbstractTransferScheme)` |
+| section | order × representation × storage relation | the constructors, crossed |
+| numeric parameter | the boundaries themselves | the comparisons in the **validation code**, not invented values |
+| context object | one `foreign-<q>` per compared quantity | `comparable_quantities()` in `pools.jl` — the equality tests inside every `_check_*` predicate, read from lowered IR |
+| point set — count | `M = 0`, `1`, typical | the boundaries of a count |
+| point set — geometry | uniform / on-node / clustered / outside the box | **declared-sampled**: no predicate compares position, so nothing derives it |
 
 Since decision 59 a section owns its storage, so the storage relation has three values and is
 enumerated completely rather than sampled.
+
+### The rule that table exists to enforce
+
+The context row used to read `matching / foreign-grid / foreign-layout / foreign-eltype`, under a
+column headed *derived from*. It named no mechanism — it restated its own contents — and the
+adversarial pass **read the label and attacked elsewhere**, so the pool kept three of the seventeen
+values it should have had. One of the missing values was tensor order, which is exactly why decision
+52's NUFFT defect had to be found by mutating the source instead of by sweeping a product.
+
+> **A cell claiming a derivation must name a MECHANISM. A cell whose source restates its own contents
+> is a list, and must be labelled one.**
+
+This generalizes past this table. The same defect has now appeared four times in this project, each
+time as *labelled derived, but not*: the oracle registry derived from `names()`, which could not see an
+extended generic (15 operations missing); the pass audit deriving symbols with `first(split(name))`,
+which produced phantoms; `MODULE_BASELINE` counting by namespace, blind to a qualified `Base.inv`; and
+this pool. So the adversarial protocol carries a standing item:
+
+> **The adversary must verify the design's claims about itself, not accept them.** For every place the
+> design says "derived", ask *derived from what, by what call* — and check that the answer is not the
+> value list read backwards.
+
+### And the derivation must not consult the artifact under test
+
+Deriving *applicability* from behaviour is the same trap wearing different clothes. The mismatch lane
+first decided whether a slot was generic over tensor order by **asking the package** — calling the slot
+at each order and inferring genericity when several succeeded. Re-injecting the spectral `inner` defect
+showed what that costs: with the bug present `inner(scalar, vector)` succeeds, the probe concludes the
+slot is generic, and the lane **skips the one cell that would have exposed it**. The defect made itself
+inapplicable, and the lane reported all-clear while sweeping two fewer cells.
+
+> **A contract is declared; a probe is an assertion against it — never a filter that decides what to
+> check.**
+
+So the fiber contract is stated per slot and the probe now *checks* it: a slot declared to take one
+tensor order that accepts three is itself a finding. That inversion is what turned the lane from silent
+to catching the defect twice over.
 
 ## Axis 3 — configuration
 
@@ -113,13 +151,52 @@ reproducible.
 
 Not every check applies to every operation: `adjoint` needs a known adjoint, `identity` needs a law.
 So every `(operation × check-type)` pair is **implemented, or exempted with a reason** — the ledger
-pattern, applied to the check-type axis.
+pattern, applied to the check-type axis. It is implemented in `ledger.jl`.
+
+**The reason is a predicate, not a sentence.** "This does not apply here" reads as a decision and is
+usually an omission, so each check type carries a rule over properties read out of the operation
+itself, and the reason printed for an inapplicable cell is the rule that said so:
+
+| property | read from |
+|---|---|
+| in-place | the name ends in `!` |
+| can reject an argument | its IR reaches a `_check_*` predicate |
+| nondeterministic | its IR reaches `Atomix` |
+| threaded | its IR reaches the `_assign!` primitive |
+| valid in both representations | it has methods on both field supertypes |
+| result is ordered / is a section | inferred return types over its own methods |
+
+The IR walk runs to **depth 4** because a KernelAbstractions launch indirects four times before the
+kernel body (`anterpolate!` → `_anterpolate_kernel!` → `__anterpolate_kernel!` →
+`cpu__anterpolate_kernel!` → `Atomix`). At depth 3 the scatter kernel's atomic is invisible and the one
+family the determinism check exists for is silently exempted.
+
+**Invariant 1 is read only in the direction it holds.** An operation with methods in both
+representations is linear, so the method set states linearity. The converse is false — `convolve` is
+linear yet spectral-only — so the checks needing genuine linearity take their domain from the declared
+relation table rather than from inverting an implication that does not invert.
 
 An exemption reason is itself checkable, and must be checked, or it becomes the place misses hide:
 
-- an operation **declared linear** may not be exempt from `adjoint` or `representation-agreement`
+- an operation valid in **both representations** may not be exempt from `representation-agreement`
 - an operation with an **in-place form** may not be exempt from `allocation`
 - an operation that **allocates its result** may not be exempt from `metadata`
+- an operation reaching an **atomic** may not be exempt from `determinism`
+
+### Coverage is attributed through the suite's own assertion helpers
+
+An assertion is not always written where the operation is named. A well-factored suite wraps its
+assertions — `@alloc_below 1000 add!(d, a, b)`, `audit(op!, name, Traffic(...))` — and then the `@test`
+is in the helper's body while the operation appears only at the call site. Attributing coverage to
+lines containing `@test` therefore misses whole files, and misses them **worse the better factored they
+are**: it reported `test/allocations.jl`, the suite's most systematic audit, as asserting nothing.
+
+So the helpers are derived too — the test sources are parsed, and any macro or function whose body
+contains a `@test…` macrocall is one. (`@test\b` also fails to match `@test_call`, `_` being a word
+character, which had made every JET assertion invisible.)
+
+Attribution is **by mention** and can over-credit, which is stated in the report rather than corrected:
+the alternative is attributing by hand, which is the listing this design exists to avoid.
 
 ## Cross-operation identities
 

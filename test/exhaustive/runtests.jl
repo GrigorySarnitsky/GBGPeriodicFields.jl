@@ -19,6 +19,8 @@ using Statistics
 
 include("aliasing.jl")
 include("references.jl")
+include("pools.jl")
+include("ledger.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
 # entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
@@ -217,4 +219,25 @@ disagreeing = run_reference_lane()
 println()
 affected, unexplained, cases = run_aliasing_lane()
 println()
-exit(disagreeing > 0 || unexplained > 0 ? 2 : (affected > 0 ? 1 : 0))
+mismatch_findings, mismatch_cells = run_mismatch_lane()
+println()
+ledger_gaps, ledger_violations, ledger_cells = run_ledger_lane()
+println()
+
+println("═"^100)
+println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over four lanes")
+println("═"^100)
+println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
+                                           "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
+println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
+        unexplained, " uncited")
+println("  context mismatch             ", mismatch_findings, " findings over ", mismatch_cells, " cells")
+println("  applicability ledger         ", ledger_gaps, " applicable-but-unasserted cells, ",
+        ledger_violations, " guard violations")
+println()
+println("  A gap in the ledger is a COVERAGE report, not a failure: it says a question the design")
+println("  admits has not been asked of that operation. The exit status is driven by the lanes that")
+println("  assert behaviour, so a survey number can grow without turning the report red.")
+
+exit(disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 || ledger_violations > 0 ? 2 :
+     (affected > 0 ? 1 : 0))
