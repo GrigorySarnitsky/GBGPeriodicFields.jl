@@ -76,17 +76,48 @@ a mechanical property, `generated_analytic.jl` obtains it by construction rather
 the parity baseline and ambiguity check pass, and the suite is green.
 
 
-**A third lane, run occasionally.** `test/exhaustive/` holds the full Cartesian product and is **not**
-part of `Pkg.test()` — the same split the GPU suite and the benchmarks use, and for the same reason.
-`Pkg.test()` is a gate and must stay fast (about six minutes); the exhaustive suite is a survey and
-must stay complete, and giving both jobs to one lane means the survey gets trimmed until it stops being
-a survey.
+### A GATE and a SURVEY, and how to tell which a test is
 
-It is a **report, not a gate that has been silenced**: it runs blind to what the package has decided,
-prints everything that does not work, and where a failure matches a recorded decision or a documented
-contract it prints the citation *beside* the failure rather than suppressing it. It also reports what
-it could **not** construct — a lane whose silence would otherwise read as a pass. See
-`test/exhaustive/README.md`.
+`Pkg.test()` and `test/exhaustive/` answer different questions, and the difference decides where any
+new test belongs.
+
+| | `Pkg.test()` | `test/exhaustive/` |
+|---|---|---|
+| the question | did this change break something we **know** about? | is there something we **do not** know about? |
+| the verdict | binary — green, or the change does not ship | a report, read by a person |
+| may be non-green | **never** | yes, while a known limitation stands |
+| cadence | every change | occasionally, on demand |
+| its oracle | specific, per claim (``\langle \sin^2 \rangle = 1/2``) | universal, per property (aliasing must not change the answer) |
+| what it holds | claims, completeness guards, intentional absences | products over the coverage axes |
+
+Four rules follow, and they settle placement without further argument:
+
+1. **A specific oracle goes in the gate.** ``\langle \sin^2\rangle = 1/2`` is a claim about one
+   operation: it must always hold, it costs microseconds, and a regression must block a commit.
+2. **A universal oracle over a product goes in the survey.** "Aliasing must not change the answer"
+   ranges over every operation × every storage relation, and hand-picking instances of it is exactly
+   how the aliasing axis came to hold two of its six values (decision 56).
+3. **A completeness guard goes in the gate** — the two ledgers, the oracle registry, the derived
+   baselines. They are microseconds, and their whole purpose is to fail the *moment* an operation
+   arrives without coverage. An occasional run cannot do that job.
+4. **Anything that may legitimately be non-green goes in the survey.** This is the decisive one. The
+   aliasing failures cannot sit in the gate: they would have to be fixed or suppressed, and a
+   suppressed failure is worse than an absent test because it reads as a pass.
+
+The two are connected by a lifecycle: **the survey discovers, a fix lands, the gate pins it forever**,
+and rule 3's guards are what stop a new operation from skipping the first step.
+
+Getting the split backwards fails in both directions, and both have happened here. Products in the gate
+slow it until someone trims coverage; oracles in the survey let regressions ship because nobody ran it.
+
+Note that the GPU suite and the benchmarks are opt-in for an **unrelated** reason — they need hardware,
+or a quiet machine. "Opt-in" is not the axis; gate-versus-survey is.
+
+The survey is a **report, not a gate that has been silenced**: it runs blind to what the package has
+decided, prints everything that does not work, and where a failure matches a recorded decision or a
+documented contract it prints the citation *beside* the failure rather than in place of it. It also
+reports what it could **not** construct, since a lane whose silence reads as a pass is the failure the
+whole file exists to prevent. See `test/exhaustive/README.md`.
 
 ## 2. Layout
 

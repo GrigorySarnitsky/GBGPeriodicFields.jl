@@ -796,6 +796,15 @@ those are the usual rot. Then the mechanical bar:
   these. `test/aqua.jl` runs `Aqua.test_all` for broader package checks (type piracy,
   compat bounds, stale deps, unbound type parameters, …).
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
+- **`Pkg.test()` is a GATE; `test/exhaustive/` is a SURVEY** — the split that decides where a new test
+  belongs (`docs/TESTING.md` §1). A gate re-checks claims we already know and must be green or the
+  change does not ship; a survey searches for combinations nobody enumerated and is *read*, not passed.
+  So: a **specific** oracle and every **completeness guard** go in the gate (a guard must fail the
+  moment an operation arrives uncovered, which an occasional run cannot do); a **universal** oracle over
+  a **product** goes in the survey; and anything that may legitimately be **non-green** must go in the
+  survey, because a suppressed failure reads as a pass and is worse than an absent test. The lifecycle
+  joins them: the survey discovers, a fix lands, the gate pins it forever. (The GPU suite and the
+  benchmarks are opt-in for an unrelated reason — hardware, and a quiet machine.)
 - The **exhaustive suite** is opt-in and separate too: `julia --project=. test/exhaustive/runtests.jl`
   holds the full Cartesian product and is run occasionally, like `/check-docs`, not on every change. It
   is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
