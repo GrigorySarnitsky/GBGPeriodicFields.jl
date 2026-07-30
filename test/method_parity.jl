@@ -8,6 +8,8 @@
 
 using Test
 using GBGPeriodicFields
+using Statistics
+include("public_surface.jl")
 
 const FA = GBGPeriodicFields.FieldAlgebra
 const IP = GBGPeriodicFields.Points
@@ -74,25 +76,46 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 109,   # +1 section_tensor_order; +1 the cartesian _index_ranges (view-backed threading)
-  Fields                = 92,   # +2 _storage_family/_same_backend (CODE-06); +3 the context protocol
-  FieldAlgebra          = 206,
+  FiberSections         = 109,
+  Fields                = 105,
+  FieldAlgebra          = 274,
   DifferentialOperators = 79,
-  Convolution           = 55,   # +2: materialize_kernel for ProductKernel and ScalarFieldSpectral (audit CODE-11)
-  Points                = 62,   # +1: _check_combinable (audit CODE-03)
-  Interpolation         = 117,   # +2: the NUFFT plan context + transfer colocation (CODE-04, CODE-05)
-  Reductions            = 88,   # +4: _same_base_kind (3 methods) + _check_contractible (audit CODE-01)
+  Convolution           = 72,
+  Points                = 207,
+  Interpolation         = 119,
+  Reductions            = 111,
 )
 
+# The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.
+# A method defined under a QUALIFIED name — `Base.inv(kernel::SeparableKernel) = …` — creates no
+# binding in the defining module, so a namespace scan cannot see it: adding `inv(::ScalarFieldSpectral)`
+# to Convolution moved no number here, which is the same hole `public_surface.jl` closes for the
+# ledgers. Ownership is the question, and `m.module === mod` is the only thing that answers it.
 function module_method_count(mod::Module)
   total = 0
-  for name in names(mod; all = true)
-    isdefined(mod, name) || continue
-    f = getfield(mod, name)
-    f isa Function || continue
+  for name in all_package_functions()
+    f = _resolve_function(name)
+    f === nothing && continue
     total += count(m -> m.module === mod, methods(f))
   end
   return total
+end
+
+
+# A name from the derived surface may live in a package module or in the external module whose generic
+# the package extends, so look in both.
+function _resolve_function(name::Symbol)
+  # LinearAlgebra is not a test dependency, and does not need to be: the umbrella re-exports the
+  # generics the package extends from it (`dot`, `cross`, `norm`, `mul!`, `transpose`).
+  for mod in (GBGPeriodicFields, Base, Statistics,
+              (getfield(GBGPeriodicFields, m) for m in
+               (:FiberSections, :Fields, :FieldAlgebra, :DifferentialOperators,
+                :Convolution, :Points, :Interpolation, :Reductions))...)
+    isdefined(mod, name) || continue
+    candidate = getfield(mod, name)
+    candidate isa Function && return candidate
+  end
+  return nothing
 end
 
 @testset "derived module baselines (decision 53)" begin
@@ -105,6 +128,8 @@ end
       @info "module method count moved — refreeze deliberately, with the reason" target = name expected measured
     @test measured == expected
   end
-  # The hand-written FieldAlgebra total must agree with the derived one, or one of them is stale.
-  @test MODULE_BASELINE.FieldAlgebra == 206
+  # The two baselines count DIFFERENT denominators and must not be compared. The enumerated one above
+  # is 206 methods over 28 named generics; this one is every method FieldAlgebra owns, extended `Base`
+  # operators included, which is why it is larger. Comparing them would only re-freeze a coincidence.
+  @test MODULE_BASELINE.FieldAlgebra > 206
 end

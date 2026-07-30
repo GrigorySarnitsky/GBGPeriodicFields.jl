@@ -658,3 +658,32 @@ end
   @test !hasmethod(map!, Tuple{typeof(det), ScalarFieldSpectral, TensorFieldSpectral{2}})
   @test !hasmethod(map!, Tuple{typeof(det), VectorFieldSpectral, VectorFieldSpectral})
 end
+
+
+# The infix aliases are public operations and must agree with the named functions they alias.
+#
+# Found by the oracle registry's citation check (decision 55): `⋅` was recorded as covered by this
+# file, which used only `dot` — the glyph itself was never exercised. `×` and `⋆` were, which is why
+# only one of the three surfaced. An alias is a separate binding, so "the function it forwards to is
+# tested" is not the same claim as "the alias forwards".
+@testset "the infix operator aliases agree with their named functions" begin
+  grid = Grid3D((4, 4, 4), (2π, 2π, 2π))
+  u = VectorFieldPhysical(rand(4, 4, 4, 3), grid)
+  v = VectorFieldPhysical(rand(4, 4, 4, 3), grid)
+  A = TensorFieldPhysical{2}(rand(4, 4, 4, 3, 3), grid)
+  B = TensorFieldPhysical{2}(rand(4, 4, 4, 3, 3), grid)
+
+  @test field_data(u ⋅ v) == field_data(dot(u, v))
+  @test field_data(A ⋅ B) == field_data(dot(A, B))
+  @test field_data(u × v) == field_data(cross(u, v))
+
+  # The spectral kernel alias, on the representation where convolution is defined.
+  layout = RealFourierLayout()
+  spectral = ScalarFieldSpectral(
+    zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))), grid, layout)
+  multipliers = FieldSpectralMultipliers(spectral)
+  us = VectorFieldSpectral(randn(ComplexF64,
+    GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(1))), grid, layout)
+  kernel = spectral_band(spectral, multipliers, 0, 2)
+  @test field_data(us ⋆ kernel) == field_data(convolve(us, kernel))
+end

@@ -60,7 +60,12 @@ a mechanical property, `generated_analytic.jl` obtains it by construction rather
   that never moved it. Beside it sits a **derived** baseline (decision 53), one frozen count per
   module over every function that module owns, so *any* new method anywhere moves a number and must
   be refrozen deliberately — the pass-audit protocol applied to the method table. Prefer adding to
-  the derived one; the enumerated one stays because it localizes a change to the generic that moved;
+  the derived one; the enumerated one stays because it localizes a change to the generic that moved.
+  The derived count asks about **ownership** (`m.module === mod`) over the surface
+  `public_surface.jl` derives, not about a module's namespace: a method defined under a qualified
+  name — `Base.inv(kernel::SeparableKernel) = …` — creates no binding to scan, so a namespace-based
+  count silently missed it (decision 56). The two baselines count different denominators and are
+  deliberately not compared;
 - **intentional-absence tests** assert that invalid combinations *do not exist*
   (`@test_throws MethodError`), symmetrically across representations: nonlinear products
   are absent in spectral (field×field, division by a scalar field, pointwise norms), and
@@ -135,6 +140,12 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `public_surface.jl` (not a testset: the shared derivation of the package's public surface — every
   function a package module owns methods of, extensions of external generics included — which the two
   ledgers and the oracle registry each derive their required set from),
+  `contracts.jl` (decision 56: the negative matrix for the strict compatibility protocol — context
+  mismatch at identical shape, numeric domains, constructor invariants, transfer colocation, the
+  inversion zero policy, and the ``R < 3`` ceiling lane whose property is that above the ceiling every
+  entry point works or throws, never returns a wrong value),
+  `results_format.jl` (decision 56: the committed benchmark report must parse as GFM — every table's
+  alignment and data rows must match its header's column count),
   `oracle_registry.jl` (decision 55: the recorded oracle provenance of every public value-returning
   operation — analytic, independent, property, relational or structural, each naming the file its
   strongest oracle lives in. An operation with no entry fails, and so does one covered only against

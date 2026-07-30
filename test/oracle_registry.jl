@@ -49,8 +49,8 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :sym                => (:independent, "fieldalgebra.jl — explicit ½(A + Aᵀ)"),
   :skew               => (:independent, "fieldalgebra.jl — explicit ½(A − Aᵀ)"),
   :dev                => (:independent, "fieldalgebra.jl — explicit A − tr(A)I/3"),
-  :×                  => (:independent, "fieldalgebra.jl — the `cross` alias, same oracle"),
-  :⋅                  => (:independent, "fieldalgebra.jl — the `dot` alias, same oracle"),
+  :×                  => (:independent, "fieldalgebra.jl — the alias agrees with `cross`, whose oracle is the explicit expansion"),
+  :⋅                  => (:independent, "fieldalgebra.jl — the alias agrees with `dot`, whose oracle is the explicit expansion"),
 
   # ---- reductions ----
   :inner              => (:analytic, "generated_analytic.jl — Σ A²/2; and reductions.jl Σ|u|²/N"),
@@ -71,7 +71,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :exponential_convolve => (:analytic, "convolution.jl — the single-mode eigenvalue e^c·cos x"),
   :radial_kernel      => (:analytic, "generated_analytic.jl / convolution.jl — σ evaluated per mode vs its values"),
   :materialize_kernel => (:independent, "convolution.jl — vs the explicit per-axis product"),
-  :⋆                  => (:independent, "convolution.jl — the `convolve` alias, same oracle"),
+  :⋆                  => (:independent, "fieldalgebra.jl — the alias agrees with `convolve`; convolution.jl — the oracle"),
 
   # ---- grid ↔ point transfer ----
   :interpolate        => (:analytic, "transfer_spectral.jl — exact reconstruction of a band-limited field"),
@@ -136,4 +136,35 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   isempty(relational_only) ||
     @error "operations whose only oracle is other package operations" relational_only
   @test isempty(relational_only)
+end
+
+
+# The registry cites a file for every classification, and a citation nobody checks is a comment.
+# Verifying that the cited file EXISTS and mentions the operation does not prove the assertion in it is
+# genuinely analytic — that judgement stays human — but it does close the half that rots on its own: an
+# entry surviving a test being moved, renamed or deleted. Cheap, mechanical, and it would have caught a
+# stale citation at any point in this file's life.
+@testset "every oracle citation names a file that exists and mentions the operation" begin
+  test_directory = @__DIR__
+  missing_file = Tuple{String, String}[]
+  unmentioned = Tuple{String, String}[]
+  for (operation, (provenance, where_it_lives)) in ORACLE_PROVENANCE
+    provenance === :structural && continue          # no oracle, so no citation to check
+    # The citation reads "<file>.jl — prose"; take the files it names.
+    for token in eachmatch(r"[A-Za-z_0-9]+\.jl", where_it_lives)
+      path = joinpath(test_directory, token.match)
+      if !isfile(path)
+        push!(missing_file, (String(operation), token.match))
+        continue
+      end
+      occursin(String(operation), read(path, String)) ||
+        push!(unmentioned, (String(operation), token.match))
+    end
+    # Every non-structural entry must cite at least one file, or it cites nothing at all.
+    @test occursin(".jl", where_it_lives)
+  end
+  isempty(missing_file) || @error "oracle citations naming a file that does not exist" missing_file
+  @test isempty(missing_file)
+  isempty(unmentioned) || @error "oracle citations whose file never mentions the operation" unmentioned
+  @test isempty(unmentioned)
 end
