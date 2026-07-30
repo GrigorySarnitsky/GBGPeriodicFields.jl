@@ -78,7 +78,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
 
 **A third lane, run occasionally.** `test/exhaustive/` holds the full Cartesian product and is **not**
 part of `Pkg.test()` — the same split the GPU suite and the benchmarks use, and for the same reason.
-The default suite is a gate and must stay fast (about six minutes); the exhaustive one is a survey and
+`Pkg.test()` is a gate and must stay fast (about six minutes); the exhaustive suite is a survey and
 must stay complete, and giving both jobs to one lane means the survey gets trimmed until it stops being
 a survey.
 

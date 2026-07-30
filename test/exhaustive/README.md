@@ -8,7 +8,7 @@ julia --project=. test/exhaustive/runtests.jl
 
 ## Why it is separate
 
-The default suite is a gate and must stay fast; it runs about six minutes. This is a survey and must
+`Pkg.test()` is a gate and must stay fast; it runs about six minutes. This is a survey and must
 stay complete. Giving one job to both means the survey gets trimmed until it is no longer a survey, so
 they are separate lanes — the same split the GPU suite and the benchmarks already use.
 
@@ -44,7 +44,7 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 
 The aliasing lane crosses eight axes: element type, grid shape (parity, cubicity, anisotropy),
 spectral fold, thread count, storage kind, aliasing relation, tensor order and representation. That is
-**17,200 cases over 16 configurations in about 90 seconds**. The default suite runs 360 s for a few
+**17,200 cases over 16 configurations in about 90 seconds**. `Pkg.test()` runs 360 s for a few
 thousand assertions, which is the difference between a gate and a survey — this one buys two orders of
 magnitude more combinations for a quarter of the time, because a negative or consistency check is
 cheap and needs no oracle beyond "the answer must not change".
