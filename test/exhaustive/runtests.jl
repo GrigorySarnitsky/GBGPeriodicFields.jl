@@ -18,6 +18,7 @@ using GBGPeriodicFields
 using Statistics
 
 include("aliasing.jl")
+include("references.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
 # entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
@@ -85,6 +86,51 @@ function operations_for(c::Config)
     (Symbol("helmholtz_projection!∘kernel·αβ"), [1, 1], SPECTRAL,
        (d, a) -> helmholtz_projection!(d, a, m, kernel, α, β)),
   ]
+end
+
+
+# The design requires a reference to be CROSS-VALIDATED before it is used as an oracle, and this is
+# where that happens. A reference that shares a misconception with the implementation makes every cell
+# using it pass while both are wrong — the self-referential oracle of decision 52, which this suite
+# already rebuilt once by comparing an aliased call against an unaliased one.
+#
+# So the references are checked against the package on ordinary input first. Agreement is meaningful
+# because they share no code: the wavenumbers here are rebuilt from the grid rather than taken from
+# `FieldSpectralMultipliers`, so a convention error in the package cannot hide by being copied.
+function run_reference_lane()
+  println("═"^100)
+  println("LANE: reference cross-validation — the oracle must be independently right before it is used")
+  println("═"^100)
+  disagreements = String[]
+  checked = 0
+  for c in configurations()
+    T = c.eltype
+    SH(R) = xshape(c, R, true)
+    s = ScalarFieldSpectral(randn(Complex{T}, SH(0)...), c.grid, c.layout)
+    u = VectorFieldSpectral(randn(Complex{T}, SH(1)...), c.grid, c.layout)
+    m = FieldSpectralMultipliers(s)
+    rtol = T === Float32 ? 1.0f-3 : 1e-9
+    for (name, got, want) in (
+        ("gradient",             field_data(gradient(s, m)),             ref_gradient(field_data(s), c.grid, c.layout)),
+        ("divergence",           field_data(divergence(u, m)),           ref_divergence(field_data(u), c.grid, c.layout)),
+        ("curl",                 field_data(curl(u, m)),                 ref_curl(field_data(u), c.grid, c.layout)),
+        ("laplacian",            field_data(laplacian(s, m)),            ref_laplacian(field_data(s), c.grid, c.layout)),
+        ("inverse_laplacian",    field_data(inverse_laplacian(s, m)),    ref_inverse_laplacian(field_data(s), c.grid, c.layout)),
+        ("symmetric_gradient",   field_data(symmetric_gradient(u, m)),   ref_symmetric_gradient(field_data(u), c.grid, c.layout)),
+        ("helmholtz_projection", field_data(helmholtz_projection(u, m)), ref_helmholtz(field_data(u), c.grid, c.layout)))
+      checked += 1
+      isapprox(Array(got), Array(want); rtol = rtol) ||
+        push!(disagreements, "$name [$(c.name)]")
+    end
+  end
+  if isempty(disagreements)
+    println("\n  ", checked, " reference/implementation pairs agree across ", length(configurations()), " configurations")
+  else
+    println("\n  THE ORACLE AND THE PACKAGE DISAGREE — one of them is wrong, and no cell using this")
+    println("  reference means anything until it is resolved:")
+    for d in disagreements; println("      ", d); end
+  end
+  return length(disagreements)
 end
 
 
@@ -167,6 +213,8 @@ function run_aliasing_lane()
   return length(affected), length(unexplained), cases
 end
 
+disagreeing = run_reference_lane()
+println()
 affected, unexplained, cases = run_aliasing_lane()
 println()
-exit(unexplained > 0 ? 2 : (affected > 0 ? 1 : 0))
+exit(disagreeing > 0 || unexplained > 0 ? 2 : (affected > 0 ? 1 : 0))

@@ -56,6 +56,14 @@ cheap and needs no oracle beyond "the answer must not change".
 
 ## Lanes
 
+- **`references.jl` + the reference-validation lane** — independent implementations of the operators,
+  computed from raw arrays by the plainest expression of the definition and sharing no code with the
+  package. They are the `correct` oracle the design calls for, and the lane checks them against the
+  package on ordinary input **before** anything uses them: a reference that shares a misconception with
+  the implementation makes every cell pass while both are wrong. Agreement is meaningful because the
+  wavenumbers are rebuilt from the grid rather than taken from `FieldSpectralMultipliers`, so a
+  convention error cannot hide by being copied. 112 pairs across 16 configurations; mutation-verified
+  by flipping a sign in the `curl` reference.
 - **`aliasing.jl`** — every in-place operation × every way its arguments can share storage. The slots
   draw from one shared pool, which is what makes aliasing reachable at all: enumerating "what is each
   argument" builds each separately, and two independently constructed arrays never share storage, so a
