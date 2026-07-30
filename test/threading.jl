@@ -440,3 +440,35 @@ end
     @test results[twin] == twin
   end
 end
+
+
+# A view-backed field must behave identically at any thread count (invariant 6: storage is a generic
+# `AbstractArray`, so a `SubArray` is a legitimate operand).
+#
+# It did not. `eachindex` of a NON-CONTIGUOUS view is `CartesianIndices` rather than a range, and the
+# fused executor's partitioner had a method only for ranges — so `cross!` on a view-backed destination
+# threw a MethodError from inside the scheduler at eight threads and succeeded at one. Thread-count
+# dependence is exactly what this file exists to catch, and it was invisible because every other
+# fixture here is backed by a plain `Array`.
+@testset "the fused executor accepts view-backed storage at any thread count" begin
+  N = 64                                              # above the threading cutoff, so slabs are formed
+  grid = Grid3D((N, N, N), (2π, 2π, 2π))
+  parent_array = rand(N + 1, N + 1, N + 1, 3)
+  a = VectorFieldPhysical(rand(N, N, N, 3), grid)
+  b = VectorFieldPhysical(rand(N, N, N, 3), grid)
+
+  viewed = VectorFieldPhysical(view(parent_array, 1:N, 1:N, 1:N, :), grid)
+  plain = VectorFieldPhysical(zeros(N, N, N, 3), grid)
+
+  cross!(plain, a, b)
+  cross!(viewed, a, b)                                # threw a MethodError before the cartesian partition
+  @test Array(field_data(viewed)) ≈ field_data(plain)
+
+  # And the same call forced serial must agree with the threaded one, which is the property that was
+  # actually violated: one thread worked, several did not.
+  serial = VectorFieldPhysical(view(copy(parent_array), 1:N, 1:N, 1:N, :), grid)
+  with_threading(enabled = false) do
+    cross!(serial, a, b)
+  end
+  @test Array(field_data(serial)) == Array(field_data(viewed))
+end

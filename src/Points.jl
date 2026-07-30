@@ -418,14 +418,46 @@ end
 # zero-mode handling). The component-kernel families (± constant fiber, scalar-PointValues
 # products) reuse the M3 kernel-body builders and are generated alongside M3.
 
+"""
+    _check_combinable(values...)
+
+Check that point-value operands may be added or subtracted: equal point count, tensor order and scalar
+type, throwing otherwise.
+
+A vector-space combination is only defined between sections of the same bundle, and the broadcast that
+implements it is not fussy enough to say so. Two failures followed, both order-dependent, which is the
+tell that no operation was being expressed. Mixed precision NARROWED toward the first operand, so
+`a32 + a64` silently truncated a `Float64` operand while `a64 + a32` did not. Mixed tensor order was
+accepted in one order — a scalar broadcast across a vector's fiber — and rejected in the other, so `+`
+was not commutative; and adding a scalar section to a vector one is not in the method set for fields
+either (invariant 1).
+"""
+function _check_combinable(values::AbstractPointValues...)
+  first_values = first(values)
+  for other in Base.tail(values)
+    npoints(other) == npoints(first_values) ||
+      throw(DimensionMismatch("point counts differ: $(npoints(first_values)) and $(npoints(other))"))
+    pointvalue_tensor_order(other) == pointvalue_tensor_order(first_values) ||
+      throw(DimensionMismatch("point-value tensor orders differ: " *
+                              "$(pointvalue_tensor_order(first_values)) and $(pointvalue_tensor_order(other))"))
+    eltype(field_data(other)) === eltype(field_data(first_values)) ||
+      throw(ArgumentError("point-value scalar types differ: $(eltype(field_data(first_values))) and " *
+                          "$(eltype(field_data(other))); a combination does not convert between precisions"))
+  end
+  return nothing
+end
+
+
 # Field-field combination (variadic) and its operators; reuse the FieldAlgebra n-ary reducers.
 for (bang, operator, reducer) in ((:add!, :+, :_add_values), (:subtract!, :-, :_subtract_values))
   @eval function $bang(destination::AbstractPointValues, a::AbstractPointValues, b::AbstractPointValues, rest::AbstractPointValues...)
+    _check_combinable(destination, a, b, rest...)
     destination .= $reducer.(a, b, rest...)
     return destination
   end
 
   @eval function $operator(a::AbstractPointValues, b::AbstractPointValues, rest::AbstractPointValues...)
+    _check_combinable(a, b, rest...)
     return $reducer.(a, b, rest...)
   end
 end

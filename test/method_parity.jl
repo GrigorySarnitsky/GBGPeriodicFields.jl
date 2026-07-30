@@ -74,12 +74,12 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 108,   # +1: section_tensor_order, the type-level order accessor
+  FiberSections         = 109,   # +1 section_tensor_order; +1 the cartesian _index_ranges (view-backed threading)
   Fields                = 92,   # +2 _storage_family/_same_backend (CODE-06); +3 the context protocol
   FieldAlgebra          = 206,
   DifferentialOperators = 79,
   Convolution           = 55,   # +2: materialize_kernel for ProductKernel and ScalarFieldSpectral (audit CODE-11)
-  Points                = 61,
+  Points                = 62,   # +1: _check_combinable (audit CODE-03)
   Interpolation         = 117,   # +2: the NUFFT plan context + transfer colocation (CODE-04, CODE-05)
   Reductions            = 88,   # +4: _same_base_kind (3 methods) + _check_contractible (audit CODE-01)
 )

@@ -206,6 +206,18 @@ function _index_ranges(axis::AbstractUnitRange, n::Integer)
 end
 
 
+# `eachindex` of a NON-CONTIGUOUS view is cartesian, not a range, so a field backed by such a view had
+# no partition and the fused executor threw a MethodError from inside the scheduler — while the same
+# call succeeded serially, because the serial path iterates `eachindex` directly. Storage is generic
+# `AbstractArray` by invariant 6, so a view is a legitimate operand and must not depend on the thread
+# count. Partition the OUTERMOST axis, which keeps each slab's inner traversal contiguous.
+function _index_ranges(indices::CartesianIndices, n::Integer)
+  index_axes = axes(indices)
+  inner = ntuple(d -> index_axes[d], length(index_axes) - 1)
+  return [CartesianIndices((inner..., slab)) for slab in _index_ranges(index_axes[end], n)]
+end
+
+
 """
     _assign!(destination, broadcasted)
 
