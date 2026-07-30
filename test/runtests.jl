@@ -12,6 +12,8 @@ module GeneratedAnalyticTests;     include("generated_analytic.jl");    end
 module OracleRegistryTests;        include("oracle_registry.jl");      end
 module ResultsFormatTests;         include("results_format.jl");     end
 module ContractTests;              include("contracts.jl");          end
+module ContextMatrixTests;         include("context_matrix.jl");    end
+module ContextEntryTests;          include("context_entrypoints.jl"); end
 module DifferentialOperatorsTests; include("differentialoperators.jl"); end
 module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end

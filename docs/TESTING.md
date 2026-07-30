@@ -140,6 +140,15 @@ the parity baseline and ambiguity check pass, and the suite is green.
   `public_surface.jl` (not a testset: the shared derivation of the package's public surface — every
   function a package module owns methods of, extensions of external generics included — which the two
   ledgers and the oracle registry each derive their required set from),
+  `context_matrix.jl` and `context_entrypoints.jl` (decision 58: the context-mismatch matrix, in two
+  tiers with derived denominators. **Tier 1** takes the participant set from `methods(_context_grid)`
+  and checks every ORDERED PAIR against every mismatch axis, so a new participant adds a row and a
+  column on its own and one with no builder fails rather than sitting out. **Tier 2** derives the
+  (operation, carrier-kind) pairs from the method table and requires each to be invoked or exempted
+  with a reason. The two are complementary and each was proven so: neutering the shared predicate
+  fails Tier 1; removing a single entry point's check while the predicate stands fails only Tier 2.
+  The `domain` axis is the one a hand-written test is least likely to include — the two grids have the
+  SAME SHAPE, so every array involved is identically sized and nothing structural distinguishes them),
   `contracts.jl` (decision 56: the negative matrix for the strict compatibility protocol — context
   mismatch at identical shape, numeric domains, constructor invariants, transfer colocation, the
   inversion zero policy, and the ``R < 3`` ceiling lane whose property is that above the ceiling every

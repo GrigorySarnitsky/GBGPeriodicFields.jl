@@ -2877,3 +2877,42 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The subtype sweep of decision 56 earned itself immediately: adding the class failed that testset
     until it was given a specimen, which is precisely the moment to notice a new class needs the
     class-wide methods.
+
+58. **The context-mismatch matrix — a derived denominator for the negative surface** (2026-07-30,
+    user-directed). The suite already held ~94 negative assertions before the audit, so the gap was
+    never "no negative tests". Every one of them was written by hand, which makes a negative surface
+    complete only until someone adds an argument slot — and the audit's source findings were almost
+    all SEMANTIC mismatches, structurally indistinguishable from valid input, which is exactly the
+    class nobody thinks to write a case for.
+
+    Decision 56 closed those findings but closed them the same way: `contracts.jl` is 72 assertions
+    and two loops, a hand-picked table. The instruction here was to generate *all* the combinations
+    rather than choose representatives, and the design that achieves it is two tiers, each with a
+    denominator read out of the code.
+
+    **Tier 1, the protocol product.** The participant set is `methods(_context_grid)`, and every
+    ordered pair is checked against every mismatch axis in both argument orders. Adding a participant
+    adds a row and a column; adding one without a builder fails a completeness assertion rather than
+    silently sitting out. **Tier 2, the entry-point product.** Every method the package owns is
+    scanned for a context-carrying parameter, giving (operation, carrier-kind) pairs — the right unit,
+    since α/β variants of one call reach one check. Each pair must be invoked or exempted with a
+    reason.
+
+    **The two are not redundant, and the mutations prove which is which.** Neutering the shared
+    predicate fails Tier 1. Removing one entry point's check while the predicate stands leaves Tier 1
+    entirely green and fails Tier 2. A predicate nobody calls and a caller with no predicate are
+    different defects, and one tier sees each.
+
+    **The derivation caught seven combinations the hand-written table had missed**, which is the whole
+    argument for deriving it. Five were kernel arities — `convolve!`, `divergence!`,
+    `helmholtz_projection!`, `combine!`, `weighted_inner` — invisible because a slot declared as the
+    `SpectralKernel` UNION is a subtype of neither of its halves, so a plain `<:` test walks past it.
+    Two more were the allocating kernel forms, invisible one level further up: `SpectralKernel{T}` is a
+    `UnionAll` wrapping that union, so it is not even `isa Union`. Both misses were in the *detector*,
+    found only because the completeness assertion compares what it derived against what was written by
+    hand and complains in both directions. A one-directional check would have reported success.
+
+    The axis worth naming is `domain`: two grids of **identical shape** and different extent. Every
+    array is the same size, every structural check passes, and only a context comparison can tell them
+    apart — which is why the operations that lacked one returned plausible wrong answers for months
+    rather than failing.
