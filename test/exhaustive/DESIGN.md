@@ -231,6 +231,37 @@ Unchanged from the current runner, and load-bearing:
 
 ---
 
+## What the suite does NOT reach — measured, not estimated
+
+The claim at the top is **not currently true**, and the honest thing is to say by how much. Every number
+below is measured by the suite itself, so it cannot drift into optimism.
+
+| gap | size | status |
+|---|---|---|
+| public operations reached by no lane | **39 of 112 (35%)** | Axis 1 claims a derivation; every lane carries a hand-written entry list |
+| applicable check-type cells not asserted | **539 of 1223** | reported by the ledger, by check type |
+| seed axis | **not implemented** | declared below; no lane varies or prints a seed |
+| sequence axis | **not implemented** | declared below; every lane is single-call |
+| origin axis | **not implemented** | every configuration uses origin `0` |
+| backend axis | **not run** | `_storage_family` has no builder without a device |
+| HDF5 persistence pair | **not reached** | four operations own no method until `HDF5` loads |
+
+The operation-axis row is the one worth staring at, because it is **this document's own rule broken by
+this document's own lanes**: three hand-written entry lists under an axis that claims to be derived,
+shipped in the same change that recorded the rule against it. It was found by running the rule against
+the design afterwards, not by anyone noticing — which is the argument for the rule, not against it.
+
+Two limitations are **structural** rather than unfinished, and no amount of work removes them:
+
+- **The check-type axis is derived from assertions people have written**, so it cannot contain a class
+  nobody in this project has ever written. The product is complete relative to the suite's own
+  imagination, which is weaker than complete.
+- **A missing validation leaves nothing to derive from.** The domain-rejection pool comes from the
+  boundaries in the validation code, so an argument nobody validates — the NUFFT `width` and `beta` —
+  contributes no cell. The product verifies that contracts hold; it cannot invent a contract that ought
+  to exist. Where a parameter has a *stated* contract but no validation, the `correct` oracle still
+  reaches it; where it has neither, nothing does.
+
 ## Scale, and the rule that keeps the claim true
 
 The naive product is not runnable: ~113 operations × up to 125 assignments × 16 configurations × 15

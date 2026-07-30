@@ -215,6 +215,53 @@ function run_aliasing_lane()
   return length(affected), length(unexplained), cases
 end
 
+# The suite's claim about ITSELF, checked. Axis 1 of the design says the operation axis is derived from
+# `public_surface.jl` — and no lane uses that derivation as its domain. Each one carries a hand-written
+# entry list, which is precisely the defect DESIGN.md's own rule names: a list where a derivation is
+# claimed. It was shipped in the same commit that recorded the rule, three times over, and found by
+# running the rule against the design afterwards rather than by anyone noticing.
+#
+# So the gap is measured instead of asserted: every public operation is looked for in the lane sources,
+# and the ones no lane names are printed. This does not make the suite complete — it makes its
+# incompleteness impossible to overlook, which is the only honest thing a survey can do about it.
+function run_surface_lane()
+  println("═"^100)
+  println("LANE: surface coverage — which public operations does any lane actually reach?")
+  println("═"^100)
+  operations = package_operations()
+  reached = Set{Symbol}()
+  # Only the lanes that CALL operations. `ledger.jl` names most of the surface in its relation table and
+  # evaluates all of it by introspection, but it executes none of it — counting a name in a table as
+  # coverage turned 39 unexercised operations into 24 and is the same over-credit the ledger's own
+  # attribution warns about. Even so this number is optimistic: it counts a MENTION, so an operation
+  # appearing only in a comment reads as exercised.
+  for file in ("runtests.jl", "pools.jl", "references.jl", "aliasing.jl")
+    path = joinpath(@__DIR__, file)
+    isfile(path) || continue
+    text = read(path, String)
+    for op in operations
+      name = String(op)
+      pattern = occursin(r"^[A-Za-z_]", name) ?
+        Regex("(?<![A-Za-z0-9_.])" * replace(name, "!" => "\\!") * "(?![A-Za-z0-9_])") :
+        Regex("\\Q" * name * "\\E")
+      occursin(pattern, text) && push!(reached, op)
+    end
+  end
+  absent = sort(collect(setdiff(operations, reached)); by = String)
+  println("\n  ", length(operations), " public operations · ", length(reached), " exercised by some lane · ",
+          length(absent), " by none (", round(Int, 100 * length(absent) / length(operations)), "%)")
+  if !isempty(absent)
+    println("\n  EXERCISED BY NO LANE — the operation axis is SAMPLED, not crossed:")
+    for chunk in Iterators.partition(absent, 6)
+      println("      ", join(String.(chunk), ", "))
+    end
+  end
+  return length(absent)
+end
+
+
+unswept = run_surface_lane()
+println()
 disagreeing = run_reference_lane()
 println()
 affected, unexplained, cases = run_aliasing_lane()
@@ -225,8 +272,9 @@ ledger_gaps, ledger_violations, ledger_cells = run_ledger_lane()
 println()
 
 println("═"^100)
-println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over four lanes")
+println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over five lanes")
 println("═"^100)
+println("  surface coverage             ", unswept, " public operations exercised by no lane")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
