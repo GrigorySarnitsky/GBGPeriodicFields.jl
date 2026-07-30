@@ -57,6 +57,7 @@ import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the
   _context_grid, _context_layout
 using ..Fields:
   _check_matching_context,
+  spectral_field_shape,
   AbstractSpectralKernel,
   SpectralKernel,
   AbstractFieldSpectral,
@@ -117,8 +118,13 @@ struct ProductKernel{T, A, B} <: AbstractSpectralKernel{T}
   second_kernel::B
 end
 
-ProductKernel{T}(first_kernel::A, second_kernel::B) where {T, A, B} =
-  ProductKernel{T, A, B}(first_kernel, second_kernel)
+function ProductKernel{T}(first_kernel::A, second_kernel::B) where {T, A, B}
+  # Both factors are evaluated per mode against the SAME field, so they must have been built for the
+  # same base and spectral layout. Checked here rather than at every composition site, so no route into
+  # a product can skip it.
+  _check_matching_context(first_kernel, second_kernel)
+  return ProductKernel{T, A, B}(first_kernel, second_kernel)
+end
 
 _kernel_data(kernel::ProductKernel) =
   Base.Broadcast.instantiate(Base.broadcasted(*, _kernel_data(kernel.first_kernel),
@@ -361,8 +367,23 @@ struct SeparableKernel{T, V, G, L} <: AbstractSpectralKernel{T}
   layout::L
 end
 
-SeparableKernel{T}(factor_1::V, factor_2::V, factor_3::V, grid::G, layout::L) where {T, V, G, L} =
-  SeparableKernel{T, V, G, L}(factor_1, factor_2, factor_3, grid, layout)
+function SeparableKernel{T}(factor_1::V, factor_2::V, factor_3::V, grid::G, layout::L) where {T, V, G, L}
+  # The type parameters promise a context that the arrays must actually match. Unvalidated, a kernel
+  # could hold factors for one base while its own `grid`/`layout` named another, and the disagreement
+  # surfaced only when the kernel was applied — as a shape error far from the construction that caused
+  # it, or, at matching lengths, not at all.
+  expected = spectral_field_shape(grid, layout, Val(0))
+  lengths = (length(factor_1), length(factor_2), length(factor_3))
+  lengths == expected ||
+    throw(DimensionMismatch("axis factors of lengths $lengths do not match the spectral shape " *
+                            "$expected implied by this kernel's grid and layout"))
+  # A factor may be real or complex: `assignment_window`'s ∏sinc² window is real, `translation_kernel`'s
+  # phase is not. Both are legitimate, so the requirement is that the factors carry the kernel's own
+  # scalar type in one of those two forms — not that they are complex.
+  eltype(factor_1) === T || eltype(factor_1) === Complex{T} ||
+    throw(ArgumentError("a SeparableKernel{$T} needs $T or Complex{$T} factors; got $(eltype(factor_1))"))
+  return SeparableKernel{T, V, G, L}(factor_1, factor_2, factor_3, grid, layout)
+end
 
 
 """

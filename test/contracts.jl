@@ -190,3 +190,40 @@ end
   @test inner(values, values) > 0
   @test_throws ArgumentError mean(values)
 end
+
+
+# Kernel constructor invariants (external audit CODE-18) and the NUFFT tolerance domain (DOC-16).
+@testset "kernel construction and NUFFT tolerance reject inconsistent state" begin
+  grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
+  reference = spectral_scalar(grid)
+  multipliers = FieldSpectralMultipliers(reference)
+
+  # The type parameters promise a context the arrays must match; unvalidated, the disagreement
+  # surfaced only on application, far from the construction that caused it.
+  @test_throws DimensionMismatch SeparableKernel{Float64}(zeros(ComplexF64, 3), zeros(ComplexF64, 3),
+                                                          zeros(ComplexF64, 3), grid, CONTRACT_LAYOUT)
+  @test translation_kernel(reference, multipliers, (0.1, 0.2, 0.3)) isa SeparableKernel   # legal, unaffected
+
+  # A product's two factors are evaluated against the SAME field, so they must share a context. The
+  # check sits on the constructor, so no composition route can skip it.
+  far = Grid3D((8, 6, 4), (4π, 4π, 4π))
+  far_reference = spectral_scalar(far)
+  far_multipliers = FieldSpectralMultipliers(far_reference)
+  @test_throws ArgumentError convolve(spectral_band(reference, multipliers, 1, 3),
+                                      translation_kernel(far_reference, far_multipliers, (0.1, 0.2, 0.3)))
+
+  # NUFFT tol sets the window width through -log10(tol), so a non-positive or non-finite value gave a
+  # nonsense width while the docstring still promised agreement "to tol". A tolerance below the element
+  # type's own resolution cannot be met by any width and is refused rather than approximated.
+  for bad in (0.0, -1e-6, Inf, NaN)
+    @test_throws ArgumentError NUFFT(reference; tol = bad)
+  end
+  @test NUFFT(reference; tol = 1e-10) isa NUFFT
+  # A tolerance finer than the element type can resolve is a TARGET that saturates, not an error: the
+  # default tol on a Float32 field is ordinary usage, and the width formula simply stops improving.
+  float32_reference = ScalarFieldSpectral(
+    zeros(ComplexF32, GBGPeriodicFields.Fields.spectral_field_shape(
+      Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)), CONTRACT_LAYOUT, Val(0))),
+    Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)), CONTRACT_LAYOUT)
+  @test NUFFT(float32_reference; tol = 1e-10) isa NUFFT
+end

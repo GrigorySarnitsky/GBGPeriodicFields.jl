@@ -25,7 +25,10 @@ M \\langle Wf, q \\rangle_{\\text{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
 
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
-quantity back onto the flow needs. Conservation holds **only** when both directions use the same weights;
+quantity back onto the flow needs. That is a property of the **local-spline** schemes, whose weights sum
+to one at every position; the spectral schemes are exact adjoints without being partitions of unity, and
+`NUFFT` is exact only to its tolerance, so the conservation statement below is not theirs. Conservation
+holds **only** when both directions use the same weights;
 mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields point values while
 its adjoint returns a field — one of two asymmetries between the pair, the other being the ``\\alpha``/``\\beta``
 accumulation weights that only the scatter takes. Each scheme's own docstring gives the gather
@@ -139,7 +142,9 @@ are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 
 The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
 
-It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``). Special cases:
+It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) wherever the whole
+stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
+the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
 ``m = 0`` is linear interpolation over the two central nodes (independent of ``n``); ``n = 1, m = 1``
 is the Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the ``C^0``
 Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
@@ -175,7 +180,9 @@ end
 Local, ``C^0``, Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
 nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
-`coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly, but is only ``C^0`` (the
+`coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
+samples one branch of that polynomial (a wrapped stencil draws from the opposite edge, which no
+non-periodic polynomial continues), but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
 linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of TurTLE, the reference
 pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
@@ -691,7 +698,8 @@ f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
 reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
 Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded rfft
 axis and, on an even-length folded axis, its Nyquist plane — and ``2`` elsewhere. Interpolation reproduces the band-limited field **exactly**, so it is
-pointwise divergence-free (unlike the local splines) and matches [`to_physical`](@ref) at the grid nodes;
+pointwise divergence-free on the **resolved sub-Nyquist band** (unlike the local splines) and matches
+[`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
 `DirectDFT()` and pass it as the `scheme`.
 """
@@ -982,14 +990,20 @@ Build a plan once from a `reference` field in spectral representation, which fix
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
 like the reference. The options:
 
-  - `tol` — the target accuracy; the window width and shape default to the values that reach it.
+  - `tol` — the target accuracy; the window width and shape default to the values that reach it. It is
+    a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
+    element type can resolve widens the window as far as the formula goes and then saturates at that
+    resolution rather than erroring.
   - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2** (a value of 1 leaves no spectral guard band, so the gridding breaks down).
   - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
   - `beta` — the window shape parameter; `0` (default) picks it from the width.
 
 It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
 `tol` on the resolved sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint
-relation, and like it reconstructs the band-limited field (divergence-free).
+relation, and like it reconstructs the band-limited field (divergence-free on the resolved
+sub-Nyquist band — the package's derivative wavenumbers are zeroed at an even axis's Nyquist frequency
+while this scheme evaluates the true phase there, so a discretely divergence-free field carrying
+Nyquist content is not pointwise divergence-free in the continuum).
 
 !!! warning "A plan holds an oversampled work grid"
     A `NUFFT` plan holds an oversampled work grid of about ``\\sigma^3`` times the field's memory (eight
@@ -1021,6 +1035,13 @@ end
 
 function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversampling::Integer = 2,
                width::Integer = 0, beta::Real = 0) where {T<:AbstractFloat, R}
+  # `tol` sets the window width through `-log10(tol)`, so a non-positive or non-finite value produced a
+  # nonsense width (or a fallback one) while the docstring still promised agreement "to `tol`". It is a
+  # TARGET, not a guaranteed bound: a tolerance below the element type's own resolution simply widens
+  # the window as far as the formula goes and the achieved accuracy saturates at that resolution, which
+  # is why `Float32` with the default `tol` is legitimate rather than an error.
+  (isfinite(tol) && tol > 0) ||
+    throw(ArgumentError("NUFFT tol must be finite and positive; got $tol"))
   σ = Int(oversampling)
   σ ≥ 2 || throw(ArgumentError("NUFFT oversampling must be at least 2 (got $σ): with no oversampling the work grid has no spectral guard band, so the windowed gridding aliases across the whole resolved band and cannot reach the requested tolerance."))
   w = width > 0 ? Int(width) : _nufft_width(tol)
