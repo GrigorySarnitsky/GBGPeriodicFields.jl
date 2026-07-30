@@ -31,8 +31,12 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["exponential_convolve! scalar | $tag"] = @benchmarkable (exponential_convolve!($sout, $s, $m, $coefficient); bench_sync(field_data($sout)))
   group["exponential_convolve! vector | $tag"] = @benchmarkable (exponential_convolve!($uout, $u, $m, $coefficient); bench_sync(field_data($uout)))
   group["combine!∘kernel vector | $tag"] = @benchmarkable (combine!($uout, $weight_a, $u, $weight_b, $uout, $kernel); bench_sync(field_data($uout)))
-  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(materialize_kernel(spectral_cutoff($s, $m, 2)) |> field_data)
-  group["spectral_band | $tag"]    = @benchmarkable bench_sync(materialize_kernel(spectral_band($s, $m, 1, 3)) |> field_data)
+  # These two rows named the builders but timed `materialize_kernel(builder(...))`, so an O(1) lazy
+  # build was reported at the cost of an O(N³) materialization and neither could be tracked separately.
+  # The builder rows now time the builder — there is no field to sync on, so sync a wavenumber row the
+  # symbol closes over — and the materialization has rows of its own further down.
+  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(spectral_cutoff($s, $m, 2).multipliers.squared_wavenumber_1)
+  group["spectral_band | $tag"]    = @benchmarkable bench_sync(spectral_band($s, $m, 1, 3).multipliers.squared_wavenumber_1)
   group["squared_wavenumber_field | $tag"] = @benchmarkable bench_sync(field_data(squared_wavenumber_field($s, $m)))
   # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
   # and there is no field to sync on — sync one factor instead.

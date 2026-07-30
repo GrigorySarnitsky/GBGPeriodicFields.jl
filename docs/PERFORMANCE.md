@@ -539,7 +539,10 @@ A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* p
 `Pkg.test()`, exactly like the GPU tests. A call to `build_suite(; array_type, types, sizes)` builds a
 `BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
 `ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
-runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion.
+runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion. **Every** row that
+writes to a device buffer synchronizes it, including the transfer rows: relying on a driver's internal
+synchronization is what left `NUFFT` anterpolation's final assignment outside its own measurement, and
+a benchmark should assume nothing about where a driver happens to block.
 
 Classes covered: **FFT** transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
 the default-`ESTIMATE` experience and the tuned production path sit side by side and finding (h) is
@@ -553,7 +556,10 @@ size measures the streaming pass and not the `Float32` subnormal band (finding (
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
 `spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
 paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost, and
-a builder returning a compressed kernel is timed on one factor rather than a field it never allocates).
+a builder returning a compressed kernel is timed on one factor rather than a field it never allocates —
+the `spectral_cutoff` and `spectral_band` rows previously wrapped their builder in `materialize_kernel`
+and so reported an ``O(1)`` lazy build at the cost of an ``O(N^3)`` materialization, with neither
+trackable on its own).
 Each **compressed kernel class** is additionally swept *against its materialized twin* at the point of
 application — `convolve!` on a vector field with the kernel axis-factored, radial, and stored — since
 the classes compute the same coefficients and only their cost differs, so the stored form is the
