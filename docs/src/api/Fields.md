@@ -5,11 +5,6 @@ Modules = [GBGPeriodicFields.Fields]
 Order   = [:module]
 ```
 
-## Fiber types
-
-```@docs
-```
-
 ## Base and layout types
 
 ```@docs

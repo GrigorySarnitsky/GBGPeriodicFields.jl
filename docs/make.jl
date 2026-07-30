@@ -116,11 +116,43 @@ function lint_notation_variants()
   @info "doc lint: notation OK across $(length(srcs)) source files"
 end
 
+"""
+    lint_api_page_structure()
+
+Check the structural rules the API pages follow, which Documenter itself cannot enforce because a
+malformed page still BUILDS: an `## Internal API` section must come last, and no `@docs` block may be
+empty.
+
+Both failed silently and were only visible in the rendered sidebar. Moving the fiber types to
+`FiberSections` appended a "The fiber" section AFTER `Internal API` — which also stranded that
+section's `@autodocs` block under the wrong heading, so the rendered Internal API listed the fiber —
+and left behind an empty `@docs` block in `Fields.md`, rendering as a heading with nothing under it.
+"""
+function lint_api_page_structure()
+  problems = String[]
+  for file in sort(readdir(joinpath(@__DIR__, "src", "api"); join = true))
+    endswith(file, ".md") || continue
+    text = read(file, String)
+    name = relpath(file, joinpath(@__DIR__, ".."))
+    sections = [m.captures[1] for m in eachmatch(r"^## (.+)$"m, text)]
+    internal = findfirst(==("Internal API"), sections)
+    internal === nothing || internal == length(sections) ||
+      push!(problems, "$name  `## Internal API` is section $internal of $(length(sections)) — it must come last")
+    for m in eachmatch(r"```@docs\n(.*?)```"s, text)
+      isempty(strip(m.captures[1])) &&
+        push!(problems, "$name  an empty `@docs` block renders as a heading with no content")
+    end
+  end
+  isempty(problems) || error("doc lint failed — API page structure:\n  " * join(problems, "\n  "))
+  @info "doc lint: API page structure OK"
+end
+
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
 lint_inline_math()
 lint_notation_variants()
+lint_api_page_structure()
 
 using Documenter
 using GBGPeriodicFields
