@@ -156,8 +156,11 @@ function run_relations_lane(configs)
       ("cutoff is idempotent",
        field_data(convolve(convolve(b.sh, spectral_cutoff(z, m, b.T(3))), spectral_cutoff(z, m, b.T(3)))),
        field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3))))),
+      # Against the REFERENCE, not against `inner`: `l2norm(s) = sqrt(inner(s, s))` by definition
+      # (src/Reductions.jl), so comparing the two was `sqrt(inner)^2` against `inner` and no defect in
+      # `inner` could break it — while crediting both operations with identity coverage.
       ("‖·‖₂² = inner(f, f)",
-       l2norm(b.u)^2, inner(b.u, b.u)),
+       l2norm(b.u)^2, ref_inner(field_data(b.u), field_data(b.u), 1)),
       ("integral = measure · mean",
        integral(b.s), prod(config.grid.domain_size) * mean(b.s)),
       # ── round-tripping ────────────────────────────────────────────────────────────────────────
@@ -175,19 +178,24 @@ function run_relations_lane(configs)
       # operations were reported as covered for `identity`.
       # Declared in RELATIONS and evaluated nowhere until now. Compared through the raw arrays, not by
       # `==` on the sections, so a metadata-only difference is visible as a value difference too.
-      ("read_field ∘ write_field = id",
-       begin
-         path = joinpath(mktempdir(), "relation.h5")
-         HDF5_AVAILABLE && HDF5.h5open(f -> write_field(f, "u", b.u), path, "w")
-         HDF5_AVAILABLE ? field_data(HDF5.h5open(f -> read_field(f, "u"), path, "r")) : field_data(b.u)
-       end, field_data(b.u)),
-      ("read_points ∘ write_points = id",
-       begin
-         path = joinpath(mktempdir(), "relation_points.h5")
-         HDF5_AVAILABLE && HDF5.h5open(f -> write_points(f, "p", b.points), path, "w")
-         HDF5_AVAILABLE ? point_coordinates(HDF5.h5open(f -> read_points(f, "p"), path, "r")) :
-                          point_coordinates(b.points)
-       end, point_coordinates(b.points)),
+      # Guarded by `HDF5_AVAILABLE` at the ENTRY, not inside the value: the `? … : field_data(b.u)`
+      # fallback made both sides the same object, so without HDF5 these two passed by identity while
+      # still crediting all four persistence operations with round-trip coverage — in exactly the GPU
+      # environments the README tells you to run.
+      (HDF5_AVAILABLE ? ("read_field ∘ write_field = id",
+        begin
+          path = joinpath(mktempdir(), "relation.h5")
+          HDF5.h5open(f -> write_field(f, "u", b.u), path, "w")
+          field_data(HDF5.h5open(f -> read_field(f, "u"), path, "r"))
+        end, field_data(b.u)) :
+       ("read_field ∘ write_field = id [NOT RUN: no HDF5]", true, true)),
+      (HDF5_AVAILABLE ? ("read_points ∘ write_points = id",
+        begin
+          path = joinpath(mktempdir(), "relation_points.h5")
+          HDF5.h5open(f -> write_points(f, "p", b.points), path, "w")
+          point_coordinates(HDF5.h5open(f -> read_points(f, "p"), path, "r"))
+        end, point_coordinates(b.points)) :
+       ("read_points ∘ write_points = id [NOT RUN: no HDF5]", true, true)),
       ("kernel composition is associative",
        field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(z, m, b.T(3)),
                                                    spectral_band(z, m, b.T(1), b.T(4))),
@@ -307,6 +315,12 @@ function run_property_lanes(configs)
     # is 8·8·8·9 = 4608 elements against a default cutoff of 16384. Without this the `enabled = true`
     # and `enabled = false` runs both take the serial branch and the lane compares a path against
     # itself — decision 47's vacuous threading assertion, reproduced.
+    # AND THE PROCESS MUST HAVE MORE THAN ONE THREAD. Lowering the cutoff makes `_use_threads` return
+    # the override, but the threaded path then partitions by `Threads.nthreads()` — at `-t1` that is a
+    # single slab running the identical body, so the comparison is still a path against itself. Fixing
+    # only the cutoff left decision 47's vacuity in place for the suite's own documented invocation,
+    # which passes no `-t`. Reported as NOT RUN rather than passed quietly.
+    threads_available = Threads.nthreads() > 1
     previous_cutoff = threading_cutoff()
     set_threading_cutoff!(1)
     for (name, run) in
@@ -317,6 +331,13 @@ function run_property_lanes(configs)
          ("inner", () -> inner(b.u, b.v)),
          ("l2norm", () -> l2norm(b.u)),
          ("helmholtz_projection!", () -> field_data(helmholtz_projection!(similar_field(b.uh, Val(1)), b.uh, m))))
+      if !threads_available
+        config === first(configs) && name == "add!" &&
+          println("      NOT RUN — thread invariance needs a process with more than one thread; at ",
+                  "`-t1` the threaded path is a single slab and compares against itself. ",
+                  "Run with JULIA_NUM_THREADS>1 to cross this axis.")
+        continue
+      end
       count!(:invariance)
       serial = with_threading(run; enabled = false)
       threaded = with_threading(run; enabled = true)

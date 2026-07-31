@@ -451,11 +451,11 @@ function run_mismatch_lane()
     ("helmholtz_projection(u, mult)",  helmholtz_projection, multipliers, :one,
                                                     foreign -> helmholtz_projection(foreign, multipliers)),
     ("convolve(f, kernel)",            convolve,    kernel,      :many, foreign -> convolve(foreign, kernel)),
-    ("convolve!(dest, f, kernel)",     convolve!,   kernel,      :one,  foreign -> convolve!(similar_field(scalar), foreign, kernel)),
+    ("convolve!(dest, f, kernel)",     convolve!,   kernel,      :one,  foreign -> convolve!(similar_field(scalar, Val(0)), foreign, kernel)),
     ("inner(f, g) spectral",           inner,       scalar,      :one,  foreign -> inner(scalar, foreign)),
     ("inner(f, g) physical",           inner,       physical,    :one,  foreign -> inner(physical, foreign)),
     ("weighted_inner(f, g, w)",        weighted_inner, scalar,   :one,  foreign -> weighted_inner(scalar, foreign, multipliers)),
-    ("add!(dest, a, b)",               add!,        physical,    :one,  foreign -> add!(similar_field(physical), physical, foreign)),
+    ("add!(dest, a, b)",               add!,        physical,    :one,  foreign -> add!(similar_field(physical, Val(0)), physical, foreign)),
     ("interpolate(f, pts, NUFFT)",     interpolate, NUFFT(scalar), :one, foreign -> interpolate(foreign, points, NUFFT(scalar))),
     ("anterpolate(f, pts, q, NUFFT)",  anterpolate, NUFFT(scalar), :one, foreign -> anterpolate(scalar, points, foreign, NUFFT(scalar))),
     # The scattered values must carry the destination field's fiber, so this slot takes exactly one
@@ -507,7 +507,7 @@ function run_mismatch_lane()
   end
 
   accepted, cells, skipped = String[], 0, 0
-  contract_breaches = String[]
+  contract_breaches, lane_errors = String[], String[]
   for (label, operation, partner, declared, call) in entries
     probe = slot_orders(call)
     generic = declared === :many
@@ -542,11 +542,18 @@ function run_mismatch_lane()
         continue                # no predicate relates this pair on this axis, so differing is legal
       end
       cells += 1
+      # The exception TYPE, as the property lane already does: `catch; false` scores a `MethodError`
+      # from a mis-written harness call as a correct refusal. That is not hypothetical here — the two
+      # entries above called a `similar_field` arity that does not exist, so every one of their cells
+      # threw before reaching the package and was recorded as "refused".
       accepts = try
         call(foreign)
         true
-      catch
-        false
+      catch exception
+        exception isa ArgumentError || exception isa DimensionMismatch ||
+        exception isa InexactError || exception isa DomainError ? false :
+          (Base.push!(lane_errors, "$(label) × $(axis): threw $(nameof(typeof(exception))), " *
+                                   "not a domain error — the cell never reached the package"); false)
       end
       accepts && push!(accepted, "$(rpad(label, 34)) accepted a foreign $(axis)")
     end
@@ -562,11 +569,16 @@ function run_mismatch_lane()
     println("  A call that returns here has computed against a carrier built for a different object.")
     for a in accepted; println("      ", a); end
   end
+  if !isempty(lane_errors)
+    println("\n  THE CELL NEVER REACHED THE PACKAGE — ", length(unique(lane_errors)), " distinct:")
+    for e in unique(lane_errors)[1:min(end, 8)]; println("      ", e); end
+  end
   if !isempty(contract_breaches)
     println("\n  FIBER CONTRACT BREACHED — ", length(contract_breaches), " slots:")
     for b in contract_breaches; println("      ", b); end
   end
-  return (length(accepted) + length(unreached) + length(contract_breaches), cells)
+  return (length(accepted) + length(unreached) + length(contract_breaches) +
+          length(unique(lane_errors)), cells)
 end
 
 
