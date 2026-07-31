@@ -136,6 +136,15 @@ The fields are
 """
 struct ScalarPointValues{T<:AbstractFloat, A<:AbstractArray{T, 1}} <: AbstractPointValues{T, 0}
   data::A
+
+  # Decision 59 applies here exactly as it does to the vector and tensor point-value types and to every
+  # field type: a section owns its storage, which is what makes the aliasing argument hold. This type
+  # was the one member of the family left without the check — its sibling's error message even reads
+  # "a ScalarPointValues / VectorPointValues", which is where the omission shows.
+  function ScalarPointValues(data::A) where {T<:AbstractFloat, A<:AbstractArray{T, 1}}
+    _check_owned_storage(data, "a ScalarPointValues")
+    return new{T, A}(data)
+  end
 end
 
 

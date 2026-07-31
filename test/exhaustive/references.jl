@@ -22,8 +22,13 @@ function reference_wavenumbers(grid::Grid3D{T}, layout, axis, len) where {T}
   n = grid.grid_size[axis]
   L = grid.domain_size[axis]
   folded = axis == layout.fft_dims[1]
+  # `k < (n + 1) ÷ 2`, not `k <= n ÷ 2`. On an even non-folded axis the two disagree at exactly the
+  # Nyquist slot — the first gives −n/2 (what `fftfreq` and the package produce), the second +n/2. Every
+  # current consumer masks it (the squared family is even, cos is even, sinc² is even, and the derivative
+  # family is zeroed there by invariant 5), so it is invisible today and would silently hand the wrong
+  # oracle to the first operation that is odd in k and does not zero the Nyquist.
   raw = folded ? T[2π * k / L for k in 0:(n ÷ 2)] :
-                 T[2π * (k <= n ÷ 2 ? k : k - n) / L for k in 0:(n - 1)]
+                 T[2π * (k < (n + 1) ÷ 2 ? k : k - n) / L for k in 0:(n - 1)]
   @assert length(raw) == len "reference wavenumber length $(length(raw)) ≠ $len on axis $axis"
   derivative = copy(raw)
   if iseven(n)
@@ -303,8 +308,7 @@ end
 # --- the spectral kernel symbols, from their documented formulas -------------------------------------
 #
 # Each builder's docstring states its multiplier; these evaluate that statement per mode, from
-# wavenumbers rebuilt here. `spectral_cutoff` is the `k_lo = 0` case of `spectral_band` by definition,
-# so writing only the band would make the cutoff check itself.
+# wavenumbers rebuilt here.
 function _ref_mode_wavenumbers(grid, layout, shape)
   k1 = reference_wavenumbers(grid, layout, 1, shape[1])
   k2 = reference_wavenumbers(grid, layout, 2, shape[2])

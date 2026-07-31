@@ -90,14 +90,13 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 
 ## Scale
 
-The aliasing lane crosses eight axes: element type, grid shape (parity, cubicity, anisotropy),
-spectral fold, thread count, storage kind, aliasing relation, tensor order and representation. That is
-**5,616 cases over 16 configurations in about 30 seconds.** It was 17,200 before decision 59: once a
-section must own its storage, most of the aliasing axis stopped being arithmetic to verify and became a
-construction to refuse, which is both cheaper and a stronger claim. `Pkg.test()` runs 360 s for a few
-thousand assertions, which is the difference between a gate and a survey — this one buys two orders of
-magnitude more combinations for a quarter of the time, because a negative or consistency check is
-cheap and needs no oracle beyond "the answer must not change".
+96 configurations — element type × 4 grid shapes (one odd on every axis) × 2 layout folds × thread
+setting × 3 seeds, including a shifted non-commensurate origin — in about **44 minutes**. The axis
+table, and what each axis crosses versus samples, is in [`DESIGN.md`](DESIGN.md).
+
+`Pkg.test()` runs about six minutes for a few thousand assertions, which is the difference between a
+gate and a survey: this one buys orders of magnitude more combinations because most of its checks are
+universal properties or consistency relations that need no per-operation oracle.
 
 ## Lanes
 

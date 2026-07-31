@@ -13,11 +13,13 @@
 using GBGPeriodicFields
 using Statistics
 using LinearAlgebra
+using Random
 
 
 # A workbench of compatible sections for one configuration, built once per lane.
 function _bench(config)
   T, grid, layout = config.eltype, config.grid, config.layout
+  Random.seed!(config.seed)          # the configuration's seed, not the global stream's position
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
   spectral(R) = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.spectral_field_shape(grid, layout, Val(0))...),
                                     grid, layout)
@@ -42,6 +44,27 @@ function _bench(config)
 end
 
 _tolerance(T) = T === Float32 ? 1.0f-3 : 1e-9
+
+"""
+    single_allocated(operation!, arguments...) -> Int
+
+Bytes allocated by one call, measured behind a FUNCTION BARRIER.
+
+Measuring `@allocated run()` where `run` closes over this lane's workbench charges the operation for
+the enclosing scope's boxing — the workbench is a NamedTuple carrying a type parameter, so its locals
+are not concrete. `convolve!` measured 1232 bytes that way and 128 at top level. The sequence lane hit
+the same thing and documents the same fix.
+"""
+@noinline function single_allocated(operation!::F, arguments::Vararg{Any, N}) where {F, N}
+  operation!(arguments...)                       # warm up: the first call compiles
+  return @allocated operation!(arguments...)
+end
+
+# The magnitude a comparison should be judged against. For a relation whose expected value is zero
+# (∇·∇×u = 0, tr(dev A) = 0) there is no relative scale, so the absolute floor is taken from the other
+# side — which is itself near zero — rather than from a fixed constant that would swamp it.
+_scale(want, got) = max(maximum(abs, _as_array(want); init = 0.0),
+                        maximum(abs, _as_array(got); init = 0.0), 1.0)
 
 # A mean-free field: the inverse Laplacian is only a left inverse on the zero-mean subspace, and the
 # spectral identities that quotient the constant need one.
@@ -94,13 +117,13 @@ function run_relations_lane(configs)
       ("curl is self-adjoint",
        inner(curl(b.uh, m), b.vh), inner(b.uh, curl(b.vh, m))),
       # Two DIFFERENT fields, or the identity is trivially true and the check cannot fail.
-      ("Δ is self-adjoint",
+      ("Δ is self-adjoint, negative-definite",
        inner(laplacian(b.sh, m), b.th), inner(b.sh, laplacian(b.th, m))),
-      ("Δ is negative-definite",
+      ("Δ is self-adjoint, negative-definite (definiteness)",
        inner(b.sh, laplacian(b.sh, m)) <= 0, true),
       ("ℙ is self-adjoint",
        inner(helmholtz_projection(b.uh, m), b.vh), inner(b.uh, helmholtz_projection(b.vh, m))),
-      ("⟨f, w·g⟩ is symmetric in f, g",
+      ("⟨f, w·g⟩ symmetric in f, g",
        weighted_inner(b.sh, b.th, squared_wavenumber_field(z, m)),
        weighted_inner(b.th, b.sh, squared_wavenumber_field(z, m))),
       ("M⟨Wf, q⟩ = N⟨f, Wᵀq⟩",
@@ -116,9 +139,9 @@ function run_relations_lane(configs)
       ("ℙ² = ℙ",
        field_data(helmholtz_projection(helmholtz_projection(b.uh, m), m)),
        field_data(helmholtz_projection(b.uh, m))),
-      ("symmetric_gradient = sym ∘ gradient",
+      ("symmetric_gradient = sym∘gradient",
        field_data(symmetric_gradient(b.uh, m)), field_data(sym(gradient(b.uh, m)))),
-      ("det(AB) = det(A)·det(B)",
+      ("det(AB) = det(A)det(B)",
        field_data(det(mul!(similar_field(b.A, Val(2)), b.A, b.B))),
        field_data(det(b.A)) .* field_data(det(b.B))),
       ("tr(dev A) = 0",
@@ -130,10 +153,10 @@ function run_relations_lane(configs)
        sum(last(radial_spectrum(b.sh, m))), inner(b.sh, b.sh)),
       ("C(0) = inner",
        first(last(radial_correlation(b.sh, b.plans0))), inner(b.sh, b.sh)),
-      ("a sharp cutoff is idempotent",
+      ("cutoff is idempotent",
        field_data(convolve(convolve(b.sh, spectral_cutoff(z, m, b.T(3))), spectral_cutoff(z, m, b.T(3)))),
        field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3))))),
-      ("‖f‖₂² = ⟨f, f⟩",
+      ("‖·‖₂² = inner(f, f)",
        l2norm(b.u)^2, inner(b.u, b.u)),
       ("integral = measure · mean",
        integral(b.s), prod(config.grid.domain_size) * mean(b.s)),
@@ -148,21 +171,58 @@ function run_relations_lane(configs)
                                             ScalarFieldSpectral(ones(Complex{b.T}, size(field_data(z))...),
                                                                 config.grid, config.layout))))),
        field_data(b.sh)),
-      ("a compressed kernel equals its materialization",
+      # Declared in the ledger's RELATIONS table and evaluated nowhere until now, while its two
+      # operations were reported as covered for `identity`.
+      # Declared in RELATIONS and evaluated nowhere until now. Compared through the raw arrays, not by
+      # `==` on the sections, so a metadata-only difference is visible as a value difference too.
+      ("read_field ∘ write_field = id",
+       begin
+         path = joinpath(mktempdir(), "relation.h5")
+         HDF5_AVAILABLE && HDF5.h5open(f -> write_field(f, "u", b.u), path, "w")
+         HDF5_AVAILABLE ? field_data(HDF5.h5open(f -> read_field(f, "u"), path, "r")) : field_data(b.u)
+       end, field_data(b.u)),
+      ("read_points ∘ write_points = id",
+       begin
+         path = joinpath(mktempdir(), "relation_points.h5")
+         HDF5_AVAILABLE && HDF5.h5open(f -> write_points(f, "p", b.points), path, "w")
+         HDF5_AVAILABLE ? point_coordinates(HDF5.h5open(f -> read_points(f, "p"), path, "r")) :
+                          point_coordinates(b.points)
+       end, point_coordinates(b.points)),
+      ("kernel composition is associative",
+       field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(z, m, b.T(3)),
+                                                   spectral_band(z, m, b.T(1), b.T(4))),
+                                          spectral_cutoff(z, m, b.T(2))))),
+       field_data(convolve(b.sh, convolve(spectral_cutoff(z, m, b.T(3)),
+                                          convolve(spectral_band(z, m, b.T(1), b.T(4)),
+                                                   spectral_cutoff(z, m, b.T(2))))))),
+      ("materialize agrees with compressed",
        field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3)))),
        field_data(convolve(b.sh, StoredKernel(materialize_kernel(spectral_cutoff(z, m, b.T(3))))))),
     )
 
-    # Attribute each relation to the operations the ledger's own RELATIONS table says it constrains,
-    # so the two cannot drift: the table decides applicability AND coverage from one statement.
-    for relation in RELATIONS, operation in relation.ops
-      record_coverage!(operation, relation.kind)
+    # Coverage is recorded from the checks this lane ACTUALLY EVALUATES, matched to the table by name.
+    # Recording it from the table itself credited three relations nobody ran — the very defect this
+    # file's header says it exists to remove, moved up one level from the ledger to the lane.
+    evaluated = Set(name for (name, _, _) in checks)
+    for relation in RELATIONS
+      relation.name in evaluated || continue
+      for operation in relation.ops
+        record_coverage!(operation, relation.kind)
+      end
     end
+    unevaluated = [r.name for r in RELATIONS if !(r.name in evaluated)]
+    isempty(unevaluated) || config === first(configs) &&
+      println("\n  DECLARED BUT NOT EVALUATED — ", length(unevaluated), " relations credit no coverage:\n",
+              "      ", join(unevaluated, "; "))
     for (name, got, want) in checks
       cells += 1
       push!(seen, name)
       ok = try
-        got isa Bool ? got == want : isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = rtol)
+        # No `atol = rtol`: an absolute 1e-3 on Float32 fields drawn from rand()−½ hides a 0.2% error in
+        # every relation, including the ones comparing against zero. The zero-comparisons pass their own
+        # scale explicitly instead.
+        got isa Bool ? got == want :
+          isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(b.T) * _scale(want, got))
       catch exception
         Base.push!(failures, "$(name) [$(config.name)] THREW $(nameof(typeof(exception)))")
         continue
@@ -241,6 +301,14 @@ function run_property_lanes(configs)
 
     # ── thread-count invariance ─────────────────────────────────────────────────────────────────
     # The CPU paths are bitwise thread-count-invariant by contract, so this is `==`, not a tolerance.
+    #
+    # THE CUTOFF HAS TO COME DOWN FIRST. `_use_threads` returns false when the element count is below
+    # `threading_cutoff` BEFORE it consults the `with_threading` override, and the largest fixture here
+    # is 8·8·8·9 = 4608 elements against a default cutoff of 16384. Without this the `enabled = true`
+    # and `enabled = false` runs both take the serial branch and the lane compares a path against
+    # itself — decision 47's vacuous threading assertion, reproduced.
+    previous_cutoff = threading_cutoff()
+    set_threading_cutoff!(1)
     for (name, run) in
         (("add!", () -> field_data(add!(similar_field(b.u, Val(1)), b.u, b.v))),
          ("mul!", () -> field_data(mul!(similar_field(b.u, Val(1)), b.A, b.u))),
@@ -256,22 +324,32 @@ function run_property_lanes(configs)
         record!(:invariance, "$(name) is not bitwise thread-invariant [$(config.name)]")
     end
 
+    set_threading_cutoff!(previous_cutoff)
+
     # ── allocation ──────────────────────────────────────────────────────────────────────────────
     # Invariant 13, measured on the CPU where a materialized array's bytes are actually counted.
-    for (name, run) in
-        (("add!", () -> add!(b.u, b.u, b.v)),
-         ("combine!", () -> combine!(b.u, b.T(1) / 2, b.u, b.T(1) / 2, b.v)),
-         ("mul!", () -> mul!(b.v, b.A, b.u)),
-         ("laplacian!", () -> laplacian!(b.vh, b.uh, m)),
-         ("curl!", () -> curl!(b.vh, b.uh, m)),
-         ("helmholtz_projection!", () -> helmholtz_projection!(b.vh, b.uh, m)),
-         ("convolve!", () -> convolve!(b.vh, b.uh, spectral_cutoff(z, m, b.T(3)))),
-         ("inner", () -> inner(b.u, b.v)))
+    smallest_field = sizeof(eltype(field_data(b.s))) * length(field_data(b.s))
+    allocation_bound = max(512, smallest_field ÷ 4)
+    # The kernel is built ONCE, outside the measurement: constructing it inside the measured call
+    # charged kernel construction to `convolve!`.
+    allocation_kernel = spectral_cutoff(z, m, b.T(3))
+    u, v, A, uh, vh, half = b.u, b.v, b.A, b.uh, b.vh, b.T(1) / 2
+    for (name, bytes) in
+        (("add!",                  single_allocated(add!, u, u, v)),
+         ("combine!",              single_allocated(combine!, u, half, u, half, v)),
+         ("mul!",                  single_allocated(mul!, v, A, u)),
+         ("laplacian!",            single_allocated(laplacian!, vh, uh, m)),
+         ("curl!",                 single_allocated(curl!, vh, uh, m)),
+         ("helmholtz_projection!", single_allocated(helmholtz_projection!, vh, uh, m)),
+         ("convolve!",             single_allocated(convolve!, vh, uh, allocation_kernel)),
+         ("inner",                 single_allocated(inner, u, v)))
       count!(:allocation)
-      run()                                        # warm up: the first call compiles
-      bytes = @allocated run()
-      bytes < 4096 ||
-        record!(:allocation, "$(name) allocated $(bytes) bytes on a preallocated call [$(config.name)]")
+      # Scaled to the SMALLEST field in play, not a fixed 4096. A scalar Float32 field on 8³ is 2048 B
+      # and a scalar spectral Float64 field on (7,5,3) is 960 B, so a flat 4 KB bound let a full
+      # per-call scratch field — the exact defect invariant 13 exists for — pass on every small grid.
+      bytes < allocation_bound ||
+        record!(:allocation, "$(name) allocated $(bytes) bytes on a preallocated call, against a " *
+                             "smallest field of $(smallest_field) bytes [$(config.name)]")
     end
 
     # ── ordering and definiteness ───────────────────────────────────────────────────────────────
@@ -308,13 +386,19 @@ function run_property_lanes(configs)
                                          1:config.grid.grid_size[1], 1:config.grid.grid_size[2],
                                          1:config.grid.grid_size[3]), config.grid, config.layout)))
       count!(:domain_rejection)
-      rejected = try
+      # The exception TYPE, not merely that something was thrown. `catch; true` counts a `MethodError`
+      # from a renamed keyword or a typo in the test as a correct refusal, so a deleted validation stays
+      # green as long as the call fails for any other reason.
+      outcome = try
         call()
-        false
-      catch
-        true
+        :accepted
+      catch exception
+        exception isa ArgumentError || exception isa DimensionMismatch ||
+          exception isa InexactError || exception isa DomainError ? :rejected : nameof(typeof(exception))
       end
-      rejected || record!(:domain_rejection, "$(name) was ACCEPTED [$(config.name)]")
+      outcome === :rejected ||
+        record!(:domain_rejection, outcome === :accepted ? "$(name) was ACCEPTED [$(config.name)]" :
+                "$(name) threw $(outcome), not a domain error [$(config.name)]")
     end
   end
 

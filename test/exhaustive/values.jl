@@ -15,12 +15,16 @@
 using GBGPeriodicFields
 using Statistics
 using LinearAlgebra
+using Random
 
 
 # A tolerance that tracks the element type and the length of the reduction. The references sum in a
 # different order from the package (a plain loop against a pairwise-blocked or fused pass), so exact
 # equality is not the property — agreement to the arithmetic's own precision is.
 _value_tolerance(T) = T === Float32 ? 1.0f-4 : 1e-10
+
+# What FFTW was configured with before this suite touched it, captured once.
+const FFTW_THREADS = Ref(Threads.nthreads())
 
 _as_array(x) =
   x isa GBGI.FiberSections.AbstractFiberSection ? Array(field_data(x)) :
@@ -48,11 +52,17 @@ function run_value_lane(configs)
 
   for config in configs
     T, grid, layout = config.eltype, config.grid, config.layout
+    # The seed axis is part of the configuration, and a lane that draws from the global RNG makes its
+    # own failure labels lie: the cell says seed815 while the data came from wherever the stream was.
+    Random.seed!(config.seed)
     rtol = _value_tolerance(T)
     P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
+    # Kept separately so the accessor oracles compare against the array a field was BUILT from rather
+    # than against the array the accessor returns.
+    raw_vector = rand(T, P(1)...)
     s  = ScalarFieldPhysical(rand(T, P(0)...), grid, layout)
     s2 = ScalarFieldPhysical(rand(T, P(0)...), grid, layout)
-    u  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)
+    u  = VectorFieldPhysical(copy(raw_vector), grid, layout)
     v  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)
     A  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
     B  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
@@ -123,7 +133,7 @@ function run_value_lane(configs)
       (:×,          u × v,                    ref_cross(du, field_data(v))),
       (:⋅,          u ⋅ v,                    ref_dot(du, field_data(v))),
       # ── the accessors: the oracle is what the section was BUILT from ──────────────────────────
-      (:field_data,          field_data(u),          du),
+      (:field_data,          field_data(u),          raw_vector),
       (:field_grid,          field_grid(u) == grid,  true),
       (:field_layout,        field_layout(u) == layout, true),
       (:field_scalar_type,   field_scalar_type(u) === T, true),
@@ -133,8 +143,10 @@ function run_value_lane(configs)
       (:fiber_shape,         collect(fiber_shape(Val(2))), [3, 3]),
       (:physical_field_shape, collect(physical_field_shape(grid, Val(1))), [grid.grid_size..., 3]),
       (:eltype,              eltype(u) === T,        true),
-      (:size,                collect(size(u)),       collect(size(du))),
-      (:ndims,               ndims(u),               ndims(du)),
+      # Against the shape the grid DECLARES, not against the stored array's own shape — `Base.size(field)
+      # = size(field_data(field))`, so comparing the two was `size(du) == size(du)`.
+      (:size,                collect(size(u)),       [grid.grid_size..., 3]),
+      (:ndims,               ndims(u),               4),
       # `copy` is defined on a Broadcasted, not on a field — that IS its method, and it is the entry
       # point every fused allocating assignment goes through.
       (:copy,                copy(Base.broadcasted(+, u, v)), ref_add(du, field_data(v))),
@@ -155,9 +167,11 @@ function run_value_lane(configs)
     # A strictly positive field, so the reciprocal an `inv` oracle needs is well defined everywhere.
     spectral_zero_ones = ScalarFieldSpectral(ones(Complex{T}, shape...), grid, layout)
     offset = ntuple(d -> T(1) / 2 * grid.grid_spacing[d], 3)
-    points = PointSet(rand(T, 9, 3) .* reshape(collect(grid.domain_size), 1, 3) .+
-                      reshape(collect(grid.origin), 1, 3))
-    q = ScalarPointValues(rand(T, 9))
+    raw_coordinates = rand(T, 9, 3) .* reshape(collect(grid.domain_size), 1, 3) .+
+                      reshape(collect(grid.origin), 1, 3)
+    raw_values = rand(T, 9)
+    points = PointSet(copy(raw_coordinates))
+    q = ScalarPointValues(copy(raw_values))
     cutoff = T(3)
     spectral_comparisons = (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
@@ -182,8 +196,10 @@ function run_value_lane(configs)
                         ref_weighted_inner(field_data(sh), field_data(sh),
                                            field_data(squared_wavenumber_field(spectral_zero, multipliers)),
                                            grid, layout, 0)),
-      (:radial_spectrum, sum(last(radial_spectrum(sh, multipliers))),
-                         sum(ref_radial_spectrum(field_data(sh), grid, layout, 0))),
+      # The SHELLS, not just their sum. Summing checks Parseval and leaves the binning — the operation's
+      # entire purpose — free to put every mode in one shell.
+      (:radial_spectrum, collect(last(radial_spectrum(sh, multipliers))),
+                         ref_radial_spectrum(field_data(sh), grid, layout, 0)),
       (:interpolate,    point_values(interpolate(s, points, CatmullRom)),
                         ref_interpolate_catmull_rom(ds, grid, point_coordinates(points), 0)),
       (:anterpolate,    field_data(anterpolate(grid, points, q, CatmullRom)),
@@ -236,7 +252,9 @@ function run_value_lane(configs)
                         complex.(fill(T(1) / 2, shape...))),
       # `translation_kernel!` updates a SeparableKernel in place — the compressed per-axis factors,
       # not a materialized field — so the in-place form is fed the kernel its own builder returns.
-      (:translation_kernel!, kernel_data(translation_kernel!(translation_kernel(spectral_zero, multipliers, offset),
+      # Built with a DIFFERENT offset, so an in-place form that writes nothing cannot pass.
+      (:translation_kernel!, kernel_data(translation_kernel!(translation_kernel(spectral_zero, multipliers,
+                                                                               ntuple(d -> -offset[d], 3)),
                                                              multipliers, offset)),
                         ref_translation_kernel(grid, layout, shape, offset)),
       # C(0) = ⟨f, f⟩ is the Wiener-Khinchin dual's defining value, and it is checked against the
@@ -244,13 +262,22 @@ function run_value_lane(configs)
       (:radial_correlation, first(last(radial_correlation(sh, plans))),
                             ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
       # ── the remaining accessors ───────────────────────────────────────────────────────────────
-      (:point_coordinates,   point_coordinates(points),         point_coordinates(points)),
-      (:point_values,        point_values(q),                   point_values(q)),
-      (:spectral_field_shape, collect(GBGI.Fields.spectral_field_shape(grid, layout, Val(1))), [shape..., 3]),
+      # Against the RAW matrices the objects were constructed from, not against themselves. Comparing
+      # `point_coordinates(points)` with itself passes for a transposed, zeroed or permuted result.
+      (:point_coordinates,   point_coordinates(points),         raw_coordinates),
+      (:point_values,        point_values(q),                   raw_values),
+      # Derived independently, the way `ref_dft_forward` derives it: the folded axis keeps its
+      # non-negative frequencies, every other axis its full extent. Comparing `Val(1)` against the
+      # `Val(0)` shape the fixture was built from made both sides move together.
+      (:spectral_field_shape, collect(GBGI.Fields.spectral_field_shape(grid, layout, Val(1))),
+                              [ntuple(d -> d == layout.fft_dims[1] ? grid.grid_size[d] ÷ 2 + 1 :
+                                           grid.grid_size[d], 3)..., 3]),
       (:similar_field,       collect(size(field_data(similar_field(s, Val(1))))), [grid.grid_size..., 3]),
       (:similar_pointvalues, npoints(similar_pointvalues(q, Val(0))), 9),
       (:axes,                collect(first(axes(u))),           collect(1:grid.grid_size[1])),
-      (:getindex,            field_data(u)[1, 1, 1, 1],         du[1, 1, 1, 1]),
+      # Through the package's own `getindex` on the FIELD; reading the raw array on both sides never
+      # called the method under test.
+      (:getindex,            u[1, 1, 1, 1],                     raw_vector[1, 1, 1, 1]),
       (:threading_cutoff,    threading_cutoff() isa Integer,    true),
       # ── the in-place forms that had no oracle ─────────────────────────────────────────────────
       # `to_physical!` may consume its spectral input as scratch (invariant 11), so it is handed a
@@ -280,10 +307,13 @@ function run_value_lane(configs)
       (:with_threading,  with_threading(enabled = true) do
                            field_data(add!(similar_field(u, Val(1)), u, v))
                          end, ref_add(du, field_data(v))),
+      # Restored to what it was, not to `nthreads()` — the two differ whenever FFTW was configured
+      # otherwise, and this lane would silently reconfigure the process for every later lane.
       (:set_fft_threads!, begin
+                            previous_fft_threads = FFTW_THREADS[]
                             set_fft_threads!(1)
                             observed = field_data(to_spectral(s, plans))
-                            set_fft_threads!(Threads.nthreads())
+                            set_fft_threads!(previous_fft_threads)
                             observed
                           end, ref_dft_forward(ds, grid, layout)),
     )
@@ -325,9 +355,18 @@ function run_value_lane(configs)
 
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, persistence_comparisons))
       cells += 1
+      # The comparison tuples are built eagerly, so this guards the COMPARISON; a throw during
+      # construction still propagates. What it prevents is one unexpected result type aborting the lane
+      # — and with it the survey, since `runtests.jl` has no top-level handler.
       push!(covered, name)
       record_coverage!(name, :correct)
-      isapprox(_as_array(got), _as_array(want); rtol = rtol) && continue
+      agreed = try
+        isapprox(_as_array(got), _as_array(want); rtol = rtol)
+      catch exception
+        Base.push!(disagreements, "$(name) [$(config.name)] — comparison threw $(nameof(typeof(exception)))")
+        continue
+      end
+      agreed && continue
       Base.push!(disagreements, "$(name) [$(config.name)]")
     end
   end

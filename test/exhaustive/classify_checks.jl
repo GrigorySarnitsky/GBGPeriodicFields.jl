@@ -36,7 +36,10 @@ const CLASSES = [
   (:structural,      [r"all\(iszero", r"any\(iszero", r"imag\.\(", r"all\(isreal", r"issymmetric"]),
   (:representation,  [r"\bsame\(", r"spectral.*physical|physical.*spectral"]),
   (:result_type,     [r"\bisa\b"]),                        # the operation returns the declared type
-  (:inequality,      [r"[^=!<>]<[^=]", r"[^=!<>]>[^=]", r"≤", r"≥", r"\bsign\b"]),  # sign, definiteness, bounds
+  # `[^=!<>]>[^=]` matches `->`, so every assertion containing a lambda — and every `where {T<:Real}` —
+  # was filed as an inequality, shifting credit off `:correct` for both the report and the residue that
+  # defines the axis. The arrow and the subtype operator are excluded explicitly.
+  (:inequality,      [r"(?<![-=!<>])<(?![=:])", r"(?<![-=!<>])>(?![=])", r"≤", r"≥", r"\bsign\b"]),  # sign, definiteness, bounds
   (:correct,         [r"≈", r"==", r"isapprox", r"\bapprox\("]),          # the catch-all, deliberately last
 ]
 

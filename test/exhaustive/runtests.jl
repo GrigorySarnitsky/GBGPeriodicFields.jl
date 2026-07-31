@@ -16,6 +16,7 @@
 
 using GBGPeriodicFields
 using Statistics
+using Random
 
 include("aliasing.jl")
 include("references.jl")
@@ -113,6 +114,7 @@ function run_reference_lane()
   checked = 0
   for c in configurations()
     T = c.eltype
+    Random.seed!(c.seed)             # honour the configuration's seed here too
     SH(R) = xshape(c, R, true)
     s = ScalarFieldSpectral(randn(Complex{T}, SH(0)...), c.grid, c.layout)
     u = VectorFieldSpectral(randn(Complex{T}, SH(1)...), c.grid, c.layout)
@@ -296,7 +298,11 @@ println()
 println("═"^100)
 println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over five lanes")
 println("═"^100)
-println("  surface coverage             every public operation is reached by the invocation engine")
+# Printed from the MEASUREMENT, not as a sentence. `unbuilt` was bound and never read, so this row
+# asserted the conclusion regardless of what the engine found.
+println("  surface coverage             ", unbuilt == 0 ?
+        "every public operation is reached by the invocation engine" :
+        "$(unbuilt) public operations have NO buildable call")
 println("  self-check                   ", selfcheck_failures == 0 ?
         "every universal check fires on its own defect" : "$(selfcheck_failures) PROBLEMS IN THE HARNESS")
 println("  universal checks             ", invocation_findings, " correctness findings, ",

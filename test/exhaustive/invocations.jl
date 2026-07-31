@@ -74,6 +74,11 @@ record_coverage!(operation::Symbol, kind::Symbol) = push!(LANE_COVERAGE, (operat
 # fixture cannot see a defect that scales its input, and decision 52's lesson is that a fixture unable
 # to falsify the claim is not a fixture.
 
+# Handles the pools open, so a run does not accumulate one per configuration.
+const OPEN_HDF5_HANDLES = Any[]
+close_pool_handles!() = (foreach(h -> (try close(h) catch end), OPEN_HDF5_HANDLES);
+                         empty!(OPEN_HDF5_HANDLES); nothing)
+
 struct PoolEntry
   label::String
   object::Any
@@ -118,7 +123,8 @@ function canonical_pool(config; device = identity)
     push("plans R=$R", FieldTransformPlans(physical[R + 1], spectral[R + 1]))
   end
   # Every kernel storage class, so a kernel-taking operation is swept over all of them rather than
-  # over whichever one someone reached for.
+  # over whichever one someone reached for. The list is checked against `subtypes` below — DESIGN.md
+  # claimed these pools were derived by `subtypes(...)` and `subtypes(` appeared nowhere in the suite.
   # `StoredKernel` marks a FIELD as playing the kernel role, so it wraps the materialized coefficients
   # rather than the compressed closure the builder returns.
   push("kernel: stored",     StoredKernel(materialize_kernel(spectral_cutoff(spectral[1], multipliers, T(3)))))
@@ -126,8 +132,12 @@ function canonical_pool(config; device = identity)
   push("kernel: band",       spectral_band(spectral[1], multipliers, T(1), T(3)))
   push("kernel: separable",  translation_kernel(spectral[1], multipliers, offset))
   push("kernel: window",     assignment_window(spectral[1], multipliers))
-  push("kernel: product",    convolve(translation_kernel(spectral[1], multipliers, offset),
-                                      assignment_window(spectral[1], multipliers)))
+  # A GENUINE ProductKernel. Composing two separables collapses per-axis back into a `SeparableKernel`,
+  # so the entry that used to sit here was a third separable one and `ProductKernel`'s own
+  # `_kernel_data`, compatibility check, `inv` and materialization were unreached. Radial ∘ separable is
+  # the cross-family composition that actually produces one.
+  push("kernel: product",    convolve(spectral_cutoff(spectral[1], multipliers, T(3)),
+                                      translation_kernel(spectral[1], multipliers, offset)))
   push("kernel: field",      squared_wavenumber_field(spectral[1], multipliers))
   # Every transfer scheme.
   push("scheme: CatmullRom", CatmullRom)
@@ -138,6 +148,10 @@ function canonical_pool(config; device = identity)
   # Scalars, fibers and maps.
   push("real α",  T(0.3))
   push("real β",  T(0.7))
+  # ZERO. Invariant 10's five-argument forms branch on `iszero(β)` — overwrite versus accumulate — and
+  # with only 0.3 and 0.7 in the pool the overwrite branch was never taken by any exhaustive lane. The
+  # gate crosses it in four files; this suite crossed it in none.
+  push("real zero", zero(T))
   push("int 2",   2)
   # A DECAYING exponential coefficient. Without one the only value the engine could put in that slot
   # was a positive integer, which makes exp(c·|k|²) overflow rather than filter — so the whole
@@ -173,7 +187,11 @@ function canonical_pool(config; device = identity)
   push("name", "section")
   if HDF5_AVAILABLE
     path = joinpath(mktempdir(), "exhaustive.h5")
-    push("hdf5 file", HDF5.h5open(path, "w"))
+    handle = HDF5.h5open(path, "w")
+    push("hdf5 file", handle)
+    # Registered for closing: a handle per pool, across 96 configurations and every backend, was left
+    # open for the whole run while the sweep wrote into it.
+    Base.push!(OPEN_HDF5_HANDLES, handle)
   end
   return entries
 end
@@ -212,6 +230,7 @@ reported, because a silently truncated sweep reads as a complete one.
 function invocations(operation::Function, pool; cap::Int = 400)
   built = NamedTuple[]
   dropped = 0
+  oversized = 0
   for method in methods(operation)
     _owned_by_package(method) || continue
     signature = Base.unwrap_unionall(method.sig)
@@ -231,7 +250,16 @@ function invocations(operation::Function, pool; cap::Int = 400)
       element = parameters[end].T
       parameters = [parameters[1:end-1]..., element, element]
     end
-    length(parameters) > 5 && continue
+    # Wider than five, because six is where the α/β and kernel-composed arities live:
+    # `combine!(dest, α, a, β, b, kernel)`, `exponential_convolve!`'s two-operand forms,
+    # `anterpolate!(…, scheme, α, β)`, the kernel-composed `divergence!`/`helmholtz_projection!`.
+    # Cutting at five removed thirteen public method forms from the sweep SILENTLY — not counted in
+    # `dropped`, not reported — which is the design's own "prune by declared inapplicability, never by
+    # sampling" rule broken by its engine.
+    if length(parameters) > 9
+      oversized += 1
+      continue
+    end
     slots = [[e for e in pool if _slot_admits(p, e.object)] for p in parameters]
     any(isempty, slots) && continue
     total = prod(length.(slots))
@@ -249,7 +277,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
                          entries = collect(combination)))
     end
   end
-  return (built = built, dropped = dropped)
+  return (built = built, dropped = dropped, oversized = oversized)
 end
 
 
@@ -263,7 +291,7 @@ testing, so it is named. That number is the suite's honest coverage of its own o
 """
 function all_invocations(pool; cap::Int = 400)
   operations = sort(collect(package_operations()); by = String)
-  built, unbuildable, dropped = NamedTuple[], Symbol[], 0
+  built, unbuildable, dropped, oversized = NamedTuple[], Symbol[], 0, 0
   for name in operations
     f = nothing
     for mod in (GBGPeriodicFields, Base, Statistics, LinearAlgebra, PACKAGE_MODULES...)
@@ -277,8 +305,9 @@ function all_invocations(pool; cap::Int = 400)
     end
     result = invocations(f, pool; cap = cap)
     dropped += result.dropped
+    oversized += result.oversized
     isempty(result.built) ? Base.push!(unbuildable, name) : append!(built, result.built)
   end
-  return (built = built, unbuildable = unbuildable, dropped = dropped,
+  return (built = built, unbuildable = unbuildable, dropped = dropped, oversized = oversized,
           operations = operations)
 end

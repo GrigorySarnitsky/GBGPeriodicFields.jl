@@ -294,6 +294,13 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   # RETURN, and whether what they returned obeys the universal properties.
   live = 0
   lane_errors = Dict{String, Int}()
+  # The pool contains integers, so the engine builds and EXECUTES `set_threading_cutoff!(1)` and
+  # `set_fft_threads!(1)`. Both are global package state and neither is restored by the call, so every
+  # lane after this one ran with a cutoff of 1 instead of 16384 and FFTW pinned to one thread — the
+  # harness silently reconfiguring the package it is measuring, with the outcome depending on pool
+  # insertion order. The setters stay in the sweep (they are public operations and must be exercised);
+  # what changes is that the state is put back.
+  entry_cutoff = threading_cutoff()
   for invocation in work.built
    # The lane itself can fail on a cell — a device backend reports an earlier asynchronous error at the
    # next API call, so an unrelated invocation aborts the whole sweep. Recording the failure and moving
@@ -309,6 +316,7 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
    end
   end
 
+  set_threading_cutoff!(entry_cutoff)
   return (findings = findings, attempted = attempted, live = live, lane_errors = lane_errors,
           built = length(work.built), unbuildable = work.unbuildable,
           dropped = work.dropped, operations = length(work.operations),
@@ -363,7 +371,9 @@ function run_invocation_lane(configs)
     live += result.live
     dropped += result.dropped
     operations = result.operations
-    unbuildable = result.unbuildable
+    # Accumulated, not overwritten: assigning per configuration left the printed NOT REACHED list
+    # showing only whatever the last configuration happened to fail on.
+    unbuildable = sort(union(unbuildable, result.unbuildable); by = String)
     for (kind, messages) in result.findings
       append!(get!(totals, kind, String[]), ("[$(config.name)] " * m for m in messages))
     end

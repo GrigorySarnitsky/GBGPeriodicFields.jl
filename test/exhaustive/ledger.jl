@@ -98,7 +98,18 @@ function operation_properties(name::Symbol)
   ms = [m for m in methods(f) if m.module in LEDGER_MODULES]
   isempty(ms) && return nothing
   signatures = [m.sig for m in ms]
-  accepts(T) = any(s -> any(p -> p isa Type && T <: p, Base.unwrap_unionall(s).parameters[2:end]), signatures)
+  # `typeintersect`, not `T <: p`. The subtype spelling asks whether the PARAMETER is a supertype of
+  # `AbstractFieldPhysical`, which holds only for a method written with the bare abstract type. Most of
+  # the generated surface is spelled on parameterized concrete types — `transpose!(d::TensorFieldPhysical{T},
+  # …)` — and `unwrap_unionall` leaves free TypeVars, so the test was false for `transpose!`, `tr!`,
+  # `sym!`, `skew!`, `dev!`, `mul!`, `det!` and `norm!`. All eight read as accepting NEITHER
+  # representation and were exempted from the representation and absence checks with the reason "no
+  # representation asymmetry" — including `det!` and `norm!`, the two operations invariant 1's rule is
+  # canonically about. The question is whether any physical field can satisfy the parameter, which is
+  # an intersection, not a subtype relation.
+  accepts(T) = any(signature -> any(parameter -> parameter isa Type && parameter !== Any &&
+                                                 typeintersect(T, parameter) !== Union{},
+                                    Base.unwrap_unionall(signature).parameters[2:end]), signatures)
   reachable = reachable_names(f)
   # What the operation RETURNS, by inference over its own method signatures. This is what separates the
   # checks that only make sense for an ordered result (sign, definiteness, bounds) from those that only
@@ -418,25 +429,40 @@ end
 # same facts — so a wrong exemption is caught by the code rather than by a reader's judgement.
 
 """
-    guard_violations(properties, applicable) -> Vector{String}
+    guard_violations(properties, applicable, covered) -> Vector{String}
 
-Cells the ledger calls inapplicable that its own second-order rules forbid it to.
+Contradictions between two INDEPENDENT statements about the same cell.
+
+The four guards this replaces were tautologies. Each tested `property && !applicable[(name, check)]`
+while `applicable[(name, check)]` was set from that same property — `p.inplace && !p.inplace` — so
+`guard_violations` provably returned an empty vector for every possible package, and the
+`ledger_violations > 0` term in the exit condition was dead with respect to exemptions. A guard whose
+condition is the predicate it audits cannot audit it.
+
+What is falsifiable is disagreement between two things derived DIFFERENTLY:
+
+  a lane asserted a cell the ledger calls inapplicable — the applicability rule and the lane's own
+  judgement contradict each other, and one of them is wrong
+
+  an operation the IR says reaches an atomic accumulation is not covered for determinism — the
+  property that made the check applicable is exactly the property that makes it necessary
+
+  an operation valid in both representations has no representation-agreement coverage anywhere,
+  despite invariant 1 making that the defining claim about it
 """
-function guard_violations(properties, applicable)
+function guard_violations(properties, applicable, covered)
   violations = String[]
   for p in properties
-    if both_representations(p) && !applicable[(p.name, :representation)]
-      push!(violations, "$(p.name): has methods in BOTH representations (invariant 1 ⇒ linear) but is " *
-                        "exempt from representation-agreement")
+    for (name, kind) in ((p.name, :representation), (p.name, :allocation), (p.name, :metadata),
+                         (p.name, :determinism), (p.name, :correct), (p.name, :identity),
+                         (p.name, :adjoint), (p.name, :round_trip), (p.name, :invariance))
+      haskey(covered, (name, kind)) || continue
+      applicable[(name, kind)] && continue
+      push!(violations, "$(name): a lane asserts $(kind), which the ledger calls inapplicable — " *
+                        "the applicability rule and the lane disagree")
     end
-    if p.inplace && !applicable[(p.name, :allocation)]
-      push!(violations, "$(p.name): is in-place but is exempt from the allocation check (invariant 13)")
-    end
-    if !p.inplace && p.has_sibling && !applicable[(p.name, :metadata)]
-      push!(violations, "$(p.name): allocates its result but is exempt from the metadata check")
-    end
-    if p.atomic && !applicable[(p.name, :determinism)]
-      push!(violations, "$(p.name): reaches an atomic accumulation but is exempt from determinism")
+    if p.atomic && !haskey(covered, (p.name, :determinism))
+      push!(violations, "$(p.name): reaches an atomic accumulation and nothing checks its determinism")
     end
   end
   return violations
@@ -527,7 +553,7 @@ function run_ledger_lane()
     end
   end
 
-  violations = guard_violations(properties, applicable)
+  violations = guard_violations(properties, applicable, covered)
   if !isempty(violations)
     println("\n  SECOND-ORDER GUARD VIOLATIONS — an exemption the ledger's own rules forbid:")
     for v in violations; println("      ", v); end

@@ -186,14 +186,20 @@ function run_sequence_lane(configs)
     # ── an in-place loop computes what the same steps compute one at a time ────────────────────
     # An operation whose destination is also its source is applied repeatedly here, which is the shape
     # a solver's state update has. The reference accumulates the same steps through fresh allocations.
+    # A FRESH fixture. The allocation loops above run `map!(_double_fiber, u, u)` sixty-five times,
+    # scaling `u` by 2^65 ≈ 1.8e19 — at which magnitude one ulp is 2048 and the `8·v` this check adds
+    # (|v| ≤ 0.75) vanishes entirely. Both sides then collapse onto the same number and the check passes
+    # whatever `add!` does. Every per-step allocation figure after `map!` was also measured on that
+    # unintended fixture.
+    fresh = _bench(config)
     cells += 1
-    accumulating = copyto!(field_data(similar_field(b.u, Val(1))), field_data(b.u))
-    looped = similar_field(b.u, Val(1))
-    copyto!(field_data(looped), field_data(b.u))
+    accumulating = copyto!(field_data(similar_field(fresh.u, Val(1))), field_data(fresh.u))
+    looped = similar_field(fresh.u, Val(1))
+    copyto!(field_data(looped), field_data(fresh.u))
     for _ in 1:8
-      add!(looped, looped, b.v)
+      add!(looped, looped, fresh.v)
     end
-    expected = accumulating .+ 8 .* field_data(b.v)
+    expected = accumulating .+ 8 .* field_data(fresh.v)
     isapprox(field_data(looped), expected; rtol = rtol) ||
       record!("an 8-step accumulate into its own destination diverges from the same steps [$(config.name)]")
   end
