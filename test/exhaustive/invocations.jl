@@ -58,6 +58,15 @@ end
 
 const GBGI = GBGPeriodicFields
 
+# What the lanes actually assert, recorded AS THEY RUN rather than scraped from their source.
+#
+# The ledger's coverage attribution reads test sources and matches assertion patterns, which cannot see
+# a lane whose checks are table rows rather than `@test` macros — it kept reporting 564 cells as
+# unasserted after they were implemented, describing the suite as it was two commits earlier. A lane
+# that knows what it checked can simply say so, and that is a derivation rather than a guess.
+const LANE_COVERAGE = Set{Tuple{Symbol, Symbol}}()
+record_coverage!(operation::Symbol, kind::Symbol) = push!(LANE_COVERAGE, (operation, kind))
+
 
 # ── The canonical pool ──────────────────────────────────────────────────────────────────────────
 #

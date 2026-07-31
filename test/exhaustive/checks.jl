@@ -283,7 +283,11 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   findings = Dict{Symbol, Vector{String}}()
   attempted = Dict{Symbol, Int}()
   record!(kind, message) = Base.push!(get!(findings, kind, String[]), message)
-  count!(kind) = attempted[kind] = get(attempted, kind, 0) + 1
+  current = Ref(:none)
+  count!(kind) = begin
+    record_coverage!(current[], kind)
+    attempted[kind] = get(attempted, kind, 0) + 1
+  end
 
   # An operation whose call throws is not a finding here: the mismatch lane owns rejection, and many
   # buildable argument tuples are deliberately invalid combinations. What matters is the calls that
@@ -296,6 +300,7 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
    # on keeps the remaining cells, and the count is printed so a backend that fails everywhere cannot
    # look like a backend that passed everything.
    try
+    current[] = nameof(invocation.operation)
     check_invocation!(invocation, record!, count!;
                       bitwise_determinism = bitwise_determinism) && (live += 1)
    catch exception

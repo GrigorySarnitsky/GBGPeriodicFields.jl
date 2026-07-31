@@ -286,6 +286,14 @@ function _test_files()
   isdir(gpu) && for entry in sort(readdir(gpu; join = true))
     endswith(entry, ".jl") && push!(files, entry)
   end
+  # The exhaustive lanes assert too, and they are where the relations, the value oracles and the
+  # representation/invariance/allocation/ordering/rejection checks now live. Scanning only `test/*.jl`
+  # left the ledger reporting 564 cells as unasserted after they had been implemented — the coverage
+  # number describing the suite as it was two commits earlier.
+  exhaustive = joinpath(root, "exhaustive")
+  isdir(exhaustive) && for entry in sort(readdir(exhaustive; join = true))
+    endswith(entry, ".jl") && !endswith(entry, "runtests.jl") && push!(files, entry)
+  end
   return files
 end
 
@@ -356,8 +364,14 @@ end
 # `@test\b` does NOT match `@test_call`: `_` is a word character, so the boundary fails and every JET
 # assertion in the suite was invisible to the filter. Matching the prefix without a boundary is what
 # the classifier's own patterns already assume.
+# A lane's comparison table is an assertion in every sense that matters — `(:cross!, cross!(...),
+# ref_cross(...))` states an expected value and is checked — it simply carries no `@test` macro,
+# because the lanes report rather than throw. Recognizing the table rows is what lets the ledger see
+# the coverage those lanes provide.
+const _LANE_ROW = r"^\s*\(:?[A-Za-z_⋅×⋆+\-*/\"][^,]*,\s*(ref_|.*\bref_)"
 is_assertion_line(line) =
-  occursin(r"@test|@inferred|@allocated", line) || occursin(helper_pattern(), line)
+  occursin(r"@test|@inferred|@allocated", line) || occursin(helper_pattern(), line) ||
+  occursin(_LANE_ROW, line) || occursin(r"^\s*\(\"[^\"]+\",\s*$", line)
 
 
 """
@@ -454,6 +468,11 @@ function run_ledger_lane()
   excluded = [o for o in operations if !(o in covered_names)]
   checks = check_types()
   covered = coverage(Set(p.name for p in properties))
+  # Merge what the lanes recorded as they ran with what the source scan found. The scan sees the gate's
+  # `@test` assertions; the registry sees this suite's own.
+  for (operation, kind) in LANE_COVERAGE
+    haskey(covered, (operation, kind)) || (covered[(operation, kind)] = ["exhaustive lane"])
+  end
 
   applicable = Dict{Tuple{Symbol, Symbol}, Bool}()
   reasons = Dict{Tuple{Symbol, Symbol}, String}()

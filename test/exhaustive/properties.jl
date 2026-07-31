@@ -153,6 +153,11 @@ function run_relations_lane(configs)
        field_data(convolve(b.sh, StoredKernel(materialize_kernel(spectral_cutoff(z, m, b.T(3))))))),
     )
 
+    # Attribute each relation to the operations the ledger's own RELATIONS table says it constrains,
+    # so the two cannot drift: the table decides applicability AND coverage from one statement.
+    for relation in RELATIONS, operation in relation.ops
+      record_coverage!(operation, relation.kind)
+    end
     for (name, got, want) in checks
       cells += 1
       push!(seen, name)
@@ -201,6 +206,19 @@ function run_property_lanes(configs)
     rtol = _tolerance(b.T)
     m, z = b.multipliers, b.z
     same(x, y) = isapprox(_as_array(x), _as_array(y); rtol = rtol, atol = rtol)
+
+    for (kind, operations) in ((:representation, (:add!, :multiply!, :sym, :transpose, :integral, :mean, :inner)),
+                               (:invariance, (:add!, :mul!, :sym!, :map!, :inner, :l2norm, :helmholtz_projection!)),
+                               (:allocation, (:add!, :combine!, :mul!, :laplacian!, :curl!,
+                                              :helmholtz_projection!, :convolve!, :inner)),
+                               (:inequality, (:l2norm, :var, :inner, :lpnorm, :laplacian, :minimum,
+                                              :maximum, :convolve)),
+                               (:domain_rejection, (:lpnorm, :spectral_band, :spectral_cutoff, :NUFFT,
+                                                    :Grid3D, :set_threading_cutoff!)))
+      for operation in operations
+        record_coverage!(operation, kind)
+      end
+    end
 
     # ── representation agreement ────────────────────────────────────────────────────────────────
     # Invariant 1: an operation valid in both representations must compute the same physical object

@@ -326,6 +326,7 @@ function run_value_lane(configs)
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, persistence_comparisons))
       cells += 1
       push!(covered, name)
+      record_coverage!(name, :correct)
       isapprox(_as_array(got), _as_array(want); rtol = rtol) && continue
       Base.push!(disagreements, "$(name) [$(config.name)]")
     end
