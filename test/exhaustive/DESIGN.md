@@ -287,6 +287,17 @@ reproducible across launches — measured at 1 ulp for the ``R = 2`` `inner`, wh
 summation order rather than a defect — and the package's own position is that tolerances hold for
 cross-backend comparisons.
 
+### An open finding the shell-by-shell comparison exposed
+
+`radial_spectrum` was compared only through `sum(...)` until the adversarial pass; the sum is invariant
+to how modes are distributed among bins, so the binning — the operation's entire purpose — was checked
+by nothing. Comparing shell by shell immediately disagreed on **`Float32` with the anisotropic
+`(8, 6, 5)` grid**: the totals match to 7 digits and the shell counts agree, but energy sits in a
+different adjacent shell for a handful of modes. The cause is a bin-boundary tie — `round(Int, |k|/Δk)`
+with `|k|` computed in a different association order by the package and by the reference, so a mode
+landing within a `Float32` epsilon of a boundary falls either side. It is a genuine numerical
+sensitivity of the binning rather than a wrong formula, and it is reported rather than tuned away.
+
 Three limitations are **structural** rather than unfinished, and no amount of work removes them:
 
 - **Applicability is not meaning.** The engine builds a call because `applicable` says one exists, which

@@ -113,7 +113,10 @@ _returns_uninitialized(invocation) = nameof(invocation.operation) in UNINITIALIZ
 # an 8³ grid and overflows Float32 by arithmetic, not by defect. This produced 192 structural findings
 # and, through NaN, 100 determinism ones — every one of them the pool handing a growth coefficient to
 # an operation documented for decay.
-const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!)
+# Division by the pool's zero is arithmetic, not a defect — the same class as the exponential kernel's
+# overflow. `/` and `divide!` join the list now that a zero is in the pool so invariant 10's overwrite
+# branch is reachable; naming only the verb "divide" missed the operator and produced 960 cells.
+const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!, :/, :divide!)
 _unbounded_output(invocation) = nameof(invocation.operation) in UNBOUNDED_OUTPUT
 
 # A type as precise as inference can be. `isconcretetype` alone is too strict: an accessor returning a

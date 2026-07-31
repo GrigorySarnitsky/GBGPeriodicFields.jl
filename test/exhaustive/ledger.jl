@@ -230,7 +230,11 @@ const APPLICABILITY = Dict{Symbol, Any}(
                              (false, "result is not ordered; sign and bounds do not apply")),
   :structural       => (p -> p.returns_section ? (true, "") :
                              (false, "returns no section; realness and zero pattern do not apply")),
-  :allocation       => (p -> p.inplace ? (true, "") : (false, "not in-place; allocation is its purpose")),
+  # In-place forms, and also the reductions: `inner`, `l2norm` and the mapped forms are pinned
+  # allocation-free by invariant 13 precisely because they run in hot loops, and the property lane
+  # measures them. "Not in-place" is not the same as "may allocate freely".
+  :allocation       => (p -> (p.inplace || p.returns_real) ? (true, "") :
+                             (false, "neither in-place nor a reduction; allocation is its purpose")),
   :element_traffic  => (p -> p.inplace ? (true, "") : (false, "not in-place; no traffic ledger applies")),
   :metadata         => (p -> !p.inplace ? (true, "") :
                              (false, "in-place; the destination already carries the metadata")),
@@ -245,8 +249,11 @@ const APPLICABILITY = Dict{Symbol, Any}(
                              (false, "not valid in both representations, so there is nothing to agree")),
   :invariance       => (p -> p.threaded ? (true, "") :
                              (false, "does not reach the threading primitive")),
-  :determinism      => (p -> p.atomic ? (true, "") :
-                             (false, "no atomic accumulation; summation order is fixed")),
+  # Reproducibility applies to EVERY value-returning operation; atomicity decides whether the
+  # comparison is bitwise or to a tolerance, not whether the question is asked. Restricting the domain
+  # to atomic operations put the ledger in contradiction with the universal check, which runs
+  # determinism on everything — and the second-order guard is what surfaced it, 66 times.
+  :determinism      => (p -> (true, "")),
   :schema_presence  => (p -> p.serializes ? (true, "") : (false, "does not serialize")),
   # The three relational checks take their domain from the declared relation table, because each
   # constrains a PAIR and no property of one operation can say whether a partner exists.
