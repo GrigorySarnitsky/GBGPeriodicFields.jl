@@ -237,7 +237,10 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
           a, b = _comparable(result), _comparable(repeat)
           # `isequal`, not `==`: NaN != NaN, so any call that legitimately produces a NaN reported
           # itself as non-reproducible. `isequal` is the bitwise question actually being asked.
-          a === nothing ? true : (exact ? isequal(a, b) : isapprox(a, b; rtol = 1e-10))
+          # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
+          # the tolerance branch reported every NaN-producing call as irreproducible on a device even
+          # after the bitwise branch had been fixed.
+          a === nothing ? true : (exact ? isequal(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
         catch
           true
         end
