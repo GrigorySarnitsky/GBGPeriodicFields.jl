@@ -22,6 +22,7 @@ include("references.jl")
 include("pools.jl")
 include("invocations.jl")
 include("checks.jl")
+include("selfcheck.jl")
 include("ledger.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
@@ -266,9 +267,11 @@ function run_surface_lane()
 end
 
 
+selfcheck_failures = run_selfcheck_lane(first(configurations()))
+println()
 unswept = run_surface_lane()
 println()
-invocation_findings, invocation_cells, unbuilt = run_invocation_lane(configurations())
+invocation_findings, invocation_quality, invocation_cells, unbuilt = run_invocation_lane(configurations())
 println()
 disagreeing = run_reference_lane()
 println()
@@ -283,8 +286,10 @@ println("═"^100)
 println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over five lanes")
 println("═"^100)
 println("  surface coverage             every public operation is reached by the invocation engine")
-println("  universal checks             ", invocation_findings, " findings over ", invocation_cells,
-        " invocations · ", unbuilt, " operations with no buildable call")
+println("  self-check                   ", selfcheck_failures == 0 ?
+        "every universal check fires on its own defect" : "$(selfcheck_failures) PROBLEMS IN THE HARNESS")
+println("  universal checks             ", invocation_findings, " correctness findings, ",
+        invocation_quality, " type-stability findings over ", invocation_cells, " invocations")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
@@ -297,6 +302,7 @@ println("  A gap in the ledger is a COVERAGE report, not a failure: it says a qu
 println("  admits has not been asked of that operation. The exit status is driven by the lanes that")
 println("  assert behaviour, so a survey number can grow without turning the report red.")
 
-exit(disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 || ledger_violations > 0 ||
-     invocation_findings > 0 ? 2 :
-     (affected > 0 ? 1 : 0))
+# A harness problem outranks everything: if a check cannot fire, its clean cells are not evidence.
+exit(selfcheck_failures > 0 || disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 ||
+     ledger_violations > 0 || invocation_findings > 0 ? 2 :
+     (affected > 0 || invocation_quality > 0 ? 1 : 0))

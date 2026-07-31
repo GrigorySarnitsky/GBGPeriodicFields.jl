@@ -116,6 +116,24 @@ _returns_uninitialized(invocation) = nameof(invocation.operation) in UNINITIALIZ
 const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!)
 _unbounded_output(invocation) = nameof(invocation.operation) in UNBOUNDED_OUTPUT
 
+# A type as precise as inference can be. `isconcretetype` alone is too strict: an accessor returning a
+# TYPE infers `Type{Float64}`, a singleton kind that is exactly as pinned down as a value can be, yet
+# `isconcretetype(Type{Float64})` is false — so every type-returning accessor read as unstable.
+# `Union{}` means the call provably throws, which is not an instability either.
+function _precise_type(T)
+  T === Union{} && return true
+  isconcretetype(T) && return true
+  T isa DataType && T.name === Type.body.name && return true      # Type{X}: a singleton kind
+  return false
+end
+
+# An inferred kernel Union spells out several nested closure types and runs past 700 characters, which
+# buries every other finding in the report.
+function _shorten(T)
+  text = string(T)
+  return length(text) <= 110 ? text : text[1:107] * "..."
+end
+
 # Inference is the expensive part of the sweep, and the same (operation, argument types) pair recurs
 # thousands of times across the product.
 const _RETURN_TYPE_CACHE = Dict{Any, Any}()
@@ -128,6 +146,130 @@ function _inferred_type(operation, arguments)
       Any
     end
   end
+end
+
+
+"""
+    check_invocation!(invocation, record!, count!; bitwise_determinism = true) -> Bool
+
+Run every universal check on one invocation, returning whether the call returned a value.
+
+Extracted from the sweep so the SELF-CHECK can drive it with deliberately broken operations. A check
+that cannot fail is worse than no check, and 85008 clean cells prove nothing on their own — this is the
+seam that lets each check be shown to fire.
+"""
+function check_invocation!(invocation, record!, count!; bitwise_determinism::Bool = true)
+   # Fresh arguments, and the SHARING PATTERN of the original preserved: if two slots held the same
+   # pool object the refreshed pair must still be the same object, or the aliasing relations the
+   # engine built would be silently unaliased and `dest === source` would never be exercised.
+   seen = IdDict()
+   arguments = Any[get!(() -> _refresh(a), seen, a) for a in invocation.arguments]
+   before = map(_snapshot, arguments)
+   result = try
+     invocation.operation(arguments...)
+   catch
+     return false
+   end
+   after = map(_snapshot, arguments)
+
+   # ── preservation ────────────────────────────────────────────────────────────────────────────
+   count!(:preservation)
+   if _is_inplace(invocation)
+     destination = _destination_index(invocation.operation, arguments)
+     for index in eachindex(arguments)
+       index == destination && continue
+       _unchanged(before[index], after[index]) && continue
+       # An in-place operation may legitimately overwrite an argument that IS the destination, and
+       # the transforms may consume their spectral input as scratch by contract (invariant 11).
+       arguments[index] === arguments[destination] && continue
+       occursin("to_physical", invocation.label) && continue
+       record!(:preservation, "$(invocation.label) modified argument $index, which is not its destination")
+       break
+     end
+   else
+     for index in eachindex(arguments)
+       _unchanged(before[index], after[index]) && continue
+       record!(:preservation, "$(invocation.label) is allocating but modified argument $index")
+       break
+     end
+   end
+
+   # ── structural ──────────────────────────────────────────────────────────────────────────────
+   # Every pool value is finite, so a non-finite result was manufactured by the operation. The
+   # inverse Laplacian's zero mode is the documented exception and is left to the operation's own
+   # oracle rather than special-cased away here.
+   if !_returns_uninitialized(invocation) && !_unbounded_output(invocation)
+     count!(:structural)
+     if !_finite(result) && !occursin("inverse_laplacian", invocation.label) &&
+        !occursin("divide", invocation.label) && !occursin("inv", invocation.label)
+       record!(:structural, "$(invocation.label) returned a non-finite value from finite input")
+     end
+   end
+
+   # ── metadata ────────────────────────────────────────────────────────────────────────────────
+   # An allocating section result must carry the grid, layout and element type it was built from.
+   # This is the axis `map` was broken on for every permuted layout from the day it shipped.
+   if !_is_inplace(invocation) && result isa GBGI.Fields.AbstractField
+     source = findfirst(a -> a isa GBGI.Fields.AbstractField, arguments)
+     if source !== nothing
+       count!(:metadata)
+       reference = arguments[source]
+       field_grid(result) == field_grid(reference) ||
+         record!(:metadata, "$(invocation.label) returned a field on a different grid")
+       field_layout(result) == field_layout(reference) ||
+         record!(:metadata, "$(invocation.label) dropped the layout (got $(field_layout(result)))")
+       field_scalar_type(result) === field_scalar_type(reference) ||
+         record!(:metadata, "$(invocation.label) changed the scalar type")
+     end
+   end
+
+   # ── determinism ─────────────────────────────────────────────────────────────────────────────
+   # Repeating a call must reproduce it bitwise. The atomic accumulators are the documented exception
+   # — a nondeterministic summation order costs `anterpolate!` 2-3 ulp — so they are compared to a
+   # tolerance instead of excluded, which still catches a real divergence.
+   if !_is_inplace(invocation) && !_returns_uninitialized(invocation)
+     count!(:determinism)
+     repeat = try invocation.operation(arguments...) catch; nothing end
+     if repeat !== nothing
+       # Bitwise on CPU, where the package guarantees it. A DEVICE reduction is not bitwise
+       # reproducible across launches — measured at 1 ulp for the R=2 `inner`, which is the parallel
+       # summation order, not a defect — and the package's own position is that tolerances hold for
+       # cross-backend comparisons. Demanding bitwise there reports the hardware as broken.
+       atomic = occursin("anterpolate", invocation.label) || occursin("radial", invocation.label)
+       exact = bitwise_determinism && !atomic
+       same = try
+         a, b = _comparable(result), _comparable(repeat)
+         # `isequal`, not `==`: NaN != NaN, so any call that legitimately produces a NaN reported
+         # itself as non-reproducible. `isequal` is the bitwise question actually being asked.
+         # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
+         # the tolerance branch reported every NaN-producing call as irreproducible on a device even
+         # after the bitwise branch had been fixed.
+         a === nothing ? true : (exact ? isequal(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
+       catch
+         true
+       end
+       same || record!(:determinism, "$(invocation.label) is not reproducible across identical calls")
+     end
+   end
+
+   # ── type_stability ──────────────────────────────────────────────────────────────────────────
+   # Inference must reach a CONCRETE type for the call.
+   #
+   # This replaces an unfalsifiable check. The first version asked whether the result matched what
+   # inference promised — but `Base.return_types` is a sound over-approximation, so in valid Julia the
+   # answer is always yes, and the check could only have caught an inference bug in the compiler. It
+   # reported 85008 clean cells and none of them meant anything. The suite's own self-check is what
+   # surfaced that, by demanding every check fire on an operation built to violate it.
+   #
+   # The falsifiable property is type STABILITY: an operation whose return type inference cannot pin
+   # down forces every caller to dynamic dispatch, which is a real defect and is what `@inferred`
+   # asserts. `Union{}` means the call provably throws and is not an instability.
+   count!(:type_stability)
+   inferred = _inferred_type(invocation.operation, arguments)
+   if !_precise_type(inferred)
+     record!(:type_stability, "$(invocation.label) infers $(_shorten(inferred)), which is not concrete")
+   end
+  return true
 end
 
 
@@ -154,112 +296,8 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
    # on keeps the remaining cells, and the count is printed so a backend that fails everywhere cannot
    # look like a backend that passed everything.
    try
-    # Fresh arguments, and the SHARING PATTERN of the original preserved: if two slots held the same
-    # pool object the refreshed pair must still be the same object, or the aliasing relations the
-    # engine built would be silently unaliased and `dest === source` would never be exercised.
-    seen = IdDict()
-    arguments = Any[get!(() -> _refresh(a), seen, a) for a in invocation.arguments]
-    before = map(_snapshot, arguments)
-    result = try
-      invocation.operation(arguments...)
-    catch
-      continue
-    end
-    live += 1
-    after = map(_snapshot, arguments)
-
-    # ── preservation ────────────────────────────────────────────────────────────────────────────
-    count!(:preservation)
-    if _is_inplace(invocation)
-      destination = _destination_index(invocation.operation, arguments)
-      for index in eachindex(arguments)
-        index == destination && continue
-        _unchanged(before[index], after[index]) && continue
-        # An in-place operation may legitimately overwrite an argument that IS the destination, and
-        # the transforms may consume their spectral input as scratch by contract (invariant 11).
-        arguments[index] === arguments[destination] && continue
-        occursin("to_physical", invocation.label) && continue
-        record!(:preservation, "$(invocation.label) modified argument $index, which is not its destination")
-        break
-      end
-    else
-      for index in eachindex(arguments)
-        _unchanged(before[index], after[index]) && continue
-        record!(:preservation, "$(invocation.label) is allocating but modified argument $index")
-        break
-      end
-    end
-
-    # ── structural ──────────────────────────────────────────────────────────────────────────────
-    # Every pool value is finite, so a non-finite result was manufactured by the operation. The
-    # inverse Laplacian's zero mode is the documented exception and is left to the operation's own
-    # oracle rather than special-cased away here.
-    if !_returns_uninitialized(invocation) && !_unbounded_output(invocation)
-      count!(:structural)
-      if !_finite(result) && !occursin("inverse_laplacian", invocation.label) &&
-         !occursin("divide", invocation.label) && !occursin("inv", invocation.label)
-        record!(:structural, "$(invocation.label) returned a non-finite value from finite input")
-      end
-    end
-
-    # ── metadata ────────────────────────────────────────────────────────────────────────────────
-    # An allocating section result must carry the grid, layout and element type it was built from.
-    # This is the axis `map` was broken on for every permuted layout from the day it shipped.
-    if !_is_inplace(invocation) && result isa GBGI.Fields.AbstractField
-      source = findfirst(a -> a isa GBGI.Fields.AbstractField, arguments)
-      if source !== nothing
-        count!(:metadata)
-        reference = arguments[source]
-        field_grid(result) == field_grid(reference) ||
-          record!(:metadata, "$(invocation.label) returned a field on a different grid")
-        field_layout(result) == field_layout(reference) ||
-          record!(:metadata, "$(invocation.label) dropped the layout (got $(field_layout(result)))")
-        field_scalar_type(result) === field_scalar_type(reference) ||
-          record!(:metadata, "$(invocation.label) changed the scalar type")
-      end
-    end
-
-    # ── determinism ─────────────────────────────────────────────────────────────────────────────
-    # Repeating a call must reproduce it bitwise. The atomic accumulators are the documented exception
-    # — a nondeterministic summation order costs `anterpolate!` 2-3 ulp — so they are compared to a
-    # tolerance instead of excluded, which still catches a real divergence.
-    if !_is_inplace(invocation) && !_returns_uninitialized(invocation)
-      count!(:determinism)
-      repeat = try invocation.operation(arguments...) catch; nothing end
-      if repeat !== nothing
-        # Bitwise on CPU, where the package guarantees it. A DEVICE reduction is not bitwise
-        # reproducible across launches — measured at 1 ulp for the R=2 `inner`, which is the parallel
-        # summation order, not a defect — and the package's own position is that tolerances hold for
-        # cross-backend comparisons. Demanding bitwise there reports the hardware as broken.
-        atomic = occursin("anterpolate", invocation.label) || occursin("radial", invocation.label)
-        exact = bitwise_determinism && !atomic
-        same = try
-          a, b = _comparable(result), _comparable(repeat)
-          # `isequal`, not `==`: NaN != NaN, so any call that legitimately produces a NaN reported
-          # itself as non-reproducible. `isequal` is the bitwise question actually being asked.
-          # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
-          # the tolerance branch reported every NaN-producing call as irreproducible on a device even
-          # after the bitwise branch had been fixed.
-          a === nothing ? true : (exact ? isequal(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
-        catch
-          true
-        end
-        same || record!(:determinism, "$(invocation.label) is not reproducible across identical calls")
-      end
-    end
-
-    # ── result_type ─────────────────────────────────────────────────────────────────────────────
-    # What inference promises against what the call produced. A mismatch means a downstream caller
-    # specializing on the inferred type is specializing on a lie.
-    count!(:result_type)
-    inferred = _inferred_type(invocation.operation, arguments)
-    # `result isa inferred`, not `typeof(result) <: inferred`: for an accessor returning a TYPE the
-    # inferred result is `Type{Float64}`, and `typeof(Float64) <: Type{Float64}` is false while
-    # `Float64 isa Type{Float64}` is true. The subtype spelling reported every type-returning accessor
-    # as a lie about its own return type.
-    if inferred !== Any && !(inferred isa Union) && !(result isa inferred)
-      record!(:result_type, "$(invocation.label) inferred $(inferred), returned $(typeof(result))")
-    end
+    check_invocation!(invocation, record!, count!;
+                      bitwise_determinism = bitwise_determinism) && (live += 1)
    catch exception
      key = string(nameof(typeof(exception)))
      lane_errors[key] = get(lane_errors, key, 0) + 1
@@ -348,15 +386,22 @@ function run_invocation_lane(configs)
   end
 
   println("\n  CHECKS RUN")
-  for kind in (:preservation, :structural, :metadata, :determinism, :result_type)
+  for kind in (:preservation, :structural, :metadata, :determinism, :type_stability)
     n = get(attempted, kind, 0)
     failures = length(get(totals, kind, String[]))
     println("      ", rpad(String(kind), 16), lpad(n, 7), " cells   ",
             failures == 0 ? "clean" : "$(failures) FINDINGS")
   end
 
-  total = sum(length(v) for v in values(totals); init = 0)
-  if total > 0
+  # Type instability is a real property and a real finding, but it is not a WRONG ANSWER: it costs
+  # dispatch, not correctness. Folding it into the same number as a corrupted input would make every
+  # run exit as though the package returned something false, so the two are counted apart.
+  quality = length(get(totals, :type_stability, String[]))
+  total = sum(length(v) for v in values(totals); init = 0) - quality
+  # Gate the PRINTING on all findings, not on the correctness subset. Separating the counts for the
+  # exit status silently suppressed the whole findings block whenever correctness was clean, which hid
+  # 1272 type-stability findings behind a report that looked empty.
+  if total + quality > 0
     println("\n  FINDINGS")
     for (kind, messages) in sort(collect(totals); by = first)
       isempty(messages) && continue
@@ -369,5 +414,5 @@ function run_invocation_lane(configs)
       length(unique_messages) > 12 && println("      … (+", length(unique_messages) - 12, " more)")
     end
   end
-  return (total, built, length(unbuildable))
+  return (total, quality, built, length(unbuildable))
 end
