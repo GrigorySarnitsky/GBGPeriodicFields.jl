@@ -173,3 +173,73 @@ function ref_helmholtz(u, grid, layout)
 end
 
 ref_convolve(f, kernel_data) = f .* kernel_data
+
+
+# --- the L²/measure reductions ---------------------------------------------------------------------
+#
+# Written from the DOCUMENTED definitions (the docstrings' own display formulas), not from the
+# implementation — which is the point. An oracle copied off the code checks that the code equals
+# itself; one written from the stated contract checks that the code means what the documentation
+# claims, so a disagreement is a real finding either way round.
+#
+#   integral   ∫_Ω f dμ = (|Ω|/N) Σ_x f(x)            fiber-preserving, the one EXTENSIVE reduction
+#   inner      ⟨f, g⟩   = (1/N) Σ_x f(x)·g(x)          normalized, fiber contracted
+#   l2norm     ‖f‖₂     = √⟨f, f⟩
+#   lpnorm     ‖f‖_p    = ((1/N) Σ_x |f(x)|^p)^(1/p),  p = Inf → max_x |f(x)|
+#   mean       (1/N) Σ_x f(x)                          fiber-preserving
+#   var        (1/(N-1)) Σ_n (f_n - f̄)²                scalar only, Bessel-corrected by default
+#   cov        R_ij = (1/(N-1)) Σ_n (u_i - ū_i)(u_j - ū_j)
+
+# Base points down the rows, fiber components across the columns. This uses only the DOCUMENTED
+# storage contract — fiber-last, component slices contiguous (invariant 3) — and a plain `reshape`, so
+# it borrows no code from the implementation. Partial linear indexing (`data[n, i]` on a 4-D array) is
+# not a thing in Julia and was the first attempt.
+_ref_flat(data, R) = reshape(data, :, 3^R)
+
+_ref_fiber(data, index, R) = _ref_flat(data, R)[index, :]
+_ref_base_count(data, R) = size(_ref_flat(data, R), 1)
+
+# |f(x)|, the fiber magnitude — the 2-norm of the components, which is what every normalized reduction
+# means by the bars.
+_ref_magnitude(data, index, R) = sqrt(sum(abs2, _ref_fiber(data, index, R)))
+
+function ref_mean(data, R)
+  N = _ref_base_count(data, R)
+  total = sum(_ref_fiber(data, n, R) for n in 1:N)
+  return total ./ N
+end
+
+ref_integral(data, R, grid) =
+  ref_mean(data, R) .* prod(grid.domain_size)          # (|Ω|/N)·Σ = |Ω|·mean
+
+function ref_inner(a, b, R)
+  N = _ref_base_count(a, R)
+  return sum(sum(_ref_fiber(a, n, R) .* _ref_fiber(b, n, R)) for n in 1:N) / N
+end
+
+ref_l2norm(a, R) = sqrt(ref_inner(a, a, R))
+
+function ref_lpnorm(data, p, R)
+  N = _ref_base_count(data, R)
+  magnitudes = [_ref_magnitude(data, n, R) for n in 1:N]
+  isinf(p) && return maximum(magnitudes)
+  return (sum(m^p for m in magnitudes) / N)^(1 / p)
+end
+
+function ref_var(data)                                  # scalar sections only
+  N = length(data)
+  average = sum(data) / N
+  return sum(abs2, data .- average) / (N - 1)
+end
+
+ref_std(data) = sqrt(ref_var(data))
+
+function ref_cov(data)                                  # a vector section's Sym²(V) second moment
+  N = div(length(data), 3)
+  averages = [sum(data[:, :, :, i]) / N for i in 1:3]
+  out = zeros(eltype(data), 3, 3)
+  for i in 1:3, j in 1:3
+    out[i, j] = sum((data[:, :, :, i] .- averages[i]) .* (data[:, :, :, j] .- averages[j])) / (N - 1)
+  end
+  return out
+end

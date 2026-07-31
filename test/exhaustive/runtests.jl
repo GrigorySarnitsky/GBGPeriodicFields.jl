@@ -19,6 +19,7 @@ using Statistics
 
 include("aliasing.jl")
 include("references.jl")
+include("values.jl")
 include("pools.jl")
 include("invocations.jl")
 include("checks.jl")
@@ -273,6 +274,8 @@ unswept = run_surface_lane()
 println()
 invocation_findings, invocation_quality, invocation_cells, unbuilt = run_invocation_lane(configurations())
 println()
+value_findings, value_cells, value_oracles = run_value_lane(configurations())
+println()
 disagreeing = run_reference_lane()
 println()
 affected, unexplained, cases = run_aliasing_lane()
@@ -290,6 +293,8 @@ println("  self-check                   ", selfcheck_failures == 0 ?
         "every universal check fires on its own defect" : "$(selfcheck_failures) PROBLEMS IN THE HARNESS")
 println("  universal checks             ", invocation_findings, " correctness findings, ",
         invocation_quality, " type-stability findings over ", invocation_cells, " invocations")
+println("  value correctness            ", value_findings, " disagreements over ", value_cells,
+        " comparisons · ", value_oracles, " operations with an independent oracle")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
@@ -303,6 +308,6 @@ println("  admits has not been asked of that operation. The exit status is drive
 println("  assert behaviour, so a survey number can grow without turning the report red.")
 
 # A harness problem outranks everything: if a check cannot fire, its clean cells are not evidence.
-exit(selfcheck_failures > 0 || disagreeing > 0 || unexplained > 0 || mismatch_findings > 0 ||
+exit(selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 || unexplained > 0 || mismatch_findings > 0 ||
      ledger_violations > 0 || invocation_findings > 0 ? 2 :
      (affected > 0 || invocation_quality > 0 ? 1 : 0))

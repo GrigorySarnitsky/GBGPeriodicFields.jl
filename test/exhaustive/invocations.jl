@@ -200,7 +200,7 @@ declared parameter type, then confirmed with `applicable` — so the set is deri
 table rather than written down. `cap` bounds the product per method and the number dropped is
 reported, because a silently truncated sweep reads as a complete one.
 """
-function invocations(operation::Function, pool; cap::Int = 150)
+function invocations(operation::Function, pool; cap::Int = 400)
   built = NamedTuple[]
   dropped = 0
   for method in methods(operation)
@@ -252,7 +252,7 @@ Build calls for every public operation, and report the ones that could not be bu
 An operation with no buildable call is a hole in the pool, not an operation that does not need
 testing, so it is named. That number is the suite's honest coverage of its own operation axis.
 """
-function all_invocations(pool; cap::Int = 150)
+function all_invocations(pool; cap::Int = 400)
   operations = sort(collect(package_operations()); by = String)
   built, unbuildable, dropped = NamedTuple[], Symbol[], 0
   for name in operations

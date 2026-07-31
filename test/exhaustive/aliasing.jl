@@ -28,7 +28,7 @@ struct Config
   seed::Int
 end
 
-function configurations(; seeds = (20260731,))
+function configurations(; seeds = (20260731, 815))
   cs = Config[]
   for T in (Float64, Float32)
     cubic = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
@@ -41,7 +41,11 @@ function configurations(; seeds = (20260731,))
     # matches `domain_size ./ grid_size` (decision 45), so the spacing is passed explicitly.
     shifted = Grid3D((8, 6, 5), (T(2π), T(4π), T(6π)),
                      (T(2π) / 8, T(4π) / 6, T(6π) / 5), (T(0.3), T(-1.1), T(0.7)))
-    for (gname, grid) in (("cubic", cubic), ("mixed", mixed), ("shifted", shifted)),
+    # Odd on every axis, including the folded one: the rfft fold has no Nyquist plane at all there, so
+    # every "even Nyquist" special case must be skipped rather than taken. Decision 41's bugs lived in
+    # exactly this corner.
+    odd = Grid3D((7, 5, 3), (T(2π), T(2π), T(2π)))
+    for (gname, grid) in (("cubic", cubic), ("mixed", mixed), ("shifted", shifted), ("odd", odd)),
         (lname, layout) in (("fold1", RealFourierLayout()), ("fold2", RealFourierLayout((2, 1, 3)))),
         threaded in (false, true), seed in seeds
       push!(cs, Config("$(T)/$(gname)/$(lname)/$(threaded ? "threaded" : "serial")/seed$(seed)",
