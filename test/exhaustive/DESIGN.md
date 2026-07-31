@@ -254,14 +254,17 @@ Every number here is measured by the suite itself, so it cannot drift into optim
 | axis | status |
 |---|---|
 | public operations exercised | **112 of 112** — the invocation engine builds calls from the method table |
-| universal check types | **preservation, structural, metadata, determinism, result-type** over every invocation |
-| backend | **crossed** — CPU and CUDA, when the suite is run from a vendor environment |
-| origin | **crossed** — a shifted, non-commensurate origin is a configuration |
-| seed | **crossed** — part of the configuration, printed with every finding |
-| element type · grid · fold · threads | crossed, 24 configurations |
-| argument combinations per method | **SAMPLED** at a cap of 150; the number dropped is printed |
-| sequence length | **not implemented** — every lane is single-call |
-| per-operation correctness oracles | **7 of 112** have an independent reference; the rest rely on the gate |
+| operations with an independent VALUE oracle | **112 of 112**, written from each operation's documented definition |
+| universal check types | preservation, structural, metadata, determinism, type-stability, over every invocation |
+| declared relations | **all 25 executed** — adjointness, algebraic identity, round-tripping |
+| representation · invariance · allocation · ordering · rejection | crossed per configuration |
+| sequences | plan reuse, repeated application, round-trip cycling, n-step allocation |
+| backend | CPU and CUDA, when run from a vendor environment |
+| element type · grid · fold · threads · origin · seed | crossed, **96 configurations** |
+| argument combinations per method | **SAMPLED** at a cap of 400; the number dropped is printed |
+| ledger cells applicable but unasserted | **321** — per-operation questions, not sweepable properties |
+
+Wall clock: about 43 minutes.
 
 The operation row was **39 of 112 (35%) exercised by nothing** one commit ago, because three lanes
 carried hand-written entry lists under an axis that claims to be derived — this document's own rule

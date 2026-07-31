@@ -809,14 +809,37 @@ those are the usual rot. Then the mechanical bar:
   survey, because a suppressed failure reads as a pass and is worse than an absent test. The lifecycle
   joins them: the survey discovers, a fix lands, the gate pins it forever. (The GPU suite and the
   benchmarks are opt-in for an unrelated reason — hardware, and a quiet machine.)
-- The **exhaustive suite** is opt-in and separate too: `julia --project=. test/exhaustive/runtests.jl`
+- The **exhaustive suite** is opt-in and separate too: `julia --project=test test/exhaustive/runtests.jl`
   holds the full Cartesian product and is run occasionally, like `/check-docs`, not on every change. It
   is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
   not work, cites a decision beside a known gap rather than suppressing it, and names the combinations
-  it could not construct so its silence is never mistaken for a pass. Exit `0` clean, `1` all failures
-  cited, `2` an uncited finding. Its first lane crosses a shared storage pool over every in-place
-  operation and found **10 of 25** affected; nine were undocumented, and three had survived a
-  hand-written probe of the same property an hour before.
+  it could not construct so its silence is never mistaken for a pass. Exit `0` clean, `1` a quality
+  finding, `2` a correctness finding or a harness problem. **~43 minutes over 96 configurations**
+  (element type × 4 grid shapes, one odd on every axis × 2 layout folds × threads × 3 seeds × a shifted
+  origin). Run it from `test/gpu/cuda` or `test/gpu/rocm` to cross the backend axis, and from `test`
+  (which carries `HDF5`) to reach the persistence pair.
+  Its lanes, and the property each rests on:
+  - `invocations.jl` — the operation domain is **derived from the method table**, not listed: every
+    package-owned method's parameter slots are filled from a canonical pool and `applicable` settles
+    which combinations are real calls. All **112 public operations** are reached.
+  - `checks.jl` — five universal properties over every invocation (preservation, structural, metadata,
+    determinism, type-stability), the ones whose oracle does not depend on what the operation computes.
+  - `values.jl` + `references.jl` — an **independent value oracle for all 112 operations**, each written
+    from the operation's *documented* definition over raw arrays, so a disagreement indicts either the
+    code or the docstring. The transforms use a literal DFT sum; persistence is read back with the raw
+    HDF5 API, because `read_field` as an oracle for `write_field` only checks the pair against itself.
+  - `properties.jl` — the 25 declared relations (adjointness, algebraic identity, round-tripping), plus
+    representation agreement, thread invariance, allocation, ordering and numeric domain rejection.
+  - `sequences.jl` — what a single call cannot exhibit: plan reuse, repeated application, round-trip
+    cycling, and **n-step allocation**, which is the measurement invariant 13 is actually about.
+  - `pools.jl` — the context-mismatch product, its axes read out of the compatibility predicates' own
+    lowered IR.
+  - `selfcheck.jl` — **the harness checked against itself**: every universal check is driven against an
+    operation built to violate it, and a check that does not fire is a failure. This caught a *vacuous*
+    check — `result_type` asked whether the result matched inference, which `Base.return_types` makes
+    unfalsifiable, so 85008 "clean" cells meant nothing. It was replaced by type-stability.
+  - `ledger.jl` — every `(operation × check-type)` cell, applicability **derived** from each operation's
+    name, method table and lowered IR.
 - GPU tests are **opt-in and separate** (not part of `Pkg.test()`): per-backend
   environments under `test/gpu/` (`rocm/` and `cuda/`) run a backend-agnostic
   suite with scalar indexing disabled. Run on a machine with a device, e.g.
