@@ -20,6 +20,7 @@ using Statistics
 include("aliasing.jl")
 include("references.jl")
 include("values.jl")
+include("properties.jl")
 include("pools.jl")
 include("invocations.jl")
 include("checks.jl")
@@ -276,6 +277,10 @@ invocation_findings, invocation_quality, invocation_cells, unbuilt = run_invocat
 println()
 value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
 println()
+relation_findings, relation_cells = run_relations_lane(configurations())
+println()
+property_findings, property_cells = run_property_lanes(configurations())
+println()
 disagreeing = run_reference_lane()
 println()
 affected, unexplained, cases = run_aliasing_lane()
@@ -295,6 +300,10 @@ println("  universal checks             ", invocation_findings, " correctness fi
         invocation_quality, " type-stability findings over ", invocation_cells, " invocations")
 println("  value correctness            ", value_findings, " disagreements over ", value_cells,
         " comparisons · ", value_oracles, " of ", value_oracles + value_gaps, " operations have an independent oracle")
+println("  declared relations           ", relation_findings, " failures over ", relation_cells,
+        " evaluations (adjointness, identity, round-trip)")
+println("  representation·invariance·   ", property_findings, " failures over ", property_cells, " cells")
+println("  allocation·order·rejection")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",
@@ -308,6 +317,7 @@ println("  admits has not been asked of that operation. The exit status is drive
 println("  assert behaviour, so a survey number can grow without turning the report red.")
 
 # A harness problem outranks everything: if a check cannot fire, its clean cells are not evidence.
-exit(selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 || unexplained > 0 || mismatch_findings > 0 ||
+exit(selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 ||
+     relation_findings > 0 || property_findings > 0 || unexplained > 0 || mismatch_findings > 0 ||
      ledger_violations > 0 || invocation_findings > 0 ? 2 :
      (affected > 0 || invocation_quality > 0 ? 1 : 0))

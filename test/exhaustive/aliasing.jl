@@ -28,7 +28,7 @@ struct Config
   seed::Int
 end
 
-function configurations(; seeds = (20260731, 815))
+function configurations(; seeds = (20260731, 815, 4241))
   cs = Config[]
   for T in (Float64, Float32)
     cubic = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
