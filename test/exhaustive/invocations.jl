@@ -130,6 +130,10 @@ function canonical_pool(config; device = identity)
   push("real α",  T(0.3))
   push("real β",  T(0.7))
   push("int 2",   2)
+  # A DECAYING exponential coefficient. Without one the only value the engine could put in that slot
+  # was a positive integer, which makes exp(c·|k|²) overflow rather than filter — so the whole
+  # exponential family was swept only in the regime it is not for.
+  push("decay coefficient", -T(1) / 10)
   push("fiber vector", FiberVector{T}(1, 2, 3))
   push("fiber tensor", FiberTensor2{T}(1, 2, 3, 4, 5, 6, 7, 8, 9))
   push("offset", offset)

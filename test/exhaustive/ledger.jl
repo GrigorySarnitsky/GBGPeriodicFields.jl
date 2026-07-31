@@ -28,9 +28,12 @@ const GBGL = GBGPeriodicFields
 
 include("../public_surface.jl")
 
+# The extension modules are included for the same reason the invocation engine includes them: the
+# persistence pair owns no method in a package module, so a ledger that filters on those alone reports
+# all four HDF5 operations as unplaceable rather than covering them.
 const LEDGER_MODULES = (GBGL.FiberSections, GBGL.Fields, GBGL.FieldAlgebra,
                         GBGL.DifferentialOperators, GBGL.Convolution, GBGL.Points,
-                        GBGL.Interpolation, GBGL.Reductions)
+                        GBGL.Interpolation, GBGL.Reductions, EXTENSION_MODULES...)
 
 
 # ── Properties, read out of each operation ──────────────────────────────────────────────────────
