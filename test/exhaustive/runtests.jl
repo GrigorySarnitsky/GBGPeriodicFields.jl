@@ -274,7 +274,7 @@ unswept = run_surface_lane()
 println()
 invocation_findings, invocation_quality, invocation_cells, unbuilt = run_invocation_lane(configurations())
 println()
-value_findings, value_cells, value_oracles = run_value_lane(configurations())
+value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
 println()
 disagreeing = run_reference_lane()
 println()
@@ -294,7 +294,7 @@ println("  self-check                   ", selfcheck_failures == 0 ?
 println("  universal checks             ", invocation_findings, " correctness findings, ",
         invocation_quality, " type-stability findings over ", invocation_cells, " invocations")
 println("  value correctness            ", value_findings, " disagreements over ", value_cells,
-        " comparisons · ", value_oracles, " operations with an independent oracle")
+        " comparisons · ", value_oracles, " of ", value_oracles + value_gaps, " operations have an independent oracle")
 println("  reference cross-validation   ", disagreeing == 0 ? "oracle agrees with the package" :
                                            "$(disagreeing) DISAGREEMENTS — no cell using it means anything")
 println("  storage aliasing             ", affected, " operations with a disagreeing assignment, ",

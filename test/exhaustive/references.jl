@@ -243,3 +243,251 @@ function ref_cov(data)                                  # a vector section's Sym
   end
   return out
 end
+
+
+# --- the transforms, from the DFT definition --------------------------------------------------------
+#
+# Written as the literal sum, not by calling any FFT: the package's transform is what is under test, and
+# an oracle that calls `fft` would only be checking one library against another. The phase is
+# index-based, exp(-2πi Σ_d n_d m_d / N_d), because the transform is a plain DFT over the storage
+# indices — the grid's origin enters position-dependent operations (the transfer verbs, the translation
+# kernel), never the FFT itself.
+function ref_dft_forward(data, grid, layout)
+  N = grid.grid_size
+  folded = layout.fft_dims[1]
+  stored = ntuple(d -> d == folded ? (N[d] ÷ 2 + 1) : N[d], 3)
+  out = zeros(Complex{eltype(data)}, stored...)
+  for m1 in 0:stored[1]-1, m2 in 0:stored[2]-1, m3 in 0:stored[3]-1
+    total = zero(Complex{eltype(data)})
+    for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+      phase = -2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+      total += data[n1 + 1, n2 + 1, n3 + 1] * cis(phase)
+    end
+    out[m1 + 1, m2 + 1, m3 + 1] = total
+  end
+  return out
+end
+
+# The inverse, reconstructed from the STORED half-spectrum by Hermitian completion: the unstored
+# partner of mode k is conj(f̂(-k)), which is what makes the result real. Normalized by N (AbstractFFTs'
+# convention, invariant 4).
+function ref_dft_inverse(spectral, grid, layout)
+  N = grid.grid_size
+  folded = layout.fft_dims[1]
+  T = real(eltype(spectral))
+  out = zeros(T, N...)
+  stored = size(spectral)
+  wrap(m, n) = mod(m, n)
+  for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+    total = zero(Complex{T})
+    for m1 in 0:N[1]-1, m2 in 0:N[2]-1, m3 in 0:N[3]-1
+      m = (m1, m2, m3)
+      # Reach the stored coefficient for this mode, conjugating when only the partner is kept.
+      if m[folded] <= N[folded] ÷ 2
+        index = ntuple(d -> m[d] + 1, 3)
+        coefficient = spectral[index...]
+      else
+        partner = ntuple(d -> wrap(-m[d], N[d]), 3)
+        index = ntuple(d -> partner[d] + 1, 3)
+        coefficient = conj(spectral[index...])
+      end
+      all(d -> index[d] <= stored[d], 1:3) || continue
+      phase = 2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+      total += coefficient * cis(phase)
+    end
+    out[n1 + 1, n2 + 1, n3 + 1] = real(total) / prod(N)
+  end
+  return out
+end
+
+# --- the spectral kernel symbols, from their documented formulas -------------------------------------
+#
+# Each builder's docstring states its multiplier; these evaluate that statement per mode, from
+# wavenumbers rebuilt here. `spectral_cutoff` is the `k_lo = 0` case of `spectral_band` by definition,
+# so writing only the band would make the cutoff check itself.
+function _ref_mode_wavenumbers(grid, layout, shape)
+  k1 = reference_wavenumbers(grid, layout, 1, shape[1])
+  k2 = reference_wavenumbers(grid, layout, 2, shape[2])
+  k3 = reference_wavenumbers(grid, layout, 3, shape[3])
+  return (derivative = (k1[1], k2[1], k3[1]), true_k = (k1[2], k2[2], k3[2]))
+end
+
+function ref_squared_wavenumber(grid, layout, shape)
+  w = _ref_mode_wavenumbers(grid, layout, shape).true_k
+  return [w[1][i]^2 + w[2][j]^2 + w[3][l]^2 for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
+end
+
+function ref_spectral_band(grid, layout, shape, k_lo, k_hi)
+  k2 = ref_squared_wavenumber(grid, layout, shape)
+  return [(k_lo^2 <= v <= k_hi^2) ? one(eltype(k2)) : zero(eltype(k2)) for v in k2]
+end
+
+ref_spectral_cutoff(grid, layout, shape, k) = ref_spectral_band(grid, layout, shape, zero(k), k)
+
+ref_exponential_symbol(grid, layout, shape, c) = exp.(c .* ref_squared_wavenumber(grid, layout, shape))
+
+# Ŵ = ∏_a sinc²(k_a Δx_a / 2), the linear/CIC assignment window. `sinc` here is the UNNORMALIZED
+# sin(x)/x, which is what the formula means; Julia's `sinc` is sin(πx)/(πx), so the argument is divided
+# by π to undo that.
+function ref_assignment_window(grid, layout, shape)
+  w = _ref_mode_wavenumbers(grid, layout, shape).true_k
+  Δ = grid.grid_spacing
+  factor(k, d) = sinc(k * Δ[d] / (2π))^2
+  return [factor(w[1][i], 1) * factor(w[2][j], 2) * factor(w[3][l], 3)
+          for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
+end
+
+# ĝ = e^{-i k·h}, the shift theorem's phase, with decision 28's Nyquist split: the even (cos) part
+# comes from the TRUE |k| and the odd (sin) part from the Nyquist-zeroed derivative k, so an even
+# axis's Nyquist multiplier is the real cos(πh/Δ) rather than a phase.
+function ref_translation_kernel(grid, layout, shape, h)
+  modes = _ref_mode_wavenumbers(grid, layout, shape)
+  even, odd = modes.true_k, modes.derivative
+  # PER AXIS, then multiplied. The kernel is separable — ∏_a e^{-i k_a h_a} — so the Nyquist split is
+  # applied to each axis's own factor. Splitting the SUMMED argument instead gives a different function
+  # entirely (it was the first attempt, and it disagreed).
+  out = zeros(Complex{eltype(grid.domain_size)}, shape...)
+  factor(axis, index) = complex(cos(even[axis][index] * h[axis]), -sin(odd[axis][index] * h[axis]))
+  for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]
+    out[i, j, l] = factor(1, i) * factor(2, j) * factor(3, l)
+  end
+  return out
+end
+
+
+# --- the spectral reductions ------------------------------------------------------------------------
+#
+# Parseval with the rfft half-spectrum weighting: the folded axis stores only its non-negative
+# frequencies, so each mode stands for itself AND its unstored conjugate partner and counts twice,
+# EXCEPT that axis's self-conjugate zero plane and — when the axis is even — its Nyquist plane, which
+# count once. Written from that statement rather than from the implementation's fused form.
+function _ref_parseval_weight(index, grid, layout, shape)
+  folded = layout.fft_dims[1]
+  m = index[folded] - 1
+  n = grid.grid_size[folded]
+  self_conjugate = m == 0 || (iseven(n) && m == n ÷ 2)
+  return self_conjugate ? 1 : 2
+end
+
+function ref_spectral_inner(a, b, grid, layout, R)
+  shape = size(a)[1:3]
+  N = prod(grid.grid_size)
+  total = 0.0
+  components = 3^R
+  flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+  for index in CartesianIndices(shape)
+    weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+    linear = LinearIndices(shape)[index]
+    for c in 1:components
+      total += weight * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+    end
+  end
+  return total / N^2
+end
+
+# ⟨f, w·g⟩ — the multiplier-weighted spectral inner, the reduction-dual of `convolve`. Same weighting,
+# with the real per-mode multiplier folded in.
+function ref_weighted_inner(a, b, weight_field, grid, layout, R)
+  shape = size(a)[1:3]
+  N = prod(grid.grid_size)
+  components = 3^R
+  flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+  total = 0.0
+  for index in CartesianIndices(shape)
+    parseval = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+    linear = LinearIndices(shape)[index]
+    w = real(weight_field[index])
+    for c in 1:components
+      total += parseval * w * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+    end
+  end
+  return total / N^2
+end
+
+# The shell-resolved inner: the same Parseval sum, binned by |k| into unit-width shells. Its defining
+# property is that the shells sum to `inner`, which the value lane asserts separately.
+function ref_radial_spectrum(a, grid, layout, R)
+  shape = size(a)[1:3]
+  N = prod(grid.grid_size)
+  components = 3^R
+  flat = reshape(a, :, components)
+  k2 = ref_squared_wavenumber(grid, layout, shape)
+  Δk = 2π / maximum(grid.domain_size)
+  shells = zeros(Float64, 0)
+  for index in CartesianIndices(shape)
+    linear = LinearIndices(shape)[index]
+    shell = round(Int, sqrt(k2[index]) / Δk) + 1
+    shell > length(shells) && append!(shells, zeros(shell - length(shells)))
+    weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+    for c in 1:components
+      shells[shell] += weight * abs2(flat[linear, c])
+    end
+  end
+  return shells ./ N^2
+end
+
+# --- the grid↔point transfer ------------------------------------------------------------------------
+#
+# The Catmull-Rom weights, written out. These are the standard two-point Hermite cubics — the
+# `LalescuSpline(1, 1)` the package takes as its default — and are stated here as polynomials in the
+# cell-local coordinate rather than obtained from the package's weight builder.
+_ref_catmull_rom(t) = (-0.5t^3 + t^2 - 0.5t,
+                        1.5t^3 - 2.5t^2 + 1,
+                       -1.5t^3 + 2t^2 + 0.5t,
+                        0.5t^3 - 0.5t^2)
+
+# Gather: f(x_p) = Σ_stencil w_i w_j w_k f[n + offset], with periodic wrap. Positions are measured from
+# the grid's ORIGIN, which is the axis a fixture at origin 0 cannot see.
+function ref_interpolate_catmull_rom(data, grid, points, R)
+  N, Δ, o = grid.grid_size, grid.grid_spacing, grid.origin
+  M = size(points, 1)
+  components = 3^R
+  flat = reshape(data, :, components)
+  linear = LinearIndices(N)
+  out = zeros(eltype(data), M, components)
+  for p in 1:M
+    base = ntuple(3) do d
+      position = (points[p, d] - o[d]) / Δ[d]
+      floor(Int, position)
+    end
+    local_t = ntuple(d -> (points[p, d] - o[d]) / Δ[d] - base[d], 3)
+    weights = ntuple(d -> _ref_catmull_rom(local_t[d]), 3)
+    for i in 1:4, j in 1:4, k in 1:4
+      n1 = mod(base[1] + i - 2, N[1]) + 1
+      n2 = mod(base[2] + j - 2, N[2]) + 1
+      n3 = mod(base[3] + k - 2, N[3]) + 1
+      w = weights[1][i] * weights[2][j] * weights[3][k]
+      index = linear[n1, n2, n3]
+      for c in 1:components
+        out[p, c] += w * flat[index, c]
+      end
+    end
+  end
+  return R == 0 ? out[:, 1] : reshape(out, M, ntuple(_ -> 3, R)...)
+end
+
+# Scatter: the transpose of the gather, accumulating each point's value into the same stencil.
+function ref_anterpolate_catmull_rom(values, grid, points, R)
+  N, Δ, o = grid.grid_size, grid.grid_spacing, grid.origin
+  M = size(points, 1)
+  components = 3^R
+  flat_values = reshape(values, M, components)
+  out = zeros(eltype(values), prod(N), components)
+  linear = LinearIndices(N)
+  for p in 1:M
+    base = ntuple(d -> floor(Int, (points[p, d] - o[d]) / Δ[d]), 3)
+    local_t = ntuple(d -> (points[p, d] - o[d]) / Δ[d] - base[d], 3)
+    weights = ntuple(d -> _ref_catmull_rom(local_t[d]), 3)
+    for i in 1:4, j in 1:4, k in 1:4
+      n1 = mod(base[1] + i - 2, N[1]) + 1
+      n2 = mod(base[2] + j - 2, N[2]) + 1
+      n3 = mod(base[3] + k - 2, N[3]) + 1
+      w = weights[1][i] * weights[2][j] * weights[3][k]
+      index = linear[n1, n2, n3]
+      for c in 1:components
+        out[index, c] += w * flat_values[p, c]
+      end
+    end
+  end
+  return reshape(out, N..., ntuple(_ -> 3, R)...)
+end
