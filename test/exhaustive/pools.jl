@@ -276,8 +276,11 @@ and missing here is reported by [`unreached_axes`](@ref), never quietly skipped.
 """
 const MISMATCH_BUILDERS = Dict{Symbol, Any}(
   # A different domain size on the same grid shape: same storage, different physics.
-  :field_grid              => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 4π, 4π)), CANONICAL_LAYOUT),
-  :_context_grid           => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 4π, 4π)), CANONICAL_LAYOUT),
+  # ANISOTROPIC, and not a uniform rescaling of the canonical box. Doubling every axis identically left
+  # both sides axis-isotropic, so a predicate comparing `domain_size[i]` against `domain_size[σ(i)]` for
+  # the wrong permutation read the same value either way and was indistinguishable from a correct one.
+  :field_grid              => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT),
+  :_context_grid           => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT),
   # A permuted fold moves the folded axis, so the spectral shape changes meaning while staying valid.
   :field_layout            => () -> _scalar_spectral(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3))),
   :_context_layout         => () -> _scalar_spectral(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3))),
@@ -600,12 +603,17 @@ function build_pointset(count::Int, geometry::Symbol, grid::Grid3D = CANONICAL_G
   count == 0 && return PointSet(zeros(0, 3))
   L, Δ = grid.domain_size, grid.grid_spacing
   coordinates = Matrix{Float64}(undef, count, 3)
+  # A DIFFERENT PROGRESSION PER AXIS. `L[d] * (p - 1) / count` over an axis-isotropic box put every
+  # point on the space diagonal, where x = y = z, so permuting the coordinate columns changed nothing
+  # and an axis transposition in a transfer verb was unobservable on the geometry pool that exists to
+  # sweep exactly that. The stride now varies with the axis. (`:on_node` and `:clustered` were already
+  # axis-dependent through `grid_size` and `Δ`.)
   for p in 1:count, d in 1:3
     coordinates[p, d] =
-      geometry === :uniform   ? L[d] * (p - 1) / count :
+      geometry === :uniform   ? L[d] * mod((p - 1) * d, count) / count :
       geometry === :on_node   ? Δ[d] * mod(p - 1, grid.grid_size[d]) :
       geometry === :clustered ? Δ[d] * (0.5 + 1e-3 * p) :
-                                L[d] * (p - 1) / count + 3 * L[d]     # outside the box
+                                L[d] * mod((p - 1) * d, count) / count + 3 * L[d]   # outside the box
   end
   return PointSet(coordinates)
 end

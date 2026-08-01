@@ -52,7 +52,10 @@ function operations_for(c::Config)
   m = FieldSpectralMultipliers(sspec)
   v = VectorFieldPhysical(rand(T, xshape(c, 1, PHYSICAL)...), c.grid, c.layout)
   A = TensorFieldPhysical{2}(rand(T, xshape(c, 2, PHYSICAL)...), c.grid, c.layout)
-  kernel = translation_kernel(sspec, m, ntuple(d -> T(0.5) * c.grid.grid_spacing[d], 3))
+  # Per-axis fractions rather than a uniform half cell: at h = Δ/2 the even-axis Nyquist factor is
+  # exactly zero on BOTH sides, so the comparison could not falsify that term. See `invocations.jl`.
+  kernel = translation_kernel(sspec, m,
+                              ntuple(d -> (T(3)/10, T(1)/2, T(7)/10)[d] * c.grid.grid_spacing[d], 3))
   α, β = T(0.3), T(0.7)
   return [
     (:add!,                  [1, 1, 1], PHYSICAL, (d, a, b) -> add!(d, a, b)),

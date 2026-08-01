@@ -3,7 +3,7 @@
 The full Cartesian product, run **occasionally** — not part of `Pkg.test()`.
 
 ```
-julia --project=. test/exhaustive/runtests.jl
+julia -t4 --project=test test/exhaustive/runtests.jl
 ```
 
 The design — the axes, how each is derived, the applicability guards, and the adversarial pass that
@@ -59,9 +59,9 @@ rather than a failure, so its count can grow without turning the report red.
 ## Running it
 
 ```
-julia --project=test          test/exhaustive/runtests.jl     # CPU, plus HDF5 persistence
-julia --project=test/gpu/cuda test/exhaustive/runtests.jl     # CPU and CUDA
-julia --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
+julia -t4 --project=test          test/exhaustive/runtests.jl     # CPU, plus HDF5 persistence
+julia -t4 --project=test/gpu/cuda test/exhaustive/runtests.jl     # CPU and CUDA
+julia -t4 --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
 ```
 
 The vendor packages are dependencies of neither the package nor `test/`, so the device pool exists only
@@ -90,10 +90,14 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 
 ## Scale
 
-96 configurations — element type × 4 grid shapes (one odd on every axis) × 2 layout folds × thread
-setting × 3 seeds, including a shifted non-commensurate origin — in about **67 minutes**, measured on
-this host rather than estimated. The axis table, and what each axis crosses versus samples, is in
-[`DESIGN.md`](DESIGN.md).
+144 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
+setting × 3 seeds, including a shifted non-commensurate origin. The axis table, and what each axis
+crosses versus samples, is in [`DESIGN.md`](DESIGN.md).
+
+**Run it with `-t4`.** The thread-count axis is crossed by the configuration list, but a thread
+invariance check can only mean something when more than one thread exists — and Julia defaults to one,
+so every documented command here used to leave that axis dead: the `invariance` check type never fired,
+in any configuration, and half the configurations were byte-identical work presented as a crossed axis.
 
 `Pkg.test()` runs about six minutes for a few thousand assertions, which is the difference between a
 gate and a survey: this one buys orders of magnitude more combinations because most of its checks are

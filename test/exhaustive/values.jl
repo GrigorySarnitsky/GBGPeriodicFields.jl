@@ -81,6 +81,7 @@ function run_value_lane(configs)
     v  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)
     A  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
     B  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
+    signed = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
     α, β = T(3) / 10, T(7) / 10
     ds, du, dA = field_data(s), field_data(u), field_data(A)
 
@@ -124,9 +125,14 @@ function run_value_lane(configs)
       (:var,        var(s),                   ref_var(ds)),
       (:std,        std(s),                   ref_std(ds)),
       (:cov,        Array(cov(u)),            ref_cov(du)),
-      (:maximum,    maximum(s),               maximum(ds)),
-      (:minimum,    minimum(s),               minimum(ds)),
-      (:extrema,    collect(extrema(s)),      [minimum(ds), maximum(ds)]),
+      # A SIGNED fixture. Every field here is `rand`, uniform on [0, 1), where "algebraically smallest"
+      # and "smallest in magnitude" coincide — so a `minimum` that reduced `abs` would have agreed with
+      # its oracle in every cell. The inequality lane cannot compensate: `minimum <= maximum` holds for
+      # any consistent pair, correct or not. Only these three rows change fixture, so no other oracle
+      # inherits a divisor that can approach zero.
+      (:maximum,    maximum(signed),          maximum(field_data(signed))),
+      (:minimum,    minimum(signed),          minimum(field_data(signed))),
+      (:extrema,    collect(extrema(signed)), [minimum(field_data(signed)), maximum(field_data(signed))]),
       # ── the in-place twins, against the SAME reference as their allocating siblings ────────────
       # An `f`/`f!` pair computes one operation, so one oracle serves both. Checking only the
       # allocating form leaves the kernel the in-place one actually runs unverified, and the two are
@@ -181,7 +187,9 @@ function run_value_lane(configs)
     uh = to_spectral(u, FieldTransformPlans(u, similar_field(spectral_zero, Val(1))))
     # A strictly positive field, so the reciprocal an `inv` oracle needs is well defined everywhere.
     spectral_zero_ones = ScalarFieldSpectral(ones(Complex{T}, shape...), grid, layout)
-    offset = ntuple(d -> T(1) / 2 * grid.grid_spacing[d], 3)
+    # Per-axis fractions, not a uniform half cell — at h = Δ/2 the even-axis Nyquist factor `cos(πh/Δ)`
+    # is exactly zero, which is the one term decision 28 exists for. See `invocations.jl`.
+    offset = ntuple(d -> (T(3)/10, T(1)/2, T(7)/10)[d] * grid.grid_spacing[d], 3)
     raw_coordinates = rand(T, 9, 3) .* reshape(collect(grid.domain_size), 1, 3) .+
                       reshape(collect(grid.origin), 1, 3)
     raw_values = rand(T, 9)
@@ -207,9 +215,16 @@ function run_value_lane(configs)
                                                              complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
       (:inner,          inner(sh, sh),                       ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
       (:l2norm,         l2norm(sh),                          sqrt(ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0))),
+      # The WEIGHT is rebuilt, not borrowed. This row handed `ref_weighted_inner` the package's own
+      # `squared_wavenumber_field` — the same array it gave the call under test — so any defect in the
+      # weights themselves (the 2π/L scaling on an anisotropic box, a permuted-fold mistake of the
+      # decision-41 class, a Nyquist slip) sat identically on both sides and the row could see only
+      # `weighted_inner`'s own summation. Every sibling kernel row already used `ref_squared_wavenumber`;
+      # this was the one that did not. It is the same failure decision 55 recorded for the GATE's
+      # `weighted_inner` oracle — fixed there, never carried across to the survey.
       (:weighted_inner, weighted_inner(sh, sh, squared_wavenumber_field(spectral_zero, multipliers)),
                         ref_weighted_inner(field_data(sh), field_data(sh),
-                                           field_data(squared_wavenumber_field(spectral_zero, multipliers)),
+                                           ref_squared_wavenumber(grid, layout, shape),
                                            grid, layout, 0)),
       # The SHELLS, not just their sum. Summing checks Parseval and leaves the binning — the operation's
       # entire purpose — free to put every mode in one shell.
@@ -295,7 +310,9 @@ function run_value_lane(configs)
       (:axes,                collect(first(axes(u))),           collect(1:grid.grid_size[1])),
       # Through the package's own `getindex` on the FIELD; reading the raw array on both sides never
       # called the method under test.
-      (:getindex,            u[1, 1, 1, 1],                     raw_vector[1, 1, 1, 1]),
+      # A point with three DISTINCT coordinates and a non-first fiber component. At `[1,1,1,1]` an axis
+      # transposition and a component swap both land on the same element and agree with a correct read.
+      (:getindex,            u[2, 3, 1, 2],                     raw_vector[2, 3, 1, 2]),
       (:threading_cutoff,    threading_cutoff() isa Integer,    true),
       # ── the in-place forms that had no oracle ─────────────────────────────────────────────────
       # `to_physical!` may consume its spectral input as scratch (invariant 11), so it is handed a
@@ -308,8 +325,8 @@ function run_value_lane(configs)
       (:setindex!,      begin
                           scratch = similar_field(s, Val(0))
                           fill!(field_data(scratch), zero(T))
-                          scratch[1, 1, 1] = T(7) / 2
-                          field_data(scratch)[1, 1, 1]
+                          scratch[2, 3, 1] = T(7) / 2
+                          field_data(scratch)[2, 3, 1]
                         end, T(7) / 2),
       # ── the configuration setters: the oracle is that the getter reports what was set, and that
       # the computed result does not move ───────────────────────────────────────────────────────

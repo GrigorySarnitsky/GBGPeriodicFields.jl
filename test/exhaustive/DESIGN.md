@@ -260,7 +260,7 @@ Every number here is measured by the suite itself, so it cannot drift into optim
 | representation · invariance · allocation · ordering · rejection | crossed per configuration |
 | sequences | plan reuse, repeated application, round-trip cycling, n-step allocation |
 | backend | CPU and CUDA, when run from a vendor environment |
-| element type · grid · fold · threads · origin · seed | crossed, **96 configurations** |
+| element type · grid · fold · threads · origin · seed | crossed, **144 configurations** (all three folds) |
 | argument combinations per method | **SAMPLED** at a cap of 400; the number dropped is printed |
 | ledger cells applicable but unasserted | **321** — per-operation questions, not sweepable properties |
 

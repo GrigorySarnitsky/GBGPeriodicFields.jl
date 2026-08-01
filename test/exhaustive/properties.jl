@@ -479,8 +479,15 @@ function run_property_lanes(configs)
          ("spectral_cutoff with a NaN edge", () -> spectral_cutoff(z, m, b.T(NaN))),
          ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tol = zero(b.T))),
          ("NUFFT with a negative tolerance", () -> NUFFT(z; tol = -b.T(1))),
-         ("a grid with a zero extent", () -> Grid3D((8, 8, 8), (zero(b.T), one(b.T), one(b.T)))),
-         ("a grid with a NaN extent", () -> Grid3D((8, 8, 8), (b.T(NaN), one(b.T), one(b.T)))),
+         # CROSSED OVER THE AXIS. Both fixtures corrupted axis 1 only, so per-axis validation that
+         # checked the first extent and skipped the rest — an ordinary loop-bound slip — would have
+         # accepted a zero or NaN extent on axes 2 and 3 with nothing here to notice.
+         ("a grid with a zero extent on axis 1", () -> Grid3D((8, 8, 8), (zero(b.T), one(b.T), one(b.T)))),
+         ("a grid with a zero extent on axis 2", () -> Grid3D((8, 8, 8), (one(b.T), zero(b.T), one(b.T)))),
+         ("a grid with a zero extent on axis 3", () -> Grid3D((8, 8, 8), (one(b.T), one(b.T), zero(b.T)))),
+         ("a grid with a NaN extent on axis 1", () -> Grid3D((8, 8, 8), (b.T(NaN), one(b.T), one(b.T)))),
+         ("a grid with a NaN extent on axis 2", () -> Grid3D((8, 8, 8), (one(b.T), b.T(NaN), one(b.T)))),
+         ("a grid with a NaN extent on axis 3", () -> Grid3D((8, 8, 8), (one(b.T), one(b.T), b.T(NaN)))),
          ("set_threading_cutoff! below one", () -> set_threading_cutoff!(0)),
          ("a section over borrowed storage",
           () -> ScalarFieldPhysical(view(rand(b.T, config.grid.grid_size .+ 1...),

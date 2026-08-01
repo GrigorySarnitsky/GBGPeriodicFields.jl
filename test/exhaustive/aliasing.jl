@@ -46,7 +46,12 @@ function configurations(; seeds = (20260731, 815, 4241))
     # exactly this corner.
     odd = Grid3D((7, 5, 3), (T(2π), T(2π), T(2π)))
     for (gname, grid) in (("cubic", cubic), ("mixed", mixed), ("shifted", shifted), ("odd", odd)),
-        (lname, layout) in (("fold1", RealFourierLayout()), ("fold2", RealFourierLayout((2, 1, 3)))),
+        # ALL THREE folds. The folded axis is `fft_dims[1]`, which has three choices, and only two were
+        # ever built — so "fold the third axis" was untested, and the third axis is where the `mixed`
+        # grid keeps its only odd extent. The `odd` grid masked the gap by being odd on every axis.
+        (lname, layout) in (("fold1", RealFourierLayout()),
+                            ("fold2", RealFourierLayout((2, 1, 3))),
+                            ("fold3", RealFourierLayout((3, 1, 2)))),
         threaded in (false, true), seed in seeds
       push!(cs, Config("$(T)/$(gname)/$(lname)/$(threaded ? "threaded" : "serial")/seed$(seed)",
                        T, grid, layout, threaded, seed))

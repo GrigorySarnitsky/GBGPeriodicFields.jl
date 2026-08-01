@@ -153,9 +153,12 @@ function canonical_pool(config; device = identity)
   physical = (ScalarFieldPhysical(rand(T, P(0)...), grid, layout),
               VectorFieldPhysical(rand(T, P(1)...), grid, layout),
               TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout))
-  spectral = (ScalarFieldSpectral(rand(Complex{T}, S(0)...), grid, layout),
-              VectorFieldSpectral(rand(Complex{T}, S(1)...), grid, layout),
-              TensorFieldSpectral{2}(rand(Complex{T}, S(2)...), grid, layout))
+  # `randn`, not `rand`: uniform complex draws put every Fourier coefficient in the positive quadrant,
+  # so nothing in the spectral pool ever carried a negative real or imaginary part and a sign defect had
+  # no fixture that could show it. The reference lane already draws signed, mean-zero coefficients.
+  spectral = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
+              VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
+              TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
   multipliers = FieldSpectralMultipliers(spectral[1])
   M = 12
   # Scaled on the HOST and moved afterwards. Broadcasting a device array against a host matrix is a
@@ -164,7 +167,11 @@ function canonical_pool(config; device = identity)
   points = PointSet(device(Base.rand(T, M, 3) .* reshape(collect(grid.domain_size), 1, 3)))
   values = (ScalarPointValues(rand(T, M)), VectorPointValues(rand(T, M, 3)),
             TensorPointValues{2}(rand(T, M, 3, 3)))
-  offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)
+  # NOT a half cell on every axis. At h = Δ/2 the even-axis Nyquist multiplier `cos(πh/Δ)` is exactly
+  # `cos(π/2) = 0`, so decision 28's hard case — the one term that must be a real factor rather than a
+  # phase — was multiplied away in every cell, and a sign error there is invisible against `-0.0 == 0.0`.
+  # The axes now carry different fractions, one of them still the half cell so that edge case stays.
+  offset = ntuple(d -> (T(3)/10, T(1)/2, T(7)/10)[d] * grid.grid_spacing[d], 3)
 
   entries = PoolEntry[]
   push = (label, object) -> Base.push!(entries, PoolEntry(label, object))
@@ -234,9 +241,14 @@ function canonical_pool(config; device = identity)
   # reported `fiber_shape`, `physical_field_shape`, `spectral_field_shape`, `getindex` and `setindex!`
   # as unbuildable, which reads as "needs no test" rather than "the pool lacks an argument".
   for R in 0:2; push("Val($R)", Val(R)); end
-  push("index 1", 1)
-  push("index tuple", (1, 1, 1))
-  push("cartesian index", CartesianIndex(1, 1, 1))
+  # NOT (1, 1, 1). That triple is a FIXED POINT of every permutation of the three axes, so an
+  # implementation that transposed two of them indexed the identical element and agreed with a correct
+  # one in every cell — and component 1 was the only fiber component ever read. `(2, 3, 1)` is in bounds
+  # on every configured grid in both representations: the tightest extents are the odd grid's spectral
+  # folds, `(4, 5, 3)` and `(7, 3, 3)`.
+  push("index 2", 2)
+  push("index tuple", (2, 3, 1))
+  push("cartesian index", CartesianIndex(2, 3, 1))
   push("scalar value", one(T))
   # The broadcast entry points take a `Broadcasted`, not a section, so without one `copy` and `copyto!`
   # — the whole broadcast surface, and the route every fused assignment goes through — were unbuildable.
@@ -365,8 +377,23 @@ function invocations(operation::Function, pool; cap::Int = 400)
     end
     total = prod(length.(slots))
     total > cap && (dropped += total - cap)
+    # COVER EVERY SLOT VALUE FIRST, then fill the remaining budget from the head of the product.
+    # Truncating `Iterators.product` at the cap keeps a PREFIX, and the product varies its first slot
+    # fastest — so once the leading slots alone exceed the cap, every later slot is frozen at its first
+    # value for the whole method. That is not sampling, it is silently deleting an axis: `map!`'s α/β
+    # form never advanced past α = β = 0.3, so invariant 10's `β = 0` overwrite branch — the reason the
+    # zero entry is in the pool at all — was unreachable for it; and `combine!`'s kernel-composed arity
+    # never left its first kernel, so the separable and radial kernel classes were never composed with
+    # it. Cycling each slot independently covers every value of every slot in `maximum(length, slots)`
+    # combinations, which is free, and the head of the product then supplies the interactions.
+    covering = Vector{Any}[]
+    if total > cap
+      for t in 1:maximum(length, slots)
+        Base.push!(covering, [slot[(t - 1) % length(slot) + 1] for slot in slots])
+      end
+    end
     count = 0
-    for combination in Iterators.product(slots...)
+    for combination in Iterators.flatten((covering, Iterators.product(slots...)))
       count += 1
       count > cap && break
       arguments = [e.object for e in combination]

@@ -809,7 +809,7 @@ those are the usual rot. Then the mechanical bar:
   survey, because a suppressed failure reads as a pass and is worse than an absent test. The lifecycle
   joins them: the survey discovers, a fix lands, the gate pins it forever. (The GPU suite and the
   benchmarks are opt-in for an unrelated reason — hardware, and a quiet machine.)
-- The **exhaustive suite** is opt-in and separate too: `julia --project=test test/exhaustive/runtests.jl`
+- The **exhaustive suite** is opt-in and separate too: `julia -t4 --project=test test/exhaustive/runtests.jl`
   holds the full Cartesian product and is run occasionally, like `/check-docs`, not on every change. It
   is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
   not work, cites a decision beside a known gap rather than suppressing it, and names the combinations
