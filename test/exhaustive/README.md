@@ -94,8 +94,9 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 ## Scale
 
 96 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
-setting × 2 seeds, including a shifted non-commensurate origin — in about **85 minutes** with `-t4`,
-measured on this host rather than estimated. (Three seeds and 144 configurations took 125 minutes; the
+setting × 2 seeds, including a shifted non-commensurate origin — in roughly **85 minutes** with `-t4`,
+SCALED from a measurement rather than itself measured: 144 configurations were timed at 125 minutes on
+this host, and two seeds are two thirds of three. (The
 seed axis is the only one with no targeted defect class behind it, so it is where runtime is bought
 back rather than from an axis that exists because a bug lived there.) The axis table, and what each axis crosses versus samples,
 is in [`DESIGN.md`](DESIGN.md).

@@ -246,6 +246,10 @@ function canonical_pool(config; device = identity)
   # one in every cell — and component 1 was the only fiber component ever read. `(2, 3, 1)` is in bounds
   # on every configured grid in both representations: the tightest extents are the odd grid's spectral
   # folds, `(4, 5, 3)` and `(7, 3, 3)`.
+  # BOTH 1 and 2. Moving the index entry off 1 (a fixed point of every axis permutation) removed the
+  # literal 1 from the pool entirely, since the only other small-integer entry is also a 2 — so the
+  # generic engine's `Int` slots lost their most common boundary value.
+  push("index 1", 1)
   push("index 2", 2)
   push("index tuple", (2, 3, 1))
   push("cartesian index", CartesianIndex(2, 3, 1))

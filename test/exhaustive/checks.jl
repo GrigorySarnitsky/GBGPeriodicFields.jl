@@ -194,8 +194,24 @@ const FINITENESS_EXEMPT = (:inverse_laplacian, :inverse_laplacian!, :divide, :di
 # dataset write that IS in the pool — was missing from both. Recording a throwing second call as a
 # finding rather than discarding it is what surfaced that: it is a genuine external effect, not a
 # reproducibility defect, and this list is where that is declared.
-const EXTERNAL_EFFECT = (:write_field, :write_points, :create_group, :setindex!)
-_has_external_effect(invocation) = nameof(invocation.operation) in EXTERNAL_EFFECT
+const EXTERNAL_EFFECT = (:write_field, :write_points, :setindex!)
+
+# Matching on the NAME alone was over-broad. `setindex!` is both the HDF5 dataset write — whose second
+# identical call throws on a duplicate name, which is why the name is listed — and the package's own
+# element assignment on a field, which is perfectly deterministic. A bare-name gate cannot tell them
+# apart, so it silently exempted every field element assignment from the determinism check as well.
+# The discriminator is the ARGUMENT: an external effect is one reaching outside the process, and here
+# that means an HDF5 handle. (`create_group` was also listed and is inert — the extension calls it but
+# owns no method for it, so it can never be an operation under test — so it is dropped rather than left
+# as decoration.)
+# By module NAME, so this does not require `HDF5` to be in scope: the suite runs from environments that
+# do not have it, and the persistence pool is simply absent there.
+_touches_external_store(x) = nameof(parentmodule(typeof(x))) === :HDF5
+function _has_external_effect(invocation)
+  nameof(invocation.operation) in EXTERNAL_EFFECT || return false
+  nameof(invocation.operation) === :setindex! || return true
+  return any(_touches_external_store, invocation.arguments)
+end
 _unbounded_output(invocation) = nameof(invocation.operation) in UNBOUNDED_OUTPUT
 
 # A type as precise as inference can be. `isconcretetype` alone is too strict: an accessor returning a
