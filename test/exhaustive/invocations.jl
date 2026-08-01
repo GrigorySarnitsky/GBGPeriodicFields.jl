@@ -346,7 +346,21 @@ function invocations(operation::Function, pool; cap::Int = 400)
         end
         total = prod(length.(slots))
         total > cap && (dropped += total - cap)
-        for combination in Iterators.take(Iterators.product(slots...), cap)
+        # THE SAME COVERING PASS AS THE NON-VARIADIC BRANCH. Adding it there and not here was one fix
+        # applied to one of two sibling call sites — and it bites harder here: `map!`'s `φ::F where {F}`
+        # is an unbound TypeVar, which `_slot_admits` admits the whole pool for, so the leading slot
+        # alone exhausts the cap and every trailing SOURCE slot stays frozen at its first entry for the
+        # entire sweep. The two-source `map!(φ, dest, a, b)` form never varied `b` at all.
+        variadic_covering = Vector{Any}[]
+        if total > cap
+          for t in 1:maximum(length, slots)
+            Base.push!(variadic_covering, [slot[(t - 1) % length(slot) + 1] for slot in slots])
+          end
+        end
+        seen_count = 0
+        for combination in Iterators.flatten((variadic_covering, Iterators.product(slots...)))
+          seen_count += 1
+          seen_count > cap && break
           arguments = [e.object for e in combination]
           applicable(operation, arguments...) || continue
           Base.push!(built, (operation = operation,

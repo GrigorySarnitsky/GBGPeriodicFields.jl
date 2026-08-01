@@ -185,6 +185,7 @@ function run_value_lane(configs)
     kernel_data(k) = Array(GBGI.Convolution._kernel_data(materialize_kernel(k)))
     sh = to_spectral(s, plans)
     uh = to_spectral(u, FieldTransformPlans(u, similar_field(spectral_zero, Val(1))))
+    Ah = to_spectral(A, FieldTransformPlans(A, similar_field(spectral_zero, Val(2))))
     # A strictly positive field, so the reciprocal an `inv` oracle needs is well defined everywhere.
     spectral_zero_ones = ScalarFieldSpectral(ones(Complex{T}, shape...), grid, layout)
     # Per-axis fractions, not a uniform half cell — at h = Δ/2 the even-axis Nyquist factor `cos(πh/Δ)`
@@ -199,6 +200,17 @@ function run_value_lane(configs)
     spectral_comparisons = (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
       (:to_physical,   field_data(to_physical(sh, plans)),   ref_dft_inverse(field_data(sh), grid, layout)),
+      # ABOVE R = 0. The transform was anchored to a raw-array oracle only for a scalar, while every
+      # spectral vector and tensor operation in the suite takes its transformed input on trust — so a
+      # fiber-component permutation or an axis slip specific to the BATCHED multi-component transform
+      # was invisible: the operations built on it (`add!`, `multiply!`, `sym`, `transpose`, `inner`) are
+      # all invariant under a relabeling applied consistently to every operand.
+      (:to_spectral,   field_data(uh),                       ref_dft_forward(du, grid, layout)),
+      (:to_physical,   field_data(to_physical(uh, FieldTransformPlans(u, uh))),
+                                                             ref_dft_inverse(field_data(uh), grid, layout)),
+      (:to_spectral,   field_data(Ah),                       ref_dft_forward(dA, grid, layout)),
+      (:to_physical,   field_data(to_physical(Ah, FieldTransformPlans(A, Ah))),
+                                                             ref_dft_inverse(field_data(Ah), grid, layout)),
       (:to_spectral!,  field_data(to_spectral!(similar_field(spectral_zero, Val(0)), ScalarFieldPhysical(copy(ds), grid, layout), plans)),
                                                              ref_dft_forward(ds, grid, layout)),
       (:squared_wavenumber_field, field_data(squared_wavenumber_field(spectral_zero, multipliers)),
@@ -214,6 +226,13 @@ function run_value_lane(configs)
       (:materialize_kernel, kernel_data(spectral_cutoff(spectral_zero, multipliers, cutoff)),
                                                              complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
       (:inner,          inner(sh, sh),                       ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
+      # The Parseval-weighted fiber contraction, anchored above R = 0. At R = 0 there are `3^0 = 1`
+      # components, which collapses the distinction between a weight applied per base point and one
+      # applied per component — so a defect specific to `components > 1` had no raw-array anchor
+      # anywhere in the suite, only relations that use `inner` on both sides.
+      (:inner,          inner(uh, uh),                       ref_spectral_inner(field_data(uh), field_data(uh), grid, layout, 1)),
+      (:inner,          inner(Ah, Ah),                       ref_spectral_inner(field_data(Ah), field_data(Ah), grid, layout, 2)),
+      (:l2norm,         l2norm(uh),                          sqrt(ref_spectral_inner(field_data(uh), field_data(uh), grid, layout, 1))),
       (:l2norm,         l2norm(sh),                          sqrt(ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0))),
       # The WEIGHT is rebuilt, not borrowed. This row handed `ref_weighted_inner` the package's own
       # `squared_wavenumber_field` — the same array it gave the call under test — so any defect in the

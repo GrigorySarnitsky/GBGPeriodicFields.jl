@@ -257,18 +257,27 @@ end
 # index-based, exp(-2πi Σ_d n_d m_d / N_d), because the transform is a plain DFT over the storage
 # indices — the grid's origin enters position-dependent operations (the transfer verbs, the translation
 # kernel), never the FFT itself.
+# FIBER-AWARE, and it was not. The three-index read `data[n1+1, n2+1, n3+1]` does not ERROR on a vector
+# field's 4-D array — Julia's trailing-dimension linearization makes it silently return component 1 — so
+# this oracle was not merely unexercised above R = 0, it was unequipped, and would have "agreed" with the
+# package while reading a third of the field. Every spectral vector and tensor operation in the suite
+# takes its transformed input on trust from here. The transform is a batched 3-D DFT over the base with
+# the fiber carried along, so the fiber is looped, never mixed.
 function ref_dft_forward(data, grid, layout)
   N = grid.grid_size
   folded = layout.fft_dims[1]
   stored = ntuple(d -> d == folded ? (N[d] ÷ 2 + 1) : N[d], 3)
-  out = zeros(Complex{eltype(data)}, stored...)
-  for m1 in 0:stored[1]-1, m2 in 0:stored[2]-1, m3 in 0:stored[3]-1
-    total = zero(Complex{eltype(data)})
-    for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
-      phase = -2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
-      total += data[n1 + 1, n2 + 1, n3 + 1] * cis(phase)
+  fiber = size(data)[4:end]
+  out = zeros(Complex{eltype(data)}, stored..., fiber...)
+  for component in CartesianIndices(fiber)
+    for m1 in 0:stored[1]-1, m2 in 0:stored[2]-1, m3 in 0:stored[3]-1
+      total = zero(Complex{eltype(data)})
+      for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+        phase = -2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+        total += data[n1 + 1, n2 + 1, n3 + 1, component] * cis(phase)
+      end
+      out[m1 + 1, m2 + 1, m3 + 1, component] = total
     end
-    out[m1 + 1, m2 + 1, m3 + 1] = total
   end
   return out
 end
@@ -276,31 +285,36 @@ end
 # The inverse, reconstructed from the STORED half-spectrum by Hermitian completion: the unstored
 # partner of mode k is conj(f̂(-k)), which is what makes the result real. Normalized by N (AbstractFFTs'
 # convention, invariant 4).
+# Fiber-aware for the same reason as `ref_dft_forward`: the fiber is carried, never mixed.
 function ref_dft_inverse(spectral, grid, layout)
   N = grid.grid_size
   folded = layout.fft_dims[1]
   T = real(eltype(spectral))
-  out = zeros(T, N...)
-  stored = size(spectral)
+  fiber = size(spectral)[4:end]
+  out = zeros(T, N..., fiber...)
+  stored = size(spectral)[1:3]
   wrap(m, n) = mod(m, n)
-  for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
-    total = zero(Complex{T})
-    for m1 in 0:N[1]-1, m2 in 0:N[2]-1, m3 in 0:N[3]-1
-      m = (m1, m2, m3)
-      # Reach the stored coefficient for this mode, conjugating when only the partner is kept.
-      if m[folded] <= N[folded] ÷ 2
-        index = ntuple(d -> m[d] + 1, 3)
-        coefficient = spectral[index...]
-      else
-        partner = ntuple(d -> wrap(-m[d], N[d]), 3)
-        index = ntuple(d -> partner[d] + 1, 3)
-        coefficient = conj(spectral[index...])
+  for component in CartesianIndices(fiber)
+    for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+      total = zero(Complex{T})
+      for m1 in 0:N[1]-1, m2 in 0:N[2]-1, m3 in 0:N[3]-1
+        m = (m1, m2, m3)
+        # Reach the stored coefficient for this mode, conjugating when only the partner is kept.
+        if m[folded] <= N[folded] ÷ 2
+          index = ntuple(d -> m[d] + 1, 3)
+          all(d -> index[d] <= stored[d], 1:3) || continue
+          coefficient = spectral[index..., component]
+        else
+          partner = ntuple(d -> wrap(-m[d], N[d]), 3)
+          index = ntuple(d -> partner[d] + 1, 3)
+          all(d -> index[d] <= stored[d], 1:3) || continue
+          coefficient = conj(spectral[index..., component])
+        end
+        phase = 2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+        total += coefficient * cis(phase)
       end
-      all(d -> index[d] <= stored[d], 1:3) || continue
-      phase = 2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
-      total += coefficient * cis(phase)
+      out[n1 + 1, n2 + 1, n3 + 1, component] = real(total) / prod(N)
     end
-    out[n1 + 1, n2 + 1, n3 + 1] = real(total) / prod(N)
   end
   return out
 end

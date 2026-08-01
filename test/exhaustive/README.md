@@ -65,8 +65,11 @@ julia -t4 --project=test/gpu/rocm test/exhaustive/runtests.jl     # CPU and ROCm
 ```
 
 The vendor packages are dependencies of neither the package nor `test/`, so the device pool exists only
-in a GPU environment. Run from one and the backend axis is crossed; run from `test/` and the lane says
-**NOT RUN** rather than passing quietly.
+in a GPU environment. Run from one and the backend axis is crossed **for the universal-checks lane**;
+run from `test/` and that lane says **NOT RUN** rather than passing quietly. The other eight lanes build
+host fixtures and run CPU-only in every environment — `device` is threaded through the invocation engine
+alone, not through `Config`, so a GPU run does not carry the value, relation, property, sequence,
+aliasing or mismatch lanes onto the device.
 
 ## How to read the output
 
@@ -90,9 +93,11 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 
 ## Scale
 
-144 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
-setting × 3 seeds, including a shifted non-commensurate origin — in about **125 minutes** with `-t4`,
-measured on this host rather than estimated. The axis table, and what each axis crosses versus samples,
+96 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
+setting × 2 seeds, including a shifted non-commensurate origin — in about **85 minutes** with `-t4`,
+measured on this host rather than estimated. (Three seeds and 144 configurations took 125 minutes; the
+seed axis is the only one with no targeted defect class behind it, so it is where runtime is bought
+back rather than from an axis that exists because a bug lived there.) The axis table, and what each axis crosses versus samples,
 is in [`DESIGN.md`](DESIGN.md).
 
 **Run it with `-t4`.** The thread-count axis is crossed by the configuration list, but a thread

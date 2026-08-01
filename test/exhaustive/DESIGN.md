@@ -125,7 +125,7 @@ is the axis. Running it over the 1,424 existing assertions yields:
 (`hasmethod`) · `domain-rejection` · `allocation` · `element-traffic` · `metadata` · `schema-presence` ·
 `result-type` · `inequality` (sign, definiteness, bounds) · `structural` (a property of the result:
 realness, finiteness, zero pattern) · `round-trip` · `determinism` · `type-stability` · `completeness` ·
-`has-example`
+`has-example` (**not implemented** — see below)
 
 **Five of those were missing from the list originally written here** — `result-type`, `inequality`,
 `static-absence`, `schema-presence` and `structural` — and were added only because assertions fell
@@ -259,8 +259,8 @@ Every number here is measured by the suite itself, so it cannot drift into optim
 | declared relations | **all 25 executed** — adjointness, algebraic identity, round-tripping |
 | representation · invariance · allocation · ordering · rejection | crossed per configuration |
 | sequences | plan reuse, repeated application, round-trip cycling, n-step allocation |
-| backend | CPU and CUDA, when run from a vendor environment |
-| element type · grid · fold · threads · origin · seed | crossed, **144 configurations** (all three folds) |
+| backend | CPU and CUDA, when run from a vendor environment — **the universal-checks lane only**. `device` is not a `Config` field; the value, relation, property, sequence, aliasing, mismatch and reference lanes build host fixtures and run CPU-only even from a GPU environment. |
+| element type · grid · fold · threads · origin · seed | crossed, **96 configurations** (all three folds, two seeds) |
 | argument combinations per method | **SAMPLED** at a cap of 400; the number dropped is printed |
 | ledger cells applicable but unasserted | **321** — per-operation questions, not sweepable properties |
 
@@ -353,6 +353,7 @@ sampled, it is declared sampled and reported as a limitation.
   machine, frozen baselines) and lives in `benchmark/`.
 - **Doctests.** A doctest asserts rendered output for one fixed input; there is no product to sweep.
   The sweepable part of the same question — *does every public operation have a runnable example* — is
-  kept as the `has-example` completeness value.
+  **NOT IMPLEMENTED** — no such class exists in `classify_checks.jl` and nothing counts doctests per
+operation. Recorded as a gap rather than described as covered.
 - **Multi-process and true concurrency.** Two operations running simultaneously on shared data is a
   different failure model; the thread-count axis covers the parallelism the package actually has.

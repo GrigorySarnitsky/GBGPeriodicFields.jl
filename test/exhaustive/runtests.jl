@@ -152,7 +152,8 @@ function run_aliasing_lane()
   println("LANE: storage aliasing — every in-place operation × every storage relation × ",
           length(configs), " configurations")
   println("      axes crossed: element type, grid shape/parity/anisotropy, spectral fold, thread count,")
-  println("                    storage kind (Array/SubArray), aliasing relation, tensor order, representation")
+  println("                    aliasing relation, tensor order, representation — and, separately, that")
+  println("                    the SubArray borrowed-storage construction is still REFUSED")
   println("═"^100)
 
   # (operation, assignment) => the configurations in which it disagrees
