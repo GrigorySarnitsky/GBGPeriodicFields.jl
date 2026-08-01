@@ -97,16 +97,30 @@ end
 
 # ── Relations: adjointness, algebraic identity, round-tripping ───────────────────────────────────
 
-"""
-    run_relations_lane(configs) -> (failures, cells)
-
-Evaluate every relation the ledger declares. Each constrains two operations, so none of them can be
-checked by a per-operation oracle.
-"""
 # Every lane that calls `_bench` must put the cutoff back: `_bench` pins it per configuration and the
 # last configuration is `threaded = true`, so the lanes were leaving it at 1 for whatever ran next.
 """
-    relation_holds(name, got, want, rtol, T) -> Bool or :threw
+    results_identical(a, b) -> Bool
+
+The thread-invariance lane's comparison: bitwise, and NaN-safe.
+
+`==` here was the same NaN class `checks.jl` fixed twice and `sequences.jl` received — missed because
+the self-check extension that was meant to hold every lane to it never reached the property lanes.
+"""
+results_identical(a, b) = isequal(a, b)
+
+
+"""
+    representations_agree(physical_result, spectral_result, rtol) -> Bool
+
+The representation-agreement lane's comparison, extracted for the same reason.
+"""
+representations_agree(physical_result, spectral_result, rtol) =
+  isapprox(_as_array(physical_result), _as_array(spectral_result); rtol = rtol, atol = rtol)
+
+
+"""
+    relation_holds(name, got, want, rtol, T) -> Bool, or the exception type on a throw
 
 The relations lane's comparison step, extracted so `selfcheck.jl` can drive it against a deliberately
 false triple.
@@ -119,8 +133,8 @@ function relation_holds(name, got, want, rtol, T)
   return try
     got isa Bool ? got == want :
       isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(T) * _scale(want, got))
-  catch
-    :threw
+  catch exception
+    nameof(typeof(exception))            # the TYPE, so a failure message still names what threw
   end
 end
 
@@ -135,6 +149,12 @@ function _with_restored_cutoff(body)
 end
 
 
+"""
+    run_relations_lane(configs) -> (failures, cells)
+
+Evaluate every relation the ledger declares. Each constrains two operations, so none of them can be
+checked by a per-operation oracle.
+"""
 function run_relations_lane(configs)
   println("═"^100)
   println("LANE: declared relations — adjointness, algebraic identity, round-tripping")
@@ -190,10 +210,14 @@ function run_relations_lane(configs)
       ("Δ⁻¹Δ = id on mean-free fields",
        field_data(inverse_laplacian(laplacian(_mean_free(b.sh), m), m)),
        field_data(_mean_free(b.sh))),
+      # Against the REFERENCE, like `‖·‖₂²` and `integral = measure · mean` beside it. Comparing to the
+      # package's own `inner` let a shared Parseval-weight or 1/N² defect cancel on both sides.
       ("sum(radial_spectrum) = inner",
-       sum(last(radial_spectrum(b.sh, m))), inner(b.sh, b.sh)),
+       sum(last(radial_spectrum(b.sh, m))),
+       ref_spectral_inner(field_data(b.sh), field_data(b.sh), config.grid, config.layout, 0)),
       ("C(0) = inner",
-       first(last(radial_correlation(b.sh, b.plans0))), inner(b.sh, b.sh)),
+       first(last(radial_correlation(b.sh, b.plans0))),
+       ref_spectral_inner(field_data(b.sh), field_data(b.sh), config.grid, config.layout, 0)),
       ("cutoff is idempotent",
        field_data(convolve(convolve(b.sh, spectral_cutoff(z, m, b.T(3))), spectral_cutoff(z, m, b.T(3)))),
        field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3))))),
@@ -276,7 +300,7 @@ function run_relations_lane(configs)
       cells += 1
       push!(seen, name)
       ok = relation_holds(name, got, want, rtol, b.T)
-      ok === :threw && (Base.push!(failures, "$(name) [$(config.name)] THREW"); continue)
+      ok isa Symbol && (Base.push!(failures, "$(name) [$(config.name)] THREW $(ok)"); continue)
       ok || Base.push!(failures, "$(name) [$(config.name)]")
     end
   end
@@ -315,7 +339,6 @@ function run_property_lanes(configs)
     b = _bench(config)
     rtol = _tolerance(b.T)
     m, z = b.multipliers, b.z
-    same(x, y) = isapprox(_as_array(x), _as_array(y); rtol = rtol, atol = rtol)
 
     for (kind, operations) in ((:representation, (:add!, :multiply!, :sym, :transpose, :integral, :mean, :inner)),
                                # `:invariance` is recorded where the check RUNS, below, not here: at
@@ -347,7 +370,7 @@ function run_property_lanes(configs)
          ("mean", mean(b.s), mean(b.sh)),
          ("inner", inner(b.u, b.v), inner(b.uh, b.vh)))
       count!(:representation)
-      same(physical_result, spectral_result) ||
+      representations_agree(physical_result, spectral_result, rtol) ||
         record!(:representation, "$(name) disagrees between representations [$(config.name)]")
     end
 
@@ -386,7 +409,7 @@ function run_property_lanes(configs)
       record_coverage!(Symbol(name), :invariance)
       serial = with_threading(run; enabled = false)
       threaded = with_threading(run; enabled = true)
-      serial == threaded ||
+      results_identical(serial, threaded) ||
         record!(:invariance, "$(name) is not bitwise thread-invariant [$(config.name)]")
     end
 

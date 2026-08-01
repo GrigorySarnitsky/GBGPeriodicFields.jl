@@ -56,8 +56,8 @@ type** and is itself derived:
 
 | slot type | pool | derivation mechanism |
 |---|---|---|
-| kernel | the concrete kernel classes | `subtypes(AbstractSpectralKernel)` — the sweep that caught `StoredKernel` |
-| transfer scheme | the concrete schemes | `subtypes(AbstractTransferScheme)` |
+| kernel | the concrete kernel classes | **literal, audited**: building a kernel needs constructor arguments, so the pool is written out and `pool_class_gaps` checks it against `subtypes(AbstractSpectralKernel)` |
+| transfer scheme | the concrete schemes | **literal, audited** against `subtypes(AbstractTransferScheme)`, descending through `AbstractSplineScheme` since `subtypes` is not recursive |
 | section | order × representation × storage relation | the constructors, crossed |
 | numeric parameter | the boundaries themselves | the comparisons in the **validation code**, not invented values |
 | context object | one `foreign-<q>` per compared quantity | `comparable_quantities()` in `pools.jl` — the equality tests inside every `_check_*` predicate, read from lowered IR |

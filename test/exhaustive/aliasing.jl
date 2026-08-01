@@ -145,7 +145,10 @@ function refused_constructions(c::Config, R, cplx)
       # counts a `MethodError` from a renamed constructor as a correct refusal — and this is the one
       # place guarding decision 59's storage-ownership rejection, so a silent regression there would
       # read as the refusal still holding.
+      # The same set the mismatch and domain-rejection filters use — the comment above claimed parity
+      # with them while accepting only two of the four.
       exception isa ArgumentError || exception isa DimensionMismatch ||
+      exception isa InexactError || exception isa DomainError ||
         push!(accepted, "$(name) [refused with $(nameof(typeof(exception))), not a domain error]")
     end
   end

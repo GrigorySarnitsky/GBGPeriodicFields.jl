@@ -14,9 +14,12 @@
 #   determinism   the same call twice gives bitwise-identical results, except where an atomic makes the
 #                 summation order genuinely nondeterministic
 #   structural    a finite input gives a finite result — no NaN or Inf conjured from nothing
-#   result_type   the result is the type the method table says it is, so inference is not lying
-#   seed          the same operation on different random input gives different output, unless it is
-#                 genuinely constant — the axis that catches a fixture nothing can falsify
+#   type_stability  inference reaches a concrete type — this replaced an earlier `result_type` check
+#                   that compared the result against what inference promised, which `Base.return_types`
+#                   makes unfalsifiable
+#
+# The seed is a CONFIGURATION axis, not a check here: `canonical_pool` seeds from `config.seed` so each
+# configuration draws different data, and every lane reports the seed with its findings.
 
 using GBGPeriodicFields
 using Statistics
@@ -107,7 +110,6 @@ _finite(x) =
    !(x isa GBGI.FiberSections.AbstractFiberSection) &&
    !isempty(_array_leaves(x)))          ? all(_finite_leaf, _array_leaves(x)) :
   x isa AbstractArray                   ? all(isfinite, x) :
-  x isa Type                            ? true :
   x isa GBGI.FiberSections.AbstractFiberSection ? all(isfinite, Array(field_data(x))) :
   x isa Tuple                           ? all(_finite, x) : true
 
@@ -168,6 +170,12 @@ _returns_uninitialized(invocation) = nameof(invocation.operation) in UNINITIALIZ
 # overflow. `/` and `divide!` join the list now that a zero is in the pool so invariant 10's overwrite
 # branch is reachable; naming only the verb "divide" missed the operator and produced 960 cells.
 const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!, :/, :divide!)
+
+# Operations whose second identical call cannot succeed because the FIRST changed external state:
+# `create_group` throws on a duplicate name, and the pool holds one name and one shared handle. The
+# repeat therefore threw, the comparison was skipped, and the cell was counted as checked anyway.
+const EXTERNAL_EFFECT = (:write_field, :write_points)
+_has_external_effect(invocation) = nameof(invocation.operation) in EXTERNAL_EFFECT
 _unbounded_output(invocation) = nameof(invocation.operation) in UNBOUNDED_OUTPUT
 
 # A type as precise as inference can be. `isconcretetype` alone is too strict: an accessor returning a
@@ -289,7 +297,13 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    # Repeating a call must reproduce it bitwise. The atomic accumulators are the documented exception
    # — a nondeterministic summation order costs `anterpolate!` 2-3 ulp — so they are compared to a
    # tolerance instead of excluded, which still catches a real divergence.
-   if !_returns_uninitialized(invocation)
+   # A setter has no section argument, so `_destination_index` falls back to slot 1 — the input
+   # integer, not the global it mutates — and the in-place branch would compare an untouched scalar
+   # with itself. The value lane checks both setters properly through their getters.
+   _comparable_destination = _is_inplace(invocation) &&
+     any(a -> a isa GBGI.FiberSections.AbstractFiberSection, arguments)
+   if !_returns_uninitialized(invocation) && !_has_external_effect(invocation) &&
+      (!_is_inplace(invocation) || _comparable_destination)
      count!(:determinism)
      # In-place forms too. Gating this on `!_is_inplace` excluded `anterpolate!` — the Atomix scatter
      # whose nondeterministic summation order is the entire reason the tolerance branch and the

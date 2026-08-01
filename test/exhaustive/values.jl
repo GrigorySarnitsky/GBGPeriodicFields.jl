@@ -35,15 +35,15 @@ _as_array(x) =
 
 
 """
-    value_agrees(got, want, rtol) -> Bool or :threw
+    value_agrees(got, want, rtol) -> Bool, or the exception type on a throw
 
 The value lane's comparison step, extracted so the self-check can prove this lane can fire too.
 """
 function value_agrees(got, want, rtol)
   return try
     isapprox(_as_array(got), _as_array(want); rtol = rtol)
-  catch
-    :threw
+  catch exception
+    nameof(typeof(exception))          # the TYPE, matching `relation_holds`
   end
 end
 
@@ -382,8 +382,8 @@ function run_value_lane(configs)
       push!(covered, name)
       record_coverage!(name, :correct)
       agreed = value_agrees(got, want, rtol)
-      if agreed === :threw
-        Base.push!(disagreements, "$(name) [$(config.name)] — comparison threw")
+      if agreed isa Symbol
+        Base.push!(disagreements, "$(name) [$(config.name)] — comparison threw $(agreed)")
         continue
       end
       agreed && continue

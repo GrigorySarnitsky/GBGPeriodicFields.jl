@@ -26,9 +26,16 @@
 using GBGPeriodicFields
 const GBG = GBGPeriodicFields
 
-const PACKAGE_MODULES_FOR_POOLS = (GBG.FiberSections, GBG.Fields, GBG.FieldAlgebra,
-                                   GBG.DifferentialOperators, GBG.Convolution, GBG.Points,
-                                   GBG.Interpolation, GBG.Reductions)
+const _CORE_MODULES_FOR_POOLS = (GBG.FiberSections, GBG.Fields, GBG.FieldAlgebra,
+                                 GBG.DifferentialOperators, GBG.Convolution, GBG.Points,
+                                 GBG.Interpolation, GBG.Reductions)
+
+# The extension modules too, as `LEDGER_MODULES` and `_owned_by_package` already do — the same
+# omission fixed twice elsewhere and left standing in this third list. Resolved at CALL time, not as a
+# const: `EXTENSION_MODULES` lives in `invocations.jl`, which is included after this file.
+package_modules_for_pools() =
+  isdefined(Main, :EXTENSION_MODULES) ? (_CORE_MODULES_FOR_POOLS..., Main.EXTENSION_MODULES...) :
+                                        _CORE_MODULES_FOR_POOLS
 
 const EQUALITY_TESTS = (:(==), :(!=), :(===), :(!==), :isequal)
 
@@ -77,7 +84,7 @@ end
 
 
 _lookup(name::Symbol) = begin
-  for mod in PACKAGE_MODULES_FOR_POOLS
+  for mod in package_modules_for_pools()
     isdefined(mod, name) || continue
     f = getfield(mod, name)
     f isa Function && return f
@@ -96,7 +103,7 @@ compare are exactly the quantities in which two objects can be incompatible.
 """
 function comparison_predicates()
   found = Dict{Symbol, Function}()
-  for mod in PACKAGE_MODULES_FOR_POOLS, n in names(mod; all = true)
+  for mod in package_modules_for_pools(), n in names(mod; all = true)
     startswith(String(n), "_check_") || continue
     isdefined(mod, n) || continue
     f = getfield(mod, n)
@@ -112,7 +119,7 @@ end
 function _is_quantity_extractor(name::Symbol)
   f = _lookup(name)
   f === nothing && return false
-  return any(m -> m.nargs == 2 && m.module in PACKAGE_MODULES_FOR_POOLS, methods(f))
+  return any(m -> m.nargs == 2 && m.module in package_modules_for_pools(), methods(f))
 end
 
 

@@ -117,9 +117,19 @@ function run_selfcheck_lane(config)
   lane_probes = (
     ("relations lane", () -> relation_holds("planted", [1.0, 2.0], [1.0, 3.0], 1e-9, Float64) === false),
     ("relations lane (bool)", () -> relation_holds("planted", false, true, 1e-9, Float64) === false),
-    ("relations lane (throws)", () -> relation_holds("planted", nothing, [1.0], 1e-9, Float64) === :threw),
+    # `relation_holds` returns the exception TYPE on a throw, not the sentinel `:threw` — the probe was
+    # written against the older contract and the self-check caught the drift on the next run, which is
+    # what it is for.
+    ("relations lane (throws)", () -> relation_holds("planted", nothing, [1.0], 1e-9, Float64) isa Symbol),
     ("value lane", () -> value_agrees([1.0, 2.0], [1.0, 3.0], 1e-9) === false),
     ("value lane (agrees)", () -> value_agrees([1.0, 2.0], [1.0, 2.0], 1e-9) === true),
+    ("value lane (throws)", () -> value_agrees(nothing, [1.0], 1e-9) isa Symbol),
+    # The PROPERTY lanes. An earlier extension's docstring claimed to cover them and covered only the
+    # relations and value lanes — which is why `serial == threaded` kept the NaN comparison every other
+    # reproducibility check in the suite had been fixed for.
+    ("invariance lane", () -> results_identical([1.0], [2.0]) === false),
+    ("invariance lane (NaN)", () -> results_identical([NaN], [NaN]) === true),
+    ("representation lane", () -> representations_agree([1.0, 2.0], [1.0, 3.0], 1e-9) === false),
   )
   for (label, probe) in lane_probes
     fired = try probe() catch; false end

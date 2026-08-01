@@ -31,8 +31,6 @@ include("ledger.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
 # entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
-# Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
-# entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
 #
 # The nine entries this table carried for the fused-pass corruption are GONE, because decision 59 made
 # the input unconstructible rather than the arithmetic safe. A citation for a class that can no longer
@@ -285,8 +283,7 @@ println()
 invocation_findings, invocation_quality, invocation_cells, unbuilt, harness_errors = run_invocation_lane(configurations())
 println()
 
-relation_findings, relation_cells = _with_restored_cutoff(() -> run_relations_lane(configurations()))
-println()
+
 property_findings, property_cells = _with_restored_cutoff(() -> run_property_lanes(configurations()))
 println()
 sequence_findings, sequence_cells = _with_restored_cutoff(() -> run_sequence_lane(configurations()))
@@ -294,6 +291,10 @@ println()
 # BEFORE the value lane, which uses these same references as its oracle. Running the validation eight
 # lanes later contradicted the design's own rule that a reference is cross-validated before use.
 disagreeing, reference_cells = run_reference_lane()
+println()
+# The relations lane consumes `ref_inner`, `ref_integral` and `ref_spectral_inner`, so it belongs
+# after the cross-validation too. Moving the value lane alone left an equal consumer running first.
+relation_findings, relation_cells = _with_restored_cutoff(() -> run_relations_lane(configurations()))
 println()
 value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
 println()
