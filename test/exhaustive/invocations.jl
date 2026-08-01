@@ -321,9 +321,17 @@ function invocations(operation::Function, pool; cap::Int = 400)
       # form for an operation whose only general method is the variadic one.
       for repetitions in 1:2
         expanded = [base..., fill(element, repetitions)...]
-        length(expanded) > 9 && continue
+        # Counted, like the non-variadic branch below. Skipping silently here is the very failure its
+        # sibling's comment warns about, and it hides the `map!`/`map` forms this branch exists for.
+        if length(expanded) > 9
+          oversized += 1
+          continue
+        end
         slots = [[e for e in pool if _slot_admits(p, e.object)] for p in expanded]
-        any(isempty, slots) && continue
+        if any(isempty, slots)
+          unfillable += 1
+          continue
+        end
         total = prod(length.(slots))
         total > cap && (dropped += total - cap)
         for combination in Iterators.take(Iterators.product(slots...), cap)

@@ -256,9 +256,10 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    end
 
    # ── structural ──────────────────────────────────────────────────────────────────────────────
-   # Every pool value is finite, so a non-finite result was manufactured by the operation. The
-   # inverse Laplacian's zero mode is the documented exception and is left to the operation's own
-   # oracle rather than special-cased away here.
+   # Every pool value is finite, so a non-finite result was manufactured by the operation. Three
+   # exemptions ARE special-cased below — the inverse Laplacian's zero mode, and division and kernel
+   # inversion, both of which divide by a value the pool is allowed to make zero. An earlier version of
+   # this comment claimed the opposite of the code beneath it.
    if !_returns_uninitialized(invocation) && !_unbounded_output(invocation)
      count!(:structural)
      if !_finite(result) && !occursin("inverse_laplacian", invocation.label) &&
@@ -485,6 +486,13 @@ function run_invocation_lane(configs)
       lane_errors[kind] = get(lane_errors, kind, 0) + n
     end
   end
+
+  # The pool audit, actually surfaced. It has now been unwired twice — first pushed into the pool and
+  # never read, then returned and never called — which is the same defect in two spellings.
+  class_gaps = try pool_class_gaps(first(configs)) catch; Symbol[] end
+  isempty(class_gaps) ||
+    println("\n  POOL CLASS GAPS — concrete kernel/scheme classes with no pool entry: ",
+            join(String.(class_gaps), ", "))
 
   println("\n  ", operations, " public operations · ", length(unbuildable), " with no buildable call")
   isempty(unbuildable) ||

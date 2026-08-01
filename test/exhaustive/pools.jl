@@ -235,33 +235,6 @@ function constrained_between(operation::Function, a, b)
 end
 
 
-"""
-    quantity_groups(canonical) -> (groups, unreachable)
-
-Group the derived quantities by the value they return for one canonical object.
-
-Synonymous accessors reach the same quantity by different routes — `field_grid` and `_context_grid`
-both return the grid; `field_tensor_order`, `section_tensor_order` and `pointvalue_tensor_order` all
-return ``R``. Grouping them is not a taxonomy written by hand: two accessors belong to one axis when
-they return the same value for the same object, which is settled by calling them.
-"""
-function quantity_groups(canonical)
-  groups = Dict{Any, Vector{Symbol}}()
-  unreachable = Symbol[]
-  for name in comparable_quantities()
-    f = _lookup(name)
-    value, reached = nothing, false
-    if f !== nothing
-      try
-        value = f(canonical)
-        reached = true
-      catch
-      end
-    end
-    reached ? push!(get!(groups, value, Symbol[]), name) : push!(unreachable, name)
-  end
-  return (groups = groups, unreachable = unreachable)
-end
 
 
 # ── The builders ────────────────────────────────────────────────────────────────────────────────
@@ -292,22 +265,6 @@ canonical_carriers() =
    TensorFieldPhysical{2}(zeros(CANONICAL_GRID.grid_size..., 3, 3), CANONICAL_GRID, CANONICAL_LAYOUT),
    PointSet(zeros(4, 3)), ScalarPointValues(zeros(4)), TensorPointValues{2}(zeros(4, 3, 3)),
    FieldSpectralMultipliers(canonical_carrier()))
-
-
-# The canonical object a given quantity is actually defined on — used to check a builder differs from
-# the right baseline. Comparing a point count against a field's would compare two kinds of base.
-function canonical_for(name::Symbol)
-  f = _lookup(name)
-  f === nothing && return nothing
-  for carrier in canonical_carriers()
-    try
-      f(carrier)
-      return carrier
-    catch
-    end
-  end
-  return nothing
-end
 
 """
     MISMATCH_BUILDERS
@@ -582,7 +539,11 @@ function run_mismatch_lane()
         result = call()
         all(isfinite, Array(field_data(result))) ? :ok : :nonfinite
       catch exception
+        # The same set its two siblings use, plus `BoundsError`: a point outside the box can reach an
+        # out-of-range stencil index, which is a domain refusal here and not a harness fault. The set
+        # differed from the other two rejection filters with no stated reason.
         exception isa ArgumentError || exception isa DimensionMismatch ||
+        exception isa InexactError || exception isa DomainError ||
         exception isa BoundsError ? :refused : nameof(typeof(exception))
       end
       outcome in (:ok, :refused) ||

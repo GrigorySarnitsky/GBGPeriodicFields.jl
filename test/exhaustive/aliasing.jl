@@ -140,7 +140,13 @@ function refused_constructions(c::Config, R, cplx)
     try
       build()
       push!(accepted, name)               # constructed when it should have been refused
-    catch
+    catch exception
+      # The exception TYPE, as the mismatch and domain-rejection filters already do. A bare `catch`
+      # counts a `MethodError` from a renamed constructor as a correct refusal — and this is the one
+      # place guarding decision 59's storage-ownership rejection, so a silent regression there would
+      # read as the refusal still holding.
+      exception isa ArgumentError || exception isa DimensionMismatch ||
+        push!(accepted, "$(name) [refused with $(nameof(typeof(exception))), not a domain error]")
     end
   end
   return accepted

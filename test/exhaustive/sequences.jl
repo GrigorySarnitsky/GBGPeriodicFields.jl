@@ -89,13 +89,16 @@ function run_sequence_lane(configs)
     cells += 1
     first_pass = copy(field_data(to_spectral(b.s, b.plans0)))
     second_pass = copy(field_data(to_spectral(b.s, b.plans0)))
-    first_pass == second_pass ||
+    # `isequal`, not `==`. This is the NaN class `checks.jl` fixed twice and `selfcheck.jl` locks in on
+    # both of its branches; `sequences.jl` reimplemented the same comparison and never received it, so a
+    # reproducible NaN would be misreported as irreproducibility.
+    isequal(first_pass, second_pass) ||
       record!("to_spectral is not reproducible when its plan is reused [$(config.name)]")
 
     cells += 1
     physical_first = copy(field_data(to_physical(b.sh, b.plans0)))
     physical_second = copy(field_data(to_physical(b.sh, b.plans0)))
-    physical_first == physical_second ||
+    isequal(physical_first, physical_second) ||
       record!("to_physical is not reproducible when its plan is reused [$(config.name)]")
 
     # ── the allocating transform preserves its source across repeated use ──────────────────────
@@ -108,7 +111,7 @@ function run_sequence_lane(configs)
     for _ in 1:4
       to_physical(b.sh, b.plans0)
     end
-    field_data(b.sh) == pristine ||
+    isequal(field_data(b.sh), pristine) ||
       record!("the allocating to_physical modified its source across repeated calls [$(config.name)]")
 
     # ── repeated application of an idempotent operation ────────────────────────────────────────

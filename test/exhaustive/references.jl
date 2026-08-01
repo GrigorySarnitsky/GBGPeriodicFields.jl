@@ -495,3 +495,36 @@ function ref_anterpolate_catmull_rom(values, grid, points, R)
   end
   return reshape(out, N..., ntuple(_ -> 3, R)...)
 end
+
+
+# The Wiener–Khinchin dual, shell by shell.
+#
+# `radial_spectrum` was compared only through `sum(...)` until an adversarial pass, and the sum is
+# invariant to how modes are binned — so the binning, the operation's entire purpose, was checked by
+# nothing. That was fixed for the spectrum and never carried to its dual: `radial_correlation` was
+# checked only at `C(0)`, which Parseval forces, leaving every non-zero separation with no reference.
+#
+# Written from the documented definition: C(r) = 𝓕⁻¹(|f̂|²)/N, averaged over the shell of
+# minimum-image separations |r|. The inverse transform is the reference's own, not the package's.
+function ref_radial_correlation(spectral, grid, layout)
+  N = grid.grid_size
+  power = abs2.(spectral)
+  # |f̂|² is real and Hermitian, so its inverse transform is real: reuse the reference inverse DFT,
+  # which performs the Hermitian completion from the stored half-spectrum.
+  correlation = ref_dft_inverse(complex.(power), grid, layout) ./ prod(N)
+  Δ = grid.grid_spacing
+  # The minimum-image separation of each offset, and the shell it falls in.
+  separation(n, d) = min(n, N[d] - n) * Δ[d]
+  Δr = minimum(Δ)
+  sums, counts = Float64[], Int[]
+  for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+    r = sqrt(separation(n1, 1)^2 + separation(n2, 2)^2 + separation(n3, 3)^2)
+    shell = round(Int, r / Δr) + 1
+    while shell > length(sums)
+      Base.push!(sums, 0.0); Base.push!(counts, 0)
+    end
+    sums[shell] += correlation[n1 + 1, n2 + 1, n3 + 1]
+    counts[shell] += 1
+  end
+  return [c == 0 ? 0.0 : s / c for (s, c) in zip(sums, counts)]
+end

@@ -105,6 +105,26 @@ checked by a per-operation oracle.
 """
 # Every lane that calls `_bench` must put the cutoff back: `_bench` pins it per configuration and the
 # last configuration is `threaded = true`, so the lanes were leaving it at 1 for whatever ran next.
+"""
+    relation_holds(name, got, want, rtol, T) -> Bool or :threw
+
+The relations lane's comparison step, extracted so `selfcheck.jl` can drive it against a deliberately
+false triple.
+
+The self-check proved that each of the five UNIVERSAL checks can fire and never touched the relations
+lane, the value lane or the property lanes — so "a check that cannot fire is worse than none" was
+enforced for one lane of nine. This is the seam that lets the others be held to it too.
+"""
+function relation_holds(name, got, want, rtol, T)
+  return try
+    got isa Bool ? got == want :
+      isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(T) * _scale(want, got))
+  catch
+    :threw
+  end
+end
+
+
 function _with_restored_cutoff(body)
   entry = threading_cutoff()
   try
@@ -255,16 +275,8 @@ function run_relations_lane(configs)
       name === :skip && continue          # a dependency-gated relation: unevaluated, not passing
       cells += 1
       push!(seen, name)
-      ok = try
-        # No `atol = rtol`: an absolute 1e-3 on Float32 fields drawn from rand()−½ hides a 0.2% error in
-        # every relation, including the ones comparing against zero. The zero-comparisons pass their own
-        # scale explicitly instead.
-        got isa Bool ? got == want :
-          isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(b.T) * _scale(want, got))
-      catch exception
-        Base.push!(failures, "$(name) [$(config.name)] THREW $(nameof(typeof(exception)))")
-        continue
-      end
+      ok = relation_holds(name, got, want, rtol, b.T)
+      ok === :threw && (Base.push!(failures, "$(name) [$(config.name)] THREW"); continue)
       ok || Base.push!(failures, "$(name) [$(config.name)]")
     end
   end

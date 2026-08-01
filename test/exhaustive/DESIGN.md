@@ -298,6 +298,22 @@ with `|k|` computed in a different association order by the package and by the r
 landing within a `Float32` epsilon of a boundary falls either side. It is a genuine numerical
 sensitivity of the binning rather than a wrong formula, and it is reported rather than tuned away.
 
+### What a relational identity can and cannot see
+
+The adjointness and idempotence relations are **algebraically true for any real symbol**. `⟨∇·u, φ⟩ =
+−⟨u, ∇φ⟩` holds for any real `k`; `ℙ² = ℙ` holds for any real `a`; `Δ⁻¹Δ = id` is `y = cx, z = y/c` for
+any nonzero `c`; `M⟨Wf,q⟩ = N⟨f,Wᵀq⟩` holds for any stencil, correct or not, because gather and scatter
+share one weight builder. So the relations lane cannot catch a wrong wavenumber, a wrong cutoff radius
+or a wrong spline coefficient — only an INCONSISTENCY between two operations that should agree, which
+is what a relation is for and is exactly the shape of the decision-42 defect.
+
+The symbols themselves are covered elsewhere and independently: `references.jl` rebuilds the
+wavenumbers from the grid and the value lane compares every operator against them. The division of
+labour is deliberate; what was wrong was only that the ledger presented `:adjoint`/`:identity` coverage
+without it, and that nothing proved the relations lane could fire at all. `selfcheck.jl` now drives
+every lane's comparison step against a triple that is false by construction — the discipline it
+enforced for the five universal checks, extended to the other lanes.
+
 Three limitations are **structural** rather than unfinished, and no amount of work removes them:
 
 - **Applicability is not meaning.** The engine builds a call because `applicable` says one exists, which

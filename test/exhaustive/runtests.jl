@@ -158,6 +158,9 @@ function run_aliasing_lane()
   order_changing = Set{Symbol}()
   cases = 0
   for c in configs
+    # The configuration's seed. Four other lanes learned this; the aliasing lane did not, so a failure
+    # printed with `seed815` was drawn from wherever the global stream happened to be.
+    Random.seed!(c.seed)
     previous = threading_cutoff()
     set_threading_cutoff!(c.threaded ? 1 : typemax(Int))
     for (name, orders, representation, call) in operations_for(c)

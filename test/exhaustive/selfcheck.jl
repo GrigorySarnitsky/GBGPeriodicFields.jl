@@ -108,6 +108,25 @@ function run_selfcheck_lane(config)
     println("      ", rpad(String(kind), 16), fired ? "fires" : "VACUOUS — did not fire on $(description)")
   end
 
+  # ── every LANE's comparison step must fire, not only the universal checks ─────────────────────
+  # The self-check covered the five checks in `check_invocation!` and nothing else, so eight of nine
+  # lanes were outside the discipline this file exists to enforce. A vacuity review found the relations
+  # lane's comparisons unproven; these drive each lane's extracted comparison against a triple that is
+  # false by construction, and a lane that reports it as holding is a failure.
+  println("\n  EVERY LANE'S COMPARISON STEP FIRES")
+  lane_probes = (
+    ("relations lane", () -> relation_holds("planted", [1.0, 2.0], [1.0, 3.0], 1e-9, Float64) === false),
+    ("relations lane (bool)", () -> relation_holds("planted", false, true, 1e-9, Float64) === false),
+    ("relations lane (throws)", () -> relation_holds("planted", nothing, [1.0], 1e-9, Float64) === :threw),
+    ("value lane", () -> value_agrees([1.0, 2.0], [1.0, 3.0], 1e-9) === false),
+    ("value lane (agrees)", () -> value_agrees([1.0, 2.0], [1.0, 2.0], 1e-9) === true),
+  )
+  for (label, probe) in lane_probes
+    fired = try probe() catch; false end
+    fired || Base.push!(failures, "$(label): its comparison step does not report a false triple")
+    println("      ", rpad(label, 26), fired ? "fires" : "VACUOUS — accepted a false triple")
+  end
+
   # ── class 1: the sweep must not mutate the shared pool ────────────────────────────────────────
   # The guard is the property itself: run the checks over a pool and assert every entry is bitwise
   # unchanged afterwards. A new mutable pool entry that `_refresh` does not know how to copy reopens

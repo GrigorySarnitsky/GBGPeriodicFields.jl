@@ -20,7 +20,10 @@ const CLASSES = [
   (:type_stability,  [r"@inferred", r"@test_call", r"JET"]),
   (:element_traffic, [r"Traffic\(", r"audit\("]),
   (:absence,         [r"@test_throws\s+MethodError"]),
-  (:domain_rejection,[r"@test_throws\s+(ArgumentError|DimensionMismatch|BoundsError|InexactError)"]),
+  # `DomainError` too, and `BoundsError` kept: the suite's two other rejection filters
+  # (properties.jl, pools.jl) accept ArgumentError/DimensionMismatch/InexactError/DomainError, and this
+  # one listed BoundsError instead of DomainError with no stated reason.
+  (:domain_rejection,[r"@test_throws\s+(ArgumentError|DimensionMismatch|BoundsError|InexactError|DomainError)"]),
   (:completeness,    [r"isempty\(setdiff", r"isempty\(uncovered", r"isempty\(unclassified",
                       r"isempty\(phantoms", r"isempty\(missing", r"_method_count", r"module_method_count"]),
   (:metadata,        [r"field_grid\(", r"field_layout\(", r"field_tensor_order\(", r"eltype\(field_data"]),
@@ -39,7 +42,11 @@ const CLASSES = [
   # `[^=!<>]>[^=]` matches `->`, so every assertion containing a lambda — and every `where {T<:Real}` —
   # was filed as an inequality, shifting credit off `:correct` for both the report and the residue that
   # defines the axis. The arrow and the subtype operator are excluded explicitly.
-  (:inequality,      [r"(?<![-=!<>])<(?![=:])", r"(?<![-=!<>])>(?![=])", r"≤", r"≥", r"\bsign\b"]),  # sign, definiteness, bounds
+  # Exclude the ARROW and the SUBTYPE operator, not the inequality. An earlier fix here removed `->`
+  # and `<:` by forbidding `=` after the glyph — which also removed `<=` and `>=`, the two most common
+  # inequality spellings in the suite, sending them through every class into "unclassified", which the
+  # design reads as a check type nobody has ever written.
+  (:inequality,      [r"(?<![-=!<>])<(?!:)", r"(?<![-=!<>])>", r"≤", r"≥", r"\bsign\b"]),  # sign, definiteness, bounds
   (:correct,         [r"≈", r"==", r"isapprox", r"\bapprox\("]),          # the catch-all, deliberately last
 ]
 

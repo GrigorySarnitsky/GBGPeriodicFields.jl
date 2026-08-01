@@ -35,6 +35,20 @@ _as_array(x) =
 
 
 """
+    value_agrees(got, want, rtol) -> Bool or :threw
+
+The value lane's comparison step, extracted so the self-check can prove this lane can fire too.
+"""
+function value_agrees(got, want, rtol)
+  return try
+    isapprox(_as_array(got), _as_array(want); rtol = rtol)
+  catch
+    :threw
+  end
+end
+
+
+"""
     run_value_lane(configs) -> (disagreements, cells)
 
 Compare every covered operation's computed result against an independent reference, over every
@@ -262,8 +276,11 @@ function run_value_lane(configs)
                         ref_translation_kernel(grid, layout, shape, offset)),
       # C(0) = ⟨f, f⟩ is the Wiener-Khinchin dual's defining value, and it is checked against the
       # INDEPENDENT Parseval sum rather than against the package's own `inner`.
-      (:radial_correlation, first(last(radial_correlation(sh, plans))),
-                            ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
+      # SHELL BY SHELL, against an independent inverse transform — the fix  received
+      # and its Wiener-Khinchin dual did not. Checking only C(0) leaves every non-zero separation, and
+      # the minimum-image binning that is the operation's purpose, with no reference at all.
+      (:radial_correlation, collect(last(radial_correlation(sh, plans))),
+                            ref_radial_correlation(field_data(sh), grid, layout)),
       # ── the remaining accessors ───────────────────────────────────────────────────────────────
       # Against the RAW matrices the objects were constructed from, not against themselves. Comparing
       # `point_coordinates(points)` with itself passes for a transposed, zeroed or permuted result.
@@ -364,10 +381,9 @@ function run_value_lane(configs)
       # — and with it the survey, since `runtests.jl` has no top-level handler.
       push!(covered, name)
       record_coverage!(name, :correct)
-      agreed = try
-        isapprox(_as_array(got), _as_array(want); rtol = rtol)
-      catch exception
-        Base.push!(disagreements, "$(name) [$(config.name)] — comparison threw $(nameof(typeof(exception)))")
+      agreed = value_agrees(got, want, rtol)
+      if agreed === :threw
+        Base.push!(disagreements, "$(name) [$(config.name)] — comparison threw")
         continue
       end
       agreed && continue
