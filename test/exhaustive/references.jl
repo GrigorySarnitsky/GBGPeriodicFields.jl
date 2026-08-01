@@ -110,6 +110,40 @@ function ref_gradient(f, grid, layout)
   return out
 end
 
+# The JACOBIAN mode of `gradient`, whose index convention was checked only through `sym`. The one
+# exercise of `gradient(vector)` in the suite was `symmetric_gradient = sym(gradient(u))` — and
+# `sym(M) = sym(Mᵀ)`, so a transposed fiber-index pair was erased before the comparison ever saw it.
+# The convention here is the package's own, stated in its `symmetric_gradient` formula
+# `Ŝ_ij = (i/2)(k_j û_i + k_i û_j)`: the DERIVATIVE index is second, so (∇u)_ij = i k_j û_i.
+function ref_gradient_jacobian(u, grid, layout)
+  shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+  out = similar(u, (shape..., 3, 3))          # (base..., i, j) — a second-order fiber, not a vector
+  for c in CartesianIndices(shape)
+    k = (k1[c[1]], k2[c[2]], k3[c[3]])
+    for i in 1:3, j in 1:3
+      out[c, i, j] = im * k[j] * u[c, i]
+    end
+  end
+  return out
+end
+
+# The tensor-tensor product, (AB)_ij = A_ik B_kj. The suite's only exercise of it was
+# `det(AB) = det(A)det(B)` — and the determinant is multiplicative AND transpose-invariant, so that
+# identity holds equally for `BA`, `AᵀB`, `ABᵀ` and the rest of the family. It cannot tell a correct
+# product from a transposed or reversed one; this can.
+function ref_matmul(A, B)
+  shape = size(A)[1:3]
+  out = similar(A)
+  for c in CartesianIndices(shape), i in 1:3, j in 1:3
+    total = zero(eltype(A))
+    for k in 1:3
+      total += A[c, i, k] * B[c, k, j]
+    end
+    out[c, i, j] = total
+  end
+  return out
+end
+
 function ref_divergence(u, grid, layout)
   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
   out = similar(u, shape)

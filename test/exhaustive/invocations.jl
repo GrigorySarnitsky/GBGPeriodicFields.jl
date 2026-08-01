@@ -164,7 +164,11 @@ function canonical_pool(config; device = identity)
   # Scaled on the HOST and moved afterwards. Broadcasting a device array against a host matrix is a
   # mixed-backend expression, which fails the whole pool build with a `KernelError` — and the lane then
   # reports the entire backend axis as unbuildable rather than the one line that is wrong.
-  points = PointSet(device(Base.rand(T, M, 3) .* reshape(collect(grid.domain_size), 1, 3)))
+  # PLUS THE ORIGIN. Without it these points are not in the box for the shifted configuration, which
+  # exists precisely so an operation that forgets to subtract the origin can be caught. The value lane's
+  # own point sets already add it; this pool did not, so the two disagreed about where the box is.
+  points = PointSet(device(Base.rand(T, M, 3) .* reshape(collect(grid.domain_size), 1, 3) .+
+                           reshape(collect(grid.origin), 1, 3)))
   values = (ScalarPointValues(rand(T, M)), VectorPointValues(rand(T, M, 3)),
             TensorPointValues{2}(rand(T, M, 3, 3)))
   # NOT a half cell on every axis. At h = Δ/2 the even-axis Nyquist multiplier `cos(πh/Δ)` is exactly

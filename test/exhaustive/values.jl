@@ -82,6 +82,7 @@ function run_value_lane(configs)
     A  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
     B  = TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout)
     signed = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
+    w  = VectorFieldPhysical(rand(T, P(1)...), grid, layout)      # a THIRD distinct vector operand
     α, β = T(3) / 10, T(7) / 10
     ds, du, dA = field_data(s), field_data(u), field_data(A)
 
@@ -93,6 +94,13 @@ function run_value_lane(configs)
       (:combine!,   combine!(similar_field(u, Val(1)), α, u, β, v),
                                               ref_combine(α, du, β, field_data(v))),
       (:add!,       add!(similar_field(u, Val(1)), u, v), ref_add(du, field_data(v))),
+      # THREE DISTINCT operands. The pool holds one field per tensor order, so every variadic call the
+      # engine builds is `a + a + a` — an argument that is dropped, duplicated or misrouted reproduces
+      # the identical correct-looking answer. The same for a BINARY fiber map, whose two sources were
+      # the same object: `φ(a, a)` cannot see a swapped pair.
+      (:add!,       add!(similar_field(u, Val(1)), u, v, w), ref_add(ref_add(du, field_data(v)), field_data(w))),
+      (:map!,       field_data(map!((x, y) -> x - 2y, similar_field(u, Val(1)), u, v)),
+                    du .- 2 .* field_data(v)),
       (:subtract!,  subtract!(similar_field(u, Val(1)), u, v), ref_subtract(du, field_data(v))),
       (:multiply!,  multiply!(similar_field(u, Val(1)), u, α), ref_scale(du, α)),
       (:divide!,    divide!(similar_field(u, Val(1)), u, α), ref_divide(du, α)),
@@ -115,6 +123,16 @@ function run_value_lane(configs)
       (:inner,      inner(s, s2),             ref_inner(ds, field_data(s2), 0)),
       (:inner,      inner(u, v),              ref_inner(du, field_data(v), 1)),
       (:inner,      inner(A, B),              ref_inner(dA, field_data(B), 2)),
+      # The TENSOR-TENSOR product against its own definition. Its only previous exercise was
+      # `det(AB) = det(A)det(B)`, which the determinant's multiplicativity and transpose-invariance make
+      # equally true of `BA`, `AᵀB` and `ABᵀ` — blind to exactly the confusion it looks like it tests.
+      (:mul!,       field_data(mul!(similar_field(A, Val(2)), A, B)), ref_matmul(dA, field_data(B))),
+      # A SIGNED scalar. Every field reaching the norm family was `rand` on [0,1), so a scalar-specialized
+      # path that dropped the absolute value — returning `f` where it owes `|f|` — was correct on every
+      # value the suite ever supplied.
+      (:l2norm,     l2norm(signed),           ref_l2norm(field_data(signed), 0)),
+      (:lpnorm,     lpnorm(signed, 1),        ref_lpnorm(field_data(signed), 1, 0)),
+      (:lpnorm,     lpnorm(signed, Inf),      ref_lpnorm(field_data(signed), Inf, 0)),
       (:l2norm,     l2norm(u),                ref_l2norm(du, 1)),
       (:l2norm,     l2norm(A),                ref_l2norm(dA, 2)),
       (:lpnorm,     lpnorm(u, 1),             ref_lpnorm(du, 1, 1)),
@@ -196,6 +214,12 @@ function run_value_lane(configs)
     raw_values = rand(T, 9)
     points = PointSet(copy(raw_coordinates))
     q = ScalarPointValues(copy(raw_values))
+    # Overlapping stencils, and points the periodic wrap must bring back into the box.
+    clustered = PointSet(reshape(collect(grid.origin), 1, 3) .+
+                         [grid.grid_spacing[d] * (0.5 + T(1)/1000 * p) for p in 1:9, d in 1:3])
+    outside = PointSet(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3))
+    raw_values2 = rand(T, 9)
+    q2 = ScalarPointValues(copy(raw_values2))
     cutoff = T(3)
     spectral_comparisons = (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
@@ -257,8 +281,26 @@ function run_value_lane(configs)
                         ref_interpolate_catmull_rom(ds, grid, point_coordinates(points), 0)),
       (:anterpolate!,   field_data(anterpolate!(similar_field(s, Val(0)), points, q, CatmullRom)),
                         ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(points), 0)),
+      # THE GEOMETRIES THE TRANSFER EXISTS TO HANDLE, and a non-scalar fiber. Every point set compared
+      # against these references was i.i.d. uniform strictly inside the box, at R = 0 — so an
+      # accumulation defect in the scatter where stencils OVERLAP (last-write-wins instead of add), a
+      # wrap defect for a point outside the box, and a fiber-component swap during gather were all
+      # unobservable. The geometries exist in `pointset_pool` but reached only an `isfinite` check.
+      (:interpolate,    point_values(interpolate(u, points, CatmullRom)),
+                        ref_interpolate_catmull_rom(du, grid, point_coordinates(points), 1)),
+      (:interpolate,    point_values(interpolate(s, clustered, CatmullRom)),
+                        ref_interpolate_catmull_rom(ds, grid, point_coordinates(clustered), 0)),
+      (:anterpolate,    field_data(anterpolate(grid, clustered, q, CatmullRom)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(clustered), 0)),
+      (:anterpolate,    field_data(anterpolate(grid, outside, q, CatmullRom)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(outside), 0)),
       # ── the spectral operators and their in-place twins ───────────────────────────────────────
       (:gradient,       field_data(gradient(sh, multipliers)),  ref_gradient(field_data(sh), grid, layout)),
+      # The JACOBIAN mode, with its index convention actually pinned. `gradient(vector)` was exercised
+      # only through `symmetric_gradient = sym(gradient(u))`, and `sym(M) = sym(Mᵀ)` erases a transposed
+      # fiber-index pair before the comparison sees it.
+      (:gradient,       field_data(gradient(uh, multipliers)),
+                        ref_gradient_jacobian(field_data(uh), grid, layout)),
       (:gradient!,      field_data(gradient!(similar_field(spectral_zero, Val(1)), sh, multipliers)),
                                                                 ref_gradient(field_data(sh), grid, layout)),
       (:laplacian,      field_data(laplacian(sh, multipliers)), ref_laplacian(field_data(sh), grid, layout)),
@@ -317,6 +359,10 @@ function run_value_lane(configs)
       # Against the RAW matrices the objects were constructed from, not against themselves. Comparing
       # `point_coordinates(points)` with itself passes for a transposed, zeroed or permuted result.
       (:point_coordinates,   point_coordinates(points),         raw_coordinates),
+      # The COUNTING-MEASURE inner, against a raw sum. Its only anchor was the adjointness relation
+      # `M⟨Wf,q⟩ = N⟨f,Wᵀq⟩`, where it appears on one side in company with three other operations — so
+      # its own `1/M` normalization was never checked directly against an array.
+      (:inner,               inner(q, q2),                      sum(raw_values .* raw_values2) / 9),
       (:point_values,        point_values(q),                   raw_values),
       # Derived independently, the way `ref_dft_forward` derives it: the folded axis keeps its
       # non-negative frequencies, every other axis its full extent. Comparing `Val(1)` against the
