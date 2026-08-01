@@ -64,21 +64,19 @@ xshape(c::Config, R, cplx) =
 # The aliasing axis is therefore fully enumerable rather than merely sampled: two sections can share
 # storage only by being backed by the same array, which is `plain ← plain`.
 const POOL_NAMES = ("plain", "plain2", "same-object")
-const REFUSED_NAMES = ("view offset", "view full", "reshape(view) offset")
 
 function build_pool(c::Config, R, cplx)
   shape = xshape(c, R, cplx)
   T = cplx ? Complex{c.eltype} : c.eltype
-  parent_shape = (shape[1] + 1, shape[2:end]...)
-  P, Q = rand(T, parent_shape...), rand(T, parent_shape...)
   wrap(data) = cplx ?
     (R == 0 ? ScalarFieldSpectral(data, c.grid, c.layout) :
      R == 1 ? VectorFieldSpectral(data, c.grid, c.layout) : TensorFieldSpectral{2}(data, c.grid, c.layout)) :
     (R == 0 ? ScalarFieldPhysical(data, c.grid, c.layout) :
      R == 1 ? VectorFieldPhysical(data, c.grid, c.layout) : TensorFieldPhysical{2}(data, c.grid, c.layout))
+  # No parent scaffolding: decision 59 removed the view entries those parents existed for, and the
+  # per-combination restore of them was a no-op copied twice per case for 96 configurations.
   shared = wrap(rand(T, shape...))
-  entries = [wrap(rand(T, shape...)), wrap(rand(T, shape...)), shared]
-  return (entries = entries, parents = (P, Q), pristine = (copy(P), copy(Q)), wrap = wrap, shared = shared)
+  return (entries = [wrap(rand(T, shape...)), wrap(rand(T, shape...)), shared], wrap = wrap)
 end
 
 
@@ -94,10 +92,6 @@ function aliasing_failures(c::Config, orders, complexvalued, operation!)
   slots = [pools[R].entries for R in orders]
   failures = String[]
   for combination in Iterators.product((eachindex(s) for s in slots)...)
-    for R in distinct_orders                       # every case starts from the same parent state
-      copyto!(pools[R].parents[1], pools[R].pristine[1])
-      copyto!(pools[R].parents[2], pools[R].pristine[2])
-    end
     arguments = [slots[i][combination[i]] for i in eachindex(slots)]
     values = [Array(field_data(a)) for a in arguments]
     reference = [pools[orders[i]].wrap(copy(values[i])) for i in eachindex(arguments)]

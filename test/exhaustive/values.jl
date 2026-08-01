@@ -51,6 +51,8 @@ function run_value_lane(configs)
   covered = Set{Symbol}()
 
   for config in configs
+    entry_cutoff = threading_cutoff()
+    set_threading_cutoff!(config.threaded ? 1 : typemax(Int))
     T, grid, layout = config.eltype, config.grid, config.layout
     # The seed axis is part of the configuration, and a lane that draws from the global RNG makes its
     # own failure labels lie: the cell says seed815 while the data came from wherever the stream was.
@@ -370,6 +372,7 @@ function run_value_lane(configs)
       agreed && continue
       Base.push!(disagreements, "$(name) [$(config.name)]")
     end
+    set_threading_cutoff!(entry_cutoff)
   end
 
   # The guard that keeps this lane honest against a derived denominator: every public operation with no

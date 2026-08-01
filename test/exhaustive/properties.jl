@@ -19,16 +19,18 @@ using Random
 # A workbench of compatible sections for one configuration, built once per lane.
 function _bench(config)
   T, grid, layout = config.eltype, config.grid, config.layout
+  # The configuration's thread setting applies to the fixtures every lane built from this workbench.
+  set_threading_cutoff!(config.threaded ? 1 : typemax(Int))
   Random.seed!(config.seed)          # the configuration's seed, not the global stream's position
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
-  spectral(R) = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.spectral_field_shape(grid, layout, Val(0))...),
-                                    grid, layout)
+  spectral() = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.spectral_field_shape(grid, layout, Val(0))...),
+                                   grid, layout)
   s = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
   u = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid, layout)
   v = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid, layout)
   A = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid, layout)
   B = TensorFieldPhysical{2}(rand(T, P(2)...) .- T(1) / 2, grid, layout)
-  z = spectral(0)
+  z = spectral()
   plans0 = FieldTransformPlans(s, z)
   plans1 = FieldTransformPlans(u, similar_field(z, Val(1)))
   plans2 = FieldTransformPlans(A, similar_field(z, Val(2)))

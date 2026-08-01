@@ -315,7 +315,10 @@ function _test_files()
   # number describing the suite as it was two commits earlier.
   exhaustive = joinpath(root, "exhaustive")
   isdir(exhaustive) && for entry in sort(readdir(exhaustive; join = true))
-    endswith(entry, ".jl") && !endswith(entry, "runtests.jl") && push!(files, entry)
+    # `runtests.jl` INCLUDED: it holds the aliasing lane's operation table and the reference lane's
+    # comparison table, and neither lane calls `record_coverage!`, so excluding it made both invisible
+    # to attribution by either route.
+    endswith(entry, ".jl") && push!(files, entry)
   end
   return files
 end

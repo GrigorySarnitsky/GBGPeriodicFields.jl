@@ -17,6 +17,7 @@ using GBGPeriodicFields
 using Statistics
 using LinearAlgebra
 using Random
+using InteractiveUtils
 
 # The persistence pair lives in a weak-dependency extension, so without this the four HDF5 operations
 # own no method and the suite reports them as unreachable rather than testing them.
@@ -75,7 +76,28 @@ const GBGI = GBGPeriodicFields
 # unasserted after they were implemented, describing the suite as it was two commits earlier. A lane
 # that knows what it checked can simply say so, and that is a derivation rather than a guess.
 const LANE_COVERAGE = Set{Tuple{Symbol, Symbol}}()
-record_coverage!(operation::Symbol, kind::Symbol) = push!(LANE_COVERAGE, (operation, kind))
+
+# `⋅`, `×` and `⋆` are exported bindings of `dot`, `cross` and `convolve`. `package_operations()`
+# carries both spellings, but every lane records coverage under `nameof(f)` — which returns the target
+# name — so the glyph names could never be credited and read as permanent, uncloseable gaps. Crediting
+# every binding of the same function object fixes the ledger without shrinking the domain.
+const _ALIAS_NAMES = let map = Dict{Symbol, Vector{Symbol}}()
+  for name in names(GBGPeriodicFields)
+    isdefined(GBGPeriodicFields, name) || continue
+    f = getfield(GBGPeriodicFields, name)
+    f isa Function || continue
+    Base.push!(get!(map, nameof(f), Symbol[]), name)
+  end
+  map
+end
+
+function record_coverage!(operation::Symbol, kind::Symbol)
+  push!(LANE_COVERAGE, (operation, kind))
+  for alias in get(_ALIAS_NAMES, operation, Symbol[])
+    push!(LANE_COVERAGE, (alias, kind))
+  end
+  return nothing
+end
 
 
 # ── The canonical pool ──────────────────────────────────────────────────────────────────────────
@@ -92,6 +114,30 @@ close_pool_handles!() = (foreach(h -> (try close(h) catch end), OPEN_HDF5_HANDLE
 struct PoolEntry
   label::String
   object::Any
+end
+
+
+_concrete_subtypes(T) = isabstracttype(T) ?
+  reduce(vcat, (_concrete_subtypes(S) for S in InteractiveUtils.subtypes(T)); init = Type[]) : Type[T]
+
+"""
+    _pool_class_gaps(entries) -> Vector{Symbol}
+
+Concrete kernel and transfer-scheme classes with no representative in the pool.
+
+The pools cannot be derived — building a kernel needs constructor arguments — so they stay literal and
+this audits them against `subtypes`, which is what DESIGN.md claimed was happening and what a comment
+in this file claimed was "checked below". A new class is now reported, not silently unswept.
+"""
+function _pool_class_gaps(entries)
+  present = Set(nameof(typeof(e.object)) for e in entries)
+  wanted = Symbol[]
+  for root in (GBGI.Convolution.AbstractSpectralKernel, GBGI.Interpolation.AbstractTransferScheme)
+    for T in _concrete_subtypes(root)
+      nameof(T) in present || Base.push!(wanted, nameof(T))
+    end
+  end
+  return wanted
 end
 
 function canonical_pool(config; device = identity)
@@ -155,6 +201,12 @@ function canonical_pool(config; device = identity)
   push("scheme: Lagrange1",  LagrangeSpline(1))
   push("scheme: DirectDFT",  DirectDFT())
   push("scheme: NUFFT",      NUFFT(spectral[1]))
+  # THE GUARD THE COMMENT PROMISED. DESIGN.md claims these two pools are derived by `subtypes(...)`;
+  # they are literals, and `subtypes(` appeared nowhere. Deriving them outright is not possible (a
+  # kernel needs constructor arguments), so the literals stay and the derived set audits them: a new
+  # concrete class with no pool entry is reported instead of silently unswept. Note `subtypes` is not
+  # recursive, so the scheme check descends one level through `AbstractSplineScheme`.
+  Base.push!(entries, PoolEntry("__pool_audit__", _pool_class_gaps(entries)))
   # Scalars, fibers and maps.
   push("real α",  T(0.3))
   push("real β",  T(0.7))
@@ -241,6 +293,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
   built = NamedTuple[]
   dropped = 0
   oversized = 0
+  unfillable = 0
   for method in methods(operation)
     _owned_by_package(method) || continue
     signature = Base.unwrap_unionall(method.sig)
@@ -288,7 +341,13 @@ function invocations(operation::Function, pool; cap::Int = 400)
       continue
     end
     slots = [[e for e in pool if _slot_admits(p, e.object)] for p in parameters]
-    any(isempty, slots) && continue
+    # Counted, not silently dropped. A method with an unfillable slot vanished with no counter at all —
+    # neither `dropped` nor `oversized` — which is how a whole method form leaves a sweep that claims
+    # completeness. The operation still reports as built when another of its methods succeeds.
+    if any(isempty, slots)
+      unfillable += 1
+      continue
+    end
     total = prod(length.(slots))
     total > cap && (dropped += total - cap)
     count = 0
@@ -304,7 +363,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
                          entries = collect(combination)))
     end
   end
-  return (built = built, dropped = dropped, oversized = oversized)
+  return (built = built, dropped = dropped, oversized = oversized, unfillable = unfillable)
 end
 
 
@@ -318,7 +377,10 @@ testing, so it is named. That number is the suite's honest coverage of its own o
 """
 function all_invocations(pool; cap::Int = 400)
   operations = sort(collect(package_operations()); by = String)
-  built, unbuildable, dropped, oversized = NamedTuple[], Symbol[], 0, 0
+  # One pass per FUNCTION OBJECT. `:⋅` and `:dot` resolve to the same function, so iterating names ran
+  # the entire invocation product twice for each of the three alias pairs.
+  swept = Base.IdSet{Any}()
+  built, unbuildable, dropped, oversized, unfillable = NamedTuple[], Symbol[], 0, 0, 0
   for name in operations
     f = nothing
     for mod in (GBGPeriodicFields, Base, Statistics, LinearAlgebra, PACKAGE_MODULES...)
@@ -330,11 +392,16 @@ function all_invocations(pool; cap::Int = 400)
       Base.push!(unbuildable, name)
       continue
     end
+    if f in swept
+      continue
+    end
+    Base.push!(swept, f)
     result = invocations(f, pool; cap = cap)
     dropped += result.dropped
     oversized += result.oversized
+    unfillable += result.unfillable
     isempty(result.built) ? Base.push!(unbuildable, name) : append!(built, result.built)
   end
   return (built = built, unbuildable = unbuildable, dropped = dropped, oversized = oversized,
-          operations = operations)
+          unfillable = unfillable, operations = operations)
 end

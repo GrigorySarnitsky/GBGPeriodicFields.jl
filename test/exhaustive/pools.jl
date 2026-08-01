@@ -387,8 +387,15 @@ unreached_axes() =
 # rule, an axis that must be sampled is declared sampled and reported as a limitation — it is NOT
 # presented as derived, which is the mistake this file exists to correct.
 
+# CROSSED, not merely declared. These two constants sat here unreferenced while DESIGN.md listed them
+# as pool axes — the harness's own configuration described as coverage. `pointset_pool` is what the
+# lanes now draw from, so `M = 0`, `M = 1`, on-node, clustered and outside-the-box points reach a cell.
 const POINTSET_COUNT_VALUES = (0, 1, 32)                                          # derived
 const POINTSET_GEOMETRY_VALUES = (:uniform, :on_node, :clustered, :outside_box)    # declared-sampled
+
+pointset_pool(grid = CANONICAL_GRID) =
+  [("M=$(n)/$(geometry)", build_pointset(n, geometry, grid))
+   for n in POINTSET_COUNT_VALUES, geometry in POINTSET_GEOMETRY_VALUES] |> vec
 
 """
     run_mismatch_lane() -> (findings, cells)
@@ -424,6 +431,9 @@ function run_mismatch_lane()
   vector = _vector_spectral(Float64, grid, layout)
   multipliers = FieldSpectralMultipliers(scalar)
   points = build_pointset(8, :uniform, grid)
+  # The declared point-set axes, actually swept: every count boundary against every geometry, checked
+  # for the property that a transfer verb either works or refuses — never returns a wrong answer.
+  pointset_cases = pointset_pool(grid)
   physical = ScalarFieldPhysical(rand(grid.grid_size...), grid, layout)
   values = ScalarPointValues(zeros(8))
   kernel = spectral_cutoff(scalar, multipliers, 3.0)
@@ -559,6 +569,31 @@ function run_mismatch_lane()
     end
   end
 
+  # The point-set axes. `M = 0`, `M = 1`, on-node, clustered and outside-the-box were declared in the
+  # design table and swept nowhere; `build_pointset`'s three non-uniform branches were unreachable code.
+  pointset_accepted = String[]
+  for (label, candidate) in pointset_cases
+    for (verb, call) in (("interpolate", () -> interpolate(physical, candidate, CatmullRom)),
+                         ("anterpolate", () -> anterpolate(grid, candidate,
+                                                           ScalarPointValues(zeros(npoints(candidate))),
+                                                           CatmullRom)))
+      cells += 1
+      outcome = try
+        result = call()
+        all(isfinite, Array(field_data(result))) ? :ok : :nonfinite
+      catch exception
+        exception isa ArgumentError || exception isa DimensionMismatch ||
+        exception isa BoundsError ? :refused : nameof(typeof(exception))
+      end
+      outcome in (:ok, :refused) ||
+        Base.push!(pointset_accepted, "$(verb) on $(label): $(outcome)")
+    end
+  end
+  if !isempty(pointset_accepted)
+    println("\n  POINT-SET AXIS — ", length(pointset_accepted), " cells neither computed nor refused:")
+    for entry in pointset_accepted; println("      ", entry); end
+  end
+
   println("\n  ", cells, " (entry point × constrained axis) cells swept")
   println("  ", skipped, " NOT APPLICABLE — the operation does not constrain that axis, so passing a")
   println("      differing object is a legal call rather than a mismatch")
@@ -578,7 +613,7 @@ function run_mismatch_lane()
     for b in contract_breaches; println("      ", b); end
   end
   return (length(accepted) + length(unreached) + length(contract_breaches) +
-          length(unique(lane_errors)), cells)
+          length(unique(lane_errors)) + length(pointset_accepted), cells)
 end
 
 

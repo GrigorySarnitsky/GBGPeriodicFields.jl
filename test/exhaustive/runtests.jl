@@ -243,7 +243,10 @@ function run_surface_lane()
   # coverage turned 39 unexercised operations into 24 and is the same over-credit the ledger's own
   # attribution warns about. Even so this number is optimistic: it counts a MENTION, so an operation
   # appearing only in a comment reads as exercised.
-  for file in ("runtests.jl", "pools.jl", "references.jl", "aliasing.jl")
+  # `values.jl` and `properties.jl` are the largest hand-written tables in the suite; omitting them
+  # made the printed "covered only by the engine" list wrong for ~112 operations.
+  for file in ("runtests.jl", "pools.jl", "references.jl", "aliasing.jl", "values.jl", "properties.jl",
+               "sequences.jl")
     path = joinpath(@__DIR__, file)
     isfile(path) || continue
     text = read(path, String)
@@ -268,7 +271,7 @@ function run_surface_lane()
       println("      ", join(String.(chunk), ", "))
     end
   end
-  return 0
+  return length(absent)
 end
 
 
@@ -276,17 +279,20 @@ selfcheck_failures = run_selfcheck_lane(first(configurations()))
 println()
 unswept = run_surface_lane()
 println()
-invocation_findings, invocation_quality, invocation_cells, unbuilt = run_invocation_lane(configurations())
+invocation_findings, invocation_quality, invocation_cells, unbuilt, harness_errors = run_invocation_lane(configurations())
 println()
-value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
-println()
+
 relation_findings, relation_cells = run_relations_lane(configurations())
 println()
 property_findings, property_cells = run_property_lanes(configurations())
 println()
 sequence_findings, sequence_cells = run_sequence_lane(configurations())
 println()
+# BEFORE the value lane, which uses these same references as its oracle. Running the validation eight
+# lanes later contradicted the design's own rule that a reference is cross-validated before use.
 disagreeing = run_reference_lane()
+println()
+value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
 println()
 affected, unexplained, cases = run_aliasing_lane()
 println()
@@ -297,7 +303,10 @@ close_pool_handles!()          # written in round one and never called: ~100 han
 println()
 
 println("═"^100)
-println("REPORT — ", cases + mismatch_cells + ledger_cells, " cells over five lanes")
+# Every lane, not three of them. The old sum omitted the invocation, value, relation, property and
+# sequence counts entirely while presenting itself as the suite's total.
+println("REPORT — ", cases + mismatch_cells + ledger_cells + invocation_cells + value_cells +
+                     relation_cells + property_cells + sequence_cells, " cells over nine lanes")
 println("═"^100)
 # Printed from the MEASUREMENT, not as a sentence. `unbuilt` was bound and never read, so this row
 # asserted the conclusion regardless of what the engine found.
@@ -329,7 +338,11 @@ println("  admits has not been asked of that operation. The exit status is drive
 println("  assert behaviour, so a survey number can grow without turning the report red.")
 
 # A harness problem outranks everything: if a check cannot fire, its clean cells are not evidence.
-exit(selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 ||
+# A harness error is not a clean cell: a configuration in which every call throws printed "0 findings"
+# with a separate tally that reached neither the summary nor the exit code.
+harness_errors == 0 ||
+  println("\n  ", harness_errors, " cells failed inside the HARNESS — not package findings, gaps in the sweep")
+exit(harness_errors > 0 || selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 ||
      relation_findings > 0 || property_findings > 0 || sequence_findings > 0 || unexplained > 0 || mismatch_findings > 0 ||
      ledger_violations > 0 || invocation_findings > 0 ? 2 :
      (affected > 0 || invocation_quality > 0 ? 1 : 0))

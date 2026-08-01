@@ -31,6 +31,30 @@ using LinearAlgebra
 # package's fault — and the sweep becomes order-dependent, which is the one thing a survey may not be.
 # Refreshing per invocation also makes each cell independent, so a finding names a call rather than a
 # history.
+# Every array reachable from an object by walking its stored fields.
+#
+# This is what makes the harness see kernels, plans and multipliers at all. `_snapshot` and `_refresh`
+# previously handled only sections, `PointSet` and bare arrays and returned `nothing` for everything
+# else — and `_unchanged` treats `nothing` as unchanged. So a `SeparableKernel`, a
+# `FieldSpectralMultipliers`, a `FieldTransformPlans` or a `Broadcasted` was never watched for
+# mutation, never refreshed between invocations, and never compared for determinism. That is not
+# hypothetical: `translation_kernel!` mutates a `SeparableKernel` in place, the engine builds it from
+# the shared pool, and the rewritten kernel was then read by every later cell in that configuration.
+function _array_leaves(x, found = Any[], seen = Base.IdSet{Any}())
+  x === nothing && return found
+  x in seen && return found
+  x isa AbstractArray && return (Base.push!(found, x); found)
+  (x isa Number || x isa Symbol || x isa AbstractString || x isa Type || x isa Function) && return found
+  isstructtype(typeof(x)) || return found
+  Base.push!(seen, x)
+  for name in fieldnames(typeof(x))
+    isdefined(x, name) || continue
+    _array_leaves(getfield(x, name), found, seen)
+  end
+  return found
+end
+
+
 function _refresh(x)
   if x isa GBGI.Fields.AbstractField
     fresh = similar_field(x, Val(field_tensor_order(x)))
@@ -45,6 +69,12 @@ function _refresh(x)
   end
   x isa PointSet && return PointSet(copy(point_coordinates(x)))
   x isa AbstractArray && return copy(x)
+  # Anything else that OWNS arrays — a kernel, a multipliers object — is deep-copied so an in-place
+  # operation cannot reach the shared pool through it. Plans are excluded: they wrap FFTW plan objects
+  # that do not survive `deepcopy`, and they are covered by the sequence lane's plan-reuse check.
+  if !(x isa FieldTransformPlans) && !isempty(_array_leaves(x))
+    return try deepcopy(x) catch; x end
+  end
   return x
 end
 
@@ -54,13 +84,22 @@ function _snapshot(x)
   x isa GBGI.FiberSections.AbstractFiberSection && return copy(Array(field_data(x)))
   x isa PointSet && return copy(Array(point_coordinates(x)))
   x isa AbstractArray && return copy(Array(x))
-  return nothing
+  # Everything else by its array leaves, so a kernel's per-axis factors and a multipliers object's
+  # wavenumber arrays are watched too.
+  leaves = _array_leaves(x)
+  isempty(leaves) && return nothing
+  return [copy(Array(leaf)) for leaf in leaves]
 end
 
-_unchanged(before, after) = before === nothing || after === nothing || before == after
+# `isequal`, not `==`: the determinism branches were fixed for this NaN trap and the mutation check
+# was left behind, so a NaN surviving a call unchanged read as "modified".
+_unchanged(before, after) = before === nothing || after === nothing || isequal(before, after)
 
 _finite(x) =
   x isa Number                          ? isfinite(x) :
+  (!(x isa AbstractArray) && !(x isa Tuple) &&
+   !(x isa GBGI.FiberSections.AbstractFiberSection) &&
+   !isempty(_array_leaves(x)))          ? all(l -> all(isfinite, Array(l)), _array_leaves(x)) :
   x isa AbstractArray                   ? all(isfinite, x) :
   x isa GBGI.FiberSections.AbstractFiberSection ? all(isfinite, Array(field_data(x))) :
   x isa Tuple                           ? all(_finite, x) : true
@@ -134,7 +173,10 @@ end
 # buries every other finding in the report.
 function _shorten(T)
   text = string(T)
-  return length(text) <= 110 ? text : text[1:107] * "..."
+  # Character-indexed. `text` is an inferred type name and routinely contains `⋆`, `×`, `⋅` or Unicode
+  # type parameters; byte-slicing at 107 throws `StringIndexError` mid-message, and the throw happens
+  # inside the per-cell handler, so the FINDING is lost and reappears as an anonymous lane error.
+  return length(text) <= 110 ? text : String(first(text, 107)) * "..."
 end
 
 # Inference is the expensive part of the sweep, and the same (operation, argument types) pair recurs
@@ -230,9 +272,27 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    # Repeating a call must reproduce it bitwise. The atomic accumulators are the documented exception
    # — a nondeterministic summation order costs `anterpolate!` 2-3 ulp — so they are compared to a
    # tolerance instead of excluded, which still catches a real divergence.
-   if !_is_inplace(invocation) && !_returns_uninitialized(invocation)
+   if !_returns_uninitialized(invocation)
      count!(:determinism)
-     repeat = try invocation.operation(arguments...) catch; nothing end
+     # In-place forms too. Gating this on `!_is_inplace` excluded `anterpolate!` — the Atomix scatter
+     # whose nondeterministic summation order is the entire reason the tolerance branch and the
+     # depth-4 atomic detection exist. For an in-place call the comparable result is the DESTINATION
+     # after a second run from identically refreshed arguments.
+     repeat = if _is_inplace(invocation)
+       second = Any[]
+       local_seen = IdDict()
+       for original in invocation.arguments
+         Base.push!(second, get!(() -> _refresh(original), local_seen, original))
+       end
+       try
+         invocation.operation(second...)
+         second[_destination_index(invocation.operation, second)]
+       catch
+         nothing
+       end
+     else
+       try invocation.operation(arguments...) catch; nothing end
+     end
      if repeat !== nothing
        # Bitwise on CPU, where the package guarantees it. A DEVICE reduction is not bitwise
        # reproducible across launches — measured at 1 ulp for the R=2 `inner`, which is the parallel
@@ -241,7 +301,9 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        atomic = occursin("anterpolate", invocation.label) || occursin("radial", invocation.label)
        exact = bitwise_determinism && !atomic
        same = try
-         a, b = _comparable(result), _comparable(repeat)
+         first_result = _is_inplace(invocation) ?
+           arguments[_destination_index(invocation.operation, arguments)] : result
+         a, b = _comparable(first_result), _comparable(repeat)
          # `isequal`, not `==`: NaN != NaN, so any call that legitimately produces a NaN reported
          # itself as non-reproducible. `isequal` is the bitwise question actually being asked.
          # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
@@ -327,13 +389,17 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   set_fft_threads!(entry_fft_threads)
   return (findings = findings, attempted = attempted, live = live, lane_errors = lane_errors,
           built = length(work.built), unbuildable = work.unbuildable,
-          dropped = work.dropped, operations = length(work.operations),
+          dropped = work.dropped, oversized = work.oversized, unfillable = work.unfillable,
+          operations = length(work.operations),
           configuration = configuration_name)
 end
 
 
 _comparable(x) =
   x isa Number                                  ? x :
+  (!(x isa AbstractArray) && !(x isa Tuple) &&
+   !(x isa GBGI.FiberSections.AbstractFiberSection) &&
+   !isempty(_array_leaves(x)))                  ? [copy(Array(l)) for l in _array_leaves(x)] :
   x isa GBGI.FiberSections.AbstractFiberSection ? Array(field_data(x)) :
   x isa AbstractArray                           ? Array(x) :
   x isa Tuple                                   ? map(_comparable, x) : nothing
@@ -361,7 +427,7 @@ function run_invocation_lane(configs)
 
   totals = Dict{Symbol, Vector{String}}()
   attempted = Dict{Symbol, Int}()
-  built = live = dropped = 0
+  built = live = dropped = oversized = unfillable = 0
   lane_errors = Dict{String, Int}()
   unbuildable = Symbol[]
   operations = 0
@@ -373,11 +439,22 @@ function run_invocation_lane(configs)
               ": ", nameof(typeof(exception)))
       continue
     end
-    result = run_check_lanes(pool; configuration_name = "$(config.name)/$(backend_name)",
-                             bitwise_determinism = backend_name == "cpu")
+    # The configuration's OWN thread setting. `config.threaded` was consulted by one lane of eleven, so
+    # for this lane — and the value, relation and sequence lanes — half of the 96 configurations was
+    # byte-identical work presented as a crossed axis.
+    entry = threading_cutoff()
+    set_threading_cutoff!(config.threaded ? 1 : typemax(Int))
+    result = try
+      run_check_lanes(pool; configuration_name = "$(config.name)/$(backend_name)",
+                      bitwise_determinism = backend_name == "cpu")
+    finally
+      set_threading_cutoff!(entry)
+    end
     built += result.built
     live += result.live
     dropped += result.dropped
+    oversized += result.oversized
+    unfillable += result.unfillable
     operations = result.operations
     # Accumulated, not overwritten: assigning per configuration left the printed NOT REACHED list
     # showing only whatever the last configuration happened to fail on.
@@ -400,6 +477,12 @@ function run_invocation_lane(configs)
           live, " returned a value and were checked")
   dropped == 0 ||
     println("  ", dropped, " argument combinations dropped by the per-method cap — this lane is SAMPLED there")
+  # Both silent drops, now printed. `oversized` was returned and never read; `unfillable` had no
+  # counter at all. Either can remove a whole public method form from a sweep that reports complete.
+  oversized == 0 ||
+    println("  ", oversized, " methods NOT REACHED — more than 9 positional parameters")
+  unfillable == 0 ||
+    println("  ", unfillable, " methods NOT REACHED — a parameter slot no pool object can fill")
 
   if !isempty(lane_errors)
     println("\n  THE LANE ITSELF FAILED ON SOME CELLS — not package findings, gaps in this sweep:")
@@ -437,5 +520,5 @@ function run_invocation_lane(configs)
       length(unique_messages) > 12 && println("      … (+", length(unique_messages) - 12, " more)")
     end
   end
-  return (total, quality, built, length(unbuildable))
+  return (total, quality, built, length(unbuildable), sum(values(lane_errors); init = 0))
 end
