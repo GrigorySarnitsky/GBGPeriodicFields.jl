@@ -169,12 +169,32 @@ _returns_uninitialized(invocation) = nameof(invocation.operation) in UNINITIALIZ
 # Division by the pool's zero is arithmetic, not a defect — the same class as the exponential kernel's
 # overflow. `/` and `divide!` join the list now that a zero is in the pool so invariant 10's overwrite
 # branch is reachable; naming only the verb "divide" missed the operator and produced 960 cells.
-const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!, :/, :divide!)
+const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!, :/, :divide!,
+                          # `radial_kernel` stores a user-supplied symbol LAZILY and evaluates nothing
+                          # at construction, so the finiteness of its result is not defined until the
+                          # kernel is applied — and the symbol is a caller's arbitrary real function,
+                          # free to be unbounded. Its σ slot is untyped, so the engine also fills it
+                          # with objects that are not callable at all; the resulting kernel carries
+                          # their uninitialized scratch, which reads as non-finite at random.
+                          # The package question this raises — whether the constructor should reject a
+                          # non-callable symbol instead of deferring the failure to use — is a package
+                          # finding, recorded rather than fixed here.
+                          :radial_kernel)
+
+# Operations allowed to return a non-finite value from finite input, because they divide by something
+# the pool is permitted to make zero: the inverse Laplacian's zero mode, division, and kernel inversion.
+# EXACT names. As a substring test, `"inv"` matched — and so exempted — anything merely containing it.
+const FINITENESS_EXEMPT = (:inverse_laplacian, :inverse_laplacian!, :divide, :divide!, :/, :inv)
 
 # Operations whose second identical call cannot succeed because the FIRST changed external state:
-# `create_group` throws on a duplicate name, and the pool holds one name and one shared handle. The
-# repeat therefore threw, the comparison was skipped, and the cell was counted as checked anyway.
-const EXTERNAL_EFFECT = (:write_field, :write_points)
+# writing into an HDF5 file throws on a duplicate name, and the pool holds one name and one shared
+# handle. The repeat therefore threw, the comparison was skipped, and the cell was counted as checked
+# anyway.
+# The comment here named `create_group` while the tuple did not contain it, and `setindex!` — the
+# dataset write that IS in the pool — was missing from both. Recording a throwing second call as a
+# finding rather than discarding it is what surfaced that: it is a genuine external effect, not a
+# reproducibility defect, and this list is where that is declared.
+const EXTERNAL_EFFECT = (:write_field, :write_points, :create_group, :setindex!)
 _has_external_effect(invocation) = nameof(invocation.operation) in EXTERNAL_EFFECT
 _unbounded_output(invocation) = nameof(invocation.operation) in UNBOUNDED_OUTPUT
 
@@ -264,14 +284,20 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    end
 
    # ── structural ──────────────────────────────────────────────────────────────────────────────
-   # Every pool value is finite, so a non-finite result was manufactured by the operation. Three
-   # exemptions ARE special-cased below — the inverse Laplacian's zero mode, and division and kernel
-   # inversion, both of which divide by a value the pool is allowed to make zero. An earlier version of
-   # this comment claimed the opposite of the code beneath it.
+   # Every pool value is finite, so a non-finite result was manufactured by the operation. The
+   # exemptions are the inverse Laplacian's zero mode, and division and kernel inversion, both of which
+   # divide by a value the pool is allowed to make zero. An earlier version of this comment claimed the
+   # opposite of the code beneath it.
+   #
+   # Matched by EXACT NAME, via `FINITENESS_EXEMPT`. It was `occursin("inv", label)`, which subsumes the
+   # `inverse_laplacian` clause beside it and exempts any operation whose name merely contains those
+   # three letters. Worth recording how long that survived: two consecutive commit messages announced
+   # this fix — the second one asserting it had been "verified in the file, not in the message" — while
+   # the line went untouched both times. A claim in a commit message is not a fix, and a reviewer
+   # diffing the hunks is what caught it.
    if !_returns_uninitialized(invocation) && !_unbounded_output(invocation)
      count!(:structural)
-     if !_finite(result) && !occursin("inverse_laplacian", invocation.label) &&
-        !occursin("divide", invocation.label) && !occursin("inv", invocation.label)
+     if !_finite(result) && !(nameof(invocation.operation) in FINITENESS_EXEMPT)
        record!(:structural, "$(invocation.label) returned a non-finite value from finite input")
      end
    end
@@ -320,11 +346,20 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        try
          invocation.operation(second...)
          second[_destination_index(invocation.operation, second)]
-       catch
-         nothing
+       catch exception
+         exception
        end
      else
-       try invocation.operation(arguments...) catch; nothing end
+       try invocation.operation(arguments...) catch exception; exception end
+     end
+     # A call that SUCCEEDED once and throws on an identical second call is the strongest reproducibility
+     # failure the lane can observe, and it was being discarded as "not applicable". The operations with a
+     # legitimate reason — an external effect the first call already performed — are excluded above.
+     if repeat isa Exception
+       count!(:determinism)
+       record!(:determinism, "$(invocation.label) succeeded once and then threw " *
+                             "$(nameof(typeof(repeat))) on an identical second call")
+       repeat = nothing
      end
      if repeat !== nothing
        # Counted HERE, once the repeat has succeeded and a comparison will actually happen. Counting
@@ -463,7 +498,7 @@ function run_invocation_lane(configs)
 
   totals = Dict{Symbol, Vector{String}}()
   attempted = Dict{Symbol, Int}()
-  built = live = dropped = oversized = unfillable = 0
+  built = live = dropped = oversized = unfillable = unbuilt_pools = 0
   lane_errors = Dict{String, Int}()
   unbuildable = Symbol[]
   operations = 0
@@ -471,6 +506,12 @@ function run_invocation_lane(configs)
     pool = try
       canonical_pool(config; device = device)
     catch exception
+      # COUNTED, not merely logged. This is the same silent-drop class already closed for `dropped`,
+      # `oversized` and `unfillable`, left open in the one place that removes a whole (configuration,
+      # backend) pair rather than a single method — and a mixed-backend pool failure is an anticipated
+      # risk here, not a theoretical one. Untallied, an arbitrary number of configurations could fall
+      # out of a sweep whose summary still reads complete.
+      unbuilt_pools += 1
       println("      NOT REACHED — could not build a ", backend_name, " pool for ", config.name,
               ": ", nameof(typeof(exception)))
       continue
@@ -508,10 +549,20 @@ function run_invocation_lane(configs)
 
   # The pool audit, actually surfaced. It has now been unwired twice — first pushed into the pool and
   # never read, then returned and never called — which is the same defect in two spellings.
-  class_gaps = try pool_class_gaps(first(configs)) catch; Symbol[] end
-  isempty(class_gaps) ||
+  # A THIRD spelling of the same silence: the wiring is present, but a throw returned the empty vector,
+  # which is indistinguishable from "the audit ran and found nothing." An audit that cannot run must say
+  # so, never print the all-clear.
+  class_gaps = try
+    pool_class_gaps(first(configs))
+  catch exception
+    println("\n  POOL CLASS AUDIT DID NOT RUN — it threw $(nameof(typeof(exception))); ",
+            "its silence below is not a pass")
+    nothing
+  end
+  if class_gaps !== nothing && !isempty(class_gaps)
     println("\n  POOL CLASS GAPS — concrete kernel/scheme classes with no pool entry: ",
             join(String.(class_gaps), ", "))
+  end
 
   println("\n  ", operations, " public operations · ", length(unbuildable), " with no buildable call")
   isempty(unbuildable) ||
@@ -526,6 +577,8 @@ function run_invocation_lane(configs)
     println("  ", oversized, " methods NOT REACHED — more than 9 positional parameters")
   unfillable == 0 ||
     println("  ", unfillable, " methods NOT REACHED — a parameter slot no pool object can fill")
+  unbuilt_pools == 0 ||
+    println("  ", unbuilt_pools, " (configuration, backend) pairs NOT REACHED — the pool would not build")
 
   if !isempty(lane_errors)
     println("\n  THE LANE ITSELF FAILED ON SOME CELLS — not package findings, gaps in this sweep:")
@@ -538,7 +591,12 @@ function run_invocation_lane(configs)
   for kind in (:preservation, :structural, :metadata, :determinism, :type_stability)
     n = get(attempted, kind, 0)
     failures = length(get(totals, kind, String[]))
+    # Zero cells is NOT RUN, never "clean" — the rule the property lanes already enforce and the one
+    # place in the suite that did not. Three of these five are counted conditionally (`:metadata` needs
+    # an allocating call returning a field sourced from a field argument), so a state where a condition
+    # never fires across the whole sweep would have printed the all-clear over an empty denominator.
     println("      ", rpad(String(kind), 16), lpad(n, 7), " cells   ",
+            n == 0 ? "NOT RUN — no cell was constructed for this check" :
             failures == 0 ? "clean" : "$(failures) FINDINGS")
   end
 

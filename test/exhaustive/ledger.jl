@@ -113,13 +113,21 @@ function operation_properties(name::Symbol)
   # checks that only make sense for an ordered result (sign, definiteness, bounds) from those that only
   # make sense for a section (realness, finiteness, zero pattern) — without either being declared.
   returns = Type[]
+  inference_failures = 0
   for m in ms
     try
       append!(returns, Base.return_types(f, Base.tuple_type_tail(Base.unwrap_unionall(m.sig))))
     catch
+      # COUNTED. `returns` drives whether the ordered-result and section-result checks are considered
+      # applicable at all, so a silently dropped method can mark a check inapplicable for an operation
+      # that needs it — and can manufacture a "the ledger and a lane disagree" guard violation out of an
+      # introspection gap rather than a real contradiction. The count travels with the row so the
+      # applicability verdict can be read against how complete the inference behind it was.
+      inference_failures += 1
     end
   end
   return (name        = name,
+          inference_failures = inference_failures,
           inplace     = endswith(text, "!"),
           returns_real    = any(R -> R <: Real, returns),
           returns_section = any(R -> R <: GBGL.FiberSections.AbstractFiberSection, returns),
@@ -584,6 +592,17 @@ function run_ledger_lane()
 
   if !isempty(unplaced)
     println("\n  CHECK TYPES WITH NO APPLICABILITY RULE — ", join(String.(unplaced), ", "))
+  end
+
+  # Inference gaps, surfaced. Every applicability verdict below rests on what `Base.return_types` could
+  # be told about an operation, so a row built from incomplete inference is a verdict with a weaker
+  # basis than the report otherwise implies.
+  shaky = [p.name for p in properties if p.inference_failures > 0]
+  if !isempty(shaky)
+    println("\n  APPLICABILITY RESTS ON INCOMPLETE INFERENCE — ", length(shaky), " operations: ",
+            join(String.(shaky[1:min(end, 18)]), ", "), length(shaky) > 18 ? ", …" : "")
+    println("      Inference threw on at least one method signature, so the returned-type facts driving")
+    println("      these rows' applicability are partial.")
   end
 
   if !isempty(excluded)

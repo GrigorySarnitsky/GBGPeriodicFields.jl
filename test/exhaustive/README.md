@@ -91,8 +91,9 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 ## Scale
 
 96 configurations — element type × 4 grid shapes (one odd on every axis) × 2 layout folds × thread
-setting × 3 seeds, including a shifted non-commensurate origin — in about **44 minutes**. The axis
-table, and what each axis crosses versus samples, is in [`DESIGN.md`](DESIGN.md).
+setting × 3 seeds, including a shifted non-commensurate origin — in about **67 minutes**, measured on
+this host rather than estimated. The axis table, and what each axis crosses versus samples, is in
+[`DESIGN.md`](DESIGN.md).
 
 `Pkg.test()` runs about six minutes for a few thousand assertions, which is the difference between a
 gate and a survey: this one buys orders of magnitude more combinations because most of its checks are

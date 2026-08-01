@@ -155,7 +155,11 @@ function run_selfcheck_lane(config)
   println("\n  THE SWEEP DOES NOT MUTATE THE SHARED POOL")
   # The sweep below executes the pool's setters, exactly as `run_check_lanes` does — and this lane runs
   # FIRST, so a leak here corrupts every other lane. That lane saves and restores; this one did not.
+  # BOTH setters. Modelling this on `run_check_lanes` and then restoring only the cutoff repeated, in the
+  # sibling, the exact narrowing that lane's own comment records having already learned once: the pool is
+  # the same `canonical_pool` reached through the same engine, so `set_fft_threads!` is executed here too.
   entry_cutoff = threading_cutoff()
+  entry_fft_threads = max(1, Threads.nthreads())
   small = canonical_pool(config)
   before = map(e -> _snapshot(e.object), small)
   work = all_invocations(small; cap = 12)
@@ -166,6 +170,7 @@ function run_selfcheck_lane(config)
     end
   end
   set_threading_cutoff!(entry_cutoff)
+  set_fft_threads!(entry_fft_threads)
   after = map(e -> _snapshot(e.object), small)
   mutated = [small[i].label for i in eachindex(before) if !_unchanged(before[i], after[i])]
   if isempty(mutated)

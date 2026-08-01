@@ -460,7 +460,7 @@ function run_mismatch_lane()
   # The names here are deliberately unlike the lane's own `accepted` list: a closure that assigns to a
   # name the enclosing function also uses REBINDS the outer one, and this one silently turned the
   # findings vector into a bag of fields.
-  function slot_orders(call)
+  function slot_orders(call, label)
     taken, orders = Any[], Set{Int}()
     probe_errors = String[]
     for candidate in canonical_by_order
@@ -468,17 +468,34 @@ function run_mismatch_lane()
         call(candidate)
         push!(taken, candidate)
         push!(orders, GBG.FiberSections.section_tensor_order(candidate))
-      catch
+      catch exception
+        # An earlier commit added `probe_errors` and the report below but never wrote to it, so the
+        # guard could not fire. Scaffolding without the substance reads as fixed and is worse than the
+        # bare `catch` it replaced.
+        #
+        # The exception type alone cannot decide here, unlike the `accepts` block fifty lines below. A
+        # `MethodError` is BOTH the package declining a tensor order by dispatch — the very signal this
+        # probe reads — and the historical harness bug of calling an arity that does not exist. What
+        # separates them is derived rather than declared: the closure is fixed and only the candidate
+        # varies, so a broken closure fails for EVERY candidate while a genuine refusal spares at least
+        # one. The verdict is therefore taken below, once all candidates have been tried.
+        is_domain_refusal(exception) || push!(probe_errors, String(nameof(typeof(exception))))
       end
     end
-    isempty(probe_errors) || Base.push!(lane_errors, join(unique(probe_errors), "; "))
+    # A probe that accepted NOTHING while throwing something other than a domain refusal did not read
+    # the package at all — the closure itself is wrong, and its empty `orders` would be handed to the
+    # fiber contract check as though the package had declined every order.
+    isempty(taken) && !isempty(probe_errors) &&
+      Base.push!(lane_errors, "$(label): the slot-order probe accepted no candidate and threw " *
+                              join(unique(probe_errors), "/") *
+                              " — the closure is wrong, not the package")
     return (taken = taken, orders = orders)
   end
 
   accepted, cells, skipped = String[], 0, 0
   contract_breaches, lane_errors = String[], String[]
   for (label, operation, partner, declared, call) in entries
-    probe = slot_orders(call)
+    probe = slot_orders(call, label)
     generic = declared === :many
     # The probe is checked AGAINST the declaration rather than replacing it. A slot declared to take one
     # tensor order that accepts several has lost a fiber check — the defect this lane found — and a slot

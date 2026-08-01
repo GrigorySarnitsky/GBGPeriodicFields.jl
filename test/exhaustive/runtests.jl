@@ -319,12 +319,19 @@ println("═"^100)
 println("  surface coverage             ", unbuilt == 0 ?
         "every public operation is reached by the invocation engine" :
         "$(unbuilt) public operations have NO buildable call")
+# `unswept` reaches the summary. It was computed mid-run, printed once inline and then discarded — the
+# only lane return value in this file that went nowhere — while its own lane exists to make exactly this
+# incompleteness impossible to overlook. A number a reader has to scroll back for is not surfaced.
+println("  hand-written lane coverage   ", unswept == 0 ?
+        "every public operation is named by some hand-written lane" :
+        "$(unswept) public operations are named by NO hand-written lane")
 println("  self-check                   ", selfcheck_failures == 0 ?
         "every universal check fires on its own defect" : "$(selfcheck_failures) PROBLEMS IN THE HARNESS")
 println("  universal checks             ", invocation_findings, " correctness findings, ",
         invocation_quality, " type-stability findings over ", invocation_cells, " invocations")
 println("  value correctness            ", value_findings, " disagreements over ", value_cells,
-        " comparisons · ", value_oracles, " of ", value_oracles + value_gaps, " operations have an independent oracle")
+        " comparisons · ", value_oracles, " of ", length(package_operations()),
+        " operations have an independent oracle")
 println("  declared relations           ", relation_findings, " failures over ", relation_cells,
         " evaluations (adjointness, identity, round-trip)")
 println("  representation·invariance·   ", property_findings, " failures over ", property_cells, " cells")

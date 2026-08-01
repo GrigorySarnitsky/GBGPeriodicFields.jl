@@ -62,10 +62,22 @@ tolerance branch exists for, so the whole family took the throwing path — and 
 because the exception was being swallowed by a `catch; true`. Removing that catch is what made it
 visible. A comparison and its tolerance twin must accept the same values, or the choice between them
 silently changes what is being asked.
+
+A tolerance is only MEANINGFUL for numbers, so everything else falls back to exact equality, which is
+defined for every value. Special-casing `Tuple` alone was the same defect one level down: `_comparable`
+reduces a bare `Type` — what `eltype` and `field_scalar_type` return — to a one-element vector of it,
+and `isapprox` needs subtraction, so those threw too. And because the branch is chosen by
+`bitwise_determinism = backend_name == "cpu"`, EVERY operation takes the tolerance branch on a device
+run, which turned two ordinary accessors into manufactured findings and a nonzero exit on every GPU
+sweep. Dispatching on "is this numeric" closes the class instead of its latest member.
 """
+_tolerance_meaningful(x) = x isa Number || (x isa AbstractArray && eltype(x) <: Number)
 approximates(a::Tuple, b::Tuple; rtol) =
   length(a) == length(b) && all(approximates(x, y; rtol = rtol) for (x, y) in zip(a, b))
-approximates(a, b; rtol) = isapprox(a, b; rtol = rtol, nans = true)
+function approximates(a, b; rtol)
+  _tolerance_meaningful(a) && _tolerance_meaningful(b) || return reproduces(a, b)
+  return isapprox(a, b; rtol = rtol, nans = true)
+end
 
 
 """
