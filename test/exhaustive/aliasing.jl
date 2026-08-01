@@ -105,7 +105,10 @@ function aliasing_failures(c::Config, orders, complexvalued, operation!)
     try
       operation!(reference...)
       operation!(arguments...)
-      Array(field_data(arguments[1])) ≈ Array(field_data(reference[1])) && continue
+      # `==`, not `≈`. Invariant 9 states the aliased result is BITWISE-identical, and `isapprox` on
+      # arrays is norm-based at `rtol = √eps(T)` — 3.4e-4 for Float32 — so a corruption concentrated in
+      # one element of a 1536-element array passed. The strong claim deserves the strong comparison.
+      isequal(Array(field_data(arguments[1])), Array(field_data(reference[1]))) && continue
       push!(failures, label)
     catch exception
       push!(failures, label * "  [threw $(nameof(typeof(exception)))]")

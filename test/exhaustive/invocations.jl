@@ -44,6 +44,16 @@ _owned_by_package(method) = method.module in PACKAGE_MODULES || method.module in
 # when its vendor package is loaded, which happens in the `test/gpu/*` environments. When one is
 # absent the suite says so — the backend axis is NOT RUN, never silently dropped.
 function device_backends()
+  # Import the vendor package if the active project HAS it. Gating on `isdefined(Main, :CUDA)` alone
+  # meant the axis could never fire: activating `test/gpu/cuda` makes CUDA *available*, not imported,
+  # so the lane printed "NOT RUN — run from test/gpu/cuda" to a user who had just done that.
+  for vendor in (:CUDA, :AMDGPU)
+    isdefined(Main, vendor) && continue
+    try
+      @eval Main using $vendor
+    catch
+    end
+  end
   backends = Any[("cpu", identity)]
   for (name, symbol, adapt) in (("cuda", :CUDA, x -> Base.invokelatest(getfield(Main, :CUDA).CuArray, x)),
                                 ("rocm", :AMDGPU, x -> Base.invokelatest(getfield(Main, :AMDGPU).ROCArray, x)))
@@ -248,7 +258,24 @@ function invocations(operation::Function, pool; cap::Int = 400)
     # dropped the whole multi-input surface.
     if parameters[end] isa Core.TypeofVararg
       element = parameters[end].T
-      parameters = [parameters[1:end-1]..., element, element]
+      base = parameters[1:end-1]
+      # ONE copy and TWO, as DESIGN.md says. Expanding to two alone never builds the single-source
+      # form for an operation whose only general method is the variadic one.
+      for repetitions in 1:2
+        expanded = [base..., fill(element, repetitions)...]
+        length(expanded) > 9 && continue
+        slots = [[e for e in pool if _slot_admits(p, e.object)] for p in expanded]
+        any(isempty, slots) && continue
+        for combination in Iterators.take(Iterators.product(slots...), cap)
+          arguments = [e.object for e in combination]
+          applicable(operation, arguments...) || continue
+          Base.push!(built, (operation = operation,
+                             label = "$(nameof(operation))(" *
+                                     join((e.label for e in combination), ", ") * ")",
+                             arguments = arguments, entries = collect(combination)))
+        end
+      end
+      continue
     end
     # Wider than five, because six is where the α/β and kernel-composed arities live:
     # `combine!(dest, α, a, β, b, kernel)`, `exponential_convolve!`'s two-operand forms,

@@ -310,6 +310,7 @@ function run_value_lane(configs)
       # Restored to what it was, not to `nthreads()` — the two differ whenever FFTW was configured
       # otherwise, and this lane would silently reconfigure the process for every later lane.
       (:set_fft_threads!, begin
+                            FFTW_THREADS[] = Threads.nthreads()
                             previous_fft_threads = FFTW_THREADS[]
                             set_fft_threads!(1)
                             observed = field_data(to_spectral(s, plans))

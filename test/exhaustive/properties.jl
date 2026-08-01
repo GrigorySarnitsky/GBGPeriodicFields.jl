@@ -63,8 +63,12 @@ end
 # The magnitude a comparison should be judged against. For a relation whose expected value is zero
 # (∇·∇×u = 0, tr(dev A) = 0) there is no relative scale, so the absolute floor is taken from the other
 # side — which is itself near zero — rather than from a fixed constant that would swamp it.
+# No floor at 1.0. Flooring there gave `atol = 1e-3` on Float32 for the relations compared against
+# zero — `∇·(∇×u) = 0`, `tr(dev A) = 0` — whose true residual is ~1e-6, so a violation worth 0.3% of
+# the field norm passed. A zero-valued expectation takes its scale from the other side, which is
+# itself near zero, and the comparison stays meaningful.
 _scale(want, got) = max(maximum(abs, _as_array(want); init = 0.0),
-                        maximum(abs, _as_array(got); init = 0.0), 1.0)
+                        maximum(abs, _as_array(got); init = 0.0), eps(Float32))
 
 # A mean-free field: the inverse Laplacian is only a left inverse on the zero-mean subspace, and the
 # spectral identities that quotient the constant need one.
@@ -276,7 +280,9 @@ function run_property_lanes(configs)
     same(x, y) = isapprox(_as_array(x), _as_array(y); rtol = rtol, atol = rtol)
 
     for (kind, operations) in ((:representation, (:add!, :multiply!, :sym, :transpose, :integral, :mean, :inner)),
-                               (:invariance, (:add!, :mul!, :sym!, :map!, :inner, :l2norm, :helmholtz_projection!)),
+                               # `:invariance` is recorded where the check RUNS, below, not here: at
+                               # `-t1` the lane reports NOT RUN and would otherwise still credit these.
+
                                (:allocation, (:add!, :combine!, :mul!, :laplacian!, :curl!,
                                               :helmholtz_projection!, :convolve!, :inner)),
                                (:inequality, (:l2norm, :var, :inner, :lpnorm, :laplacian, :minimum,
@@ -339,6 +345,7 @@ function run_property_lanes(configs)
         continue
       end
       count!(:invariance)
+      record_coverage!(Symbol(name), :invariance)
       serial = with_threading(run; enabled = false)
       threaded = with_threading(run; enabled = true)
       serial == threaded ||

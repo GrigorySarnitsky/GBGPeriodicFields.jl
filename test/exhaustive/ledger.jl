@@ -281,7 +281,12 @@ function classifier_classes()
   source = read(CLASSIFIER_PATH, String)
   block = match(r"const CLASSES = \[(.*?)\n\]"s, source)
   if block !== nothing
-    for entry in eachmatch(r"\(:(\w+)\s*,\s*\[(.*?)\]\)"s, block.captures[1])
+    # Split on the class-opening marker instead of matching to the first `])`. The lazy form stopped
+    # inside `[-=!<>])` — a character class in the :inequality patterns — so that class parsed to an
+    # unterminated fragment, yielded no patterns, and was dropped. Its assertions then fell through to
+    # the `:correct` catch-all, inflating correctness coverage, while `check_types()` (a different
+    # parser of the same file) still reported 19 classes. Two derivations of one axis disagreeing.
+    for entry in eachmatch(r"\(:(\w+)\s*,\s*\[((?:[^\[\]]|\[[^\]]*\])*)\]\)"s, block.captures[1])
       patterns = Regex[]
       for raw in eachmatch(r"r\"((?:[^\"\\]|\\.)*)\"", entry.captures[2])
         try push!(patterns, Regex(raw.captures[1])) catch end

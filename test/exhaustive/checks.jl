@@ -304,6 +304,10 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   # insertion order. The setters stay in the sweep (they are public operations and must be exercised);
   # what changes is that the state is put back.
   entry_cutoff = threading_cutoff()
+  # BOTH setters, not just the cutoff. The pool holds integers, so the sweep executes
+  # `set_fft_threads!(1)` too, and FFTW bakes its thread count into every plan built afterwards. The
+  # comment above claimed both were put back; only one was.
+  entry_fft_threads = Threads.nthreads()
   for invocation in work.built
    # The lane itself can fail on a cell — a device backend reports an earlier asynchronous error at the
    # next API call, so an unrelated invocation aborts the whole sweep. Recording the failure and moving
@@ -320,6 +324,7 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   end
 
   set_threading_cutoff!(entry_cutoff)
+  set_fft_threads!(entry_fft_threads)
   return (findings = findings, attempted = attempted, live = live, lane_errors = lane_errors,
           built = length(work.built), unbuildable = work.unbuildable,
           dropped = work.dropped, operations = length(work.operations),

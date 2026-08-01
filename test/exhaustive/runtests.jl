@@ -293,6 +293,7 @@ println()
 mismatch_findings, mismatch_cells = run_mismatch_lane()
 println()
 ledger_gaps, ledger_violations, ledger_cells = run_ledger_lane()
+close_pool_handles!()          # written in round one and never called: ~100 handles stayed open
 println()
 
 println("═"^100)

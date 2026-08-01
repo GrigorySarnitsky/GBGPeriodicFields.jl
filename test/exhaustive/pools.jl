@@ -460,7 +460,7 @@ function run_mismatch_lane()
     ("anterpolate(f, pts, q, NUFFT)",  anterpolate, NUFFT(scalar), :one, foreign -> anterpolate(scalar, points, foreign, NUFFT(scalar))),
     # The scattered values must carry the destination field's fiber, so this slot takes exactly one
     # order — declared `:many` at first, and the contract check corrected it.
-    ("anterpolate(f, pts, q, spline)", anterpolate, points,      :one,  foreign -> anterpolate(physical, points, foreign, CatmullRom)),
+    ("anterpolate(f, pts, q, spline)", anterpolate, points,      :one,  foreign -> anterpolate(grid, points, foreign, CatmullRom)),
     ("radial_spectrum(f, mult)",       radial_spectrum, multipliers, :many, foreign -> radial_spectrum(foreign, multipliers)),
   )
 
