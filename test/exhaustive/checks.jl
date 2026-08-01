@@ -102,7 +102,7 @@ end
 
 # `isequal`, not `==`: the determinism branches were fixed for this NaN trap and the mutation check
 # was left behind, so a NaN surviving a call unchanged read as "modified".
-_unchanged(before, after) = before === nothing || after === nothing || isequal(before, after)
+_unchanged(before, after) = before === nothing || after === nothing || reproduces(before, after)
 
 _finite(x) =
   x isa Number                          ? isfinite(x) :

@@ -102,7 +102,7 @@ function aliasing_failures(c::Config, orders, complexvalued, operation!)
       # `==`, not `≈`. Invariant 9 states the aliased result is BITWISE-identical, and `isapprox` on
       # arrays is norm-based at `rtol = √eps(T)` — 3.4e-4 for Float32 — so a corruption concentrated in
       # one element of a 1536-element array passed. The strong claim deserves the strong comparison.
-      isequal(Array(field_data(arguments[1])), Array(field_data(reference[1]))) && continue
+      reproduces(Array(field_data(arguments[1])), Array(field_data(reference[1]))) && continue
       push!(failures, label)
     catch exception
       push!(failures, label * "  [threw $(nameof(typeof(exception)))]")
@@ -145,10 +145,7 @@ function refused_constructions(c::Config, R, cplx)
       # counts a `MethodError` from a renamed constructor as a correct refusal — and this is the one
       # place guarding decision 59's storage-ownership rejection, so a silent regression there would
       # read as the refusal still holding.
-      # The same set the mismatch and domain-rejection filters use — the comment above claimed parity
-      # with them while accepting only two of the four.
-      exception isa ArgumentError || exception isa DimensionMismatch ||
-      exception isa InexactError || exception isa DomainError ||
+      is_domain_refusal(exception) ||
         push!(accepted, "$(name) [refused with $(nameof(typeof(exception))), not a domain error]")
     end
   end

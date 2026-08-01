@@ -107,7 +107,7 @@ The thread-invariance lane's comparison: bitwise, and NaN-safe.
 `==` here was the same NaN class `checks.jl` fixed twice and `sequences.jl` received — missed because
 the self-check extension that was meant to hold every lane to it never reached the property lanes.
 """
-results_identical(a, b) = isequal(a, b)
+results_identical(a, b) = reproduces(a, b)
 
 
 """
@@ -130,11 +130,9 @@ lane, the value lane or the property lanes — so "a check that cannot fire is w
 enforced for one lane of nine. This is the seam that lets the others be held to it too.
 """
 function relation_holds(name, got, want, rtol, T)
-  return try
+  return comparison_outcome() do
     got isa Bool ? got == want :
       isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(T) * _scale(want, got))
-  catch exception
-    nameof(typeof(exception))            # the TYPE, so a failure message still names what threw
   end
 end
 
@@ -487,8 +485,7 @@ function run_property_lanes(configs)
         call()
         :accepted
       catch exception
-        exception isa ArgumentError || exception isa DimensionMismatch ||
-          exception isa InexactError || exception isa DomainError ? :rejected : nameof(typeof(exception))
+        is_domain_refusal(exception) ? :rejected : nameof(typeof(exception))
       end
       outcome === :rejected ||
         record!(:domain_rejection, outcome === :accepted ? "$(name) was ACCEPTED [$(config.name)]" :

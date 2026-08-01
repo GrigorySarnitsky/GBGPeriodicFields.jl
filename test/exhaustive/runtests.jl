@@ -18,6 +18,7 @@ using GBGPeriodicFields
 using Statistics
 using Random
 
+include("shared.jl")
 include("aliasing.jl")
 include("references.jl")
 include("values.jl")

@@ -40,10 +40,8 @@ _as_array(x) =
 The value lane's comparison step, extracted so the self-check can prove this lane can fire too.
 """
 function value_agrees(got, want, rtol)
-  return try
+  return comparison_outcome() do
     isapprox(_as_array(got), _as_array(want); rtol = rtol)
-  catch exception
-    nameof(typeof(exception))          # the TYPE, matching `relation_holds`
   end
 end
 

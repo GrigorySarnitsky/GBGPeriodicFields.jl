@@ -26,16 +26,7 @@
 using GBGPeriodicFields
 const GBG = GBGPeriodicFields
 
-const _CORE_MODULES_FOR_POOLS = (GBG.FiberSections, GBG.Fields, GBG.FieldAlgebra,
-                                 GBG.DifferentialOperators, GBG.Convolution, GBG.Points,
-                                 GBG.Interpolation, GBG.Reductions)
-
-# The extension modules too, as `LEDGER_MODULES` and `_owned_by_package` already do — the same
-# omission fixed twice elsewhere and left standing in this third list. Resolved at CALL time, not as a
-# const: `EXTENSION_MODULES` lives in `invocations.jl`, which is included after this file.
-package_modules_for_pools() =
-  isdefined(Main, :EXTENSION_MODULES) ? (_CORE_MODULES_FOR_POOLS..., Main.EXTENSION_MODULES...) :
-                                        _CORE_MODULES_FOR_POOLS
+package_modules_for_pools() = package_modules()
 
 const EQUALITY_TESTS = (:(==), :(!=), :(===), :(!==), :isequal)
 
@@ -524,8 +515,7 @@ function run_mismatch_lane()
         call(foreign)
         true
       catch exception
-        exception isa ArgumentError || exception isa DimensionMismatch ||
-        exception isa InexactError || exception isa DomainError ? false :
+        is_domain_refusal(exception) ? false :
           (Base.push!(lane_errors, "$(label) × $(axis): threw $(nameof(typeof(exception))), " *
                                    "not a domain error — the cell never reached the package"); false)
       end
@@ -546,12 +536,7 @@ function run_mismatch_lane()
         result = call()
         all(isfinite, Array(field_data(result))) ? :ok : :nonfinite
       catch exception
-        # The same set its two siblings use, plus `BoundsError`: a point outside the box can reach an
-        # out-of-range stencil index, which is a domain refusal here and not a harness fault. The set
-        # differed from the other two rejection filters with no stated reason.
-        exception isa ArgumentError || exception isa DimensionMismatch ||
-        exception isa InexactError || exception isa DomainError ||
-        exception isa BoundsError ? :refused : nameof(typeof(exception))
+        is_domain_refusal_or_bounds(exception) ? :refused : nameof(typeof(exception))
       end
       outcome in (:ok, :refused) ||
         Base.push!(pointset_accepted, "$(verb) on $(label): $(outcome)")
