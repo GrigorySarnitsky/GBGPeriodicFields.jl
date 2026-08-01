@@ -24,6 +24,7 @@
 # pattern — derive the denominator, hand-write the entries, fail on the difference.
 
 using GBGPeriodicFields
+using Random
 const GBG = GBGPeriodicFields
 
 package_modules_for_pools() = package_modules()
@@ -180,7 +181,7 @@ comparable_quantities(; depth::Int = 3) =
 
 
 """
-    constrained_axes(operation; depth = 4) -> Set{Symbol}
+    reachable_predicates(operation; depth = 4) -> Vector{Function}
 
 The mismatch axes one operation actually constrains: the quantities compared by the compatibility
 predicates it reaches.
@@ -381,6 +382,7 @@ function run_mismatch_lane()
     println("  NOT RUN — ", axis, ": ", why)
   end
 
+  Random.seed!(20260801)          # the lane draws random fields; every other data-generating lane seeds
   grid, layout = CANONICAL_GRID, CANONICAL_LAYOUT
   scalar = _scalar_spectral(Float64, grid, layout)
   vector = _vector_spectral(Float64, grid, layout)
@@ -460,6 +462,7 @@ function run_mismatch_lane()
   # findings vector into a bag of fields.
   function slot_orders(call)
     taken, orders = Any[], Set{Int}()
+    probe_errors = String[]
     for candidate in canonical_by_order
       try
         call(candidate)
@@ -468,6 +471,7 @@ function run_mismatch_lane()
       catch
       end
     end
+    isempty(probe_errors) || Base.push!(lane_errors, join(unique(probe_errors), "; "))
     return (taken = taken, orders = orders)
   end
 
@@ -534,7 +538,12 @@ function run_mismatch_lane()
       cells += 1
       outcome = try
         result = call()
-        all(isfinite, Array(field_data(result))) ? :ok : :nonfinite
+        # An empty point set makes `all(isfinite, ...)` vacuously true, so the assertion for `M = 0` is
+        # that the result is the ZERO field an empty scatter must produce, not merely that nothing threw.
+        data = Array(field_data(result))
+        npoints(candidate) == 0 && verb == "anterpolate" ?
+          (all(iszero, data) ? :ok : :nonzero_from_empty) :
+          (all(isfinite, data) ? :ok : :nonfinite)
       catch exception
         is_domain_refusal_or_bounds(exception) ? :refused : nameof(typeof(exception))
       end

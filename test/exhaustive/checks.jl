@@ -134,7 +134,7 @@ const _LEADING_MAP_CACHE = Dict{Any, Bool}()
 function _takes_leading_map(operation)
   return get!(_LEADING_MAP_CACHE, operation) do
     for method in methods(operation)
-      method.module in PACKAGE_MODULES || continue
+      method.module in package_modules() || continue
       parameters = collect(Base.unwrap_unionall(method.sig).parameters)[2:end]
       isempty(parameters) && continue
       first_parameter = parameters[1]
@@ -300,11 +300,13 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    # A setter has no section argument, so `_destination_index` falls back to slot 1 — the input
    # integer, not the global it mutates — and the in-place branch would compare an untouched scalar
    # with itself. The value lane checks both setters properly through their getters.
+   # A destination is any argument the harness can SNAPSHOT — a section or a kernel — not only a
+   # section. Requiring a `FiberSection` also excluded `translation_kernel!`, whose destination is slot
+   # 1 and is a `SeparableKernel`, removing its only determinism coverage in the suite.
    _comparable_destination = _is_inplace(invocation) &&
-     any(a -> a isa GBGI.FiberSections.AbstractFiberSection, arguments)
+     any(a -> _snapshot(a) !== nothing, arguments)
    if !_returns_uninitialized(invocation) && !_has_external_effect(invocation) &&
       (!_is_inplace(invocation) || _comparable_destination)
-     count!(:determinism)
      # In-place forms too. Gating this on `!_is_inplace` excluded `anterpolate!` — the Atomix scatter
      # whose nondeterministic summation order is the entire reason the tolerance branch and the
      # depth-4 atomic detection exist. For an in-place call the comparable result is the DESTINATION
@@ -325,13 +327,16 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        try invocation.operation(arguments...) catch; nothing end
      end
      if repeat !== nothing
+       # Counted HERE, once the repeat has succeeded and a comparison will actually happen. Counting
+       # before it meant a cell whose second call threw was reported as checked.
+       count!(:determinism)
        # Bitwise on CPU, where the package guarantees it. A DEVICE reduction is not bitwise
        # reproducible across launches — measured at 1 ulp for the R=2 `inner`, which is the parallel
        # summation order, not a defect — and the package's own position is that tolerances hold for
        # cross-backend comparisons. Demanding bitwise there reports the hardware as broken.
        atomic = occursin("anterpolate", invocation.label) || occursin("radial", invocation.label)
        exact = bitwise_determinism && !atomic
-       same = try
+       same = comparison_outcome() do
          first_result = _is_inplace(invocation) ?
            arguments[_destination_index(invocation.operation, arguments)] : result
          a, b = _comparable(first_result), _comparable(repeat)
@@ -340,10 +345,10 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
          # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
          # the tolerance branch reported every NaN-producing call as irreproducible on a device even
          # after the bitwise branch had been fixed.
-         a === nothing ? true : (exact ? isequal(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
-       catch
-         true
+         a === nothing ? true : (exact ? reproduces(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
        end
+       same isa Symbol && (record!(:determinism,
+         "$(invocation.label) — the reproducibility comparison threw $(same)"); same = true)
        same || record!(:determinism, "$(invocation.label) is not reproducible across identical calls")
      end
    end

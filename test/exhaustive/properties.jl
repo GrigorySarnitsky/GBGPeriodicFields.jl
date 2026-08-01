@@ -111,12 +111,14 @@ results_identical(a, b) = reproduces(a, b)
 
 
 """
-    representations_agree(physical_result, spectral_result, rtol) -> Bool
+    representations_agree(physical_result, spectral_result, rtol) -> Bool, or the exception type
 
 The representation-agreement lane's comparison, extracted for the same reason.
 """
 representations_agree(physical_result, spectral_result, rtol) =
-  isapprox(_as_array(physical_result), _as_array(spectral_result); rtol = rtol, atol = rtol)
+  comparison_outcome() do
+    isapprox(_as_array(physical_result), _as_array(spectral_result); rtol = rtol, atol = rtol)
+  end
 
 
 """
@@ -193,8 +195,12 @@ function run_relations_lane(configs)
        l2norm(divergence(curl(b.uh, m), m)), zero(b.T)),
       ("∇×(∇φ) = 0",
        l2norm(curl(gradient(b.sh, m), m)), zero(b.T)),
+      # Each side against its INDEPENDENT reference. `_sym_values` and `_skew_values` are stamped from
+      # one formula builder over the same nine arguments, so their sum is `A` by algebra whatever the
+      # formula computes — the identity survives a wrong transpose convention entirely.
       ("sym + skew = id",
-       field_data(sym(b.A)) .+ field_data(skew(b.A)), field_data(b.A)),
+       field_data(sym(b.A)) .+ field_data(skew(b.A)),
+       ref_sym(field_data(b.A)) .+ ref_skew(field_data(b.A))),
       ("ℙ² = ℙ",
        field_data(helmholtz_projection(helmholtz_projection(b.uh, m), m)),
        field_data(helmholtz_projection(b.uh, m))),
@@ -203,8 +209,11 @@ function run_relations_lane(configs)
       ("det(AB) = det(A)det(B)",
        field_data(det(mul!(similar_field(b.A, Val(2)), b.A, b.B))),
        field_data(det(b.A)) .* field_data(det(b.B))),
+      # `dev`'s internal trace subtraction reuses `tr`'s own formula builder, so this is zero because
+      # two call sites share one formula, not because either is right. Checked against the references.
       ("tr(dev A) = 0",
-       maximum(abs, field_data(tr(dev(b.A)))), zero(b.T)),
+       maximum(abs, field_data(tr(dev(b.A)))),
+       maximum(abs, ref_trace(ref_dev(field_data(b.A))))),
       ("Δ⁻¹Δ = id on mean-free fields",
        field_data(inverse_laplacian(laplacian(_mean_free(b.sh), m), m)),
        field_data(_mean_free(b.sh))),
@@ -368,7 +377,7 @@ function run_property_lanes(configs)
          ("mean", mean(b.s), mean(b.sh)),
          ("inner", inner(b.u, b.v), inner(b.uh, b.vh)))
       count!(:representation)
-      representations_agree(physical_result, spectral_result, rtol) ||
+      representations_agree(physical_result, spectral_result, rtol) === true ||
         record!(:representation, "$(name) disagrees between representations [$(config.name)]")
     end
 
@@ -500,6 +509,7 @@ function run_property_lanes(configs)
     failures = get(results, kind, String[])
     total += length(failures)
     println("      ", rpad(String(kind), 18), lpad(n, 7), " cells   ",
+            n == 0 ? "NOT RUN — no cell was constructed for this check" :
             isempty(failures) ? "clean" : "$(length(failures)) FINDINGS")
   end
   if total > 0

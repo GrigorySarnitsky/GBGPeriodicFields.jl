@@ -130,6 +130,7 @@ function run_selfcheck_lane(config)
     ("invariance lane", () -> results_identical([1.0], [2.0]) === false),
     ("invariance lane (NaN)", () -> results_identical([NaN], [NaN]) === true),
     ("representation lane", () -> representations_agree([1.0, 2.0], [1.0, 3.0], 1e-9) === false),
+    ("representation lane (throws)", () -> representations_agree(nothing, [1.0], 1e-9) isa Symbol),
   )
   for (label, probe) in lane_probes
     fired = try probe() catch; false end
@@ -142,6 +143,9 @@ function run_selfcheck_lane(config)
   # unchanged afterwards. A new mutable pool entry that `_refresh` does not know how to copy reopens
   # the cascade, and this is what notices.
   println("\n  THE SWEEP DOES NOT MUTATE THE SHARED POOL")
+  # The sweep below executes the pool's setters, exactly as `run_check_lanes` does — and this lane runs
+  # FIRST, so a leak here corrupts every other lane. That lane saves and restores; this one did not.
+  entry_cutoff = threading_cutoff()
   small = canonical_pool(config)
   before = map(e -> _snapshot(e.object), small)
   work = all_invocations(small; cap = 12)
@@ -151,6 +155,7 @@ function run_selfcheck_lane(config)
     catch
     end
   end
+  set_threading_cutoff!(entry_cutoff)
   after = map(e -> _snapshot(e.object), small)
   mutated = [small[i].label for i in eachindex(before) if !_unchanged(before[i], after[i])]
   if isempty(mutated)
