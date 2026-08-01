@@ -1137,6 +1137,16 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**Open package finding — `map!` is not reproducible under threads (exhaustive survey, 2026-08-01).**
+The exhaustive suite's thread axis had never actually run: the invariance check is gated on
+`Threads.nthreads() > 1` and no documented invocation passed `-t`, so half of every configuration list
+was byte-identical work. Running it with `-t4` produced **792 determinism cells failing, every one in a
+threaded configuration and none in a serial one**, over 11 argument shapes of `map!` whose φ is a
+*callable field* (a field is callable — `f(x)` interpolates), so each fiber performs a gather inside a
+slab-threaded fiberwise pass. Nested parallelism or shared scratch is the obvious suspect. Not yet
+diagnosed, deliberately: the survey's findings are a work list. Reproduce with
+`julia -t4 --project=test test/exhaustive/runtests.jl`.
+
 **Oracle provenance is enforced (decision 55, 2026-07-29).** `docs/TESTING.md` §1 opened with
 *verify against independent ground truth, never against the code's own other path* for a year with
 nothing checking it, so `weighted_inner` shipped verified entirely against `inner`, `laplacian`,

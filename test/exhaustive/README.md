@@ -91,8 +91,9 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 ## Scale
 
 144 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
-setting × 3 seeds, including a shifted non-commensurate origin. The axis table, and what each axis
-crosses versus samples, is in [`DESIGN.md`](DESIGN.md).
+setting × 3 seeds, including a shifted non-commensurate origin — in about **125 minutes** with `-t4`,
+measured on this host rather than estimated. The axis table, and what each axis crosses versus samples,
+is in [`DESIGN.md`](DESIGN.md).
 
 **Run it with `-t4`.** The thread-count axis is crossed by the configuration list, but a thread
 invariance check can only mean something when more than one thread exists — and Julia defaults to one,
