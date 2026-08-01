@@ -342,10 +342,10 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
          a, b = _comparable(first_result), _comparable(repeat)
          # `isequal`, not `==`: NaN != NaN, so any call that legitimately produces a NaN reported
          # itself as non-reproducible. `isequal` is the bitwise question actually being asked.
-         # `nans = true` for the same reason `isequal` is used above: isapprox(NaN, NaN) is FALSE, so
-         # the tolerance branch reported every NaN-producing call as irreproducible on a device even
-         # after the bitwise branch had been fixed.
-         a === nothing ? true : (exact ? reproduces(a, b) : isapprox(a, b; rtol = 1e-10, nans = true))
+         # `approximates`, not `isapprox`: the tolerance branch must accept every shape the bitwise
+         # branch does, and `isapprox` has no `Tuple` method, so the tuple-returning radial reductions
+         # — which are exactly the atomic family this branch exists for — threw here.
+         a === nothing ? true : (exact ? reproduces(a, b) : approximates(a, b; rtol = 1e-10))
        end
        same isa Symbol && (record!(:determinism,
          "$(invocation.label) — the reproducibility comparison threw $(same)"); same = true)

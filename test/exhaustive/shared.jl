@@ -50,6 +50,25 @@ reproduces(a, b) = isequal(a, b)
 
 
 """
+    approximates(a, b; rtol) -> Bool
+
+The tolerance twin of [`reproduces`](@ref), accepting the same SHAPES.
+
+Its existence is the point. `isequal` recurses into a `Tuple` elementwise and `isapprox` has no method
+for one at all, so the two comparisons the determinism check chooses between did not accept the same
+values: every tuple-returning operation passed on the bitwise branch and threw `MethodError` on the
+tolerance branch. The radial reductions return `(shells, spectrum)` AND are the atomic family the
+tolerance branch exists for, so the whole family took the throwing path — and reported as reproducible,
+because the exception was being swallowed by a `catch; true`. Removing that catch is what made it
+visible. A comparison and its tolerance twin must accept the same values, or the choice between them
+silently changes what is being asked.
+"""
+approximates(a::Tuple, b::Tuple; rtol) =
+  length(a) == length(b) && all(approximates(x, y; rtol = rtol) for (x, y) in zip(a, b))
+approximates(a, b; rtol) = isapprox(a, b; rtol = rtol, nans = true)
+
+
+"""
     comparison_outcome(body) -> Bool, or the exception type
 
 Run a comparison, returning its verdict or the type of whatever it threw.

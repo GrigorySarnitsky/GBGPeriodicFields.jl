@@ -131,6 +131,16 @@ function run_selfcheck_lane(config)
     ("invariance lane (NaN)", () -> results_identical([NaN], [NaN]) === true),
     ("representation lane", () -> representations_agree([1.0, 2.0], [1.0, 3.0], 1e-9) === false),
     ("representation lane (throws)", () -> representations_agree(nothing, [1.0], 1e-9) isa Symbol),
+    # The determinism check chooses between `reproduces` and `approximates` at runtime, so the two must
+    # accept the same SHAPES or the choice silently changes the question. They did not: `isequal`
+    # recurses into a tuple and `isapprox` has no method for one, so the tuple-returning radial
+    # reductions — the atomic family the tolerance branch exists for — threw on it while passing the
+    # bitwise branch, and a swallowed exception reported them reproducible. This probe drives BOTH
+    # branches over a tuple, which is the shape that was unreachable for one of them.
+    ("determinism (tuple, exact)", () -> reproduces(([1.0], [2.0]), ([1.0], [3.0])) === false),
+    ("determinism (tuple, tolerance)", () -> approximates(([1.0], [2.0]), ([1.0], [3.0]); rtol = 1e-10) === false),
+    ("determinism (tuple, agrees)", () -> approximates(([1.0], [2.0]), ([1.0], [2.0]); rtol = 1e-10) === true),
+    ("determinism (tuple, NaN)", () -> approximates(([NaN],), ([NaN],); rtol = 1e-10) === true),
   )
   for (label, probe) in lane_probes
     fired = try probe() catch; false end
