@@ -23,8 +23,9 @@ using Random
 # equality is not the property — agreement to the arithmetic's own precision is.
 _value_tolerance(T) = T === Float32 ? 1.0f-4 : 1e-10
 
-# What FFTW was configured with before this suite touched it, captured once.
-const FFTW_THREADS = Ref(Threads.nthreads())
+# The package's load-time FFT thread count (`Fields._init_fft_threads` sets `max(1, nthreads())`).
+# There is no getter, so this is the value to restore TO, not a capture of what was there.
+const FFTW_DEFAULT_THREADS = max(1, Threads.nthreads())
 
 _as_array(x) =
   x isa GBGI.FiberSections.AbstractFiberSection ? Array(field_data(x)) :
@@ -309,14 +310,14 @@ function run_value_lane(configs)
       (:with_threading,  with_threading(enabled = true) do
                            field_data(add!(similar_field(u, Val(1)), u, v))
                          end, ref_add(du, field_data(v))),
-      # Restored to what it was, not to `nthreads()` — the two differ whenever FFTW was configured
-      # otherwise, and this lane would silently reconfigure the process for every later lane.
+      # Restored to the package's own load-time default. The package exposes `set_fft_threads!` and no
+      # getter, so the live value cannot be read back — an earlier version claimed to restore "what it
+      # was" while assigning `nthreads()` immediately before reading it, which preserved nothing. This
+      # says what it actually does.
       (:set_fft_threads!, begin
-                            FFTW_THREADS[] = Threads.nthreads()
-                            previous_fft_threads = FFTW_THREADS[]
                             set_fft_threads!(1)
                             observed = field_data(to_spectral(s, plans))
-                            set_fft_threads!(previous_fft_threads)
+                            set_fft_threads!(FFTW_DEFAULT_THREADS)
                             observed
                           end, ref_dft_forward(ds, grid, layout)),
     )

@@ -44,7 +44,13 @@ function _array_leaves(x, found = Any[], seen = Base.IdSet{Any}())
   x === nothing && return found
   x in seen && return found
   x isa AbstractArray && return (Base.push!(found, x); found)
-  (x isa Number || x isa Symbol || x isa AbstractString || x isa Type || x isa Function) && return found
+  (x isa Symbol || x isa AbstractString || x isa Function) && return found
+  # A NUMBER, TYPE or TUPLE is a comparable leaf in its own right. Collecting only arrays left
+  # `Grid3D`, `RealFourierLayout` and a bare `Type` with no leaves at all — `isstructtype` excludes
+  # `Tuple`, so the recursion stopped immediately — which made determinism and finiteness vacuous for
+  # every accessor returning one.
+  (x isa Number || x isa Type) && return (Base.push!(found, x); found)
+  x isa Tuple && return (foreach(element -> _array_leaves(element, found, seen), x); found)
   isstructtype(typeof(x)) || return found
   Base.push!(seen, x)
   for name in fieldnames(typeof(x))
@@ -88,7 +94,7 @@ function _snapshot(x)
   # wavenumber arrays are watched too.
   leaves = _array_leaves(x)
   isempty(leaves) && return nothing
-  return [copy(Array(leaf)) for leaf in leaves]
+  return [_leaf_value(leaf) for leaf in leaves]
 end
 
 # `isequal`, not `==`: the determinism branches were fixed for this NaN trap and the mutation check
@@ -99,10 +105,16 @@ _finite(x) =
   x isa Number                          ? isfinite(x) :
   (!(x isa AbstractArray) && !(x isa Tuple) &&
    !(x isa GBGI.FiberSections.AbstractFiberSection) &&
-   !isempty(_array_leaves(x)))          ? all(l -> all(isfinite, Array(l)), _array_leaves(x)) :
+   !isempty(_array_leaves(x)))          ? all(_finite_leaf, _array_leaves(x)) :
   x isa AbstractArray                   ? all(isfinite, x) :
+  x isa Type                            ? true :
   x isa GBGI.FiberSections.AbstractFiberSection ? all(isfinite, Array(field_data(x))) :
   x isa Tuple                           ? all(_finite, x) : true
+
+# A leaf is an array, a number or a type; each needs its own comparable and finiteness form.
+_leaf_value(l) = l isa AbstractArray ? copy(Array(l)) : l
+_finite_leaf(l) = l isa AbstractArray ? all(isfinite, Array(l)) : (l isa Number ? isfinite(l) : true)
+
 
 _is_inplace(invocation) = endswith(String(nameof(invocation.operation)), "!")
 
@@ -227,7 +239,11 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        # An in-place operation may legitimately overwrite an argument that IS the destination, and
        # the transforms may consume their spectral input as scratch by contract (invariant 11).
        arguments[index] === arguments[destination] && continue
-       occursin("to_physical", invocation.label) && continue
+       # BOTH in-place transforms. Invariant 11 states the contract as a pair — "never rely on a `!`
+       # transform's source" — and exempting only `to_physical!` would report a backend whose forward
+       # r2c consumes its input as a package defect. An earlier edit intended this and did not land.
+       (occursin("to_physical", invocation.label) ||
+        occursin("to_spectral", invocation.label)) && continue
        record!(:preservation, "$(invocation.label) modified argument $index, which is not its destination")
        break
      end
@@ -369,7 +385,7 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   # BOTH setters, not just the cutoff. The pool holds integers, so the sweep executes
   # `set_fft_threads!(1)` too, and FFTW bakes its thread count into every plan built afterwards. The
   # comment above claimed both were put back; only one was.
-  entry_fft_threads = Threads.nthreads()
+  entry_fft_threads = max(1, Threads.nthreads())
   for invocation in work.built
    # The lane itself can fail on a cell — a device backend reports an earlier asynchronous error at the
    # next API call, so an unrelated invocation aborts the whole sweep. Recording the failure and moving
@@ -399,7 +415,7 @@ _comparable(x) =
   x isa Number                                  ? x :
   (!(x isa AbstractArray) && !(x isa Tuple) &&
    !(x isa GBGI.FiberSections.AbstractFiberSection) &&
-   !isempty(_array_leaves(x)))                  ? [copy(Array(l)) for l in _array_leaves(x)] :
+   !isempty(_array_leaves(x)))                  ? [_leaf_value(l) for l in _array_leaves(x)] :
   x isa GBGI.FiberSections.AbstractFiberSection ? Array(field_data(x)) :
   x isa AbstractArray                           ? Array(x) :
   x isa Tuple                                   ? map(_comparable, x) : nothing

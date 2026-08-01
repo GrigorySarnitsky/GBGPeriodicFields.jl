@@ -140,7 +140,7 @@ function run_reference_lane()
     println("  reference means anything until it is resolved:")
     for d in disagreements; println("      ", d); end
   end
-  return length(disagreements)
+  return (length(disagreements), checked)
 end
 
 
@@ -282,15 +282,15 @@ println()
 invocation_findings, invocation_quality, invocation_cells, unbuilt, harness_errors = run_invocation_lane(configurations())
 println()
 
-relation_findings, relation_cells = run_relations_lane(configurations())
+relation_findings, relation_cells = _with_restored_cutoff(() -> run_relations_lane(configurations()))
 println()
-property_findings, property_cells = run_property_lanes(configurations())
+property_findings, property_cells = _with_restored_cutoff(() -> run_property_lanes(configurations()))
 println()
-sequence_findings, sequence_cells = run_sequence_lane(configurations())
+sequence_findings, sequence_cells = _with_restored_cutoff(() -> run_sequence_lane(configurations()))
 println()
 # BEFORE the value lane, which uses these same references as its oracle. Running the validation eight
 # lanes later contradicted the design's own rule that a reference is cross-validated before use.
-disagreeing = run_reference_lane()
+disagreeing, reference_cells = run_reference_lane()
 println()
 value_findings, value_cells, value_oracles, value_gaps = run_value_lane(configurations())
 println()
@@ -306,7 +306,8 @@ println("═"^100)
 # Every lane, not three of them. The old sum omitted the invocation, value, relation, property and
 # sequence counts entirely while presenting itself as the suite's total.
 println("REPORT — ", cases + mismatch_cells + ledger_cells + invocation_cells + value_cells +
-                     relation_cells + property_cells + sequence_cells, " cells over nine lanes")
+                     relation_cells + property_cells + sequence_cells + reference_cells,
+        " cells over nine lanes")
 println("═"^100)
 # Printed from the MEASUREMENT, not as a sentence. `unbuilt` was bound and never read, so this row
 # asserted the conclusion regardless of what the engine found.

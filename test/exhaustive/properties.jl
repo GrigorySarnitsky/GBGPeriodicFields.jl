@@ -83,7 +83,10 @@ function _mean_free(field)
   # coefficient array has zero mean. Subtracting the array's mean instead removes nothing meaningful
   # and makes the Δ⁻¹Δ identity fail, which is how this was found.
   if field isa GBGI.Fields.AbstractFieldSpectral
-    data[1, 1, 1] = zero(eltype(data))
+    # ALL fiber components of the DC mode. `data[1,1,1]` on a 4-D or 5-D array is partial linear
+    # indexing and reaches only the first component — latent today (only a scalar field is passed) and
+    # wrong the moment one is not.
+    selectdim(reshape(data, size(data, 1), size(data, 2), size(data, 3), :), 1, 1)[1, 1, :] .= 0
   else
     data .-= sum(data) / length(data)
   end
@@ -100,6 +103,18 @@ end
 Evaluate every relation the ledger declares. Each constrains two operations, so none of them can be
 checked by a per-operation oracle.
 """
+# Every lane that calls `_bench` must put the cutoff back: `_bench` pins it per configuration and the
+# last configuration is `threaded = true`, so the lanes were leaving it at 1 for whatever ran next.
+function _with_restored_cutoff(body)
+  entry = threading_cutoff()
+  try
+    return body()
+  finally
+    set_threading_cutoff!(entry)
+  end
+end
+
+
 function run_relations_lane(configs)
   println("═"^100)
   println("LANE: declared relations — adjointness, algebraic identity, round-tripping")
@@ -167,8 +182,13 @@ function run_relations_lane(configs)
       # `inner` could break it — while crediting both operations with identity coverage.
       ("‖·‖₂² = inner(f, f)",
        l2norm(b.u)^2, ref_inner(field_data(b.u), field_data(b.u), 1)),
+      # Against the REFERENCE, for the same reason `‖·‖₂²` above it was: `integral` and `mean` both call
+      # `_tree_sum` and differ only by `_cell_measure` vs `1/_base_count`, and `Grid3D` enforces
+      # `grid_spacing ≈ domain_size ./ grid_size` — so the comparison collapsed to a metadata identity
+      # that holds for any `f` and could not see a defect in the shared reduction. The fix applied to
+      # the neighbouring relation was never carried here.
       ("integral = measure · mean",
-       integral(b.s), prod(config.grid.domain_size) * mean(b.s)),
+       integral(b.s), only(ref_integral(field_data(b.s), 0, config.grid))),
       # ── round-tripping ────────────────────────────────────────────────────────────────────────
       ("to_physical ∘ to_spectral = id",
        field_data(to_physical(to_spectral(b.s, b.plans0), b.plans0)), field_data(b.s)),
@@ -188,20 +208,23 @@ function run_relations_lane(configs)
       # fallback made both sides the same object, so without HDF5 these two passed by identity while
       # still crediting all four persistence operations with round-trip coverage — in exactly the GPU
       # environments the README tells you to run.
+      # Contributing a PASSING CELL when the dependency is absent is what the design forbids; the value
+      # lane handles the same situation by contributing zero comparisons. These two now yield a sentinel
+      # the loop drops, so the relation is reported unevaluated rather than tallied as holding.
       (HDF5_AVAILABLE ? ("read_field ∘ write_field = id",
         begin
           path = joinpath(mktempdir(), "relation.h5")
           HDF5.h5open(f -> write_field(f, "u", b.u), path, "w")
           field_data(HDF5.h5open(f -> read_field(f, "u"), path, "r"))
         end, field_data(b.u)) :
-       ("read_field ∘ write_field = id [NOT RUN: no HDF5]", true, true)),
+       (:skip, nothing, nothing)),
       (HDF5_AVAILABLE ? ("read_points ∘ write_points = id",
         begin
           path = joinpath(mktempdir(), "relation_points.h5")
           HDF5.h5open(f -> write_points(f, "p", b.points), path, "w")
           point_coordinates(HDF5.h5open(f -> read_points(f, "p"), path, "r"))
         end, point_coordinates(b.points)) :
-       ("read_points ∘ write_points = id [NOT RUN: no HDF5]", true, true)),
+       (:skip, nothing, nothing)),
       ("kernel composition is associative",
        field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(z, m, b.T(3)),
                                                    spectral_band(z, m, b.T(1), b.T(4))),
@@ -229,6 +252,7 @@ function run_relations_lane(configs)
       println("\n  DECLARED BUT NOT EVALUATED — ", length(unevaluated), " relations credit no coverage:\n",
               "      ", join(unevaluated, "; "))
     for (name, got, want) in checks
+      name === :skip && continue          # a dependency-gated relation: unevaluated, not passing
       cells += 1
       push!(seen, name)
       ok = try
@@ -364,14 +388,19 @@ function run_property_lanes(configs)
     # charged kernel construction to `convolve!`.
     allocation_kernel = spectral_cutoff(z, m, b.T(3))
     u, v, A, uh, vh, half = b.u, b.v, b.A, b.uh, b.vh, b.T(1) / 2
+    # FRESH destinations. Measuring `add!(u, u, v)` in place mutated the workbench that the ordering
+    # and rejection blocks below read, so those checks ran on data the seed does not name — the same
+    # shared-fixture poisoning the invocation lane's per-cell `_refresh` exists to prevent.
+    scratch_u, scratch_v = similar_field(u, Val(1)), similar_field(v, Val(1))
+    copyto!(field_data(scratch_u), field_data(u)); copyto!(field_data(scratch_v), field_data(v))
     for (name, bytes) in
-        (("add!",                  single_allocated(add!, u, u, v)),
-         ("combine!",              single_allocated(combine!, u, half, u, half, v)),
-         ("mul!",                  single_allocated(mul!, v, A, u)),
-         ("laplacian!",            single_allocated(laplacian!, vh, uh, m)),
-         ("curl!",                 single_allocated(curl!, vh, uh, m)),
-         ("helmholtz_projection!", single_allocated(helmholtz_projection!, vh, uh, m)),
-         ("convolve!",             single_allocated(convolve!, vh, uh, allocation_kernel)),
+        (("add!",                  single_allocated(add!, scratch_u, scratch_u, v)),
+         ("combine!",              single_allocated(combine!, scratch_u, half, scratch_u, half, v)),
+         ("mul!",                  single_allocated(mul!, scratch_v, A, u)),
+         ("laplacian!",            single_allocated(laplacian!, similar_field(uh, Val(1)), uh, m)),
+         ("curl!",                 single_allocated(curl!, similar_field(uh, Val(1)), uh, m)),
+         ("helmholtz_projection!", single_allocated(helmholtz_projection!, similar_field(uh, Val(1)), uh, m)),
+         ("convolve!",             single_allocated(convolve!, similar_field(uh, Val(1)), uh, allocation_kernel)),
          ("inner",                 single_allocated(inner, u, v)))
       count!(:allocation)
       # Scaled to the SMALLEST field in play, not a fixed 4096. A scalar Float32 field on 8³ is 2048 B

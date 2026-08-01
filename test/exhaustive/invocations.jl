@@ -201,12 +201,9 @@ function canonical_pool(config; device = identity)
   push("scheme: Lagrange1",  LagrangeSpline(1))
   push("scheme: DirectDFT",  DirectDFT())
   push("scheme: NUFFT",      NUFFT(spectral[1]))
-  # THE GUARD THE COMMENT PROMISED. DESIGN.md claims these two pools are derived by `subtypes(...)`;
-  # they are literals, and `subtypes(` appeared nowhere. Deriving them outright is not possible (a
-  # kernel needs constructor arguments), so the literals stay and the derived set audits them: a new
-  # concrete class with no pool entry is reported instead of silently unswept. Note `subtypes` is not
-  # recursive, so the scheme check descends one level through `AbstractSplineScheme`.
-  Base.push!(entries, PoolEntry("__pool_audit__", _pool_class_gaps(entries)))
+  # The audit result is RETURNED, not pushed into the pool. Pushing it made a `Vector{Symbol}` a live
+  # candidate for any loosely-typed slot, and nothing ever read it back — so the guard the docstring
+  # promised was computed and discarded.
   # Scalars, fibers and maps.
   push("real α",  T(0.3))
   push("real β",  T(0.7))
@@ -257,6 +254,14 @@ function canonical_pool(config; device = identity)
   end
   return entries
 end
+
+
+"""
+    pool_class_gaps(config) -> Vector{Symbol}
+
+Concrete kernel and transfer-scheme classes with no representative in the pool for `config`.
+"""
+pool_class_gaps(config; device = identity) = _pool_class_gaps(canonical_pool(config; device = device))
 
 
 # ── Building calls ──────────────────────────────────────────────────────────────────────────────
@@ -319,6 +324,8 @@ function invocations(operation::Function, pool; cap::Int = 400)
         length(expanded) > 9 && continue
         slots = [[e for e in pool if _slot_admits(p, e.object)] for p in expanded]
         any(isempty, slots) && continue
+        total = prod(length.(slots))
+        total > cap && (dropped += total - cap)
         for combination in Iterators.take(Iterators.product(slots...), cap)
           arguments = [e.object for e in combination]
           applicable(operation, arguments...) || continue
