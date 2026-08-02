@@ -579,6 +579,31 @@ end
       @test inner(device, device) isa Real
       @test l2norm(device) isa Real
     end
+
+    # ── the PARTNER arguments, which are a different check ────────────────────────────────────
+    #
+    # The multipliers are not a section, so they miss the section-level check entirely. Measured
+    # before the guard existed: a device field with host multipliers reached `gradient`,
+    # `laplacian`, `divergence`, `helmholtz_projection` and `radial_spectrum`, and every one died
+    # with a `KernelError` — KernelAbstractions declining to launch over mixed arrays, which is the
+    # right outcome for the wrong reason, exactly as `inner` refused only because CUBLAS lacked a
+    # mixed-pointer method. `_check_multipliers_compatibility` already checked scalar type, grid and
+    # layout; it was missing this one clause.
+    @testset "a device field and host multipliers cannot be combined" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      layout = RealFourierLayout()
+      host_spectral = ScalarFieldSpectral(
+          randn(ComplexF64, F.spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+      device_spectral = on_device(host_spectral)
+      host_multipliers = FieldSpectralMultipliers(host_spectral)
+      device_multipliers = FieldSpectralMultipliers(device_spectral)
+      @test_throws ArgumentError gradient(device_spectral, host_multipliers)
+      @test_throws ArgumentError laplacian(device_spectral, host_multipliers)
+      @test_throws ArgumentError radial_spectrum(device_spectral, host_multipliers)
+      # Matched pairs on either side stay legal, so the guard cannot pass by refusing everything.
+      @test gradient(device_spectral, device_multipliers) isa VectorFieldSpectral
+      @test gradient(host_spectral, host_multipliers) isa VectorFieldSpectral
+    end
   end
 
 end

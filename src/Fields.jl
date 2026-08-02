@@ -1415,11 +1415,26 @@ _context_layout(multipliers::FieldSpectralMultipliers) = multipliers.fourier_lay
     _check_multipliers_compatibility(field::AbstractFieldSpectral,
                                      multipliers::FieldSpectralMultipliers)
 
-Check that a spectral-space `field` and `multipliers` share scalar type, grid, and Fourier layout. Returns `nothing` or throws.
+Check that a spectral-space `field` and `multipliers` share scalar type, grid, Fourier layout, and
+storage family. Returns `nothing` or throws.
 """
 function _check_multipliers_compatibility(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
   field_scalar_type(field) == _multipliers_scalar_type(multipliers) || throw(ArgumentError("field and spectral multipliers scalar types must be equal"))
   _check_field_matches_context(field, multipliers)
+  # STORAGE FAMILY, for the reason `_check_same_domain` states: without it the pair passes every
+  # structural test and fails later, so the error depends on the operation and the backend. Measured
+  # before it was added: a device field with host multipliers reached `gradient`, `laplacian`,
+  # `divergence`, `helmholtz_projection` and `radial_spectrum`, and each died with a `KernelError` from
+  # KernelAbstractions declining to launch over mixed arrays — the right outcome for the wrong reason,
+  # exactly as `inner` refused only because CUBLAS lacked a mixed-pointer method.
+  # Compared inline rather than through a new helper: decision 53's derived per-module baseline counts
+  # every method this module owns, and two one-line helpers moved `Fields` from 105 to 107 — the guard
+  # doing its job. Any of the six wavenumber vectors names the family the multipliers were built on.
+  Base.typename(typeof(parent(field_data(field)))).wrapper ===
+      Base.typename(typeof(parent(multipliers.wavenumber_1))).wrapper ||
+    throw(ArgumentError("field and spectral multipliers must live in the same storage family; got " *
+                        "$(Base.typename(typeof(parent(field_data(field)))).wrapper) and " *
+                        "$(Base.typename(typeof(parent(multipliers.wavenumber_1))).wrapper)"))
   return nothing
 end
 
