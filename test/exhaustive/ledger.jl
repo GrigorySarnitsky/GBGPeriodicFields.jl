@@ -138,7 +138,14 @@ function operation_properties(name::Symbol)
           pointvalues = accepts(GBGL.Points.AbstractPointValues),
           validates   = any(n -> startswith(String(n), "_check_"), reachable),
           atomic      = any(n -> occursin(r"^(atomic|Atomix)", String(n)), reachable),
-          threaded    = any(n -> String(n) in ("_assign!", "_fiberwise_pass!", "_map_pass!"), reachable),
+          # THREE ROUTES, not one. `_assign!` and the two fiberwise executors are the broadcast and
+          # fiberwise routes, but decision 40 gave the spectral one-pass operators a GATED CPU LOOP that
+          # the `with_threading` override reaches directly — `helmholtz_projection!` is the instance —
+          # and it calls none of those three. Deriving "threaded" from that list alone declared thread
+          # invariance inapplicable to an operation whose invariance a lane then asserted, which is the
+          # disagreement the second-order guard exists to surface, and it surfaced exactly this one.
+          threaded    = any(n -> String(n) in ("_assign!", "_fiberwise_pass!", "_map_pass!",
+                                               "_foreach_outer_slab"), reachable),
           serializes  = occursin(r"^(write|read)_", text),
           nmethods    = length(ms))
 end
@@ -574,7 +581,17 @@ function run_ledger_lane()
     end
   end
 
-  violations = guard_violations(properties, applicable, covered)
+  # THE SURVEY'S OWN coverage, not the merged set. The guard asks whether a LANE asserts a kind the
+  # applicability rule calls inapplicable — and the applicability rule for the relational kinds derives
+  # from this survey's `RELATIONS` table, which by design names no operators. The merged `covered` also
+  # carries the GATE's assertions, found by scanning `test/*.jl`, and the gate does assert identities on
+  # `+`, `-`, `*` and `/`. Judging those against a rule that cannot see the gate's relation set produced
+  # 84 guaranteed disagreements that said nothing about either side: the two derivations were simply
+  # describing different universes. Comparing like with like leaves the guard able to catch what it is
+  # for — one of THIS suite's lanes crediting a cell its own rule forbids.
+  survey_covered = Dict(key => value for (key, value) in covered
+                        if value == ["exhaustive lane"])
+  violations = guard_violations(properties, applicable, survey_covered)
   if !isempty(violations)
     println("\n  SECOND-ORDER GUARD VIOLATIONS — an exemption the ledger's own rules forbid:")
     for v in violations; println("      ", v); end

@@ -538,6 +538,16 @@ function run_value_lane(configs)
       HDF5.h5open(path, "w") do file
         write_field(file, "field", u)
         write_points(file, "points", points)
+        # EVERY field kind and every point-value order, not just a vector field and a point set. The
+        # tag-dispatch chains in the extension are a six-way and a four-way `elseif`; a defect confined
+        # to one branch either throws — which the invocation lane swallows — or reconstructs a wrong
+        # object that nothing compared to anything.
+        write_field(file, "scalar", s)
+        write_field(file, "tensor", A)
+        write_field(file, "spectral", sh)
+        write_field(file, "spectral_tensor", Ah)
+        write_points(file, "qv", qa)
+        write_points(file, "qt", qt)
       end
       raw_datasets(name) = begin
         found = Array[]
@@ -555,10 +565,27 @@ function run_value_lane(configs)
       recovered_field, recovered_points = HDF5.h5open(path, "r") do file
         (read_field(file, "field"), read_points(file, "points"))
       end
+      others = HDF5.h5open(path, "r") do file
+        (read_field(file, "scalar"), read_field(file, "tensor"), read_field(file, "spectral"),
+         read_field(file, "spectral_tensor"), read_points(file, "qv"), read_points(file, "qt"))
+      end
       ((:write_field,  vec(stored_field),                 vec(du)),
        (:write_points, vec(stored_points),                vec(point_coordinates(points))),
        (:read_field,   field_data(recovered_field),       du),
-       (:read_points,  point_coordinates(recovered_points), point_coordinates(points)))
+       (:read_points,  point_coordinates(recovered_points), point_coordinates(points)),
+       # The round trip must return the same VALUES and the same TYPE — a tag-dispatch defect that
+       # rebuilt a spectral field as a physical one, or a tensor as a vector, would otherwise survive.
+       (:read_field,   field_data(others[1]),             ds),
+       (:read_field,   field_data(others[2]),             dA),
+       (:read_field,   field_data(others[3]),             field_data(sh)),
+       (:read_field,   field_data(others[4]),             field_data(Ah)),
+       (:read_field,   [typeof(others[1]) === typeof(s), typeof(others[2]) === typeof(A),
+                        typeof(others[3]) === typeof(sh), typeof(others[4]) === typeof(Ah)],
+                       [true, true, true, true]),
+       (:read_points,  point_values(others[5]),           raw_qa),
+       (:read_points,  point_values(others[6]),           raw_qt),
+       (:read_points,  [typeof(others[5]) === typeof(qa), typeof(others[6]) === typeof(qt)],
+                       [true, true]))
     else
       ()
     end
