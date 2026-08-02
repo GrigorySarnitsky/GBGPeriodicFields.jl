@@ -94,10 +94,13 @@ Exit code: `0` clean, `1` failures that are all cited, `2` at least one uncited 
 ## Scale
 
 96 configurations — element type × 4 grid shapes (one odd on every axis) × **3 layout folds** × thread
-setting × 2 seeds, including a shifted non-commensurate origin — in **90 minutes** with `-t4`, measured
-on this host. (The
+setting × 2 seeds, including a shifted non-commensurate origin — in **75 minutes** with `-t4`, measured
+on an otherwise idle host. (The
 seed axis is the only one with no targeted defect class behind it, so it is where runtime is bought
-back rather than from an axis that exists because a bug lived there. Three seeds and 144 configurations
+back rather than from an axis that exists because a bug lived there. **Measure it on an idle machine.**
+An earlier figure of 90 minutes was taken while other Julia processes ran alongside it, and the same
+suite — with 83% MORE cells, after the pool gained a second instance per tensor order — then measured
+75 on a quiet one. Contention inflates this by more than the changes being measured. Three seeds and 144 configurations
 took 125 minutes and found **exactly the same 11 distinct correctness findings and 50 distinct failures
 in the other lanes** as two seeds and 96 do — the third draw multiplied every finding's cell count and
 contributed no finding of its own, which is the evidence the axis was the right one to trim.) The axis table, and what each axis crosses versus samples,
