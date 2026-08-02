@@ -406,3 +406,47 @@ end
     @test field_tensor_order(deposited) == 1
   end
 end
+
+
+# ── which modes NUFFT projects out ────────────────────────────────────────────────────────────────
+#
+# Ported from the exhaustive survey, where writing an independent oracle for the spectral evaluation
+# forced this contract into the open. NUFFT is exact against DirectDFT only on the RESOLVED SUB-NYQUIST
+# band — it projects the Nyquist out so its spread and gather stay exact adjoints — and it does so on
+# EVERY EVEN AXIS, not only the folded one. That distinction was measured, not assumed: on an 8³ grid,
+# projecting the folded axis alone leaves NUFFT disagreeing with the reference by 0.219, while
+# projecting all three brings it to 3.3e-12. Nothing pinned which modes are dropped, so a change to the
+# projection would have shifted answers silently.
+@testset "NUFFT projects the Nyquist plane on every even axis, not only the folded one" begin
+  T = Float64
+  layout = RealFourierLayout()
+  grid = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
+  rng = MersenneTwister(20260802)
+  physical = ScalarFieldPhysical(rand(rng, T, 8, 8, 8), grid, layout)
+  spectral = to_spectral(physical, FieldTransformPlans(physical,
+      ScalarFieldSpectral(zeros(Complex{T},
+          GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))...), grid, layout)))
+  points = PointSet(rand(rng, T, 12, 3) .* T(2π))
+
+  # The same field with the Nyquist plane removed on each even axis: the last stored slot on the folded
+  # axis, and `n ÷ 2 + 1` elsewhere, the stored order there running 0, 1, ….
+  projected_data = copy(field_data(spectral))
+  for axis in 1:3
+    n = grid.grid_size[axis]
+    iseven(n) || continue
+    index = axis == layout.fft_dims[1] ? size(projected_data, axis) : (n ÷ 2 + 1)
+    plane = ntuple(d -> d == axis ? (index:index) : Base.axes(projected_data, d),
+                   ndims(projected_data))
+    projected_data[plane...] .= 0
+  end
+  projected = ScalarFieldSpectral(projected_data, grid, layout)
+
+  fast = point_values(interpolate(spectral, points, NUFFT(spectral; tol = 1e-10)))
+  exact_projected = point_values(interpolate(projected, points, DirectDFT()))
+  exact_full = point_values(interpolate(spectral, points, DirectDFT()))
+
+  @test fast ≈ exact_projected atol = 1e-8
+  # The discriminator: the projection is not a no-op on this field, so the assertion above genuinely
+  # pins WHICH modes are dropped rather than being satisfied by any implementation.
+  @test !isapprox(exact_projected, exact_full; atol = 1e-3)
+end

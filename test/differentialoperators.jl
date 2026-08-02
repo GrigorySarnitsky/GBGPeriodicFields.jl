@@ -508,3 +508,34 @@ end
     @test field_data(cc) == field_data(cs)
   end
 end
+
+
+# ── the Jacobian's index convention ───────────────────────────────────────────────────────────────
+#
+# Ported from the exhaustive survey, which found this unpinned. The only check on `gradient`'s
+# vector→tensor mode was `symmetric_gradient = sym(gradient(u))`, and `sym(M) = sym(Mᵀ)` erases a
+# transposed fibre-index pair before the comparison ever sees it — so an implementation computing
+# ∂u_j/∂x_i in place of ∂u_i/∂x_j passed. The fixture is deliberately asymmetric: the two off-diagonal
+# entries below are different functions with different amplitudes, so swapping them cannot go unnoticed.
+@testset "gradient (vector -> tensor): the index convention (∇u)_ij = ∂u_i/∂x_j" begin
+  x = [i for i in range(0, 2π, length = gs[1] + 1)[1:end-1], _ in 1:gs[2], _ in 1:gs[3]]
+  y = [j for _ in 1:gs[1], j in range(0, 2π, length = gs[2] + 1)[1:end-1], _ in 1:gs[3]]
+  data = zeros(T, gs..., 3)
+  data[:, :, :, 1] .= sin.(y)            # u₁ = sin(y)  ⇒ ∂u₁/∂x₂ = cos(y)
+  data[:, :, :, 2] .= sin.(3 .* x)       # u₂ = sin(3x) ⇒ ∂u₂/∂x₁ = 3cos(3x)
+  u = VectorFieldPhysical(data, grid)
+  plans = plans_for(u)
+  multipliers = FieldSpectralMultipliers(to_spectral(u, plans))
+  jacobian = to_physical(gradient(to_spectral(u, plans), multipliers), plans_for(zero_tensor()))
+  J = field_data(jacobian)
+
+  @test tcomp(J, 1, 2) ≈ cos.(y)         atol = 1e-10
+  @test tcomp(J, 2, 1) ≈ 3 .* cos.(3 .* x) atol = 1e-10
+  # The discriminator: the two entries are genuinely different, so a transposed implementation would
+  # have to fail one of the assertions above. Asserting that keeps this test from silently becoming
+  # symmetric if the fixture is ever edited.
+  @test !isapprox(cos.(y), 3 .* cos.(3 .* x); atol = 1e-6)
+  for (i, j) in ((1, 1), (2, 2), (3, 3), (1, 3), (3, 1), (2, 3), (3, 2))
+    @test all(abs.(tcomp(J, i, j)) .< 1e-10)
+  end
+end

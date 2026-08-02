@@ -687,3 +687,28 @@ end
   kernel = spectral_band(spectral, multipliers, 0, 2)
   @test field_data(us ⋆ kernel) == field_data(convolve(us, kernel))
 end
+
+
+# ── the tensor-tensor product, by its definition ──────────────────────────────────────────────────
+#
+# Ported from the exhaustive survey. The only check on tensor-tensor `mul!` was the identity
+# det(AB) = det(A)det(B) — and the determinant is multiplicative AND transpose-invariant, so that
+# identity holds equally for BA, AᵀB, ABᵀ and the rest of the family. It cannot distinguish a correct
+# product from a reversed or transposed one; the direct contraction can.
+@testset "mul! (tensor·tensor) computes (AB)_ij = A_ik B_kj, not a transpose or a reversal" begin
+  rng = MersenneTwister(20260802)
+  A = TensorFieldPhysical{2}(rand(rng, T, gs..., 3, 3), grid)
+  B = TensorFieldPhysical{2}(rand(rng, T, gs..., 3, 3), grid)
+  dA, dB = field_data(A), field_data(B)
+  contract(X, Y) = [sum(X[a, b, c, i, k] * Y[a, b, c, k, j] for k in 1:3)
+                    for a in 1:gs[1], b in 1:gs[2], c in 1:gs[3], i in 1:3, j in 1:3]
+
+  C = mul!(TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid), A, B)
+  @test field_data(C) ≈ contract(dA, dB)
+
+  # The discriminators. A random pair makes each of these genuinely different from the true product, so
+  # the assertion above is not satisfiable by a reversed or transposed implementation.
+  @test !isapprox(field_data(C), contract(dB, dA))
+  @test !isapprox(field_data(C), contract(permutedims(dA, (1, 2, 3, 5, 4)), dB))
+  @test !isapprox(field_data(C), contract(dA, permutedims(dB, (1, 2, 3, 5, 4))))
+end
