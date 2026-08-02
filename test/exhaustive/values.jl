@@ -101,6 +101,12 @@ function run_value_lane(configs)
       (:add!,       add!(similar_field(u, Val(1)), u, v, w), ref_add(ref_add(du, field_data(v)), field_data(w))),
       (:map!,       field_data(map!((x, y) -> x - 2y, similar_field(u, Val(1)), u, v)),
                     du .- 2 .* field_data(v)),
+      # A TENSOR source through a map that is NOT transpose-invariant. `map`'s fiber assembly for R = 2
+      # packs nine flat scalars into a matrix in a specific order, and that packing is used by nothing
+      # else — the algebra reads components directly. Every closure the suite applied to a tensor (`2x`,
+      # `det`, `norm`, `tr`) is transpose-invariant, so an index swap in the packing was unobservable
+      # even in principle. Extracting one off-diagonal entry is the fixture that can falsify it.
+      (:map,        field_data(map(M -> M[1, 2], A)),   dA[:, :, :, 1, 2]),
       (:subtract!,  subtract!(similar_field(u, Val(1)), u, v), ref_subtract(du, field_data(v))),
       (:multiply!,  multiply!(similar_field(u, Val(1)), u, α), ref_scale(du, α)),
       (:divide!,    divide!(similar_field(u, Val(1)), u, α), ref_divide(du, α)),
@@ -225,6 +231,16 @@ function run_value_lane(configs)
                          [grid.grid_spacing[d] * (T(1)/2 + (T(1)/1000 + T(1)/10000 * d) * p)
                           for p in 1:9, d in 1:3])
     outside = PointSet(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3))
+    # VECTOR and TENSOR point values. The point-value M3 algebra had no independent value oracle at all:
+    # every row in this lane used field fixtures. The per-element formulas are shared with the field
+    # side, so a defect there is caught — but the Points-side wrapper that chooses WHICH kernel to call
+    # and in what argument order is unique to `Points.jl` and was checked by nothing. A swapped dispatch
+    # produces a finite, deterministic, well-shaped wrong answer, and `metadata` does not even apply,
+    # since a point-value section is not a field.
+    raw_qa, raw_qb = rand(T, 9, 3), rand(T, 9, 3)
+    raw_qt = rand(T, 9, 3, 3)
+    qa, qb = VectorPointValues(copy(raw_qa)), VectorPointValues(copy(raw_qb))
+    qt = TensorPointValues{2}(copy(raw_qt))
     sh2 = to_spectral(s2, plans)
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
@@ -303,6 +319,32 @@ function run_value_lane(configs)
       (:interpolate,     point_values(interpolate(sh, points, DirectDFT())),
                          ref_spectral_interpolate(field_data(sh), grid, layout,
                                                   point_coordinates(points), 0)),
+      # ABOVE R = 0. The DFT transfer kernels carry an explicit fiber loop with hand-built linear-index
+      # arithmetic that collapses to a no-op when there is one component, so a fiber-stride defect is
+      # invisible at R = 0 by construction — which is the only order that was checked.
+      (:interpolate,     point_values(interpolate(uh, points, DirectDFT())),
+                         ref_spectral_interpolate(field_data(uh), grid, layout,
+                                                  point_coordinates(points), 1)),
+      # The cross-family `ProductKernel` (radial ∘ separable). Radial ∘ radial collapses back to a
+      # radial kernel by decision 51, so composing two radials never builds this type at all; the pool
+      # constructs one and nothing compared its coefficients to anything.
+      (:convolve,        kernel_data(convolve(spectral_cutoff(spectral_zero, multipliers, cutoff),
+                                              translation_kernel(spectral_zero, multipliers, offset))),
+                         complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)) .*
+                         ref_translation_kernel(grid, layout, shape, offset)),
+      # The KERNEL-COMPOSED arities (decision 32). `divergence!`/`helmholtz_projection!` with a trailing
+      # kernel route through a distinct overload that fuses the convolution into the operator's own
+      # pass; only the plain forms were value-checked, so a defect that dropped the kernel factor or
+      # applied it with the wrong placement was indistinguishable from a correct fused pass.
+      (:divergence,      field_data(divergence(uh, multipliers,
+                                               spectral_cutoff(spectral_zero, multipliers, cutoff))),
+                         ref_divergence(field_data(uh), grid, layout) .*
+                         ref_spectral_cutoff(grid, layout, shape, cutoff)),
+      (:helmholtz_projection,
+                         field_data(helmholtz_projection(uh, multipliers,
+                                                         spectral_cutoff(spectral_zero, multipliers, cutoff))),
+                         ref_helmholtz(field_data(uh), grid, layout) .*
+                         ref_spectral_cutoff(grid, layout, shape, cutoff)),
       (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tol = 1e-10))),
                          ref_spectral_interpolate(ref_project_out_nyquist(field_data(sh), grid, layout),
                                                   grid, layout, point_coordinates(points), 0)),
@@ -411,6 +453,25 @@ function run_value_lane(configs)
       # `M⟨Wf,q⟩ = N⟨f,Wᵀq⟩`, where it appears on one side in company with three other operations — so
       # its own `1/M` normalization was never checked directly against an array.
       (:inner,               inner(q, q2),                      sum(raw_values .* raw_values2) / 9),
+      # Written out per point from the raw arrays, in the package's own index convention
+      # ((Au)_i = A_ij u_j), sharing no code with it.
+      (:cross,               point_values(cross(qa, qb)),
+                             hcat([raw_qa[:, 2] .* raw_qb[:, 3] .- raw_qa[:, 3] .* raw_qb[:, 2],
+                                   raw_qa[:, 3] .* raw_qb[:, 1] .- raw_qa[:, 1] .* raw_qb[:, 3],
+                                   raw_qa[:, 1] .* raw_qb[:, 2] .- raw_qa[:, 2] .* raw_qb[:, 1]]...)),
+      (:dot,                 point_values(dot(qa, qb)),
+                             vec(sum(raw_qa .* raw_qb; dims = 2))),
+      (:mul!,                point_values(mul!(VectorPointValues(zeros(T, 9, 3)), qt, qa)),
+                             [sum(raw_qt[p, i, j] * raw_qa[p, j] for j in 1:3) for p in 1:9, i in 1:3]),
+      (:transpose,           point_values(transpose(qt)),
+                             [raw_qt[p, j, i] for p in 1:9, i in 1:3, j in 1:3]),
+      (:tr,                  point_values(tr(qt)),
+                             [raw_qt[p, 1, 1] + raw_qt[p, 2, 2] + raw_qt[p, 3, 3] for p in 1:9]),
+      (:det,                 point_values(det(qt)),
+                             [raw_qt[p,1,1]*(raw_qt[p,2,2]*raw_qt[p,3,3] - raw_qt[p,2,3]*raw_qt[p,3,2]) -
+                              raw_qt[p,1,2]*(raw_qt[p,2,1]*raw_qt[p,3,3] - raw_qt[p,2,3]*raw_qt[p,3,1]) +
+                              raw_qt[p,1,3]*(raw_qt[p,2,1]*raw_qt[p,3,2] - raw_qt[p,2,2]*raw_qt[p,3,1])
+                              for p in 1:9]),
       (:point_values,        point_values(q),                   raw_values),
       # Derived independently, the way `ref_dft_forward` derives it: the folded axis keeps its
       # non-negative frequencies, every other axis its full extent. Comparing `Val(1)` against the
