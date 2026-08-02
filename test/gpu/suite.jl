@@ -556,6 +556,29 @@ end
     for T in ELEMENT_TYPES
       run_gpu_suite(T)
     end
+
+    # ── mixing a device section with a host one must be REFUSED, deliberately ──────────────────
+    #
+    # This needs two storage families in one process, so it can only live here. `dot`, `add!`,
+    # `cross!` and `multiply!` all refused through the package's own domain check with a clear
+    # message, while `inner` refused only because the vendor BLAS has no method taking a device
+    # pointer and a host pointer together — reported as `no method matching dot(::Int64,
+    # ::CuPtr{Float64}, …)`. That was an accident of the library rather than a decision of the
+    # package, and it would have gone quiet the moment any path accepted mixed pointers. The
+    # storage-family check now sits in `_check_contractible`, which every reduction routes through.
+    @testset "a device section and a host section cannot be contracted" begin
+      grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+      host = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid)
+      device = on_device(host)
+      @test_throws ArgumentError inner(device, host)
+      @test_throws ArgumentError inner(host, device)
+      host_values = ScalarPointValues(rand(Float64, 12))
+      device_values = IP.ScalarPointValues(to_device(copy(point_values(host_values))))
+      @test_throws ArgumentError inner(device_values, host_values)
+      # The same-family calls must be untouched by the guard.
+      @test inner(device, device) isa Real
+      @test l2norm(device) isa Real
+    end
   end
 
 end

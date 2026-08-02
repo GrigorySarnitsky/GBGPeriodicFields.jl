@@ -55,7 +55,8 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   TensorFieldSpectral, FiberVector, FiberTensor2, field_data,
   field_grid, field_layout, field_tensor_order, FieldSpectralMultipliers, FieldTransformPlans, to_physical,
   similar_field, _check_field_domain_compatibility, _check_multipliers_compatibility,
-  _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data
+  _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data,
+  _same_backend, _storage_family
 using ..Points: AbstractPointValues, npoints
 # The one kernel family a weight may take: a real symbol of |k|². A separable kernel is deliberately
 # not accepted — a magnitude-dependent weight does not factor per axis, so it is not in that family.
@@ -718,6 +719,16 @@ function _check_contractible(f::ReducibleSection, g::ReducibleSection)
   length(field_data(f)) == length(field_data(g)) ||
     throw(DimensionMismatch("sections have different storage lengths: " *
                             "$(length(field_data(f))) and $(length(field_data(g)))"))
+  # STORAGE FAMILY, for the same reason `_check_same_domain` carries it: without the check a
+  # host/device pair passes every structural test above and then fails somewhere below, so the error a
+  # user meets depends on which operation they called and on the backend. That was literally the case
+  # here — `inner(device, host)` refused only because CUBLAS has no method taking a `CuPtr` and a `Ptr`
+  # together, and reported it as `no method matching dot(::Int64, ::CuPtr{Float64}, …)`. It was an
+  # accident of the vendor library rather than a decision of the package, while `dot`, `add!`, `cross!`
+  # and `multiply!` all refused deliberately with a clear message.
+  _same_backend(f, g) ||
+    throw(ArgumentError("sections must live in the same storage family; got " *
+                        "$(_storage_family(f)) and $(_storage_family(g))"))
   return nothing
 end
 
