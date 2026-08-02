@@ -195,8 +195,18 @@ const RELATIONS = (
   (kind = :round_trip, name = "materialize agrees with compressed", ops = (:materialize_kernel, :convolve)),
 )
 
-relations_for(name::Symbol, kind::Symbol) = [r for r in RELATIONS if r.kind === kind && name in r.ops]
-constrained_by_nothing(name::Symbol) = isempty([r for r in RELATIONS if name in r.ops])
+# ALIAS-AWARE. `⋆`, `⋅` and `×` are exported bindings of `convolve`, `dot` and `cross` — the same
+# function objects — and `record_coverage!` credits every binding when one is credited. Applicability
+# was resolved per NAME against a relation table that lists only the canonical spelling, so an alias
+# could be credited for a kind its own rule then called inapplicable: the credit propagated and the
+# lookup did not. That is not a disagreement about the operation, only about how it is spelled.
+_canonical_operation(name::Symbol) =
+  something(findfirst(bindings -> name in bindings, _ALIAS_NAMES), name)
+
+relations_for(name::Symbol, kind::Symbol) =
+  [r for r in RELATIONS if r.kind === kind && _canonical_operation(name) in r.ops]
+constrained_by_nothing(name::Symbol) =
+  isempty([r for r in RELATIONS if _canonical_operation(name) in r.ops])
 
 
 # ── The check-type axis, taken from the classifier rather than listed ────────────────────────────
