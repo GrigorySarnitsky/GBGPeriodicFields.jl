@@ -215,8 +215,12 @@ function run_value_lane(configs)
     points = PointSet(copy(raw_coordinates))
     q = ScalarPointValues(copy(raw_values))
     # Overlapping stencils, and points the periodic wrap must bring back into the box.
+    # The per-axis rate DIFFERS. At one rate the cell-fractional coordinate is identical on all three
+    # axes (the spacing cancels), so every stencil weight array is numerically equal and an axis-weight
+    # swap is invisible — on the fixture written to exercise overlapping stencils.
     clustered = PointSet(reshape(collect(grid.origin), 1, 3) .+
-                         [grid.grid_spacing[d] * (0.5 + T(1)/1000 * p) for p in 1:9, d in 1:3])
+                         [grid.grid_spacing[d] * (0.5 + (T(1)/1000 + T(1)/10000 * d) * p)
+                          for p in 1:9, d in 1:3])
     outside = PointSet(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3))
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
@@ -339,8 +343,21 @@ function run_value_lane(configs)
                         ref_convolve(field_data(sh), complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10)))),
       (:radial_kernel,  kernel_data(radial_kernel(k2 -> exp(-k2 / 10), spectral_zero, multipliers)),
                         complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10))),
-      (:inv,            kernel_data(inv(StoredKernel(spectral_zero_ones + spectral_zero_ones))),
-                        complex.(fill(T(1) / 2, shape...))),
+      # A NON-CONSTANT kernel. The fixture was uniformly 2 everywhere and the expectation uniformly 0.5,
+      # so an implementation computing `1/data[1]` and broadcasting it over the whole array passed with
+      # full marks — the reciprocal's whole point is that it is elementwise.
+      (:inv,            kernel_data(inv(StoredKernel(spectral_zero_ones +
+                                                     materialize_kernel(spectral_cutoff(spectral_zero, multipliers, cutoff))))),
+                        complex.(one(T) ./ (one(T) .+ ref_spectral_cutoff(grid, layout, shape, cutoff)))),
+      # The COMPOSED kernel, elementwise. Kernel-to-kernel composition was checked only by
+      # "composition is associative" — and associativity holds for any associative combinator, so
+      # elementwise addition, min, max, or "return the first operand" would all have passed while
+      # silently replacing the coefficientwise product. The pool even builds a composed kernel; nothing
+      # ever compared its coefficients to anything.
+      (:convolve,       kernel_data(convolve(spectral_cutoff(spectral_zero, multipliers, cutoff),
+                                             spectral_band(spectral_zero, multipliers, T(1), cutoff))),
+                        complex.(ref_spectral_cutoff(grid, layout, shape, cutoff) .*
+                                 ref_spectral_band(grid, layout, shape, T(1), cutoff))),
       # `translation_kernel!` updates a SeparableKernel in place — the compressed per-axis factors,
       # not a materialized field — so the in-place form is fed the kernel its own builder returns.
       # Built with a DIFFERENT offset, so an in-place form that writes nothing cannot pass.

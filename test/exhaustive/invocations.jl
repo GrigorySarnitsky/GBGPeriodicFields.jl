@@ -159,6 +159,12 @@ function canonical_pool(config; device = identity)
   spectral = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
               VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
               TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
+  physical2 = (ScalarFieldPhysical(rand(T, P(0)...), grid, layout),
+               VectorFieldPhysical(rand(T, P(1)...), grid, layout),
+               TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout))
+  spectral2 = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
+               VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
+               TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
   multipliers = FieldSpectralMultipliers(spectral[1])
   M = 12
   # Scaled on the HOST and moved afterwards. Broadcasting a device array against a host matrix is a
@@ -171,6 +177,8 @@ function canonical_pool(config; device = identity)
                            reshape(collect(grid.origin), 1, 3)))
   values = (ScalarPointValues(rand(T, M)), VectorPointValues(rand(T, M, 3)),
             TensorPointValues{2}(rand(T, M, 3, 3)))
+  values2 = (ScalarPointValues(rand(T, M)), VectorPointValues(rand(T, M, 3)),
+             TensorPointValues{2}(rand(T, M, 3, 3)))
   # NOT a half cell on every axis. At h = Δ/2 the even-axis Nyquist multiplier `cos(πh/Δ)` is exactly
   # `cos(π/2) = 0`, so decision 28's hard case — the one term that must be a real factor rather than a
   # phase — was multiplied away in every cell, and a sign error there is invisible against `-0.0 == 0.0`.
@@ -182,6 +190,17 @@ function canonical_pool(config; device = identity)
   for (R, f) in enumerate(physical); push("physical R=$(R-1)", f); end
   for (R, f) in enumerate(spectral); push("spectral R=$(R-1)", f); end
   for (R, q) in enumerate(values);   push("pointvalues R=$(R-1)", q); end
+  # A SECOND, INDEPENDENTLY DRAWN instance of each. With one object per (representation, order), every
+  # same-order slot the engine fills draws the SAME object, so it could only ever build `add!(v, v, v)`,
+  # `cross!(v, v, v)`, `dot!(s, v, v)`, `mul!(C, A, A)`. That is not merely thin coverage: the
+  # preservation check skips an argument that is `===` the destination, because writing there is the
+  # operation's job — so with every same-order argument forced to BE the destination, the one universal
+  # check whose purpose is "did this call corrupt an argument it must not touch" had nothing left to
+  # compare across the whole pairwise algebra, however many cells ran. `build_pool` in `aliasing.jl` and
+  # `_bench` in `properties.jl` both draw independent instances already; this pool did not.
+  for (R, f) in enumerate(physical2); push("physical R=$(R-1) (b)", f); end
+  for (R, f) in enumerate(spectral2); push("spectral R=$(R-1) (b)", f); end
+  for (R, q) in enumerate(values2);   push("pointvalues R=$(R-1) (b)", q); end
   push("points", points)
   push("grid", grid)
   push("layout", layout)
@@ -240,7 +259,10 @@ function canonical_pool(config; device = identity)
   push("map: det", x -> det(x))
   push("map: norm", x -> norm(x))
   push("map: tr", x -> tr(x))
-  push("map: binary", (x, y) -> x + y)
+  # ASYMMETRIC. `x + y` is commutative, so an argument-order swap inside the variadic dispatch is
+  # invisible through the only two-source closure the pool has. The value lane already uses `x - 2y` for
+  # exactly this reason; the sibling entry here was not updated to match.
+  push("map: binary", (x, y) -> x - 2y)
   # The shape queries dispatch on `Val(R)`, and indexing takes indices. Without these the engine
   # reported `fiber_shape`, `physical_field_shape`, `spectral_field_shape`, `getindex` and `setindex!`
   # as unbuildable, which reads as "needs no test" rather than "the pool lacks an argument".

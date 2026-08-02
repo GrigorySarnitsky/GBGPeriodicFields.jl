@@ -264,7 +264,7 @@ Every number here is measured by the suite itself, so it cannot drift into optim
 | argument combinations per method | **SAMPLED** at a cap of 400; the number dropped is printed |
 | ledger cells applicable but unasserted | **321** — per-operation questions, not sweepable properties |
 
-Wall clock: about 43 minutes.
+Wall clock: **90 minutes**, measured with `-t4`. (It was 43 before the thread axis was made live, the third layout fold added, and the seed axis trimmed — a figure that had drifted precisely because it was written rather than re-measured, under a heading promising the opposite.)
 
 The operation row was **39 of 112 (35%) exercised by nothing** one commit ago, because three lanes
 carried hand-written entry lists under an axis that claims to be derived — this document's own rule

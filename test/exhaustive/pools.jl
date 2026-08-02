@@ -608,12 +608,20 @@ function build_pointset(count::Int, geometry::Symbol, grid::Grid3D = CANONICAL_G
   # and an axis transposition in a transfer verb was unobservable on the geometry pool that exists to
   # sweep exactly that. The stride now varies with the axis. (`:on_node` and `:clustered` were already
   # axis-dependent through `grid_size` and `Δ`.)
+  # PLUS THE ORIGIN, in every branch — the sibling of the same fix in `invocations.jl`. Every other point
+  # builder in the suite adds it; this one did not, so this geometry axis could never be crossed with a
+  # shifted origin at all. Dormant only because its one call site passes a zero-origin grid, which is
+  # what makes it the kind of gap that survives a reading.
   for p in 1:count, d in 1:3
-    coordinates[p, d] =
+    coordinates[p, d] = grid.origin[d] + (
       geometry === :uniform   ? L[d] * mod((p - 1) * d, count) / count :
       geometry === :on_node   ? Δ[d] * mod(p - 1, grid.grid_size[d]) :
-      geometry === :clustered ? Δ[d] * (0.5 + 1e-3 * p) :
-                                L[d] * mod((p - 1) * d, count) / count + 3 * L[d]   # outside the box
+      # The per-axis rate DIFFERS. With one rate the cell-fractional coordinate `(x_d - o_d)/Δ_d` is the
+      # same number on all three axes — the spacing cancels — so all three stencil weight arrays are
+      # numerically equal and swapping which one multiplies which index changes nothing, on the very
+      # fixture built to exercise overlapping stencils.
+      geometry === :clustered ? Δ[d] * (0.5 + (1e-3 + 1e-4 * d) * p) :
+                                L[d] * mod((p - 1) * d, count) / count + 3 * L[d])  # outside the box
   end
   return PointSet(coordinates)
 end

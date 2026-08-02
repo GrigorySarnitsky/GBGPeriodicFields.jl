@@ -814,9 +814,10 @@ those are the usual rot. Then the mechanical bar:
   is a **report**, not a gate — it runs blind to the package's decisions, prints everything that does
   not work, cites a decision beside a known gap rather than suppressing it, and names the combinations
   it could not construct so its silence is never mistaken for a pass. Exit `0` clean, `1` a quality
-  finding, `2` a correctness finding or a harness problem. **~43 minutes over 96 configurations**
-  (element type × 4 grid shapes, one odd on every axis × 2 layout folds × threads × 3 seeds × a shifted
-  origin). Run it from `test/gpu/cuda` or `test/gpu/rocm` to cross the backend axis, and from `test`
+  finding, `2` a correctness finding or a harness problem. **90 minutes over 96 configurations**,
+  measured with `-t4` (element type × 4 grid shapes, one odd on every axis × **3** layout folds ×
+  threads × **2** seeds × a shifted origin). Run it with `-t4`: the thread-invariance check is gated on
+  `Threads.nthreads() > 1`, so without it that axis is dead and half the configurations are duplicates. Run it from `test/gpu/cuda` or `test/gpu/rocm` to cross the backend axis, and from `test`
   (which carries `HDF5`) to reach the persistence pair.
   Its lanes, and the property each rests on:
   - `invocations.jl` — the operation domain is **derived from the method table**, not listed: every

@@ -194,6 +194,10 @@ const FINITENESS_EXEMPT = (:inverse_laplacian, :inverse_laplacian!, :divide, :di
 # dataset write that IS in the pool — was missing from both. Recording a throwing second call as a
 # finding rather than discarding it is what surfaced that: it is a genuine external effect, not a
 # reproducibility defect, and this list is where that is declared.
+# The operations whose summation order is genuinely nondeterministic: the two Atomix accumulators. Their
+# repeat is compared to a tolerance rather than bitwise, which is a documented 2-3 ulp on `anterpolate!`.
+const NONDETERMINISTIC_SUMMATION = (:anterpolate, :anterpolate!, :radial_spectrum, :radial_correlation)
+
 const EXTERNAL_EFFECT = (:write_field, :write_points, :setindex!)
 
 # Matching on the NAME alone was over-broad. `setindex!` is both the HDF5 dataset write — whose second
@@ -385,7 +389,11 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        # reproducible across launches — measured at 1 ulp for the R=2 `inner`, which is the parallel
        # summation order, not a defect — and the package's own position is that tolerances hold for
        # cross-backend comparisons. Demanding bitwise there reports the hardware as broken.
-       atomic = occursin("anterpolate", invocation.label) || occursin("radial", invocation.label)
+       # EXACT NAMES. This was the last substring gate in the file, and it matched `radial_kernel` —
+       # a lazy closure wrapper with no atomics anywhere — pushing it off the strict bitwise branch onto
+       # the tolerance one for no reason. The same class was converted to exact names for
+       # `FINITENESS_EXEMPT`, `UNBOUNDED_OUTPUT` and `EXTERNAL_EFFECT`; this site was missed each time.
+       atomic = nameof(invocation.operation) in NONDETERMINISTIC_SUMMATION
        exact = bitwise_determinism && !atomic
        same = comparison_outcome() do
          first_result = _is_inplace(invocation) ?

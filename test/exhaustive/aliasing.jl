@@ -31,7 +31,7 @@ end
 # TWO seeds, not three. The seed axis is the only one in the list with no targeted defect class behind
 # it — every other axis exists because a specific bug lived there — so it is the cheapest place to buy
 # runtime back, and a third draw of the same distribution is the least informative cell in the sweep.
-# 144 configurations fall to 96, and the run to roughly 85 minutes from a measured 125.
+# 144 configurations fall to 96, and the run to a measured 90 minutes from a measured 125.
 function configurations(; seeds = (20260731, 815))
   cs = Config[]
   for T in (Float64, Float32)
