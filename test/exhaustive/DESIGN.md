@@ -347,6 +347,31 @@ A cell removed because the combination does not exist keeps the completeness cla
 removed because there were too many destroys it, and destroys it silently. Where an axis must be
 sampled, it is declared sampled and reported as a limitation.
 
+## What this survey does NOT catch
+
+Established by reasoning through specific defects rather than by reading the lanes — the honest
+complement to the coverage tables above, and what a reader is most likely to assume wrongly.
+
+- **A defect confined to a GPU `@kernel` body, with its CPU twin left correct.** Only the
+  universal-checks lane crosses a device, and it asserts no VALUE there: preservation, finiteness,
+  metadata, determinism and type-stability all pass on a wrong-but-finite result, and determinism on a
+  device is compared to a tolerance, which is self-consistency rather than correctness. The package
+  deliberately duplicates arithmetic into a KA kernel and a hand-written CPU twin, so this is a real
+  surface rather than a hypothetical one. Value-level device parity lives in `test/gpu/suite.jl`,
+  outside this survey.
+- **`NUFFT`.** It is built as a scheme argument and its bad-tolerance rejection is checked, but no
+  independent value oracle exists for the spread/FFT/deconvolve pipeline anywhere in the survey.
+- **The two-field co-spectra, and the radial binning's fiber contraction above R = 1.** The single-field
+  R = 0 and R = 1 cases have oracles; `radial_spectrum(f, g)` and `radial_correlation(f, g)` do not.
+- **Tensor order R = 3.** Decision 56's ceiling contract is that every entry point above the ceiling
+  either works or throws, never returns a wrong value. The pools stop at R = 2, so that contract is
+  pinned only by `test/contracts.jl` in the gate.
+- **Invariants 1, 7, 8 and 12** — that a banned method stays absent, that no type piracy appears, that no
+  fiber-fiber method is defined, and the no-time/no-particles naming discipline. These are completeness
+  guards, and the gate-versus-survey rule places them in the gate deliberately: such a guard must fail
+  the moment a violation lands, which an occasionally-run survey cannot do.
+- **Grid axes of length 1 or 2.** No configured grid has one.
+
 ## Explicitly out of scope, with reasons
 
 - **Benchmarks.** Time measurement is a different instrument with a different discipline (a quiet

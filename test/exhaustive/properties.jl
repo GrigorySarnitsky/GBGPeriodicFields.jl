@@ -489,6 +489,17 @@ function run_property_lanes(configs)
          ("a grid with a NaN extent on axis 2", () -> Grid3D((8, 8, 8), (one(b.T), b.T(NaN), one(b.T)))),
          ("a grid with a NaN extent on axis 3", () -> Grid3D((8, 8, 8), (one(b.T), one(b.T), b.T(NaN)))),
          ("set_threading_cutoff! below one", () -> set_threading_cutoff!(0)),
+         # DECISION 49: `var`/`std` are scalar-only and must say so for a vector or tensor section,
+         # pointing at `cov`. The method EXISTS for R > 0 and raises, so `applicable` says yes and the
+         # engine builds the call — which makes this reachable, and it was simply never asked.
+         ("var of a vector section", () -> var(b.u)),
+         ("std of a tensor section", () -> std(b.A)),
+         # DECISION 45: the four-argument `Grid3D` rejects a spacing that contradicts
+         # `domain_size ./ grid_size`. The survey builds that constructor only on its VALID path, so the
+         # rejection this decision exists for was never exercised here.
+         ("a grid whose spacing contradicts its domain",
+          () -> Grid3D((8, 8, 8), (b.T(2π), b.T(2π), b.T(2π)),
+                       (b.T(1), b.T(2π) / 8, b.T(2π) / 8), (zero(b.T), zero(b.T), zero(b.T)))),
          ("a section over borrowed storage",
           () -> ScalarFieldPhysical(view(rand(b.T, config.grid.grid_size .+ 1...),
                                          1:config.grid.grid_size[1], 1:config.grid.grid_size[2],

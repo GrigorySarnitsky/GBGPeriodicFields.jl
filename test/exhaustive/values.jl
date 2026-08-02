@@ -278,6 +278,20 @@ function run_value_lane(configs)
                                            grid, layout, 0)),
       # The SHELLS, not just their sum. Summing checks Parseval and leaves the binning — the operation's
       # entire purpose — free to put every mode in one shell.
+      # `var`/`std` on a field in SPECTRAL representation. Decision 49 gave them a distinct method,
+      # `inner(f,f) - mean(f)^2`, and nothing exercised it: the value lane checked only the physical
+      # form, the representation-agreement list does not include them, and coverage is bookkept by
+      # SYMBOL — so `:var` read as covered while a second method went untouched. The oracle is the same
+      # raw-array reference the physical row uses, which is what makes this independent rather than a
+      # comparison of the two package methods against each other.
+      (:var,             var(sh),                             ref_var(ds)),
+      (:std,             std(sh),                             ref_std(ds)),
+      # The shell binning ABOVE R = 0. The fiber-contraction step of the scatter-add kernel had no
+      # independent oracle: every radial row used the scalar fixture, so a defect in how a vector or
+      # tensor fiber is contracted before binning produced a finite, deterministic, correctly-shaped
+      # spectrum that nothing compared to anything.
+      (:radial_spectrum, collect(last(radial_spectrum(uh, multipliers))),
+                         ref_radial_spectrum(field_data(uh), grid, layout, 1)),
       (:radial_spectrum, collect(last(radial_spectrum(sh, multipliers))),
                          ref_radial_spectrum(field_data(sh), grid, layout, 0)),
       (:interpolate,    point_values(interpolate(s, points, CatmullRom)),
