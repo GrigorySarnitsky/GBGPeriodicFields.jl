@@ -478,6 +478,85 @@ function ref_radial_spectrum(a, grid, layout, R)
   return shells ./ N^2
 end
 
+# The TWO-FIELD co-spectrum (decision 22): the same shell binning, contracting `Re(f̂ conj(ĝ))` instead
+# of `|f̂|²`. It is a distinct branch — it may be negative, and dropping the conjugate would break the
+# documented f↔g symmetry — and the single-field form is the g = f case, so this reference must be
+# written from the definition rather than delegated to the one above.
+function ref_radial_spectrum(a, b, grid, layout, R)
+  shape = size(a)[1:3]
+  N = prod(grid.grid_size)
+  components = 3^R
+  flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+  k2 = ref_squared_wavenumber(grid, layout, shape)
+  Δk = 2π / maximum(grid.domain_size)
+  shells = zeros(Float64, 0)
+  for index in CartesianIndices(shape)
+    linear = LinearIndices(shape)[index]
+    shell = round(Int, sqrt(k2[index]) / Δk) + 1
+    shell > length(shells) && append!(shells, zeros(shell - length(shells)))
+    weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+    for c in 1:components
+      shells[shell] += weight * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+    end
+  end
+  return shells ./ N^2
+end
+
+# The exact spectral evaluation of a band-limited field at an arbitrary point — the definition
+# `DirectDFT` implements and `NUFFT` approximates to a tolerance. Written as the literal sum over stored
+# modes with the rfft multiplicity applied, and the position measured from the grid ORIGIN.
+#
+# This exists because `NUFFT` had no independent value oracle anywhere in the survey: it was built as a
+# scheme argument and its bad-tolerance rejection was checked, but the spread/FFT/deconvolve pipeline
+# itself was compared to nothing, so a wrong exponent in the deconvolution window or a transposed axis
+# in the gridding produced a finite, deterministic, correctly-shaped, wrong answer that every universal
+# check passed.
+# The folded axis's Nyquist plane, zeroed. `NUFFT` is exact against `DirectDFT` only on the RESOLVED
+# SUB-NYQUIST band — it projects the rfft Nyquist out so the spread and gather stay exact adjoints —
+# while `DirectDFT` evaluates the stored spectrum as it is. One reference serves both, with this applied
+# for the NUFFT comparison: measured on an 8³ grid, `DirectDFT` agrees with the unprojected reference to
+# 6.7e-16 and `NUFFT` differs from it by 0.104, which is the projection, not an error.
+function ref_project_out_nyquist(spectral, grid, layout)
+  out = copy(spectral)
+  for axis in 1:3
+    n = grid.grid_size[axis]
+    iseven(n) || continue
+    # EVERY even axis, not only the folded one — measured: projecting the folded axis alone leaves NUFFT
+    # disagreeing by 0.219, projecting all of them brings it to 3.3e-12. On the folded axis the Nyquist
+    # is the last stored slot; elsewhere the stored order runs 0, 1, …, so it sits at `n ÷ 2 + 1`.
+    index = axis == layout.fft_dims[1] ? size(out, axis) : (n ÷ 2 + 1)
+    plane = ntuple(d -> d == axis ? (index:index) : Base.axes(out, d), ndims(out))
+    out[plane...] .= 0
+  end
+  return out
+end
+
+function ref_spectral_interpolate(spectral, grid, layout, coordinates, R)
+  shape = size(spectral)[1:3]
+  components = 3^R
+  flat = reshape(spectral, :, components)
+  # The TRUE wavenumbers, not the derivative family. Evaluating a field is not differentiating it, so the
+  # Nyquist slot carries its real value here (invariant 5's split, taken on the other side).
+  _, (k1, k2, k3) = mode_wavenumbers(grid, layout, shape)
+  N = prod(grid.grid_size)
+  M = size(coordinates, 1)
+  out = zeros(real(eltype(spectral)), M, components)
+  for p in 1:M, c in 1:components
+    total = 0.0
+    for index in CartesianIndices(shape)
+      linear = LinearIndices(shape)[index]
+      k = (k1[index[1]], k2[index[2]], k3[index[3]])
+      phase = sum(k[d] * (coordinates[p, d] - grid.origin[d]) for d in 1:3)
+      # The rfft stores half the spectrum; a mode with an unstored conjugate partner counts twice, which
+      # is the same multiplicity the Parseval weight applies.
+      weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+      total += weight * real(flat[linear, c] * cis(phase))
+    end
+    out[p, c] = total / N
+  end
+  return components == 1 ? vec(out) : out
+end
+
 # --- the grid↔point transfer ------------------------------------------------------------------------
 #
 # The Catmull-Rom weights, written out. These are the standard two-point Hermite cubics — the

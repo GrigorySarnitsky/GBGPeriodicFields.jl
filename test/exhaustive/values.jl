@@ -225,6 +225,7 @@ function run_value_lane(configs)
                          [grid.grid_spacing[d] * (T(1)/2 + (T(1)/1000 + T(1)/10000 * d) * p)
                           for p in 1:9, d in 1:3])
     outside = PointSet(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3))
+    sh2 = to_spectral(s2, plans)
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
     cutoff = T(3)
@@ -292,6 +293,19 @@ function run_value_lane(configs)
       # spectrum that nothing compared to anything.
       (:radial_spectrum, collect(last(radial_spectrum(uh, multipliers))),
                          ref_radial_spectrum(field_data(uh), grid, layout, 1)),
+      # The TWO-FIELD co-spectrum. A distinct branch: it may be negative, and dropping the conjugate
+      # would break the documented f↔g symmetry while leaving the single-field case untouched.
+      (:radial_spectrum, collect(last(radial_spectrum(sh, sh2, multipliers))),
+                         ref_radial_spectrum(field_data(sh), field_data(sh2), grid, layout, 0)),
+      # THE SPECTRAL TRANSFER, both schemes, against the literal evaluation sum. `DirectDFT` is exact by
+      # construction and `NUFFT` is exact to its tolerance, so one reference serves both — and `NUFFT`
+      # had no independent value oracle at all before this.
+      (:interpolate,     point_values(interpolate(sh, points, DirectDFT())),
+                         ref_spectral_interpolate(field_data(sh), grid, layout,
+                                                  point_coordinates(points), 0)),
+      (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tol = 1e-10))),
+                         ref_spectral_interpolate(ref_project_out_nyquist(field_data(sh), grid, layout),
+                                                  grid, layout, point_coordinates(points), 0)),
       (:radial_spectrum, collect(last(radial_spectrum(sh, multipliers))),
                          ref_radial_spectrum(field_data(sh), grid, layout, 0)),
       (:interpolate,    point_values(interpolate(s, points, CatmullRom)),
