@@ -1146,7 +1146,7 @@ mutation audit produced eighteen survivors and every one is that single fact rat
 (tensor order, α/β, scheme, or the operation axis taken per METHOD rather than per symbol). Coverage is
 bookkept per symbol, so one checked method marks a whole generic done — `mul!` has 48 methods and reports
 covered on one row. **Measured denominator: 112 operations, 556 package-owned methods, 169 value rows**;
-560 overstates the work because the heavy operations are code-generated from one builder, so the estimate
+556 overstates the work because the heavy operations are code-generated from one builder, so the estimate
 of genuinely distinct behaviours needing an oracle is 60–120. **Definition of done: every
 `(operation × method)` cell has a value row or a recorded reason, and the ledger fails when it has
 neither** — decision 55's provenance rule applied per method. The ledger is the measuring instrument, so
