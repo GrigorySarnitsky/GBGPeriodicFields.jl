@@ -63,8 +63,12 @@ function operations_for(c::Config)
     (:combine!,              [1, 1, 1], PHYSICAL, (d, a, b) -> combine!(d, α, a, β, b)),
     (:multiply!,             [1, 1],    PHYSICAL, (d, a) -> multiply!(d, a, T(2))),
     (:divide!,               [1, 1],    PHYSICAL, (d, a) -> divide!(d, a, T(2))),
-    (:cross!,                [1, 1],    PHYSICAL, (d, a) -> cross!(d, a, v)),
-    (:dot!,                  [0, 1],    PHYSICAL, (d, a) -> dot!(d, a, v)),
+    # THREE slots, so the second operand is drawn from the shared pool as the M2 family's is. Capturing
+    # `v` from the enclosing scope meant `d ≡ v` and `a ≡ v` were never constructed in any of the 96
+    # configurations, leaving a kernel that fails to gather its sources into registers before writing
+    # undetectable whenever the aliased argument is the SECOND vector.
+    (:cross!,                [1, 1, 1], PHYSICAL, (d, a, b) -> cross!(d, a, b)),
+    (:dot!,                  [0, 1, 1], PHYSICAL, (d, a, b) -> dot!(d, a, b)),
     (:mul!,                  [1, 1],    PHYSICAL, (d, a) -> mul!(d, A, a)),
     (:sym!,                  [2, 2],    PHYSICAL, (d, a) -> sym!(d, a)),
     (:skew!,                 [2, 2],    PHYSICAL, (d, a) -> skew!(d, a)),

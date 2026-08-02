@@ -271,8 +271,12 @@ function run_value_lane(configs)
                                                              complex.(ref_assignment_window(grid, layout, shape))),
       (:translation_kernel, kernel_data(translation_kernel(spectral_zero, multipliers, offset)),
                                                              ref_translation_kernel(grid, layout, shape, offset)),
-      (:materialize_kernel, kernel_data(spectral_cutoff(spectral_zero, multipliers, cutoff)),
-                                                             complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
+      # A SEPARABLE kernel, not the radial one the row above already materializes. `kernel_data` calls
+      # `materialize_kernel` internally, so pointing this row at the same expression as its neighbour made
+      # the two literally identical: it could never disagree, and it credited the operation in the oracle
+      # registry while asserting nothing beyond what the neighbour asserts.
+      (:materialize_kernel, kernel_data(translation_kernel(spectral_zero, multipliers, offset)),
+                            ref_translation_kernel(grid, layout, shape, offset)),
       (:inner,          inner(sh, sh),                       ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
       # The Parseval-weighted fiber contraction, anchored above R = 0. At R = 0 there are `3^0 = 1`
       # components, which collapses the distinction between a weight applied per base point and one

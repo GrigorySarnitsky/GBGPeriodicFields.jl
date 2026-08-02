@@ -347,6 +347,36 @@ A cell removed because the combination does not exist keeps the completeness cla
 removed because there were too many destroys it, and destroys it silently. Where an axis must be
 sampled, it is declared sampled and reported as a limitation.
 
+## The open work queue, and the class it belongs to
+
+A reasoned mutation audit over every operation family produced eighteen survivors, and they share one
+shape: **a second dispatched method of an already-covered generic**. A higher tensor order, an α/β
+arity, a fiber-constant operand, a non-default scheme, the `f ≠ g` branch, the read side of a
+write/read pair. Coverage in this suite is bookkept per SYMBOL — one checked method marks the name
+done — so a generic with eight methods reports as covered when one is checked.
+
+That is why the list below is a queue rather than a set of surprises, and why the durable fix is a
+`(operation × method-signature)` ledger, one row per entry in `methods(f)` rather than per symbol,
+which would surface the whole class mechanically instead of one instance per audit.
+
+Currently unchecked at value level, in rough order of how much a defect there would cost:
+
+- the mapped reductions (`mean(φ, f)`, `integral(φ, f)`, `maximum/minimum/extrema(φ, f)`)
+- tensor→vector `divergence` — no reference accepts a tensor fibre
+- `convolve`/`exponential_convolve` above R = 0, and every α/β accumulate branch of that family
+- the spectral constant-add family (invariant 4's zero-mode-only update)
+- the vector-tensor right action `u_j A_{ji}`, and `cross` with a fiber-constant operand
+- spectral `inner(f, g)` with `f ≠ g` — structurally distinct code from the self branch
+- `anterpolate` under `DirectDFT`/`NUFFT`, and the local-spline transfer at R = 2
+- the non-default spline orders `LalescuSpline(n, m)` and `LagrangeSpline(n)`
+- HDF5 read-back grid and layout metadata (the type check is vacuous for the parametric fields)
+- `SeparableKernel` application, whose declared "materialize agrees with compressed" relation is built
+  from a radial kernel on both sides
+
+Several of these are covered by the GATE (`test/transfer_spectral.jl`, `test/interpolation_transfer.jl`,
+`test/convolution.jl`); they are listed because the SURVEY does not reach them, which is what this
+document is about.
+
 ## What this survey does NOT catch
 
 Established by reasoning through specific defects rather than by reading the lanes — the honest

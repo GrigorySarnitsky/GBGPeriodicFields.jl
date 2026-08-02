@@ -488,7 +488,7 @@ What is falsifiable is disagreement between two things derived DIFFERENTLY:
   an operation valid in both representations has no representation-agreement coverage anywhere,
   despite invariant 1 making that the defining claim about it
 """
-function guard_violations(properties, applicable, covered)
+function guard_violations(properties, applicable, covered, covered_anywhere = covered)
   violations = String[]
   for p in properties
     for (name, kind) in ((p.name, :representation), (p.name, :allocation), (p.name, :metadata),
@@ -499,7 +499,7 @@ function guard_violations(properties, applicable, covered)
       push!(violations, "$(name): a lane asserts $(kind), which the ledger calls inapplicable — " *
                         "the applicability rule and the lane disagree")
     end
-    if p.atomic && !haskey(covered, (p.name, :determinism))
+    if p.atomic && !haskey(covered_anywhere, (p.name, :determinism))
       push!(violations, "$(p.name): reaches an atomic accumulation and nothing checks its determinism")
     end
   end
@@ -599,9 +599,17 @@ function run_ledger_lane()
   # 84 guaranteed disagreements that said nothing about either side: the two derivations were simply
   # describing different universes. Comparing like with like leaves the guard able to catch what it is
   # for — one of THIS suite's lanes crediting a cell its own rule forbids.
-  survey_covered = Dict(key => value for (key, value) in covered
-                        if value == ["exhaustive lane"])
-  violations = guard_violations(properties, applicable, survey_covered)
+  # FROM THE REGISTRY, not by filtering the merged dict. Selecting entries whose value is the
+  # placeholder `["exhaustive lane"]` does not mean "the survey credited this": the placeholder is only
+  # inserted when a key is ABSENT from the text scan, and that scan reads `test/exhaustive/*.jl` too, so
+  # any survey row that also matches textually keeps a file:line entry and was silently dropped. The
+  # 84-to-0 improvement was real but achieved for the wrong reason — it removed the gate's operators
+  # rather than reconstructing what this suite asserts.
+  survey_covered = Dict((operation, kind) => ["exhaustive lane"] for (operation, kind) in LANE_COVERAGE)
+  # The atomic-determinism completeness check gets the MERGED set: "is this operation's determinism
+  # checked anywhere" is legitimately answered by the gate, and narrowing it would report an operation
+  # the gate tolerance-tests as unchecked.
+  violations = guard_violations(properties, applicable, survey_covered, covered)
   if !isempty(violations)
     println("\n  SECOND-ORDER GUARD VIOLATIONS — an exemption the ledger's own rules forbid:")
     for v in violations; println("      ", v); end
