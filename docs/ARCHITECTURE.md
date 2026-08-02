@@ -214,6 +214,15 @@ with a pointer to the section that develops it.
     load-bearing on a GPU: a per-call device temporary escapes Julia's garbage collector, which
     triggers on host pressure and cannot see the device buffer a dead array owns, so the pool grows
     every step until the run wedges ([§9](@ref "9. Performance model and CPU threading")).
+14. **Sections combine only within one precision and one storage family — never by conversion.** An
+    operation over two or more sections requires them to agree in element type and in storage family
+    (`Array` with `Array`, `CuArray` with `CuArray`), and refuses anything else with a clear error
+    rather than promoting, copying, or transferring. The refusal is a decision of the package, not an
+    accident of a vendor library declining a mixed-pointer call or a kernel launcher declining mixed
+    arrays. It binds every argument an operation takes, the destination and the non-section partners
+    included — a spectral field and its multipliers must match too. Conversion between precisions or
+    storage families is a future, explicitly-named operation, never something an arithmetic operation
+    does implicitly.
 
 ### Representation validity lives in the method set
 

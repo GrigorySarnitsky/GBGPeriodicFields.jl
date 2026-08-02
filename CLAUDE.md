@@ -110,6 +110,22 @@ conceptual model and the writing/docstring conventions are recorded once — in
     field + its transform; `radial_spectrum` is pinned tight since decision 34), the mixed
     spectral `inner(f, g)` — rocBLAS offering no `dotc` over a strided `ROCArray` view) are the documented
     exceptions and get a *bounded* regression guard, not a zero guard.
+14. **Sections combine only within one precision and one storage family — never by conversion.** An
+    operation over two or more sections requires them to agree in **element type** and in **storage
+    family** (`Array` with `Array`, `CuArray` with `CuArray`, `ROCArray` with `ROCArray`), and
+    **refuses** anything else with a clear `ArgumentError` rather than promoting, copying, or
+    transferring. Two properties make this a contract rather than an observation. First, the refusal
+    must be the **package's decision**: `inner` once refused a device/host pair only because CUBLAS
+    had no method taking a `CuPtr` and a `Ptr` together, and `gradient` refused host multipliers only
+    because KernelAbstractions declined to launch over mixed arrays — the right outcome resting on a
+    vendor's method table, which would go silent the moment any path accepted the mixed call. Second,
+    it binds **every argument**, not the obvious ones: the destination of an in-place call, and the
+    **non-section partners** — a spectral field and its `FieldSpectralMultipliers` must match too,
+    and multipliers are not a section, so nothing section-level covers them. The checks live in
+    `_check_same_domain`, `_check_contractible` and `_check_multipliers_compatibility`; a new
+    multi-argument operation routes through one of them or states why it need not. Conversion between
+    precisions or storage families is a **future, explicitly-named operation** (roadmap below), never
+    something arithmetic does implicitly.
 
 ## Code generation rules (FiberSections + FieldAlgebra)
 
@@ -1243,6 +1259,24 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   is not the fix — it would reject `sym!(A, A)`, whose target and source component views already have
   different footprints on one parent (decision 39 made that guard-free after measurement). A correct
   guard has to compare **base** footprints while ignoring fiber-component permutation.
+- **Explicit conversions between storage families and precisions (ROADMAP — not needed soon).**
+  Invariant 14 refuses a mixed pair rather than converting, which is the right default: an implicit
+  host↔device transfer inside an arithmetic operation is a silent multi-millisecond cost in a loop
+  that is otherwise device-resident, and an implicit precision promotion silently changes what a
+  solver is computing. The complement is a **named** operation whose cost is visible at the call
+  site. Shape, when a consumer needs it: a single generic in the `Fields` allocator family
+  (`similar_field`'s neighbourhood) taking a section and a target — `convert_storage(field, CuArray)`
+  and `convert_precision(field, Float32)`, or one `convert_section(field; storage, precision)` — with
+  the point-value and `PointSet` twins, since the point layer mirrors the field surface. It must
+  preserve everything else the section carries (grid, layout, origin, tensor order) exactly, which
+  makes it a case for the metadata-propagation axis the testing review already wants. Open questions
+  to settle before coding: whether a precision change of a field in **spectral** representation is
+  offered at all (it is a lossy operation on coefficients rather than on the physical object, so
+  invariant 2 has an opinion); whether `FieldSpectralMultipliers`, `FieldTransformPlans` and the
+  kernels convert too, since a converted field is unusable without its partners; and whether the
+  verb allocates only, or gains an in-place form writing into a preallocated destination of the
+  target family, which is what a solver moving a field every step would actually want. No consumer
+  yet, so this is recorded rather than designed.
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).
