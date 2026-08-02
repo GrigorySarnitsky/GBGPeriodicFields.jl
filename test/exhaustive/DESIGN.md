@@ -404,6 +404,15 @@ It cannot be verified by reading. It is verified by PERTURBATION, and these four
 4. **A cell closed by a recorded reason** stays distinguishable in the output from one closed by an actual
    row — otherwise "covered by a sibling builder" becomes a way to make anything green.
 
+### One finding the corrected instrument immediately surfaced
+
+Rebuilding the guard's coverage set from the runtime registry changed its verdict from 0 violations to
+**1**, on a full run. The buggy filter had been hiding it: by selecting only cells with no textual
+footprint anywhere, it dropped every survey row that also matches the source scan — which is most of
+them. The one violation is a genuine disagreement between a lane's credit and the ledger's applicability
+rule, and it is the first thing to identify when this work resumes, because it is evidence the corrected
+instrument reads something the broken one could not.
+
 ### The order of work
 
 1. Build the ledger: enumerate the 556 cells, map each value-lane row to the method it dispatches to.
