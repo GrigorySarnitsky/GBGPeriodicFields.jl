@@ -218,8 +218,11 @@ function run_value_lane(configs)
     # The per-axis rate DIFFERS. At one rate the cell-fractional coordinate is identical on all three
     # axes (the spacing cancels), so every stencil weight array is numerically equal and an axis-weight
     # swap is invisible — on the fixture written to exercise overlapping stencils.
+    # Every literal is `T`. A bare `0.5` is `Float64`, so on a Float32 configuration the coordinates came
+    # out Float64 and the transfer refused them — correctly, since it does not convert between
+    # precisions. The element type is a configuration axis and this fixture silently left it.
     clustered = PointSet(reshape(collect(grid.origin), 1, 3) .+
-                         [grid.grid_spacing[d] * (0.5 + (T(1)/1000 + T(1)/10000 * d) * p)
+                         [grid.grid_spacing[d] * (T(1)/2 + (T(1)/1000 + T(1)/10000 * d) * p)
                           for p in 1:9, d in 1:3])
     outside = PointSet(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3))
     raw_values2 = rand(T, 9)
