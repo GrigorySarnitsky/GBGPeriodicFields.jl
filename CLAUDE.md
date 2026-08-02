@@ -1138,6 +1138,23 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**RESUMPTION POINT — the exhaustive survey's per-method coverage ledger (designed 2026-08-02, NOT
+built).** The survey crosses its axes everywhere except where the independent oracles live: the
+universal-checks lane derives its product from the method table, while the **value lane is a hand-written
+list** of rows — one fixture per operation, mostly `R = 0`, one scheme, one α/β setting. A reasoned
+mutation audit produced eighteen survivors and every one is that single fact rather than a missing axis
+(tensor order, α/β, scheme, or the operation axis taken per METHOD rather than per symbol). Coverage is
+bookkept per symbol, so one checked method marks a whole generic done — `mul!` has 48 methods and reports
+covered on one row. **Measured denominator: 112 operations, 556 package-owned methods, 169 value rows**;
+560 overstates the work because the heavy operations are code-generated from one builder, so the estimate
+of genuinely distinct behaviours needing an oracle is 60–120. **Definition of done: every
+`(operation × method)` cell has a value row or a recorded reason, and the ledger fails when it has
+neither** — decision 55's provenance rule applied per method. The ledger is the measuring instrument, so
+it must be **falsified by perturbation, never by reading** (delete a row, the count rises by exactly one;
+add one, it falls; a row naming a nonexistent method reports unmatched; a reason-closed cell stays
+distinguishable from a row-closed one) — this session already shipped one instrument that measured the
+wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
+
 **Open package finding — `map!` is not reproducible under threads (exhaustive survey, 2026-08-01).**
 The exhaustive suite's thread axis had never actually run: the invariance check is gated on
 `Threads.nthreads() > 1` and no documented invocation passed `-t`, so half of every configuration list

@@ -347,6 +347,77 @@ A cell removed because the combination does not exist keeps the completeness cla
 removed because there were too many destroys it, and destroys it silently. Where an axis must be
 sampled, it is declared sampled and reported as a limitation.
 
+## FINISHING THE PRODUCT — the per-method coverage ledger (PLANNED, not built)
+
+This is the resumption point. Everything below is design, agreed 2026-08-02; none of it is implemented.
+
+### The diagnosis
+
+The suite was conceived as a Cartesian product over axes, and the **universal-checks lane genuinely
+implements it**: operation × argument combination × tensor order × representation × backend ×
+configuration, every axis derived from the method table. The **value lane does not**. It is a
+hand-written list of rows — one fixture per operation, mostly at `R = 0`, one scheme, one α/β setting —
+and it is the only lane holding independent oracles. So the axes exist and are crossed everywhere
+except where correctness is actually checked.
+
+Every survivor in the queue below is that one fact, not a missing axis:
+
+- tensor `divergence`, `convolve` above `R = 0`, the spline transfer at `R = 2` → the **tensor-order** axis
+- the α/β branches of convolve, anterpolate and the kernel-composed operators → the **α/β** axis (invariant 10)
+- `anterpolate` under `DirectDFT`/`NUFFT`, the non-default spline orders → the **scheme** axis
+- the mapped reductions, `inner(f, g)` with `f ≠ g`, fiber-constant operands, the vector-tensor right
+  action → the **operation** axis, taken per METHOD rather than per symbol
+- HDF5 read-back metadata → **representation × tensor order** on the read side
+
+### The measured denominator (2026-08-02)
+
+- **112** public operations · **556** package-owned methods behind them · **169** value-lane rows
+- 35 operations have exactly one method; 77 have several. Heaviest: `mul!` 48, `*` 46, `multiply!` 26,
+  `+` 23, `-` 23, `add!` 21.
+
+556 overstates the work. The heavy operations are code-generated — `mul!`'s 48 methods are stamped from
+one formula builder across argument orders, representations, orders and arities — so many cells close
+with a recorded reason rather than a row. Estimated genuinely distinct behaviours needing their own
+oracle: **60–120**, against the 169 rows that exist. Roughly a doubling of the value lane.
+
+### Definition of done
+
+**Every `(operation × method)` cell either has a value-lane row driving it, or a recorded reason it
+cannot have one — and the ledger FAILS when a cell has neither.** That is decision 55's oracle-provenance
+rule applied per method instead of per symbol, which is the bookkeeping defect that let one checked
+method mark a whole generic covered.
+
+### The ledger must itself be falsifiable, and that is the hard part
+
+It is the measuring instrument, so a defect in it reports coverage nobody then investigates. This
+session produced exactly that failure once already: `survey_covered` filtered for a placeholder that is
+only inserted when a key is ABSENT from the text scan, so it selected a set nearly disjoint from the one
+its own comment described — and reported 84 violations falling to 0, which read as success. The number
+was verified; the instrument was not.
+
+It cannot be verified by reading. It is verified by PERTURBATION, and these four probes belong in
+`selfcheck.jl` beside every other check-that-must-fire:
+
+1. **Delete a known value row** → the uncovered count rises by exactly one and names that cell.
+2. **Add a row for a known-uncovered cell** → the count falls by exactly one and that cell leaves the list.
+3. **Point a row at a method that does not exist** → reported as unmatched, never silently crediting the symbol.
+4. **A cell closed by a recorded reason** stays distinguishable in the output from one closed by an actual
+   row — otherwise "covered by a sibling builder" becomes a way to make anything green.
+
+### The order of work
+
+1. Build the ledger: enumerate the 556 cells, map each value-lane row to the method it dispatches to.
+2. Prove it falsifiable with the four probes above, and run a mechanics audit on the ledger's own code
+   before trusting any number it prints.
+3. Work the queue down with the uncovered count as the progress bar, widening the references that are
+   not yet generic (`ref_divergence` takes a vector fibre only; the spline references hardcode
+   Catmull-Rom) and driving the ones that already are (`ref_inner`, `ref_spectral_inner`,
+   `ref_radial_spectrum`, `ref_interpolate_catmull_rom`, `ref_spectral_interpolate` all accept `R` and
+   are called at one value).
+
+The advantage over the audit loop this replaces: the ledger's correctness has an objective test, and its
+completion is a number reaching zero rather than an assertion that nothing is left.
+
 ## The open work queue, and the class it belongs to
 
 A reasoned mutation audit over every operation family produced eighteen survivors, and they share one
