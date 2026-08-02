@@ -332,6 +332,12 @@ end
 The remaining check types the ledger names: representation agreement, thread-count invariance,
 allocation, ordering, and domain rejection.
 """
+# A third-order section, built once per use. Decision 56 keeps STORAGE working above the ceiling — it is
+# the fiber-assembly operations that refuse — so constructing this must itself succeed.
+_third_order(b) = TensorFieldPhysical{3}(zeros(b.T, size(field_data(b.s))..., 3, 3, 3),
+                                         field_grid(b.s), field_layout(b.s))
+
+
 function run_property_lanes(configs)
   println("═"^100)
   println("LANE: representation · invariance · allocation · inequality · rejection")
@@ -478,6 +484,7 @@ function run_property_lanes(configs)
          ("spectral_band with a negative edge", () -> spectral_band(z, m, -b.T(1), b.T(3))),
          ("spectral_cutoff with a NaN edge", () -> spectral_cutoff(z, m, b.T(NaN))),
          ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tol = zero(b.T))),
+
          ("NUFFT with a negative tolerance", () -> NUFFT(z; tol = -b.T(1))),
          # CROSSED OVER THE AXIS. Both fixtures corrupted axis 1 only, so per-axis validation that
          # checked the first extent and skipped the rest — an ordinary loop-bound slip — would have
@@ -517,6 +524,25 @@ function run_property_lanes(configs)
       outcome === :rejected ||
         record!(:domain_rejection, outcome === :accepted ? "$(name) was ACCEPTED [$(config.name)]" :
                 "$(name) threw $(outcome), not a domain error [$(config.name)]")
+    end
+
+    # ── decision 56's ceiling: above R = 2, every entry point works or THROWS ────────────────────
+    # A separate bar from the table above, deliberately. That one demands a DOMAIN error, because a bare
+    # `MethodError` there would mean a renamed keyword or a typo in the test rather than a refusal. The
+    # ceiling's contract is different: `sym`, `skew`, `dev` and `map` are enumerated for R ≤ 2 and simply
+    # have no method above it, so `MethodError` IS the documented refusal and demanding an `ArgumentError`
+    # would report correct behaviour as a defect. What must never happen is a RETURNED VALUE, since the
+    # contract's whole point is that the ceiling never yields a wrong answer quietly. The pools stop at
+    # R = 2, so nothing in the survey had ever built a third-order section.
+    third = _third_order(b)
+    for (name, call) in (("sym", () -> sym(third)), ("skew", () -> skew(third)),
+                         ("dev", () -> dev(third)), ("map", () -> map(identity, third)),
+                         ("mean under a fiber map", () -> mean(norm, third)))
+      count!(:domain_rejection)
+      returned = try (call(); true) catch; false end
+      returned && record!(:domain_rejection,
+                          "$(name) above the R < 3 ceiling RETURNED a value instead of throwing " *
+                          "[$(config.name)]")
     end
   end
 
