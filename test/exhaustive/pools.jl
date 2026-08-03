@@ -253,6 +253,17 @@ _vector_spectral(T, grid, layout) =
   VectorFieldSpectral(zeros(Complex{T}, GBG.Fields.spectral_field_shape(grid, layout, Val(1))...),
                       grid, layout)
 
+# A foreign object AT THE TENSOR ORDER THE SLOT TAKES. Every mismatch builder used to return a scalar,
+# so an entry point whose slot needs a vector or a tensor never dispatched at all: the cell threw a
+# `MethodError` before reaching the package's validation and proved nothing — 67 of 133 cells, the
+# lane's largest category, and all of it the harness rather than the package.
+_spectral_at(T, grid, layout, order::Int) =
+  order == 0 ? _scalar_spectral(T, grid, layout) :
+  order == 1 ? _vector_spectral(T, grid, layout) :
+               TensorFieldSpectral{2}(zeros(Complex{T},
+                                            GBG.Fields.spectral_field_shape(grid, layout, Val(2))...),
+                                      grid, layout)
+
 canonical_carrier() = _scalar_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT)
 
 # One canonical object per kind of carrier the package has, so a quantity defined only on the point
@@ -279,14 +290,14 @@ const MISMATCH_BUILDERS = Dict{Symbol, Any}(
   # ANISOTROPIC, and not a uniform rescaling of the canonical box. Doubling every axis identically left
   # both sides axis-isotropic, so a predicate comparing `domain_size[i]` against `domain_size[σ(i)]` for
   # the wrong permutation read the same value either way and was indistinguishable from a correct one.
-  :field_grid              => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT),
-  :_context_grid           => () -> _scalar_spectral(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT),
+  :field_grid              => order -> _spectral_at(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT, order),
+  :_context_grid           => order -> _spectral_at(Float64, Grid3D((8, 6, 4), (4π, 2π, 6π)), CANONICAL_LAYOUT, order),
   # A permuted fold moves the folded axis, so the spectral shape changes meaning while staying valid.
-  :field_layout            => () -> _scalar_spectral(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3))),
-  :_context_layout         => () -> _scalar_spectral(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3))),
+  :field_layout            => order -> _spectral_at(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3)), order),
+  :_context_layout         => order -> _spectral_at(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3)), order),
   # Float32 against a Float64 canonical — on its own grid, since the grid carries the scalar type too.
-  :field_scalar_type       => () -> _scalar_spectral(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT),
-  :section_scalar_type     => () -> _scalar_spectral(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT),
+  :field_scalar_type       => order -> _spectral_at(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT, order),
+  :section_scalar_type     => order -> _spectral_at(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT, order),
   :_multipliers_scalar_type => () -> FieldSpectralMultipliers(_scalar_spectral(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT)),
   # THE AXIS THE HAND-WRITTEN LIST MISSED. A vector where a scalar is expected: identical grid,
   # layout and element type, different fiber. Decision 52 found the NUFFT instance of this by
@@ -511,9 +522,17 @@ function run_mismatch_lane()
             "$(rpad(label, 34)) declared fiber-generic, accepts only $(length(probe.orders))")
     end
     natural = isempty(probe.taken) ? scalar : first(probe.taken)
+    # The order the SLOT takes, so the foreign object dispatches. A builder returning a scalar into a
+    # vector slot threw `MethodError` before the package saw it — the cell tested nothing, 67 times.
+    slot_order = isempty(probe.orders) ? 0 : minimum(probe.orders)
     for axis in axes
       haskey(MISMATCH_BUILDERS, axis) || continue
-      foreign = try MISMATCH_BUILDERS[axis]() catch; continue end
+      builder = MISMATCH_BUILDERS[axis]
+      foreign = try
+        applicable(builder, slot_order) ? builder(slot_order) : builder()
+      catch
+        continue
+      end
       if generic && axis in order_axes
         skipped += 1
         continue                # the slot is fiber-generic, so a differing order is a supported call
