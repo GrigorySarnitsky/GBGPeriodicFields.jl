@@ -497,7 +497,11 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
       # weighted_inner ⟨f, w·g⟩: the |k|² weight builds on-device and the reduction is fused (no field);
       # matches the CPU and the exact −Δ identity ⟨f, |k|²·f⟩ = −⟨f, Δf⟩.
-      ksq_d = squared_wavenumber_field(sf_spec_d, mult_d); ksq_h = squared_wavenumber_field(sf_spec_h, mult_h)
+      # A weight is a KERNEL: `squared_wavenumber_field` returns the |k|² coordinate as a field, so the
+      # role is declared here (decision 60).
+      SK = GBGPeriodicFields.Convolution.StoredKernel
+      ksq_d = SK(squared_wavenumber_field(sf_spec_d, mult_d))
+      ksq_h = SK(squared_wavenumber_field(sf_spec_h, mult_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
 

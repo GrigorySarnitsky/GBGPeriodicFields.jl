@@ -58,7 +58,7 @@ import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the
 using ..Fields:
   _check_matching_context,
   spectral_field_shape,
-  AbstractSpectralKernel,
+  SpectralKernel,
   SpectralKernel,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
@@ -115,13 +115,17 @@ Composition wraps automatically, because passing a field as a kernel argument al
 role: `convolve(compressed, field)` yields a product whose stored factor is a `StoredKernel`, and that
 product inverts without any wrapping by the caller.
 """
-struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: AbstractSpectralKernel{T}
+struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
   field::F
 end
 
 
-_kernel_data(kernel::StoredKernel) = _kernel_data(kernel.field)
-_check_kernel_compatibility(field, kernel::StoredKernel) = _check_kernel_compatibility(field, kernel.field)
+# Straight to the wrapped field's storage and domain check. These used to delegate to the kernel
+# protocol's own methods FOR a `ScalarFieldSpectral`, which existed only while a bare field counted as
+# a kernel; with that role removed the delegation had nowhere to land.
+_kernel_data(kernel::StoredKernel) = field_data(kernel.field)
+_check_kernel_compatibility(field, kernel::StoredKernel) =
+  _check_field_domain_compatibility(field, kernel.field)
 _context_grid(kernel::StoredKernel) = _context_grid(kernel.field)
 _context_layout(kernel::StoredKernel) = _context_layout(kernel.field)
 
@@ -141,7 +145,7 @@ applies exactly like either operand.
 This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be
 applied in a single pass instead of two.
 """
-struct ProductKernel{T, A, B} <: AbstractSpectralKernel{T}
+struct ProductKernel{T, A, B} <: SpectralKernel{T}
   first_kernel::A
   second_kernel::B
 end
@@ -186,7 +190,7 @@ function materialize_kernel(kernel::ProductKernel{T}) where {T}
   # A product stores no base of its own: its factors carry the grid and layout, and a call has
   # already checked they agree, so either factor answers for both.
   materialized = materialize_kernel(kernel.first_kernel)
-  @_assign! field_data(materialized) .= _kernel_data(kernel)
+  @_assign! field_data(materialized.field) .= _kernel_data(kernel)
   return materialized
 end
 
@@ -195,20 +199,16 @@ end
 # first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
 # it with the full product. A stored factor must therefore not be aliased into the result.
 materialize_kernel(kernel::StoredKernel) =
-  ScalarFieldSpectral(copy(_kernel_data(kernel)), _context_grid(kernel), _context_layout(kernel))
+  StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)),
+                                   _context_grid(kernel), _context_layout(kernel)))
 
 
 # Cross-family and mixed-storage composition. The same-family methods above take precedence, so this
-# catches exactly the pairs that do not collapse — including a compressed kernel with a stored one.
-# NOTE the asymmetry, which is deliberate: only a COMPRESSED kernel may lead. A `ScalarFieldSpectral`
-# is also a field, so `convolve(stored_kernel, compressed)` cannot be composition — it is already, and
-# must remain, "apply a kernel to this scalar field". Compose in the other order, or materialize.
-convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::AbstractSpectralKernel{T}) where {T} =
+# catches exactly the pairs that do not collapse, in either order — a field in spectral representation
+# is no longer a kernel, so nothing here depends on which argument leads. Composing two convolution
+# operators IS convolving their kernels, which is why the verb is the same one that applies them.
+convolve(first_kernel::SpectralKernel{T}, second_kernel::SpectralKernel{T}) where {T} =
   ProductKernel{T}(first_kernel, second_kernel)
-# A bare field passed as the kernel argument IS the role declaration, so wrap it rather than making the
-# caller do it: the resulting product then inverts and materializes like any other.
-convolve(first_kernel::AbstractSpectralKernel{T}, second_kernel::ScalarFieldSpectral{T}) where {T} =
-  ProductKernel{T}(first_kernel, StoredKernel(second_kernel))
 
 
 ####################################################
@@ -248,7 +248,7 @@ The fields are:
     terms and cannot be stored per axis the way a [`SeparableKernel`](@ref) is. The two families are
     disjoint: a phase depends on direction, a magnitude symbol does not.
 """
-struct RadialKernel{T, F, M, G, L} <: AbstractSpectralKernel{T}
+struct RadialKernel{T, F, M, G, L} <: SpectralKernel{T}
   symbol::F
   multipliers::M
   grid::G
@@ -260,7 +260,8 @@ RadialKernel{T}(symbol::F, multipliers::M, grid::G, layout::L) where {T, F, M, G
 
 
 """
-    radial_kernel(symbol, reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
+    radial_kernel(symbol, reference::AbstractFieldSpectral,
+                  multipliers::FieldSpectralMultipliers) -> RadialKernel
 
 Build the [`RadialKernel`](@ref) for an arbitrary real symbol of the squared wavenumber — the general
 constructor behind [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the symbols the package
@@ -348,7 +349,7 @@ function materialize_kernel(kernel::RadialKernel{T}) where {T}
                   length(kernel.multipliers.squared_wavenumber_2),
                   length(kernel.multipliers.squared_wavenumber_3)))
   @_assign! data .= _kernel_data(kernel)
-  return ScalarFieldSpectral(data, kernel.grid, kernel.layout)
+  return StoredKernel(ScalarFieldSpectral(data, kernel.grid, kernel.layout))
 end
 
 
@@ -391,7 +392,7 @@ The fields are:
     ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms. This type is for kernels that
     genuinely do factor, whose canonical case is a per-axis phase.
 """
-struct SeparableKernel{T, V, G, L} <: AbstractSpectralKernel{T}
+struct SeparableKernel{T, V, G, L} <: SpectralKernel{T}
   factor_1::V
   factor_2::V
   factor_3::V
@@ -540,7 +541,7 @@ function materialize_kernel(kernel::SeparableKernel{T}) where {T}
   shape = (length(kernel.factor_1), length(kernel.factor_2), length(kernel.factor_3))
   data = similar(kernel.factor_1, Complex{T}, shape)
   @_assign! data .= kernel.factor_1 .* kernel.factor_2 .* kernel.factor_3
-  return ScalarFieldSpectral(data, kernel.grid, kernel.layout)
+  return StoredKernel(ScalarFieldSpectral(data, kernel.grid, kernel.layout))
 end
 
 
@@ -893,12 +894,19 @@ function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFiel
   kernel isa RadialKernel &&
     return (_apply_radial_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
             destination)
+  # THE STORED CLASS TAKES THE FUSED PASS. It holds one coefficient per mode, so `_apply_convolution!`
+  # reads it once per mode through the fiberwise executor; the compressed broadcast below would read it
+  # once per fiber COMPONENT instead. This guard used to be spelled `kernel isa AbstractSpectralKernel`
+  # and meant "compressed", which a bare field was not — renaming the supertype to `SpectralKernel` made
+  # the test true for every kernel and silently routed the stored class the wrong way. The pass audit
+  # caught it as vector traffic of 3M reads against a frozen ideal of M.
+  kernel isa StoredKernel &&
+    return (_apply_convolution!(field_data(destination), field_data(field), _kernel_data(kernel),
+                                T(α), T(β));
+            destination)
   # Any other compressed kernel (a cross-family product) takes the flat cartesian broadcast: still no
   # kernel storage and no linear-to-cartesian conversion, just without a family-specific CPU twin.
-  kernel isa AbstractSpectralKernel &&
-    return (_apply_compressed_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
-            destination)
-  _apply_convolution!(field_data(destination), field_data(field), _kernel_data(kernel), T(α), T(β))
+  _apply_compressed_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β))
   return destination
 end
 
@@ -925,6 +933,13 @@ function convolve(field::AbstractFieldSpectral, kernel::SpectralKernel)
   destination = similar_field(field, Val(field_tensor_order(field)))
   return convolve!(destination, field, kernel)
 end
+
+# EITHER ORDER APPLIES. Convolution is commutative, so `convolve(kernel, field)` and
+# `convolve(field, kernel)` are the same operation and must return the same thing — the field, at the
+# field's own tensor order. This method used to compose instead, because a bare field could itself be a
+# kernel and argument position was the only thing left to carry the role; with a field no longer a
+# kernel the types settle it and the asymmetry is gone.
+convolve(kernel::SpectralKernel, field::AbstractFieldSpectral) = convolve(field, kernel)
 
 
 """
@@ -1279,7 +1294,7 @@ end
 
 """
     squared_wavenumber_field(reference::AbstractFieldSpectral,
-                             multipliers::FieldSpectralMultipliers)
+                             multipliers::FieldSpectralMultipliers) -> ScalarFieldSpectral
 
 Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spectral representation, on
 `reference`'s grid and array backend.
@@ -1316,7 +1331,7 @@ end
 """
     spectral_band(reference::AbstractFieldSpectral,
                   multipliers::FieldSpectralMultipliers,
-                  wavenumber_low, wavenumber_high)
+                  wavenumber_low, wavenumber_high) -> RadialKernel
 
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol
 itself rather than its coefficients, so it costs no field of storage. Use
@@ -1365,7 +1380,7 @@ end
 
 """
     spectral_cutoff(reference::AbstractFieldSpectral,
-                    multipliers::FieldSpectralMultipliers, wavenumber_cutoff)
+                    multipliers::FieldSpectralMultipliers, wavenumber_cutoff) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
@@ -1397,7 +1412,7 @@ end
 
 """
     assignment_window(reference::AbstractFieldSpectral,
-                      multipliers::FieldSpectralMultipliers)
+                      multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
 Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation,
 on `reference`'s grid and array backend, for deconvolving a gridded point density.
@@ -1456,7 +1471,7 @@ end
 """
     translation_kernel(reference::AbstractFieldSpectral,
                        multipliers::FieldSpectralMultipliers,
-                       offset::NTuple{3, Real})
+                       offset::NTuple{3, Real}) -> SeparableKernel
 
 Build the kernel that translates a field by the physical displacement ``h`` = `offset`, as a scalar
 field in spectral representation on `reference`'s grid and array backend: convolving a field ``f``

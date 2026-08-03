@@ -142,14 +142,19 @@ vphys() = VectorFieldPhysical(counting(randn(grid.grid_size..., 3)), grid)
 tphys() = TensorFieldPhysical{2}(counting(randn(grid.grid_size..., 3, 3)), grid)
 
 carr(f) = field_data(f)                       # the CountingArray behind a field
+# …and behind a kernel: `StoredKernel` wraps the field, so the counted array is one hop further in.
+carr(k::GBGPeriodicFields.Convolution.StoredKernel) = field_data(k.field)
 
 # Multipliers and kernels are built over PLAIN storage (uncounted, as intended): `similar` on a
 # CountingArray yields a plain Array, and the convenience constructor copies host wavenumbers into it.
 const multipliers = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(ComplexF64, shape0), grid))
 const vector_plans = FieldTransformPlans(VectorFieldPhysical(zeros(grid.grid_size..., 3), grid),
                                          VectorFieldSpectral(zeros(ComplexF64, shape1), grid))
-const kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
-const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)
+# Declared as kernels: a field of coefficients is no longer accepted in the kernel role, and the audit
+# counts reads through the wrapped array either way.
+const kernel = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(ones(ComplexF64, shape0), grid))
+const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
+                               ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid))
 
 
 @testset "pass audit (element-traffic ledger)" begin
@@ -297,7 +302,7 @@ const counted_kernel = () -> ScalarFieldSpectral(counting(ones(ComplexF64, shape
 
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1), "exponential_convolve!",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
-    w = counted_kernel()
+    w = ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)   # ŵ is a field, not a kernel
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, w), "exponential_convolve! ŵ offset",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
       Traffic("ŵ", carr(w), (3M, 0), (M, 0),

@@ -51,7 +51,7 @@ function participant_builders()
     FieldSpectralMultipliers   => multipliers,
     RadialKernel               => radial,
     SeparableKernel            => separable,
-    StoredKernel               => ctx -> StoredKernel(materialize_kernel(radial(ctx))),
+    StoredKernel               => ctx -> materialize_kernel(radial(ctx)),   # already the stored class
     ProductKernel              => ctx -> convolve(radial(ctx), separable(ctx)),
     NUFFT                      => ctx -> NUFFT(field(ctx)),
   )

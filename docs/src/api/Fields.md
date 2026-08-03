@@ -83,15 +83,13 @@ read_field
 
 ## Spectral kernel protocol
 
-The types a kernel-taking operation dispatches on. They are defined here rather than in
-[`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels and is included
-first, so the protocol has to precede both. The concrete kernel classes that subtype
-`AbstractSpectralKernel`, and the builders returning them, are documented with
-[`Convolution`](@ref "Convolution").
+`SpectralKernel` is the supertype every kernel-taking operation dispatches on. It is defined here
+rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
+and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
+it, and the builders returning them, are documented with [`Convolution`](@ref "Convolution").
 
 ```@docs
 GBGPeriodicFields.Fields.SpectralKernel
-GBGPeriodicFields.Fields.AbstractSpectralKernel
 ```
 
 ## Internal API
@@ -104,14 +102,14 @@ These symbols are not part of the public interface; they are documented for cont
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:type, :constant]
-# `SpectralKernel` and `AbstractSpectralKernel` are documented on the Convolution page, beside the
+# `SpectralKernel` and `SpectralKernel` are documented on the Convolution page, beside the
 # concrete kernel classes that subtype them: the protocol is DEFINED here so the differential
 # operators and the reductions can name it, but a reader meets it there. They are public — the union
 # appears in `convolve!`'s own signature — and were collected here only because this module does not
 # re-export them, the same `Public = false` mechanism that filed `map` and `transpose` as internals.
 Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
                        GBGPeriodicFields.Fields.SpectralKernel,
-                       GBGPeriodicFields.Fields.AbstractSpectralKernel))
+                       GBGPeriodicFields.Fields.SpectralKernel))
 ```
 
 ### Functions

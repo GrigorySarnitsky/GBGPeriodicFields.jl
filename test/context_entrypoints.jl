@@ -116,7 +116,8 @@ const EXEMPT = Dict{Tuple{Symbol, Symbol}, String}(
 
 function derived_pairs()
   # A slot may be declared as a UNION — `divergence`'s kernel argument is
-  # `Union{AbstractSpectralKernel, ScalarFieldSpectral}` — and a Union is a subtype of neither half, so
+  # `SpectralKernel`, the abstract supertype of every kernel class — a field in spectral representation
+  # is not one, so
   # a plain `<:` test walks straight past it. Recursing into the union is what makes the denominator
   # honest; without it two kernel-taking operations were missing from the derived set entirely.
   function kind(T)
@@ -127,7 +128,7 @@ function derived_pairs()
     T isa Union && return something(kind(T.a), kind(T.b), Some(nothing))
     T isa Type || return nothing
     T <: EF.FieldSpectralMultipliers && return :multipliers
-    T <: EF.AbstractSpectralKernel && return :kernel
+    T <: EF.SpectralKernel && return :kernel
     T <: EI.NUFFT && return :nufft
     T <: EI.AbstractTransferScheme && return :scheme
     T <: EF.FieldTransformPlans && return :plans

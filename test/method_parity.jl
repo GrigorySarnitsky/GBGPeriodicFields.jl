@@ -77,7 +77,10 @@ end
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
   FiberSections         = 110,   # + section_tensor_order, cartesian _index_ranges, _check_owned_storage
-  Fields                = 105,
+  # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
+  # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
+  # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
+  Fields                = 103,
   FieldAlgebra          = 274,
   DifferentialOperators = 79,
   Convolution           = 78,   # +6: the StoredKernel role marker and its protocol methods

@@ -114,7 +114,11 @@ _map_add(a, b) = a + b
       # spectral sources / distinct destinations
       sv, ss, st = randomize!(spectral_vector()), randomize!(spectral_scalar()), randomize!(spectral_tensor())
       svd, ssd, std_ = spectral_vector(), spectral_scalar(), spectral_tensor()
-      kernel = spectral_scalar(); field_data(kernel) .= one(Complex{T})
+      # A field of coefficients declared as a kernel. A `ScalarFieldSpectral` is no longer accepted in
+      # the kernel role — the two hold identical data and only a type can say which is meant — so the
+      # role is stated here, once, where the kernel is built.
+      kernel_field = spectral_scalar(); field_data(kernel_field) .= one(Complex{T})
+      kernel = GBGPeriodicFields.Convolution.StoredKernel(kernel_field)
 
       # physical sources / distinct destinations
       pu, pv2 = randomize!(physical_vector()), randomize!(physical_vector())
@@ -175,9 +179,9 @@ _map_add(a, b) = a + b
       # the lazy exponential kernel and the kernel-composed combination (decision 33)
       @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1))
       @alloc_below field_threshold exponential_convolve!(svd, sv, multipliers, T(-0.1), T(0.5), T(1))
-      @alloc_below field_threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below field_threshold exponential_convolve!(ssd, ss, multipliers, T(-0.1), T(0.01), kernel_field)
       @alloc_below field_threshold exponential_convolve!(svd, T(0.3), sv, T(0.7), sv, multipliers, T(-0.1))
-      @alloc_below field_threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel)
+      @alloc_below field_threshold exponential_convolve!(ssd, T(0.3), ss, T(0.7), ss, multipliers, T(-0.1), T(0.01), kernel_field)
       @alloc_below field_threshold combine!(ssd, T(0.3), ss, T(0.7), ss, kernel)
       @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
       @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
@@ -318,8 +322,9 @@ end
       @alloc_below threshold l2norm(pv)                    # = sqrt(inner): physical, dot
       @alloc_below threshold l2norm(vs)                    # = sqrt(inner(f,f)): spectral, allocation-free
       # weighted_inner ⟨f, w·g⟩: fused lazy-broadcast reduction, only `_parseval_weight`'s tiny (Nkx,) vector
-      wkernel = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
-      field_data(wkernel) .= one(Complex{T})
+      wfield = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+      field_data(wfield) .= one(Complex{T})
+      wkernel = GBGPeriodicFields.Convolution.StoredKernel(wfield)   # a weight is a kernel
       @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
       @alloc_below threshold weighted_inner(vs, wkernel)       # vector self-pairing (weight broadcasts over fiber)
       @alloc_below threshold weighted_inner(ss, ss, wkernel)   # mixed scalar

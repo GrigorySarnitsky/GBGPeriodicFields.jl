@@ -90,9 +90,15 @@ using Statistics: mean
                                      TensorFieldSpectral{R}(zeros(ComplexF64, shape), grid);
                     to_spectral(phys, FieldTransformPlans(phys, spec0)))
     f1, f2 = tospec(rs()), tospec(rs())
-    g1, g2 = tospec(rs()), tospec(rs())                                      # arbitrary scalar kernels
+    # Arbitrary kernels, DECLARED: a field of coefficients is no longer accepted in the kernel role.
+    SK = GBGPeriodicFields.Convolution.StoredKernel
+    g1, g2 = SK(tospec(rs())), SK(tospec(rs()))
     @test same(convolve(f1 + f2, g1), convolve(f1, g1) + convolve(f2, g1))   # bilinear in the field
-    @test same(convolve(g1, g2), convolve(g2, g1))                          # kernel composition commutes
+    # Kernel composition commutes — and now genuinely composes: with a field no longer a kernel, this
+    # returns a `ProductKernel` rather than silently applying one field to the other, which is what it
+    # used to do. Compared on the kernel's coefficients, since the result is not a field.
+    kd(k) = collect(GBGPeriodicFields.Convolution._kernel_data(k))
+    @test isapprox(kd(convolve(g1, g2)), kd(convolve(g2, g1)); rtol = 1e-12)
     @test same(convolve(2.0 * f1, g1), 2.0 * convolve(f1, g1))              # homogeneous
 
     u = tospec(rv()); φ = tospec(rs())

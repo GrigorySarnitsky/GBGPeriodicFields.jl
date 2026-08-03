@@ -96,7 +96,8 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
       @test eltype(field_data(S)) === Complex{T}
       @test approx(field_data(S), field_data(sym(gradient(us, m))))
 
-      w1 = ScalarFieldSpectral(fill(one(Complex{T}), F.spectral_field_shape(grid, layout, Val(0))), grid)
+      w1 = GBGPeriodicFields.Convolution.StoredKernel(
+             ScalarFieldSpectral(fill(one(Complex{T}), F.spectral_field_shape(grid, layout, Val(0))), grid))
       @test weighted_inner(us, w1) isa T                    # a Float64 must not leak in
       @test approx(weighted_inner(us, w1), inner(us, us))
     end

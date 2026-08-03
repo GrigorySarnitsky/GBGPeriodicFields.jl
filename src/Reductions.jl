@@ -60,7 +60,7 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
 using ..Points: AbstractPointValues, npoints
 # The one kernel family a weight may take: a real symbol of |k|². A separable kernel is deliberately
 # not accepted — a magnitude-dependent weight does not factor per axis, so it is not in that family.
-using ..Convolution: RadialKernel
+using ..Convolution: RadialKernel, StoredKernel
 using ..Fields: _kernel_data, _check_kernel_compatibility
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
@@ -878,7 +878,7 @@ shell-index array and a scatter-add binning pass (and, for the correlation, an i
 function weighted_inner end
 
 function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
-                        w::Union{ScalarFieldSpectral{T}, RadialKernel{T}}) where {T<:AbstractFloat}
+                        w::Union{StoredKernel{T}, RadialKernel{T}}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
   _check_kernel_compatibility(f, w)
   field_tensor_order(f) == field_tensor_order(g) ||
@@ -898,7 +898,7 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
   return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
-weighted_inner(f::AbstractFieldSpectral{T}, w::Union{ScalarFieldSpectral{T}, RadialKernel{T}}) where {T<:AbstractFloat} =
+weighted_inner(f::AbstractFieldSpectral{T}, w::Union{StoredKernel{T}, RadialKernel{T}}) where {T<:AbstractFloat} =
   weighted_inner(f, f, w)
 
 

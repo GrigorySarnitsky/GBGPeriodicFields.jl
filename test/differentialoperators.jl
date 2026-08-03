@@ -177,8 +177,11 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test field_data(taccumulated) ≈ T(1 // 2) .* field_data(convolve(divergence(As, m), g)) .+ T(2) .* field_data(us)
 
     # the kernel may alias the destination (the product is coefficientwise)
-    kernel_as_destination = ScalarFieldSpectral(copy(field_data(materialize_kernel(g))), grid)
-    divergence!(kernel_as_destination, us, m, kernel_as_destination)
+    # The kernel wraps the very array being written, so this is still the aliased case: `StoredKernel`
+    # declares the role without copying anything.
+    kernel_as_destination = ScalarFieldSpectral(copy(field_data(materialize_kernel(g).field)), grid)
+    divergence!(kernel_as_destination, us, m,
+                GBGPeriodicFields.Convolution.StoredKernel(kernel_as_destination))
     @test field_data(kernel_as_destination) == field_data(convolve(divergence(us, m), g))
   end
 
@@ -440,7 +443,9 @@ end
   # branch — previously asserted nowhere in the package — must reduce to dest ← β·dest
   vr = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), grid_p, layout_p)
   vrh = to_spectral(vr, plans_v)
-  w = squared_wavenumber_field(sh, m)
+  # `squared_wavenumber_field` returns the |k|² COORDINATE, a field a consumer builds symbols from —
+  # so using it as a kernel now states that role explicitly.
+  w = GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(sh, m))
   @test field_data(symmetric_gradient(vrh, m)) ≈ field_data(sym(gradient(vrh, m)))
   fused_div = F.similar_field(sh, Val(0))
   divergence!(fused_div, vrh, m, w)
@@ -468,7 +473,7 @@ end
 
 
 # Decision 50 + the module-placement panel's M2: a kernel argument accepts EITHER storage class —
-# one held as a field, or a compressed AbstractSpectralKernel evaluated per mode. This testset is the
+# one held as a field, or a compressed SpectralKernel evaluated per mode. This testset is the
 # guard that the gap cannot reappear: it walks every kernel-taking entry point in the package and
 # requires the two classes to agree bitwise. When a new kernel family lands, add it to `kernels`.
 @testset "every kernel-taking entry point accepts both storage classes" begin

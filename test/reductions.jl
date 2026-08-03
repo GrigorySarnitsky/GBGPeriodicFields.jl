@@ -258,8 +258,9 @@ using Statistics: mean, std, var, cov      # extended on sections in the Reducti
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
         zero_scalar() = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp)
         m = FieldSpectralMultipliers(zero_scalar())
-        ones_w = ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp)  # w ≡ 1
-        ksq  = squared_wavenumber_field(zero_scalar(), m)                       # w = |k|² (keeps true Nyquist k²)
+        # A weight is a KERNEL: a bare `ScalarFieldSpectral` is no longer accepted in that role.
+        ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp))
+        ksq = GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(zero_scalar(), m))  # w = |k|²
         band = spectral_cutoff(zero_scalar(), m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
 
         f = tospec(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
@@ -482,7 +483,7 @@ end
     @test inner(sp, sp2) ≈ inner(phys, phys2) atol = atol
     shells, spectrum = radial_spectrum(sp, m)
     @test sum(spectrum) ≈ inner(sp, sp) atol = atol
-    ones_w = ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(grid, layout, Val(0))), grid, layout)
+    ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(grid, layout, Val(0))), grid, layout))
     @test weighted_inner(sp, ones_w) ≈ inner(sp, sp) atol = atol
     separations, correlation = radial_correlation(sp, plans)  # end-to-end under the permuted fold
     @test correlation[1] ≈ inner(sp, sp) atol = atol          # C(0) = ⟨|f|²⟩

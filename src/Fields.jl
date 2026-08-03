@@ -21,7 +21,7 @@ The parts are:
     thread count `FFTW` bakes into plans built afterwards.
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
     spectral differential operators multiply by.
-  * **Spectral kernels** — [`AbstractSpectralKernel`](@ref) is the supertype of every coefficientwise
+  * **Spectral kernels** — [`SpectralKernel`](@ref) is the supertype of every coefficientwise
     multiplier that is not stored as a field. It lives here, rather than with the kernels themselves,
     so every module that accepts one names a single type; `Convolution` defines the concrete classes.
   * **Allocation** — [`similar_field`](@ref) returns uninitialized storage carrying a reference field's
@@ -1214,20 +1214,27 @@ _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, s
 ####################################################
 
 """
-    AbstractSpectralKernel{T}
+    SpectralKernel{T}
 
-Supertype of every spectral kernel that is **not** stored as a field: a coefficientwise multiplier
-supplied in a compressed form and evaluated per mode, rather than held as one coefficient per mode.
-`Convolution` defines the concrete kernels (the axis-factored `SeparableKernel`, and the radial
-family); this supertype and the two generics below live here so that every module which *applies* a
-kernel — `Convolution`, `DifferentialOperators`, `Reductions` — can name one type, whichever of them
-is included first.
+Supertype of every spectral kernel: a coefficientwise multiplier applied as the product
+``\\hat f\\,\\hat g``, in whichever storage its symbol admits. `Convolution` defines the concrete
+classes — `StoredKernel` holding one coefficient per mode, `SeparableKernel` holding per-axis factors,
+`RadialKernel` holding the symbol itself, and `ProductKernel` holding two factors unmultiplied — and
+they differ only in cost, never in meaning. This supertype and the two generics below live here so
+that every module which applies a kernel — `Convolution`, `DifferentialOperators`, `Reductions` — can
+name one type, whichever of them is included first.
+
+A field in spectral representation is **not** a kernel. The two hold identical data, so nothing but a
+type can say which role is meant, and the distinction is load-bearing: the coefficientwise reciprocal
+of a kernel is the kernel that deconvolves by it, while the same operation on a field is one the
+package does not define. Wrap a field of coefficients in `StoredKernel` to declare the role, which is
+what `materialize_kernel` returns.
 
 A concrete kernel implements two methods: [`_kernel_data`](@ref), returning the multiplier it
 contributes to a fused pass, and [`_check_kernel_compatibility`](@ref), checking it against the field
 it is applied to.
 """
-abstract type AbstractSpectralKernel{T} end
+abstract type SpectralKernel{T} end
 
 
 """
@@ -1243,32 +1250,10 @@ function _kernel_data end
 """
     _check_kernel_compatibility(field, kernel)
 
-Check that `kernel` was built for `field`'s base and spectral layout, throwing if not. A kernel held
-as a field defers to the field-to-field domain check; a compressed kernel checks whatever it stored.
+Check that `kernel` was built for `field`'s base and spectral layout, throwing if not. Each storage
+class checks whatever it stored.
 """
 function _check_kernel_compatibility end
-
-
-_kernel_data(kernel::ScalarFieldSpectral) = field_data(kernel)
-_check_kernel_compatibility(field, kernel::ScalarFieldSpectral) =
-  _check_field_domain_compatibility(field, kernel)
-
-
-"""
-    SpectralKernel{T}
-
-Either storage class of a spectral kernel: one held as a `ScalarFieldSpectral` (one coefficient per
-mode) or an `AbstractSpectralKernel` evaluated per mode. Operations that APPLY a kernel accept this
-union, so a compressed kernel is passable everywhere a stored one is and no wrapper is needed.
-
-The union exists because a field in spectral representation doubles as the stored kernel class, which
-is convenient for application and ambiguous for anything else: the coefficientwise reciprocal of a
-kernel is its deconvolution, while the same operation on a field is one the package does not define.
-Operations whose meaning depends on that distinction — `inv` is the case — take the `StoredKernel`
-marker instead of this union, and composition wraps a bare field into it automatically.
-"""
-const SpectralKernel{T} = Union{ScalarFieldSpectral{T}, AbstractSpectralKernel{T}}
-
 
 
 """

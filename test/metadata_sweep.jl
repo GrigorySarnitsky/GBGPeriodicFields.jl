@@ -81,7 +81,12 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         ("scalar × vector",          () -> sp * up,                             1),
       ]
       for (name, build, expected_order) in cases
+        # A `StoredKernel` carries its metadata in the field it wraps: `materialize_kernel` returns the
+        # stored KERNEL class, since a field in spectral representation is not a kernel and the role has
+        # to be declared by a type. The metadata question is the same one either way, asked of the field
+        # inside.
         result = build()
+        result = result isa GBGPeriodicFields.Convolution.StoredKernel ? result.field : result
         @test field_layout(result).fft_dims == fold          # the layout survives
         @test field_grid(result) == g                        # so do the grid and its origin
         @test field_tensor_order(result) == expected_order   # and the order is the operation's

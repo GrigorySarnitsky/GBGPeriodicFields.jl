@@ -132,7 +132,7 @@ in this file claimed was "checked below". A new class is now reported, not silen
 function _pool_class_gaps(entries)
   present = Set(nameof(typeof(e.object)) for e in entries)
   wanted = Symbol[]
-  for root in (GBGI.Convolution.AbstractSpectralKernel, GBGI.Interpolation.AbstractTransferScheme)
+  for root in (GBGI.Convolution.SpectralKernel, GBGI.Interpolation.AbstractTransferScheme)
     for T in _concrete_subtypes(root)
       nameof(T) in present || Base.push!(wanted, nameof(T))
     end

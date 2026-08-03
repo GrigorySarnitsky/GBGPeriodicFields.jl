@@ -136,14 +136,15 @@ end
   s = spectral_scalar(Grid3D((8, 6, 4), (2π, 2π, 2π)))
   m = FieldSpectralMultipliers(s)
   separable = translation_kernel(s, m, (0.1, 0.2, 0.3))
-  stored = materialize_kernel(separable)
+  stored = materialize_kernel(separable)                 # the STORED KERNEL class, not a field
+  @test stored isa StoredKernel
   @test inv(convolve(separable, stored)) isa ProductKernel
-  # A bare `ScalarFieldSpectral` is role-ambiguous — kernel or field — so `inv` is defined on the
-  # `StoredKernel` marker instead, and composition wraps automatically, which is why the mixed product
-  # above inverts with no wrapping by the caller.
-  @test inv(StoredKernel(stored)) isa StoredKernel
-  @test_throws MethodError inv(stored)
-  @test convolve(separable, stored).second_kernel isa StoredKernel
+  @test inv(stored) isa StoredKernel
+  # A field in spectral representation is not a kernel: the two hold identical data, so only a type can
+  # say which role is meant, and `inv` is the operation whose meaning depends on it — the reciprocal of
+  # a kernel deconvolves by it, while the reciprocal of a field is undefined here.
+  @test_throws MethodError inv(stored.field)
+  @test convolve(separable, stored) isa ProductKernel
 
   # The reciprocal really deconvolves.
   u = VectorFieldSpectral(randn(ComplexF64,
@@ -152,7 +153,7 @@ end
   @test isapprox(field_data(convolve(convolve(u, separable), inv(separable))), field_data(u); rtol = 1e-12)
 
   # A sharp cutoff is exactly the kernel with zeros, so it is exactly the one with no inverse.
-  @test_throws ArgumentError inv(StoredKernel(materialize_kernel(spectral_cutoff(s, m, 2))))
+  @test_throws ArgumentError inv(materialize_kernel(spectral_cutoff(s, m, 2)))
 end
 
 

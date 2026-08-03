@@ -16,7 +16,11 @@
 using Test
 using Random
 using GBGPeriodicFields
-kernel_array(k) = Array(copy(GBGPeriodicFields.Convolution._kernel_data(k)))   # materialize a lazy kernel for inspection
+# Materialize any kernel for inspection. Accepts a bare `ScalarFieldSpectral` too — not because one is
+# a kernel (it is not, since decision 60), but because several checks compare a kernel's coefficients
+# against a field built independently, and both sides go through here.
+kernel_array(k::GBGPeriodicFields.Fields.ScalarFieldSpectral) = Array(copy(field_data(k)))
+kernel_array(k) = Array(copy(GBGPeriodicFields.Convolution._kernel_data(k)))
 
 const F = GBGPeriodicFields.Fields
 const ELEMENT_TYPES = (Float64, Float32)
@@ -41,6 +45,9 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
   end
 
   scalar_kernel(data) = ScalarFieldSpectral(data, grid)
+  # …and the same coefficients DECLARED as a kernel. A `ScalarFieldSpectral` is no longer accepted in
+  # the kernel role (decision 60): it holds identical data, so only a type can say which is meant.
+  as_kernel(data) = GBGPeriodicFields.Convolution.StoredKernel(scalar_kernel(data))
 
   # a resolved real scalar field and a resolved real vector field, in spectral representation
   phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), grid)
@@ -53,7 +60,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
   @testset "T = $T" begin
 
     @testset "identity kernel ĝ ≡ 1 ⇒ f (scalar kernel over any tensor order)" begin
-      ones_kernel = scalar_kernel(ones(Complex{T}, shape0))
+      ones_kernel = as_kernel(ones(Complex{T}, shape0))
       @test approx(field_data(convolve(phi_s, ones_kernel)), field_data(phi_s))
       @test approx(field_data(convolve(u_s, ones_kernel)), field_data(u_s))   # broadcast over a 1-index fiber
       @test approx(field_data(convolve(A_s, ones_kernel)), field_data(A_s))   # over a 2-index fiber (R=2, 5-D broadcast)
@@ -64,7 +71,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
     @testset "constant kernel ĝ ≡ c ⇒ scaling by c" begin
       c = T(3)
-      const_kernel = scalar_kernel(fill(Complex{T}(c), shape0))
+      const_kernel = as_kernel(fill(Complex{T}(c), shape0))
       @test approx(field_data(convolve(phi_s, const_kernel)), c .* field_data(phi_s))
       @test approx(field_data(convolve(u_s, const_kernel)), c .* field_data(u_s))
       @test approx(field_data(convolve(A_s, const_kernel)), c .* field_data(A_s))
@@ -78,7 +85,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
         k = wn[axis]; dx = grid.grid_spacing[axis]
         kdata = Complex{T}[exp(-im * (axis == 1 ? k[i] : axis == 2 ? k[j] : k[l]) * shift * dx)
                            for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]]
-        kern = scalar_kernel(kdata)
+        kern = as_kernel(kdata)
         sh = ntuple(d -> d == axis ? shift : 0, 3)
         @test approx(field_data(to_physical(convolve(phi_s, kern), plans_for(phi))),   # scalar field
                      circshift(field_data(phi), sh))
@@ -227,8 +234,8 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test all(iszero, imag.(field_data(k2)))                              # real, stored in the complex array
       @test field_data(k2)[1, 1, 1] == zero(Complex{T})                     # |k| = 0 at the origin mode
       # consumer use: build a viscous integrating factor exp(−ν|k|²Δt) and apply it with convolve
-      factor = scalar_kernel(exp.(-T(0.1) .* field_data(k2) .* T(0.05)))
-      @test all(v -> abs(v) <= 1 + abstol, field_data(factor))              # a decay (|symbol| ≤ 1), real
+      factor = as_kernel(exp.(-T(0.1) .* field_data(k2) .* T(0.05)))
+      @test all(v -> abs(v) <= 1 + abstol, kernel_array(factor))              # a decay (|symbol| ≤ 1), real
     end
 
     @testset "kernel composition: convolve(g₁, g₂) composes, and is associative" begin
@@ -236,7 +243,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       g1 = spectral_cutoff(phi_s, m, T(3))
       dx = grid.grid_spacing[1]
       k1 = Array(m.wavenumber_1)
-      g2 = scalar_kernel(Complex{T}[exp(-im * k1[i] * dx)
+      g2 = as_kernel(Complex{T}[exp(-im * k1[i] * dx)
                                     for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]])
       left = convolve(convolve(phi_s, g1), g2)
       right = convolve(phi_s, convolve(g1, g2))     # convolve(g1, g2) is the composed kernel
@@ -244,7 +251,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
     end
 
     @testset "α/β accumulate form: dest = α·(f⋆g) + β·dest" begin
-      g = scalar_kernel(fill(Complex{T}(2), shape0))
+      g = as_kernel(fill(Complex{T}(2), shape0))
       dest0 = randn(Complex{T}, shape0)
       dest = scalar_kernel(copy(dest0))
       alpha, beta = T(0.5), T(-1.5)
@@ -274,7 +281,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
       # oracle 1: the same kernel built as a stored field and applied with convolve
       k2 = squared_wavenumber_field(phi_s, m)
-      stored = scalar_kernel(exp.(coefficient .* field_data(k2)))
+      stored = as_kernel(exp.(coefficient .* field_data(k2)))
       @test field_data(exponential_convolve(phi_s, m, coefficient)) == field_data(convolve(phi_s, stored))
       u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
                         plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
@@ -295,7 +302,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
       # the per-mode offset enters as scale × field: exp(c|k|² + s·ŵ) with ŵ = |k|²
       offset_scale = T(0.011)
-      stored_off = scalar_kernel(exp.(coefficient .* field_data(k2) .+ offset_scale .* field_data(k2)))
+      stored_off = as_kernel(exp.(coefficient .* field_data(k2) .+ offset_scale .* field_data(k2)))
       @test field_data(exponential_convolve(phi_s, m, coefficient, offset_scale, k2)) ==
             field_data(convolve(phi_s, stored_off))
 
@@ -347,8 +354,10 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       inplace = scalar_kernel(copy(field_data(b_s)))
       combine!(inplace, T(0.3), phi_s, T(0.7), inplace, g)
       @test field_data(inplace) == field_data(sequential)
-      kernel_dest = scalar_kernel(copy(field_data(materialize_kernel(g))))
-      combine!(kernel_dest, T(0.3), phi_s, T(0.7), b_s, kernel_dest)
+      kernel_dest = scalar_kernel(copy(field_data(materialize_kernel(g).field)))
+      # The kernel wraps the very field being written, so this is still the aliased case.
+      combine!(kernel_dest, T(0.3), phi_s, T(0.7), b_s,
+               GBGPeriodicFields.Convolution.StoredKernel(kernel_dest))
       @test field_data(kernel_dest) == field_data(sequential)
     end
 
@@ -386,7 +395,8 @@ end
                                 ScalarFieldSpectral(zeros(Complex{T}, shape0), grid))
     phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) + sin(z), grid)
     phi_s = to_spectral(phi, plans)
-    @test isapprox(field_data(convolve(phi_s, ScalarFieldSpectral(ones(Complex{T}, shape0), grid))),
+    @test isapprox(field_data(convolve(phi_s, GBGPeriodicFields.Convolution.StoredKernel(
+                     ScalarFieldSpectral(ones(Complex{T}, shape0), grid)))),
                    field_data(phi_s); rtol = 1e-10)         # identity holds on the mixed-parity grid
     mult = FieldSpectralMultipliers(phi_s)
     wn = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
@@ -394,7 +404,7 @@ end
       k = wn[axis]; dx = grid.grid_spacing[axis]; shift = 1
       kdata = Complex{T}[exp(-im * (axis == 1 ? k[i] : axis == 2 ? k[j] : k[l]) * shift * dx)
                          for i in 1:shape0[1], j in 1:shape0[2], l in 1:shape0[3]]
-      shifted = to_physical(convolve(phi_s, ScalarFieldSpectral(kdata, grid)), plans)
+      shifted = to_physical(convolve(phi_s, GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(kdata, grid))), plans)
       sh = ntuple(d -> d == axis ? shift : 0, 3)
       @test isapprox(field_data(shifted), circshift(field_data(phi), sh); rtol = 1e-10)
     end
@@ -478,7 +488,8 @@ end
 
   # the lazy exponential kernel == the stored-kernel convolve route (permuted + odd + aniso)
   c = -TP(0.3)
-  stored = ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c, layout_c)
+  stored = GBGPeriodicFields.Convolution.StoredKernel(
+             ScalarFieldSpectral(Complex{TP}.(exp.(c .* expected_w2)), grid_c, layout_c))
   ref_route = convolve(fs, stored)
   @test isapprox(field_data(exponential_convolve(fs, m, c)), field_data(ref_route);
                  rtol = rtol_c, atol = rtol_c)
@@ -507,8 +518,8 @@ end
 
   # aliasing directions never exercised: convolve! dest ≡ kernel (documented safe), the
   # two-operand exponential and kernel-composed combine! with dest ≡ a
-  kern_dst = ScalarFieldSpectral(copy(field_data(stored)), grid_c, layout_c)
-  convolve!(kern_dst, fs, kern_dst)
+  kern_dst = ScalarFieldSpectral(copy(field_data(stored.field)), grid_c, layout_c)
+  convolve!(kern_dst, fs, GBGPeriodicFields.Convolution.StoredKernel(kern_dst))
   @test field_data(kern_dst) == field_data(ref_route)
   combined = ScalarFieldSpectral(zeros(Complex{TP}, size(field_data(fs))...), grid_c, layout_c)
   combine!(combined, TP(1 // 2), fs, TP(2), other)          # the sequential reference input
@@ -538,7 +549,10 @@ end
     kernel = translation_kernel(s0, mult, h)
     @test kernel isa GBGPeriodicFields.Convolution.SeparableKernel
     # the oracle: the same kernel as a stored field
-    oracle = ScalarFieldSpectral(copy(kernel_array(kernel)), g, layout)
+    # The materialized product, declared as a kernel: it is the oracle the compressed form is compared
+    # against, so it must be usable in the same argument position.
+    oracle = GBGPeriodicFields.Convolution.StoredKernel(
+               ScalarFieldSpectral(copy(kernel_array(kernel)), g, layout))
 
     for R in (0, 1, 2)
       shape = R == 0 ? spec_shape : R == 1 ? (spec_shape..., 3) : (spec_shape..., 3, 3)
@@ -575,12 +589,12 @@ end
 
     # materialize_kernel: the stored twin — same coefficients, same results, bitwise
     stored = materialize_kernel(kernel)
-    @test stored isa ScalarFieldSpectral
-    @test field_data(stored) == kernel_array(kernel)                  # exactly the product
+    @test stored isa GBGPeriodicFields.Convolution.StoredKernel      # the stored KERNEL class
+    @test kernel_array(stored) == kernel_array(kernel)                # exactly the product
     @test field_data(convolve(fs, stored)) == field_data(convolve(fs, kernel))
     uv = VectorFieldSpectral(rand(rng, Complex{TP}, spec_shape..., 3), g, layout)
     @test field_data(convolve(uv, stored)) == field_data(convolve(uv, kernel))
-    @test eltype(field_data(materialize_kernel(window))) === Complex{TP}   # real factors → complex field
+    @test eltype(field_data(materialize_kernel(window).field)) === Complex{TP}   # real factors → complex field
 
     # the domain check catches a kernel built for another grid
     other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
@@ -633,8 +647,11 @@ end
     # the sharp mask is an idempotent projection, and |k|² reproduces the Dirichlet weight
     u = VectorFieldSpectral(rand(rng, Complex{TP}, shape..., 3), g, layout)
     @test field_data(convolve(convolve(u, cutoff), cutoff)) == field_data(convolve(u, cutoff))
+    # `squared_wavenumber_field` returns the |k|² COORDINATE as a field, so using it as a weight states
+    # the role. (That it is materialized at all is a separate question: |k|² is a radial symbol and
+    # could be a `RadialKernel` costing a closure instead of O(N³) coefficients.)
     @test weighted_inner(u, radial_kernel(identity, s0, m)) ≈
-          weighted_inner(u, squared_wavenumber_field(s0, m))
+          weighted_inner(u, GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(s0, m)))
 
     # composition: radial∘radial stays radial; radial∘separable is the cross-family product
     warm = radial_kernel(k2 -> exp(-TP(0.02) * k2), s0, m)
@@ -669,7 +686,7 @@ end
 # guards could not see it: `materialize_kernel` had methods, so every completeness ledger read it as
 # covered. The denominator has to be the SUBTYPE set, derived, not the generic's name.
 @testset "every kernel storage class supports the class-wide operations (audit CODE-11)" begin
-  kernel_supertype = GBGPeriodicFields.Fields.AbstractSpectralKernel
+  kernel_supertype = GBGPeriodicFields.Fields.SpectralKernel
 
   grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
   layout = RealFourierLayout()
@@ -680,7 +697,7 @@ end
   separable = translation_kernel(reference, multipliers, (0.1, 0.2, 0.3))
   specimens = Dict(RadialKernel => radial,
                    SeparableKernel => separable,
-                   StoredKernel => StoredKernel(materialize_kernel(radial)),
+                   StoredKernel => (materialize_kernel(radial)),
                    ProductKernel => convolve(radial, separable))
 
   # The sweep is only as complete as its specimen list, so derive the requirement: a new compressed
@@ -700,10 +717,10 @@ end
   for (class, kernel) in specimens
     # Every class materializes, onto the right base, agreeing with its own lazy data.
     stored = materialize_kernel(kernel)
-    @test stored isa ScalarFieldSpectral
-    @test field_grid(stored) == grid
-    @test field_layout(stored) == layout
-    @test field_data(stored) == collect(GBGPeriodicFields.Convolution._kernel_data(kernel))
+    @test stored isa GBGPeriodicFields.Convolution.StoredKernel   # the stored KERNEL class
+    @test field_grid(stored.field) == grid
+    @test field_layout(stored.field) == layout
+    @test kernel_array(stored) == collect(GBGPeriodicFields.Convolution._kernel_data(kernel))
     # And every class applies, bitwise-identically to its materialized twin.
     lazy_out = similar_field(field, Val(1))
     stored_out = similar_field(field, Val(1))

@@ -1232,6 +1232,24 @@ allocator can serve all three and whether every allocating operation must route 
 make the metadata-propagation axis enforceable by construction rather than by test. Benchmarks are in
 scope of the same review.
 
+**Decision 60 — a field in spectral representation is not a kernel (2026-08-03).** `SpectralKernel` was
+a UNION of `ScalarFieldSpectral` and an abstract `AbstractSpectralKernel`, which made the abstract type
+read broader than the union while being narrower, and forced a `StoredKernel` marker to exist purely so
+`inv` could tell a kernel from a field. It also made `convolve` asymmetric in a way commutativity
+forbids: `convolve(field, kernel)` applied while `convolve(kernel, field)` COMPOSED, because argument
+position was the only thing left carrying the role. The union is gone. `SpectralKernel{T}` is now the
+abstract supertype of the four classes — `StoredKernel` (one coefficient per mode), `SeparableKernel`
+(per-axis factors), `RadialKernel` (the symbol), `ProductKernel` (two factors unmultiplied) — every
+signature naming `kernel::SpectralKernel{T}` is unchanged, `materialize_kernel` returns `StoredKernel`,
+and both argument orders of `convolve` apply and agree bitwise at every tensor order. Composing two
+convolution operators IS convolving their kernels, so composition keeps the same verb and is now
+unambiguous by type. A field of coefficients is wrapped once, where the kernel is built: measured at
+64³, the wrapper costs 144 bytes at construction and **zero per call**, with `_kernel_data` inlining to
+a `getfield`. Two package methods went (`Fields` 105 → 103 methods, refrozen with the reason). The
+rename's one hazard, caught by the pass audit and not by any other layer: a guard reading
+`kernel isa AbstractSpectralKernel` MEANT "compressed", and renaming made it true for the stored class
+too, routing it off the fused pass — vector traffic 3M reads against a frozen ideal of M.
+
 ## Planned directions (recorded — not started)
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
