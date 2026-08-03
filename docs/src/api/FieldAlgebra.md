@@ -66,7 +66,14 @@ map
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors adding operations — the code-generation machinery: the expression and kernel-body builders, the contraction formula builders, and the constant / zero-mode helpers. The per-operation methods are stamped out from these by `@eval` tables and are not themselves documented.
+These symbols are not part of the public interface; they are documented for contributors — two storage
+helpers the generated operations share: one copies a field's data into a destination for the paths that
+cannot assume it starts empty, the other reshapes a scalar field so it broadcasts against a fiber.
+
+The code generators themselves are not here. They live in [`FiberSections`](@ref "FiberSections"),
+which is what lets `FieldAlgebra` and `Points` stamp the same formulas over their different bases, and
+the per-operation methods `@eval` produces from them carry no docstrings of their own — the formula is
+documented on the builder.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.FieldAlgebra]

@@ -42,9 +42,10 @@ Each reduction also has a **mapped** form taking a leading function, applied to 
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors — the base
-measure (count and cell measure), the fiber-preserving reduction helper, and the fixed reduction tree
-that makes a threaded reduction bitwise thread-count-invariant.
+These symbols are not part of the public interface; they are documented for contributors — the
+fiberwise reduction machinery (the fiber map-reduce and its loop and tree forms) and the fixed
+reduction tree that makes a threaded reduction bitwise thread-count-invariant, together with the
+backend split that decides which of the two a reduction takes.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Reductions]
