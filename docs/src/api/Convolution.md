@@ -18,7 +18,7 @@ exponential_convolve
 The kernel-composed method of `combine!` — the weighted combination convolved with a kernel in the
 same fused pass — is documented with its generic on the [FieldAlgebra](FieldAlgebra.md) page.
 
-## What a kernel is
+## Kernel storage classes
 
 A kernel is anything an operation can apply as the coefficientwise product ``\hat f\,\hat g``, and the
 package holds one in whichever form is cheapest for its symbol: a full field of coefficients when the
@@ -38,17 +38,18 @@ StoredKernel
 SeparableKernel
 RadialKernel
 ProductKernel
-radial_kernel
 inv
 materialize_kernel
 ```
 
 ## Kernel builders
 
-Each returns a kernel for a symbol the package names, in whichever storage class that symbol admits;
-`radial_kernel` above builds one from any other real symbol of ``\lvert k\rvert^2``.
+Each returns a kernel for a symbol the package names, in whichever storage class that symbol admits.
+`radial_kernel` is the escape hatch: it builds one from any other real symbol of ``\lvert k\rvert^2``,
+which is the route for a filter, a hyperviscosity, or an integrating factor the package does not name.
 
 ```@docs
+radial_kernel
 spectral_cutoff
 spectral_band
 squared_wavenumber_field
