@@ -18,20 +18,13 @@ exponential_convolve
 The kernel-composed method of `combine!` — the weighted combination convolved with a kernel in the
 same fused pass — is documented with its generic on the [FieldAlgebra](FieldAlgebra.md) page.
 
-## Kernel-multiplier builders
+## What a kernel is
 
-```@docs
-spectral_cutoff
-spectral_band
-squared_wavenumber_field
-assignment_window
-translation_kernel
-translation_kernel!
-```
-
-## Kernel storage
-
-A kernel that factors over the axes is held as its per-axis factors rather than as a field, and applied identically.
+A kernel is anything an operation can apply as the coefficientwise product ``\hat f\,\hat g``, and the
+package holds one in whichever form is cheapest for its symbol: a full field of coefficients when the
+symbol is arbitrary, the per-axis factors when it separates, or the symbol itself when it depends on the
+wavenumber only through ``\lvert k\rvert``. All three are applied identically and give bitwise-identical
+results, so the choice is one of storage, not of meaning.
 
 Every operation taking a kernel accepts the union
 [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), whose members are a
@@ -48,6 +41,20 @@ ProductKernel
 radial_kernel
 inv
 materialize_kernel
+```
+
+## Kernel builders
+
+Each returns a kernel for a symbol the package names, in whichever storage class that symbol admits;
+`radial_kernel` above builds one from any other real symbol of ``\lvert k\rvert^2``.
+
+```@docs
+spectral_cutoff
+spectral_band
+squared_wavenumber_field
+assignment_window
+translation_kernel
+translation_kernel!
 ```
 
 ## Internal API
