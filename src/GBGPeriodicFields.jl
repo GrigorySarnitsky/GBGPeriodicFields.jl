@@ -53,8 +53,7 @@ The umbrella assembles its public surface from the submodules below:
   `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
-  kernel builders `spectral_cutoff`, `spectral_band`, `squared_wavenumber_field`,
-  `assignment_window`, `translation_kernel`, and `radial_kernel` for any other symbol of the squared
+  kernel builders `spectral_cutoff`, `spectral_band`, `assignment_window`, `translation_kernel`, and `radial_kernel` for any other symbol of the squared
   wavenumber. A kernel is held either as a scalar field in spectral representation or in one of the
   compressed classes `SeparableKernel`, `RadialKernel` and `ProductKernel`, which store a closed-form
   multiplier instead of its coefficients; the classes are interchangeable and agree bit for bit, and
@@ -195,7 +194,6 @@ using .Convolution:
   exponential_convolve,
   spectral_cutoff,
   spectral_band,
-  squared_wavenumber_field,
   assignment_window,
   translation_kernel
 
@@ -321,8 +319,7 @@ export FiberVector,
        exponential_convolve,
        spectral_cutoff,
        spectral_band,
-       squared_wavenumber_field,
-       assignment_window,
+            assignment_window,
        translation_kernel,
        translation_kernel!,
        StoredKernel,

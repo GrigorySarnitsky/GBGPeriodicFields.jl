@@ -83,7 +83,10 @@ const MODULE_BASELINE = (
   Fields                = 103,
   FieldAlgebra          = 274,
   DifferentialOperators = 79,
-  Convolution           = 78,   # +6: the StoredKernel role marker and its protocol methods
+  # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
+  # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice
+  # through `materialize_kernel`, which is what that escape hatch is for.
+  Convolution           = 77,   # +6: the StoredKernel role marker and its protocol methods
   Points                = 207,
   Interpolation         = 119,
   Reductions            = 111,

@@ -218,24 +218,27 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # the low-pass special case: spectral_cutoff(k) === spectral_band(0, k)
       @test kernel_array(spectral_cutoff(phi_s, m, T(2.5))) == kernel_array(spectral_band(phi_s, m, T(0), T(2.5)))
       # membership oracle: ĝ = 1 exactly on the closed shell 1.5 ≤ |k| ≤ 3.0
-      k_squared = real.(field_data(squared_wavenumber_field(phi_s, m)))
+      k_squared = real.(kernel_array(radial_kernel(identity, phi_s, m)))
       expected = map(k2 -> (T(1.5)^2 <= k2 <= T(3.0)^2) ? one(Complex{T}) : zero(Complex{T}), k_squared)
       @test vals == expected
     end
 
-    @testset "squared_wavenumber_field: |k|² as a real-valued ScalarFieldSpectral" begin
+    # `squared_wavenumber_field` is gone (decision 60): |k|² is a radial symbol, so it is
+    # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice.
+    @testset "the |k|² radial symbol == the analytic Σkᵢ²" begin
       m = FieldSpectralMultipliers(phi_s)
-      k2 = squared_wavenumber_field(phi_s, m)
-      @test k2 isa ScalarFieldSpectral
+      k2 = kernel_array(radial_kernel(identity, phi_s, m))     # the coefficients, materialized on demand
+      k2_field = ScalarFieldSpectral(Complex{T}.(k2), grid)   # the same values as a field, for ŵ
       reference = reshape(Array(m.squared_wavenumber_1), :, 1, 1) .+
                   reshape(Array(m.squared_wavenumber_2), 1, :, 1) .+
                   reshape(Array(m.squared_wavenumber_3), 1, 1, :)
-      @test real.(field_data(k2)) ≈ reference
-      @test all(iszero, imag.(field_data(k2)))                              # real, stored in the complex array
-      @test field_data(k2)[1, 1, 1] == zero(Complex{T})                     # |k| = 0 at the origin mode
-      # consumer use: build a viscous integrating factor exp(−ν|k|²Δt) and apply it with convolve
-      factor = as_kernel(exp.(-T(0.1) .* field_data(k2) .* T(0.05)))
-      @test all(v -> abs(v) <= 1 + abstol, kernel_array(factor))              # a decay (|symbol| ≤ 1), real
+      @test real.(k2) ≈ reference
+      @test all(iszero, imag.(k2))                                            # real, in the complex array
+      @test k2[1, 1, 1] == zero(Complex{T})                                   # |k| = 0 at the origin mode
+      # consumer use: a viscous integrating factor exp(−ν|k|²Δt). The package applies this family
+      # lazily through `exponential_convolve!`; built as a symbol it is a `radial_kernel`.
+      factor = radial_kernel(q -> exp(-T(0.1) * q * T(0.05)), phi_s, m)
+      @test all(v -> abs(v) <= 1 + abstol, kernel_array(factor))              # a decay (|symbol| ≤ 1)
     end
 
     @testset "kernel composition: convolve(g₁, g₂) composes, and is associative" begin
@@ -280,8 +283,9 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       coefficient = T(-0.037)
 
       # oracle 1: the same kernel built as a stored field and applied with convolve
-      k2 = squared_wavenumber_field(phi_s, m)
-      stored = as_kernel(exp.(coefficient .* field_data(k2)))
+      k2 = kernel_array(radial_kernel(identity, phi_s, m))
+      k2_field = ScalarFieldSpectral(Complex{T}.(k2), grid)   # the same values as a field, for ŵ
+      stored = as_kernel(Complex{T}.(exp.(coefficient .* k2)))
       @test field_data(exponential_convolve(phi_s, m, coefficient)) == field_data(convolve(phi_s, stored))
       u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
                         plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
@@ -298,12 +302,12 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       dest = scalar_kernel(copy(dest0))
       exponential_convolve!(dest, phi_s, m, coefficient, T(0.5), T(-1.5))
       @test approx(field_data(dest),
-                   T(0.5) .* (exp.(coefficient .* field_data(k2)) .* field_data(phi_s)) .+ T(-1.5) .* dest0)
+                   T(0.5) .* (exp.(coefficient .* k2) .* field_data(phi_s)) .+ T(-1.5) .* dest0)
 
       # the per-mode offset enters as scale × field: exp(c|k|² + s·ŵ) with ŵ = |k|²
       offset_scale = T(0.011)
-      stored_off = as_kernel(exp.(coefficient .* field_data(k2) .+ offset_scale .* field_data(k2)))
-      @test field_data(exponential_convolve(phi_s, m, coefficient, offset_scale, k2)) ==
+      stored_off = as_kernel(Complex{T}.(exp.(coefficient .* k2 .+ offset_scale .* k2)))
+      @test field_data(exponential_convolve(phi_s, m, coefficient, offset_scale, k2_field)) ==
             field_data(convolve(phi_s, stored_off))
 
       # the two-operand forms == combine! then exponential_convolve!, in one pass
@@ -315,8 +319,8 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient)
       @test field_data(fused) == field_data(sequential)
       combine!(sequential, T(0.3), phi_s, T(0.7), b_s)
-      exponential_convolve!(sequential, sequential, m, coefficient, offset_scale, k2)
-      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient, offset_scale, k2)
+      exponential_convolve!(sequential, sequential, m, coefficient, offset_scale, k2_field)
+      exponential_convolve!(fused, T(0.3), phi_s, T(0.7), b_s, m, coefficient, offset_scale, k2_field)
       @test field_data(fused) == field_data(sequential)
 
       # aliasing: b === destination is the filtered accumulate in place
@@ -469,9 +473,9 @@ end
   ky = [TP(j - 1 <= 3 ? j - 1 : j - 1 - 7) * TP(2π) / TP(4π) for j in 1:7]     # N=7 full axis, 4π
   kz = [TP(l - 1) * TP(2π) / TP(6π) for l in 1:4]                              # N=6 folded, 6π
   expected_w2 = [kx[i]^2 + ky[j]^2 + kz[l]^2 for i in 1:8, j in 1:7, l in 1:4]
-  w2 = squared_wavenumber_field(fs, m)
-  @test isapprox(real(field_data(w2)), expected_w2; rtol = rtol_c, atol = rtol_c)
-  @test maximum(abs, imag(field_data(w2))) == 0
+  w2 = kernel_array(radial_kernel(identity, fs, m))
+  @test isapprox(real(w2), expected_w2; rtol = rtol_c, atol = rtol_c)
+  @test maximum(abs, imag(w2)) == 0
 
   # spectral_band membership under the permuted anisotropic box (edge-free bounds)
   band = spectral_band(fs, m, TP(0.55), TP(1.15))
@@ -651,7 +655,7 @@ end
     # the role. (That it is materialized at all is a separate question: |k|² is a radial symbol and
     # could be a `RadialKernel` costing a closure instead of O(N³) coefficients.)
     @test weighted_inner(u, radial_kernel(identity, s0, m)) ≈
-          weighted_inner(u, GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(s0, m)))
+          weighted_inner(u, radial_kernel(identity, s0, m))
 
     # composition: radial∘radial stays radial; radial∘separable is the cross-family product
     warm = radial_kernel(k2 -> exp(-TP(0.02) * k2), s0, m)

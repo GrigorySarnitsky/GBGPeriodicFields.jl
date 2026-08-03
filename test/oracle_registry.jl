@@ -67,7 +67,6 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :assignment_window  => (:analytic, "rdf.jl / convolution.jl — the ∏ sinc² closed form"),
   :spectral_cutoff    => (:analytic, "convolution.jl — the |k|² membership oracle"),
   :spectral_band      => (:analytic, "convolution.jl — the annular membership oracle"),
-  :squared_wavenumber_field => (:analytic, "convolution.jl — vs the analytic Σk²"),
   :exponential_convolve => (:analytic, "convolution.jl — the single-mode eigenvalue e^c·cos x"),
   :radial_kernel      => (:analytic, "generated_analytic.jl / convolution.jl — σ evaluated per mode vs its values"),
   :materialize_kernel => (:independent, "convolution.jl — vs the explicit per-axis product"),

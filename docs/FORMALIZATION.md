@@ -255,7 +255,7 @@ applies a scalar kernel ``\hat g`` (a `ScalarFieldSpectral`, broadcast over the 
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
 spectral product. The neutral kernel builders: `spectral_cutoff` is the sharp low-pass ``\hat g(k)=1`` for
 ``|k|\le k_c`` (else ``0``), **idempotent** (``\hat g^2=\hat g``, a projection); `spectral_band` its annular
-``k_{\mathrm{lo}}\le|k|\le k_{\mathrm{hi}}`` generalization (cutoff is ``k_{\mathrm{lo}}=0``); `squared_wavenumber_field` the ``|k|^2``
+``k_{\mathrm{lo}}\le|k|\le k_{\mathrm{hi}}`` generalization (cutoff is ``k_{\mathrm{lo}}=0``); `radial_kernel` the ``|k|^2``
 coordinate consumers build symbols from; and `assignment_window` the linear/CIC mass-assignment window
 
 ```math

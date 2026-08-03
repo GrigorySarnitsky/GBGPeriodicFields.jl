@@ -31,8 +31,6 @@ convolves with — the package supplies the operation, not the physical meaning.
   with a stored kernel, in one fused pass.
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
   its annular band-pass generalization.
-- [`squared_wavenumber_field`](@ref) — the squared-wavenumber radial coordinate of spectral space, as
-  a scalar field in spectral representation, from which a consumer builds a Fourier symbol.
 - [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, for deconvolving a
   gridded point density.
 - [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the kernel that translates a field by a
@@ -88,7 +86,7 @@ using KernelAbstractions: get_backend
 import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
-       spectral_band, squared_wavenumber_field, assignment_window, translation_kernel,
+       spectral_band, assignment_window, translation_kernel,
        StoredKernel, SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
 
 
@@ -875,7 +873,7 @@ accumulate:
     still real exactly when its own transfer function carries that symmetry,
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
     real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
-    `spectral_band`, `squared_wavenumber_field`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
+    `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
     construction. A consumer-built kernel that breaks the symmetry yields coefficients that are those
     of no real field, and the inverse transform then silently keeps only their Hermitian part.
 
@@ -1168,7 +1166,7 @@ The arguments are:
   consumer folds its own physical factors before the call).
 - `offset_scale`, `offset` — the real scale ``s`` and the per-mode field ``\\hat w`` of the optional
   exponent term ``s \\hat w``; `offset` is a scalar field in spectral representation holding real
-  values (as [`squared_wavenumber_field`](@ref) does). The pair enters as scale times field so a
+  values (as a materialized radial kernel would). The pair enters as scale times field so a
   changed scale costs nothing — the resident ``\\hat w`` is built once.
 
 !!! warning "The offset must be real-valued"
@@ -1292,40 +1290,6 @@ end
 ####################################################
 
 
-"""
-    squared_wavenumber_field(reference::AbstractFieldSpectral,
-                             multipliers::FieldSpectralMultipliers) -> ScalarFieldSpectral
-
-Return the squared wavenumber ``|k|^2`` at every mode as a scalar field in spectral representation, on
-`reference`'s grid and array backend.
-
-Use it as the neutral radial coordinate of spectral space: a consumer builds a Fourier symbol from it
-— a viscous integrating factor ``\\exp(-\\nu |k|^2 \\Delta t)``, a smooth spectral envelope, or a
-subgrid test filter of the dynamic Germano procedure (an LES closure choice) — by broadcasting over its `field_data` and applying it with [`convolve`](@ref).
-The package supplies the coordinate, while ``\\nu`` and ``\\Delta t`` (a viscosity and a step size — physics) and any filter width stay
-consumer-side. For a symbol of the exponential family specifically,
-[`exponential_convolve!`](@ref) applies ``\\exp(c |k|^2 + s \\hat w)`` straight from the wavenumber
-arrays, with no kernel field built at all.
-
-- `reference` — a field in spectral representation whose grid and backend the result matches.
-- `multipliers` — the wavenumber arrays for that grid, checked for compatibility with `reference`.
-
-```math
-|k|^2 = k_1^2 + k_2^2 + k_3^2 ,
-```
-
-summed with the true value kept at the Nyquist frequency (the Laplacian convention). The value is
-real but is stored in the `Complex{T}` coefficient array of a scalar field in spectral representation,
-its imaginary part zero, exactly as [`spectral_cutoff`](@ref) stores its ``0/1`` mask.
-"""
-function squared_wavenumber_field(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
-  _check_multipliers_compatibility(reference, multipliers)
-  T = field_scalar_type(reference)
-  result = similar_field(reference, Val(0))
-  result_data = field_data(result)
-  @_assign! result_data .= Complex{T}.(_squared_wavenumber_broadcast(multipliers))
-  return result
-end
 
 
 """

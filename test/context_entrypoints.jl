@@ -70,7 +70,6 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:spectral_cutoff, :multipliers)      => (c, k) -> spectral_cutoff(sspec(c), k, 2),
   (:spectral_band, :multipliers)        => (c, k) -> spectral_band(sspec(c), k, 1, 3),
   (:radial_kernel, :multipliers)        => (c, k) -> radial_kernel(x -> exp(-x), sspec(c), k),
-  (:squared_wavenumber_field, :multipliers) => (c, k) -> squared_wavenumber_field(sspec(c), k),
   (:assignment_window, :multipliers)    => (c, k) -> assignment_window(sspec(c), k),
   (:translation_kernel, :multipliers)   => (c, k) -> translation_kernel(sspec(c), k, (0.1, 0.2, 0.3)),
   (:translation_kernel!, :multipliers)  => (c, k) -> translation_kernel!(

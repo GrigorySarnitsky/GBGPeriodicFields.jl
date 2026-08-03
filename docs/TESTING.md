@@ -130,7 +130,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
   physical-only absence),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
-  `spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` / `translation_kernel`, and the
+  `spectral_cutoff` / `spectral_band` / `radial_kernel` / `translation_kernel`, and the
   **kernel storage classes** — a walk that takes every kernel-taking entry point (`convolve`,
   `convolve!` with ``\alpha``/``\beta``, `helmholtz_projection`, `divergence`, `weighted_inner`) over
   tensor orders 0/1/2 and requires each compressed class — `SeparableKernel`, `RadialKernel` and the
@@ -486,7 +486,7 @@ same kernel stored and applied with `convolve!`, the independent single-mode eig
 the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
 ``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
-membership oracle) and `squared_wavenumber_field` (the ``|k|^2`` radial coordinate vs the analytic sum,
+membership oracle) and `radial_kernel` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
 a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the

@@ -341,8 +341,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # the lazy exponential kernel and the kernel-composed combine! (decision 33)
       @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20),
                     exponential_convolve(u_spec_h, mult_h, T(-1) / 20))
-      k2_h = squared_wavenumber_field(phi_spec_h, mult_h)
-      k2_d = squared_wavenumber_field(phi_spec_d, mult_d)
+      # ŵ is a FIELD (a per-mode offset), so |k|² is materialized from its radial symbol for this use.
+      k2_h = materialize_kernel(radial_kernel(identity, phi_spec_h, mult_h)).field
+      k2_d = materialize_kernel(radial_kernel(identity, phi_spec_d, mult_d)).field
       @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
                     exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
       # the fiber-extruded offset: a VECTOR field with the per-mode ŵ (the pass-audit ŵ row's GPU twin)
@@ -357,9 +358,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       combine!(kerneled_d, T(3) / 10, u_spec_d, T(7) / 10, kerneled_d, cutoff_d)
       @test matches(kerneled_d, kerneled_h)
 
-      # spectral_band (annular) and squared_wavenumber_field build entirely on-device (no scalar index)
+      # spectral_band (annular) and the radial |k|² symbol build entirely on-device (no scalar index)
       @test kernel_matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
-      @test matches(squared_wavenumber_field(phi_spec_d, mult_d), squared_wavenumber_field(phi_spec_h, mult_h))
+      @test matches(materialize_kernel(radial_kernel(identity, phi_spec_d, mult_d)).field, materialize_kernel(radial_kernel(identity, phi_spec_h, mult_h)).field)
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
       @test kernel_matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
       # translation_kernel — the one complex kernel; the per-axis cos/sin phase builds on-device
@@ -497,11 +498,9 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
       # weighted_inner ⟨f, w·g⟩: the |k|² weight builds on-device and the reduction is fused (no field);
       # matches the CPU and the exact −Δ identity ⟨f, |k|²·f⟩ = −⟨f, Δf⟩.
-      # A weight is a KERNEL: `squared_wavenumber_field` returns the |k|² coordinate as a field, so the
-      # role is declared here (decision 60).
-      SK = GBGPeriodicFields.Convolution.StoredKernel
-      ksq_d = SK(squared_wavenumber_field(sf_spec_d, mult_d))
-      ksq_h = SK(squared_wavenumber_field(sf_spec_h, mult_h))
+      # A weight is a kernel, and |k|² is a radial symbol — so it is the symbol itself, not a field.
+      ksq_d = radial_kernel(identity, sf_spec_d, mult_d)
+      ksq_h = radial_kernel(identity, sf_spec_h, mult_h)
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
 

@@ -54,7 +54,7 @@ and each signature says which class, since that is what determines the cost of a
 `radial_kernel` is the escape hatch: it builds one from any other real symbol of ``\lvert k\rvert^2``,
 which is the route for a filter, a hyperviscosity, or an integrating factor the package does not name.
 
-`squared_wavenumber_field` is the exception and returns a `ScalarFieldSpectral`, not a kernel: it is the
+`radial_kernel` is the exception and returns a `ScalarFieldSpectral`, not a kernel: it is the
 ``\lvert k\rvert^2`` COORDINATE that a consumer builds symbols from arithmetically. Applying it as a
 weight or a kernel therefore means declaring that role, with `StoredKernel`. That it is materialized at
 all is a cost worth revisiting — ``\lvert k\rvert^2`` is itself a radial symbol, so it could be a
@@ -64,7 +64,6 @@ all is a cost worth revisiting — ``\lvert k\rvert^2`` is itself a radial symbo
 radial_kernel
 spectral_cutoff
 spectral_band
-squared_wavenumber_field
 assignment_window
 translation_kernel
 translation_kernel!

@@ -445,7 +445,7 @@ end
   vrh = to_spectral(vr, plans_v)
   # `squared_wavenumber_field` returns the |k|² COORDINATE, a field a consumer builds symbols from —
   # so using it as a kernel now states that role explicitly.
-  w = GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(sh, m))
+  w = radial_kernel(identity, sh, m)
   @test field_data(symmetric_gradient(vrh, m)) ≈ field_data(sym(gradient(vrh, m)))
   fused_div = F.similar_field(sh, Val(0))
   divergence!(fused_div, vrh, m, w)

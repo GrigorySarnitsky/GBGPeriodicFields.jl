@@ -919,7 +919,7 @@ It is the **spectral sibling of `DifferentialOperators`** (both are coefficientw
 `convolve`, never as `*` (invariant 1). Spectral representation only; physics (an LES filter, an integrating
 factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Five neutral builders
 ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its annular generalization),
-`squared_wavenumber_field` (the ``|k|^2`` radial coordinate consumers build symbols from),
+`radial_kernel` (any real symbol of ``|k|^2``, held as a closure),
 `assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window), and
 `translation_kernel` (the shift theorem's phase ``e^{-\mathrm{i} k\cdot h}``, which displaces a field by a
 physical offset ``h``). The first four are real and even in the wavenumber ``k``; `translation_kernel` is
@@ -1178,7 +1178,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       section → scalar / fiber / radial profile; **done** (decisions 18, 21).
     - **kernel — multiplier**: translation-invariant convolution, symbol ``m(k) \in L^\infty``;
       `convolve` / `convolve!` plus the builders `spectral_cutoff` / `spectral_band` /
-      `squared_wavenumber_field` (the radial coordinate consumers build symbols from); grid → grid
+      `radial_kernel` (any real symbol of ``|k|^2``); grid → grid
       (a Fourier multiplier); **done** (`Convolution`, decisions 20, 21).
     - **kernel — transfer**: off-grid partition-of-unity convolution (unit mass; signed or positive);
       `interpolate` (``W``) / `anterpolate` (``W^\top``); grid ↔ point (base-change, *not* a
@@ -1278,7 +1278,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stay consumer-side (invariant 12). They close the largest hand-rolled pieces of a real
     pseudospectral consumer (the energy spectrum, the forcing band, the viscous integrating factor):
 
-    - **`squared_wavenumber_field(reference, multipliers)` (`Convolution`)** — the radial coordinate
+    - **`squared_wavenumber_field(reference, multipliers)` (`Convolution`; REMOVED by decision 60 —
+      `radial_kernel(identity, …)` is the same symbol as a closure)** — the radial coordinate
       ``|k|^2`` of spectral space as a `ScalarFieldSpectral` (real, stored complex, like a cutoff mask).
       Decision 19 fixed that "the symbol is data": the consumer builds ``\exp(-\nu |k|^2 \Delta t)``, a smooth
       envelope, or a Germano filter ``1/(1 + \Delta^2 |k|^2)`` by broadcasting over its `field_data`, then applies
@@ -1302,7 +1303,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       neutral noun keeps physics out (invariant 12). Shells run to the corner wavenumber so the
       refinement is exact; on a de-aliased field the high-``|k|`` shells are empty.
 
-    *Device-clean by construction.* `squared_wavenumber_field` / `spectral_band` are broadcast kernel
+    *Device-clean by construction.* `radial_kernel` / `spectral_band` are broadcast kernel
     builders (the `spectral_cutoff` pattern); `radial_spectrum` bins via a single **scatter-add** pass — one
     portable atomic-histogram kernel over the modes (no scalar indexing), an occasional diagnostic.
     *(Originally a sequence of masked reductions, one per shell, with the histogram scatter deferred as
@@ -1956,7 +1957,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     exponential radial kernel ``\exp(c |k|^2 + s \hat w)`` — ``c`` a real coefficient on the squared
     wavenumber ``|k|^2``, ``\hat w`` an optional real per-mode exponent field with real scale ``s`` —
     evaluated **lazily from the three one-dimensional wavenumber arrays** inside the fused assignment.
-    The kernel is never built, so against the stored-kernel route (`squared_wavenumber_field` →
+    The kernel is never built, so against the stored-kernel route (`radial_kernel` →
     consumer broadcast → `convolve!`) it removes the kernel's residency, its build pass, and its full
     field read per application, reading ``O(N)`` wavenumber rows instead (``N`` the points per axis).
     The measured trade is a **reuse question** ([`PERFORMANCE.md`](performance.md) finding (k)): with a

@@ -119,9 +119,11 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``,
 # the IC envelope — are applied with the package's `convolve` (periodic convolution = a coefficientwise
 # multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
-# physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are consumer-built
-# `ScalarFieldSpectral`s applied with the same `convolve`. The ``\lvert\mathbf{k}\rvert^{2}`` they need is
-# the package's `squared_wavenumber_field`.
+# physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are radial symbols of
+# ``\lvert\mathbf{k}\rvert^{2}``: the viscous integrating factor goes through `exponential_convolve!`,
+# which evaluates ``\exp(-\nu\lvert\mathbf{k}\rvert^{2}\Delta t)`` per mode from the wavenumber
+# arrays, and the initial envelope through `radial_kernel`, which stores a closure. Neither builds a
+# field of coefficients.
 #
 # `make_workspace` preallocates every scratch field the time loop needs, so a step allocates nothing —
 # this is the heart of the performance-first design (and what keeps the GPU pool flat).
@@ -242,11 +244,12 @@ end
 # ```
 #
 # then force.
-function step!(uh, ws, m, plans, dealias, band, ksq, p, dt)
-  field_data(ws.Ek) .= complex.(exp.(-p.ν .* ksq .* dt))         # E = exp(−νk²Δt) into scratch
+function step!(uh, ws, m, plans, dealias, band, p, dt)
   rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)                # k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
   field_data(ws.ustar) .= field_data(uh) .+ dt .* field_data(ws.k1)
-  convolve!(ws.ustar, ws.ustar, ws.Ek)                           # û* = E·(ûₙ + Δt·k₁)
+  # û* = ℰ·(ûₙ + Δt·k₁) with ℰ = exp(−ν|k|²Δt), evaluated per mode from the wavenumber arrays: no
+  # kernel field is built, stored, or read.
+  exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)    # û*'s velocity & vorticity (scratch)
   rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                # k₂ = N̂(û*)
   convolve!(ws.k1, ws.k1, ws.Ek)                                 # E·k₁
@@ -277,10 +280,10 @@ end
 # A random field, concentrated at large scales by an envelope, projected solenoidal, then band-energy
 # normalized. (The package deliberately ships no random-field generator; the example builds its own.)
 
-function random_solenoidal(grid, m, plans, ws, ksq, band, p; kp = 2.0)
+function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
-  envelope = spectral_kernel(uh, exp.(-(ksq ./ kp^2)))    # concentrate at large scales
+  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), uh, m)  # concentrate at large scales (a closure)
   convolve!(uh, uh, envelope)                             # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-safe, one pass)
   force!(uh, band, ws, p)                                 # set the forced-band energy
@@ -324,7 +327,6 @@ function run_hist(p::Params)
                                ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid);
                                fft_flags = FFTW.MEASURE)
   m    = FieldSpectralMultipliers(uspec0)
-  ksq  = real.(field_data(squared_wavenumber_field(uspec0, m)))   # |k|² (package), for the consumer symbols
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
   dealias = spectral_cutoff(uspec0, m, (2 / 3) * (p.N / 2) * (2π / p.L))
   band    = spectral_band(uspec0, m, 0.5 * (2π / p.L), (p.k_force + 0.5) * (2π / p.L))
@@ -332,7 +334,7 @@ function run_hist(p::Params)
   Δx   = p.L / p.N
 
   # Initial condition, then de-alias it.
-  uh = random_solenoidal(grid, m, vplans, ws, ksq, band, p)
+  uh = random_solenoidal(grid, m, vplans, ws, band, p)
   convolve!(uh, uh, dealias)
 
   # Spin-up to stationarity (adaptive ``\Delta t``; these statistics are discarded). Each step fills the
@@ -345,7 +347,7 @@ function run_hist(p::Params)
     to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)       # start-of-step velocity & vorticity
     dt = p.cfl * Δx / max(max_speed(ws.u), 1e-6)
     push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u)); push!(ε_hist, dissipation(ws.ω0, p))
-    step!(uh, ws, m, vplans, dealias, band, ksq, p, dt)
+    step!(uh, ws, m, vplans, dealias, band, p, dt)
     t += dt
   end
 
@@ -364,7 +366,7 @@ function run_hist(p::Params)
   for n in 1:p.n_stats
     to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)       # start-of-step velocity & vorticity
     push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u)); push!(ε_hist, dissipation(ws.ω0, p))
-    step!(uh, ws, m, vplans, dealias, band, ksq, p, dt)          # advances ûₙ (reuses ws.u, ws.ω0 for k₁)
+    step!(uh, ws, m, vplans, dealias, band, p, dt)          # advances ûₙ (reuses ws.u, ws.ω0 for k₁)
     v = advect!(X, ws.u, dt, p)                                  # advect on the start-of-step velocity
     if n % p.rec_stride == 0 && rec < n_rec
       rec += 1
@@ -398,7 +400,8 @@ function run_hist(p::Params)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
-  divrel = l2norm(divp) / (sqrt(mean(ksq)) * l2norm(u) + 1e-30)
+  κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, uh, m)) / max(inner(uh, uh), 1e-300))
+  divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)
 
   # Length / time scales from the velocity autocorrelations.

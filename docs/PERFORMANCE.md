@@ -554,7 +554,7 @@ decision 32, whose baseline is the sequential operator + `convolve!` pair they r
 size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
-`spectral_band` / `squared_wavenumber_field` / `assignment_window` / `translation_kernel` — a builder is
+`spectral_band` / `radial_kernel` / `assignment_window` / `translation_kernel` — a builder is
 paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost, and
 a builder returning a compressed kernel is timed on one factor rather than a field it never allocates —
 the `spectral_cutoff` and `spectral_band` rows previously wrapped their builder in `materialize_kernel`
@@ -743,7 +743,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
 4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values. The allocating kernel
-   *builders* (`spectral_cutoff` / `spectral_band` / `squared_wavenumber_field` /
+   *builders* (`spectral_cutoff` / `spectral_band` / `radial_kernel` /
    `assignment_window` / `translation_kernel`) are the noisy extreme: their threaded ``256^3``
    cells swung ±50% between two same-day sweeps (GC timing on paid-once allocating passes) — read
    them as indicative only, never as regressions.

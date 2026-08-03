@@ -224,7 +224,7 @@ function canonical_pool(config; device = identity)
   # the cross-family composition that actually produces one.
   push("kernel: product",    convolve(spectral_cutoff(spectral[1], multipliers, T(3)),
                                       translation_kernel(spectral[1], multipliers, offset)))
-  push("kernel: field",      squared_wavenumber_field(spectral[1], multipliers))
+  push("kernel: field",      materialize_kernel(radial_kernel(identity, spectral[1], multipliers)))
   # Every transfer scheme.
   push("scheme: CatmullRom", CatmullRom)
   push("scheme: Lalescu21",  LalescuSpline(2, 1))

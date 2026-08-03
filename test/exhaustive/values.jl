@@ -261,7 +261,7 @@ function run_value_lane(configs)
                                                              ref_dft_inverse(field_data(Ah), grid, layout)),
       (:to_spectral!,  field_data(to_spectral!(similar_field(spectral_zero, Val(0)), ScalarFieldPhysical(copy(ds), grid, layout), plans)),
                                                              ref_dft_forward(ds, grid, layout)),
-      (:squared_wavenumber_field, field_data(squared_wavenumber_field(spectral_zero, multipliers)),
+      (:squared_wavenumber_field, GBGPeriodicFields.Convolution._kernel_data(materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
                                                              complex.(ref_squared_wavenumber(grid, layout, shape))),
       (:spectral_cutoff, kernel_data(spectral_cutoff(spectral_zero, multipliers, cutoff)),
                                                              complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
@@ -293,7 +293,7 @@ function run_value_lane(configs)
       # `weighted_inner`'s own summation. Every sibling kernel row already used `ref_squared_wavenumber`;
       # this was the one that did not. It is the same failure decision 55 recorded for the GATE's
       # `weighted_inner` oracle — fixed there, never carried across to the survey.
-      (:weighted_inner, weighted_inner(sh, sh, squared_wavenumber_field(spectral_zero, multipliers)),
+      (:weighted_inner, weighted_inner(sh, sh, materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
                         ref_weighted_inner(field_data(sh), field_data(sh),
                                            ref_squared_wavenumber(grid, layout, shape),
                                            grid, layout, 0)),

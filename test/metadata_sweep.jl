@@ -68,7 +68,7 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         ("exponential_convolve",     () -> exponential_convolve(u0, m, TP(-0.1)), 1),
         ("materialize_kernel sep",   () -> materialize_kernel(sep),             0),
         ("materialize_kernel rad",   () -> materialize_kernel(rad),             0),
-        ("squared_wavenumber_field", () -> squared_wavenumber_field(s0, m),     0),
+        ("squared_wavenumber_field", () -> materialize_kernel(radial_kernel(identity, s0, m)),     0),
         ("assignment_window",        () -> materialize_kernel(assignment_window(s0, m)), 0),
         ("map tensor→scalar",        () -> map(det, Ap),                        0),
         ("map vector→tensor",        () -> map(x -> x * transpose(x), up),      2),

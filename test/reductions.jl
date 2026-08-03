@@ -260,7 +260,7 @@ using Statistics: mean, std, var, cov      # extended on sections in the Reducti
         m = FieldSpectralMultipliers(zero_scalar())
         # A weight is a KERNEL: a bare `ScalarFieldSpectral` is no longer accepted in that role.
         ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp))
-        ksq = GBGPeriodicFields.Convolution.StoredKernel(squared_wavenumber_field(zero_scalar(), m))  # w = |k|²
+        ksq = radial_kernel(identity, zero_scalar(), m)   # w = |k|², as the radial symbol itself
         band = spectral_cutoff(zero_scalar(), m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
 
         f = tospec(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
