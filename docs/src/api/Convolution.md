@@ -33,7 +33,14 @@ translation_kernel!
 
 A kernel that factors over the axes is held as its per-axis factors rather than as a field, and applied identically.
 
+The protocol types come first: `SpectralKernel` is the union every kernel-taking operation accepts, and
+`AbstractSpectralKernel` is the supertype of the compressed classes below it. Both are defined in
+[`Fields`](@ref "Fields"), so that the differential operators and the reductions can name them too, and
+both are documented here because this is where a reader meets them.
+
 ```@docs
+GBGPeriodicFields.Fields.SpectralKernel
+GBGPeriodicFields.Fields.AbstractSpectralKernel
 StoredKernel
 SeparableKernel
 RadialKernel

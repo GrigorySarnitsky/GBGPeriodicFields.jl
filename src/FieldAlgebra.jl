@@ -497,7 +497,7 @@ end
 
 """
     combine!(destination, α::Real, a, β::Real, b)
-    combine!(destination, α::Real, a, β::Real, b, kernel::ScalarFieldSpectral)
+    combine!(destination, α::Real, a, β::Real, b, kernel::SpectralKernel)
 
 Overwrite `destination` with the real-weighted linear combination ``\\alpha a + \\beta b`` of two
 compatible fields, and return `destination`.
@@ -524,7 +524,7 @@ place.
 
 # The kernel-composed form
 
-Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, a scalar field in spectral representation (a `ScalarFieldSpectral`), exactly as `convolve!` takes
+Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, in either storage class, exactly as `convolve!` takes
 it — convolves the combination with the kernel in the same fused pass. As a real physical object the
 result is the kernel-weighted local average of the combination, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,

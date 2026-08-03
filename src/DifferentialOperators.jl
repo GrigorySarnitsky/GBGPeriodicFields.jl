@@ -766,7 +766,7 @@ end
     )
 
     divergence!(destination, field, multipliers, kernel::SpectralKernel)
-    divergence!(destination, field, multipliers, kernel::ScalarFieldSpectral, α, β)
+    divergence!(destination, field, multipliers, kernel::SpectralKernel, α, β)
 
 Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field and write it into
 `destination`, returning `destination`. Differentiating lowers the tensor order by one: a vector field
@@ -798,7 +798,9 @@ real physical object the result is the kernel-weighted local average of the dive
 coefficientwise in spectral representation, so their symbols simply multiply. The additional
 arguments are:
 
-- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation,
+- `kernel` — the kernel's transfer function ``\\hat g``, in either storage class of a spectral kernel — a `ScalarFieldSpectral` holding one
+  coefficient per mode, or a compressed [`SpectralKernel`](@ref) evaluated per mode (radial,
+  separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``,
   exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); it may
   alias `destination`, since the product is coefficientwise.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
@@ -1273,7 +1275,7 @@ end
 
     helmholtz_projection!(destination, field, multipliers, kernel::SpectralKernel)
     helmholtz_projection!(destination, field, multipliers,
-                          kernel::ScalarFieldSpectral, α, β)
+                          kernel::SpectralKernel, α, β)
 
 Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
 field ``u`` and write it into `destination`, returning `destination`. The projection removes the
@@ -1323,7 +1325,9 @@ real physical object the result is the kernel-weighted local average of the proj
 coefficientwise in spectral representation, so the scalar symbol ``\\hat g`` multiplies the
 projection symbol. The additional arguments are:
 
-- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation,
+- `kernel` — the kernel's transfer function ``\\hat g``, in either storage class of a spectral kernel — a `ScalarFieldSpectral` holding one
+  coefficient per mode, or a compressed [`SpectralKernel`](@ref) evaluated per mode (radial,
+  separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``,
   exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); one
   scalar kernel weights all three components.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites

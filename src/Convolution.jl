@@ -824,8 +824,8 @@ end
 
 
 """
-    convolve!(destination, field, kernel::ScalarFieldSpectral)
-    convolve!(destination, field, kernel::ScalarFieldSpectral, α, β)
+    convolve!(destination, field, kernel::SpectralKernel)
+    convolve!(destination, field, kernel::SpectralKernel, α, β)
 
 Convolve `field` with the kernel whose transfer function is `kernel`, writing the result into
 `destination` in place and returning `destination`; both `field` and `destination` are in spectral
@@ -836,8 +836,11 @@ returns a fresh result instead.
 
 The arguments are:
 - `field` — the field to filter, in spectral representation.
-- `kernel` — the kernel's transfer function ``\\hat g``, a scalar field in spectral representation;
-  one scalar kernel serves scalar, vector, and tensor `field`s.
+- `kernel` — the kernel's transfer function ``\\hat g``, in either storage class of a spectral kernel — a `ScalarFieldSpectral` holding one
+  coefficient per mode, or a compressed [`SpectralKernel`](@ref) evaluated per mode (radial,
+  separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``;
+  one scalar kernel serves scalar, vector, and tensor `field`s, and both storage classes give
+  bitwise-identical results.
 - `destination` — the field written with the result; it may alias `field` or `kernel`, since the
   product is coefficientwise.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
@@ -907,7 +910,7 @@ end
 
 
 """
-    convolve(field, kernel::ScalarFieldSpectral)
+    convolve(field, kernel::SpectralKernel)
 
 Allocating form of [`convolve!`](@ref): allocate the result and return the periodic convolution of
 `field` with the kernel `kernel`, in spectral representation. Because a kernel is itself a scalar
