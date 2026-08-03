@@ -52,4 +52,8 @@ coefficientwise convolution, combination, and exponential-kernel bodies.
 Modules = [GBGPeriodicFields.Convolution]
 Public  = false
 Order   = [:function]
+# `inv` is a Base extension this module owns — public, but not re-exported, so `Public = false`
+# collects it. It is already documented under the kernel-storage heading, and its three
+# method-specific docstrings were appearing here as well. Same class as FieldAlgebra's operators.
+Filter  = f -> nameof(f) !== :inv
 ```
