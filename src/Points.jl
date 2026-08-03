@@ -50,7 +50,8 @@ import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
 import ..Fields: field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
-using ..FieldAlgebra: _map_pass!, _map_output_order   # shared map!/map driver + output-order inference
+using ..FieldAlgebra: _map_pass!, _map_output_order,   # shared map!/map driver + output-order inference
+  _check_map_not_aliased                              # …and the one rule both bases share
 
 
 export Point,
@@ -1083,6 +1084,7 @@ function read_points end
 # `_map_pass!` driver over the same fused executor; point-values are representation-free, so no
 # physical-only restriction applies. The one docstring lives on the FieldAlgebra binding. ---
 function map!(φ::F, destination::AbstractPointValues, sources::AbstractPointValues...) where {F}
+  _check_map_not_aliased(φ, destination)
   for source in sources
     _check_npoints_match(destination, source)
   end
@@ -1091,6 +1093,7 @@ end
 
 function map!(φ::F, destination::AbstractPointValues, source::AbstractPointValues,
               α::Real, β::Real) where {F}
+  _check_map_not_aliased(φ, destination)
   _check_npoints_match(destination, source)
   return _map_pass!(φ, destination, (source,), α, β)
 end

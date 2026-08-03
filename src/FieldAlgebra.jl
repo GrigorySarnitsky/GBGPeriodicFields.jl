@@ -95,6 +95,7 @@ using ..Fields:
 
 
 using ..FiberSections:
+  AbstractFiberSection,
   section_scalar_type,
   _assign!,
   _to_broadcasted,
@@ -1753,7 +1754,27 @@ The arguments are:
     aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
     docstring). Point-value sections are representation-free and carry no such restriction.
 """
+# A fiber map that GATHERS may not alias the destination. Invariant 9's aliasing guarantee rests on a
+# fused pass reading element `n` to write element `n`, which makes an in-place aliased call bitwise
+# identical to a disjoint one. A section used as φ breaks that premise: a field is callable, and
+# `f(x)` INTERPOLATES — it reads a neighbourhood around an arbitrary position, not the element being
+# written. With φ aliasing the destination, one thread interpolates from storage another thread has
+# already overwritten, so the result depends on the schedule. The exhaustive survey found exactly this:
+# every failing determinism cell was `map!(x, x, x)`, in threaded configurations only, and none in a
+# serial one — the serial order being fixed hides it. Refused rather than documented away, because a
+# wrong answer that only appears under threading is the worst kind to leave reachable.
+@inline function _check_map_not_aliased(φ, destination)
+  φ isa AbstractFiberSection || return nothing
+  φ === destination &&
+    throw(ArgumentError("the fiber map aliases the destination: a section used as a map INTERPOLATES, " *
+                        "reading positions rather than the element being written, so it must not be " *
+                        "the field being written into"))
+  return nothing
+end
+
+
 function map!(φ::F, destination::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+  _check_map_not_aliased(φ, destination)
   for source in sources
     _check_field_domain_compatibility(destination, source)
   end
@@ -1762,6 +1783,7 @@ end
 
 function map!(φ::F, destination::AbstractFieldPhysical, source::AbstractFieldPhysical,
               α::Real, β::Real) where {F}
+  _check_map_not_aliased(φ, destination)
   _check_field_domain_compatibility(destination, source)
   return _map_pass!(φ, destination, (source,), α, β)
 end

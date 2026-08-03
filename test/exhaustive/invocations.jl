@@ -213,7 +213,7 @@ function canonical_pool(config; device = identity)
   # claimed these pools were derived by `subtypes(...)` and `subtypes(` appeared nowhere in the suite.
   # `StoredKernel` marks a FIELD as playing the kernel role, so it wraps the materialized coefficients
   # rather than the compressed closure the builder returns.
-  push("kernel: stored",     StoredKernel(materialize_kernel(spectral_cutoff(spectral[1], multipliers, T(3)))))
+  push("kernel: stored",     materialize_kernel(spectral_cutoff(spectral[1], multipliers, T(3))))
   push("kernel: radial",     spectral_cutoff(spectral[1], multipliers, T(3)))
   push("kernel: band",       spectral_band(spectral[1], multipliers, T(1), T(3)))
   push("kernel: separable",  translation_kernel(spectral[1], multipliers, offset))

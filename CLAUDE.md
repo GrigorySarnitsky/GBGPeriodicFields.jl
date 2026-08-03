@@ -1171,19 +1171,6 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
-**Open package finding — `map!` is not reproducible under threads (exhaustive survey, 2026-08-01).**
-The exhaustive suite's thread axis had never actually run: the invariance check is gated on
-`Threads.nthreads() > 1` and no documented invocation passed `-t`, so half of every configuration list
-was byte-identical work. Running it with `-t4` produced **determinism cells failing only in threaded
-configurations and never in serial ones** — 792 cells over 11 argument shapes when first seen, and 384
-over 8 after the pool gained a second instance per tensor order (the pool change moves which
-combinations get built; the class and its exclusively-threaded split survived it, which is the evidence
-it is a real defect rather than a fixture artifact) — of `map!` whose φ is a
-*callable field* (a field is callable — `f(x)` interpolates), so each fiber performs a gather inside a
-slab-threaded fiberwise pass. Nested parallelism or shared scratch is the obvious suspect. Not yet
-diagnosed, deliberately: the survey's findings are a work list. Reproduce with
-`julia -t4 --project=test test/exhaustive/runtests.jl`.
-
 **Open package finding — `radial_spectrum` disagrees with its definition in Float32 (exhaustive survey).**
 The survey's value lane reports `radial_spectrum` differing from the independent shell-binning reference
 on **Float32 configurations only** (24 cells in a 96-configuration run; Float64 agrees everywhere). The

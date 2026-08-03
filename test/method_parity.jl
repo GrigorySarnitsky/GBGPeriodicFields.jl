@@ -81,7 +81,7 @@ const MODULE_BASELINE = (
   # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
   # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
   Fields                = 103,
-  FieldAlgebra          = 274,
+  FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
   # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice
