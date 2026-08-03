@@ -1171,13 +1171,24 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
-**Open package finding — `radial_spectrum` disagrees with its definition in Float32 (exhaustive survey).**
-The survey's value lane reports `radial_spectrum` differing from the independent shell-binning reference
-on **Float32 configurations only** (24 cells in a 96-configuration run; Float64 agrees everywhere). The
-suspected cause is a binning tie: a mode whose shell index falls exactly on a boundary rounds one way in
-the package and the other in the reference once Float32 rounding is applied to the magnitude. Not yet
-diagnosed, and deliberately uncited in the harness, so it keeps reporting as an open finding rather than
-being explained away. Reproduce with `julia -t4 --project=test test/exhaustive/runtests.jl`.
+**Open package finding — `radial_spectrum` bins Float32 differently on ANISOTROPIC grids (investigated
+2026-08-03, NOT fixed).** The survey's value lane reports `radial_spectrum` differing from its
+independent reference on Float32 configurations only. Diagnosed this far: it is a **shell-boundary
+tie**, not an arithmetic error. On the anisotropic grids the wavenumbers are multiples of
+`2π/L = (1, 1/2, 1/3)`, so `|k|/Δk` lands EXACTLY on a half-integer for 18 of 150 modes, where
+`round` breaks the tie to even and a difference of 4e-7 between the package's Float32 wavenumber
+arrays and the reference's flips which side of the tie a mode falls on. Energy then moves between
+ADJACENT shells; Parseval still holds exactly on both sides (`sum(spectrum) == inner`), so neither is
+internally wrong.
+
+An attempted fix — computing the shell index in Float64 whatever the field's precision, each term
+widened before the sum — made Float64 exact against the reference on every grid and Float32 exact on
+cubic ones, but **broke a passing gate test** (`test/reductions.jl`: `cos_y` on the anisotropic grid
+sits exactly on `|k|/Δk = 1.5` and moved shell), and did not fully explain the remaining anisotropic
+Float32 gap. Reverted rather than shipped: an unverified change that moves a documented tie is worse
+than a known disagreement. A real fix probably computes the shell from the INTEGER mode indices and
+the box ratios rather than from stored floating-point wavenumbers, which would be
+precision-independent by construction — that is a design change, not a patch.
 
 **Oracle provenance is enforced (decision 55, 2026-07-29).** `docs/TESTING.md` §1 opened with
 *verify against independent ground truth, never against the code's own other path* for a year with
