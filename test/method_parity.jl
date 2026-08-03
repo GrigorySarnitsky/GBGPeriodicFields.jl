@@ -89,11 +89,14 @@ const MODULE_BASELINE = (
   Convolution           = 77,   # +6: the StoredKernel role marker and its protocol methods
   Points                = 207,
   Interpolation         = 119,
-  # 111 → 115: two helpers reaching the folded plane with a literal dimension (`_folded_abs2_plane`,
-  # `_folded_cross_plane`, which made the spectral `inner` type-stable — `selectdim` with a RUNTIME
-  # dimension is not inferable) and two extra `_fiberwise` arms from dispatching on the tensor order
-  # rather than branching on it. Refrozen with the reason, per decision 53.
-  Reductions            = 115,
+  # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
+  # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view
+  # inference cannot pin, which made the spectral `inner` infer `Any`. Two extra `_fiberwise` arms from
+  # dispatching on the tensor order rather than branching on it. And four `_tree_dims_reduce` /
+  # `_tree_dims_components` arms taking the base arity as a TYPE parameter: every `ntuple` and the
+  # closing `reshape` are sized by it, so a runtime `Int` left the whole reduction `Any` and carried
+  # that into `mean`, `cov` and `integral` above R = 0. Refrozen with the reason, per decision 53.
+  Reductions            = 119,
 )
 
 # The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.

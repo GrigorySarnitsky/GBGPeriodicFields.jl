@@ -291,6 +291,13 @@ Apply `scalar_reduce` (a whole-array tree reduction) to each fiber component of 
 component slices over the leading `base_count` base axes are contiguous, so each reduces linearly —
 returning the array of per-component results the `dims`-style Base call used to produce.
 """
+# THE BASE ARITY IS A TYPE PARAMETER, not an `Int`. Every `ntuple` below and the closing `reshape` are
+# sized by it, so a runtime value left their types unknown and the whole reduction inferred `Any` —
+# which propagated to `mean` and `cov` on any section above R = 0. The caller knows the arity
+# statically (`ndims(data) - R`, both compile-time), so it is passed as the base tuple and recovered
+# from its length.
+_tree_dims_reduce(scalar_reduce::F, data, base::NTuple{B, Any}) where {F, B} =
+  _tree_dims_reduce(KernelAbstractions.get_backend(data), scalar_reduce, data, Val(B))
 _tree_dims_reduce(scalar_reduce::F, data, base_count::Int) where {F} =
   _tree_dims_reduce(KernelAbstractions.get_backend(data), scalar_reduce, data, base_count)
 # The generic method serves a device too: the per-component views reduce through the closure,
@@ -300,6 +307,23 @@ _tree_dims_reduce(::Any, scalar_reduce::F, data, base_count::Int) where {F} =
   _tree_dims_components(scalar_reduce, data, base_count)
 _tree_dims_reduce(::KernelAbstractions.CPU, scalar_reduce::F, data, base_count::Int) where {F} =
   _tree_dims_components(scalar_reduce, data, base_count)
+_tree_dims_reduce(::Any, scalar_reduce::F, data, ::Val{B}) where {F, B} =
+  _tree_dims_components(scalar_reduce, data, Val(B))
+_tree_dims_reduce(::KernelAbstractions.CPU, scalar_reduce::F, data, ::Val{B}) where {F, B} =
+  _tree_dims_components(scalar_reduce, data, Val(B))
+
+function _tree_dims_components(scalar_reduce::F, data, ::Val{B}) where {F, B}
+  fiber_axes = ntuple(d -> axes(data, B + d), Val(ndims(data) - B))
+  indices = CartesianIndices(fiber_axes)
+  colons = ntuple(_ -> Colon(), Val(B))
+  first_value = scalar_reduce(view(data, colons..., Tuple(first(indices))...))
+  results = Array{typeof(first_value)}(undef, length.(fiber_axes))
+  results[first(indices)] = first_value
+  for fiber_index in Iterators.drop(indices, 1)
+    results[fiber_index] = scalar_reduce(view(data, colons..., Tuple(fiber_index)...))
+  end
+  return reshape(results, ntuple(_ -> 1, Val(B))..., length.(fiber_axes)...)
+end
 function _tree_dims_components(scalar_reduce::F, data, base_count::Int) where {F}
   fiber_axes = ntuple(d -> axes(data, base_count + d), ndims(data) - base_count)
   # The first component's value types the results array AND fills its slot — computed once, so the
@@ -475,7 +499,7 @@ loop on a CPU, a single fused pass on a GPU.
 """
 function integral end
 integral(section::ReducibleSection) =
-  _fiberwise(section, _tree_sum, (data, base) -> _tree_dims_reduce(_tree_sum, data, length(base))) .* _cell_measure(section)
+  _fiberwise(section, _tree_sum, (data, base) -> _tree_dims_reduce(_tree_sum, data, base)) .* _cell_measure(section)
 
 integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) * _cell_measure(section)
@@ -573,7 +597,7 @@ extrema
 # base moments.
 mean(section::ReducibleSection) =
   _fiberwise(section, data -> _tree_sum(data) / length(data),
-             (data, base) -> _tree_dims_reduce(component -> _tree_sum(component) / length(component), data, length(base)))
+             (data, base) -> _tree_dims_reduce(component -> _tree_sum(component) / length(component), data, base))
 
 mean(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
   _fiber_mapreduce(fiber_map, +, section) / _base_count(section)

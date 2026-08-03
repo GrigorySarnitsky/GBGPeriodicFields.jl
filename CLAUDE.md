@@ -1171,18 +1171,6 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
-**Open finding — the fiber-preserving `mean`/`cov` still infer `Any` (2026-08-03).** The spectral
-`inner` was fixed: `selectdim(data, dimension, index)` with a RUNTIME dimension yields a `SubArray`
-inference cannot pin, so every reduction over a folded correction plane came back `Any`; branching on
-the three literal dimensions makes it concrete (`Float64` now, verified). The same treatment did NOT
-resolve `mean`/`cov` on a vector or tensor section. `_fiberwise` returns a scalar, a `FiberVector` or a
-`FiberTensor2` by tensor order, and dispatching on `Val(R)` — taken from the section's own type
-parameter rather than from `_tensor_order`, whose `Int` return inference does not fold — makes the
-four-argument form infer correctly (`SVector{3,Float64}` for `Val{1}`) while the three-argument entry
-still reports `Any`. Where the join is lost between the two is not yet diagnosed. Cost is dispatch,
-not correctness; `cov` is a diagnostic-cadence operation and `mean` is fiber-preserving only above
-R = 0.
-
 **Open package finding — `map!` is not reproducible under threads (exhaustive survey, 2026-08-01).**
 The exhaustive suite's thread axis had never actually run: the invariance check is gated on
 `Threads.nthreads() > 1` and no documented invocation passed `-t`, so half of every configuration list
