@@ -1719,6 +1719,25 @@ _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R} =
   similar_field(reference, Val(R))
 
 
+# A fiber map that GATHERS may not alias the destination. Invariant 9's aliasing guarantee rests on a
+# fused pass reading element `n` to write element `n`, which makes an in-place aliased call bitwise
+# identical to a disjoint one. A section used as φ breaks that premise: a field is callable, and
+# `f(x)` INTERPOLATES — it reads a neighbourhood around an arbitrary position, not the element being
+# written. With φ aliasing the destination, one thread interpolates from storage another thread has
+# already overwritten, so the result depends on the schedule. The exhaustive survey found exactly this:
+# every failing determinism cell was `map!(x, x, x)`, in threaded configurations only, and none in a
+# serial one — the serial order being fixed hides it. Refused rather than documented away, because a
+# wrong answer that only appears under threading is the worst kind to leave reachable.
+@inline function _check_map_not_aliased(φ, destination)
+  φ isa AbstractFiberSection || return nothing
+  φ === destination &&
+    throw(ArgumentError("the fiber map aliases the destination: a section used as a map INTERPOLATES, " *
+                        "reading positions rather than the element being written, so it must not be " *
+                        "the field being written into"))
+  return nothing
+end
+
+
 """
     map!(φ, destination, sources...)
     map!(φ, destination, source, α, β)
@@ -1742,11 +1761,28 @@ The arguments are:
 - `φ` — the fiber map, applied to the input fiber value(s) and returning the output fiber value. It must be
   a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
   order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).
+  It must also read **only the fiber it is given** — see the warning below.
 - `destination` — the field in physical representation (or point-value section) that receives the result; its tensor order
   must match `φ`'s output.
 - `sources` — one or more compatible fields in physical representation (or point-value sections) sharing `destination`'s
   base; `φ` receives their fiber values in argument order.
 - `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α\\,φ(\\texttt{source}) + β\\,\\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
+
+!!! warning "A fiber map must not read the destination"
+    The pass writes each base point independently and in an unspecified order, so `φ` may read only the
+    fiber handed to it. A `φ` that reads elsewhere in the destination sees storage another thread may
+    already have overwritten, and the result depends on the schedule — it will differ between runs, and
+    between a threaded and a serial one.
+
+    The trap is that **a field is callable**: `f(x)` interpolates, so passing a section as `φ` makes it a
+    gather over a neighbourhood rather than an element-local map. That is why the usual aliasing freedom
+    does not apply here. Invariant 9 lets a destination alias an input precisely because a fused pass
+    reads element ``n`` to write element ``n``; a gathering `φ` breaks that premise.
+
+    A **section** `φ` that is the destination is rejected — sections own their storage (decision 59), so
+    identity is a complete test for that case. A **closure that captures** the destination cannot be
+    detected, and is the caller's responsibility. Aliasing between `destination` and the `sources`
+    remains safe and is unaffected.
 
 !!! warning "Physical-space only, and the result is aliased in spectral representation"
     An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
@@ -1754,25 +1790,6 @@ The arguments are:
     aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
     docstring). Point-value sections are representation-free and carry no such restriction.
 """
-# A fiber map that GATHERS may not alias the destination. Invariant 9's aliasing guarantee rests on a
-# fused pass reading element `n` to write element `n`, which makes an in-place aliased call bitwise
-# identical to a disjoint one. A section used as φ breaks that premise: a field is callable, and
-# `f(x)` INTERPOLATES — it reads a neighbourhood around an arbitrary position, not the element being
-# written. With φ aliasing the destination, one thread interpolates from storage another thread has
-# already overwritten, so the result depends on the schedule. The exhaustive survey found exactly this:
-# every failing determinism cell was `map!(x, x, x)`, in threaded configurations only, and none in a
-# serial one — the serial order being fixed hides it. Refused rather than documented away, because a
-# wrong answer that only appears under threading is the worst kind to leave reachable.
-@inline function _check_map_not_aliased(φ, destination)
-  φ isa AbstractFiberSection || return nothing
-  φ === destination &&
-    throw(ArgumentError("the fiber map aliases the destination: a section used as a map INTERPOLATES, " *
-                        "reading positions rather than the element being written, so it must not be " *
-                        "the field being written into"))
-  return nothing
-end
-
-
 function map!(φ::F, destination::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
   _check_map_not_aliased(φ, destination)
   for source in sources
