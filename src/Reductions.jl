@@ -106,11 +106,23 @@ is used for the scalar case (reduce the whole array); `over_base_reduce(data, ba
 the leading base dimensions for higher orders. The (tiny) reduced array is copied to the host before
 the `SVector`/`SMatrix` build, so no device array is scalar-indexed.
 """
-function _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce)
+# DISPATCHED on the tensor order, not branched on it. The three arms return a scalar, a `FiberVector`
+# and a `FiberTensor2`, so a runtime `R` left the result inferring as `Any` — and that propagated to
+# every fiber-preserving reduction built on it, `mean` and `cov` among them. `R` is a type parameter of
+# the section, so `Val` recovers it at compile time and each arm infers concretely.
+# `Val(_tensor_order(section))` is NOT enough: `_tensor_order` returns the type parameter as an `Int`,
+# and inference reports `Int64` rather than a constant, so the `Val` is built dynamically and the
+# dispatch stays dynamic. Taking `R` straight off the section's own type in the signature makes it a
+# compile-time parameter, which is what the arms below need.
+_fiberwise(section::AbstractFiberSection{T, R}, whole_reduce, over_base_reduce) where {T, R} =
+  _fiberwise(section, whole_reduce, over_base_reduce, Val(R))
+
+_fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce, ::Val{0}) =
+  whole_reduce(field_data(section))
+
+function _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce, ::Val{R}) where {R}
   T = section_scalar_type(section)
   data = field_data(section)
-  R = _tensor_order(section)
-  R == 0 && return whole_reduce(data)
   base = ntuple(identity, ndims(data) - R)
   reduced = Array(dropdims(over_base_reduce(data, base); dims = base))
   R == 1 && return FiberVector{T}(reduced)
@@ -757,6 +769,24 @@ end
 #   ⟨f,g⟩ = Re(2·Sₜ − S_{kₓ=0} − S_{Nyquist}) / N²,   N = prod(grid_size)   (Nyquist term: even Nₓ only)
 # computed as a `dot` over the whole array (contiguous ⇒ allocation-free) plus two small correction-plane
 # reductions; the real part discards the round-off imaginary part of the (provably real) full-spectrum sum.
+# The folded axis is a RUNTIME value, and `selectdim(data, dimension, index)` with a runtime dimension
+# produces a `SubArray` whose type inference cannot pin down — so every reduction over one of these
+# correction planes came back as `Any`, making the whole spectral `inner` type-unstable. Branching on
+# the three literal dimensions keeps each `selectdim` inferable, and since all three arms return the
+# same type the join is concrete. `inner` is a per-step reduction in a solver, so the dispatch this
+# costs is worth removing.
+@inline _folded_abs2_plane(data, dimension::Int, index::Int) =
+  dimension == 1 ? sum(abs2, selectdim(data, 1, index)) :
+  dimension == 2 ? sum(abs2, selectdim(data, 2, index)) :
+                   sum(abs2, selectdim(data, 3, index))
+
+@inline function _folded_cross_plane(data_g, data_f, dimension::Int, index::Int)
+  dimension == 1 && return sum(conj.(selectdim(data_g, 1, index)) .* selectdim(data_f, 1, index))
+  dimension == 2 && return sum(conj.(selectdim(data_g, 2, index)) .* selectdim(data_f, 2, index))
+  return sum(conj.(selectdim(data_g, 3, index)) .* selectdim(data_f, 3, index))
+end
+
+
 function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
   # The domain check settles the base — grid, layout, storage — and says nothing about the FIBER, so on
@@ -780,8 +810,9 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
     total = KernelAbstractions.get_backend(data_f) isa KernelAbstractions.CPU ?
       _indexed_tree_reduce(index -> (@inbounds abs2(data_f[index])), +, 1, length(data_f)) :
       sum(abs2, data_f)                                         # Σ_stored |f̂|²  (fused, real)
-    correction = sum(abs2, selectdim(data_f, folded_dimension, 1))
-    even_fold && (correction += sum(abs2, selectdim(data_f, folded_dimension, size(data_f, folded_dimension))))
+    correction = _folded_abs2_plane(data_f, folded_dimension, 1)
+    even_fold && (correction += _folded_abs2_plane(data_f, folded_dimension,
+                                                   size(data_f, folded_dimension)))
     return (2 * total - correction) / normalization
   end
   # General f ≠ g. The whole-array term is a contiguous `dot` (allocation-free); the self-conjugate kₓ=0
@@ -793,9 +824,9 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   total = (KernelAbstractions.get_backend(data_g) isa KernelAbstractions.CPU ?
       _indexed_tree_reduce(index -> (@inbounds conj(data_g[index]) * data_f[index]), +, 1, length(data_g)) :
       LinearAlgebra.dot(data_g, data_f))                       # Σ_stored f̂ conj(ĝ) (contiguous ⇒ BLAS dot)
-  plane(i) = sum(conj.(selectdim(data_g, folded_dimension, i)) .* selectdim(data_f, folded_dimension, i))
-  correction = plane(1)
-  even_fold && (correction += plane(size(data_f, folded_dimension)))
+  correction = _folded_cross_plane(data_g, data_f, folded_dimension, 1)
+  even_fold && (correction += _folded_cross_plane(data_g, data_f, folded_dimension,
+                                                  size(data_f, folded_dimension)))
   return real(2 * total - correction) / normalization
 end
 

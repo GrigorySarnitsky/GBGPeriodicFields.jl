@@ -89,7 +89,11 @@ const MODULE_BASELINE = (
   Convolution           = 77,   # +6: the StoredKernel role marker and its protocol methods
   Points                = 207,
   Interpolation         = 119,
-  Reductions            = 111,
+  # 111 → 115: two helpers reaching the folded plane with a literal dimension (`_folded_abs2_plane`,
+  # `_folded_cross_plane`, which made the spectral `inner` type-stable — `selectdim` with a RUNTIME
+  # dimension is not inferable) and two extra `_fiberwise` arms from dispatching on the tensor order
+  # rather than branching on it. Refrozen with the reason, per decision 53.
+  Reductions            = 115,
 )
 
 # The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.
