@@ -151,6 +151,13 @@ function run_sequence_lane(configs)
     # The measurement invariant 13 is actually about. Each operation is run once to compile and settle,
     # then the loop is measured: a per-call temporary shows up as bytes proportional to the step count,
     # which a single-call measurement reports as zero.
+    # SERIAL, because that is the route invariant 13 constrains: it is about FIELD-SIZED scratch, a
+    # per-call temporary that escapes the GC and grows the pool every step. The threaded route also
+    # spawns tasks, costing a small CONSTANT per call — measured at 3488 bytes for `add!` whatever the
+    # field size, against 0 serially — so running this under the configuration's own threading setting
+    # reported every operation as leaking, in every threaded configuration, and none of it was scratch.
+    sequence_entry_cutoff = threading_cutoff()
+    set_threading_cutoff!(typemax(Int))
     u, v, A, uh, vh, sh, half = b.u, b.v, b.A, b.uh, b.vh, b.sh, b.T(1) / 2
     plans1, decay = b.plans1, -b.T(1) / 10
     measurements = (("add!",                  loop_allocated(add!, SEQUENCE_STEPS, u, u, v)),
@@ -169,6 +176,7 @@ function run_sequence_lane(configs)
     # call and `convolve!` 128 — small fixed constants, not scratch, and the gate passes them. A bound
     # of a few kilobytes total would have reported all three as leaks; the property is that nothing
     # FIELD-SIZED is allocated per step, and a field here is tens of kilobytes.
+    set_threading_cutoff!(sequence_entry_cutoff)
     field_bytes = sizeof(eltype(field_data(b.u))) * length(field_data(b.u))
     per_step_bound = max(1024, field_bytes ÷ 8)
     for (name, loop_bytes) in measurements

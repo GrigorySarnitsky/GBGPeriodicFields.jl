@@ -63,12 +63,13 @@ the same thing and documents the same fix.
 end
 
 # The magnitude a comparison should be judged against. For a relation whose expected value is zero
-# (∇·∇×u = 0, tr(dev A) = 0) there is no relative scale, so the absolute floor is taken from the other
-# side — which is itself near zero — rather than from a fixed constant that would swamp it.
-# No floor at 1.0. Flooring there gave `atol = 1e-3` on Float32 for the relations compared against
-# zero — `∇·(∇×u) = 0`, `tr(dev A) = 0` — whose true residual is ~1e-6, so a violation worth 0.3% of
-# the field norm passed. A zero-valued expectation takes its scale from the other side, which is
-# itself near zero, and the comparison stays meaningful.
+# This is the DEFAULT, used where a relation's two sides have a real magnitude. It must not be used for
+# a relation whose expected value is exactly zero: there both sides ARE the residual, so the scale
+# collapses to `eps(Float32)` and the tolerance to ~1e-18, failing every such relation in every
+# configuration — 132 cells a run, none of them a defect. Those relations carry an explicit scale
+# instead, the magnitude of the same operation on data where it does not vanish. Flooring at 1.0 was
+# the other tempting fix and is wrong in the opposite direction: it gave `atol = 1e-3` on Float32,
+# passing a violation worth 0.3% of the field norm.
 _scale(want, got) = max(maximum(abs, _as_array(want); init = 0.0),
                         maximum(abs, _as_array(got); init = 0.0), eps(Float32))
 
@@ -131,10 +132,12 @@ The self-check proved that each of the five UNIVERSAL checks can fire and never 
 lane, the value lane or the property lanes — so "a check that cannot fire is worse than none" was
 enforced for one lane of nine. This is the seam that lets the others be held to it too.
 """
-function relation_holds(name, got, want, rtol, T)
+function relation_holds(name, got, want, rtol, T, scale = nothing)
   return comparison_outcome() do
     got isa Bool ? got == want :
-      isapprox(_as_array(got), _as_array(want); rtol = rtol, atol = _tolerance(T) * _scale(want, got))
+      isapprox(_as_array(got), _as_array(want);
+               rtol = rtol,
+               atol = _tolerance(T) * (scale === nothing ? _scale(want, got) : scale))
   end
 end
 
@@ -192,9 +195,9 @@ function run_relations_lane(configs)
        prod(config.grid.grid_size) * inner(b.s, anterpolate(config.grid, b.points, b.q, CatmullRom))),
       # ── algebraic identity ────────────────────────────────────────────────────────────────────
       ("∇·(∇×u) = 0",
-       l2norm(divergence(curl(b.uh, m), m)), zero(b.T)),
+       l2norm(divergence(curl(b.uh, m), m)), zero(b.T), l2norm(divergence(b.uh, m))),
       ("∇×(∇φ) = 0",
-       l2norm(curl(gradient(b.sh, m), m)), zero(b.T)),
+       l2norm(curl(gradient(b.sh, m), m)), zero(b.T), l2norm(curl(b.uh, m))),
       # Each side against its INDEPENDENT reference. `_sym_values` and `_skew_values` are stamped from
       # one formula builder over the same nine arguments, so their sum is `A` by algebra whatever the
       # formula computes — the identity survives a wrong transpose convention entirely.
@@ -213,7 +216,8 @@ function run_relations_lane(configs)
       # two call sites share one formula, not because either is right. Checked against the references.
       ("tr(dev A) = 0",
        maximum(abs, field_data(tr(dev(b.A)))),
-       maximum(abs, ref_trace(ref_dev(field_data(b.A))))),
+       maximum(abs, ref_trace(ref_dev(field_data(b.A)))),
+       maximum(abs, field_data(tr(b.A)))),          # the trace where it does NOT vanish
       ("Δ⁻¹Δ = id on mean-free fields",
        field_data(inverse_laplacian(laplacian(_mean_free(b.sh), m), m)),
        field_data(_mean_free(b.sh))),
@@ -243,13 +247,17 @@ function run_relations_lane(configs)
       # ── round-tripping ────────────────────────────────────────────────────────────────────────
       ("to_physical ∘ to_spectral = id",
        field_data(to_physical(to_spectral(b.s, b.plans0), b.plans0)), field_data(b.s)),
+      # A non-vanishing kernel, so the reciprocal exists: the sharp mask plus one, in the stored class.
+      # `materialize_kernel` returns a `StoredKernel` now (decision 60), so the arithmetic is done on
+      # the field it wraps and the result is declared a kernel once.
       ("inv(k) ⋆ k = id",
-       field_data(convolve(convolve(b.sh, StoredKernel(materialize_kernel(spectral_cutoff(z, m, b.T(3))) +
-                                                       ScalarFieldSpectral(ones(Complex{b.T}, size(field_data(z))...),
-                                                                           config.grid, config.layout))),
-                           inv(StoredKernel(materialize_kernel(spectral_cutoff(z, m, b.T(3))) +
-                                            ScalarFieldSpectral(ones(Complex{b.T}, size(field_data(z))...),
-                                                                config.grid, config.layout))))),
+       let invertible = StoredKernel(
+             ScalarFieldSpectral(GBGPeriodicFields.Convolution._kernel_data(
+                                   materialize_kernel(spectral_cutoff(z, m, b.T(3)))) .+
+                                 one(Complex{b.T}),
+                                 config.grid, config.layout))
+         field_data(convolve(convolve(b.sh, invertible), inv(invertible)))
+       end,
        field_data(b.sh)),
       # Declared in the ledger's RELATIONS table and evaluated nowhere until now, while its two
       # operations were reported as covered for `identity`.
@@ -285,7 +293,7 @@ function run_relations_lane(configs)
                                                    spectral_cutoff(z, m, b.T(2))))))),
       ("materialize agrees with compressed",
        field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3)))),
-       field_data(convolve(b.sh, StoredKernel(materialize_kernel(spectral_cutoff(z, m, b.T(3))))))),
+       field_data(convolve(b.sh, materialize_kernel(spectral_cutoff(z, m, b.T(3)))))),
     )
 
     # Coverage is recorded from the checks this lane ACTUALLY EVALUATES, matched to the table by name.
@@ -302,11 +310,19 @@ function run_relations_lane(configs)
     isempty(unevaluated) || config === first(configs) &&
       println("\n  DECLARED BUT NOT EVALUATED — ", length(unevaluated), " relations credit no coverage:\n",
               "      ", join(unevaluated, "; "))
-    for (name, got, want) in checks
+    for check in checks
+      name, got, want = check[1], check[2], check[3]
+      # A relation whose expected value is EXACTLY ZERO may carry its own scale, because there is no
+      # relative one to derive: `_scale` falls back to the larger of the two sides, and for these both
+      # sides ARE the residual, so the tolerance collapsed to `_tolerance(T) * eps(Float32)` — about
+      # 1e-18 on Float64 against a true roundoff residual of ~1e-13. Every such relation failed in every
+      # configuration, 132 cells a run, and none of them was a defect. The scale supplied is the
+      # magnitude of the same operation on data where it does NOT vanish.
+      scale = length(check) >= 4 ? check[4] : nothing
       name === :skip && continue          # a dependency-gated relation: unevaluated, not passing
       cells += 1
       push!(seen, name)
-      ok = relation_holds(name, got, want, rtol, b.T)
+      ok = relation_holds(name, got, want, rtol, b.T, scale)
       ok isa Symbol && (Base.push!(failures, "$(name) [$(config.name)] THREW $(ok)"); continue)
       ok || Base.push!(failures, "$(name) [$(config.name)]")
     end
@@ -441,7 +457,17 @@ function run_property_lanes(configs)
     # shared-fixture poisoning the invocation lane's per-cell `_refresh` exists to prevent.
     scratch_u, scratch_v = similar_field(u, Val(1)), similar_field(v, Val(1))
     copyto!(field_data(scratch_u), field_data(u)); copyto!(field_data(scratch_v), field_data(v))
-    for (name, bytes) in
+    # MEASURED ON THE SERIAL ROUTE, because that is the route invariant 13 constrains. The invariant is
+    # about FIELD-SIZED scratch — a per-call device temporary that escapes the GC and grows the pool
+    # every step. The threaded route additionally spawns tasks, and that costs a small CONSTANT per
+    # call: measured here at 3488 bytes for `add!`, identical whatever the field size, against 0 on the
+    # serial route. Running this block under the configuration's own threading setting therefore
+    # reported every in-place operation as allocating, in every threaded configuration — 336 cells a
+    # run, none of them scratch, all of them the task objects. The gate's own audit measures serially
+    # for the same reason.
+    allocation_entry_cutoff = threading_cutoff()
+    set_threading_cutoff!(typemax(Int))
+    measurements =
         (("add!",                  single_allocated(add!, scratch_u, scratch_u, v)),
          ("combine!",              single_allocated(combine!, scratch_u, half, scratch_u, half, v)),
          ("mul!",                  single_allocated(mul!, scratch_v, A, u)),
@@ -450,6 +476,8 @@ function run_property_lanes(configs)
          ("helmholtz_projection!", single_allocated(helmholtz_projection!, similar_field(uh, Val(1)), uh, m)),
          ("convolve!",             single_allocated(convolve!, similar_field(uh, Val(1)), uh, allocation_kernel)),
          ("inner",                 single_allocated(inner, u, v)))
+    set_threading_cutoff!(allocation_entry_cutoff)
+    for (name, bytes) in measurements
       count!(:allocation)
       # Scaled to the SMALLEST field in play, not a fixed 4096. A scalar Float32 field on 8³ is 2048 B
       # and a scalar spectral Float64 field on (7,5,3) is 960 B, so a flat 4 KB bound let a full
