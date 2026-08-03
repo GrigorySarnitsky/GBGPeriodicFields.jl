@@ -36,6 +36,16 @@ a standing remainder — the failure mode this paragraph forbids; cheap-lanes-by
    LaTeX lives in comments, not docstrings). The build lints already scan the generated
    `docs/src/examples/hist_cpu.md`; edit the *source* `.jl`.
 
+6. **The BUILT HTML** — `docs/build/api/*/index.html`, after `julia --project=docs docs/make.jl`. This
+   is a surface in its own right, not a rendering of surface 4: the API pages are mostly `@autodocs`
+   and `@docs` blocks whose CONTENTS ARE DERIVED, and surface 4 explicitly skips those blocks. What
+   each block actually collected is visible only here. Two defects lived in this gap and neither was
+   findable by reading any `.md`: `map`, `map!` and `transpose` filed under FieldAlgebra's "Internal
+   API" (Documenter cannot tell that a Base function the package extends without re-exporting is
+   public, so `Public = false` sweeps it in — the block already excluded `+ - * /` for that reason and
+   missed the rest), and three Internal API blurbs describing contents their sections do not hold
+   (FieldAlgebra's named code generators that moved to `FiberSections` a consolidation ago).
+
 ## Checks (ALL of them, on every surface)
 
 Run each as a POSITIVE procedure — enumerate, then verify each item. A defect that is absent-by-omission
@@ -97,6 +107,26 @@ reading is not a check.
 
 `CLAUDE.md` (the doc-edit checklist and the standing notation/structure rules) holds the authoritative
 definitions; this command runs all of them.
+
+### API page placement and completeness (surface 6 — the built HTML only)
+
+Run after the build, by PARSING `docs/build/api/*/index.html`. Four questions, none answerable from
+the source:
+
+1. **Nothing public sits under "Internal API".** Any `Base.*` entry there is the `Public = false`
+   sweep catching a Base extension the package owns; the fix is the block's `Filter`, and it is a
+   CLASS — check every module, not the one that was reported.
+2. **Nothing appears twice.** An object rendered in both a public section and an Internal API section
+   is the same defect one step earlier.
+3. **Nothing public is missing.** Diff the derived public surface (`test/public_surface.jl`'s
+   `package_operations()`) against every non-Internal section. Expect only the unexported Base
+   extensions (`size`, `eltype`, `axes`, `copy`, `copyto!`, `getindex`, `setindex!`, `ndims`, `in`),
+   whose omission is deliberate — `checkdocs = :exports` does not require them. Anything else is a
+   public operation with no home, which is how `transpose` came to be documented as an internal.
+4. **Each Internal API blurb matches what its block collected.** The prose is hand-written and the
+   list is derived, so they drift apart silently whenever code moves between modules or a `Filter`
+   changes. Read the blurb against the rendered entries and check every clause names something
+   present. Three of nine were wrong.
 
 ## Mechanism
 
@@ -198,6 +228,39 @@ for file in filter(f->endswith(f,".jl"), readdir("src"; join=true))
 end'
 ```
 
+```bash
+# ---- SURFACE 6: the built API pages. Run AFTER `julia --project=docs docs/make.jl`. ----
+# Buckets every rendered docstring under its heading and reports the three mechanical questions;
+# question 4 (blurb vs contents) is a read, not a grep — do it from this script's own output.
+python3 - <<'PYEOF'
+import re, html, glob, os
+pub_all, report = set(), []
+for page in sorted(glob.glob('docs/build/api/*/index.html')):
+    mod = os.path.basename(os.path.dirname(page)); s = open(page).read()
+    heads = [(m.start(), m.group(1)) for m in re.finditer(r'<h[12] id="([^"]+)"', s)]
+    pub, internal = [], []
+    for m in re.finditer(r'<summary id="([^"]+)"><a class="docstring-binding"', s):
+        sec = "(none)"
+        for hpos, hid in heads:
+            if hpos < m.start(): sec = hid
+        name = html.unescape(m.group(1)).split('-')[0]
+        (internal if "Internal" in sec else pub).append(name)
+    pub_all |= {n.split('.')[-1] for n in pub}
+    leaked = sorted({n for n in internal if n.startswith("Base.")})     # question 1
+    both   = sorted(set(internal) & set(pub))                          # question 2
+    if leaked or both:
+        report.append(f"{mod}: PUBLIC-IN-INTERNAL={leaked} IN-BOTH={both}")
+    print(f"{mod:22s} public={len(set(pub)):3d} internal={len(set(internal)):3d}")
+    print(f"    internal entries: {sorted({n.split('.')[-1] for n in internal})}")
+print()
+print("\n".join(report) if report else "questions 1-2: clean")
+PYEOF
+# question 3 — every public operation must have a home in some public section
+julia --project=test -e 'using GBGPeriodicFields; include("test/public_surface.jl");
+  println(join(sort(String.(collect(package_operations()))), "\n"))' | sort > /tmp/pubops.txt
+# compare against the `public=` names printed above; expect ONLY the unexported Base extensions
+```
+
 - Triage (drop false positives — universally standard math; the real Julia operators `×`/`⋅`/`≈`; pervasive
   shorthand `L²`/`N³`/`O(N²)`; `#`-comment hits; kwarg names correctly backticked; a subscript index run
   `A_{ij}`; a thin-wrapper math variable in a ``…`` span), then fix EVERY genuine finding in one pass — and
@@ -213,5 +276,7 @@ end'
 Report the full matrix: which surfaces × checks were run, the findings (class and count) with fixes, and
 what was verified clean — including the `FORMALIZATION.md` coverage (every nontrivial operation has a typed
 entry, each test-linked), the **family lane**'s one-home/notation audit of each `f`/`f!` pair, and the
-**cold-reader lane**'s pass over the exported docstrings. Done only when every cell is covered, every
+**cold-reader lane**'s pass over the exported docstrings, and **surface 6**'s placement audit of the
+built API pages (nothing public under Internal API, nothing rendered twice, nothing public missing, and
+every Internal API blurb matching what its block collected). Done only when every cell is covered, every
 finding is closed (fixed, or dismissed with its reason), and the build is clean — in ANY cost mode.
