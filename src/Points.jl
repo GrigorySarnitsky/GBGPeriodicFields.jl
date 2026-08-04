@@ -2,7 +2,8 @@
     Points
 
 The unstructured base of the package's fiber-bundle model: off-grid sample positions and the
-field values sampled at them. A point set plays the role the grid plays in `Fields`, and point
+field values sampled at them. A point set plays the role the grid plays in
+[`Fields`](@ref "Fields"), and point
 values are sections over it.
 
 The parts are:
@@ -21,7 +22,7 @@ The parts are:
     values functions over the point-value section interface, so no per-component formula is written twice.
 
 The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
-`Interpolation` module.
+[`Interpolation`](@ref "Interpolation") module.
 """
 module Points
 

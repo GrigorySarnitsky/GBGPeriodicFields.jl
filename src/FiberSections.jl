@@ -22,10 +22,12 @@ machinery:
   slab-threaded CPU loop that run every stamped per-element values function, the execution route
   for multi-output fiberwise operations.
 
-The base-specific halves live elsewhere. `Fields` (grid) and `Points` (point set) hold the
+The base-specific halves live elsewhere. [`Fields`](@ref "Fields") (grid) and
+[`Points`](@ref "Points") (point set) hold the
 concrete section types, the section-interface accessors (`field_data`, `_vector_component_data`,
 and `_tensor2_component_data`) and the broadcast styles, each extending the accessors for its own
-types, while `FieldAlgebra` and `Points` stamp the method tables from the builders here.
+types, while [`FieldAlgebra`](@ref "FieldAlgebra") and `Points` stamp the method tables from the
+builders here.
 """
 module FiberSections
 

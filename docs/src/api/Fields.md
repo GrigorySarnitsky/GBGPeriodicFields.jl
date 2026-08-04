@@ -61,6 +61,17 @@ spectral_field_shape
 similar_field
 ```
 
+## Spectral kernel protocol
+
+`SpectralKernel` is the supertype every kernel-taking operation dispatches on. It is defined here
+rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
+and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
+it, and the builders returning them, are documented with `Convolution`.
+
+```@docs
+GBGPeriodicFields.Fields.SpectralKernel
+```
+
 ## FFT thread configuration
 
 ```@docs
@@ -79,17 +90,6 @@ into one file.
 ```@docs
 write_field
 read_field
-```
-
-## Spectral kernel protocol
-
-`SpectralKernel` is the supertype every kernel-taking operation dispatches on. It is defined here
-rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
-and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
-it, and the builders returning them, are documented with [`Convolution`](@ref "Convolution").
-
-```@docs
-GBGPeriodicFields.Fields.SpectralKernel
 ```
 
 ## Internal API

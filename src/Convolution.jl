@@ -4,7 +4,8 @@
 Periodic (circular) convolution of a field with a kernel, computed in spectral representation. This
 is the **kernel-multiplier role** of the package's measure structure — a grid→grid multiplier that
 filters a field against a fixed kernel — the spectral sibling of the differential operators and the
-same-base counterpart of `Interpolation`. The reductions, this module, and the grid↔point transfer
+same-base counterpart of [`Interpolation`](@ref "Interpolation"). The reductions, this module, and
+the grid↔point transfer
 realize one integration structure in three roles. On the torus the only convolution is the periodic one, and by the convolution
 theorem it is exactly a coefficientwise product of the transforms, so the operation lives in spectral
 representation. A kernel is supplied by its transfer function, and a scalar kernel multiplies every
