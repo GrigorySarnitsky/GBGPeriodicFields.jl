@@ -1248,7 +1248,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\hat g`` as a **`ScalarFieldSpectral`** (decision 19's open "kernel as a field" call, chosen for
     elegance); a scalar kernel broadcasts over the fiber, so one method serves scalar/vector/tensor
     fields, and because a kernel is itself a scalar field in spectral representation, `convolve(g₁,
-    g₂)` composes two kernels for free (the `R = 0` case). `convolve` / `convolve!` mirror `laplacian`
+    g₂)` composes two kernels for free (the `R = 0` case). (Superseded by decision 60: a kernel is now
+    its own type, so a `ScalarFieldSpectral` is wrapped in a `StoredKernel` to declare that role and
+    composition is unambiguous by type rather than by argument position.) `convolve` / `convolve!` mirror `laplacian`
     / `laplacian!`: coefficientwise ⇒ aliasing-safe (no `_guard_noalias!`; destination may alias the
     field), `@_assign!`-routed (threads on CPU), with the five-argument `α`/`β` accumulate form
     (invariant 10). Spectral representation only — there is no physical-space `convolve` (the

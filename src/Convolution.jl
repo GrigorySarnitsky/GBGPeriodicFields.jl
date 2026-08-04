@@ -14,14 +14,15 @@ multiplication, which it is not.
 
 A kernel is **not** a field. The two hold identical coefficients, so nothing but a type can say which
 role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
-deconvolves by it, while the same operation on a field is one the package does not define. Every kernel
+deconvolves by it (`inv`, defined for all four classes), while the same operation on a field is one the
+package does not define. Every kernel
 subtypes [`SpectralKernel`](@ref), and the four classes reach every kernel-taking entry point
 interchangeably — `StoredKernel` holds one coefficient per mode, and the three compressed classes hold
 the parameters of a closed-form multiplier and evaluate it per mode. All four agree bit for bit, so the
 choice is one of memory and speed rather than of result.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
-symbol the consumer supplies — through `radial_kernel` when it depends on the mode only through
+multiplier the consumer supplies — through `radial_kernel` when it depends on the mode only through
 ``|k|^2``, or as coefficients built from `FieldSpectralMultipliers` and wrapped in `StoredKernel`. The
 package supplies the operation, not the physical meaning.
 
@@ -38,13 +39,14 @@ Convolution operations:
 Kernel storage classes:
 
 - [`StoredKernel`](@ref) — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
-  avoid. Wrapping a field of coefficients in it is how a consumer declares the kernel role.
+  avoid. It wraps a `ScalarFieldSpectral`, which is how a consumer declares that those coefficients are
+  playing the kernel role rather than being a field.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
-  return. `inv` gives the reciprocal that deconvolves by it.
-- [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as its symbol and
-  evaluated per mode, so it stores no coefficients at all; the class `spectral_cutoff`, `spectral_band`
-  and `radial_kernel` return.
+  return.
+- [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as the **function**
+  ``\\sigma`` computing it (a closure, evaluated per mode), so it stores no coefficients at all; the class
+  `spectral_cutoff`, `spectral_band` and `radial_kernel` return.
 - [`ProductKernel`](@ref) — a radial and a separable factor held unmultiplied, which is what composing
   across the two families gives; it applies in a single pass like either factor alone.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
@@ -52,13 +54,13 @@ Kernel storage classes:
 
 Kernel builders:
 
-- [`radial_kernel`](@ref) — build a `RadialKernel` from any real symbol of the squared wavenumber, which
-  is the route for a symbol this module does not name (a smooth filter, a hyperviscosity, an integrating
-  factor).
+- [`radial_kernel`](@ref) — build a `RadialKernel` from any real **function** ``\\sigma`` of the squared
+  wavenumber, which is the route for a multiplier this module does not name (a smooth filter, a
+  hyperviscosity, an integrating factor).
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
-  its annular band-pass generalization, both radial.
-- [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, separable, for
-  deconvolving a gridded point density.
+  its annular band-pass generalization, both radial kernels.
+- [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, a separable kernel,
+  for deconvolving a gridded point density.
 - [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the separable kernel that translates a
   field by a physical displacement, the shift theorem's phase.
 """
@@ -231,13 +233,14 @@ convolve(first_kernel::SpectralKernel{T}, second_kernel::SpectralKernel{T}) wher
     RadialKernel
 
 A spectral kernel that depends only on the wavenumber **magnitude**, ``\\hat g(k) = \\sigma(|k|^2)``,
-stored as the function ``\\sigma`` rather than as its values. The symbol is evaluated one mode at a
+stored as the function ``\\sigma`` rather than as its values — its *symbol*, in the sense the
+differential operators use for the multiplier a coefficientwise operator applies. The function is evaluated one mode at a
 time from the wavenumber arrays the multipliers already hold, so the kernel occupies no field: a
 closure and three references, against the ``O(N^3)`` coefficients a stored kernel needs — bytes
 rather than the 129 MiB a ``256^3`` kernel would take.
 
 Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
-[`radial_kernel`](@ref) for any other symbol — a smooth filter envelope, a hyperviscous
+[`radial_kernel`](@ref) for any other such function — a smooth filter envelope, a hyperviscous
 ``\\exp(-\\nu (|k|^2)^p \\tau)``, an integrating factor. Apply it exactly like a kernel held as a
 field: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel argument, or to
 `weighted_inner` as a reduction weight.
@@ -249,7 +252,7 @@ are always some real field's. It also carries the true squared wavenumber at an 
 needed anywhere in the family.
 
 The fields are:
-- **`symbol`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+- **`sigma`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - **`multipliers`** — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
 - **`grid`**, **`layout`** — the base and spectral layout the kernel was built for, which a call checks
   the field against.
@@ -260,26 +263,26 @@ The fields are:
     disjoint: a phase depends on direction, a magnitude symbol does not.
 """
 struct RadialKernel{T, F, M, G, L} <: SpectralKernel{T}
-  symbol::F
+  sigma::F
   multipliers::M
   grid::G
   layout::L
 end
 
-RadialKernel{T}(symbol::F, multipliers::M, grid::G, layout::L) where {T, F, M, G, L} =
-  RadialKernel{T, F, M, G, L}(symbol, multipliers, grid, layout)
+RadialKernel{T}(sigma::F, multipliers::M, grid::G, layout::L) where {T, F, M, G, L} =
+  RadialKernel{T, F, M, G, L}(sigma, multipliers, grid, layout)
 
 
 """
-    radial_kernel(symbol, reference::AbstractFieldSpectral,
+    radial_kernel(sigma, reference::AbstractFieldSpectral,
                   multipliers::FieldSpectralMultipliers) -> RadialKernel
 
-Build the [`RadialKernel`](@ref) for an arbitrary real symbol of the squared wavenumber — the general
-constructor behind [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the symbols the package
-does not name.
+Build the [`RadialKernel`](@ref) for an arbitrary real **function** of the squared wavenumber — its
+symbol, in the sense the differential operators use — the general constructor behind
+[`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the multipliers the package does not name.
 
 The arguments are:
-- **`symbol`** — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
+- **`sigma`** — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
   value. It must be pure and GPU-safe: capture only **values**, never a type — a closure holding a
   `Type` is not a bitstype and a device rejects it at launch — and no mutable state or scalar indexing
   of device arrays; anything it captures by value, such as a viscosity or a substep, is free to vary per call
@@ -288,22 +291,22 @@ The arguments are:
 - **`multipliers`** — the wavenumber arrays supplying ``|k|^2``.
 
 The physics stays with the consumer (invariant 12): an integrating factor is
-`radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the symbol is
+`radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
 rebuild — where a stored kernel would pay a full field write each time.
 """
-function radial_kernel(symbol::F, reference::AbstractFieldSpectral,
+function radial_kernel(sigma::F, reference::AbstractFieldSpectral,
     multipliers::FieldSpectralMultipliers) where {F}
   _check_multipliers_compatibility(reference, multipliers)
   T = field_scalar_type(reference)
-  return RadialKernel{T}(symbol, multipliers, field_grid(reference), field_layout(reference))
+  return RadialKernel{T}(sigma, multipliers, field_grid(reference), field_layout(reference))
 end
 
 
 # The lazy per-mode multiplier: the symbol applied to the lazy |k|², itself an unfused broadcast over
 # the three O(N) squared-wavenumber axis arrays. Nothing of field size is built.
 _kernel_data(kernel::RadialKernel) =
-  Base.Broadcast.instantiate(Base.broadcasted(kernel.symbol,
+  Base.Broadcast.instantiate(Base.broadcasted(kernel.sigma,
                                               _squared_wavenumber_broadcast(kernel.multipliers)))
 
 function _check_kernel_compatibility(field, kernel::RadialKernel)
@@ -316,15 +319,15 @@ end
 """
     inv(kernel::RadialKernel)
 
-The reciprocal kernel ``1/\\sigma(|k|^2)``, formed by composing the reciprocal with the symbol, so it
+The reciprocal kernel ``1/\\sigma(|k|^2)``, formed by composing the reciprocal with ``\\sigma``, so it
 is another [`RadialKernel`](@ref) and still costs no storage.
 
-!!! warning "The symbol must have no zeros on the resolved band"
-    A symbol that vanishes at any stored mode gives a non-finite reciprocal — a sharp mask is exactly
-    such a symbol, so inverting a [`spectral_cutoff`](@ref) is not meaningful.
+!!! warning "The function must have no zeros on the resolved band"
+    A ``\\sigma`` that vanishes at any stored mode gives a non-finite reciprocal — a sharp mask is
+    exactly such a function, so inverting a [`spectral_cutoff`](@ref) is not meaningful.
 """
 Base.inv(kernel::RadialKernel{T}) where {T} =
-  RadialKernel{T}(inv ∘ kernel.symbol, kernel.multipliers, kernel.grid, kernel.layout)
+  RadialKernel{T}(inv ∘ kernel.sigma, kernel.multipliers, kernel.grid, kernel.layout)
 
 _context_grid(kernel::RadialKernel) = kernel.grid
 _context_layout(kernel::RadialKernel) = kernel.layout
@@ -341,8 +344,8 @@ function convolve(first_kernel::RadialKernel{T}, second_kernel::RadialKernel{T})
   # ProductKernel, which retains both operands and costs one extra symbol evaluation per mode.
   first_kernel.multipliers === second_kernel.multipliers ||
     return ProductKernel{T}(first_kernel, second_kernel)
-  first_symbol, second_symbol = first_kernel.symbol, second_kernel.symbol
-  return RadialKernel{T}(squared -> first_symbol(squared) * second_symbol(squared),
+  first_sigma, second_sigma = first_kernel.sigma, second_kernel.sigma
+  return RadialKernel{T}(squared -> first_sigma(squared) * second_sigma(squared),
                          first_kernel.multipliers, first_kernel.grid, first_kernel.layout)
 end
 
@@ -352,7 +355,7 @@ end
 
 Evaluate a radial kernel into a kernel held as a field. See the [`SeparableKernel`](@ref) method for
 when the trade is worth making; the same crossover governs, and the same warning applies — the result
-costs the full ``O(N^3)`` the symbol form exists to avoid.
+costs the full ``O(N^3)`` the closure form exists to avoid.
 """
 function materialize_kernel(kernel::RadialKernel{T}) where {T}
   data = similar(kernel.multipliers.squared_wavenumber_1, Complex{T},
@@ -530,7 +533,7 @@ end
 """
     materialize_kernel(kernel::SeparableKernel)
 
-Evaluate an axis-factored kernel into a kernel held as a **field**, returning the `ScalarFieldSpectral`
+Evaluate an axis-factored kernel into a kernel held as a **field**, returning the `StoredKernel`
 whose coefficients are the product of the per-axis factors. The result applies identically and gives
 bit-identical results — the two differ only in what they cost.
 
@@ -630,14 +633,14 @@ end
 function _apply_radial_convolution!(destination_data, source_data, kernel::RadialKernel, α, β)
   multipliers = kernel.multipliers
   _radial_convolution_pass!(get_backend(destination_data), destination_data, source_data,
-                            kernel.symbol, multipliers.squared_wavenumber_1,
+                            kernel.sigma, multipliers.squared_wavenumber_1,
                             multipliers.squared_wavenumber_2, multipliers.squared_wavenumber_3, α, β)
   return nothing
 end
 
-function _radial_convolution_pass!(backend, destination_data, source_data, symbol,
+function _radial_convolution_pass!(backend, destination_data, source_data, sigma,
     squared_1, squared_2, squared_3, α, β)
-  kernel_data = Base.broadcasted(symbol,
+  kernel_data = Base.broadcasted(sigma,
     Base.broadcasted(+, reshape(squared_1, :, 1, 1), reshape(squared_2, 1, :, 1),
                      reshape(squared_3, 1, 1, :)))
   if iszero(β)
@@ -648,7 +651,7 @@ function _radial_convolution_pass!(backend, destination_data, source_data, symbo
   return nothing
 end
 
-function _radial_convolution_pass!(::KernelAbstractions.CPU, destination_data, source_data, symbol::F,
+function _radial_convolution_pass!(::KernelAbstractions.CPU, destination_data, source_data, sigma::F,
     squared_1, squared_2, squared_3, α, β) where {F}
   destination = _fiber_flattened(destination_data)
   source = _fiber_flattened(source_data)
@@ -663,13 +666,13 @@ function _radial_convolution_pass!(::KernelAbstractions.CPU, destination_data, s
           if iszero(β)
             @simd for mode_1 in axis_1
               destination[mode_1, mode_2, mode_3, component] =
-                α * symbol((squared_1[mode_1] + squared_value_2) + squared_value_3) *
+                α * sigma((squared_1[mode_1] + squared_value_2) + squared_value_3) *
                 source[mode_1, mode_2, mode_3, component]
             end
           else
             @simd for mode_1 in axis_1
               destination[mode_1, mode_2, mode_3, component] =
-                α * symbol((squared_1[mode_1] + squared_value_2) + squared_value_3) *
+                α * sigma((squared_1[mode_1] + squared_value_2) + squared_value_3) *
                 source[mode_1, mode_2, mode_3, component] +
                 β * destination[mode_1, mode_2, mode_3, component]
             end
@@ -846,13 +849,19 @@ representation.
 Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
 returns a fresh result instead.
 
+!!! note "Two kernels compose only through the allocating form"
+    This operation applies a kernel to a field. Composing two kernels into one is `convolve(g₁, g₂)`,
+    and there is no in-place spelling of it: a composed radial or separable kernel is a closure or
+    three short vectors, so there is no preallocated destination to write into, and the one class that
+    does own field-sized storage would need a destination *kernel*, which no verb takes.
+
 The arguments are:
 - `field` — the field to filter, in spectral representation.
-- `kernel` — the kernel's transfer function ``\\hat g``, in either storage class of a spectral kernel — a `ScalarFieldSpectral` holding one
-  coefficient per mode, or a compressed [`SpectralKernel`](@ref) evaluated per mode (radial,
-  separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``;
-  one scalar kernel serves scalar, vector, and tensor `field`s, and both storage classes give
-  bitwise-identical results.
+- `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a
+  [`SpectralKernel`](@ref): a `StoredKernel` holding one coefficient per mode, or one of the compressed
+  classes evaluated per mode (radial, separable, or their product), which costs ``O(N)`` or a closure
+  rather than ``O(N^3)``. One scalar kernel serves scalar, vector, and tensor `field`s, and every
+  storage class gives bitwise-identical results.
 - `destination` — the field written with the result; it may alias `field` or `kernel`, since the
   product is coefficientwise.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
@@ -955,10 +964,13 @@ convolve(kernel::SpectralKernel, field::AbstractFieldSpectral) = convolve(field,
 
 """
     field ⋆ kernel
+    kernel ⋆ field
+    kernel₁ ⋆ kernel₂
 
-Infix alias for [`convolve`](@ref): `field ⋆ kernel` is `convolve(field, kernel)`, the periodic
-convolution of `field` with the kernel `kernel` in spectral representation. Its own symbol keeps the
-operation distinct from `*`, which would read as a pointwise product.
+Infix alias for [`convolve`](@ref), in every arity: `a ⋆ b` is `convolve(a, b)`. Convolving a field
+with a kernel, either way round, filters the field in spectral representation; convolving two kernels
+composes them into one. The distinct glyph keeps the operation apart from `*`, which would read as a
+pointwise product.
 """
 const ⋆ = convolve
 
@@ -1130,9 +1142,11 @@ end
                           coefficient::Real, offset_scale::Real,
                           offset::ScalarFieldSpectral)
 
-Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, evaluated from
-the wavenumber arrays on the fly — the kernel is never built or stored as a field — writing the
-result into `destination` in place and returning `destination`.
+Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, where ``c`` is a real
+coefficient on the squared wavenumber ``|k|^2``, and the optional term adds a per-mode real field
+``\\hat w`` supplied by the consumer under a real scale ``s``. The kernel is evaluated from the
+wavenumber arrays on the fly — never built or stored as a field — and the result is written into
+`destination` in place, which is returned.
 
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
 returns a fresh result instead.
@@ -1142,7 +1156,7 @@ Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field 
 ``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
 ``\\exp(c |k|^2)``, the true squared wavenumber kept at the Nyquist frequency (the Laplacian
 convention), so the kernel is real, even, and positive — a valid kernel for every real field. The
-optional per-mode term ``s \\hat w`` generalizes the exponent to a consumer-supplied symbol.
+optional term ``s \\hat w`` generalizes the exponent by whatever per-mode field the consumer supplies.
 
 Choose between this and a stored kernel by reuse. When the exponent changes between applications —
 so a stored kernel would be rebuilt each time — the lazy form wins: it removes the kernel's build
@@ -1183,7 +1197,7 @@ The arguments are:
   changed scale costs nothing — the resident ``\\hat w`` is built once.
 
 !!! warning "The offset must be real-valued"
-    The exponential of a real, even symbol keeps a real field real. A complex-valued `offset` breaks
+    The exponential of a real, even multiplier keeps a real field real. A complex-valued `offset` breaks
     that Hermitian symmetry exactly as a consumer-built kernel can under `convolve!`, and the inverse
     transform then silently keeps only the Hermitian part. There is deliberately no *scalar* exponent
     offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
@@ -1310,9 +1324,9 @@ end
                   multipliers::FieldSpectralMultipliers,
                   wavenumber_low, wavenumber_high) -> RadialKernel
 
-Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol
+Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
 itself rather than its coefficients, so it costs no field of storage. Use
-[`materialize_kernel`](@ref) to expand it into a scalar field in spectral representation. It is built on
+[`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
 `reference`'s grid and array backend: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
 
@@ -1359,7 +1373,7 @@ end
     spectral_cutoff(reference::AbstractFieldSpectral,
                     multipliers::FieldSpectralMultipliers, wavenumber_cutoff) -> RadialKernel
 
-Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the symbol itself
+Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
 expand it into a scalar field in spectral representation. It is built on
 `reference`'s grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``

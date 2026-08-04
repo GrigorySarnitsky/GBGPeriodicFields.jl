@@ -128,12 +128,6 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # `make_workspace` preallocates every scratch field the time loop needs, so a step allocates nothing —
 # this is the heart of the performance-first design (and what keeps the GPU pool flat).
 
-# Wrap a per-mode transfer function ``w(\mathbf{k})`` (a real ``(N_{k_x}, N_y, N_z)`` array, the argument
-# `w`) as a scalar field in spectral representation — the consumer's half of a convolution; the
-# package applies it via `convolve`. The integrating factor and the IC envelope are
-# built this way (their ``\nu`` / ``\Delta t`` / width are the consumer's — the package carries no physics).
-spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(reference))
-
 
 # Preallocated scratch fields for the in-place hot loop, so a step allocates nothing (this is how a
 # real DNS is written — performance first). Holds the RK stages and the

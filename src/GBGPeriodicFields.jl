@@ -53,13 +53,13 @@ The umbrella assembles its public surface from the submodules below:
   `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
-  kernel builders `spectral_cutoff`, `spectral_band`, `assignment_window`, `translation_kernel`, and `radial_kernel` for any other symbol of the squared
-  wavenumber. A kernel is held either as a scalar field in spectral representation or in one of the
-  compressed classes `SeparableKernel`, `RadialKernel` and `ProductKernel`, which store a closed-form
-  multiplier instead of its coefficients; the classes are interchangeable and agree bit for bit, and
-  `materialize_kernel` expands a compressed one into a field. A field passed as a kernel needs no
-  wrapper to be *applied*; `StoredKernel` marks it for the operations whose meaning depends on the
-  role it is playing, `inv` being the one.
+  kernel builders `spectral_cutoff`, `spectral_band`, `assignment_window`, `translation_kernel`, and `radial_kernel` for any other real function of the squared
+  wavenumber. A kernel is its own kind of object rather than a field: it is held as a `StoredKernel` of
+  one coefficient per mode, or in one of the compressed classes `SeparableKernel`, `RadialKernel` and
+  `ProductKernel`, which store a closed-form multiplier instead of its coefficients; the classes are
+  interchangeable and agree bit for bit, and `materialize_kernel` expands a compressed one into a
+  `StoredKernel`. A `ScalarFieldSpectral` of coefficients is wrapped in `StoredKernel` to declare that
+  role, without which it is a field and no kernel-taking operation accepts it.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
   representation — including the same [`map!`](@ref)/[`map`](@ref) escape hatch, which needs no
   representation split here because point-values carry none — the matching allocator
