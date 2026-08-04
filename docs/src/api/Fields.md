@@ -104,11 +104,10 @@ These symbols are not part of the public interface; they are documented for cont
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:type, :constant]
-# `SpectralKernel` is documented on the Convolution page, beside the concrete kernel classes that
-# subtype it: the protocol is DEFINED here so the differential operators and the reductions can name
-# it, but a reader meets it there. It is public — it appears in `convolve!`'s own signature — and was
-# collected here only because this module does not re-export it, the same `Public = false` mechanism
-# that filed `map` and `transpose` as internals.
+# `SpectralKernel` is rendered by the "Spectral kernel protocol" section above, so it is excluded here
+# to keep it from appearing twice on one page. It is public — it appears in `convolve!`'s own signature
+# — and reached this block only because the module does not re-export it, the same `Public = false`
+# mechanism that filed `map` and `transpose` as internals.
 Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
                        GBGPeriodicFields.Fields.SpectralKernel))
 ```

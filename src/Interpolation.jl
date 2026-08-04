@@ -499,11 +499,11 @@ Use this in-place form when `out` is already allocated; the allocating [`interpo
 fresh result instead.
 
 The arguments are:
-- **`out`** — the point-value section written with the gathered values. It must match `field` in tensor
+- `out` — the point-value section written with the gathered values. It must match `field` in tensor
   order (scalar, vector, or second-order tensor) and cover the same number of points as `points`.
-- **`field`** — the field to sample, in the representation the `scheme` acts on.
-- **`points`** — the [`PointSet`](@ref) of positions to evaluate at.
-- **`scheme`** — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
+- `field` — the field to sample, in the representation the `scheme` acts on.
+- `points` — the [`PointSet`](@ref) of positions to evaluate at.
+- `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
   representation it acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
   [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space**
   field over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in
@@ -536,7 +536,7 @@ end
     interpolate(field::AbstractFieldSpectral, points, scheme::NUFFT)
 
 Allocating form of [`interpolate!`](@ref): allocate a new [`AbstractPointValues`](@ref) of `field`'s
-tensor order and return `field` sampled at `points`. See [`interpolate!`](@ref) for the schemes and their
+tensor order and return `field` sampled at `points`. See `interpolate!` for the schemes and their
 accuracy.
 """
 function interpolate(field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
@@ -597,11 +597,11 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
 *anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990).
 
 The arguments are:
-- **`field`** — the field deposited onto, in the representation the `scheme` acts on. It shares its
+- `field` — the field deposited onto, in the representation the `scheme` acts on. It shares its
   tensor order with `quantities`.
-- **`points`** — the [`PointSet`](@ref) the quantities sit at, covering as many points as `quantities`.
-- **`quantities`** — the per-point values to deposit.
-- **`scheme`** — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
+- `points` — the [`PointSet`](@ref) the quantities sit at, covering as many points as `quantities`.
+- `quantities` — the per-point values to deposit.
+- `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
   representation: the physical-domain local splines ([`CatmullRom`](@ref) and the other
   [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) scatter onto a **physical-space** field, while
   [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a field in **spectral representation**; each
@@ -1004,6 +1004,8 @@ Build a plan once from a `reference` field in spectral representation, which fix
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
 like the reference. The arguments are:
 
+  - `reference` — a field in spectral representation, fixing the grid, layout and element type the
+    plan is built for.
   - `tol` — the target accuracy; the window width and shape default to the values that reach it. It is
     a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
     element type can resolve widens the window as far as the formula goes and then saturates at that

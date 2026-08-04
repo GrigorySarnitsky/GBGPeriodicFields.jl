@@ -394,6 +394,12 @@ Two constructors by design:
   host and copied to the field's backend via `similar` + `copyto!` (no scalar
   GPU writes).
 
+The two differ in the type they produce, not only in convenience: a final `Canonical` type parameter
+records whether the arrays were **derived from the grid** (the convenience constructor) or **supplied
+by the caller** (the explicit one, which validates lengths and not values). Two canonical sets on a
+matching grid and layout therefore hold equal values by construction, which is what lets `convolve`
+collapse two radial kernels without a runtime test — see decision 61.
+
 **The Nyquist split is deliberate and must not be unified.** On even-length axes:
 
 - Derivative multipliers are **zeroed at the Nyquist frequency**. The Nyquist
@@ -2640,7 +2646,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and re-read; a fixed expensive ``\sigma`` applied many times can favour materializing, which
     `materialize_kernel` provides.
 
-    Composition follows the families. Two radial symbols multiply into one radial symbol; a radial and
+    Composition follows the families. Two radial symbols multiply into one radial symbol (**refined by
+    decision 61**: unconditionally so only when both operands carry canonical multipliers of the same
+    concrete type; any other radial pairing keeps both operands); a radial and
     an axis-factored kernel do not collapse, so `convolve` returns a `ProductKernel` holding both and
     multiplying their per-mode values — the cross-family composition that lets a mask and a
     displacement apply in one pass. Only a *compressed* kernel may lead: `convolve(stored, compressed)`
@@ -3034,7 +3042,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     matching grid and layout, hold identical values by construction — same derivation, same inputs — so
     the collapse is unconditional there and is selected by dispatch. Every other pairing, including a
     custom set on either side and two canonical sets of different array types (different backends), keeps
-    both operands. All four cases now infer a concrete type, and the parameter goes **last** so that the
+    both operands. All four cases now infer a concrete type, and the parameter goes **last** so that
     every bare `::FieldSpectralMultipliers` annotation and the one `{T}` accessor are untouched.
 
     **One behaviour change, and it is the one the mathematics asks for**: two separately-built canonical

@@ -513,7 +513,7 @@ The arithmetic average of a section over its base, fiber-preserving: on a grid t
 cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set the sample mean
 ``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
 second-order tensor field's one `FiberTensor2`. The mapped form `mean(fiber_map, f)` averages
-``\\varphi(f_n)`` for the fiber map (for example `mean(det, A)`) in one fused pass with no
+``(\\texttt{fiber\\_map} \\circ f)(x_n)`` (for example `mean(det, A)`) in one fused pass with no
 intermediate section; the map is nonlinear in general, so the mapped forms exist on fields in physical representation
 and point-values only. On a field in spectral representation the mean is read from the zero (DC)
 Fourier mode in ``O(1)``, equal to the physical value with no transform. See [`integral`](@ref) for
@@ -544,7 +544,7 @@ inverse transform; that one-pass form loses
 precision to cancellation when the mean dominates the fluctuations, so prefer the physical form there.
 
 The argument is:
-- **`corrected`** — divide by the count minus one (the sample convention, the default, matching
+- `corrected` — divide by the count minus one (the sample convention, the default, matching
   `Statistics.var`) or by the count itself. A grid holds the *complete* population of a field rather
   than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
   follows the standard library rather than the base.
@@ -592,8 +592,9 @@ minimum
     extrema(f)
     extrema(fiber_map, f)
 
-The pair `(minimum(f), maximum(f))` of a scalar section over its base, in one call. See
-[`maximum`](@ref).
+The pair `(minimum(f), maximum(f))` of a scalar section over its base, in one call — and with a
+leading fiber map, the pair `(minimum(fiber_map, f), maximum(fiber_map, f))`, which is what makes the
+order statistics well posed above tensor order 0. See [`maximum`](@ref).
 """
 extrema
 
@@ -643,7 +644,7 @@ canonical vector form, so the covariance tensor is the honest object. The mean `
 first, so this is the covariance of the fluctuations, not the raw second moment ``\\langle u_i u_j\\rangle``.
 
 The argument is:
-- **`corrected`** — divide by the base count minus one (the sample convention, the default, matching
+- `corrected` — divide by the base count minus one (the sample convention, the default, matching
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
 Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
@@ -1218,10 +1219,11 @@ C_{fg}(r) = \\frac{1}{N} \\sum_x f(x)\\cdot g(x+r) = \\frac{1}{N} \\mathcal F^{-
 \\end{gathered}
 ```
 
-followed by the shell average ``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
+with ``c`` indexing the fiber components, followed by the shell average
+``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
 separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\texttt{inner}(f, f)`` and
 ``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\texttt{inner}(f, g)`` — `inner` resolved over physical
-separation, with ``c`` indexing the fiber components, exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair up to the convention's
+separation, exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair up to the convention's
 ``1/N``: ``\\mathcal F C = |\\hat f|^2/N``, ``\\mathcal F C_{fg} = \\overline{\\hat f} \\hat g/N``). The one-argument form is the ``g = f`` case; the
 radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac{1}{2}(C_{fg} + C_{gf})``

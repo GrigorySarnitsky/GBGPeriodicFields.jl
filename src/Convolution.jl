@@ -131,7 +131,7 @@ coefficients through it without an extra read. Wrap once, where the kernel is bu
 arrives already in the kernel role.
 
 The fields are:
-- **`field`** — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.
+- `field` — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.
 """
 struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
   field::F
@@ -197,7 +197,7 @@ end
 The reciprocal kernel ``1/\\hat g``, formed by inverting each factor — the product of the reciprocals is
 the reciprocal of the product — so it is another [`ProductKernel`](@ref) and materializes nothing.
 
-!!! warning "Each factor must have no zeros on the resolved band"
+!!! warning "Each factor must have no zeros on any stored mode"
     The composite vanishes wherever either factor does, so both must be invertible; each factor's own
     `inv` states the condition it needs.
 """
@@ -215,7 +215,7 @@ _context_layout(kernel::ProductKernel) = _context_layout(kernel.first_kernel)
 """
     materialize_kernel(kernel::ProductKernel)
 
-Evaluate a product kernel into a kernel held as a field. See the [`SeparableKernel`](@ref) method for
+Evaluate a product kernel into a kernel held as a field. See [`materialize_kernel`](@ref)'s separable method for
 when the trade is worth making; the same crossover governs, and the same warning applies — the result
 costs the full ``O(N^3)`` the compressed forms exist to avoid.
 """
@@ -272,8 +272,8 @@ the value a magnitude-dependent multiplier wants there, unlike the derivative wa
 zeroed at that mode — so no case analysis is needed anywhere in the family.
 
 The fields are:
-- **`sigma`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
-- **`multipliers`** — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
+- `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
   Whether they are the grid's own wavenumbers or a caller's is part of their type, and it decides
   whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
   the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
@@ -307,13 +307,13 @@ symbol, in the sense the differential operators use — the general constructor 
 [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the multipliers the package does not name.
 
 The arguments are:
-- **`sigma`** — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
+- `sigma` — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
   value. It must be pure and GPU-safe: capture only **values**, never a type — a closure holding a
   `Type` is not a bitstype and a device rejects it at launch — and no mutable state or scalar indexing
   of device arrays; anything it captures by value, such as a viscosity or a substep, is free to vary per call
   because building a kernel allocates nothing of field size.
-- **`reference`** — a field in spectral representation fixing the base, layout and element type.
-- **`multipliers`** — the wavenumber arrays supplying ``|k|^2``.
+- `reference` — a field in spectral representation fixing the base, layout and element type.
+- `multipliers` — the wavenumber arrays supplying ``|k|^2``.
 
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
@@ -347,7 +347,7 @@ end
 The reciprocal kernel ``1/\\sigma(|k|^2)``, formed by composing the reciprocal with ``\\sigma``, so it
 is another [`RadialKernel`](@ref) and still costs no storage.
 
-!!! warning "The function must have no zeros on the resolved band"
+!!! warning "The function must have no zeros on any stored mode"
     A ``\\sigma`` that vanishes at any stored mode gives a non-finite reciprocal — a sharp mask is
     exactly such a function, so inverting a [`spectral_cutoff`](@ref) is not meaningful.
 """
@@ -394,7 +394,7 @@ end
 """
     materialize_kernel(kernel::RadialKernel)
 
-Evaluate a radial kernel into a kernel held as a field. See the [`SeparableKernel`](@ref) method for
+Evaluate a radial kernel into a kernel held as a field. See [`materialize_kernel`](@ref)'s separable method for
 when the trade is worth making; the same crossover governs, and the same warning applies — the result
 costs the full ``O(N^3)`` the closure form exists to avoid.
 """
@@ -473,25 +473,17 @@ function SeparableKernel{T}(factor_1::V, factor_2::V, factor_3::V, grid::G, layo
 end
 
 
-"""
-    _kernel_data(kernel)
-
-The coefficientwise multiplier a kernel contributes to a fused pass. A [`StoredKernel`](@ref) yields
-the array of its wrapped field; a [`SeparableKernel`](@ref) yields the **lazy** product of its per-axis factors — an
-instantiated `Broadcasted`, which both the broadcast route and the linear-indexed fiberwise executor
-consume exactly as they consume an array, so no operator body changes to accept one.
-"""
+# The axis-factored multiplier is the LAZY product of the three per-axis factors — an instantiated
+# `Broadcasted`, which both the broadcast route and the linear-indexed fiberwise executor consume
+# exactly as they consume an array, so no operator body changes to accept one. The generic's docstring
+# is its home, on the bare binding in `Fields`.
 _kernel_data(kernel::SeparableKernel) =
   Base.Broadcast.instantiate(Base.broadcasted(*, kernel.factor_1, kernel.factor_2, kernel.factor_3))
 
 
-"""
-    _check_kernel_compatibility(field, kernel)
-
-Check that `kernel` was built for `field`'s base and spectral layout. A [`StoredKernel`](@ref) defers
-to the field-to-field domain check on the field it wraps; a [`SeparableKernel`](@ref) compares the grid and layout it stored
-at construction, and the per-axis factor lengths against the field's stored spectral shape.
-"""
+# The axis-factored class compares the grid and layout it stored at construction, and its per-axis
+# factor lengths against the field's stored spectral shape. The generic's docstring is its home, on the
+# bare binding in `Fields`.
 function _check_kernel_compatibility(field, kernel::SeparableKernel)
   (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
     throw(ArgumentError("the separable kernel was built for a different grid or spectral layout than the field"))
@@ -513,7 +505,7 @@ The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a \\sig
 
 !!! warning "The factors must have no zeros"
     Every per-axis factor must be non-zero at every stored mode; a zero yields a non-finite reciprocal.
-    An `assignment_window` satisfies this on the resolved band, whereas a phase kernel does not in
+    An `assignment_window` satisfies this on every stored mode, whereas a phase kernel does not in
     general (a displacement can drive an even axis's Nyquist factor to zero).
 """
 function Base.inv(kernel::SeparableKernel{T}) where {T}
@@ -892,10 +884,12 @@ returns a fresh result instead.
 !!! note "Two kernels compose through the allocating form, which allocates nothing"
     This operation applies a kernel to a field. Composing two kernels into one is `convolve(g₁, g₂)`,
     and there is deliberately no in-place spelling, because there is nothing for one to save:
-    composition never builds a field of coefficients in any storage class. Two radial kernels compose
-    into one closure and two separable ones into their per-axis products, while every other pair —
-    including two stored kernels — becomes a [`ProductKernel`](@ref) holding both factors unmultiplied
-    and evaluating them in a single pass. Composing two stored kernels allocates zero bytes, against
+    composition never builds a field of coefficients in any storage class. Two separable kernels compose
+    into their per-axis products, and two radial ones into a single closure when both are built over
+    canonical multipliers of the same concrete type ([`RadialKernel`](@ref) gives the condition); every
+    other pair — two stored kernels, a cross-family pair, or radial operands failing that test —
+    becomes a [`ProductKernel`](@ref) holding both factors unmultiplied and evaluating them in a
+    single pass. Composing two stored kernels allocates zero bytes, against
     the ``O(N^3)`` a materialized product would cost, and applying the composite is bitwise-identical
     to applying the two in sequence. Use [`materialize_kernel`](@ref) if the coefficients themselves
     are wanted.
@@ -935,7 +929,8 @@ accumulate:
 ```
 
 !!! warning "A real field needs a Hermitian kernel"
-    The stored half-spectrum holds only the modes with ``k_1 \\ge 0``; the rest are implied by the
+    The stored half-spectrum holds only the modes with a non-negative wavenumber along the folded
+    axis (the layout's `fft_dims[1]`, not necessarily the first physical axis); the rest are implied by the
     reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
     still real exactly when its own transfer function carries that symmetry,
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
@@ -1489,7 +1484,7 @@ transfer function ``\\hat W(k)``, the squared sinc
 
 computed from the per-axis wavenumber ``k_a`` (kept at the Nyquist frequency) and the grid spacing
 ``\\Delta x_a``, so ``\\hat W(0) = 1`` and it decays toward the grid scale. Because the squared sinc
-does not vanish anywhere in the resolved band, dividing by it is stable. The package supplies the
+does not vanish at any wavenumber the grid resolves, dividing by it is stable. The package supplies the
 window; the density estimate and the correlation normalization stay consumer-side.
 """
 function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
@@ -1603,10 +1598,10 @@ in-place form when a displacement changes and the kernel is already allocated; t
 not a field, so rebuilding per call is cheap.
 
 The arguments are:
-- **`kernel`** — the [`SeparableKernel`](@ref) whose per-axis factors are overwritten.
-- **`multipliers`** — the wavenumber arrays, supplying both families (the derivative wavenumbers and
+- `kernel` — the [`SeparableKernel`](@ref) whose per-axis factors are overwritten.
+- `multipliers` — the wavenumber arrays, supplying both families (the derivative wavenumbers and
   the true squared ones), checked against `kernel`'s grid and layout.
-- **`offset`** — the physical displacement ``h`` as a three-tuple.
+- `offset` — the physical displacement ``h`` as a three-tuple.
 
 The displacement convention and the Nyquist treatment are [`translation_kernel`](@ref)'s.
 """

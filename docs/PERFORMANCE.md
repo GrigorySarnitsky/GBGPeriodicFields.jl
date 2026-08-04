@@ -495,13 +495,15 @@ Ratios against the stored kernel (vector field, ``>1`` = axis-factored faster):
 
 | | GPU F64 | GPU F32 | CPU t1 F64 | CPU t1 F32 | CPU t8 F64 | CPU t8 F32 |
 |---|---:|---:|---:|---:|---:|---:|
-| ``64^3``  | 0.67 | 0.68 | — | — | 0.45 | 0.30 |
-| ``128^3`` | 0.78 | 0.71 | 0.69 | 0.45 | 0.92 | 0.48 |
-| ``256^3`` | 0.77 | **1.00** | 0.94 | 0.55 | **1.14** | **1.18** |
-| ``512^3`` | — | — | 0.93 | 0.60 | **1.12** | **1.14** |
+| ``64^3`` | 0.98 | 0.95 | 0.44 | 0.46 | 0.62 | 0.52 |
+| ``128^3`` | 0.79 | 0.83 | 0.66 | 0.45 | **1.44** | 0.50 |
+| ``256^3`` | 0.78 | **1.01** | 0.91 | 0.54 | **1.15** | **1.18** |
+| ``512^3`` | — | — | 0.85 | 0.60 | **1.12** | **1.12** |
 
-The trend is the point: **the ratio improves with grid size on every platform**, because the saving is
-bytes not moved (two streams instead of three) while the cost is per-element arithmetic. Small grids sit
+The trend is the point: **the ratio improves with grid size on the CPU**, because the saving is
+bytes not moved (two streams instead of three) while the cost is per-element arithmetic. The GPU column
+does not follow it — the ratio there sits near parity at ``64^3`` and drifts slightly down, a device
+being bandwidth-bound at every size in this range rather than crossing out of cache. Small grids sit
 in cache — the stored kernel's extra read is nearly free there, so the axis-factored form only pays for
 its arithmetic and loses. Past cache the pass becomes DRAM-bound and the missing stream wins: at
 ``256^3``–``512^3`` threaded, the CPU is **1.12–1.18× faster**, and `Float32` on the GPU reaches parity.
@@ -674,8 +676,8 @@ size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidt
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
 threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~10–14×** (and the serial CPU by up to ~50× — e.g. Catmull–Rom gather, 13.8 →
-0.28 ms), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
+the 4-thread CPU by ~10–14×** (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 148.8 ms
+serial against 1.71 ms on the RTX 5070 Ti, ≈87×), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
 thread sweep — is in `benchmark/RESULTS.md`.)

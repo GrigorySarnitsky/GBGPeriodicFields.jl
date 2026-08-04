@@ -20,7 +20,7 @@ same fused pass — is documented with its generic on the [`FieldAlgebra`](Field
 
 ## Kernel storage classes
 
-A kernel is anything an operation can apply as the coefficientwise product ``\hat f \hat g``, and the
+A kernel is anything an operation can apply as the coefficientwise product ``\hat f \cdot \hat g``, and the
 package holds one in whichever of four forms is cheapest for its multiplier: a `ScalarFieldSpectral` of
 coefficients wrapped in a `StoredKernel` when the multiplier is arbitrary, the per-axis factors when it
 separates, the **function** computing it when it depends on the wavenumber only through

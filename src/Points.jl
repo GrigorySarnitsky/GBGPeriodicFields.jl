@@ -178,7 +178,8 @@ end
     TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:AbstractFloat}
     TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat}
 
-One tensor value of order `R` per point, sampled at `M` points — the point-set counterpart of a
+One tensor value of order `R` per point (`R ≥ 2`; use [`ScalarPointValues`](@ref) or
+[`VectorPointValues`](@ref) for orders `0` and `1`, which the constructor enforces), sampled at `M` points — the point-set counterpart of a
 `TensorFieldPhysical`.
 
 The fields are
@@ -313,7 +314,7 @@ pointvalue_shape(number_of_points::Integer, ::Val{R}) where {R} = (number_of_poi
 
 Allocate point values shaped like `reference`. The `data` form wraps the supplied array in a
 point-value type of the same tensor order as `reference`. The `Val{R}` form allocates a fresh
-`(M, fiber…)` array of order `R` on `reference`'s backend, through `similar`, and wraps it. The
+`(M, fiber_shape(Val(R))...)` array of order `R` on `reference`'s backend, through `similar`, and wraps it. The
 broadcast machinery and the allocating algebra wrappers use it to build their results.
 """
 function similar_pointvalues end

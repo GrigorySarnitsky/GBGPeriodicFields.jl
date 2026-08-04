@@ -3,7 +3,14 @@
 
 Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor fields defined in
 [`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
-one exists — and an in-place `!` form. The parts are:
+one exists — and an in-place `!` form.
+
+Every operation here acts **pointwise over the base** — the set of locations the field attaches a value
+to, which for a field is the grid's cells — applying the same formula to the value at each one and
+touching no neighbours. That is what makes the whole surface representation-agnostic and what the
+formulas below mean by "pointwise over the base".
+
+The parts are:
 
   * **Vector-space and module operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
