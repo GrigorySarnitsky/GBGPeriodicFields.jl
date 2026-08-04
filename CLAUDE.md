@@ -782,6 +782,16 @@ away, never a fact the reader needs.
 
 ## Verification workflow
 
+**Consent gate (user-directed 2026-08-04) — unasked, run ONLY `Pkg.test()`.** Every other verification
+lane is expensive in wall-clock and in machine occupancy, and the decision to spend that is the user's:
+the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
+(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, and any
+multi-agent fan-out each require explicit consent **before** being started. The correct output when one
+of them would be informative is to *name it and its cost* — "the survey would confirm this, ~90 min,
+shall I run it?" — and wait. This is a consent boundary, not licence to leave work unfinished: finish
+the code, run `Pkg.test()`, and report what remains unverified and why. It also protects measurement,
+since a long unasked run occupies the box that `docs/PERFORMANCE.md` §1 requires to be idle.
+
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
 the per-operation coverage contract. Its §4 now carries the explicit **coverage-axes list**
 (the denominator over which "exhaustive" is defined: representation, R, eltype-on-CPU, layout

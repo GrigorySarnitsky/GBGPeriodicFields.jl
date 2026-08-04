@@ -425,8 +425,10 @@ function run_value_lane(configs)
       # A NON-CONSTANT kernel. The fixture was uniformly 2 everywhere and the expectation uniformly 0.5,
       # so an implementation computing `1/data[1]` and broadcasting it over the whole array passed with
       # full marks — the reciprocal's whole point is that it is elementwise.
+      # `materialize_kernel` returns a `StoredKernel` since decision 60, so the field arithmetic is done
+      # on the field it wraps and the sum is re-declared as a kernel.
       (:inv,            kernel_data(inv(StoredKernel(spectral_zero_ones +
-                                                     materialize_kernel(spectral_cutoff(spectral_zero, multipliers, cutoff))))),
+                                                     materialize_kernel(spectral_cutoff(spectral_zero, multipliers, cutoff)).field))),
                         complex.(one(T) ./ (one(T) .+ ref_spectral_cutoff(grid, layout, shape, cutoff)))),
       # The COMPOSED kernel, elementwise. Kernel-to-kernel composition was checked only by
       # "composition is associative" — and associativity holds for any associative combinator, so
