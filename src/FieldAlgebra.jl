@@ -1079,6 +1079,10 @@ end
          B::TensorFieldPhysical{2}[, α, β])
     mul!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2},
          B::FiberTensor2[, α, β])
+    mul!(destination::VectorFieldPhysical, u::VectorFieldPhysical,
+         A::TensorFieldPhysical{2}[, α, β])
+    mul!(destination::VectorFieldPhysical, a::FiberVector,
+         A::TensorFieldPhysical{2}[, α, β])
 
 Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\texttt{destination} = \\alpha (A B) + \\beta \\texttt{destination}``.
 
@@ -1086,10 +1090,12 @@ Use this in-place form when `destination` is already allocated; the allocating `
 returns a fresh result instead.
 
 The arguments are:
-- `destination` — the field written with the product, which must not alias `A` or the right operand.
-- `A` — the left operand, a second-order tensor field or a fiber-constant `FiberTensor2`.
-- `u`, `B` — the right operand: a vector field or `FiberVector`, or a second-order tensor field or
-  `FiberTensor2`.
+- `destination` — the field written with the product, which must not alias either operand.
+- the two operands — given in the order they multiply, so the signatures above cover both the **left**
+  action ``(A u)_i = A_{ij} u_j`` and the **right** action ``(u A)_i = u_j A_{ji}``. Each may be a field
+  or a fiber constant: a second-order tensor field or a `FiberTensor2`, a vector field or a
+  `FiberVector`. At least one must be a field, since a product of two constants is not a field
+  operation.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type. The three-argument forms
   overwrite (``\\alpha = 1``, ``\\beta = 0``); the five-argument forms compute
   ``\\alpha (A B) + \\beta \\texttt{destination}``, so ``\\beta = 0`` overwrites and any other value

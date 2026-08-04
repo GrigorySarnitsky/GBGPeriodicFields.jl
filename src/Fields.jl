@@ -116,6 +116,8 @@ The fields are
 - `grid_size::NTuple{3, Int}`: the number of grid points in each spatial direction.
 - `domain_size::NTuple{3, T}`: the length of the domain in each spatial direction.
 - `grid_spacing::NTuple{3, T}`: the spacing between adjacent grid points in each spatial direction.
+  Stored rather than recomputed, but **not independent** — it must equal `domain_size ./ grid_size`,
+  which the four-argument constructor enforces.
 - `origin::NTuple{3, T}`: the physical coordinates of the first grid point.
 
 The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along
@@ -216,6 +218,14 @@ Abstract supertype for fields represented by values in physical space.
 Here `T<:AbstractFloat` is the real scalar type associated with the field and `R` is the tensor order stored as an integer value parameter.
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
+
+!!! note "A section owns its storage"
+    A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
+    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
+    makes aliasing safe by construction: two sections can then share memory only by being backed by the
+    same array, which every fused pass handles correctly. Allocate with [`similar_field`](@ref), or
+    `copy` the slice. Storage stays otherwise free: `Array`, `CuArray`, `ROCArray` and a `reshape` of
+    any of them all own their memory and are accepted.
 """
 abstract type AbstractFieldPhysical{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
@@ -228,6 +238,14 @@ Abstract supertype for fields represented by Fourier coefficients in spectral sp
 Here `T<:AbstractFloat` is the real scalar type associated with the field and `R` is the tensor order stored as an integer value parameter.
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
+
+!!! note "A section owns its storage"
+    A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
+    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
+    makes aliasing safe by construction: two sections can then share memory only by being backed by the
+    same array, which every fused pass handles correctly. Allocate with [`similar_field`](@ref), or
+    `copy` the slice. Storage stays otherwise free: `Array`, `CuArray`, `ROCArray` and a `reshape` of
+    any of them all own their memory and are accepted.
 """
 abstract type AbstractFieldSpectral{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 

@@ -302,8 +302,8 @@ Operation names follow *what the operation is* — the same mathematics-first pr
   `convolve`.
 - **In-place** forms append `!` uniformly (`gradient!`, `interpolate!`, `convolve!`).
 - **Extensions of Base / LinearAlgebra / Statistics** keep the source name, overriding the above
-  (`dot`, `cross`, `mul!`, `transpose`, `norm`, `mean`, `std`, `var`, `maximum`, `minimum`,
-  `extrema`); the continuum-mechanics decomposition abbreviations `sym` / `skew` / `dev` are likewise
+  (`dot`, `cross`, `mul!`, `transpose`, `norm`, `map`, `map!`, `mean`, `std`, `var`, `cov`,
+  `maximum`, `minimum`, `extrema`); the continuum-mechanics decomposition abbreviations `sym` / `skew` / `dev` are likewise
   conventional.
 - **Modules** carry the family **noun** (`Fields`, `DifferentialOperators`, `Reductions`,
   `Interpolation`, `Convolution`); the operations inside follow the rules above — so
@@ -1223,7 +1223,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     measures. As shipped (decision 17) the adjointness ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n`` (the unnormalized counting pairing) and conservation
     ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
     conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with **both bases carrying their
-    normalized (total-mass-one) measures**, ``\tfrac1N\sum_n`` on the grid and ``\tfrac1M\sum_p`` on the
+    normalized (total-mass-one) measures**, ``\tfrac{1}{N}\sum_n`` on the grid and ``\tfrac{1}{M}\sum_p`` on the
     points, which is what `inner` computes — is the **bridge from row 1 to the transfer kernel**, and is
     now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new
     operation). The ``N/M`` is exactly the ratio of those two normalizations; pairing an unnormalized

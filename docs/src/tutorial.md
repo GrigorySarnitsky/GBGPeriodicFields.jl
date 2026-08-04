@@ -86,6 +86,21 @@ julia> round(inner(u, u); digits = 4)     # ⟨|u|²⟩ = 1/2 + 1/2 + 1/2
 1.5
 ```
 
+Second-order tensor fields complete the surface. The gradient of a vector field is one, and the
+tensor-only operations act on it fiberwise — the trace of ``\nabla u`` is the divergence, which is a
+useful check that the two routes agree:
+
+```jldoctest tutorial
+julia> A = gradient(uh, multipliers);      # ∇u, a tensor field in spectral representation
+
+julia> field_tensor_order(A)
+2
+
+julia> round(inner(tr(A), divergence(uh, multipliers)); digits = 8) ==
+       round(inner(divergence(uh, multipliers), divergence(uh, multipliers)); digits = 8)
+true
+```
+
 The same energy, resolved over wavenumber shells, is the radial power spectrum — and by Parseval's theorem its
 total equals `inner`:
 

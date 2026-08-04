@@ -87,7 +87,8 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
    `Pkg.develop` is a defensive no-op that also fixes a fresh checkout):
    ```bash
    julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()))' >/dev/null 2>&1
-   julia --project=docs docs/make.jl          # both lints + checkdocs + doctests must pass
+   julia --project=docs docs/make.jl; echo $?  # all four lints + checkdocs + doctests; REQUIRE exit 0
+   # (never grep the output for errors — a lint failure prints `ERROR:`, not `┌ Error`)
    git checkout -- docs/Project.toml           # revert the transient dev entry (Project.toml ALONE)
    ```
 2. **Consolidate** the built HTML into the two reader-text manuscripts (needs `beautifulsoup4`):

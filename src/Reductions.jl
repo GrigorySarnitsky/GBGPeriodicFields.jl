@@ -904,8 +904,8 @@ end
 
 
 """
-    weighted_inner(f, w)
-    weighted_inner(f, g, w)
+    weighted_inner(f, w::Union{StoredKernel, RadialKernel})
+    weighted_inner(f, g, w::Union{StoredKernel, RadialKernel})
 
 The **multiplier-weighted L² inner product** ``\\langle f, w g\\rangle`` of two fields in spectral
 representation against a real bounded Fourier multiplier `w`
@@ -1061,7 +1061,9 @@ The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `multipliers` — the per-axis wavenumbers ``k`` for the field's grid ([`FieldSpectralMultipliers`](@ref)).
 
-It returns `(shells, spectrum)`, where `shells` are the bin-center
+It returns `(shells, spectrum)`, a pair of `Vector{T}` in the section's own scalar type and on the
+**host** whatever backend the field lives on (the shell accumulators are small and are brought back).
+Here `shells` are the bin-center
 wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber (co-)energy over the
 modes whose rounded magnitude falls in shell ``i``:
 
@@ -1211,7 +1213,8 @@ The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `plans` — their transform plans, matching the tensor order.
 
-It returns `(separations, correlation)`, where
+It returns `(separations, correlation)`, a pair of host `Vector{T}` in the section's scalar type, as
+`radial_spectrum` does, where
 `separations` are the
 bin-center magnitudes ``r`` and `correlation[i]` is the value averaged over the minimum-image shell (each separation taken as its nearest periodic
 replica, so no distance exceeds half the box)

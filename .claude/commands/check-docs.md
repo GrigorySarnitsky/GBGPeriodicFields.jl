@@ -274,8 +274,12 @@ julia --project=test -e 'using GBGPeriodicFields; include("test/public_surface.j
   `A_{ij}`; a thin-wrapper math variable in a ``…`` span), then fix EVERY genuine finding in one pass — and
   **fix the class, not the line** (an `ik` letter-product or a stray unbraced fraction is a sample of a
   sweepable class).
-- Rebuild: `julia --project=docs docs/make.jl` (both lints + `checkdocs = :exports` + doctests + render) —
-  must be clean. The gratuitous-``\,``, upright-differential, and braced-fraction conventions are the
+- Rebuild: `julia --project=docs docs/make.jl` (all four lints + `checkdocs = :exports` + doctests +
+  render) — **verify by EXIT CODE, never by grepping the output**. A lint failure prints `ERROR: LoadError:
+  doc lint failed …`, which does not match a `^┌ Error` pattern; on 2026-08-04 that mismatch let three
+  consecutive "0 = docs clean" reports stand against a build that had been failing since a notation
+  sweep, and the built pages silently stopped regenerating. Use
+  `julia --project=docs docs/make.jl > /tmp/build.log 2>&1; echo $?` and require `0`. The gratuitous-``\,``, upright-differential, and braced-fraction conventions are the
   `notation.md` house set (the fraction one is build-enforced by `lint_notation_variants`).
 - Commit + push on `master` (no `[skip ci]`; the docs site must redeploy).
 

@@ -125,6 +125,13 @@ Point values are representation-free: a sampled value is always a physical-space
 there is no physical/spectral distinction here, unlike the field types. The concrete subtypes
 are [`ScalarPointValues`](@ref) at tensor order `0`, [`VectorPointValues`](@ref) at order `1`,
 and [`TensorPointValues`](@ref) at order `2` and above.
+
+!!! note "A section owns its storage"
+    Every constructor here — and [`PointSet`](@ref)'s — **rejects borrowed storage**, a `SubArray`
+    anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Ownership is what
+    makes aliasing safe by construction: two sections can then share memory only by being the same
+    array. Allocate with [`similar_pointvalues`](@ref), or `copy` the slice. Any owning array is fine —
+    `Array`, `CuArray`, `ROCArray`, or a `reshape` of one.
 """
 abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
