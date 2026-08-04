@@ -279,6 +279,11 @@ using Statistics: mean, std, var, cov      # extended on sections in the Reducti
           # way. A quarter-Δk bound sits between, with margin on both sides.
           @test isapprox(binned_moment, exact_moment;
                          atol = (fundamental / 4) * inner(field, field) + atol)
+          # …and the EXACT moment has its own route, with no binning in it at all. This is what a
+          # consumer wanting a spectral moment should use; the spectrum's abscissa deliberately stays
+          # the grid's nominal one so it is field-independent and works for a co-spectrum.
+          @test isapprox(weighted_inner(field, radial_kernel(k2 -> sqrt(k2), field, m)),
+                         exact_moment; rtol = rtol, atol = atol)
         end
 
         # analytical oracle: cos(x) puts ALL its energy ⟨cos²⟩ = 1/2 in the |k| = 1 shell

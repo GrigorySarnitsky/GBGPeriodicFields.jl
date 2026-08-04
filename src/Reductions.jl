@@ -1054,6 +1054,24 @@ It returns `(shells, spectrum)`, where `shells` are the bin-center
 wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber (co-)energy over the
 modes whose rounded magnitude falls in shell ``i``:
 
+The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
+``\\lvert k\\rvert \\in [(m - 1/2)\\Delta\\kappa, (m + 1/2)\\Delta\\kappa)`` — which is what makes
+``\\kappa_m`` an energy-density sample AT ``\\kappa_m`` rather than at the band's edge. The abscissa is a
+property of the grid alone, identical for every field on it, so two spectra are directly comparable and a
+co-spectrum (which may be negative) is handled by the same rule.
+
+!!! note "For an exact spectral moment, do not weight the abscissa"
+    Reporting each shell's energy-weighted mean wavenumber would make the first moment
+    ``\\sum_m \\kappa_m E(\\kappa_m)`` exact, but it is the wrong tool: the abscissa would then depend on
+    the field, so two spectra on one grid would arrive on different ``\\kappa`` grids, and a co-spectrum
+    would divide by a weight that can vanish or change sign. Take the moment directly instead —
+    [`weighted_inner`](@ref) against a radial symbol is exact and involves no binning at all:
+
+    ```julia
+    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), f, multipliers))   # ⟨f, |k| f⟩, exactly
+    weighted_inner(f, radial_kernel(identity, f, multipliers))         # ⟨f, −Δf⟩, the Dirichlet energy
+    ```
+
 ```math
 \\begin{gathered}
 P(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
