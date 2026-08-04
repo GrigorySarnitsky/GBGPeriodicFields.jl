@@ -319,7 +319,12 @@ operation's coverage is judged against the full axis list:
     (the dissipation identity is the standing example);
 13. backend (GPU parity — remembering parity is shared-bug-blind, so an analytic oracle on some
     CPU lane must also cover the non-default shapes);
-14. thread count (bitwise for the gated routes, tolerance for the two `Atomix` accumulators).
+14. thread count (bitwise for the gated routes, tolerance for the two `Atomix` accumulators);
+15. kernel storage class, for every entry point that takes one — `StoredKernel`, `SeparableKernel`,
+    `RadialKernel` and the cross-family `ProductKernel` must agree **bitwise** with the materialized
+    twin, since decision 60 made these four an abstract hierarchy rather than one stored form. The
+    lane exists (§2); this row records it as an axis, because the class is chosen by the *builder*
+    a consumer calls and so varies independently of every axis above it.
 
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA
@@ -485,7 +490,7 @@ same kernel stored and applied with `convolve!`, the independent single-mode eig
 ``e^{c}\cos x``, the α/β accumulate, the scale-times-field offset, both two-operand forms equal to
 the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
-``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff = band(0,k)`, idempotent, a ``|k|^2``
+``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `k_lo = 0` case, idempotent, a ``|k|^2``
 membership oracle) and `radial_kernel` (the ``|k|^2`` radial coordinate vs the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on

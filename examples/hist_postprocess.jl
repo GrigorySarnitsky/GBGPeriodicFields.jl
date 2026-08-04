@@ -146,7 +146,9 @@ end
 # Eulerian structure function normalized by its K41 scaling, vs Δx/η.
 function eulerian_panel(b)
   η, ε, C₂ = b["eta"], b["epsilon"], b["C2"]
-  r, S2 = b["r"][2:end], b["S2_E"][2:end]          # skip r = 0 (the log axis and the r^{2/3} normalization both exclude it)
+  r, S2 = b["r"], b["S2_E"]                        # r = 0 is already excluded by the driver when it
+                                                   # stores the bundle; slicing again here would drop
+                                                   # the smallest NONZERO separation as well
   norm = (11 / 9) * C₂ * ε^(2 / 3) .* r .^ (2 / 3)
   x, y = r ./ η, S2 ./ norm
   ymax = maximum(y)

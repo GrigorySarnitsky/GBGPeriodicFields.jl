@@ -169,7 +169,7 @@ documentation policy follow.
 
 ### The invariants
 
-Thirteen rules constrain every change, and the rest of this document refers to them by number. They
+Fourteen rules constrain every change, and the rest of this document refers to them by number. They
 are collected here so a reader meeting "invariant 6" has somewhere to look; each is stated in one line,
 with a pointer to the section that develops it.
 
@@ -564,7 +564,7 @@ should build plans under `set_fft_threads!(1)`. The common case (one field, tran
 serial in a time loop) wants `nthreads()` FFTW threads, the default.
 
 **Elementwise/fiberwise ops.** One internal primitive `_assign!(destination, bc)` in
-`Fields`. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
+`FiberSections`. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
 array wrappers keep the standard fused broadcast, so **invariant 6 holds by dispatch**, not
 discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
 instantiated `Broadcasted` over contiguous chunks (fusion preserved — one `Broadcasted`
@@ -835,7 +835,7 @@ kernels (the scatter accumulates atomically); the smooth per-axis weights are ge
 (Fornberg 1988) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
 `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
 (`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
-`min(2m+1, 2n)` for `n ≥ 1`; the Lagrange scheme to degree `2n+1`. The bound needs that scope because
+``\min(2m+1, 2n)`` for ``n \ge 1``; the Lagrange scheme to degree ``2n+1``. The bound needs that scope because
 the two-point `n = 0` stencil is linear and reproduces degree 1, where the formula would read 0.
 
 **Data types — the unstructured base, in the package's own language.** Interpolation needs
@@ -1013,7 +1013,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operators yet). `Aqua.test_all` was added, which required `[compat]` bounds for every
     dependency. Two deliberate deferrals: a global L²/integration reduction is reserved
     for *separate code* (so adjointness tests use an inline L² inner product), and
-    doctests wait until the package stabilizes and tutorials are written. Coverage detail
+    doctests wait until the package stabilizes and tutorials are written. **The doctest deferral
+    is closed:** `docs/make.jl` sets `doctest = true` and `docs/src/tutorial.md` carries `jldoctest`
+    blocks, so the tutorial's examples are executed by the docs build. Coverage detail
     lives in `docs/TESTING.md`.
 12. CPU threading implemented ([§9](@ref "9. Performance model and CPU threading")), realizing the design formerly deferred in items 6/9. A
     `Fields._assign!` primitive threads elementwise/fiberwise assignments on CPU
@@ -1224,7 +1226,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       positive-definite symbol (**Bochner**) ⟹ probability measure ⟹ realizable SGS stress
       (**Vreman, Geurts & Kuerten 1994**, realizability *iff* positive filter) ⟹ bona-fide filtered PDF
       (**Colucci et al. 1998**, the FDF); all of that is **consumer** semantics. No
-      `PositiveFilter` type, no realizability checks. (Interpolation already ships signed kernels by
+      `PositiveFilter` type, no realizability checks. (`Interpolation` already ships signed kernels by
       default — consistent.)
     - **Homogeneous-only scope.** Variable-width filters are *not* multipliers (commutation error;
       **Ghosal & Moin 1995**, **Vasilyev, Lund & Moin 1998**) — and the uniform torus admits only
@@ -2019,7 +2021,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 34. **The radial diagnostics fuse their staging into the binning kernels.** The audits' item 5: each
     `radial_spectrum` call staged three full spectral planes — a fiber-contracted magnitude array, an
     integer shell-index array, and a Parseval-weighted array — before the decision-25 scatter-add pass
-    consumed them (measured 1.6 of IT's units at ``256^3``, reproduced here; the cross-power form
+    consumed them (measured 1.6 of the consuming solver `GBGIsotropicTurbulence`'s units at ``256^3``, reproduced here; the cross-power form
     staged a fourth, fiber-shaped, plane), and `radial_correlation` staged a separation-magnitude and
     a shell-index array of its own. All of it is now derived **per element inside the kernels**: the
     spectral kernel computes a mode's ``|k|`` from the three one-dimensional squared-wavenumber arrays
@@ -2125,7 +2127,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     bandwidth-bound streaming ([`PERFORMANCE.md`](performance.md) §2), their element traffic *is*
     their cost — so `test/pass_audit.jl` now measures it and pins it exactly.
 
-    *Method — measured, not transcribed.* IT's compute audit (its decision 34) freezes an
+    *Method — measured, not transcribed.* the consuming solver `GBGIsotropicTurbulence`'s compute audit (its decision 34) freezes an
     analytically transcribed per-step pass ledger with a fused-ideal bound (live-ins read once,
     live-outs written once, intermediates free) and a named-holder gap register; that is the honest
     form for a *schedule* its author owns. The package has no schedule (invariant 12), so its unit is
@@ -2148,7 +2150,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *gather* is audited at its exact per-point stencil arithmetic, ``M (2n+2)^3`` field reads per
     component, and extending the atomics onto the wrapper is the recorded route to the scatter); and
     O(N) configuration arrays and point positions (only field- and point-value-shaped storage is
-    wrapped, IT's own scope line).
+    wrapped, its own scope line).
 
     *What the first measurement found.* The decision-32/33/34 kernels sit **at their ideals** — the
     one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its `β = 0`
@@ -2612,7 +2614,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\sigma(|k|^2)`` is a separate closure-shaped escalation and is not this decision.
 
 51. **The radial kernel: a symbol of ``|k|^2``, evaluated per mode** (2026-07-29). The escalation
-    decision 35 recorded and IT's `lazy-per-mode-symbols.md` requested. `spectral_cutoff` and
+    decision 35 recorded and the consuming solver `GBGIsotropicTurbulence`'s `lazy-per-mode-symbols.md` requested. `spectral_cutoff` and
     `spectral_band` no longer build a field; they return a `RadialKernel` holding the symbol
     ``\sigma`` itself, and `radial_kernel(σ, reference, multipliers)` builds one for any other symbol
     — a smooth filter envelope, a hyperviscous ``\exp(-\nu(|k|^2)^p\tau)``, an integrating factor.
@@ -2888,7 +2890,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The marker is also the shape the kernel protocol wants long-term. With a stored class that is a
     real type, the `SpectralKernel` union could collapse to the abstract supertype and every
     kernel-taking entry point would take one type. That is a breaking change and is not made here; it
-    is now a one-step move rather than a redesign.
+    is now a one-step move rather than a redesign. (**Superseded by decision 60**, which made exactly
+    that move: `SpectralKernel` is now an abstract supertype and every entry point names the one type,
+    so the union this entry reasons about no longer exists.)
 
     The subtype sweep of decision 56 earned itself immediately: adding the class failed that testset
     until it was given a specimen, which is precisely the moment to notice a new class needs the
@@ -2924,7 +2928,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `helmholtz_projection!`, `combine!`, `weighted_inner` — invisible because a slot declared as the
     `SpectralKernel` UNION is a subtype of neither of its halves, so a plain `<:` test walks past it.
     Two more were the allocating kernel forms, invisible one level further up: `SpectralKernel{T}` is a
-    `UnionAll` wrapping that union, so it is not even `isa Union`. Both misses were in the *detector*,
+    `UnionAll` wrapping that union, so it is not even `isa Union`. (**Superseded by decision 60**: the
+    union became an abstract supertype, so a plain `<:` test now finds those slots — the derived
+    denominator this entry builds is unchanged, but the invisibility it works around is gone.) Both misses were in the *detector*,
     found only because the completeness assertion compares what it derived against what was written by
     hand and complains in both directions. A one-directional check would have reported success.
 
@@ -2974,3 +2980,35 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     changes an answer, and that the refusal has not reopened — and the second is mutation-verified:
     removing one constructor's check makes the lane name every reopened case and turn its exit from
     0 to 2.
+
+60. **A field in spectral representation is not a kernel** (2026-08-03, user-decided). `SpectralKernel`
+    was a **union** of `ScalarFieldSpectral` — a scalar field carrying one coefficient per mode — and an
+    abstract `AbstractSpectralKernel` covering the compressed classes. Three things were wrong with
+    that. The abstract type *read* broader than the union while being strictly narrower, so its name
+    misled at every signature. A `StoredKernel` marker had to exist purely so `inv` could tell a kernel
+    from a field, since the two hold identical data. And `convolve` became asymmetric in a way
+    commutativity forbids: `convolve(field, kernel)` **applied** the kernel while
+    `convolve(kernel, field)` **composed**, because argument position was the only thing left carrying
+    the role.
+
+    The union is gone. `SpectralKernel{T}` is now the **abstract supertype** of four concrete classes —
+    `StoredKernel` (one coefficient per mode), `SeparableKernel` (per-axis factors), `RadialKernel` (the
+    real function ``\sigma`` of ``\lvert k\rvert^2``, held as a closure), and `ProductKernel` (two
+    factors held unmultiplied). Every signature naming `kernel::SpectralKernel{T}` is unchanged,
+    `materialize_kernel` returns a `StoredKernel`, and **both argument orders of `convolve` apply and
+    agree bitwise at every tensor order**. Composing two convolution operators *is* convolving their
+    kernels, so composition keeps the same verb and is now unambiguous by type rather than by position.
+
+    A field of coefficients is wrapped once, where the kernel is built. Measured at ``64^3``, the
+    wrapper costs 144 bytes at construction and **zero per call**, with `_kernel_data` inlining to a
+    `getfield` — so the cost objection to requiring the wrapper does not exist. Two package methods
+    went (`Fields` 105 → 103, refrozen with the reason), and the materializing
+    `squared_wavenumber_field` was **removed**: ``\lvert k\rvert^2`` is a radial function, so
+    `radial_kernel(identity, reference, multipliers)` is the same object at a closure's cost rather
+    than ``O(N^3)`` coefficients.
+
+    **The rename's one hazard was caught by the pass audit and by no other layer.** A guard reading
+    `kernel isa AbstractSpectralKernel` MEANT "compressed"; renaming made it true for the stored class
+    too, routing it off the fused pass — vector traffic 3M reads against a frozen ideal of M. Every
+    correctness oracle passed throughout, because the answer stayed right and only the traffic changed.
+    That is exactly the hole decision 36 built the element-traffic ledger to cover.

@@ -17,6 +17,13 @@ The tensors are **Cartesian** — components on one fixed orthonormal frame, wit
 curvilinear coordinates and no metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
+Three words recur in every operation's documentation. A **base** is the set of locations a value is
+attached to: a `Grid3D` of cells, or a `PointSet` of off-grid positions. A **fiber** is the value at
+one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** is the pair of the
+two: one fiber at every point of a base, which is what a field and a set of point-values each are, and
+why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
+resolution actually represents, up to the Nyquist frequency on each axis.
+
 !!! note "The supported tensor order is R < 3"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
     surface, and every operation below is defined over them. The field and point-value types are
@@ -28,7 +35,7 @@ rather than a general differential-geometry package.
     General `R` was deferred rather than declined, to ship a usable field layer for the second-order
     surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
     raises — none returns a wrong answer — and a test lane pins that, so the boundary is visible
-    rather than a surprise. See `docs/ARCHITECTURE.md` decision 56.
+    rather than a surprise.
 
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle

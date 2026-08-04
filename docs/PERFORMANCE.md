@@ -636,7 +636,8 @@ visible as such instead of silently inheriting the report's HEAD (the 2026-07-22
 reductions skew, one host's archive swept hours before a threading feature landed, is the motivating
 incident).
 
-A representative slice — `128³`, `Float64`, minimum time (CPU = i7-12700K, GPU = RX 6700 XT). The
+A representative slice — `128³`, `Float64`, minimum time (CPU = Ryzen 9800X3D, GPU = RTX 5070 Ti),
+read from the current `RESULTS.md` rather than measured for this table. The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
 4-thread CPU. `RESULTS.md` now carries **two CPU thread sweeps** (i7-12700K and Ryzen 9800X3D) and
 **four GPU columns** — the GTX 1070 (Pascal, CUDA, pre-swap), the RX 6700 XT shown here, the RX 7900 XTX
@@ -655,16 +656,17 @@ figures, the staging planes fused away, so the atomics are the whole measurement
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
-| `to_spectral` scalar (FFT)            | 7.11 ms | 3.88 ms | 0.40 ms | 1.8× |  9.6× |
-| `mul!` tensor·vec (M3 algebra)        | 13.5 ms | 11.0 ms | 0.97 ms | 1.2× | 11.4× |
-| `laplacian!` scalar (operator)        | 3.09 ms | 2.81 ms | 0.21 ms | 1.1× | 13.4× |
-| `interpolate!` Catmull–Rom (gather)   | 13.8 ms | 3.52 ms | 0.28 ms | 3.9× | 12.7× |
-| `interpolate!` Lalescu (3,3) (gather) | 85.4 ms | 21.7 ms | 1.57 ms | 3.9× | 13.8× |
-| `anterpolate!` Catmull–Rom (scatter)  | 29.6 ms | 7.64 ms | 0.67 ms | 3.9× | 11.5× |
+| `to_spectral` scalar (FFT)            | 10.34 ms | 2.83 ms | 0.43 ms | 3.6× |  6.6× |
+| `mul!` tensor·vec (M3 algebra)        |  7.05 ms | 4.33 ms | 0.38 ms | 1.6× | 11.4× |
+| `laplacian!` scalar (operator)        |  2.21 ms | 0.27 ms | 0.08 ms | 8.3× |  3.5× |
+| `interpolate!` Catmull–Rom (gather)   |  5.61 ms | 1.45 ms | 0.19 ms | 3.9× |  7.7× |
+| `interpolate!` Lalescu (3,3) (gather) | 41.48 ms | 10.49 ms | 0.84 ms | 4.0× | 12.6× |
+| `anterpolate!` Catmull–Rom (scatter)  | 22.10 ms | 6.13 ms | 0.23 ms | 3.6× | 27.1× |
 
 Two patterns the speedup columns make plain. **The bandwidth-bound classes barely thread** at this
-size — algebra and operators gain only ≤1.2× from 4 threads (the cheapest, `add!`, even regresses: it
-is already DRAM-bandwidth-saturated on one core), confirming §2. **The transfer threads well** (≈3.9×
+size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidth-bound rather than
+compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
+threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
 the 4-thread CPU by ~10–14×** (and the serial CPU by up to ~50× — e.g. Catmull–Rom gather, 13.8 →
 0.28 ms), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy

@@ -5,7 +5,7 @@ Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
 `PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
-design that does not depend on which base is used, and it groups five families of
+design that does not depend on which base is used, and it groups six families of
 machinery:
 
 - the **fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
@@ -20,7 +20,10 @@ machinery:
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
   slab-threaded CPU loop that run every stamped per-element values function, the execution route
-  for multi-output fiberwise operations.
+  for multi-output fiberwise operations;
+- the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
+  components into a fiber, applies the caller's function, and flattens the result back, so an
+  arbitrary fiber map rides the same executor as the generated algebra.
 
 The base-specific halves live elsewhere. [`Fields`](@ref "Fields") (grid) and
 [`Points`](@ref "Points") (point set) hold the
@@ -111,7 +114,7 @@ since `reshape(view(flat, 2:end), …)` is densely strided and still overlaps at
 the property that does exclude it.
 
 The check is on ownership, not on layout: `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them
-all own their memory and are accepted, so backend genericity (invariant 6) is untouched. Allocate with
+all own their memory and are accepted, so the package's backend genericity is untouched. Allocate with
 `similar_field` or `similar_pointvalues` rather than slicing a larger buffer.
 """
 function _check_owned_storage(data, what::AbstractString)
@@ -679,7 +682,11 @@ the third principal invariant ``I_3`` of the ``3\\times3`` tensor `symbol` (`kin
 `:fiber`), expanded by cofactors along the first row:
 
 ```math
-\\det(A) = A_{11}(A_{22}A_{33} - A_{23}A_{32}) - A_{12}(A_{21}A_{33} - A_{23}A_{31}) + A_{13}(A_{21}A_{32} - A_{22}A_{31}).
+\\begin{aligned}
+\\det(A) = {} & A_{11}(A_{22}A_{33} - A_{23}A_{32}) \\\\
+             & - A_{12}(A_{21}A_{33} - A_{23}A_{31}) \\\\
+             & + A_{13}(A_{21}A_{32} - A_{22}A_{31}).
+\\end{aligned}
 ```
 
 It feeds `_scalar_kernel_body`. Unlike the linear `_trace_tensor_rhs`, the determinant is cubic in the
@@ -1078,6 +1085,11 @@ The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`: it takes t
 component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), applies `φ`, and flattens
 the result. A struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
 signature), exactly the reasoning behind `_FiberGather` for the mapped reductions.
+
+The fields are
+- `φ`: the caller's fiber map, applied to the assembled fiber at each base point.
+- `orders`: the tensor orders of the inputs, carried as a type parameter so the fiber assembly is
+  resolved at compile time.
 """
 # The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct
 # kernel-argument structs positionally, so a mismatch would swap the fields on the device.

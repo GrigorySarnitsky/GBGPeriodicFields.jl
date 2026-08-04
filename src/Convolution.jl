@@ -249,9 +249,9 @@ field: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel arg
 
 Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
 real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
-are always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist
-(invariant 5), which is the value a magnitude-dependent symbol wants there, so no case analysis is
-needed anywhere in the family.
+are always some real field's. It also carries the true squared wavenumber at an even axis's Nyquist —
+the value a magnitude-dependent multiplier wants there, unlike the derivative wavenumbers, which are
+zeroed at that mode — so no case analysis is needed anywhere in the family.
 
 The fields are:
 - **`sigma`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
@@ -292,7 +292,7 @@ The arguments are:
 - **`reference`** — a field in spectral representation fixing the base, layout and element type.
 - **`multipliers`** — the wavenumber arrays supplying ``|k|^2``.
 
-The physics stays with the consumer (invariant 12): an integrating factor is
+The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
 rebuild — where a stored kernel would pay a full field write each time.
@@ -1191,7 +1191,7 @@ The arguments are:
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
 - `α`, `β` — in the single-operand forms, where they trail the argument list, the usual accumulation
-  weights: the result is written as ``\\alpha (\\text{filtered } f) + \\beta\\,\\texttt{destination}``.
+  weights: the result is written as ``\\alpha (\\text{filtered } f) + \\beta \\texttt{destination}``.
 - `α`, `a`, `β`, `b` — in the two-operand forms, where they lead it, the real weights and fields of
   the combination ``\\alpha a + \\beta b`` the kernel is applied to, exactly as [`combine!`](@ref)
   takes them; with `b === destination` the filtered accumulate runs in place. The two roles never

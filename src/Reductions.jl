@@ -12,8 +12,7 @@ dispatched on `AbstractFiberSection`.
 The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
 quantities. Several also act on fields in **spectral representation**, returning the identical physical
 value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integral`/`mean` from the
-zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval (``\\operatorname{var} = \\langle f,
-f\\rangle - \\langle f\\rangle^2``). The remaining reductions (`lpnorm`, `maximum`/`minimum`/`extrema`)
+zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
 The parts are, each linking to the home where its formula lives:
@@ -507,12 +506,12 @@ integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
 
 """
     mean(f)
-    mean(φ, f)
+    mean(fiber_map, f)
 
 The arithmetic average of a section over its base, fiber-preserving: on a grid the equal-weight
 cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set the sample mean
 ``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
-second-order tensor field's one `FiberTensor2`. The mapped form `mean(φ, f)` averages
+second-order tensor field's one `FiberTensor2`. The mapped form `mean(fiber_map, f)` averages
 ``\\varphi(f_n)`` for a fiber map `φ` (for example `mean(det, A)`) in one fused pass with no
 intermediate section; the map is nonlinear in general, so the mapped forms exist on fields in physical representation
 and point-values only. On a field in spectral representation the mean is read from the zero (DC)
@@ -535,10 +534,15 @@ tensor section raises a clear error pointing to `cov`.
 
 In physical representation it runs as two fused passes — the mean, then the squared deviations — with no
 intermediate deviation section (the numerically stable form). In **spectral** representation it is read
-from Parseval as ``\\langle f, f\\rangle - \\langle f\\rangle^2 = \\sum_{k\\ne 0} |\\hat f_k|^2`` — the
-fluctuation energy, equal to the physical value with no inverse transform; that one-pass form loses
+from Parseval: the *population* moment is
+``\\langle f, f\\rangle - \\langle f\\rangle^2 = N^{-2}\\sum_{k\\ne 0} \\alpha(k) |\\hat f_k|^2`` — the
+fluctuation energy, with ``N`` the number of grid cells, ``\\alpha(k)`` the half-spectrum multiplicity
+of mode ``k``, and the ``N^{-2}`` the normalization the inner product itself carries — and the default
+`corrected = true` multiplies it by ``N/(N-1)``. Either way it equals the physical value with no
+inverse transform; that one-pass form loses
 precision to cancellation when the mean dominates the fluctuations, so prefer the physical form there.
 
+The argument is:
 - **`corrected`** — divide by the count minus one (the sample convention, the default, matching
   `Statistics.var`) or by the count itself. A grid holds the *complete* population of a field rather
   than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
@@ -553,19 +557,19 @@ var
     std(f; corrected = true)
 
 The sample **standard deviation** of a **scalar** section: the square root of [`var`](@ref), over the same
-grid and point-set bases and in spectral representation. Like `var` it is **scalar-only** — `std = √var`
-has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
+grid and point-set bases and in spectral representation. Like `var` it is **scalar-only** —
+``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second moment. See `var` for what `corrected` selects.
 """
 std
 
 """
     maximum(f)
-    maximum(φ, f)
+    maximum(fiber_map, f)
 
 The largest value of a scalar section over its base — a grid's cells or a point-set's points. The
 bare form exists only at tensor order zero: the maximum of a vector or tensor section is ill posed
-(which component?), and naming a fiber map in the mapped form `maximum(φ, f)` is what makes it well
+(which component?), and naming a fiber map in the mapped form `maximum(fiber_map, f)` is what makes it well
 posed — `maximum(norm, u)` takes the largest fiber magnitude in one fused pass with no intermediate
 section. Physical fields and point-values only. The materializing route to the same supremum is
 [`lpnorm(f, Inf)`](@ref lpnorm). An order statistic has no neutral element, so reducing an empty section
@@ -576,7 +580,7 @@ maximum
 
 """
     minimum(f)
-    minimum(φ, f)
+    minimum(fiber_map, f)
 
 The smallest value of a scalar section over its base — the mirror of [`maximum`](@ref); see there
 for the bases, the scalar-only restriction, and the mapped form.
@@ -623,14 +627,16 @@ std(section::AbstractFiberSection; corrected::Bool = true) = _var_scalar_only(se
 """
     cov(u; corrected = true)
 
-The **covariance tensor** ``R_{ij} = \\langle u'_i u'_j\\rangle`` of a vector section over its base — the
+The **covariance tensor** ``R_{ij} = \\langle u'_i u'_j\\rangle`` of a vector section over its base,
+where ``u' = u - \\bar u`` is the fluctuation about the base mean — the
 coordinate-free second central moment of a vector-valued field or point set, the vector analogue of the
 scalar [`var`](@ref). It returns one symmetric `FiberTensor2`: the diagonal holds the per-component
 variances (the *normal* stresses, in a turbulence reading), the off-diagonal the component covariances
 (the *shear* stresses) that a per-component variance would discard.
 
 Use this for the second moment of a vector field. `var`/`std` are deliberately scalar-only: a
-per-component `var` would be only the basis-dependent diagonal of this tensor, and `std = √var` has no
+per-component `var` would be only the basis-dependent diagonal of this tensor, and
+``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no
 canonical vector form, so the covariance tensor is the honest object. The mean ``\\bar u`` is subtracted
 first, so this is the covariance of the fluctuations, not the raw second moment ``\\langle u_i u_j\\rangle``.
 
@@ -928,7 +934,7 @@ Spectral representation only, being a Parseval reduction like the spectral [`inn
 the cost is a single weighted pass over the coefficients — comparable to one spectral `inner` — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
 than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which build an ``O(N)``
-shell-index array and a scatter-add binning pass (and, for the correlation, an inverse transform).
+scatter-add binning pass over every mode (and, for the correlation, an inverse transform).
 """
 function weighted_inner end
 

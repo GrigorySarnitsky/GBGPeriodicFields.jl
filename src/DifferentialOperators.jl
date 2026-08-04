@@ -226,9 +226,12 @@ end
     _apply_helmholtz_projection!(destination, field, multipliers,
                                  kernel_data, α, β)
 
-Launch `_helmholtz_projection_kernel!` over the spectral mode grid on the backend of
-`destination`'s storage, passing the six one-dimensional multiplier arrays and the already-converted
-`α`/`β`. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
+Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
+on the backend of `destination`'s storage: a `KernelAbstractions` launch of
+`_helmholtz_projection_kernel!` on a device, or the gated slab-threaded loop on a CPU. It passes the
+**three** derivative-wavenumber arrays and the already-converted `α`/`β` — the projector's denominator
+is formed inside the pass by squaring those same three values, so no second multiplier family is
+read. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
 plain projection. Shared by every `helmholtz_projection!` method.
 """
 # The gated CPU twin of the projection kernel (the decision-38 pattern): the same per-mode

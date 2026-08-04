@@ -97,7 +97,7 @@ At the default **32³** ($\mathrm{Re}_\lambda \approx 16$) there is essentially 
 form a hump rather than a plateau, and $\lambda \approx L$ (the scales have not separated) — expected, not a bug.
 **`--huge` (192³, $\mathrm{Re}_\lambda \approx 93$)** separates them cleanly ($\lambda/\eta \approx 19$, $L/\eta \approx 43$) and the Eulerian curve
 approaches the plateau. The `spectrum` concentrates energy at large scales and falls through the
-dissipation range; $E(t)$, $\varepsilon(t)$ are statistically steady past the spin-up.
+dissipation range; $k(t)$, $\varepsilon(t)$ are statistically steady past the spin-up.
 
 ### Options
 
@@ -144,7 +144,8 @@ index inside a package method *throws* — invariant 6 enforced, not trusted. De
 
 ```sh
 julia --project=examples/gpu/rocm -e 'using Pkg; Pkg.instantiate()'         # one-time (installs AMDGPU)
-julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109 (the documented figures)
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --giant    # 320³ Float32, Re_λ≈130 (the documented figures)
+julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --mega     # 256³ Float32, Re_λ≈109
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --huge     # 192³ Float32, Re_λ≈93
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --fast     # 64³
 julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check

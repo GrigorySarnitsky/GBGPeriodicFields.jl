@@ -16,11 +16,11 @@ exponential_convolve
 ```
 
 The kernel-composed method of `combine!` — the weighted combination convolved with a kernel in the
-same fused pass — is documented with its generic on the [FieldAlgebra](FieldAlgebra.md) page.
+same fused pass — is documented with its generic on the [`FieldAlgebra`](FieldAlgebra.md) page.
 
 ## Kernel storage classes
 
-A kernel is anything an operation can apply as the coefficientwise product ``\hat f\,\hat g``, and the
+A kernel is anything an operation can apply as the coefficientwise product ``\hat f \hat g``, and the
 package holds one in whichever of four forms is cheapest for its multiplier: a `ScalarFieldSpectral` of
 coefficients wrapped in a `StoredKernel` when the multiplier is arbitrary, the per-axis factors when it
 separates, the **function** computing it when it depends on the wavenumber only through
@@ -70,7 +70,9 @@ translation_kernel!
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors — the
-coefficientwise convolution, combination, and exponential-kernel bodies.
+coefficientwise convolution, combination and exponential-kernel bodies, the axis-factored pair that
+evaluates a separable kernel per mode, and this module's implementations of the two kernel-protocol
+generics.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Convolution]

@@ -38,7 +38,8 @@ radial_spectrum
 radial_correlation
 ```
 
-Each reduction also has a **mapped** form taking a leading function, applied to the fiber value at every base point — `mean(det, A)`, `maximum(norm, u)` — which reduces a nonlinear invariant in one pass without building it as a section. That form is documented on [`integral`](@ref), including when to prefer it on a CPU; `mean`, `maximum`, `minimum`, and `extrema` take the same leading function. `Statistics` gives `var` and `std` no such spelling, so neither does this package.
+Five of the reductions — `integral`, `mean`, `maximum`, `minimum` and `extrema` — also have a
+**mapped** form taking a leading function, applied to the fiber value at every base point — `mean(det, A)`, `maximum(norm, u)` — which reduces a nonlinear invariant in one pass without building it as a section. That form is documented on [`integral`](@ref), including when to prefer it on a CPU; `mean`, `maximum`, `minimum`, and `extrema` take the same leading function. `Statistics` gives `var` and `std` no such spelling, so neither does this package.
 
 ## Internal API
 

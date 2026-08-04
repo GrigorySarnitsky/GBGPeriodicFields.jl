@@ -241,8 +241,8 @@ end
 function step!(uh, ws, m, plans, dealias, band, p, dt)
   rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)                # k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
   field_data(ws.ustar) .= field_data(uh) .+ dt .* field_data(ws.k1)
-  # û* = ℰ·(ûₙ + Δt·k₁) with ℰ = exp(−ν|k|²Δt), evaluated per mode from the wavenumber arrays: no
-  # kernel field is built, stored, or read.
+  ## the display-math form of this stage is in the block above; this factor is evaluated per mode
+  ## from the wavenumber arrays, so no kernel field is built, stored, or read.
   exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)    # û*'s velocity & vorticity (scratch)
   rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                # k₂ = N̂(û*)

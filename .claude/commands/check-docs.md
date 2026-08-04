@@ -218,7 +218,11 @@ for file in filter(f->endswith(f,".jl"), readdir("src"; join=true))
   for m in eachmatch(r"\"\"\"\n(.*?)\n\"\"\""s, s)
     body = m.captures[1]; sig = strip(first(split(body, "\n")))
     (occursin("(", sig) && occursin(")", sig)) || continue
-    inside = sig[nextind(sig, findfirst("(", sig).start):findlast(")", sig).start-1]
+    o = findfirst("(", sig).start; c = findlast(")", sig).start
+    inside = sig[nextind(sig, o):prevind(sig, c)]   # prevind, NOT c-1: α/β/σ are multibyte, and a
+                                                    # StringIndexError aborts the sweep at the FIRST
+                                                    # file, leaving the other seven unscanned while
+                                                    # the run still looks like it completed
     for raw in split(inside, ",")
       p = strip(split(split(raw, "::")[1], "=")[1]); p = strip(split(p, ";")[end])
       occursin(r"^[A-Za-z][A-Za-z0-9_!]*$", p) || continue

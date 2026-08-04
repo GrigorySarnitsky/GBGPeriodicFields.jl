@@ -133,7 +133,7 @@ codomain, which need not match the inputs' (``\varphi = \det`` sends ``V = \math
 over the base) and the arbitrary-``\varphi`` generalization of the named vertical operations above; a
 general ``\varphi`` is nonlinear, so — like ``\det`` and the norm — it is **physical-space only** on
 fields (invariant 1), and representation-free on point-values. The single-source form carries the α/β
-accumulate ``\texttt{destination} = \alpha\,\varphi(\texttt{source}) + \beta\,\texttt{destination}``.
+accumulate ``\texttt{destination} = \alpha \varphi(\texttt{source}) + \beta \texttt{destination}``.
 ``\checkmark``
 
 **Backs** [Architecture](architecture.md) §2, decision 48, and the `map!` / `map` docstring.
@@ -172,7 +172,7 @@ sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 \end{gathered}
 ```
 
-all four unconditional — the first two because curl, divergence, and gradient share the one
+all four unconditional — the first two because `curl`, `divergence`, and `gradient` share the one
 derivative-wavenumber family, the last two because ``\mathbb P = \mathrm{id} - (a a^{\top})/(a \cdot a)``
 is built entirely from that same family (decision 42), the Nyquist planes included. The dissipation
 identity alone is scoped: on the resolved band — every mode off the even-axis Nyquist planes —
@@ -190,7 +190,7 @@ unconditionally; the projector identities are pinned with full-spectrum Nyquist 
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-(a a^{\top})/(a \cdot a)``, ``-|k|^2`` are
 real symmetric.)
 
-The **curl is self-adjoint** on the same pairing,
+The **`curl` is self-adjoint** on the same pairing,
 
 ```math
 \langle \nabla\times u, v\rangle = \langle u, \nabla\times v\rangle, \quad\checkmark
@@ -391,18 +391,34 @@ Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from
 the constant-add writes; `lpnorm`/`maximum` have no single-coefficient form.
 
 **Variance, standard deviation, and covariance** (decision 49). ``\operatorname{var}``/``\operatorname{std}``
-are **scalar-only**: for a scalar section the sample variance is the Bessel-corrected mean squared
-deviation, and by Parseval ``\operatorname{var}(f) = \langle f, f\rangle - \langle f\rangle^2 =
-\tfrac{1}{N}\sum_{k\ne 0} |\hat f(k)|^2`` (the fluctuation energy), so it reads from **both**
-representations, ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
+are **scalar-only**. The *population* second central moment is what Parseval gives directly, as the
+fluctuation energy carried by every mode but the mean:
+
+```math
+\operatorname{var}(f)\bigm|_{\texttt{corrected=false}} = \langle f, f\rangle - \langle f\rangle^2
+  = \frac{1}{N^2}\sum_{k\ne 0} \alpha(k) |\hat f(k)|^2, \quad\checkmark
+```
+
+with ``\alpha(k)`` the rfft half-spectrum multiplicity of mode ``k`` and the ``1/N^2`` the
+normalization ``\langle\cdot,\cdot\rangle`` itself carries. The **default** applies Bessel's
+correction on top,
+
+```math
+\operatorname{var}(f) = \frac{N}{N-1}\Bigl(\langle f, f\rangle - \langle f\rangle^2\Bigr),
+  \quad\checkmark
+```
+
+so the identity reads from **both** representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
 second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \in
 \operatorname{Sym}^2(\mathbb R^3)``,
 
 ```math
-R_{ij} = \frac{N}{N-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
-       = \frac{1}{N-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
+R_{ij} = \frac{B}{B-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
+       = \frac{1}{B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
 ```
 
+where ``B`` is the count of the base the section lives over — ``N`` cells for a grid, ``M`` points for
+a point set — since `cov` is defined on both. The result is
 a symmetric `FiberTensor2` whose diagonal is the per-component variance a fiber-preserving `var` would
 have returned; ``\operatorname{std} = \sqrt{\operatorname{var}}`` has no canonical vector form, so it is
 not offered. Physical-only (the outer product is nonlinear). **Checked by** `test/reductions.jl` (scalar

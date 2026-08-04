@@ -445,7 +445,7 @@ tell that no operation was being expressed. Mixed precision NARROWED toward the 
 `a32 + a64` silently truncated a `Float64` operand while `a64 + a32` did not. Mixed tensor order was
 accepted in one order — a scalar broadcast across a vector's fiber — and rejected in the other, so `+`
 was not commutative; and adding a scalar section to a vector one is not in the method set for fields
-either (invariant 1).
+either.
 """
 function _check_combinable(values::AbstractPointValues...)
   first_values = first(values)
@@ -1031,7 +1031,8 @@ end
 
 """
     write_points(parent::HDF5.H5DataStore, name::AbstractString, points::PointSet)
-    write_points(parent::HDF5.H5DataStore, name::AbstractString, values::AbstractPointValues)
+    write_points(parent::HDF5.H5DataStore, name::AbstractString,
+                 values::AbstractPointValues)
 
 Persist a point object — a [`PointSet`](@ref) of positions, or any of the three point-value types — as a
 **new HDF5 group** `name` under `parent`, returning the group it created. Use it to checkpoint the

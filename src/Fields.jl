@@ -122,7 +122,8 @@ every axis. The two-argument constructor computes it and is the one to prefer; t
 checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain, since
 a grid whose stored spacing disagrees with its domain would silently mislocate every interpolated
 point rather than fail. The comparison is a floating-point tolerance, so a spacing computed by a
-different but equivalent route is accepted. Each grid size must also be positive.
+different but equivalent route is accepted. Every grid size must be positive, every domain length
+finite and positive, and every origin coordinate finite.
 """
 struct Grid3D{T<:AbstractFloat}
   grid_size::NTuple{3, Int}
@@ -168,10 +169,14 @@ end
 
 Layout convention for three-dimensional real-to-complex Fourier transforms.
 
-Here `fft_dims` is the tuple of transformed dimensions passed to the FFT planner. The main role of the ordering is to specify the real-FFT half dimension:
+The main role of the ordering is to specify the real-FFT half dimension:
 in dimension `fft_dims[1]`, only the nonnegative frequencies are represented, while the other dimensions use the full complex FFT frequency ordering.
 
 The zero-argument constructor uses `fft_dims = (1, 2, 3)`.
+
+The fields are
+- `fft_dims`: the tuple of transformed dimensions passed to the FFT planner, whose first entry is the
+  halved (folded) axis.
 """
 struct RealFourierLayout
   fft_dims::NTuple{3, Int}
@@ -891,7 +896,8 @@ _same_backend(a, b) = _storage_family(a) === _storage_family(b)
 """
     _check_same_domain(a, b)
 
-Throw unless `a` and `b` share scalar type, grid, and Fourier layout (tensor order may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
+Throw unless `a` and `b` share scalar type, grid, Fourier layout, and storage family (tensor order
+may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
 """
 function _check_same_domain(a, b)
   _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
@@ -914,7 +920,8 @@ end
     _check_field_domain_compatibility(a::AbstractFieldSpectral,
                                       b::AbstractFieldSpectral)
 
-Check that two fields in the same representation share scalar type, grid, and Fourier layout.
+Check that two fields in the same representation share scalar type, grid, Fourier layout, and storage
+family.
 
 Tensor order is allowed to differ, so this is the check for representation-preserving operations that change order, such as gradient and divergence. Returns `nothing` or throws.
 """
@@ -927,7 +934,8 @@ _check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpec
     check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
     check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
 
-Check that two fields in the same representation share scalar type, tensor order, grid, and Fourier layout.
+Check that two fields in the same representation share scalar type, tensor order, grid, Fourier
+layout, and storage family.
 
 This is the check for operations that require fully matching operands. Returns `nothing` or throws.
 """
@@ -1016,7 +1024,7 @@ end
 
 Forward and inverse FFT plans connecting compatible fields represented in physical and spectral space.
 
-The fields are
+The arguments are:
 - `physical`: the field supplying the real-space storage array to plan against.
 - `spectral`: the field supplying the real-to-complex Fourier coefficient array.
 - `fft_flags`: an optional backend-specific FFT planner flag.
@@ -1218,7 +1226,7 @@ _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, s
     SpectralKernel{T}
 
 Supertype of every spectral kernel: a coefficientwise multiplier applied as the product
-``\\hat f\\,\\hat g``, in whichever storage its symbol admits. [`Convolution`](@ref "Convolution")
+``\\hat f \\hat g``, in whichever storage its symbol admits. [`Convolution`](@ref "Convolution")
 defines the concrete classes under [Kernel storage classes](@ref) — `StoredKernel` holding one
 coefficient per mode, `SeparableKernel` holding per-axis factors, `RadialKernel` holding the symbol
 itself, and `ProductKernel` holding two factors unmultiplied — and they differ only in cost, never in
@@ -1667,8 +1675,8 @@ Fourier layout, the element type, and the tensor order are recovered bit-for-bit
 The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
 device afterward if needed.
 
-- `parent` — an open HDF5 `File` or `Group` holding the group.
-- `name` — the name (or path) of the field group under `parent`.
+Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path) of
+that field group under `parent`.
 
 Provided by a package extension, so it is available only when `HDF5` is loaded.
 """

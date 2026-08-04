@@ -94,7 +94,7 @@ read_field
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors extending the package — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, and the broadcast machinery.
+These symbols are not part of the public interface; they are documented for contributors — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, and the broadcast machinery.
 
 ### Types
 
@@ -102,13 +102,12 @@ These symbols are not part of the public interface; they are documented for cont
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:type, :constant]
-# `SpectralKernel` and `SpectralKernel` are documented on the Convolution page, beside the
-# concrete kernel classes that subtype them: the protocol is DEFINED here so the differential
-# operators and the reductions can name it, but a reader meets it there. They are public — the union
-# appears in `convolve!`'s own signature — and were collected here only because this module does not
-# re-export them, the same `Public = false` mechanism that filed `map` and `transpose` as internals.
+# `SpectralKernel` is documented on the Convolution page, beside the concrete kernel classes that
+# subtype it: the protocol is DEFINED here so the differential operators and the reductions can name
+# it, but a reader meets it there. It is public — it appears in `convolve!`'s own signature — and was
+# collected here only because this module does not re-export it, the same `Public = false` mechanism
+# that filed `map` and `transpose` as internals.
 Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
-                       GBGPeriodicFields.Fields.SpectralKernel,
                        GBGPeriodicFields.Fields.SpectralKernel))
 ```
 

@@ -56,7 +56,7 @@ may be called with the destination aliasing an input.
     **different** base indices: a fused pass reads element ``n`` and writes element ``n``, so where one
     section's element ``n`` is another's element ``n + m`` a write can land on a source not yet read,
     and the result is wrong. Such a pair is not detected. Build the destination on its own storage, or
-    make it the input itself. See `docs/ARCHITECTURE.md` decision 56.
+    make it the input itself.
 
 Most of this module is mirrored onto point-values (`AbstractPointValues`) — the same fiberwise algebra
 applied to field values sampled at an unstructured point set, generated from the same builders so no
@@ -246,7 +246,7 @@ The arguments are:
 - `a`, `b`, `fields...` — the fields to subtract in order.
 - `field`, `constant` — the field-and-constant variants, with the constant typed as in [`add!`](@ref); the reversed order computes `constant - field`.
 
-Field-field subtraction computes `a - b - fields...`; it is storage-wise and representation-preserving. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
+Field-field subtraction subtracts `b`, then each of `fields` in turn, from `a`; it is storage-wise and representation-preserving. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
 function subtract! end
 
@@ -1077,6 +1077,16 @@ Compute a fiberwise tensor (matrix) product in place, and return `destination`. 
 Use this in-place form when `destination` is already allocated; the allocating `*`
 returns a fresh result instead.
 
+The arguments are:
+- `destination` — the field written with the product, which must not alias `A` or the right operand.
+- `A` — the left operand, a second-order tensor field or a fiber-constant `FiberTensor2`.
+- `u`, `B` — the right operand: a vector field or `FiberVector`, or a second-order tensor field or
+  `FiberTensor2`.
+- `α`, `β` — real accumulation weights, converted to the field's scalar type. The three-argument forms
+  overwrite (``\\alpha = 1``, ``\\beta = 0``); the five-argument forms compute
+  ``\\alpha (A B) + \\beta \\texttt{destination}``, so ``\\beta = 0`` overwrites and any other value
+  accumulates — the `LinearAlgebra.mul!` convention.
+
 A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 !!! warning "The destination must not alias an input"
@@ -1401,7 +1411,8 @@ end
     tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
     tr!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2})
 
-Compute the fiberwise trace (`tr` ``\\equiv \\operatorname{tr}``) of a second-order tensor field in place, and return `destination`. The trace is linear and representation-preserving, so it is defined for both representations.
+Compute the fiberwise trace (`tr` ``\\equiv \\operatorname{tr}``) of the second-order tensor field `A`
+in place, writing it into `destination`, which is returned. The trace is linear and representation-preserving, so it is defined for both representations.
 
 Use this in-place form when `destination` is already allocated; the allocating [`tr`](@ref)
 returns a fresh result instead.
@@ -1507,7 +1518,8 @@ det(A::TensorFieldPhysical{2, T}) where {T<:AbstractFloat} = det!(similar_field(
     sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     sym!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the symmetric part of the second-order tensor field `A` in place, writing it into
+`destination`, which is returned. The operation is linear and representation-preserving, so it is defined for both representations.
 
 Use this in-place form when `destination` is already allocated; the allocating [`sym`](@ref)
 returns a fresh result instead.
@@ -1535,7 +1547,8 @@ function sym end
     skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     skew!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the skew-symmetric part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the skew-symmetric part of the second-order tensor field `A` in place, writing it into
+`destination`, which is returned. The operation is linear and representation-preserving, so it is defined for both representations.
 
 Use this in-place form when `destination` is already allocated; the allocating [`skew`](@ref)
 returns a fresh result instead.
@@ -1563,7 +1576,8 @@ function skew end
     dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     dev!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Compute the deviatoric (trace-free) part of a second-order tensor field in place, and return `destination`. The operation is linear and representation-preserving, so it is defined for both representations.
+Compute the deviatoric (trace-free) part of the second-order tensor field `A` in place, writing it
+into `destination`, which is returned. The operation is linear and representation-preserving, so it is defined for both representations.
 
 Use this in-place form when `destination` is already allocated; the allocating [`dev`](@ref)
 returns a fresh result instead.
@@ -1766,7 +1780,7 @@ The arguments are:
   must match `φ`'s output.
 - `sources` — one or more compatible fields in physical representation (or point-value sections) sharing `destination`'s
   base; `φ` receives their fiber values in argument order.
-- `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α\\,φ(\\texttt{source}) + β\\,\\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
+- `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α φ(\\texttt{source}) + β \\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
 
 !!! warning "A fiber map must not read the destination"
     The pass writes each base point independently and in an unspecified order, so `φ` may read only the
@@ -1776,10 +1790,10 @@ The arguments are:
 
     The trap is that **a field is callable**: `f(x)` interpolates, so passing a section as `φ` makes it a
     gather over a neighbourhood rather than an element-local map. That is why the usual aliasing freedom
-    does not apply here. Invariant 9 lets a destination alias an input precisely because a fused pass
+    does not apply here. A destination may normally alias an input precisely because a fused pass
     reads element ``n`` to write element ``n``; a gathering `φ` breaks that premise.
 
-    A **section** `φ` that is the destination is rejected — sections own their storage (decision 59), so
+    A **section** `φ` that is the destination is rejected — sections own their storage, so
     identity is a complete test for that case. A **closure that captures** the destination cannot be
     detected, and is the caller's responsibility. Aliasing between `destination` and the `sources`
     remains safe and is unaffected.

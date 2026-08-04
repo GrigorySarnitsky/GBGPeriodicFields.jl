@@ -493,8 +493,10 @@ end
                  points::PointSet, scheme::NUFFT)
 
 Interpolate `field` to the off-grid `points`, writing the gathered values into `out`; returns `out`. This
-is the in-place home of the gather ``W``; for a freshly allocated result use [`interpolate`](@ref), and
-for a single position the callable `field(x)`.
+is the in-place home of the gather ``W``, and for a single position there is the callable `field(x)`.
+
+Use this in-place form when `out` is already allocated; the allocating [`interpolate`](@ref) returns a
+fresh result instead.
 
 The `scheme` (an [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation it
 acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
@@ -578,7 +580,10 @@ end
 Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
 [`interpolate!`](@ref) under the same `scheme` — computing
 ``\\texttt{field} = \\alpha (W^\\top q) + \\beta \\texttt{field}``; returns `field`. This is the
-in-place home of the scatter ``W^\\top``; for a freshly allocated result use [`anterpolate`](@ref).
+in-place home of the scatter ``W^\\top``.
+
+Use this in-place form when `field` is already allocated; the allocating [`anterpolate`](@ref) returns
+a fresh result instead.
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
 with the weights' partition of unity — at any position the stencil weights sum to exactly one — the total deposited quantity is conserved. Other communities name
@@ -989,7 +994,7 @@ modes, `DirectDFT` is simpler and exact.
 
 Build a plan once from a `reference` field in spectral representation, which fixes the grid, layout, element type, and
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
-like the reference. The options:
+like the reference. The arguments are:
 
   - `tol` — the target accuracy; the window width and shape default to the values that reach it. It is
     a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the

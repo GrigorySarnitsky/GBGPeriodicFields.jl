@@ -204,6 +204,12 @@ now sit on the FieldAlgebra `@docs` block, paired after their in-place homes lik
 link *would* resolve; they were previously mis-swept into that page's Internal API by the `Public =
 false` autodocs — the same public-but-unexported-Base-extension class as the stats on the Reductions
 page. The bare backtick stays the convention regardless.)
+**Two exemptions to rule 1, made explicit after the 2026-08-04 battery flagged them as violations:**
+an **internal `_`-prefixed helper** documents its arguments in whatever form reads best (the threshold
+exists to keep a *user-facing* argument list findable, and the codegen builders and kernel bodies are
+read alongside their code); and a **single element-type keyword** (`T = Float64` on `LalescuSpline`,
+`LagrangeSpline`, and the callable field's `scheme`) bound in one prose clause does not trigger the
+bulleted form, since one self-evident keyword is not the long-list problem the rule addresses.
 A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_threads!`,
 `set_threading_cutoff!`) take no such sentence; `to_physical!`/`to_spectral!` already steer to their
 siblings for the stronger input-preservation reason (invariant 11) and are not doubled.
@@ -473,6 +479,28 @@ exact discrete projector (the ``a \cdot a`` denominator — exactly idempotent a
 divergence-annihilating at every mode, bitwise-unchanged sub-Nyquist). The ledgered test additions
 landed: the non-mean-free `inverse_laplacian` input and the ``\det(AB) = \det A \det B``
 assertion.
+
+**The `/check-docs` battery is CLOSED (2026-08-04).** Eleven economy lanes (nine surface lanes + the
+family and cold-reader lanes) plus the deterministic guards and the built-HTML pass; every finding
+verified in the main thread and closed as fixed or dismissed-with-reason. **Three were mine, from the
+decision-60 work three days earlier:** `ARCHITECTURE.md` had **no §13 entry for decision 60** while
+citing it four times (definition-of-done item 3, skipped), the invariant list said "Thirteen rules"
+after invariant 14 was added, and three `Fields` compatibility docstrings never mentioned the
+storage-family check that invariant 14 had put in their code. **Two were real defects rather than
+prose:** `docs/PERFORMANCE.md` §6's representative table was stale by 6–14× on its GPU column (last
+touched 2026-06-10, regenerated here from the committed archive rather than re-measured, since a
+benchmark run needs an idle host), and `examples/hist_postprocess.jl` double-truncated the
+structure-function abscissa — the driver already drops `r = 0`, so the second `[2:end]` was silently
+discarding the smallest *nonzero* separation from every plotted and normalized inertial range.
+**The `var`/`std` spectral formula was wrong in three places** (FORMALIZATION, the `var` docstring, the
+`Reductions` module docstring): it stated the *population* moment while claiming Bessel correction, and
+its normalization was ``1/N`` where the inner product carries ``1/N^2`` — found independently by two
+lanes and confirmed numerically. The cold-reader lane's headline finding is worth keeping: **`section`
+appears 108 times across rendered docstrings and was never once defined**, `fiber` 261 times and `base`
+113 — the glossary page defines them, but a REPL reader typing `?mean` never sees that page, so the
+umbrella docstring now binds base/fiber/section/resolved-band in plain language. Two rule-1 exemptions
+were recorded rather than churned (above). `lint_retired_claims()` in `docs/make.jl` was added the same
+day and is the build-enforced guard for the decision-60 claim class.
 
 **The 12-hat `/check-consistency` panel is CLOSED (2026-07-24).** The first live economy-tiered run
 (ten Sonnet scan hats + the two mathematician anchors on Opus; banked per-hat reports in
@@ -997,9 +1025,9 @@ those are the usual rot. Then the mechanical bar:
    (orthogonal `cos x ⟂ sin x` → 0; `cos x ± cos 2x` → ±½ in adjacent shells, cancelling to inner=0 —
    the co-spectrum **can be negative**), the f↔g symmetry, the g=f reduction to the single-field forms
    (bit-identical), and an **independent binned-circshift cross-correlation** on a random pair.
-   `test/convolution.jl` additionally covers `spectral_band` (annular,
-   `spectral_cutoff = band(0,k)`, idempotent, `|k|²` membership oracle), `squared_wavenumber_field`
-   (|k|² vs the analytic sum, real-valued). `test/rdf.jl`
+   `test/convolution.jl` additionally covers `spectral_band` (annular, with `spectral_cutoff` the
+   `k_lo = 0` case, idempotent, `|k|²` membership oracle) and the radial `|k|²` symbol
+   (`radial_kernel(identity, …)` vs the analytic sum, real-valued). `test/rdf.jl`
    (decision 22 Phase 2): `assignment_window` against its ∏ sinc² formula, and the FFT pair-correlation recipe (anterpolate density → deconvolve by
    `assignment_window` → `radial_correlation` → g(r)) validated against an **independent direct O(M²)
    pair count** on a clustered point set (the clustering peak + the g→1 baseline). `test/eltype_genericity.jl`:
@@ -1141,8 +1169,9 @@ those are the usual rot. Then the mechanical bar:
    oracle) + GPU (ROCm parity in `test/gpu/suite.jl`); benchmarked (`convolution` class). Naming per
    the §2 convention (verb `convolve`; module noun `Convolution`, parallel to
    `Interpolation`/`interpolate`). **Shell-space builders added (decision 21):** `spectral_band`
-   (annular band-pass, `spectral_cutoff = band(0,k)`) and `squared_wavenumber_field` (the `|k|²`
-   radial coordinate consumers build symbols from); together with `radial_spectrum` (item 8) they
+   (annular band-pass, with `spectral_cutoff` the `k_lo = 0` case) and the `|k|²` radial symbol
+   consumers build kernels from (`radial_kernel(identity, …)` since decision 60 removed the
+   materializing `squared_wavenumber_field`); together with `radial_spectrum` (item 8) they
    close the demos' forcing-band + spectrum hand-rolls and make the GPU `HIST_ROCm.jl` forcing +
    spectrum fully on-device. **`assignment_window` added (decision 22 Phase 2):** the linear/CIC
    mass-assignment deconvolution window `Ŵ=∏ sinc²(kₐΔxₐ/2)`, the neutral primitive for the FFT
