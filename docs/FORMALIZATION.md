@@ -65,9 +65,9 @@ contraction ``\cdot : V \times V \to \mathbb R`` and the wavenumber ``k``, the i
 package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
 
 ```math
-\langle a, b\rangle_{\text{pts}} := \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
+\langle a, b\rangle_{\mathrm{pts}} := \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
 \qquad
-\langle f, g\rangle_{\text{grid}} := \frac{1}{N} \sum_{n=1}^{N} f_n\cdot g_n .
+\langle f, g\rangle_{\mathrm{grid}} := \frac{1}{N} \sum_{n=1}^{N} f_n\cdot g_n .
 ```
 
 ## Representations and transforms (`Fields`)
@@ -390,7 +390,7 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 
 ```math
 \begin{gathered}
-\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\text{grid}),\quad \sum_p f_p\ (\text{points}); \\
+\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\mathrm{grid}),\quad \sum_p f_p\ (\mathrm{points}); \\
 \int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\texttt{mean}. \quad\checkmark
 \end{gathered}
 ```
@@ -419,11 +419,12 @@ normalization ``\langle\cdot,\cdot\rangle`` itself carries. The **default** appl
 correction on top,
 
 ```math
-\operatorname{var}(f) = \frac{N}{N-1}\Bigl(\langle f, f\rangle - \langle f\rangle^2\Bigr),
+\operatorname{var}(f) = \frac{B}{B-1}\Bigl(\langle f, f\rangle - \langle f\rangle^2\Bigr),
   \quad\checkmark
 ```
 
-so the identity reads from **both** representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
+with ``B`` the base count — ``N`` cells for a grid, ``M`` points for a point set, `var` being defined
+on both exactly as `cov` is — so the identity reads from **both** representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
 second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \in
 \operatorname{Sym}^2(\mathbb R^3)``,
 
@@ -450,8 +451,8 @@ bare ones applied to ``\varphi \circ f``:
 ```math
 \begin{gathered}
 \texttt{mean}(\varphi, f) = \frac{1}{N}\sum_n \varphi(f_n), \\
-\int_\Omega (\varphi \circ f)\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n \varphi(f_n)\ (\text{grid}), \quad
-\sum_p \varphi(f_p)\ (\text{points}), \quad\checkmark
+\int_\Omega (\varphi \circ f)\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n \varphi(f_n)\ (\mathrm{grid}), \quad
+\sum_p \varphi(f_p)\ (\mathrm{points}), \quad\checkmark
 \end{gathered}
 ```
 
@@ -551,22 +552,22 @@ W^{\top} := W_b^{\top} \otimes \mathrm{id}_V : \Gamma_P \to \Gamma_G .
 **Adjoint, normalized inner.** Dividing the two sides by ``M`` and ``N``:
 
 ```math
-M \langle Wf, q\rangle_{\text{pts}}
+M \langle Wf, q\rangle_{\mathrm{pts}}
 = \sum_p (Wf)_p\cdot q_p
 = \sum_n f_n\cdot(W^{\top}q)_n
-= N \langle f, W^{\top} q\rangle_{\text{grid}} \qquad\checkmark
+= N \langle f, W^{\top} q\rangle_{\mathrm{grid}} \qquad\checkmark
 ```
 
-So the *bare* ``\langle Wf, q\rangle_{\text{pts}} = \langle f, W^{\top}q\rangle_{\text{grid}}`` is **false**
+So the *bare* ``\langle Wf, q\rangle_{\mathrm{pts}} = \langle f, W^{\top}q\rangle_{\mathrm{grid}}`` is **false**
 unless ``N = M`` — the two sides differ by ``N/M``. This is the slip the formalization catches: it
 type-checks, but the expansion does not match. The clean adjunction uses the measure-adjoint
 ``\iota_* := (N/M) W^{\top}``:
 
 ```math
-\langle f, \iota_* q\rangle_{\text{grid}}
+\langle f, \iota_* q\rangle_{\mathrm{grid}}
 = \frac{1}{N}\sum_n f_n\cdot\tfrac{N}{M} (W^{\top}q)_n
 = \frac{1}{M}\sum_n f_n\cdot(W^{\top}q)_n
-= \langle Wf, q\rangle_{\text{pts}} \qquad\checkmark
+= \langle Wf, q\rangle_{\mathrm{pts}} \qquad\checkmark
 ```
 
 **Conservation** (sum the deposit over the grid, per fiber component):
@@ -582,7 +583,7 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 
 **Backs** [Architecture](architecture.md) §10 and the `Interpolation` module docstring.
 **Checked by** `test/interpolation_transfer.jl` — the measure-weighted adjointness
-``M \langle Wf, q\rangle_{\text{pts}} = N \langle f, W^{\top}q\rangle_{\text{grid}}``, conservation (partition of unity), and
+``M \langle Wf, q\rangle_{\mathrm{pts}} = N \langle f, W^{\top}q\rangle_{\mathrm{grid}}``, conservation (partition of unity), and
 polynomial reproduction.
 
 ## Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)
@@ -603,7 +604,7 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 
 Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes), and the
 pair satisfies the same measure-weighted adjoint as the splines,
-``M \langle W\hat f, q\rangle_{\text{pts}} = N \langle \hat f, W^{\top}q\rangle_{\text{grid}}``. ``\checkmark``
+``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^{\top}q\rangle_{\mathrm{grid}}``. ``\checkmark``
 **`NUFFT`** is its ``O(N\log N + M)`` form — spread → oversampled (``\sigma=2``) FFT → deconvolve by
 ``1/\hat\psi`` (window ``\psi``, transform ``\hat\psi``) — exact to a tolerance ``\varepsilon`` against
 `DirectDFT` on the resolved sub-Nyquist band (the rfft Nyquist is projected out), an exact adjoint pair there.

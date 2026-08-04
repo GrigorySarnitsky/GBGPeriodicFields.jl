@@ -580,7 +580,7 @@ written once. The threaded path splits the destination's slab axis — the last 
 so a whole-vector-field write splits a grid axis, never the length-3 fiber — and runs the standard
 fused `materialize!` per slab over sliced views of the operands, so each slab executes the same
 SIMD kernel the serial path uses (decision 38; its per-element predecessor ran ~4.7× slower per
-core and *inverted* at low thread counts — [`PERFORMANCE.md`](performance.md) §4 finding (l)). A serial cutoff (`_SERIAL_CUTOFF`, default 2^14) keeps small ops — including
+core and *inverted* at low thread counts — [`PERFORMANCE.md`](performance.md) §4 finding (l)). A serial cutoff (`_SERIAL_CUTOFF`, default ``2^{14}``) keeps small ops — including
 the one-element zero-mode views — serial. Policy is **hybrid**: threaded when
 `nthreads() > 1` and above the cutoff, with a task-local `ScopedValue` override
 (`with_threading(enabled = …)`) for nested-parallel callers.
@@ -726,46 +726,46 @@ i.e. a regularized point source) — is given in full in the `Interpolation` mod
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
 The two inner products are concrete pairings against the measure each base carries: on point-values
-``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\text{pts}}`` a plain sum over the
+``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\mathrm{pts}}`` a plain sum over the
 ``M`` particles, while on fields ``f, g`` the **cell-volume measure** makes
-``\langle\cdot,\cdot\rangle_{\text{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
+``\langle\cdot,\cdot\rangle_{\mathrm{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
 fiber contraction — the ordinary product for scalars, the dot product for vectors):
 
 ```math
-\langle a, b\rangle_{\text{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
+\langle a, b\rangle_{\mathrm{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
 \qquad\qquad
-\langle f, g\rangle_{\text{grid}} = \frac{1}{|\Omega|}\int_{\Omega} f(x)\cdot g(x)\,\mathrm{d}x
+\langle f, g\rangle_{\mathrm{grid}} = \frac{1}{|\Omega|}\int_{\Omega} f(x)\cdot g(x)\,\mathrm{d}x
 = \frac{1}{N} \sum_{x} f(x)\cdot g(x),
 ```
 
 each normalized by its total measure — the ``M`` particles, and the box volume ``|\Omega|`` (equivalently
 the ``N`` grid cells) — exactly as the package's `inner` computes them. Writing
-``\operatorname{sample}_{\text{grid}}`` for sampling a function at the grid nodes,
-``\operatorname{eval}_{\text{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
+``\operatorname{sample}_{\mathrm{grid}}`` for sampling a function at the grid nodes,
+``\operatorname{eval}_{\mathrm{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
 ``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
 
 ```math
 \sum_{p} (W f)_p\cdot q_p = \sum_{x} f(x)\cdot(W^{\top} q)(x),
 \qquad\qquad
-W \bigl(\operatorname{sample}_{\text{grid}} \phi\bigr) = \operatorname{eval}_{\text{pts}} \phi
+W \bigl(\operatorname{sample}_{\mathrm{grid}} \phi\bigr) = \operatorname{eval}_{\mathrm{pts}} \phi
 \quad (\phi \in \Pi_d),
 ```
 
 the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
-normalizing each side by its base count gives the measure-weighted ``M \langle W f, q\rangle_{\text{pts}} =
-N \langle f, W^{\top} q\rangle_{\text{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
+normalizing each side by its base count gives the measure-weighted ``M \langle W f, q\rangle_{\mathrm{pts}} =
+N \langle f, W^{\top} q\rangle_{\mathrm{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
 normalizations). Intrinsically the pair is a
-**pullback–pushforward**: writing ``\iota : B_{\text{points}} \to \Omega`` for the map from the point base
-``B_{\text{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
+**pullback–pushforward**: writing ``\iota : B_{\mathrm{points}} \to \Omega`` for the map from the point base
+``B_{\mathrm{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
 **trivial** bundle back along ``\iota`` keeps
-the fiber and changes only the base, ``B_{\text{points}} \times V = \iota^{*}(\Omega \times V)`` — a
+the fiber and changes only the base, ``B_{\mathrm{points}} \times V = \iota^{*}(\Omega \times V)`` — a
 **base-change, not a fiber operation** (decision 19):
 
 ```math
 \begin{CD}
-B_{\text{points}} \times V @>{\iota \times \mathrm{id}_V}>> \Omega \times V \\
+B_{\mathrm{points}} \times V @>{\iota \times \mathrm{id}_V}>> \Omega \times V \\
 @V{\pi}VV @VV{\pi}V \\
-B_{\text{points}} @>>{\iota}> \Omega
+B_{\mathrm{points}} @>>{\iota}> \Omega
 \end{CD}
 ```
 
@@ -778,7 +778,7 @@ taking the density with respect to the normalized grid measure, and with those t
 ``\iota_{*} = (N/M) W^{\top}`` for the uniform measures, the
 scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exact L²-adjoint. They have
 **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — so the adjointness
-*is* their adjunction ``\langle \iota^{*} f, q\rangle_{\text{pts}} = \langle f, \iota_{*} q\rangle_{\text{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
+*is* their adjunction ``\langle \iota^{*} f, q\rangle_{\mathrm{pts}} = \langle f, \iota_{*} q\rangle_{\mathrm{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
 reconstruction — the spline or band-limited spectral interpolant lifting grid samples to a section over
 ``\Omega`` — which the reproduction identity above shows is exact on ``\Pi_d``.)
 
@@ -799,7 +799,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
   ``\varepsilon`` on the resolved sub-Nyquist band). The adjoint relation carries
-  the measure factor as for the splines: ``M \langle W\hat f, q\rangle_{\text{pts}} = N \langle \hat f, W^\top q\rangle_{\text{grid}}``.
+  the measure factor as for the splines: ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^\top q\rangle_{\mathrm{grid}}``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
 interpolation of **Lalescu, Teaca & Carati (2010)**, as implemented in the **TurTLE**
@@ -1037,7 +1037,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (`Base.Threads`, contiguous chunks, bitwise-identical to serial), routed in via the
     field broadcast `copyto!` and the kernel assignments (codegen `_to_broadcasted` plus the
     `@_assign!` macro for hand-written kernels); FFTW threads are matched to Julia's at load.
-    Hybrid policy: on when `nthreads() > 1` and above a `2^14` serial cutoff, with a
+    Hybrid policy: on when `nthreads() > 1` and above a ``2^{14}`` serial cutoff, with a
     task-local `with_threading` ScopedValue override; the GPU path stays on the
     `materialize!` fallback. `[compat] julia` was raised to 1.11 here (for ScopedValue); the floor has
     since moved again, to 1.12 (decision 31).
@@ -1124,7 +1124,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
     `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
     **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
-    ``L^2(\text{base}, \mu)``; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
+    ``L^2(\mathrm{base}, \mu)``; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
     `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
@@ -1136,7 +1136,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     measure is counting. Consequences:
 
     `integral(f)` is the **extensive** sum against the measure, `mean(f)` the **intensive** average
-    ``\texttt{mean}(f) = \tfrac{1}{\text{count}}\sum f`` — per base:
+    ``\texttt{mean}(f) = \tfrac{1}{\mathrm{count}}\sum f`` — per base:
 
     - `Grid3D` (``N`` cells): ``\texttt{integral}(f) = \int_\Omega f\,\mathrm{d}x = (\lvert\Omega\rvert/N)\sum f``, ``\texttt{mean}(f) = \tfrac{1}{N}\sum f``.
     - `PointSet` (``M`` points): ``\texttt{integral}(f) = \sum f``, ``\texttt{mean}(f) = \tfrac{1}{M}\sum f``.
@@ -1569,7 +1569,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     now depositing mode/point energies into radial shells instead of point quantities onto the grid; it
     lifts the "histogram scatter deferred as unneeded" sub-decision of decision 21. The trade-off —
     contention on the small accumulator set — is acceptable for an *occasional* diagnostic (every
-    `snap_stride` steps in a solver), and the old form was itself ``O(\text{shells}\times N^3)`` work; a
+    `snap_stride` steps in a solver), and the old form was itself ``O(\mathrm{shells}\times N^3)`` work; a
     privatized/shared-memory histogram is a possible future optimization, unneeded now.
 
     Correctness is unchanged (the scatter sums the same per-shell quantities as the masked reductions): CPU
@@ -1605,7 +1605,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *Documented exceptions — bounded, not zero.* A few operations materialize one field *by design* and are
     excluded from the zero assertion, getting a *bounded* guard instead (catching a regression to ``O(N)`` —
-    or ``O(\text{shells})`` — extra while allowing the legitimate one-field temporary): the fiber
+    or ``O(\mathrm{shells})`` — extra while allowing the legitimate one-field temporary): the fiber
     `norm!`/`lpnorm` (a pointwise magnitude), `dev!` (the trace it subtracts), `std`/`var` (deviations), and
     the radial diagnostics (occasional, ``O(1)``-bounded). The spectral `inner` is the subtle case (``N``
     the points per axis): `inner(f, f)` — an energy or `l2norm` — is allocation-free, since
@@ -2669,10 +2669,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
     (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
     both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
-    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — the
-    weighted pairing needs a **real** multiplier, and a separable kernel's per-axis factors are complex in
-    general (the translation phase is the standard case), so the class is excluded on validity, not merely
-    on family membership (invariant 1).
+    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — a
+    magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1). The
+    exclusion is structural, not about realness: `assignment_window`'s factors are real.
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
     **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the
@@ -2902,7 +2901,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     composition wraps automatically — `convolve(compressed, f)` yields a product whose stored factor is
     a `StoredKernel`, so a mixed product still inverts with nothing asked of the caller. Application is
     untouched: the union still accepts a bare field everywhere a kernel is taken, so nothing that
-    worked before needs a wrapper.
+    worked before needs a wrapper. (**Superseded by decision 60**, which is precisely where that
+    stopped being true: a bare `ScalarFieldSpectral` no longer dispatches as a kernel, so code that
+    passed one now *does* need `StoredKernel` — the compatibility this entry preserved was given up
+    deliberately, for the type to carry the role.)
 
     Two options were weighed and rejected. Restricting `inv` to the compressed classes was cheapest —
     the only consumer of the stored method is the mixed-product path — but it leaves a kernel that

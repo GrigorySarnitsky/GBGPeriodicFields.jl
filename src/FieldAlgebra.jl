@@ -1788,7 +1788,7 @@ The arguments are:
   must match `φ`'s output.
 - `sources` — one or more compatible fields in physical representation (or point-value sections) sharing `destination`'s
   base; `φ` receives their fiber values in argument order.
-- `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = α φ(\\texttt{source}) + β \\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
+- `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = \\alpha \\varphi(\\texttt{source}) + \\beta \\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
 
 !!! warning "A fiber map must not read the destination"
     The pass writes each base point independently and in an unspecified order, so `φ` may read only the

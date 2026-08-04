@@ -1035,7 +1035,8 @@ Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; t
 !!! warning "CPU planner choice: the default `ESTIMATE` can badly mis-plan single-precision transforms"
     On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
-    on a Zen 5 desktop, the `Float32` transforms ran 3.4–5.4× slower than a timed plan at ``256^3``,
+    on a Zen 5 desktop, the `Float32` transforms ran 2.3–5.1× slower than a timed plan at ``256^3``
+    (the widest gap single-threaded, narrowing as threads are added),
     and at ``512^3`` no faster than `Float64`, in both directions and at every thread count. For a
     long CPU run, pass `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`): the one-time timed plan search
     costs seconds and removes the guess. `MEASURE` **overwrites both reference arrays while

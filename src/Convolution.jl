@@ -151,7 +151,9 @@ _context_layout(kernel::StoredKernel) = _context_layout(kernel.field)
     ProductKernel
 
 The coefficientwise product of two spectral kernels, held as the pair rather than evaluated — what
-[`convolve`](@ref) returns when it composes kernels that are not both of one family.
+[`convolve`](@ref) returns whenever composing cannot produce a single kernel more cheaply. That covers
+every cross-family pair, two stored kernels (merging those would mean materializing an ``O(N^3)``
+product), and two radial kernels whose coordinates cannot be shown to agree.
 
 Composition inside a family usually stays in that family: two axis-factored kernels always multiply
 into one axis-factored kernel, and two radial symbols multiply into one radial symbol **when both are
@@ -572,9 +574,12 @@ bit-identical results — the two differ only in what they cost.
 Use this to trade memory back for speed on a **small base**. Applying an axis-factored kernel moves two
 field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
 depends on whether the base outgrows cache. Measured against a stored kernel on a vector field, the
-axis-factored form runs at roughly ``0.5``–``0.9`` of its speed at ``64^3``–``128^3``, reaches parity
-near ``256^3``, and is ``1.1``–``1.2`` times **faster** at ``256^3``–``512^3`` threaded on a CPU or in
-`Float32` on a GPU. So a run whose grids are small, or which applies one fixed kernel very many times
+axis-factored form trails it below cache and overtakes it above: **threaded on a CPU** it runs at
+roughly ``0.5``–``0.6`` of its speed at ``64^3``, crosses one somewhere past ``128^3``, and is
+``1.1``–``1.2`` times **faster** at ``256^3``–``512^3``. Single-threaded the crossing never arrives in
+this range, and on a GPU the ratio sits near parity at ``64^3`` and drifts slightly down — a device
+being bandwidth-bound at every size here rather than growing out of cache. The full grid is in
+`PERFORMANCE.md`'s finding (o) table. So a run whose grids are small, or which applies one fixed kernel very many times
 with memory to spare, can materialize once and keep the field; a run at production resolution should
 not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about 10 KiB
 for the factors).

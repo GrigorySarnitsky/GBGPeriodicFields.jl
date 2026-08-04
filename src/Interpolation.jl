@@ -19,8 +19,8 @@ and ``1/N``:
 
 ```math
 \\begin{aligned}
-M \\langle Wf, q \\rangle_{\\text{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
-&= \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\text{grid}}.
+M \\langle Wf, q \\rangle_{\\mathrm{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
+&= \\sum_x f(x) \\cdot (W^\\top q)(x) = N \\langle f, W^\\top q \\rangle_{\\mathrm{grid}}.
 \\end{aligned}
 ```
 
@@ -593,7 +593,7 @@ Because it applies the **same** weights as the matching gather, anterpolation is
 a **local-spline** scheme the weights are also a partition of unity — at any position they sum to exactly
 one — and then the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
-(particle-in-cell), *projection* (particle-source-in-cell), or *gridding* (nonuniform FFTs);
+(particle-in-cell), *projection* (PSI-Cell, particle-source-in-cell), or *gridding* (nonuniform FFTs);
 *anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990).
 
 The arguments are:

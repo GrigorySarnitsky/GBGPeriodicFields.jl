@@ -463,8 +463,8 @@ consumer's cadence makes it matter: bin padding (backend-uniform; kills the `Flo
 the ``64^3`` inversion); per-thread private bins with an ordered merge on CPU (kills both *and*
 makes the CPU binning bitwise thread-invariant, retiring one of `docs/ARCHITECTURE.md` §9's two
 tolerance-tested accumulators, at the price of splitting the deliberately single-source
-KernelAbstractions kernel); workgroup-local bins on GPU — the same redesign's lever on the ~80×
-CUDA-over-ROCm `Float64` radial gap, which is this kernel under RDNA3's CAS-loop `Float64` atomics.
+KernelAbstractions kernel); workgroup-local bins on GPU — the same redesign's lever on the ~48×
+CUDA-over-ROCm `Float64` radial gap (§6 and §7 measure it at 48–49× on the current archive), which is this kernel under RDNA3's CAS-loop `Float64` atomics.
 
 
 **(o) An axis-factored kernel is bandwidth-bound like the stored kernel it replaces, so what decides
@@ -656,7 +656,7 @@ types, all six classes). Across vendors the **reductions** class shows the wides
 clearest architectural signature: the radial reductions (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
 `radial_spectrum` on a vector field at 256³ is ≈3.5× faster on the 5070 Ti than the 7900 XTX in
-`Float32`, widening to ≈49× in `Float64` (67.1 → 1.38 ms); the extra `Float64` factor is the
+`Float32`, widening to ≈48× in `Float64` (65.95 → 1.371 ms); the extra `Float64` factor is the
 emulated-atomic penalty of §4(d) (RDNA has no native global `Float64` atomics), the 7900 XTX paying
 ≈21× for `Float32`→`Float64` on this op against the 5070 Ti's ≈1.5×. Those are the post-decision-34
 figures, the staging planes fused away, so the atomics are the whole measurement. The full operation × type × grid × thread/backend matrix is in
@@ -676,7 +676,7 @@ size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidt
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
 threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~10–14×** (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 148.8 ms
+the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 148.8 ms
 serial against 1.71 ms on the RTX 5070 Ti, ≈87×), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
