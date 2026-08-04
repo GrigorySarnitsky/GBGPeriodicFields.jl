@@ -1294,9 +1294,18 @@ These two constructors are explicit: you supply both the wavenumbers and the squ
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
 A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment;
+
+Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
+final `Canonical` parameter: the convenience constructor marks them canonical, the explicit forms do
+not. It is in the type rather than in a field because it decides, statically, whether two multiplier
+sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
+the same way from the same inputs, so they agree by construction. That is what lets `convolve` collapse
+two radial kernels into one without testing anything at run time, and it is why a caller supplying its
+own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
+grid's own wavenumbers.
 it carries its own docstring.
 """
-struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
+struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, Canonical} 
   grid::Grid3D{T}
   fourier_layout::RealFourierLayout
   wavenumber_1::K1
@@ -1306,7 +1315,11 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
   squared_wavenumber_2::S2
   squared_wavenumber_3::S3
 
-  function FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
+  # `canonical` records whether these arrays were DERIVED from the grid (the convenience constructor)
+  # or supplied by a caller (the six-array form, which validates lengths only). It is a type parameter
+  # rather than a field because it decides, statically, whether two multiplier sets provably hold the
+  # same coordinates — which is what lets `convolve` collapse two radial kernels without a runtime test.
+  function FieldSpectralMultipliers(canonical::Bool, grid::Grid3D{T}, fourier_layout::RealFourierLayout,
       wavenumber_1::K1, wavenumber_2::K2, wavenumber_3::K3,
       squared_wavenumber_1::S1, squared_wavenumber_2::S2, squared_wavenumber_3::S3) where {T<:AbstractFloat,
       K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
@@ -1320,15 +1333,27 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
     length(squared_wavenumber_2) == spectral_spatial_shape[2] || throw(DimensionMismatch("length(squared_wavenumber_2) must match the second spectral spatial dimension"))
     length(squared_wavenumber_3) == spectral_spatial_shape[3] || throw(DimensionMismatch("length(squared_wavenumber_3) must match the third spectral spatial dimension"))
 
-    return new{T, K1, K2, K3, S1, S2, S3}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+    return new{T, K1, K2, K3, S1, S2, S3, canonical}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
   end
 end
+
+
+# The public six-array form on a grid and layout. It forwards with `canonical = false`, because it
+# validates the arrays' LENGTHS and not their values: a caller may legitimately supply coordinates that
+# are not the grid's (a sheared, time-dependent set), and a kernel built on those must not be merged
+# with one built on the grid's own wavenumbers.
+FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
+    wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
+    squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1},
+    squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat} =
+  FieldSpectralMultipliers(false, grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3,
+                           squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 
 
 function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}, wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
     squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1}, squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat}
   
-  return FieldSpectralMultipliers(field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+  return FieldSpectralMultipliers(false, field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 end
 
 
@@ -1352,7 +1377,7 @@ function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:Abs
   wavenumber_2, squared_wavenumber_2 = _axis_wavenumber_arrays(reference, grid.grid_size[2], grid.domain_size[2], 2 == half_dimension)
   wavenumber_3, squared_wavenumber_3 = _axis_wavenumber_arrays(reference, grid.grid_size[3], grid.domain_size[3], 3 == half_dimension)
 
-  return FieldSpectralMultipliers(grid, fourier_layout,
+  return FieldSpectralMultipliers(true, grid, fourier_layout,
     wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 end
 

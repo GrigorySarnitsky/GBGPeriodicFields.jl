@@ -256,6 +256,11 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
 The fields are:
 - **`sigma`** — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - **`multipliers`** — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
+  Whether they are the grid's own wavenumbers or a caller's is part of their type, and it decides
+  whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
+  the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
+  coordinates keeps both operands as a [`ProductKernel`](@ref), since one composite can carry only one
+  set of coordinates.
 - **`grid`**, **`layout`** — the base and spectral layout the kernel was built for, which a call checks
   the field against.
 
@@ -335,20 +340,36 @@ _context_grid(kernel::RadialKernel) = kernel.grid
 _context_layout(kernel::RadialKernel) = kernel.layout
 
 
-# Composition inside the family: the symbols multiply, so the composite is another radial kernel.
-function convolve(first_kernel::RadialKernel{T}, second_kernel::RadialKernel{T}) where {T}
+# Composition inside the family: the symbols multiply, so the composite is another radial kernel —
+# PROVIDED both operands are radial in the same coordinate. The composite keeps ONE multiplier set, so
+# collapsing two kernels that evaluate their symbols against different wavenumbers would silently apply
+# the second symbol at the first's ``|k|^2``. Equal grid and layout do not establish sameness on their
+# own, because the six-array `FieldSpectralMultipliers` constructor validates lengths and not values —
+# which is the escape hatch a sheared, time-dependent multiplier set would use.
+#
+# The condition is therefore decided by the TYPES rather than by a runtime test. Multipliers built from
+# a grid are marked canonical, and two canonical sets of the same concrete type, on a matching grid and
+# layout, hold identical values by construction: same derivation, same inputs. That is the collapsing
+# case, and it is the one a caller normally has. Every other pairing keeps both operands.
+#
+# Deciding it statically is what makes the return type concrete. The previous form chose between
+# `RadialKernel` and `ProductKernel` on an `===` test, so inference saw a Union and the result type
+# depended on object identity — invisible at the call site, and surprising given that the product of
+# two radial symbols is always radial.
+function convolve(first_kernel::RadialKernel{T, F1, M}, second_kernel::RadialKernel{T, F2, M}) where {
+    T, F1, F2, M<:FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, true}}
   _check_matching_context(first_kernel, second_kernel)
-  # The composite keeps ONE multiplier set, so it may only collapse when both operands evaluate their
-  # symbols against the same wavenumbers. Equal grid and layout do not imply that: the six-array
-  # constructor accepts any arrays of the right lengths, so two kernels can share a context and hold
-  # different coordinates, and composing them would have evaluated the second symbol at the first's
-  # ``|k|^2`` — silently the wrong kernel. Identical multipliers collapse; anything else stays a
-  # ProductKernel, which retains both operands and costs one extra symbol evaluation per mode.
-  first_kernel.multipliers === second_kernel.multipliers ||
-    return ProductKernel{T}(first_kernel, second_kernel)
   first_sigma, second_sigma = first_kernel.sigma, second_kernel.sigma
   return RadialKernel{T}(squared -> first_sigma(squared) * second_sigma(squared),
                          first_kernel.multipliers, first_kernel.grid, first_kernel.layout)
+end
+
+
+# Any other radial pairing — a custom multiplier set on either side, or two sets of different concrete
+# type (different backends, say) — retains both operands and costs one extra symbol evaluation per mode.
+function convolve(first_kernel::RadialKernel{T}, second_kernel::RadialKernel{T}) where {T}
+  _check_matching_context(first_kernel, second_kernel)
+  return ProductKernel{T}(first_kernel, second_kernel)
 end
 
 

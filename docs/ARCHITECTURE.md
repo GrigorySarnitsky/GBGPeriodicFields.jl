@@ -3012,3 +3012,37 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     too, routing it off the fused pass — vector traffic 3M reads against a frozen ideal of M. Every
     correctness oracle passed throughout, because the answer stayed right and only the traffic changed.
     That is exactly the hole decision 36 built the element-traffic ledger to cover.
+
+61. **A radial kernel's coordinates are part of its type** (2026-08-04, user-directed). The product of
+    two radial symbols is a radial symbol — always, mathematically. Yet
+    `convolve(::RadialKernel, ::RadialKernel)` returned `RadialKernel` *or* `ProductKernel` depending on
+    an `===` test of the two operands' multiplier objects, so inference saw a union and the result type
+    turned on object identity, which is invisible at a call site. The exhaustive survey reported it as a
+    type-stability finding in every configuration it built.
+
+    The conservatism was not wrong. A composite keeps ONE multiplier set, so collapsing two kernels that
+    evaluate their symbols against different wavenumbers would silently apply the second symbol at the
+    first's ``\lvert k\rvert^2``. Equal grid and layout do not rule that out, because the six-array
+    `FieldSpectralMultipliers` constructor validates the arrays' LENGTHS and not their values — the
+    escape hatch a sheared, time-dependent (Rogallo) coordinate set would use, which §12 keeps
+    consumer-side. So the type `RadialKernel` did not carry the guarantee its name implies, and the
+    runtime check was compensating for that at every composition.
+
+    The fix puts the guarantee in the type. `FieldSpectralMultipliers` gains a final `Canonical` type
+    parameter recording whether its arrays were **derived from the grid** (the convenience constructor)
+    or **supplied by a caller** (the six-array form). Two canonical sets of the same concrete type, on a
+    matching grid and layout, hold identical values by construction — same derivation, same inputs — so
+    the collapse is unconditional there and is selected by dispatch. Every other pairing, including a
+    custom set on either side and two canonical sets of different array types (different backends), keeps
+    both operands. All four cases now infer a concrete type, and the parameter goes **last** so that the
+    46 bare `::FieldSpectralMultipliers` annotations and the one `{T}` accessor are untouched.
+
+    **One behaviour change, and it is the one the mathematics asks for**: two separately-built canonical
+    multiplier sets used to give a `ProductKernel` and now collapse to a `RadialKernel`. They hold equal
+    values, so the collapsed form is correct; the old answer was merely conservative. `test/contracts.jl`
+    asserted the conservative behaviour and now asserts the collapse, alongside a custom set reaching the
+    retained form — the canonical-versus-custom axis, added to `docs/TESTING.md` §4 in the same change.
+
+    The type stability is the smaller half of this. A composition happens once, outside any loop, and a
+    two-wide union costs nothing measurable there. What the change buys is that `RadialKernel` now means
+    what it says.

@@ -44,18 +44,41 @@ spectral_scalar(grid) = ScalarFieldSpectral(
   @test_throws ArgumentError anterpolate!(s_far, points, out, plan)
 
   # Radial composition (audit CODE-02) may collapse only when both operands evaluate their symbol
-  # against the same coordinates; a shared grid and layout does not establish that.
+  # against the same coordinates. That is now decided by the TYPES: multipliers built from a grid are
+  # marked canonical, and two canonical sets on a matching grid and layout hold identical values by
+  # construction, so the collapse is unconditional there and the return type is concrete.
   band_a = spectral_band(s_near, m_near, 1, 3)
   band_b = spectral_band(s_near, m_near, 0, 2)
   @test convolve(band_a, band_b) isa RadialKernel                      # identical multiplier object
-  other = FieldSpectralMultipliers(s_near)                             # equal values, different object
-  @test convolve(band_a, spectral_band(s_near, other, 0, 2)) isa ProductKernel
-  # ... and the retained form must agree with the collapsed one where the coordinates do agree.
+  other = FieldSpectralMultipliers(s_near)                             # a DIFFERENT canonical object…
+  @test convolve(band_a, spectral_band(s_near, other, 0, 2)) isa RadialKernel   # …still collapses
+  # The product of two radial symbols is radial, so this is what the mathematics says; the previous
+  # `===` test was conservative, and paid for it with a Union return type.
+  @test isconcretetype(only(Base.return_types(convolve, (typeof(band_a), typeof(band_b)))))
+  # ... and the collapsed kernel agrees with applying the two operands in sequence.
   u = VectorFieldSpectral(randn(ComplexF64,
         GBGPeriodicFields.Fields.spectral_field_shape(near, CONTRACT_LAYOUT, Val(1))), near, CONTRACT_LAYOUT)
   @test field_data(convolve(u, convolve(band_a, band_b))) ==
-        field_data(convolve(u, convolve(band_a, spectral_band(s_near, other, 0, 2))))
+        field_data(convolve(convolve(u, band_a), band_b))
   @test_throws ArgumentError convolve(band_a, spectral_band(s_far, m_far, 0, 2))
+
+  # A CUSTOM multiplier set — the six-array constructor validates lengths, not values, which is the
+  # escape hatch a sheared (Rogallo) coordinate system would use. Its coordinates are not the grid's,
+  # so a kernel built on it may NOT collapse with one built on the canonical set: the composite keeps
+  # one multiplier set, and merging would evaluate the second symbol at the first's |k|².
+  custom = FieldSpectralMultipliers(s_near,
+    2 .* collect(m_near.wavenumber_1), collect(m_near.wavenumber_2), collect(m_near.wavenumber_3),
+    4 .* collect(m_near.squared_wavenumber_1), collect(m_near.squared_wavenumber_2),
+    collect(m_near.squared_wavenumber_3))
+  sheared = spectral_band(s_near, custom, 0, 2)
+  @test convolve(band_a, sheared) isa ProductKernel
+  @test convolve(sheared, sheared) isa ProductKernel
+  # Both retained forms are concrete too, so no pairing leaves a Union behind.
+  @test isconcretetype(only(Base.return_types(convolve, (typeof(band_a), typeof(sheared)))))
+  @test isconcretetype(only(Base.return_types(convolve, (typeof(sheared), typeof(sheared)))))
+  # And the retained form computes what the sequence computes, which is what makes keeping it correct.
+  @test field_data(convolve(u, convolve(band_a, sheared))) ≈
+        field_data(convolve(convolve(u, band_a), sheared))
 end
 
 

@@ -324,7 +324,12 @@ operation's coverage is judged against the full axis list:
     `RadialKernel` and the cross-family `ProductKernel` must agree **bitwise** with the materialized
     twin, since decision 60 made these four an abstract hierarchy rather than one stored form. The
     lane exists (§2); this row records it as an axis, because the class is chosen by the *builder*
-    a consumer calls and so varies independently of every axis above it.
+    a consumer calls and so varies independently of every axis above it;
+16. multiplier provenance — **canonical** (derived from the grid by the convenience constructor) versus
+    **custom** (supplied through the six-array form, which validates lengths and not values). Decision 61
+    made this a type parameter, so it selects dispatch: two canonical sets collapse under `convolve`
+    while any custom set keeps both operands. It is an axis rather than a case because a kernel built on
+    a custom set is admissible input to every kernel-taking entry point, not just to composition.
 
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA

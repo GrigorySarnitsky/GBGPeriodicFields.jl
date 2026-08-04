@@ -86,7 +86,14 @@ const MODULE_BASELINE = (
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
   # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice
   # through `materialize_kernel`, which is what that escape hatch is for.
-  Convolution           = 77,   # +6: the StoredKernel role marker and its protocol methods
+  # 77 → 79 for ONE new method: `convolve(::RadialKernel, ::RadialKernel)` split into two
+  # statically-dispatched methods — canonical multipliers collapse, anything else keeps both operands —
+  # replacing a runtime `===` test whose two outcomes made the return type a Union. It counts twice
+  # because `⋆` is `const ⋆ = convolve`, the same function object under a second name, and this baseline
+  # walks names rather than objects. That double count is a property of the instrument, not of the
+  # change; every alias in the package has always been counted this way. Refrozen deliberately, with the
+  # reason, per decision 53's protocol.
+  Convolution           = 79,   # +6: the StoredKernel role marker and its protocol methods
   Points                = 207,
   Interpolation         = 119,
   # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
