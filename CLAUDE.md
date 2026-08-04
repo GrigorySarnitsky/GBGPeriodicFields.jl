@@ -801,6 +801,19 @@ explicitly checked (not "should work", *done and verified*):
 4. **The rest of the docs + this file** — the API page (`docs/src/api/…` and `make.jl`
    modules/pages for a new module), the `docs/src/index.md` / `docs/src/api.md` module lists, and
    **`CLAUDE.md`** itself (the module list, include order, roadmap, and test summary).
+5. **The examples, RUN — `julia --project=examples examples/HIST_CPU.jl --smoke`** (and the GPU twin
+   `examples/gpu/rocm/HIST_ROCm.jl` where a device exists), for any change to the public surface. The
+   `examples/` demos are consumer-shaped code that is both a rendered doc page and a downloadable
+   script, and **nothing else executes them** — not `Pkg.test()`, not the docs build, which renders
+   `HIST_CPU.jl` through Literate without running it. That gap shipped two broken demos at once
+   (2026-08-04): decision 60 stopped a field in spectral representation from being a kernel, and both
+   demos were still passing a `ScalarFieldSpectral` to `convolve!`, so each threw a `MethodError` in
+   its own time-stepping loop; the CPU one had additionally been multiplying by a `ws.Ek` buffer that
+   an earlier `exponential_convolve!` refactor left allocated, zeroed and never filled. Every layer
+   the project has — the gate, the pass audit, the survey, the docs build — passed throughout, because
+   an example is the one shipped surface none of them touch. A static check cannot close this: the
+   defect was a call that no longer dispatches, not a name that no longer exists, so only running it
+   finds it. The `smoke()` preset exists for exactly this and costs a few seconds of simulation.
 
 Grep the docs for stale "deferred/none-exist/future" claims about whatever you just implemented —
 those are the usual rot. Then the mechanical bar:

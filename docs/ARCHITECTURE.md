@@ -911,8 +911,8 @@ for it (seen in a few papers) is a misnomer.
 
 `Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
-product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``, also exported as the infix operator `⋆`) apply a kernel supplied as a
-`ScalarFieldSpectral` transfer function ``\hat g``, which multiplies every fiber component (one method for
+product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``, also exported as the infix operator `⋆`) apply a kernel — a `SpectralKernel`,
+in any of its storage classes — whose transfer function ``\hat g`` multiplies every fiber component (one method for
 scalar, vector, and tensor fields), with the α/β accumulate form and alias-safety of a coefficientwise op.
 It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, [§4](@ref "4. Spectral machinery")) and the
 **same-base counterpart of the `Interpolation` transfer** (decision 19); offered under its true name
@@ -2056,7 +2056,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     precisely the problem: it is unguarded, able to express what the method set deliberately withholds
     (a `.*` of two fields in spectral representation is the banned coefficientwise product), and no
     type system can help, since a legitimate kernel *is* a `ScalarFieldSpectral` — kernel application
-    and the banned field product are indistinguishable at the type level. The broadcast layer is
+    and the banned field product are indistinguishable at the type level. (Decision 60 later made a
+    kernel its own type, so that particular pair *is* now distinguishable; the ground stands anyway,
+    since a `.*` of two fields remains expressible and unguarded.) The broadcast layer is
     therefore internal machinery, not a public contract ([§8](@ref "8. Broadcasting")). **(b)** The
     public method set is the spec (invariant 1); a fusion surface erases it. **(c)** Verification does
     not fuse: each named operation carries alias analysis, the `α`/`β` branch, Nyquist reasoning
@@ -2639,6 +2641,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     multiplying their per-mode values — the cross-family composition that lets a mask and a
     displacement apply in one pass. Only a *compressed* kernel may lead: `convolve(stored, compressed)`
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
+    (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
+    both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
     `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — a
     magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1).
 

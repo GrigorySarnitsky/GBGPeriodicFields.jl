@@ -244,7 +244,7 @@ and `test/adjointness.jl` (self-adjointness, exactly idempotent projection, nega
 Design rationale: [Architecture](architecture.md) §11.
 
 By the convolution theorem, periodic convolution is the coefficientwise spectral product; `convolve`
-applies a scalar kernel ``\hat g`` (a `ScalarFieldSpectral`, broadcast over the fiber) with α/β accumulate
+applies a scalar kernel ``\hat g`` (a `SpectralKernel`, broadcast over the fiber) with α/β accumulate
 (`src/Convolution.jl`):
 
 ```math
@@ -324,8 +324,8 @@ accumulate, alias-safe because the map is mode-local. ``\checkmark``
 storage choice, and the package carries four. Write ``\kappa_a`` for the signed wavenumber of axis
 ``a`` and ``|k|^2 = \sum_a \kappa_a^2``:
 
-- a **field**, ``\hat g`` tabulated as a `ScalarFieldSpectral`, one coefficient per mode
-  (``O(N^3)`` storage);
+- **stored** (`StoredKernel`), ``\hat g`` tabulated one coefficient per mode (``O(N^3)`` storage) — the
+  class `materialize_kernel` returns, and the wrapper that gives a field of coefficients the kernel role;
 - **separable** (`SeparableKernel`), ``\hat g(k) = \prod_{a=1}^{3} g_a(\kappa_a)`` held as its three factors
   ``g_a : \mathbb R \to \mathbb C`` tabulated per axis (``O(N)``) — the class `translation_kernel`
   and `assignment_window` return, both being products over axes by construction;

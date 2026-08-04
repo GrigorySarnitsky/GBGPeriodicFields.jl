@@ -4,24 +4,28 @@
 Periodic (circular) convolution of a field with a kernel, computed in spectral representation. This
 is the **kernel-multiplier role** of the package's measure structure — a grid→grid multiplier that
 filters a field against a fixed kernel — the spectral sibling of the differential operators and the
-same-base counterpart of [`Interpolation`](@ref "Interpolation"). The reductions, this module, and
-the grid↔point transfer
-realize one integration structure in three roles. On the torus the only convolution is the periodic one, and by the convolution
-theorem it is exactly a coefficientwise product of the transforms, so the operation lives in spectral
-representation. A kernel is supplied by its transfer function, and a scalar kernel multiplies every
-fiber component, so one operation serves scalar, vector, and tensor fields. The operation is named
-`convolve` (allocating infix `⋆`) rather than `*`, because the coefficientwise product would read as
-a pointwise multiplication, which it is not.
+same-base counterpart of [`Interpolation`](@ref "Interpolation"). The reductions, this module, and the
+grid↔point transfer realize one integration structure in three roles. On the torus the only convolution
+is the periodic one, and by the convolution theorem it is exactly a coefficientwise product of the
+transforms, so the operation lives in spectral representation. A scalar kernel multiplies every fiber
+component, so one operation serves scalar, vector, and tensor fields. The operation is named `convolve`
+(allocating infix `⋆`) rather than `*`, because the coefficientwise product would read as a pointwise
+multiplication, which it is not.
 
-A kernel reaches an operation in one of two storage classes, and they are interchangeable at every
-entry point that takes a kernel: a **scalar field in spectral representation**, holding one
-coefficient per mode; or one of the **compressed** classes below, which hold the parameters of a
-closed-form multiplier and evaluate it per mode. The two agree bit for bit, so the choice is one of
-memory and speed rather than of result.
+A kernel is **not** a field. The two hold identical coefficients, so nothing but a type can say which
+role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
+deconvolves by it, while the same operation on a field is one the package does not define. Every kernel
+subtypes [`SpectralKernel`](@ref), and the four classes reach every kernel-taking entry point
+interchangeably — `StoredKernel` holds one coefficient per mode, and the three compressed classes hold
+the parameters of a closed-form multiplier and evaluate it per mode. All four agree bit for bit, so the
+choice is one of memory and speed rather than of result.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
-scalar field in spectral representation that the consumer builds from `FieldSpectralMultipliers` and
-convolves with — the package supplies the operation, not the physical meaning.
+symbol the consumer supplies — through `radial_kernel` when it depends on the mode only through
+``|k|^2``, or as coefficients built from `FieldSpectralMultipliers` and wrapped in `StoredKernel`. The
+package supplies the operation, not the physical meaning.
+
+Convolution operations:
 
 - [`convolve`](@ref) / [`convolve!`](@ref) — convolve a field with a kernel; the in-place form adds
   ``\\alpha``/``\\beta`` accumulation, and `convolve(g₁, g₂)` composes two kernels into one.
@@ -29,26 +33,34 @@ convolves with — the package supplies the operation, not the physical meaning.
   radial kernel, computed from the wavenumber arrays on the fly instead of stored as a field; the
   two-operand form filters a weighted combination in the same pass.
 - The kernel-composed [`combine!`](@ref) method — the weighted combination of two fields convolved
-  with a stored kernel, in one fused pass.
-- [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
-  its annular band-pass generalization.
-- [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, for deconvolving a
-  gridded point density.
-- [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the kernel that translates a field by a
-  physical displacement, the shift theorem's phase.
-- [`radial_kernel`](@ref) — build a kernel from any real symbol of the squared wavenumber, which is
-  the route for a symbol this module does not name (a smooth filter, a hyperviscosity, an integrating
-  factor).
-- [`SeparableKernel`](@ref) — the compressed storage the two builders above it return: a kernel that
-  factors over the axes, held as its three per-axis factors, so it costs kilobytes rather than a
-  field. `inv` gives the reciprocal that deconvolves by it.
-- [`RadialKernel`](@ref) — the compressed storage returned by the two band builders and by
-  `radial_kernel`: a kernel depending on the mode only through ``|k|^2``, held as its symbol and
-  evaluated per mode, so it stores no coefficients at all.
-- [`ProductKernel`](@ref) — the product of a radial and a separable kernel, which is what composing
+  with a kernel, in one fused pass.
+
+Kernel storage classes:
+
+- [`StoredKernel`](@ref) — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
+  avoid. Wrapping a field of coefficients in it is how a consumer declares the kernel role.
+- [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
+  so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
+  return. `inv` gives the reciprocal that deconvolves by it.
+- [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as its symbol and
+  evaluated per mode, so it stores no coefficients at all; the class `spectral_cutoff`, `spectral_band`
+  and `radial_kernel` return.
+- [`ProductKernel`](@ref) — a radial and a separable factor held unmultiplied, which is what composing
   across the two families gives; it applies in a single pass like either factor alone.
-- [`materialize_kernel`](@ref) — expand a compressed kernel into a scalar field in spectral
-  representation, for a consumer that wants to inspect or modify the coefficients.
+- [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
+  wants to inspect or modify the coefficients.
+
+Kernel builders:
+
+- [`radial_kernel`](@ref) — build a `RadialKernel` from any real symbol of the squared wavenumber, which
+  is the route for a symbol this module does not name (a smooth filter, a hyperviscosity, an integrating
+  factor).
+- [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
+  its annular band-pass generalization, both radial.
+- [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, separable, for
+  deconvolving a gridded point density.
+- [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the separable kernel that translates a
+  field by a physical displacement, the shift theorem's phase.
 """
 module Convolution
 

@@ -475,7 +475,7 @@ materializing `lpnorm(u, Inf)`, a random tensor against an **independent explici
 the counting-measure forms on point-values, and the spectral absence of the whole family),
 and the intentional absence of the *measure* reductions in spectral representation;
 and **convolution** (`test/convolution.jl`): periodic convolution as the coefficientwise product
-``\hat f \cdot \hat g`` with a `ScalarFieldSpectral` kernel, checked against the translation kernel
+``\hat f \cdot \hat g`` with a `StoredKernel`, checked against the translation kernel
 ``\exp(-\mathrm{i} k_a m \Delta x_a)`` (a shift of ``m`` cells, with ``\Delta x_a`` the grid spacing along axis ``a``) ``\Leftrightarrow`` `circshift` along **all three axes, on scalar and vector fields** (an independent
 physical oracle), the identity / scaling / cutoff kernels over **scalar, vector, and tensor (R=2)**
 fields (the 5-D fiber broadcast), sharp-cutoff idempotence, kernel-composition associativity, the α/β

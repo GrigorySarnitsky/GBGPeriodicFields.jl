@@ -136,7 +136,7 @@ spectral_kernel(reference, w) = ScalarFieldSpectral(ComplexF64.(w), field_grid(r
 
 
 # Preallocated scratch fields for the in-place hot loop, so a step allocates nothing (this is how a
-# real DNS is written — performance first). Holds the integrating factor `Ek`, the RK stages and the
+# real DNS is written — performance first). Holds the RK stages and the
 # velocity/vorticity work fields; the loop and `step!` write into these instead of allocating.
 function make_workspace(physical_reference, spectral_reference)
   ## `similar_field` copies a reference field's representation, grid and storage backend, and takes
@@ -148,7 +148,6 @@ function make_workspace(physical_reference, spectral_reference)
   return (ωh = spectral_vector(), k1 = spectral_vector(), k2 = spectral_vector(),
           ustar = spectral_vector(), uhc = spectral_vector(), tmp = spectral_vector(),
           Nt = spectral_vector(),                          # (u×ω)^ scratch (distinct helmholtz source)
-          Ek = scratch(spectral_reference, Val(0)),        # the integrating factor: a scalar kernel
           u = physical_vector(), ω0 = physical_vector(), ω = physical_vector(),
           uω = physical_vector(), uxω = physical_vector())
 end
@@ -228,8 +227,9 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
 end
 
 # One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
-# ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (the buffer `ws.Ek`; ``\nu``, ``\Delta t`` are physics
-# the package never sees) is applied with `convolve!`. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
+# ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (``\nu``, ``\Delta t`` are physics the package never
+# sees) is applied with `exponential_convolve!`, which evaluates it per mode from the wavenumber arrays,
+# so no kernel field is built, stored, or read. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
 # physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
 # stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
 # `ws.k1`, `ws.k2` hold ``\hat{N}_1``, ``\hat{N}_2``):
@@ -252,8 +252,8 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
   exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)    # û*'s velocity & vorticity (scratch)
   rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                # k₂ = N̂(û*)
-  convolve!(ws.k1, ws.k1, ws.Ek)                                 # E·k₁
-  convolve!(uh, uh, ws.Ek)                                       # E·ûₙ
+  exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)              # ℰ·k₁, the same lazy factor
+  exponential_convolve!(uh, uh, m, -p.ν * dt)                    # ℰ·ûₙ
   field_data(uh) .+= (dt / 2) .* (field_data(ws.k1) .+ field_data(ws.k2))   # ûₙ₊₁
   force!(uh, band, ws, p)
   return uh

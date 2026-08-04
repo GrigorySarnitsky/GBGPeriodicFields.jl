@@ -117,7 +117,7 @@ twin (`allowscalar(false)`) forced most of them in.
 
 - ✅ **Reductions over a field** (`Reductions`): `integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/…
 - ✅ **Apply a diagonal spectral operator $f(k)$** (`Convolution`): `convolve!` + `spectral_cutoff`.
-- ✅ **$|k|$-field and shell-band utilities** (`Convolution`): `squared_wavenumber_field`, `spectral_band`.
+- ✅ **Radial-symbol and shell-band kernels** (`Convolution`): `radial_kernel`, `spectral_band`.
 - ✅ **Energy spectrum $E(k)$** (`Reductions`): `radial_spectrum`.
 - ✅ **Eulerian structure function without a hand-rolled spatial shift** — $S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$ reads
   straight off the FFT-based `radial_correlation` (the shell-averaged velocity autocorrelation), so the

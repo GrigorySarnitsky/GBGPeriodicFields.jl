@@ -907,7 +907,7 @@ and reduces against `f` in a single fused pass, materializing no weighted field 
 
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
-- `w` — the weight, a `ScalarFieldSpectral` holding a **real** multiplier ``w(k)`` (only its real part is used). Build it with the neutral kernels: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `squared_wavenumber_field` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+- `w` — the weight, a stored or radial spectral kernel holding a **real** multiplier ``w(k)`` (only its real part is used; a separable kernel is deliberately not accepted, its factors not being real in general). Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
