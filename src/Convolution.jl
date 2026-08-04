@@ -944,12 +944,14 @@ end
 
 """
     convolve(field, kernel::SpectralKernel)
+    convolve(kernel::SpectralKernel, field)
+    convolve(first_kernel::SpectralKernel, second_kernel::SpectralKernel)
 
-Allocating form of [`convolve!`](@ref): allocate the result and return the periodic convolution of
-`field` with the kernel `kernel`, in spectral representation. Because a kernel is itself a scalar
-field in spectral representation, `convolve(g₁, g₂)` composes two kernels into one. See `convolve!`
-for the componentwise definition and the spectral kernel; the representation and tensor order are
-preserved.
+Allocating form of [`convolve!`](@ref): allocate the result and return the periodic convolution of its
+two arguments, in spectral representation. A field and a kernel, either way round, give the filtered
+field, with its representation and tensor order preserved; two kernels give the single kernel that
+applies both, which is composition and allocates nothing of field size. See `convolve!` for the
+componentwise definition, the storage classes, and why composition has no in-place form.
 """
 function convolve end
 
@@ -1380,7 +1382,7 @@ end
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
-expand it into a scalar field in spectral representation. It is built on
+expand it into a `StoredKernel`. It is built on
 `reference`'s grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
 
@@ -1410,8 +1412,9 @@ end
     assignment_window(reference::AbstractFieldSpectral,
                       multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
-Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation,
-on `reference`'s grid and array backend, for deconvolving a gridded point density.
+Return the linear (cloud-in-cell) mass-assignment window as a [`SeparableKernel`](@ref) — its three
+per-axis factors rather than a field of coefficients — on `reference`'s grid and array backend, for
+deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
 directly. Depositing ``M`` points on the grid with the positive linear
@@ -1469,8 +1472,8 @@ end
                        multipliers::FieldSpectralMultipliers,
                        offset::NTuple{3, Real}) -> SeparableKernel
 
-Build the kernel that translates a field by the physical displacement ``h`` = `offset`, as a scalar
-field in spectral representation on `reference`'s grid and array backend: convolving a field ``f``
+Build the kernel that translates a field by the physical displacement ``h`` = `offset`, returned as a
+[`SeparableKernel`](@ref) on `reference`'s grid and array backend: convolving a field ``f``
 with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
 
 Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the

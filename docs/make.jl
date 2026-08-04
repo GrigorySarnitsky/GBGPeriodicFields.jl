@@ -117,6 +117,55 @@ function lint_notation_variants()
 end
 
 """
+    lint_retired_claims()
+
+Fail the build on a claim the package has retired, matched **across line breaks**.
+
+This exists because [`lint_notation_variants`](@ref) and every hand-run `grep` are line-oriented,
+while these docstrings are hard-wrapped — so a banned phrase straddling a wrap point is invisible to
+both. Decision 60 stopped a field in spectral representation from being a kernel, and the sweep for
+that claim missed `convolve`'s own docstring for exactly this reason: line 949 ended with "a scalar"
+and line 950 began with "field in spectral representation". This lint normalizes whitespace over the
+whole file first, so a wrap cannot hide a phrase.
+
+`ARCHITECTURE.md`'s §13 decision log is exempt below its heading: it is append-only history by policy,
+and its record of what was once true must survive the thing ceasing to be true.
+"""
+function lint_retired_claims()
+  banned = [
+    (r"kernel\s+is\s+itself\s+a\s+scalar\s+field",
+     "decision 60 — a field in spectral representation is not a kernel"),
+    (r"kernel\s+is\s+held\s+either\s+as\s+a\s+scalar\s+field",
+     "decision 60 — a kernel is a `SpectralKernel`, not one of two storage roles of a field"),
+    (r"field\s+passed\s+as\s+a\s+kernel",
+     "decision 60 — a bare field does not dispatch as a kernel; it is wrapped in `StoredKernel`"),
+    (r"(?:kernel|window)\s+as\s+a\s+scalar\s+field\s+in\s+spectral\s+representation",
+     "decision 60 — name the kernel class returned (`StoredKernel`, `SeparableKernel`, `RadialKernel`)"),
+    (r"expand\s+it\s+into\s+a\s+scalar\s+field\s+in\s+spectral\s+representation",
+     "decision 60 — `materialize_kernel` returns a `StoredKernel`"),
+    (r"squared_wavenumber_field",
+     "removed by decision 60 — use `radial_kernel(identity, reference, multipliers)`"),
+  ]
+  problems = String[]
+  for file in _doc_lint_sources()
+    text = read(file, String)
+    # §13 is append-only history: lint only what precedes it.
+    if endswith(file, "ARCHITECTURE.md")
+      cut = findfirst("## 13. Decision log", text)
+      cut === nothing || (text = text[1:first(cut)-1])
+    end
+    flat = replace(text, r"\s+" => " ")
+    for (re, msg) in banned
+      occursin(re, flat) &&
+        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), "  ", msg))
+    end
+  end
+  isempty(problems) ||
+    error("doc lint failed — retired claims still asserted:\n  " * join(problems, "\n  "))
+  @info "doc lint: no retired claims"
+end
+
+"""
     lint_api_page_structure()
 
 Check the structural rules the API pages follow, which Documenter itself cannot enforce because a
@@ -152,6 +201,7 @@ copy_rationale_pages()
 build_examples()
 lint_inline_math()
 lint_notation_variants()
+lint_retired_claims()
 lint_api_page_structure()
 
 using Documenter

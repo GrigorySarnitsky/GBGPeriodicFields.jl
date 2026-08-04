@@ -139,8 +139,8 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
 # applied with the package's `convolve` (periodic convolution = a coefficientwise
 # multiply by a transfer function ``\hat{g}``); the de-alias filter is
 # `spectral_cutoff`, and the physics kernels (carrying ``\nu``, ``\Delta t``, the
-# envelope width) are consumer-built `ScalarFieldSpectral`s — the package carries
-# no physics. All of these operate on whatever backend the reference field lives
+# envelope width) are radial functions of ``\lvert\mathbf{k}\rvert^{2}`` the consumer
+# supplies — the package carries no physics. All of these operate on whatever backend the reference field lives
 # on, so on the GPU they stay entirely on-device.
 # =============================================================================
 
