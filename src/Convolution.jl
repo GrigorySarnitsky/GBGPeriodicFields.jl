@@ -849,11 +849,16 @@ representation.
 Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
 returns a fresh result instead.
 
-!!! note "Two kernels compose only through the allocating form"
+!!! note "Two kernels compose through the allocating form, which allocates nothing"
     This operation applies a kernel to a field. Composing two kernels into one is `convolve(g₁, g₂)`,
-    and there is no in-place spelling of it: a composed radial or separable kernel is a closure or
-    three short vectors, so there is no preallocated destination to write into, and the one class that
-    does own field-sized storage would need a destination *kernel*, which no verb takes.
+    and there is deliberately no in-place spelling, because there is nothing for one to save:
+    composition never builds a field of coefficients in any storage class. Two radial kernels compose
+    into one closure and two separable ones into their per-axis products, while every other pair —
+    including two stored kernels — becomes a [`ProductKernel`](@ref) holding both factors unmultiplied
+    and evaluating them in a single pass. Composing two stored kernels allocates zero bytes, against
+    the ``O(N^3)`` a materialized product would cost, and applying the composite is bitwise-identical
+    to applying the two in sequence. Use [`materialize_kernel`](@ref) if the coefficients themselves
+    are wanted.
 
 The arguments are:
 - `field` — the field to filter, in spectral representation.
