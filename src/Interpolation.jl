@@ -92,7 +92,7 @@ Supertype of **all** grid↔point transfer schemes — the parameter that fixes 
 choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
-exact transfers ([`DirectDFT`](@ref) and [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
+transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
 acting on a field in spectral representation). Same verbs, one adjointness contract; the schemes
 differ only in (kernel, representation).
 """
@@ -498,16 +498,20 @@ is the in-place home of the gather ``W``, and for a single position there is the
 Use this in-place form when `out` is already allocated; the allocating [`interpolate`](@ref) returns a
 fresh result instead.
 
-The `scheme` (an [`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation it
-acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
-[`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space** field
-over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in **spectral
-representation** in the Fourier basis; each scheme's own docstring gives the weights it applies.
+The arguments are:
+- **`out`** — the point-value section written with the gathered values. It must match `field` in tensor
+  order (scalar, vector, or second-order tensor) and cover the same number of points as `points`.
+- **`field`** — the field to sample, in the representation the `scheme` acts on.
+- **`points`** — the [`PointSet`](@ref) of positions to evaluate at.
+- **`scheme`** — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
+  representation it acts on. The physical-domain local splines ([`CatmullRom`](@ref) and the other
+  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space**
+  field over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in
+  **spectral representation** in the Fourier basis; each scheme's own docstring gives its weights.
 
-The `out` argument must match `field` in tensor order (scalar, vector, or second-order tensor) and cover the same
-number of points as `points`. The spline schemes are exact at grid nodes and for polynomials up to the scheme's
-reproduction degree and approximate otherwise; the spectral schemes reconstruct the band-limited field
-exactly (`DirectDFT`) or to a set tolerance (`NUFFT`).
+The spline schemes are exact at grid nodes and for polynomials up to the scheme's reproduction degree
+and approximate otherwise; the spectral schemes reconstruct the band-limited field exactly
+(`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
@@ -585,23 +589,27 @@ in-place home of the scatter ``W^\\top``.
 Use this in-place form when `field` is already allocated; the allocating [`anterpolate`](@ref) returns
 a fresh result instead.
 
-Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose, and
-with the weights' partition of unity — at any position the stencil weights sum to exactly one — the total deposited quantity is conserved. Other communities name
+Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose. For
+a **local-spline** scheme the weights are also a partition of unity — at any position they sum to exactly
+one — and then the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
 (particle-in-cell), *projection* (particle-source-in-cell), or *gridding* (nonuniform FFTs);
-*anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990). The `scheme` (an
-[`AbstractTransferScheme`](@ref)) selects the transfer kernel and the representation: the physical-domain
-local splines ([`CatmullRom`](@ref) and the other [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref))
-scatter onto a **physical-space** field, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a
-field in **spectral representation**; each scheme's own docstring gives the weights.
+*anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990).
 
-  - `α` scales the deposited contribution.
-  - `β` sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0`` accumulates
-    onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling scatter —
-    a deposit that accumulates onto a field the same points also sample).
-
-Both `field` and `quantities` must share tensor order (scalar, vector, or second-order tensor), and `points`
-must cover the same number of points.
+The arguments are:
+- **`field`** — the field deposited onto, in the representation the `scheme` acts on. It shares its
+  tensor order with `quantities`.
+- **`points`** — the [`PointSet`](@ref) the quantities sit at, covering as many points as `quantities`.
+- **`quantities`** — the per-point values to deposit.
+- **`scheme`** — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
+  representation: the physical-domain local splines ([`CatmullRom`](@ref) and the other
+  [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) scatter onto a **physical-space** field, while
+  [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a field in **spectral representation**; each
+  scheme's own docstring gives the weights.
+- **`α`** — scales the deposited contribution.
+- **`β`** — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
+  accumulates onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling
+  scatter — a deposit that accumulates onto a field the same points also sample).
 
 Reference: A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
 equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370

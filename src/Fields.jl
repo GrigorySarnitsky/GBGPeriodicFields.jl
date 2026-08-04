@@ -1293,7 +1293,8 @@ The arrays must live on storage (CPU or GPU) matching the fields the multipliers
 These two constructors are explicit: you supply both the wavenumbers and the squared wavenumbers, and only their lengths are checked.
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
-A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment;
+A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment, and carries
+its own docstring below.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
 final `Canonical` parameter: the convenience constructor marks them canonical, the explicit forms do
@@ -1303,7 +1304,6 @@ the same way from the same inputs, so they agree by construction. That is what l
 two radial kernels into one without testing anything at run time, and it is why a caller supplying its
 own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
 grid's own wavenumbers.
-it carries its own docstring.
 """
 struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, Canonical} 
   grid::Grid3D{T}
@@ -1498,14 +1498,14 @@ end
 """
     FieldPhysicalBroadcastStyle{N}
 
-Broadcast style for fields in physical-space representation (`N = 3 + tensor_order`). A field stands for its storage array inside a broadcast, and the style materializes the result back into a physical-space field. See also `FieldSpectralBroadcastStyle`.
+Broadcast style for fields in physical-space representation (``N = 3 + R``, with ``R`` the tensor order). A field stands for its storage array inside a broadcast, and the style materializes the result back into a physical-space field. See also `FieldSpectralBroadcastStyle`.
 """
 struct FieldPhysicalBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
 
 """
     FieldSpectralBroadcastStyle{N}
 
-Broadcast style for fields in spectral representation (`N = 3 + tensor_order`); the spectral counterpart of `FieldPhysicalBroadcastStyle`. Combining the two styles is an error, so physical and spectral representations never mix in one broadcast.
+Broadcast style for fields in spectral representation (``N = 3 + R``, with ``R`` the tensor order); the spectral counterpart of `FieldPhysicalBroadcastStyle`. Combining the two styles is an error, so physical and spectral representations never mix in one broadcast.
 """
 struct FieldSpectralBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
 

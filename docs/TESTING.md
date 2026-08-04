@@ -131,11 +131,15 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   physical-only absence),
   `differentialoperators.jl` (the spectral operators, incl. the fused `symmetric_gradient`), `convolution.jl` (periodic convolution + the kernel/coordinate builders
   `spectral_cutoff` / `spectral_band` / `radial_kernel` / `translation_kernel`, and the
-  **kernel storage classes** — a walk that takes every kernel-taking entry point (`convolve`,
-  `convolve!` with ``\alpha``/``\beta``, `helmholtz_projection`, `divergence`, `weighted_inner`) over
-  tensor orders 0/1/2 and requires each compressed class — `SeparableKernel`, `RadialKernel` and the
-  `ProductKernel` that composing across them gives — to agree **bitwise** with its materialized twin,
-  plus the composition cases pinning which class each pairing lands in),
+  **kernel storage classes** — `convolve!` is walked over **all four** classes (`StoredKernel`,
+  `SeparableKernel`, `RadialKernel` and the `ProductKernel` that composing across the families gives),
+  each required to agree **bitwise** with its materialized twin, with the class list derived from the
+  type hierarchy so a fifth class fails until it is given a specimen; the kernel-composed
+  `helmholtz_projection` and `divergence` arities are walked over the separable and radial classes but
+  **not** the product one; and `weighted_inner` is walked over the two its signature admits, a stored
+  or radial weight, a separable one being deliberately outside the family (a magnitude-dependent weight
+  does not factor per axis). Tensor orders 0/1/2 and the composition cases pinning which class each
+  pairing lands in are covered alongside),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
@@ -449,7 +453,7 @@ gate and the GPU `materialize!` fallback also asserted — and, separately, the
 is asserted bitwise, including against a subprocess launched
 at a different thread count, while the two `Atomix` accumulators (the anterpolation scatter, the
 shell binning) are held to a tolerance because a nondeterministic summation order perturbs their
-last bits. `helmholtz_projection!` is checked with the gated operations instead, decision 40 having
+last bits. The `helmholtz_projection!` operator is checked with the gated operations instead, decision 40 having
 given it a CPU loop twin that the `with_threading` toggle does reach, and across thread counts as well ([`ARCHITECTURE.md`](architecture.md) §9); and the **L²/measure reductions**
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
 fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac{1}{2}``) and manual references,

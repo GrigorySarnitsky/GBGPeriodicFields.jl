@@ -129,6 +129,9 @@ coefficients through it without an extra read. Wrap once, where the kernel is bu
 
 [`materialize_kernel`](@ref) returns this class, so a compressed kernel expanded into its coefficients
 arrives already in the kernel role.
+
+The fields are:
+- **`field`** — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.
 """
 struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
   field::F
@@ -150,8 +153,10 @@ _context_layout(kernel::StoredKernel) = _context_layout(kernel.field)
 The coefficientwise product of two spectral kernels, held as the pair rather than evaluated — what
 [`convolve`](@ref) returns when it composes kernels that are not both of one family.
 
-Composition inside a family stays in that family (two radial symbols multiply into one radial symbol,
-two axis-factored kernels into one axis-factored kernel). Across families there is no such collapse:
+Composition inside a family usually stays in that family: two axis-factored kernels always multiply
+into one axis-factored kernel, and two radial symbols multiply into one radial symbol **when both are
+evaluated against the same coordinates**, which [`RadialKernel`](@ref) explains and decides by type.
+Radial operands that fail that test land here instead. Across families there is no collapse at all:
 a radial symbol times an axis-factored phase is neither radial nor separable, so the composite keeps
 both operands and multiplies their per-mode values. Either order composes and gives the same operator,
 the product being coefficientwise, and a composite composes further in either position. It still stores nothing of field size, and it
@@ -159,6 +164,9 @@ applies exactly like either operand.
 
 This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be
 applied in a single pass instead of two.
+
+The fields are:
+- **`first_kernel`**, **`second_kernel`** — the two operands, held unmultiplied and evaluated per mode.
 """
 struct ProductKernel{T, A, B} <: SpectralKernel{T}
   first_kernel::A
@@ -183,6 +191,16 @@ function _check_kernel_compatibility(field, kernel::ProductKernel)
   return nothing
 end
 
+"""
+    inv(kernel::ProductKernel)
+
+The reciprocal kernel ``1/\\hat g``, formed by inverting each factor — the product of the reciprocals is
+the reciprocal of the product — so it is another [`ProductKernel`](@ref) and materializes nothing.
+
+!!! warning "Each factor must have no zeros on the resolved band"
+    The composite vanishes wherever either factor does, so both must be invertible; each factor's own
+    `inv` states the condition it needs.
+"""
 Base.inv(kernel::ProductKernel{T}) where {T} =
   ProductKernel{T}(inv(kernel.first_kernel), inv(kernel.second_kernel))
 
@@ -411,10 +429,9 @@ kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel
 
 Whether that is also *faster* depends on the base. Applying it moves two field-sized streams where a
 stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a base
-small enough to sit in cache and overtakes it once the base is bound by memory — measured at roughly
-``0.5``–``0.9`` of the stored kernel's speed at ``64^3``–``128^3``, parity near ``256^3``, and
-``1.1``–``1.2`` times faster at ``256^3``–``512^3`` threaded on a CPU or in `Float32` on a GPU. On a
-small base where the difference matters, [`materialize_kernel`](@ref) trades the memory back.
+small enough to sit in cache and overtakes it once the base is bound by memory. On a small base where
+the difference matters, [`materialize_kernel`](@ref) trades the memory back, and its docstring carries
+the measured crossover.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
 ``1/\\prod_a \\sigma_a = \\prod_a (1/\\sigma_a)`` — the deconvolution an assignment window is built for.
 
@@ -1319,11 +1336,10 @@ end
     exponential_convolve(field, multipliers, coefficient::Real,
                          offset_scale::Real, offset::ScalarFieldSpectral)
 
-Allocating form of [`exponential_convolve!`](@ref): allocate the result and return the field
-convolved with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)`` — for ``c \\le 0`` the
-periodic Gaussian smoothing ``e^{-c\\Delta}`` of the field. See `exponential_convolve!` for the
-kernel, the argument meanings, and the two-operand forms; the representation and tensor order are
-preserved.
+Allocating form of [`exponential_convolve!`](@ref): allocate the result and return the field smoothed
+by the exponential radial kernel, which for a non-positive coefficient is a periodic Gaussian blur. See
+`exponential_convolve!` for the kernel, the argument meanings, and the two-operand forms; the
+representation and tensor order are preserved.
 """
 function exponential_convolve end
 
@@ -1365,6 +1381,7 @@ band, or any shell selector. It is idempotent (``\\hat g^2 = \\hat g``), hence a
 the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass case
 ``k_\\mathrm{lo} = 0``.
 
+The arguments are:
 - `reference` — a field in spectral representation whose grid and backend the kernel matches.
 - `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
 - `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
@@ -1413,6 +1430,7 @@ Convolve a field with it for the ideal low-pass projection, the basis of spectra
 de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and it is the low-pass
 special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 
+The arguments are:
 - `reference` — a field in spectral representation whose grid and backend the kernel matches.
 - `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
 - `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
@@ -1447,8 +1465,8 @@ mass over a tent, so the gridded density is the true density ``\\rho`` convolved
 ``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function ``g(r)``
 (the pair density at separation ``r`` relative to an uncorrelated uniform gas).
 
-- `reference` — a field in spectral representation whose grid and backend the window matches.
-- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+Here `reference` is a field in spectral representation whose grid and backend the window matches, and
+`multipliers` supplies the wavenumber arrays for that grid, checked against `reference`.
 
 As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tensor product of per-axis
 tents:
@@ -1512,6 +1530,7 @@ field without touching any amplitude, unlike the real and even [`spectral_cutoff
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
+The arguments are:
 - `reference` — a field in spectral representation whose grid and backend the kernel matches.
 - `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
 - `offset` — the displacement ``h = (h_1, h_2, h_3)``, a physical length per axis in the units of the
@@ -1583,9 +1602,13 @@ in-place form when a displacement changes and the kernel is already allocated; t
 [`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
 not a field, so rebuilding per call is cheap.
 
-The arguments are the `kernel` to overwrite, the `multipliers` supplying both wavenumber families, and
-the physical `offset` ``h`` as a three-tuple. The displacement convention and the Nyquist treatment are
-[`translation_kernel`](@ref)'s.
+The arguments are:
+- **`kernel`** — the [`SeparableKernel`](@ref) whose per-axis factors are overwritten.
+- **`multipliers`** — the wavenumber arrays, supplying both families (the derivative wavenumbers and
+  the true squared ones), checked against `kernel`'s grid and layout.
+- **`offset`** — the physical displacement ``h`` as a three-tuple.
+
+The displacement convention and the Nyquist treatment are [`translation_kernel`](@ref)'s.
 """
 function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
     offset::NTuple{3, Real}) where {T}

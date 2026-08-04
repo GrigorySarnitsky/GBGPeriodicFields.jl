@@ -180,6 +180,10 @@ grep -rnP '\\\\!\\\\!' src/*.jl; grep -rnP '\\!\\!' $DOCS_MD  # \!\! double nega
 grep -rnP '\\\\mathbb\s*\{?\s*[0-9]' src/*.jl; grep -rnP '\\mathbb\s*\{?\s*[0-9]' $DOCS_MD  # \mathbb on a digit (\mathbb{1} falls back to a plain glyph — KaTeX's bb font has no digit) → \mathbf{1}
 
 # ---- TRIAGE (heuristics: real signal mixed with false positives — read each, then fix the genuine class) ----
+# NEVER pipe these through `head`/`tail`. Adding a limit to keep the output readable is how a class gets
+# half-swept and reported closed: on 2026-08-04 the sentence-opener scan was run with `| head -5`, showed
+# 5, and there were 31. Count first (`| wc -l`), then read the whole list. The same failure hit the
+# `ScalarFieldSpectral` sweep the same day (10 shown, 20 real).
 grep -rnE '`[^`]*[≤≥≠∈∉∇Δ⟨⟩‖√][^`]*`' src $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # formula-in-backticks → ``LaTeX`` (FP: the real Julia operators ×/⋅/≈; a documented anti-pattern example)
 grep -rnE '\$[^$]*[\\_^{}][^$]*\$' $DOCS_MD                        # stray TeX $…$ → use ``…`` / ```math``` (scope to sources, NOT docs/build)
 grep -rnP '\\\\(left|right)(?![a-zA-Z])' src/*.jl; grep -rnP '\\(left|right)(?![a-zA-Z])' $DOCS_MD  # \left/\right auto-sized delimiter → size by hand with \bigl/\Bigl (FP: the \left\{ … \right. system idiom + notation.md's delimiter row; \leftarrow/\rightarrow arrows are excluded)

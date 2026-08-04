@@ -390,7 +390,7 @@ forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real fie
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot
 the constant-add writes; `lpnorm`/`maximum` have no single-coefficient form.
 
-**Variance, standard deviation, and covariance** (decision 49). ``\operatorname{var}``/``\operatorname{std}``
+**Variance, standard deviation, and covariance** (decision 49). The reductions ``\operatorname{var}``/``\operatorname{std}``
 are **scalar-only**. The *population* second central moment is what Parseval gives directly, as the
 fluctuation energy carried by every mode but the mean:
 

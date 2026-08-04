@@ -650,7 +650,7 @@ broadcast route, so the cutoff and the `with_threading` override govern them.
 
 One pairing the route list above does not name outright, because it mixes two of its entries, is worth
 recording since decision 50 added the second instance: an operation may take the **broadcast route on a
-device and a hand-written gated loop on a CPU**. `helmholtz_projection!` pairs a `KernelAbstractions`
+device and a hand-written gated loop on a CPU**. The `helmholtz_projection!` operator pairs a `KernelAbstractions`
 kernel with a gated CPU loop (decisions 38, 40); the axis-factored kernel of decision 50 pairs a
 *broadcast* with one. The reason is measured rather than aesthetic — a broadcast whose operands carry
 singleton axes indexes cartesian and launches flat, which is what a device wants, but does not vectorize
@@ -1107,7 +1107,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
     `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
     **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
-    `L²(base, μ)`; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
+    ``L^2(\text{base}, \mu)``; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
     `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
@@ -1148,11 +1148,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\texttt{inner}(\hat f, \hat g)`` equals the physical inner via the rfft half-spectrum Parseval weighting (each mode
     counts twice except those on the ``k_x=0`` plane and, for even ``N_x``, the Nyquist plane — the planes the
     rfft maps to themselves under conjugation, whose partners are already stored, so they count once), computed
-    as a `dot` over the array plus two plane corrections — allocation-free in the `inner(f, f)`/`l2norm` case, while the mixed `inner(f, g)` materializes its two correction planes (decision 26). `integral` and `mean` are
+    as a `dot` over the array plus two plane corrections — allocation-free in the `inner(f, f)`/`l2norm` case, while the mixed `inner(f, g)` materializes its two correction planes (decision 26). The `integral` and `mean` reductions are
     representation-invariant too, by a different route — the zero (DC) Fourier mode: under the
     unnormalized-forward convention the DC coefficient is ``\hat f(0) = \sum_x f(x)`` (real for a real
     field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N) \hat f(0)`` with no transform,
-    read from the same zero-mode slot the constant-add writes (invariant 4). `lpnorm` (for ``p \ne 2``),
+    read from the same zero-mode slot the constant-add writes (invariant 4). The `lpnorm` reduction (for ``p \ne 2``),
     `std`/`var`, and `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only.
     **Physics stays consumer-side**: energy ``\tfrac{1}{2} \texttt{inner}(u,u)``, enstrophy
     ``\tfrac{1}{2} \texttt{inner}(\omega,\omega)``, dissipation ``\nu \texttt{inner}(\omega,\omega)``, rms ``\sqrt{\texttt{inner}}``, intensities from `std`. The FP-ordering
@@ -1262,13 +1262,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operation invariant 1 names but bans **as `*`** (because `*` would read as the spectral *pointwise*
     product, which it is not). It is offered here under its true name — `convolve`, never `*` — and is
     linear in the field for a fixed kernel; the spectral pointwise product, division, and norms remain
-    absent. `convolve` / `convolve!` / `spectral_cutoff` are separate generics, so the `FieldAlgebra`
+    absent. The `convolve` / `convolve!` / `spectral_cutoff` family are separate generics, so the `FieldAlgebra`
     198-method and point-value 118-method parity baselines are unchanged.
 
     One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
     low-pass (idempotent projection), the basis of de-aliasing / spectral truncation; physics (an LES
-    filter, an integrating factor ``\exp(-\nu k^2 \Delta t)``) stays a `ScalarFieldSpectral` the consumer builds
-    from the wavenumbers (invariant 12). Naming follows the [§2](@ref "2. The central principle: the architecture follows established mathematics") convention (the verb `convolve` for a
+    filter, an integrating factor ``\exp(-\nu k^2 \Delta t)``) stays a set of coefficients the consumer builds
+    from the wavenumbers, wrapped as a `StoredKernel` since decision 60 (invariant 12). Naming follows the [§2](@ref "2. The central principle: the architecture follows established mathematics") convention (the verb `convolve` for a
     generic transformation; the module noun `Convolution`, parallel to `Interpolation` / `interpolate`).
     Tested CPU (`test/convolution.jl`, Float64/Float32 — the translation kernel
     ``\exp(-\mathrm{i} k_x m \Delta x) \Leftrightarrow`` `circshift` is the independent physical oracle, plus identity/scaling/
@@ -1332,7 +1332,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     over ``|k|``-shells (the spectrum), or ``\mathcal F^{-1}(|\hat f|^2)`` over ``|r|``-shells (the correlation). This is
     invariant 2 — *physical and spectral are representations of one object* — raised to **second-order
     statistics**: the spectrum and the correlation function are not two diagnostics but one, viewed in
-    the two representations. `radial_spectrum` (decision 21, introduced as `shell_spectrum`) is the
+    the two representations. The `radial_spectrum` reduction (decision 21, introduced as `shell_spectrum`) is the
     spectral half; this entry designs the physical half and the point application, and fixes the
     terminology so the family is coherent.
 
@@ -1342,15 +1342,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     statistics; "shell" named the binning implementation and does not pair with the physical-space
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
-    under the `radial` qualifier. `radial_spectrum`'s math is unchanged (`sum == inner`). Physics names
+    under the `radial` qualifier. The `radial_spectrum` math is unchanged (`sum == inner`). Physics names
     stay consumer-side: the energy spectrum ``E(k) = \tfrac{1}{2} \texttt{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
     *The physical dual — `radial_correlation` (done).* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle``
     (full fiber contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)/N``
-    binned over minimum-image ``|r|`` shells. ``C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)`` (the
-    variance); for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
+    binned over minimum-image ``|r|`` shells. The zero-separation value is ``C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)`` (the
+    variance); and for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
     as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
     its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
     imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same scatter-add
@@ -1720,7 +1720,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     keep the true value at Nyquist, derivative wavenumbers are zeroed there), so the builder is a
     three-factor broadcast and the Nyquist correction falls out of a convention already in place for the very
     same reason — an odd function of ``k`` must vanish at Nyquist to keep a real field real, which is why the
-    derivative multiplier is zeroed there. `translation_kernel` is the first operation to use **both**
+    derivative multiplier is zeroed there. The `translation_kernel` builder is the first operation to use **both**
     families, and it confirms that split rather than excepting it.
 
     *Consequences, documented on the operation.* The kernel is a pure phase of unit modulus on every resolved
@@ -1944,7 +1944,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\alpha = 1/2``, ``\beta = 1`` — eliminating
     the standalone shift-back, average, and truncation passes (four passes per evaluation at wiring
     time; two more were already banked consumer-side by rewriting the average as `convolve!`'s
-    five-argument form). `curl!` deliberately does **not** get the kernel arity: IT's curls feed
+    five-argument form). The `curl!` operator deliberately does **not** get the kernel arity: IT's curls feed
     transforms directly, so there is no consumer — the absence is the invariant-1 discipline, recorded
     here. Validity is unchanged: spectral-only, the kernel under `convolve!`'s Hermitian reality
     condition, and the Nyquist split untouched (per-mode scalars multiply regardless of their Nyquist
@@ -2651,7 +2651,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1).
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
-    **values, never a type**. `spectral_band` first captured `T` to write `one(T)`/`zero(T)` in the
+    **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the
     body, which makes the closure hold a `Type{Float64}` — not a bitstype, so a GPU launch rejects it
     outright. Capturing the two values instead fixes it, and the `radial_kernel` docstring states the
     rule.
@@ -2788,7 +2788,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     Widening it immediately paid: the traffic ledger parsed its row labels by splitting on whitespace,
     so `"map!(det) tensor→scalar"` recorded `Symbol("map!(det)")` and four more rows recorded phantoms
-    naming nothing. `map!` read as unaudited while two rows for it sat in the file. Both ledgers now
+    naming nothing. The entry for `map!` read as unaudited while two rows for it sat in the file. Both ledgers now
     assert that every captured name resolves to a real package function — the decision-54
     *a guard needs a guard* lesson, applied a second time to a second guard.
 
@@ -2853,7 +2853,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/threading.jl` exists to catch. It was invisible because every fixture in that file is backed
     by a plain `Array` — the fixture-blindness of decision 52, in a new place.
 
-    The generalizable lesson is about the **denominator** again. `materialize_kernel` was missing for
+    The generalizable lesson is about the **denominator** again. The operation `materialize_kernel` was missing for
     an exported kernel class while every completeness ledger read it as covered, because the ledgers
     count operation NAMES and the generic had methods. The fix that matters is not the method; it is
     that the sweep now takes the **subtype set**, derived from the module namespace, so a new class
@@ -2976,7 +2976,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     belief is why the defect was deferred for a day.
 
     The invariant now says what is true rather than what was hoped: aliasing is safe by construction
-    **because** a section owns its storage. `test/exhaustive/` checks both halves — that no assignment
+    **because** a section owns its storage. The survey in `test/exhaustive/` checks both halves — that no assignment
     changes an answer, and that the refusal has not reopened — and the second is mutation-verified:
     removing one constructor's check makes the lane name every reopened case and turn its exit from
     0 to 2.
@@ -3035,11 +3035,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the collapse is unconditional there and is selected by dispatch. Every other pairing, including a
     custom set on either side and two canonical sets of different array types (different backends), keeps
     both operands. All four cases now infer a concrete type, and the parameter goes **last** so that the
-    46 bare `::FieldSpectralMultipliers` annotations and the one `{T}` accessor are untouched.
+    every bare `::FieldSpectralMultipliers` annotation and the one `{T}` accessor are untouched.
 
     **One behaviour change, and it is the one the mathematics asks for**: two separately-built canonical
     multiplier sets used to give a `ProductKernel` and now collapse to a `RadialKernel`. They hold equal
-    values, so the collapsed form is correct; the old answer was merely conservative. `test/contracts.jl`
+    values, so the collapsed form is correct; the old answer was merely conservative. The lane in `test/contracts.jl`
     asserted the conservative behaviour and now asserts the collapse, alongside a custom set reaching the
     retained form — the canonical-versus-custom axis, added to `docs/TESTING.md` §4 in the same change.
 

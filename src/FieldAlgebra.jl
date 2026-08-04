@@ -525,7 +525,7 @@ place.
 
 # The kernel-composed form
 
-Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, in either storage class, exactly as `convolve!` takes
+Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, in any storage class, exactly as `convolve!` takes
 it — convolves the combination with the kernel in the same fused pass. As a real physical object the
 result is the kernel-weighted local average of the combination, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,
@@ -972,7 +972,8 @@ returns a fresh result instead.
 The arguments are:
 - `destination` — the vector field that receives the product.
 - `u`, `v` — the two vector fields.
-- `a` — a constant `FiberVector` crossed with the field, in either argument order.
+- `a` — a constant `FiberVector` crossed with the field. Both orders have methods, and being a cross
+  product they differ in sign: ``a \\times u = -(u \\times a)``.
 
 Cross products of two fields are nonlinear and are defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 

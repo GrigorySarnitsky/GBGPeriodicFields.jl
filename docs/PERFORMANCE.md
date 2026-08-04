@@ -275,9 +275,15 @@ long run. Pure in-place transform, 256³ `Float32`, minimum time:
 
 | threads | c2r (`to_physical!`), `ESTIMATE`→`MEASURE` | r2c (`to_spectral!`), `ESTIMATE`→`MEASURE` |
 |---|---|---|
-| 1 | 163 → 30 ms (**5.4×**) | 167 → 31 ms (**5.3×**) |
-| 4 | 43.7 → 9.5 ms (**4.6×**) | 41.7 → 8.3 ms (**5.1×**) |
-| 8 | 23.5 → 6.8 ms (**3.4×**) | 21.8 → 4.8 ms (**4.5×**) |
+| 1 | 170 → 33.3 ms (**5.1×**) | 168 → 33.6 ms (**5.0×**) |
+| 4 | 47.3 → 14.0 ms (**3.4×**) | 46.3 → 12.9 ms (**3.6×**) |
+| 8 | 27.5 → 12.0 ms (**2.3×**) | 26.2 → 10.2 ms (**2.6×**) |
+
+The gain narrows as threads are added — the planner's advantage is largest where a single core is doing
+all of the work — so the headline is the single-threaded figure. (Read from the current `RESULTS.md`
+rather than re-measured for this table. The earlier printed figures were a one-off snapshot whose t4/t8
+`MEASURE` times ran 35–75% faster than anything in the committed archive, and the surrounding prose
+promises this table tracks the live record.)
 
 It is size- and CPU-specific (128³ is fine; the i7-12700K shows no such inversion) — a classic `ESTIMATE`
 pitfall on a new CPU, not a package issue. The default stays `ESTIMATE` (cheap, deterministic, right for
@@ -629,7 +635,7 @@ tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows t
 and assembles it into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
-that one script; it stamps the date, commit, and host. `characterize.jl` additionally stamps **each
+that one script; it stamps the date, commit, and host. The `characterize.jl` sweep additionally stamps **each
 archive JSON** with its own measurement vintage (`commit=`/`measured=` BenchmarkGroup tags), and
 `report.jl` prints the per-column vintages in the header — so a column measured at an older commit is
 visible as such instead of silently inheriting the report's HEAD (the 2026-07-22 decision-40
@@ -756,7 +762,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    - **Cold kernel compilation looks like a hang.** The first GPU use after a reboot compiles
      kernels host-side via AMD `comgr` → 0% GPU, 100% CPU, VRAM pool reserved, no output, for
      minutes. *Never kill a cold first run* — a killed compile never persists to `~/.cache/comgr`, so
-     the next run restarts cold. `characterize.jl` warms the cache with one trivial kernel up front.
+     the next run restarts cold. The `characterize.jl` sweep warms the cache with one trivial kernel up front.
      A further mitigation for the rocFFT share of the compile: setting the `ROCFFT_RTC_CACHE_PATH`
      environment variable to a writable file makes rocFFT persist its runtime-compiled FFT kernels
      there and reuse them across processes, turning that part of the cold start into a one-time cost

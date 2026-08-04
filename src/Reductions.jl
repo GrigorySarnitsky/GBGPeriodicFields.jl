@@ -12,7 +12,7 @@ dispatched on `AbstractFiberSection`.
 The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
 quantities. Several also act on fields in **spectral representation**, returning the identical physical
 value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integral`/`mean` from the
-zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `maximum`/`minimum`/`extrema`)
+zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `cov`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
 The parts are, each linking to the home where its formula lives:
@@ -31,7 +31,8 @@ The parts are, each linking to the home where its formula lives:
   spectral generalization ``\\langle f, w g\\rangle``.
 - [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
-  (``R \\le 2`` — see the umbrella's note on the supported tensor order).
+  (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a
+  fiber-preserving reduction raises above it rather than returning a wrong answer).
 - The **mapped forms** — each reduction above also accepts a leading function, applied to the fiber
   value at every base point: `mean(det, A)` averages a determinant over the base and
   `maximum(norm, u)` takes a supremum of magnitude, each in a single pass that never builds the mapped
@@ -512,7 +513,7 @@ The arithmetic average of a section over its base, fiber-preserving: on a grid t
 cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set the sample mean
 ``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
 second-order tensor field's one `FiberTensor2`. The mapped form `mean(fiber_map, f)` averages
-``\\varphi(f_n)`` for a fiber map `φ` (for example `mean(det, A)`) in one fused pass with no
+``\\varphi(f_n)`` for the fiber map (for example `mean(det, A)`) in one fused pass with no
 intermediate section; the map is nonlinear in general, so the mapped forms exist on fields in physical representation
 and point-values only. On a field in spectral representation the mean is read from the zero (DC)
 Fourier mode in ``O(1)``, equal to the physical value with no transform. See [`integral`](@ref) for
@@ -589,6 +590,7 @@ minimum
 
 """
     extrema(f)
+    extrema(fiber_map, f)
 
 The pair `(minimum(f), maximum(f))` of a scalar section over its base, in one call. See
 [`maximum`](@ref).
@@ -1219,7 +1221,7 @@ C_{fg}(r) = \\frac{1}{N} \\sum_x f(x)\\cdot g(x+r) = \\frac{1}{N} \\mathcal F^{-
 followed by the shell average ``C(r_i) = |\\text{shell } i|^{-1} \\sum_{|r| \\approx r_i} C(r)``. At zero
 separation each is [`inner`](@ref): ``C(0) = \\langle |f|^2\\rangle = \\texttt{inner}(f, f)`` and
 ``C_{fg}(0) = \\langle f\\cdot g\\rangle = \\texttt{inner}(f, g)`` — `inner` resolved over physical
-separation exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair up to the convention's
+separation, with ``c`` indexing the fiber components, exactly as `radial_spectrum` resolves it over ``|k|`` (a Fourier pair up to the convention's
 ``1/N``: ``\\mathcal F C = |\\hat f|^2/N``, ``\\mathcal F C_{fg} = \\overline{\\hat f} \\hat g/N``). The one-argument form is the ``g = f`` case; the
 radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding of the min-image shells
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac{1}{2}(C_{fg} + C_{gf})``
@@ -1281,12 +1283,16 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 ```math
 \\begin{aligned}
 \\lVert f\\rVert_p &= \\Bigl(\\frac{1}{N} \\sum_x |f(x)|^p\\Bigr)^{1/p} && (\\texttt{Grid3D}), \\\\
-\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_p |f_p|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
+\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_q |f_q|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
 \\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|, &&
 \\end{aligned}
 ```
 
 It is physical-space only.
+
+The exponent `p` must satisfy ``1 \\le p \\le \\infty``; outside that range the expression is not a norm
+and the call raises rather than returning a plausible number. The result carries the section's own
+element type — a `Float32` section gives a `Float32` norm at every exponent.
 """
 function lpnorm(section::ReducibleSection, p::Real = 2)
   # The domain is 1 <= p <= Inf, where the expression below is a norm. Outside it the formula still

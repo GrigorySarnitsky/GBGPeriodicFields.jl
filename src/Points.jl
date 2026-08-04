@@ -18,7 +18,8 @@ The parts are:
   * **A full fiberwise algebra on the point values.** Addition, real scaling, scalar
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
     invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
-    carry — see [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
+    carry, together with the arbitrary-fiber-map escape hatch `map!`/`map` — see
+    [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
 The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
@@ -89,13 +90,15 @@ const Point{T} = SVector{3, T}
 """
     PointSet(coordinates::AbstractArray{T, 2}) where {T<:AbstractFloat}
 
-A collection of `M` off-grid positions. The coordinates are stored structure-of-arrays in
-`coordinates`, with shape `(M, 3)` — point index first, coordinate axis last — so that each
-coordinate axis is contiguous across points, mirroring the fiber-last field layout. Storage is
-backend-generic: `coordinates` may be any `AbstractArray`, on the CPU (`Array`) or a GPU
-(`CuArray`/`ROCArray`), and its second axis must have length `3`. A point set carries no grid,
+A collection of `M` off-grid positions, stored structure-of-arrays so that each coordinate axis is
+contiguous across points, mirroring the fiber-last field layout. Storage is backend-generic: the array
+may live on the CPU (`Array`) or a GPU (`CuArray`/`ROCArray`). A point set carries no grid,
 because a periodic domain wraps any coordinate; a transfer operator takes the grid from the
 field it acts on.
+
+The fields are
+- `coordinates`: the positions, an `AbstractArray` of shape `(M, 3)` — point index first, coordinate
+  axis last — whose second axis must have length `3`.
 """
 struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
   coordinates::A
@@ -224,7 +227,8 @@ point_coordinates(point_set::PointSet) = point_set.coordinates
     point_values(sampled_values::AbstractPointValues)
 
 Return the underlying array of sampled values held by `sampled_values`, a structure-of-arrays
-with shape `(M,)`, `(M, 3)`, or `(M, 3, 3)` for tensor order `0`, `1`, or `2`.
+with shape `(M, fiber_shape(Val(R))...)` — `(M,)`, `(M, 3)` and `(M, 3, 3)` at tensor orders `0`, `1`
+and `2`.
 """
 function point_values end
 point_values(sampled_values::AbstractPointValues) = sampled_values.data
@@ -340,7 +344,8 @@ similar_pointvalues(reference::AbstractPointValues{T}, ::Val{R}) where {T<:Abstr
     PointValuesBroadcastStyle{N}
 
 Broadcast style for point values, where `N` is one plus the tensor order — `1`, `2`, or `3` for
-the `(M,)`, `(M, 3)`, and `(M, 3, 3)` storage layouts. Inside a broadcast a point-value object
+the `(M,)`, `(M, 3)` and `(M, 3, 3)` storage layouts at tensor orders `0`, `1` and `2`, and one more
+dimension for each order above that. Inside a broadcast a point-value object
 stands for its storage array, and this style materializes the result back into a point-value
 object of the same order.
 """
@@ -1074,8 +1079,8 @@ bit-for-bit. It is the point-layer twin of `read_field`.
 The reconstructed object is a host (CPU) one regardless of where the written one lived; move it to a
 device afterward if needed.
 
-- `parent` — an open HDF5 `File` or `Group` holding the group.
-- `name` — the name (or path) of the group under `parent`.
+Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path)
+of that group under `parent`.
 
 Provided by a package extension, so it is available only when `HDF5` is loaded.
 """
