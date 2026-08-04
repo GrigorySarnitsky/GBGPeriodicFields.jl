@@ -484,6 +484,15 @@ divergence-annihilating at every mode, bitwise-unchanged sub-Nyquist). The ledge
 landed: the non-mean-free `inverse_laplacian` input and the ``\det(AB) = \det A \det B``
 assertion.
 
+**Two argument-shape inconsistencies are SETTLED, not defects (user-decided 2026-08-05).** The callable
+`field(x; scheme = …)` takes its scheme as a **keyword** while `interpolate`/`anterpolate` take it
+positionally, and `radial_kernel(sigma, reference, multipliers)` leads with its **function** where
+`spectral_cutoff`/`spectral_band`/`assignment_window`/`translation_kernel` lead with `reference`. Both
+were raised by the 12-hat panel as real interface inconsistencies; both are kept — a keyword suits a
+one-point convenience whose default is the usual case, and leading with the symbol follows Julia's
+`map(f, collection)` convention for the argument that distinguishes the general builder from the named
+ones. Changing either is breaking. A later review that re-raises them should close against this note.
+
 **The `/check-docs` battery is CLOSED (2026-08-04).** Eleven economy lanes (nine surface lanes + the
 family and cold-reader lanes) plus the deterministic guards and the built-HTML pass; every finding
 verified in the main thread and closed as fixed or dismissed-with-reason. **Three were mine, from the
