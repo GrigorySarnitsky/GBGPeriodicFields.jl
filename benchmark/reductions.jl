@@ -12,7 +12,10 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   u = vector_phys(AT, T, grid); v = vector_phys(AT, T, grid)
   us = vector_spec(AT, T, grid); vs = vector_spec(AT, T, grid); ss = scalar_spec(AT, T, grid)
   m = FieldSpectralMultipliers(us)
-  weight = squared_wavenumber_field(scalar_spec(AT, T, grid), m)   # a realistic |k|² multiplier
+  # A stored |k|² weight, which is what this row has always measured: `radial_kernel(identity, …)` is
+  # the |k|² symbol since decision 60 removed the materializing builder, and `materialize_kernel` puts
+  # it back in the stored class so the measurement — and its frozen baseline — is unchanged.
+  weight = materialize_kernel(radial_kernel(identity, scalar_spec(AT, T, grid), m))
   correlation_plans = plans_for(u, AT, T, grid)
   group["integral scalar | $tag"] = @benchmarkable integral($s)
   group["mean vector | $tag"]     = @benchmarkable mean($u)            # fiber-valued (sum over base + copy)

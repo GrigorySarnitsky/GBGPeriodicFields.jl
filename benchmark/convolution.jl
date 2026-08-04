@@ -14,7 +14,9 @@
 function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   s = scalar_spec(AT, T, grid); sout = scalar_spec(AT, T, grid)
   u = vector_spec(AT, T, grid); uout = vector_spec(AT, T, grid)
-  kernel = scalar_spec(AT, T, grid)            # a transfer function ĝ (values are irrelevant to timing)
+  # A kernel is its own type since decision 60: a field of coefficients declares the role by being
+  # wrapped, which costs nothing per call (the wrapper holds a reference).
+  kernel = StoredKernel(scalar_spec(AT, T, grid))   # a transfer function ĝ (values irrelevant to timing)
   m = FieldSpectralMultipliers(s)
   group["convolve! scalar | $tag"] = @benchmarkable (convolve!($sout, $s, $kernel); bench_sync(field_data($sout)))
   group["convolve! vector | $tag"] = @benchmarkable (convolve!($uout, $u, $kernel); bench_sync(field_data($uout)))
@@ -37,7 +39,6 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # symbol closes over — and the materialization has rows of its own further down.
   group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(spectral_cutoff($s, $m, 2).multipliers.squared_wavenumber_1)
   group["spectral_band | $tag"]    = @benchmarkable bench_sync(spectral_band($s, $m, 1, 3).multipliers.squared_wavenumber_1)
-  group["squared_wavenumber_field | $tag"] = @benchmarkable bench_sync(field_data(squared_wavenumber_field($s, $m)))
   # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
   # and there is no field to sync on — sync one factor instead.
   group["assignment_window | $tag"] = @benchmarkable bench_sync(assignment_window($s, $m).factor_1)
@@ -46,8 +47,7 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # Applying an axis-factored kernel against applying the same kernel stored as a field: same result,
   # one field-sized stream fewer (the kernel is never read from memory).
   separable = translation_kernel(s, m, offset)
-  stored = ScalarFieldSpectral(copy(Base.copy(GBGPeriodicFields.Convolution._kernel_data(separable))),
-                               grid, field_layout(s))
+  stored = materialize_kernel(separable)       # the same coefficients, in the stored class
   group["convolve! vector ∘ separable | $tag"] = @benchmarkable (convolve!($uout, $u, $separable); bench_sync(field_data($uout)))
   group["convolve! vector ∘ stored    | $tag"] = @benchmarkable (convolve!($uout, $u, $stored); bench_sync(field_data($uout)))
   # The radial class against the same baseline. It stores no coefficients at all — a symbol and three
@@ -64,8 +64,8 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   group["radial_kernel | $tag"] = @benchmarkable bench_sync(radial_kernel($smooth, $s, $m).multipliers.squared_wavenumber_1)
   # The documented escape hatch. Expanding a compressed kernel allocates the O(N³) field the class
   # exists to avoid, so its cost is what a consumer trades away by materializing.
-  group["materialize_kernel radial | $tag"]    = @benchmarkable bench_sync(field_data(materialize_kernel($radial)))
-  group["materialize_kernel separable | $tag"] = @benchmarkable bench_sync(field_data(materialize_kernel($separable)))
+  group["materialize_kernel radial | $tag"]    = @benchmarkable bench_sync(field_data(materialize_kernel($radial).field))
+  group["materialize_kernel separable | $tag"] = @benchmarkable bench_sync(field_data(materialize_kernel($separable).field))
   # Rebuilding a separable kernel in place, against the allocating builder it replaces: both are O(N)
   # per-axis work, so the difference is the three small allocations, not the trigonometry.
   translation_scratch = translation_kernel(s, m, offset)

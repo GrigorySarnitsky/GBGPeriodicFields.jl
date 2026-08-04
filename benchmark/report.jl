@@ -94,6 +94,7 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         "RX 7900 XTX (both ROCm). The pre-swap archive columns (GTX 1070, RX 6700 XT) keep their ",
         "pre-rewrite measurements — retired hardware is not re-swept; every live column (both CPUs, ",
         "RX 7900 XTX, RTX 5070 Ti) is measured at the decision-38/39 rewrite. ",
+        "A row may name an operation the package has since REMOVED — `squared_wavenumber_field` was deleted by decision 60, its |k|² being a radial symbol rather than a field. Such rows are a historical measurement, not a callable surface, and they disappear the next time their lane is swept. ",
         "The GPU sweep builds one (op-class, grid, element-type) at a time so ",
         "the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes ",
         "you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand ",

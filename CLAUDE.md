@@ -829,7 +829,15 @@ explicitly checked (not "should work", *done and verified*):
 4. **The rest of the docs + this file** — the API page (`docs/src/api/…` and `make.jl`
    modules/pages for a new module), the `docs/src/index.md` / `docs/src/api.md` module lists, and
    **`CLAUDE.md`** itself (the module list, include order, roadmap, and test summary).
-5. **The examples, RUN — `julia --project=examples examples/HIST_CPU.jl --smoke`** (and the GPU twin
+5. **The BENCHMARKS, BUILT AND RUN — not just the class you touched.** Decision 60 broke two of the
+   six classes and nothing noticed for three days: `benchmark/reductions.jl` failed to **build** (its
+   `weighted_inner` weight was the deleted `squared_wavenumber_field`, so the whole class contributed
+   zero rows), and 7 of 19 `benchmark/convolution.jl` rows failed to **run**. Note the two-stage
+   failure: `@benchmarkable` only *stores* its expression, so the suite BUILDS clean and every one of
+   those rows still errors at run time — building is not a check. The cheap gate is a tiny-grid sweep
+   that runs every row once (`samples = 1, evals = 1` at `16³`, seconds not minutes), which needs no
+   idle machine and is not a measurement, so it does not violate the owns-the-machine rule.
+6. **The examples, RUN — `julia --project=examples examples/HIST_CPU.jl --smoke`** (and the GPU twin
    `examples/gpu/rocm/HIST_ROCm.jl` where a device exists), for any change to the public surface. The
    `examples/` demos are consumer-shaped code that is both a rendered doc page and a downloadable
    script, and **nothing else executes them** — not `Pkg.test()`, not the docs build, which renders
