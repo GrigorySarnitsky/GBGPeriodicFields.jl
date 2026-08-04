@@ -1171,24 +1171,29 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
-**Open package finding — `radial_spectrum` bins Float32 differently on ANISOTROPIC grids (investigated
-2026-08-03, NOT fixed).** The survey's value lane reports `radial_spectrum` differing from its
-independent reference on Float32 configurations only. Diagnosed this far: it is a **shell-boundary
-tie**, not an arithmetic error. On the anisotropic grids the wavenumbers are multiples of
-`2π/L = (1, 1/2, 1/3)`, so `|k|/Δk` lands EXACTLY on a half-integer for 18 of 150 modes, where
-`round` breaks the tie to even and a difference of 4e-7 between the package's Float32 wavenumber
-arrays and the reference's flips which side of the tie a mode falls on. Energy then moves between
-ADJACENT shells; Parseval still holds exactly on both sides (`sum(spectrum) == inner`), so neither is
-internally wrong.
+**Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
+convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with
+`ref_radial_spectrum` on Float32 anisotropic grids. It is not a defect in either: the GATE already
+tests this operation against real physics — a constant field puts all energy in the ``|k| = 0`` shell
+with ``E(0) = c^2``, ``\cos x`` puts ``\langle\cos^2\rangle = 1/2`` in the ``|k| = 1`` shell, plus
+Parseval and the co-spectra — and those pass. The survey's reference instead RE-IMPLEMENTS the binning
+(`round(sqrt(|k|²)/Δk)`), so it compares the package against a second implementation of an arbitrary
+convention. On the anisotropic boxes the wavenumbers are multiples of `2π/L = (1, 1/2, 1/3)`, so
+``|k|/Δk`` lands exactly on a half-integer for 18 of 150 modes, and a 4e-7 difference between the two
+sides' Float32 wavenumber arrays decides which way `round` breaks the tie. Energy moves between
+ADJACENT shells and `sum(spectrum) == inner` holds exactly on both sides.
 
-An attempted fix — computing the shell index in Float64 whatever the field's precision, each term
-widened before the sum — made Float64 exact against the reference on every grid and Float32 exact on
-cubic ones, but **broke a passing gate test** (`test/reductions.jl`: `cos_y` on the anisotropic grid
-sits exactly on `|k|/Δk = 1.5` and moved shell), and did not fully explain the remaining anisotropic
-Float32 gap. Reverted rather than shipped: an unverified change that moves a documented tie is worse
-than a known disagreement. A real fix probably computes the shell from the INTEGER mode indices and
-the box ratios rather than from stored floating-point wavenumbers, which would be
-precision-independent by construction — that is a design change, not a patch.
+**Two fixes were tried and both MEASURED as wrong — do not retry them.** Computing the shell index in
+Float64 (each term widened before the sum) made 32³ WORSE, 3.4% → 4.8%, and 128³ only marginally
+better, 1.2% → 1.1%, because the difference is in the wavenumber ARRAYS and no downstream widening
+repairs an input difference; it also cost **+17% GPU throughput on Float32** (0.129 → 0.151 ms at
+128³, consumer NVIDIA running FP64 at 1/64 rate) and broke the `cos_y` gate assertion, which pins a
+mode sitting exactly on ``|k|/\Delta k = 1.5``. The magnitude falls slowly with resolution: 3.4% at
+32³, 3.1% at 64³, 1.2% at 128³.
+
+**The fix belongs in the harness.** Either build the survey's fixture so no mode lands on a tie, or
+assert the tie-independent properties the gate already uses — Parseval and peak placement — instead of
+per-shell equality against a re-implemented convention.
 
 **Oracle provenance is enforced (decision 55, 2026-07-29).** `docs/TESTING.md` §1 opened with
 *verify against independent ground truth, never against the code's own other path* for a year with
