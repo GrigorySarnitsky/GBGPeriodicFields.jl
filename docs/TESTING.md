@@ -467,8 +467,9 @@ no-Nyquist branches), the **multiplier-weighted `weighted_inner`** ``\langle f, 
 ``-\langle f, \Delta f\rangle`` and ``\langle \nabla f, \nabla f\rangle``, the idempotent-band identity
 ``\lVert w \star f\rVert^2``, and the ``f \leftrightarrow g`` symmetry — scalar/vector/tensor, spectral-only),
 the **spectral zero-mode `integral`/`mean`** (equal to the physical reductions,
-read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `std`/`var`/`lpnorm`/`maximum`
-still absent in spectral representation), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
+read from the DC coefficient; scalar/vector/tensor, even/odd grids, with `lpnorm`/`maximum` still
+absent in spectral representation — `std`/`var` are **not** absent, having gained their Parseval form
+in decision 49), the **shell-resolved Parseval inner** `radial_spectrum` (the radial power
 spectrum ``P(\kappa)`` (``\kappa`` the wavenumber-shell magnitude), checked by the exact refinement ``\sum_\kappa P(\kappa) = \langle f, f\rangle`` over scalar/vector/tensor on
 even-``N_x`` and odd-``N_x`` grids, plus the single-mode shell placement and its spectral-only absence),
 its physical-space dual `radial_correlation` (the Wiener–Khinchin two-point autocorrelation, checked
@@ -500,7 +501,8 @@ same kernel stored and applied with `convolve!`, the independent single-mode eig
 the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
 ``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `k_lo = 0` case, idempotent, a ``|k|^2``
-membership oracle) and `radial_kernel` (the ``|k|^2`` radial coordinate vs the analytic sum,
+membership oracle) and `radial_kernel` (the builder for an arbitrary real function of ``|k|^2``, checked at
+``\sigma = \mathrm{identity}`` against the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
 a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the

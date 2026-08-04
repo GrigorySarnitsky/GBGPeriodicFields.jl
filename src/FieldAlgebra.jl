@@ -6,7 +6,7 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 one exists — and an in-place `!` form.
 
 Every operation here acts **pointwise over the base** — the set of locations the field attaches a value
-to, which for a field is the grid's cells — applying the same formula to the value at each one and
+to, which for a field is the grid's points — applying the same formula to the value at each one and
 touching no neighbours. That is what makes the whole surface representation-agnostic and what the
 formulas below mean by "pointwise over the base".
 

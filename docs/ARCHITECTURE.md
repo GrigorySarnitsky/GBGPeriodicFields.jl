@@ -124,7 +124,7 @@ projection ``\pi``'s differential — canonical) and *horizontal* (a connection-
 subbundles of the total space's tangent bundle.)
 
 Transfer between sections over *different* bases is the interpolation/anterpolation
-pair: pulling a grid section back to points (evaluation — pairing with a Dirac mass ``\delta_x`` — ``f(x) = \langle \delta_x, f\rangle``) and the
+pair: pulling a grid section back to points (evaluation — pairing with a Dirac mass ``\delta_x`` — ``f(x) = \delta_x(f)``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
 is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"); the `Interpolation` module docstring carries its concrete face (the
 shared-weight adjoint identity with the ``M``/``N`` measure factors); the interpolation weights are
@@ -242,8 +242,9 @@ equivalently, only when it commutes with the rfft isomorphism.
   `_spectral_constant_scale` exists and why constant kernels in spectral
   representation touch a single coefficient (per component).
 - **Nonlinear in the field** — products of two fields, division by a scalar field,
-  pointwise norms, contractions of two fields (dot, cross, tensor `mul!`, inner
-  products): physical space only. The coefficientwise spectral product is *not* the
+  pointwise norms, contractions of two fields (dot, cross, tensor `mul!`, and the
+  fiberwise tensor inner product `dot!` — not the `inner` reduction, which is Parseval-valid in
+  spectral representation): physical space only. The coefficientwise spectral product is *not* the
   Fourier representation of the pointwise product (that would be a convolution),
   so offering it *as a product* would silently compute the wrong physical operation —
   that coefficientwise product *is* convolution, exposed under its true name as `convolve`
@@ -700,10 +701,12 @@ package gives each a fixed name:
   (``q_p`` the value at ``x_p``) back onto a field. Allocating
   `anterpolate(grid, xs, qs[, scheme])` / in-place `anterpolate!(field, xs, qs[, scheme])`.
 
-Both carry the usual allocating / in-place (`!`) pair and a five-argument `α`/`β` form (``\beta = 0``
+Both carry the usual allocating / in-place (`!`) pair. The `α`/`β` accumulate form (``\beta = 0``
 overwrite, ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` /
-``W^\top``; accumulation is the common case for the scatter). They are the symmetric named pair — only
-interpolation also gets the callable `f(x)`, because evaluation is pointwise while its adjoint is not (see
+``W^\top``) belongs to **anterpolation alone**: accumulation is what a scatter needs, and it is the
+direction that writes into a preallocated field, while a gather fills a fresh point-value section. So
+the pair is symmetric in name and adjointness with two asymmetries — the accumulate weights, and the
+fact that only interpolation gets the callable `f(x)`, because evaluation is pointwise while its adjoint is not (see
 the module docstring). The driving case is two-way coupling in the cloud-parcel DNS this package serves:
 the water-vapour mass and latent heat a droplet releases on condensation (or absorbs on evaporation) must
 be returned to the supersaturation and temperature fields.
@@ -717,7 +720,7 @@ spurious source/dissipation term (Sundaram & Collins 1996). For the parcel appli
 this is mandatory — total water and latent heat must be conserved as vapour passes
 between droplets and the fields — so the design fixes anterpolation as the adjoint of
 whatever interpolation kernel is in use. The function–measure duality underlying this
-adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \langle \delta_x, f\rangle``, and anterpolation
+adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \delta_x(f)``, and anterpolation
 as the pushforward of point masses, ``\sum_p q_p \delta_{x_p}`` (regularized to ``\sum_p q_p w(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
@@ -769,7 +772,10 @@ B_{\text{points}} @>>{\iota}> \Omega
 Interpolation is the **pullback of the section**, ``W = \iota^{*} \otimes \mathrm{id}_V`` (fiber-preserving —
 the trivial bundle leaves the fiber by the identity; ``(Wf)_p = f(x_p)``); anterpolation the
 **pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p \delta_{x_p}``, the
-Dirac mass above regularized by the stencil) — for the uniform measures ``\iota_{*} = (N/M) W^{\top}``, the
+Dirac mass above regularized by the stencil). That pushforward lands in **measures**, while
+``(N/M) W^{\top} q`` is a **section**; the two are identified only after regularizing by the stencil and
+taking the density with respect to the normalized grid measure, and with those two steps understood
+``\iota_{*} = (N/M) W^{\top}`` for the uniform measures, the
 scalar rescaling that turns the implemented transpose ``W^{\top}`` into the exact L²-adjoint. They have
 **opposite variance** — ``\iota`` pulls a function back but pushes a measure forward — so the adjointness
 *is* their adjunction ``\langle \iota^{*} f, q\rangle_{\text{pts}} = \langle f, \iota_{*} q\rangle_{\text{grid}}``. (Strictly ``W`` is ``\iota^{*}`` *after* a
@@ -948,9 +954,12 @@ base against the measure the base carries (`Grid3D`'s uniform cell volume, `Poin
 decision 18). The `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive sum; `inner` (``\equiv \langle\cdot,\cdot\rangle``),
 `l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
 (``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
-the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var` (extending `Statistics`)
-and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — all on **fields in physical representation and
-point-values** (representation-free). The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
+the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var`/`cov` (extending `Statistics`)
+and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments, all acting on **fields in physical representation
+and point-values** (representation-free); `cov` returns the vector second moment as a symmetric
+``\mathrm{Sym}^2(V)`` tensor, which a fiber-preserving `var` would reduce to its basis-dependent diagonal.
+The scalar-only `std`/`var` additionally read from **spectral** representation through Parseval
+(decision 49), being ``\langle f,f\rangle - \langle f\rangle^2``, both terms already spectral-available. The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
 `integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
 and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**
@@ -1036,8 +1045,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 13. Interpolation-layer design fixed ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")):
     grid→point **interpolation** as the callable `f(x)` / `f.(xs)` plus the named
     `interpolate` / `interpolate!`; point→grid **anterpolation** as `anterpolate` /
-    `anterpolate!` — the symmetric named pair, each with allocating, in-place, and
-    α/β-accumulate forms (the `mul!` convention, since they are the linear maps ``W`` / ``W^\top``);
+    `anterpolate!` — the symmetric named pair, each with allocating and in-place forms, and the
+    α/β-accumulate form on the scatter only (the `mul!` convention, since they are the linear maps
+    ``W`` / ``W^\top``);
     only interpolation also has the pointwise callable `f(x)` (the adjoint of interpolation;
     synonyms — spreading,
     deposition, scatter, projection/PSI-Cell, gridding, two-way-coupling feedback — listed
@@ -1104,8 +1114,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     Zen 5 A/B found z-inner ~10% ahead only on the narrow Catmull–Rom stencil and 23% *behind* on
     the wide Lalescu one, so x-inner stands on both platforms and the reopened tiebreak is closed
     (`PERFORMANCE.md` §4b).
-    The L²/volume-weighted (measure-consistent) adjoint is ``(N/M) W^\top`` (``N`` grid points, ``M`` sample
-    points) — both base measures are uniform,
+    The measure-consistent adjoint against the two **normalized** pairings is ``(N/M) W^\top`` (``N`` grid
+    points, ``M`` sample points; the factor is the ratio of the ``1/N`` and ``1/M`` normalizations, not of
+    a cell volume) — both base measures are uniform,
     so it is a scalar rescaling of the counting-transpose anterpolation, not a new operation — and is
     verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`, decision 19).
 18. **The L² / measure structure on sections — the third operation family (done).** Advances
@@ -1211,9 +1222,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     Anterpolation ``W^\top`` is the adjoint of ``W``; "adjoint w.r.t. which pairing?" is answered by the base
     measures. As shipped (decision 17) the adjointness ``\sum_p (Wf)_p \cdot q_p = \sum_n f_n \cdot (W^\top q)_n`` (the unnormalized counting pairing) and conservation
     ``\sum_g (W^\top q)_g = \sum_p q_p`` hold in the **counting/transpose** pairing (the extensive facet of row 1;
-    conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with the
-    grid carrying ``\Delta x^3`` and points counting — is the **bridge from row 1 to the transfer kernel**, and is
-    now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new operation),
+    conservation = partition of unity). The **measure-weighted L² adjoint** — ``W``, ``W^\top`` adjoint with **both bases carrying their
+    normalized (total-mass-one) measures**, ``\tfrac1N\sum_n`` on the grid and ``\tfrac1M\sum_p`` on the
+    points, which is what `inner` computes — is the **bridge from row 1 to the transfer kernel**, and is
+    now **done**: both measures being uniform, it is ``(N/M) W^\top`` (a scalar rescaling, no new
+    operation). The ``N/M`` is exactly the ratio of those two normalizations; pairing an unnormalized
+    cell-volume grid measure against counting points would instead give ``(N/|\Omega|) W^\top``,
     verified via `inner` as ``M \texttt{inner}(Wf, q) = N \texttt{inner}(f, W^\top q)`` (`test/interpolation_transfer.jl`). That the
     reductions had to precede it is recorded here.
 
@@ -2655,8 +2669,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
     (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
     both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
-    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — a
-    magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1).
+    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — the
+    weighted pairing needs a **real** multiplier, and a separable kernel's per-axis factors are complex in
+    general (the translation phase is the standard case), so the class is excluded on validity, not merely
+    on family membership (invariant 1).
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
     **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the

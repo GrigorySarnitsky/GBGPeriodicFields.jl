@@ -1,147 +1,251 @@
-# Panel review — SCIENTIFIC-INTEGRITY & CITATIONS auditor
+# Scientific-integrity & citations audit — GBGPeriodicFields rendered docs
 
-Document reviewed: `manuscript-full.md` (reader-text consolidation of the whole rendered site
-incl. design docs). Focus: named/published-method citations, author–year consistency across pages,
-inline-cite ↔ full-reference matching, verbatim consistency, inaccessible sources, and overclaims.
+Hat: **citations-integrity**. Scope: the full rendered site consolidation
+(`manuscript-full.md`, all pages, including the four design docs and every API
+docstring page). This hat checks author-year consistency, inline-cite ↔
+full-reference correspondence (including the required DOI), verbatim
+consistency of repeated reference copies, absence of inaccessible sources, and
+overclaiming.
 
-## Summary of what is CLEAN (positive verification)
-
-- **Every full-reference string is bibliographically accurate** against my own knowledge — Fornberg
-  1988 (Math. Comp. 51(184), 699–706), Lalescu/Teaca/Carati 2010 (JCP 229(17), 5862–5869), van
-  Hinsberg et al. 2012 (SISC 34(4), B479–B498), Barnett/Magland/af Klinteberg 2019 (SISC 41(5),
-  C479–C504), Sundaram & Collins 1996 (JCP 124(2), 337–350), TurTLE 2022 (CPC 278, 108406), Catmull &
-  Rom 1974, Crowe/Sharma/Stock 1977, Brandt & Lubrecht 1990, Peskin 2002. No wrong year/volume/pages.
-- **Repeated full references are byte-identical across pages** (verified: Lalescu 2010 at lines
-  340/2728/2790; TurTLE at 341/2791/2808; Fornberg at 344/2792/2872; Barnett at 343/2838; Sundaram at
-  345/2729). No verbatim drift.
-- **Author–year style is applied correctly and consistently** (≤3 named, 4+ → "et al."): Lalescu,
-  Teaca & Carati (2010) [3 named]; Lalescu et al. (2022) [4 → et al.]; van Hinsberg et al. (2012) [4 →
-  et al.]; Barnett–Magland–af Klinteberg [3 named]; Sundaram & Collins; Fornberg; Catmull & Rom.
-- **The NUFFT "exponential-of-semicircle" kernel is correctly attributed** to Barnett/Magland/af
-  Klinteberg 2019 (the FINUFFT paper), inline (line 449) and in the full ref.
-- **No inaccessible/private source is cited on any user-facing surface** — the examples/HIST page uses
-  only informal "Kolmogorov (K41)" with dimensionally complete guides (C_K ε^{2/3} κ^{-5/3}); no
-  monograph, thesis, or "appendix A" appears anywhere.
-- **Overclaim language is substantiated, not inflated**: "exact"/"allocation-free"/"bit-for-bit" are
-  everywhere qualified by "measured", "guarded by `test/allocations.jl`", "verified ~1e-16", "agreement
-  ≤ 1e-15". No "optimal / fastest / state-of-the-art / first-of-its-kind" claims.
+Positive context established before the findings below (so the findings read
+against a baseline, not a blank slate): every *repeated* full bibliographic
+entry I could byte-compare across pages is in fact byte-identical — the
+Lalescu, Teaca & Carati (2010) reference (3 copies), the TurTLE / Lalescu et
+al. (2022) reference (3 copies), the Fornberg (1988) reference (2 copies),
+the Sundaram & Collins (1996) reference (2 copies), the Brandt & Lubrecht
+(1990) reference (2 copies), and the Barnett, Magland & af Klinteberg (2019)
+reference (2 copies) all match verbatim between `ARCHITECTURE.md` §10's
+"References (this section)" block and their docstring copies. Author-name
+formatting (`Initial. Initial. Surname`) and the up-to-three/`et al.`
+author-count convention are applied correctly everywhere I could check. No
+citation anywhere traces to an inaccessible source (no hit for
+thesis/monograph/inspiration/appendix/accompanying across the whole document).
+The findings below are the exceptions to that otherwise-careful baseline.
 
 ---
 
-## Finding 1 — Grafakos citation carries a live placeholder "Thm 2.5.x" and no full reference
+## Finding 1 — Two of four synonym citations in one sentence get full references, two don't
 
-- **type**: citation
-- **severity**: minor
-- **confidence**: high
-- **locations**:
-  - PAGE architecture, §12 / decision 19 (line 408): *"The math anchor (Grafakos, Classical Fourier
-    Analysis, Thm 2.5.x): on a uniform periodic box every homogeneous (translation-invariant) linear
-    operator is a Fourier multiplier …"*
-- **contradicts**: (n/a — self-contained defect)
-- **description**: On a rendered user-facing page the theorem number is the literal placeholder
-  "**Thm 2.5.x**". Additionally, unlike every implemented-method citation (which gets a full reference
-  with authors/venue/pages), this book is cited with **no author initials, no edition, no year, no
-  publisher, and no full-reference entry** anywhere. A reader cannot resolve either the theorem or the
-  edition. (I am aware this is a deliberately tracked TODO in the project's own notes — reported here
-  because, as rendered, it is an incomplete citation visible to the reader; a book normally also carries
-  an openlibrary link under this project's own policy.)
+- **Type:** citation
+- **Severity:** major
+- **Confidence:** high
+- **Locations:**
+  - PAGE: architecture, §10, "Why the code says 'anterpolation.'" — *"The
+    point→grid (scatter) operation is named differently in every community,
+    with no dominant choice: spreading (immersed-boundary method, where it is
+    explicitly the adjoint $S = J^*$ of interpolation, built from the same
+    kernel — Peskin 2002; also NUFFT type-1), deposition / charge assignment
+    (particle-in-cell — Hockney & Eastwood 1988; Birdsall & Langdon 1991),
+    scatter (data-parallel computing), projection / Particle-Source-In-Cell
+    (particle-laden-flow DNS — Crowe, Sharma & Stock 1977), gridding (MRI and
+    radio interferometry)... We adopt anterpolation (Brandt & Lubrecht 1990)
+    because it is the single term whose literal definition is 'the adjoint of
+    interpolation.'"*
+  - PAGE: architecture, §10, "References (this section)" (the block
+    immediately following the paragraph above) — contains full entries for
+    *"C. S. Peskin, The immersed boundary method, Acta Numerica 11 (2002)
+    479–517..."* and *"C. T. Crowe, M. P. Sharma, D. E. Stock, The
+    Particle-Source-In-Cell (PSI-CELL) model for gas–droplet flows, J. Fluids
+    Eng. 99(2) (1977) 325–332."* and *"A. Brandt, A. A. Lubrecht,
+    Multilevel matrix multiplication..."* — but **no entry anywhere in the
+    document** for Hockney & Eastwood (1988) or Birdsall & Langdon (1991).
+- **Contradicts:** the sentence cites four synonym-community precedents with
+  identical parenthetical author-year rigor (Peskin 2002; Hockney & Eastwood
+  1988; Birdsall & Langdon 1991; Crowe, Sharma & Stock 1977). Two of the four
+  (Peskin; Crowe et al.) are promoted to full bibliographic entries in the
+  section's own reference block; the other two (Hockney & Eastwood; Birdsall
+  & Langdon) are not, with no stated reason for the split and no full
+  reference for them anywhere else in the site. This is exactly the axis the
+  citation policy singles out: *"every inline cite has a matching full
+  reference (in the Architecture page's per-section reference blocks, ...),
+  and vice-versa."*
+- **Description:** Both omitted works are real, correctly-dated citations
+  (Hockney & Eastwood's *Computer Simulation Using Particles* and Birdsall &
+  Langdon's *Plasma Physics via Computer Simulation* — both standard
+  particle-in-cell references, both legitimately dated to their well-known
+  1988/1991 reprint editions), so this is not a fabrication concern — it is a
+  completeness/consistency gap. It is also not obviously explained by a
+  "book vs. journal-article" rule: the citation policy explicitly provides a
+  mechanism for citing a book without a DOI (*"or an openlibrary.org/…/works/…
+  link for a book with no DOI"*), so book status does not exempt a citation
+  from needing a full entry. Nor is it explained by an
+  "implemented-vs-aside" rule: `CLAUDE.md`'s own citation policy explicitly
+  names *"the anterpolation lineage"* as one of the categories of work this
+  package "implements/pins to" and therefore owes a canonical full reference
+  — and Hockney & Eastwood / Birdsall & Langdon sit inside that exact lineage
+  paragraph, alongside Peskin and Crowe et al., who did get promoted. The
+  `anterpolate!` docstring itself (PAGE: api / Interpolation) sidesteps the
+  problem more cleanly — it repeats the same synonym list but drops every
+  parenthetical citation except Brandt & Lubrecht (1990) for the adopted term
+  — which only sharpens the contrast with the Architecture page's inconsistent
+  treatment of the same list.
+- **Resolution hint (advisory):** either add full-reference entries for
+  Hockney & Eastwood (1988) and Birdsall & Langdon (1991) to the §10
+  reference block (matching Peskin/Crowe's treatment), or demote all four
+  synonym citations to the informal "no full reference" treatment the
+  `anterpolate!` docstring already uses, so the sentence's four citations are
+  handled uniformly one way or the other.
 
-## Finding 2 — Decision log says anterpolation synonyms are "listed on the binding"; the rendered `anterpolate!`/`anterpolate` docstrings list none, and drop the Brandt & Lubrecht coinage
+---
 
-- **type**: contradiction
-- **severity**: minor
-- **confidence**: high
-- **locations**:
-  - PAGE architecture, §10 (line 337): *"The binding will carry a docstring listing the synonyms —
-    adjoint of interpolation; spreading; deposition; scatter; projection / PSI-Cell; gridding;
-    two-way-coupling source/feedback — so a reader from any of those fields finds it. We adopt
-    anterpolation (Brandt & Lubrecht 1990) …"*
-  - PAGE architecture, §13 / decision 17 (line 384): *"synonyms — spreading, deposition, scatter,
-    projection/PSI-Cell, gridding, two-way-coupling feedback — listed on the binding"*
-  - PAGE api / Interpolation, `anterpolate!` (lines 2753–2761) and `anterpolate` (2764–2770): the
-    rendered docstrings say only *"the adjoint (transpose) of `interpolate!`"* / *"Deposit (scatter) …"*
-    — **no synonym list, and no Brandt & Lubrecht attribution** (verified: none of
-    spreading/deposition/PSI-Cell/gridding/Brandt/Lubrecht appears in the docstring body).
-- **contradicts**: architecture §13 decision 17 (line 384) states the synonyms are *"listed on the
-  binding"* (present tense), whereas the rendered binding (`anterpolate!`, lines 2753–2761) lists them
-  nowhere. Axis of disagreement: **claimed vs. actual docstring content of the `anterpolate` binding.**
-- **description**: The whole point of the synonym list — discoverability "so a reader from any of those
-  fields finds it" — is undelivered in the rendered docs; the list appears nowhere on the user-facing
-  surface (not on `anterpolate`, not in the Interpolation module docstring). Consequently the full
-  reference **Brandt & Lubrecht 1990** (arch §10, line 347), the source of the very term "anterpolation"
-  the package is named after, is used only for an architecture-only naming aside and never reaches the
-  operation's own docstring.
+## Finding 2 — No citation in the given substrate carries a visible DOI
 
-## Finding 3 — Hockney & Eastwood 1988 and Birdsall & Langdon 1991 are inline-cited but have no full reference, while their sibling synonym-sources (Crowe, Brandt, Peskin) do
+- **Type:** citation
+- **Severity:** major
+- **Confidence:** medium (see caveat below — this is a substrate-fidelity
+  caveat, not a hedge on the underlying observation)
+- **Locations:** every full-reference entry in the document — the ten entries
+  in PAGE: architecture §10 "References (this section)" (e.g. *"C. C.
+  Lalescu, B. Teaca, D. Carati, Implementation of high order spline
+  interpolations for tracking test particles in discretized fields, J.
+  Comput. Phys. 229(17) (2010) 5862–5869."*), the PAGE: api / Interpolation
+  module "References" block, and every docstring `Reference:`/`References`
+  block (`LalescuSpline`, `LagrangeSpline`, `NUFFT`, `anterpolate!`,
+  `_fornberg`).
+- **Contradicts:** the project's own citation policy (quoted in this
+  session's context) states, without qualification: *"Every reference
+  carries a clickable DOI on its title — `[*Title*](https://doi.org/…)`, or
+  an `openlibrary.org/…/works/…` link for a book with no DOI — verbatim-
+  identical in the §References list and every inline docstring copy; a DOI
+  stays REPL-safe (the URL renders as visible text, not a dead link)."* This
+  is also explicitly part of this hat's brief (*"every inline cite has a
+  matching full reference ... each with a clickable DOI"*).
+- **Description:** across the entire 4139-line consolidated document there is
+  not one occurrence of `doi.org`, the literal string `DOI`, a raw
+  `10.xxxx/...` DOI pattern, an `openlibrary.org` link, or markdown link
+  syntax `](...)` of any kind, for any citation — every reference title
+  (e.g. *"Implementation of high order spline interpolations for tracking
+  test particles in discretized fields"*) reads as plain, unmarked text
+  indistinguishable in formatting from the surrounding author/journal/page
+  text. **Caveat on confidence:** this document is a "reader-text
+  consolidation" of rendered HTML, and I cannot fully rule out that the
+  extraction step dropped `href` targets while keeping visible anchor text
+  (a title wrapped in a DOI link would still just show as its plain title in
+  a text-only extraction). Two observations push against that innocent
+  explanation, though: (1) other markdown emphasis this document is careful
+  to preserve — code identifiers in backticks, math in `$...$`/`\[...\]` —
+  survives everywhere without exception, so a tool careful enough to keep
+  those would plausibly keep link markup too; and (2) plain (non-hyperlinked)
+  URL text elsewhere in the document *does* survive intact (the GitHub
+  install command, `Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.` inside the
+  TurTLE reference itself) — so the extraction pipeline is not stripping
+  URL-shaped text on principle. On balance this reads as a real gap rather
+  than an artifact, but it is worth a direct check against the live rendered
+  page before treating it as confirmed.
+- **Resolution hint (advisory):** spot-check one docstring's rendered HTML
+  (e.g. `NUFFT`'s "Reference:" line) directly in a browser; if no DOI link is
+  present there either, this is a site-wide gap against the package's own
+  documented policy and affects all ten works in the reference list.
 
-- **type**: citation
-- **severity**: nit
-- **confidence**: high
-- **locations**:
-  - PAGE architecture, §10 (line 337): *"deposition / charge assignment (particle-in-cell — **Hockney &
-    Eastwood 1988; Birdsall & Langdon 1991**)"* — these two author–year cites appear inline only.
-  - PAGE architecture, §10 References block (lines 340–349): full references are present for the peer
-    synonym-sources **Crowe, Sharma & Stock 1977** (line 346), **Brandt & Lubrecht 1990** (347), **Peskin
-    2002** (348), but **not** for Hockney & Eastwood or Birdsall & Langdon.
-- **contradicts**: the §10 reference block's own treatment of the same class of citation — some
-  synonym-community attributions get a full reference, two do not. Axis: **which PIC/synonym sources
-  earn a full-reference entry.**
-- **description**: The §10 "References (this section)" block is the doc's only full-reference list and
-  the de-facto canonical one, yet it is inconsistent about the PIC-lineage asides: either these are
-  informal related-work mentions that need no full reference (in which case Crowe/Brandt/Peskin are
-  over-referenced), or they warrant full references (in which case Hockney & Eastwood and Birdsall &
-  Langdon are missing them). Pick one rule and apply it to the whole synonym set.
+---
 
-## Finding 4 — "Sefusatti et al." cited with no year, unlike every other related-work aside
+## Finding 3 — The Grafakos citation carries no year (and no edition), unlike every other named citation
 
-- **type**: citation
-- **severity**: nit
-- **confidence**: high
-- **locations**:
-  - PAGE architecture, §13 / decision 22 (line 441): *"FFT-RDF resolves intermediate / large-scale
-    clustering …, not a sharp contact peak (interlacing — **Sefusatti et al.** — is a future
-    refinement)."*
-- **contradicts**: the surrounding informal-aside citations, which all carry a year — *"Vreman, Geurts
-  & Kuerten 1994"* (line 419), *"Colucci et al. 1998"* (419), *"Ghosal & Moin 1995"* (420), *"Vasilyev,
-  Lund & Moin 1998"* (420). Axis: **author–year completeness of informal citations.**
-- **description**: The context-standard author–year style the project uses requires a year on the
-  author-prominent form. "Sefusatti et al." is the lone bare-name-without-year citation in the docs.
+- **Type:** citation
+- **Severity:** minor
+- **Confidence:** medium
+- **Locations:** PAGE: architecture, §13 decision log, "The measure taxonomy"
+  entry — *"The math anchor (Grafakos, Classical Fourier Analysis, Thm
+  2.5.10): on a uniform periodic box every homogeneous (translation-
+  invariant) linear operator is a Fourier multiplier..."*
+- **Contradicts:** every other named/published citation in the document
+  carries at minimum a publication year in the standard "Author Year"
+  parenthetical form — including citations exempted from a *full* reference,
+  such as *"(Vreman, Geurts & Kuerten 1994...)"*, *"(Ghosal & Moin 1995,
+  Vasilyev, Lund & Moin 1998)"*, and *"(Colucci et al. 1998, the FDF)"* two
+  paragraphs later in the very same decision-log entry. Grafakos is the one
+  named citation in the whole document with no year at all.
+- **Description:** the citation policy's "no year" exemption is for
+  *eponymous method names* used as bare nouns (the Catmull–Rom spline,
+  Fornberg weights) — not for a citation actively invoking a specific
+  theorem number from a specific book to ground a design decision, which is
+  what this is (*"the math anchor"* for the whole measure-taxonomy
+  argument). `CLAUDE.md`'s own standing-open-items note confirms this was a
+  deliberately tracked, carefully-verified citation (the theorem number was
+  confirmed against a physical copy on 2026-07-15) — which makes the
+  continued absence of a year read as a residual gap rather than a one-off
+  oversight, since the citation clearly received dedicated attention.
+  Additionally, Grafakos's *Classical Fourier Analysis* has multiple editions
+  (2004, 2008, 2014, and the two-volume *Classical and Modern Fourier
+  Analysis* split), and theorem numbering is not guaranteed stable across
+  them — so citing only a theorem number, with neither year nor edition, is
+  the one citation in the document that a reader cannot reliably chase down
+  even in principle.
+- **Resolution hint (advisory):** add a year (and ideally an edition/volume)
+  to disambiguate — `(Grafakos, Classical Fourier Analysis, 3rd ed. 2014,
+  Thm 2.5.10)` or similar, matching whichever printing the theorem number was
+  actually checked against.
 
-## Finding 5 — `LagrangeSpline` reference block omits Lalescu, Teaca & Carati 2010, though the scheme is documented elsewhere as one of "the two hierarchies of Lalescu, Teaca & Carati (2010)"
+---
 
-- **type**: contradiction
-- **severity**: minor
-- **confidence**: medium
-- **locations**:
-  - PAGE api / Interpolation, `AbstractSplineScheme` (line 2854): *"Supertype of the physical-domain
-    local interpolation schemes — **the two hierarchies of Lalescu, Teaca & Carati (2010)**: the smooth
-    `LalescuSpline` and the C⁰ `LagrangeSpline`."*  (Same framing in architecture line 326: *"Lalescu's
-    two hierarchies … the Lagrange hierarchy (`LagrangeSpline(n)`)"*.)
-  - PAGE api / Interpolation, `LagrangeSpline` References block (lines 2806–2808): cites **only** the
-    TurTLE paper (Lalescu et al. 2022); the Lalescu, Teaca & Carati **2010** paper is absent.
-  - Contrast: `LalescuSpline` References (2788–2792) cites Lalescu 2010 **and** TurTLE **and** Fornberg.
-- **contradicts**: `AbstractSplineScheme` (line 2854) attributes the Lagrange hierarchy to Lalescu,
-  Teaca & Carati (2010), while the `LagrangeSpline` type's own reference block attributes it only to
-  TurTLE 2022. Axis: **which paper the `LagrangeSpline` scheme is credited to.**
-- **description**: Either the Lagrange hierarchy derives from Lalescu 2010 (then its reference block
-  should include that paper, mirroring `LalescuSpline`), or it is classical Lagrange interpolation not
-  originating with Lalescu (then the `AbstractSplineScheme`/architecture "two hierarchies of Lalescu,
-  Teaca & Carati (2010)" framing over-attributes it). As rendered, the two surfaces disagree.
+## Finding 4 — "the dynamic procedure of Germano and coworkers" carries no year, unlike its sibling informal LES citations
 
-## Finding 6 — DOIs not verifiable from this artifact; no `doi.org` text present anywhere (flag for source-side check)
+- **Type:** citation
+- **Severity:** minor
+- **Confidence:** medium
+- **Locations:** PAGE: api / Convolution, `squared_wavenumber_field`
+  docstring — *"a consumer builds a Fourier symbol from it — a viscous
+  integrating factor $\exp(-\nu |k|^2 \Delta t)$, a smooth spectral envelope,
+  or a subgrid test filter of the dynamic procedure of Germano and coworkers
+  (an LES closure choice) — by broadcasting over its `field_data`..."*
+- **Contradicts:** the document's other informal (no-full-reference)
+  LES-adjacent citations all carry an explicit year even though none of them
+  carry a full bibliographic entry — PAGE: architecture §13, "The measure
+  taxonomy" entry: *"realizable SGS stress (Vreman, Geurts & Kuerten 1994...)
+  ⟹ bona-fide filtered PDF (Colucci et al. 1998, the FDF)"* and *"commutation
+  error; Ghosal & Moin 1995, Vasilyev, Lund & Moin 1998"*. All four of those
+  are the same rhetorical class as the Germano mention (a non-implemented,
+  related-work aside naming a specific published technique), and all four
+  get a year; only the Germano mention does not.
+- **Description:** *"of Germano and coworkers"* names specific researchers
+  in connection with a specific, real, named technique (the dynamic
+  Smagorinsky/dynamic-procedure family for LES closures, due to Germano,
+  Piomelli, Moin & Cabot and follow-on work), which reads as an actual
+  citation attempt rather than a bare eponym like "the Catmull–Rom spline" —
+  eponym phrasing would more naturally read "the dynamic procedure" or "a
+  Germano-style dynamic filter" without "and coworkers." Given the sibling
+  citations two sections over in the same page family all supply a year, the
+  omission here looks like a citation that never got the same treatment
+  rather than a deliberate stylistic choice.
+- **Resolution hint (advisory):** either add a year (`Germano et al. 1991` is
+  the standard anchor for the dynamic procedure) to match the sibling
+  informal citations, or reword to a bare eponym with no author name at all
+  ("a dynamic-procedure test filter") if no specific paper is intended to be
+  invoked.
 
-- **type**: format
-- **severity**: nit
-- **confidence**: low
-- **locations**:
-  - Every reference block: PAGE architecture §10 (lines 340–349); PAGE api / Interpolation (2728–2729,
-    2790–2792, 2808, 2838); PAGE api / Points-region Fornberg (2872). None shows a DOI.
-- **contradicts**: the project's stated citation policy that *every* reference carry a clickable DOI on
-  its title.
-- **description**: A grep for `doi.org` over the entire consolidated site returns **zero** hits.
-  However, this reader-text consolidation **strips all hyperlink URLs** — confirmed by the per-docstring
-  "source" GitHub links, which render as the bare word "source" with no URL — so a title that *is* a DOI
-  hyperlink would appear here as plain title text, indistinguishable from a title with no link.
-  Therefore I cannot confirm whether the required clickable DOIs are present. Flagged low-confidence:
-  **verify against the docstring/`.md` source**; if the reference titles genuinely lack DOI links, it
-  violates policy, but that determination cannot be made from this artifact.
+---
+
+## Checks performed with a clean result (not reported as findings)
+
+- Verbatim byte-for-byte consistency of every repeated full reference
+  (Lalescu 2010 ×3, TurTLE/Lalescu 2022 ×3, Fornberg 1988 ×2, Sundaram &
+  Collins 1996 ×2, Brandt & Lubrecht 1990 ×2, Barnett et al. 2019 ×2) —
+  confirmed identical via direct string extraction and diff, not just visual
+  read-through.
+- Author-count convention (`A & B` for two, `A, B & C` for three, `First et
+  al.` for four or more) — checked against every citation with a
+  reconstructable author list (Sundaram & Collins; Lalescu, Teaca & Carati;
+  Lalescu et al./TurTLE's 4 authors; van Hinsberg et al.'s 4 authors) and
+  found correct throughout.
+- No citation traces to an inaccessible source — zero hits for
+  thesis/monograph/inspiration/appendix/accompanying anywhere in the
+  document (this project has a standing rule against exactly this failure
+  mode, and the rendered docs pass it cleanly).
+- No unsubstantiated priority/superiority overclaims found — searched for
+  "the first," "novel," "state of the art," "optimal," "best," "unique,"
+  "pioneering," "breakthrough," "superior," "outperform," "guarantee(s)" and
+  read every hit in context; all are either internal/structural claims about
+  the package's own prior state (e.g. "the first operation to use both
+  wavenumber families," meaning first within this codebase) or accurate,
+  hedged, measurement-qualified performance statements ("measured at ≈1.4×
+  ... on a GPU at 256³"), never an external claim of scientific priority or
+  competitive superiority.
+- K41/Kolmogorov-constant usage in the example pages (`C_K ≈ 1.6`, `C_2 ≈
+  2.1`, `C_0 ≈ 6`) is treated as standard turbulence convention with no
+  citation, consistent with the project's own standing rule to keep
+  diagnostics on public/standard terms rather than cite anything
+  inaccessible.
+- The "2+ citations → bullet list; 1 citation → inline `Reference:`" format
+  rule is applied correctly at every site checked (`LalescuSpline`'s 3
+  references bulleted; `LagrangeSpline`/`NUFFT`/`anterpolate!`/`_fornberg`'s
+  single references each inline).

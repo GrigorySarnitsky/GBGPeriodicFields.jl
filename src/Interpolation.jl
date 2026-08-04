@@ -1010,7 +1010,9 @@ like the reference. The arguments are:
     a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
     element type can resolve widens the window as far as the formula goes and then saturates at that
     resolution rather than erroring.
-  - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2** (a value of 1 leaves no spectral guard band, so the gridding breaks down).
+  - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
+    theoretical one — lower upsampling is standard with a correspondingly wider window — because the
+    width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down).
   - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
   - `beta` — the window shape parameter; `0` (default) picks it from the width.
 

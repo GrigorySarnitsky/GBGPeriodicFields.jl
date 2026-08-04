@@ -22,7 +22,8 @@ The parts are:
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
     spectral differential operators multiply by.
   * **Spectral kernels** — [`SpectralKernel`](@ref) is the supertype of every coefficientwise
-    multiplier that is not stored as a field. It lives here, rather than with the kernels themselves,
+    multiplier a `convolve`-style operation can apply, whatever storage it uses — including the stored
+    class, which wraps a field of coefficients. It lives here, rather than with the kernels themselves,
     so every module that accepts one names a single type; [`Convolution`](@ref "Convolution") defines
     the concrete classes.
   * **Allocation** — [`similar_field`](@ref) returns uninitialized storage carrying a reference field's
@@ -1167,6 +1168,11 @@ Transform a field from physical space to spectral space, returning a newly alloc
 
 Here `physical` is the source and `transform_plans` provides the forward FFT plan.
 
+The forward transform is **unnormalized** and the inverse carries the ``1/N`` (``N`` the number of grid
+points) — the `AbstractFFTs` convention. Every normalization elsewhere in the package is stated against
+it: the mean is the zero coefficient over ``N``, adding a constant scales only that coefficient by
+``N``, and the Parseval sums carry ``1/N^2``.
+
 This is the allocating form of [`to_spectral!`](@ref). Unlike the in-place form, it leaves the input `physical` unchanged, because it copies the values before transforming. Use it when `physical` must be preserved, and use the in-place form when it need not be.
 """
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
@@ -1474,11 +1480,13 @@ _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = re
 
 Return the total squared wavenumber ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` as a **lazy** `Broadcasted` over
 the three per-axis squared-wavenumber vectors (reshaped to the three spatial dimensions). Used by the
-Laplacian, inverse Laplacian, and Helmholtz projection.
+Laplacian and the inverse Laplacian. The Helmholtz projection does **not** use it: decision 42 gave the
+projector the derivative family's own ``a \\cdot a`` denominator, so its pass takes the three derivative
+wavenumbers and squares them inline.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts
 over the coefficients ``\\hat s`` of a field in spectral representation
-(``-|k|^2 \\hat s``, ``\\hat s_i - k_i k_j \\hat s_j / |k|^2``, …) without ever materializing the ``O(N^3)`` array. That keeps those
+(``-|k|^2 \\hat s`` for the Laplacian, ``-\\hat s / |k|^2`` for its inverse, …) without ever materializing the ``O(N^3)`` array. That keeps those
 operators allocation-free in place: no ``O(N^3)`` ``|k|^2`` scratch is built, which on the GPU would
 otherwise accumulate in the memory pool on each call.
 """

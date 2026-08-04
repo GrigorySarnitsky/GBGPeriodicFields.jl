@@ -1,181 +1,220 @@
-# Cold-Reader Review — GBGPeriodicFields rendered site
+# Cold-reader review — scientific programmer, new to the package
 
-Hat: **scientific programmer, comfortable with Fourier analysis and Julia, but NEW to this
-package**, reading the user-facing site top-to-bottom with the source and the design docs
-withheld. The acceptance test throughout is the **cold read**: a noun or symbol that silently
-assumes I already hold the package's context is the defect.
+Hat: **cold-reader**. Read top-to-bottom as a scientific programmer comfortable with Fourier
+analysis but with no prior exposure to `GBGPeriodicFields`, no access to the design docs
+(`ARCHITECTURE.md`, `FORMALIZATION.md`, etc.) and no access to source. Judged only the document
+supplied (`manuscript-siteonly.md`): Home, API overview, Notation, Getting-started tutorial, the
+eight module API pages (Convolution, DifferentialOperators, FiberSections, FieldAlgebra, Fields,
+GBGPeriodicFields.jl, Interpolation, Points, Reductions), and the `examples/hist_cpu` Literate
+page. Mathematical content (operator formulas, adjoint relations, Wiener–Khinchin/Parseval
+identities, the K41 dimensional argument in the example page) was independently re-derived where
+feasible and found correct; no findings below are math errors — all are self-containedness /
+internal-consistency issues: a term, symbol, or classification used inconsistently, or used
+without ever being defined on the page(s) the reader is confined to.
 
-Pages read (site-only consolidation): Home, api (overview), notation, tutorial, and the API
-pages Convolution / DifferentialOperators / FiberSections / FieldAlgebra / Fields /
-GBGPeriodicFields / Interpolation / Points / Reductions, plus the examples/hist_cpu Literate page.
-
-Overall: the *mathematics* is strikingly internally consistent (the rfft half-spectrum weight
-α(k), the 1/N vs 1/M measures, the index conventions, the det/tr invariants, the Parseval
-normalizations all line up across pages — I could not find a numeric contradiction). The defects
-are about **self-containedness and dead cross-references**, plus a couple of structural gaps.
-
----
-
-## Finding 1 — `FieldSpectralMultipliers(field)` is promised "documented separately below" but never documented; it is the form everyone actually uses
-
-- **type:** api-gap
-- **severity:** major
-- **confidence:** high
-- **locations:**
-  - PAGE: api / Fields — "Transform-plan and multiplier types" → `FieldSpectralMultipliers`. The type docstring documents **only** the two explicit six-array constructors (`FieldSpectralMultipliers(grid, layout, wavenumber_1…squared_wavenumber_3)` and `FieldSpectralMultipliers(field, wavenumber_1…squared_wavenumber_3)`), then says: *"These two constructors are explicit: you supply both the wavenumbers and the squared wavenumbers… A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment; **it is documented separately below.**"*
-  - No `FieldSpectralMultipliers(field)` one-argument entry appears anywhere below on the Fields page (the remaining entries are Transform operations, accessors, FFT threads, and Internal API — none of them the convenience constructor).
-  - PAGE: api / DifferentialOperators — module docstring: *"The wavenumber symbols are held in a `FieldSpectralMultipliers`, built from a field with `FieldSpectralMultipliers(field)` or from the explicit six-array constructor."*
-  - PAGE: tutorial — "Differential operators": `multipliers = FieldSpectralMultipliers(scalar_spectral);` — the tutorial's only way to build multipliers is exactly this undocumented one-argument form.
-- **description:** The docstring explicitly forward-references a convenience constructor ("documented separately below") that is absent from the rendered page. This is both a **dead cross-reference** ("below" points to nothing) and a genuine **doc hole**: the one-argument `FieldSpectralMultipliers(field)` is the constructor the tutorial, the DifferentialOperators overview, and the HIT example all invoke, yet a reader who needs to know its Nyquist behaviour, its argument, or even that it exists as its own method finds only a pointer that goes nowhere. A cold reader following the tutorial hits `FieldSpectralMultipliers(scalar_spectral)` and, on clicking through to the type, is told the real doc is "below" — and it isn't.
-- **resolution_hint:** Either add the standalone docstring/`@docs` entry for the one-argument constructor, or fold its description into the type docstring and drop the "documented separately below" pointer.
+Findings are ordered most- to least-severe.
 
 ---
 
-## Finding 2 — The central fiber-bundle vocabulary (base / section / tensor bundle / fiber) is never plainly defined on the reader's entry path; the tutorial defers the mental model to a design doc a site reader cannot open
+## Finding 1 — "Operation family" is used as the package's organizing taxonomy, but four different pages give four different, mutually inconsistent accounts of what the families are and how many there are
 
-- **type:** clarity
-- **severity:** major
-- **confidence:** medium
-- **locations:**
-  - PAGE: tutorial — intro: *"The mental model (`docs/ARCHITECTURE.md` §2): a field is a real physical object — a section of a tensor bundle over a periodic box."* and the closing line *"`docs/ARCHITECTURE.md` explains why the package is shaped this way."* The designated entry point ("New here? Start with the Getting started tour", per the Home page) introduces the core concept only by pointing at a repo-path/§-number a reader on the rendered site or at the REPL cannot follow.
-  - PAGE: notation — "Base and fiber" table: *"$f$, $g$ | a field — **a section of the tensor bundle over the base** | —"*. The glossary defines the field in terms of three words ("section", "tensor bundle", "base") that it never itself defines; the section is *titled* "Base and fiber" yet defines neither "base" nor "fiber".
-  - PAGE: Home — "Main components", Reductions bullet: *"the L²/measure structure — **base reductions** over fields and point-values … integrating **the base** away against its measure … (sup/inf over **scalar sections**)"* — "base" and "section" used as load-bearing terms of art on the landing page with no gloss.
-  - The plainest binding sits on PAGE: api / FiberSections (a page whose own Internal-API framing is "documented for contributors"): *"A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a `PointSet`) are both sections of a tensor bundle over a base."* — correct, but far from where the vocabulary is first used, and on a foundations page a user is unlikely to reach first.
-- **description:** "base", "section", and "tensor bundle" are the package's foundational nouns and appear on Home, the tutorial, Reductions, Convolution, Interpolation, and Points, but the only place they are actually bound in plain language is the contributor-facing FiberSections page (where "base" = the `Grid3D` or `PointSet`). "fiber" gets a one-word parenthetical gloss in the tutorial ("The fiber (tensor order) is set by the constructor"), but "base" never gets even that on any headline page. A cold reader must reverse-engineer "base = the domain (grid or point set)" from usage. The tutorial — the one page meant to onboard — punts the whole mental model to `docs/ARCHITECTURE.md §2`, which is exactly the surface a cold/REPL reader cannot reach.
-- **resolution_hint:** Give the tutorial (or the notation "Base and fiber" header) one plain sentence: the *base* is the domain a field lives on (a grid or a point set); a *section* assigns a fiber value (a scalar/vector/tensor) to each base point; the *fiber* is that per-point tensor. Replace the `docs/ARCHITECTURE.md §2` path with a live link to the rendered Architecture page.
+**Type:** contradiction
+**Severity:** major
+**Confidence:** high
 
----
+**Locations:**
+- PAGE: Home, opening paragraph: *"Every operation is one of three kinds: it acts within each fiber (the pointwise algebra — add, contract, transpose), it couples neighbouring base points (the differential operators and the grid↔point transfer), or it integrates the base away against the base's measure (the reductions)."* — three kinds; `Convolution` is not placed in any of them.
+- PAGE: api / Convolution, module docstring: *"This is the kernel-multiplier operation family — a grid→grid multiplier that filters a field against a fixed kernel — the spectral sibling of the differential operators and the same-base counterpart of `Interpolation`."* — Convolution declares itself its own named family.
+- PAGE: api / DifferentialOperators, module docstring: *"The operation families are:"* followed by a bulleted list of `gradient`, `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, `helmholtz_projection` — here "family" means one named operator (plus its `!`/allocating pair), i.e. seven families inside one module.
+- PAGE: api / FiberSections, `threading_cutoff`: *"Two operation families sit outside the gate and thread by `Threads.nthreads()` regardless … the grid↔point transfer and the radial diagnostics."* — here "family" means an ad hoc pairing that cuts across modules (all of `Interpolation`, plus only the radial half of `Reductions`).
+- PAGE: api / GBGPeriodicFields, module docstring: *"The umbrella assembles its public surface from the submodules below, each of which owns one operation family:"* — here "family" = "submodule", one-to-one, for all eight listed submodules.
+- PAGE: api / Reductions, module docstring: *"The L² / measure structure on sections — the third operation family, alongside the fiberwise algebra and the differential operators."* — an explicit ordinal claim: exactly three families total, and `Reductions` is the third. This directly conflicts with Convolution's self-declared family status one page earlier (alphabetically) and with the umbrella's "each submodule owns one" framing (which would make eight).
 
-## Finding 3 — The rendered HIT example cites the package's internal numbered invariants ("invariant 11", "invariant 12") and "the README", none of which exist on the user-facing site
+**Contradicts:** the axis of disagreement is *how many "operation families" the package has and what counts as one* — three (Home's "kinds", excluding Convolution) vs. one-per-named-operator (DifferentialOperators) vs. one-per-submodule (umbrella, ⇒ eight) vs. exactly three with Reductions as "the third" (Reductions itself, excluding Convolution, Points, Interpolation, Fields) vs. Convolution's own claim to be a distinct family not accounted for by Reductions' count of three.
 
-- **type:** clarity
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: examples / hist_cpu — "Right-hand side and time integration": *"`to_physical!` consumes its spectral source **(invariant 11)**."*
-  - Same page, "Spectral utilities and the preallocated workspace": *"(their $\nu$ / $\Delta t$ / width are the consumer's, **per invariant 12**)."*
-  - Same page, `step!`: *"(the buffer `ws.Ek`; $\nu$, $\Delta t$ are physics — **invariant 12**)"*.
-  - Same page, "Initial condition": *"(The random-solenoidal IC generator is the one remaining package gap — **see the README**.)"*
-- **description:** The example page is a rendered doc surface, but it repeatedly cites the package's numbered-invariant list ("invariant 11" = the transform input contract; "invariant 12" = the no-time/no-particles rule) and "the README". A cold reader has no glossary of numbered invariants anywhere on the site (they live in the design docs / CLAUDE.md), and "the README" is not a page a docs-site reader can necessarily follow. These read as "you are missing a document you should have" — the same class the project's own policy bans for docstrings ("must not cite a §-number or a repo path"). The parenthetical *reasons* are fine; it is the bare invariant-number citation that dangles.
-- **resolution_hint:** State the reason in words on the page ("`to_physical!` may overwrite its spectral source, so we transform a copy") and drop the invariant number, or link the rendered Architecture page anchor.
+**Description:** "Operation family" reads as this package's central organizing concept — every module docstring reaches for it to explain where the module sits in the whole — so a first-time reader naturally tries to build the one true list. Doing so from the rendered text alone produces contradictory answers depending on which page is read. This is exactly the kind of assumed-taxonomy problem a cold read is meant to catch: no single page ever states the complete, authoritative list of families, so "family" ends up meaning at least four different things (a top-level kind, a per-operator cluster, an ad hoc threading-relevant grouping, and a per-submodule count) without any page acknowledging the others' groupings.
 
 ---
 
-## Finding 4 — `mean` / `std` / `var` / `maximum` / `minimum` / `extrema` are advertised as reductions but have no dedicated docstring; `std`/`var` normalization and the base-average semantics are left unspecified
+## Finding 2 — The Notation page's own definition of `k` (the single most-used symbol in the docs) is rendered broken/truncated
 
-- **type:** api-gap
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: Home — "Main components", Reductions bullet lists them as first-class reductions: *"`mean`/`std`/`var` integrating the base away against its measure, plus the measure-independent `maximum`/`minimum`/`extrema` (sup/inf over scalar sections)"*.
-  - PAGE: api / Reductions — closing note: *"The `mean`, `std`, and `var` moments (extending `Statistics`) and the `maximum`, `minimum`, and `extrema` order statistics (extending `Base`) are also defined for sections; they are method extensions of the standard-library generics rather than package exports, and **are described in the module summary above.**"* The only "description" is the one-line module bullets: *"`mean`, `std`, `var` — the intensive, fiber-preserving base moments (they extend `Statistics`; the `mean` of a vector field is a `FiberVector`)."*
-- **description:** These are public, user-visible reductions (the landing page presents them as such), yet none carries a home docstring with a signature, a formula, or the per-base coverage every other reduction on the page documents (`inner`/`integral`/`l2norm`/`lpnorm` each spell out the `Grid3D` cell-volume vs `PointSet` counting average). Concretely, a cold reader cannot learn from the site whether `std`/`var` divide by `N` or `N−1` (population vs sample), nor how `mean` weights the two bases — the module summary says only "intensive, fiber-preserving." For a package this careful about measures elsewhere, the silent normalization of `std`/`var` is the sharp gap.
-- **resolution_hint:** Give `mean`/`std`/`var` a short shared docstring stating the base averaging and the variance normalization; `maximum`/`minimum`/`extrema` can stay brief since they inherit `Base` semantics, but note the scalar-section restriction.
+**Type:** typesetting
+**Severity:** major
+**Confidence:** high
 
----
+**Locations:**
+- PAGE: notation, "Base and fiber" table, verbatim as rendered: *"$k$ | a wavenumber vector ($k_a$ is its $a$-th component, `` | k"* — the row cuts off mid-clause, ends in a stray double backtick, and the "Code" column is left as the bare, unhelpful `k`. The row directly above and below it are intact (`$M$ | the number of points | npoints`, `$h$ | a physical displacement (...) | translation_kernel`), so this is not a general table problem, just this one row.
+- Compare PAGE: api / DifferentialOperators, `laplacian!`: *"$\widehat{\Delta f}(k) = -|k|^2 \hat f(k), \qquad |k|^2 = k_1^2 + k_2^2 + k_3^2.$"* — the magnitude $|k|$, evidently what the broken row was trying to define (a `|` inside "$|k|$" is a plausible culprit for a Markdown-table parse break), is instead defined redundantly, several times, inside individual operator docstrings (`laplacian!`, `squared_wavenumber_field`, etc.).
 
-## Finding 5 — The public "evaluate a field at a point" callable `f(x)` is documented under Interpolation's *Internal API* (contributor) section
-
-- **type:** organization
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: api / Interpolation — module docstring presents it as a headline user feature: *"plus the callable `f(x)` (and its broadcast `f.(xs)`) as the ergonomic face of a single-point gather."*
-  - Same page, but its actual entry is under **"## Internal API"** (introduced as *"the in-kernel helpers — documented for contributors"*): *"`GBGPeriodicFields.Fields.AbstractFieldPhysical` — Method … `(field::AbstractFieldPhysical)(x; scheme = CatmullRom)` … This is the ergonomic face of a one-point `interpolate` gather…"*.
-- **description:** The callable `field(x)` is exactly the ergonomic entry a newcomer reaches for ("how do I evaluate my field at an off-grid point?"), and the module docstring advertises it as such, yet its documentation is filed in the contributor-only Internal-API block among `_fornberg`/`_locate`/`_axis_weights`. A cold reader scanning the "Transfer operations" section for it will not find it there. (The module docstring also promises the broadcast `f.(xs)`, which the method entry does not actually document.)
-- **resolution_hint:** Surface the call-overload under the public "Transfer operations" group next to `interpolate`, and add a line documenting `f.(xs)`.
+**Description:** The Notation page bills itself as *"the single reference"* for symbols, with the explicit promise that *"a docstring introduces a symbol on first use and need not repeat the convention"* — i.e., the reader is entitled to rely on this page rather than reconstructing everything locally. For `k`, arguably the most pervasive symbol in the whole site (`|k|`, `|k|^2`, `\hat f(k)`, every kernel builder, every spectral operator), the row is corrupted and never actually states the magnitude notation `|k|` that the rest of the site leans on constantly. The practical damage is softened because `|k|^2 = k_1^2+k_2^2+k_3^2` is re-derived inline in several operator docstrings, but the canonical reference itself fails to deliver on exactly the symbol a reader would most want to look up there.
 
 ---
 
-## Finding 6 — Home lumps `integral`, `inner`, `l2norm`, `lpnorm`, `mean/std/var` as uniformly "measure-weighted … integrating the base away against its measure", but Reductions insists `integral` is the *one* extensive reduction and `inner`/`mean` are intensive
+## Finding 3 — `symmetric_gradient` is missing from the Home page's enumeration of `DifferentialOperators`'s operators, though it is a first-class operator everywhere else
 
-- **type:** contradiction
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: Home — "Main components", Reductions bullet: *"the **measure-weighted** `integral`, `inner`, `l2norm`, `lpnorm`, and `mean`/`std`/`var` **integrating the base away against its measure**, plus the measure-independent `maximum`/`minimum`/`extrema`"*.
-  - PAGE: api / Reductions — `integral`: *"It is **the one extensive reduction, the only one that scales with the base measure**; reach for `inner` or `mean` when you want an **intensive, size-independent** average instead."* and `inner`: *"It is intensive (it matches `mean`)…"*.
-- **contradicts:** PAGE: api / Reductions, `integral` — "the one extensive reduction, the only one that scales with the base measure … `inner` or `mean` … intensive, size-independent" — vs PAGE: Home which characterizes `integral` and `inner`/`mean` together as "measure-weighted … integrating the base away against its measure". Axis of disagreement: **extensive (scales with the measure) vs intensive (size-independent)** — Home blurs the very distinction Reductions draws emphatically.
-- **description:** The Home phrasing invites a cold reader to believe `inner`/`mean`, like `integral`, scale with the domain size ("measure-weighted"), which the reduction pages explicitly deny (only `integral` scales with the measure; `inner`/`mean` are normalized averages). It is a landing-page simplification, but on the exact axis the detailed page treats as load-bearing.
-- **resolution_hint:** On Home, separate the extensive `integral` from the intensive `inner`/`l2norm`/`lpnorm`/`mean`, mirroring the Reductions distinction.
+**Type:** contradiction
+**Severity:** major
+**Confidence:** high
 
----
+**Locations:**
+- PAGE: Home, "Main components": *"`DifferentialOperators`: spectral differential operators — gradient, divergence, curl, Laplacian, inverse Laplacian, and Helmholtz projection."* — six operators, phrased as an exhaustive list ("X, Y, Z, and W").
+- PAGE: api / GBGPeriodicFields, module docstring: *"`DifferentialOperators` provides the spectral operators `gradient`, `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and `helmholtz_projection`."* — seven operators, `symmetric_gradient` included.
+- PAGE: api / DifferentialOperators, module docstring itself lists `symmetric_gradient` as one of "The operation families are:", describing it as *"the fused symmetric peer of `curl`, skipping the full gradient"* — a documented performance-relevant primitive (avoids building the full nine-component gradient tensor just to symmetrize it).
 
-## Finding 7 — "assignment" carries two unrelated technical meanings across pages
-
-- **type:** clarity
-- **severity:** minor
-- **confidence:** low
-- **locations:**
-  - PAGE: api / Convolution — `assignment_window`: *"the linear (cloud-in-cell) **mass-assignment** window … for deconvolving a gridded point density"* (assignment = depositing per-point mass onto grid nodes).
-  - PAGE: api / FiberSections — `threading_cutoff`: *"Here **an assignment is a fused elementwise write into field storage** — the `_assign!` primitive behind every in-place operation"* (assignment = a broadcast write into an array).
-- **description:** A newcomer meeting "assignment" on the Convolution page (mass deposition) and again on the FiberSections page (a fused array write) has to infer that the same word names two unrelated operations. Each is glossed locally, so this is mild, but it is a one-word / two-meanings collision of the kind the project's own "one concept per notation" rule targets.
-- **resolution_hint:** Consider "mass-deposition window" or keep "mass-assignment" but never shorten it to bare "assignment" near the transfer material; the threading sense is fine as "a fused write".
+**Description:** A reader who only skims the Home page's "Main components" overview — the first and most natural place to learn what a module offers — would not know `symmetric_gradient` exists, and might write `sym(gradient(u))` instead of the cheaper fused primitive the docs elsewhere specifically recommend. The umbrella module page and the DifferentialOperators page itself both include it; only the Home-page summary is stale/incomplete.
 
 ---
 
-## Finding 8 — The exponential base is typeset upright `\mathrm{e}` in `translation_kernel` but italic `e` in `DirectDFT`, for the same Fourier phase
+## Finding 4 — The glyph `α` (and `α(k)`) is reused for two unrelated meanings: the pervasive accumulation weight, and a per-mode Parseval multiplicity constant
 
-- **type:** typesetting
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: api / Convolution — `translation_kernel`: *"$\hat g(k) = \mathrm{e}^{-\mathrm{i}  k \cdot h} = \prod_{a=1}^{3} \bigl[ \cos(k_a h_a) - \mathrm{i} \sin(k_a h_a) \bigr]$"* — upright base.
-  - PAGE: api / Interpolation — `DirectDFT`: *"$f(x_p) = \frac{1}{N} \sum_{k} \hat f(k)  e^{\mathrm{i} k\cdot (x_p - o)}$ … $(W^\top q)(k) = \sum_p q_p  e^{-\mathrm{i} k\cdot (x_p - o)}$"* — italic base.
-- **description:** The notation page mandates upright `\mathrm{i}` and upright `\mathrm{d}` and the docstrings comply on those, but the exponential base `e` in the same complex-exponential expressions is upright in one operation's docstring and italic in another. It is the identical object (the shift-theorem phase / DFT kernel), so the styling should match. Minor, but it is a visible inconsistency between two docstrings a reader compares when relating convolution-by-`translation_kernel` to spectral interpolation.
-- **resolution_hint:** Pick one (upright `\mathrm{e}`, matching `\mathrm{i}`/`\mathrm{d}`) and apply it everywhere; add an `e` row to the notation "Conventions" table.
+**Type:** clarity
+**Severity:** major
+**Confidence:** high
 
----
+**Locations:**
+- PAGE: api / Convolution, `convolve!`: *"`α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form overwrites ($\alpha = 1$, $\beta = 0$), the five-argument form computes $\alpha (f \star g) + \beta \mathrm{destination}$."* — this exact α/β-as-caller-supplied-real-scalar pattern is repeated near-verbatim across `exponential_convolve!`, `divergence!`'s kernel-composed form, `helmholtz_projection!`'s kernel-composed form, `combine!`, `mul!`, and `anterpolate!`.
+- PAGE: api / Interpolation, `DirectDFT`: *"reconstructing the real field ($o$ the grid origin) from the stored rfft half-spectrum with the Parseval weight $\alpha(k) = 1$ on the self-conjugate planes … and $2$ elsewhere."* — here `α` is not a caller argument at all, but a formula-internal multiplicity factor (1 or 2) baked into the half-spectrum reconstruction sum.
+- PAGE: api / Reductions, `weighted_inner`: *"By Parseval, with the rfft half-spectrum weight $\alpha(k)$ ($1$ on the folded axis's zero plane … ; $2$ otherwise …)"* — same reuse.
+- PAGE: api / Reductions, `radial_spectrum`: *"with $c$ indexing the fiber components, $\alpha(k)$ the rfft half-spectrum Parseval weight ($1$ on the folded axis's zero and even-length Nyquist planes, $2$ otherwise …)"* — same reuse a third time.
 
-## Finding 9 — The fiberwise-magnitude symbol `|·|` (`norm ≡ |·|`) is used across FieldAlgebra and Reductions but is missing from the notation glossary, which lists only `‖·‖`
-
-- **type:** clarity
-- **severity:** minor
-- **confidence:** medium
-- **locations:**
-  - PAGE: notation — "Operators" table lists *"$\lVert\cdot\rVert$ | the $L^2$ norm | l2norm"* but has **no `|·|` row**, though the page's stated purpose is *"The symbols used throughout the docstrings … with the code object each one denotes."*
-  - PAGE: api / FieldAlgebra — `norm!`: *"the fiberwise norm of a physical-space field (`norm` $\equiv |\cdot|$)"*, distinguishing pointwise `|·|` from the global `‖·‖`.
-  - PAGE: api / Reductions — `lpnorm`: *"where $|f|$ is the pointwise fiber magnitude (the fiberwise `norm`)"*, and `l2norm` builds `‖·‖` from `|f|`.
-- **description:** The site draws a real, load-bearing distinction between the pointwise fiber magnitude `|·|` (the `norm`/`norm!` operation) and the global `L²` norm `‖·‖` (`l2norm`), but the notation glossary — advertised as the single reference — binds only `‖·‖`. A cold reader consulting the glossary to disambiguate `|f|` vs `‖f‖` finds only the latter.
-- **resolution_hint:** Add a `|·| → norm` row to the notation "Operators" table.
+**Description:** By the time a reader reaches `DirectDFT`, `weighted_inner`, or `radial_spectrum`, the α/β-accumulation idiom has been drilled in by a dozen-plus prior docstrings as "the real weight the caller passes to scale/accumulate a result." Re-using the bare glyph `α` — written as a function of `k` but still visually just "α" — for an entirely different, formula-internal quantity (a 1-or-2 multiplicity from the rfft half-spectrum convention) invites a reader to misread it as another accumulation weight. Neither meaning of `α` appears on the Notation page at all (see also Finding 13's related gap), so there's no canonical place a confused reader could go to disambiguate.
 
 ---
 
-## Finding 10 — "the Laplacian convention" for the Nyquist frequency is invoked on the Convolution page as a known thing, but is only explained on other pages
+## Finding 5 — The {`radial_spectrum`, `radial_correlation`} pair is given four different names across the site
 
-- **type:** clarity
-- **severity:** minor
-- **confidence:** low
-- **locations:**
-  - PAGE: api / Convolution — `spectral_cutoff`: *"The squared wavenumber $|k|^2$ keeps the true value at the Nyquist frequency **(the Laplacian convention)**."*; repeated verbatim in `spectral_band` (*"with $|k|^2$ keeping the true value at the Nyquist frequency (the Laplacian convention)"*) and `squared_wavenumber_field` (*"summed with the true value kept at the Nyquist frequency (the Laplacian convention)"*).
-  - The convention is only spelled out on PAGE: api / DifferentialOperators (module docstring: *"first-derivative wavenumbers are zeroed at the Nyquist frequency on even-length axes, while squared wavenumbers keep the true squared wavenumber there"*) and PAGE: api / Fields Internal API (`_axis_wavenumber_values`).
-- **description:** A cold reader who lands on the Convolution page (e.g. to build a filter) meets the parenthetical "(the Laplacian convention)" three times as if it were already established, but nothing on that page says what the Nyquist convention is or why a squared wavenumber differs from a first-derivative wavenumber there. It reads complete only to someone who has already absorbed the DifferentialOperators / Fields Nyquist split. Minor, since a Fourier-literate reader can infer "keep the true k² at Nyquist," but the phrase presumes shared context.
-- **resolution_hint:** Replace the bare "(the Laplacian convention)" with a half-sentence ("the true k² is kept at the Nyquist frequency, as for the Laplacian"), or `@ref`-link the DifferentialOperators explanation.
+**Type:** contradiction
+**Severity:** major
+**Confidence:** high
 
----
+**Locations:**
+- PAGE: Home, "Main components": *"plus the radial pair `radial_spectrum` (the power spectrum) and `radial_correlation` (its physical-space Wiener–Khinchin dual, the two-point autocorrelation)…"*
+- PAGE: api / GBGPeriodicFields, module docstring: *"`Reductions` provides the L²/measure reductions `integral`, `inner`, `weighted_inner`, `l2norm`, and `lpnorm`, plus the radial diagnostics `radial_spectrum` and `radial_correlation`."*
+- PAGE: api / Reductions, module docstring: *"`radial_spectrum` and `radial_correlation` — a Fourier-dual pair (Wiener–Khinchin) that resolves `inner` over a radial coordinate…"*
+- PAGE: api / Reductions, `weighted_inner`: *"It is thus far cheaper than the radial reductions `radial_spectrum` / `radial_correlation`, which build an $O(N)$ shell-index array and a scatter-add binning pass…"*
+- PAGE: api / FiberSections, `with_threading`: *"the grid↔point transfer (`interpolate!`/`anterpolate!`) and the radial diagnostics (`radial_spectrum`/`radial_correlation`) — the kernels with atomic or irregular access…"*
 
-## Finding 11 — Home and the api overview carry a flattened, partly-empty outline; three module docstrings show a missing space where a trailing paragraph abuts the last bullet (possible lazy-continuation render, or a consolidation artifact)
-
-- **type:** format
-- **severity:** nit
-- **confidence:** low
-- **locations:**
-  - PAGE: Home — "API reference" and PAGE: api — the tail of each page is a long list with many empty items (bare "- " lines) and a duplicated module roster (e.g. "GBGPeriodicFields.jl", then a blank "- ", "Re-exported modules", "FiberSections", "Fiber-section supertype", … repeated on both pages).
-  - Missing space after a sentence-ending period where a paragraph follows the last list bullet:
-    - PAGE: Home, Reductions bullet: *"…refining the mixed `inner(f, g)`)**.Pointwise** (fiberwise) products and norms live in `FieldAlgebra`…"*
-    - PAGE: api / DifferentialOperators, module: *"…projects a vector field onto its divergence-free part**.The Nyquist** frequency is treated differently by symbol…"*
-    - PAGE: api / GBGPeriodicFields, module: *"…the radial diagnostics `radial_spectrum` and `radial_correlation`**.`FiberSections`** is the base-agnostic foundation…"*
-- **description:** The empty-bullet outline on Home/api is almost certainly a `@contents`/navigation dump captured by the reader-text consolidation rather than a real page defect, so I flag it low-confidence. The three "period-glued-to-next-sentence" cases are more interesting: they all occur exactly where a module docstring's closing paragraph follows a bulleted list, which is the classic Markdown *lazy-continuation* pitfall (the paragraph gets absorbed into the final list item) — worth verifying against the live build, since if it renders that way the trailing prose is mis-nested inside the last bullet. If instead the live pages render the paragraph separately, this is just a consolidation artifact.
-- **resolution_hint:** Confirm on the built HTML; if the trailing paragraphs render inside the last `<li>`, insert a blank line before them in the module docstrings.
+**Description:** "the radial pair" (Home), "the radial diagnostics" (umbrella page, FiberSections — twice), "a Fourier-dual pair (Wiener–Khinchin)" (Reductions' own module docstring), and "the radial reductions" (Reductions' own `weighted_inner` docstring) all name the identical two-function group. None of these is wrong individually, but a reader cross-referencing pages (exactly what the task of building a mental model requires) has no signal that these are the same referent rather than four different groupings — compounded by Finding 1, since "radial diagnostics"/"radial reductions" also sound like they could be sub-families in the already-contested "operation family" taxonomy.
 
 ---
 
-### Notes on things that checked out (not defects)
+## Finding 6 — "module" is used in the abstract-algebra sense once, on a page where "Module" (capitalized, Julia-code sense) is used as a type tag dozens of times
 
-- The rfft half-spectrum Parseval weight α(k) ("1 on the k_x = 0 plane and the even-N_x Nyquist plane, 2 otherwise") is stated identically in `DirectDFT`, `weighted_inner`, and `radial_spectrum`. Consistent.
-- The half dimension = `fft_dims[1]` = axis 1 (k_x, N_x) is consistent across `RealFourierLayout`, `rfft_shape`, the `convolve!` Hermitian note ("modes with k₁ ≥ 0"), and the α(k) planes.
-- Measure normalizations (integral `|Ω|/N·Σ`, inner `1/N·Σ` / `1/M·Σ`, spectrum `1/N²`) all cohere; `integral = |Ω|·mean`, `l2norm = √inner`, `Σ_κ E(κ) = inner`.
-- Index conventions ((∇u)_{ij}=∂_{x_j}u_i, div contracts the last index, S_{ij}=½(∂_{x_j}u_i+∂_{x_i}u_j), helmholtz (δ_ij − k_ik_j/|k|²)) are mutually consistent and reproduce div(grad)=Δ and ℙ correctly.
-- `CatmullRom = LalescuSpline(1,1)` ("cubic, quadratic precision, four-point C¹") is consistent across the Interpolation module, `interpolate!`, the `CatmullRom` constant, `LalescuSpline`, and `AbstractSplineScheme`; the linear special cases (`LalescuSpline` m=0, `LagrangeSpline` n=0, `LalescuSpline(0,0)` for `assignment_window`) agree.
-- The HIT example's turbulence relations are correct (the 11/9 trace-structure-function factor, Re_λ=√(15u'⁴/νε), ε=ν⟨|ω|²⟩, the dimensionally-complete K41 guide C_K ε^{2/3} κ^{-5/3}); the 320³/256³/192³ Re_λ figures are consistent between the CLI table and the Results section. Using "particles/tracers" in the example is consistent with the design (the example is explicitly the consumer, "the package has no concept of time, by design").
-- `tutorial` numeric outputs check: `inner(u,u)=1.5` for u=(sin x, cos y, sin z) and `sum(spectrum)=1.5` are correct and self-consistent.
+**Type:** clarity
+**Severity:** minor
+**Confidence:** medium
+
+**Locations:**
+- PAGE: api / FieldAlgebra, module docstring: *"- Vector-space and module operations — `add!` and `subtract!` (`+`, `-`), the weighted combination `combine!` (…), real scaling, and scalar-field multiplication and division (…). Addition, weighted combination, and real scaling are the vector-space structure; scalar-field multiplication is the **module action** over the scalar fields."*
+- Same page, immediately above: *"`GBGPeriodicFields.FieldAlgebra` — Module"* — the standard Documenter type-tag pattern repeated for every type/function/module on every API page in the site (e.g. `GBGPeriodicFields.Convolution` — Module, `GBGPeriodicFields.DifferentialOperators.gradient!` — Function).
+
+**Description:** "the module action over the scalar fields" invokes the abstract-algebra notion of a module (a vector-space-like structure over a ring, here the ring of scalar fields) — reasonable terminology for a reader with an algebra background, but the *only* place on the entire site this sense of "module" appears, on a page where "Module" is otherwise a Julia-specific type tag used constantly for something unrelated (a source-code module). A reader skimming rather than parsing closely could easily misread "module action" as somehow referring to the Julia module system.
+
+---
+
+## Finding 7 — The tensor-invariant naming is inconsistent between `tr!` ("first tensor invariant") and `det!` ("third principal invariant $I_3$")
+
+**Type:** contradiction
+**Severity:** minor
+**Confidence:** medium
+
+**Locations:**
+- PAGE: api / FieldAlgebra, `tr!`: *"Pointwise over the base, it contracts the two fiber indices to a scalar — the first tensor invariant:"* (no `$I_1$` symbol given).
+- PAGE: api / FieldAlgebra, `det!`: *"The determinant is cubic in the tensor's components — the third principal invariant $I_3$, the signed factor by which $A$ scales volumes as a linear map."*
+- PAGE: api / FieldAlgebra, module docstring: *"`tr!` the trace, the self-contraction of a tensor's own two indices, and `det!` the determinant, the tensor's third principal invariant."*
+
+**Description:** `tr` and `det` are presumably the first and third members of the same standard numbered sequence of tensor invariants (continuum mechanics' $I_1, I_2, I_3$), but the docs call them by two different adjectives ("tensor invariant" vs. "principal invariant") and give a LaTeX index symbol ($I_3$) only to the second, never introducing $I_1$ for the trace. A reader trying to relate the two operations has to guess these are the same family under different names; the docs never say so explicitly, nor mention why $I_2$ has no counterpart operation (an intentional omission, but the naming drift around it is not).
+
+---
+
+## Finding 8 — "the pair-correlation route" is referenced with a definite article as a known, specific pipeline, but is never introduced anywhere else
+
+**Type:** clarity
+**Severity:** minor
+**Confidence:** medium
+
+**Locations:**
+- PAGE: api / Convolution, `assignment_window`: *"Use it in the pair-correlation route. Depositing $M$ points on the grid with the positive linear assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density) spreads each point's mass over a tent, so the gridded density is the true density $\rho$ convolved with this window, $\rho_g = \rho \star W$."*
+
+**Description:** "the pair-correlation route" appears exactly once on the whole site, with the definite article implying it is a specific, previously-established procedure — but no page sets it up as a named pipeline beforehand or afterward (it is not in the Home page's vocabulary paragraph, the Notation page, or cross-referenced from `radial_correlation`, which is the natural downstream consumer of a deconvolved density). The paragraph does narrate the individual steps inline, which mitigates the gap, but the label itself reads as though it points to a defined multi-step recipe the reader is assumed to already know.
+
+---
+
+## Finding 9 — "(tensor/fiber) bundle" is the name of the package's whole architecture, but "bundle" itself is never defined on the user-facing site
+
+**Type:** clarity
+**Severity:** minor
+**Confidence:** medium
+
+**Locations:**
+- PAGE: notation, "Base and fiber" table: *"$f$, $g$ | a field — a section of the tensor bundle over the base | —"*
+- PAGE: api / FiberSections, module docstring: *"Base-agnostic core of the package's fiber-bundle model. A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a `PointSet`) are both sections of a tensor bundle over a base."*
+- PAGE: api / Points, module docstring: *"The unstructured base of the package's fiber-bundle model: off-grid sample positions and the field values sampled at them."*
+- Contrast PAGE: Home, opening paragraph, which explains "section", "fiber", and "base" but never uses the word "bundle" at all: *"A field — and its off-grid point-values — is a section: one fiber value (a scalar, a vector, or a second-order tensor) attached to every point of a base…"*
+
+**Description:** "fiber-bundle model" / "tensor bundle" is used repeatedly as the name for the package's whole design, but the word "bundle" itself — as opposed to "section", "fiber", and "base", each of which does get an explicit gloss — is never unpacked anywhere in the user-facing docs (its formal meaning presumably lives in the excluded `ARCHITECTURE.md`). A reader can reconstruct roughly what is meant (the base plus the fibers it carries, i.e. exactly what "section" was already defined to mean), but the term is used as though self-evident once the reader is expected to recognize it from differential geometry.
+
+---
+
+## Finding 10 — The word "assignment" is used for two unrelated concepts: a threaded elementwise write, and particle-mesh mass deposition
+
+**Type:** clarity
+**Severity:** nit
+**Confidence:** low
+
+**Locations:**
+- PAGE: api / FiberSections, `threading_cutoff`: *"Here an assignment is a fused elementwise write into field storage — the `_assign!` primitive behind the broadcast route…"*
+- PAGE: api / Convolution, `assignment_window`: *"Return the linear (cloud-in-cell) mass-assignment window as a scalar field in spectral representation, on `reference`'s grid and array backend, for deconvolving a gridded point density."*
+- PAGE: Home, "Main components": *"`assignment_window` the mass-assignment deconvolution window"*
+
+**Description:** "assignment" in the threading sense (a write into an array) and "(mass) assignment" in the particle-mesh sense (depositing point mass onto a grid, as in `assignment_window`) are unrelated ideas that happen to share a name. Each is glossed adequately at its own point of use, and the compound "mass-assignment" is somewhat self-distinguishing, so this is a low-stakes overlap — but a reader skimming both pages in one sitting could momentarily wonder whether `assignment_window` has anything to do with the CPU-threading "assignment" split (it does not).
+
+---
+
+## Finding 11 — If the API pages are read in the order this document presents them, several types are used before they are defined
+
+**Type:** organization
+**Severity:** nit
+**Confidence:** low (see caveat)
+
+**Locations:**
+- PAGE: Home / PAGE: api, both state the intended reading/dependency order explicitly: *"The include order reflects the dependency layering: `FiberSections` → `Fields` → `FieldAlgebra` → `DifferentialOperators` → `Convolution` → `Points` → `Interpolation` → `Reductions`."*
+- The document actually presents the API pages in a different order: Convolution, DifferentialOperators, FiberSections, FieldAlgebra, Fields, GBGPeriodicFields, Interpolation, Points, Reductions (alphabetical by module name).
+- Concrete instance: PAGE: api / Convolution, `assignment_window`, cites *"the positive linear assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density)"* — `LalescuSpline`'s own defining docstring (its `(n, m)` parameters, stencil, and TurTLE pin) does not appear until PAGE: api / Interpolation, later in this document.
+- Concrete instance: `ScalarFieldSpectral`, `FieldSpectralMultipliers`, and `TensorFieldPhysical{2}` are used throughout Convolution, DifferentialOperators, and FieldAlgebra as type annotations before the Fields page (fifth in this document's order) defines them.
+
+**Description:** Each individual docstring is largely self-contained via inline prose glosses (e.g. `kernel` is always re-explained as "a scalar field in spectral representation" at its point of use), which substantially mitigates the practical impact — this is why confidence is only low. Flagged because it is a genuine property of the document as given: if it reflects the live site's actual sidebar/browsing order, a first-time reader hits forward references to un-introduced types and schemes; if it is only an artifact of how this consolidated review document was assembled (e.g. alphabetical directory listing rather than the configured navigation order), then it is not a real reader-facing issue and should be discounted. Recommend confirming the live site's actual page order before acting on this one.
+
+---
+
+## Finding 12 — Single-argument $\langle\cdot\rangle$ ("domain average") is used in two narrative pages but is absent from the Notation page's own table
+
+**Type:** clarity
+**Severity:** nit
+**Confidence:** medium
+
+**Locations:**
+- PAGE: notation, "Operators" table lists only the two-argument form: *"$\langle\cdot,\cdot\rangle$ | the normalized $L^2$ inner product | inner"*.
+- PAGE: tutorial, "Fiberwise algebra and L²/measure reductions": *"single-argument angle brackets denote that average (here $\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}$)"* — introduced and used once.
+- PAGE: examples / hist_cpu, "Results": *"With $\langle\cdot\rangle$ the average (over space/time origins), $u$ the Eulerian velocity and $U$ a tracer's velocity,"* — introduced independently a second time, in a different page, with a slightly different gloss ("over space/time origins" vs. the tutorial's implicit domain average).
+
+**Description:** Both introductions are locally adequate (each page glosses the notation where it first appears, consistent with the Notation page's own stated policy that a docstring "introduces a symbol on first use and need not repeat the convention"), so this is low severity. It is included because the two introductions are not quite the same (plain domain average vs. "average over space/time origins") and neither cross-references the other or the Notation page's two-argument entry, so a careful reader collating the two pages could reasonably ask whether $\langle\cdot\rangle$ and $\langle\cdot,\cdot\rangle$ are meant to compose consistently (they do: $\langle f\rangle \equiv \langle f, 1\rangle$-style domain average vs. $\langle f,g\rangle$ the inner product) — a one-line note either on the Notation page or cross-linking the two example pages would close the gap.
+
+---
+
+## Summary table
+
+| # | Finding | Severity | Confidence |
+|---|---|---|---|
+| 1 | "Operation family" taxonomy contradicts itself across 4+ pages | major | high |
+| 2 | Notation page's `k` row is rendered broken/truncated | major | high |
+| 3 | `symmetric_gradient` missing from Home page's operator list | major | high |
+| 4 | `α`/`α(k)` glyph reused for accumulation weight vs. Parseval multiplicity | major | high |
+| 5 | Radial pair named 4 different ways across pages | major | high |
+| 6 | "module action" collides with the pervasive "— Module" type tag | minor | medium |
+| 7 | `tr`/`det` invariant naming inconsistent ("tensor" vs. "principal" $I_3$) | minor | medium |
+| 8 | "the pair-correlation route" never introduced as a named pipeline | minor | medium |
+| 9 | "(fiber-/tensor) bundle" never itself defined, only used | minor | medium |
+| 10 | "assignment" collides between threading and mass-assignment senses | nit | low |
+| 11 | Page order may forward-reference undefined types/schemes | nit | low |
+| 12 | Single-argument $\langle\cdot\rangle$ absent from the Notation table | nit | medium |

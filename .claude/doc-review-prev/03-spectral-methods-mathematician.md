@@ -1,281 +1,168 @@
-# Review — Spectral-methods / Fourier-on-the-torus mathematician
+# Doc review — Applied Mathematician (pseudospectral / Fourier methods on the torus)
 
-Audit of the rendered GBGPeriodicFields site + design docs (`manuscript-full.md`).
-Scope: transform normalization, spectral differential operators (sign / Nyquist),
-the convolution theorem, Parseval / radial spectra, the interpolation/anterpolation
-adjoint pair, DirectDFT vs NUFFT. Primary lens: internal consistency across pages.
+Scope: the rendered site `manuscript-full.md` (Home, api overview, architecture, formalization,
+notation, performance, testing, tutorial, all API docstring pages, and the HIST_CPU example).
 
-**General note:** the core spectral mathematics is, overwhelmingly, correct and
-mutually consistent. The forward-unnormalized / inverse-1/N convention, the
-`ik` / `-|k|²` multipliers and their signs, the deliberate Nyquist split
-(derivative wavenumbers zeroed vs squared wavenumbers keeping true k²), the
-convolution theorem `F(f⋆g)=f̂·ĝ`, the rfft half-spectrum Parseval weighting
-(`α=1` on self-conjugate planes, `2` else), `sum(radial_spectrum)==inner==C(0)`,
-the Helmholtz/Leray multiplier `I − k̂k̂ᵀ`, and the DirectDFT/NUFFT formulas all
-check out and agree between the Architecture, Formalization, and API-docstring
-surfaces. The findings below are the discrepancies I did find.
+Headline: **the core spectral-methods mathematics is sound and internally consistent across every
+page.** I verified, and found agreement everywhere, on: the forward-unnormalized / inverse-1/N transform
+pair and where the 1/N lives; the constant-add touching only the zero mode scaled by N; integral/mean via
+the DC coefficient with the |Ω|/N and prod(grid_size) factors; the ik / −|k|² multipliers and their signs;
+the deliberate Nyquist split (derivative wavenumber zeroed on even axes, squared wavenumber keeping true
+k²); the decision-42 exact discrete Helmholtz projector id − â âᵀ with the |a|² (derivative-family)
+denominator vs the resolved-band composite u − ∇Δ⁻¹(∇·u); the convolution theorem f̂·ĝ with the Hermitian
+reality condition; the Parseval half-spectrum weighting (α = 1 on the self-conjugate zero and even-Nyquist
+planes, 2 else, with 1/N²); radial_spectrum sum == inner and radial_correlation C(0) == inner
+(Wiener–Khinchin); the unnormalized-sinc² CIC assignment window; the translation-kernel Nyquist treatment
+(even/cos ← true k, odd/sin ← Nyquist-zeroed derivative k); DirectDFT type-1/type-2 and the measure-weighted
+adjoint; the spline reproduction degrees (min(2m+1,2n) smooth / 2n+1 Lagrange, Catmull–Rom = (1,1) cubic C¹
+with quadratic precision); the heat-kernel identity e^{−cΔ} with Gaussian length √(−2c); and the K41
+constants (E = C_K ε^{2/3} κ^{−5/3}; per-component S₂ = (11/9) C₂ ε^{2/3} r^{2/3}).
+
+The findings below are formatting / staleness / bookkeeping issues, not mathematical errors.
 
 ---
 
-## Finding 1 — `E(κ)` denotes two different quantities across pages (factor of 2)
-
-- **type:** normalization
+## Finding 1 — Notation glossary: the wavenumber row is truncated/mangled; κ = |k| is never defined
+- **type:** typesetting
 - **severity:** major
 - **confidence:** high
-
-The symbol `E(κ)` (the energy spectrum) is bound to **two quantities differing by
-a factor of 2** across user-facing surfaces: in some places it *is* the package's
-`radial_spectrum` (so `Σ E = ⟨f,f⟩ = ⟨|u|²⟩`), in others it is *half* of it (the
-physics kinetic-energy spectrum, `Σ E = ½⟨|u|²⟩ = k`).
-
-**`E(κ) = radial_spectrum` (no ½):**
-- PAGE: api / Reductions, `radial_spectrum` docstring: "The radial (shell-binned)
-  spectrum resolves a field's L² energy over wavenumber-magnitude shells
-  (`radial_spectrum` $\equiv E(\kappa)$)." and "$\sum_\kappa E(\kappa) = \langle f, f\rangle$".
-- PAGE: tutorial, "Fiberwise algebra and L²/measure reductions":
-  `round(sum(spectrum); digits = 4)   # Σ E(k) = inner(u, u)` → `1.5`.
-- PAGE: testing (coverage paragraph): "the exact refinement
-  $\sum_\kappa E(\kappa) = \langle f, f\rangle$".
-
-**`E(κ) = ½·radial_spectrum` (with ½):**
-- PAGE: architecture, decision 21: "The consumer's energy spectrum over the shell
-  wavenumber $\kappa$ ($= |k|$) is $E(\kappa) = \tfrac{1}{2} \mathrm{spectrum}$".
-- PAGE: architecture, decision 22: "the energy spectrum
-  $E(k) = \tfrac{1}{2} \mathrm{radial\_spectrum}$".
-- PAGE: examples / hist_cpu, Diagnostics:
-  "$\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k$, the
-  turbulent kinetic energy" and "$E(\kappa) = \tfrac{1}{2} \times$ the shell-resolved
-  Parseval inner".
-
-The sharpest contradiction is between two runnable user-facing surfaces:
-tutorial `# Σ E(k) = inner(u, u)` (= `⟨|u|²⟩`) versus HIST
-`Σ E(k) = ½⟨|u|²⟩ = k` — the *same* symbol `Σ E(k)` equal to `⟨|u|²⟩` on one
-page and to `½⟨|u|²⟩` on another. Equivalently the Reductions docstring binds
-`radial_spectrum ≡ E(κ)` while the Architecture explicitly binds
-`E(κ) = ½·radial_spectrum` — directly opposite bindings of `E(κ)`. This is exactly
-the factor-of-2 that silently mis-normalizes a K41 spectrum plot, and for a
-turbulence audience `E(κ)` conventionally means the ½-version (`∫E dκ = TKE`).
-
-**contradicts:** PAGE: api / Reductions ("`radial_spectrum` $\equiv E(\kappa)$",
-"$\sum_\kappa E(\kappa)=\langle f,f\rangle$") ⇄ PAGE: architecture decision 21/22
-("$E(\kappa)=\tfrac12\,\mathrm{spectrum}$") and PAGE: examples / hist_cpu
-("$\sum_\kappa E(\kappa)=\tfrac12\langle|u|^2\rangle=k$"); axis = whether `E(κ)`
-already carries the physical ½ (a factor of 2).
-
-**resolution_hint (advisory):** pick one binding and use it everywhere. Cleanest:
-reserve `E(κ)` for the physical KE spectrum (`= ½·radial_spectrum`, the textbook
-convention the Architecture and HIST already use) and rename the docstring/tutorial
-binding to "spectrum" / `radial_spectrum` (not `E(κ)`), so `Σ radial_spectrum =
-inner` and `E(κ) = ½·radial_spectrum`. Add `E(κ)` to the Notation page to anchor it
-(it is currently undefined there, which is the root cause of the drift).
+- **locations:**
+  - PAGE: notation, "Base and fiber" table, line 744 — rendered verbatim as:
+    `$k$ | a wavenumber vector ($k_a$ is its $a$-th component, `` | k`
+  - Contrast the well-formed neighbours, PAGE: notation, same table:
+    `$N$ | the grid-point count $\prod_i N_i$ | prod(grid_size)` and
+    `$h$ | a physical displacement ($h_a$ is its component along axis $a$); … | translation_kernel`
+- **description:** On the canonical Notation page (self-described as "the single reference" for the docs'
+  symbols), the row for the wavenumber `$k$` has a **broken Meaning cell**: it ends mid-sentence at
+  "$k_a$ is its $a$-th component, " followed by a **stray empty inline-code span** ` `` ` and then the
+  column break. The intended magnitude clause is lost. The almost-certain cause is the exact GFM-table
+  hazard the house rulebook warns about repeatedly (a `|` — including an abs/norm bar — is parsed as a
+  column delimiter): a cell containing `|k|` (the magnitude) breaks the table row. Consequence beyond the
+  cosmetic break: the wavenumber **magnitude symbol κ = |k| is never defined on the Notation page**, even
+  though κ is used pervasively downstream — `radial_spectrum` ("bin-center wavenumber magnitudes $\kappa$",
+  "$\kappa$ ($=|k|$)"), the Reductions module summary, and the HIST example ("$\kappa = \lvert\mathbf{k}\rvert$").
+  A reader reaching the glossary for κ finds a garbled row.
+- **resolution_hint (advisory):** restore the cell without a raw pipe — e.g. write the magnitude as
+  `$\kappa = \lVert k\rVert$` (or `\lvert k\rvert` using `\lvert…\rvert`, no bare `|`), and add a κ row so
+  the shell-magnitude symbol used across Reductions/examples is glossed on the reference page.
 
 ---
 
-## Finding 2 — Architecture §2 method-count walkthrough stops at 202 but claims 206
-
+## Finding 2 — HIST_CPU example: stale "alias-guarded" / "no-alias path" comments on helmholtz_projection!
 - **type:** contradiction
 - **severity:** minor
 - **confidence:** high
-
-PAGE: architecture, §2 "Representation validity lives in the method set":
-"The **206**-method public surface of `FieldAlgebra` is the machine-checkable
-encoding of the validity table above. … M2 (98 methods: …) and then M3 (…),
-bringing the total to **198**; the later trace `tr`/`tr!` addition brings it to
-**202**, all parity-checked at runtime …".
-
-The enumerated build-up ends at 202 and never reaches the 206 asserted in the same
-sentence — it omits the decision-27 additions (`combine!` +2, `det`/`det!` +2) that
-actually take 202 → 206. §6 and decision 27 give the reconciled current figure:
-PAGE: architecture §6 "The full M2+M3 baseline is **206** public methods (e.g. …
-`combine!` 2, `tr` 2, `det`/`det!` 1 each)"; decision 27 "The public method set
-grows to **206** field methods (`combine!` adds 2, `det`/`det!` 1 each)". So the §2
-walkthrough is internally inconsistent (headline 206 vs enumerated 202) and stale
-relative to §6 / decision 27.
-
-**contradicts:** PAGE: architecture §2 ("… brings it to 202") ⇄ PAGE: architecture
-§6 / decision 27 ("206 public methods … `combine!` 2 … `det`/`det!`"); axis = the
-FieldAlgebra public-method count.
-
-**resolution_hint:** extend the §2 walkthrough "… brings it to 202; and the
-`combine!` + `det`/`det!` additions (decision 27) bring it to 206", or drop the
-running arithmetic and state 206.
-
----
-
-## Finding 3 — RDF FFT-route complexity `O(N + M log M)` contradicts the FFT-dominated recipe and the O(N log N + M) used elsewhere
-
-- **type:** performance
-- **severity:** minor
-- **confidence:** medium
-
-PAGE: architecture, decision 22 (Points → RDF): "The pair correlation $g(r)$ of $M$
-points is computable in **$O(N + M \log M)$** (vs $O(M^2)$ direct counting) via the
-FFT structure-factor estimator — exactly the implemented recipe: anterpolate … FFT …
-deconvolve … then `radial_correlation` …".
-
-The recipe it describes is FFT-dominated (a forward FFT + an inverse FFT over the
-grid) with a plain `O(M)` scatter and **no sort of the points**, so its cost is
-`O(N log N + M)`, not `O(N + M log M)`. The stated expression puts the log on the
-wrong term: it drops the `log N` on the FFT (writing bare `N`) and adds a spurious
-`log M` (a point sort that the recipe does not perform). This also disagrees with
-the complexity used for the same FFT-based transfer class elsewhere:
-PAGE: performance §2 "`NUFFT` is its **$O(N\log N + M)$** fast form" and
-PAGE: api / Interpolation, NUFFT "the **$O(N\log N + M)$** windowed-gridding …".
-
-**contradicts:** PAGE: architecture decision 22 ("$O(N + M \log M)$") ⇄
-PAGE: performance §2 / PAGE: api / Interpolation ("$O(N\log N + M)$"); axis = which
-term carries the logarithm in an FFT-based algorithm.
-
-**resolution_hint:** change decision 22 to `O(N log N + M)` (`N` = total grid
-points).
+- **locations:**
+  - PAGE: examples / hist_cpu, `rhs!`, line 3881:
+    `helmholtz_projection!(Nh, ws.Nt, m)           # Leray projection — DISTINCT dest ⇒ no-alias path (no allocation)`
+  - PAGE: examples / hist_cpu, `random_solenoidal`, line 3933:
+    `helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-guarded)`
+  - Contradicted by PAGE: api / DifferentialOperators, `helmholtz_projection!` docstring, line 1594:
+    "The `destination` may alias `field` at no cost: the projection is computed in a single pass that reads
+    all three components of a mode before writing any of them, so the aliased call needs no temporary."
+  - Also contradicted by PAGE: architecture §7, line 291 ("The former guard family (`_guard_noalias!`…) …
+    is retired") and decision 32, line 517 ("the guard and its temporary are retired … the aliased call is
+    bitwise-identical to the non-aliased one"); PAGE: testing line 1016 ("the guard-free aliased
+    `helmholtz_projection!`").
+- **description:** The example's inline comments describe the **superseded** guarded implementation. Under
+  the current design (decision 32) the one-pass kernel is alias-safe by construction and allocation-free
+  **whether or not** the destination aliases the source, so there is no separate "no-alias path" and no
+  "guard". The comment at 3933 is on a genuinely aliased call `(uh, uh, m)` and directly asserts a guard
+  that no longer exists; the comment at 3881 implies (via "DISTINCT dest ⇒ no-alias path") that an aliased
+  call would take a different, allocating path. Both mislead a reader who is being taught the
+  allocation-free pattern. (The code itself is correct; only the annotations are stale.) The `rhs!` docstring
+  header still calls the same operator "DISTINCT dest ⇒ no-alias path" — worth aligning with the operator's
+  own "alias at no cost" wording.
+- **resolution_hint (advisory):** reword to e.g. `# Leray projection (one pass, alias-safe, no allocation)`
+  and `# make solenoidal (in-place, alias-safe)`.
 
 ---
 
-## Finding 4 — `translation_kernel`: docstring displays the plain phase (rejected at Nyquist); Formalization/decision-28 display the split cos(κ)/sin(κ̃) kernel
-
-- **type:** math
-- **severity:** minor
-- **confidence:** medium
-
-The **implemented** translation multiplier is the one with the Nyquist
-derivative-wavenumber split, per PAGE: formalization, Convolution:
-"$\hat g_h(k) = \prod_{a=1}^{3}\bigl[\cos(\kappa_a h_a) - \mathrm i \sin(\tilde\kappa_a h_a)\bigr]$"
-(with `κ̃` the *derivative* wavenumber, zeroed at Nyquist) — and PAGE: architecture,
-decision 28: "the even (cosine) part takes the true wavenumber, the odd (sine) part
-takes the derivative wavenumber."
-
-But the user-facing docstring displays the **un-split** true phase as the kernel's
-transfer function: PAGE: api / Convolution, `translation_kernel`:
-"$\hat g(k) = \mathrm{e}^{-\mathrm{i} k \cdot h} = \prod_{a=1}^{3}\bigl[\cos(k_a h_a) - \mathrm{i} \sin(k_a h_a)\bigr]$"
-— the same `k_a` inside both `cos` and `sin`. That is exactly the "true phase"
-candidate decision 28 explicitly rejects ("complex at Nyquist for a fractional
-displacement, so it returns coefficients that are those of no real field"); the
-docstring repairs it only afterward in prose ("At the Nyquist frequency the phase
-becomes a real attenuation"). So the two pages display *different* formulas for the
-same implemented kernel, and the docstring's displayed equality is, taken literally,
-the non-Hermitian form.
-
-**contradicts:** PAGE: api / Convolution `translation_kernel`
-("$\prod[\cos(k_a h_a) - \mathrm i\sin(k_a h_a)]$") ⇄ PAGE: formalization Convolution /
-PAGE: architecture decision 28 ("$\prod[\cos(\kappa_a h_a) - \mathrm i\sin(\tilde\kappa_a h_a)]$");
-axis = whether the sine factor uses the true or the Nyquist-zeroed derivative wavenumber.
-
-**resolution_hint:** in the docstring, keep `e^{-ik·h}` as the physical-meaning
-lead but display the *implemented* split product (as the Formalization does), so the
-shown transfer function is the one actually applied.
-
----
-
-## Finding 5 — HIST calls `S⁽ᴱ⁾ = ⅓⟨|δu|²⟩` the "trace" structure function, but the trace is `⟨|δu|²⟩` (3× larger)
-
-- **type:** math
-- **severity:** minor
-- **confidence:** medium
-
-PAGE: examples / hist_cpu defines and repeatedly labels the second-order structure
-function as the **trace**:
-- Results: "the **trace** second-order velocity structure functions … 
-  $S^{(E)}(\Delta x) = \tfrac{1}{3}\big\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\big\rangle
-  = \tfrac{2}{3}\big(C(0) - C(r)\big)$".
-- Statistics / code comments: "the **trace** structure function
-  $S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))$" and
-  `S2_E = (2 / 3) .* (C[1] .- C)  # Eulerian trace structure function`.
-
-The quantity actually computed is `⅓⟨|δu|²⟩ = ⅔(C(0)−C(r))` — the **per-component
-(average single-component)** SF. The *trace* of the SF tensor `D_ij = ⟨δu_i δu_j⟩`
-is `D_ii = ⟨|δu|²⟩ = 2(C(0)−C(r))`, i.e. three times larger. So `⅓⟨|δu|²⟩` is
-one-third of the trace, and "trace" is a misnomer. (The computation itself and the
-K41 normalization `11/9·C₂·ε^{2/3}Δx^{2/3}` are mutually consistent with the ⅓
-definition — only the *name* is wrong.)
-
-**contradicts:** self — the shown definition
-`S^{(E)} = ⅓⟨|δu|²⟩` versus the word "trace" (which denotes `⟨|δu|²⟩`) in the same
-passages; axis = trace `D_ii` vs its per-component third.
-
-**resolution_hint:** call it the "per-component" (or "one-third-trace" /
-"isotropic single-component") second-order structure function, not the "trace"; or
-keep "trace" and drop the ⅓ (then `S = 2(C(0)−C(r))` with K41 `11/3·C₂·…`).
-
----
-
-## Finding 6 — NUFFT default tolerance: constructor `tol = 1e-10` vs decision 23's "~10⁻¹² at the default"
-
-- **type:** performance
-- **severity:** minor
-- **confidence:** low
-
-PAGE: api / Interpolation, `NUFFT` constructor: "`NUFFT(reference…; tol = 1e-10, …)`
-… `tol` — the target accuracy". PAGE: architecture, decision 23: "Verified against
-`DirectDFT` (and `to_physical`) **to the requested tolerance $\varepsilon$
-($\sim 10^{-12}$ at the default)**".
-
-The default *requested* `tol` is `1e-10`, but decision 23 characterizes the default
-`ε` as `~10⁻¹²`. This is likely achieved-vs-requested (the ES-window rule usually
-over-delivers), which would be fine — but the phrasing "the requested tolerance ε
-(~10⁻¹² at the default)" reads as if the default requested ε were `10⁻¹²`, which
-mismatches the `1e-10` constructor default. Flagging as a low-confidence possible
-imprecision.
-
-**contradicts:** PAGE: api / Interpolation ("tol = 1e-10") ⇄ PAGE: architecture
-decision 23 ("requested tolerance ε (~10⁻¹² at the default)"); axis = the default
-NUFFT tolerance value.
-
-**resolution_hint:** if `~10⁻¹²` is the *achieved* error at the `1e-10` default, say
-"achieved ~10⁻¹² at the default tol = 10⁻¹⁰"; otherwise reconcile the numbers.
-
----
-
-## Finding 7 — `N` overloaded (total grid points vs points-per-axis)
-
-- **type:** normalization
+## Finding 3 — lpnorm docstring: orphaned "Ω / |Ω|" sentence (symbols introduced but never used)
+- **type:** clarity
 - **severity:** nit
-- **confidence:** low
-
-`N` denotes the **total grid-point count** in the L²/transfer mathematics
-(PAGE: architecture §10, PAGE: formalization "$N = N_x N_y N_z$", PAGE: notation
-"$N$ | the grid-point count $\prod_i N_i$", decision 23 "$N = N_x N_y N_z$ the
-grid-point count") but the **per-axis** point count in the allocation/binning
-discussions (PAGE: architecture decisions 24/25 "$N$ the points per axis";
-PAGE: performance §4(g) "$\approx \sqrt{3} N/2$ … with $N$ the per-axis size here —
-not the total $N$ of §2"). The doc **explicitly re-glosses** `N` at each per-axis
-use, so this is self-disambiguated and at most a nit against the "one concept, one
-notation" rule — noted only because it interacts with Finding 3 (in `O(N + M log M)`
-the intended meaning of `N` is itself unclear).
-
-**resolution_hint:** none needed for correctness; if desired, use `n` (or `N₁`) for
-the per-axis count in decisions 24/25 and performance §4(g).
+- **confidence:** high
+- **locations:**
+  - PAGE: api / Reductions, `lpnorm` docstring, line 3556: "Here $\Omega$ is the periodic box and
+    $|\Omega|$ its volume."
+  - The lpnorm formulas immediately above (lines 3551–3555) use only $N$, $M$, $x$, $p$ — neither $\Omega$
+    nor $|\Omega|$ appears anywhere in this docstring.
+- **description:** A trailing sentence defines $\Omega$ and $|\Omega|$ that the docstring never uses (the
+  grid form is written as the discrete $\tfrac{1}{N}\sum_x$, not a continuum $\tfrac{1}{|\Omega|}\int$).
+  It reads as a leftover from a template/sibling docstring (`inner` legitimately introduces $\Omega$/$|\Omega|$
+  because it carries the continuum $\tfrac{1}{|\Omega|}\int_\Omega$ form). Harmless but a dangling
+  definition on an otherwise clean page.
+- **resolution_hint (advisory):** delete the sentence, or write lpnorm's grid form with the continuum
+  $\tfrac{1}{|\Omega|}\int_\Omega |f|^p$ face the way `inner`/`integral` do so the binding is used.
 
 ---
 
-### Checked and found consistent (no finding)
-- Forward-unnormalized / inverse-`1/N` convention: Formalization §Representations,
-  Architecture §4, Fields transform docstrings — all agree.
-- Constant-add touches only the DC mode scaled by `N = prod(grid_size)`:
-  Architecture §2, invariant 4, `add!` docstring, Formalization — agree.
-- Spectral multipliers `ik`, `ik·`, `ik×`, `−|k|²`, `−1/|k|²` (0 at k=0),
-  `I−k̂k̂ᵀ`: DifferentialOperators docstrings ⇄ Formalization ⇄ Architecture §4 —
-  signs and forms agree; `ΔΔ⁻¹=1`, `P²=P`, `P` self-adjoint all check.
-- Nyquist split (derivative wavenumber zeroed vs squared kept): Architecture §4,
-  invariant 5, `FieldSpectralMultipliers` / `_axis_wavenumber_values` docstrings,
-  DifferentialOperators module header — uniform.
-- Convolution theorem `F(f⋆g)=f̂·ĝ` with unnormalized forward; Hermitian-kernel
-  reality condition `ĝ(−k)=conj ĝ(k)`: Convolution docstrings ⇄ Architecture §11 ⇄
-  Formalization — agree.
-- rfft half-spectrum Parseval weighting (`α=1` on `kx=0` / even-Nyquist planes, `2`
-  else); `sum(radial_spectrum)==inner`; `C(0)==inner`; `C(r)=F⁻¹(|f̂|²)/N`
-  normalization: Reductions docstrings ⇄ Formalization ⇄ Architecture §12 — agree
-  and expand correctly.
-- Interpolation/anterpolation adjoint `M⟨Wf,q⟩ = N⟨f,Wᵀq⟩` (bare `⟨Wf,q⟩=⟨f,Wᵀq⟩`
-  false unless N=M), partition-of-unity conservation: Interpolation module docstring
-  ⇄ Formalization ⇄ Architecture §10 — agree.
-- Spline smoothness/order: `LalescuSpline(n,m)` degree `2m+1`, `C^m`, reproduction
-  `min(2m+1,2n)`; `CatmullRom = (1,1)` cubic `C¹` quadratic-precision; `LagrangeSpline(n)`
-  `C⁰` degree `2n+1`; `m=0`/`n=0` linear — consistent across Interpolation page,
-  Architecture §10, decision-log, and correctly distinguished (no
-  `LagrangeSpline ≡ LalescuSpline(n,0)` conflation).
-- DirectDFT type-2/type-1 sums and NUFFT (spread→FFT→deconvolve, σ=2, Nyquist
-  projected out): Interpolation page ⇄ Formalization ⇄ Architecture §10/decision 23 —
-  agree.
-- HIST integrating-factor RK2 (Heun) update, 2/3 de-alias, `u'=√(2K/3)`,
-  `Re_λ=√(15u'⁴/(νε))`, `λ=u'√(15ν/ε)`, K41 spectrum `C_K ε^{2/3} κ^{-5/3}` — all
-  internally consistent and dimensionally complete.
+## Finding 4 — Decision-24 log entry shows the pre-decision-42 Helmholtz factor (k, |k|²), not the current (a, |a|²)
+- **type:** contradiction
+- **severity:** minor
+- **confidence:** low
+- **locations:**
+  - PAGE: architecture, §13 decision 24, line 465: "…and Helmholtz projection
+    ($\hat f_i - k_i (k_j\hat f_j)/|k|^2$)…"; and "the aliased `helmholtz_projection!(x, x)` allocates its
+    guard temporary upstream (§7)", with the forward note "(The projection has since moved on from both
+    details: its one-pass kernel computes the longitudinal part once per mode and serves the aliased call
+    directly, guard retired — decision 32.)"
+  - Current authoritative form, PAGE: api / DifferentialOperators, line 1600:
+    `$\widehat{(\mathbb P u)}_i(k) = (\delta_{ij} - \frac{a_i a_j}{|a|^2})\hat u_j(k)$` with `$a$` the
+    derivative wavenumber; PAGE: formalization line 602–604 (`$\mathbb P \to \mathrm{id} - \hat a\hat a^\top$`,
+    `$\hat a = a/|a|$`, decision 42); PAGE: architecture decision 42, line 553.
+- **description:** Decision 24's inline projection factor uses the **true** wavenumber `k` and denominator
+  `|k|²`; decision 42 later made the projector use the **derivative** family `a` and `|a|²` (so it is the
+  exact discrete projector at every mode). The two coincide sub-Nyquist, so this is not a live math error —
+  but decision 24's self-contained entry (the log is browsed "entry-by-entry") shows a now-superseded
+  formula, and its forward-note flags the aliasing/one-pass change (decision 32) while **not** flagging the
+  denominator change (decision 42). Low confidence because the append-only log is intended to preserve
+  historical state; flagged only because the entry's own forward-note is partial.
+
+---
+
+## Finding 5 — Point-value method-count bookkeeping does not reconcile: 118 → 122 with only +2 accounted
+- **type:** contradiction
+- **severity:** minor
+- **confidence:** low
+- **locations:**
+  - Historical (decision log), PAGE: architecture line 400: "locked by a separate 118-method baseline";
+    line 435: "the … point-value 118-method parity baselines are unchanged".
+  - Current, PAGE: architecture decision 27, line 482: "grows to 206 field methods (`combine!` adds 2,
+    `det`/`det!` 1 each) and **122 point-value methods** (`det`/`det!` 1 each)"; PAGE: testing line 948 /
+    architecture line 348 also state 122.
+- **description:** The current point-value baseline is 122; the last count stated in the decision log before
+  it is 118. Decision 27 attributes only **+2** to point-values (det/det!, "1 each"), which would give
+  118 + 2 = 120, not 122. The missing +2 is presumably the `tr`/`tr!` pair mirrored onto point-values
+  (decision 27's det entry, line 479, notes det "mirror[s] tr, which already lived on both"), but that
+  point-value increment is never stated as a count anywhere, so the numbers as written (118 … then "grows
+  … 122 (det/det! 1 each)") don't add up on their face. This is decision-log/count bookkeeping (outside the
+  spectral-methods remit) and low confidence, since the field-side companion counts (198 → 206) travel with
+  it under the documented append-only convention; flagged as an internal-consistency observation only.
+
+---
+
+## Verified-clean (spot list, to document what was cross-checked and found consistent)
+- Transform pair: `$\hat f(k)=\sum_x f e^{-ik\cdot x}$`, `$f=\tfrac1N\sum_k \hat f e^{ik\cdot x}$` — formalization
+  line 581–582, architecture §4 line 252, Fields transform docstrings. Uniform.
+- Constant add → zero mode × N (= prod(grid_size)): architecture §2 line 222, formalization line 586,
+  `add!` line 2057. Uniform.
+- integral/mean via DC mode: `$\hat f(0)=\sum_x f$`, mean `$=\hat f(0)/N$`, integral `$=(|\Omega|/N)\hat f(0)$`
+  — architecture §12 line 367, formalization line 654, `integral` line 3493. Uniform.
+- Nyquist split (derivative zeroed on even axes / squared keeps true k²): architecture §4 line 257–260,
+  `_axis_wavenumber_values` line 2924, formalization line 604, invariant echoed in every kernel-builder
+  docstring. Uniform.
+- Parseval half-spectrum weight α (1 on self-conjugate planes, 2 else, 1/N²): formalization line 664,
+  `weighted_inner` line 3527, `radial_spectrum` line 3572, `DirectDFT` line 3237, `inner` line 3515. Uniform.
+- radial_spectrum ∑P = inner; radial_correlation C(0)=inner, `$\mathcal F C=|\hat f|^2/N$`: formalization
+  line 666–671, Reductions docstrings line 3572/3586, tutorial line 1096, example line 3839. Uniform.
+- translation_kernel Nyquist (cos←true k, sin←Nyquist-zeroed derivative k; real cos(πh_a/Δx_a) at Nyquist):
+  architecture decision 28 line 489, formalization line 633–639, docstring line 3300–3304. Uniform and correct.
+- assignment_window `$\hat W=\prod_a\mathrm{sinc}^2(k_a\Delta x_a/2)$`, unnormalized sinc, no in-band zeros:
+  formalization line 630, docstring line 1283. Correct (FT of the linear/CIC tent).
+- Spline reproduction: min(2m+1,2n) smooth / 2n+1 Lagrange; Catmull–Rom = (1,1) cubic C¹, quadratic
+  precision; `LalescuSpline(0,0)` = 2-point linear = the CIC assignment: `LalescuSpline` line 3203–3205,
+  `LagrangeSpline` line 3223, `CatmullRom` line 3216, architecture line 342/404. Uniform.
+- K41: E(κ)=C_K ε^{2/3} κ^{−5/3} (C_K≈1.6); per-component S₂ = (11/9) C₂ ε^{2/3} r^{2/3} (C₂≈2.1);
+  S^{(E)} = ⅓⟨|δu|²⟩ = ⅔(C(0)−C(r)); u'=√(2K/3); Re_λ=√(15 u'⁴/(νε)); λ=u'√(15ν/ε); ε=ν⟨|ω|²⟩ — all
+  dimensionally complete and mutually consistent (example lines 4044–4048, 4120–4135). Correct.

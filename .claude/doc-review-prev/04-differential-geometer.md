@@ -1,189 +1,249 @@
-# Panel review — the Pure Mathematician (differential geometry / measure theory / functional analysis)
+# Doc review — Pure Mathematician / Differential Geometer hat
 
-Hat: **differential-geometer**. Scope: the intrinsic / structural mathematics — base vs fiber,
-vertical vs horizontal, a section vs its representation, the honest domain/codomain of every map,
-the measure taxonomy, and the adjoint / self-adjoint / idempotent / duality claims.
+Audit of the RENDERED documentation of GBGPeriodicFields, focused on the intrinsic /
+structural mathematics: base vs fiber, vertical vs horizontal, section vs representation,
+domains/codomains of maps (especially their fiber factor), the measure taxonomy, and the
+adjoint / self-adjoint / idempotence / duality claims — verified between the *right spaces*,
+not merely as scalar formulas.
 
-## Overall assessment
-
-The package's structural mathematics is, to my eye, in **excellent** shape and better than most
-research code I audit. The things my hat exists to catch are handled correctly and often
-explicitly:
-
-- The **fiber `V` vs tensor order `R`** distinction is clean everywhere (`formalization`
-  `V := (\mathbb R^3)^{\otimes R}`; `FiberSections`/`Fields`/`Points` all say "`R` the tensor order,
-  an integer value parameter"). The old "the fiber is the tensor order" category error stays fixed.
-- The **section space is never flattened**: `formalization` explicitly warns
-  "$\Gamma_P$ is $\mathbb R^{3M}$ only when the sampled field is a vector … in general it is
-  $\mathbb R^M \otimes V$, just as the grid value space is not $\mathbb R^{3N}$", and keeps
-  `W := W_b \otimes \mathrm{id}_V` with the fiber factor explicit.
-- The **two all-ones vectors** are kept distinct (`\mathbf 1_N \in \mathbb R^N`, `\mathbf 1_M \in \mathbb R^M`).
-- The **N/M measure-adjoint** is handled impeccably: `formalization` states and *derives* that the
-  bare `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` "is false unless N = M — the two sides differ by N/M", and gives the exact
-  L²-adjoint `\iota_* = (N/M)W^\top`. The pullback/pushforward square, Parseval (correct `1/N²`, not
-  claimed unitary), self-adjoint curl/Δ/ℙ, idempotent ℙ, and the Wiener–Khinchin normalizations
-  (`C(r) = 𝓕⁻¹(|f̂|²)/N`, `C_fg(r) = 𝓕⁻¹(f̂̄ ĝ)/N`) all expand correctly against the stated
-  conventions.
-
-No blocker or major issues from my hat. The findings below are precision/consistency slips —
-mostly notation and definiteness wording, plus one substantive reproduction-degree slip.
+Overall the structural apparatus is unusually careful and mostly correct. The fiber-bundle
+model (§2), the pullback–pushforward picture of the transfer (§10), the measure taxonomy
+(decision 19), the Parseval/half-spectrum normalizations, the Helmholtz idempotence and
+Nyquist handling (decision 42), and — notably — the formalization page's explicit refusal to
+flatten the fiber (`Γ_P = ℝ^M ⊗ V`, not `ℝ^{3M}`; two distinct all-ones `𝟙_N`/`𝟙_M`) all
+check out. The findings below are the residual imprecisions.
 
 ---
 
-## Finding 1 — `\Pi_m` should be `\Pi_d`: smoothness parameter substituted for the reproduction degree
+## Finding 1 — "L²-adjoint pair" mislabels the shipped transpose pair (the very slip the formalization page exists to catch)
 
-- **type:** math
-- **severity:** minor
-- **confidence:** high
-
-**Locations**
-- `architecture`, §10 (interpolation), the "Intrinsically the pair is a pullback–pushforward" paragraph:
-  "(Strictly $W$ is $\iota^{*}$ after a reconstruction — the spline or band-limited spectral
-  interpolant lifting grid samples to a section over $\Omega$ — **which the reproduction identity above
-  shows is exact on $\Pi_m$**.)"
-
-**Contradicts**
-- `architecture`, §10, eleven lines earlier: "$\phi$ for any polynomial in **$\Pi_d$** (the polynomials
-  up to the scheme's **reproduction degree $d$**)", and the reproduction identity itself
-  "$W(\operatorname{sample}_{\text{grid}} \phi) = \operatorname{eval}_{\text{pts}} \phi \quad (\phi \in \Pi_d)$".
-- `architecture`, §10: "The smooth scheme reproduces polynomials to degree **$\min(2m+1, 2n)$**".
-- `api / Interpolation`, `CatmullRom`: the cubic `n=1, m=1` "reproduces the Catmull–Rom spline (and
-  **quadratic** polynomials exactly)".
-- Axis of disagreement: the **smoothness parameter `m`** vs the **derived reproduction degree
-  `d = min(2m+1, 2n)`**.
-
-**Description.** The reconstruction note says interpolation is "exact on $\Pi_m$", but the "reproduction
-identity above" it cites was stated for $\Pi_d$ with $d$ the reproduction degree, and everywhere else
-the degree is $\min(2m+1,2n)$, *not* $m$. This is a genuine (not cosmetic) slip of exactly the kind my
-hat hunts — an **operator's parameter (`m`, smoothness) written where its derived quantity (`d`,
-reproduction degree) is meant**. It also mis-states the numbers: for the default Catmull–Rom
-(`n=1, m=1`) the true reproduction degree is $\min(3,2)=2$ (quadratic, as the `CatmullRom` docstring
-says), whereas "$\Pi_m = \Pi_1$" claims only linear reproduction — understating the scheme by a full
-polynomial degree. Fix: `\Pi_m` → `\Pi_d`.
-
----
-
-## Finding 2 — "negative-definite Laplacian" contradicts the (correct) "negative-semidefinite" used elsewhere
-
-- **type:** math
-- **severity:** minor
-- **confidence:** high
-
-**Locations**
-- `formalization`, Differential operators, the "Backs Architecture §4" line: "Checked by
-  `test/differentialoperators.jl` (…) and `test/adjointness.jl` (self-adjointness, idempotent
-  projection, **negative-definite Laplacian**)."
-
-**Contradicts**
-- `formalization`, same section, the display two lines above: "$\langle \Delta\phi,\phi\rangle =
-  -\lVert\nabla\phi\rVert^2 \le 0$" (i.e. negative **semi**definite: it is $\le 0$, and $=0$ on the
-  constants).
-- `architecture`, §13 decision log (the test-buildout entry): "**negative-semidefinite** Laplacian —
-  **negative-definite on the zero-mean subspace, its kernel being the constant mode**".
-- `testing`, §1 and §7: "a self-adjoint **negative-semidefinite** Laplacian" / "a self-adjoint
-  **negative-semidefinite** Laplacian (with the dissipation identity)".
-- Axis: **negative-definite vs negative-semidefinite**.
-
-**Description.** The Laplacian on the periodic box is negative **semi**definite — its kernel is the
-constant (zero) mode, so it is negative *definite* only on the zero-mean subspace. Three other
-locations (including the formalization's own `≤ 0` display) state this precisely; only this one test
-description drops to the false "negative-definite Laplacian". A pure mathematician reads
-"negative-definite" as a claim that $\langle\Delta\phi,\phi\rangle<0$ for all $\phi\ne 0$, which is
-false for the constants. Fix: "negative-**semi**definite Laplacian".
-
----
-
-## Finding 3 — the glyph `⟨·,·⟩` is globally bound to the *normalized* inner, but decision 19 reuses it for the *unnormalized counting* pairing
-
-- **type:** normalization
+- **type:** contradiction / normalization
 - **severity:** minor
 - **confidence:** medium
 
-**Locations**
-- `notation`, Operators table: "$\langle\cdot,\cdot\rangle$ | the **normalized** $L^2$ inner product | inner".
-- `architecture`, §13 decision 19 (measure taxonomy), the transfer-adjoint paragraph: "the adjointness
-  **$\langle Wf, q\rangle = \langle f, W^\top q\rangle$** and conservation $\sum_g (W^\top q)_g =
-  \sum_p q_p$ **hold in the counting/transpose pairing**".
-- (supporting) `notation`, Base-and-fiber table: "$W$, $W^{\top}$ | interpolation (gather) and its
-  **adjoint** anterpolation (scatter) | interpolate, anterpolate" — calls the plain transpose $W^\top$
-  simply "adjoint", whereas the true L²-adjoint is $(N/M)W^\top$.
+**Locations (the loose label):**
+- Home page, Main-components bullet: *"interpolation (gather $W$) and anterpolation (scatter $W^\top$) as an **L²-adjoint pair**"* (PAGE: Home, line 40).
+- API overview bullet: *"interpolation (gather) and anterpolation (scatter) as an **L²-adjoint pair**"* (PAGE: api, line 123).
+- Architecture decision 23: *"unified under a new supertype `AbstractTransferScheme`, sharing the `interpolate`/`anterpolate` verbs and the **L²-adjoint contract**"* (PAGE: architecture, decision 23).
+- Interpolation module docstring: *"Anterpolation (`anterpolate`) is the scatter $W^\top$, **the adjoint (transpose) of $W$**"* and AbstractTransferScheme: *"the adjoint pair `interpolate` $= W$ … / `anterpolate` $= W^\top$ (its transpose …). Same verbs, **one adjointness contract**"* (PAGE: api / Interpolation).
 
-**Contradicts**
-- `formalization`, Interpolation/anterpolation: "So the **bare $\langle Wf, q\rangle_{\text{pts}} =
-  \langle f, W^{\top}q\rangle_{\text{grid}}$ is false unless $N = M$** — the two sides differ by $N/M$.
-  **This is the slip the formalization catches**: it type-checks, but the expansion does not match."
-- Axis: **normalized inner product (`inner`, carries `1/N`, `1/M`) vs the unnormalized counting
-  pairing (plain sums)** — the same glyph `⟨·,·⟩` for both.
+**Contradicts (the careful statement):**
+- Formalization, Interpolation/anterpolation section: *"So the bare $\langle Wf, q\rangle_{\text{pts}} = \langle f, W^{\top}q\rangle_{\text{grid}}$ is **false** unless $N = M$ — the two sides differ by $N/M$. This is the slip the formalization catches: it type-checks, but the expansion does not match. The clean adjunction uses the measure-adjoint $\iota_* := (N/M) W^{\top}$"* (PAGE: formalization).
+- Architecture §10: *"for the uniform measures $\iota_{*} = (N/M) W^{\top}$, the scalar rescaling **that turns the implemented transpose $W^{\top}$ into the exact L²-adjoint**"* — i.e. the exact L²-adjoint is $(N/M)W^\top$, **not** the shipped $W^\top = $ `anterpolate` (PAGE: architecture, §10).
+- Architecture decision 19: *"the adjointness … hold in the **counting/transpose pairing** … The measure-weighted **L² adjoint** … is $(N/M) W^{\top}$"* (PAGE: architecture, decision 19).
 
-**Description.** The notation page fixes `⟨·,·⟩` as *the normalized L² inner product*. Under that
-binding, the factor-free `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` written in decision 19 is precisely the identity the
-formalization page singles out as **false** (off by `N/M`). Decision 19 does disambiguate in words
-("hold in the counting/transpose pairing"), so it is not stating a falsehood — but it is silently
-re-loading the same bare glyph with a *second* meaning (the unnormalized pairing), in a §13 entry that
-is "self-contained by design" and read on its own. This is the one-glyph-two-meanings hazard
-(cf. the `CLAUDE.md` "one notation per concept — and one concept per notation" rule): a reader who
-trusts the notation table and reads decision 19 alone will take the normalized identity to hold
-factor-free. `§10` and `formalization` avoid this by subscripting (`⟨·,·⟩_pts`, `⟨·,·⟩_grid`) and
-carrying the explicit `M`/`N`; decision 19 (and the "adjoint anterpolation" gloss) are where the bare
-glyph leaks. Advisory: either subscript decision 19's pairing (e.g. `⟨·,·⟩_count`) or spell it as
-`Σ_p (Wf)_p·q_p = Σ_g f_g·(Wᵀq)_g`, and consider "adjoint (transpose)" for `Wᵀ` in the notation table.
+**Axis of disagreement:** *adjoint under which inner product, and the measure (N/M) factor.*
+The shipped pair is `interpolate` $= W$ and `anterpolate` $= W^\top$ (the partition-of-unity
+transpose). Under the package's own normalized `inner` — the $\langle\cdot,\cdot\rangle_{\text{pts}}$
+/ $\langle\cdot,\cdot\rangle_{\text{grid}}$ that every summary invokes — $(W, W^\top)$ is
+**not** an adjoint pair: the true L²-adjoint of $W$ is $\iota_* = (N/M)W^\top$, a *different*
+operator from `anterpolate` whenever $N \ne M$ (the generic case). $(W, W^\top)$ is an adjoint
+pair only in the *counting* (unnormalized) pairing $\sum_p a_p\!\cdot\! b_p$. Calling the
+shipped pair an "L²-adjoint pair/contract" — naming L² specifically — asserts exactly the
+equality the formalization page flags as "false". Every actual *equation* in the docs carries
+the $M$/$N$ factors correctly ($M\langle Wf,q\rangle = N\langle f,W^\top q\rangle$); only the
+prose *label* on the summary surfaces overclaims. (The Interpolation module's
+"adjoint (transpose)" is the milder cousin — it at least glosses "transpose" and then shows
+the $M$/$N$ relation.)
+
+**resolution_hint:** On Home / api / decision 23, say "a conserving adjoint pair (exact
+transpose under the counting pairing; the measure-consistent L²-adjoint is the trivial
+$(N/M)$-rescaling)" or simply "a formal adjoint pair" (the wording architecture §10 line 313
+already uses), reserving "L²-adjoint" for $(N/M)W^\top$ as the careful pages do.
 
 ---
 
-## Finding 4 — decision 19's "reproduction order = number of matched moments" is an off-by-one relative of the "reproduction degree" used everywhere else
+## Finding 2 — The horizontal / differential-operator family is characterized as "the covariant derivative, order one", but the family includes a nonlocal order −2 operator and an order-0 projection
 
-- **type:** math
+- **type:** math (category / order imprecision)
+- **severity:** minor
+- **confidence:** medium
+
+**Location:** Architecture §2, the vertical/horizontal parenthetical: *"the fiberwise algebra
+is order-zero and fiber-preserving, **the differential operators are the connection's
+covariant derivative, order one.**"* (PAGE: architecture, §2).
+
+**Why it's imprecise:** The horizontal family, as realized in `DifferentialOperators` and
+listed in the §2 architecture map (*"`gradient`, `divergence`, `curl`, `symmetric_gradient`,
+`laplacian`, …"*, line 212), is *not* uniformly "the covariant derivative, order one":
+- `laplacian` $\equiv \Delta$ is order **two** (the contracted second covariant derivative), not one.
+- `inverse_laplacian` $\equiv \Delta^{-1}$ is **not a differential operator at all** — it is a
+  nonlocal pseudodifferential operator of order **−2**. The package's own docstring says so:
+  *"As the inverse of a differential operator, $\Delta^{-1}$ is nonlocal: unlike the Laplacian
+  it has no local partial-derivative formula, and the value at any point depends on the whole
+  field."* (PAGE: api / DifferentialOperators, `inverse_laplacian!`).
+- `helmholtz_projection` $\equiv \mathbb P$ is a bounded **order-0** orthogonal projection
+  (symbol $\mathrm{id} - \hat a\hat a^\top \in L^\infty$; decision 42 makes it exactly
+  idempotent), not a derivative.
+
+Only `gradient` (and the first-order `divergence`/`curl`) are literally the covariant
+derivative. Lumping the whole family as "the covariant derivative, order one" conflates the
+generator (order-1 $\nabla$) with the polynomial/rational/pseudodifferential *functions* of it
+that make up the family — the kind of operator-vs-parameter/order slip this hat watches for.
+The "applied here by analogy" framing softens it, but a structural reader will trip on
+$\Delta^{-1}$ and $\mathbb P$ being called "the covariant derivative, order one".
+
+**resolution_hint:** e.g. "the differential operators are built from the connection's covariant
+derivative (order one) — its contraction $\Delta$, its inverse $\Delta^{-1}$, and the projector
+$\mathbb P$ formed from it" — keep the generator order-one, don't ascribe order one to the
+whole family.
+
+---
+
+## Finding 3 — Formalization reuses `W` for a generic fiber-map codomain, colliding with `W` = the interpolation gather operator on the same page and package-wide
+
+- **type:** clarity (one-concept-one-notation)
 - **severity:** nit
-- **confidence:** low
+- **confidence:** medium-low
 
-**Locations**
-- `architecture`, §13 decision 19: "**Reproduction order = number of matched moments** of the kernel
-  measure (0th moment `=1` = partition of unity = constants reproduced)."
+**Location:** Formalization, mapped-forms statement: *"Given a map $\varphi : V \to W$ into
+any space **$W$** carrying the reducing operation, the mapped reductions are the bare ones
+applied to $\varphi \circ f$"* (PAGE: formalization, Reductions section).
 
-**Contradicts**
-- `architecture`, §10: "reproduction **degree** $d$"; "reproduces polynomials **to degree**
-  $\min(2m+1,2n)$".
-- `api / Interpolation`: "reproduces polynomials up **to degree** $\min(2n{+}1,2n)$…" / "up **to degree**
-  $2n{+}1$".
-- Axis: reproduction **"order" (= number of matched moments, so degree + 1)** vs reproduction
-  **"degree"**.
+**Collides with:**
+- Formalization, Interpolation section, two sections later on the *same page*:
+  *"$W := W_b \otimes \mathrm{id}_V : \Gamma_G \to \Gamma_P$"* (PAGE: formalization).
+- Notation page binding: *"$W$, $W^{\top}$ | interpolation (gather) and its adjoint
+  anterpolation (scatter) | interpolate, anterpolate"* (PAGE: notation).
+- Architecture code↔symbol table: *"`interpolate`/`anterpolate` $\equiv W$/$W^\top$"* (PAGE:
+  architecture, §2).
 
-**Description.** Decision 19 is internally self-consistent (1 matched moment → constants, i.e.
-degree 0), but it introduces a *second* reproduction counter — "order" = number of matched moments =
-`degree + 1` — under a word ("order") that collides with the "reproduction degree" every other surface
-uses. For Catmull–Rom the two read as "order 3" (moments 0,1,2) vs "degree 2", for the *same* scheme.
-This is a low-severity terminological wrinkle, not an error; flagging it only because the design docs
-otherwise keep a single reproduction convention. Advisory: say "number of matched moments = degree + 1"
-explicitly, or reuse "degree".
+`W` is one of the package's most load-bearing bound symbols (the interpolation operator).
+Reusing it for a throwaway codomain vector space in the mapped-reduction statement is a mild
+"one glyph, two meanings" collision on a single page. Different sections give some cover, and
+"$\varphi : V \to W$" is a standard idiom, so this is only a nit — but it is exactly the class
+the "one concept per notation" rule targets, and the cleaner choice avoids `W` here.
+
+**resolution_hint:** Name the codomain something free, e.g. `$\varphi : V \to U$` (or "a space
+$S$"), since the reducing operation only needs a vector space / ordered set, not the letter `W`.
 
 ---
 
-## Finding 5 — method-count drift: 206 vs 202/198 (field) and 122 vs 118 (point-value) [cross-cutting; likely owned by the architecture/consistency hats]
+## Finding 4 — "Self-adjoint curl" is asserted and tested but has no typed entry in the Formalization differential-operators section
 
-- **type:** contradiction
+- **type:** other (formalization coverage gap)
+- **severity:** minor
+- **confidence:** medium-low
+
+**Asserted (as a tested structural identity):**
+- Testing philosophy: *"the adjoint relations (divergence as the negative gradient adjoint,
+  **self-adjoint curl**, a self-adjoint negative-semidefinite Laplacian, an exactly idempotent
+  self-adjoint Helmholtz projection — decision 42)"* (PAGE: testing, §1).
+- Testing coverage: *"the operator adjoint/structural identities … — divergence as the negative
+  gradient adjoint, **self-adjoint curl**, a self-adjoint negative-semidefinite Laplacian …"*
+  (PAGE: testing, §7).
+- Architecture decision-log: *"($\nabla\cdot = -\nabla^\top$, **self-adjoint curl**,
+  negative-semidefinite Laplacian …)"* (PAGE: architecture, §13).
+
+**Missing from:** Formalization, differential-operators section — which types the identities
+$\nabla\cdot(\nabla\times u)=0$, $\nabla\times(\nabla\phi)=0$, $\mathbb P^2=\mathbb P$,
+$\nabla\cdot(\mathbb P u)=0$, the dissipation identity, and even parenthetically
+*"($\mathbb P$ and $\Delta$ are self-adjoint — their multipliers … are real symmetric.)"* —
+but **not** the self-adjointness of curl (nor, explicitly, divergence = −gradient-adjoint,
+though the latter is implicit in the dissipation identity) (PAGE: formalization).
+
+**Why it's a gap:** The formalization page states its own contract — *"a statement here with no
+test is a coverage gap to close"* — and the converse holds by the CLAUDE-level rule that a
+nontrivial claim with no typed entry is a coverage gap. Curl's self-adjointness is nontrivial
+(it rests on the symbol $\mathrm i k\times$ being Hermitian: $(\mathrm i\varepsilon_{ijk}k_j)$
+equals $\overline{(\mathrm i\varepsilon_{kji}k_j)}$ because $\varepsilon_{kji}=-\varepsilon_{ijk}$
+— true, but worth typing), it is on the same `test/adjointness.jl` list as $\mathbb P$ and
+$\Delta$, and the formalization conspicuously types 2 of the 3 self-adjoint operators while
+dropping curl. Adding a one-line typed entry (symbol Hermitian ⇒ operator self-adjoint) closes
+it.
+
+**resolution_hint:** Extend the parenthetical to "($\nabla\times$, $\mathbb P$, and $\Delta$
+are self-adjoint — their symbols $\mathrm i k\times$, $\mathrm{id}-\hat a\hat a^\top$, $-|k|^2$
+are Hermitian)".
+
+---
+
+## Finding 5 — Stale references to the retired alias-guard mechanism (contradicting the "guards retired" design)
+
+- **type:** contradiction (currency)
 - **severity:** minor
 - **confidence:** medium
 
-**Locations**
-- `architecture`, §2 (representation-validity), one paragraph: opens "**The 206-method** public surface
-  of `FieldAlgebra` …", then traces "M2 (98 methods …) and then M3 (…), bringing **the total to 198**;
-  the later trace `tr`/`tr!` addition brings it to **202**, all parity-checked at runtime".
-- `architecture`, §6: "The full M2+M3 baseline is **206** public methods (… `combine!` 2, `tr` 2,
-  `det`/`det!` 1 each)"; decision 27: "grows to **206** field methods … and **122** point-value methods".
+**Locations (stale "guard" claims, presented as current):**
+- HIST_CPU example, `random_solenoidal`: *"`helmholtz_projection!(uh, uh, m)  # make
+  solenoidal (**alias-guarded**)`"* (PAGE: examples / hist_cpu). This is an inline code comment
+  presenting a guard as current fact.
+- Points internal-API intro: *"documented for contributors extending the package — the section
+  interface the `FieldAlgebra` builders reuse, the allocator, the broadcast style, and **the
+  alias guard.**"* (PAGE: api / Points) — but no alias-guard function is actually listed among
+  the Points internals.
 
-**Contradicts**
-- Within §2 itself: the paragraph is headed "206-method public surface" but its own historical
-  progression ends at **202**, never reaching 206 (the `combine!`/`det`/`det!` steps that take
-  202 → 206 are omitted).
-- `architecture`, §13 decision-log entries (decisions ~20–23) still say "**198**-method and
-  point-value **118**-method parity baselines are unchanged", while §6, decision 27, `testing`, and
-  §10 say **206 / 122**.
-- Axis: current method counts **206 / 122** vs the historical **198–202 / 118**.
+**Contradicts:**
+- Architecture §7: *"The former guard family (`_guard_noalias!` and its point-value twin) …
+  **is retired** — decision 39 removed its last callers."* (PAGE: architecture, §7).
+- `helmholtz_projection!` docstring: *"The `destination` may alias `field` at no cost: the
+  projection is computed in a single pass … so the aliased call **needs no temporary**."*
+  (PAGE: api / DifferentialOperators).
+- Testing coverage: *"the **guard-free** aliased `helmholtz_projection!` (bitwise-equal to
+  non-aliased; decision 32)"* (PAGE: testing, §7).
+- The sibling call in the same example, line 3881: *"`helmholtz_projection!(Nh, ws.Nt, m)  #
+  … DISTINCT dest ⇒ no-alias path (no allocation)`"* — already frames aliasing without a guard.
 
-**Description.** The append-only decision log legitimately snapshots the counts at each entry's time
-(198/118 → 202/… → 206/122), so the log drift is arguably by-design. But the §2 body paragraph is *not*
-a log entry, and it contradicts itself in one breath — opening "206-method surface" then walking a
-history that stops at 202. Not a structural-math issue (out of my lane), recorded here only because the
-panel asked for relentless internal-consistency checking; I expect the architecture/consistency hats
-own the resolution. Fix: reconcile §2's opening "206" with its progression (add the combine!/det steps,
-or state 202 as the pre-decision-27 figure).
+**Axis of disagreement:** *does the aliased `helmholtz_projection!` run through a guard.* Per
+decision 32/42 it is alias-safe by construction (guard-free); the example comment
+"(alias-guarded)" and the Points intro's "the alias guard" describe a mechanism that no longer
+exists. (Note: the decision-24 and decision-log historical entries that mention "alias-guard
+coverage" / "guard temporary upstream" are chronological and self-annotate the later retirement
+— those are fine as history; the two above present the guard as present-tense fact.)
+
+**resolution_hint:** In the example comment write "(alias-safe, coefficientwise)" to match the
+sibling `convolve!`/`helmholtz` comments; drop "the alias guard" from the Points internal-API
+intro (or replace with what is actually listed).
+
+---
+
+## Finding 6 — Notation-table entry for the wavenumber magnitude is garbled by a table-delimiter `|` (breaks the binding); plus a stray doubled-backtick
+
+- **type:** typesetting / format
+- **severity:** nit
+- **confidence:** high
+
+**Locations:**
+- Notation page, Base-and-fiber table, the `$k$` row renders as:
+  *"$k$ | a wavenumber vector ($k_a$ is its $a$-th component, `` | k"* (PAGE: notation).
+  The intended magnitude notation (a $|k|$ inside the cell) has been eaten by GFM's column
+  `|` delimiter — the exact "`|` inside a table cell is a column separator" hazard the house
+  rules warn about — leaving a stray empty `` `` `` code span and a broken cell. The effect is
+  that the notation page's *binding for the wavenumber magnitude $|k|$* — a symbol used
+  pervasively ($|k|^2$, shells, `squared_wavenumber_field`) — is incomplete/mangled in the one
+  place meant to define it (a self-containedness defect for the notation reference).
+- Reductions page, `maximum` docstring: *"The materializing route to the same supremum is
+  `lpnorm``(f, Inf)`."* (PAGE: api / Reductions) — doubled backticks split "`lpnorm(f, Inf)`"
+  into two adjacent code spans, rendering as `lpnorm`​`(f, Inf)`.
+
+**resolution_hint:** In the notation cell, express the magnitude as LaTeX outside any `|`
+(e.g. "its magnitude $\lVert k\rVert$", or restructure so no `|` sits in the cell); fix the
+doubled backtick to a single `lpnorm(f, Inf)` span. (Format-hat territory, but the notation-table
+one degrades a notation *binding*, which touches this hat's self-containedness concern.)
+
+---
+
+## Verified clean (structural spot-checks that hold)
+
+For the record, these load-bearing structural claims were expanded and check out:
+- The pullback–pushforward adjunction $\langle\iota^* f, q\rangle_{\text{pts}} = \langle f,
+  \iota_* q\rangle_{\text{grid}}$ with $\iota_* = (N/M)W^\top$ (architecture §10) — consistent
+  with the formalization's $M\langle Wf,q\rangle = N\langle f,W^\top q\rangle$; opposite-variance
+  (function pullback vs measure pushforward) stated correctly.
+- The fiber is never flattened: $\Gamma_G = \mathbb R^N\otimes V \cong V^N$, $\Gamma_P =
+  \mathbb R^M\otimes V$ (explicitly "not $\mathbb R^{3N}$/$\mathbb R^{3M}$" except for vectors);
+  $W = W_b\otimes\mathrm{id}_V$ with two distinct all-ones $\mathbf 1_N$, $\mathbf 1_M$ — the
+  past flatten/𝟙-conflation error is fixed.
+- Parseval: the $1/N^2$ factor and the rfft half-spectrum double-count-minus-self-conjugate-
+  planes correction ($2\sum_{k_x\ge0} - \sum_{k_x=0} - \sum_{k_x=N_x/2}$) are correct.
+- Helmholtz $\mathbb P = \mathrm{id}-\hat a\hat a^\top$: idempotent, self-adjoint, and
+  $\nabla\cdot(\mathbb P u)=0$ unconditional (built entirely from the derivative family $a$;
+  decision 42) — the physical-space $u - \nabla\Delta^{-1}(\nabla\cdot u)$ identity correctly
+  scoped "exact on the resolved band" (it mixes the two multiplier families).
+- Inverse-Laplacian compatibility ($\int f = 0$, Fredholm) and mean-free fixing stated correctly.
+- The measure taxonomy (base-quadrature / multiplier / transfer-kernel / FDF) is coherent;
+  Bochner (positive kernel ⟺ positive-definite symbol) and the $L^\infty$-multiplier scope are
+  used correctly; the transfer kernel is honestly a *signed* unit-mass measure for the
+  higher-order splines.
+- weighted_inner equals the naive $\langle w\star f, w\star g\rangle$ iff $w^2=w$ — correct.
+- Wiener–Khinchin normalization $\mathcal F C = |\hat f|^2/N$, $C(0)=\mathrm{inner}$ — correct.

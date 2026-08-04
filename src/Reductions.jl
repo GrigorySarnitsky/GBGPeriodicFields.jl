@@ -715,7 +715,7 @@ homogeneous turbulence, where kinetic energy is ``\\tfrac{1}{2}\\langle u, u\\ra
 from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a wavenumber or separation
 shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
 
-The arguments `f` and `g` are two compatible sections of equal fiber order. On a grid the pairing is the
+The arguments `f` and `g` are two compatible sections of equal tensor order. On a grid the pairing is the
 equal-weight average over the ``N`` cells (``\\Omega`` is the periodic box, ``|\\Omega|`` its volume); on a
 point-set it is the average over the ``M`` points. The grid's continuum form below is exact when the
 product ``f \\cdot g`` is resolved on the grid (the periodic trapezoidal rule integrates resolved modes
@@ -1106,7 +1106,11 @@ refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-c
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
 with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` the per-axis Nyquist wavenumber — are
 incompletely sampled (only corner modes contribute), the standard isotropic-spectrum caveat; the total
-still equals `inner`. The reduction is GPU-portable: a single
+still equals `inner`. The shell **width** carries a second anisotropy artefact worth knowing: ``\\Delta k``
+is taken from the box's largest side, so on a strongly anisotropic box it is finer than the mode spacing
+``2\\pi/L_a`` along every shorter axis, and a systematic fraction of shells is then empty — the profile
+combs, though its sum is unaffected. Modes landing exactly on a half-integer ``|k|/\\Delta k``, which an
+anisotropic box hits exactly, are assigned by `round`'s ties-to-even. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
 reduction like `inner` only by the atomic binning and a square root per mode.

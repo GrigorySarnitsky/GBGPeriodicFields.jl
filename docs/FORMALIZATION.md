@@ -32,8 +32,10 @@ V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 
 \end{aligned}
 ```
 
-A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (the letter ``k`` is reserved for the
-wavenumber below), so the scalar field over the grid is the 3-axis tensor product
+A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (a **standalone** ``k`` is reserved for
+the wavenumber below; as a subscripted *component* index — ``\varepsilon_{ijk}``, ``A_{ik}B_{kj}`` — it
+keeps its ordinary meaning, the two never colliding since one is a free symbol and the other always
+sits in a subscript run), so the scalar field over the grid is the 3-axis tensor product
 ``\mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}`` (the array ``f_{i_1 i_2 i_3}``) — one real per cell.
 As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
 ``(i_1, i_2, i_3)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
@@ -52,7 +54,13 @@ interpolation section), whereas ``\Gamma_P`` is the space of *values* — a ``V`
 ``\mathbb R^M \otimes V``, just as the grid value space is not ``\mathbb R^{3N}``.
 
 The transform ``\mathcal F`` (`to_spectral`, inverse `to_physical`) is the rfft isomorphism between the
-physical (nodal) and spectral representations of a grid section; ``\hat f = \mathcal F f``. With the fiber
+physical (nodal) and spectral representations of a grid section; ``\hat f = \mathcal F f``. Its codomain
+needs naming, because the obvious candidate is wrong: ``\mathcal F`` is **not** onto the stored complex
+array ``\mathbb C^{N_{k_1} N_2 N_3} \otimes V``, which has strictly more real dimensions than
+``\Gamma_G``. The image is the **Hermitian-constrained subspace** — the coefficients on the folded
+axis's self-conjugate planes are real, and it is exactly that constraint that makes the map a bijection
+onto its image and the round trip exact. Every "coefficients of a real field" statement below means an
+element of that subspace, which is also why a kernel must be Hermitian for its result to be one. With the fiber
 contraction ``\cdot : V \times V \to \mathbb R`` and the wavenumber ``k``, the inner products are the
 package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
 
@@ -125,9 +133,10 @@ mirror) — dot/cross, tensor products with α/β, transpose, norms, the trace, 
 per-point LU oracle), the weighted combination, and the sym/skew/dev identities.
 
 The **arbitrary fiber map** (`map!`/`map`, decision 48) lifts a chosen map on the fibers,
-``\varphi : V_1 \times \dots \times V_m \to W``, to a section map applied pointwise over the base: at each
+``\varphi : V_1 \times \dots \times V_m \to U``, to a section map applied pointwise over the base: at each
 base point ``x``, ``\texttt{destination}(x) = \varphi\bigl(s_1(x), \dots, s_m(x)\bigr)`` for sources
-``s_1, \dots, s_m``. The output fiber space ``W`` — hence `destination`'s tensor order — is ``\varphi``'s
+``s_1, \dots, s_m``. The output fiber space ``U`` — written ``U`` rather than ``W``, which this page reserves for the
+gather operator — hence `destination`'s tensor order — is ``\varphi``'s
 codomain, which need not match the inputs' (``\varphi = \det`` sends ``V = \mathbb R^{3\times3} \to
 \mathbb R``). It is the section-valued companion of the mapped reductions (which instead reduce ``\varphi``
 over the base) and the arbitrary-``\varphi`` generalization of the named vertical operations above; a
@@ -255,8 +264,8 @@ applies a scalar kernel ``\hat g`` (a `SpectralKernel`, broadcast over the fiber
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
 spectral product. The neutral kernel builders: `spectral_cutoff` is the sharp low-pass ``\hat g(k)=1`` for
 ``|k|\le k_c`` (else ``0``), **idempotent** (``\hat g^2=\hat g``, a projection); `spectral_band` its annular
-``k_{\mathrm{lo}}\le|k|\le k_{\mathrm{hi}}`` generalization (cutoff is ``k_{\mathrm{lo}}=0``); `radial_kernel` the ``|k|^2``
-coordinate consumers build symbols from; and `assignment_window` the linear/CIC mass-assignment window
+``k_{\mathrm{lo}}\le|k|\le k_{\mathrm{hi}}`` generalization (cutoff is ``k_{\mathrm{lo}}=0``); `radial_kernel` the builder taking any real function
+of ``|k|^2`` (its ``\sigma = \mathrm{identity}`` case being that coordinate itself); and `assignment_window` the linear/CIC mass-assignment window
 
 ```math
 \hat W(k) = \prod_{a=1}^{3}\operatorname{sinc}^2\Bigl(\tfrac{k_a \Delta x_a}{2}\Bigr),
@@ -343,13 +352,19 @@ Two statements, each expanded against the code and tested:
   in the order the stored path's broadcast associates it, and the separable route multiplies its factors
   in axis order. ``\checkmark``
 - **Composition is closed within a family, and lands in the product class across families.** Radial
-  composed with radial is radial, ``\sigma_1 \sigma_2`` being again a function of ``|k|^2``; separable
+  composed with radial is radial **when both are radial in the same** ``|k|^2`` — that is, over canonical
+  multiplier sets of one concrete type, which is the hypothesis decision 61 made a dispatch condition;
+  ``\sigma_1 \sigma_2`` is then again a function of that ``|k|^2``, while a pairing that fails it keeps both
+  operands as a `ProductKernel` rather than silently evaluating ``\sigma_2`` at the first set's
+  coordinates. Separable
   composed with separable is separable, per axis; and radial composed with separable is a `ProductKernel`,
   since ``\sigma(|k|^2)`` admits no factorization over axes and ``\prod_a g_a`` no reduction to
   ``|k|^2``. Composition therefore never forces a materialization. ``\checkmark``
 
-The reciprocal `inv` is the pointwise ``1/\hat g``, defined on a class where that is again closed —
-separable (per axis) and radial (in the symbol) — and it is what deconvolves: ``\hat g^{-1}\hat g = 1``
+The reciprocal `inv` is the pointwise ``1/\hat g``, defined on **every** class and closed within each:
+separable per axis, radial in the symbol, product factorwise, and stored coefficientwise — the last
+with an explicit zero check, since it is the one class that can test its coefficients. It is what
+deconvolves: ``\hat g^{-1}\hat g = 1``
 wherever ``\hat g`` is nonzero, which is why a sharp cutoff has no inverse and a window has one on its
 support.
 

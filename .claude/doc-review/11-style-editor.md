@@ -1,213 +1,167 @@
-# Style / Copy-Editor Review — GBGPeriodicFields rendered docs
+# Style / Internal-Consistency Review — hat: style-editor
 
-Hat: **technical copy-editor enforcing internal uniformity** (notation rendering, docstring
-skeleton, heading levels, tables, citation format, register, and silent HTML rendering failures).
-
-Scope read: the full reader-text consolidation (`manuscript-full.md`, all pages) plus the raw
-built HTML under `docs/build/**/index.html` (18 pages, enumerated by `find . -name index.html`
-inside `docs/build`, since every page lives at `<section>/index.html`, not `<section>.html`).
-
-Overall impression: the corpus is unusually disciplined — the imaginary unit is upright
-`\mathrm{i}` everywhere, the differential is upright `\mathrm{d}` everywhere, `\partial_{x_i}`
-subscripting is used with only one defensible one-off exception, `\mathbb{}` is applied only to
-`P`/`R`, `\left`/`\right` appears nowhere outside its one documented exception, DOI/title pairs
-are verbatim-identical at every one of their 19 occurrences, and every one of the ~235 docstring
-blocks across the 9 module pages has exactly one matching "source" link. Against that high bar,
-five genuine findings survived.
+Reviewed the full reader-text consolidation (`manuscript-full.md`, all pages) and the raw built HTML
+under `docs/build/` (admonition markup, KaTeX math spans, tables, cross-reference links, code-block
+widths). Findings below are ranked most-severe first.
 
 ---
 
-## Finding 1 — Notation-page table row silently loses content (literal `|` inside a math span)
+## Finding 1 — No reference carries a DOI (or openlibrary) link anywhere in the corpus
 
-- **Type:** format (silent HTML rendering failure)
-- **Severity:** blocker
-- **Confidence:** high
-
-**Location:** PAGE "Notation" → "Base and fiber" table, the row for the wavenumber-vector symbol
-`k`.
-
-**Evidence (raw HTML, `docs/build/notation/index.html`):**
-```html
-<tr><td style="text-align: right"><span>$k$</span></td>
-    <td style="text-align: right">a wavenumber vector (<span>$k_a$</span> is its <span>$a$</span>-th component, ``</td>
-    <td style="text-align: right">k</td></tr>
-```
-Reader-text form (`manuscript-full.md`, "Base and fiber" table): *"`$k$` | a wavenumber vector
-(`$k_a$` is its `$a$`-th component, ``\` | k"* — i.e. the row visibly ends mid-sentence on a bare,
-orphaned double-backtick, and the "Code" column — which for every other row in this exact table
-holds a real backtick-styled identifier (`Grid3D`, `prod(grid_size)`, `npoints`,
-`translation_kernel`, `to_spectral(f)`) — instead shows the single unstyled character `k`.
-
-**Description:** every other row in this table follows "Symbol | Meaning | Code" cleanly. This
-row's Meaning cell tries to give the magnitude as an inline math span containing the literal
-absolute-value bars, `` ``|k|`` ``. Markdown table syntax treats any literal `|` as a column
-delimiter — *even one sitting inside a double-backtick math span* — so the two pipes of `|k|`
-silently create two extra columns, and everything past the header's declared column count
-(`Symbol | Meaning | Code`) is discarded. The casualties: the Meaning cell loses "its magnitude)"
-and the Code cell loses `` `FieldSpectralMultipliers` `` entirely, replaced by the stray fragment
-"k" between the two pipes. Two rows above it, the "Operators" table on this same page gets this
-exactly right for the analogous symbols (`` \lvert\cdot\rvert ``, `` \lVert\cdot\rVert ``) by using
-the pipe-free LaTeX delimiter commands instead of a literal `|` — so the fix pattern already exists
-on the very same page, just not applied to this one row.
-
-**Resolution hint:** replace the literal `` ``|k|`` `` with `` ``\lvert k\rvert`` `` (matching the
-Operators table's own convention two sections down), or move the pipe/backtick text out of the
-table entirely.
-
----
-
-## Finding 2 — The wavenumber vector is bold in the worked example, plain everywhere else
-
-- **Type:** contradiction
-- **Severity:** major
-- **Confidence:** high
+**Type:** citation **Severity:** major **Confidence:** high
 
 **Locations:**
-- PAGE "Examples" (`hist_cpu`), "Method (rotational form)": *"…`$\omega = \nabla\times u$` for the
-  vorticity, **`$\mathbf{k}$`** for the wavenumber vector and `$\kappa = \lvert\mathbf{k}\rvert$`
-  for its magnitude…"* — and reused bold four more times on the same page: `$w(\mathbf{k})$`,
-  `$\lvert\mathbf{k}\rvert^{2}$` (×2), `$\lvert\mathbf{k}\rvert = 1$`.
-- PAGE "Notation" → "Base and fiber" table (the site's own declared symbol glossary, whose stated
-  purpose is that "a docstring introduces a symbol on first use and need not repeat the
-  convention"): *"`$k$` | a wavenumber vector (`$k_a$` is its `$a$`-th component, …) |
-  `FieldSpectralMultipliers`"* — plain, non-bold italic.
-- PAGE "api/DifferentialOperators" → `gradient!`: *"`$\widehat{(\nabla\varphi)_i}(k) = \mathrm{i}
-  k_i \hat\varphi(k)$`"* — plain `k`, and this exact plain-italic convention recurs without
-  exception in every other operator/kernel/reduction formula site-wide (`curl!`, `laplacian!`,
-  `helmholtz_projection!`, `convolve!`, `spectral_cutoff`, `translation_kernel`, `radial_spectrum`,
-  …) and in every formula of "Architecture" and "Formalization".
+- PAGE: architecture, §10 References — `- C. C. Lalescu, B. Teaca, D. Carati, Implementation of high
+  order spline interpolations for tracking test particles in discretized fields, J. Comput. Phys.
+  229(17) (2010) 5862–5869.` (plain text, no link)
+- PAGE: api/Interpolation — `Reference: C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, An efficient
+  particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence
+  (TurTLE), Comput. Phys. Commun. 278 (2022) 108406; arXiv:2107.01104.` (no DOI link)
+- Same pattern for every reference in `architecture` §10/§11 (11 entries) and every `Reference:`/
+  `References` docstring block in api/Interpolation (LalescuSpline, LagrangeSpline, NUFFT, DirectDFT).
 
-**Contradicts:** bold-face (`\mathbf{k}`, hist_cpu) vs. plain-italic (`k`, every other page
-including the site's own Notation glossary) rendering of the identical "wavenumber vector"
-concept.
-
-**Description:** a site-wide check turned up exactly two uses of `\mathbf{}` anywhere in the
-rendered corpus: the correct indicator-function use `\mathbf{1}` in `spectral_cutoff`'s docstring,
-and this one. Every other page — including the page whose entire job is to fix "the symbols used
-throughout the docstrings and the design documents" — binds and renders `k` as plain italic. A
-Literate example page is documented project policy to be read and checked "like a rendered doc
-page," so a reader moving from the API/Notation surface into the worked example sees the same
-object drawn two different ways with no explanation.
+**Description:** The house rubric (documentation policy, "Citations") is explicit and specific: "Every
+reference carries a clickable DOI on its title — `[*Title*](https://doi.org/…)`, or an
+`openlibrary.org/…/works/…` link for a book with no DOI." A corpus-wide search for `doi.org` and
+`openlibrary` in the rendered text returns zero hits. Every citation, in both `ARCHITECTURE.md` §10/§11
+and every docstring `Reference:`/`References` block, is a plain, unlinked bibliographic string. This is
+not one page out of step with another — it is a total, uniform absence of the one formatting feature the
+rubric calls mandatory, so a reader "sees it without opening another file" in name only; nothing is
+actually clickable anywhere.
 
 ---
 
-## Finding 3 — One citation on the whole site carries no clickable DOI/link
+## Finding 2 — Two incompatible skeletons for the "fields/arguments" bulleted-list convention, split cleanly by module
 
-- **Type:** citation
-- **Severity:** minor
-- **Confidence:** high
+**Type:** format **Severity:** major **Confidence:** high
 
-**Location:** PAGE "Architecture", §13 decision 19 ("The measure taxonomy").
+**Locations:**
+- PAGE: api/Fields — `The fields are` *(no colon)*, then `- \`grid_size::NTuple{3, Int}\`: the number of
+  grid points in each spatial direction.` (colon separator) — repeated identically for
+  `RealFourierLayout`, `ScalarFieldPhysical/Spectral`, `VectorFieldPhysical/Spectral`,
+  `TensorFieldPhysical/Spectral`, `FieldTransformPlans`, `FieldSpectralMultipliers` (13 instances, all
+  colon-separated, all headed "The fields are" with no colon).
+- PAGE: api/Points — same pattern, `The fields are` (no colon) / `- \`data\`: the values, ...` (colon
+  separator), for `PointSet`, `ScalarPointValues`, `VectorPointValues`, `TensorPointValues`.
+- PAGE: api/Convolution — `The fields are:` *(with colon)*, then `- \`field\` — the \`ScalarFieldSpectral\`
+  holding the coefficients, referenced rather than copied.` (em-dash separator) — repeated for
+  `SeparableKernel`, `RadialKernel`, `ProductKernel` (4 instances, all em-dash-separated, all headed "The
+  fields are:" with a colon).
 
-**Quote:** *"The math anchor (Grafakos, *Classical Fourier Analysis*, Thm 2.5.10): on a uniform
-periodic box every homogeneous (translation-invariant) linear operator is a Fourier multiplier…"*
-— rendered with no `<a href>` anywhere on "Grafakos" or "Classical Fourier Analysis" (verified
-directly in the raw HTML around every occurrence of "Grafakos" on the page).
+**Contradicts:** Same rubric item ("A type that stores named, user-readable fields documents them under
+`The fields are`, one bullet per field") realized two mutually exclusive ways: Fields.jl/Points.jl use
+`` `name::Type`: description `` under an uncolon'd heading; Convolution.jl uses `` `name` — description ``
+under a colon'd heading. The "arguments are:" sibling convention (32 instances) is uniformly em-dash
+*and* uniformly colon-headed everywhere **except** one straggler at `FieldTransformPlans` (`` `physical`:
+the field supplying... ``), which follows the Fields-module colon style instead of the corpus-wide
+em-dash norm used by the other 31 instances of "The arguments are:".
 
-**Contrast:** every other citation on the site — 10 distinct works, 19 total appearances, checked
-programmatically for DOI/title consistency and found verbatim-identical at every occurrence —
-renders as a clickable `[*Title*](https://doi.org/…)` link, right down to the other citations in
-this exact same decision-log entry. Grafakos is not an incidental aside either: it is invoked with
-a specific theorem number as the load-bearing justification for an entire named design decision,
-i.e. exactly the class of citation this project's own convention says gets a full linked
-reference (the alternative — an `openlibrary.org` link for a book with no DOI — is also unused
-here).
-
-**Description:** the sole reference on the site without the "every reference carries a clickable
-DOI on its title" treatment the other ten receive.
-
----
-
-## Finding 4 — Formalization's section headings bake raw Markdown link syntax into their anchor IDs
-
-- **Type:** format (silent HTML rendering failure)
-- **Severity:** minor
-- **Confidence:** high
-
-**Location:** PAGE "Formalization" — all 7 of its `##`-level section headings that name an
-Architecture section (every H2 except "Declarations").
-
-**Evidence (raw HTML, representative of all 7):**
-```html
-<h2 id="Representations-and-transforms-(Fields,-[Architecture](architecture.md)-§4)">
-  <a class="docs-heading-anchor" href="#Representations-and-transforms-(Fields,-[Architecture](architecture.md)-§4)">
-    Representations and transforms (<code>Fields</code>, <a href="../architecture/">Architecture</a> §4)
-  </a>
-  …
-</h2>
-```
-The other six (`Fiberwise-algebra-(FieldAlgebra-/-FiberSections,-[Architecture](architecture.md)-§2,-§6)`,
-`Differential-operators-(…)-§4)`, `Convolution-(…)-§11)`, `Reductions-(…)-§12)`,
-`Interpolation-/-anterpolation-(…)-§10)`, `Spectral-transfer:-…-(…)-§10,-decision-23)`) all carry
-the identical defect.
-
-**Description:** the *visible* heading text renders correctly (plain "Architecture" as working
-link text), but the heading's own `id`, its self-link, its permalink anchor, and its entry in the
-left-sidebar table of contents are all built from the *raw, unrendered* Markdown source of the
-heading — literally embedding the source's square brackets, parentheses, and the `.md` extension
-(`[Architecture](architecture.md)`) into a URL fragment — because the heading contains an inline
-Markdown link and the anchor-slug generator does not resolve it first. This is silent: the page
-never visibly breaks, but the permalink icon, a bookmarked/shared section link, and the sidebar
-navigation for this page all carry a garbled fragment a reader would not expect to see in their
-address bar. Separately (same root cause, different symptom): the "Architecture" link itself
-always resolves to the top of the Architecture page, never to the specific `§4`/`§10`/`§11`/`§12`
-named immediately next to it, so the deep-link the parenthetical promises is not actually
-delivered on any of the 7 headings.
-
-**Resolution hint:** drop the inline link from inside the heading text (state the module/§ in
-plain text, and link "Architecture" only in the following paragraph) — the pattern every other
-page on the site already uses.
+**Description:** Two distinct textual "shapes" for what is supposed to be one fixed skeleton, and the
+split tracks module boundaries exactly (Fields.jl + Points.jl vs. everywhere else), which reads as one
+author/pass using a different template for those two files than for the rest of the API surface.
 
 ---
 
-## Finding 5 — "Internal API" subheading structure (Types/Functions split) is inconsistent across API pages
+## Finding 3 — Admonition title states "R < 3" in bare text where the adjoining prose states the same bound as LaTeX "$R \le 2$"
 
-- **Type:** organization
-- **Severity:** minor
-- **Confidence:** medium
+**Type:** typesetting **Severity:** minor **Confidence:** medium
 
-**Locations (heading hierarchy extracted from all 8 API module pages):**
-- `api/Fields` and `api/Points`: "Internal API" (H2) → "Types" (H3) → "Functions" (H3) — both
-  pages have real internal `Type`s (`FieldPhysicalBroadcastStyle`/`FieldSpectralBroadcastStyle`;
-  `PointValuesBroadcastStyle`) alongside internal functions/methods, and split them accordingly.
-- `api/DifferentialOperators` and `api/FieldAlgebra`: "Internal API" (H2) → "Functions" (H3) —
-  a lone H3 added even though neither page's Internal API section documents any Type (only
-  Methods), so there is nothing for "Functions" to be split from.
-- `api/FiberSections`, `api/Convolution`, `api/Reductions`: "Internal API" (H2), **no H3 at all** —
-  the functions-only case handled the other way from `DifferentialOperators`/`FieldAlgebra` above.
-- `api/Interpolation`: "Internal API" (H2), **no H3** — yet this section documents a real Type,
-  `AbstractSplineScheme` ("Supertype of the physical-domain local interpolation schemes…"),
-  alongside five Methods (`_axis_weights`, `_fornberg`, `_hermite_weight_matrix`,
-  `_lagrange_weight_matrix`, `_locate`) — structurally the same "Type + Methods" mix that
-  `Fields`/`Points` use to justify their Types/Functions split, but it does not receive one.
+**Locations:**
+- PAGE: api/GBGPeriodicFields — admonition title: `The supported tensor order is R < 3` (rendered as
+  plain, unstyled text — not a math span, not backticked).
+- Same page, body sentence immediately following: `... are defined for $R \le 2$ and throw above it.`
 
-**Description:** whether (and how) an "Internal API" section gets subdivided by heading level
-is not applied by one rule across the eight module pages. `Interpolation` is the clean case: it
-has exactly the situation (`Types` + `Functions` mixed) that earns a heading split on `Fields` and
-`Points`, yet is formatted like the functions-only pages instead.
+**Description:** One bound on one type parameter, given twice for the same fact, in two different
+symbolic registers: bare ASCII `R < 3` in the admonition title vs. properly-typeset `$R \le 2$` (a KaTeX
+inline span) one sentence later in the body. Per the house rule on "math that merely looks code-ish" (`R
+≥ 2` is explicitly named as an example that must be LaTeX, never bare text), the title's `R < 3` is the
+class of thing the rubric singles out — and it sits directly beside the correctly-typeset form of the
+identical statement, which is the "one notation per concept" rule tripped inside a single docstring.
 
 ---
 
-## Checks run clean (no findings)
+## Finding 4 — `translation_kernel!`'s in-place steer sentence departs from the fixed template used by all 26 other in-place forms
 
-For completeness, since a large fraction of this hat's mandate is negative evidence:
-`\mathrm{i}`/`\mathrm{d}` upright rendering (site-wide, no bare-italic exceptions); `\partial_{x_i}`
-subscripting (one defensible bare `$\partial_x \sin x = \cos x$` 1-D scalar illustration in
-Testing, not a multi-axis package formula); `\mathbb{}` arguments restricted to `P`/`R`; `\left`/
-`\right` absent outside its one sanctioned `\left\{ … \right.` use; manual `\;`/`\,`-around-`=`
-and `\!\bigl`/`\!\Bigl` spacing violations (none found); code identifiers accidentally sitting
-bare inside a math span (none found — the `\texttt{}` discipline holds); every one of ~235
-docstring blocks across 9 module pages has exactly one matching GitHub source link; every table on
-the site (`performance` ×8, `notation` ×3) has matching header/row cell counts except the one row
-in Finding 1; every DOI↔title pair (10 works, 19 occurrences) is verbatim-identical across every
-page it appears on; author-count citation formatting (`A & B`, `A, B & C`, `First et al.` at 4+)
-correctly applied throughout; "knob"/"tweak" register violations (none); "per-step"/"every
-step"/"hot loop" cadence-framing language inside actual docstrings (none — confined to
-`ARCHITECTURE.md`/`PERFORMANCE.md`, which the project's own rules explicitly exempt);
-particle/tracer terminology inside the package's own API (none — all such mentions are
-explanatory contrasts, citations of external literature, or inside the `hist_cpu` example, which
-is explicitly consumer code); constructor-first ordering for every type docstring; the
-"Allocating form of `X!`: … See `X!` for …" wrapper skeleton applied consistently across 13
-allocating/`!` pairs (the `sym`/`skew`/`dev` and bare-operator `+ - * /` wrappers use a visibly
-different lead-in, but for a defensible reason — they cover an extra bare-`FiberTensor2` method or
-route to more than one `!` home — so not reported as a defect).
+**Type:** format **Severity:** minor **Confidence:** medium
+
+**Locations:**
+- PAGE: api/Convolution — `translation_kernel!`: *"Use this in-place form when a displacement changes
+  and the kernel is already allocated; the allocating `translation_kernel` returns a fresh kernel
+  instead."*
+- Every other in-place form in the corpus (26 instances, e.g. api/DifferentialOperators `gradient!`,
+  api/FieldAlgebra `+`, `dot!`, `sym!`, ..., api/Interpolation `interpolate!`/`anterpolate!`): *"Use this
+  in-place form when `destination` is already allocated; the allocating `f` returns a fresh result
+  instead."*
+
+**Description:** The rubric requires this sentence "verbatim." `translation_kernel!` rebuilds an
+existing `SeparableKernel` for a new offset rather than filling a `destination` argument, so a literal
+copy of the template would not typecheck against its actual signature — but the fix adds an entirely new
+clause ("when a displacement changes") rather than the minimal substitution every other deviating case in
+the corpus uses (e.g. `interpolate!`/`anterpolate!` substitute only the parameter name — `out`, `field`
+— and keep the rest of the sentence verbatim). This is the one steer sentence in the whole corpus that
+changes the sentence's structure rather than only its noun.
+
+---
+
+## Finding 5 — FiberSections' "functions-only" Internal API section documents a Constant, not a function
+
+**Type:** organization **Severity:** nit **Confidence:** medium
+
+**Locations:**
+- PAGE: api/FiberSections, `## Internal API` (single unlabelled block, no `### Types`/`### Functions`
+  split): first entry is `` `GBGPeriodicFields.FiberSections._SERIAL_CUTOFF` — Constant ``.
+- Compare PAGE: api/Fields, `## Internal API`, which *does* split into `### Types` / *(functions,
+  unlabelled continuation)* because it documents both kinds.
+
+**Description:** The stated organizing rule is binary — "a section documenting both types and functions
+uses `### Types` and `### Functions`... one documenting only functions uses a single unlabelled block."
+`FiberSections`' unlabelled block is presumably in the "functions-only" bucket, but its very first bound
+symbol is a `Constant`, a third kind the binary rule never names. It is not a "Type" (so the split rule
+doesn't obviously trigger) but it is also not a "Function" (so calling the section "functions-only" is
+imprecise). A reader relying on the stated split rule to predict a page's shape would not predict this.
+
+---
+
+## Finding 6 — Every rendered table site-wide (including long, multi-sentence prose cells) is right-aligned
+
+**Type:** typesetting **Severity:** nit **Confidence:** low
+
+**Locations:**
+- PAGE: notation, "Conventions" table, raw HTML: every `<td>`/`<th>` in the table (including the
+  multi-sentence "Convention" column, e.g. the ~40-word cell explaining the imaginary unit) carries
+  `style="text-align: right"`.
+- Same pattern in every other rendered table in the build (`testing/index.html`,
+  `performance/index.html`, ...): all columns right-aligned, regardless of content length.
+
+**Description:** This is uniform across the site (so it is not, strictly, an *inconsistency* between two
+places), but it is a plausible unintended silent-rendering artifact: Documenter/CommonMark right-aligns a
+GFM table column by default when the source table has no `:---`/`---:` alignment markers, and a table
+whose "Convention"/description column holds full sentences reads oddly ragged-left, flush-right. Worth a
+maintainer glance at whether right-alignment was the intended choice for prose columns, since it is very
+unusual for descriptive text.
+
+---
+
+## Notes on things checked and found clean (for the record, not separate findings)
+
+- Imaginary unit (`\mathrm{i}`), differential (`\mathrm{d}`), partial-derivative subscripting
+  (`\partial_{x_i}`, `\partial^2_{x_i x_i}`), and the `\left`/`\right` ban are all followed consistently
+  everywhere sampled; no bare-italic `i`, no `\imath` used live (only mentioned as the forbidden form in
+  its own gloss), no unmatched `\left(`/`\left[`.
+- "Knob"/"tweak" register: zero occurrences. "Per-step"/"hot loop" cadence language is confined to
+  `ARCHITECTURE.md`/`PERFORMANCE.md`, which the rubric explicitly exempts.
+- Particle/tracer vocabulary is confined to (a) explicit statements that the package deliberately avoids
+  that vocabulary, and (b) the consumer-facing `examples/hist_cpu` demo, both allowed by the rubric.
+- Admonition titles are uniformly custom and descriptive (no bare "Warning"/"Note" found in the built
+  HTML `admonition-header` spans, 26 instances checked across 8 pages).
+- `@ref` cross-references all resolved to live links in the built HTML; no literal `@ref` text leaked, no
+  "link immediately followed by a code span" seam found.
+- Citation author-count register (≤3 named, `First et al.` for 4+) is applied correctly everywhere
+  sampled, including the TurTLE citation (4 authors → "Lalescu et al. (2022)") vs. the 2010 paper (3
+  authors → named in full).
+- "The arguments are:"-headed blocks are uniformly colon-terminated (32/32) and uniformly em-dash
+  separated except the one FieldTransformPlans straggler noted in Finding 2.
+- No stray ASCII `alpha`/`beta` prose words outside the two documented exceptions (the NUFFT `beta`
+  keyword, `alpha_beta`/`beta_n{n}_m{m}` identifiers).
+- The Grafakos citation's theorem-number placeholder is resolved ("Thm 2.5.10"), not left as a
+  placeholder.

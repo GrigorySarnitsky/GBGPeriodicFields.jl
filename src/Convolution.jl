@@ -1516,8 +1516,8 @@ Use it to move a field onto a displaced grid without re-gridding — a shift-and
 relocation of a probe, or the displaced evaluation of a phase-shift de-aliasing scheme. Apply it with
 [`convolve`](@ref) / `convolve!`, which is allocation-free in place; because a scalar kernel
 multiplies every fiber component, one call translates a whole vector or tensor field, and because the
-kernel depends on nothing but the displacement, one kernel serves every field it is applied to (its
-own cost is a single pass over the coefficients). To *sample* the field at the displaced positions
+kernel depends on nothing but the displacement, one kernel serves every field it is applied to (and
+since decision 50 it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
 ``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
 one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
@@ -1543,14 +1543,14 @@ assembled per axis from that wavenumber's component ``k_a`` and the displacement
 axis:
 
 ```math
-\\hat g(k) = e^{-\\mathrm{i}  k \\cdot h}
-          = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(k_a h_a) \\bigr].
+\\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(\\kappa_a h_a) - \\mathrm{i} \\sin(\\tilde\\kappa_a h_a) \\bigr],
 ```
 
-The two factors draw on the package's two wavenumber families: the even cosine takes the **true**
-wavenumber ``k_a`` and the odd sine the **Nyquist-zeroed derivative** wavenumber. These coincide on every
-resolved mode — so the factor there is the pure phase ``e^{-\\mathrm{i} k_a h_a}`` above — and
-part only at an even axis's Nyquist frequency, where the warning below applies.
+where ``\\kappa_a`` is the **true** wavenumber and ``\\tilde\\kappa_a`` the **Nyquist-zeroed derivative**
+one — the package's two families, and the reason this is written with two symbols rather than as the
+bare phase ``e^{-\\mathrm{i} k \\cdot h}``. The two coincide on every resolved mode — so the factor there
+**is** that pure phase — and part only at an even axis's Nyquist frequency, where the warning below
+applies.
 
 !!! warning "At the Nyquist frequency the phase becomes a real attenuation"
     On an even-length axis the Nyquist mode of a real field carries a single real amplitude that

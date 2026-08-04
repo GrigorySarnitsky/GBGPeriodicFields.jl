@@ -1,133 +1,122 @@
-# Panel review — Software Architect / senior Julia hat
+# Software Architect / Senior Julia Programmer — Documented Design Review
 
-Reviewed: the full rendered site (`manuscript-full.md`) — Home, API overview, Architecture
-(incl. §13 decision log), Formalization, Notation, Performance, Testing, Tutorial, every API
-reference page, and the HIST_CPU example.
-
-Overall the documented design is coherent and idiomatic: the `f`/`f!` convention is applied
-uniformly (the `!` form is the home with the formula, the allocating form a thin `@ref` wrapper),
-argument orders are idiomatic (destination first for `!`; the "context" argument — `multipliers` /
-`plans` / weight `w` — last, with the optional second field inserted before it, consistently across
-`radial_spectrum`/`radial_correlation`/`weighted_inner`), the α/β accumulation convention is uniform
-(`mul!`/`convolve!`/`combine!`/`anterpolate!`), the intentional-absence rules (nonlinear ⇒
-physical-only) are consistently stated, and the module decomposition (FiberSections core → Fields /
-Points objects → FieldAlgebra / DifferentialOperators / Convolution / Interpolation / Reductions ops)
-is single-source with no god-objects. The findings below are the places the documentation fights
-itself or good practice.
+Reviewing the rendered manuscript (Home, Architecture, Formalization, Notation, Performance,
+Testing, Tutorial, all `api/*` pages, and the `examples/hist_cpu` page) as a Julia expert judging
+the *documented* API and architecture: signatures, module decomposition, abstraction boundaries,
+and internal consistency of the design narrative itself.
 
 ---
 
-## Finding 1 — §2 method-count self-contradiction: "206-method surface" but the walk-through stops at 202
+## Finding 1
 
-- type: contradiction
-- severity: major
-- confidence: high
-- locations:
-  - architecture §2 "Representation validity lives in the method set": "The **206-method** public surface of `FieldAlgebra` is the machine-checkable encoding of the validity table above. Any refactor must reproduce the method set exactly; it was verified signature-for-signature against the original — M2 (98 methods: `add!`/`subtract!`/`multiply!`/`divide!`/`+`/`-`/`*`/`/`) and then M3 (…), bringing the total to **198**; the later trace `tr`/`tr!` addition brings it to **202**, all parity-checked at runtime in `test/method_parity.jl`."
-  - architecture §6 "Verifying codegen changes": "The full M2+M3 baseline is **206** public methods (e.g. `*` 28, `mul!` 30, `dot`/`dot!` 10 each, `add!` 14, `combine!` 2, `tr` 2, `det`/`det!` 1 each)."
-  - architecture §13 decision 27: "The public method set **grows to 206 field methods** (`combine!` adds 2, `det`/`det!` 1 each)…"
-- contradicts: the same §2 paragraph headlines "206-method public surface" but its own running count reaches only 202 (98 M2 + M3 + `tr`/`tr!`), never reconciling the remaining 4. The M2 list ("98 methods: add!/subtract!/multiply!/divide!/+/-/*//") omits `combine!`, and the walk-through omits `combine!`/`det`/`det!` entirely — the exact +4 that decision 27 (and §6) attribute to reaching 206. Axis: total public method count (206 headline vs 202 derived).
-- description: The "public method set is the spec" invariant is the flagship of the whole design, so the one place where the arithmetic must close is precisely where it does not. The headline number (206) was updated for decision 27 but the explanatory walk-through was left in its pre-decision-27 state (stopping at `tr`/`tr!` = 202). A reader auditing the invariant cannot reconcile the paragraph against itself.
-- resolution_hint: extend the §2 walk-through to include `combine!` in M2 and `det`/`det!`, taking the running total 202 → 206; or drop the exact running tally and cite the §6 breakdown.
+- **Type:** contradiction
+- **Severity:** major
+- **Confidence:** high
+- **Locations:**
+  - PAGE: api / FieldAlgebra, section "Internal API": *"the contraction formula builders, **the aliasing guard**, and the constant / zero-mode helpers"*
+  - PAGE: api / Points, section "Internal API": *"the allocator, the broadcast style, and **the alias guard**"*
+  - PAGE: examples / hist_cpu: `helmholtz_projection!(uh, uh, m) # make solenoidal (alias-guarded)`, versus the same file's own `helmholtz_projection!(Nh, ws.Nt, m) # ... DISTINCT dest ⇒ no-alias path (no allocation)`
+- **Contradicts:** PAGE: architecture, §7 / decision-39 entry: *"The former guard family (`_guard_noalias!`...) is retired — decision 39 removed its last callers."* — axis: whether an alias-guard mechanism still exists anywhere in the codebase.
+- **Description:** Architecture repeatedly and emphatically states the alias-guard family was retired (aliased calls are now computed directly, bitwise-identical, no temporary — invariant 9). Yet two module "Internal API" intros (FieldAlgebra, Points) still list "the alias guard"/"alias guard" among contributor-facing internals — though neither section's actual listing that follows documents a guard function — and the HIST_CPU.jl example labels an aliased `helmholtz_projection!` call "(alias-guarded)" while a sibling call in the same file correctly uses current "no-alias path" language. A repeated stale-terminology class, not a one-off typo.
 
-## Finding 2 — §10 says the point-data types "live in the `Interpolation` module" — stale; they live in `Points`
+---
 
-- type: contradiction
-- severity: major
-- confidence: high
-- locations:
-  - architecture §10 "Data types — the unstructured base": "…compatibility reduces to `M`-matching and matching tensor order (a `_check_…` predicate in the `Fields` style). **The types live in the `Interpolation` module**, importing `Fields` helpers via an explicit `using ..Fields: …`." (§10 300–337 never mentions the `Points` module.)
-  - architecture §13 Phase-A decision: "The former `Interpolation` module is **split into `Points`** (unstructured-base section objects + their generated algebra — a noun peer of `Fields`) and `Interpolation` (the transfer maps…)."
-  - umbrella `GBGPeriodicFields` module docstring: "`Points` supplies the point-data types and their fiberwise algebra, mirroring the physical field surface."
-  - Points API module docstring: "The unstructured base of the package's fiber-bundle model: off-grid sample positions and the field values sampled at them… `Point`… `PointSet`… `ScalarPointValues`, `VectorPointValues`, and `TensorPointValues`…"
-- contradicts: §10 (a body/"home" section) states `Point`/`PointSet`/`PointValues` live in `Interpolation`, while the §13 Phase-A decision, the umbrella docstring, and the entire Points API page place them in the `Points` module. Axis: which module hosts the point-data types.
-- description: This is an intra-document contradiction — §10 and §13 of the same architecture file disagree — and §10 also contradicts the Points API page and the umbrella. §10 is the designated home for the transfer-layer detail, so it should reflect the post-Phase-A layout. As written it will mislead a reader (or a future contributor extending the point layer) about where the types live.
-- resolution_hint: update §10's "Data types" paragraph to say the point-data types live in `Points` (transfer maps in `Interpolation`), matching the Phase-A split.
+## Finding 2
 
-## Finding 3 — Performance §6/§7: rendered identifiers lose their underscores (and spaces around inline code)
+- **Type:** api-gap
+- **Severity:** minor
+- **Confidence:** high
+- **Locations:** PAGE: api / Fields, "Field types" section (lists `AbstractFieldPhysical`, `AbstractFieldSpectral`, and the six concrete types only) and "Internal API" section (no entry either); yet `AbstractField` is used as the type constraint in numerous public signatures across pages, e.g. PAGE: api / Fields `field_data(field::AbstractField)`, `field_grid(field::AbstractField)`, `similar_field(reference::AbstractField, data)`; PAGE: api / Fields "HDF5 persistence" `write_field(parent, name, field::AbstractField)`; PAGE: api / FieldAlgebra Internal API `_copy_field_data!(destination::AbstractField, field::AbstractField)`.
+- **Description:** `AbstractField` is never introduced or defined on any rendered page — not in the Fields module's "Field types" list, not in its "Internal API" list — despite being the declared type of arguments in some of the most fundamental public accessors (`field_data`, `field_grid`, `field_layout`, `write_field`/`read_field`, `similar_field`). A reader meets the identifier a dozen times but is never told what it is or where it sits relative to `AbstractFieldPhysical`/`AbstractFieldSpectral`/`AbstractFiberSection` — the exact "term never defined or linked" defect the project's own self-containedness rule targets.
 
-- type: typesetting
-- severity: major
-- confidence: high
-- locations:
-  - performance §6: "the radial diagnostics (`radialspectrum`/`radialcorrelation`) bin on an Atomix scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —`radialspectrum`at 256³ is ≈12× faster on the 5070 Ti than the 7900 XTX in`Float32`, widening to ≈32× in`Float64`(92 → 2.9 ms); the extra`Float64`factor…for`Float32`→`Float64`on this op… The full…matrix is in`RESULTS.md`:"
-  - performance §7: "The decision-27 additions (`combine!`, `det!`, `symmetricgradient!`,`weightedinner`) are wired into their classes and CPU-verified (0 allocations for`combine!`/`det!`; the small bounded wrappers for`symmetricgradient!`/`weighted_inner`)…they enter the committed`RESULTS.md` table…"
-- contradicts: the identifiers `radial_spectrum`, `radial_correlation`, `symmetric_gradient!`, `weighted_inner` are spelled with underscores everywhere else in the docs (API pages, Reductions/DifferentialOperators docstrings, §12, Testing). Here they render as `radialspectrum` / `radialcorrelation` / `symmetricgradient!` / `weightedinner`. Line 769 even shows `weighted_inner` correctly once and as `weightedinner` once, in the same sentence.
-- description: These prose mentions were written without backticks (or the backticks were mis-placed), so CommonMark ate the underscores as emphasis and collapsed the spaces adjacent to inline code (`in`Float32``, `—`radialspectrum`at`). The rendered page shows public API names that do not exist (`radialspectrum`, `weightedinner`) — a reader who tries to grep or call them fails, and it directly conflicts with the correctly-spelled names on every other surface. This is the exact class the project's own doc rules call out (an underscored identifier in prose must be backticked).
-- resolution_hint: backtick every identifier in these two paragraphs (`radial_spectrum`, `radial_correlation`, `symmetric_gradient!`, `weighted_inner`) and restore the spaces around each inline-code span.
+---
 
-## Finding 4 — Decision-log entries still assert the pre-decision-27 baselines (198 / 118) as "unchanged"
+## Finding 3
 
-- type: contradiction
-- severity: minor
-- confidence: medium
-- locations:
-  - architecture §13 decision 20 (Convolution): "`convolve` / `convolve!` / `spectral_cutoff` are separate generics, so the `FieldAlgebra` **198-method** and point-value **118-method** parity baselines **are unchanged**."
-  - architecture §13 decision 22 (co-spectra): "no export change, the **198/118** parity baselines are unchanged."
-  - architecture §13 decision 23 (spectral transfer): "method parity **198/118** unchanged (the transfer verbs are not in those surfaces)."
-  - architecture §13 decision 27 / §10 / testing: "**206** field methods … **122** point-value methods"; "locked by a separate **122**-method parity baseline, the **206**-method field surface"; "the 206-method field and 122-method point-value parity baselines".
-- contradicts: decisions 20/22/23 state, in the present tense, that the baselines "are unchanged" at 198/118, while decision 27, §10, and the Testing page give the current baselines as 206/122. Axis: current parity-baseline counts.
-- description: The log's preamble ("later entries supersede earlier *remaining/deferred* notes rather than contradicting them") is scoped to remaining/deferred notes, not to hard numeric "…are unchanged" assertions — and the doc explicitly supports reading each decision entry "on its own." A reader landing on decision 23 reads "198/118 unchanged" as current fact, which decision 27 later falsifies. This is softer than findings 1–2 (it is the chronological log, and the current number is stated authoritatively in decision 27), but the present-tense "are unchanged" phrasing makes the staleness read as a live claim.
-- resolution_hint: leave the historical entries but neutralize the present-tense counts (e.g. "left the then-current 198/118 baselines unchanged"), or drop the raw numbers from the pre-27 entries and rely on decision 27 for the count.
+- **Type:** contradiction
+- **Severity:** minor
+- **Confidence:** high
+- **Locations:** PAGE: api / Interpolation, module docstring: *"Interpolation yields a value while its adjoint returns a field, **the one asymmetry** in the API."*
+- **Contradicts:** the same docstring's own signature blocks, a few lines above/below — axis: whether that is really the *only* asymmetry between `interpolate`/`anterpolate`.
+- **Description:** The same page's signatures show at least two more asymmetries the text never flags: `anterpolate!` carries an α/β accumulate pair (`α::Real = true, β::Real = false`) that `interpolate!` has no counterpart for; and the allocating `anterpolate`'s first argument is `grid::Grid3D` for the spline schemes but `reference::AbstractFieldSpectral` for `DirectDFT`/`NUFFT`, whereas `interpolate`'s first argument is uniformly a field across every scheme family. "The one asymmetry" undercounts by at least two, an overclaim of exactly the kind the project's own review checklist warns against.
 
-## Finding 5 — `weighted_inner` is missing from the Home and API-overview Reductions summaries (present in the umbrella/module/§12)
+---
 
-- type: contradiction
-- severity: minor
-- confidence: high
-- locations:
-  - api-overview page, Reductions bullet: "Reductions: the L²/measure structure — base reductions (`integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/`var`, `maximum`) over fields and point-values, plus the radial pair `radial_spectrum` … and `radial_correlation` …" — no `weighted_inner`.
-  - Home page, Reductions bullet: "…the measure-weighted `integral`, `inner`, `l2norm`, `lpnorm`, and `mean`/`std`/`var` … plus the measure-independent `maximum`/`minimum`/`extrema` …; plus the radial pair `radial_spectrum` … and `radial_correlation` …" — no `weighted_inner`.
-  - umbrella `GBGPeriodicFields` module docstring: "`Reductions` provides the L²/measure reductions `integral`, `inner`, **`weighted_inner`**, `l2norm`, and `lpnorm`, plus the radial diagnostics…"
-  - Reductions API module docstring / architecture §12 / Formalization: all name `weighted_inner`.
-- contradicts: the umbrella docstring (rendered on the GBGPeriodicFields API page) lists `weighted_inner` in the Reductions surface, but the Home page and the API-overview page — both of which mirror the same per-module component list — omit it. Axis: whether `weighted_inner` is part of the advertised Reductions surface.
-- description: A public exported reduction (`weighted_inner`, decision 27) is dropped from the two top-level surface summaries while every other summary includes it. It is the class of staleness the project's doc checklist targets (a summary that names only a subset of what the module provides), and it is an internal inconsistency between summaries that should agree.
-- resolution_hint: add `weighted_inner` to the Home and API-overview Reductions bullets.
+## Finding 4
 
-## Finding 6 — `FieldSpectralMultipliers(field)` promised as "documented separately below" — no such entry appears
+- **Type:** design
+- **Severity:** minor
+- **Confidence:** high
+- **Locations:** PAGE: api / Convolution, `exponential_convolve!` (six signatures shown, spanning 4–9 positional arguments); compare `NUFFT(reference; tol=1e-10, oversampling=2, width=0, beta=0)` and `Grid3D(...; origin=...)` on PAGE: api / Interpolation and PAGE: api / Fields.
+- **Description:** Across `exponential_convolve!`'s own overload set, `α`/`β` name two different things: trailing accumulate weights in the single-field forms (`dest = α·kernel·field + β·dest`, `convolve!`'s convention) but leading combination weights in the two-field forms (`α·a + β·b`, `combine!`'s convention) — distinguished only by argument position/count. This is the exact "glyph-collision" failure mode decision 33's own text names and avoids *within* one signature, just not *across* the generic's method table. The `offset_scale`/`offset` pair is also handled by arity-overloading rather than as keywords, unlike the package's own keyword idiom for comparable optional extras elsewhere (`NUFFT`'s `tol`/`width`/`beta`, `Grid3D`'s `origin`).
 
-- type: api-gap
-- severity: minor
-- confidence: medium
-- locations:
-  - Fields API, `FieldSpectralMultipliers` type docstring: "A **convenience constructor `FieldSpectralMultipliers(field)`** builds both families from the field's grid and layout with the correct Nyquist treatment; **it is documented separately below**."
-  - The rendered `FieldSpectralMultipliers` block shows only the two explicit constructors (`(grid, layout, +6 arrays)` and `(field, +6 arrays)`); no separate `FieldSpectralMultipliers(field)` (single-argument) entry appears anywhere on the Fields page.
-- contradicts: the type docstring's cross-reference ("documented separately below") has no target. The single-argument convenience constructor is the one actually used in the Tutorial (`FieldSpectralMultipliers(scalar_spectral)`) and in the DifferentialOperators module docstring ("built from a field with `FieldSpectralMultipliers(field)`"), so it exists — it is just not documented where the page says it is.
-- description: A dangling "documented … below" pointer on a public constructor. Either the convenience constructor's own docstring is missing from the page's `@docs` blocks, or the phrase should have been "one of the constructors above." Minor, but it is a broken promise on the primary type a user constructs to run any spectral operator. (Possible consolidation artifact — flagged as seen in the provided text.)
-- resolution_hint: add a `@docs` entry for the `FieldSpectralMultipliers(field)` convenience constructor, or fold its signature into the type block and drop the "documented separately below" phrase.
+---
 
-## Finding 7 — the public callable `field(x)` is filed under Interpolation's "Internal API / documented for contributors"
+## Finding 5
 
-- type: organization
-- severity: minor
-- confidence: medium
-- locations:
-  - Interpolation module docstring, API list: "plus the callable **`f(x)`** (and its broadcast `f.(xs)`) as the ergonomic face of a single-point gather."
-  - Interpolation API page "## Internal API": "These symbols are **not part of the public interface**; they are documented for contributors — the scheme supertype `AbstractSplineScheme`, the spline-weight generators…" — immediately followed by the entry `(field::AbstractFieldPhysical)(x; scheme = CatmullRom)` ("This is the ergonomic face of a one-point `interpolate` gather…").
-- contradicts: the module docstring advertises `f(x)` as a first-class ergonomic public interface, while its reference entry sits under the "not part of the public interface / documented for contributors" heading. Axis: public vs internal classification of the callable.
-- description: The call-overload `field(x)` is a headline user-facing feature (the module docstring lists it under "API"), but a user browsing the reference for it finds it grouped with the spline-weight generators and cell-finding internals. This is an organization/altitude defect — a public operation placed in the contributors' section.
-- resolution_hint: move the `(field::AbstractFieldPhysical)(x; scheme)` docs entry up under "Transfer operations" (alongside `interpolate`), not under "Internal API."
+- **Type:** typesetting
+- **Severity:** minor
+- **Confidence:** high
+- **Locations:** PAGE: notation, "Base and fiber" table.
+- **Description:** The rendered conventions table breaks mid-row for `k`: *"$k$ | a wavenumber vector ($k_a$ is its $a$-th component, `` | k"* — a stray double-backtick and pipe truncate the "Code" column instead of rendering it, exactly the literal-pipe-in-a-table-cell hazard the project's own writing rules elsewhere warn against (for §13 decision-log tables). Notably this breaks the single canonical notation-reference page every docstring is told to defer to rather than repeat.
 
-## Finding 8 — NUFFT default tolerance: `tol = 1e-10` (API) vs "~10⁻¹² at the default" (decision 23)
+---
 
-- type: contradiction
-- severity: minor
-- confidence: medium
-- locations:
-  - Interpolation API, `NUFFT` constructor: "`NUFFT(reference::AbstractFieldSpectral; tol = 1e-10, oversampling = 2, width = 0, beta = 0)`".
-  - architecture §13 decision 23: "Verified against `DirectDFT` (and `to_physical`) to the requested tolerance $\varepsilon$ (**$\sim 10^{-12}$ at the default**) for scalar and vector fields, with the NUFFT pair an exact adjoint ($\sim 10^{-15}$)."
-- contradicts: the default requested tolerance is `1e-10` (API), but decision 23 characterizes the default as "~10⁻¹²." Axis: the numeric value of the default NUFFT accuracy.
-- description: Read literally, "the requested tolerance ε (~10⁻¹² at the default)" equates the default ε with 10⁻¹², which disagrees with the `tol = 1e-10` default. Most likely this is requested-vs-achieved (the exp-of-semicircle rule over-delivers, so a requested 1e-10 verifies at ~1e-12), but the phrasing conflates the two and reads as a contradiction to a reader cross-checking the constructor default.
-- resolution_hint: reword decision 23 to distinguish requested (`tol = 1e-10`) from achieved (~10⁻¹²), e.g. "verified better than the requested `tol` (~10⁻¹² at the default `1e-10`)."
+## Finding 6
 
-## Finding 9 — Notation glossary defines wavenumber magnitude as ‖k‖, but the entire body uses |k|
+- **Type:** api-gap
+- **Severity:** minor
+- **Confidence:** medium
+- **Locations:** PAGE: api / Fields, "Internal API", `similar_field`: *"used by out-of-place field broadcasting and by allocating algebraic operations."* PAGE: examples / hist_cpu, `make_workspace`: eight scratch fields each built by hand via `spectral_field_shape(...)` + `zeros` + an explicit type constructor.
+- **Description:** `similar_field`/`similar_pointvalues` are documented only as non-public Internal API, yet do exactly what a solver author needs to build compatible scratch fields. The flagship example — explicitly "written the way a real consumer would use `GBGPeriodicFields`" — never calls them, instead hand-rolling the equivalent pattern eight separate times in `make_workspace`. Either the helper deserves public status, or the reference example is missing a chance to demonstrate the idiomatic allocation pattern it exists to showcase.
 
-- type: normalization
-- severity: minor
-- confidence: medium
-- locations:
-  - notation page, Base-and-fiber table: "$k$ | a wavenumber vector ($k_a$ is its $a$-th component, **$\lVert k\rVert$** its magnitude) | FieldSpectralMultipliers".
-  - everywhere in the body: `laplacian!` "$|k|^2 = k_1^2 + k_2^2 + k_3^2$"; §4 "$-|k|^2$"; Formalization "$\mathrm{round}(|k|/\Delta k)$", "$\sum_c |\hat f_c|^2$"; decision 21 "the shell wavenumber $\kappa$ ($= |k|$)"; radial reductions "$|k|$-shells".
-- contradicts: the notation page — billed as "the single reference … with the code object each one denotes" — introduces the wavenumber magnitude as ‖k‖, a glyph that then appears nowhere in the docstrings or design docs, which uniformly write |k| (and κ for the binned/shell magnitude). Axis: the symbol for |k|.
-- description: One-concept / one-notation is broken between the glossary and its own usage: a reader who meets |k| in the Laplacian docstring and looks it up in the glossary finds only ‖k‖. Since the notation page is the canonical reference, the mismatch is more visible than an ordinary body inconsistency.
-- resolution_hint: change the notation-page entry to "$|k|$ its magnitude" (matching the body), or switch the body to ‖k‖ — the former is the smaller edit and matches physics convention already in use.
+---
+
+## Finding 7
+
+- **Type:** design
+- **Severity:** minor
+- **Confidence:** medium
+- **Locations:** PAGE: api / Fields, `Grid3D`: four-argument constructor `(grid_size, domain_size, grid_spacing, origin)`; *"The two-argument constructor computes `grid_spacing = domain_size ./ grid_size`."*
+- **Description:** `Grid3D` is introduced as a "Uniform three-dimensional grid," yet its explicit four-argument constructor accepts `grid_spacing` as an argument independent of `domain_size`/`grid_size`, with no stated invariant tying them together — only the two-argument convenience constructor guarantees consistency, by computing spacing itself. As documented, nothing stops a caller of the full constructor from passing a `grid_spacing` inconsistent with `domain_size ./ grid_size`, silently building a self-contradictory "uniform" grid — a denormalized field with no described consistency check.
+
+---
+
+## Finding 8
+
+- **Type:** normalization
+- **Severity:** minor
+- **Confidence:** medium
+- **Locations:** PAGE: api / Reductions, `Statistics.var`: *"the Bessel-corrected mean of the squared deviation... $\tfrac{1}{N-1}\sum_n$"*; contrast `mean`: *"$\tfrac{1}{N}\sum_n f_n$"*.
+- **Description:** `var`/`std` default to the sample (N−1, Bessel-corrected) convention even on a `Grid3D`, where all N cells are the complete, exactly-known population, not a subsample drawn from a larger one — precisely the case where the biased 1/N estimator is exact and no correction is warranted. `mean`/`integral` use plain 1/N throughout with no such option. The package inherits `Statistics.var`'s default keyword rather than re-examining it for the always-exhaustive grid/point-set population the rest of the reduction family is built around.
+
+---
+
+## Finding 9
+
+- **Type:** design
+- **Severity:** nit
+- **Confidence:** medium
+- **Locations:** PAGE: api / FiberSections, "Threading configuration": `set_threading_cutoff!(n)` versus `with_threading(f; enabled=...)`.
+- **Description:** `threading_cutoff`/`set_threading_cutoff!` mutate ordinary global state with no scoping described, while `with_threading` is explicitly *"dynamically scoped and task-local, so it affects only `f()` and is restored afterwards."* Two controls governing the same threading decision, documented side by side in one small section, follow two different concurrency-safety models — one safe under concurrent tasks by construction, the other a shared mutable global a concurrent caller could race against.
+
+---
+
+## Finding 10
+
+- **Type:** organization
+- **Severity:** nit
+- **Confidence:** medium
+- **Locations:** PAGE: architecture, decision-log "Phase A consolidation" entry: *"`Points` (unstructured-base section objects + their generated algebra — a noun peer of `Fields`)"*.
+- **Description:** For the grid base, types (`Fields`) and fiberwise algebra (`FieldAlgebra`) live in two separate modules; for the point base, both roles fold into one module, `Points`, described as a "peer" of `Fields` alone. The two bases are presented throughout as symmetric ("same fibers, different base"), but their module decomposition is not: "where does the algebra for X live" has a different answer depending on which base X uses.
+
+---
+
+## Finding 11
+
+- **Type:** performance
+- **Severity:** nit
+- **Confidence:** low
+- **Locations:** PAGE: api / Reductions, `weighted_inner`: *"comparable to one spectral `inner`"*.
+- **Contradicts (soft):** PAGE: architecture, decision-40 entry: *"`weighted_inner` stays serial for now... deferred with the exponential family's hoist."*
+- **Description:** The `weighted_inner` docstring frames its cost as "comparable to one spectral `inner`," but Architecture's decision 40 records that every other reduction, `inner` included, now runs on the bitwise thread-count-invariant fixed tree, while `weighted_inner` explicitly stays serial. The comparison is algorithmically fair (same single-pass shape) but does not flag that the two no longer scale alike on a threaded CPU — a caller benchmarking one against the other on the decision-37 many-core target would see a gap the docstring doesn't anticipate.
