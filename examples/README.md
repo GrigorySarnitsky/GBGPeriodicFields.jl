@@ -49,18 +49,22 @@ and the PNGs `structure_functions` (the headline two-panel figure), `spectrum`, 
 
 ### Method
 
-Incompressible Navier–Stokes in **rotational form**, so the nonlinear step maps onto the package:
+Incompressible Navier–Stokes in **rotational form**, so the nonlinear step maps onto the package. Here
+$\hat u$ is the velocity in spectral representation, $\mathbb{P}$ the Helmholtz projection onto
+divergence-free fields, $\nu$ the kinematic viscosity, and $\kappa$ the wavenumber magnitude — written
+$\kappa$ rather than $k$ throughout, because this page follows the turbulence convention in which $k$
+is the turbulent kinetic energy:
 
 ```math
-\frac{\partial \hat u}{\partial t} = \mathbb{P}\bigl[\widehat{u\times\omega}\bigr] - \nu k^2 \hat u + \hat f, \qquad \omega = \nabla\times u, \qquad \mathbb{P} = \text{Leray (Helmholtz) projection}
+\frac{\partial \hat u}{\partial t} = \mathbb{P}\bigl[\widehat{u\times\omega}\bigr] - \nu \kappa^2 \hat u + \hat f, \qquad \omega = \nabla\times u, \qquad \mathbb{P} = \text{Leray (Helmholtz) projection}
 ```
 
-- **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via $\exp(-\nu k^2 \Delta t)$, the
+- **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via $\exp(-\nu \kappa^2 \Delta t)$, the
   nonlinear term explicit; $\Delta t$ from advective CFL. The whole step is **in-place over a preallocated
   workspace** — `curl!`, `to_physical!`/`to_spectral!`, `cross!`, `helmholtz_projection!`, `convolve!`,
   and raw-array AXPYs write into preallocated buffers, so a step allocates no fields.
 - **De-aliasing:** 2/3 rule, the package's `spectral_cutoff` sharp low-pass kernel (`convolve!`).
-- **Forcing:** rescale the lowest shells ($1 \le |k| \le 2$) to a fixed energy each step — deterministic,
+- **Forcing:** rescale the lowest shells ($1 \le \kappa \le 2$) to a fixed energy each step — deterministic,
   unconditionally stationary (scaling preserves $\nabla\cdot u = 0$).
 - **Particles:** a few thousand tracers, RK2 advection on the start-of-step velocity via `interpolate`,
   positions wrapped periodically; per-tracer velocity recorded for the Lagrangian statistics. *(The
@@ -71,10 +75,10 @@ Incompressible Navier–Stokes in **rotational form**, so the nonlinear step map
 `Grid3D`, the field types, `FieldTransformPlans` + the in-place `to_physical!`/`to_spectral!`,
 `FieldSpectralMultipliers`, the in-place `curl!`, `cross!`, `helmholtz_projection!`, `divergence`; the
 **L²/measure reductions** `inner`/`l2norm` (energy $\tfrac{1}{2}\langle u, u\rangle$, dissipation $\nu\langle\omega, \omega\rangle$, the
-divergence check $\lVert\nabla\cdot u\rVert$), `radial_spectrum` (the energy spectrum $E(k)$) and
+divergence check $\lVert\nabla\cdot u\rVert$), `radial_spectrum` (the energy spectrum $E(\kappa)$) and
 **`radial_correlation`** (the shell-averaged velocity autocorrelation $C(r)$, whose integral is the
 integral length $L$, and from which the Eulerian per-component structure function follows as
-$S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the $\exp(-\nu k^2 \Delta t)$
+$S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the $\exp(-\nu \kappa^2 \Delta t)$
 integrating factor, the IC envelope); and `interpolate` (grid→point). The hot loop uses the **in-place,
 allocation-free** `!` forms throughout — the spectral operators allocate ~0 bytes (`docs/ARCHITECTURE.md`
 decision 24) — and the CFL speed uses `maximum(abs, field_data(u))` rather than `lpnorm` (the latter
@@ -118,7 +122,7 @@ twin (`allowscalar(false)`) forced most of them in.
 - ✅ **Reductions over a field** (`Reductions`): `integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/…
 - ✅ **Apply a diagonal spectral operator $f(k)$** (`Convolution`): `convolve!` + `spectral_cutoff`.
 - ✅ **Radial-symbol and shell-band kernels** (`Convolution`): `radial_kernel`, `spectral_band`.
-- ✅ **Energy spectrum $E(k)$** (`Reductions`): `radial_spectrum`.
+- ✅ **Energy spectrum $E(\kappa)$** (`Reductions`): `radial_spectrum`.
 - ✅ **Eulerian structure function without a hand-rolled spatial shift** — $S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$ reads
   straight off the FFT-based `radial_correlation` (the shell-averaged velocity autocorrelation), so the
   earlier `circshift` reach-in is gone; the integral length $L = \int \rho(r)\,\mathrm{d}r$ comes from the same call.
@@ -156,12 +160,12 @@ over a preallocated workspace and the package's in-place operators are allocatio
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
 representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the earlier 12 GB ceiling, below
-the 320³ RX 7900 XTX run behind the figures above — reaches $\mathrm{Re}_\lambda \approx 109$, $k_{\max}\eta \approx 1.33$ (comfortably resolved), and sustains **≈ 87
+the 320³ RX 7900 XTX run behind the figures above — reaches $\mathrm{Re}_\lambda \approx 109$, $\kappa_{\max}\eta \approx 1.33$ (comfortably resolved), and sustains **≈ 87
 ms/step** (9000 steps, ≈ 785 s of simulation), with the spectral-`inner` Parseval check matching the
 physical energy to all printed digits and $\lVert\nabla\cdot u\rVert_{\text{rel}} \approx 1.6\times 10^{-7}$ (Float32 roundoff). It fits 12 GB because
 the working set stays ≈ 6 GB (≈ 8 GB peak through the snapshots) — both the time loop and the radial
 binning are allocation-bounded. This is about the practical $\mathrm{Re}_\lambda$ ceiling for the scheme: a lower $\nu$
-raises $\mathrm{Re}_\lambda$ but drops $k_{\max}\eta$ below ≈ 1.1, where the marginally-resolved flow blows up over a long
+raises $\mathrm{Re}_\lambda$ but drops $\kappa_{\max}\eta$ below ≈ 1.1, where the marginally-resolved flow blows up over a long
 averaging window. `--huge` (192³, $\mathrm{Re}_\lambda \approx 93$) is the lighter, very comfortable fit. An *allocating* style would instead grow the device pool every step until it
 wedges or `hipMalloc` aborts — which is exactly why a real GPU DNS preallocates.
 

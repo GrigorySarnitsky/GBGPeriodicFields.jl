@@ -261,7 +261,9 @@ function run_value_lane(configs)
                                                              ref_dft_inverse(field_data(Ah), grid, layout)),
       (:to_spectral!,  field_data(to_spectral!(similar_field(spectral_zero, Val(0)), ScalarFieldPhysical(copy(ds), grid, layout), plans)),
                                                              ref_dft_forward(ds, grid, layout)),
-      (:squared_wavenumber_field, GBGPeriodicFields.Convolution._kernel_data(materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
+      # The |k|² symbol itself, materialized: `squared_wavenumber_field` was DELETED by decision 60,
+      # so this row tests `radial_kernel(identity, …)`, which is that same object at a closure's cost.
+      (:radial_kernel, GBGPeriodicFields.Convolution._kernel_data(materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
                                                              complex.(ref_squared_wavenumber(grid, layout, shape))),
       (:spectral_cutoff, kernel_data(spectral_cutoff(spectral_zero, multipliers, cutoff)),
                                                              complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
@@ -616,6 +618,13 @@ function run_value_lane(configs)
   # oracle here is NAMED. A value lane that quietly covers a third of the surface reads exactly like one
   # that covers all of it.
   uncovered = sort(collect(setdiff(package_operations(), covered)); by = String)
+  # …and the INVERSE, which nothing checked: a name this lane records as covered that is not a public
+  # operation at all. A row labelled for an operation that has been renamed or deleted keeps claiming
+  # coverage forever, and inflates the "N of M operations have an oracle" line that is this lane's whole
+  # report. `:squared_wavenumber_field` sat here after decision 60 removed it — the row still ran, and
+  # still tested something real, but credited a ghost while the two operations it actually exercises got
+  # nothing from it.
+  ghosts = sort(collect(setdiff(covered, package_operations())); by = String)
 
   println("\n  ", cells, " value comparisons over ", length(configs), " configurations · ",
           length(covered), " of ", length(package_operations()), " operations have an independent oracle")
@@ -623,6 +632,11 @@ function run_value_lane(configs)
     println("\n  NO VALUE ORACLE — ", length(uncovered), " operations are exercised but their computed")
     println("  result is checked against nothing:")
     for chunk in Iterators.partition(uncovered, 7); println("      ", join(String.(chunk), ", ")); end
+  end
+  if !isempty(ghosts)
+    println("\n  COVERAGE CLAIMED FOR A NON-OPERATION — ", length(ghosts), " labels name nothing public:")
+    println("      ", join(String.(ghosts), ", "))
+    println("  Relabel the row for what it actually tests; the count above is wrong until you do.")
   end
   if isempty(disagreements)
     println("  every computed result matches its independent reference")
