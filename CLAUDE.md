@@ -1231,6 +1231,16 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
+**Open items from the 2026-08-04 survey runs, NOT yet closed.** Two findings the exhaustive survey
+reported that have not been acted on. **(1) `to_spectral!` allocates ~8–12 KB per step** on odd grids
+under permuted layout folds (the sequences lane, measured over 64 steps against a 1260-byte field) —
+invariant 13 is about exactly this measurement, so it is either an FFTW plan-scratch exemption that
+should be documented and bounded, or a real per-step leak. Not investigated. **(2) The value lane has
+never executed against the current package**: `values.jl` did `field + materialize_kernel(...)`, which
+broke when decision 60 made that return a `StoredKernel`, so the lane threw before running from
+2026-08-03 until the fix on 2026-08-04. Its 112 independent oracles are therefore unverified against
+the present code; a run is ~90–115 min and needs consent (see the consent gate above).
+
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with
 `ref_radial_spectrum` on Float32 anisotropic grids. It is not a defect in either: the GATE already

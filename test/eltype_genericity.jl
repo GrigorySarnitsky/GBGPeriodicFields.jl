@@ -102,6 +102,26 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
       @test approx(weighted_inner(us, w1), inner(us, us))
     end
 
+    # `lpnorm` leaked a Float64 for every exponent except the two that return early. The exponents were
+    # written `p` and `1 / p`, which are `Float64` whatever the section holds, so `Float32 ^ Float64`
+    # widened the result — a lost element type, not merely an inference wobble. This testset checked
+    # `weighted_inner` for exactly that leak and never checked the reduction that had it, so the axis is
+    # swept over the exponent here: the two early-return values AND the general branch, integer and
+    # fractional, since only the general branch was ever wrong.
+    @testset "lpnorm preserves element type at every exponent" begin
+      u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(z)), grid)
+      for p in (1, 2, 3, T(2.5), Inf)
+        @test lpnorm(u, p) isa T
+      end
+      @test lpnorm(u, 2) isa T && approx(lpnorm(u, 2), l2norm(u))
+      s = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
+      for p in (1, 3, Inf)
+        @test lpnorm(s, p) isa T
+      end
+      q = ScalarPointValues(rand(T, 12))                   # the counting-measure base, same property
+      @test lpnorm(q, 3) isa T
+    end
+
   end
 end
 

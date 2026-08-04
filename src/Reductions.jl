@@ -1298,7 +1298,13 @@ function lpnorm(section::ReducibleSection, p::Real = 2)
   p == 2 && return l2norm(section)
   magnitude = field_data(LinearAlgebra.norm(section))      # pointwise fiber magnitude (fiberwise norm)
   isinf(p) && return maximum(magnitude)
-  return (sum(magnitude .^ p) / _base_count(section))^(1 / p)
+  # The exponents are converted to the section's own scalar type. Written as `1 / p` they are `Float64`
+  # whatever the section holds, and `Float32 ^ Float64` widens — so a `Float32` field returned a
+  # `Float64` norm for every `p` except the two that return early, which is both a lost element type and
+  # the `Union{Float32, Float64}` inference the survey reports.
+  scalar = section_scalar_type(section)
+  exponent = scalar(p)
+  return (sum(magnitude .^ exponent) / _base_count(section))^(one(scalar) / exponent)
 end
 
 
