@@ -236,6 +236,51 @@ using Statistics: mean, std, var, cov      # extended on sections in the Reducti
         @test isapprox(constant_spectrum[1], c^2; rtol = rtol, atol = atol)
         @test isapprox(constant_spectrum[1], inner(constant, constant); rtol = rtol, atol = atol)
         @test isapprox(sum(constant_spectrum[2:end]), 0; atol = atol)        # nothing above |k| = 0
+        # ── the binning CONVENTION itself, tested without re-implementing it ────────────────────
+        #
+        # The single-mode oracles above pin normalization and placement for one mode; they cannot see a
+        # systematic bias ACROSS shells, which is exactly what a wrong binning convention produces. The
+        # first spectral moment does see it, and needs no shell enumeration to compute exactly:
+        #
+        #     M_exact  = Σ_k α(k) |k| |f̂_k|² / N²          (per mode, no shells at all)
+        #     M_binned = Σ_m κ_m E(κ_m)                     (from the shells the package reports)
+        #
+        # Binning replaces each mode's own |k| by its shell's nominal κ_m, so with CENTRED bins — shell
+        # m holding |k| ∈ [(m−½)Δk, (m+½)Δk) — every mode is misrepresented by at most Δk/2 and the two
+        # moments agree to within (Δk/2)·⟨|f̂|²⟩. That bound is what makes κ_m an energy-density sample
+        # AT κ_m. A left-edge convention (`floor`) would put every mode's nominal κ below its true one,
+        # biasing the moment by ~Δk/2 systematically and failing this — which is the point: this test
+        # discriminates the convention, where an oracle re-implementing `round` merely agrees with it.
+        # The `(1, 1, 1)` mode is what makes this discriminating: |k| = √3 = 1.73, whose fractional
+        # part exceeds a half, so `round` and `floor` place it in DIFFERENT shells. Without it every
+        # mode here sits at |k| ∈ {1, 2, √10} — where the two conventions agree — and the test passes
+        # under either, which is exactly what the first draft did.
+        let field = tospec(ScalarFieldPhysical(
+              (x, y, z) -> cos(x) + 2sin(2y) - cos(x + 3z) + 3cos(x + y + z), gp))
+          shells_m, spectrum_m = radial_spectrum(field, m)
+          data = field_data(field)
+          folded = field_layout(field).fft_dims[1]
+          nyquist = size(data, folded)
+          normalization = T(prod(field_grid(field).grid_size))^2
+          exact_moment = zero(T)
+          for index in CartesianIndices(data)
+            k2 = m.squared_wavenumber_1[index[1]] + m.squared_wavenumber_2[index[2]] +
+                 m.squared_wavenumber_3[index[3]]
+            multiplicity = (index[folded] == 1 || index[folded] == nyquist) ? one(T) : T(2)
+            exact_moment += multiplicity * sqrt(k2) * abs2(data[index])
+          end
+          exact_moment /= normalization
+          binned_moment = sum(shells_m .* spectrum_m)
+          fundamental = T(2π) / maximum(field_grid(field).domain_size)
+          # Δk/4, not Δk/2. Δk/2 is the worst-case bound for centred bins and is therefore ALSO
+          # satisfied by a left-edge convention, so it cannot tell them apart. Measured on this
+          # fixture: centred bins land at 0.150·Δk·⟨|f̂|²⟩ — the per-mode offsets partly cancel,
+          # having both signs — while `floor` lands at 0.450, its offsets being systematically one
+          # way. A quarter-Δk bound sits between, with margin on both sides.
+          @test isapprox(binned_moment, exact_moment;
+                         atol = (fundamental / 4) * inner(field, field) + atol)
+        end
+
         # analytical oracle: cos(x) puts ALL its energy ⟨cos²⟩ = 1/2 in the |k| = 1 shell
         cosine = tospec(ScalarFieldPhysical((x, y, z) -> cos(x), gp))
         _, cosine_spectrum = radial_spectrum(cosine, m)
