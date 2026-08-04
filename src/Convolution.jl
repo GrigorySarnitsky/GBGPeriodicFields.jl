@@ -113,20 +113,22 @@ export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, sp
 """
     StoredKernel(field::ScalarFieldSpectral)
 
-Mark a scalar field in spectral representation as playing the **kernel** role, so that operations
-defined on kernels rather than on fields apply to it.
+Wrap a scalar field in spectral representation so that it plays the **kernel** role — one coefficient
+per mode, the ``O(N^3)`` storage the compressed classes exist to avoid.
 
-A `ScalarFieldSpectral` is the storage class for a kernel held as one coefficient per mode, and it is
-accepted directly wherever a kernel is taken — this wrapper is not needed to *apply* one. It exists for
-the operations whose meaning depends on which role the field is playing. [`inv`](@ref) is the case:
-the coefficientwise reciprocal of a *kernel* is the kernel that deconvolves by it, a well-defined
-kernel-algebra operation, while the coefficientwise reciprocal of a *field* is a nonlinear operation on
-a field in spectral representation, which the package does not define (see the representation-validity
-rules in `docs/ARCHITECTURE.md`). The type cannot tell those apart; the call site can.
+The wrapper is required rather than a convenience. A field and a kernel hold identical data, so nothing
+but a type can say which role is meant, and the two admit different operations: the coefficientwise
+reciprocal of a *kernel* is the kernel that deconvolves by it ([`inv`](@ref)), while the same operation
+on a *field* is nonlinear in that field's spectral representation and the package does not define it.
+So a bare `ScalarFieldSpectral` passed where a kernel is expected does **not** dispatch — wrap it here,
+or build the kernel with one of the builders, and the role is then carried by the type rather than
+inferred from the call site.
 
-Composition wraps automatically, because passing a field as a kernel argument already declares the
-role: `convolve(compressed, field)` yields a product whose stored factor is a `StoredKernel`, and that
-product inverts without any wrapping by the caller.
+Wrapping costs nothing per application: the struct holds a reference, and the fused passes reach the
+coefficients through it without an extra read. Wrap once, where the kernel is built.
+
+[`materialize_kernel`](@ref) returns this class, so a compressed kernel expanded into its coefficients
+arrives already in the kernel role.
 """
 struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
   field::F
@@ -260,7 +262,7 @@ The fields are:
 !!! note "Radial, not separable"
     ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so it does not factor into per-axis
     terms and cannot be stored per axis the way a [`SeparableKernel`](@ref) is. The two families are
-    disjoint: a phase depends on direction, a magnitude symbol does not.
+    disjoint: a phase depends on direction, a magnitude-dependent multiplier does not.
 """
 struct RadialKernel{T, F, M, G, L} <: SpectralKernel{T}
   sigma::F
@@ -436,8 +438,8 @@ end
 """
     _kernel_data(kernel)
 
-The coefficientwise multiplier a kernel contributes to a fused pass. A kernel held as a field yields
-its stored array; a [`SeparableKernel`](@ref) yields the **lazy** product of its per-axis factors — an
+The coefficientwise multiplier a kernel contributes to a fused pass. A [`StoredKernel`](@ref) yields
+the array of its wrapped field; a [`SeparableKernel`](@ref) yields the **lazy** product of its per-axis factors — an
 instantiated `Broadcasted`, which both the broadcast route and the linear-indexed fiberwise executor
 consume exactly as they consume an array, so no operator body changes to accept one.
 """
@@ -448,8 +450,8 @@ _kernel_data(kernel::SeparableKernel) =
 """
     _check_kernel_compatibility(field, kernel)
 
-Check that `kernel` was built for `field`'s base and spectral layout. A kernel held as a field defers
-to the field-to-field domain check; a [`SeparableKernel`](@ref) compares the grid and layout it stored
+Check that `kernel` was built for `field`'s base and spectral layout. A [`StoredKernel`](@ref) defers
+to the field-to-field domain check on the field it wraps; a [`SeparableKernel`](@ref) compares the grid and layout it stored
 at construction, and the per-axis factor lengths against the field's stored spectral shape.
 """
 function _check_kernel_compatibility(field, kernel::SeparableKernel)

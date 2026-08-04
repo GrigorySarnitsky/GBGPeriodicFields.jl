@@ -143,6 +143,10 @@ function lint_retired_claims()
      "decision 60 — name the kernel class returned (`StoredKernel`, `SeparableKernel`, `RadialKernel`)"),
     (r"expand\s+it\s+into\s+a\s+scalar\s+field\s+in\s+spectral\s+representation",
      "decision 60 — `materialize_kernel` returns a `StoredKernel`"),
+    (r"accepted\s+directly\s+wherever\s+a\s+kernel\s+is\s+taken",
+     "decision 60 — a bare `ScalarFieldSpectral` does not dispatch as a kernel"),
+    (r"type\s+cannot\s+tell\s+those\s+apart",
+     "decision 60 — the type is exactly what distinguishes the kernel role from the field role"),
     (r"squared_wavenumber_field",
      "removed by decision 60 — use `radial_kernel(identity, reference, multipliers)`"),
   ]
