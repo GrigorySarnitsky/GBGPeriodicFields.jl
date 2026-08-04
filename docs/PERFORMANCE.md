@@ -155,7 +155,7 @@ cost scales with the stencil *volume* ``(2n{+}2)^3``, and the spline degree (`m`
 weight polynomials hide under memory latency. So pick the smoothness for accuracy, never for speed.
 
 | gather scheme | stencil | GPU 256³ (621k pts) | throughput |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | `LalescuSpline(0,0)` (trilinear)   | 2³ = 8   | 0.51 ms                | 1230 Mpts/s |
 | `LalescuSpline(1,1)` (Catmull–Rom) | 4³ = 64  | 3.55 ms                | 175 Mpts/s  |
 | `LalescuSpline(3,m)` (Lalescu 8-pt)| 8³ = 512 | 28.0 ms (flat in `m`)  | 22 Mpts/s   |
@@ -164,7 +164,7 @@ weight polynomials hide under memory latency. So pick the smoothness for accurac
 (stride-1 stencil access) vs `z`-innermost (stride ``N_x N_y``, the grid's ``x``,``y`` dimensions):
 
 | | GPU 256³ | GPU 512³ (Lalescu) | CPU (Catmull–Rom / Lalescu) |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | speedup (x-inner / z-inner) | 1.6–1.7× | **3.9×** (785→203 ms) | 0.75× (i7-12700K, 2026-06 — **superseded**, see below) |
 
 Kept x-inner as a **GPU-first** choice — the CPU's large caches absorb the strided access and its
@@ -274,7 +274,7 @@ its hardcoded single-precision codelet heuristics misjudge this CPU generation. 
 long run. Pure in-place transform, 256³ `Float32`, minimum time:
 
 | threads | c2r (`to_physical!`), `ESTIMATE`→`MEASURE` | r2c (`to_spectral!`), `ESTIMATE`→`MEASURE` |
-|---|---|---|
+|:---|:---|:---|
 | 1 | 170 → 33.3 ms (**5.1×**) | 168 → 33.6 ms (**5.0×**) |
 | 4 | 47.3 → 14.0 ms (**3.4×**) | 46.3 → 12.9 ms (**3.6×**) |
 | 8 | 27.5 → 12.0 ms (**2.3×**) | 26.2 → 10.2 ms (**2.6×**) |
@@ -312,14 +312,14 @@ Splitting it fixes that. Measured with the **same map on both sides** (`mean(det
 `mean(det(A))`, ``N = 128``, `Float64`):
 
 | backend | fused | materialize + reduce | |
-|---|---|---|---|
+|:---|:---|:---|:---|
 | CPU (vectorized blocked loop) | **5.1 ms**, 0 B | 13.0 ms, 16.8 MB | fused 2.5× faster |
 | GPU, RX 7900 XTX (fused `Broadcasted`) | **0.55 ms**, 0 B | 0.69 ms, 16.8 MB | fused 1.3× faster |
 
 Decomposing the CPU side shows why one shape could not do both, and it is not the layout:
 
 | step | ``N = 128``, `Float64`, 1 thread | factor |
-|---|---|---|
+|:---|:---|:---|
 | `maximum` over a contiguous array | 0.56 ms | baseline |
 | reducing a lazy `Broadcasted` instead (one stream, no gather) | 3.1 ms | **5.6×** |
 | three strided streams instead of one | 6.4 ms | 2× |
@@ -362,7 +362,7 @@ operation ran before decision 40 replaced it with a gated CPU loop of the same s
 briefly severed that loop and decision 47 restored it — see the canary lane, §7 gap 3):
 
 | threads | ``64^3`` | ``128^3`` |
-|---|---|---|
+|:---|:---|:---|
 | 1 | 3.9× | 4.1× |
 | 4 | 6.5× | 2.7× |
 
@@ -379,7 +379,7 @@ The exponential family (decision 33) evaluates ``\exp(c|k|^2)`` per mode instead
 kernel field. Whether that pays depends on what the stored route would actually do:
 
 | comparison (vector field) | CPU ``128^3`` F64, 4 threads | GPU ``256^3`` F32, RX 7900 XTX |
-|---|---|---|
+|:---|:---|:---|
 | lazy vs stored kernel, kernel **fixed** | 9.1 vs 5.4 ms — stored 1.7× | 0.94 vs 0.87 ms — stored 1.08× |
 | lazy vs rebuild + apply, exponent **varies** | comparable (the rebuild pays the same `exp`) | 0.94 vs 0.46 + 0.87 ms — **lazy 1.4×** |
 | two-operand fused vs sequential `combine!` + `convolve!` | 9.9 vs 11.3 ms — **fused 1.14×** | 1.11 vs 1.68 ms — **fused 1.5×** |

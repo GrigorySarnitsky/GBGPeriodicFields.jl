@@ -211,7 +211,11 @@ read alongside their code); and a **single element-type keyword** (`T = Float64`
 `LagrangeSpline`, and the callable field's `scheme`) bound in one prose clause does not trigger the
 bulleted form, since one self-evident keyword is not the long-list problem the rule addresses.
 A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_threads!`,
-`set_threading_cutoff!`) take no such sentence; `to_physical!`/`to_spectral!` already steer to their
+`set_threading_cutoff!`) take no such sentence. **`translation_kernel!` is an exemption** (recorded
+2026-08-04, after three independent panel hats flagged the deviation): it rebuilds an existing
+`SeparableKernel` for a new displacement rather than filling a `destination`, so the verbatim sentence
+would name an argument its signature does not have. It carries the same steer reworded to its own
+parameter, and that is the intended form, not drift; `to_physical!`/`to_spectral!` already steer to their
 siblings for the stronger input-preservation reason (invariant 11) and are not doubled.
 
 **An `## Internal API` section splits by heading only when it holds both kinds.** A section documenting

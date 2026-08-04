@@ -2026,9 +2026,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     with a trailing kernel argument** — the decision-32 composition idiom (`divergence!` and
     `helmholtz_projection!` compose the same way) — not a new verb; the earlier `weighted_inner`
     naming (decision 27) is the *reductions* family's convention and stands there. The method is
-    defined in `Convolution` (the kernel is a `Convolution` concept; `FieldAlgebra` precedes it in
-    the include order and never sees kernels), which also keeps the `FieldAlgebra` method-parity
-    baseline untouched by construction — the parity count filters on the defining module. Validity:
+    defined in `Convolution`, and the honest reason is narrower than "include order": `DifferentialOperators`
+    precedes `Convolution` too and kept its own kernel-composed `divergence!`/`helmholtz_projection!`
+    arities (decision 32), so precedence alone does not decide it. What differs is that those two are
+    *operators whose symbol the kernel multiplies*, defined where the operator lives, whereas
+    `combine!`'s kernel form is a convolution applied to a combination — a `Convolution` operation
+    taking a `FieldAlgebra` verb's arguments. Placing it here also keeps the `FieldAlgebra`
+    method-parity baseline untouched, the parity count filtering on the defining module; that is a
+    convenience of the placement, not its justification. Validity:
     spectral-only (a kernel is a spectral object; the physical absence is a validity absence), the
     exponential kernel real, even, and positive — Hermitian-safe by construction — and a
     complex-valued ``\hat w`` breaks reality exactly as any consumer-built kernel can under

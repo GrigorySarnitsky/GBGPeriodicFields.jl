@@ -82,7 +82,7 @@ the parity baseline and ambiguity check pass, and the suite is green.
 new test belongs.
 
 | | `Pkg.test()` | `test/exhaustive/` |
-|---|---|---|
+|:---|:---|:---|
 | the question | did this change break something we **know** about? | is there something we **do not** know about? |
 | the verdict | binary — green, or the change does not ship | a report, read by a person |
 | may be non-green | **never** | yes, while a known limitation stands |

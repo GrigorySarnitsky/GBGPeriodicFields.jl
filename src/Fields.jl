@@ -988,7 +988,7 @@ function _context_grid end
 """
     _context_layout(object)
 
-The spectral layout an object was built for, the peer of [`_context_grid`](@ref).
+The Fourier layout an object was built for, the peer of [`_context_grid`](@ref).
 """
 function _context_layout end
 
@@ -999,7 +999,7 @@ _context_layout(field::AbstractField) = field_layout(field)
 """
     _check_matching_context(a, b)
 
-Check that two participants in a spectral operation were built for the same base and spectral layout,
+Check that two participants in a spectral operation were built for the same base and Fourier layout,
 throwing otherwise. This is the package's one context predicate: an operation that mixes objects from
 different domains is rejected at the entry point rather than producing a wrong answer or failing later
 inside a kernel.
@@ -1008,7 +1008,7 @@ function _check_matching_context(a, b)
   _context_grid(a) == _context_grid(b) ||
     throw(ArgumentError("$(nameof(typeof(a))) and $(nameof(typeof(b))) were built for different grids"))
   _context_layout(a) == _context_layout(b) ||
-    throw(ArgumentError("$(nameof(typeof(a))) and $(nameof(typeof(b))) were built for different spectral layouts"))
+    throw(ArgumentError("$(nameof(typeof(a))) and $(nameof(typeof(b))) were built for different Fourier layouts"))
   return nothing
 end
 
@@ -1285,7 +1285,7 @@ function _kernel_data end
 """
     _check_kernel_compatibility(field, kernel)
 
-Check that `kernel` was built for `field`'s base and spectral layout, throwing if not. Each storage
+Check that `kernel` was built for `field`'s base and Fourier layout, throwing if not. Each storage
 class checks whatever it stored.
 """
 function _check_kernel_compatibility end
@@ -1499,8 +1499,8 @@ _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = re
 
 Return the total squared wavenumber ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` as a **lazy** `Broadcasted` over
 the three per-axis squared-wavenumber vectors (reshaped to the three spatial dimensions). Used by the
-Laplacian and the inverse Laplacian. The Helmholtz projection does **not** use it: decision 42 gave the
-projector the derivative family's own ``a \\cdot a`` denominator, so its pass takes the three derivative
+Laplacian and the inverse Laplacian. The Helmholtz projection does **not** use it: the
+projector divides by the derivative family's own ``a \\cdot a``, so its pass takes the three derivative
 wavenumbers and squares them inline.
 
 Lazy on purpose: returning the unfused `Broadcasted` lets callers compose it into their own broadcasts

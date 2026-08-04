@@ -43,10 +43,13 @@ contracting two fields — is defined only in physical-space representation, exc
 compile-time constant fiber, which keeps the operation coefficient-wise; the missing combinations are
 deliberate.
 
-!!! warning "Nonlinear results are aliased in spectral representation"
+!!! warning "Nonlinear results are spectrally aliased"
+    (*Spectral* aliasing here — content folding back onto resolved modes — not the storage aliasing of
+    the admonition below, which is about two arguments sharing memory. The two senses are unrelated.)
     A nonlinear operation — a field-field product (`*`, `mul!`, `dot`, `cross`, `divide!`) or a nonlinear
     fiber invariant (`det`, `norm`) — generates content above the grid's Nyquist wavenumber, so its result
-    is not band-limited. The pointwise values at the grid nodes are exact, but transforming the result to
+    is not band-limited — it carries wavenumbers the grid cannot represent. The pointwise values at the
+    grid nodes are exact, but transforming the result to
     spectral representation folds that out-of-band content back onto the resolved modes as aliasing error.
     Before feeding such a result into a spectral computation — a solver's nonlinear term — de-alias it with
     the sharp low-pass `spectral_cutoff` or the phase-shift `translation_kernel` from
@@ -332,27 +335,27 @@ end
 """
     +(a, b, fields...)
 
-Allocating sectionwise addition: add fields or point-value collections — or a section and a
-compatible constant — and return a new section; the in-place home is [`add!`](@ref). The unary `+`
-returns its section unchanged.
+Allocating form of [`add!`](@ref): add fields or point-value collections — or a section and a
+compatible constant — and return a new section. The unary `+` returns its section unchanged. See
+`add!` for the componentwise definition and the representation-validity rules.
 """
 +
 
 """
     -(a, b)
 
-Allocating sectionwise subtraction (or unary negation), for fields and point-value collections
-alike; the in-place home is [`subtract!`](@ref).
+Allocating form of [`subtract!`](@ref): subtract fields or point-value collections (or negate one)
+and return a new section. See `subtract!` for the componentwise definition and the
+representation-validity rules.
 """
 -
 
 """
     *(a, b)
 
-Allocating multiplication: a real scale, a scalar-field action, or a fiber-constant contraction,
-returning a new section (fields and point-value collections alike). The in-place homes are
-[`multiply!`](@ref) and, for the tensor
-contractions, [`mul!`](@ref). There is deliberately no field-times-field method in spectral representation — that
+Allocating form of [`multiply!`](@ref) and, for the tensor contractions, [`mul!`](@ref): a real scale,
+a scalar-field action, or a fiber-constant contraction, returning a new section (fields and
+point-value collections alike). See those for the componentwise definitions. There is deliberately no field-times-field method in spectral representation — that
 coefficientwise product is a convolution and lives under `convolve`'s name, in the [`Convolution`](@ref "Convolution") module.
 """
 *
@@ -360,8 +363,9 @@ coefficientwise product is a convolution and lives under `convolve`'s name, in t
 """
     /(a, b)
 
-Allocating division of a field or point-value collection by a real — or, physical representation
-only, by a scalar section; the in-place home is [`divide!`](@ref).
+Allocating form of [`divide!`](@ref): divide a field or point-value collection by a real — or, in
+physical representation only, by a scalar section — and return a new section. See `divide!` for the
+componentwise definition.
 """
 /
 
@@ -509,6 +513,13 @@ end
 
 Overwrite `destination` with the real-weighted linear combination ``\\alpha a + \\beta b`` of two
 compatible fields, and return `destination`.
+
+!!! note "Here α and β weight the two inputs, not the destination"
+    Every other in-place operation in the package uses trailing `α`, `β` that
+    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
+    This operation is the exception the name announces: it *is* the weighted combination, so its `α`
+    and `β` sit between the operands they weight and there is no accumulate form — pass
+    `b === destination` when you want one.
 
 Reach for `combine!` with a preallocated destination when you need a real-weighted combination of two
 fields in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
@@ -1740,7 +1751,7 @@ end
 
 
 # Allocate the map's result through the package's own allocator, which carries the reference's grid,
-# spectral layout, element type and backend. Building the field from a bare constructor instead drops
+# Fourier layout, element type and backend. Building the field from a bare constructor instead drops
 # the layout to its default, which broke `map` on every permuted `RealFourierLayout` (decision 41)
 # from the day it shipped — the destination then mismatched its source and the call threw.
 _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R} =

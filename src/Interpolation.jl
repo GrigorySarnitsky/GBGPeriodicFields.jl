@@ -1208,7 +1208,7 @@ _context_layout(scheme::NUFFT) = scheme.reference_layout
 """
     _check_nufft_compatibility(scheme::NUFFT, field::AbstractFieldSpectral)
 
-Check that a `NUFFT` plan may be used on `field`: same base, spectral layout, scalar type, storage
+Check that a `NUFFT` plan may be used on `field`: same base, Fourier layout, scalar type, storage
 family and tensor order.
 
 The plan precomputes index maps, an oversampled work grid and a deconvolution for one specific

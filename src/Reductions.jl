@@ -1213,6 +1213,10 @@ The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `plans` — their transform plans, matching the tensor order.
 
+It takes `plans` where its Fourier dual `radial_spectrum` takes `multipliers`, the one asymmetry in an
+otherwise mirrored pair: the spectrum weighs each mode where it already sits, while the correlation
+must come back to physical space, and an inverse transform needs a plan.
+
 It returns `(separations, correlation)`, a pair of host `Vector{T}` in the section's scalar type, as
 `radial_spectrum` does, where
 `separations` are the

@@ -24,7 +24,7 @@ two: one fiber at every point of a base, which is what a field and a set of poin
 why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
 resolution actually represents, up to the Nyquist frequency on each axis.
 
-!!! note "The supported tensor order is R < 3"
+!!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
     surface, and every operation below is defined over them. The field and point-value types are
     parameterized on `R`, so higher orders can be constructed and several layers serve them

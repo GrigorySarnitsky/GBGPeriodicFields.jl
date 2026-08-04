@@ -8,7 +8,7 @@ and need not repeat the convention.
 ## Conventions
 
 | Concept | Symbol | Convention |
-|---|---|---|
+|:---|:---|:---|
 | Imaginary unit | ``\mathrm{i}`` | Upright, always — never bare italic `i`, never `\imath`. Writing it upright frees `i` for use as an index. |
 | Indices | ``i, j, k, \dots`` | Italic, taken in order; used freely alongside ``\mathrm{i}`` (upright versus italic tells them apart). As an index, ``k`` occurs only in component subscripts (Einstein-summed); the standalone ``k`` of the table below is always the wavenumber, so the two roles never meet. |
 | Repeated index | ``a_i b_i`` | An index repeated within a term is summed over the three components ``1, 2, 3`` (Einstein convention); an explicit ``\sum`` is reserved for the grid, point, and mode sums below. |
@@ -22,7 +22,7 @@ and need not repeat the convention.
 ## Base and fiber
 
 | Symbol | Meaning | Code |
-|---|---|---|
+|:---|:---|:---|
 | ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use) | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
@@ -42,7 +42,7 @@ of the table above.
 ## Operators
 
 | Symbol | Meaning | Code |
-|---|---|---|
+|:---|:---|:---|
 | ``\nabla`` | gradient | `gradient` |
 | ``\nabla\cdot`` | divergence | `divergence` |
 | ``\nabla\times`` | curl | `curl` |
@@ -65,7 +65,7 @@ accumulation weight is always the bare ``\alpha``, while the half-spectrum Parse
 written with its mode argument as ``\alpha(k)``. They never denote the same thing.
 
 | Symbol | Meaning | Code |
-|---|---|---|
+|:---|:---|:---|
 | ``\alpha``, ``\beta`` | the caller's accumulation weights in ``\texttt{destination} \leftarrow \alpha (\dots) + \beta \texttt{destination}`` | the trailing `α`, `β` arguments |
-| ``\alpha(k)`` | the half-spectrum Parseval weight of mode ``k``: ``1`` on a self-conjugate plane of the folded axis, ``2`` elsewhere, so that a sum over stored modes equals the sum over the full spectrum | `inner`, `radial_spectrum` |
+| ``\alpha(k)`` | the half-spectrum Parseval weight of mode ``k``: ``1`` on a self-conjugate plane of the folded axis, ``2`` elsewhere. The **folded axis** is the one the real-to-complex transform halves (`fft_dims[1]`), storing only non-negative wavenumbers; its **self-conjugate planes** are the two — zero and, on an even axis, Nyquist — whose coefficients are their own conjugates, so they are stored once and counted once, so that a sum over stored modes equals the sum over the full spectrum | `inner`, `radial_spectrum` |
 | ``w`` | a multiplier weighting an inner product mode by mode | `weighted_inner` |

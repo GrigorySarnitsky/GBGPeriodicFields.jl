@@ -130,7 +130,7 @@ coefficients through it without an extra read. Wrap once, where the kernel is bu
 [`materialize_kernel`](@ref) returns this class, so a compressed kernel expanded into its coefficients
 arrives already in the kernel role.
 
-The fields are:
+The fields are
 - `field` — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.
 """
 struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
@@ -167,7 +167,7 @@ applies exactly like either operand.
 This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be
 applied in a single pass instead of two.
 
-The fields are:
+The fields are
 - **`first_kernel`**, **`second_kernel`** — the two operands, held unmultiplied and evaluated per mode.
 """
 struct ProductKernel{T, A, B} <: SpectralKernel{T}
@@ -177,7 +177,7 @@ end
 
 function ProductKernel{T}(first_kernel::A, second_kernel::B) where {T, A, B}
   # Both factors are evaluated per mode against the SAME field, so they must have been built for the
-  # same base and spectral layout. Checked here rather than at every composition site, so no route into
+  # same base and Fourier layout. Checked here rather than at every composition site, so no route into
   # a product can skip it.
   _check_matching_context(first_kernel, second_kernel)
   return ProductKernel{T, A, B}(first_kernel, second_kernel)
@@ -273,15 +273,17 @@ are always some real field's. It also carries the true squared wavenumber at an 
 the value a magnitude-dependent multiplier wants there, unlike the derivative wavenumbers, which are
 zeroed at that mode — so no case analysis is needed anywhere in the family.
 
-The fields are:
-- `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+The fields are
+- `sigma`: the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
-  Whether they are the grid's own wavenumbers or a caller's is part of their type, and it decides
+  Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
+  the grid) or a caller's own (supplied through the explicit constructor, which validates lengths and
+  not values) is part of their type, and it decides
   whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
   the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
   coordinates keeps both operands as a [`ProductKernel`](@ref), since one composite can carry only one
   set of coordinates.
-- **`grid`**, **`layout`** — the base and spectral layout the kernel was built for, which a call checks
+- **`grid`**, **`layout`** — the base and Fourier layout the kernel was built for, which a call checks
   the field against.
 
 !!! note "Radial, not separable"
@@ -338,7 +340,7 @@ _kernel_data(kernel::RadialKernel) =
 
 function _check_kernel_compatibility(field, kernel::RadialKernel)
   (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
-    throw(ArgumentError("the radial kernel was built for a different grid or spectral layout than the field"))
+    throw(ArgumentError("the radial kernel was built for a different grid or Fourier layout than the field"))
   return nothing
 end
 
@@ -437,10 +439,10 @@ the measured crossover.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
 ``1/\\prod_a \\sigma_a = \\prod_a (1/\\sigma_a)`` — the deconvolution an assignment window is built for.
 
-The fields are:
+The fields are
 - **`factor_1`, `factor_2`, `factor_3`** — the per-axis factors, each shaped to broadcast along its
   own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
-- **`grid`**, **`layout`** — the base and spectral layout the factors were built for, which a call
+- **`grid`**, **`layout`** — the base and Fourier layout the factors were built for, which a call
   checks the field against.
 
 !!! note "Separable, not radial"
@@ -488,7 +490,7 @@ _kernel_data(kernel::SeparableKernel) =
 # bare binding in `Fields`.
 function _check_kernel_compatibility(field, kernel::SeparableKernel)
   (field_grid(field) == kernel.grid && field_layout(field) == kernel.layout) ||
-    throw(ArgumentError("the separable kernel was built for a different grid or spectral layout than the field"))
+    throw(ArgumentError("the separable kernel was built for a different grid or Fourier layout than the field"))
   stored = size(field_data(field))
   factors = (length(kernel.factor_1), length(kernel.factor_2), length(kernel.factor_3))
   all(d -> stored[d] == factors[d], 1:3) ||
@@ -556,7 +558,7 @@ _context_layout(kernel::SeparableKernel) = kernel.layout
 # coefficientwise product is what is actually meant.
 function convolve(first_kernel::SeparableKernel{T}, second_kernel::SeparableKernel{T}) where {T}
   (first_kernel.grid == second_kernel.grid && first_kernel.layout == second_kernel.layout) ||
-    throw(ArgumentError("the separable kernels were built for different grids or spectral layouts"))
+    throw(ArgumentError("the separable kernels were built for different grids or Fourier layouts"))
   return SeparableKernel{T}(first_kernel.factor_1 .* second_kernel.factor_1,
                             first_kernel.factor_2 .* second_kernel.factor_2,
                             first_kernel.factor_3 .* second_kernel.factor_3,
@@ -1453,13 +1455,16 @@ end
     assignment_window(reference::AbstractFieldSpectral,
                       multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
-Return the linear (cloud-in-cell) mass-assignment window as a [`SeparableKernel`](@ref) — its three
+Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
+of depositing point mass onto grid cells, unrelated to the fused elementwise write that
+`threading_cutoff` measures — as a [`SeparableKernel`](@ref) — its three
 per-axis factors rather than a field of coefficients — on `reference`'s grid and array backend, for
 deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
 directly. Depositing ``M`` points on the grid with the positive linear
-assignment (`LalescuSpline(0, 0)`, the 2-point linear kernel used for a density) spreads each point's
+assignment (`LalescuSpline(0, 0)` — the two-point linear "tent" transfer kernel, the ``m = 0`` member
+of the spline family documented with `Interpolation`) spreads each point's
 mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
 ``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by
 ``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function ``g(r)``
@@ -1522,11 +1527,12 @@ relocation of a probe, or the displaced evaluation of a phase-shift de-aliasing 
 [`convolve`](@ref) / `convolve!`, which is allocation-free in place; because a scalar kernel
 multiplies every fiber component, one call translates a whole vector or tensor field, and because the
 kernel depends on nothing but the displacement, one kernel serves every field it is applied to (and
-since decision 50 it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
+it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
 ``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
 one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
-`assignment_window`. At the Nyquist frequency of an even-length axis the factor is instead the real
+`assignment_window`. At the **Nyquist frequency** — the highest wavenumber a grid resolves, ``\\pi/\\Delta x_a``, which an
+even-length axis stores as a single self-conjugate mode — the factor is instead the real
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
