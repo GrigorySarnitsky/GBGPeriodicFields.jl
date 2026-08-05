@@ -533,7 +533,11 @@ negative.
 generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. For ``w=|k|^2`` (the
 squared-wavenumber symbol, true ``k^2`` at Nyquist) it is the Dirichlet energy ``\langle f,-\Delta g\rangle``;
 and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` **iff** ``w`` is idempotent
-(``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only.
+(``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only. The realness of ``w`` is a **hypothesis of the
+statement**, not a convenience: with a complex multiplier the pairing is not an inner product, so the
+operation refuses one wherever the kernel's type settles the question (decision 62). The one class
+whose type cannot settle it is `StoredKernel`, whose storage is complex whatever multiplier it holds;
+there the real part is taken, as documented.
 
 **`lpnorm`** is the ``p``-family around that ``L^2`` pair: on a grid
 ``\lVert f\rVert_p = \bigl(\tfrac{1}{N}\sum_n \lVert f_n\rVert^p\bigr)^{1/p}`` and on a point-set the

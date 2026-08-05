@@ -136,9 +136,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   each required to agree **bitwise** with its materialized twin, with the class list derived from the
   type hierarchy so a fifth class fails until it is given a specimen; the kernel-composed
   `helmholtz_projection` and `divergence` arities are walked over the separable and radial classes but
-  **not** the product one; and `weighted_inner` is walked over the two its signature admits, a stored
-  or radial weight, a separable one being deliberately outside the family (a magnitude-dependent weight
-  does not factor per axis). Tensor orders 0/1/2 and the composition cases pinning which class each
+  **not** the product one; and `weighted_inner` is walked over **all four** classes since decision 62, each
+  required to agree bitwise with its own materialized form (the two-class signature it had before was a
+  narrow signature, not a constraint — and both rationales recorded for it were wrong). Tensor orders 0/1/2 and the composition cases pinning which class each
   pairing lands in are covered alongside),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),

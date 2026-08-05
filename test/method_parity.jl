@@ -103,7 +103,13 @@ const MODULE_BASELINE = (
   # `_tree_dims_components` arms taking the base arity as a TYPE parameter: every `ntuple` and the
   # closing `reshape` are sized by it, so a runtime `Int` left the whole reduction `Any` and carried
   # that into `mean`, `cov` and `integral` above R = 0. Refrozen with the reason, per decision 53.
-  Reductions            = 119,
+  # 119 → 123 for the `weighted_inner` widening (decision 62): its two methods now take any
+  # `SpectralKernel` rather than `Union{StoredKernel, RadialKernel}` — that is a signature change, not a
+  # new method — and the +4 is the two internal helpers the widening needed, `_weight_data` and
+  # `_multiplier_eltype`, at two methods each. This baseline counts every function a module owns,
+  # internals included, which is exactly why it moved and why the enumerated per-generic lists did not.
+  # Refrozen deliberately, with the reason, per decision 53's protocol.
+  Reductions            = 123,
 )
 
 # The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.

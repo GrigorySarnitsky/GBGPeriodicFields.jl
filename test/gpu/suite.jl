@@ -504,6 +504,22 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
 
+      # Every kernel storage class serves as a weight (decision 62). This is the case worth having on a
+      # device: `_kernel_data` for the compressed classes is a lazy `Broadcasted`, and `ProductKernel`
+      # nests two of them, so the reduction runs over a nested lazy tree. That is exactly where the
+      # `instantiate` this function already needed for AMDGPU's `mapreducedim!` (a `Broadcasted` with
+      # `Nothing` axes throws there) would resurface if the nesting broke it.
+      sep_d = assignment_window(sf_spec_d, mult_d);  sep_h = assignment_window(sf_spec_h, mult_h)
+      cut_d = spectral_cutoff(sf_spec_d, mult_d, 2.5); cut_h = spectral_cutoff(sf_spec_h, mult_h, 2.5)
+      for (kd, kh) in ((sep_d, sep_h), (cut_d, cut_h),
+                       (convolve(cut_d, sep_d), convolve(cut_h, sep_h)))   # separable, radial, product
+        @test eq(weighted_inner(vf_spec_d, kd), weighted_inner(vf_spec_h, kh))
+        @test eq(weighted_inner(vf_spec_d, kd), weighted_inner(vf_spec_d, materialize_kernel(kd)))
+      end
+      # ...and a complex weight is refused on the device too, by the same type-level check.
+      phase_d = translation_kernel(sf_spec_d, mult_d, (0.3, 0.1, 0.2))
+      @test_throws ArgumentError weighted_inner(vf_spec_d, phase_d)
+
       # Permuted rfft layout: the Parseval fold follows fft_dims on the device too — the spectral
       # inner's correction planes and the shell kernel's weight axis are selected by the layout.
       permuted_layout = RealFourierLayout((2, 1, 3))

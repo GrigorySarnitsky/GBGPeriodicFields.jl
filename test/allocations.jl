@@ -328,6 +328,14 @@ end
       @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
       @alloc_below threshold weighted_inner(vs, wkernel)       # vector self-pairing (weight broadcasts over fiber)
       @alloc_below threshold weighted_inner(ss, ss, wkernel)   # mixed scalar
+      # ...and every other storage class stays fused too (decision 62): the compressed kernels are lazy,
+      # so admitting them materializes no coefficients — this is the assertion that would catch a widening
+      # that quietly reached for `materialize_kernel`.
+      mult_w = FieldSpectralMultipliers(ss)
+      @alloc_below threshold weighted_inner(ss, spectral_cutoff(ss, mult_w, T(2.5)))    # RadialKernel
+      @alloc_below threshold weighted_inner(ss, assignment_window(ss, mult_w))          # SeparableKernel
+      @alloc_below threshold weighted_inner(ss, convolve(spectral_cutoff(ss, mult_w, T(2.5)),
+                                                        assignment_window(ss, mult_w))) # ProductKernel
       # radial_spectrum: since decision 34 the shell index, fiber contraction, and Parseval weight are
       # derived per mode inside the binning kernel, so the only arrays are the tiny shell accumulators
       m = FieldSpectralMultipliers(vs)

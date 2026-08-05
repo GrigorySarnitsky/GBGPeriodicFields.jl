@@ -338,6 +338,31 @@ using Statistics: mean, std, var, cov      # extended on sections in the Reducti
         @test weighted_inner(f, f, ksq) ≈ weighted_inner(f, ksq)
         # spectral-only: a physical field has no weighted_inner
         @test_throws MethodError weighted_inner(ScalarFieldPhysical((x, y, z) -> sin(x), gp), ones_w)
+
+        # --- every storage class serves as a weight, and all four agree BITWISE (decision 62) ---
+        # The oracle is each kernel's own materialized form: a compressed kernel and the coefficients
+        # it stands for must weight the reduction identically, which is what makes the class a storage
+        # choice rather than a semantic one.
+        separable = assignment_window(zero_scalar(), m)          # SeparableKernel, real sinc² factors
+        product   = convolve(band, separable)                     # cross-family ⇒ ProductKernel
+        for (name, kernel) in (("radial", band), ("separable", separable), ("product", product))
+          for spectral in (f, u, A)
+            @test weighted_inner(spectral, kernel) === weighted_inner(spectral, materialize_kernel(kernel))
+          end
+          # the mixed two-field form takes every class too, and stays symmetric
+          @test weighted_inner(f, g, kernel) === weighted_inner(g, f, kernel)
+        end
+
+        # --- a COMPLEX weight is rejected, not silently reduced to its real part (decision 62) ---
+        # `translation_kernel` is the natural way to reach this: it is the one complex builder, and its
+        # real part is a cosine attenuation, so accepting it would answer a question nobody asked.
+        phase = translation_kernel(zero_scalar(), m, (T(0.3), T(0.1), T(0.2)))
+        @test_throws ArgumentError weighted_inner(f, phase)
+        @test_throws ArgumentError weighted_inner(f, g, phase)
+        @test_throws ArgumentError weighted_inner(f, convolve(band, phase))   # complex survives composition
+        # A StoredKernel is the documented exemption: its storage is complex whatever it holds, so the
+        # type cannot decide and the real-part behaviour is kept rather than paying an extra pass.
+        @test weighted_inner(f, materialize_kernel(phase)) isa T
       end
     end
 

@@ -3118,3 +3118,51 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     The type stability is the smaller half of this. A composition happens once, outside any loop, and a
     two-wide union costs nothing measurable there. What the change buys is that `RadialKernel` now means
     what it says.
+
+62. **Any kernel class may weight a reduction, and a complex weight is refused** (2026-08-05,
+    user-directed). `weighted_inner(f, g, w)` — the multiplier-weighted inner product
+    ``\langle f, w g\rangle`` of decision 27 — took its weight as `Union{StoredKernel, RadialKernel}`,
+    two of the four storage classes a kernel comes in (decision 60). It now takes any `SpectralKernel`.
+
+    **The restriction was never a constraint.** Every class implements the `_kernel_data` protocol as an
+    instantiated broadcastable — coefficients for the stored class, a lazy per-axis product for the
+    separable one, a lazy symbol evaluation for the radial one, a lazy product of two for the composite —
+    and the fused reduction never asks which class it holds. Running its body unchanged against the two
+    excluded classes gave results **bitwise identical** to the accepted route, before any code was
+    changed. The `Union` was a signature written narrowly and never revisited.
+
+    **Two rationales for it were recorded over time, and both were wrong.** The first said a separable
+    kernel's factors are not real in general — contradicted by `assignment_window`, whose
+    ``\operatorname{sinc}^2`` factors are real. The second said a magnitude-dependent weight does not
+    factor per axis, which is a true statement *about the radial class that was accepted* and says
+    nothing about the separable one that was not. Both are now recorded beside the code as dead, because
+    the failure mode here is inventing a third: when a restriction has no reason, each attempt to state
+    one produces a sentence that is locally plausible and describes something else.
+
+    **A complex weight now throws.** ``\langle f, w g\rangle`` is an inner product only for a real ``w``,
+    and the previous code took `real(w)` elementwise — so `translation_kernel`, the one complex builder,
+    would have been silently accepted with its phase read as a cosine attenuation. The rejection is made
+    where the **type** decides it, through `Base.Broadcast.combine_eltypes` on the kernel's data (plain
+    `eltype` of an unmaterialized `Broadcasted` is `Any` and does not infer). The branch is on a
+    compile-time-known element type and folds away: measured at ``128^3``, old-versus-new ratios are
+    1.001 (radial), 0.997 (separable) and 1.000 (stored) — free, which was the condition set for adding
+    it at all.
+
+    **`StoredKernel` is the one exemption, and it is a genuine one.** Its storage is `Complex{T}` by
+    construction, a spectral field's being complex, so its type cannot distinguish a real multiplier from
+    a complex one — a materialized `spectral_cutoff` and a materialized `translation_kernel` have the
+    same type. Separating them needs a full extra pass over the coefficients, which this reduction's
+    single-pass contract does not permit, so that class keeps the documented real-part behaviour. The
+    rule is therefore *the check is made wherever the type can decide it*, which is a statement about
+    what is knowable for free rather than an inconsistency to tidy away later.
+
+    Covered in `test/reductions.jl` (each class bitwise-equal to its own materialized form over
+    ``R = 0, 1, 2``; the complex refusal on the separable class, on a composition carrying it, and the
+    stored exemption), pinned allocation-free for all three newly admitted classes in
+    `test/allocations.jl` — the assertion that would catch a widening which quietly reached for
+    `materialize_kernel` — and given device parity in `test/gpu/suite.jl`, where the composite class
+    nests two lazy `Broadcasted`s and is the case that would resurface the `instantiate` this reduction
+    already needed for AMDGPU's `mapreducedim!`. Both tests were verified by mutation: disabling the
+    realness check, and dropping a factor from the separable kernel's data, each fail the suite. The
+    `Reductions` module baseline moves 119 → 123 — the widening itself is a signature change rather than
+    new methods, and the four are the two internal helpers it needed, at two methods each.

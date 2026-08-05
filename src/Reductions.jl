@@ -65,14 +65,15 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data,
   _same_backend, _storage_family
 using ..Points: AbstractPointValues, npoints
-# The two kernel classes a weight may take. A separable kernel is deliberately not accepted, and the
-# reason is SCOPING, not validity: a real separable w gives a perfectly well-defined <f, w g>, but no
-# consumer has needed one and each admitted class costs its own fused reduction path. (Two earlier
-# rationales here were both wrong — that separable factors are not real in general, contradicted by
-# assignment_window's sinc^2; and that a magnitude-dependent weight does not factor per axis, which
-# argues about the RADIAL class we accept rather than the separable one we do not.)
-using ..Convolution: RadialKernel, StoredKernel
-using ..Fields: _kernel_data, _check_kernel_compatibility
+# Every kernel class may serve as a weight: each one's `_kernel_data` is an instantiated broadcastable,
+# and the fused pass below never asks which class it holds. The former Union{StoredKernel, RadialKernel}
+# was a signature written narrowly rather than a constraint — measured bitwise-identical across all four
+# before it was widened. (Two rationales for the old restriction were recorded over time and BOTH were
+# wrong: that separable factors are not real in general, contradicted by assignment_window's sinc^2; and
+# that a magnitude-dependent weight does not factor per axis, which argues about the radial class that
+# WAS accepted rather than the separable one that was not. Do not invent a third.)
+using ..Convolution: RadialKernel, StoredKernel, SeparableKernel, ProductKernel
+using ..Fields: _kernel_data, _check_kernel_compatibility, SpectralKernel
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
@@ -928,7 +929,14 @@ and reduces against `f` in a single fused pass, materializing no weighted field 
 
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
-- `w` — the weight, a stored or radial spectral kernel holding a **real** multiplier ``w(k)`` (only its real part is used; a separable kernel is deliberately not accepted — a real separable weight is perfectly well defined here, so this is a scoping choice made for want of a consumer, not a statement that the operation would be invalid). Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+- `w` — the weight: a spectral kernel in **any** of its storage classes, holding a **real** multiplier
+  ``w(k)``. All four classes give bitwise-identical results, so the choice is one of storage only. The
+  multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
+  whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
+  silently contributing its real part. The one class exempt from that rejection is `StoredKernel`,
+  whose storage is complex by construction so that its type cannot tell a real multiplier from a
+  complex one; it keeps the real-part behaviour, and separating the two would cost a full extra pass
+  over the coefficients that this reduction's single pass does not permit. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
@@ -955,8 +963,37 @@ scatter-add binning pass over every mode (and, for the correlation, an inverse t
 """
 function weighted_inner end
 
+# The weight must be REAL: <f, w g> is an inner product only for a real multiplier, and a complex one
+# would otherwise contribute its real part silently — `translation_kernel`'s phase read as a cosine
+# attenuation. The rejection is made where the TYPE decides it, so it costs nothing per element: the
+# branch is on a compile-time-known eltype and folds away. A `StoredKernel` is the one class whose type
+# cannot decide, its storage being `Complex{T}` by construction (a spectral field's is), so a real
+# multiplier and a complex one look alike; separating them needs a full extra pass over the
+# coefficients, which this reduction's single-pass contract does not permit. That class therefore keeps
+# the documented real-part semantics, and it is the only one that does.
+# `eltype` of an unmaterialized `Broadcasted` is `Any` — it does not infer — so the multiplier's element
+# type comes from `combine_eltypes`, which composes the operand types through `promote_op` and is
+# computed from the types alone.
+@inline _multiplier_eltype(data::Base.Broadcast.Broadcasted) =
+  Base.Broadcast.combine_eltypes(data.f, data.args)
+@inline _multiplier_eltype(data) = eltype(data)
+
+@inline _weight_data(w::StoredKernel) = Base.broadcasted(real, _kernel_data(w))
+
+@inline function _weight_data(w::SpectralKernel)
+  data = _kernel_data(w)
+  _multiplier_eltype(data) <: Real || throw(ArgumentError(
+    "weighted_inner needs a real weight, but this $(nameof(typeof(w))) has a complex multiplier " *
+    "(element type $(_multiplier_eltype(data))). A complex weight does not define an inner product — " *
+    "`translation_kernel`'s phase, for instance, would silently act as its real part, a cosine " *
+    "attenuation. Build the weight from a real multiplier (`spectral_cutoff`, `spectral_band`, " *
+    "`assignment_window`, or `radial_kernel` with a real symbol)."))
+  return data
+end
+
+
 function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
-                        w::Union{StoredKernel{T}, RadialKernel{T}}) where {T<:AbstractFloat}
+                        w::SpectralKernel{T}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
   _check_kernel_compatibility(f, w)
   field_tensor_order(f) == field_tensor_order(g) ||
@@ -970,13 +1007,13 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
   # `Base.broadcasted(...)` carries `Nothing` axes, so AMDGPU's `mapreducedim!` throws `axes(::Broadcasted, ::Int)`
   # (CPU tolerates it; the GPU does not). `instantiate` fills the axes without materializing, keeping the
   # reduction fused on both backends.
-  weight = Base.broadcasted(*, _parseval_weight(f), Base.broadcasted(real, _kernel_data(w)))
+  weight = Base.broadcasted(*, _parseval_weight(f), _weight_data(w))
   density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
   normalization = T(prod(field_grid(f).grid_size))^2
   return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
-weighted_inner(f::AbstractFieldSpectral{T}, w::Union{StoredKernel{T}, RadialKernel{T}}) where {T<:AbstractFloat} =
+weighted_inner(f::AbstractFieldSpectral{T}, w::SpectralKernel{T}) where {T<:AbstractFloat} =
   weighted_inner(f, f, w)
 
 
