@@ -1,122 +1,145 @@
-# Software Architect / Senior Julia Programmer — Documented Design Review
+# Software Architect review — GBGPeriodicFields rendered docs
 
-Reviewing the rendered manuscript (Home, Architecture, Formalization, Notation, Performance,
-Testing, Tutorial, all `api/*` pages, and the `examples/hist_cpu` page) as a Julia expert judging
-the *documented* API and architecture: signatures, module decomposition, abstraction boundaries,
-and internal consistency of the design narrative itself.
-
----
-
-## Finding 1
-
-- **Type:** contradiction
-- **Severity:** major
-- **Confidence:** high
-- **Locations:**
-  - PAGE: api / FieldAlgebra, section "Internal API": *"the contraction formula builders, **the aliasing guard**, and the constant / zero-mode helpers"*
-  - PAGE: api / Points, section "Internal API": *"the allocator, the broadcast style, and **the alias guard**"*
-  - PAGE: examples / hist_cpu: `helmholtz_projection!(uh, uh, m) # make solenoidal (alias-guarded)`, versus the same file's own `helmholtz_projection!(Nh, ws.Nt, m) # ... DISTINCT dest ⇒ no-alias path (no allocation)`
-- **Contradicts:** PAGE: architecture, §7 / decision-39 entry: *"The former guard family (`_guard_noalias!`...) is retired — decision 39 removed its last callers."* — axis: whether an alias-guard mechanism still exists anywhere in the codebase.
-- **Description:** Architecture repeatedly and emphatically states the alias-guard family was retired (aliased calls are now computed directly, bitwise-identical, no temporary — invariant 9). Yet two module "Internal API" intros (FieldAlgebra, Points) still list "the alias guard"/"alias guard" among contributor-facing internals — though neither section's actual listing that follows documents a guard function — and the HIST_CPU.jl example labels an aliased `helmholtz_projection!` call "(alias-guarded)" while a sibling call in the same file correctly uses current "no-alias path" language. A repeated stale-terminology class, not a one-off typo.
+Reviewing the documented design (API pages + `docs/ARCHITECTURE.md`/decision log, as rendered) as a
+Julia expert judging signatures, module decomposition, and decision-log internal consistency. Findings
+below are ranked most-severe first.
 
 ---
 
-## Finding 2
+## Finding 1 — `combine!`'s module placement contradicts its own stated rationale, and looks driven by a test-count artifact
 
-- **Type:** api-gap
-- **Severity:** minor
-- **Confidence:** high
-- **Locations:** PAGE: api / Fields, "Field types" section (lists `AbstractFieldPhysical`, `AbstractFieldSpectral`, and the six concrete types only) and "Internal API" section (no entry either); yet `AbstractField` is used as the type constraint in numerous public signatures across pages, e.g. PAGE: api / Fields `field_data(field::AbstractField)`, `field_grid(field::AbstractField)`, `similar_field(reference::AbstractField, data)`; PAGE: api / Fields "HDF5 persistence" `write_field(parent, name, field::AbstractField)`; PAGE: api / FieldAlgebra Internal API `_copy_field_data!(destination::AbstractField, field::AbstractField)`.
-- **Description:** `AbstractField` is never introduced or defined on any rendered page — not in the Fields module's "Field types" list, not in its "Internal API" list — despite being the declared type of arguments in some of the most fundamental public accessors (`field_data`, `field_grid`, `field_layout`, `write_field`/`read_field`, `similar_field`). A reader meets the identifier a dozen times but is never told what it is or where it sits relative to `AbstractFieldPhysical`/`AbstractFieldSpectral`/`AbstractFiberSection` — the exact "term never defined or linked" defect the project's own self-containedness rule targets.
+**Type:** organization
+**Severity:** major
+**Confidence:** medium
 
----
+**Locations:**
+- ARCHITECTURE §13, the exponential-kernel decision: *"The method is defined in `Convolution` (the kernel is a `Convolution` concept; `FieldAlgebra` precedes it in the include order and never sees kernels), which also keeps the `FieldAlgebra` method-parity baseline untouched by construction — the parity count filters on the defining module."*
+- ARCHITECTURE §13, decision 32: *"`helmholtz_projection!` and `divergence!` gain trailing `kernel[, α, β]` arities... Guards: ... in `test/differentialoperators.jl`"* — i.e. these kernel-composed methods stay inside `DifferentialOperators`, verified there, not moved to `Convolution`.
+- Include order stated on the Home/api pages: `FiberSections → Fields → FieldAlgebra → DifferentialOperators → Convolution → Points → Interpolation → Reductions` — `DifferentialOperators` precedes `Convolution` exactly as `FieldAlgebra` does.
 
-## Finding 3
+**Contradicts:** The stated reason `combine!`'s kernel-composed method had to move to `Convolution` — "`FieldAlgebra` precedes it in the include order and never sees kernels" — applies verbatim to `DifferentialOperators`, which precedes `Convolution` too, yet `divergence!`/`helmholtz_projection!`'s own kernel-composed arities were kept inside `DifferentialOperators` without incident.
 
-- **Type:** contradiction
-- **Severity:** minor
-- **Confidence:** high
-- **Locations:** PAGE: api / Interpolation, module docstring: *"Interpolation yields a value while its adjoint returns a field, **the one asymmetry** in the API."*
-- **Contradicts:** the same docstring's own signature blocks, a few lines above/below — axis: whether that is really the *only* asymmetry between `interpolate`/`anterpolate`.
-- **Description:** The same page's signatures show at least two more asymmetries the text never flags: `anterpolate!` carries an α/β accumulate pair (`α::Real = true, β::Real = false`) that `interpolate!` has no counterpart for; and the allocating `anterpolate`'s first argument is `grid::Grid3D` for the spline schemes but `reference::AbstractFieldSpectral` for `DirectDFT`/`NUFFT`, whereas `interpolate`'s first argument is uniformly a field across every scheme family. "The one asymmetry" undercounts by at least two, an overclaim of exactly the kind the project's own review checklist warns against.
+**Description:** Both `FieldAlgebra` and `DifferentialOperators` sit before `Convolution` in the include order, and both needed to add a "trailing kernel" arity to an operator they already own. `DifferentialOperators` did so in its own module (decision 32); `combine!`'s otherwise-identical extension was instead placed in `Convolution`, with the given reason ("never sees kernels") that does not actually distinguish it from `DifferentialOperators`'s situation. The same sentence names the real driver: doing it in `FieldAlgebra` would have bumped the specifically-tracked 206-method parity baseline, which the package treats as sacred. That is a legitimate engineering trade-off, but presenting it as principled module ownership ("the kernel is a `Convolution` concept") while a structurally identical case was resolved the opposite way is an internal inconsistency in the architecture rationale, and it means one generic (`combine!`) now has its methods split across two modules for a reason that is really about test-baseline bookkeeping.
 
 ---
 
-## Finding 4
+## Finding 2 — α/β is overloaded with two different roles across the API, sometimes within the same generic
 
-- **Type:** design
-- **Severity:** minor
-- **Confidence:** high
-- **Locations:** PAGE: api / Convolution, `exponential_convolve!` (six signatures shown, spanning 4–9 positional arguments); compare `NUFFT(reference; tol=1e-10, oversampling=2, width=0, beta=0)` and `Grid3D(...; origin=...)` on PAGE: api / Interpolation and PAGE: api / Fields.
-- **Description:** Across `exponential_convolve!`'s own overload set, `α`/`β` name two different things: trailing accumulate weights in the single-field forms (`dest = α·kernel·field + β·dest`, `convolve!`'s convention) but leading combination weights in the two-field forms (`α·a + β·b`, `combine!`'s convention) — distinguished only by argument position/count. This is the exact "glyph-collision" failure mode decision 33's own text names and avoids *within* one signature, just not *across* the generic's method table. The `offset_scale`/`offset` pair is also handled by arity-overloading rather than as keywords, unlike the package's own keyword idiom for comparable optional extras elsewhere (`NUFFT`'s `tol`/`width`/`beta`, `Grid3D`'s `origin`).
+**Type:** api-gap
+**Severity:** minor
+**Confidence:** medium
 
----
+**Locations:**
+- Convolution page, `exponential_convolve!` argument docs: *"α, β — in the single-operand forms, where they trail the argument list, the usual accumulation weights... α, a, β, b — in the two-operand forms, where they lead it, the real weights and fields of the combination... The two roles never share a signature, which is why one pair of glyphs can serve both."*
+- FieldAlgebra page, `combine!`: `combine!(destination, α::Real, a, β::Real, b)` computes `destination = α·a + β·b` (weights of two *input* fields).
+- DifferentialOperators/Convolution "kernel-composed" family (`divergence!`, `helmholtz_projection!`, `convolve!`): `op!(dest, ..., α, β)` computes `α·(new result) + β·dest` (accumulate onto a *pre-existing destination*).
 
-## Finding 5
-
-- **Type:** typesetting
-- **Severity:** minor
-- **Confidence:** high
-- **Locations:** PAGE: notation, "Base and fiber" table.
-- **Description:** The rendered conventions table breaks mid-row for `k`: *"$k$ | a wavenumber vector ($k_a$ is its $a$-th component, `` | k"* — a stray double-backtick and pipe truncate the "Code" column instead of rendering it, exactly the literal-pipe-in-a-table-cell hazard the project's own writing rules elsewhere warn against (for §13 decision-log tables). Notably this breaks the single canonical notation-reference page every docstring is told to defer to rather than repeat.
+**Description:** Invariant 10 states one α/β convention ("β=0 overwrite, β≠0 accumulate onto destination"), but `combine!` and the two-operand forms of `exponential_convolve!` use the identical glyphs α/β for a structurally different role — weighting two *input* operands, with no destination-accumulate semantics unless an input happens to alias the destination. The docs candidly flag this exact tension for `exponential_convolve!`'s two overloads ("the glyph-collision failure mode") but the same tension exists, unremarked, between `combine!`'s convention and the "accumulate" convention used everywhere else in the package. A reader who has internalized "α scales the new result, β accumulates onto dest" from `mul!`/`convolve!`/`divergence!` can misread `combine!`'s signature.
 
 ---
 
-## Finding 6
+## Finding 3 — the callable-field transfer syntax uses `scheme` as a keyword while every named transfer function uses it positionally
 
-- **Type:** api-gap
-- **Severity:** minor
-- **Confidence:** medium
-- **Locations:** PAGE: api / Fields, "Internal API", `similar_field`: *"used by out-of-place field broadcasting and by allocating algebraic operations."* PAGE: examples / hist_cpu, `make_workspace`: eight scratch fields each built by hand via `spectral_field_shape(...)` + `zeros` + an explicit type constructor.
-- **Description:** `similar_field`/`similar_pointvalues` are documented only as non-public Internal API, yet do exactly what a solver author needs to build compatible scratch fields. The flagship example — explicitly "written the way a real consumer would use `GBGPeriodicFields`" — never calls them, instead hand-rolling the equivalent pattern eight separate times in `make_workspace`. Either the helper deserves public status, or the reference example is missing a chance to demonstrate the idiomatic allocation pattern it exists to showcase.
+**Type:** api-gap
+**Severity:** minor
+**Confidence:** high
 
----
+**Locations:**
+- Interpolation page: `interpolate(field::AbstractFieldPhysical, points, scheme = CatmullRom)`, `interpolate!(out, field, points, scheme::AbstractSplineScheme = CatmullRom)`, `anterpolate(grid, points, quantities, scheme = CatmullRom)`, `anterpolate!(field, points, quantities, scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false)` — `scheme` positional-with-default in all four.
+- Interpolation page, the callable: `(field::AbstractFieldPhysical)(x; scheme = CatmullRom)` — `scheme` is keyword-only here.
 
-## Finding 7
-
-- **Type:** design
-- **Severity:** minor
-- **Confidence:** medium
-- **Locations:** PAGE: api / Fields, `Grid3D`: four-argument constructor `(grid_size, domain_size, grid_spacing, origin)`; *"The two-argument constructor computes `grid_spacing = domain_size ./ grid_size`."*
-- **Description:** `Grid3D` is introduced as a "Uniform three-dimensional grid," yet its explicit four-argument constructor accepts `grid_spacing` as an argument independent of `domain_size`/`grid_size`, with no stated invariant tying them together — only the two-argument convenience constructor guarantees consistency, by computing spacing itself. As documented, nothing stops a caller of the full constructor from passing a `grid_spacing` inconsistent with `domain_size ./ grid_size`, silently building a self-contradictory "uniform" grid — a denormalized field with no described consistency check.
+**Description:** The callable `f(x)` is documented as "the ergonomic face of a one-point `interpolate` gather," i.e. the same concept as `interpolate`'s `scheme` argument, yet it is passed a different way (keyword vs. positional-with-default) than every other transfer entry point. This is a small but real convention break in an otherwise tightly disciplined naming/argument-order system; a user who writes `interpolate(f, xs, LagrangeSpline(2))` by analogy will find `f(x, LagrangeSpline(2))` fails and `f(x; scheme = LagrangeSpline(2))` is required.
 
 ---
 
-## Finding 8
+## Finding 4 — the "Fourier-dual pair" `radial_spectrum`/`radial_correlation` take differently-typed second arguments
 
-- **Type:** normalization
-- **Severity:** minor
-- **Confidence:** medium
-- **Locations:** PAGE: api / Reductions, `Statistics.var`: *"the Bessel-corrected mean of the squared deviation... $\tfrac{1}{N-1}\sum_n$"*; contrast `mean`: *"$\tfrac{1}{N}\sum_n f_n$"*.
-- **Description:** `var`/`std` default to the sample (N−1, Bessel-corrected) convention even on a `Grid3D`, where all N cells are the complete, exactly-known population, not a subsample drawn from a larger one — precisely the case where the biased 1/N estimator is exact and no correction is warranted. `mean`/`integral` use plain 1/N throughout with no such option. The package inherits `Statistics.var`'s default keyword rather than re-examining it for the always-exhaustive grid/point-set population the rest of the reduction family is built around.
+**Type:** api-gap
+**Severity:** minor
+**Confidence:** medium
 
----
+**Locations:**
+- Reductions page: `radial_spectrum(f, multipliers)` / `radial_spectrum(f, g, multipliers)`.
+- Reductions page: `radial_correlation(f, plans)` / `radial_correlation(f, g, plans)`.
+- Home page: *"the radial reductions `radial_spectrum` (the power spectrum) and `radial_correlation` (its physical-space Wiener–Khinchin dual...), each with a two-field co-spectrum form"* — presented throughout as a matched, symmetric pair.
 
-## Finding 9
-
-- **Type:** design
-- **Severity:** nit
-- **Confidence:** medium
-- **Locations:** PAGE: api / FiberSections, "Threading configuration": `set_threading_cutoff!(n)` versus `with_threading(f; enabled=...)`.
-- **Description:** `threading_cutoff`/`set_threading_cutoff!` mutate ordinary global state with no scoping described, while `with_threading` is explicitly *"dynamically scoped and task-local, so it affects only `f()` and is restored afterwards."* Two controls governing the same threading decision, documented side by side in one small section, follow two different concurrency-safety models — one safe under concurrent tasks by construction, the other a shared mutable global a concurrent caller could race against.
+**Description:** The two operations are marketed everywhere (module docstring, ARCHITECTURE §12, the decision log) as a tightly mirrored Fourier-dual pair with parallel signatures, but their second positional argument is a different type — `FieldSpectralMultipliers` for the spectrum, `FieldTransformPlans` for the correlation (the latter needs an inverse transform, the former does not). This is mathematically well-motivated (recorded in the decision log: "`radial_correlation(f, plans)`... symmetric with how the differential operators take `multipliers`"), but from the outside the pair reads as "same shape, different second argument type," which is an easy mistake for a caller reasoning by analogy from `radial_spectrum` to `radial_correlation`.
 
 ---
 
-## Finding 10
+## Finding 5 — `radial_kernel`'s argument order breaks the family convention of the other kernel builders
 
-- **Type:** organization
-- **Severity:** nit
-- **Confidence:** medium
-- **Locations:** PAGE: architecture, decision-log "Phase A consolidation" entry: *"`Points` (unstructured-base section objects + their generated algebra — a noun peer of `Fields`)"*.
-- **Description:** For the grid base, types (`Fields`) and fiberwise algebra (`FieldAlgebra`) live in two separate modules; for the point base, both roles fold into one module, `Points`, described as a "peer" of `Fields` alone. The two bases are presented throughout as symmetric ("same fibers, different base"), but their module decomposition is not: "where does the algebra for X live" has a different answer depending on which base X uses.
+**Type:** api-gap
+**Severity:** nit
+**Confidence:** medium
+
+**Locations:**
+- Convolution page: `radial_kernel(sigma, reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers) -> RadialKernel` — the function argument leads.
+- Same page: `spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers, wavenumber_cutoff) -> RadialKernel`, and (by the same pattern) `assignment_window(reference, multipliers)`, `translation_kernel(reference, multipliers, h)` — all put `reference, multipliers` first and the builder-specific parameter(s) last.
+
+**Description:** Within the single documented "Kernel builders" family, `radial_kernel` is the only member whose distinguishing argument comes first rather than last. It is defensible on its own (mirroring `map(f, itr)`/`mapreduce(f, op, itr)` house style, since `sigma` is a callable), but it is inconsistent with its four siblings in the same table, which a reader is invited to compare directly.
 
 ---
 
-## Finding 11
+## Finding 6 — the §2 naming-conventions bullet list is stale: `cov` is missing from the "extends Statistics" enumeration
 
-- **Type:** performance
-- **Severity:** nit
-- **Confidence:** low
-- **Locations:** PAGE: api / Reductions, `weighted_inner`: *"comparable to one spectral `inner`"*.
-- **Contradicts (soft):** PAGE: architecture, decision-40 entry: *"`weighted_inner` stays serial for now... deferred with the exponential family's hoist."*
-- **Description:** The `weighted_inner` docstring frames its cost as "comparable to one spectral `inner`," but Architecture's decision 40 records that every other reduction, `inner` included, now runs on the bitwise thread-count-invariant fixed tree, while `weighted_inner` explicitly stays serial. The comparison is algorithmically fair (same single-pass shape) but does not flag that the two no longer scale alike on a threaded CPU — a caller benchmarking one against the other on the decision-37 many-core target would see a gap the docstring doesn't anticipate.
+**Type:** other
+**Severity:** nit
+**Confidence:** high
+
+**Locations:**
+- ARCHITECTURE §2, "Naming conventions": *"Extensions of Base / LinearAlgebra / Statistics keep the source name, overriding the above (`dot`, `cross`, `mul!`, `transpose`, `norm`, `mean`, `std`, `var`, `maximum`, `minimum`, `extrema`)..."* — no `cov`.
+- Reductions API page, "Moments and order statistics": *"These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`... rather than introducing package names..."* — `cov` is present.
+
+**Contradicts:** §2's enumerated list of Base/Statistics-extending names vs. the Reductions page's own (correct, more current) list of the same category.
+
+**Description:** `cov` was added later (the 2026-07-28 `var`/`std`/`cov` decision) as exactly the kind of Statistics extension §2's bullet is meant to enumerate, but the bullet was never updated. This is a small, low-stakes instance of precisely the failure mode the decision log elsewhere calls out repeatedly and self-critically ("a hand-maintained list goes stale" — decisions 53/54): an enumerated list in the architecture doc, not derived from anything, missing one member.
+
+---
+
+## Finding 7 — `weighted_inner`'s documented type restriction on `w` is not visible in its rendered signature
+
+**Type:** api-gap
+**Severity:** minor
+**Confidence:** low
+
+**Locations:**
+- Reductions page: rendered signature block is bare — `weighted_inner(f, w)` / `weighted_inner(f, g, w)`, no type annotation on `w`.
+- Same entry's prose: *"`w` — the weight, a stored or radial spectral kernel holding a real multiplier `w(k)`... a separable kernel is deliberately not accepted, its factors not being real in general."*
+
+**Description:** CLAUDE.md's own documentation rubric states "a docstring signature mirrors the code's types... An argument typed in the actual method is typed in the docstring." Here the prose asserts a real, load-bearing restriction (separable kernels are refused), but the rendered signature gives no type constraint on `w` at all, unlike almost every other kernel-accepting signature on the Convolution/DifferentialOperators pages (which do show `kernel::SpectralKernel`). If the restriction is enforced only by a runtime check rather than by the method's own type signature, that is worth surfacing explicitly (per the package's own "no silent failures" standard from the 2026-07-30 external-audit response); if it *is* type-enforced, the doc under-reports it relative to its own stated convention.
+
+---
+
+## Finding 8 — `Grid3D`'s "The fields are" list presents a derived quantity as if independent
+
+**Type:** other
+**Severity:** nit
+**Confidence:** high
+
+**Locations:**
+- Fields page, `Grid3D`: *"The fields are ... `grid_spacing::NTuple{3, T}`: the spacing between adjacent grid points in each spatial direction."* — listed as a peer bullet alongside `grid_size`, `domain_size`, `origin`.
+- Same entry, immediately after: *"The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along every axis."*
+
+**Description:** Per CLAUDE.md's own docstring rubric, "a type that stores named, user-readable fields documents them under `The fields are`, one bullet per field" — technically correct, since `grid_spacing` genuinely is stored (for the transfer kernels' benefit). But listing it as a flat, independent field alongside the three genuinely-independent ones, one sentence before explaining it is actually a *constrained*, derived quantity, is a presentation wart: a reader skimming the bullet list alone would reasonably conclude all four fields are independently settable.
+
+---
+
+## Finding 9 — the "symmetric named pair" framing of interpolate/anterpolate is undercut by two admitted asymmetries
+
+**Type:** other
+**Severity:** nit
+**Confidence:** high
+
+**Locations:**
+- ARCHITECTURE §10 / Interpolation module docstring: *"They are the symmetric named pair"* / *"Same verbs, one adjointness contract."*
+- Interpolation module docstring: *"Interpolation yields point values while its adjoint returns a field — one of two asymmetries between the pair, the other being the α/β accumulation weights that only the scatter takes."*
+
+**Description:** Not a defect — both asymmetries are explicitly documented and individually well-motivated (evaluation is naturally an overwrite; accumulation is the natural mode for two-way-coupling scatter). But the repeated "symmetric pair" / "same verbs" framing across the Home page, the api page, and ARCHITECTURE §10 is stronger language than the actual API, which has `anterpolate!` carrying a 5-argument α/β form that `interpolate!` structurally cannot mirror. Worth a lighter touch on "symmetric" in the summary-level prose, since the detail pages already state the asymmetry correctly.
+
+---
+
+## Observations not raised to findings
+
+- The four-class `SpectralKernel` hierarchy (`StoredKernel`/`SeparableKernel`/`RadialKernel`/`ProductKernel`), plus the `Canonical` type parameter on `FieldSpectralMultipliers` that decides whether two `RadialKernel`s collapse under composition, is a fair amount of machinery for "multiply two per-mode scalars." Each layer is introduced with a specific measured justification (decision log entries for decisions 50, 51, 60, 63) rather than speculatively, so this reads as disciplined accretion rather than over-engineering — flagged here only as a note that the surface is worth a periodic consolidation pass, not as a defect.
+- The abstract `SpectralKernel` protocol living in `Fields` rather than `Convolution` (so that `DifferentialOperators`/`Reductions` can name it without depending on `Convolution`) is a clean instance of interface segregation and is not a coupling smell — it is the same pattern that lets Finding 1's module-split feel avoidable in principle.

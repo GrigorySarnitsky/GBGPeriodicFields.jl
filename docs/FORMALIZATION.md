@@ -57,9 +57,12 @@ The transform ``\mathcal F`` (`to_spectral`, inverse `to_physical`) is the rfft 
 physical (nodal) and spectral representations of a grid section; ``\hat f = \mathcal F f``. Its codomain
 needs naming, because the obvious candidate is wrong: ``\mathcal F`` is **not** onto the stored complex
 array ``\mathbb C^{N_{k_1} N_2 N_3} \otimes V``, which has strictly more real dimensions than
-``\Gamma_G``. The image is the **Hermitian-constrained subspace** — the coefficients on the folded
-axis's self-conjugate planes are real, and it is exactly that constraint that makes the map a bijection
-onto its image and the round trip exact. Every "coefficients of a real field" statement below means an
+``\Gamma_G``. The image is the **Hermitian-constrained subspace**: the planes the folded axis maps to itself under
+``k \mapsto -k`` (the zero plane, and on an even axis the Nyquist plane) are **closed under
+conjugation**, so each stored coefficient there has its partner stored too and the pair must satisfy
+``\hat f(-k) = \overline{\hat f(k)}``. Individual coefficients on those planes are not real — only
+the self-paired modes, ``k = -k``, are. That constraint is exactly what makes the map a bijection onto
+its image and the round trip exact. Every "coefficients of a real field" statement below means an
 element of that subspace, which is also why a kernel must be Hermitian for its result to be one. With the fiber
 contraction ``\cdot : V \times V \to \mathbb R`` and the wavenumber ``k``, the inner products are the
 package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):

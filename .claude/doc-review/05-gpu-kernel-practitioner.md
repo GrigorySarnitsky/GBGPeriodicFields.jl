@@ -1,122 +1,103 @@
 # GPU-kernel practitioner — review findings
 
-Hat: performance-focused GPU-kernel practitioner (portable CUDA/ROCm/KernelAbstractions array code,
-allocation and bandwidth discipline).
+Hat: performance-focused GPU-kernel practitioner (CUDA/ROCm/KernelAbstractions, allocation and bandwidth discipline).
+
+Scope read: Home, api overview, architecture (full, incl. §13 decision log), formalization/notation (skimmed), performance (full), testing (full), and spot checks of the Fields, DifferentialOperators, Convolution, Reductions API pages.
+
+Overall note: this is an unusually self-consistent document set — nearly every numeric claim I cross-checked (kernel-composed speedups, exponential-kernel reuse ratios, subnormal cost multiplier, loop-order percentages, mapped-reduction CPU/GPU ratios) reproduced exactly across pages. The findings below are therefore mostly *tensions between a stated rule and a later exception*, or *staleness/incompleteness* rather than flat factual contradictions.
 
 ---
 
-## Finding 1 — `FieldTransformPlans` docstring's FFT mis-plan ratio does not match the Performance page's own measured table for the same finding
+## Finding 1 — The "GPU wins" tiebreak rule is stated as unconditional, then explicitly not applied to the one case where it would matter
 
-**Type:** contradiction (math/numbers) · **Severity:** major · **Confidence:** high
+**Type:** contradiction
+**Severity:** major
+**Confidence:** medium
 
 **Locations:**
-- PAGE `api / Fields`, `FieldTransformPlans` docstring: *"measured on a Zen 5 desktop, the `Float32`
-  transforms ran **3.4–5.4× slower** than a timed plan at $256^3$, ... in both directions and **at
-  every thread count**."*
-- PAGE `performance`, §4 finding (h) table (same Zen 5 / Ryzen 9800X3D measurement):
-  `threads 1 → 5.1×/5.0×`, `threads 4 → 3.4×/3.6×`, `threads 8 → **2.3×/2.6×**`.
+- PAGE: performance, §1 Philosophy: *"where an optimization helps one platform and hurts the other — which happens, and is proven below — **the GPU wins across the range both can run**."*
+- PAGE: performance, §4(c): *"On the GPU in-register ties in Float32 but is **≈6% slower in Float64** — and that lone reversal is a test-hardware artifact, not a production signal... **Kept in-register**; the arrays stay dropped."*
 
-**Description:** The docstring's claimed range (3.4×–5.4×) is supposed to hold "at every thread
-count," but the Performance page's own table for this exact finding shows the `t=8` ratios (2.3×,
-2.6×) falling *below* the docstring's stated 3.4× floor, and no table entry reaches the docstring's
-5.4× ceiling (the table's maximum is 5.1×). Either the docstring's range is stale/wrong or the table
-is; as written the two pages report different numbers for the same benchmark.
+**Description:** §1 states the tiebreak rule as a flat policy with no stated exception. §4(c) then measures a real regression on the actually-owned GPU (RTX 5070 Ti) for the chosen implementation and keeps it anyway, reasoning that the *production* GPU (GH200, never benchmarked) would behave differently. That may well be the right engineering call, but it is a case where the measured GPU loses and the CPU-favoring option is kept — the opposite of what §1's rule says happens "across the range both can run." §1 is never updated to note this carve-out (measured-hardware-not-representative-of-production), so a reader who takes §1 at face value will be surprised by §4(c).
 
 ---
 
-## Finding 2 — `weighted_inner`'s "comparable to one spectral `inner`" cost claim omits that `inner` is threaded and `weighted_inner` is not
+## Finding 2 — Invariant 6 ("GPU-portable by construction," "checked guarantee") has no enforcement in the default dev/CI flow
 
-**Type:** contradiction (performance model) · **Severity:** major · **Confidence:** medium
+**Type:** clarity / overclaim
+**Severity:** major
+**Confidence:** medium
 
 **Locations:**
-- PAGE `api / Reductions`, `weighted_inner` docstring: *"the cost is a single weighted pass over the
-  coefficients — **comparable to one spectral `inner`**."*
-- PAGE `architecture`, decision log (the fixed-tree reductions entry): *"Every CPU reduction —
-  `inner` ... now reduces through one fixed midpoint tree ... **`weighted_inner` stays serial for
-  now**: its coefficient is the lazy cartesian $|k|^2$, the finding-(k) class, deferred."*
+- PAGE: architecture, "The invariants": *"The package is GPU-portable by construction: storage is a generic `AbstractArray`, no package method scalar-indexes a device array... (§9)."*
+- PAGE: performance, §3: *"No scalar indexing of device arrays (invariant 6) — **a checked guarantee** under `allowscalar(false)` in both the test and benchmark GPU runs."*
+- PAGE: testing, §5: *"GPU tests are **opt-in and separate** (not part of `Pkg.test()`)... a GPU backend is only ever a test dependency."*
+- PAGE: testing, §6: *"CI... is manual-only... each commit is authored locally and the full matrix is run before pushing."*
 
-**Description:** After decision 40, `inner` (including its spectral Parseval form) runs on the
-multi-threaded fixed-tree reduction, while `weighted_inner` explicitly does not. On the CPU
-production-node path the docs themselves emphasize (the 128/256-core cluster node of decision 37),
-this is not a minor detail: `inner` scales with threads and `weighted_inner` does not, so the two
-stop being "comparable" in cost exactly on the platform the docs say the CPU path is tuned for. The
-`weighted_inner` docstring gives no such caveat.
+**Description:** The language ("by construction," "checked guarantee," one of fourteen invariants that "constrain every change") implies a standing, always-on guarantee. The only mechanism that actually checks it (`allowscalar(false)` in `test/gpu/`) is opt-in, requires physical hardware, is excluded from `Pkg.test()`, and CI itself is manual-only (not push-triggered). So a scalar-indexing regression in ordinary CPU-only development can land, commit, and even reach a tagged release without anything in the described workflow catching it — the guarantee is real only when someone remembers to run GPU tests on a machine with a device. The docs never soften "checked guarantee" to reflect that conditionality.
 
 ---
 
-## Finding 3 — A decision-log claim that "nothing that worked before needs a wrapper" is contradicted by the current rendered API, and the supersede note doesn't say so
+## Finding 3 — A known CPU-specific 3× inefficiency is deferred on "GPU-first" grounds that a later decision (37) undercuts
 
-**Type:** contradiction / staleness · **Severity:** major · **Confidence:** medium
+**Type:** contradiction
+**Severity:** minor
+**Confidence:** medium
 
 **Locations:**
-- PAGE `architecture`, decision log, the `StoredKernel` entry (2026-07-30): *"Application is
-  untouched: **the union still accepts a bare field everywhere a kernel is taken, so nothing that
-  worked before needs a wrapper**."* (later self-annotated: *"(Superseded by decision 60, which made
-  exactly that move: `SpectralKernel` is now an abstract supertype ... so the union this entry
-  reasons about no longer exists.)"*)
-- PAGE `api / Convolution`, module docstring (current): *"**A kernel is not a field.** ... `StoredKernel`
-  ... wraps a `ScalarFieldSpectral`, which is how a consumer declares that those coefficients are
-  playing the kernel role rather than being a field."* — repeated verbatim later on the same page:
-  *"A field in spectral representation is not a kernel. ... **Wrap the field in a `StoredKernel`** to
-  declare the role."*
+- PAGE: performance, §4(k): *"the per-mode exponential costing more than the field read it saves — dramatically so on CPU, where `exp` is expensive and the broadcast re-evaluates it once per fiber component... it waits for a CPU-bound consumer (**the audits' consumer runs GPU-first**)."*
+- PAGE: architecture, decision "The CPU path's performance target is one cluster node, not small problems": *"a single large CPU node, running the resolutions that exceed one GPU's memory... the CPU path does serve development and small tests — but... The role that does [set the tuning target] is the opposite of small."*
 
-**Description:** Once the union became an abstract-type hierarchy (decision 60), a bare
-`ScalarFieldSpectral` no longer satisfies `kernel::SpectralKernel{T}` — the current API page requires
-explicit `StoredKernel(f)` wrapping. The July-30 entry's specific claim ("nothing that worked before
-needs a wrapper") is therefore now false, but the self-correcting note attached to that entry only
-says the *union* no longer exists — it does not flag that the wrapper-optionality claim itself has
-been reversed. A reader who stops at the supersede pointer, rather than cross-checking the
-Convolution page, would come away believing bare fields still work unwrapped.
+**Description:** The deferral of the exponential-kernel CPU hoist rests on "GPU-first" as if that settles CPU cost as unimportant. Decision 37 (recorded later in the same document) explicitly rejects that framing for the CPU path in general, reopening several other tiebreaks (loop order, pass-audit gaps) specifically because they were "close to free while a field is cache-resident and become pure DRAM traffic once it is not" at production CPU-node scale. The exponential-kernel CPU finding is never revisited under decision 37's lens, even though it is exactly the kind of per-fiber-component redundant work decision 37 says now matters.
 
 ---
 
-## Finding 4 — Performance page's "~10–14×" GPU-vs-4-thread-CPU summary doesn't match its own table (3.5×–27.1×)
+## Finding 4 — The single largest cross-vendor GPU performance gap in the document (≈48×) traces to a missing standard optimization, flagged only as "recorded, not fixed"
 
-**Type:** clarity / imprecise summary · **Severity:** minor · **Confidence:** medium
+**Type:** performance
+**Severity:** minor
+**Confidence:** medium
 
 **Locations:**
-- PAGE `performance`, §6, representative table: `GPU vs -t4` column values `6.6×, 11.4×, 3.5×, 7.7×,
-  12.6×, 27.1×`.
-- Same page, immediately after: *"the GPU leads the 4-thread CPU by **~10–14×** ... widest for the
-  light/parallel ops and narrowing toward the bandwidth ratio for the heavy streaming ones."*
+- PAGE: performance, §4(n): *"workgroup-local bins on GPU — the same redesign's lever on the **~48× CUDA-over-ROCm `Float64` radial gap**... **recorded, not fixed**."*
+- PAGE: performance, §6: *"`radial_spectrum` on a vector field at 256³ is ≈3.5× faster on the 5070 Ti than the 7900 XTX in `Float32`, widening to **≈48×** in `Float64`."*
 
-**Description:** Three of the six listed operations (`laplacian!` 3.5×, `to_spectral` 6.6×,
-`interpolate!` Catmull–Rom 7.7×) sit well below the claimed "~10–14×" range, and one (`anterpolate!`
-27.1×) sits well above it. The qualifying clause ("widest for light ops, narrowing for heavy
-streaming") gestures at the spread but the headline number itself is not a fair midpoint or median of
-the six values shown immediately above it (median ≈ 9.55×, and the range spans nearly an order of
-magnitude).
+**Description:** Not a contradiction — this is an honest disclosure — but worth flagging from a kernel-practitioner's expertise: every other reported vendor gap in the document is in the 1.5–4× band (bandwidth-ratio scale); this one is an order of magnitude larger and is explicitly attributed to a missing standard technique (per-workgroup/shared-memory pre-reduction before the global atomic scatter). Given the radial reductions are explicitly framed as a "diagnostic" (not hot-loop) cost elsewhere in the same document, the 48× figure risks being read as a fundamental vendor-hardware gap rather than what the doc's own root-cause analysis says it is: an addressable implementation gap. No roadmap item exists for it (contrast with the explicitly tracked "Deferred" list in architecture §13), so its priority is invisible to a reader skimming the roadmap.
 
 ---
 
-## Finding 5 — The RX 7900 XTX vs RTX 5070 Ti `radial_spectrum` Float64 comparison is quoted twice with slightly different numbers
+## Finding 5 — "A CPU materialization is a GPU one" is stated as a blanket equivalence but the doc's own finding (j) shows backend-specific launch bookkeeping that a CPU `@allocated` run cannot see
 
-**Type:** contradiction (minor numeric drift) · **Severity:** nit · **Confidence:** low
+**Type:** clarity
+**Severity:** minor
+**Confidence:** low
 
 **Locations:**
-- PAGE `architecture`, decision log (shell-space primitives entry): *"`radial_spectrum` on a vector
-  field at 256³ is ≈3.5× faster on the 5070 Ti than the 7900 XTX in Float32, widening to **≈49×** in
-  Float64 (**67.1 → 1.38 ms**)."*
-- PAGE `performance`, §7 gaps (the "Done 2026-07-21" refresh note): *"`radial_spectrum` vector `Float64`
-  256³ is **65.95 ms** on the 7900 XTX against **1.371 ms** on the 5070 Ti — a **~48×** CUDA lead."*
+- PAGE: architecture, decision "Allocation-free in-place operators are a standing, exhaustively-enforced contract": *"The operator code is generic over the array type, so a CPU materialization is a GPU one — the CPU is simply where it is visible."*
+- PAGE: performance, §4(j): *"The KA launch allocates a small size-independent host-side bookkeeping (~1.5–7 KB, thread-count-dependent)... which the allocation audit's fraction-of-a-field threshold absorbs."*
 
-**Description:** Both citations describe the same op/size/precision/GPU pair but report different
-absolute times (67.1 vs 65.95 ms; 1.38 vs 1.371 ms) and a different ratio (49× vs 48×). The doc's own
-`PERFORMANCE.md` §7 "run-to-run variance" note says results carry ~10% jitter and are "indicative
-magnitudes, not contract values," which likely explains this — the two entries are probably two
-different sweep runs — but neither passage flags that it is a re-measurement of a figure quoted
-elsewhere, so a reader cross-referencing them sees an unexplained (if small) discrepancy in what looks
-like a single reference statistic.
+**Description:** The blanket claim ("a CPU materialization is a GPU one") is the stated justification for why CPU-only `@allocated` auditing is sufficient proof of GPU allocation-freeness. Finding (j), in the same document, shows a class of allocation (KA launch/task-spawn bookkeeping) that is backend-specific in origin and is only *absorbed by a threshold*, not verified equal across backends by the CPU-only audit. This is a narrower, more defensible claim ("`similar`/broadcast-derived scratch is backend-symmetric") than the blanket sentence actually states, and the blanket sentence is repeated verbatim in several places (architecture decisions 25/26, testing §4) without the caveat.
 
 ---
 
-## Summary
+## Finding 6 — Reductions API docstring for the mapped forms omits the later fixed-tree threading rewrite, describing an implementation detail that decision 40 superseded
 
-No violation of invariant 6 (no scalar indexing of device arrays), no case where an operation is
-documented as GPU-portable while another page admits it is not (the one genuine backend-capability gap
-— rocBLAS `dotc` lacking a strided method, forcing the mixed spectral `inner(f,g)` to materialize its
-Parseval correction planes — is consistently and honestly documented everywhere it appears), and no
-"allocation-free"/"zero-copy" overclaim that the docs elsewhere contradict. The findings above are
-concentrated in two classes: (a) specific performance numbers quoted in more than one place that don't
-quite agree (Findings 1, 4, 5), and (b) a performance/API claim that was true when written but has been
-overtaken by a later decision without the later decision's note fully retracting it (Findings 2, 3).
+**Type:** organization / staleness
+**Severity:** nit
+**Confidence:** low
+
+**Locations:**
+- PAGE: api / Reductions, `integral` mapped-form docstring: *"It gets there by different means on each, chosen internally: a vectorized blocked loop on a CPU, a single fused pass on a GPU."*
+- PAGE: architecture, decision "The reductions thread on a fixed tree — bitwise thread-count-invariant": *"Every CPU reduction — ... and the whole mapped-form family — now reduces through one fixed midpoint tree: a binary recursion... its leaves as the existing pairwise-blocked `@simd` loops."*
+
+**Description:** Not factually wrong (the blocked loop is still there, at the tree's leaves), but the docstring's "a vectorized blocked loop on a CPU" reads as the whole CPU story, when decision 40 wrapped it in a task-spawning binary-split tree specifically to make it bitwise thread-count-invariant — a property a GPU-kernel-practitioner reader would care about and that the docstring doesn't mention at all (not even a forward pointer to `ARCHITECTURE.md` §9). Per the doc's own documentation policy this level of internal-mechanism detail is deliberately excluded from function docstrings, so this is a low-severity completeness nit rather than a defect, but it means the API page alone slightly understates the CPU threading story relative to what architecture.md records as current.
+
+---
+
+## Not flagged, checked and found consistent (for the record)
+
+- Every ratio in `exponential_convolve!`'s docstring (≈1.4×, ≈1.1×/1.7×, ≈1.5×/1.1×) matches performance §4(k)'s table exactly.
+- The Float32 subnormal cost multiplier (~16×) in the docstring matches the measured 37.1/2.4 ≈ 15.5× in §4(m).
+- The `helmholtz_projection!` docstring's aliasing and denominator ($a\cdot a$) description matches decisions 32/42/47 exactly, including the CPU/KA dual-kernel dispatch-guard story.
+- The mapped-reduction CPU/GPU speedup figures ("roughly two and a half times on a CPU and a quarter on a GPU") match §4(i)'s table (2.5× and 1.26×) exactly.
+- The x-inner loop-order percentages (512³ Zen 5: ~10% ahead / 23% behind) are quoted identically in both the decision log and §4(b).

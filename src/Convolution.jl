@@ -577,8 +577,8 @@ Use this to trade memory back for speed on a **small base**. Applying an axis-fa
 field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
 depends on whether the base outgrows cache. Measured against a stored kernel on a vector field, the
 axis-factored form trails it below cache and overtakes it above: **threaded on a CPU** it runs at
-roughly ``0.5``–``0.6`` of its speed at ``64^3``, crosses one somewhere past ``128^3``, and is
-``1.1``–``1.2`` times **faster** at ``256^3``–``512^3``. Single-threaded the crossing never arrives in
+roughly ``0.5``–``0.6`` of its speed at ``64^3`` and is faster from ``128^3`` up, settling at
+``1.1``–``1.2`` times by ``256^3``–``512^3``; in `Float32` the crossing comes later, past ``128^3``. Single-threaded the crossing never arrives in
 this range, and on a GPU the ratio sits near parity at ``64^3`` and drifts slightly down — a device
 being bandwidth-bound at every size here rather than growing out of cache. The full grid is in
 `PERFORMANCE.md`'s finding (o) table. So a run whose grids are small, or which applies one fixed kernel very many times

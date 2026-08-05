@@ -33,7 +33,7 @@ The parts are, each linking to the home where its formula lives:
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
   (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a
   fiber-preserving reduction raises above it rather than returning a wrong answer).
-- The **mapped forms** — each reduction above also accepts a leading function, applied to the fiber
+- The **mapped forms** — `integral`, `mean`, `maximum`, `minimum` and `extrema` also accept a leading function, applied to the fiber
   value at every base point: `mean(det, A)` averages a determinant over the base and
   `maximum(norm, u)` takes a supremum of magnitude, each in a single pass that never builds the mapped
   quantity as a section. Naming that map is also what makes an order statistic well posed on a vector

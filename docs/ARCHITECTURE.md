@@ -727,7 +727,7 @@ i.e. a regularized point source) — is given in full in the `Interpolation` mod
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
 The two inner products are concrete pairings against the measure each base carries: on point-values
 ``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\mathrm{pts}}`` a plain sum over the
-``M`` particles, while on fields ``f, g`` the **cell-volume measure** makes
+``M`` points, while on fields ``f, g`` the **cell-volume measure** makes
 ``\langle\cdot,\cdot\rangle_{\mathrm{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
 fiber contraction — the ordinary product for scalars, the dot product for vectors):
 
@@ -738,7 +738,7 @@ fiber contraction — the ordinary product for scalars, the dot product for vect
 = \frac{1}{N} \sum_{x} f(x)\cdot g(x),
 ```
 
-each normalized by its total measure — the ``M`` particles, and the box volume ``|\Omega|`` (equivalently
+each normalized by its total measure — the ``M`` points, and the box volume ``|\Omega|`` (equivalently
 the ``N`` grid cells) — exactly as the package's `inner` computes them. Writing
 ``\operatorname{sample}_{\mathrm{grid}}`` for sampling a function at the grid nodes,
 ``\operatorname{eval}_{\mathrm{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
@@ -965,8 +965,8 @@ via Parseval's theorem (equal to the physical inner, no transform; the rfft half
 and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**
 pair are spectral/physical duals: `radial_spectrum` (the shell-resolved `inner` — the power spectrum) and
 its Wiener–Khinchin dual `radial_correlation` (the two-point autocorrelation
-``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Each reduction
-additionally has a **mapped** form taking a leading function — a map applied to the section's fiber value
+``C(r) = \mathcal F^{-1}(|\hat f|^2)/N``), each with a two-field **co-spectrum** form. Five of them —
+`integral`, `mean`, `maximum`, `minimum` and `extrema` — additionally have a **mapped** form taking a leading function — a map applied to the section's fiber value
 at every base point, so `mean(det, A)` averages a determinant and `maximum(norm, u)` takes a supremum of
 magnitude, each reduced in one pass with no intermediate section (decision 30). Physics (kinetic
 energy ``\tfrac{1}{2}\langle u,u\rangle``, dissipation, rms) stays consumer-side. See decisions 18, 21, 22, 30.
@@ -1124,7 +1124,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     (fiberwise, pointwise — `dot`, `norm`, `cross`; return sections), **horizontal** (differential —
     `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
     **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
-    ``L^2(\mathrm{base}, \mu)``; the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
+    ``L^2(\mathrm{base}, \mu) \otimes V`` — the fiber ``V`` is a tensor factor, not flattened away — and
+    the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
     `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
@@ -1807,12 +1808,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     more specific than HDF5's own array-writing `setindex!` so it never clashes.
 
 
-30. **Mapped reductions — a leading function on every measure reduction.** The consumer
+30. **Mapped reductions — a leading function on five of the measure reductions.** The consumer
     `GBGIsotropicTurbulence` audited its memory and found a recurring shape: to average a nonlinear
     invariant of a tensor field — the determinant of a strain tensor, the magnitude of a velocity — it had
     to build that invariant as a **whole section** first and then reduce it, paying one field of scratch
     for a single number. Here a *section* is a field or a set of point-values, and its **fiber value** at a
-    base point is the scalar, vector, or ``3 \times 3`` tensor sitting over that point. So each reduction
+    base point is the scalar, vector, or ``3 \times 3`` tensor sitting over that point. So five reductions
     gained a form taking a leading function, applied to the fiber value at every base point:
     `mean(det, A)` averages a determinant, `maximum(norm, u)` takes a supremum of magnitude, and the
     mapped quantity is consumed as it is formed rather than stored.
@@ -2554,7 +2555,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     covariance `cov`** (2026-07-28). The fiber-preserving `var`/`std` — a per-component variance /
     standard deviation for a vector or tensor section — were two mistakes wearing one API. First, they
     were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
-    \langle f\rangle^2 = \sum_{k \ne 0} |\hat f_k|^2`` (the fluctuation energy), both terms already
+    \langle f\rangle^2 = N^{-2}\sum_{k \ne 0} \alpha(k) |\hat f_k|^2`` (the fluctuation energy, with
+    ``\alpha(k)`` the rfft half-spectrum multiplicity and the ``N^{-2}`` the normalization the inner
+    product itself carries), both terms already
     Parseval-available, so they were wrongly grouped with the genuinely physical-only `lpnorm`/`maximum`.
     Second, the per-component value is only the **basis-dependent diagonal** of the covariance tensor
     ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second moment —

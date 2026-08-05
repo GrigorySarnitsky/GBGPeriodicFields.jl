@@ -1,237 +1,241 @@
-# 04 — differential-geometer (pure mathematician: bundles, measure, functional analysis)
+# Hat: differential-geometer (pure mathematician — bundles, measure, functional analysis)
 
-Fresh-eyed audit of the rendered site's *intrinsic / structural* mathematics: base vs fiber,
-vertical vs horizontal, section vs representation, domains and codomains, measures and adjoints.
-Findings are collected only — nothing was edited.
+Audit of the rendered site's *intrinsic / structural* mathematics: base vs fiber, vertical vs
+horizontal, section vs representation, domains and codomains, measure taxonomy, adjoint and
+projection claims. 17 findings, most severe first.
 
 ---
 
-## 1. The measure-weighted adjoint is derived from the wrong pairing (decision 19 / decision 17)
+## 1. Decision 49's Parseval variance identity drops the `1/N²` and the multiplicity `α(k)`
 
-- **type:** math (measure/adjoint slip) · **severity:** major · **confidence:** high
+- **type:** math · **severity:** major · **confidence:** high
 - **locations:**
-  - PAGE: architecture, §13 decision 19 (the measure taxonomy): *"The measure-weighted L² adjoint — $W$, $W^\top$ adjoint with the grid carrying $\Delta x^3$ and points counting — … it is $(N/M) W^\top$"*
-  - PAGE: architecture, §13 decision 17: *"The L²/volume-weighted (measure-consistent) adjoint is $(N/M) W^\top$"*
-  - PAGE: formalization, §Interpolation / anterpolation: *"The clean adjunction uses the measure-adjoint $\iota_* := (N/M) W^{\top}$"*, derived from $\langle f,g\rangle_{\text{grid}} = \frac1N\sum_n$, $\langle a,b\rangle_{\text{pts}} = \frac1M\sum_p$
-- **contradicts:** formalization's derivation — axis: *which pair of measures produces the $N/M$ factor*.
-- **description:** The $N/M$ factor comes from the two **normalized** (probability) pairings, $1/N$ on
-  the grid and $1/M$ on the points, exactly as the formalization expands it. Under the pairing the
-  decision-19 sentence names — grid carrying the cell volume $\Delta x^3$, points carrying counting —
-  the adjoint of $W$ is $(1/\Delta x^3)W^\top = (N/\lvert\Omega\rvert)W^\top$, not $(N/M)W^\top$; the
-  two agree only if $\lvert\Omega\rvert = M$. The rendered rationale therefore states a factor its own
-  stated measures do not give.
-- **resolution_hint:** say "with both bases carrying their normalized (total-mass-one) measures", or
-  quote the $N/\lvert\Omega\rvert$ factor for the volume/counting pairing.
+  - PAGE: architecture, §13 decision 49 — "$\operatorname{var}(f) = \langle f, f\rangle - \langle f\rangle^2 = \sum_{k \ne 0} |\hat f_k|^2$"
+  - PAGE: formalization, "Variance, standard deviation, and covariance" — "$= \frac{1}{N^2}\sum_{k\ne 0} \alpha(k) |\hat f(k)|^2$"
+  - PAGE: api / Reductions, `var` — "$\langle f, f\rangle - \langle f\rangle^2 = N^{-2}\sum_{k\ne 0} \alpha(k) |\hat f_k|^2$"
+- **contradicts:** formalization + the `var` docstring, on the axis of *normalization*.
+- **description:** The decision-log form is a false equality under either reading of the sum: over
+  the stored half-spectrum it needs the multiplicity $\alpha(k)$, and under any reading it needs
+  $1/N^2$ (the unnormalized-forward convention, invariant 4). The two correct copies agree with each
+  other, so the log entry is the outlier. A reader who takes §13 as self-contained — which the
+  architecture header promises — gets a variance wrong by $N^2$.
+- **resolution_hint:** copy the formalization's displayed form verbatim into decision 49.
 
----
-
-## 2. Does interpolation carry α/β, or only anterpolation?
+## 2. `weighted_inner` refuses two of the four kernel classes, while `Convolution` says all four are interchangeable — and the stated reason argues the wrong way
 
 - **type:** contradiction · **severity:** major · **confidence:** high
 - **locations:**
-  - PAGE: architecture, §10: *"Both carry the usual allocating / in-place (`!`) pair and a five-argument `α`/`β` form"*; and §13 decision 13: *"each with allocating, in-place, and α/β-accumulate forms"*
-  - PAGE: api / Interpolation, module docstring: *"the $\alpha$/$\beta$ accumulation weights that only the scatter takes"*; and `interpolate!`'s signatures, which carry no `α`, `β`
-- **contradicts:** the two sides disagree on the axis *which member of the adjoint pair takes the accumulation weights*, hence on how symmetric the pair is.
-- **description:** §10 makes α/β a shared property of the pair and names the callable `f(x)` as the
-  *only* asymmetry; the module docstring names two asymmetries (codomain, and α/β on the scatter
-  alone) and the published `interpolate!` signature has no weights. One of the two is wrong about the
-  operator surface. Structurally the docstring's version is the coherent one — accumulation belongs
-  to whichever map writes into a preallocated section — but the design doc is what a reader trusts.
-- **resolution_hint:** correct §10 and decision 13 to the shipped surface, keeping "symmetric named pair" but listing both asymmetries.
+  - PAGE: api / Convolution, module — "the four classes reach every kernel-taking entry point interchangeably"
+  - PAGE: api / Reductions, `weighted_inner` — "a separable kernel is deliberately not accepted"
+  - PAGE: architecture, §13 decision 51 — "deliberately not a separable one — a magnitude-dependent weight does not factor per axis"
+  - PAGE: testing, §4 axes — "`StoredKernel`, `SeparableKernel`, `RadialKernel` and the cross-family `ProductKernel` must agree bitwise"
+- **contradicts:** the Convolution module claim and the testing coverage axis, on the axis of *which
+  kernel classes an entry point admits*.
+- **description:** Two defects in one place. The blanket "interchangeable at every entry point" is
+  false: `weighted_inner`'s own signature is `Union{StoredKernel, RadialKernel}`. And the
+  justification is a non-sequitur — it explains why a *radial* symbol is not separable (a fact about
+  the accepted class), not why a separable real symbol $\prod_a g_a(k_a)$ is an inadmissible weight.
+  A separable real $w$ gives a perfectly well-defined $\langle f, wg\rangle$, so the absence is
+  *scoping*, not validity — the very mislabelling decision 49 confesses to for `var`/`std` ("physical-only
+  by scoping, not validity"). Citing invariant 1 for it overstates it.
+- **resolution_hint:** qualify the module sentence, and restate the exclusion as a scoping choice
+  (no consumer) rather than a structural/validity one.
 
----
-
-## 3. The domain of `inv` is stated two different ways
-
-- **type:** contradiction · **severity:** major · **confidence:** high
-- **locations:**
-  - PAGE: api / Convolution, module docstring: *"the coefficientwise reciprocal of a kernel … (`inv`, defined for all four classes)"*
-  - PAGE: formalization, §Convolution: *"The reciprocal `inv` … defined on a class where that is again closed — separable (per axis) and radial (in the symbol)"*
-- **contradicts:** axis — *on which subtypes of `SpectralKernel` is `inv` defined* (four vs two).
-- **description:** An operator's domain is exactly the kind of statement the formalization page exists
-  to pin, and it names two classes while the module page names four. Both cannot be the operator's
-  domain. (Decision 57 in the log also describes an `inv` on the stored class, which points at the
-  formalization entry being the stale one.) A reader deriving what `ProductKernel` supports gets
-  opposite answers from the two surfaces.
-
----
-
-## 4. `SpectralKernel` is described as excluding its own stored subtype
-
-- **type:** contradiction (category/taxonomy) · **severity:** major · **confidence:** high
-- **locations:**
-  - PAGE: api / Fields, module docstring: *"`SpectralKernel` is the supertype of every coefficientwise multiplier that is not stored as a field"*
-  - PAGE: api / Convolution, module docstring: *"Every kernel subtypes `SpectralKernel`"*, and *"`StoredKernel` — one coefficient per mode … It wraps a `ScalarFieldSpectral`"*
-- **contradicts:** axis — *the extension of the supertype*: does the stored (field-backed) class belong to it?
-- **description:** `StoredKernel` **is** stored as a field of coefficients and **does** subtype
-  `SpectralKernel`, so the Fields sentence excludes precisely the class decision 60 introduced to make
-  the supertype total. This is the residue of the retired union (compressed-only abstract type + field),
-  and it misdescribes the type's extension at the one place a reader meets it while reading `Fields`.
-
----
-
-## 5. Architecture §12 is stale on which reductions are representation-invariant
+## 3. §2 says the transfer weights *are* a unit-mass kernel measure; the Interpolation page excludes the spectral schemes — and that exclusion looks wrong for `DirectDFT`
 
 - **type:** contradiction · **severity:** major · **confidence:** medium
 - **locations:**
-  - PAGE: architecture, §12: *"`mean`/`std`/`var` … are the moments — all on fields in physical representation and point-values"*, with only *"`inner`/`l2norm` … and `integral`/`mean`"* listed as also spectral
-  - PAGE: api / Reductions, module docstring: *"`inner`/`l2norm` by Parseval's theorem, `integral`/`mean` from the zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval"*
-- **contradicts:** axis — *representation validity of `var`/`std`*; §12 also omits `cov` from the moment family entirely.
-- **description:** Decision 49 gave `var`/`std` a Parseval form and added the covariance tensor `cov`
-  as the coordinate-free vector second moment. The body section that owns the reduction family still
-  reads as before: it implies `var`/`std` are physical-only and never names `cov`. Since §12 is the
-  current-state description (not the append-only log), it now contradicts the module docstring on a
-  validity claim — the class of statement invariant 1 says is the spec.
+  - PAGE: architecture, §2 — "the interpolation weights are themselves a unit-mass kernel measure (signed for the higher-order schemes)"
+  - PAGE: api / Interpolation, module — "the spectral schemes are exact adjoints without being partitions of unity"
+  - PAGE: architecture, §13 decision 19 — "The gather weights … are a discrete grid measure of total mass 1 (partition of unity)"
+- **contradicts:** the Interpolation module docstring, on the axis of *which schemes carry unit
+  kernel mass / conservation*.
+- **description:** §2 and decision 19 state unit mass for the transfer kernel as such; the module
+  docstring carves the spectral family out. Both cannot stand. Worse, the carve-out is doubtful for
+  `DirectDFT`: it "reproduces the band-limited field exactly", a constant is band-limited, so its
+  equivalent nodal weights sum to one; and its type-1 zero mode is exactly $\sum_p q_p$, which *is*
+  the conservation statement. Only `NUFFT` (tolerance) genuinely falls short.
+- **resolution_hint:** scope §2 to the kernel families that are partitions of unity, and re-derive
+  the `DirectDFT` case before excluding it.
 
----
+## 4. `DirectDFT`'s spectral `anterpolate` can land outside the Hermitian subspace the formalization declares as the codomain
 
-## 6. The formalization page uses $W$ for two different objects
-
-- **type:** typesetting/notation (one glyph, two meanings) · **severity:** major · **confidence:** high
+- **type:** method · **severity:** major · **confidence:** medium
 - **locations:**
-  - PAGE: formalization, §Fiberwise algebra (map!/map): *"$\varphi : V_1 \times \dots \times V_m \to W$ … The output fiber space $W$"*
-  - PAGE: formalization, §Reductions (mapped forms): *"($W$ on this page is the gather operator, so the generic codomain takes another letter)"*
-  - PAGE: formalization, §Interpolation: *"$W := W_b \otimes \mathrm{id}_V : \Gamma_G \to \Gamma_P$"*
-- **contradicts:** the page's own explicit reservation of $W$ — axis: *what the glyph $W$ denotes*.
-- **description:** The Reductions entry goes out of its way to avoid $W$ for a map's codomain because
-  $W$ is the gather; the `map!` entry, on the same page, uses $W$ for exactly that — a fiber vector
-  space — while $W$ elsewhere is an operator $\Gamma_G \to \Gamma_P$. A space and a map between
-  section spaces sharing a glyph on the page whose purpose is typed precision is the failure the
-  Reductions parenthetical already diagnosed.
-- **resolution_hint:** use $U$ (or $V_{\text{out}}$) in the `map!` entry, matching the Reductions entry.
+  - PAGE: formalization, Representations — "The image is the Hermitian-constrained subspace"
+  - PAGE: formalization, Spectral transfer — "$(W^{\top}q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}$"
+  - PAGE: architecture, §13 decision 23 — "`DirectDFT` (no oversampling) carries the Nyquist exactly"
+- **description:** On an even folded axis the rfft identifies the Nyquist mode with its own negative
+  ($-N/2 \equiv N/2$), so a real field's coefficients must satisfy
+  $\hat g(N/2,-k_2,-k_3) = \overline{\hat g(N/2,k_2,k_3)}$. The type-1 sum satisfies this only when
+  every $x_{p,1}$ is a grid node; off-grid it does not. The deposited object is then no real field's
+  half-spectrum — exactly the hazard decision 28 documents for `translation_kernel` and decision 23
+  fixes for `NUFFT` by projecting the Nyquist out. `DirectDFT` is left with the claim of exactness
+  and no caveat.
+- **resolution_hint:** state the Nyquist reality caveat on `DirectDFT`'s anterpolate, or document
+  the projection if the code already applies one.
 
----
+## 5. `FieldAlgebra` claims pointwise-over-the-base is what makes the surface representation-agnostic — then contradicts itself
 
-## 7. `radial_kernel` described as a coordinate rather than as a builder taking a symbol
-
-- **type:** contradiction (operator conflated with its parameter) · **severity:** major · **confidence:** high
+- **type:** contradiction · **severity:** major · **confidence:** high
 - **locations:**
-  - PAGE: formalization, §Convolution: *"`radial_kernel` the $|k|^2$ coordinate consumers build symbols from"*
-  - PAGE: api / Convolution: *"`radial_kernel` — build a `RadialKernel` from any real function $\sigma$ of the squared wavenumber"*; PAGE: Home: *"`radial_kernel` builds a kernel from any symbol of $|k|^2$"*
-- **contradicts:** axis — *what the object is*: the radial coordinate $|k|^2$, or the map $\sigma \mapsto \hat g = \sigma(|k|^2)$.
-- **description:** The formalization sentence is the removed `squared_wavenumber_field`'s description
-  transplanted onto its replacement, so the builder is identified with its argument's argument. The
-  same page's own kernel-class list gets it right (*"radial … held as the real symbol $\sigma$"*), and
-  the weighted-inner docstring shows the honest spelling `radial_kernel(identity, …)` — i.e. the
-  coordinate is the value at $\sigma = \mathrm{id}$, not the builder.
+  - PAGE: api / FieldAlgebra, module — "That is what makes the whole surface representation-agnostic"
+  - PAGE: api / FieldAlgebra, module — "not linear in a field argument … is defined only in physical-space representation"
+  - PAGE: architecture, §2 — "an operation exists in a representation only when … it commutes with the rfft isomorphism"
+- **contradicts:** the same docstring two paragraphs later, and §2's validity rule, on the axis of
+  *what licenses an operation in both representations*.
+- **description:** Acting pointwise in the base is neither necessary nor sufficient for commuting
+  with $\mathcal F$: `det` and `norm` are pointwise and emphatically not representation-agnostic,
+  which the module itself says next. The property that transfers is *linearity in the field*. As
+  written this is a category slip — locality in the base substituted for equivariance under the
+  transform — on the module's own summary line.
+- **resolution_hint:** "…which is why the *linear* operations here are representation-preserving."
 
----
+## 6. The tutorial equates the fiber with the tensor order — the exact category error the formalization page names as its motivating defect
 
-## 8. $f(x) = \langle \delta_x, f\rangle$ uses the package's *normalized* bracket
-
-- **type:** math (normalization / notation collision) · **severity:** minor · **confidence:** medium
+- **type:** other · **severity:** major · **confidence:** high
 - **locations:**
-  - PAGE: architecture, §2: *"evaluation — pairing with a Dirac mass $\delta_x$ — $f(x) = \langle \delta_x, f\rangle$"* (repeated in §10)
-  - PAGE: notation, Operators table: *"$\langle\cdot,\cdot\rangle$ | the normalized $L^2$ inner product | inner"*; PAGE: formalization: $\langle f,g\rangle_{\text{grid}} := \frac1N\sum_n f_n\cdot g_n$
-- **contradicts:** axis — *the meaning of the bracket*: distributional duality pairing vs the $1/N$-normalized inner product.
-- **description:** The glyph is declared package-wide as the normalized inner; read that way the
-  identity would give $f(x)/N$, not $f(x)$. The intended object is the duality pairing between a
-  measure and a continuous function, which carries no $1/N$. Since the whole $N/M$ story of §10 turns
-  on which normalization each pairing has, using the same brackets for the unnormalized duality is
-  exactly where a reader loses track of the factor.
-- **resolution_hint:** write $\delta_x(f)$, or $\langle\cdot,\cdot\rangle_{\text{duality}}$ with one clause saying it is unnormalized.
+  - PAGE: tutorial, "Grids and fields" — "The fiber (tensor order) is set by the constructor"
+  - PAGE: architecture, §2 — "The fiber is a tensor power of $\mathbb R^3$, fixed by the tensor order $R$"
+  - PAGE: formalization, preamble — "a vector space equated with an integer"
+- **contradicts:** architecture §2, on the axis of *fiber (a vector space) vs tensor order (an
+  integer parameter)*.
+- **description:** The apposition "the fiber (tensor order)" identifies $V$ with $R$. §2 gets it
+  right — $V$ is *fixed by* $R$ — and the formalization page cites precisely this conflation as the
+  defect its typed statements exist to catch. It sits on the first page a user reads, which is where
+  the vocabulary is learned.
+- **resolution_hint:** "The tensor order — and with it the fiber — is set by the constructor."
 
----
+## 7. "Fiber-preserving" carries three different meanings across the site
 
-## 9. The pushforward $\iota_*$ is a measure but is equated with a grid section
-
-- **type:** math (category/type conflation) · **severity:** minor · **confidence:** medium
+- **type:** normalization · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: architecture, §10: *"anterpolation the pushforward of the dual measure, $\iota_{*}$ ($\iota_{*} q = \sum_p q_p \delta_{x_p}$ …) — for the uniform measures $\iota_{*} = (N/M) W^{\top}$"*
-- **description:** $\sum_p q_p\delta_{x_p}$ is a ($V$-valued) measure on the torus; $(N/M)W^\top q$ is
-  an element of $\Gamma_G$, a section. The identification silently performs two steps — regularization
-  by the stencil, then taking the density with respect to the (normalized) grid measure — and neither
-  is named, so a map into measures and a map into sections wear one symbol. The phrase "the dual
-  measure" also leaves unsaid *dual to what*. The formalization page states the honest version
-  ($\iota_* := (N/M)W^\top$, an operator $\Gamma_P \to \Gamma_G$) without reconciling it with §10's
-  measure-valued definition.
-- **resolution_hint:** one clause: "regularized and read as a density against the grid's measure, $\iota_*$ is realized on sections as $(N/M)W^\top$".
+  - PAGE: architecture, §2 — "the fiberwise algebra is order-zero and fiber-preserving"
+  - PAGE: formalization, Interpolation — "Both transfer maps are fiber-preserving (the trivial bundle leaves the fiber by the identity)"
+  - PAGE: api / Reductions, `integral` — "The result is fiber-preserving: a scalar for a scalar section"
+- **contradicts:** itself across pages, on the axis of *what "fiber-preserving" preserves*.
+- **description:** Sense (b) and (c) mean "identity on $V$"; sense (a) can only mean "covers
+  $\mathrm{id}_B$", since `dot`, `norm`, `det` and `map!` all change $V$ ($\mathbb R^{3\times3}\to\mathbb R$).
+  Under the (b)/(c) reading, §2's sentence is simply false for most of the algebra it describes. The
+  tutorial says the right thing for the same operations — "preserves the base" — which is the
+  formulation to standardize on.
+- **resolution_hint:** reserve "fiber-preserving" for $\otimes\,\mathrm{id}_V$; say "base-preserving"
+  or "vertical" in §2.
 
----
+## 8. §10 calls the point base's elements "particles", against the document's own invariant 12
 
-## 10. Is the base the grid's nodes or its cells?
-
-- **type:** normalization/terminology (base object vs measure element) · **severity:** minor · **confidence:** high
+- **type:** language-tone · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: formalization, Declarations: *"grid sections, $N = N_x N_y N_z$ cells"*; PAGE: api / Reductions (`integral`): *"where $N$ is the number of grid cells"*
-  - PAGE: api / FieldAlgebra: *"the base — the set of locations the field attaches a value to, which for a field is the grid's cells"*
-  - PAGE: api / Fields (`Grid3D`): *"`grid_size`: the number of grid points in each spatial direction"*; PAGE: notation: *"$N$ | the grid-point count"*; PAGE: api / Interpolation: *"over the $N$ grid nodes"*
-- **contradicts:** axis — *what the $N$ base elements are*: nodes (where values live) or cells (the quadrature volumes).
-- **description:** The base of a field section is the set of **nodes**; a "cell" is the volume element
-  the quadrature measure attaches to a node. The docs use cells, points, and nodes interchangeably for
-  the same index set, including inside one page. It is numerically harmless on a uniform torus but it
-  blurs precisely the base/measure distinction the measure taxonomy (decision 19) exists to keep, and
-  it makes "fiber value at each cell" read as a finite-volume rather than a collocation object.
-- **resolution_hint:** fix one word — nodes/grid points for the base, "cell volume" only for the measure — and sweep the class.
+  - PAGE: architecture, §10 — "a plain sum over the $M$ particles"
+  - PAGE: architecture, §10 — "each normalized by its total measure — the $M$ particles"
+  - PAGE: architecture, §2 invariants — "The terminology stays domain-neutral (base and fiber, point and value)"
+- **contradicts:** invariant 12 as stated in §2 and re-argued in §10 ("'particle'/'tracer' is the
+  consumer's interpretation … not a primitive here"), on the axis of *vocabulary*.
+- **description:** Two occurrences in the very section that defends the domain-neutral naming. The
+  base elements are points; the count is $M$ points.
 
----
+## 9. §10's prose gloss of the two pairings drops the normalization its own formulas carry
 
-## 11. Two incompatible reasons for refusing a separable weight in `weighted_inner`
-
-- **type:** method (justification) · **severity:** minor · **confidence:** medium
+- **type:** math · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: api / Reductions (`weighted_inner`): *"a separable kernel is deliberately not accepted, its factors not being real in general"*
-  - PAGE: architecture, §13 decision 51: *"`weighted_inner` accepts a radial kernel as a weight and deliberately not a separable one — a magnitude-dependent weight does not factor per axis, so it is not in that family"*
-- **contradicts:** axis — *why the separable class is excluded*.
-- **description:** The docstring's reason is a genuine validity statement (the pairing needs a real
-  multiplier; separable factors are complex in general, e.g. the translation phase). The decision-log
-  reason argues the converse direction — that a radial weight is not separable — which is no reason to
-  refuse a separable one, and would equally "prove" that the radial class is out of the separable
-  family rather than that the separable class is invalid here. A deliberate absence is a mathematical
-  statement (invariant 1), so its stated ground should be the one that holds.
+  - PAGE: architecture, §10 — "the counting measure makes $\langle\cdot,\cdot\rangle_{\mathrm{pts}}$ a plain sum"
+  - PAGE: architecture, §10 — "$\langle a, b\rangle_{\mathrm{pts}} := \frac{1}{M}\sum_p a_p\cdot b_p$"
+- **contradicts:** the display two lines below it, on the axis of *normalized vs extensive measure*.
+- **description:** The gloss says "plain sum" (counting) and "a volume integral over the box"
+  (Lebesgue) where both displayed pairings are normalized by total measure ($1/M$, $1/|\Omega|$).
+  Since the whole $N/M$ discussion that follows turns on exactly that normalization, the loose gloss
+  undercuts the paragraph it introduces.
 
----
+## 10. The formalization's $\mathbb P$ multiplier states no convention at $a\cdot a = 0$, though $\Delta^{-1}$ beside it does
 
-## 12. The spectral representation is never given a space, so $\mathcal F$ has no declared codomain
-
-- **type:** math (domain/codomain left unchecked) · **severity:** minor · **confidence:** medium
+- **type:** math · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: formalization, Declarations: only $V$, $\Gamma_G$, $\Gamma_P$ are declared; then *"The transform $\mathcal F$ … is the rfft isomorphism between the physical (nodal) and spectral representations of a grid section"*
-  - PAGE: architecture, §2: *"the rfft is the linear isomorphism between them"*
-- **description:** Every other object on the page is given a space; the spectral side is not. As a map
-  into the stored complex array, $\mathcal F$ is **not** onto: the stored half-spectrum has strictly
-  more real dimensions than $\Gamma_G$, and the image is the Hermitian-constrained subspace (the
-  $k$-plane self-conjugacy the page itself notes). That constraint is exactly what the Parseval weight
-  $\alpha(k)$ and the reality condition on kernels encode, so declaring
-  $\hat\Gamma_G := \{\hat f \in \mathbb C^{K}\otimes V : \hat f(-k) = \overline{\hat f(k)}\}$ would make
-  three later statements (Parseval, Hermitian kernels, `var` from modes $k\ne0$) type-check rather than
-  read as conventions.
+  - PAGE: formalization, Differential operators — "$\Delta^{-1} \to -|k|^{-2}\ (0\text{ at }k=0)$, $\mathbb P \to \mathrm{id} - \frac{a a^{\top}}{a \cdot a}$"
+  - PAGE: api / DifferentialOperators, `helmholtz_projection!` — "passes every mode with $a = 0$ unchanged … $a \ne 0$"
+- **description:** The expression is undefined at the zero mode and at the pure-Nyquist corners where
+  the whole derivative wavenumber vanishes — a nonempty set on any even grid. The API docstring
+  supplies the convention; the page whose stated job is to give every operator an honest domain does
+  not, while declaring the neighbouring $\Delta^{-1}$'s. (The identities $\mathbb P^2 = \mathbb P$,
+  $\nabla\cdot(\mathbb P u)=0$ do hold with the identity convention — this is about the statement,
+  not the operator.)
 
----
+## 11. "Three structures … are parameters of a section" is followed by five bullets, three of them operation families
 
-## 13. The formalization reserves $k$ for the wavenumber, then sums over it as a fiber index
-
-- **type:** typesetting (notation collision) · **severity:** nit · **confidence:** high
+- **type:** organization · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: formalization, Declarations: *"(the letter $k$ is reserved for the wavenumber below)"*
-  - PAGE: formalization, §Fiberwise algebra: *"$(u\times v)_i = \varepsilon_{ijk} u_j v_k$"*, *"$(AB)_{ij} = A_{ik}B_{kj}$"*
-- **description:** The page states an unconditional reservation and breaks it two sections later. The
-  Notation page carries the reconciliation (*"As an index, $k$ occurs only in component subscripts …
-  the standalone $k$ … is always the wavenumber"*), so the fix is to import that clause rather than to
-  claim a reservation the page does not keep.
+  - PAGE: architecture, §2 — "Three structures of the package are then parameters of a section, not separate worlds:"
+  - PAGE: architecture, §2 — "Fiberwise algebra is the vertical (within-fiber) structure"
+- **description:** The list runs base, vertical algebra, differential operators, base reductions,
+  representation. Base and representation (and, implicitly, tensor order) are parameters of a
+  section; an operation family is not — it is a map *on* sections. Both the count and the category
+  drifted, in the paragraph that sets up the whole conceptual model.
 
----
+## 12. `cov` is the second *central* moment on two pages and the plain "second moment" on two others
 
-## 14. "inner products" listed as physical-space-only among the nonlinear contractions
-
-- **type:** clarity (name collision with a spectral-valid reduction) · **severity:** nit · **confidence:** medium
+- **type:** contradiction · **severity:** minor · **confidence:** high
 - **locations:**
-  - PAGE: architecture, §2 (Representation validity): *"Nonlinear in the field — products of two fields, division by a scalar field, pointwise norms, contractions of two fields (dot, cross, tensor `mul!`, inner products): physical space only."*
-  - PAGE: api / Reductions (`inner`): *"For two fields in spectral representation `inner` returns the same value by Parseval's theorem with no inverse transform"*
-- **description:** The intended referent is the fiberwise tensor inner product `dot!`, but the exported
-  reduction is literally named `inner` and is valid in spectral representation — so the validity
-  table's phrase reads as forbidding what the reductions page provides. The distinction is real
-  (fiberwise contraction returns a section, the L² pairing returns a number), which is why naming it
-  matters here.
+  - PAGE: api / Reductions, `cov` — "the covariance of the fluctuations, not the raw second moment $\langle u_i u_j\rangle$"
+  - PAGE: architecture, §12 — "`cov` returns the vector second moment as a symmetric $\mathrm{Sym}^2(V)$ tensor"
+  - PAGE: Home — "the covariance tensor `cov` (a vector field's second moment, kept coordinate-free)"
+- **contradicts:** the `cov` docstring, on the axis of *central vs raw second moment*.
+- **description:** $\langle u\otimes u\rangle$ and $\langle u'\otimes u'\rangle$ differ by
+  $\bar u\otimes\bar u$ and coincide only for a mean-free field — not a safe assumption for a
+  general vector section. The formalization gets it right ("second central moment"); the two summary
+  surfaces do not.
 
----
+## 13. The divergence/gradient adjointness has no typed entry, though it is cited as a pinned structural identity
 
-## 15. "fiber order" vs "tensor order"
-
-- **type:** normalization (vocabulary) · **severity:** nit · **confidence:** medium
+- **type:** citation · **severity:** minor · **confidence:** medium
 - **locations:**
-  - PAGE: api / Reductions (`inner`): *"two compatible sections of equal fiber order"*
-  - PAGE: api / FiberSections (`AbstractFiberSection`): *"`R` is the tensor order"*
-- **description:** One integer parameter, two names. Since a nearby documented defect class is exactly
-  "a vector space equated with an integer" (the fiber $V$ vs the order $R$), the package is better
-  served by using *tensor order* uniformly for $R$ and reserving *fiber* for the space $V$.
+  - PAGE: testing, §1 — "the adjoint relations (divergence as the negative gradient adjoint, self-adjoint curl…)"
+  - PAGE: architecture, §13 — "$\nabla\cdot = -\nabla^\top$"
+  - PAGE: formalization, preamble — "a statement here with no test is a coverage gap to close"
+- **description:** The formalization types $\mathbb P^2=\mathbb P$, $\nabla\cdot\nabla\times=0$,
+  $\nabla\times\nabla=0$, curl self-adjointness, $\Delta$ self-adjointness and the dissipation
+  identity — but not $\langle\nabla\varphi,u\rangle = -\langle\varphi,\nabla\cdot u\rangle$, which is
+  the one relation *between different fiber orders* (scalar and vector sections) and therefore the
+  one whose spaces most need naming. By the page's own gap rule, a missing entry is the defect.
+
+## 14. $N$ is "grid cells" in the reductions and "grid points" in the glossary
+
+- **type:** normalization · **severity:** nit · **confidence:** high
+- **locations:**
+  - PAGE: notation — "$N$ | the grid-point count $\prod_i N_i$ | prod(grid_size)"
+  - PAGE: api / Reductions, `integral` — "where $N$ is the number of grid cells"
+  - PAGE: formalization, Declarations — "$N = N_x N_y N_z$ cells"
+- **description:** A node and a cell are different objects (a node carries no volume), and the whole
+  quadrature story is "each node carries the volume of its cell". On a uniform periodic grid the
+  counts coincide, so nothing is numerically wrong — but the identification is never stated, and the
+  two words alternate freely for one symbol.
+
+## 15. "A section lives in $L^2(\mathrm{base}, \mu)$" flattens the fiber away
+
+- **type:** math · **severity:** nit · **confidence:** medium
+- **locations:**
+  - PAGE: architecture, §13 decision 18 — "a section lives in $L^2(\mathrm{base}, \mu)$"
+  - PAGE: formalization, preamble — "a section space written $\mathbb R^N$ that had quietly flattened the fiber away"
+- **description:** The correct space is $L^2(\mathrm{base},\mu; V)$ (equivalently
+  $L^2(\mathrm{base},\mu)\otimes V$). The formalization names this exact omission as the class of
+  slip it exists to catch, and §12/`Reductions` elsewhere is careful that a reduction returns a
+  *fiber*, which only makes sense if $V$ is in the space.
+
+## 16. "Rank 2 / rank 4" for tensor order, and "which the package does not carry" against `FiberTensor4`
+
+- **type:** other · **severity:** nit · **confidence:** medium
+- **locations:**
+  - PAGE: architecture, §13 decision 49 — "a vector's covariance is rank 2, a tensor's rank 4, which the package does not carry"
+  - PAGE: api / FiberSections — "`FiberTensor4{T}` … alias for `SArray{Tuple{3,3,3,3}, T, 4, 81}`"
+- **description:** The site's term everywhere else is *tensor order* $R$; "rank" additionally
+  collides with matrix rank, live here since `cov` returns a rank-deficient-able $\mathrm{Sym}^2$
+  tensor. And the fiber type of order 4 does exist — what is absent is a *section* of order 4 (the
+  documented $R < 3$ ceiling), which is the honest way to say it.
+
+## 17. `curl` described as "the local rotation rate"
+
+- **type:** math · **severity:** nit · **confidence:** medium
+- **locations:**
+  - PAGE: api / DifferentialOperators, module — "`curl` $\equiv \nabla\times$ returns the local rotation rate of a vector field"
+- **description:** $\nabla\times u$ is *twice* the local angular velocity of a fluid element
+  ($\omega = 2\Omega$); the rotation rate is $\tfrac12\nabla\times u$, and the antisymmetric part of
+  $\nabla u$ that the module elsewhere pairs `curl` with carries the factor. Since the neighbouring
+  `symmetric_gradient` bullet is exact about its $\tfrac12$, the looseness stands out.

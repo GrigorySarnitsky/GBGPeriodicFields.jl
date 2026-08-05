@@ -1,407 +1,146 @@
-# Documentation-Structure Consistency Audit
+# Documentation-Structure Consistency Review
+
+**Hat:** structure-consistency (fresh-eyes, template-uniformity audit)
 
 ## Inferred template
 
-**Function docstring** (the `f`/`f!` pair, `f!` is the "home"): (1) signature code
-block; (2) one-sentence identity, often folding in the return value ("...into
-`destination`, returning `destination`"); (3) when-to-use guidance versus the
-sibling form/alternatives; (4) an argument-by-argument account; (5) one
-physical-meaning-first display formula; (6) caveats as a `!!!` admonition where
-load-bearing; (7) a representation-validity scope statement; (8) a citation at the
-very end when applicable; (9) a cross-link back to the home. The allocating form is
-meant to be a thin wrapper: "Allocating form of `f!`: allocate the result and
-return it... See `f!` for..."
+**Function docstring** (in-place `f!`/`f` pairs, the dominant shape across `FieldAlgebra`,
+`DifferentialOperators`, `Convolution`, `Interpolation`, `Reductions`):
+1. Signature block(s).
+2. One-sentence identity ("Compute X ... and return `destination`.").
+3. Verbatim steer sentence: *"Use this in-place form when `destination` is already allocated; the
+   allocating `X` returns a fresh result instead."*
+4. `The arguments are:` bulleted list (triggered at 3+ signature args or any keyword; ≤2 args stay
+   in prose, no bullets) — bullets always use an em dash (`` `name` — description ``).
+5. Validity/representation prose (physical-only / spectral-only / both).
+6. Display-math formula.
+7. Optional titled `!!!`-style admonition.
+8. `source`.
 
-**Type docstring**: (1) constructor signature(s); (2) one-sentence identity; (3) a
-"The fields are" bulleted list, one bullet per constructor argument / stored field;
-(4) trailing behavioral notes; (5) `source`.
+The **allocating wrapper** overwhelmingly opens *"Allocating form of `X!`: allocate the result and
+return it. ... See `X!` for ..."* — a thin, formula-free pointer to the `!` home.
 
-Both templates are followed closely in places (e.g. FieldAlgebra's fiberwise
-formulas are uniformly led by "Pointwise over the base..."), which is what makes
-the deviations below legible as deviations rather than noise.
+**Type docstring**: identity paragraph, then constructor signature(s) folded into one block, then
+`The fields are` with a bulleted list of stored fields.
 
----
-
-## Finding 1
-
-**Type:** organization
-**Severity:** blocker
-**Confidence:** high
-**Locations:** PAGE: api / Reductions — `## Internal API` section, entries
-`Base.extrema`, `Base.maximum`, `Base.minimum`, `Statistics.mean`, `Statistics.std`,
-`Statistics.var`.
-**Quote:** "These symbols are not part of the public interface" (heads the section
-containing `Statistics.mean`).
-
-**Description:** The paragraph immediately before `## Internal API` states `mean`,
-`std`, `var`, `maximum`, `minimum`, `extrema` "are also defined for sections... and
-are described in the module summary above" — i.e. asserts they are public. The very
-next heading is "## Internal API", whose own intro claims its contents "are not
-part of the public interface," and all six bindings are rendered inside it,
-interleaved with genuinely internal `_`-prefixed methods. No other stdlib extension
-in the corpus (`dot`, `cross`, `tr`, `det`, `norm`, `transpose`, `mul!`) is placed
-under an "Internal API" heading; all get named public sections.
+Against that inferred template, the following are the sharpest outliers.
 
 ---
 
-## Finding 2
-
-**Type:** organization
-**Severity:** major
-**Confidence:** high
-**Locations:** PAGE: api / DifferentialOperators, `gradient!` ("The arguments
-are:"); PAGE: api / Convolution, `convolve!` (bare bullets); PAGE: api /
-FieldAlgebra, `dot!`/`add!` (no bullets at all).
-**Quote:** "The arguments are:" vs. unlensed "- `field` — the field to filter".
-
-**Description:** Argument documentation uses at least three incompatible shapes
-with no visible governing rule: a lead-in sentence "The arguments are:" plus
-bullets (every DifferentialOperators operator, `combine!`); bare bullets with no
-lead-in (`convolve!` and all five Convolution kernel-builders); and pure
-prose with no bullets anywhere (`dot!`, `cross!`, `mul!`, `tr!`, `det!`,
-`transpose!`, `sym!`/`skew!`/`dev!`, `norm!`, `add!`, `subtract!`, `multiply!`,
-`divide!` — i.e. almost all of FieldAlgebra).
-
----
-
-## Finding 3
-
-**Type:** organization
-**Severity:** major
-**Confidence:** high
-**Locations:** PAGE: api / Fields — `ScalarFieldPhysical`, `VectorFieldPhysical`,
-`TensorFieldPhysical`, and their Spectral counterparts (prose); `Grid3D`,
-`FieldSpectralMultipliers` (bulleted "The fields are").
-**Quote:** "Here `values_at_grid` contains the real scalar values" vs. "The fields
-are\n\n- `grid_size::NTuple{3, Int}`".
-
-**Description:** All six field types document their constructor arguments in
-"Here `x` contains..." running prose, with no "The fields are" section at all,
-while `Grid3D` and `FieldSpectralMultipliers` use a bulleted "The fields are" list
-for the identical job. `FieldTransformPlans` mixes both styles in one docstring —
-prose for its constructor arguments, then a separate bulleted list for its
-differently-named stored fields. A "# Fields" section is present on some types and
-absent on others with no stated rule for which.
-
----
-
-## Finding 4
-
-**Type:** organization
-**Severity:** major
-**Confidence:** high
-**Locations:** PAGE: api / FieldAlgebra, `mul!` ("Warning..."); PAGE: api /
-Convolution, `convolve!` ("A real field needs a Hermitian kernel"); PAGE: api /
-Fields, `to_physical!` ("The source is used as scratch").
-**Quote:** "WarningAs with `LinearAlgebra.mul!`" vs. "A real field needs a
-Hermitian kernelThe stored half-spectrum".
-
-**Description:** Admonitions split into two families with no unifying rule:
-generic Documenter-default titles (literally "Warning"/"Note" — `mul!`,
-`inverse_laplacian!`, `helmholtz_projection!`, `NUFFT`, `integral`'s Note) versus
-custom descriptive titles (`convolve!`, `exponential_convolve!`,
-`translation_kernel`, `to_physical!`, `to_spectral!`, `FieldTransformPlans`,
-`with_threading`). The split loosely tracks module boundaries but is never stated
-as a rule, and both styles gate comparably load-bearing caveats.
-
----
-
-## Finding 5
-
-**Type:** organization
-**Severity:** major
-**Confidence:** high
-**Locations:** PAGE: api / DifferentialOperators, `gradient!`/`divergence!`/
-`curl!`/`laplacian!`/`inverse_laplacian!`/`helmholtz_projection!`; PAGE: api /
-Interpolation, `interpolate!`; PAGE: api / Convolution, `combine!`.
-**Quote:** "Use this in-place form when `destination` is already allocated" vs.
-"This is the in-place home of the gather".
-
-**Description:** Three different phrasings cover the same "this is the in-place
-primary form; use the allocating sibling for a fresh result" idea. DifferentialOperators
-uses one fixed sentence verbatim in every operator. Interpolation uses a distinct
-fixed phrasing ("This is the in-place home of..."). FieldAlgebra/Convolution
-`!`-operators either improvise bespoke wording (`combine!`: "Reach for `combine!`
-with a preallocated destination...") or omit the guidance entirely (`convolve!`,
-`exponential_convolve!`, `dot!`, `cross!`, `mul!`).
-
----
-
-## Finding 6
-
-**Type:** organization
-**Severity:** major
-**Confidence:** high
-**Locations:** PAGE: api / FieldAlgebra, `sym`, `skew`, `dev` (wrappers) vs.
-`transpose` (same section) and `gradient`/`curl`/`tr` (other sections).
-**Quote:** "Allocate the result and compute the symmetric part" vs. "Allocating
-form of `transpose!`: allocate the result and return".
-
-**Description:** Every other allocating wrapper in the corpus opens "Allocating
-form of `f!`: allocate the result and return...". `sym`, `skew`, and `dev` instead
-open "Allocate the result and compute the X part of...", a distinct template used
-nowhere else — including by their own section-mate `transpose`, which follows the
-standard phrasing. This is exactly the f/f!-pair-organized-differently case: three
-wrappers in one section break from both the corpus norm and their nearest
-neighbor.
-
----
-
-## Finding 7
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** high
-**Locations:** PAGE: api / Convolution, `convolve!` (formula before args) vs.
-`exponential_convolve!`/`combine!` (formula after args); PAGE: api /
-DifferentialOperators, all operators (formula after args).
-**Quote:** "As a real physical object the periodic convolution is..." (precedes
-the bullets) vs. "...for the field's grid.Each output component is" (follows
-them).
-
-**Description:** `convolve!` places both its physical- and spectral-form
-formulas immediately after the identity sentence, before the argument bullets.
-Its own module siblings `exponential_convolve!` and `combine!` place the formula
-after the argument list instead (appended to the trailing prose), matching the
-DifferentialOperators family's uniform placement. `convolve!` is the outlier
-against both its closest siblings and the wider corpus.
-
----
-
-## Finding 8
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** high
-**Locations:** PAGE: api / DifferentialOperators, `gradient!` (folded); PAGE: api
-/ Convolution, `convolve!` (trailing); PAGE: api / Fields, `write_field`
-(trailing).
-**Quote:** "...returning `destination`." vs. "Returns the modified
-`destination`."
-
-**Description:** Return-value documentation is either folded into the opening
-sentence (DifferentialOperators, most of FieldAlgebra: "...write it into
-`destination`, returning `destination`") or split into a separate trailing
-sentence at the very end (`convolve!`, `exponential_convolve!`, `write_field`,
-`read_field`, `set_fft_threads!`). No rule distinguishes which docstrings get
-which placement.
-
----
-
-## Finding 9
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** high
-**Locations:** PAGE: api / Reductions, `weighted_inner` (bulleted) vs. `integral`,
-`inner`, `l2norm`, `lpnorm`, `radial_spectrum`, `radial_correlation` (all prose).
-**Quote:** "The arguments are:\n\n- `f`, `g` — two compatible, equal-order
-fields".
-
-**Description:** Within Reductions, `weighted_inner` is the sole function using a
-bulleted "The arguments are:" list. Its six module-mates all describe their
-arguments in running prose with no bullets anywhere. This is a clean single-outlier
-case inside an otherwise internally uniform family.
-
----
-
-## Finding 10
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** medium
-**Locations:** PAGE: api / FieldAlgebra, `dot` and `cross` (wrappers) vs.
-`gradient`/`curl`/`tr` (other modules' wrappers).
-**Quote:** "Two fields contract only in physical-space representation; with a
-constant fiber..." (restated in the wrapper).
-
-**Description:** `dot` and `cross` restate their entire representation-validity
-paragraph (physical-only for two fields, coefficient-wise for a constant fiber) in
-addition to linking `dot!`/`cross!`. Comparable wrappers elsewhere (`gradient`,
-`curl`, `tr`, `laplacian`) link back in one short sentence without re-deriving the
-validity discussion, keeping closer to the thin-wrapper template.
-
----
-
-## Finding 11
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** medium
-**Locations:** PAGE: api / Interpolation — `## Transfer-scheme types`: `NUFFT`
-("The options:" bullets) vs. `LalescuSpline`/`LagrangeSpline` (inline prose).
-**Quote:** "The options:\n\n- `tol` — the target accuracy" vs. "$n \ge 0$, the
-first argument — the finite-difference half-width".
-
-**Description:** Within the same "Transfer-scheme types" section, `NUFFT`
-documents its keyword options (`tol`, `oversampling`, `width`, `beta`) as a
-bulleted list, while `LalescuSpline` and `LagrangeSpline` — equally parameterized
-scheme constructors in the same section — embed their parameter meanings inline
-within flowing mathematical narrative, never as bullets.
-
----
-
-## Finding 12
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** medium
-**Locations:** PAGE: api / Interpolation — module docstring, embedded "API" and
-"References" sub-headers.
-**Quote:** "...live in the `Points` module.\nAPI\n\n- Interpolation (grid →
-point...".
-
-**Description:** The Interpolation module docstring is the only one in the corpus
-that embeds its own internal "API" and "References" labeled sub-structure inside
-the module-level docstring body. No sibling module docstring (Convolution,
-DifferentialOperators, FieldAlgebra, Fields, FiberSections, Points, Reductions) has
-either — references, where present at all, live on individual function
-docstrings, and none label a bare "API" block.
-
----
-
-## Finding 13
-
-**Type:** organization
-**Severity:** moderate
-**Confidence:** medium
-**Locations:** PAGE: api / FieldAlgebra (bullets = header names) vs. PAGE: api /
-DifferentialOperators and PAGE: api / Convolution (bullets ≠ header names) vs.
-PAGE: api / Points (a promised family with no matching section).
-**Quote:** "Vector-space and module operations — `add!` and `subtract!`" (bullet
-text = the later `##` header, verbatim).
-
-**Description:** FieldAlgebra's module-docstring bullets are verbatim the page's
-later section headers. DifferentialOperators' and Convolution's module-docstring
-bullets instead name individual operations, and the actual page introduces new
-group headers ("First-order differential operators", "Kernel-multiplier
-builders") never mentioned in the module docstring. Points promises "a full
-fiberwise algebra" as one bulleted family, but the Points API page has no section
-for it at all.
-
----
-
-## Finding 14
-
-**Type:** organization
-**Severity:** minor
-**Confidence:** medium
-**Locations:** PAGE: api / Points — `ScalarPointValues`/`VectorPointValues`/
-`TensorPointValues` vs. PAGE: api / Fields — the six field types.
-**Quote:** "Scalar field values sampled at `M` points, stored in `data` with
-shape `(M,)`." (the entire docstring).
-
-**Description:** The point-value types are documented in a single terse sentence
-with no "Here `x` is..." explanatory prose at all, a third and sparser tier of
-type-doc depth alongside Grid3D's bulleted-fields tier and the six field types'
-prose-paragraph tier — three distinct depths for structurally analogous
-"data-holder with a shape" types.
-
----
-
-## Finding 15
-
-**Type:** organization
-**Severity:** minor
-**Confidence:** medium
-**Locations:** PAGE: api / Interpolation, `anterpolate!`.
-**Quote:** "- `α` scales the deposited contribution.\n- `β` sets the
-accumulation".
-
-**Description:** `anterpolate!` is the only docstring in the corpus that mixes
-argument-documentation styles within itself: `field`, `points`, `quantities`, and
-`scheme` are explained in prose, while `α` and `β` alone are then pulled into a
-bulleted list with no lead-in sentence. Every other docstring elsewhere is either
-all-prose or all-bulleted for its own argument set.
-
----
-
-## Finding 16
-
-**Type:** organization
-**Severity:** minor
-**Confidence:** medium
-**Locations:** PAGE: api / FieldAlgebra, `tr` vs. `det` (same "Contraction and
-product operations" section).
-**Quote:** "the fiberwise determinant — the third principal invariant $I_3$" vs.
-"return the fiberwise trace of a second-order tensor field."
-
-**Description:** `det`'s wrapper restates the identifying fact "the third
-principal invariant $I_3$" from its `!` home. `tr`'s wrapper, in the same section
-and the same pairing pattern, does not restate the parallel fact ("the first
-tensor invariant") that `tr!` gives it. The two closest-possible sibling wrappers
-leak a different amount of home content.
-
----
-
-## Finding 17
-
-**Type:** organization
-**Severity:** minor
-**Confidence:** medium
-**Locations:** PAGE: api / FieldAlgebra, PAGE: api / DifferentialOperators, PAGE:
-api / Interpolation (no disclaimer) vs. PAGE: api / Fields, FiberSections,
-Convolution, Points, Reductions (disclaimer present).
-**Quote:** "These symbols are not part of the public interface; they are
-documented for contributors —".
-
-**Description:** Five of eight modules open their "## Internal API" section with
-this (near-)verbatim disclaimer sentence. FieldAlgebra, DifferentialOperators, and
-Interpolation instead open with a shorter description of the contents and skip the
-disclaimer entirely. A fixed boilerplate opener is used by most but not all
-Internal API sections.
-
----
-
-## Finding 18
-
-**Type:** organization
-**Severity:** minor
-**Confidence:** medium
-**Locations:** PAGE: api / DifferentialOperators, `divergence!`/
-`helmholtz_projection!`; PAGE: api / Convolution, `combine!` ("The kernel-composed
-form" subheading) vs. `exponential_convolve!` (no subheading).
-**Quote:** "The kernel-composed form\nPassing a `kernel` composes..." vs. "...the
-two-operand forms apply the same kernel to the combination".
-
-**Description:** Three operations that fuse a second mechanism into one pass each
-get an explicit demoted subheading, "The kernel-composed form". `exponential_convolve!`
-has an equivalent fused two-operand mechanism (documented as the "lazy-kernel twin
-of the kernel-composed `combine!` method") but it is folded into running prose with
-no comparable subheading of its own.
-
----
-
-## Finding 19
-
-**Type:** organization
-**Severity:** nit
-**Confidence:** medium
-**Locations:** PAGE: api / GBGPeriodicFields (umbrella) vs. every submodule page.
-**Quote:** "Represent, transform, and manipulate real-valued scalar, vector, and
-second-order-tensor fields".
-
-**Description:** The umbrella module's docstring opens with an imperative verb
-phrase. Every one of its eight submodules opens with a descriptive noun phrase
-instead (e.g. "Fiberwise and pointwise algebra for...", "Spectral differential
-operators on...", "Periodic (circular) convolution of..."). The umbrella is the
-one docstring in the corpus using the imperative-mood opener.
-
----
-
-## Finding 20
-
-**Type:** organization
-**Severity:** nit
-**Confidence:** medium
-**Locations:** PAGE: api / Fields ("This module provides the following."); PAGE:
-api / Points ("This module provides three things."); PAGE: api /
-DifferentialOperators ("The operation families are:"); PAGE: api / FieldAlgebra
-("The families are:"); PAGE: api / Reductions ("Each family links to the home
-where its formula lives:").
-**Quote:** "This module provides the following." vs. "The families are:".
-
-**Description:** The sentence introducing a module docstring's bulleted
-operation-family list is phrased differently in nearly every module, with no
-shared template — five distinct wordings across seven modules for what is
-structurally the same slot.
+### Finding 1 — Four core allocating operators break the "Allocating form of `X!`" template
+- **Type:** organization — **Severity:** major — **Confidence:** high
+- **Locations:**
+  - FieldAlgebra, `Base.:+`: *"Allocating sectionwise addition: add fields or point-value collections — or a section and a compatible constant — and return a new section; the in-place home is `add!`."*
+  - FieldAlgebra, `Base.:-`, `Base.:*`, `Base.:/` open identically: *"Allocating sectionwise subtraction..."*, *"Allocating multiplication..."*, *"Allocating division..."*
+  - Contrast, DifferentialOperators, `gradient`: *"Allocating form of `gradient!`: allocate the result and return it. ... See `gradient!` for the componentwise definition..."*
+- **Description:** Every other allocating wrapper in the corpus (`gradient`, `divergence`, `curl`,
+  `symmetric_gradient`, `laplacian`, `inverse_laplacian`, `helmholtz_projection`, `dot`, `cross`,
+  `tr`, `det`, `transpose`, `sym`, `skew`, `dev`, `norm`, `convolve`, `exponential_convolve`,
+  `interpolate`, `anterpolate`, `translation_kernel`) opens with the fixed phrase "Allocating form
+  of `X!`: allocate the result and return it," and closes with "See `X!` for...". The four M2
+  vector-space operators (`+`, `-`, `*`, `/`) — arguably the most-used, most-visible bindings in the
+  package — use a distinct template with no "Allocating form of" opener and no "See `X!` for..."
+  closer, just "...; the in-place home is `X!`."
+
+### Finding 2 — Type "fields" list format is punctuated differently in Fields/Points vs. Convolution
+- **Type:** format — **Severity:** major — **Confidence:** high
+- **Locations:**
+  - Fields, `Grid3D`: *"The fields are\n\n- `grid_size::NTuple{3, Int}`: the number of grid points..."* (no colon after "are"; bullet separator is a colon).
+  - Points, `ScalarPointValues`: *"The fields are\n\n- `data`: the values, with shape (M,)."* (same colon-bullet style).
+  - Convolution, `StoredKernel`: *"The fields are:\n\n- `field` — the `ScalarFieldSpectral` holding the coefficients..."* (colon after "are"; bullet separator is an em dash).
+  - Convolution, `SeparableKernel`/`RadialKernel`/`ProductKernel` all match `StoredKernel`'s "The fields are:" + em-dash style.
+- **Description:** Every `Fields`/`Points` type (12+ instances: `Grid3D`, `RealFourierLayout`,
+  `ScalarFieldPhysical`/`Spectral`, `VectorFieldPhysical`/`Spectral`, `TensorFieldPhysical`/`Spectral`,
+  `FieldTransformPlans`, `FieldSpectralMultipliers`, `PointSet`, `ScalarPointValues`,
+  `VectorPointValues`, `TensorPointValues`) uses "The fields are" (no colon) with colon-separated
+  bullets. All four `Convolution` kernel types instead use "The fields are:" (with colon) and
+  em-dash-separated bullets — matching the em-dash style used everywhere else for *function*
+  argument lists, but not the sibling module's own type-field lists. Two axes (header punctuation,
+  bullet separator) flip together at the module boundary with no apparent reason.
+
+### Finding 3 — `inv`/`materialize_kernel` document each method with its own body; `convolve` shares one body across all its signatures, in the same module
+- **Type:** organization — **Severity:** major — **Confidence:** high
+- **Locations:**
+  - Convolution, `convolve`: one code block stacking all three call forms, `convolve(field, kernel)` / `convolve(kernel, field)` / `convolve(k1, k2)`, followed by ONE shared prose body ("Allocating form of `convolve!`: allocate the result and return...").
+  - Convolution, `Base.inv`: four separate signature blocks (`inv(::ProductKernel)`, `inv(::RadialKernel)`, `inv(::SeparableKernel)`, `inv(::StoredKernel)`), each with its **own** distinct paragraph, its own titled admonition (e.g. *"Each factor must have no zeros on any stored mode"* vs. *"The function must have no zeros on any stored mode"*), and its own `source` link, all repeated under one `Base.inv — Function` heading.
+  - Same per-method-body split for `materialize_kernel` (separate bodies for `ProductKernel`, `RadialKernel`, `SeparableKernel`).
+- **Description:** Two different conventions coexist for "one generic name, several methods" within
+  the *same* module: `convolve`, `dot!`, `cross!`, `mul!`, `gradient!` etc. use one shared prose body
+  for all listed signatures; `inv` and `materialize_kernel` instead give each method its own
+  complete mini-docstring stacked under one header. A reader cannot predict from the corpus which
+  convention a new multi-method generic will follow.
+
+### Finding 4 — The kernel-composed "additional arguments" bullet list is present for two operators but missing for a third with the identical pattern
+- **Type:** organization — **Severity:** major — **Confidence:** high
+- **Locations:**
+  - DifferentialOperators, `divergence!`, "The kernel-composed form": *"The additional arguments are:\n\n- `kernel` — ...\n- `α`, `β` — ..."*
+  - DifferentialOperators, `helmholtz_projection!`, "The kernel-composed form": identical bulleted "The additional arguments are:" structure.
+  - FieldAlgebra, `combine!`, "The kernel-composed form": *"Passing a trailing `kernel` ... convolves the combination with the kernel in the same fused pass. ... with `b === destination` it computes the kernel-filtered accumulate in place."* — no bulleted argument list at all; `kernel` is never introduced as its own bullet anywhere in the docstring.
+- **Description:** All three operations add the identical trailing-kernel arity (decision 32/33's
+  idiom, per the module prose). Two spell out the added `kernel`/`α`/`β` arguments as a formal
+  bulleted sub-list; `combine!`'s equivalent subsection describes the same information only in
+  prose, breaking the sub-list pattern its siblings establish right next to it in the corpus.
+
+### Finding 5 — `FieldSpectralMultipliers` splits its convenience constructor into a separate docstring; every other multi-constructor type folds all forms into one
+- **Type:** organization — **Severity:** medium — **Confidence:** high
+- **Locations:**
+  - Fields, `FieldSpectralMultipliers — Type`: documents only the two explicit six-array constructors, then says *"A convenience constructor `FieldSpectralMultipliers(field)` builds both families... and carries its own docstring below."*
+  - Fields, `FieldSpectralMultipliers — Method`: a wholly separate docstring block for `FieldSpectralMultipliers(field::AbstractFieldSpectral{T})`.
+  - Contrast `ScalarFieldPhysical — Type`, which folds three constructors — two array-based plus a semantically distinct function-sampling constructor with its own `array_type` keyword — into one unified docstring; likewise `TensorFieldPhysical` folds five constructor signatures into one block.
+- **Description:** Every other type with multiple constructor forms (`Grid3D`, `RealFourierLayout`,
+  `ScalarFieldPhysical`/`Vector`/`TensorFieldPhysical`/`Spectral`) documents all of them — including
+  a semantically distinct convenience form — under one Type docstring. `FieldSpectralMultipliers`
+  alone breaks this into a Type doc plus a separate Method doc, the only such split in the corpus.
+
+### Finding 6 — `FieldTransformPlans` is the only type with both an "arguments" list and a "fields" list
+- **Type:** organization — **Severity:** medium — **Confidence:** medium
+- **Locations:**
+  - Fields, `FieldTransformPlans`: *"The arguments are:\n\n- `physical`: ...\n- `spectral`: ...\n- `fft_flags`: ...\n- `fft_timelimit`: ..."* followed later by *"The fields are\n\n- `grid::G`: ...\n- `fourier_layout::L`: ...\n- `plan_forward_fft::PF`: ...\n- `plan_inverse_fft::PI`: ..."*
+  - Contrast Fields, `ScalarFieldPhysical`: its function-constructor's extra parameters (`f`, `array_type`) are bound only in running prose ("Here `f` is called as `f(x, y, z)`... `array_type` is the array type used...") with no "The arguments are:" heading at all.
+- **Description:** `FieldTransformPlans` is the sole type docstring carrying both a formal bulleted
+  "arguments" section (for constructor-only parameters that are not literally stored) and a
+  "fields" section (for the struct's actual stored fields). Every other type either has one list
+  ("The fields are") or explains extra constructor parameters in plain prose — never both headed
+  bulleted sections in the same docstring.
+
+### Finding 7 — Warning/caveat admonitions appear in at least three different structural positions
+- **Type:** organization — **Severity:** medium — **Confidence:** medium
+- **Locations:**
+  - Before the steer sentence and arguments: DifferentialOperators, `inverse_laplacian!` — *"The inverse Laplacian is nonlocal"* box sits between the identity paragraph and "Use this in-place form...".
+  - Between arguments and formula: Convolution, `exponential_convolve!` — *"The offset must be real-valued"* box sits right after the bulleted arguments list, before the formula.
+  - After the formula, immediately before `source`: FieldAlgebra, `mul!` — *"The destination must not alias an input"*; Convolution, `convolve!` — *"A real field needs a Hermitian kernel"*; Convolution, `translation_kernel` — *"At the Nyquist frequency the phase becomes a real attenuation"*.
+- **Description:** The same class of load-bearing caveat (a hazard the user must know before calling)
+  is boxed in three different positions relative to the arguments list and the formula, with no
+  visible rule (e.g. "safety" caveats vs. "correctness" caveats) that predicts which position a new
+  admonition should take.
+
+### Finding 8 — Infix-alias docstrings are handled two different ways
+- **Type:** organization — **Severity:** minor — **Confidence:** medium
+- **Locations:**
+  - FieldAlgebra, `LinearAlgebra.dot` and `LinearAlgebra.:⋅`: word-for-word identical bodies ("Allocating form of `dot!`... The infix alias $\cdot$ (`⋅`) is also exported...").
+  - FieldAlgebra, `LinearAlgebra.cross` and `LinearAlgebra.:×`: likewise word-for-word identical.
+  - Convolution, `convolve` vs. `GBGPeriodicFields.Convolution.:⋆`: the infix docstring is distinct, shorter, freshly-written prose — *"Infix alias for `convolve`, in every arity: `a ⋆ b` is `convolve(a, b)`. ... The distinct glyph keeps the operation apart from `*`..."* — not a duplicate of `convolve`'s own body.
+- **Description:** `dot`/`⋅` and `cross`/`×` duplicate the allocating function's entire docstring
+  verbatim onto the infix binding; `convolve`/`⋆` instead gets its own independently-composed thin
+  wrapper. Both are defensible individually, but the corpus does not commit to one approach for
+  "named function + infix alias" pairs.
+
+### Finding 9 — Convolution's module docstring uses three separate lists where six of eight module pages use one
+- **Type:** organization — **Severity:** minor — **Confidence:** medium
+- **Locations:**
+  - Fields, DifferentialOperators, FieldAlgebra, Points, Interpolation each open their public-surface summary with one list under the fixed phrase "The parts are:" (e.g. Fields: *"The parts are:\n\n- Grid and layout — ...\n- Field types — ...\n..."*).
+  - Convolution instead runs three separately-headed lists in its module docstring: *"Convolution operations:\n\n- ...\nKernel storage classes:\n\n- ...\nKernel builders:\n\n- ..."* with no unifying "The parts are:" lead-in.
+- **Description:** Six of the eight submodule pages converge on exactly one "The parts are:" list as
+  the module-overview shape (Reductions and FiberSections vary the lead-in phrase but still use one
+  list). Convolution alone fragments its overview into three independently-titled lists, the
+  strongest structural outlier among the module docstrings.
+
+### Finding 10 — Points' "Point-value algebra" section is the only `##` section with no docstring content
+- **Type:** organization — **Severity:** minor — **Confidence:** medium
+- **Locations:**
+  - Points, `## Point-value algebra`: entirely prose — *"The point values carry the same fiberwise algebra as fields in physical representation, through the very same generics... There is no second set of docstrings for them: each per-component formula is generated from one builder shared with `FieldAlgebra`, so the operations are documented once, on the `FieldAlgebra` page."*
+  - Every other `##`-level section on every module page (e.g. Points' own "Point and point-set types", "HDF5 persistence") contains at least one rendered docstring block.
+- **Description:** This is an explained, deliberate choice (avoiding duplicate docstrings), but it
+  makes the section a structural outlier: a `##` heading in the sidebar TOC that a reader clicking
+  through will find contains no actual API entries, unlike every sibling heading at the same level
+  across the whole API reference.

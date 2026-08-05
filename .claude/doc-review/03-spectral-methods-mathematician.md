@@ -1,202 +1,213 @@
-# Hat 03 — Spectral-methods mathematician (pseudospectral / Fourier on the periodic torus)
+# Hat 03 — Spectral-methods mathematician (pseudospectral / Fourier on the torus)
 
-Reviewed: the whole rendered site (Home, api, architecture, formalization, notation, performance,
-testing, tutorial, all api/* module pages, examples/hist_cpu).
-
-Verdict up front: the **core spectral mathematics is sound**. I re-derived the transform pair and its
-normalization, the constant/zero-mode rule, the Nyquist split, the derivative/Laplacian symbols, the
-convolution theorem and the Hermitian reality condition (including the `translation_kernel` Nyquist
-factor), the rfft half-spectrum Parseval weight `α(k)`, `var`/`cov`, the Wiener–Khinchin pair and the
-`DirectDFT` type-1/type-2 adjoint with its `α(k)/N` weighting, and the spline reproduction bound
-`min(2m+1, 2n)` — all check out. The example's K41 normalizations (`11/9 C₂ ε^{2/3} Δx^{2/3}`,
-`C₀ ε Δt`, `C_K ε^{2/3} κ^{-5/3}`, `S₂ = (2/3)(C(0) − C(r))`, `ε = ν⟨|ω|²⟩`) are dimensionally and
-numerically right. Every finding below is a **stale or contradictory statement**, not a broken formula.
+Review of the rendered site consolidation (`manuscript-full.md`). Findings ranked most-severe first.
 
 ---
 
-## 1. Formalization states radial∘radial composition as unconditionally closed; the code and the API page say it is conditional
+## 1. The rfft image is mis-stated: "coefficients on the self-conjugate planes are real"
 
-- **type:** contradiction · **severity:** major · **confidence:** high
-- **locations:**
-  - PAGE: formalization, §Convolution → "Kernel storage is a representation":
-    "*Radial composed with radial is radial, $\sigma_1 \sigma_2$ being again a function of $|k|^2$*" —
-    carried under the page's "expanded against the code and tested $\checkmark$" banner.
-  - PAGE: api / Convolution, `ProductKernel`: "*two radial symbols multiply into one radial symbol
-    **when both are evaluated against the same coordinates***"; `convolve!`: "*two radial ones into a
-    single closure **when both are built over canonical multipliers of the same concrete type***…
-    *radial operands failing that test — becomes a `ProductKernel`*".
-  - PAGE: architecture, §13 decision 61: "*collapsing two kernels that evaluate their symbols against
-    different wavenumbers would silently apply the second symbol at the first's $|k|^2$*".
-- **contradicts:** axis = whether radial∘radial is closed unconditionally or only for matching
-  canonical multiplier sets.
-- **description:** The formalization is the page whose job is to be the typed, checked statement, and
-  it asserts the very closure decision 61 deliberately refused to make unconditional. As written it
-  would license exactly the silent coordinate substitution (a sheared/custom multiplier set) that
-  decision 61 exists to prevent. Mathematically the product of two radial symbols *is* radial only
-  when both are radial in the **same** `|k|²`.
-- **resolution_hint:** Add the canonical-multiplier hypothesis to the formalization bullet and link
-  `RadialKernel`'s condition; keep the unconditional statement only for one fixed coordinate set.
+- **type:** math — **severity:** major — **confidence:** high
 
-## 2. `_squared_wavenumber_broadcast` still advertises the pre-decision-42 Helmholtz projector
+**Locations**
 
-- **type:** contradiction · **severity:** major · **confidence:** high
-- **locations:**
-  - PAGE: api / Fields, Internal API, `_squared_wavenumber_broadcast`: "*Used by the Laplacian,
-    inverse Laplacian, and **Helmholtz projection***" and "*($-|k|^2 \hat s$, **$\hat s_i - k_i k_j
-    \hat s_j / |k|^2$**, …)*".
-  - PAGE: api / DifferentialOperators, `helmholtz_projection!`: "*subtracts the longitudinal part
-    $a_i (a\cdot\hat u)/|a|^2$, with $a$ the **derivative wavenumber***".
-  - PAGE: architecture, §13 decision 42: "*The denominator is now $a \cdot a$ … (both the KA kernel
-    and the gated `::CPU` loop **drop their three squared-wavenumber array arguments**)*".
-- **contradicts:** axis = which wavenumber family the projector divides by (true `|k|²` vs the
-  derivative family `a·a`).
-- **description:** This is the one place where mixing the families is not cosmetic: with the true
-  `|k|²` denominator against a Nyquist-zeroed numerator, `ℙ` is neither exactly idempotent nor exactly
-  divergence-annihilating at mixed-Nyquist modes — the defect decision 42 fixed and that
-  `formalization` now pins as unconditional. The internal docstring documents the retired formula and
-  names an operator that no longer consumes the helper at all.
-- **resolution_hint:** Drop "Helmholtz projection" from the user list and replace the second example
-  expression with a Laplacian/inverse-Laplacian one.
+- PAGE: formalization, §Declarations — *"The image is the Hermitian-constrained subspace — the coefficients on the folded axis's self-conjugate planes are real"*
+- PAGE: notation, §Scalar weights, `α(k)` row — *"its self-conjugate planes are the two … whose coefficients are their own conjugates"*
 
-## 3. Architecture §12 still says the moments are physical-only, and never mentions `cov`
+**Contradicts**
 
-- **type:** contradiction · **severity:** major · **confidence:** high
-- **locations:**
-  - PAGE: architecture, §12 Reductions: "*`mean`/`std`/`var` (extending `Statistics`) and
-    `maximum`/`minimum`/`extrema` (extending `Base`) are the moments — **all on fields in physical
-    representation and point-values***"; only "*`inner`/`l2norm`*" and "*`integral`/`mean`*" are then
-    granted spectral forms.
-  - PAGE: api / Reductions, module docstring: "*and the **scalar-only `std`/`var` from Parseval***";
-    `var`: "*In spectral representation it is read from Parseval*".
-  - PAGE: architecture, §13 decision 49 (same document): "*So `var`/`std` are now scalar-only … **physical and spectral** (the Parseval form)*".
-- **contradicts:** axis = representation validity of `var`/`std` (and the existence of `cov`).
-- **description:** §12 is the current-state section a reader consults for the reduction family's
-  validity table, and it now disagrees with the API page, the formalization, and its own decision log.
-  It also omits `cov` entirely, so the vector second moment has no home in the architecture text while
-  being advertised on the Home page and documented on the API page.
+- PAGE: architecture, §13 decision 18 — *"the planes the rfft maps to themselves under conjugation, whose partners are already stored, so they count once"*
+- PAGE: formalization, §Representations — *"the $k_x = 0$ plane, and on an even axis the Nyquist plane … are self-conjugate"* (plane-level, correct)
 
-## 4. The Testing page contradicts itself on the spectral `std`/`var`
+**Description.** On the $k_x=0$ and even-Nyquist planes the constraint is that the *plane* is closed under $k\mapsto -k$ — $\hat f(0,-k_y,-k_z)=\overline{\hat f(0,k_y,k_z)}$ — not that each coefficient is real. Only the eight modes with every component at $0$ or Nyquist are real. The dimension count confirms it: the excess $2N_yN_z$ reals is exactly the two planes' conjugate-symmetry constraint, not $2N_yN_z$ reality constraints. Two surfaces state the false version; the two correct statements are on the same pages.
 
-- **type:** contradiction · **severity:** major · **confidence:** high
-- **locations:** PAGE: testing, §7 coverage:
-  - "*the spectral zero-mode `integral`/`mean` … with **`std`/`var`/`lpnorm`/`maximum` still absent in
-    spectral representation***";
-  - earlier on the same page, §2 file list: "*and — decision 49 — the **scalar-only `std`/`var` with
-    their spectral Parseval form***".
-- **contradicts:** axis = whether a spectral `std`/`var` method exists.
-- **description:** Two sentences on one page assert the opposite membership of the same operations in
-  the spectral surface. Since the package's whole "deliberate absence" doctrine is read off such
-  lists, a reader cannot tell which absence is intentional.
+**resolution_hint:** reword both to "closed under conjugation / each coefficient's partner is also stored".
 
-## 5. `radial_kernel` is described as "the `|k|²` coordinate" — the docstring of the removed `squared_wavenumber_field`
+---
 
-- **type:** contradiction · **severity:** minor · **confidence:** high
-- **locations:**
-  - PAGE: formalization, §Convolution: "*`radial_kernel` **the $|k|^2$ coordinate consumers build
-    symbols from***".
-  - PAGE: testing, §7: "*and `radial_kernel` (**the $|k|^2$ radial coordinate** vs the analytic sum,
-    real-valued)*".
-  - PAGE: api / Convolution, `radial_kernel`: "*Build the `RadialKernel` for **an arbitrary real
-    function of the squared wavenumber***"; architecture decision 60: "*the materializing
-    `squared_wavenumber_field` was removed: … `radial_kernel(identity, …)` is the same object*".
-- **contradicts:** axis = what `radial_kernel` returns (a fixed `|k|²` coordinate field vs a builder
-  taking an arbitrary symbol σ).
-- **description:** Two surfaces inherited the retired builder's description verbatim, so they present
-  the general symbol constructor as a single fixed multiplier. This is the same defect class in two
-  places — worth sweeping the corpus for other survivals of `squared_wavenumber_field`'s prose.
+## 2. Architecture's spectral `var` formula drops $1/N^2$ and the Parseval weight
 
-## 6. `translation_kernel` and `translation_kernel!` state opposite build costs on one page
+- **type:** math — **severity:** major — **confidence:** high
 
-- **type:** contradiction · **severity:** minor · **confidence:** high
-- **locations:** PAGE: api / Convolution, Kernel builders:
-  - `translation_kernel`: "*one kernel serves every field it is applied to (**its own cost is a single
-    pass over the coefficients**)*";
-  - `translation_kernel!`: "*The cost is **three $O(N)$ axis passes, not a field***";
-  - `SeparableKernel`: "*the kernel **never occupies a field's worth of memory***".
-- **contradicts:** axis = whether building the displacement kernel touches `O(N³)` coefficients.
-- **description:** The allocating builder's sentence survives from before decision 50 made the
-  displacement kernel separable; it tells the reader the build is a full coefficient pass, which is
-  precisely the cost the class was introduced to remove, and it contradicts its own in-place sibling
-  two entries later.
+**Locations**
 
-## 7. The formalization limits `inv` to two classes; the API defines it for four
+- PAGE: architecture, §13 decision 49 — *"$\operatorname{var}(f) = \langle f, f\rangle - \langle f\rangle^2 = \sum_{k \ne 0} |\hat f_k|^2$"*
 
-- **type:** contradiction · **severity:** minor · **confidence:** high
-- **locations:**
-  - PAGE: formalization, §Convolution: "*The reciprocal `inv` … **defined on a class where that is
-    again closed — separable (per axis) and radial (in the symbol)***".
-  - PAGE: api / Convolution, module docstring: "*the coefficientwise reciprocal of a kernel is the
-    kernel that deconvolves by it (`inv`, **defined for all four classes**)*", with documented
-    `inv(::ProductKernel)` and `inv(::StoredKernel)` methods.
-- **contradicts:** axis = the domain of `inv` over the kernel storage classes.
-- **description:** The formalization's closure argument is fine as mathematics but is now an
-  understatement of the shipped surface (`ProductKernel` inverts factorwise; `StoredKernel` inverts
-  coefficientwise with a zero check). A reader auditing "the method set is the spec" against the
-  formal page gets the wrong denominator.
+**Contradicts**
 
-## 8. The public transform docstrings never state where the `1/N` lives
+- PAGE: formalization, §Reductions — *"$= \frac{1}{N^2}\sum_{k\ne 0} \alpha(k) |\hat f(k)|^2$"*
+- PAGE: api / Reductions, `var` — *"$\langle f,f\rangle - \langle f\rangle^2 = N^{-2}\sum_{k\ne 0}\alpha(k)|\hat f_k|^2$"*
 
-- **type:** clarity · **severity:** minor · **confidence:** high
-- **locations:**
-  - PAGE: api / Fields, `to_spectral` / `to_physical` / `to_spectral!` / `to_physical!` /
-    `FieldTransformPlans`: e.g. "*Transform a field from physical space to spectral space, returning a
-    newly allocated spectral-space field*" — no normalization statement anywhere in the four.
-  - The convention appears only in PAGE: architecture §4 ("*Forward transforms are unnormalized;
-    inverse transforms carry the normalization*"), PAGE: formalization, and the **internal**
-    `_spectral_constant_scale` ("*under the unnormalized-forward FFT convention*").
-- **description:** Every user-facing formula on the Convolution, Reductions and Interpolation pages
-  (`αN⁻²` Parseval sums, `f̂(0)/N`, `C(r) = 𝓕⁻¹(|f̂|²)/N`, the `cN δ_{k,0}` constant rule, the
-  `1/N` in `DirectDFT`) is only checkable once the reader knows the forward transform is
-  unnormalized. At the REPL — where the docstrings must read complete and cross-links are dead — that
-  fact is unavailable on the very functions that define `𝓕`/`𝓕⁻¹`.
-- **resolution_hint:** One sentence on `to_spectral` (home) plus a pointer from `to_physical`.
+**Description.** The decision-49 entry equates an intensive quantity with an unnormalized, unweighted mode sum. Under the package's convention (unnormalized forward, invariant 4) the identity needs both the $1/N^2$ and the rfft half-spectrum multiplicity $\alpha(k)$; without them it is wrong by $N^2$ and by roughly a factor of two. The decision log is declared self-contained and read entry-by-entry, so this one cannot borrow the correction from §12.
 
-## 9. `translation_kernel`'s displayed formula uses one symbol `k_a` for two different wavenumber families
+**resolution_hint:** copy the formalization form verbatim into the decision entry.
 
-- **type:** math · **severity:** minor · **confidence:** high
-- **locations:**
-  - PAGE: api / Convolution, `translation_kernel`: "*$\hat g(k) = e^{-\mathrm{i} k \cdot h} =
-    \prod_{a=1}^{3} [\cos(k_a h_a) - \mathrm{i}\sin(k_a h_a)]$*", followed by "*the even cosine takes
-    the true wavenumber $k_a$ and the odd sine the **Nyquist-zeroed derivative wavenumber***".
-  - PAGE: formalization, §Convolution, which writes the same object with two symbols:
-    "*$\hat g_h(k) = \prod_a [\cos(\kappa_a h_a) - \mathrm{i}\sin(\tilde\kappa_a h_a)]$*".
-- **description:** As displayed, the equation asserts the implemented multiplier equals the pure phase
-  `e^{-ik·h}` everywhere, which is false at an even axis's Nyquist frequency — the one place the whole
-  decision-28 argument turns on. The prose repairs it in the next sentence by silently redefining
-  `k_a` mid-formula. The formalization's `κ_a` / `κ̃_a` split is the correct rendering.
+---
 
-## 10. `NUFFT`'s `oversampling ≥ 2` constraint is justified by an argument that only excludes σ = 1
+## 3. "The resolved band" is defined inclusive of Nyquist on the umbrella page and exclusive everywhere the identities are scoped
 
-- **type:** method · **severity:** minor · **confidence:** medium
-- **locations:** PAGE: api / Interpolation, `NUFFT`: "*`oversampling` — the linear oversampling factor
-  of the work grid (default `2`); **must be at least 2** (a value of 1 leaves no spectral guard band,
-  so the gridding breaks down)*".
-- **description:** The stated reason rules out σ = 1, not σ ∈ (1, 2). Low-upsampling NUFFTs
-  (σ ≈ 1.25 with a wider ES window) are standard practice in the same Barnett–Magland–af Klinteberg
-  line the docstring cites, and they exist precisely to save the 8× work-grid memory the admonition
-  below it flags as the GPU concern. Either the bound is an implementation limit (say so) or the
-  justification is the wrong one.
+- **type:** contradiction — **severity:** major — **confidence:** high
 
-## 11. `radial_spectrum`'s shell width on an anisotropic box invites empty/comb-like shells, and only the corner caveat is documented
+**Locations**
 
-- **type:** method · **severity:** minor · **confidence:** medium
-- **locations:** PAGE: api / Reductions, `radial_spectrum`: "*isotropic $|k|$-shells one fundamental
-  wavenumber wide (the box's smallest nonzero wavenumber, $\Delta k = 2\pi / \max_a L_a$)*"; the only
-  documented caveat is "*On a non-cubic box the shells beyond the inscribed sphere … are incompletely
-  sampled*".
-- **description:** Taking Δk from the **largest** `L_a` makes the shell width finer than the mode
-  spacing `2π/L_a` along every shorter axis, so on a strongly anisotropic box a systematic fraction of
-  shells is empty and the profile combs. The total is still exactly `inner`, so nothing is wrong — but
-  the shell-resolved curve a consumer plots is affected by a second anisotropy artifact the docstring
-  does not name, alongside the one it does. A related sharp edge: `round(|k|/Δk)` is decided by
-  ties-to-even for modes landing exactly on a half-integer, which anisotropic boxes hit exactly.
-- **resolution_hint:** One clause beside the inscribed-sphere caveat.
+- PAGE: api / GBGPeriodicFields, module docstring — *"The resolved band is the set of wavenumbers a grid's resolution actually represents, up to the Nyquist frequency on each axis."*
 
-## 12. Architecture §12's radial/`weighted_inner` paragraph omits the two-field forms' spectral-only scoping consistently with the API — checked, no defect
+**Contradicts**
 
-*(Recorded as verified rather than as a finding, since the panel asked for cross-checks: the Parseval
-weight `α(k)`, the `Σ P = ⟨f,f⟩` / `C(0) = ⟨f,f⟩` refinements, the co-spectrum symmetry, the
-`⟨f, w g⟩ = ⟨f, w f⟩` idempotence clause, `var = ⟨f,f⟩ − ⟨f⟩²`, `cov`'s Bessel scaling, the
-`DirectDFT` adjoint with its `α(k)/N` weight, `assignment_window`'s `∏ sinc²` and its non-vanishing on
-the resolved band, and the `min(2m+1, 2n)` / `2n+1` reproduction degrees all expand correctly and agree
-across pages.)*
+- PAGE: formalization, §Differential operators — *"on the resolved band — every mode off the even-axis Nyquist planes"*
+- PAGE: api / DifferentialOperators, `helmholtz_projection!` — *"an identity exact on the resolved band … the two coincide off the Nyquist planes"*
+
+**Description.** The umbrella page introduces "resolved band" as recurring package vocabulary and defines it to *include* the Nyquist frequency. Every load-bearing use scopes a claim by *excluding* the even-axis Nyquist planes — the dissipation identity $\langle\Delta\varphi,\varphi\rangle=-\lVert\nabla\varphi\rVert^2$, the composite $\mathbb P u = u-\nabla\Delta^{-1}(\nabla\cdot u)$, the unit-modulus translation phase, NUFFT's tolerance. A reader taking the umbrella definition will read those scoped claims as unconditional. Elsewhere the disambiguator "sub-Nyquist band" is used precisely because the bare term is ambiguous.
+
+**resolution_hint:** define the resolved band as strictly below the Nyquist planes, or rename the scoped uses to "sub-Nyquist band" consistently.
+
+---
+
+## 4. `ProductKernel` is defined as radial×separable in two places but holds stored×stored and radial×radial in two others
+
+- **type:** contradiction — **severity:** major — **confidence:** high
+
+**Locations**
+
+- PAGE: formalization, §Convolution — *"a product (`ProductKernel`), $\hat g = \sigma(|k|^2)\prod_a g_a(\kappa_a)$, which is what composing across the two compressed families gives"*, and *"Composition is closed within a family"*
+- PAGE: api / Convolution, module docstring — *"`ProductKernel` — a radial and a separable factor held unmultiplied"*
+
+**Contradicts**
+
+- PAGE: api / Convolution, `ProductKernel` — *"That covers every cross-family pair, two stored kernels …, and two radial kernels whose coordinates cannot be shown to agree"*
+- PAGE: api / Convolution, `convolve!` — *"every other pair — two stored kernels, a cross-family pair, or radial operands failing that test — becomes a `ProductKernel`"*
+
+**Description.** The formalization's typed statement is strictly narrower than the implemented class, and its companion claim "composition is closed within a family" is false for the stored family (stored∘stored yields a `ProductKernel`, deliberately, to avoid an $O(N^3)$ materialization). The Home page compounds it by listing `ProductKernel` among classes "which store a closed-form multiplier rather than its coefficients" — untrue of a stored×stored product.
+
+**resolution_hint:** state the product class as "two kernels held unmultiplied", and qualify family closure as separable-closed, radial-closed-under-canonical-coordinates, stored-not-closed.
+
+---
+
+## 5. `inv` is not interchangeable across storage classes, contradicting the blanket interchangeability claim
+
+- **type:** contradiction — **severity:** minor — **confidence:** high
+
+**Locations**
+
+- PAGE: api / Convolution, module docstring — *"the four classes reach every kernel-taking entry point interchangeably"*; §Kernel storage classes — *"All four are applied identically and give bitwise-identical results"*
+
+**Contradicts**
+
+- PAGE: api / Convolution, `inv(kernel::StoredKernel)` — *"no kernel undoes it and this throws rather than returning a non-finite coefficient"*
+- PAGE: api / Convolution, `inv(kernel::RadialKernel)` — *"the radial method documents the precondition it cannot test cheaply"*
+
+**Description.** Inverting a sharp cutoff throws if the kernel is a `StoredKernel` and silently yields non-finite coefficients if it is the `RadialKernel` the builder actually returns — the same mathematical object, two different outcomes at the same entry point. The interchangeability claim is stated twice without the `inv` carve-out, and `spectral_cutoff` now returns the radial class by default, so the silent branch is the common one.
+
+**resolution_hint:** scope the interchangeability claim to *application* (kernel×field passes) and name `inv` as the exception, with its per-class contract.
+
+---
+
+## 6. The transform pair omits the grid origin that `DirectDFT` carries
+
+- **type:** math — **severity:** minor — **confidence:** medium
+
+**Locations**
+
+- PAGE: formalization, §Representations — *"$\hat f(k) = \sum_{x} f(x) e^{-\mathrm{i} k\cdot x}$"*
+
+**Contradicts**
+
+- PAGE: formalization, §Spectral transfer — *"$f(x_p) = \frac{1}{N}\sum_{\text{stored }k}\alpha(k)\mathrm{Re}\bigl(\hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}\bigr)$"* ($o$ the grid origin)
+
+**Description.** The declared transform pair uses the bare phase $e^{\mp\mathrm{i}k\cdot x}$, while the spectral transfer — which must agree with `to_physical` at the nodes — uses $e^{\mathrm{i}k\cdot(x_p-o)}$. On a grid with non-zero origin (an admissible, tested axis) the two conventions differ by $e^{-\mathrm{i}k\cdot o}$, so as written the round trip and `DirectDFT` cannot both be exact. The formalization page exists to pin exactly this kind of convention.
+
+**resolution_hint:** write the pair over $(x-o)$, or state once that $x$ denotes the offset-from-origin node coordinate.
+
+---
+
+## 7. Symbol collisions: $\kappa$ means two things, and the per-axis wavenumber and the separable factor each have two symbols
+
+- **type:** typesetting — **severity:** minor — **confidence:** high
+
+**Locations**
+
+- PAGE: notation, §Base and fiber — *"$\kappa$ | a wavenumber-shell magnitude, $\kappa = \lvert k\rvert$"*; and *"$k$ … ($k_a$ is its $a$-th component)"*
+- PAGE: api / Convolution, `translation_kernel` — *"$\kappa_a$ is the true wavenumber and $\tilde\kappa_a$ the Nyquist-zeroed derivative one"*
+- PAGE: formalization, §Convolution — *"Write $\kappa_a$ for the signed wavenumber of axis $a$"*, and separable factors written *"$\prod_a g_a(\kappa_a)$"*
+- PAGE: api / Convolution, `SeparableKernel` — *"$\hat g(k) = \prod_a \sigma_a(k_a)$"* versus `RadialKernel`'s *"$\hat g(k) = \sigma(\lvert k\rvert^2)$"*
+
+**Description.** The notation page binds $\kappa$ to the shell magnitude and $k_a$ to a wavenumber component, yet the translation kernel and the formalization use $\kappa_a$ for the component. Separately, $\sigma$ denotes both the radial symbol of $|k|^2$ and a per-axis separable factor, and the same factor is $g_a$ on one page and $\sigma_a$ on another. Both directions of the docs' own "one notation per concept, one concept per notation" rule are broken, in the one family where the two wavenumber conventions must be told apart.
+
+**resolution_hint:** use $k_a$/$\tilde k_a$ for the two per-axis families, reserve $\kappa$ for shell magnitude, and pick one letter for separable factors.
+
+---
+
+## 8. Central versus raw second moment conflated: $C(0)$ called "the variance", `cov` called "the second moment"
+
+- **type:** math — **severity:** minor — **confidence:** high
+
+**Locations**
+
+- PAGE: architecture, §13 decision 22 — *"The zero-separation value is $C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)$ (the variance)"*
+- PAGE: Home, `Reductions` bullet — *"the covariance tensor `cov` (a vector field's second moment, kept coordinate-free)"*
+
+**Contradicts**
+
+- PAGE: formalization, §Reductions — *"$\operatorname{var}(f)\bigm|_{\texttt{corrected=false}} = \langle f, f\rangle - \langle f\rangle^2$"*
+- PAGE: api / Reductions, `cov` — *"this is the covariance of the fluctuations, not the raw second moment $\langle u_i u_j\rangle$"*
+
+**Description.** $C(0)=\langle|f|^2\rangle$ is the second moment; it equals the variance only for a mean-free field, and the same decision entry immediately invokes the zero-mean case for the large-$r$ limit — so the qualifier was available and not used. The Home page's "second moment" for `cov` is the mirror slip, contradicted explicitly by `cov`'s own docstring. Both matter because the package now ships `var` with the mean subtracted.
+
+**resolution_hint:** "(the second moment; the variance when $f$ is mean-free)" and "second *central* moment" respectively.
+
+---
+
+## 9. Is `lpnorm(f̂, 2)` available in spectral representation? Two answers
+
+- **type:** contradiction — **severity:** minor — **confidence:** medium
+
+**Locations**
+
+- PAGE: architecture, §13 decision 18 — *"The `lpnorm` reduction (for $p \ne 2$), `std`/`var`, and `maximum`/`minimum`/`extrema` … remain physical-only"*
+
+**Contradicts**
+
+- PAGE: api / Reductions, `lpnorm` — *"It is physical-space only."*
+- PAGE: formalization, §Reductions — *"Physical fields and point-values only."*
+
+**Description.** The parenthetical "(for $p\ne 2$)" scopes the restriction so that $p=2$ — which the docstring says "reduces to `l2norm`", itself Parseval-available in spectral — would be defined on a spectral field. The API and the formalization say `lpnorm` is physical-only without qualification. One of the two is wrong about the method set, which invariant 1 makes a specification question rather than a wording one. (The same sentence's "`std`/`var` … physical-only" is superseded by decision 49; the `lpnorm` clause is not superseded by anything.)
+
+**resolution_hint:** settle whether the $p=2$ spectral method exists and make all three surfaces say so.
+
+---
+
+## 10. `convolve!`'s enumeration of "every kernel the package builds" omits `radial_kernel`
+
+- **type:** clarity — **severity:** nit — **confidence:** high
+
+**Locations**
+
+- PAGE: api / Convolution, `convolve!`, reality admonition — *"Every kernel the package builds satisfies it: the real, even ones (`spectral_cutoff`, `spectral_band`, `assignment_window`) … and the complex `translation_kernel`"*
+
+**Contradicts**
+
+- PAGE: architecture, §11 — *"Five neutral builders ship … The first four are real and even in the wavenumber $k$"*
+
+**Description.** Five builders ship; the reality admonition lists four. `radial_kernel` (and the lazy exponential kernel) are exactly the interesting cases for a Hermitian-safety claim, since they are the ones a consumer parameterizes — and `RadialKernel`'s own docstring gives the closure argument ($\sigma$ real of $|k|^2$ ⇒ real and even). Leaving them out of "every kernel the package builds" reads as a gap where the argument is in fact strongest.
+
+**resolution_hint:** add `radial_kernel` to the real-and-even list and cross-link `RadialKernel`'s closure argument.
+
+---
+
+## 11. $\sum_k$ under a half-spectrum weight is not scoped to stored modes
+
+- **type:** clarity — **severity:** nit — **confidence:** medium
+
+**Locations**
+
+- PAGE: api / Reductions, `weighted_inner` — *"$= \frac{1}{N^2} \sum_{k} \alpha(k) w(k) \sum_c \mathrm{Re}(\hat f_c \overline{\hat g_c})$"*
+- PAGE: api / Reductions, `var` — *"$N^{-2}\sum_{k\ne 0} \alpha(k) |\hat f_k|^2$"*
+
+**Description.** The multiplicity weight $\alpha(k)$ is only meaningful over the *stored* half-spectrum; read over the full mode set (which is how the notation page defines $\sum_k$: "over the Fourier modes") the sums double-count by roughly two. The neighbouring `inner` display and `DirectDFT` both write $\sum_{\text{stored }k}$ or spell the planes out explicitly, so the convention exists and is simply not applied here.
+
+**resolution_hint:** write $\sum_{\text{stored }k}$ in both displays.
+
+---
+
+## Verified clean (spot-checked by expansion)
+
+Forward-unnormalized / inverse-$1/N$ convention and its downstream $1/N$, $1/N^2$, $cN\delta_{k,0}$, $(|\Omega|/N)\hat f(0)$ factors; the $\mathrm{i}k$, $\mathrm{i}k\cdot$, $\mathrm{i}k\times$, $-|k|^2$, $-|k|^{-2}$ symbols and their signs; the Nyquist split and its two consumers; $\mathbb P = \mathrm{id}-(aa^\top)/(a\cdot a)$, its exact idempotency/solenoidality and the resolved-band composite; curl self-adjointness; $\hat S_{ij}=\tfrac{\mathrm i}{2}(k_j\hat u_i+k_i\hat u_j)$; the convolution theorem and its cell-volume bridge; the translation kernel's even/odd wavenumber split and $\cos(\pi h_a/\Delta x_a)$ Nyquist factor; $\hat W=\prod\operatorname{sinc}^2(k_a\Delta x_a/2)$ against the unit-integral tent; the exponential kernel as $e^{-c\Delta}$ with smoothing length $\sqrt{-2c}$; Parseval with $\alpha(k)$, $\sum_i P(\kappa_i)=\langle f,f\rangle$, $C(0)=\langle f,f\rangle$, $C_{fg}(-r)=C_{gf}(r)$; the $M/N$ transfer adjoint, conservation, $\iota_*=(N/M)W^\top$; `DirectDFT` type-1/type-2 and their adjointness; spline degrees, $C^m$, reproduction $\min(2m+1,2n)$ and the $n=0$ carve-out; the example's rotational-form RHS and integrating-factor Heun step.
