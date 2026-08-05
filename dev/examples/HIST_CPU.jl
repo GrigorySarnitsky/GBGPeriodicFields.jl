@@ -468,11 +468,12 @@ main()
 #md # Eulerian velocity and ``U`` a tracer's velocity,
 #md #
 #md # ```math
-#md # S^{(E)}(\Delta x) = \tfrac{1}{3}\bigl\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\bigr\rangle
-#md #                   = \tfrac{2}{3}\bigl(C(0) - C(r)\bigr),
-#md # \qquad
-#md # S^{(L)}(\Delta t) = \tfrac{1}{3}\bigl\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\bigr\rangle
-#md #                   = \tfrac{2}{3}\bigl(R(0) - R(\Delta t)\bigr),
+#md # \begin{aligned}
+#md # S^{(E)}(\Delta x) &= \tfrac{1}{3}\bigl\langle \lvert u(x+\Delta x) - u(x)\rvert^{2}\bigr\rangle
+#md #                    = \tfrac{2}{3}\bigl(C(0) - C(r)\bigr), \\
+#md # S^{(L)}(\Delta t) &= \tfrac{1}{3}\bigl\langle \lvert U(t+\Delta t) - U(t)\rvert^{2}\bigr\rangle
+#md #                    = \tfrac{2}{3}\bigl(R(0) - R(\Delta t)\bigr),
+#md # \end{aligned}
 #md # ```
 #md #
 #md # where ``r = \lvert\Delta x\rvert``, ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` is the spatial velocity
@@ -481,11 +482,12 @@ main()
 #md # origins). The plotted curves are the K41-normalized ratios
 #md #
 #md # ```math
-#md # \frac{S^{(E)}(\Delta x)}{\tfrac{11}{9} C_2 \varepsilon^{2/3} \Delta x^{2/3}}
-#md #   \quad\text{vs}\quad \frac{\Delta x}{\eta},
-#md # \qquad\qquad
-#md # \frac{S^{(L)}(\Delta t)}{C_0 \varepsilon \Delta t}
-#md #   \quad\text{vs}\quad \frac{\Delta t}{\tau_\eta},
+#md # \begin{aligned}
+#md # &\frac{S^{(E)}(\Delta x)}{\tfrac{11}{9} C_2 \varepsilon^{2/3} \Delta x^{2/3}}
+#md #   \quad\text{versus}\quad \frac{\Delta x}{\eta}, \\
+#md # &\frac{S^{(L)}(\Delta t)}{C_0 \varepsilon \Delta t}
+#md #   \quad\text{versus}\quad \frac{\Delta t}{\tau_\eta},
+#md # \end{aligned}
 #md # ```
 #md #
 #md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
