@@ -108,12 +108,20 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
    **absolute** paths (each hat `Read`s them):
    ```
    Workflow({ scriptPath: ".claude/commands/check-consistency/panel.js",
-              args: { full:     "$SCRATCH/manuscript-full.md",
-                      siteonly: "$SCRATCH/manuscript-siteonly.md",
-                      rawhtml:  "$REPO/docs/build",
-                      pile:     "$REPO/.claude/doc-review",
-                      strength: "economy" } })   # the default; "full" only on explicit request
+              args: { full:        "$SCRATCH/manuscript-full.md",
+                      siteonly:    "$SCRATCH/manuscript-siteonly.md",
+                      rawhtml:     "$REPO/docs/build",
+                      pile:        "$REPO/.claude/doc-review",
+                      adjudicated: "$REPO/.claude/doc-review-adjudicated.md",
+                      strength:    "economy" } })   # the default; "full" only on explicit request
    ```
+   **The hats are otherwise BLIND to prior rounds, and that is the design** — fresh eyes are the whole
+   instrument, and it is why round 2 caught a mathematically false sentence that round 1's *fix pass*
+   had introduced. The one exception is `adjudicated`, injected into every hat's preamble: findings
+   settled as **not** defects (manuscript-extraction artifacts, user-closed design decisions). Nothing
+   merely *fixed* belongs in that file — re-flagging a bad fix is exactly what the panel is for.
+   Measured cost of omitting it: 4 of round 2's 87 findings were re-litigation of settled material,
+   including one hat's **top-ranked** finding.
    Each hat banks `.claude/doc-review/NN-<key>.md` and returns a structured findings object; you are
    notified when the workflow completes.
 5. **Consolidate the findings** into `.claude/doc-review/00-SUMMARY.md` **and an Artifact dashboard**:

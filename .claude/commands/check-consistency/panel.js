@@ -27,6 +27,12 @@ const FULL = A.full
 const SITEONLY = A.siteonly
 const RAWHTML = A.rawhtml
 const PILE = A.pile
+// Absolute path to the do-not-re-flag list (findings settled as NOT defects: extraction artifacts and
+// user-closed design decisions). A hat is blind to prior rounds by design — that blindness is what makes
+// it fresh-eyed, and it is why round 2 caught a false sentence round 1's fix pass had introduced. But it
+// also makes a hat re-litigate settled non-defects every round; this file, and ONLY this file, is the
+// exception. Fixed findings are deliberately NOT listed: re-flagging a bad fix is the panel's whole value.
+const ADJUDICATED = A.adjudicated
 // The latex-typesetter hat reads the authored source; derive the repo root from rawhtml ($REPO/docs/build).
 let REPO = RAWHTML || '.'
 while (REPO.endsWith('/')) REPO = REPO.slice(0, -1)
@@ -64,7 +70,8 @@ RULES:
 - EVERY finding needs EVIDENCE: quote the exact rendered text and name the page (the "PAGE:" banner) + section. For a contradiction, quote BOTH sides and name the axis of disagreement.
 - Severity: blocker (wrong/misleading) / major / minor / nit. Confidence: high / medium / low — a marked-low suspicion is welcome; do not inflate.
 - resolution_hint is optional and advisory only.
-- NOTE: report what you actually see NOW in the document, not what you might expect from a prior version. This package is physics-free and time-free BY DESIGN — do NOT flag the absence of a solver, time-stepping, or turbulence physics as a gap.
+${ADJUDICATED ? `- ALREADY ADJUDICATED — READ FIRST: \`${ADJUDICATED}\`. Read that file before you begin. It lists findings this panel raised in a previous round that were settled as NOT defects — extraction artifacts of the manuscript you are reading, and design inconsistencies the package owner closed deliberately. Do NOT spend a finding on anything it covers. It does NOT list previously-FIXED items, so everything else in the document is fair game and a claim that looks wrong to you IS worth flagging even if it looks recently written.
+` : ''}- NOTE: report what you actually see NOW in the document, not what you might expect from a prior version. This package is physics-free and time-free BY DESIGN — do NOT flag the absence of a solver, time-stepping, or turbulence physics as a gap.
 - OUTPUT DISCIPLINE (HARD LIMIT — do not exceed): report at most your 25 MOST SIGNIFICANT findings, ranked most-severe first. Keep each finding's description to <= 90 words, and quote only the DECISIVE phrase (<= 20 words) on each side — never paste a long passage. The banked markdown file is the durable record and the returned object mirrors it, so a bloated findings list is duplicated on output; an unbounded dump overran the output-token cap and lost the whole hat's work. Be selective: 15 sharp findings beat 50 padded ones.`
 
 // PRIORITY order (most important first): a token-out truncates the tail, i.e. the least-critical lens.
