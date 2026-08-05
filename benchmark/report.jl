@@ -94,6 +94,7 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         "RX 7900 XTX (both ROCm). The pre-swap archive columns (GTX 1070, RX 6700 XT) keep their ",
         "pre-rewrite measurements — retired hardware is not re-swept; every live column (both CPUs, ",
         "RX 7900 XTX, RTX 5070 Ti) is measured at the decision-38/39 rewrite. ",
+        "**`fft` rows are comparable only within a column vintage.** The 2026-08-05 re-sweep of the 9800X3D lanes found the `fft` class 20–50% slower than the 2026-07-30 archive at the larger grids (``256^3`` `Float64` `to_physical scalar` t1: 83.8 → 116.0 ms), reproducible to under 1% across three standalone probes, while the other 596 rows of the same lanes moved by a median of −0.12% and the cuFFT lane showed no `fft` mover at all. It is not the package (zero changed lines on the transform path), not FFTW, and not Julia; a reboot fell between the two sweeps and no pre-reboot platform state was recorded. See PERFORMANCE.md §4(p). ",
         "A row may name an operation the package has since REMOVED — `squared_wavenumber_field` was deleted by decision 60, its |k|² being a radial symbol rather than a field. Such rows are a historical measurement, not a callable surface, and they disappear the next time their lane is swept. ",
         "The GPU sweep builds one (op-class, grid, element-type) at a time so ",
         "the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes ",

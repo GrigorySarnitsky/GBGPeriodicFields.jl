@@ -561,6 +561,34 @@ exception on a CPU**, where it does not vectorize and a hand-written twin is wor
 fused pass underperforms, **measure the launch shape and the traversal order before blaming the
 arithmetic** — both failed attempts here were layout problems wearing an arithmetic costume.
 
+**(p) CPU FFT at the larger grids moved 20–50% between the 2026-07-30 and 2026-08-05 sweeps, and the
+cause is not identified.** The full re-sweep of the 9800X3D lanes found a cluster confined to the `fft`
+class: at ``256^3`` `Float64`, `-t1` `to_physical scalar` went 83.8 → 116.0 ms and `to_spectral scalar`
+171.9 → 207.4 ms; `-t8` saw `to_spectral vector` at ``128^3`` go 11.3 → 16.7 ms. **It is reproducible,
+not jitter** — three standalone probes of the ``256^3`` `Float64` rows returned 115.8 / 116.8 / 116.5
+and 208.3 / 209.3 / 211.1 ms, a spread under 1%.
+
+What it is *not*, each checked rather than assumed: not a package change (the transform path has zero
+changed code lines between the two commits — the 136 insertions in `Fields.jl` are docstrings and
+decision 61's type parameter); not FFTW (the `libfftw3` artifact dates from 2026-05-25 and
+`benchmark/Manifest.toml` from 2026-07-22, both predating the older archive); not Julia (1.12.6 for
+both sweeps); and not a machine-wide slowdown — the other **596** rows of the same lanes have a median
+drift of ``-0.12\%``, so only the FFT rows moved. It is CPU-only: the cuFFT lane shows no `fft` row
+among its movers. The one difference the record does show is a reboot between the two sweeps
+(current kernel `7.0.0-28-generic`), and no pre-reboot kernel or microcode version was recorded, so a
+platform change can be neither confirmed nor excluded. **Treat `fft` rows as comparable only within a
+vintage** until a sweep on a host with a recorded platform state settles it.
+
+**(q) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
+characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through
+FFTW.jl's `spawnloop`, while running the `reductions Float64 128^3` class — which touches FFTW because
+`radial_correlation` takes an inverse transform. The package sets FFTW's thread count to match Julia's
+at load, so ``-t8`` is the only lane driving FFTW with eight worker threads; `-t1`, `-t2` and `-t4` all
+completed. Re-running the identical lane succeeded (30m31s, `rc=0`), so the fault is **intermittent**.
+Nothing was corrupted: `characterize.jl` writes its JSON only at the end, so the crash left the previous
+archive intact rather than half-written — worth knowing, because a harness that wrote incrementally
+would have produced a silently mixed-vintage column instead.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
