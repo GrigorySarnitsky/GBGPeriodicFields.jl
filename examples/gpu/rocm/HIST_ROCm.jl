@@ -189,7 +189,7 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                 # ν�
 # the CFL margin.)
 max_speed(u)      = maximum(abs, field_data(u))
 
-# ``E(\kappa) = \tfrac{1}{2} \times`` the shell-resolved Parseval inner, so the shell sum recovers the
+# The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so the shell sum recovers the
 # turbulent kinetic energy: ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``.
 # `radial_spectrum` bins on-device and returns small host vectors — no host copy of the field.
 function energy_spectrum(uh, m)

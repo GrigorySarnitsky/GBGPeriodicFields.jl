@@ -487,7 +487,7 @@ names: one concept, one name, imported explicitly.
 Check placement follows one rule: bodies that go through field broadcasting do
 not pre-check, because the broadcast machinery already enforces compatibility
 (shape/grid/style promotion); bodies that bypass broadcasting — copy-then-kernel
-paths, zero-mode updates — check explicitly. This is why, e.g., physical
+paths, zero-mode updates — check explicitly. This is why, e.g. physical
 scalar±Real methods are bare broadcasts while their spectral counterparts call
 `check_field_compatibility` before `_copy_field_data!`.
 
@@ -970,6 +970,16 @@ for it (seen in a few papers) is a misnomer.
 
 ## 11. Convolution
 
+!!! note "The current shape of the kernel protocol is here, not in the decision log"
+    §13 records how the kernel design *arrived* — decisions 19, 20, 21, 50, 51, 56, 60, 61 and 62 each
+    changed part of it, and several supersede earlier ones. Reconstructing the present state from that
+    chain is not the intended reading. This section is the current state: **a kernel is its own kind of
+    object, never a field**; `SpectralKernel` is the abstract supertype of four storage classes —
+    `StoredKernel` (one coefficient per mode), `SeparableKernel` (per-axis factors), `RadialKernel` (a
+    symbol of ``\lvert k\rvert^2``) and `ProductKernel` (any two held unmultiplied); all four are
+    interchangeable wherever a kernel is *applied* and agree bit for bit, `materialize_kernel` expands a
+    compressed one, and `inv` and `weighted_inner` are the two entry points with narrower contracts.
+
 `Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
 product ``\hat f \cdot \hat g``; `convolve`/`convolve!` (``\equiv \star``, also exported as the infix operator `⋆`) apply a kernel — a `SpectralKernel`,
@@ -1240,7 +1250,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     coefficientwise ``m(k)`` — and the *bounded* ones are exactly those with symbol ``m(k) \in L^\infty``, where
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
     the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` ([§4](@ref "4. Spectral machinery")),
-    the consumer's 2/3 dealias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
+    the consumer's 2/3 de-alias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
     (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``\mathrm{i}k``, ``-|k|^2 \notin L^\infty``),
     diagonalized identically but outside the norm identity above.
 
@@ -1327,7 +1337,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     g₂)` composes two kernels for free (the `R = 0` case). (Superseded by decision 60: a kernel is now
     its own type, so a `ScalarFieldSpectral` is wrapped in a `StoredKernel` to declare that role and
     composition is unambiguous by type rather than by argument position.) `convolve` / `convolve!` mirror `laplacian`
-    / `laplacian!`: coefficientwise ⇒ aliasing-safe (no `_guard_noalias!`; destination may alias the
+    / `laplacian!`: coefficientwise ⇒ alias-safe (no `_guard_noalias!`; destination may alias the
     field), `@_assign!`-routed (threads on CPU), with the five-argument `α`/`β` accumulate form
     (invariant 10). Spectral representation only — there is no physical-space `convolve` (the
     differential-operator precedent).
@@ -1668,8 +1678,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *Documented exceptions — bounded, not zero.* A few operations materialize one field *by design* and are
     excluded from the zero assertion, getting a *bounded* guard instead (catching a regression to ``O(N)`` —
     or ``O(\mathrm{shells})`` — extra while allowing the legitimate one-field temporary): the fiber
-    `norm!`/`lpnorm` (a pointwise magnitude), `dev!` (the trace it subtracts), `std`/`var` (deviations), and
-    the radial diagnostics (occasional, ``O(1)``-bounded). The spectral `inner` is the subtle case (``N``
+    `norm!`/`lpnorm` (a pointwise magnitude) and
+    the radial diagnostics (``O(1)``-bounded); `dev!` left this list when decision 39 fused its trace
+    into a register, and `std`/`var` when decision 49 rewrote them as two fused passes — measured at 16
+    bytes rather than a field. The spectral `inner` is the subtle case (``N``
     the points per axis): `inner(f, f)` — an energy or `l2norm` — is allocation-free, since
     ``\overline{\hat f} \hat f = |\hat f|^2`` is real and the whole Parseval sum, correction planes
     included, is a fused `sum(abs2, …)`; but the mixed `inner(f, g)` of two distinct fields allocates an
@@ -1957,7 +1969,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     pre-commit run is a single lane.
 
     *What the measurement showed, which is the opposite of the obvious guess.* On 1.11 the package **runs
-    faster** — every operation measured, on a ``64^3`` grid in `Float64`: `mean(det, A)` 0.241 ms against
+    faster** — every operation measured, on a ``64^3`` grid in `Float64`, in the **threaded** lane (so these absolute
+    times are not comparable with §4(l)'s single-thread column, and none of them needs to be — the
+    comparison here is one Julia version against another on one fixed configuration): `mean(det, A)` 0.241 ms against
     0.251, the threaded assignment `add!` 0.296 against 0.338, `radial_spectrum` 1.743 against 2.288,
     `inner` 0.012 against 0.017. What is slower is **compilation**, by a wide margin and concentrated in
     exactly the generated and broadcast-heavy surfaces this package is built from: first-call cost for
@@ -2016,14 +2030,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     operators — scalar times matrix symbol for ``\mathbb P``, scalar times the contraction
     ``\mathrm{i} k \cdot`` for the divergence — so "operator then convolve" is itself one Fourier
     multiplier, and the fused form computes it in the operator's own pass. The consumer pattern it
-    serves is mask-dealiasing: every dealiased right-hand side in a pseudospectral solver is the
-    operator followed immediately by `convolve!` with the dealias kernel, so fusing saves that pass's
+    serves is mask-de-aliasing: every de-aliased right-hand side in a pseudospectral solver is the
+    operator followed immediately by `convolve!` with the de-alias kernel, so fusing saves that pass's
     full read and write of the destination (two passes of the field's class per evaluation). **The
     `α`/`β` pair is load-bearing, not completeness**: the fused form *replaces* a `convolve!` that
     carries `α`/`β` — IT already rides the ``-\nabla\cdot`` sign of its scalar advection on
     `convolve!`'s `α` — so shipping less would strand the very chains being fused; and `β` collapses
-    IT's phase-shift dealiasing tail entirely, as two projection calls — the primary with the dealias
-    kernel at ``\alpha = 1/2``, the displaced evaluation with the **composed** kernel (dealias ∘
+    IT's phase-shift de-aliasing tail entirely, as two projection calls — the primary with the de-alias
+    kernel at ``\alpha = 1/2``, the displaced evaluation with the **composed** kernel (de-alias ∘
     shift-back, built once at setup by the kernel composition `convolve(g₁, g₂)`) at
     ``\alpha = 1/2``, ``\beta = 1`` — eliminating
     the standalone shift-back, average, and truncation passes (four passes per evaluation at wiring
@@ -2099,9 +2113,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     arities (decision 32), so precedence alone does not decide it. What differs is that those two are
     *operators whose symbol the kernel multiplies*, defined where the operator lives, whereas
     `combine!`'s kernel form is a convolution applied to a combination — a `Convolution` operation
-    taking a `FieldAlgebra` verb's arguments. Placing it here also keeps the `FieldAlgebra`
-    method-parity baseline untouched, the parity count filtering on the defining module; that is a
-    convenience of the placement, not its justification. Validity:
+    taking a `FieldAlgebra` verb's arguments. Placing it here happens to leave the `FieldAlgebra`
+    method-parity baseline untouched, the parity count filtering on the defining module. That is an
+    observation about a consequence and **never a reason**: a baseline exists to notice movement, so
+    avoiding movement is not a design goal, and placement follows the operation's mathematics. A change
+    that moves a count refreezes it with the reason (decision 53's protocol) rather than being reshaped
+    to avoid it. Validity:
     spectral-only (a kernel is a spectral object; the physical absence is a validity absence), the
     exponential kernel real, even, and positive — Hermitian-safe by construction — and a
     complex-valued ``\hat w`` breaks reality exactly as any consumer-built kernel can under

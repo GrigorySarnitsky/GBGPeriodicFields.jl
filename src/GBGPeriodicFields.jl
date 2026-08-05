@@ -17,7 +17,7 @@ The tensors are **Cartesian** — components on one fixed orthonormal frame, wit
 curvilinear coordinates and no metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
-Three words recur in every operation's documentation. A **base** is the set of locations a value is
+Four words recur in every operation's documentation. A **base** is the set of locations a value is
 attached to: a `Grid3D` of cells, or a `PointSet` of off-grid positions. A **fiber** is the value at
 one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** is the pair of the
 two: one fiber at every point of a base, which is what a field and a set of point-values each are, and
@@ -26,7 +26,11 @@ resolution actually represents, *excluding* the Nyquist frequency of each even-l
 Nyquist planes are excluded by definition because the package's two wavenumber families disagree
 exactly there — the derivative family is zeroed, the squared family keeps the true value (invariant 5)
 — so every identity this documentation scopes "on the resolved band" holds off them and may fail on
-them. An odd-length axis has no exact Nyquist mode and so loses nothing.
+them. An odd-length axis has no exact Nyquist mode and so loses nothing. A section's
+**storage family** is the kind of array its data lives in — `Array` on the host, `CuArray` or
+`ROCArray` on a device — taken as the array's underlying type rather than its wrapping, so that a
+`reshape` of an `Array` is still the `Array` family. Two sections combine only within one storage
+family and one element type; a mixed pair is refused rather than converted (invariant 14).
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
@@ -69,8 +73,8 @@ The umbrella assembles its public surface from the submodules below:
   one coefficient per mode, or in one of the compressed classes `SeparableKernel`, `RadialKernel` and
   `ProductKernel`, which store a closed-form multiplier instead of its coefficients; the classes are
   interchangeable and agree bit for bit, and `materialize_kernel` expands a compressed one into a
-  `StoredKernel`. A `ScalarFieldSpectral` of coefficients is wrapped in `StoredKernel` to declare that
-  role, without which it is a field and no kernel-taking operation accepts it.
+  `StoredKernel`. A field of coefficients is not itself a kernel; `StoredKernel` is the wrapper that
+  puts it in that role.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
   representation — including the same [`map!`](@ref)/[`map`](@ref) escape hatch, which needs no
   representation split here because point-values carry none — the matching allocator

@@ -132,6 +132,8 @@ position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, 
 once into an `SMatrix`, so it passes into the gather/scatter kernels by value (no device array). One of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
 [`NUFFT`](@ref) are the other.
+
+Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 """
 abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTransferScheme end
 
@@ -202,7 +204,10 @@ linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of 
 pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
 type the weight coefficients are stored in (`Float64` by default).
 
-Reference: C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -1041,7 +1046,7 @@ like the reference. The arguments are:
     resolution rather than erroring.
   - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
     theoretical one — lower upsampling is standard with a correspondingly wider window — because the
-    width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down).
+    width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down.
   - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
   - `beta` — the window shape parameter; `0` (default) picks it from the width.
 

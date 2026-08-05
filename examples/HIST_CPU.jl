@@ -164,7 +164,8 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν�
 # differs from the magnitude by at most ``\sqrt{3}``, well inside the CFL margin.)
 max_speed(u)      = maximum(abs, field_data(u))
 
-# ``E(\kappa) = \tfrac{1}{2} \times`` the shell-resolved Parseval inner; ``\sum_\kappa E(\kappa) =
+# The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so
+# that its shells sum to the kinetic energy: ``\sum_\kappa E(\kappa) =
 # \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the kinetic energy.
 function energy_spectrum(uh, m)
   shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)

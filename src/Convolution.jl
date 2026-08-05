@@ -48,8 +48,7 @@ Convolution operations:
 Kernel storage classes:
 
 - [`StoredKernel`](@ref) — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
-  avoid. It wraps a `ScalarFieldSpectral`, which is how a consumer declares that those coefficients are
-  playing the kernel role rather than being a field.
+  avoid. It wraps a `ScalarFieldSpectral` to put those coefficients in the kernel role.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
   return.
@@ -464,7 +463,7 @@ The fields are
 !!! note "Separable, not radial"
     A kernel that depends only on the wavenumber magnitude is *radial*, not separable — a function of
     ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms. This type is for kernels that
-    genuinely do factor, whose canonical case is a per-axis phase.
+    genuinely do factor, the typical case being a per-axis phase.
 """
 struct SeparableKernel{T, V, G, L} <: SpectralKernel{T}
   factor_1::V
@@ -523,10 +522,12 @@ The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a g_a =
 **deconvolves** by `kernel`, which is what a mass-assignment window is built for
 ([`assignment_window`](@ref)).
 
-!!! warning "The factors must have no zeros"
-    Every per-axis factor must be non-zero at every stored mode; a zero yields a non-finite reciprocal.
-    An `assignment_window` satisfies this on every stored mode, whereas a phase kernel does not in
-    general (a displacement can drive an even axis's Nyquist factor to zero).
+!!! warning "The factors must have no zeros, and this method checks"
+    Every per-axis factor must be non-zero at every stored mode. Unlike the radial method, this one can
+    afford to verify it — the factors are ``O(N)`` — so a zero **throws** rather than returning a
+    non-finite reciprocal. An `assignment_window` satisfies the condition on every stored mode, whereas
+    a phase kernel does not in general (a displacement can drive an even axis's Nyquist factor to
+    zero).
 """
 function Base.inv(kernel::SeparableKernel{T}) where {T}
   # A zero factor entry inverts to a non-finite reciprocal, which then contaminates every mode of that
@@ -750,9 +751,11 @@ and one expression serves scalar, vector, and tensor fields exactly as the store
 
 The shape is chosen for two measured reasons. Broadcasting indexes the factors **cartesian**, so no
 element pays a linear-to-cartesian conversion — an integer division, emulated on a GPU. And the launch
-stays **flat**, which keeps it coalesced: the folded axis is ``N/2 + 1`` modes long — 129 at ``256^3``
-— so a three-dimensional launch fragments warps against a row length that is not a multiple of the
-warp size.
+stays **flat**, which keeps it *coalesced* — neighbouring threads reading neighbouring addresses, which
+a GPU services as one wide memory transaction rather than many narrow ones. The folded axis is
+``N/2 + 1`` modes long (129 at ``256^3``), so a three-dimensional launch would cut each row against a
+length that is not a multiple of the *warp* — the group of threads a GPU issues in lockstep, 32 on
+NVIDIA and 64 on AMD — leaving every row's last transaction partly idle.
 
 The kernel value is associated as the stored path associates it, so an axis-factored kernel and its
 materialized product agree bit for bit.
@@ -843,7 +846,7 @@ representation, writing ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\h
 The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
 `source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
 call branches on `iszero(β)` to overwrite or accumulate. The product is coefficientwise, so it is
-aliasing-safe: `destination_data` may be `source_data` or the kernel.
+alias-safe: `destination_data` may be `source_data` or the kernel.
 """
 function _apply_convolution!(destination_data::AbstractArray{<:Any, 3}, source_data, kernel_data, α, β)
   if iszero(β)
@@ -933,6 +936,13 @@ The arguments are:
 As a real physical object the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
+!!! warning "A real field needs a Hermitian kernel"
+    The stored half-spectrum holds only the modes with a non-negative wavenumber along the folded
+    axis (the layout's `fft_dims[1]`, not necessarily the first physical axis); the rest are implied by the
+    reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
+    still real exactly when its own transfer function carries that symmetry,
+    ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
+
 ```math
 (f \\star g)(x) = \\int_\\Omega f(y)  g(x - y)\\,\\mathrm{d}y ,
 ```
@@ -951,12 +961,6 @@ accumulate:
 \\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
 ```
 
-!!! warning "A real field needs a Hermitian kernel"
-    The stored half-spectrum holds only the modes with a non-negative wavenumber along the folded
-    axis (the layout's `fft_dims[1]`, not necessarily the first physical axis); the rest are implied by the
-    reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
-    still real exactly when its own transfer function carries that symmetry,
-    ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
     real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
     `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
     construction. A `radial_kernel` — and so the exponential kernel `exponential_convolve!` applies —

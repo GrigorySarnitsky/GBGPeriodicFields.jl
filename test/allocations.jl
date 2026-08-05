@@ -19,7 +19,7 @@
 # constant path updates only the zero mode), tensor orders R = 0/1/2, the field·field / field·constant /
 # constant·field argument patterns, the three-argument and five-argument (α/β) forms, the field surface
 # AND the point-value surface, and the grid↔point spline transfer. The deliberate allocators
-# (`norm!`/`lpnorm`/`std`/`var` materialize one field by design — `dev!` no longer does, its trace fused
+# (`norm!`/`lpnorm` materialize one field by design — `dev!` no longer does, its trace fused
 # into the executor pass; the radial diagnostics allocate a
 # bounded O(1) set per call) get a *bounded* guard instead of a zero guard — enough to catch a regression
 # to O(N) or O(shells) without forbidding their one-field temporary.

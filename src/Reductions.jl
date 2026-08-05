@@ -539,7 +539,9 @@ mean
 """
     var(f; corrected = true)
 
-The sample **variance** of a **scalar** section over its base: the Bessel-corrected mean of the squared
+The sample **variance** of a **scalar** section over its base: the Bessel-corrected mean (dividing by
+one less than the count, the standard correction that makes the sample variance an unbiased estimate of
+the population one) of the squared
 deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's ``N`` cells and
 ``\\tfrac{1}{M-1}\\sum_p`` over a point set's ``M`` points (matching `Statistics.var`'s default correction).
 
@@ -576,7 +578,12 @@ The sample **standard deviation** of a **scalar** section: the square root of [`
 bases `var` serves — a `Grid3D` or a `PointSet` — and, for a field, in spectral representation as
 well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is **scalar-only** —
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
-use [`cov`](@ref) for the vector second moment. See `var` for what `corrected` selects.
+use [`cov`](@ref) for the vector second central moment.
+
+The argument is:
+
+- `corrected` — divide by the base count minus one (Bessel's correction, the default) rather than by
+  the count, exactly as it does for [`var`](@ref), of which this is the square root.
 """
 std
 
@@ -749,6 +756,13 @@ For two fields in **spectral representation** `inner` returns the same value by 
 no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
 `l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
 `lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
+
+!!! note "The mixed spectral pair allocates two correction planes"
+    In spectral representation `inner(f, f)` and [`l2norm`](@ref) run allocation-free, but the *mixed*
+    `inner(f, g)` materializes two ``O(N^2)`` correction planes — one folded-axis plane by the fiber,
+    twice. That is small beside the ``O(N^3)`` field and it is per call, so it is worth knowing before
+    putting a mixed spectral pair in a loop. The fused alternative, a `dot` over a strided view, has no
+    method on the AMD path (rocBLAS `dotc`), so one route serves every backend.
 """
 function inner end
 # Two sections may be contracted only when they are the same kind of section over the same base,
@@ -866,8 +880,10 @@ function inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}) where {
   end
   # General f ≠ g. The whole-array term is a contiguous `dot` (allocation-free); the self-conjugate kₓ=0
   # plane (and the Nyquist plane for even Nₓ) are counted once, not twice, so subtract them. A `dot` over
-  # the strided plane view (which would fuse, no temporary) is unsupported on the GPU (rocBLAS `dotc` has
-  # no strided method), so reduce the product-broadcast instead — this materializes O(N²) per call (one kₓ
+  # the strided plane view (which would fuse, no temporary) is unsupported on the AMD path (rocBLAS
+  # `dotc` has no strided method — a vendor gap, not a property of GPUs in general; CUDA is not the
+  # constraint here). One route is taken on every backend rather than branching per vendor, so reduce
+  # the product-broadcast instead — this materializes O(N²) per call (one kₓ
   # plane × fiber, twice): small vs the O(N³) field, but allocated each call. A GPU hot loop forms an energy
   # as `inner(f, f)` (the fused branch above) or uses the physical `inner` (a contiguous `dot`), not this.
   total = (KernelAbstractions.get_backend(data_g) isa KernelAbstractions.CPU ?
@@ -924,7 +940,7 @@ end
     weighted_inner(f, g, w::SpectralKernel)
 
 The **multiplier-weighted L² inner product** ``\\langle f, w g\\rangle`` of two fields in spectral
-representation against a real bounded Fourier multiplier `w`
+representation against a real Fourier multiplier `w`
 (`weighted_inner` ``\\equiv \\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
 and reduces against `f` in a single fused pass, materializing no weighted field — the reduction-dual of
 `convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
@@ -936,10 +952,17 @@ The arguments are:
   ``w(k)``. All four classes give bitwise-identical results, so the choice is one of storage only. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
-  silently contributing its real part. The one class exempt from that rejection is `StoredKernel`,
-  whose storage is complex by construction so that its type cannot tell a real multiplier from a
-  complex one; it keeps the real-part behaviour, and separating the two would cost a full extra pass
-  over the coefficients that this reduction's single pass does not permit. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+  silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
+  right — see the warning below. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+
+!!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
+    Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
+    for free. A `StoredKernel` cannot: its storage is `Complex{T}` by construction, so a materialized
+    `spectral_cutoff` and a materialized `translation_kernel` have the same type. Telling them
+    apart needs a full extra pass over the coefficients, which this reduction's single pass does not
+    permit — so that class keeps the real-part behaviour, and a complex weight reaching it returns a
+    number rather than raising. It is the one route by which a phase kernel can serve as a weight and
+    answer a question you did not ask.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
@@ -1308,6 +1331,12 @@ curve. As with the spectrum the *total* is unaffected: ``C(0) = \\texttt{inner}(
 
 It takes spectral input only, since it needs the inverse transform, and it is GPU-portable: one inverse
 transform plus a single binning pass.
+
+!!! note "This one allocates a field, unlike `radial_spectrum`"
+    Its route builds a full power field and takes an allocating inverse transform, so it costs a
+    field's worth of memory per call — a deliberate exception to the package's allocation-free
+    default, guarded by a bounded rather than a zero assertion. [`radial_spectrum`](@ref) has no such
+    cost: its staging was fused into the binning kernel, leaving only the shell accumulators.
 """
 function radial_correlation end
 

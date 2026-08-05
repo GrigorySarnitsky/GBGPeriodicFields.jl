@@ -31,7 +31,8 @@ and need not repeat the convention.
 | ``M`` | the number of points | `npoints` |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | `FieldSpectralMultipliers` |
 | ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | `radial_spectrum` |
-| ``h`` | a physical displacement (``h_a`` is its component along axis ``a``); ``\Delta`` alone is reserved for the Laplacian. Followed by another symbol it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | `translation_kernel`, `radial_spectrum` |
+| ``h`` | a physical displacement (``h_a`` is its component along axis ``a``) | `translation_kernel` |
+| ``\Delta`` | alone, the Laplacian. Followed by another symbol it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | `laplacian`, `radial_spectrum` |
 | ``\hat f`` | the field ``f`` in spectral representation | `to_spectral(f)` |
 
 The worked turbulence example sets the wavenumber vector bold, as ``\mathbf{k}``, because it follows

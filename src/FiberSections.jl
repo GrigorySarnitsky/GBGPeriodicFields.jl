@@ -163,13 +163,18 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 """
     with_threading(f; enabled::Union{Nothing, Bool} = true)
 
-Run `f()` with the CPU-threading decision forced to `enabled`, then restore the previous setting.
-Pass `true` or `false` to force the threaded or serial path, or `nothing` to follow the automatic
-`nthreads()`-based policy. The override is dynamically scoped and task-local, so it affects only
-`f()` and is restored afterwards, including on exceptions. Use `enabled = false` around a region
-that already parallelizes at a higher level, to avoid oversubscription.
+Run `f()` with the CPU-threading decision forced to `enabled`, then restore the previous setting. The
+override is dynamically scoped and task-local, so it affects only `f()` and is restored afterwards,
+including on exceptions.
 
-!!! warning "Two groups of operations thread outside this override"
+The arguments are:
+
+- `f` — the zero-argument function to run under the override.
+- `enabled` — `true` or `false` to force the threaded or serial path, or `nothing` to follow the
+  automatic `nthreads()`-based policy. Pass `false` around a region that already parallelizes at a
+  higher level, to avoid oversubscription.
+
+!!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
     behind the algebra and the spectral operators (`helmholtz_projection!` included), and the
     fixed-tree reductions. Two groups of operations run as portable device-style kernels on **every**
@@ -177,6 +182,11 @@ that already parallelizes at a higher level, to avoid oversubscription.
     transfer (`interpolate!`/`anterpolate!`) and the radial reductions
     (`radial_spectrum`/`radial_correlation`) — the kernels with atomic or irregular access, which a
     gated loop cannot serve. To run those serially, start Julia with one thread.
+
+    A third category is neither governed nor exempt: an operation that is **not threaded at all**, and
+    so unaffected by this setting for a different reason. `weighted_inner` is the one to know about —
+    its single fused pass is serial, which is why it diverges from `inner` as threads are added.
+    Nothing is wrong there; it simply has no threaded route to override.
 """
 with_threading(f; enabled::Union{Nothing, Bool} = true) =
   Base.ScopedValues.with(f, _THREADING_OVERRIDE => enabled)

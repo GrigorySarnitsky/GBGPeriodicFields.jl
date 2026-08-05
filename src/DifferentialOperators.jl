@@ -14,9 +14,10 @@ The parts are:
 
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
 - [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
-- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the vorticity of a vector field — **twice** the local
-  angular velocity of a fluid element, the rotation rate itself being ``\\tfrac{1}{2}\\nabla\\times u`` — and
-  preserves the tensor order.
+- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the curl of a vector field, which measures its local
+  rotation at **twice** the angular rate — the rate itself is ``\\tfrac{1}{2}\\nabla\\times u`` — and preserves
+  the tensor order. (A fluid-dynamics consumer calls ``\\nabla\\times u`` the vorticity; the package keeps
+  the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
 - [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
@@ -981,12 +982,10 @@ cyclically,
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
-fresh result instead. The `destination` may alias `field` freely: the fused pass reads all three source
-coefficients of a mode before writing any component of it, so the aliased call needs no guard temporary
-and is bitwise-identical to the non-aliased one.
-
+fresh result instead. 
 The arguments are:
-- `destination` — the vector field that receives the result; it shares the domain of `field`.
+- `destination` — the vector field that receives the result; it shares the domain of `field`, and
+  it may alias `field` freely: the fused pass reads all three source coefficients of a mode before writing any component of it, so the aliased call needs no guard temporary and is bitwise-identical to the non-aliased one.
 - `field` — the vector field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
@@ -1302,12 +1301,10 @@ mode — the Nyquist planes included.
     physical space even though it acts coefficientwise in spectral representation.
 
 Use this in-place form when `destination` is already allocated; the allocating
-[`helmholtz_projection`](@ref) returns a fresh result instead. The `destination` may alias `field`
-at no cost: the projection is computed in a single pass that reads all three components of a mode
-before writing any of them, so the aliased call needs no temporary.
-
+[`helmholtz_projection`](@ref) returns a fresh result instead. 
 The arguments are:
-- `destination` — the vector field that receives the result; it shares the domain of `field`.
+- `destination` — the vector field that receives the result; it shares the domain of `field`, and
+  it may alias `field` at no cost: the projection is computed in a single pass that reads all three components of a mode before writing any of them, so the aliased call needs no temporary.
 - `field` — the vector field to project, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 

@@ -1054,7 +1054,7 @@ The arguments are:
 - `fft_timelimit`: the planner time limit, used when `fft_flags` is given.
 Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
 
-!!! warning "CPU planner choice: the default `ESTIMATE` can badly mis-plan single-precision transforms"
+!!! warning "The default `ESTIMATE` planner can badly mis-plan single-precision CPU transforms"
     On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
     on a Zen 5 desktop, the `Float32` transforms ran 2.3–5.1× slower than a timed plan at ``256^3``

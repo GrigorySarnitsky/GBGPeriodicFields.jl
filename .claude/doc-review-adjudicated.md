@@ -38,35 +38,41 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    snapshot block — was verified to sit inside a `<code>` element in the built HTML. Unicode math is
    correct there and must NOT be converted to LaTeX.
 
+4. **A `docs/ARCHITECTURE.md` §13 decision entry "never states its own decision number".** Extraction
+   artifact. §13 is an ordered list, so each entry's number is its `<ol>` marker — present in the
+   source (`62. **Any kernel class may weight…**`) and rendered by the browser, but stripped when the
+   HTML is flattened to this manuscript. Never infer a numbering gap from this text. *(Raised by hat 01
+   in round 3, twice.)*
+
 ## User-closed design decisions (real, intentional, settled 2026-08-05)
 
-4. **`radial_kernel(sigma, reference, multipliers)` leads with its function where the other kernel
+5. **`radial_kernel(sigma, reference, multipliers)` leads with its function where the other kernel
    builders lead with `reference`.** Intentional and closed by the user. Do not re-raise the argument
    order of the kernel-builder family.
 
-5. **`scheme` is a positional-with-default argument on `interpolate`/`anterpolate` and a keyword on
+6. **`scheme` is a positional-with-default argument on `interpolate`/`anterpolate` and a keyword on
    the callable sugar `field(x; scheme = …)`.** Intentional and closed by the user. Do not re-raise
    the calling convention of `scheme`.
 
 ## Recorded docstring-shape exemptions (settled 2026-08-04, re-raised round 2)
 
-6. **`translation_kernel!` does not carry the verbatim in-place steer sentence.** Deliberate: it
+7. **`translation_kernel!` does not carry the verbatim in-place steer sentence.** Deliberate: it
    rebuilds an existing `SeparableKernel` for a new displacement rather than filling a `destination`,
    so the verbatim wording would name an argument its signature does not have. It carries the same
    steer reworded to its own parameter. *(Flagged by three hats in an earlier round, then by hat 06
    again in round 2.)*
 
-7. **`to_physical!`/`to_spectral!` have no standalone in-place steer sentence.** Deliberate: they
+8. **`to_physical!`/`to_spectral!` have no standalone in-place steer sentence.** Deliberate: they
    already steer to their allocating siblings for the stronger input-preservation reason (invariant
    11 — the inverse real transform may destroy its input), and the steer is not doubled.
 
-8. **`LalescuSpline` / `LagrangeSpline` document their `T = Float64` keyword in running prose rather
+9. **`LalescuSpline` / `LagrangeSpline` document their `T = Float64` keyword in running prose rather
    than a bulleted `The arguments are:` list.** A recorded exemption: a *single element-type keyword*
    bound in one prose clause is not the long-argument-list problem the bulleted-form rule addresses.
    The same exemption covers the callable field's `scheme`. Do not re-raise these two as violations
    of the keyword-triggers-bullets rule.
 
-9. **`Grid3D` uses `The fields are` while `NUFFT` uses `The arguments are:`.** Both are correct and
+10. **`Grid3D` uses `The fields are` while `NUFFT` uses `The arguments are:`.** Both are correct and
    the distinction is the rule, not drift: a type that *stores* named, user-readable fields documents
    them under `The fields are`; a constructor taking three or more arguments or any keyword documents
    those under `The arguments are:`.

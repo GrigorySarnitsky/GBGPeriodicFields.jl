@@ -501,12 +501,12 @@ self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 
 ```math
 \langle f, g\rangle = \frac{1}{N^2} \mathrm{Re}\Bigl(2\sum_{k_x\ge0}\hat f \overline{\hat g}
--\sum_{k_x=0}\hat f \overline{\hat g}-\sum_{k_x=N_x/2}\hat f \overline{\hat g}\Bigr) \quad\checkmark
+-\sum_{\text{zero plane}}\hat f \overline{\hat g}-\sum_{\text{Nyquist plane}}\hat f \overline{\hat g}\Bigr) \quad\checkmark
 ```
 
 (the Nyquist sum only for even ``N_x``). **`radial_spectrum`** bins this with the half-spectrum weight
 ``\alpha(k)`` (``1`` on the self-conjugate planes, ``2`` else) over ``|k|``-shells, and
-**`radial_correlation`** is the Wiener–Khinchin dual (``\mathcal F^{-1}=`` `to_physical`, the normalized
+**`radial_correlation`** is the Wiener–Khinchin dual (the inverse transform ``\mathcal F^{-1}`` is `to_physical`, the normalized
 inverse):
 
 ```math

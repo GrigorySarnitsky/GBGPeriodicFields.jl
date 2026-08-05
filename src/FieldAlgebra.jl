@@ -1798,8 +1798,10 @@ CPU); being a per-point transform with disjoint writes, it is bitwise thread-cou
 Use this when the operation is not one of the named fiberwise operations ([`det`](@ref), [`norm`](@ref),
 the algebra) — an arbitrary pointwise function of the fiber, a composition such as `exp ∘ det` included.
 Prefer the named operations where they exist (they carry their validity and their spectral forms); `map!`
-is the escape hatch for the unnamed, physical-only maps. Use this in-place form when `destination` is
-already allocated; the allocating [`map`](@ref) returns a fresh result instead.
+is the escape hatch for the unnamed, physical-only maps.
+
+Use this in-place form when `destination` is already allocated; the allocating [`map`](@ref) returns a
+fresh result instead.
 
 At every base point `x`, `destination`'s fiber is set to `φ` applied to the `sources`' fibers there;
 `map!(φ, dest, f, g)` sets it to `φ(f(x), g(x))`.

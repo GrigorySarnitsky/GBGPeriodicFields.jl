@@ -109,8 +109,8 @@ conceptual model and the writing/docstring conventions are recorded once — in
     materialized array's full bytes are counted; on the GPU it is a device buffer behind a tiny host
     wrapper, invisible to `@allocated`, so a GPU measurement would miss the very leak that wedges a hot
     loop. A new in-place op — or any function claimed allocation-free — **must** be added to that audit.
-    Deliberate materializers (`norm!`/`lpnorm`/`std`/`var` — `dev!` left the list when decision 39
-    fused its trace into a register, `radial_correlation` (the power
+    Deliberate materializers (`norm!`/`lpnorm` — `dev!` left the list when decision 39
+    fused its trace into a register and `std`/`var` when decision 49 rewrote them as two fused passes, `radial_correlation` (the power
     field + its transform; `radial_spectrum` is pinned tight since decision 34), the mixed
     spectral `inner(f, g)` — rocBLAS offering no `dotc` over a strided `ROCArray` view) are the documented
     exceptions and get a *bounded* regression guard, not a zero guard.
@@ -211,6 +211,17 @@ now sit on the FieldAlgebra `@docs` block, paired after their in-place homes lik
 link *would* resolve; they were previously mis-swept into that page's Internal API by the `Public =
 false` autodocs — the same public-but-unexported-Base-extension class as the stats on the Reductions
 page. The bare backtick stays the convention regardless.)
+**(5) Aliasing.** An operation-specific statement of whether `destination` may alias an input lives in
+the **`destination` argument bullet**, not as standalone prose before or after the argument list — that
+is where a reader asks the question, and the template already puts argument caveats there. Settled
+2026-08-05 on the majority position (`convolve!`, `combine!`); `curl!` and `helmholtz_projection!` were
+the two outliers and were moved. The package-wide guarantee itself belongs in the module docstring and is
+**not** repeated per operation — which is why `cross!`, `transpose!`, `sym!`, `skew!` and `dev!` carry
+nothing locally and are correct as they stand. An operation states it for itself only when it has an
+operation-specific *reason* to give (`curl!` and `helmholtz_projection!` each read all three components
+of a mode before writing any), or when its contract is the contrary one (`mul!`, whose destination must
+**not** alias).
+
 **Two exemptions to rule 1, made explicit after the 2026-08-04 battery flagged them as violations:**
 an **internal `_`-prefixed helper** documents its arguments in whatever form reads best (the threshold
 exists to keep a *user-facing* argument list findable, and the codegen builders and kernel bodies are
