@@ -5,8 +5,7 @@ Base-agnostic core of the package's fiber-bundle model.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
 `PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
-design that does not depend on which base is used, and it groups six families of
-machinery:
+design that does not depend on which base is used. The parts are:
 
 - the **fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
   [`FiberTensor4`](@ref), `StaticArrays` aliases naming the value at one base point, together with

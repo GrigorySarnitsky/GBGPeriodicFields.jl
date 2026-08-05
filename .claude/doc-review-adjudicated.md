@@ -22,15 +22,50 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    anywhere in the corpus. *(Raised round 1 by hats 10+11; round 2 again by hat 10 as its top finding,
    while hat 11 independently caught the artifact.)*
 
+2. **A `# References` block appearing to run into the preceding bullet with no blank line** (seen in
+   the `Interpolation` module docstring). Extraction artifact: the authored source has the blank line
+   and the heading. Judge reference-block *content*, never its spacing, from this manuscript.
+
+3. **Unicode math in a comment of the Literate example (`examples/HIST_CPU.jl`), reported as
+   rendering in prose.** Check the marker before flagging: a `##` double-hash comment stays a **code**
+   comment on the built page (Literate's documented escape hatch for notes that must not render), and
+   only a full-line single-`# ` comment becomes prose. The manuscript flattens both into the same
+   text, so they cannot be told apart there. The one instance raised in round 2 — the `S⁽ᴱ⁾(r)`
+   snapshot block — was verified to sit inside a `<code>` element in the built HTML. Unicode math is
+   correct there and must NOT be converted to LaTeX.
+
 ## User-closed design decisions (real, intentional, settled 2026-08-05)
 
-2. **`radial_kernel(sigma, reference, multipliers)` leads with its function where the other kernel
+4. **`radial_kernel(sigma, reference, multipliers)` leads with its function where the other kernel
    builders lead with `reference`.** Intentional and closed by the user. Do not re-raise the argument
    order of the kernel-builder family.
 
-3. **`scheme` is a positional-with-default argument on `interpolate`/`anterpolate` and a keyword on
+5. **`scheme` is a positional-with-default argument on `interpolate`/`anterpolate` and a keyword on
    the callable sugar `field(x; scheme = …)`.** Intentional and closed by the user. Do not re-raise
    the calling convention of `scheme`.
+
+## Recorded docstring-shape exemptions (settled 2026-08-04, re-raised round 2)
+
+6. **`translation_kernel!` does not carry the verbatim in-place steer sentence.** Deliberate: it
+   rebuilds an existing `SeparableKernel` for a new displacement rather than filling a `destination`,
+   so the verbatim wording would name an argument its signature does not have. It carries the same
+   steer reworded to its own parameter. *(Flagged by three hats in an earlier round, then by hat 06
+   again in round 2.)*
+
+7. **`to_physical!`/`to_spectral!` have no standalone in-place steer sentence.** Deliberate: they
+   already steer to their allocating siblings for the stronger input-preservation reason (invariant
+   11 — the inverse real transform may destroy its input), and the steer is not doubled.
+
+8. **`LalescuSpline` / `LagrangeSpline` document their `T = Float64` keyword in running prose rather
+   than a bulleted `The arguments are:` list.** A recorded exemption: a *single element-type keyword*
+   bound in one prose clause is not the long-argument-list problem the bulleted-form rule addresses.
+   The same exemption covers the callable field's `scheme`. Do not re-raise these two as violations
+   of the keyword-triggers-bullets rule.
+
+9. **`Grid3D` uses `The fields are` while `NUFFT` uses `The arguments are:`.** Both are correct and
+   the distinction is the rule, not drift: a type that *stores* named, user-readable fields documents
+   them under `The fields are`; a constructor taking three or more arguments or any keyword documents
+   those under `The arguments are:`.
 
 ---
 

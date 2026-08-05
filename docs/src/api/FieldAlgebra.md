@@ -29,6 +29,13 @@ cross!
 cross
 ×
 mul!
+```
+
+The allocating wrapper of [`mul!`](@ref) is `*`, which is documented once — with the scalar-field
+scaling it also serves — under [Vector-space and scalar-field-scaling operations](@ref) above, rather
+than repeated here.
+
+```@docs
 tr!
 tr
 det!

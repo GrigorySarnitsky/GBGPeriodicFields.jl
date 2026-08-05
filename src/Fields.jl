@@ -219,7 +219,7 @@ Here `T<:AbstractFloat` is the real scalar type associated with the field and `R
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
 
-!!! note "A section owns its storage"
+!!! note "A field in physical representation owns its storage"
     A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
     chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
     makes aliasing safe by construction: two sections can then share memory only by being backed by the
@@ -239,7 +239,7 @@ Here `T<:AbstractFloat` is the real scalar type associated with the field and `R
 Concrete subtypes provide the actual storage and metadata. The generic field interface obtains `T` and `R` through [`field_scalar_type`](@ref)
 and [`field_tensor_order`](@ref), and obtains the stored data through [`field_data`](@ref).
 
-!!! note "A section owns its storage"
+!!! note "A field in spectral representation owns its storage"
     A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
     chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
     makes aliasing safe by construction: two sections can then share memory only by being backed by the

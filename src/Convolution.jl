@@ -29,6 +29,9 @@ multiplier the consumer supplies — through `radial_kernel` when it depends on 
 ``|k|^2``, or as coefficients built from `FieldSpectralMultipliers` and wrapped in `StoredKernel`. The
 package supplies the operation, not the physical meaning.
 
+The parts are, in three groups — what the module does, how a kernel is stored, and which kernels it
+builds:
+
 Convolution operations:
 
 - [`convolve`](@ref) / [`convolve!`](@ref) — convolve a field with a kernel; the in-place form adds
@@ -156,7 +159,8 @@ _context_layout(kernel::StoredKernel) = _context_layout(kernel.field)
     ProductKernel
 
 The coefficientwise product of two spectral kernels, held as the pair rather than evaluated — what
-[`convolve`](@ref) returns whenever composing cannot produce a single kernel more cheaply. That covers
+[`convolve`](@ref) returns whenever composing cannot produce a single kernel more cheaply. There is no
+public constructor, which is why no signature is shown above: one arises only from that composition. That covers
 every cross-family pair, two stored kernels (merging those would mean materializing an ``O(N^3)``
 product), and two radial kernels whose coordinates cannot be shown to agree.
 
@@ -266,7 +270,9 @@ time from the wavenumber arrays the multipliers already hold, so the kernel occu
 closure and three references, against the ``O(N^3)`` coefficients a stored kernel needs — bytes
 rather than the 129 MiB a ``256^3`` kernel would take.
 
-Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
+There is no public constructor, which is why no signature is shown above: a kernel of this class is
+always obtained from a builder, so that the multipliers it evaluates against are the ones its grid
+owns. Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
 [`radial_kernel`](@ref) for any other such function — a smooth filter envelope, a hyperviscous
 ``\\exp(-\\nu (|k|^2)^p \\tau)``, an integrating factor. Apply it exactly like a kernel held as a
 field: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel argument, or to
@@ -432,6 +438,8 @@ of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather tha
 megabytes a ``256^3`` kernel would take — and applying it reads no FIELD-SIZED kernel stream: the
 three ``O(N)`` factors are read per mode, which is the saving, not zero kernel traffic.
 
+There is no public constructor, which is why no signature is shown above: a kernel of this class is
+always obtained from a builder, so that its per-axis factors match the grid they will be applied on.
 Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
 kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of a fused operator.

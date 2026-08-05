@@ -1039,7 +1039,7 @@ sub-Nyquist band — the package's derivative wavenumbers are zeroed at an even 
 while this scheme evaluates the true phase there, so a discretely divergence-free field carrying
 Nyquist content is not pointwise divergence-free in the continuum).
 
-!!! warning "A plan holds an oversampled work grid"
+!!! warning "A plan costs about eight times the field in memory, for its whole lifetime"
     A `NUFFT` plan holds an oversampled work grid of about ``\\sigma^3`` times the field's memory (eight
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.

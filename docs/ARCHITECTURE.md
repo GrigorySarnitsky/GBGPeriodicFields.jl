@@ -249,7 +249,7 @@ equivalently, only when it commutes with the rfft isomorphism.
 - **Nonlinear in the field** — products of two fields, division by a scalar field,
   pointwise norms, contractions of two fields (dot, cross, tensor `mul!`, and the
   fiberwise tensor inner product `dot!` — not the `inner` reduction, which is Parseval-valid in
-  spectral representation): physical space only. The coefficientwise spectral product is *not* the
+  spectral representation): physical-space only. The coefficientwise spectral product is *not* the
   Fourier representation of the pointwise product (that would be a convolution),
   so offering it *as a product* would silently compute the wrong physical operation —
   that coefficientwise product *is* convolution, exposed under its true name as `convolve`
@@ -1323,8 +1323,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       it with `convolve`. The package hands over the coordinate; ``\nu``, ``\Delta t``, the width stay consumer-side.
       It wraps the existing `_squared_wavenumber_broadcast` (the Laplacian's ``|k|^2``, true value at
       Nyquist — invariant 5).
-    - **`spectral_band(reference, multipliers, k_lo, k_hi)` (`Convolution`)** — the isotropic annular
-      band-pass, the generalization of `spectral_cutoff` (now its `k_lo = 0` special case, refactored
+    - **`spectral_band(reference, multipliers, wavenumber_low, wavenumber_high)` (`Convolution`)** — the isotropic annular
+      band-pass, the generalization of `spectral_cutoff` (now its `wavenumber_low = 0` special case, refactored
       to delegate). Idempotent ⇒ a projection; it selects a wavenumber shell — a de-alias band, a
       forcing band, a filter ring. With it the demos' low-shell forcing becomes pure package ops:
       band energy `= inner(u_band, u_band)` with `u_band = convolve(u, band)`, then a rescaling `convolve`
@@ -2585,7 +2585,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision
     to cancellation when the mean dominates its fluctuations, which the docstring notes). A vector or
     tensor section raises a clear error pointing to `cov`. The new **`cov`** (extending `Statistics.cov`,
-    not re-exported, like `mean`/`var`/`std`) returns the symmetric covariance ``FiberTensor2`` of a
+    not re-exported, like `mean`/`var`/`std`) returns the symmetric covariance `FiberTensor2` of a
     vector section — its diagonal the per-component variances (the normal stresses, in a turbulence
     reading), its off-diagonal the covariances (the shear stresses) a per-component `var` discarded —
     computed in one fused mapped pass as ``\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u``

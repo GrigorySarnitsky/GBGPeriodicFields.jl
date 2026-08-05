@@ -185,7 +185,7 @@ end
     TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:AbstractFloat}
     TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat}
 
-One tensor value of order `R` per point (`R ≥ 2`; use [`ScalarPointValues`](@ref) or
+One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`](@ref) or
 [`VectorPointValues`](@ref) for orders `0` and `1`, which the constructor enforces), sampled at `M` points — the point-set counterpart of a
 `TensorFieldPhysical`.
 

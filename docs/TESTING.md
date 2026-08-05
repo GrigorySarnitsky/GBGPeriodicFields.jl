@@ -500,7 +500,7 @@ same kernel stored and applied with `convolve!`, the independent single-mode eig
 ``e^{c}\cos x``, the α/β accumulate, the scale-times-field offset, both two-operand forms equal to
 the sequential `combine!`-then-convolve pair, and the in-place filtered accumulate), the
 **kernel-composed `combine!`** (fused equals sequential over scalar and vector fields, the
-``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `k_lo = 0` case, idempotent, a ``|k|^2``
+``b = \texttt{dest}`` accumulate, the kernel aliasing the destination, and the physical absence), the `spectral_band` annular band-pass (`spectral_cutoff` as its `wavenumber_low = 0` case, idempotent, a ``|k|^2``
 membership oracle) and `radial_kernel` (the builder for an arbitrary real function of ``|k|^2``, checked at
 ``\sigma = \mathrm{identity}`` against the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
