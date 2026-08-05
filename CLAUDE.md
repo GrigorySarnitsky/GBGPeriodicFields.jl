@@ -1366,13 +1366,17 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   convolution. **The boundary is pinned by a test lane** (`test/contracts.jl`), whose property is that
   above the ceiling every entry point either works or throws — never returns a wrong value — so that
   lane is what must keep passing while this is open.
-- **Alias safety for partially overlapping distinct views (known limitation, decision 56).** A fused
-  pass reads element `n` and writes element `n`, so `sym!(A, A)` is safe while two *different* views
-  overlapping at *different* base indices are not: `cross!` on views offset by one along an axis
-  returns the wrong answer, serially and threaded, and the pair is not detected. A `mightalias` guard
-  is not the fix — it would reject `sym!(A, A)`, whose target and source component views already have
-  different footprints on one parent (decision 39 made that guard-free after measurement). A correct
-  guard has to compare **base** footprints while ignoring fiber-component permutation.
+- **Alias safety for partially overlapping distinct views — CLOSED by decision 59, not open.** This
+  was recorded as a known limitation under decision 56: two *different* views overlapping at
+  *different* base indices break the fused pass's read-then-write argument (`cross!` on views offset
+  by one along an axis returned the wrong answer, serially and threaded, undetected). Decision 59
+  removed the class rather than guarding it — a section's constructor **rejects borrowed storage**, a
+  `SubArray` anywhere in the parent chain, so such a pair is now **unconstructible** and same-array is
+  the only way two sections can share memory. Verified 2026-08-05: building a field on a `view` throws
+  `ArgumentError: a ScalarFieldPhysical must own its storage`. The `mightalias` guard reasoning stays
+  recorded as why the guard route was declined — it would have rejected `sym!(A, A)`, whose target and
+  source component views already have different footprints on one parent (decision 39 made that
+  guard-free after measurement).
 - **Explicit conversions between storage families and precisions (ROADMAP — not needed soon).**
   Invariant 14 refuses a mixed pair rather than converting, which is the right default: an implicit
   host↔device transfer inside an arithmetic operation is a silent multi-millisecond cost in a loop

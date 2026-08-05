@@ -32,9 +32,11 @@ band-limited, so the exact spectral gather reproduces it exactly, which makes th
 weights sum to one; and the deposited zero mode is exactly ``\\sum_p q_p``, which *is* the conservation
 statement. Only [`NUFFT`](@ref) falls short, and only by its tolerance. Conservation
 holds **only** when both directions use the same weights;
-mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields point values while
-its adjoint returns a field — one of two asymmetries between the pair, the other being the ``\\alpha``/``\\beta``
-accumulation weights that only the scatter takes. Each scheme's own docstring gives the gather
+mismatched weights inject a spurious source (Sundaram & Collins 1996). The pair is symmetric in name and in
+adjointness, and asymmetric in three places, listed together because each is easy to meet as a
+surprise: a gather yields point values while its adjoint returns a field; the ``\\alpha``/``\\beta``
+accumulation weights are taken by the scatter alone; and only the gather carries the callable sugar
+`f(x)`, evaluation being pointwise where its adjoint is not. Each scheme's own docstring gives the gather
 and scatter weights it applies.
 
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.

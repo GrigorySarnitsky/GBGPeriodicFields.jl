@@ -62,7 +62,13 @@ statement.
 A field, and a collection of values sampled at scattered locations, are both
 **sections of a tensor bundle over a base**. The domain is a flat periodic box (a
 3-torus) with a single global frame, so the bundle is trivial — just the product ``E = B \times V``
-of a base ``B`` and a fiber ``V``. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
+of a base ``B`` and a fiber ``V``. **The word "base" carries two related meanings here, and they are
+worth separating once.** The *continuum* base is the torus ``\Omega`` itself, which is what the bundle
+picture and §10's pullback diagram are drawn over. The *discrete* base is the finite set a section is
+actually stored on — a `Grid3D` of nodes or a `PointSet` of scattered locations, each a finite subset
+of ``\Omega`` — and it is the one meant wherever the docs say a section is "over a base" or a
+reduction "integrates the base away". Neither reading is dispensable: the continuum carries the
+derivative and the measure, the discrete set carries the data. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
 **tensor order** ``R``: ``V = \mathbb R`` (``R = 0``, scalar), ``\mathbb R^3`` (``R = 1``, vector, `FiberVector`),
 ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
 and higher (`FiberTensor3/4`).
@@ -97,20 +103,32 @@ worlds. Two of them are *parameters* of a section — what a section is built fr
   `FiberSections` module ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Differential operators are the complementary horizontal structure** — gradient,
   divergence, curl, Laplacian are derivatives *along the base*, using the flat
-  connection of the periodic box ([§4](@ref "4. Spectral machinery")). They are bound to a base with a differentiable
-  structure: they act on grid sections (in the spectral representation) and not on
-  point-value sections, which carry the vertical algebra but no derivatives.
+  connection of the periodic box ([§4](@ref "4. Spectral machinery")). Read that
+  precisely, since a `Grid3D` is a finite set and has no tangent bundle of its own: the
+  derivative lives on the **continuum** torus, and a grid section reaches it by standing
+  for the trigonometric polynomial its coefficients define, of which each operator is the
+  exact term-by-term derivative. What distinguishes the two bases is therefore whether
+  such an identification exists — a uniform periodic grid determines that polynomial, so
+  it inherits the derivative; a `PointSet` of scattered points determines no such
+  interpolant, so point-value sections carry the vertical algebra and no derivatives.
 - **Base reductions are the third operation family** — integrating the base away against a
   **measure** the base carries (`Grid3D` cell volume; `PointSet` counting): `integral`
   (extensive), the normalized `inner`/`l2norm`, and the `mean`/`std`/`var` moments. They map a
-  section to a scalar or a fiber and are base-dependent (the measure is the base's), yet — like
+  section to a scalar or a fiber — with one member of the family deliberately excepted, since naming it
+  here saves a reader the contradiction: the **radial** reductions `radial_spectrum` and
+  `radial_correlation` return a *profile*, a pair of vectors over shells, not a single value. They are
+  base-dependent (the measure is the base's), yet — like
   the vertical algebra — are shared by fields and point-values through `AbstractFiberSection`
   ([§12](@ref "12. Reductions"), decision 18). The same *measure* concept recurs as the interpolation kernel (below) and a
   convolution multiplier (the `Convolution` module, decision 20): one L²/integration structure in three roles (the
   measure taxonomy, decision 19).
 - **Representation is a choice of basis for a grid section's data** (distinct from the
   fiber frame above): physical storage uses the nodal basis, spectral storage the Fourier
-  basis, and the rfft is the linear isomorphism between them. A point-value section has no second
+  basis, and the rfft is the linear isomorphism between them. "Basis" is the right intuition and
+  slightly flatters the codomain: the transform is not an automorphism of one space, because the
+  stored complex half-spectrum has strictly more real dimensions than the section it came from. It is
+  an isomorphism onto the **Hermitian-constrained subspace** of that array — the constraint being what
+  makes the map a bijection and the round trip exact (`FORMALIZATION.md` states it typed). A point-value section has no second
   representation — there is no periodic grid to transform over — so the point types
   are representation-free ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 
@@ -201,9 +219,14 @@ with a pointer to the section that develops it.
 7. **No type piracy**: a `Base` or `LinearAlgebra` function is imported before it is extended.
 8. **No fiber-fiber methods.** The fiber types are `StaticArrays` aliases and already carry their own
    algebra, so the package does not redefine it.
-9. **Aliasing is safe by construction.** Every fused pass reads an element's sources into registers
-   before writing any of its outputs, so an in-place aliased call is computed directly and is
-   bitwise-identical to the non-aliased one; the former guard family is retired. `mul!` keeps
+9. **Aliasing is safe by construction, and a section owns its storage so that it is.** Every fused
+   pass reads an element's sources into registers before writing any of its outputs, so an in-place
+   aliased call is computed directly and is bitwise-identical to the non-aliased one; the former guard
+   family is retired. That argument holds only while one section's element ``n`` is the other's element
+   ``n``, which is the **ownership** half of the invariant and not a detail of it: the constructors
+   reject borrowed storage — a `SubArray` anywhere in the parent chain — leaving same-array as the only
+   way two sections can share memory (decision 59). Ownership, not layout: an `Array`, a `CuArray`, a
+   `ROCArray` and a `reshape` of any of them all pass. `mul!` keeps
    `LinearAlgebra`'s documented contract that the destination must not alias ([§7](@ref "7. Aliasing policy")).
 10. **The ``\alpha``/``\beta`` convention.** A five-argument form converts both weights to the field's
     scalar type and branches on ``\beta = 0`` (overwrite) versus ``\beta \ne 0`` (accumulate); a
@@ -541,7 +564,16 @@ Alias safety is **by construction**: every fused pass — the one-pass spectral 
 (decision 39) — reads all of an element's source values into registers before writing any of that
 element's destinations, and elements are disjoint, so an in-place call (`curl!(u, u, m)`,
 `transpose!(A, A)`, `sym!(A, A)`) is computed directly and is bitwise-identical to the
-non-aliased call, with no temporary. The former guard family (`_guard_noalias!` and its
+non-aliased call, with no temporary.
+
+That argument carries one hypothesis, load-bearing rather than incidental: one section's element ``n``
+has to be the other's element ``n``. **Ownership** supplies it — a section's constructor rejects
+borrowed storage, a `SubArray` anywhere in the parent chain, so same-array is the only way two sections
+can share memory (decision 59). Before that rule, two partially-overlapping views at different base
+indices broke the argument silently across fourteen operations; such a pair is now not merely
+undetected but unconstructible.
+
+The former guard family (`_guard_noalias!` and its
 point-value twin), which ran an aliased call through a fresh field and a copy-back, is retired —
 decision 39 removed its last callers. The one remaining aliasing rule is contractual: `mul!`
 documents that the destination must not alias the inputs, matching `LinearAlgebra.mul!` semantics
@@ -714,9 +746,10 @@ Both carry the usual allocating / in-place (`!`) pair. The `α`/`β` accumulate 
 overwrite, ``\beta \ne 0`` accumulate — the `mul!` convention, since they are the linear maps ``W`` /
 ``W^\top``) belongs to **anterpolation alone**: accumulation is what a scatter needs, and it is the
 direction that writes into a preallocated field, while a gather fills a fresh point-value section. So
-the pair is symmetric in name and adjointness with two asymmetries — the accumulate weights, and the
-fact that only interpolation gets the callable `f(x)`, because evaluation is pointwise while its adjoint is not (see
-the module docstring). The driving case is two-way coupling in the cloud-parcel DNS this package serves:
+the pair is symmetric in name and adjointness, and asymmetric in three places: a gather yields point
+values while its adjoint returns a field; the accumulate weights are taken by the scatter alone; and
+only interpolation gets the callable `f(x)`, because evaluation is pointwise while its adjoint is not
+(see the module docstring). The driving case is two-way coupling in the cloud-parcel DNS this package serves:
 the water-vapour mass and latent heat a droplet releases on condensation (or absorbs on evaporation) must
 be returned to the supersaturation and temperature fields.
 
@@ -1860,7 +1893,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ([§12](@ref "12. Reductions")). The mapped form does not guess — the caller *names* the map, so
     `maximum(norm, u)` is well posed where `maximum(u)` is not. The absence was of an ambiguous operation,
     and naming the map is precisely the condition that removes the ambiguity, so the mapped forms carry no
-    tensor-order restriction. They also give a fused peer to `lpnorm(u, Inf)`, which computes the same
+    *ambiguity* restriction. That is the restriction this entry lifts, and it is not the same as carrying
+    no ceiling at all: decision 56 later fixed the supported surface at ``R < 3``, and the
+    fiber-preserving and mapped reductions throw above it rather than return a wrong answer. They also give a fused peer to `lpnorm(u, Inf)`, which computes the same
     supremum of magnitude by materializing a magnitude section first.
 
     *Fiber-last layout dictates the implementation, and hides two allocation traps.* Because components are
@@ -2597,8 +2632,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     matrix square root of the covariance is not a standard deviation, the per-component root is
     basis-dependent, and ``\sqrt{\operatorname{tr} R}`` is a scalar RMS — three different objects. And
     `var`-as-covariance could not even be uniform (a vector's covariance has tensor order 2, a tensor's order 4;
-    the order-4 *fiber* type `FiberTensor4` exists, but a *section* of order 4 is above the supported
-    ``R < 3`` ceiling — decision 56).
+    the result would be an order-4 **fiber value**, not a section, so the ``R < 3`` *section* ceiling is
+    not what stands in the way — `FiberTensor4` exists as a type. The actual limit is narrower: the
+    fiber assembly in `FiberSections` (`_fiber_type`/`_assemble_fiber`) is enumerated through order 2,
+    so an order-4 result has nowhere to be built. `cov` is therefore defined on **vector** sections
+    alone, which is where its consumer is).
 
     So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
     *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision

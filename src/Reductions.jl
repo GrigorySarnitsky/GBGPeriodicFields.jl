@@ -459,16 +459,18 @@ end
     integral(f)
     integral(fiber_map, f)
 
-The base integral ``\\int_\\Omega f \\,\\mathrm{d}\\mu`` of a section (`integral` ``\\equiv \\int\\,\\mathrm{d}\\mu``) — the
+The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section (`integral` ``\\equiv \\int\\,\\mathrm{d}\\mu``) — the
 measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
 scales with the base measure; reach for [`inner`](@ref) or `mean` when you want an intensive,
 size-independent average instead. On a `Grid3D` the sum uses the uniform cell-volume quadrature, and on
 a `PointSet` it uses the unit-weight counting measure:
 
 ```math
-\\int_\\Omega f \\,\\mathrm{d}\\mu = \\frac{|\\Omega|}{N} \\sum_{x} f(x) \\quad (\\texttt{Grid3D}),
-\\qquad
-\\sum_{p} f_p \\quad (\\texttt{PointSet}),
+\\int f \\,\\mathrm{d}\\mu =
+\\begin{cases}
+  \\dfrac{|\\Omega|}{N} \\sum_{x} f(x), & \\text{base a } \\texttt{Grid3D} \\text{ — the box } \\Omega \\text{ and its } N \\text{ cells},\\\\[4pt]
+  \\sum_{p} f_p,                          & \\text{base a } \\texttt{PointSet} \\text{ — no domain, unit weight per point},
+\\end{cases}
 ```
 
 where ``N`` is the number of grid cells and ``|\\Omega|`` the domain volume. The result is
@@ -571,7 +573,8 @@ var
     std(f; corrected = true)
 
 The sample **standard deviation** of a **scalar** section: the square root of [`var`](@ref), over the same
-grid and point-set bases and in spectral representation. Like `var` it is **scalar-only** —
+bases `var` serves — a `Grid3D` or a `PointSet` — and, for a field, in spectral representation as
+well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is **scalar-only** —
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second moment. See `var` for what `corrected` selects.
 """
@@ -944,7 +947,7 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
 `fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` indexing the fiber components,
 
 ```math
-\\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) (w \\star g)(x)
+\\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
   = \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
 ```
 
@@ -1117,7 +1120,7 @@ wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted f
 modes whose rounded magnitude falls in shell ``i``:
 
 The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
-``\\lvert k\\rvert \\in [(m - 1/2)\\Delta\\kappa, (m + 1/2)\\Delta\\kappa)`` — which is what makes
+``\\lvert k\\rvert`` within ``\\pm\\Delta\\kappa/2`` of ``m\\Delta\\kappa`` — which is what makes
 ``\\kappa_m`` an energy-density sample AT ``\\kappa_m`` rather than at the band's edge. The abscissa is a
 property of the grid alone, identical for every field on it, so two spectra are directly comparable and a
 co-spectrum (which may be negative) is handled by the same rule.
@@ -1162,8 +1165,7 @@ incompletely sampled (only corner modes contribute), the standard isotropic-spec
 still equals `inner`. The shell **width** carries a second anisotropy artefact worth knowing: ``\\Delta k``
 is taken from the box's largest side, so on a strongly anisotropic box it is finer than the mode spacing
 ``2\\pi/L_a`` along every shorter axis, and a systematic fraction of shells is then empty — the profile
-combs, though its sum is unaffected. Modes landing exactly on a half-integer ``|k|/\\Delta k``, which an
-anisotropic box hits exactly, are assigned by `round`'s ties-to-even. The reduction is GPU-portable: a single
+combs, though its sum is unaffected. The two shells meet at a half-integer ``|k|/\\Delta k``, which an anisotropic box hits exactly; such a mode is assigned by `round`'s **ties-to-even**, so the boundary belongs to neither shell by a fixed convention but to whichever has even index. The interval is deliberately not written half-open for that reason — a half-open bracket would claim round-half-up, which is not what the code does. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
 reduction like `inner` only by the atomic binning and a square root per mode.
@@ -1347,7 +1349,7 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 ```math
 \\begin{aligned}
 \\lVert f\\rVert_p &= \\Bigl(\\frac{1}{N} \\sum_x |f(x)|^p\\Bigr)^{1/p} && (\\texttt{Grid3D}), \\\\
-\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_q |f_q|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
+\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_i |f_i|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
 \\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|, &&
 \\end{aligned}
 ```

@@ -66,13 +66,15 @@ The `mul!` product follows the `LinearAlgebra` convention that the destination m
 while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each fused pass reads an element's sources before writing any output) and
 may be called with the destination aliasing an input.
 
-!!! warning "Alias-safe means the SAME section, not any shared storage"
-    The guarantee is that `destination` may **be** an input — `sym!(A, A)` — or be a section over the
-    same base indices. It does not extend to two *different* views that partially overlap at
-    **different** base indices: a fused pass reads element ``n`` and writes element ``n``, so where one
-    section's element ``n`` is another's element ``n + m`` a write can land on a source not yet read,
-    and the result is wrong. Such a pair is not detected. Build the destination on its own storage, or
-    make it the input itself.
+!!! note "Why an aliased in-place call is safe"
+    `destination` may **be** an input — `sym!(A, A)` is computed directly and is bitwise-identical to
+    the non-aliased call — because a fused pass reads all of an element's sources into registers before
+    writing any of that element's outputs. That argument needs one section's element ``n`` to be the
+    other's element ``n``, and it is the **ownership** rule that supplies it: a section's constructor
+    refuses borrowed storage, so two sections can share memory only by being backed by the same array.
+    Two partially-overlapping views at *different* base indices would break the argument, and they are
+    not merely undetected — they cannot be constructed. `mul!` is the one exception, keeping
+    `LinearAlgebra`'s contract that its destination must not alias.
 
 Most of this module is mirrored onto point-values (`AbstractPointValues`) — the same fiberwise algebra
 applied to field values sampled at an unstructured point set, generated from the same builders so no

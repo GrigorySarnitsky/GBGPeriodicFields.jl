@@ -415,8 +415,8 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 
 ```math
 \begin{gathered}
-\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\mathrm{grid}),\quad \sum_p f_p\ (\mathrm{points}); \\
-\int_\Omega f\,\mathrm{d}\mu = \mathrm{measure}\cdot\texttt{mean}. \quad\checkmark
+\int f\,\mathrm{d}\mu = \frac{|\Omega|}{N}\sum_n f_n\ (\mathrm{grid}),\quad \sum_p f_p\ (\mathrm{points}); \\
+\int f\,\mathrm{d}\mu = \mathrm{measure}\cdot\texttt{mean}. \quad\checkmark
 \end{gathered}
 ```
 
