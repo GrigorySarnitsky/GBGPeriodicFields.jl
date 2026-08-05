@@ -81,7 +81,7 @@ What bounds each public operation class — the mental model a benchmark either 
   callbacks that fuse user ops into the transform's own passes, none of it wrapped by CUDA.jl's FFT
   interface ([cuFFT docs](https://docs.nvidia.com/cuda/cufft/)); rocFFT has an offline tuner
   producing per-size/per-architecture solution maps, not surfaced by AMDGPU.jl. The one reachable
-  lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 5).
+  lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 6).
 - **Field algebra (M2 + M3), spectral differential operators, and convolution** → **memory-bandwidth-bound**. A
   fiberwise add, contraction, wavenumber multiply, kernel multiply (`convolve`), or arbitrary fiber map (`map!` — its adapter assembles the fiber in registers, adding no memory traffic over the named ops, so it tracks `det!`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
@@ -770,7 +770,17 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    escaped. Restoring the loop returned the canary to baseline **without a refreeze** — the check
    working exactly as designed, catching an achieved-time regression the allocation and pass audits
    cannot see (decision 47).
-4. **Run-to-run variance** — absolute numbers carry ~10% jitter, and the **atomic-binning canary is
+4. **The canary is a ``128^3`` relative instrument, and on an X3D part it is largely cache-resident.**
+   Its grid is fixed at ``128^3`` (`benchmark/regress.jl`, unchanged since the lane was built) so a lane
+   costs 2–3 minutes and gets run. The consequence, measured on Enteropia 2026-08-05: `add!` moves
+   151 MB against a 96 MB L3, so repeated samples keep much of it resident and the single-thread figure
+   reads 63.8 GB/s — well above the ~41 GB/s a Zen 5 core sustains from DRAM (§4(l)). **The canary
+   therefore does not probe the DRAM-bound regime**, which is the one decision 37 names as the CPU
+   path's tuning target; at ``512^3`` the same working set is 9.66 GB and cannot cache. A regression
+   that appears only once a field stops fitting would pass this net silently. That regime is covered
+   instead by the characterization sweep (`benchmark/characterize.jl`, ``64^3``–``512^3``), which is
+   the instrument to reach for when a change plausibly alters memory traffic rather than arithmetic.
+5. **Run-to-run variance** — absolute numbers carry ~10% jitter, and the **atomic-binning canary is
    the widest**: `radial_spectrum` at `-t8` on Enteropia measured 4.871, 4.793, 4.747 and 4.504 ms over
    four back-to-back repeats against a 4.384 ms baseline (2026-08-05) — an 8% spread with every draw
    above the frozen value, which sits low in its own distribution. Its scatter-add threads outside the
@@ -783,7 +793,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    `assignment_window` / `translation_kernel`) are the noisy extreme: their threaded ``256^3``
    cells swung ±50% between two same-day sweeps (GC timing on paid-once allocating passes) — read
    them as indicative only, never as regressions.
-5. **GPU at 256³ — three traps, none a rocFFT bug** (RX 6700 XT, gfx1031, 12 GB, ROCm 7.2.4).
+6. **GPU at 256³ — three traps, none a rocFFT bug** (RX 6700 XT, gfx1031, 12 GB, ROCm 7.2.4).
    Earlier notes blamed "rocFFT 256³ planning"; that was wrong. The facts, measured:
    - **256³ FFT works.** Scalar and vector r2c/c2r at 256³ take ~1 s to plan and ~15–20 ms to run;
      the full `fft` class passes at 256³.
@@ -832,7 +842,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
-6. **`aarch64` is a production host architecture with zero coverage.** The recorded production
+7. **`aarch64` is a production host architecture with zero coverage.** The recorded production
    target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
    superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the
    CPU partition is x86-64 EPYC. The GPU path's host code will therefore eventually build and run
