@@ -169,7 +169,7 @@ representation (`src/DifferentialOperators.jl`):
 ```math
 \begin{aligned}
 \nabla &\to \mathrm{i}k, & \nabla\cdot &\to \mathrm{i}k\cdot, & \nabla\times &\to \mathrm{i}k\times,\\
-\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \frac{a a^{\top}}{a \cdot a}.
+\Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \frac{a a^{\top}}{a \cdot a}\ (\mathrm{id}\text{ where } a\cdot a = 0).
 \end{aligned}
 ```
 
@@ -205,6 +205,22 @@ unconditionally; the projector identities are pinned with full-spectrum Nyquist 
 
 (``\mathbb P`` and ``\Delta`` are self-adjoint — their multipliers ``\mathrm{id}-(a a^{\top})/(a \cdot a)``, ``-|k|^2`` are
 real symmetric.)
+
+The **divergence is the negative adjoint of the gradient**, the one relation here between sections of
+*different* tensor order — ``\nabla : \Gamma_G^{R=0} \to \Gamma_G^{R=1}`` and
+``\nabla\cdot : \Gamma_G^{R=1} \to \Gamma_G^{R=0}``, so the two inner products below are taken in
+different spaces (scalar sections on the right, vector sections on the left):
+
+```math
+\langle \nabla\phi, u\rangle_{\Gamma^{R=1}} = -\langle \phi, \nabla\cdot u\rangle_{\Gamma^{R=0}},
+\quad\checkmark
+```
+
+because the gradient's multiplier is ``\mathrm{i}a`` and the divergence's the contraction ``\mathrm{i}a\cdot``
+with the same derivative-wavenumber family ``a``: moving the factor across the Hermitian pairing
+conjugates it, and ``\overline{\mathrm{i}a} = -\mathrm{i}a`` for real ``a`` supplies the sign. Unconditional
+— it needs only that both operators read one derivative family, the Nyquist planes included, which
+invariant 5 guarantees. Pinned in `test/adjointness.jl`.
 
 The **`curl` is self-adjoint** on the same pairing,
 

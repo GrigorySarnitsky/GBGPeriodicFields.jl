@@ -9,8 +9,8 @@ object; the complex coefficient arrays are storage detail, never the object itse
 
 ## Grids and fields
 
-A field is built from a [`Grid3D`](@ref) (the periodic box) and a function sampled on it. The fiber
-(tensor order) is set by the constructor — [`ScalarFieldPhysical`](@ref), [`VectorFieldPhysical`](@ref),
+A field is built from a [`Grid3D`](@ref) (the periodic box) and a function sampled on it. The tensor
+order — and with it the fiber, the value space sitting over each point — is set by the constructor — [`ScalarFieldPhysical`](@ref), [`VectorFieldPhysical`](@ref),
 [`TensorFieldPhysical`](@ref). Data is stored fiber-last, `(Nx, Ny, Nz[, 3[, 3]])`.
 
 ```jldoctest tutorial

@@ -79,8 +79,9 @@ section
 assigns a fiber value to each base point; the fiber-last data layout ([§3](@ref "3. Types and memory layout")) is exactly
 that section, stored base-indexed.
 
-Three structures of the package are then *parameters of a section*, not separate
-worlds:
+The package's structures then organize around that one object, rather than standing as separate
+worlds. Two of them are *parameters* of a section — what a section is built from — and three are
+*operation families*, maps acting on sections, each reaching only as far as the structure it needs:
 
 - **The base** is either the structured grid `Grid3D` — a field is a section sampled
   on the grid — or the unstructured point set `PointSet` — point-values are a section
@@ -115,7 +116,11 @@ worlds:
 
 (The vertical/horizontal language is the bundle-theoretic one — fiber directions versus the
 connection's base directions — applied here by analogy to *operations*: the fiberwise algebra
-is order-zero and fiber-preserving, while the horizontal family is built from the connection's
+is order-zero and **base-preserving** — it covers the identity on the base, acting inside the fiber
+over each point and touching no neighbour. It is deliberately *not* called fiber-*preserving*, which
+is reserved throughout for a map that leaves the fiber by the identity (the transfer maps, the
+fiber-preserving reductions); `dot`, `norm`, `det` and `map!` all change the fiber. The horizontal
+family, by contrast, is built from the connection's
 covariant derivative, order one. Built *from* rather than *equal to*: `gradient`, `divergence`,
 `curl` and `symmetric_gradient` are that derivative, but `inverse_laplacian` and
 `helmholtz_projection` invert or project with it and are **nonlocal** — no local
@@ -726,10 +731,13 @@ i.e. a regularized point source) — is given in full in the `Interpolation` mod
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
 The two inner products are concrete pairings against the measure each base carries: on point-values
-``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\mathrm{pts}}`` a plain sum over the
-``M`` points, while on fields ``f, g`` the **cell-volume measure** makes
+``a, b`` the **counting measure** makes ``\langle\cdot,\cdot\rangle_{\mathrm{pts}}`` a sum over the ``M``
+points, while on fields ``f, g`` the **cell-volume measure** makes
 ``\langle\cdot,\cdot\rangle_{\mathrm{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
-fiber contraction — the ordinary product for scalars, the dot product for vectors):
+fiber contraction — the ordinary product for scalars, the dot product for vectors). Both are
+**normalized by the total measure** — divided by ``M`` and by ``|\Omega|`` respectively, as the displays
+below carry — which is what makes them intensive averages rather than extensive totals, and it is
+precisely that normalization the ``N/M`` factor further down is accounting for:
 
 ```math
 \langle a, b\rangle_{\mathrm{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
@@ -2569,8 +2577,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and ``\operatorname{std} = \sqrt{\operatorname{var}}`` has *no canonical vector form* at all: the
     matrix square root of the covariance is not a standard deviation, the per-component root is
     basis-dependent, and ``\sqrt{\operatorname{tr} R}`` is a scalar RMS — three different objects. And
-    `var`-as-covariance could not even be uniform (a vector's covariance is rank 2, a tensor's rank 4,
-    which the package does not carry).
+    `var`-as-covariance could not even be uniform (a vector's covariance has tensor order 2, a tensor's order 4;
+    the order-4 *fiber* type `FiberTensor4` exists, but a *section* of order 4 is above the supported
+    ``R < 3`` ceiling — decision 56).
 
     So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
     *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision

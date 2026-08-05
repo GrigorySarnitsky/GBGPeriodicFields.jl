@@ -14,7 +14,9 @@ The parts are:
 
 - [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
 - [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
-- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the local rotation rate of a vector field and preserves the tensor order.
+- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the vorticity of a vector field — **twice** the local
+  angular velocity of a fluid element, the rotation rate itself being ``\\tfrac{1}{2}\\nabla\\times u`` — and
+  preserves the tensor order.
 - [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
