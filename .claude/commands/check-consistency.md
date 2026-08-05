@@ -177,5 +177,9 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
 - An **Artifact** dashboard (filterable by severity/surface) for the user to scan.
 - `.claude/doc-review-prev/` — the previous round, kept for diffing.
 
-`.claude/doc-review*` is untracked working notes (never commit it — stage tracked files with `git add -u`,
-never `-A`). This command file and its `check-consistency/` scripts ARE tracked.
+The findings **piles** — `.claude/doc-review/` and `.claude/doc-review-prev/` — are untracked working
+notes, regenerated every run, and are gitignored (never commit them; stage tracked files with
+`git add -u`, never `-A`). **Tracked**, because they are the instrument rather than its output: this
+command file, the `check-consistency/` scripts, and `.claude/doc-review-adjudicated.md` — the
+do-not-re-flag list `panel.js` injects into every hat, which has to survive a re-run and reach the
+other machine.

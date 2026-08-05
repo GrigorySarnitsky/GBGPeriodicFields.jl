@@ -13,3 +13,9 @@ docs/src/examples/
 
 # Local-only reference material (theses, papers, notes) — never committed
 inspiration/
+
+# /check-consistency findings piles — ephemeral working notes, regenerated each run.
+# The instrument itself IS tracked: .claude/commands/check-consistency/ and the
+# do-not-re-flag list .claude/doc-review-adjudicated.md, which panel.js reads.
+.claude/doc-review/
+.claude/doc-review-prev/
