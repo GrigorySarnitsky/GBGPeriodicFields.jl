@@ -770,7 +770,13 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    escaped. Restoring the loop returned the canary to baseline **without a refreeze** — the check
    working exactly as designed, catching an achieved-time regression the allocation and pass audits
    cannot see (decision 47).
-4. **Run-to-run variance** — absolute numbers carry ~10% jitter, so cross-platform/-commit
+4. **Run-to-run variance** — absolute numbers carry ~10% jitter, and the **atomic-binning canary is
+   the widest**: `radial_spectrum` at `-t8` on Enteropia measured 4.871, 4.793, 4.747 and 4.504 ms over
+   four back-to-back repeats against a 4.384 ms baseline (2026-08-05) — an 8% spread with every draw
+   above the frozen value, which sits low in its own distribution. Its scatter-add threads outside the
+   `with_threading` override and its summation order is nondeterministic, so contention decides the
+   figure. Read a single reading of that row against the baseline as noise unless it clears the 25%
+   tolerance, and confirm any movement against the other backends before believing it. Cross-platform/-commit
    comparisons are only meaningful within a single session (hence the side-by-side discipline of
    §3); the tables here are indicative magnitudes, not contract values. The allocating kernel
    *builders* (`spectral_cutoff` / `spectral_band` / `radial_kernel` /

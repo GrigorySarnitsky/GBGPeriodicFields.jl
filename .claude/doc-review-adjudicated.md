@@ -54,25 +54,34 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    the callable sugar `field(x; scheme = …)`.** Intentional and closed by the user. Do not re-raise
    the calling convention of `scheme`.
 
+7. **`weighted_inner` accepts a complex `StoredKernel` weight and uses its real part instead of
+   throwing, where the other three classes throw.** Intentional and closed by the user (2026-08-05).
+   The asymmetry is real and is documented in a `!!! warning`; it is not a defect to fix. Reaching that
+   path takes a deliberate act — hand-building a stored kernel's coefficients, or explicitly
+   materializing a complex one — and a consumer who does either knows what they are doing. The only
+   honest alternative is an ``O(N)`` scan of the coefficients on every call, which the reduction's
+   single-pass contract does not permit and which is not worth paying to protect a deliberate act. Do
+   not re-raise the inconsistency, and do not propose the scan.
+
 ## Recorded docstring-shape exemptions (settled 2026-08-04, re-raised round 2)
 
-7. **`translation_kernel!` does not carry the verbatim in-place steer sentence.** Deliberate: it
+8. **`translation_kernel!` does not carry the verbatim in-place steer sentence.** Deliberate: it
    rebuilds an existing `SeparableKernel` for a new displacement rather than filling a `destination`,
    so the verbatim wording would name an argument its signature does not have. It carries the same
    steer reworded to its own parameter. *(Flagged by three hats in an earlier round, then by hat 06
    again in round 2.)*
 
-8. **`to_physical!`/`to_spectral!` have no standalone in-place steer sentence.** Deliberate: they
+9. **`to_physical!`/`to_spectral!` have no standalone in-place steer sentence.** Deliberate: they
    already steer to their allocating siblings for the stronger input-preservation reason (invariant
    11 — the inverse real transform may destroy its input), and the steer is not doubled.
 
-9. **`LalescuSpline` / `LagrangeSpline` document their `T = Float64` keyword in running prose rather
+10. **`LalescuSpline` / `LagrangeSpline` document their `T = Float64` keyword in running prose rather
    than a bulleted `The arguments are:` list.** A recorded exemption: a *single element-type keyword*
    bound in one prose clause is not the long-argument-list problem the bulleted-form rule addresses.
    The same exemption covers the callable field's `scheme`. Do not re-raise these two as violations
    of the keyword-triggers-bullets rule.
 
-10. **`Grid3D` uses `The fields are` while `NUFFT` uses `The arguments are:`.** Both are correct and
+11. **`Grid3D` uses `The fields are` while `NUFFT` uses `The arguments are:`.** Both are correct and
    the distinction is the rule, not drift: a type that *stores* named, user-readable fields documents
    them under `The fields are`; a constructor taking three or more arguments or any keyword documents
    those under `The arguments are:`.

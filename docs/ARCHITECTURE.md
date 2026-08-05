@@ -3212,7 +3212,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     same type. Separating them needs a full extra pass over the coefficients, which this reduction's
     single-pass contract does not permit, so that class keeps the documented real-part behaviour. The
     rule is therefore *the check is made wherever the type can decide it*, which is a statement about
-    what is knowable for free rather than an inconsistency to tidy away later.
+    what is knowable for free rather than an inconsistency to tidy away later. **Settled by the user
+    (2026-08-05): the exemption stands and the ``O(N)`` scan is declined.** Reaching that path takes a
+    deliberate act — hand-building a stored kernel's coefficients, or explicitly materializing a complex
+    one — and a consumer who does either knows what they are doing; paying a full coefficient scan on
+    every call to protect a deliberate act is the wrong trade.
 
     Covered in `test/reductions.jl` (each class bitwise-equal to its own materialized form over
     ``R = 0, 1, 2``; the complex refusal on the separable class, on a composition carrying it, and the
