@@ -5,9 +5,9 @@ include order reflects the dependency layering: `FiberSections` → `Fields` →
 `DifferentialOperators` → `Convolution` → `Points` → `Interpolation` → `Reductions`.
 
 - [`GBGPeriodicFields`](api/GBGPeriodicFields.md): the top-level module and public re-export surface.
-- [`FiberSections`](api/FiberSections.md): the base-agnostic foundation — the `AbstractFiberSection` supertype, the `_assign!` threading primitive, and the fiberwise-algebra code generators reused by `FieldAlgebra` and `Points`.
-- [`Fields`](api/Fields.md): grids, Cartesian fiber types, field representations, FFT transforms, field utilities, broadcasting support, and HDF5 persistence.
-- [`FieldAlgebra`](api/FieldAlgebra.md): fiberwise algebraic operations on scalar, vector, and tensor fields.
+- [`FiberSections`](api/FiberSections.md): the base-agnostic foundation — the `AbstractFiberSection` supertype, the Cartesian fiber types, the `_assign!` threading primitive, and the fiberwise-algebra code generators reused by `FieldAlgebra` and `Points`.
+- [`Fields`](api/Fields.md): grids, field representations, FFT transforms, field utilities, broadcasting support, and HDF5 persistence.
+- [`FieldAlgebra`](api/FieldAlgebra.md): fiberwise algebraic operations on scalar, vector, and tensor fields, plus `map!`/`map`, the arbitrary fiber-map escape hatch.
 - [`DifferentialOperators`](api/DifferentialOperators.md): differential operators on fields in spectral representation.
 - [`Convolution`](api/Convolution.md): periodic convolution of a field with a Fourier kernel (`convolve`/`convolve!` with the infix alias `⋆`, the coefficientwise product ``\hat f \cdot \hat g``; the lazy `exponential_convolve`/`exponential_convolve!` and the kernel-composed `combine!`; the builders `radial_kernel`/`spectral_cutoff`/`spectral_band`/`assignment_window`/`translation_kernel`), in spectral representation.
 - [`Points`](api/Points.md): the unstructured-base point and point-value data types, their fiberwise algebra, and HDF5 persistence.

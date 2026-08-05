@@ -175,7 +175,7 @@ here rather than repeated:
 - **Vertical — fiberwise algebra** ([`FieldAlgebra`](@ref GBGPeriodicFields.FieldAlgebra) on fields, [`Points`](@ref GBGPeriodicFields.Points) on point-values): add/scale,
   the weighted combination `combine!`, contract (`dot`/`cross`), transpose, sym/skew/dev, the `tr`/`det`
   invariants, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) — plus
-  [`map!`](@ref GBGPeriodicFields.FieldAlgebra.map!), the arbitrary-φ **escape hatch** (any un-named
+  [`map!`](@ref GBGPeriodicFields.FieldAlgebra.map!), the arbitrary-`φ` **escape hatch** (any un-named
   pointwise fiber map, over the same fused executor; decision 48).
 - **Horizontal — differential operators** ([`DifferentialOperators`](@ref GBGPeriodicFields.DifferentialOperators)): `gradient`, `divergence`, `curl`,
   `symmetric_gradient`, `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
@@ -2263,8 +2263,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     wrapped, its own scope line).
 
     *What the first measurement found.* The decision-32/33/34 kernels sit **at their ideals** — the
-    one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its `β = 0`
-    forms provably never read the destination, the KA kernel reads a composed `ĝ` once per mode
+    one-pass projection reads 3 and writes 3 (the audit would have failed the old 9), its ``\beta = 0`` forms provably never read the destination, the KA kernel reads a composed `ĝ` once per mode
     where the broadcast family re-reads a scalar kernel once per fiber component, and the fused
     radial binning reads the field once. The standing gaps are all one family — **per-component
     formula granularity**: `gradient!` re-reads its scalar source per output (3×), `curl!` and
@@ -2615,16 +2614,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     slab-threaded loop on a CPU) and its allocation-free contract, and is embarrassingly parallel
     (disjoint writes, no atomics), bitwise thread-count-invariant on the CPU.
 
-    The only φ-specific piece is a small adapter in `FiberSections` (`_MapValues`): it groups the flat
+    The only `φ`-specific piece is a small adapter in `FiberSections` (`_MapValues`): it groups the flat
     component scalars a fused pass hands it back into fibers (column-major, so assembly is a bare
-    `SMatrix` constructor and the flatten a bare `Tuple`), applies φ, and flattens the result — a struct,
+    `SMatrix` constructor and the flatten a bare `Tuple`), applies `φ`, and flattens the result — a struct,
     not a closure, so the input count stays type-level, exactly `_FiberGather`'s reasoning for the
     reductions. The public methods live where the vertical algebra lives: `FieldAlgebra` for physical
     fields, `Points` for point-values (both over the shared `_map_pass!` driver), extending
     `Base.map!` / `Base.map` (not piracy — the types are ours). It is **physical-only** for fields: an
-    arbitrary φ is nonlinear, so by invariant 1 there is no spectral method, and the result is aliased in
-    spectral representation (the FieldAlgebra module warning). Point-values are representation-free and
-    carry no such restriction. The allocating `map` infers the output tensor order from φ's return type
+    arbitrary `φ` is nonlinear, so by invariant 1 there is no spectral method, and the result is aliased in
+    spectral representation (the `FieldAlgebra` module warning). Point-values are representation-free and
+    carry no such restriction. The allocating `map` infers the output tensor order from `φ`'s return type
     (`Base.promote_op`); when it cannot, it errors and steers to `map!` with a preallocated destination.
 
     Why an escape hatch is allowed at all, against invariant 1's "the method set is the spec": `map!` is
@@ -2937,7 +2936,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     Four findings were **rejected** as recorded trade-offs rather than defects: manual-only CI for the
     package tests and for the canary lane (a deliberate cost decision after the free tier was
     exhausted), and the absence of `aarch64` and GH200 measurements (already `PERFORMANCE.md` §7 gap
-    6). Those are real limitations; none is news, and re-enabling push CI would reverse an explicit
+    7). Those are real limitations; none is news, and re-enabling push CI would reverse an explicit
     decision.
 
     **The user's rule governed the rest: no silent failures and no silent corruptions.** That decided

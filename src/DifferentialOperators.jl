@@ -108,7 +108,7 @@ Apply a coefficientwise contraction with the wavenumber vector, computing ``\\ma
 
 The eleven-argument form composes the contraction with a coefficientwise kernel and the
 ``\\alpha``/``\\beta`` accumulate in the same fused pass, computing
-``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\texttt{dst}``
+``\\texttt{destination\\_component} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\texttt{destination\\_component}``
 with ``\\hat g`` = `kernel_data`, branching on `iszero(β)` to overwrite or accumulate — the
 divergence analogue of `_apply_convolution!`.
 """
@@ -1301,7 +1301,8 @@ mode — the Nyquist planes included.
     physical space even though it acts coefficientwise in spectral representation.
 
 Use this in-place form when `destination` is already allocated; the allocating
-[`helmholtz_projection`](@ref) returns a fresh result instead. 
+[`helmholtz_projection`](@ref) returns a fresh result instead.
+
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`, and
   it may alias `field` at no cost: the projection is computed in a single pass that reads all three components of a mode before writing any of them, so the aliased call needs no temporary.

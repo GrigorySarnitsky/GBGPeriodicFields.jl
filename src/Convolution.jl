@@ -936,13 +936,6 @@ The arguments are:
 As a real physical object the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
-!!! warning "A real field needs a Hermitian kernel"
-    The stored half-spectrum holds only the modes with a non-negative wavenumber along the folded
-    axis (the layout's `fft_dims[1]`, not necessarily the first physical axis); the rest are implied by the
-    reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel returns a field that is
-    still real exactly when its own transfer function carries that symmetry,
-    ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
-
 ```math
 (f \\star g)(x) = \\int_\\Omega f(y)  g(x - y)\\,\\mathrm{d}y ,
 ```
@@ -961,13 +954,21 @@ accumulate:
 \\widehat{\\texttt{destination}}(k) = \\alpha  \\hat f(k)  \\hat g(k) + \\beta  \\widehat{\\texttt{destination}}(k).
 ```
 
-    real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
-    `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
-    construction. A `radial_kernel` — and so the exponential kernel `exponential_convolve!` applies —
-    satisfies it too, and for the strongest reason: a real symbol of ``\\lvert k\\rvert^2`` is real, and
-    ``\\lvert k\\rvert^2`` is even in ``k``, so the multiplier is real and even whatever the consumer's
-    closure computes. A consumer-built kernel that breaks the symmetry yields coefficients that are those
-    of no real field, and the inverse transform then silently keeps only their Hermitian part.
+
+!!! warning "A real field needs a Hermitian kernel"
+    The stored half-spectrum holds only the modes with a non-negative wavenumber along the folded
+    axis (the layout's `fft_dims[1]`, not necessarily the first physical axis); the rest are
+    implied by the reality of the field, ``\\hat f(-k) = \\overline{\\hat f(k)}``. A kernel
+    returns a field that is still real exactly when its own transfer function carries that
+    symmetry, ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space
+    kernel ``g`` is real. Every kernel the package builds satisfies it: the real, even ones
+    ([`spectral_cutoff`](@ref), `spectral_band`, `assignment_window`) trivially, and the complex
+    [`translation_kernel`](@ref) by construction. A `radial_kernel` — and so the exponential
+    kernel `exponential_convolve!` applies — satisfies it too, and for the strongest reason: a
+    real symbol of ``\\lvert k\\rvert^2`` is real, and ``\\lvert k\\rvert^2`` is even in ``k``, so
+    the multiplier is real and even whatever the consumer's closure computes. A consumer-built
+    kernel that breaks the symmetry yields coefficients that are those of no real field, and the
+    inverse transform then silently keeps only their Hermitian part.
 
 Spectral representation only: on the torus convolution is the coefficientwise spectral product.
 """

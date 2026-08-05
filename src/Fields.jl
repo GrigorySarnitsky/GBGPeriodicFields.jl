@@ -381,8 +381,13 @@ The fields are
 - `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
 The function constructor constructs a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
-Here `f` is called as `f(x, y, z)`, `grid` is the [`Grid3D`](@ref) on which the values are sampled, `fourier_layout` is the [`RealFourierLayout`](@ref)
-used when transforming the field, and `array_type` is the array type used to store the sampled values.
+The arguments are:
+
+- `f` — the sampled function, called as `f(x, y, z)` at each grid point.
+- `grid` — the [`Grid3D`](@ref) the values are sampled on.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
+  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
 Broadcasting over scalar fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
@@ -496,13 +501,19 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
 Vector field in physical-space representation, stored as its components on a three-dimensional physical grid.
 
 The fields are
-- `values_at_grid`: the real vector components, stored `values_at_grid[i, j, k, α]` with `α = 1, 2, 3`.
+- `values_at_grid`: the real vector components, stored `values_at_grid[i, j, k, α]` with ``\\alpha = 1, 2, 3``.
 - `grid`: the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
 The function constructor constructs a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
-Here `f` is called as `f(x, y, z)` and must return a three-component indexable object, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
-`fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
+The arguments are:
+
+- `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
+  indexable object.
+- `grid` — the [`Grid3D`](@ref) the values are sampled on.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
+  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
 Broadcasting over vector fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
@@ -559,7 +570,7 @@ end
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 The fields are
-- `fourier_coefficients`: the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with `α = 1, 2, 3`; its spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))` and the whole array `spectral_field_shape(grid, fourier_layout, Val(1))`.
+- `fourier_coefficients`: the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with ``\\alpha = 1, 2, 3``; its spatial part has shape `spectral_field_shape(grid, fourier_layout, Val(0))` and the whole array `spectral_field_shape(grid, fourier_layout, Val(1))`.
 - `grid`: the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout`: the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
 
@@ -636,8 +647,14 @@ The fields are
 The array has shape `physical_field_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
 The function constructor constructs a tensor field of order ``R \\ge 2`` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
-Here `f` is called as `f(x, y, z)` and must return an indexable object with tensor-fiber shape `fiber_shape(Val(R))`, `grid` is the [`Grid3D`](@ref) on which the values are sampled,
-`fourier_layout` is the [`RealFourierLayout`](@ref) used when transforming the field, and `array_type` is the array type used to store the sampled values.
+The arguments are:
+
+- `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
+  tensor-fiber shape `fiber_shape(Val(R))`.
+- `grid` — the [`Grid3D`](@ref) the values are sampled on.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `array_type` — the array type the sampled values are stored in (`Array` on the host, a
+  device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
 Broadcasting over tensor fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -1254,8 +1271,7 @@ _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, s
 """
     SpectralKernel{T}
 
-Supertype of every spectral kernel: a coefficientwise multiplier applied as the product
-``\\hat f \\hat g``, in whichever storage its symbol admits. [`Convolution`](@ref "Convolution")
+Supertype of every spectral kernel: a coefficientwise multiplier applied as the product ``\\hat f \\hat g`` of a field's coefficients ``\\hat f`` and the kernel's own multiplier ``\\hat g``, in whichever storage its symbol admits. [`Convolution`](@ref "Convolution")
 defines the concrete classes under [Kernel storage classes](@ref) — `StoredKernel` holding one
 coefficient per mode, `SeparableKernel` holding per-axis factors, `RadialKernel` holding the symbol
 itself, and `ProductKernel` holding two factors unmultiplied — and they differ only in cost, never in
@@ -1491,7 +1507,7 @@ end
 """
     _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{axis})
 
-Reshape the per-axis derivative wavenumber array (`axis = 1, 2, 3`) so it broadcasts against the three spatial dimensions of a field in spectral representation. Used by the first-derivative spectral operators (gradient, divergence, curl).
+Reshape the per-axis derivative wavenumber array (``\\text{axis} = 1, 2, 3``) so it broadcasts against the three spatial dimensions of a field in spectral representation. Used by the first-derivative spectral operators (gradient, divergence, curl).
 """
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)

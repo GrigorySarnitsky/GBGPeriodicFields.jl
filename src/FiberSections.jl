@@ -751,7 +751,7 @@ end
     _write_values!(targets, values, α, n)
 
 Write `α * values[i]` into `targets[i][n]` for every output, unrolled over the (static)
-output count. The real `α` keeps the multiply exact for `α = 1`, so the plain
+output count. The real `α` keeps the multiply exact for ``\\alpha = 1``, so the plain
 (non-``\\alpha``/``\\beta``) forms stay bitwise-identical to their broadcast predecessors.
 """
 @inline function _write_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, α, n) where {N}
@@ -1010,8 +1010,8 @@ const FiberTensor4{T} = SArray{Tuple{3, 3, 3, 3}, T, 4, 81}
 
 Return the tensor-fiber shape associated with tensor order `R`.
 
-For scalar fields, `R = 0` gives `()`. For higher tensor orders, each tensor index has length `3`,
-so `R = 1` gives `(3,)`, `R = 2` gives `(3, 3)`, and so on.
+For scalar fields, ``R = 0`` gives `()`. For higher tensor orders, each tensor index has length `3`,
+so ``R = 1`` gives `(3,)`, ``R = 2`` gives `(3, 3)`, and so on.
 """
 fiber_shape(::Val{0}) = ()
 fiber_shape(::Val{R}) where {R} = ntuple(_ -> 3, Val(R))

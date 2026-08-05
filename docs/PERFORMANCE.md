@@ -681,7 +681,7 @@ regression-sensitive run used with `save`/`judge` above. The **exhaustive charac
 backend's default grids (**CPU 64³–512³**, **device 64³–256³**, since a device cannot hold 512³ in
 `Float64`), on the **CPU thread sweep 1/2/4/8** (powers of two up to the performance cores) and the
 **GPU** — building **one (grid size, element type) at a time** to bound memory (a 256³ `Float64`
-tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows the 12 GB GPU — gap 5),
+tensor field is ~1.1 GB; holding all classes for both types at 256³ overflows the 12 GB GPU — gap 6),
 and assembles it into the committed report
 [`benchmark/RESULTS.md`](https://github.com/GrigorySarnitsky/GBGPeriodicFields.jl/blob/master/benchmark/RESULTS.md)
 (the raw per-run JSON under `benchmark/results/` is gitignored). Regenerate it on any platform with
@@ -758,7 +758,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
 
 1. **GPU `reductions`/`convolution` are measured with `gcsample` — read them as latency, not
    throughput.** Both classes are now in `RESULTS.md` for every platform (CPU 1/2/4/8 + GPU). The GPU
-   figures use `gcsample = true` (gap 5): a GC before each sample bounds memory but adds a fixed
+   figures use `gcsample = true` (gap 6): a GC before each sample bounds memory but adds a fixed
    per-sample cost, so the small-grid GPU times (≈1.5 ms at 64³) are dominated by that overhead, not by
    the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
    and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
@@ -769,7 +769,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    **GTX 1070** (Pascal, 8 GB) stays a 64³/128³ column — an 8 GB Pascal card tops out below 256³, so
    those rows read `—`. Its in-place replacement, the **RTX 5070 Ti** (Blackwell `sm_120`, 16 GB), covers
    the **full 64³–256³ matrix** (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
-   16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 5),
+   16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 6),
    CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
    ceiling is safe. `Enteropia` now also contributes its **9800X3D** CPU thread sweep beside the
    i7-12700K (host `Aiporetne`).

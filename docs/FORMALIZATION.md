@@ -375,8 +375,7 @@ Two statements, each expanded against the code and tested:
   in the order the stored path's broadcast associates it, and the separable route multiplies its factors
   in axis order. ``\checkmark``
 - **Composition is closed within the two compressed families but not the stored one.** Radial
-  composed with radial is radial **when both are radial in the same** ``|k|^2`` — that is, over canonical
-  multiplier sets of one concrete type, which is the hypothesis decision 61 made a dispatch condition;
+  composed with radial is radial **when both are radial in the same** ``|k|^2`` — that is, over *canonical* multiplier sets of one concrete type — canonical meaning built by the convenience constructor from the grid itself, as opposed to a caller's own set supplied through the explicit six-array form — which is the hypothesis decision 61 made a dispatch condition;
   ``\sigma_1 \sigma_2`` is then again a function of that ``|k|^2``, while a pairing that fails it keeps both
   operands as a `ProductKernel` rather than silently evaluating ``\sigma_2`` at the first set's
   coordinates. Separable
@@ -393,7 +392,7 @@ deconvolves: ``\hat g^{-1}\hat g = 1``
 wherever ``\hat g`` is nonzero, which is why a sharp cutoff has no inverse and a window has one on its
 support.
 
-**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33, 50, 51.
+**Backs** [Architecture](architecture.md) §11, decisions 20–22, 28, 33, 50, 51, 60, 61.
 **Checked by** `test/convolution.jl` — the translation kernel ``e^{-\mathrm{i} k_a m \Delta x_a} \Leftrightarrow``
 `circshift` (a shift of ``m`` cells; an independent physical oracle), cutoff idempotence, and
 the physical-space intentional absence (the ``\operatorname{sinc}^2`` window is checked by `test/rdf.jl`); and for `translation_kernel`, `circshift` on a *random* field (one
@@ -547,7 +546,7 @@ delegates to `l2norm` ``= \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
 ``\checkmark`` **Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
 ``p = \infty`` coincidence with `maximum(norm, u)`).
 
-**Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27.
+**Backs** [Architecture](architecture.md) §12, decisions 18/21/22/27/30/49/62.
 **Checked by** `test/reductions.jl` — ``\langle\sin\rangle=0``, ``\langle\sin^2\rangle=\tfrac{1}{2}``,
 the spectral `integral`/`mean` against the physical reductions (``\langle c\rangle=c``, ``\int c\,\mathrm{d}x=c|\Omega|``),
 ``\sum_i P(\kappa_i)=\langle f,f\rangle``, ``C(0)=\langle f,f\rangle`` against an independent binned-circshift oracle, the

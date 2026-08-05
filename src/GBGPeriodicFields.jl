@@ -24,13 +24,13 @@ two: one fiber at every point of a base, which is what a field and a set of poin
 why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
 resolution actually represents, *excluding* the Nyquist frequency of each even-length axis. Those
 Nyquist planes are excluded by definition because the package's two wavenumber families disagree
-exactly there — the derivative family is zeroed, the squared family keeps the true value (invariant 5)
+exactly there — the derivative family is zeroed there while the squared family keeps the true value
 — so every identity this documentation scopes "on the resolved band" holds off them and may fail on
 them. An odd-length axis has no exact Nyquist mode and so loses nothing. A section's
 **storage family** is the kind of array its data lives in — `Array` on the host, `CuArray` or
 `ROCArray` on a device — taken as the array's underlying type rather than its wrapping, so that a
 `reshape` of an `Array` is still the `Array` family. Two sections combine only within one storage
-family and one element type; a mixed pair is refused rather than converted (invariant 14).
+family and one element type; a mixed pair is refused rather than converted.
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
