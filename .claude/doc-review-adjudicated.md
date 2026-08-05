@@ -22,9 +22,13 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    anywhere in the corpus. *(Raised round 1 by hats 10+11; round 2 again by hat 10 as its top finding,
    while hat 11 independently caught the artifact.)*
 
-2. **A `# References` block appearing to run into the preceding bullet with no blank line** (seen in
-   the `Interpolation` module docstring). Extraction artifact: the authored source has the blank line
-   and the heading. Judge reference-block *content*, never its spacing, from this manuscript.
+2. **Block boundaries appear to collapse — a `# References` heading running into the previous bullet,
+   or an admonition title concatenated onto its body's first word (`...allocates nothing**This**
+   operation applies...`).** The consolidation flattens block structure, so headings, admonition
+   headers and their bodies lose their separation. Verified in the built HTML: an admonition renders
+   its title in `<header class="admonition-header">` and its body in a separate `<div
+   class="admonition-body">`. **Never report spacing, run-on text, or block separation from this
+   manuscript** — judge only the *content* of a block. (Raised by hats 06 and 08 in round 2.)
 
 3. **Unicode math in a comment of the Literate example (`examples/HIST_CPU.jl`), reported as
    rendering in prose.** Check the marker before flagging: a `##` double-hash comment stays a **code**

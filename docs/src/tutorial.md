@@ -140,7 +140,16 @@ julia> sampled = interpolate(u, points);
 
 julia> pointvalue_tensor_order(sampled)
 1
+
+julia> scattered = anterpolate(grid, points, sampled);
+
+julia> size(field_data(scattered))
+(16, 16, 16, 3)
 ```
+
+Note that the adjoint takes the **grid** rather than a field as its first argument: it builds the
+field it returns, so it needs only the base to build it over, where `interpolate` needs the field it
+samples.
 
 That is the whole surface in miniature: build a field, move between representations, apply operators /
 convolutions, reduce it, and transfer to and from points. The [API reference](api.md) documents every

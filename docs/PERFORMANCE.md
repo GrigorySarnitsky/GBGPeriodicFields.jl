@@ -19,7 +19,13 @@ that matters.
   compute roof ([roofline](https://developer.nvidia.com/blog/accelerating-hpc-applications-with-nsight-compute-roofline-analysis/)).
 - **GPU-first, and the CPU path targets a whole cluster node.** Production runs on the GPU, and where
   an optimization helps one platform and hurts the other — which *happens*, and is proven below — the
-  GPU wins across the range both can run. The CPU path is not, however, a convenience for toy problems.
+  GPU wins across the range both can run. One carve-out, exercised once: the rule ranks *platforms*,
+  not the particular card a number came from, so where the measured GPU disagrees with the production
+  one the production target decides. §4(c) is that case — an option ≈6% slower in `Float64` on the
+  test card was kept, the reversal tracing to that card's `Float64` throughput rather than to the
+  code. A carve-out claimed without a measured reason the test hardware is unrepresentative would
+  just be the rule being ignored.
+  The CPU path is not, however, a convenience for toy problems.
   It carries two roles that must not be confused. Development and small tests run on the CPU because
   that is where a workstation is, and at those grids performance rarely decides anything. The role the
   CPU path is tuned *for* is the other one: **a single large CPU node, running the resolutions that do
@@ -123,8 +129,11 @@ architecture or the tests; they are collected here so an optimizer has them in o
 
 **GPU** (ROCm/HIP [performance guidelines](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)):
 
-- **No scalar indexing of device arrays** (invariant 6) — a checked guarantee under
-  `allowscalar(false)` in both the test and benchmark GPU runs.
+- **No scalar indexing of device arrays** (invariant 6) — checked under `allowscalar(false)` in both
+  the test and benchmark GPU runs, but **only when those are run**: they need a physical device, they
+  are opt-in, they are not part of `Pkg.test()`, and CI is manual-only. It is a guarantee the design
+  makes and a check that confirms it on demand — not a gate a regression cannot get past. A scalar
+  index introduced during CPU-only work stands until someone runs the GPU suite.
 - **Favour spread access for memory-level parallelism**, and **loop the contiguous (`x`) axis
   innermost** so per-thread stencil access is stride-1 (§4 measured this at up to 3.9×).
 - **Minimize host↔device transfer**; keep fields resident on the device. **Allocate once, operate
@@ -396,6 +405,12 @@ against a route whose build pass happened outside the timer — state which reus
 measured before quoting a ratio. A possible future optimization — hoisting the exponential over the
 fiber in a mode-loop kernel, the decision-32 shape — would cut the CPU vector case's threefold `exp`
 re-evaluation; it waits for a CPU-bound consumer (the audits' consumer runs GPU-first).
+That deferral predates decision 37 and should be read against it: "GPU-first" no longer settles a CPU
+cost by itself, since the CPU path's tuning target is now a full cluster node running grids past one
+GPU's memory. A threefold `exp` re-evaluation per fiber is exactly the kind of per-component redundant
+work that is nearly free while a field is cache-resident and is not once it is not. The item stays
+deferred for want of a consumer, not because the cost is deemed unimportant — and it wants a
+node-scale CPU measurement before it is ranked.
 
 **(l) The threaded `_assign!` inner loop runs at ~8.6 GB/s per thread — mid thread counts sit *above*
 serial on the streaming ops.** Found by the first 512³ CPU sweep (2026-07-21) and visible, unnoticed, in
@@ -458,7 +473,12 @@ type reversal, 1.44–1.5×); one-bin-per-line padding equalizes the types and f
 bins (2.7–2.8 ns) yet still trails serial at the ``64^3`` count (same-bin collisions, ``\approx 8/56``
 per add). At
 production sizes the mode reads are DRAM-bound and the contention hides, so the anomaly is confined
-to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Candidates when a
+to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Read the ≈48×
+`Float64` radial gap as what this root-cause says it is: an **addressable implementation gap**, not a
+vendor-hardware one. Every other cross-vendor ratio in this document sits in the 1.5–4× band that a
+bandwidth ratio explains; this one is an order of magnitude larger because the global atomic scatter
+has no per-workgroup pre-reduction, which is the standard technique for exactly this kernel shape.
+Candidates when a
 consumer's cadence makes it matter: bin padding (backend-uniform; kills the `Float32` reversal, not
 the ``64^3`` inversion); per-thread private bins with an ordered merge on CPU (kills both *and*
 makes the CPU binning bitwise thread-invariant, retiring one of `docs/ARCHITECTURE.md` §9's two

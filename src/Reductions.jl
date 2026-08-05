@@ -15,7 +15,14 @@ value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integr
 zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `cov`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
-The parts are, each linking to the home where its formula lives:
+The parts are, each linking to the home where its formula lives.
+
+!!! note "`mean`, `std`, `var` and `cov` need `using Statistics`"
+    These four **extend** `Statistics` rather than being owned here, so the umbrella module does not
+    re-export them and `using GBGPeriodicFields` alone does not put the names in scope — a bare
+    `mean(field)` will not resolve. Add `using Statistics` (or call them `Statistics.mean(field)`).
+    Every other reduction on this page, `maximum`/`minimum`/`extrema` included, is exported normally.
+
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
 - [`mean`](@ref) — the **intensive**, **fiber-preserving** arithmetic average over the ``N`` grid cells or
@@ -491,8 +498,9 @@ them well posed above tensor order zero, the bare forms being scalar-only by des
 
 The mapped form is the cheaper route on both backends — one pass that allocates nothing, against a
 materialized section plus a second pass over it — by roughly two and a half times on a CPU and a
-quarter on a GPU. It gets there by different means on each, chosen internally: a vectorized blocked
-loop on a CPU, a single fused pass on a GPU.
+quarter on a GPU. It gets there by different means on each, chosen internally: a fixed reduction tree
+over vectorized blocked loops on a CPU, a single fused pass on a GPU. That tree's shape does not
+depend on the thread count, so a CPU result is **bitwise identical** however many threads it runs on.
 
 !!! note "The fiber map's own cost can dominate"
     The fiber map's own cost can outweigh the choice of route. `LinearAlgebra.norm` applied to a fiber

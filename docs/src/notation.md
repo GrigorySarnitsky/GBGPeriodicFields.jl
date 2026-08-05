@@ -23,7 +23,7 @@ and need not repeat the convention.
 
 | Symbol | Meaning | Code |
 |:---|:---|:---|
-| ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use) | — |
+| ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use). **One deliberate reuse:** in `Convolution`, ``g`` and its transform ``\hat g`` denote the **kernel** rather than a field — the standard symbol for a convolution kernel, kept because every formula there reads as the textbook one. A kernel is a distinct kind of object, not a field, so read ``g`` as the kernel on that page and as a field everywhere else | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | `Grid3D` |
@@ -31,7 +31,7 @@ and need not repeat the convention.
 | ``M`` | the number of points | `npoints` |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | `FieldSpectralMultipliers` |
 | ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | `radial_spectrum` |
-| ``h`` | a physical displacement (``h_a`` is its component along axis ``a``); ``\Delta`` is reserved for the Laplacian, and ``\Delta x_a`` for the grid spacing | `translation_kernel` |
+| ``h`` | a physical displacement (``h_a`` is its component along axis ``a``); ``\Delta`` alone is reserved for the Laplacian. Followed by another symbol it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | `translation_kernel`, `radial_spectrum` |
 | ``\hat f`` | the field ``f`` in spectral representation | `to_spectral(f)` |
 
 The worked turbulence example sets the wavenumber vector bold, as ``\mathbf{k}``, because it follows
@@ -56,7 +56,7 @@ of the table above.
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |
-| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter) | `interpolate`, `anterpolate` |
+| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** `assignment_window` writes ``W`` for the linear (CIC) "tent" cloud a point deposits and ``\hat W`` for its transfer function — a real-valued function, not the gather operator. The two are related in spirit (that cloud *is* the `LalescuSpline(0, 0)` weight) but are different objects between different spaces | `interpolate`, `anterpolate` |
 
 ## Scalar weights
 
@@ -67,5 +67,5 @@ written with its mode argument as ``\alpha(k)``. They never denote the same thin
 | Symbol | Meaning | Code |
 |:---|:---|:---|
 | ``\alpha``, ``\beta`` | the caller's accumulation weights in ``\texttt{destination} \leftarrow \alpha (\dots) + \beta \texttt{destination}`` | the trailing `α`, `β` arguments |
-| ``\alpha(k)`` | the half-spectrum Parseval weight of mode ``k``: ``1`` on a self-conjugate plane of the folded axis, ``2`` elsewhere. The **folded axis** is the one the real-to-complex transform halves (`fft_dims[1]`), storing only non-negative wavenumbers; its **self-conjugate planes** are the two — zero and, on an even axis, Nyquist — that the folding maps to themselves, so a mode's conjugate partner lies in the same plane and is stored alongside it rather than being implied; those modes are therefore counted once, not twice, so that a sum over stored modes equals the sum over the full spectrum | `inner`, `radial_spectrum` |
+| ``\alpha(k)`` | the half-spectrum Parseval weight of mode ``k``: ``1`` on a self-conjugate plane of the folded axis, ``2`` elsewhere. The **folded axis** is the one the real-to-complex transform halves, storing only non-negative wavenumbers — it is the first entry of a `RealFourierLayout`'s `fft_dims`, written `fft_dims[1]` throughout, and is the first axis by default; its **self-conjugate planes** are the two — zero and, on an even axis, Nyquist — that the folding maps to themselves, so a mode's conjugate partner lies in the same plane and is stored alongside it rather than being implied; those modes are therefore counted once, not twice, so that a sum over stored modes equals the sum over the full spectrum | `inner`, `radial_spectrum` |
 | ``w`` | a multiplier weighting an inner product mode by mode | `weighted_inner` |

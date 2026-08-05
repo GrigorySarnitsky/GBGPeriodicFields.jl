@@ -41,8 +41,11 @@ similar_pointvalues
 The point values carry the same fiberwise algebra as fields in physical representation, through the very same generics —
 `add!`, `subtract!`, `multiply!`, `divide!`, `dot!`, `cross!`, `mul!`, `transpose!`,
 `norm!`, `tr!`, `det!`, the `sym`/`skew`/`dev` decompositions, and the arbitrary-fiber-map
-`map!`/`map` — extended here to accept `AbstractPointValues`. (`combine!` is deliberately absent: the
-weighted combination is a field operation, and the point layer has no method for it.) There is no second set of docstrings for them: each per-component formula is
+`map!`/`map` — extended here to accept `AbstractPointValues`. (`combine!` is deliberately absent, and for the **no-consumer** reason rather than a mathematical
+one: the weighted combination is linear and coefficientwise, so it would be perfectly well defined on
+point-values. It exists on fields because a solver's stage updates need the axpby every step; nothing
+asks it of the point layer, so it is unbuilt rather than invalid — the §2 no-speculative-structure
+rule, not invariant 1.) There is no second set of docstrings for them: each per-component formula is
 generated from one builder shared with `FieldAlgebra`, so the operations are documented once, on the
 [`FieldAlgebra`](FieldAlgebra.md) page. Point values are representation-free, so the surface mirrors the
 *physical* field surface only — there is nothing spectral to mirror.

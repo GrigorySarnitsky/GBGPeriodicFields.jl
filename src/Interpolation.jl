@@ -97,6 +97,13 @@ choice of *kernel* and
 transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
 acting on a field in spectral representation). Same verbs, one adjointness contract; the schemes
 differ only in (kernel, representation).
+
+One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
+which names what the fresh destination is built from: a `Grid3D` suffices for the spline schemes,
+whose result is a physical field, while the spectral schemes take a whole field in spectral
+representation, a spectral destination needing the layout, backend and element type too. Code
+polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
+where the caller owns the destination, are uniform.
 """
 abstract type AbstractTransferScheme end
 
@@ -139,7 +146,9 @@ coefficients of the **two-point Hermite** interpolant of degree ``2m{+}1``: the 
 reproduces the field value and the derivatives of order ``1, \\dots, m`` at the two bracketing nodes
 (offsets ``0`` and ``1``), each derivative estimated by a centred finite difference over a
 ``2n{+}1``-node stencil about that node (Fornberg weights). The second argument `m` sets the
-smoothness, ``C^m`` with ``0 \\le m \\le 2n``; the weights
+smoothness, ``C^m`` with ``0 \\le m \\le 2n``. That bound makes the default ``m = 1`` valid only for
+``n \\ge 1``, so the one-argument `LalescuSpline(0)` is rejected rather than silently repaired: the
+smallest stencil admits ``m = 0`` alone, spelled `LalescuSpline(0, 0)` (the linear scheme). The weights
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 (``w_q(t) = \\sum_r \\texttt{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
 
@@ -502,7 +511,9 @@ fresh result instead.
 
 The arguments are:
 - `out` — the point-value section written with the gathered values. It must match `field` in tensor
-  order (scalar, vector, or second-order tensor) and cover the same number of points as `points`.
+  order and cover the same number of points as `points`. The local-spline transfer is one of the few
+  layers that serves tensor orders above the usual ceiling: it carries any order the field types can
+  hold, third-order tensors included.
 - `field` — the field to sample, in the representation the `scheme` acts on.
 - `points` — the [`PointSet`](@ref) of positions to evaluate at.
 - `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the

@@ -284,8 +284,10 @@ For each public operation, a test must establish:
       `allocations.jl` — on preallocated buffers with a distinct destination it allocates ``\sim 0``
       field-sized bytes, both element types. Run **on the CPU**: there a materialized field's full bytes
       are counted, whereas GPU `@allocated` reports only the host wrapper of a device buffer and would miss
-      the materialization that wedges a hot loop (the code is generic, so a CPU materialization is a GPU
-      one). A deliberate materializer (`norm!`/`lpnorm`/`std`/`var`, `radial_correlation`, the
+      the materialization that wedges a hot loop (the code is generic, so a field-sized materialization
+      is backend-symmetric — though a device run also carries small, size-independent launch bookkeeping
+      the CPU audit cannot see, absorbed by the fraction-of-a-field threshold because it does not scale
+      with the grid). A deliberate materializer (`norm!`/`lpnorm`/`std`/`var`, `radial_correlation`, the
       mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an O(N)/O(shells) regression.
 - [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).

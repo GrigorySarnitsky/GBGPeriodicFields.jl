@@ -84,7 +84,11 @@ conceptual model and the writing/docstring conventions are recorded once — in
    contract that destination must not alias (LinearAlgebra convention), without widening it.
 10. α/β kernels: five-argument forms convert `T(α)`, `T(β)` and branch on
     `iszero(β_value)` (overwrite vs accumulate); three-argument forms delegate with
-    `one(T)`, `zero(T)`.
+    `one(T)`, `zero(T)`. Throughout, α scales the computed result and β the destination
+    accumulated onto. **One deliberate exception, and the only one:** `combine!` IS the weighted
+    combination `α·a + β·b`, so its weights scale its two *operands* — what the operation is, and what
+    its name announces. No other operation may reuse the glyphs for a second role; that is the
+    glyph-collision rule decision 33 applies when it declines a second trailing α/β.
 11. Transform input contract: allocating `to_physical`/`to_spectral` preserve their
     input (they copy it); the in-place `to_physical!`/`to_spectral!` may overwrite the
     source. The inverse real transform (FFTW complex-to-real) destroys its spectral

@@ -207,7 +207,11 @@ with a pointer to the section that develops it.
    `LinearAlgebra`'s documented contract that the destination must not alias ([§7](@ref "7. Aliasing policy")).
 10. **The ``\alpha``/``\beta`` convention.** A five-argument form converts both weights to the field's
     scalar type and branches on ``\beta = 0`` (overwrite) versus ``\beta \ne 0`` (accumulate); a
-    three-argument form delegates to it with ``\alpha = 1``, ``\beta = 0``.
+    three-argument form delegates to it with ``\alpha = 1``, ``\beta = 0``. Throughout, ``\alpha`` scales
+    the computed result and ``\beta`` the destination accumulated onto. **One deliberate exception, and
+    the only one:** `combine!` is the weighted combination ``\alpha a + \beta b``, so its two weights
+    scale its two *operands* instead — which is what the operation is, and what its name announces. No
+    other operation may reuse the glyphs for a second role.
 11. **The transform input contract.** The allocating transforms preserve their input; the in-place ones
     may overwrite the source, and the inverse real transform uses its spectral input as scratch on some
     backends but not others. Never rely on a `!`-transform's source surviving ([§4](@ref "4. Spectral machinery")).
@@ -800,7 +804,10 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
 - **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
   inverse/forward DFT ``f(x_p) = \tfrac{1}{N}\sum_k \hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}`` and its adjoint
   ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
-  grid origin, and ``x_p`` the ``p``-th sample point). `DirectDFT` is the exact ``O(NM)`` form — the
+  grid origin, and ``x_p`` the ``p``-th sample point). The gather's ``\sum_k`` runs over the **full**
+  spectrum; the equivalent sum over the *stored* rfft half — carrying the Parseval weight ``\alpha(k)``
+  and a real part, which is what the code evaluates — is written out where `DirectDFT` is detailed
+  below, and is worth reading before anyone reproduces the compact form against a half-spectrum array. `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
   the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
@@ -926,6 +933,7 @@ for it (seen in a few papers) is a misnomer.
 - R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition / charge assignment; the NGP and CIC windows).
 - C. K. Birdsall, A. B. Langdon, [*Plasma Physics via Computer Simulation*](https://doi.org/10.1201/9781315275048), Adam Hilger, Bristol, 1991 (deposition / charge assignment).
 - E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
+- L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014 (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy).
 
 ## 11. Convolution
 
@@ -1612,8 +1620,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **It runs on the CPU on purpose:** there a materialized field is a host `Array` and `@allocated` counts
     its full bytes, so a stray temporary trips the threshold; on the GPU the same `similar`/broadcast
     allocates a *device* buffer whose host wrapper is only a few hundred bytes, so GPU `@allocated` would
-    report ``\sim 0`` and miss the leak. The operator code is generic over the array type, so a CPU
-    materialization *is* a GPU one — the CPU is simply where it is visible. The contract binds new code: a
+    report ``\sim 0`` and miss the leak. The operator code is generic over the array type, so a
+    field-sized **materialization** — a `similar` or a broadcast landing in a temporary — is
+    backend-symmetric: seeing it on the CPU is seeing it on the GPU, and the CPU is simply where it is
+    visible. That symmetry covers the materialization class, not every byte a device run allocates: a
+    `KernelAbstractions` launch also takes a small, size-independent host-side bookkeeping allocation
+    (finding (j), ~1.5–7 KB, thread-count-dependent) with no CPU-serial counterpart, which the audit's
+    fraction-of-a-field threshold absorbs rather than measures — sound, because the leak this contract
+    exists to stop scales with the grid and bookkeeping does not.
+    The contract binds new code: a
     new in-place operator (or any function documented allocation-free) must be added to the audit
     (invariant 13; the §4 coverage contract in `docs/TESTING.md`).
 
@@ -1979,7 +1994,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the standalone shift-back, average, and truncation passes (four passes per evaluation at wiring
     time; two more were already banked consumer-side by rewriting the average as `convolve!`'s
     five-argument form). The `curl!` operator deliberately does **not** get the kernel arity: IT's curls feed
-    transforms directly, so there is no consumer — the absence is the invariant-1 discipline, recorded
+    transforms directly, so there is no consumer — the absence is the §2 **no-speculative-structure**
+    rule, *not* invariant 1. The distinction matters and the two must not be blurred: invariant 1's
+    absences are mathematical statements a user can rely on (a spectral `*` is invalid and always will
+    be), while this one is merely unbuilt — `curl!` is exactly as composable with a kernel as
+    `divergence!`, and the arity would be added the day a consumer wants it. Recorded
     here. Validity is unchanged: spectral-only, the kernel under `convolve!`'s Hermitian reality
     condition, and the Nyquist split untouched (per-mode scalars multiply regardless of their Nyquist
     values). Guards: the fused-equals-sequential equalities, the α/β references, the bitwise aliased

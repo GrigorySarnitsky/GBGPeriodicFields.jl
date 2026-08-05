@@ -12,7 +12,11 @@ The parts are:
     [`RealFourierLayout`](@ref) describes the real-to-complex transform layout.
   * **Field types** — the scalar, vector, and second-order tensor field types each come in a
     physical-space and a spectral representation (higher orders exist as `TensorFieldPhysical{R}` /
-    `TensorFieldSpectral{R}`).
+    `TensorFieldSpectral{R}`). The two lowest orders carry bespoke names — `ScalarFieldPhysical` and
+    `VectorFieldPhysical` rather than `TensorFieldPhysical{0}` and `{1}` — because they are the
+    overwhelmingly common cases and read better short. The tensor order `R` is a type parameter of
+    every field type all the same, so that is a naming convenience over a uniform design, not a break
+    in it.
   * **Persistence** — [`write_field`](@ref) and [`read_field`](@ref) map a field to and from one
     self-describing HDF5 group (methods load with the `HDF5` package, as a weak-dependency extension).
   * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
