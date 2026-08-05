@@ -313,8 +313,10 @@ function run_hist(p::Params)
   uphys0 = VectorFieldPhysical(zeros(p.N, p.N, p.N, 3), grid)
   uspec0 = VectorFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(1))), grid)
   # Plan the transforms with FFTW's `MEASURE` planner instead of the default `ESTIMATE`: over a long run
-  # the one-time planning cost amortizes, and on some CPUs `ESTIMATE` badly mis-plans the single-precision
-  # transforms (up to ``\sim\!5\times`` slower at ``256^{3}``). `MEASURE` overwrites its input arrays while
+  # the one-time planning cost amortizes over thousands of transforms. (The sharper case for `MEASURE`
+  # is single precision, where `ESTIMATE` can mis-plan badly on some CPUs — up to ``\sim\!5\times`` slower
+  # at ``256^{3}`` — but this run is `Float64` throughout, so amortization is the reason here.)
+  # `MEASURE` overwrites its input arrays while
   # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
   # condition below.
   vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)   # vector physical ↔ spectral
