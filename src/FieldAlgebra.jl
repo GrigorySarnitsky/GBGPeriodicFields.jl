@@ -7,8 +7,14 @@ one exists — and an in-place `!` form.
 
 Every operation here acts **pointwise over the base** — the set of locations the field attaches a value
 to, which for a field is the grid's points — applying the same formula to the value at each one and
-touching no neighbours. That is what makes the whole surface representation-agnostic and what the
-formulas below mean by "pointwise over the base".
+touching no neighbours. That is what the formulas below mean by "pointwise over the base".
+
+Acting pointwise is *not* what makes an operation available in both representations, and the two must
+not be confused: `det` and `norm` are as pointwise as any operation here and are physical-space only.
+What carries an operation across the transform is **linearity in the field argument**, since only a
+linear map commutes with the rfft isomorphism — which is why the linear operations below (the sums,
+the fiber-constant contractions, the transposes, `sym`/`skew`/`dev`) exist in both representations
+while every operation nonlinear in a field is defined in physical representation alone.
 
 The parts are:
 

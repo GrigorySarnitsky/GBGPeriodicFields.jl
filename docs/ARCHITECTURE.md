@@ -956,7 +956,7 @@ decision 18). The `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive s
 (``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
 the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var`/`cov` (extending `Statistics`)
 and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments, all acting on **fields in physical representation
-and point-values** (representation-free); `cov` returns the vector second moment as a symmetric
+and point-values** (representation-free); `cov` returns the vector second *central* moment as a symmetric
 ``\mathrm{Sym}^2(V)`` tensor, which a fiber-preserving `var` would reduce to its basis-dependent diagonal.
 The scalar-only `std`/`var` additionally read from **spectral** representation through Parseval
 (decision 49), being ``\langle f,f\rangle - \langle f\rangle^2``, both terms already spectral-available. The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
@@ -1170,8 +1170,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     representation-invariant too, by a different route — the zero (DC) Fourier mode: under the
     unnormalized-forward convention the DC coefficient is ``\hat f(0) = \sum_x f(x)`` (real for a real
     field), so the mean is ``\hat f(0)/N`` and the integral ``(|\Omega|/N) \hat f(0)`` with no transform,
-    read from the same zero-mode slot the constant-add writes (invariant 4). The `lpnorm` reduction (for ``p \ne 2``),
-    `std`/`var`, and `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only.
+    read from the same zero-mode slot the constant-add writes (invariant 4). The `lpnorm` reduction and
+    `maximum`/`minimum`/`extrema` have no single-coefficient form and remain physical-only — `lpnorm` at
+    every exponent, ``p = 2`` included, that case being served in spectral representation by `l2norm`
+    rather than by an `lpnorm` method. (This entry's original wording also grouped `std`/`var` with them;
+    decision 49 later found those two physical-only by scoping rather than by validity, and gave them
+    their spectral form.)
     **Physics stays consumer-side**: energy ``\tfrac{1}{2} \texttt{inner}(u,u)``, enstrophy
     ``\tfrac{1}{2} \texttt{inner}(\omega,\omega)``, dissipation ``\nu \texttt{inner}(\omega,\omega)``, rms ``\sqrt{\texttt{inner}}``, intensities from `std`. The FP-ordering
     concern that deferred reductions (item 11) is real — so they are implemented with a defined summation
@@ -1371,7 +1375,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The physical dual — `radial_correlation` (done).* ``C(r)`` = radially-averaged ``\langle f(x) \cdot f(x+r)\rangle``
     (full fiber contraction — the trace of the correlation tensor, mirroring `inner`) ``= \mathcal F^{-1}(|\hat f|^2)/N``
     binned over minimum-image ``|r|`` shells. The zero-separation value is ``C(0) = \langle |f|^2\rangle = \texttt{inner}(f, f)`` (the
-    variance); and for a zero-mean field ``C(r) \to 0`` at large ``r``. **The open design point was resolved
+    second moment — the variance only when ``f`` is mean-free); and for a zero-mean field ``C(r) \to 0``
+    at large ``r``. **The open design point was resolved
     as the user chose:** `radial_correlation(f, plans)` takes the field in spectral representation **plus
     its transform plans** (symmetric with how the differential operators take `multipliers`) — `Reductions`
     imports `to_physical` from `Fields` to do the one inverse rfft, then bins with the same scatter-add
@@ -2551,7 +2556,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     share the same executor a level down — `map!` serves the *un-named* maps, and the named operations
     stay named to keep the representation-validity encoding intact.
 
-49. **`var`/`std` are scalar-only, gain a spectral form, and the vector second moment is the new
+49. **`var`/`std` are scalar-only, gain a spectral form, and the vector second central moment is the new
     covariance `cov`** (2026-07-28). The fiber-preserving `var`/`std` — a per-component variance /
     standard deviation for a vector or tensor section — were two mistakes wearing one API. First, they
     were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
@@ -2560,7 +2565,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     product itself carries), both terms already
     Parseval-available, so they were wrongly grouped with the genuinely physical-only `lpnorm`/`maximum`.
     Second, the per-component value is only the **basis-dependent diagonal** of the covariance tensor
-    ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second moment —
+    ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second *central* moment, the primes marking fluctuations about the mean —
     and ``\operatorname{std} = \sqrt{\operatorname{var}}`` has *no canonical vector form* at all: the
     matrix square root of the covariance is not a standard deviation, the per-component root is
     basis-dependent, and ``\sqrt{\operatorname{tr} R}`` is a scalar RMS — three different objects. And
@@ -2581,7 +2586,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 50. **The separable kernels are stored as their per-axis factors, not as fields** (2026-07-28).
     `translation_kernel` and `assignment_window` build a kernel that **factors over the axes**,
-    ``\hat g(k) = \prod_a \sigma_a(k_a)``, and both already computed the three one-dimensional factors
+    ``\hat g(k) = \prod_a g_a(k_a)``, and both already computed the three one-dimensional factors
     internally before materializing their product into a full field on the last line. That last line is
     now gone: both return a `SeparableKernel` holding the three factors, and the product is evaluated one
     mode at a time inside the pass that consumes it.
@@ -2631,7 +2636,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     kernel for the summed displacement, because at an even axis's Nyquist the real factor
     ``\cos(\pi h_a/\Delta x_a)`` obeys ``\cos a\cos b \ne \cos(a+b)``; displacements compose by addition,
     which is the more correct route as well as the cheaper one. And `inv` gives the reciprocal kernel,
-    separable because ``1/\prod_a \sigma_a = \prod_a (1/\sigma_a)`` — the deconvolution an assignment
+    separable because ``1/\prod_a g_a = \prod_a (1/g_a)`` — the deconvolution an assignment
     window exists for, which retires the one place the point-density recipe reached into kernel storage.
 
     Deliberately **not** done here: a general `SeparableSymbol(σ₁, σ₂, σ₃)` closure. Per-axis factors
@@ -2677,9 +2682,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
     (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
     both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
-    `weighted_inner` accepts a radial kernel as a weight and deliberately **not** a separable one — a
-    magnitude-dependent weight does not factor per axis, so it is not in that family (invariant 1). The
-    exclusion is structural, not about realness: `assignment_window`'s factors are real.
+    `weighted_inner` accepts a stored or radial kernel as a weight and deliberately **not** a separable
+    one. That exclusion is **scoping, not validity** — the same distinction decision 49 drew for
+    `var`/`std`: a real separable ``w`` gives a well-defined ``\langle f, w g\rangle``, and it is absent only
+    because no consumer has asked for it and each admitted class costs its own fused reduction path.
+    Invariant 1 is about representation validity and does not reach this. (Two earlier rationales
+    recorded here were both wrong: that separable factors are not real in general — `assignment_window`'s
+    ``\operatorname{sinc}^2`` is real — and that a magnitude-dependent weight does not factor per axis,
+    which argues about the radial class that *is* accepted rather than the separable one that is not.)
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
     **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the

@@ -16,10 +16,13 @@ A kernel is **not** a field. The two hold identical coefficients, so nothing but
 role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
 deconvolves by it (`inv`, defined for all four classes), while the same operation on a field is one the
 package does not define. Every kernel
-subtypes [`SpectralKernel`](@ref), and the four classes reach every kernel-taking entry point
-interchangeably — `StoredKernel` holds one coefficient per mode, and the three compressed classes hold
-the parameters of a closed-form multiplier and evaluate it per mode. All four agree bit for bit, so the
-choice is one of memory and speed rather than of result.
+subtypes [`SpectralKernel`](@ref), and the four classes reach every entry point that **applies** a
+kernel to a field interchangeably — `StoredKernel` holds one coefficient per mode, and the three
+compressed classes hold the parameters of a closed-form multiplier and evaluate it per mode. All four
+agree bit for bit, so for applying a kernel the choice is one of memory and speed rather than of
+result. Two entry points are narrower, and neither applies a kernel: `weighted_inner` takes one as a
+reduction *weight* and admits only the stored and radial classes, and [`inv`](@ref) is a genuine
+partial operation whose classes report an annihilated mode differently.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
 multiplier the consumer supplies — through `radial_kernel` when it depends on the mode only through
@@ -47,8 +50,10 @@ Kernel storage classes:
 - [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as the **function**
   ``\\sigma`` computing it (a closure, evaluated per mode), so it stores no coefficients at all; the class
   `spectral_cutoff`, `spectral_band` and `radial_kernel` return.
-- [`ProductKernel`](@ref) — a radial and a separable factor held unmultiplied, which is what composing
-  across the two families gives; it applies in a single pass like either factor alone.
+- [`ProductKernel`](@ref) — **any two** kernels held unmultiplied, which is what a composition that
+  cannot be collapsed into a single kernel gives: a cross-family pair, two stored kernels, or two
+  radial kernels whose coordinates cannot be shown to agree. It applies in a single pass like either
+  factor alone.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
   wants to inspect or modify the coefficients.
 
@@ -420,7 +425,7 @@ end
 """
     SeparableKernel
 
-A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a \\sigma_a(k_a)``, stored as its
+A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a g_a(k_a)``, stored as its
 three one-dimensional per-axis factors rather than as a full field. The factors are evaluated into
 the product one mode at a time, so the kernel never occupies a field's worth of memory: three arrays
 of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the hundreds of
@@ -437,7 +442,7 @@ small enough to sit in cache and overtakes it once the base is bound by memory. 
 the difference matters, [`materialize_kernel`](@ref) trades the memory back, and its docstring carries
 the measured crossover.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
-``1/\\prod_a \\sigma_a = \\prod_a (1/\\sigma_a)`` — the deconvolution an assignment window is built for.
+``1/\\prod_a g_a = \\prod_a (1/g_a)`` — the deconvolution an assignment window is built for.
 
 The fields are
 - **`factor_1`, `factor_2`, `factor_3`** — the per-axis factors, each shaped to broadcast along its
@@ -502,8 +507,8 @@ end
 """
     inv(kernel::SeparableKernel)
 
-The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a \\sigma_a = \\prod_a
-(1/\\sigma_a)`` — so it is formed per axis, at ``O(N)`` cost, with no field materialized. Applying it
+The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a g_a = \\prod_a
+(1/g_a)`` — so it is formed per axis, at ``O(N)`` cost, with no field materialized. Applying it
 **deconvolves** by `kernel`, which is what a mass-assignment window is built for
 ([`assignment_window`](@ref)).
 
@@ -943,7 +948,10 @@ accumulate:
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space kernel ``g`` is
     real. Every kernel the package builds satisfies it: the real, even ones ([`spectral_cutoff`](@ref),
     `spectral_band`, `assignment_window`) trivially, and the complex [`translation_kernel`](@ref) by
-    construction. A consumer-built kernel that breaks the symmetry yields coefficients that are those
+    construction. A `radial_kernel` — and so the exponential kernel `exponential_convolve!` applies —
+    satisfies it too, and for the strongest reason: a real symbol of ``\\lvert k\\rvert^2`` is real, and
+    ``\\lvert k\\rvert^2`` is even in ``k``, so the multiplier is real and even whatever the consumer's
+    closure computes. A consumer-built kernel that breaks the symmetry yields coefficients that are those
     of no real field, and the inverse transform then silently keeps only their Hermitian part.
 
 Spectral representation only: on the torus convolution is the coefficientwise spectral product.
@@ -1554,10 +1562,10 @@ assembled per axis from that wavenumber's component ``k_a`` and the displacement
 axis:
 
 ```math
-\\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(\\kappa_a h_a) - \\mathrm{i} \\sin(\\tilde\\kappa_a h_a) \\bigr],
+\\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(\\tilde k_a h_a) \\bigr],
 ```
 
-where ``\\kappa_a`` is the **true** wavenumber and ``\\tilde\\kappa_a`` the **Nyquist-zeroed derivative**
+where ``k_a`` is the **true** wavenumber and ``\\tilde k_a`` the **Nyquist-zeroed derivative**
 one — the package's two families, and the reason this is written with two symbols rather than as the
 bare phase ``e^{-\\mathrm{i} k \\cdot h}``. The two coincide on every resolved mode — so the factor there
 **is** that pure phase — and part only at an even axis's Nyquist frequency, where the warning below

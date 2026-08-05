@@ -58,8 +58,12 @@ using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   _squared_wavenumber_broadcast, _vector_component_data, _tensor2_component_data,
   _same_backend, _storage_family
 using ..Points: AbstractPointValues, npoints
-# The one kernel family a weight may take: a real symbol of |k|². A separable kernel is deliberately
-# not accepted — a magnitude-dependent weight does not factor per axis, so it is not in that family.
+# The two kernel classes a weight may take. A separable kernel is deliberately not accepted, and the
+# reason is SCOPING, not validity: a real separable w gives a perfectly well-defined <f, w g>, but no
+# consumer has needed one and each admitted class costs its own fused reduction path. (Two earlier
+# rationales here were both wrong — that separable factors are not real in general, contradicted by
+# assignment_window's sinc^2; and that a magnitude-dependent weight does not factor per axis, which
+# argues about the RADIAL class we accept rather than the separable one we do not.)
 using ..Convolution: RadialKernel, StoredKernel
 using ..Fields: _kernel_data, _check_kernel_compatibility
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
@@ -536,7 +540,7 @@ tensor section raises a clear error pointing to `cov`.
 In physical representation it runs as two fused passes — the mean, then the squared deviations — with no
 intermediate deviation section (the numerically stable form). In **spectral** representation it is read
 from Parseval: the *population* moment is
-``\\langle f, f\\rangle - \\langle f\\rangle^2 = N^{-2}\\sum_{k\\ne 0} \\alpha(k) |\\hat f_k|^2`` — the
+``\\langle f, f\\rangle - \\langle f\\rangle^2 = N^{-2}\\sum_{\\text{stored } k \\ne 0} \\alpha(k) |\\hat f_k|^2`` — the
 fluctuation energy, with ``N`` the number of grid cells, ``\\alpha(k)`` the half-spectrum multiplicity
 of mode ``k``, and the ``N^{-2}`` the normalization the inner product itself carries — and the default
 `corrected = true` multiplies it by ``N/(N-1)``. Either way it equals the physical value with no
@@ -916,7 +920,7 @@ and reduces against `f` in a single fused pass, materializing no weighted field 
 
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
-- `w` — the weight, a stored or radial spectral kernel holding a **real** multiplier ``w(k)`` (only its real part is used; a separable kernel is deliberately not accepted, a weight depending on ``|k|`` not factoring per axis — the exclusion is structural, not about realness). Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+- `w` — the weight, a stored or radial spectral kernel holding a **real** multiplier ``w(k)`` (only its real part is used; a separable kernel is deliberately not accepted — a real separable weight is perfectly well defined here, so this is a scoping choice made for want of a consumer, not a statement that the operation would be invalid). Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
@@ -925,7 +929,7 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
 
 ```math
 \\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) (w \\star g)(x)
-  = \\frac{1}{N^2} \\sum_{k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
+  = \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
 ```
 
 It equals the naive ``\\texttt{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent

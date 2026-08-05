@@ -27,8 +27,10 @@ M \\langle Wf, q \\rangle_{\\mathrm{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. That is a property of the **local-spline** schemes, whose weights sum
-to one at every position; the spectral schemes are exact adjoints without being partitions of unity, and
-`NUFFT` is exact only to its tolerance, so the conservation statement below is not theirs. Conservation
+to one at every position, and it holds for [`DirectDFT`](@ref) too, by a different route: a constant is
+band-limited, so the exact spectral gather reproduces it exactly, which makes the equivalent nodal
+weights sum to one; and the deposited zero mode is exactly ``\\sum_p q_p``, which *is* the conservation
+statement. Only [`NUFFT`](@ref) falls short, and only by its tolerance. Conservation
 holds **only** when both directions use the same weights;
 mismatched weights inject a spurious source (Sundaram & Collins 1996). Interpolation yields point values while
 its adjoint returns a field — one of two asymmetries between the pair, the other being the ``\\alpha``/``\\beta``
@@ -716,6 +718,20 @@ pointwise divergence-free on the **resolved sub-Nyquist band** (unlike the local
 [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
 `DirectDFT()` and pass it as the `scheme`.
+
+!!! warning "Anterpolating off-node points does not give a real field's spectrum at an even axis's Nyquist"
+    The deposit ``(W^\\top q)(k)`` is evaluated at every stored mode, the Nyquist planes included, and
+    it is the exact adjoint of the gather there. But an even-length axis identifies its Nyquist mode
+    with its own negative, so a *real* field's coefficients must satisfy
+    ``\\hat g(-k) = \\overline{\\hat g(k)}`` **within** that plane, and the sum above meets that condition
+    only when every point sits on a grid node of that axis: off-node, the two sides differ by
+    ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
+    field, and [`to_physical`](@ref) — which is the Hermitian projector — silently keeps only its
+    Hermitian part, so a transform round trip does not return it unchanged. This is the same hazard
+    `translation_kernel` documents for its Nyquist factor, and it is why [`NUFFT`](@ref)
+    projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
+    The **resolved sub-Nyquist band is unaffected**, which is the band a de-aliased spectral
+    computation uses.
 """
 struct DirectDFT <: AbstractTransferScheme end
 

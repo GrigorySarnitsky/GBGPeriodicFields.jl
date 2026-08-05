@@ -24,9 +24,16 @@ A kernel is anything an operation can apply as the coefficientwise product ``\ha
 package holds one in whichever of four forms is cheapest for its multiplier: a `ScalarFieldSpectral` of
 coefficients wrapped in a `StoredKernel` when the multiplier is arbitrary, the per-axis factors when it
 separates, the **function** computing it when it depends on the wavenumber only through
-``\lvert k\rvert^2``, or a pair of the last two held unmultiplied when a composition crosses those two
-families. All four are applied identically and give bitwise-identical results, so the choice is one of
-storage, not of meaning.
+``\lvert k\rvert^2``, or **any two kernels** held unmultiplied when a composition cannot be collapsed
+into a single one. All four are *applied* identically and give bitwise-identical results, so for
+applying a kernel to a field the choice is one of storage, not of meaning.
+
+Inverting one is the exception. [`inv`](@ref) is a genuine mathematical partial operation — a kernel
+that annihilates a mode has no inverse there — and the classes report that differently: a
+`StoredKernel` can inspect its coefficients and throws, while a `RadialKernel` evaluates its symbol
+per mode and cannot test the precondition cheaply, so it yields a non-finite multiplier instead. The
+two are the same mathematical object and behave differently, which matters most for a sharp cutoff,
+since [`spectral_cutoff`](@ref) returns the radial class.
 
 Every operation taking a kernel dispatches on
 [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), the supertype of the four classes

@@ -78,7 +78,11 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 Design rationale: [Architecture](architecture.md) §4.
 
 ``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
-`plan_rfft`/`plan_irfft`), with ``x`` ranging over the ``N`` grid nodes and ``k`` over the wavenumbers:
+`plan_rfft`/`plan_irfft`), with ``k`` ranging over the wavenumbers and ``x`` over the ``N`` grid nodes —
+where ``x`` denotes a node's offset **from the grid origin** ``o``, not its absolute position. A grid
+carries an arbitrary origin, so the absolute node position is ``o + x``; writing the pair in the offset
+coordinate is what makes it agree with the spectral transfer below, whose phase ``e^{\mathrm{i}k\cdot(x_p - o)}``
+subtracts that origin explicitly because a point ``x_p`` is given in absolute coordinates:
 
 ```math
 \hat f(k) = \sum_{x} f(x) e^{-\mathrm{i} k\cdot x}, \qquad
@@ -279,26 +283,26 @@ undone by dividing (deconvolution).
 
 The fifth builder, `translation_kernel`, is the shift theorem's multiplier: for a physical displacement
 ``h = (h_1, h_2, h_3)`` it is the transform of the Dirac delta displaced to ``h``,
-so convolving carries the field ``f`` at position ``x`` to ``f(x - h)``. Write ``\kappa_a`` for the
-true signed wavenumber of axis ``a``, ``\tilde\kappa_a`` for the derivative wavenumber (equal to
-``\kappa_a`` except at the Nyquist frequency of an even-length axis, where it is zeroed — invariant 5),
+so convolving carries the field ``f`` at position ``x`` to ``f(x - h)``. Write ``k_a`` for the
+true signed wavenumber of axis ``a``, ``\tilde k_a`` for the derivative wavenumber (equal to
+``k_a`` except at the Nyquist frequency of an even-length axis, where it is zeroed — invariant 5),
 ``N_a`` for the number of points on that axis and ``\Delta x_a`` for its grid spacing. The implemented
 multiplier is the separable product
 
 ```math
 \hat g_h(k) = \prod_{a=1}^{3}
-  \bigl[  \cos(\kappa_a h_a) - \mathrm{i} \sin(\tilde\kappa_a h_a)  \bigr].
+  \bigl[  \cos(k_a h_a) - \mathrm{i} \sin(\tilde k_a h_a)  \bigr].
 ```
 
 Three statements, each expanded against the code and tested:
 
 - **A pure phase away from Nyquist.** Where no component of ``k`` sits at a Nyquist frequency we have
-  ``\tilde\kappa_a = \kappa_a``, and ``\cos`` is even, so each factor collapses to
-  ``\cos(\kappa_a h_a) - \mathrm{i} \sin(\kappa_a h_a) = e^{-\mathrm{i} \kappa_a h_a}``, whence
+  ``\tilde k_a = k_a``, and ``\cos`` is even, so each factor collapses to
+  ``\cos(k_a h_a) - \mathrm{i} \sin(k_a h_a) = e^{-\mathrm{i} k_a h_a}``, whence
   ``\hat g_h(k) = e^{-\mathrm{i} k \cdot h}``, of unit modulus. ``\checkmark``
 - **Reality: the kernel is Hermitian.** ``\hat g_h(-k) = \overline{\hat g_h(k)}`` on the discrete
   frequency torus, so `convolve` carries a real field to a real field. Each non-Nyquist factor conjugates
-  under ``\kappa_a \mapsto -\kappa_a``; each Nyquist factor is the *real* number
+  under ``k_a \mapsto -k_a``; each Nyquist factor is the *real* number
   ``\cos(\pi h_a / \Delta x_a)``, hence its own conjugate — which is what the statement needs, the
   Nyquist frequency being its own negative modulo ``N_a``. The two candidate kernels fail here or below: the
   true phase ``e^{-\mathrm{i} k\cdot h}`` is *not* Hermitian at Nyquist for a fractional displacement, and
@@ -333,19 +337,19 @@ accumulate, alias-safe because the map is mode-local. ``\checkmark``
 
 **Kernel storage is a representation, not a meaning.** A kernel *is* the multiplier function
 ``\hat g : K \to \mathbb C`` on the stored half-spectrum ``K``; how its values reach an operation is a
-storage choice, and the package carries four. Write ``\kappa_a`` for the signed wavenumber of axis
-``a`` and ``|k|^2 = \sum_a \kappa_a^2``:
+storage choice, and the package carries four. Write ``k_a`` for the signed wavenumber of axis
+``a`` and ``|k|^2 = \sum_a k_a^2``:
 
 - **stored** (`StoredKernel`), ``\hat g`` tabulated one coefficient per mode (``O(N^3)`` storage) — the
   class `materialize_kernel` returns, and the wrapper that gives a field of coefficients the kernel role;
-- **separable** (`SeparableKernel`), ``\hat g(k) = \prod_{a=1}^{3} g_a(\kappa_a)`` held as its three factors
+- **separable** (`SeparableKernel`), ``\hat g(k) = \prod_{a=1}^{3} g_a(k_a)`` held as its three factors
   ``g_a : \mathbb R \to \mathbb C`` tabulated per axis (``O(N)``) — the class `translation_kernel`
   and `assignment_window` return, both being products over axes by construction;
 - **radial** (`RadialKernel`), ``\hat g(k) = \sigma(|k|^2)`` held as the real symbol ``\sigma : \mathbb R \to \mathbb R``
   itself and evaluated per mode (``O(1)``) — the class `spectral_cutoff`, `spectral_band` and
   `radial_kernel` return;
-- a **product** (`ProductKernel`), ``\hat g = \sigma(|k|^2) \prod_a g_a(\kappa_a)``, which is what
-  composing across the two compressed families gives.
+- a **product** (`ProductKernel`), ``\hat g = \hat g_1 \hat g_2`` for any two kernels held unmultiplied and
+  evaluated in one pass — what a composition gives whenever it cannot be collapsed into a single kernel.
 
 Two statements, each expanded against the code and tested:
 
@@ -354,7 +358,7 @@ Two statements, each expanded against the code and tested:
   hold **bitwise**, not merely to rounding: the radial route sums ``(\kappa_1^2 + \kappa_2^2) + \kappa_3^2``
   in the order the stored path's broadcast associates it, and the separable route multiplies its factors
   in axis order. ``\checkmark``
-- **Composition is closed within a family, and lands in the product class across families.** Radial
+- **Composition is closed within the two compressed families but not the stored one.** Radial
   composed with radial is radial **when both are radial in the same** ``|k|^2`` — that is, over canonical
   multiplier sets of one concrete type, which is the hypothesis decision 61 made a dispatch condition;
   ``\sigma_1 \sigma_2`` is then again a function of that ``|k|^2``, while a pairing that fails it keeps both
@@ -362,7 +366,9 @@ Two statements, each expanded against the code and tested:
   coordinates. Separable
   composed with separable is separable, per axis; and radial composed with separable is a `ProductKernel`,
   since ``\sigma(|k|^2)`` admits no factorization over axes and ``\prod_a g_a`` no reduction to
-  ``|k|^2``. Composition therefore never forces a materialization. ``\checkmark``
+  ``|k|^2``. Stored composed with stored is deliberately **not** closed: multiplying the coefficients
+  would be an ``O(N^3)`` pass building a third array, so the pair is kept as a `ProductKernel` too.
+  Composition therefore never forces a materialization. ``\checkmark``
 
 The reciprocal `inv` is the pointwise ``1/\hat g``, defined on **every** class and closed within each:
 separable per axis, radial in the symbol, product factorwise, and stored coefficientwise — the last

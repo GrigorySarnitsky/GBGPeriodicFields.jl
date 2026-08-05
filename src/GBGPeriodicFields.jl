@@ -22,7 +22,11 @@ attached to: a `Grid3D` of cells, or a `PointSet` of off-grid positions. A **fib
 one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** is the pair of the
 two: one fiber at every point of a base, which is what a field and a set of point-values each are, and
 why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
-resolution actually represents, up to the Nyquist frequency on each axis.
+resolution actually represents, *excluding* the Nyquist frequency of each even-length axis. Those
+Nyquist planes are excluded by definition because the package's two wavenumber families disagree
+exactly there — the derivative family is zeroed, the squared family keeps the true value (invariant 5)
+— so every identity this documentation scopes "on the resolved band" holds off them and may fail on
+them. An odd-length axis has no exact Nyquist mode and so loses nothing.
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
@@ -76,7 +80,7 @@ The umbrella assembles its public surface from the submodules below:
   adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
   `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`, the scalar-only `std`/`var` and the
-  covariance tensor `cov` that carries a vector field's second moment coordinate-free, and the order
+  covariance tensor `cov` that carries a vector field's second *central* moment coordinate-free, and the order
   statistics `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
   and the radial reductions `radial_spectrum` and `radial_correlation`. Five of them — `integral`,
   `mean`, `maximum`, `minimum` and `extrema` — also take a **leading fiber map**, which reduces a
