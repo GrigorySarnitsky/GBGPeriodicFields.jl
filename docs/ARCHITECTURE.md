@@ -2710,14 +2710,17 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     stays "apply a kernel to this scalar field", since a `ScalarFieldSpectral` is also a field.
     (Superseded by decision 60: a field is no longer a kernel, so the lead-argument rule is gone —
     both orders apply and agree bitwise, and composing two kernels is unambiguous by type.)
-    `weighted_inner` accepts a stored or radial kernel as a weight and deliberately **not** a separable
-    one. That exclusion is **scoping, not validity** — the same distinction decision 49 drew for
-    `var`/`std`: a real separable ``w`` gives a well-defined ``\langle f, w g\rangle``, and it is absent only
-    because no consumer has asked for it and each admitted class costs its own fused reduction path.
-    Invariant 1 is about representation validity and does not reach this. (Two earlier rationales
-    recorded here were both wrong: that separable factors are not real in general — `assignment_window`'s
-    ``\operatorname{sinc}^2`` is real — and that a magnitude-dependent weight does not factor per axis,
-    which argues about the radial class that *is* accepted rather than the separable one that is not.)
+    `weighted_inner` accepted a stored or radial kernel as a weight and deliberately **not** a separable
+    one — **superseded by decision 62**, which found that restriction to be no constraint at all and
+    widened the weight to every class. The reasoning recorded here was already the third attempt at the
+    question and still short of the mark: it correctly called the exclusion **scoping, not validity**
+    (a real separable ``w`` gives a well-defined ``\langle f, w g\rangle``, so invariant 1 never reached
+    it) but still supposed each admitted class would cost its own fused reduction path, which measurement
+    disproved — every class already agreed bitwise through the one pass. The two rationales *it* was
+    correcting were wrong outright: that separable factors are not real in general, contradicted by
+    `assignment_window`'s ``\operatorname{sinc}^2``; and that a magnitude-dependent weight does not factor
+    per axis, which argues about the radial class that *was* accepted rather than the separable one that
+    was not.
 
     One implementation trap, found on the device and worth the sentence: a symbol closure must capture
     **values, never a type**. The `spectral_band` builder first captured `T` to write `one(T)`/`zero(T)` in the

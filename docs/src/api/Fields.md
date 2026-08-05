@@ -64,8 +64,8 @@ similar_field
 ## Spectral kernel protocol
 
 `SpectralKernel` is the supertype the kernel-taking operations dispatch on — `convolve` and the
-kernel-composed differential operators on the whole hierarchy, `weighted_inner` on the stored and
-radial classes only, a weight depending on ``\lvert k\rvert`` not factoring per axis. It is defined here
+kernel-composed differential operators on the whole hierarchy, `weighted_inner` on every class
+too, subject to the separate requirement that its weight be **real**. It is defined here
 rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
 and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
 it, and the builders returning them, are documented with `Convolution`.

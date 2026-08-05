@@ -38,8 +38,8 @@ since [`spectral_cutoff`](@ref) returns the radial class.
 Every operation taking a kernel dispatches on
 [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), the supertype of the four classes
 below. It is documented with [`Fields`](@ref "Fields"), where the protocol is defined so the
-differential operators and the reductions can name it too (`weighted_inner` narrows it further, taking
-only a stored or radial weight).
+differential operators and the reductions can name it too (`weighted_inner` narrows it differently —
+any class, but the multiplier must be real).
 
 A field in spectral representation is **not** a kernel. A `StoredKernel` and a `ScalarFieldSpectral`
 hold identical data, so only a type can say which role is meant, and the distinction is load-bearing:

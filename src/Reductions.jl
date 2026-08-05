@@ -917,8 +917,8 @@ end
 
 
 """
-    weighted_inner(f, w::Union{StoredKernel, RadialKernel})
-    weighted_inner(f, g, w::Union{StoredKernel, RadialKernel})
+    weighted_inner(f, w::SpectralKernel)
+    weighted_inner(f, g, w::SpectralKernel)
 
 The **multiplier-weighted L² inner product** ``\\langle f, w g\\rangle`` of two fields in spectral
 representation against a real bounded Fourier multiplier `w`

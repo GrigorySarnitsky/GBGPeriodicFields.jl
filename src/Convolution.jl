@@ -23,8 +23,9 @@ kernel to a field interchangeably — `StoredKernel` holds one coefficient per m
 compressed classes hold the parameters of a closed-form multiplier and evaluate it per mode. All four
 agree bit for bit, so for applying a kernel the choice is one of memory and speed rather than of
 result. Two entry points are narrower, and neither applies a kernel: `weighted_inner` takes one as a
-reduction *weight* and admits only the stored and radial classes, and [`inv`](@ref) is a genuine
-partial operation whose classes report an annihilated mode differently.
+reduction *weight* and requires it to be **real**, refusing a complex multiplier wherever the type
+settles the question, and [`inv`](@ref) is a genuine partial operation whose classes report an
+annihilated mode differently.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
 multiplier the consumer supplies — through `radial_kernel` when it depends on the mode only through
