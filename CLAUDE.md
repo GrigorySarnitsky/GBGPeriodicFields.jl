@@ -1248,6 +1248,21 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**QUEUED FOR `Aiporetne` — the ROCm verification only that box can do (user-directed 2026-08-05).**
+Check `hostname` first; on `Enteropia` this item is not actionable. Decisions **60, 61 and 62 have never
+executed on ROCm** — they shipped verified on CUDA alone. The pointed one is decision 62: `weighted_inner`
+now admits a `ProductKernel`, whose `_kernel_data` nests **two lazy `Broadcasted`s**, and the
+`Base.Broadcast.instantiate` in that function exists precisely because **AMDGPU's `mapreducedim!` throws
+on a `Broadcasted` with `Nothing` axes where the CPU tolerates it**. Nesting deeper is exactly where that
+resurfaces, and no CUDA run can tell us. Alongside it: `examples/gpu/rocm/HIST_ROCm.jl` has **never been
+executed by anything** (its prose was corrected 2026-08-05, its code path is still unrun on hardware);
+the 12700K 512³ band is still owed; and Aiporetne is the **control** for `PERFORMANCE.md` §4(p), the
+reproducible-but-unexplained CPU `fft` vintage shift — if its `fft` rows move the same way on a re-sweep
+the cause is platform-wide, and if they do not, something is specific to Enteropia. Full ordered task
+list, traps and definition of done are in the synced memory `aiporetne-verify-rocm-decisions-60-62`.
+**Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
+silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
+
 **RESUMPTION POINT — the exhaustive survey's per-method coverage ledger (designed 2026-08-02, NOT
 built).** The survey crosses its axes everywhere except where the independent oracles live: the
 universal-checks lane derives its product from the method table, while the **value lane is a hand-written
