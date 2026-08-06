@@ -990,7 +990,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **4745 tests** across 72 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in CUDA parity suite is **352** (it was recorded as 328 until 2026-08-05; measuring it then found the figure had drifted by 10 — GPU tests had been added without updating it, which a count nothing asserts will always do)). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **6179 tests** across 92 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **352** on both backends (CUDA measured 2026-08-05, ROCm 2026-08-06). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
@@ -1248,18 +1248,26 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
-**QUEUED FOR `Aiporetne` — the ROCm verification only that box can do (user-directed 2026-08-05).**
-Check `hostname` first; on `Enteropia` this item is not actionable. Decisions **60, 61 and 62 have never
-executed on ROCm** — they shipped verified on CUDA alone. The pointed one is decision 62: `weighted_inner`
-now admits a `ProductKernel`, whose `_kernel_data` nests **two lazy `Broadcasted`s**, and the
-`Base.Broadcast.instantiate` in that function exists precisely because **AMDGPU's `mapreducedim!` throws
-on a `Broadcasted` with `Nothing` axes where the CPU tolerates it**. Nesting deeper is exactly where that
-resurfaces, and no CUDA run can tell us. Alongside it: `examples/gpu/rocm/HIST_ROCm.jl` has **never been
-executed by anything** (its prose was corrected 2026-08-05, its code path is still unrun on hardware);
-the 12700K 512³ band is still owed; and Aiporetne is the **control** for `PERFORMANCE.md` §4(p), the
-reproducible-but-unexplained CPU `fft` vintage shift — if its `fft` rows move the same way on a re-sweep
-the cause is platform-wide, and if they do not, something is specific to Enteropia. Full ordered task
-list, traps and definition of done are in the synced memory `aiporetne-verify-rocm-decisions-60-62`.
+**AIPORETNE — the ROCm correctness half is CLOSED (2026-08-06); the benchmark half is in progress.**
+Check `hostname` first; on `Enteropia` this item is not actionable. **Decisions 60, 61 and 62 have now
+executed on ROCm** (RX 7900 XTX, gfx1100), where before they had shipped verified on CUDA alone. The
+pointed one was decision 62: `weighted_inner` admits a `ProductKernel`, whose `_kernel_data` nests **two
+lazy `Broadcasted`s**, and the `Base.Broadcast.instantiate` in that function exists precisely because
+**AMDGPU's `mapreducedim!` throws on a `Broadcasted` with `Nothing` axes where the CPU tolerates it** —
+so the nesting was the predicted place for it to resurface, and no CUDA run could tell us. **It did not
+resurface.** The suite is green at 352 tests (the same count as CUDA), and the case is a real one rather
+than an absent one: `test/gpu/suite.jl` composes `convolve(cutoff, window)` — radial ∘ separable, which
+*is* a `ProductKernel` — and checks it against both the CPU value and the materialized kernel, with the
+complex-weight refusal exercised on-device beside it. **`examples/gpu/rocm/HIST_ROCm.jl` has now been
+executed**, for the first time by anything: `--smoke` exits 0, `‖∇·u‖_rel = 1.0e-07` (Float32 roundoff),
+and Parseval agrees three ways (physical 0.664797, spectral `inner` 0.664797, `Σ E(k)` 0.6648).
+
+Still owed on this box: the 12700K 512³ band, and the **control** reading for `PERFORMANCE.md` §4(p), the
+reproducible-but-unexplained CPU `fft` vintage shift — if this host's `fft` rows move the same way on a
+re-sweep the cause is platform-wide, and if they do not, something is specific to Enteropia. Note that
+this box already runs the same kernel Enteropia recorded post-reboot (`7.0.0-28-generic`), so a *matching*
+shift here implicates the platform and a *non-matching* one exonerates it. Full ordered task list, traps
+and definition of done are in the synced memory `aiporetne-verify-rocm-decisions-60-62`.
 **Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
 silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
 
