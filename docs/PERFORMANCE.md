@@ -976,10 +976,23 @@ inflation's per-row variance, and none can be re-checked from this box:
     §3, where the entry now carries the re-measurement.
   - **The wrap-hoist rejection** — a 10–14% GPU regression, likewise inside the variance, likewise on the
     retired card.
-  - **Decision 42's GPU figure** — "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`".
-    Six percent is well inside the variance, so the number is unreliable. **The decision is not**: it
-    rests on the CPU result (in-register wins everywhere, ``+4\%``/``+10\%``), and the CPU was never
-    affected. The GPU reversal was already recorded as a consumer-card FP64-rate artifact.
+  - **Decision 42's GPU figure — RE-CHECKED on the RX 7900 XTX, and it is a tie.** The recorded
+    "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`" was measured on the RTX 5070 Ti,
+    so this is a different card rather than a direct re-run. Both variants written as standalone
+    kernels differing only in the denominator — and verified **bitwise equal** — give stored-over-
+    in-register ratios of ``0.955`` (`Float64` ``128^3``), ``0.998`` (`Float64` ``256^3``), ``1.015``
+    (`Float32` ``128^3``) and ``1.004`` (`Float32` ``256^3``). The recorded *direction* reproduces
+    weakly — in-register is 4.5% slower in `Float64` at ``128^3`` — while everything else ties inside
+    1.5%, so the effect is real but marginal and vanishes at the larger grid. **The decision is
+    untouched either way**: it rests on the CPU result (in-register wins everywhere, ``+4\%``/``+10\%``),
+    and the CPU was never affected. Worth stating plainly because it is the natural worry:
+    **neither variant materialises anything field-sized.** The stored family is three PER-AXIS vectors
+    of length ``N_{k_x}``, ``N_y``, ``N_z`` — a few KB, the same ``O(N)`` shape as the derivative
+    wavenumbers — so the trade is three register multiplies against three stride-1 loads from
+    cache-resident vectors, not memory pressure. (The stored family must be the derivative-squared
+    ``a^2``, not the multipliers' true-``\lvert k\rvert^2`` family: invariant 5 keeps the true value at
+    Nyquist where the derivative wavenumbers are zeroed, so substituting it would change the answer
+    there.)
   - **Every cross-card ratio** — the "≈1.8× median", the ``\approx 48\times`` CUDA-over-ROCm `Float64`
     radial gap, the ``\approx 87\times`` figures in §6/§7. Both sides were inflated by *vendor-specific*
     amounts, so the large ones probably keep their direction and none keeps its magnitude.
