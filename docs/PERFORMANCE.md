@@ -802,6 +802,36 @@ dropped rather than carried: both were measured in the broken regime and neither
 re-measured, so they could never be corrected or compared, and a column like that invites exactly the
 comparison it cannot support.
 
+**(t) A threaded FFTW plan allocates Julia-side task state on every call — size-independent,
+nondeterministic, and fixed when the plan is BUILT rather than when it is called.** The 2026-08-04
+survey run reported `to_spectral!` allocating 8–12 KB per step on odd grids under permuted layout
+folds, which invariant 13 would make a per-step leak. It is not one, and the package is
+allocation-free there.
+
+FFTW.jl reaches its worker threads through a Julia callback, so a plan built with more than one thread
+allocates task state per transform call. Three properties identify it as harness rather than scratch:
+
+  - **Size-independent.** The same 7008 B/step for a 12 KB field and for a 2.6 MB one, over grids from
+    ``8^3`` to ``48^3``. Field-sized scratch would scale; this does not.
+  - **Nondeterministic.** The same configuration measured 7008, 10464, 23173 and 48557 B/step on
+    different runs, since the number of tasks actually spawned varies with scheduling.
+  - **Set at plan-build time.** A plan built under `set_fft_threads!(1)` measures **exactly 0 B/step**
+    even when called from a four-thread session, while one built under four threads measures 7008 in
+    the same session. Restoring the setting before the call changes nothing.
+
+The value also depends on the layout fold — 7008 for the default and ``(2,1,3)``, 10464 for
+``(3,1,2)`` — which is what made it look like a permuted-layout defect. It is the plan's stage count,
+not the package's code path.
+
+**The gate was already right and the survey was not.** `test/allocations.jl` bounds this class with
+``4096 \times`` the thread count, which is why it passes at `-t4`; the survey's sequences lane used a
+purely field-proportional bound, so a constant several-kilobyte cost overran it on the small fixtures.
+The lane now builds a dedicated single-threaded plan for the allocation measurement — the only place
+the cost can be removed — and reports 0 B/step deterministically across repeated `-t4` runs, with the
+tight field-proportional bound kept for detection power. **Raising the bound would have been the wrong
+fix**: it would have set a threshold against a quantity that varies 7× run to run, which is how a
+harness stops measuring anything.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

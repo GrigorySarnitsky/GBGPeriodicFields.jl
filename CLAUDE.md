@@ -1339,11 +1339,18 @@ add one, it falls; a row naming a nonexistent method reports unmatched; a reason
 distinguishable from a row-closed one) — this session already shipped one instrument that measured the
 wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
 
-**Open items from the 2026-08-04 survey runs, NOT yet closed.** Two findings the exhaustive survey
-reported that have not been acted on. **(1) `to_spectral!` allocates ~8–12 KB per step** on odd grids
-under permuted layout folds (the sequences lane, measured over 64 steps against a 1260-byte field) —
-invariant 13 is about exactly this measurement, so it is either an FFTW plan-scratch exemption that
-should be documented and bounded, or a real per-step leak. Not investigated. **(2) The value lane has
+**Open items from the 2026-08-04 survey runs.** **(1) `to_spectral!`'s ~8–12 KB per step is CLOSED
+(2026-08-07): it was the harness, not a leak** — `PERFORMANCE.md` §4(t). FFTW.jl reaches its worker
+threads through a Julia callback, so a plan built with more than one thread allocates task state per
+call: size-independent (the same 7008 B for a 12 KB field and a 2.6 MB one), nondeterministic (7008,
+10464, 23173 and 48557 B/step for one configuration across runs), and fixed when the **plan is built**
+rather than when it is called — a plan built under `set_fft_threads!(1)` measures exactly 0 B/step even
+when called from a 4-thread session. The fold dependence (7008 default, 10464 for `(3,1,2)`) is the
+plan's stage count, not a permuted-layout defect. The gate was already right, bounding this class with
+`4096 × nthreads()`; the survey's lane used a field-proportional bound and so overran on small
+fixtures. The lane now builds a dedicated single-threaded plan for the measurement and reports 0
+B/step deterministically. Raising the bound would have been the wrong fix — it would set a threshold
+against a quantity that varies 7× run to run. **(2) The value lane has
 never executed against the current package**: `values.jl` did `field + materialize_kernel(...)`, which
 broke when decision 60 made that return a `StoredKernel`, so the lane threw before running from
 2026-08-03 until the fix on 2026-08-04. Its 112 independent oracles are therefore unverified against

@@ -160,6 +160,19 @@ function run_sequence_lane(configs)
     set_threading_cutoff!(typemax(Int))
     u, v, A, uh, vh, sh, half = b.u, b.v, b.A, b.uh, b.vh, b.sh, b.T(1) / 2
     plans1, decay = b.plans1, -b.T(1) / 10
+    # FFTW's thread count is SEPARATE from the package's, and forcing the package serial above does
+    # not touch it. FFTW.jl reaches its workers through a Julia callback, so a THREADED plan allocates
+    # task state on every call: size-independent (identical for a 12 KB field and a 2.6 MB one) and
+    # NONDETERMINISTIC with scheduling, measured anywhere from 7 KB to 48 KB per step for the same
+    # configuration. That is not the field-sized scratch invariant 13 constrains, and it is what the
+    # 2026-08-04 run recorded as `to_spectral!` leaking 8-12 KB per step while the code was
+    # allocation-free. The count is fixed when the PLAN IS BUILT, not when it is called, so it cannot
+    # be switched off at the call site — a plan built under `set_fft_threads!(1)` measures exactly
+    # 0 B/step even when called from a 4-thread session. Build one here for the measurement.
+    entry_fft_threads = Threads.nthreads()
+    set_fft_threads!(1)
+    serial_plans = FieldTransformPlans(u, similar_field(b.z, Val(1)))
+    set_fft_threads!(entry_fft_threads)
     measurements = (("add!",                  loop_allocated(add!, SEQUENCE_STEPS, u, u, v)),
                     ("combine!",              loop_allocated(combine!, SEQUENCE_STEPS, u, half, u, half, v)),
                     ("mul!",                  loop_allocated(mul!, SEQUENCE_STEPS, v, A, u)),
@@ -169,7 +182,7 @@ function run_sequence_lane(configs)
                     ("helmholtz_projection!", loop_allocated(helmholtz_projection!, SEQUENCE_STEPS, vh, uh, m)),
                     ("convolve!",             loop_allocated(convolve!, SEQUENCE_STEPS, vh, uh, kernel)),
                     ("exponential_convolve!", loop_allocated(exponential_convolve!, SEQUENCE_STEPS, vh, uh, m, decay)),
-                    ("to_spectral!",          loop_allocated(to_spectral!, SEQUENCE_STEPS, uh, u, plans1)))
+                    ("to_spectral!",          loop_allocated(to_spectral!, SEQUENCE_STEPS, uh, u, serial_plans)))
     # The bound is a FRACTION OF A FIELD, because that is what invariant 13 is about: a per-call
     # device temporary that escapes the GC and grows the pool every step. Measured at top level the way
     # the gate's own audit does it, `laplacian!` and `exponential_convolve!` allocate 144 bytes per
