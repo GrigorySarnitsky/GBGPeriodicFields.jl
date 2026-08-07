@@ -93,22 +93,38 @@ const GCSAMPLE_PROBE_CEILING = 512 * 2^20   # 512 MiB of growth is already a dec
 _device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) :
                                  AMDGPU.used_memory()
 
+# An allocating row does not have to be timed with the collector in its loop either. Its per-call
+# growth is already measured, so instead cap the SAMPLE COUNT to keep the pool bounded and run it
+# GC-free like everything else: `samples = budget / growth_per_call`, evaluated once each, with the
+# collector run after the row rather than inside it. This is what lets the allocating transforms —
+# the whole device `fft` column — be timed on the transform instead of on the collector.
+const GCSAMPLE_ROW_BUDGET = 4 * 2^30      # 4 GiB of pool growth tolerated within one capped row
+const GCSAMPLE_MIN_SAMPLES = 5            # below this a minimum is not worth reporting
+
 """
-    _apply_gcsample_policy!(suite) -> Vector{String}
+    _apply_gcsample_policy!(suite) -> (kept, fixed)
 
-Set `gcsample` per benchmark from a measured device-pool probe, and return the rows that kept it.
+Choose each benchmark's memory discipline from a measured device-pool probe. Returns the rows that
+kept the per-sample GC and the set of rows whose parameters are now deliberate and must not be tuned.
 
-Each row is warmed up (so compilation is not measured), then run `GCSAMPLE_PROBE_CALLS` times with
-the collector disabled while the device pool is watched. The growth is projected over the row's trial
-budget from its own per-call time; a row projected to exceed `GCSAMPLE_TRIAL_BUDGET` keeps the
-per-sample GC, and every other row — the whole in-place surface — runs without it and is therefore
-timed on the operation rather than on the collector (docs/PERFORMANCE.md §4(s)).
+Each row is warmed up (so compilation is not measured), then run one call at a time with the
+collector disabled while the device pool is watched, stopping as soon as growth passes
+`GCSAMPLE_PROBE_CEILING` — the probe is bounded by memory rather than by a call count, because it
+runs GC-free and a fixed count can itself exhaust the pool. The growth is projected over the row's
+trial from its own per-call time, giving three outcomes:
 
-Any failure to probe leaves the row on the safe setting, so the fail-safe direction is preserved:
-an unclassifiable row behaves exactly as it did before this policy existed.
+  - **flat** (the whole in-place surface) — no GC in the loop, tuned normally;
+  - **allocating, cappable** — no GC in the loop either, with `samples` capped from the measured
+    per-call growth so the pool cannot fill, and `evals` pinned to 1 so the cap means what it says;
+  - **allocating, one call already huge** — the per-sample GC, the only safe option left.
+
+The first two are timed on the operation rather than on the collector (docs/PERFORMANCE.md §4(s)).
+A row whose parameters were set here is returned in `fixed` and must not be passed to `tune!`, which
+would search `evals` upward and undo the cap. Any failure to probe leaves the row on the safe
+setting, so an unclassifiable row behaves exactly as it did before this policy existed.
 """
 function _apply_gcsample_policy!(suite)
-  kept = String[]
+  kept, fixed = String[], Set{String}()
   for (class, group) in suite, (key, benchmark) in group
     allocating = try
       warmup(benchmark)
@@ -132,16 +148,34 @@ function _apply_gcsample_policy!(suite)
       seconds_per_call = fastest / 1e9
       calls_per_trial = seconds_per_call > 0 ?
         benchmark.params.seconds / seconds_per_call : Inf
-      growth_per_call * calls_per_trial > GCSAMPLE_TRIAL_BUDGET
+      if growth_per_call * calls_per_trial > GCSAMPLE_TRIAL_BUDGET
+        # Allocating. Rather than pay a GC per sample, cap the samples so the pool cannot fill, and
+        # still measure the operation. `capped` is recorded so the row can be reported honestly.
+        capped = clamp(floor(Int, GCSAMPLE_ROW_BUDGET / max(growth_per_call, 1)),
+                       GCSAMPLE_MIN_SAMPLES, benchmark.params.samples)
+        if capped > GCSAMPLE_MIN_SAMPLES
+          benchmark.params.samples = capped
+          benchmark.params.evals = 1        # keep calls == samples so the cap means what it says
+          false                             # runs GC-free, bounded by the sample cap
+        else
+          true                              # one call is already huge — only a per-sample GC is safe
+        end
+      else
+        false
+      end
     catch
       true                             # unclassifiable ⇒ keep the old, safe behaviour
     end
     benchmark.params.gcsample = allocating
-    allocating && push!(kept, "$(class)/$(strip(split(key, '|')[1]))")
+    name = "$(class)/$(strip(split(key, '|')[1]))"
+    allocating && push!(kept, name)
+    # An allocating row's parameters are now deliberate — a sample cap, or a per-sample GC — so it
+    # must NOT be re-tuned: `tune!` would search `evals` upward and undo the cap that bounds the pool.
+    (allocating || benchmark.params.evals == 1) && push!(fixed, name)
     GC.gc(true)
     USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
   end
-  return kept
+  return kept, fixed
 end
 
 # Classes to drop before tuning/running, e.g. `CHAR_SKIP=fft` (a generic escape hatch — empty by
@@ -175,12 +209,17 @@ for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
   others = filter(!=(class), collect(CLASSES))
   suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
   if USEGPU
-    kept = _apply_gcsample_policy!(suite)
+    kept, fixed = _apply_gcsample_policy!(suite)
     println("  per-sample GC kept for $(length(kept)) allocating row(s)",
             isempty(kept) ? "" : ": " * join(kept, ", "))
     flush(stdout)
+    # Tune only the rows whose parameters the policy did not fix.
+    for (class, group) in suite, (key, benchmark) in group
+      "$(class)/$(strip(split(key, '|')[1]))" in fixed || tune!(benchmark)
+    end
+  else
+    tune!(suite)
   end
-  tune!(suite)
   results = run(suite; verbose = false)
   for key in keys(results[class])
     combined[class][key] = results[class][key]
