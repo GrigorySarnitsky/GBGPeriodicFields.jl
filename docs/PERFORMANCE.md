@@ -616,6 +616,38 @@ Nothing was corrupted: `characterize.jl` writes its JSON only at the end, so the
 archive intact rather than half-written — worth knowing, because a harness that wrote incrementally
 would have produced a silently mixed-vintage column instead.
 
+**Attempted reproduction, 2026-08-07: 105 trials, ~50,500 transform executions, no crash — but the
+fault is now LOCATED rather than mysterious.** Two stressors were built against the mechanism instead
+of re-running a 30-minute lane. Both drove eight FFTW worker threads at ``128^3`` `Float64` through
+`radial_correlation`, which is what the original crash was running (it takes an inverse transform and
+materialises a power field), with **plan churn** so finalizers had work pending while the next round
+executed: v1 forced collection between rounds, v2 instead kept the heap near its threshold from a
+background allocating task, so the collector would fire *inside* the callback rather than between
+calls. Totals: 105 trials, ~50,500 transform executions, ~6,200 plan build-and-destroy cycles, on
+`Aiporetne` (i7-12700K) with FFTW.jl 1.10.0 and FFTW_jll 3.3.12+0. Every trial exited 0.
+
+**What the attempt did establish.** FFTW.jl's own source documents this interaction zone: "the
+garbage-collector may run at unexpected times. For example, it may run during the `spawnloop` callback
+while the FFTW planner is executing", and it carries deferred plan destruction plus a `GC.safepoint()`
+spin specifically so that case cannot **deadlock** on the `fftwlock`. A **segfault** is a different
+failure from the one that machinery guards, and the shape that produces one is a plan being destroyed
+by its finalizer while another thread is still executing it — a use-after-free reached through
+`spawn_apply`. That is consistent with every recorded detail: it needs plan lifetime to overlap
+execution, it needs the collector to run at an unlucky moment, and it appeared only in the `-t8` lane,
+the one driving the callback with eight workers.
+
+**What it does not establish.** A non-reproduction bounds the rate, it does not clear the code: under
+adversarial conditions the fault is rarer than about 1 in 50,000 transforms on this host, against an
+original of one occurrence in one 30-minute lane. The crash was also seen on `Enteropia` (9800X3D) and
+this attempt ran on `Aiporetne`, so a host-specific trigger is not excluded.
+
+**The mitigation, if it ever bites a consumer, is known and is not free.** Building plans under
+`set_fft_threads!(1)` removes the callback entirely — the thread count is fixed at plan-build time
+(finding (t)) — and also removes that finding's per-call allocation. The cost is real: FFTW threading
+is worth about ``2\times`` at ``256^3`` on the 12700K (`to_physical scalar` `Float64`, 153.4 ms at
+`-t1` against 78.2 ms at `-t8`), so this is a robustness-for-throughput trade to make deliberately,
+not a default to change.
+
 **(r) Every kernel-taking operation moved 20–45% on the CPU between the 2026-07-22 and 2026-08-07
 sweeps, and the cause is decision 51 reaching them through finding (k).** The re-sweep's slower rows
 were almost exactly the operations that *take* a kernel — `divergence!∘kernel`, `helmholtz!∘kernel`,
