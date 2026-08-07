@@ -1487,6 +1487,39 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   verb allocates only, or gains an in-place form writing into a preallocated destination of the
   target family, which is what a solver moving a field every step would actually want. No consumer
   yet, so this is recorded rather than designed.
+- **Point ordering (Morton) for the gather — STUDY FIRST, and additive-only when it lands (recorded
+  2026-08-07).** The rejection recorded in `PERFORMANCE.md` §3 ("0.5–1.0× on GPU", i.e. sorting never
+  helps) **does not reproduce on the RX 7900 XTX**: re-measured with identical points reordered only,
+  Morton order reaches **1.43×** (`Float32` 128³ `CatmullRom`) and **1.40×** (`Float32` 256³ trilinear),
+  and helps in three of four cells for `CatmullRom`, the default scheme. One cell clearly loses
+  (`Float64` 256³ trilinear, 0.74×). The original ran on the retired RX 6700 XT, so this may be
+  RDNA2-vs-RDNA3 rather than a bad measurement — either way the recorded range no longer describes the
+  hardware in use. **Reopened, not decided.**
+
+  **The gating measurement, which nobody has taken: the on-device sort cost.** The ordering must be
+  rebuilt as points move, so the trade is sort-cost against per-gather saving. Measured host cost at
+  256³ is 31.7 ms (6.4 ms codes + 25.2 ms `sortperm`), paying back after **377 gathers** — far too slow
+  to be interesting. An on-device radix sort at an *estimated* 1–2 ms would pay back after **12–24**,
+  which is the number that decides it. Estimate it no further: **measure it, and decide nothing until
+  it is measured.**
+
+  **Non-negotiable constraint: this must not disturb `GBGIsotropicTurbulence`, which is in final
+  development (user-directed).** So when it lands it is **purely additive and opt-in** — no existing
+  signature changes, no behaviour change, and a consumer that ignores it sees nothing. It is also
+  **gather-only**: the companion atomic-free scatter measured 6–24× *slower* and that result is
+  untouched.
+
+  **Shape, smallest first.** The package should expose the **ordering**, never silently reorder: a
+  `PointSet` reordered behind a consumer's back would desynchronise it from the `PointValues` the
+  consumer holds against the same index. The minimal surface is therefore a code generator —
+  `morton_codes(points) -> device vector` — leaving the sort and the re-sort cadence to the consumer,
+  which also keeps invariant 12 clean (how often to re-sort is a time/solver question, not a field-layer
+  one) and **adds no dependency**, the `AcceleratedKernels` dep having been removed when the original
+  rejection landed. A `permutation`/`permute` helper is the next step up if a consumer wants it; a
+  package-owned sort is the largest and needs the dependency question reopened. **Definition of done**
+  as usual: correctness tests (a permutation is a bijection; the gathered values must be invariant under
+  reordering, which is the real oracle), GPU parity, a benchmark row, and the four guiding docs.
+
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).
