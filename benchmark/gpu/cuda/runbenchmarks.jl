@@ -16,15 +16,22 @@ CUDA.functional() || error("no functional CUDA device")
 include(joinpath(@__DIR__, "..", "..", "benchmarks.jl"))
 
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
-# GC before each sample bounds GPU memory. Allocating reductions (lpnorm materializes a pointwise
-# magnitude field per call) otherwise pile up under BenchmarkTools' GC-free sampling loop — Julia's
-# GC triggers on host, not device, pressure, so it never fires — until the CUDA pool exhausts and
-# the allocator wedges (see docs/PERFORMANCE.md §7). Cheap on the non-allocating classes.
-BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true
+# A blanket per-sample GC bounds GPU memory, but it is NOT "cheap on the non-allocating classes": it
+# inflates every device row 2–29× and times the collector rather than the operation
+# (docs/PERFORMANCE.md §4(s)). It cannot simply be dropped either — it is what stops an allocating row
+# (lpnorm materializes a magnitude field per call, and Julia's GC triggers on host, not device,
+# pressure) exhausting the pool until the allocator wedges. So it is decided PER ROW from a measured
+# device-pool probe, exactly as characterize.jl does; the shared implementation lives in
+# benchmarks.jl so the three device entry points cannot drift apart.
+BenchmarkTools.DEFAULT_PARAMETERS.gcsample = false
 
 suite = build_suite(; array_type = CuArray)
+kept, fixed = apply_gcsample_policy!(suite; device_used = () -> CUDA.total_memory() - CUDA.available_memory(), reclaim = CUDA.reclaim)
+println("per-sample GC kept for $(length(kept)) allocating row(s)", isempty(kept) ? "" : ": " * join(kept, ", "))
 println("Tuning on CUDA / NVIDIA: ", CUDA.device(), " ...")
-tune!(suite)
+for (class, group) in suite, (key, benchmark) in group
+  "$(class)/$(strip(split(key, '|')[1]))" in fixed || tune!(benchmark)
+end
 results = run(suite; verbose = false)
 print_results(results; label = "CUDA / NVIDIA")
 

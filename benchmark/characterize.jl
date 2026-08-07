@@ -69,114 +69,12 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 # whole GPU corpus 2–29× — the operations were not what was being timed (docs/PERFORMANCE.md §4(s)).
 # It cannot simply be dropped: it is what stops an allocating row exhausting the pool.
 
-# A row needs the per-sample GC only if it CREATES device arrays fast enough to exhaust the pool
-# during its own trial. Host bytes are NOT the signal — a KernelAbstractions launch allocates host
-# bytes per call, so every launching row looks allocating by that measure — so the device pool is
-# measured directly: with the collector disabled, an allocating row's buffers cannot be reclaimed and
-# the pool grows, while an in-place row's pool is exactly flat. Measured at 128³ this reproduces
-# invariant 13's documented materializer list on its own (`lpnorm` 144 MiB, `radial_correlation`
-# 1310 MiB, the spectral `inner`'s correction planes 13.5 MiB, `materialize_kernel` 146 MiB) and
-# gives 0.0 MiB for every in-place operation.
-const GCSAMPLE_PROBE_CALLS = 8
-# The trigger is the growth PROJECTED over a whole trial, not the bytes per call: a row allocating a
-# little but running very often is the same wedge as one allocating a lot rarely, and a flat
-# byte threshold cannot see the difference.
-const GCSAMPLE_TRIAL_BUDGET = 2 * 2^30   # 2 GiB of pool growth tolerated within one row's trial
-# The probe runs with the collector DISABLED, which makes it capable of the very wedge it exists to
-# prevent: the first version ran a fixed 8 calls, and `transfer` at 256³ — whose NUFFT allocates
-# oversampled work arrays per call — filled a 24 GB pool and hung the sweep (VRAM 99%, GPU activity
-# 0%, one core spinning in the allocator). Bound the probe by MEMORY and stop early: once growth is
-# unmistakable the answer is already known, so there is no reason to keep allocating to confirm it.
-# Peak probe usage is therefore this ceiling plus one call's allocation, never the pool.
-const GCSAMPLE_PROBE_CEILING = 512 * 2^20   # 512 MiB of growth is already a decisive answer
-
-_device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) :
-                                 AMDGPU.used_memory()
-
-# An allocating row does not have to be timed with the collector in its loop either. Its per-call
-# growth is already measured, so instead cap the SAMPLE COUNT to keep the pool bounded and run it
-# GC-free like everything else: `samples = budget / growth_per_call`, evaluated once each, with the
-# collector run after the row rather than inside it. This is what lets the allocating transforms —
-# the whole device `fft` column — be timed on the transform instead of on the collector.
-const GCSAMPLE_ROW_BUDGET = 4 * 2^30      # 4 GiB of pool growth tolerated within one capped row
-const GCSAMPLE_MIN_SAMPLES = 5            # below this a minimum is not worth reporting
-
-"""
-    _apply_gcsample_policy!(suite) -> (kept, fixed)
-
-Choose each benchmark's memory discipline from a measured device-pool probe. Returns the rows that
-kept the per-sample GC and the set of rows whose parameters are now deliberate and must not be tuned.
-
-Each row is warmed up (so compilation is not measured), then run one call at a time with the
-collector disabled while the device pool is watched, stopping as soon as growth passes
-`GCSAMPLE_PROBE_CEILING` — the probe is bounded by memory rather than by a call count, because it
-runs GC-free and a fixed count can itself exhaust the pool. The growth is projected over the row's
-trial from its own per-call time, giving three outcomes:
-
-  - **flat** (the whole in-place surface) — no GC in the loop, tuned normally;
-  - **allocating, cappable** — no GC in the loop either, with `samples` capped from the measured
-    per-call growth so the pool cannot fill, and `evals` pinned to 1 so the cap means what it says;
-  - **allocating, one call already huge** — the per-sample GC, the only safe option left.
-
-The first two are timed on the operation rather than on the collector (docs/PERFORMANCE.md §4(s)).
-A row whose parameters were set here is returned in `fixed` and must not be passed to `tune!`, which
-would search `evals` upward and undo the cap. Any failure to probe leaves the row on the safe
-setting, so an unclassifiable row behaves exactly as it did before this policy existed.
-"""
-function _apply_gcsample_policy!(suite)
-  kept, fixed = String[], Set{String}()
-  for (class, group) in suite, (key, benchmark) in group
-    allocating = try
-      warmup(benchmark)
-      GC.gc(true)
-      USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
-      before = _device_used_bytes()
-      GC.enable(false)
-      calls, growth, fastest = 0, 0, Inf
-      try
-        for _ in 1:GCSAMPLE_PROBE_CALLS
-          trial = run(benchmark; samples = 1, evals = 1, gcsample = false, gctrial = false)
-          calls += 1
-          fastest = min(fastest, time(minimum(trial)))
-          growth = max(0, _device_used_bytes() - before)
-          growth > GCSAMPLE_PROBE_CEILING && break   # decisive already — stop before filling the pool
-        end
-      finally
-        GC.enable(true)
-      end
-      growth_per_call = growth / calls
-      seconds_per_call = fastest / 1e9
-      calls_per_trial = seconds_per_call > 0 ?
-        benchmark.params.seconds / seconds_per_call : Inf
-      if growth_per_call * calls_per_trial > GCSAMPLE_TRIAL_BUDGET
-        # Allocating. Rather than pay a GC per sample, cap the samples so the pool cannot fill, and
-        # still measure the operation. `capped` is recorded so the row can be reported honestly.
-        capped = clamp(floor(Int, GCSAMPLE_ROW_BUDGET / max(growth_per_call, 1)),
-                       GCSAMPLE_MIN_SAMPLES, benchmark.params.samples)
-        if capped > GCSAMPLE_MIN_SAMPLES
-          benchmark.params.samples = capped
-          benchmark.params.evals = 1        # keep calls == samples so the cap means what it says
-          false                             # runs GC-free, bounded by the sample cap
-        else
-          true                              # one call is already huge — only a per-sample GC is safe
-        end
-      else
-        false
-      end
-    catch
-      true                             # unclassifiable ⇒ keep the old, safe behaviour
-    end
-    benchmark.params.gcsample = allocating
-    name = "$(class)/$(strip(split(key, '|')[1]))"
-    allocating && push!(kept, name)
-    # An allocating row's parameters are now deliberate — a sample cap, or a per-sample GC — so it
-    # must NOT be re-tuned: `tune!` would search `evals` upward and undo the cap that bounds the pool.
-    (allocating || benchmark.params.evals == 1) && push!(fixed, name)
-    GC.gc(true)
-    USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
-  end
-  return kept, fixed
-end
+# The per-row `gcsample` policy lives in benchmarks.jl so the three device entry points
+# (characterize.jl and the two runbenchmarks.jl drivers) cannot drift apart. See PERFORMANCE.md §4(s).
+_device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) : AMDGPU.used_memory()
+_device_reclaim() = USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
+_apply_gcsample_policy!(suite) =
+  apply_gcsample_policy!(suite; device_used = _device_used_bytes, reclaim = _device_reclaim)
 
 # Classes to drop before tuning/running, e.g. `CHAR_SKIP=fft` (a generic escape hatch — empty by
 # default; the GPU runs FFT fine, see gap 5).

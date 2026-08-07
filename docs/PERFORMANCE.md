@@ -925,6 +925,57 @@ cleanly — 193.2, 100.4, 53.0, 43.8 µs at `-t1/-t2/-t4/-t8`.
 rows at ``256^3`` or above, or at low thread counts; the report header now says so rather than claiming
 a uniform ~10%.
 
+**(v) Which recorded decisions the `gcsample` defect could have corrupted — audited, not assumed.**
+Finding (s) invalidates GPU numbers, and several recorded decisions were justified by GPU numbers, so
+the question is which of them could now be wrong. The inflation was **not a uniform factor** (1.94–4.25×
+at ``256^3``, 18–29× at ``64^3``), and a uniform factor is the only kind that cancels in an A/B ratio —
+so the exposure is worst where a claimed ratio is near 1. That is exactly how decision 51's radial
+versus stored comparison flipped sign.
+
+**The blast radius is narrower than it first looks.** `BenchmarkTools`' own default is
+`gcsample = false`, and only three entry points ever set it: `characterize.jl`, `regress.jl`, and the
+two `runbenchmarks.jl` drivers. **An ad-hoc `@benchmark` head-to-head is therefore unaffected**, which
+is how most of the decision-bearing comparisons in this document were taken. A useful corroborating
+test: the per-sample GC put a floor of roughly 1 ms on any device row at ``\le 128^3``, so **a recorded
+GPU figure below that floor cannot have been measured under it**.
+
+**Re-checked on the fixed harness, and surviving:**
+
+  - **Decision 30's backend split** (`mean(det, A)` fused against `mean(det(A))` materialising, ``128^3``
+    `Float64`, RX 7900 XTX). Recorded: 0.55 vs 0.69 ms, fused ``1.3\times``. Re-measured: **0.259 vs
+    0.486 ms, fused ``1.87\times``** — same direction, stronger, and both absolutes fell as the collector
+    floor came off. The GPU branch of `_reduce_fiber` is pointed the right way. Its recorded figures also
+    sit below the 1 ms floor, so they were never under `gcsample` to begin with.
+  - **Decision 51** (radial against stored): re-measured on the fixed harness, radial is 9–12% *faster*
+    at ``128^3`` and ``256^3``. The claim that its trade "has opposite sign on the two vendors",
+    published in `bd1e4f30`, was retracted the same night.
+  - **Finding (o)** (an axis-factored kernel does not win): the AMD side agrees on the fixed harness —
+    separable 241.9 µs against stored 181.1 µs at ``128^3`` `Float64`. The qualitative conclusion holds;
+    its RTX 5070 Ti specifics need re-measuring on that host.
+
+**At risk and NOT resolvable here.** These rest on GPU ratios small enough to sit inside the
+inflation's per-row variance, and none can be re-checked from this box:
+
+  - **The Morton-sorting rejection**, gather half — recorded at **0.5–1.0×**, a range straddling 1 on a
+    card (RX 6700 XT) that no longer exists, using an implementation and a dependency that were both
+    deleted. The scatter half (**6–24× slower**) is far outside the variance and stands. The rejection's
+    *mechanism* (concentrating access kills the memory-level parallelism a GPU needs) is also supported
+    independently by the CPU result moving the other way, ``2.2``–``4.4\times`` *faster*, on a path the
+    defect never touched.
+  - **The wrap-hoist rejection** — a 10–14% GPU regression, likewise inside the variance, likewise on the
+    retired card.
+  - **Decision 42's GPU figure** — "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`".
+    Six percent is well inside the variance, so the number is unreliable. **The decision is not**: it
+    rests on the CPU result (in-register wins everywhere, ``+4\%``/``+10\%``), and the CPU was never
+    affected. The GPU reversal was already recorded as a consumer-card FP64-rate artifact.
+  - **Every cross-card ratio** — the "≈1.8× median", the ``\approx 48\times`` CUDA-over-ROCm `Float64`
+    radial gap, the ``\approx 87\times`` figures in §6/§7. Both sides were inflated by *vendor-specific*
+    amounts, so the large ones probably keep their direction and none keeps its magnitude.
+
+**Structurally safe: everything measured on the CPU.** `gcsample` was gated on the backend throughout,
+so decisions 38, 39 and 40, the threading work, finding (k)'s and (l)'s CPU numbers, and the CPU half of
+every split decision are untouched by this. That is most of the tuning record.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
