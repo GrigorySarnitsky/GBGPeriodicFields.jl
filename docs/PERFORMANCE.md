@@ -895,6 +895,36 @@ tight field-proportional bound kept for detection power. **Raising the bound wou
 fix**: it would have set a threshold against a quantity that varies 7× run to run, which is how a
 harness stops measuring anything.
 
+**(u) Jitter is not uniform across the table: a small grid at a high thread count carries up to
+``1.44\times`` run-to-run variance, and the committed "~10%" was a blanket claim that does not hold
+there.** Two `mean(norm) vec` cells were flagged as regressions by the 2026-08-07 re-sweep — GPU
+``128^3`` `Float32` at ``+121.9\%`` and CPU `-t8` ``64^3`` `Float32` at ``+111.2\%``. Neither is one.
+
+The GPU cell was measured on both sides in the broken `gcsample` regime of (s); re-swept on the fixed
+harness the column is monotone and physical again (`Float32` 87.3 → 241.0 → 849.0 µs across
+``64^3``–``256^3``, `Float64` 97.7 → 236.8 → 1371 µs), and the old 538.9 µs reading — which sat *below*
+its own ``64^3`` row — is gone.
+
+The CPU cell is real jitter, and measuring it is what shows the scale. Five repeats of the same
+measurement, `Float32` `mean(norm) vec`:
+
+| cell | five minima (µs) | spread |
+|:---|:---|:---|
+| ``64^3`` `-t8` | 31.2, 31.0, 31.3, 30.8, 44.4 | ``1.44\times`` |
+| ``64^3`` `-t1` | 192.1 – 193.8 | ``1.01\times`` |
+| ``256^3`` `-t8` | 5434 – 5931 | ``1.09\times`` |
+| ``256^3`` `-t1` | 13063 – 13295 | ``1.02\times`` |
+
+The variance is confined to **small grid × high thread count**, where ~31 µs of work is comparable to
+the cost of spawning eight threads and BenchmarkTools' minimum over a one-second budget does not
+suppress the tail. The mode at that cell is ~31 µs, which is what the *old* archive recorded (32.0);
+the re-sweep happened to catch the tail (67.5). Thread scaling there is in fact monotone when measured
+cleanly — 193.2, 100.4, 53.0, 43.8 µs at `-t1/-t2/-t4/-t8`.
+
+**So a movement of tens of percent in a small-grid, high-thread cell is not evidence.** Compare those
+rows at ``256^3`` or above, or at low thread counts; the report header now says so rather than claiming
+a uniform ~10%.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

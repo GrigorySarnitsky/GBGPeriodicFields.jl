@@ -1293,7 +1293,7 @@ The 7900 XTX was re-swept 2026-08-07: median **−81.6%** over 467 rows, `convol
 ratio back to 3.14, canary green with **zero** rows needing the GC. **`RESULTS.md` now holds two GPU
 columns in DIFFERENT regimes** — the 7900 XTX is fixed, the **5070 Ti is not and must not be compared
 against it** until `Enteropia` re-sweeps. The two retired columns were dropped (broken regime, no card
-to re-measure). **Outstanding: the `Enteropia` GPU re-sweep.**
+to re-measure). **Outstanding: the `Enteropia` GPU re-sweep** — queued in the synced memory `enteropia-resweep-gpu-after-gcsample-fix`, with the acceptance check (the scalar-to-vector ratio recovering ~3×, not the size of the drop) and the traps written down.
 
 **§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
 is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at

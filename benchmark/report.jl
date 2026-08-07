@@ -108,7 +108,7 @@ println(io, "Minimum time per operation; `—` = not measured for that column (a
         "produced to `report.jl`, so the columns belonging to the other host and to retired cards ",
         "would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was ",
         "measured at, stamped into its JSON by `characterize.jl`: ", join(vintage_parts, "; "),
-        ". ~10% jitter.\n")
+        ". **Jitter is ~10% for most cells but NOT uniform: it reaches 1.44x at small grids under high thread counts.** Measured on the 12700K, `mean(norm) vec` `Float32`, five repeats of the same measurement: at ``64^3`` `-t8` the minimum came out 31.2, 31.0, 31.3, 30.8 and 44.4 us, where the same row at `-t1` spans 1.01x and at ``256^3`` `-t8` spans 1.09x. The work there (~31 us) is comparable to the cost of spawning eight threads, and taking BenchmarkTools' minimum over a one-second budget does not suppress it. So a movement of tens of percent in a small-grid, high-thread cell is NOT evidence of anything; compare those at ``256^3`` or above, or at low thread counts. PERFORMANCE.md §4(u).\n")
 
 for class in CLASSES
   println(io, "## ", class, "\n")
