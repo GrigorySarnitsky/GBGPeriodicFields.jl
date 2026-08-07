@@ -193,7 +193,30 @@ run_commit = try
 catch
   "unknown"
 end
-combined = BenchmarkGroup(["commit=$(run_commit)", "measured=$(Dates.format(Dates.now(), "yyyy-mm-dd"))"])
+# PLATFORM STATE, stamped into the archive alongside the commit. PERFORMANCE.md §4(p) records an
+# `fft`-confined 20–50% shift between two sweeps that is reproducible within a session, moves in
+# OPPOSITE directions on the two hosts, and cannot be attributed because **no platform state was
+# recorded on either side** — a reboot fell between the sweeps and nothing captured what changed.
+# That is an instrument gap, not a mystery: without these fields any future occurrence is equally
+# unfalsifiable. They are read best-effort, since none of them exists on every platform.
+_read_first(path) = try strip(readchomp(path)) catch; "unknown" end
+_kernel = try readchomp(`uname -r`) catch; "unknown" end
+_microcode = try
+  m = match(r"microcode\s*:\s*(\S+)", read("/proc/cpuinfo", String)); m === nothing ? "unknown" : m[1]
+catch; "unknown" end
+_cpu_model = try
+  m = match(r"model name\s*:\s*(.+)", read("/proc/cpuinfo", String)); m === nothing ? "unknown" : strip(m[1])
+catch; "unknown" end
+_governor = _read_first("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor")
+_no_turbo = _read_first("/sys/devices/system/cpu/intel_pstate/no_turbo")
+_smt = _read_first("/sys/devices/system/cpu/smt/control")
+# A 2 MB-page-backed array and a 4 KB-backed one differ substantially on bandwidth-bound work, so the
+# mode matters even when it is off: `madvise` with nothing requesting it means no huge pages at all.
+_thp = _read_first("/sys/kernel/mm/transparent_hugepage/enabled")
+combined = BenchmarkGroup(["commit=$(run_commit)", "measured=$(Dates.format(Dates.now(), "yyyy-mm-dd"))",
+                           "julia=$(VERSION)", "kernel=$(_kernel)", "microcode=$(_microcode)",
+                           "cpu=$(_cpu_model)", "governor=$(_governor)", "no_turbo=$(_no_turbo)",
+                           "smt=$(_smt)", "thp=$(_thp)", "threads=$(Threads.nthreads())"])
 for class in RUN_CLASSES
   combined[class] = BenchmarkGroup()
 end

@@ -606,6 +606,37 @@ sweep go unrecorded — which is exactly what the vintage caveat exists to expre
 below the package, and neither direction has been traced. **Treat `fft` rows as comparable only within a
 vintage**, and treat a cross-vintage `fft` comparison as uninformative rather than as evidence.
 
+**Studied on `Aiporetne`, 2026-08-07: five candidates eliminated by measurement, and the instrument
+gap closed.** The `fft` class is the only one whose cost depends on a plan chosen at runtime, so it is
+the natural suspect, but each mechanism was tested rather than argued:
+
+  - **Cross-process variation is not it.** The finding's own row (`to_physical scalar`, `Float64`,
+    ``256^3``) measured in eight separate processes spans 156.1–165.0 ms — a spread of ``1.06\times``,
+    against the 20–50% to be explained.
+  - **Hybrid core placement is not it, but it IS a latent hazard.** The 12700K is 8 P-cores plus 4
+    E-cores. Pinned to an E-core the same row measures **255.8–266.1 ms against 156.5–164.3 ms on a
+    P-core — ``1.63\times``** — easily enough to produce the effect. It does not, because every
+    unpinned sample landed in the P-core range: Linux reliably places a single compute-bound thread on
+    a P-core. **A sweep run under `taskset`, a cgroup, or a systemd slice that admits E-cores would
+    read 1.6× slow with nothing else changed**, which is worth knowing before anyone constrains one.
+  - **Transparent huge pages are not it.** THP is in `madvise` mode with `AnonHugePages: 0`, so the
+    arrays are never huge-page backed on this host — the mode cannot vary between sweeps because
+    nothing requests it.
+  - **Memory fragmentation is not it.** `buddyinfo` shows 26,625 free order-10 blocks after 22 hours
+    of uptime, so large allocations are not falling back to scattered pages.
+  - **Plan selection is not it.** With `fft_flags` unset — what every plain row uses — plans are built
+    with FFTW's default `ESTIMATE`, a deterministic heuristic, not the timed search `MEASURE` performs.
+    The `measure` twins are the only rows whose plan choice can vary from run to run.
+
+**What remains is state that persists across a session, and the finding could not be attributed
+because none of it was recorded.** That is an instrument gap rather than a mystery, and it is now
+closed: `characterize.jl` stamps `kernel`, `microcode`, `cpu`, `governor`, `no_turbo`, `smt`, `thp`,
+`julia` and `threads` into every archive beside the commit and date, so the next occurrence is a diff
+rather than a reconstruction. `Aiporetne`'s state at this sweep: kernel `7.0.0-28-generic`, microcode
+`0x3e`, governor `powersave` with turbo enabled, SMT on, THP `madvise`. Note the governor in
+particular — `powersave` on `intel_pstate` still boosts, but its ramp depends on recent load history,
+which is exactly the kind of cross-sweep state nothing was capturing.
+
 **(q) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through
 FFTW.jl's `spawnloop`, while running the `reductions Float64 128^3` class — which touches FFTW because
