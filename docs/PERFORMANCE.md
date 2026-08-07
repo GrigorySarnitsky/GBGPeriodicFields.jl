@@ -668,14 +668,39 @@ versus `∘ stored` rows show radial *faster*, because they are measured at ``12
 the bandwidth-bound regime where the saved kernel stream wins. Both readings are correct; the regime
 decides.
 
-**The fix is a hoist, and it is already priced.** Evaluating the symbol once per mode into a register
-and applying it across the fiber — the decision-38/39 fused-pass pattern rather than a broadcast
-extrusion — removes the tensor-order scaling while keeping the memory saving. The pass audit already
-carries this as an open holder for the exponential family's ``\hat w`` fiber extrusion, "priced as the
-finding-(k) hoist"; the radial class is the same defect at a second site. Expected payoff is the whole
-``R \ge 1`` column above: ``1.99 \to 1.0`` at ``64^3``, and plausibly below 1 at ``128^3`` where
-``R = 0`` already reaches ``0.88``. **Not implemented** — it is a change to the compressed-kernel apply
-path and needs its own correctness, allocation, pass-audit and parity work.
+**The hoist was prototyped, measured, and DECLINED.** The obvious fix is to evaluate the symbol once
+per mode and reuse it across the fiber — the decision-38/39 fused-pass pattern — and it is *not*
+materialization: the value lives in a row-sized buffer of ``N_{k_x}`` floats, a few hundred bytes,
+never an ``O(N^3)`` array. It was written that way (σ once per ``(i_2, i_3)`` row into a stack buffer,
+then applied across components with contiguous SIMD access in ``i_1``), checked bitwise against
+`convolve!`, and timed against the current broadcast:
+
+| tensor order | ``128^3`` hoist / broadcast | ``256^3`` hoist / broadcast |
+|:---|:---|:---|
+| ``R = 0`` | ``0.72`` | ``0.92`` |
+| ``R = 1`` | ``0.95`` | ``1.02`` — slower |
+| ``R = 2`` | ``0.99`` | ``1.07`` — slower |
+
+**It buys nothing where it matters and costs a little.** At ``256^3`` the pass is bandwidth-bound, so
+the recompute is already hidden behind memory latency while the buffer adds a store and a load that
+the memory-bound regime hides less well. The ``R = 0`` column gains, but ``R = 0`` never paid the fiber
+penalty in the first place — that gain is over the broadcast machinery itself, at a tensor order with
+no fiber to extrude over.
+
+**The premise behind wanting the fix was also wrong, and measuring is what showed it.** A traffic count
+says the radial class should beat stored by ``1/(2R+1)`` — about 14% at ``R = 1`` — and that the
+recompute was eating it. At ``256^3`` `Float64` the radial broadcast measures **41.9 ms against
+stored's 45.0 ms**, already 6.8% ahead: it *is* realizing its memory saving at production scale, and
+there was no forfeited 14% to recover. The ``1.02`` reading at ``128^3`` is the transition point
+between the two regimes, not evidence of a permanent loss.
+
+**So the penalty is real but confined to the regime nobody ships in.** It appears at ``64^3`` and
+serial, where the pass is compute-bound; the CPU path's tuning target is the beyond-VRAM band
+(ARCHITECTURE.md decision 37), and there the radial class is already the faster of the two. Decision 51
+stands as measured: ``O(1)`` builders, competitive application at production grids, and a small-grid
+compute penalty that no reasonable fix removes without costing more elsewhere. **No change is
+warranted**, and the pass audit's separate ``\hat w`` extrusion holder should be re-priced against this
+result before anyone acts on it either.
 
 **(s) Every GPU number this project has ever recorded is inflated 2–29× by `gcsample`, and the
 operations were never what was being timed.** `characterize.jl` sets

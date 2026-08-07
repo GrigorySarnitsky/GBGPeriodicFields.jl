@@ -1310,10 +1310,14 @@ extruded over the fiber and evaluated **per component** — bisected at `48b6254
 controls, and confirmed by the penalty scaling with tensor order (R=0 1.02, R=1 1.99, R=2 1.52 at 64³)
 and vanishing at 128³ where the saved kernel-array traffic pays for it. That also reconciles the
 apparent contradiction: the `∘ radial` vs `∘ stored` rows show radial faster because they sit at 128³/`-t8`,
-in the bandwidth-bound regime. **The fix is the finding-(k) hoist** — evaluate the symbol once per mode
-into a register instead of extruding it — which the pass audit already carries as an open holder for the
-exponential family's ŵ extrusion. NOT implemented; it needs its own correctness, allocation, pass-audit
-and parity work. The §4(r) GPU half is **withdrawn**, both its archives having been in the broken regime. Traps and the full task list remain in
+in the bandwidth-bound regime. **The hoist fix was prototyped, MEASURED and DECLINED** — it buys nothing where it
+matters: at 256³ it is 1.02× (R=1) and 1.07× (R=2) *slower* than the current broadcast, because the pass
+is bandwidth-bound there and the recompute is already hidden while the row buffer adds a store and a
+load. The premise was wrong too: a traffic count said radial should beat stored by ~14% at R=1 and was
+forfeiting it, but at 256³ radial already measures 41.9 ms against stored's 45.0 — 6.8% ahead. The
+penalty is confined to 64³-and-serial, which is not the CPU tuning target (decision 37). **No change is
+warranted**, and the pass audit's separate ŵ-extrusion holder should be re-priced against this before
+anyone acts on it. The §4(r) GPU half is **withdrawn**, both its archives having been in the broken regime. Traps and the full task list remain in
 the synced memory `aiporetne-verify-rocm-decisions-60-62`.
 **Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
 silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
