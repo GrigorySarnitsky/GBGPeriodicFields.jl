@@ -616,42 +616,66 @@ Nothing was corrupted: `characterize.jl` writes its JSON only at the end, so the
 archive intact rather than half-written — worth knowing, because a harness that wrote incrementally
 would have produced a silently mixed-vintage column instead.
 
-**(r) Every kernel-taking operation moved 20–45% between the 2026-07-22 and 2026-08-07 `Aiporetne`
-sweeps, on both backends, and the cause is NOT the one it first appears to be.** The re-sweep's slower
-rows are almost exactly the set of operations that *take* a kernel — `divergence!∘kernel`,
-`helmholtz!∘kernel`, `convolve!`, `combine!∘kernel`, `exponential_convolve!` — across every thread count,
-both element types, and the RX 7900 XTX as well as the 12700K. Forty-seven rows exceed 20%. It appears on
-**both** backends over the same commit range, which is this document's own discriminator against
-contention, and the untouched columns in the same regenerated report reproduce bit-for-bit at
-``+0.0\%``, so it is not an artefact of reassembly.
+**(r) Every kernel-taking operation moved 20–45% on the CPU between the 2026-07-22 and 2026-08-07
+sweeps, and the cause is decision 51 reaching them through finding (k).** The re-sweep's slower rows
+were almost exactly the operations that *take* a kernel — `divergence!∘kernel`, `helmholtz!∘kernel`,
+`convolve!`, `combine!∘kernel` — across every thread count and both element types.
 
-**Its GPU half is UNANSWERABLE and the question is closed; the CPU half stands and is still open.**
-`gcsample` is set for device lanes only, so the 12700K rows were always clean and the 7900 XTX rows
-never were. Both archives this finding compared were measured in the broken regime of (s), so the GPU
-cluster is a difference between two collector-dominated measurements and says nothing about the
-operations; and it cannot be recovered, because answering it now would need the *old code* re-measured
-on the *fixed* harness, which no existing archive contains. The GPU half is therefore withdrawn rather
-than explained. **The `∘ radial` versus `∘ stored` comparison below is one of the numbers (s)
-invalidates** — on the fixed harness radial is 9–12% *faster* than its stored twin at both ``128^3``
-and ``256^3``, so the argument as written does not stand. What follows is kept for the CPU cluster,
-which is real, `gcsample`-free, and unexplained.
+**The GPU half of this finding is WITHDRAWN, not explained.** Both archives it originally compared were
+measured in the broken regime of (s), so the device cluster was a difference between two
+collector-dominated measurements and says nothing about the operations. It cannot be recovered either,
+since answering it now would require the *old code* re-measured on the *fixed* harness, which no
+archive contains. `gcsample` never applied to CPU lanes, so what follows is CPU-only and is real.
 
-The obvious explanation is decision 51, since the same sweep shows the kernel *builders* collapsing from
-``O(N^3)`` to ``O(1)`` — `spectral_band` on the 12700K went from 4.252 ms at ``128^3`` and 46.1 ms at
-``256^3`` to **12.4 ns at every grid from ``64^3`` to ``512^3``**, the grid-independence being the
-signature of a closure replacing an array. **That explanation does not survive the within-column check.**
-The report now carries direct `∘ radial` versus `∘ stored` rows, and at ``128^3`` `Float64` `convolve!
-vector` the radial kernel is only 5% slower on the 7900 XTX (1.342 vs 1.273 ms) and 26% **faster** on the
-12700K at `-t8` (2.914 vs 3.929 ms). A storage class that is faster on the very lane whose kernel-composed
-operators slowed by 20–40% cannot be what slowed them. Decision 51 *is* confirmed as the cause of the
-canary's own `convolve!` movement, measured directly at that workload (stored 442.5 µs, radial 636.3 µs,
-ratio ``1.438``, results bitwise equal) — but the canary workload and the swept operator rows are not the
-same measurement, and the sweep-level cluster remains **unexplained**. The other candidates, none yet
-tested, are the kernel-protocol changes that landed in the same window: the protocol's move into `Fields`
-with every kernel arity widened, decision 60's retyping of the kernel classes, and decision 61's move of
-the coordinates into a radial kernel's type. Recorded as open rather than attributed, because a
-locally-plausible cause that the data contradicts is exactly the failure mode finding (o) and decision 62
-were both written to warn about.
+**Bisected rather than argued.** The archives were gone, so the same operations were re-measured at
+`48b6254a` and at `HEAD` in adjacent worktrees sharing one dependency manifest, on an idle box, `-t1`.
+Three control rows taking no kernel (`add!`, `laplacian!`, the plain `divergence!`) came out flat at
+``0.93``–``1.01``, which is what licenses reading anything into the rest:
+
+| row (``64^3`` / ``128^3`` `Float64`) | HEAD / old |
+|:---|:---|
+| `combine!∘kernel vector` | ``2.28\times`` / ``1.65\times`` |
+| `convolve! vector` | ``1.98\times`` / ``1.02\times`` |
+| `divergence!∘kernel` | ``1.33\times`` / ``1.24\times`` |
+| `helmholtz!∘kernel` | ``1.27\times`` / ``1.23\times`` |
+| `convolve! scalar` | ``1.01\times`` / ``0.91\times`` |
+| `exponential_convolve!` | ``1.00\times`` / ``1.00\times`` |
+
+**The mechanism is a per-fiber-component recompute of the kernel symbol.** Decision 51 made
+`spectral_cutoff` and `spectral_band` return a `RadialKernel`, whose `_kernel_data` is a lazy
+``\sigma(\lvert k\rvert^2)`` over the ``(N_{k_x}, N_y, N_z)`` mode grid. Against a **scalar** field that
+shape matches and the symbol is evaluated once per mode; against a **vector** field the trailing
+singleton is extruded over the fiber and the symbol is evaluated **once per component**. A stored
+kernel re-reads a cached array in the same place, which is far cheaper. Measured directly at `HEAD`,
+radial against its own materialized twin:
+
+| tensor order | ``64^3`` (compute-bound) | ``128^3`` (bandwidth-bound) |
+|:---|:---|:---|
+| ``R = 0`` | ``1.02`` | ``0.88`` — radial faster |
+| ``R = 1`` | ``1.99`` | ``1.02`` |
+| ``R = 2`` | ``1.52`` | ``1.06`` |
+
+``R = 0`` never pays it, which is the signature; `exponential_convolve!` takes multipliers rather than a
+kernel object and is untouched, which is the control. ``R = 2`` is *below* ``R = 1`` because nine
+complex components are memory-heavy enough that bandwidth starts dominating even at ``64^3``, which is
+the same effect that removes the penalty entirely at ``128^3``.
+
+**This is finding (k)'s trade, arriving somewhere new.** That finding already recorded a lazy kernel
+costing ``1.7\times`` a stored one on the CPU when the kernel is *fixed*; decision 51 then changed what
+`spectral_cutoff` returns, so every operation taking a cutoff kernel inherited the penalty without any
+of them changing. It also reconciles what looked like a contradiction: the report's own `∘ radial`
+versus `∘ stored` rows show radial *faster*, because they are measured at ``128^3`` and `-t8`, deep in
+the bandwidth-bound regime where the saved kernel stream wins. Both readings are correct; the regime
+decides.
+
+**The fix is a hoist, and it is already priced.** Evaluating the symbol once per mode into a register
+and applying it across the fiber — the decision-38/39 fused-pass pattern rather than a broadcast
+extrusion — removes the tensor-order scaling while keeping the memory saving. The pass audit already
+carries this as an open holder for the exponential family's ``\hat w`` fiber extrusion, "priced as the
+finding-(k) hoist"; the radial class is the same defect at a second site. Expected payoff is the whole
+``R \ge 1`` column above: ``1.99 \to 1.0`` at ``64^3``, and plausibly below 1 at ``128^3`` where
+``R = 0`` already reaches ``0.88``. **Not implemented** — it is a change to the compressed-kernel apply
+path and needs its own correctness, allocation, pass-audit and parity work.
 
 **(s) Every GPU number this project has ever recorded is inflated 2–29× by `gcsample`, and the
 operations were never what was being timed.** `characterize.jl` sets

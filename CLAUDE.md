@@ -1303,10 +1303,17 @@ read as "nothing got slower"). Since this box runs the *same* kernel Enteropia r
 (`7.0.0-28-generic`), a platform-wide kernel or microcode cause is positively **excluded**. But this
 host's `fft` rows moved *faster* by 5–46% over the same kind of comparison, equally unexplained, so the
 honest reading is that `fft` timings are unstable across sweeps on both hosts while sweep conditions go
-unrecorded — a cross-vintage `fft` comparison is uninformative, not evidence. **One new finding is open — `PERFORMANCE.md` §4(r):** every kernel-*taking*
-operation moved 20–45% on both backends, and decision 51 looks like the cause but is contradicted by the
-report's own `∘ radial` vs `∘ stored` rows (radial is *faster* on the very lane whose kernel-composed
-operators slowed). Recorded as unexplained rather than attributed. Traps and the full task list remain in
+unrecorded — a cross-vintage `fft` comparison is uninformative, not evidence. **§4(r) is RESOLVED (2026-08-07):** the CPU kernel-op cluster is decision 51
+reaching those operations through finding (k). A `RadialKernel`'s symbol is a lazy `Broadcasted` over the
+3D mode grid, so against a **scalar** field it is evaluated once per mode but against a **vector** it is
+extruded over the fiber and evaluated **per component** — bisected at `48b6254a` vs HEAD with flat
+controls, and confirmed by the penalty scaling with tensor order (R=0 1.02, R=1 1.99, R=2 1.52 at 64³)
+and vanishing at 128³ where the saved kernel-array traffic pays for it. That also reconciles the
+apparent contradiction: the `∘ radial` vs `∘ stored` rows show radial faster because they sit at 128³/`-t8`,
+in the bandwidth-bound regime. **The fix is the finding-(k) hoist** — evaluate the symbol once per mode
+into a register instead of extruding it — which the pass audit already carries as an open holder for the
+exponential family's ŵ extrusion. NOT implemented; it needs its own correctness, allocation, pass-audit
+and parity work. The §4(r) GPU half is **withdrawn**, both its archives having been in the broken regime. Traps and the full task list remain in
 the synced memory `aiporetne-verify-rocm-decisions-60-62`.
 **Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
 silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
