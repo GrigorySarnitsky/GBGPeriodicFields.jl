@@ -1271,6 +1271,22 @@ plain invocation covers it and the old advice to override `CHAR_SIZES` is obsole
 regenerated with **all twelve columns intact**, verified by the untouched columns reproducing
 bit-for-bit at +0.0%.
 
+**BLOCKING, and it invalidates every GPU number the project has: `PERFORMANCE.md` §4(s).** Device lanes
+run `gcsample = true` (both `characterize.jl` and `regress.jl`, gated on the backend), so a full
+`GC.gc()` — finalizers freeing device buffers, synchronizing — precedes **every sample** and dominates
+operations lasting tens of microseconds. Measured A/B with only that parameter changed: **18.4–29.2× at
+64³, 5.8–19.8× at 128³, still 1.9–4.25× at 256³**, the inflated values reproducing the committed archive.
+The tell was always in the table: `convolve! scalar` and `convolve! vector` at 128³ read 1.094 and 1.177
+ms — 3× the bytes showing as 1.08× — where the true figures are 57 and 182 µs. It is **not** a uniform
+factor, so it corrupts within-column comparisons too, and at least one recorded conclusion reverses:
+decision 51's radial kernel is **faster** than the stored class on the 7900 XTX, not slower, so
+`bd1e4f30`'s "opposite sign on the two vendors" is **retracted**. **CPU columns and CPU canary baselines
+are clean.** Deleting `gcsample` is not the fix — it exists because the `reductions` class wedged the
+device pool (2026-06-11) — so the fix must keep a GC discipline off the per-sample path (`gctrial`, plus
+the existing per-(class, grid, type) `GC.gc(true)` + `reclaim()`), and that has **not been tested**.
+Until it is, treat every GPU cell as an upper bound of unknown tightness, and do not compare a new GPU
+sweep against the existing archives.
+
 **§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
 is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
 256³ moved slower, by +1.0%, against `Enteropia`'s +38% (23 rows did move slower, but all the rest sit at

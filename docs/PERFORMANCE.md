@@ -625,6 +625,12 @@ both element types, and the RX 7900 XTX as well as the 12700K. Forty-seven rows 
 contention, and the untouched columns in the same regenerated report reproduce bit-for-bit at
 ``+0.0\%``, so it is not an artefact of reassembly.
 
+**Its GPU half is confounded by finding (s) below and cannot be read as stated; the CPU half stands.**
+`gcsample` is set for device lanes only, so the 12700K rows are clean measurements and the 7900 XTX
+rows are not. What follows was written before (s) was found, and the `∘ radial` versus `∘ stored`
+comparison it leans on is one of the numbers (s) invalidates — kept because the CPU cluster it also
+documents is real and still unexplained.
+
 The obvious explanation is decision 51, since the same sweep shows the kernel *builders* collapsing from
 ``O(N^3)`` to ``O(1)`` — `spectral_band` on the 12700K went from 4.252 ms at ``128^3`` and 46.1 ms at
 ``256^3`` to **12.4 ns at every grid from ``64^3`` to ``512^3``**, the grid-independence being the
@@ -641,6 +647,54 @@ with every kernel arity widened, decision 60's retyping of the kernel classes, a
 the coordinates into a radial kernel's type. Recorded as open rather than attributed, because a
 locally-plausible cause that the data contradicts is exactly the failure mode finding (o) and decision 62
 were both written to warn about.
+
+**(s) Every GPU number this project has ever recorded is inflated 2–29× by `gcsample`, and the
+operations were never what was being timed.** `characterize.jl` sets
+`BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true` for device lanes, and `regress.jl` sets
+`gcsample = USEGPU`. That runs a full `GC.gc()` **before every sample**, whose finalizers free device
+buffers and synchronize the device — a cost that lands on a measurement whose operation is tens of
+microseconds. Measured A/B on the RX 7900 XTX, `Float64`, the whole `convolution` class run through the
+suite's own code with only that one parameter changed:
+
+- ``64^3``: inflation ``18.4``–``29.2\times`` (`convolve! scalar` 956 µs against 32.7 µs)
+- ``128^3``: inflation ``5.8``–``19.8\times`` (`convolve! scalar` 1.128 ms against 56.9 µs)
+- ``256^3``: inflation ``1.9``–``4.25\times`` (`convolve! vector` 2.494 ms against 1.218 ms)
+
+The `gcsample = true` figures reproduce the committed archive to within a few percent, which is what
+identifies the archive as this regime rather than some other.
+
+**The tell was visible in the table all along.** With the overhead in, `convolve! scalar` and
+`convolve! vector` at ``128^3`` read 1.094 and 1.177 ms — a **3× difference in bytes moved appearing as
+1.08×**, because both were dominated by a shared ~1 ms floor. With it out they read 57 and 182 µs, a
+ratio of ``3.2`` that matches the data volume. A device column whose scalar and vector rows nearly
+coincide is not measuring the device.
+
+**It is not a uniform scale factor, so it corrupts comparisons *within* a column too.** The inflation
+varies per row (``1.94``–``4.25\times`` at ``256^3`` alone), and at least one documented conclusion
+**reverses** when it is removed: `convolve! vector ∘ radial` against `∘ stored` reads ``1.48\times``
+*slower* for the radial class at ``256^3`` with `gcsample`, and ``0.90\times`` — *faster* — without it,
+with the same flip at ``128^3``. Decision 51's radial kernel is therefore **faster than the stored class
+on this card**, in the same direction as CUDA. The claim recorded in `bd1e4f30` that decision 51's trade
+"has opposite sign on the two vendors" is **retracted**: it rested on a probe that also ran
+`gcsample = true`, and the apparent sign came from two rows being inflated by different factors
+(``9.5\times`` against ``5.8\times``), not from the kernels.
+
+**Scope.** `gcsample` is gated on `USEGPU` in both harnesses, so **CPU columns and CPU canary baselines
+are clean** and every GPU column of `RESULTS.md` — all four cards, every grid — plus both hosts' GPU
+canary baselines are affected. Cross-card GPU comparisons are affected twice over, since each vendor's
+free-and-synchronize cost differs; the recorded "RTX 5070 Ti is ≈1.8× the RX 7900 XTX" is not safe to
+rely on until re-measured.
+
+**Why it is there, and why the fix is not simply deleting it.** It was added deliberately (2026-06-11)
+because the `reductions` class wedged the device: `lpnorm` materializes a magnitude field per call,
+BenchmarkTools' sampling loop does almost no *host* allocation, so Julia's GC never fired, and the
+AMDGPU pool grew until the allocator spun. That failure is real and a bare `gcsample = false` reinstates
+it. The fix has to keep a GC discipline while moving it off the per-sample path — `gctrial` (already on
+by default) collects once per benchmark rather than once per sample, and the loop in `characterize.jl`
+already does `GC.gc(true)` plus `reclaim()` between every (class, grid, type). Whether those two suffice
+for the allocating rows is an empirical question and **has not been tested**, which is why nothing has
+been changed here yet. **Until it is, a device row measures the harness as much as the package, and no
+GPU re-sweep should be compared against the existing archives.**
 
 ## 5. The benchmark suite
 
