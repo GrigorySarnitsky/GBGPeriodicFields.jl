@@ -1262,12 +1262,24 @@ complex-weight refusal exercised on-device beside it. **`examples/gpu/rocm/HIST_
 executed**, for the first time by anything: `--smoke` exits 0, `‖∇·u‖_rel = 1.0e-07` (Float32 roundoff),
 and Parseval agrees three ways (physical 0.664797, spectral `inner` 0.664797, `Σ E(k)` 0.6648).
 
-Still owed on this box: the 12700K 512³ band, and the **control** reading for `PERFORMANCE.md` §4(p), the
-reproducible-but-unexplained CPU `fft` vintage shift — if this host's `fft` rows move the same way on a
-re-sweep the cause is platform-wide, and if they do not, something is specific to Enteropia. Note that
-this box already runs the same kernel Enteropia recorded post-reboot (`7.0.0-28-generic`), so a *matching*
-shift here implicates the platform and a *non-matching* one exonerates it. Full ordered task list, traps
-and definition of done are in the synced memory `aiporetne-verify-rocm-decisions-60-62`.
+**The benchmark half is CLOSED too (2026-08-07).** The canary is green on all three lanes after a
+refreeze whose reason is in `bd1e4f30`: this host's ROCm baseline predated `canary_sync` by a week and
+two of its twelve mechanisms were timing launches rather than work (`add!` at 17.5 µs and `to_physical!`
+at 25.8 µs for a 128³ pass, both under the physical floor), Enteropia's having been refrozen by the sync
+commit itself. The **12700K 512³ band is measured** — 512³ became a CPU default in `b59a2793`, so the
+plain invocation covers it and the old advice to override `CHAR_SIZES` is obsolete. `RESULTS.md` is
+regenerated with **all twelve columns intact**, verified by the untouched columns reproducing
+bit-for-bit at +0.0%.
+
+**§4(p) is ANSWERED: the CPU `fft` shift is Enteropia-specific.** Not one of this host's `fft` rows got
+slower (ratios 0.54–0.99, median −6.5% at `-t1`) against `Enteropia`'s 1.38 on the row the finding names
+— opposite directions over overlapping periods. Since this box runs the *same* kernel Enteropia recorded
+post-reboot (`7.0.0-28-generic`), a platform-wide kernel or microcode cause is not merely unreproduced
+but positively **excluded**. **One new finding is open — `PERFORMANCE.md` §4(r):** every kernel-*taking*
+operation moved 20–45% on both backends, and decision 51 looks like the cause but is contradicted by the
+report's own `∘ radial` vs `∘ stored` rows (radial is *faster* on the very lane whose kernel-composed
+operators slowed). Recorded as unexplained rather than attributed. Traps and the full task list remain in
+the synced memory `aiporetne-verify-rocm-decisions-60-62`.
 **Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
 silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
 

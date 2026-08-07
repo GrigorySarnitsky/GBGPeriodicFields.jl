@@ -561,8 +561,9 @@ exception on a CPU**, where it does not vectorize and a hand-written twin is wor
 fused pass underperforms, **measure the launch shape and the traversal order before blaming the
 arithmetic** — both failed attempts here were layout problems wearing an arithmetic costume.
 
-**(p) CPU FFT at the larger grids moved 20–50% between the 2026-07-30 and 2026-08-05 sweeps, and the
-cause is not identified.** The full re-sweep of the 9800X3D lanes found a cluster confined to the `fft`
+**(p) CPU FFT at the larger grids moved 20–50% between the 2026-07-30 and 2026-08-05 sweeps on
+`Enteropia`, and the 2026-08-07 `Aiporetne` control says the cause is specific to that host.** The full
+re-sweep of the 9800X3D lanes found a cluster confined to the `fft`
 class: at ``256^3`` `Float64`, `-t1` `to_physical scalar` went 83.8 → 116.0 ms and `to_spectral scalar`
 171.9 → 207.4 ms; `-t8` saw `to_spectral vector` at ``128^3`` go 11.3 → 16.7 ms. **It is reproducible,
 not jitter** — three standalone probes of the ``256^3`` `Float64` rows returned 115.8 / 116.8 / 116.5
@@ -576,8 +577,19 @@ both sweeps); and not a machine-wide slowdown — the other **596** rows of the 
 drift of ``-0.12\%``, so only the FFT rows moved. It is CPU-only: the cuFFT lane shows no `fft` row
 among its movers. The one difference the record does show is a reboot between the two sweeps
 (current kernel `7.0.0-28-generic`), and no pre-reboot kernel or microcode version was recorded, so a
-platform change can be neither confirmed nor excluded. **Treat `fft` rows as comparable only within a
-vintage** until a sweep on a host with a recorded platform state settles it.
+platform change can be neither confirmed nor excluded on that host alone.
+
+**The control ran on `Aiporetne` (i7-12700K) on 2026-08-07, and the shift does not reproduce.** That
+host's lanes were last measured 2026-07-22, so the comparison spans an even wider commit range than the
+one that produced the finding, and **not one `fft` row got slower**: the ratios run ``0.54``–``0.99``
+with a median of ``-6.5\%`` at `-t1`, every row therefore flat or faster, against `Enteropia`'s ``1.38``
+on the row the finding names. The two hosts moved in opposite directions over overlapping periods.
+`Aiporetne` runs kernel `7.0.0-28-generic` — **the same version `Enteropia` recorded after its reboot** —
+so if a kernel or microcode change were responsible, this host should show the slow vintage and instead
+shows the fast one. That exonerates the platform version specifically, which is stronger than a bare
+failure to reproduce, and leaves the cause in `Enteropia`'s own machine state. **Treat `fft` rows as
+comparable only within a vintage**, and treat the movement as a property of that host rather than of the
+package or of the Linux version.
 
 **(q) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through
@@ -588,6 +600,32 @@ completed. Re-running the identical lane succeeded (30m31s, `rc=0`), so the faul
 Nothing was corrupted: `characterize.jl` writes its JSON only at the end, so the crash left the previous
 archive intact rather than half-written — worth knowing, because a harness that wrote incrementally
 would have produced a silently mixed-vintage column instead.
+
+**(r) Every kernel-taking operation moved 20–45% between the 2026-07-22 and 2026-08-07 `Aiporetne`
+sweeps, on both backends, and the cause is NOT the one it first appears to be.** The re-sweep's slower
+rows are almost exactly the set of operations that *take* a kernel — `divergence!∘kernel`,
+`helmholtz!∘kernel`, `convolve!`, `combine!∘kernel`, `exponential_convolve!` — across every thread count,
+both element types, and the RX 7900 XTX as well as the 12700K. Forty-seven rows exceed 20%. It appears on
+**both** backends over the same commit range, which is this document's own discriminator against
+contention, and the untouched columns in the same regenerated report reproduce bit-for-bit at
+``+0.0\%``, so it is not an artefact of reassembly.
+
+The obvious explanation is decision 51, since the same sweep shows the kernel *builders* collapsing from
+``O(N^3)`` to ``O(1)`` — `spectral_band` on the 12700K went from 4.252 ms at ``128^3`` and 46.1 ms at
+``256^3`` to **12.4 ns at every grid from ``64^3`` to ``512^3``**, the grid-independence being the
+signature of a closure replacing an array. **That explanation does not survive the within-column check.**
+The report now carries direct `∘ radial` versus `∘ stored` rows, and at ``128^3`` `Float64` `convolve!
+vector` the radial kernel is only 5% slower on the 7900 XTX (1.342 vs 1.273 ms) and 26% **faster** on the
+12700K at `-t8` (2.914 vs 3.929 ms). A storage class that is faster on the very lane whose kernel-composed
+operators slowed by 20–40% cannot be what slowed them. Decision 51 *is* confirmed as the cause of the
+canary's own `convolve!` movement, measured directly at that workload (stored 442.5 µs, radial 636.3 µs,
+ratio ``1.438``, results bitwise equal) — but the canary workload and the swept operator rows are not the
+same measurement, and the sweep-level cluster remains **unexplained**. The other candidates, none yet
+tested, are the kernel-protocol changes that landed in the same window: the protocol's move into `Fields`
+with every kernel arity widened, decision 60's retyping of the kernel classes, and decision 61's move of
+the coordinates into a radial kernel's type. Recorded as open rather than attributed, because a
+locally-plausible cause that the data contradicts is exactly the failure mode finding (o) and decision 62
+were both written to warn about.
 
 ## 5. The benchmark suite
 
