@@ -64,10 +64,72 @@ _char_type(s) = s == "Float64" ? Float64 : s == "Float32" ? Float32 :
 const CHAR_TYPES = haskey(ENV, "CHAR_TYPES") ?
   Tuple(_char_type(strip(s)) for s in split(ENV["CHAR_TYPES"], ",")) : TYPES
 BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
-# On GPU, GC before each sample so allocating reductions (lpnorm's per-call magnitude temp) do not
-# exhaust the AMDGPU memory pool under BenchmarkTools' GC-free sampling loop — without this the
-# `reductions` class wedges the device (full pool + spinning allocator; docs/PERFORMANCE.md §7).
-USEGPU && (BenchmarkTools.DEFAULT_PARAMETERS.gcsample = true)
+# `gcsample` is decided PER ROW on the GPU, by `_apply_gcsample_policy!` below. It used to be set
+# globally here, which cost every device row a full `GC.gc()` before every sample and inflated the
+# whole GPU corpus 2–29× — the operations were not what was being timed (docs/PERFORMANCE.md §4(s)).
+# It cannot simply be dropped: it is what stops an allocating row exhausting the pool.
+
+# A row needs the per-sample GC only if it CREATES device arrays fast enough to exhaust the pool
+# during its own trial. Host bytes are NOT the signal — a KernelAbstractions launch allocates host
+# bytes per call, so every launching row looks allocating by that measure — so the device pool is
+# measured directly: with the collector disabled, an allocating row's buffers cannot be reclaimed and
+# the pool grows, while an in-place row's pool is exactly flat. Measured at 128³ this reproduces
+# invariant 13's documented materializer list on its own (`lpnorm` 144 MiB, `radial_correlation`
+# 1310 MiB, the spectral `inner`'s correction planes 13.5 MiB, `materialize_kernel` 146 MiB) and
+# gives 0.0 MiB for every in-place operation.
+const GCSAMPLE_PROBE_CALLS = 8
+# The trigger is the growth PROJECTED over a whole trial, not the bytes per call: a row allocating a
+# little but running very often is the same wedge as one allocating a lot rarely, and a flat
+# byte threshold cannot see the difference.
+const GCSAMPLE_TRIAL_BUDGET = 2 * 2^30   # 2 GiB of pool growth tolerated within one row's trial
+
+_device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) :
+                                 AMDGPU.used_memory()
+
+"""
+    _apply_gcsample_policy!(suite) -> Vector{String}
+
+Set `gcsample` per benchmark from a measured device-pool probe, and return the rows that kept it.
+
+Each row is warmed up (so compilation is not measured), then run `GCSAMPLE_PROBE_CALLS` times with
+the collector disabled while the device pool is watched. The growth is projected over the row's trial
+budget from its own per-call time; a row projected to exceed `GCSAMPLE_TRIAL_BUDGET` keeps the
+per-sample GC, and every other row — the whole in-place surface — runs without it and is therefore
+timed on the operation rather than on the collector (docs/PERFORMANCE.md §4(s)).
+
+Any failure to probe leaves the row on the safe setting, so the fail-safe direction is preserved:
+an unclassifiable row behaves exactly as it did before this policy existed.
+"""
+function _apply_gcsample_policy!(suite)
+  kept = String[]
+  for (class, group) in suite, (key, benchmark) in group
+    allocating = try
+      warmup(benchmark)
+      GC.gc(true)
+      USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
+      before = _device_used_bytes()
+      GC.enable(false)
+      probe = try
+        run(benchmark; samples = GCSAMPLE_PROBE_CALLS, evals = 1,
+            gcsample = false, gctrial = false)
+      finally
+        GC.enable(true)
+      end
+      growth_per_call = max(0, _device_used_bytes() - before) / GCSAMPLE_PROBE_CALLS
+      seconds_per_call = time(minimum(probe)) / 1e9
+      calls_per_trial = seconds_per_call > 0 ?
+        benchmark.params.seconds / seconds_per_call : Inf
+      growth_per_call * calls_per_trial > GCSAMPLE_TRIAL_BUDGET
+    catch
+      true                             # unclassifiable ⇒ keep the old, safe behaviour
+    end
+    benchmark.params.gcsample = allocating
+    allocating && push!(kept, "$(class)/$(strip(split(key, '|')[1]))")
+    GC.gc(true)
+    USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
+  end
+  return kept
+end
 
 # Classes to drop before tuning/running, e.g. `CHAR_SKIP=fft` (a generic escape hatch — empty by
 # default; the GPU runs FFT fine, see gap 5).
@@ -99,6 +161,12 @@ for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
   flush(stdout)
   others = filter(!=(class), collect(CLASSES))
   suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
+  if USEGPU
+    kept = _apply_gcsample_policy!(suite)
+    println("  per-sample GC kept for $(length(kept)) allocating row(s)",
+            isempty(kept) ? "" : ": " * join(kept, ", "))
+    flush(stdout)
+  end
   tune!(suite)
   results = run(suite; verbose = false)
   for key in keys(results[class])

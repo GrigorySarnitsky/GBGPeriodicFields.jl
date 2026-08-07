@@ -685,16 +685,39 @@ canary baselines are affected. Cross-card GPU comparisons are affected twice ove
 free-and-synchronize cost differs; the recorded "RTX 5070 Ti is ≈1.8× the RX 7900 XTX" is not safe to
 rely on until re-measured.
 
-**Why it is there, and why the fix is not simply deleting it.** It was added deliberately (2026-06-11)
+**Why it was there, and why deleting it was not the fix.** It was added deliberately (2026-06-11)
 because the `reductions` class wedged the device: `lpnorm` materializes a magnitude field per call,
 BenchmarkTools' sampling loop does almost no *host* allocation, so Julia's GC never fired, and the
-AMDGPU pool grew until the allocator spun. That failure is real and a bare `gcsample = false` reinstates
-it. The fix has to keep a GC discipline while moving it off the per-sample path — `gctrial` (already on
-by default) collects once per benchmark rather than once per sample, and the loop in `characterize.jl`
-already does `GC.gc(true)` plus `reclaim()` between every (class, grid, type). Whether those two suffice
-for the allocating rows is an empirical question and **has not been tested**, which is why nothing has
-been changed here yet. **Until it is, a device row measures the harness as much as the package, and no
-GPU re-sweep should be compared against the existing archives.**
+AMDGPU pool grew until the allocator spun. That failure is real, and a bare `gcsample = false`
+reinstates it.
+
+**The fix, landed and validated: `gcsample` is now decided PER ROW, by measurement.** Only a row that
+creates device arrays fast enough to exhaust the pool within its own trial needs the per-sample
+collector, and `_apply_gcsample_policy!` in `characterize.jl` finds those rows rather than assuming
+them. Each row is warmed up, then run with the collector **disabled** while the device pool is watched;
+the growth is projected over the trial from the row's own per-call time, and a row projected to exceed
+2 GiB keeps `gcsample`. Host bytes cannot serve as the signal — a KernelAbstractions launch allocates
+host bytes per call, so a first attempt using them classified every launching row as allocating and
+changed nothing.
+
+**The probe's own output is the evidence it works, because it independently reproduces invariant 13.**
+At ``128^3`` it measures 0.0 MiB of pool growth for *every* in-place operation and finds exactly the
+documented materializers: `lpnorm` 144 MiB, `radial_correlation` and the cross-correlation 1310 MiB,
+the spectral `inner`'s ``O(N^2)`` correction planes 13.5 MiB, `materialize_kernel` 146 MiB. That list
+was written from the code years before this probe existed, and the probe was not told it.
+
+**Validated on the case the setting existed for.** Running `characterize.jl` itself over `convolution`
+and `reductions` at ``128^3`` **and** ``256^3`` `Float64`: it completes without wedging, keeps
+`gcsample` on exactly six rows (the two `materialize_kernel` rows and the four documented reduction
+materializers), and the in-place rows recover their physics — `convolve!` scalar against vector reads
+57.3 against 181.0 µs, a ratio of ``3.16`` matching the data volume, where the archive read 1.094
+against 1.177 ms. The figures reproduce an independent `gcsample = false` measurement to within 1%.
+CPU lanes are untouched, the policy being gated on the backend.
+
+**The existing archives are still the old regime.** The harness is fixed; the numbers in `RESULTS.md`
+are not, because they were measured before it. Every GPU column needs a re-sweep before it means
+anything, and until that happens a GPU cell is an upper bound of unknown tightness and must not be
+compared against a freshly measured one.
 
 ## 5. The benchmark suite
 

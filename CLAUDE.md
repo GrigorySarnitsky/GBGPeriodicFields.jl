@@ -1281,11 +1281,19 @@ ms — 3× the bytes showing as 1.08× — where the true figures are 57 and 182
 factor, so it corrupts within-column comparisons too, and at least one recorded conclusion reverses:
 decision 51's radial kernel is **faster** than the stored class on the 7900 XTX, not slower, so
 `bd1e4f30`'s "opposite sign on the two vendors" is **retracted**. **CPU columns and CPU canary baselines
-are clean.** Deleting `gcsample` is not the fix — it exists because the `reductions` class wedged the
-device pool (2026-06-11) — so the fix must keep a GC discipline off the per-sample path (`gctrial`, plus
-the existing per-(class, grid, type) `GC.gc(true)` + `reclaim()`), and that has **not been tested**.
-Until it is, treat every GPU cell as an upper bound of unknown tightness, and do not compare a new GPU
-sweep against the existing archives.
+are clean.** Deleting `gcsample` was not the fix — it exists because the `reductions` class wedged the
+device pool (2026-06-11). **The harness is now FIXED and validated:** `_apply_gcsample_policy!` in
+`characterize.jl` decides `gcsample` **per row from a measured device-pool probe** (warm up, run with
+the collector disabled, watch the pool, project the growth over the trial from the row's own per-call
+time; keep `gcsample` above 2 GiB). Host bytes cannot be the signal — a KA launch allocates host bytes
+per call, and a first attempt using them classified everything as allocating. The probe independently
+reproduces invariant 13's materializer list (0.0 MiB for every in-place op; `lpnorm` 144 MiB,
+`radial_correlation` 1310 MiB, spectral `inner` 13.5 MiB, `materialize_kernel` 146 MiB), and
+`characterize.jl` over `convolution` + `reductions` at 128³ **and** 256³ completes without wedging,
+keeps `gcsample` on exactly six rows, and restores the physics (`convolve!` scalar 57.3 vs vector 181.0
+µs, ratio 3.16). **But `RESULTS.md`'s GPU columns predate the fix and have NOT been re-swept** — they
+are still the old regime, so treat every GPU cell as an upper bound of unknown tightness and never
+compare one against a freshly measured value. A GPU re-sweep is the outstanding work.
 
 **§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
 is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
