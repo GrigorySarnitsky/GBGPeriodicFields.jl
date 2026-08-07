@@ -1520,6 +1520,24 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   as usual: correctness tests (a permutation is a bijection; the gathered values must be invariant under
   reordering, which is the real oracle), GPU parity, a benchmark row, and the four guiding docs.
 
+- **Wrap-hoist in the transfer kernels — REOPENED and the safest of the three to act on (recorded
+  2026-08-07).** `PERFORMANCE.md` §3 rejected it as a 10–14% regression on the default `CatmullRom`.
+  Re-measured on current hardware the sign reverses: hoisted is **10–30% faster on the RX 7900 XTX**
+  for `CatmullRom` at every grid, and the **CPU — never tested for this — wins by up to 3.6×**
+  (`CatmullRom` 0.37–0.61, `Lalescu(3,3)` 0.28–0.36 hoisted-over-base). The recorded occupancy
+  mechanism is still right and still binds at ``R = 3`` on the GPU, where 24 registers per thread turn
+  a 2× win at 64³ into a **2× loss at 256³** — so any adoption is **scheme- and size-dependent**, not
+  unconditional.
+
+  **Why this is the safest of the reopened items for a consumer in final development:** the hoist is
+  **bit-identical and purely internal**. No API, no new type, no dependency, no behaviour change —
+  `GBGIsotropicTurbulence` would see identical numbers and only a different speed. Contrast the Morton
+  study, which needs new surface. **Caveat that gates it:** the re-measurement used *standalone* kernels
+  sharing the package's loop order but not its spline weights, with the hoist written via `ntuple`; it
+  establishes that the trade is worth re-examining, **not** what the package's own kernel would do. So
+  the first step is porting the variant into `Interpolation.jl` behind the existing scheme dispatch and
+  re-running the transfer class, not adopting these ratios.
+
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).

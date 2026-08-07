@@ -192,7 +192,35 @@ is the recorded choice for both platforms.
 
 - **Wrap-hoist** (precompute the ``3(2n{+}2)`` periodic node offsets to kill inner-loop `mod`s):
   bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
-  occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound.
+  occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound. **RE-MEASURED 2026-08-07 and
+  REOPENED: the sign is reversed for the default scheme, and the CPU was never tested.** Two kernels
+  differing only in where the wrap is computed, verified bitwise equal, ratios hoisted-over-base:
+
+(a table cannot render inside a list item, so the ratios are listed by scheme, in grid order
+  ``64^3``, ``128^3``, ``256^3``, ``512^3``):
+
+  - GPU trilinear — 0.969, 0.990, 0.978, 0.992
+  - GPU `CatmullRom` — **0.698**, **0.713**, 0.829, 0.895
+  - GPU `Lalescu(3,3)` — **0.516**, 1.122, **2.017**, (not run)
+  - CPU trilinear — 0.897, 0.843, 0.884, 0.843
+  - CPU `CatmullRom` — **0.368**, **0.433**, 0.584, 0.607
+  - CPU `Lalescu(3,3)` — **0.276**, **0.297**, 0.359, (not run)
+
+  Three things follow. **The recorded occupancy mechanism is right**, and ``R = 3`` on the GPU is where
+  it shows: 24 registers per thread turns a ``2\times`` win at ``64^3`` into a ``2\times`` loss at
+  ``256^3`` as the working set grows and occupancy becomes the binding constraint. **But it does not
+  bite the default scheme on RDNA3** — `CatmullRom` hoisted is 10–30% *faster* at every grid, where the
+  RX 6700 XT recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
+  everywhere** — up to ``3.6\times`` — which is what the mechanism predicts: a CPU thread has no
+  occupancy to lose, and `mod` by a *runtime* grid size is a genuine integer division rather than a
+  compiler-strength-reduced constant. That matters because the CPU path carries the beyond-VRAM grids
+  (ARCHITECTURE.md decision 37). On both backends the benefit **shrinks as the grid grows** and the
+  gather becomes more latency-bound, converging toward 1 without crossing it for ``W \le 4``.
+
+  **Reopened, not adopted**, and the caveat is load-bearing: these are *standalone* kernels sharing the
+  package's loop order but not its spline weights, and the hoist is written with `ntuple`, which need
+  not compile like the original attempt did. The ratios establish that the trade is worth re-examining
+  on current hardware, **not** what the package's own kernel would measure.
 - **Morton particle sorting** (the textbook GPU-locality optimization): recorded as **0.5–1.0× on GPU**
   (gather) — concentrating access *kills* the memory-level/DRAM-bank parallelism the GPU needs, and the
   field is cache-resident anyway — though **2.2–4.4× on CPU**. **That gather result does NOT reproduce on
@@ -974,8 +1002,12 @@ inflation's per-row variance, and none can be re-checked from this box:
     sort is not what the measurement times. `interpolate!` still exists and Morton order is just a
     permutation of the `PointSet`, which a host `sortperm` produces perfectly well for a benchmark. See
     §3, where the entry now carries the re-measurement.
-  - **The wrap-hoist rejection** — a 10–14% GPU regression, likewise inside the variance, likewise on the
-    retired card.
+  - **The wrap-hoist rejection — RE-MEASURED, and reopened (see §3).** Filing it here as a `gcsample`
+    casualty was probably wrong twice over: the record describes a "same-session A/B", i.e. an ad-hoc
+    comparison that `BenchmarkTools` would have run with `gcsample = false` anyway, so the defect likely
+    never touched it. What it *was* at risk from is the same thing as Morton — retired RDNA2 hardware.
+    Re-measured on RDNA3 the sign reverses for the default scheme (`CatmullRom` hoisted 10–30% *faster*,
+    against a recorded 10–14% slower) and the CPU, never tested for this, wins by up to ``3.6\times``.
   - **Decision 42's GPU figure — RE-CHECKED on the RX 7900 XTX, and it is a tie.** The recorded
     "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`" was measured on the RTX 5070 Ti,
     so this is a different card rather than a direct re-run. Both variants written as standalone
