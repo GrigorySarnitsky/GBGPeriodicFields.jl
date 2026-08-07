@@ -579,17 +579,32 @@ among its movers. The one difference the record does show is a reboot between th
 (current kernel `7.0.0-28-generic`), and no pre-reboot kernel or microcode version was recorded, so a
 platform change can be neither confirmed nor excluded on that host alone.
 
-**The control ran on `Aiporetne` (i7-12700K) on 2026-08-07, and the shift does not reproduce.** That
-host's lanes were last measured 2026-07-22, so the comparison spans an even wider commit range than the
-one that produced the finding, and **not one `fft` row got slower**: the ratios run ``0.54``–``0.99``
-with a median of ``-6.5\%`` at `-t1`, every row therefore flat or faster, against `Enteropia`'s ``1.38``
-on the row the finding names. The two hosts moved in opposite directions over overlapping periods.
+**The control ran on `Aiporetne` (i7-12700K) on 2026-08-07, and at the larger grids the shift does not
+reproduce.** That host's lanes were last measured 2026-07-22, so the comparison spans an even wider
+commit range than the one that produced the finding. Across its **192** `fft` rows (four thread lanes ×
+48) exactly **one** row at ``256^3`` moved slower, by ``+1.0\%``, against `Enteropia`'s ``+38\%`` on the
+row the finding names; the per-lane medians run ``-4.5\%`` to ``-6.8\%``. State this precisely rather
+than as "nothing got slower", which a first pass over a single lane wrongly suggested: **23 of the 192
+rows did move slower**, but all except that one ``256^3`` row sit at ``64^3`` or ``128^3``, and the three
+exceeding 20% (``+46.8\%``, ``+23.5\%``, ``+22.2\%``) are all small-grid cells at `-t4`/`-t8`, where
+thread overhead dominates a workload of well under a millisecond and the scatter is largest. The finding
+is about the *larger* grids, and there the two hosts moved in opposite directions over overlapping
+periods.
 `Aiporetne` runs kernel `7.0.0-28-generic` — **the same version `Enteropia` recorded after its reboot** —
 so if a kernel or microcode change were responsible, this host should show the slow vintage and instead
 shows the fast one. That exonerates the platform version specifically, which is stronger than a bare
-failure to reproduce, and leaves the cause in `Enteropia`'s own machine state. **Treat `fft` rows as
-comparable only within a vintage**, and treat the movement as a property of that host rather than of the
-package or of the Linux version.
+failure to reproduce, and leaves the cause in `Enteropia`'s own machine state.
+
+**The control's own movement is equally unexplained, and saying so is the point.** `Aiporetne`'s `fft`
+rows did not merely fail to slow — they got materially *faster*, by 5–46% at the larger grids, with the
+`FFTW.MEASURE` twins moving most (``256^3`` `Float32` `to_spectral scalar measure`, `-t1`: 64.8 → 35.0
+ms, a ratio of ``0.54``). No package change touches the transform path over that range either. So both
+hosts show an `fft`-class-confined shift across a re-sweep, in opposite directions, with unrecorded
+platform state on both sides. The conservative reading is not that one host regressed and the other did
+not, but that **`fft` timings are not stable across sweeps on either host** while the conditions of a
+sweep go unrecorded — which is exactly what the vintage caveat exists to express. Whatever moves them is
+below the package, and neither direction has been traced. **Treat `fft` rows as comparable only within a
+vintage**, and treat a cross-vintage `fft` comparison as uninformative rather than as evidence.
 
 **(q) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through

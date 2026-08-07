@@ -1271,11 +1271,15 @@ plain invocation covers it and the old advice to override `CHAR_SIZES` is obsole
 regenerated with **all twelve columns intact**, verified by the untouched columns reproducing
 bit-for-bit at +0.0%.
 
-**§4(p) is ANSWERED: the CPU `fft` shift is Enteropia-specific.** Not one of this host's `fft` rows got
-slower (ratios 0.54–0.99, median −6.5% at `-t1`) against `Enteropia`'s 1.38 on the row the finding names
-— opposite directions over overlapping periods. Since this box runs the *same* kernel Enteropia recorded
-post-reboot (`7.0.0-28-generic`), a platform-wide kernel or microcode cause is not merely unreproduced
-but positively **excluded**. **One new finding is open — `PERFORMANCE.md` §4(r):** every kernel-*taking*
+**§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
+is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
+256³ moved slower, by +1.0%, against `Enteropia`'s +38% (23 rows did move slower, but all the rest sit at
+64³/128³, the three over 20% being small-grid `-t4`/`-t8` cells; the first pass over one lane wrongly
+read as "nothing got slower"). Since this box runs the *same* kernel Enteropia recorded post-reboot
+(`7.0.0-28-generic`), a platform-wide kernel or microcode cause is positively **excluded**. But this
+host's `fft` rows moved *faster* by 5–46% over the same kind of comparison, equally unexplained, so the
+honest reading is that `fft` timings are unstable across sweeps on both hosts while sweep conditions go
+unrecorded — a cross-vintage `fft` comparison is uninformative, not evidence. **One new finding is open — `PERFORMANCE.md` §4(r):** every kernel-*taking*
 operation moved 20–45% on both backends, and decision 51 looks like the cause but is contradicted by the
 report's own `∘ radial` vs `∘ stored` rows (radial is *faster* on the very lane whose kernel-composed
 operators slowed). Recorded as unexplained rather than attributed. Traps and the full task list remain in
