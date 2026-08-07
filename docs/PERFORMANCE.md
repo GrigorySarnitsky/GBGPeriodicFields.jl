@@ -625,11 +625,16 @@ both element types, and the RX 7900 XTX as well as the 12700K. Forty-seven rows 
 contention, and the untouched columns in the same regenerated report reproduce bit-for-bit at
 ``+0.0\%``, so it is not an artefact of reassembly.
 
-**Its GPU half is confounded by finding (s) below and cannot be read as stated; the CPU half stands.**
-`gcsample` is set for device lanes only, so the 12700K rows are clean measurements and the 7900 XTX
-rows are not. What follows was written before (s) was found, and the `∘ radial` versus `∘ stored`
-comparison it leans on is one of the numbers (s) invalidates — kept because the CPU cluster it also
-documents is real and still unexplained.
+**Its GPU half is UNANSWERABLE and the question is closed; the CPU half stands and is still open.**
+`gcsample` is set for device lanes only, so the 12700K rows were always clean and the 7900 XTX rows
+never were. Both archives this finding compared were measured in the broken regime of (s), so the GPU
+cluster is a difference between two collector-dominated measurements and says nothing about the
+operations; and it cannot be recovered, because answering it now would need the *old code* re-measured
+on the *fixed* harness, which no existing archive contains. The GPU half is therefore withdrawn rather
+than explained. **The `∘ radial` versus `∘ stored` comparison below is one of the numbers (s)
+invalidates** — on the fixed harness radial is 9–12% *faster* than its stored twin at both ``128^3``
+and ``256^3``, so the argument as written does not stand. What follows is kept for the CPU cluster,
+which is real, `gcsample`-free, and unexplained.
 
 The obvious explanation is decision 51, since the same sweep shows the kernel *builders* collapsing from
 ``O(N^3)`` to ``O(1)`` — `spectral_band` on the 12700K went from 4.252 ms at ``128^3`` and 46.1 ms at
@@ -714,10 +719,39 @@ materializers), and the in-place rows recover their physics — `convolve!` scal
 against 1.177 ms. The figures reproduce an independent `gcsample = false` measurement to within 1%.
 CPU lanes are untouched, the policy being gated on the backend.
 
-**The existing archives are still the old regime.** The harness is fixed; the numbers in `RESULTS.md`
-are not, because they were measured before it. Every GPU column needs a re-sweep before it means
-anything, and until that happens a GPU cell is an upper bound of unknown tightness and must not be
-compared against a freshly measured one.
+**The probe could wedge the card it was written to protect, and did.** It runs GC-free, so its first
+version's fixed eight calls were themselves an unbounded allocation: `transfer` at ``256^3``, whose
+NUFFT allocates oversampled work arrays per call, filled the pool and hung a re-sweep for two and a
+half hours with VRAM at 99%, device activity at 0%, and one core spinning in the allocator. The
+`catch`-based fail-safe did not fire because **a wedge is a hang, not an exception**. The probe is now
+bounded by memory with an early exit — one call at a time, stopping the moment growth passes 512 MiB,
+which is already decisive — so its peak use is that ceiling plus one call rather than the pool.
+`SIGTERM` did not reach the spinning process; `SIGKILL` released the pool cleanly and the archive
+survived, `characterize.jl` writing its JSON only at the end.
+
+**An allocating row need not pay a GC per sample either.** Since the probe measures per-call growth,
+`samples` is capped from it (a 4 GiB budget, `evals` pinned to 1) and the row runs GC-free with a
+bounded pool. This matters because the user-facing transforms allocate their result by definition, so
+the whole device `fft` column was otherwise still timed on the collector. Only a row whose *single*
+call is too large to repeat — the vector transforms, at ~400 MB each — keeps the per-sample GC. A
+capped row's parameters are deliberate and must not be passed to `tune!`, which would search `evals`
+upward and undo the cap.
+
+**Re-swept 2026-08-07, and the correction is the size the A/B predicted.** Against the pre-fix archive,
+the RX 7900 XTX column moved by a median of ``-81.6\%`` over 467 rows: `operators` ``-92.0\%``,
+`convolution` ``-85.0\%``, `algebra` ``-82.9\%``, `reductions` ``-81.1\%``, `transfer` ``-80.6\%``,
+`fft` ``-71.7\%``. Individual rows fall 97%. The physics is back — `convolve!` scalar against vector at
+``128^3`` reads 57.3 against 180.0 µs, a ratio of ``3.14`` matching the data volume, where the old
+column read 1.094 against 1.177 ms. The canary was refrozen on the fixed harness and is green with
+**zero** rows needing the per-sample GC, every canary being an in-place mechanism: that lane had been
+pure collector overhead.
+
+**`RESULTS.md` now holds two GPU columns in different regimes.** The RX 7900 XTX is fixed-regime; the
+RTX 5070 Ti has not been re-swept and is still inflated, so the two **must not be compared with each
+other** until the `Enteropia` lane is re-run. The two retired columns (GTX 1070, RX 6700 XT) were
+dropped rather than carried: both were measured in the broken regime and neither card exists to be
+re-measured, so they could never be corrected or compared, and a column like that invites exactly the
+comparison it cannot support.
 
 ## 5. The benchmark suite
 

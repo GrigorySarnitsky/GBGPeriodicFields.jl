@@ -1271,29 +1271,29 @@ plain invocation covers it and the old advice to override `CHAR_SIZES` is obsole
 regenerated with **all twelve columns intact**, verified by the untouched columns reproducing
 bit-for-bit at +0.0%.
 
-**BLOCKING, and it invalidates every GPU number the project has: `PERFORMANCE.md` §4(s).** Device lanes
-run `gcsample = true` (both `characterize.jl` and `regress.jl`, gated on the backend), so a full
-`GC.gc()` — finalizers freeing device buffers, synchronizing — precedes **every sample** and dominates
-operations lasting tens of microseconds. Measured A/B with only that parameter changed: **18.4–29.2× at
-64³, 5.8–19.8× at 128³, still 1.9–4.25× at 256³**, the inflated values reproducing the committed archive.
-The tell was always in the table: `convolve! scalar` and `convolve! vector` at 128³ read 1.094 and 1.177
-ms — 3× the bytes showing as 1.08× — where the true figures are 57 and 182 µs. It is **not** a uniform
-factor, so it corrupts within-column comparisons too, and at least one recorded conclusion reverses:
-decision 51's radial kernel is **faster** than the stored class on the 7900 XTX, not slower, so
-`bd1e4f30`'s "opposite sign on the two vendors" is **retracted**. **CPU columns and CPU canary baselines
-are clean.** Deleting `gcsample` was not the fix — it exists because the `reductions` class wedged the
-device pool (2026-06-11). **The harness is now FIXED and validated:** `_apply_gcsample_policy!` in
-`characterize.jl` decides `gcsample` **per row from a measured device-pool probe** (warm up, run with
-the collector disabled, watch the pool, project the growth over the trial from the row's own per-call
-time; keep `gcsample` above 2 GiB). Host bytes cannot be the signal — a KA launch allocates host bytes
-per call, and a first attempt using them classified everything as allocating. The probe independently
-reproduces invariant 13's materializer list (0.0 MiB for every in-place op; `lpnorm` 144 MiB,
-`radial_correlation` 1310 MiB, spectral `inner` 13.5 MiB, `materialize_kernel` 146 MiB), and
-`characterize.jl` over `convolution` + `reductions` at 128³ **and** 256³ completes without wedging,
-keeps `gcsample` on exactly six rows, and restores the physics (`convolve!` scalar 57.3 vs vector 181.0
-µs, ratio 3.16). **But `RESULTS.md`'s GPU columns predate the fix and have NOT been re-swept** — they
-are still the old regime, so treat every GPU cell as an upper bound of unknown tightness and never
-compare one against a freshly measured value. A GPU re-sweep is the outstanding work.
+**RESOLVED — the GPU measurement defect and its re-sweep: `PERFORMANCE.md` §4(s).** Device lanes ran
+`gcsample = true`, so a full `GC.gc()` preceded **every sample** and dominated operations lasting tens
+of microseconds — **18.4–29.2× at 64³, 5.8–19.8× at 128³, 1.9–4.25× at 256³**. The tell was always in
+the table: `convolve! scalar` and `convolve! vector` at 128³ read 1.094 and 1.177 ms, 3× the bytes
+showing as 1.08×. It was **not** a uniform factor, so one recorded conclusion reversed: decision 51's
+radial kernel is **9–12% faster** than the stored class on the 7900 XTX, not slower, and `bd1e4f30`'s
+"opposite sign on the two vendors" is **retracted**. **CPU columns were never affected.**
+
+**Fixed and re-swept.** `_apply_gcsample_policy!` in `characterize.jl` (mirrored in `regress.jl`)
+decides the discipline **per row from a measured device-pool probe**: flat rows run GC-free; allocating
+rows get `samples` capped from their measured per-call growth (4 GiB budget, `evals` pinned to 1, so
+they are timed on the operation too); only a row whose single call is too large to repeat keeps the
+per-sample GC. **Two traps, both hit and both fixed:** host bytes are not the signal (a KA launch
+allocates host bytes per call, so a first attempt classified everything as allocating), and the probe
+runs GC-free so a fixed call count can itself wedge the card — `transfer` at 256³ hung a sweep for 2.5
+hours, and `catch => true` never fired because **a wedge is a hang, not an exception**. The probe is now
+bounded by memory with an early exit. A capped row must never be passed to `tune!`.
+
+The 7900 XTX was re-swept 2026-08-07: median **−81.6%** over 467 rows, `convolve!` scalar-to-vector
+ratio back to 3.14, canary green with **zero** rows needing the GC. **`RESULTS.md` now holds two GPU
+columns in DIFFERENT regimes** — the 7900 XTX is fixed, the **5070 Ti is not and must not be compared
+against it** until `Enteropia` re-sweeps. The two retired columns were dropped (broken regime, no card
+to re-measure). **Outstanding: the `Enteropia` GPU re-sweep.**
 
 **§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
 is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
