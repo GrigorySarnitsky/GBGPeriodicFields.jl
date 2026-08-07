@@ -82,6 +82,13 @@ const GCSAMPLE_PROBE_CALLS = 8
 # little but running very often is the same wedge as one allocating a lot rarely, and a flat
 # byte threshold cannot see the difference.
 const GCSAMPLE_TRIAL_BUDGET = 2 * 2^30   # 2 GiB of pool growth tolerated within one row's trial
+# The probe runs with the collector DISABLED, which makes it capable of the very wedge it exists to
+# prevent: the first version ran a fixed 8 calls, and `transfer` at 256³ — whose NUFFT allocates
+# oversampled work arrays per call — filled a 24 GB pool and hung the sweep (VRAM 99%, GPU activity
+# 0%, one core spinning in the allocator). Bound the probe by MEMORY and stop early: once growth is
+# unmistakable the answer is already known, so there is no reason to keep allocating to confirm it.
+# Peak probe usage is therefore this ceiling plus one call's allocation, never the pool.
+const GCSAMPLE_PROBE_CEILING = 512 * 2^20   # 512 MiB of growth is already a decisive answer
 
 _device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) :
                                  AMDGPU.used_memory()
@@ -109,14 +116,20 @@ function _apply_gcsample_policy!(suite)
       USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
       before = _device_used_bytes()
       GC.enable(false)
-      probe = try
-        run(benchmark; samples = GCSAMPLE_PROBE_CALLS, evals = 1,
-            gcsample = false, gctrial = false)
+      calls, growth, fastest = 0, 0, Inf
+      try
+        for _ in 1:GCSAMPLE_PROBE_CALLS
+          trial = run(benchmark; samples = 1, evals = 1, gcsample = false, gctrial = false)
+          calls += 1
+          fastest = min(fastest, time(minimum(trial)))
+          growth = max(0, _device_used_bytes() - before)
+          growth > GCSAMPLE_PROBE_CEILING && break   # decisive already — stop before filling the pool
+        end
       finally
         GC.enable(true)
       end
-      growth_per_call = max(0, _device_used_bytes() - before) / GCSAMPLE_PROBE_CALLS
-      seconds_per_call = time(minimum(probe)) / 1e9
+      growth_per_call = growth / calls
+      seconds_per_call = fastest / 1e9
       calls_per_trial = seconds_per_call > 0 ?
         benchmark.params.seconds / seconds_per_call : Inf
       growth_per_call * calls_per_trial > GCSAMPLE_TRIAL_BUDGET

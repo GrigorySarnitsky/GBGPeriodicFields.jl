@@ -104,6 +104,52 @@ for (name, _, thunk) in CANARIES
   suite[name] = @benchmarkable ($thunk(); canary_sync()) samples = 100 evals = 5 seconds = 3 gcsample = USEGPU
 end
 
+# `gcsample = USEGPU` above is the SAFE default, not the intended one. A blanket per-sample GC on a
+# device inflates a canary 2–29× and times the collector rather than the mechanism
+# (docs/PERFORMANCE.md §4(s)), so the same measured policy `characterize.jl` uses is applied here:
+# only a row whose device-pool growth would exhaust the pool within its own trial keeps it. Every
+# canary is an in-place mechanism, so in practice none should — but this measures rather than assumes,
+# and any row that cannot be probed stays on the safe default.
+if USEGPU
+  const CANARY_TRIAL_BUDGET = 2 * 2^30
+  _device_used() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) : AMDGPU.used_memory()
+  _reclaim() = USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
+  kept = String[]
+  for (name, benchmark) in suite
+    allocating = try
+      warmup(benchmark)
+      GC.gc(true); _reclaim()
+      before = _device_used()
+      GC.enable(false)
+      # Bounded by memory with an early exit: the probe runs with the collector off, so a fixed call
+      # count can itself exhaust the pool (it did, on `transfer` at 256³ in characterize.jl).
+      calls, growth, fastest = 0, 0, Inf
+      try
+        for _ in 1:8
+          trial = run(benchmark; samples = 1, evals = 1, gcsample = false, gctrial = false)
+          calls += 1
+          fastest = min(fastest, time(minimum(trial)))
+          growth = max(0, _device_used() - before)
+          growth > 512 * 2^20 && break
+        end
+      finally
+        GC.enable(true)
+      end
+      per_call = growth / calls
+      seconds_per_call = fastest / 1e9
+      per_call * (seconds_per_call > 0 ? benchmark.params.seconds / seconds_per_call : Inf) >
+        CANARY_TRIAL_BUDGET
+    catch
+      true
+    end
+    benchmark.params.gcsample = allocating
+    allocating && push!(kept, name)
+    GC.gc(true); _reclaim()
+  end
+  println("canary: per-sample GC kept for $(length(kept)) row(s)",
+          isempty(kept) ? "" : ": " * join(sort(kept), ", "))
+end
+
 # A guard for the guard: if `canary_sync()` did not actually block, an asynchronous launch would
 # time the same with and without it. Ratio on a device is large (the pass is bandwidth-bound); on the
 # CPU the work is synchronous anyway, so the check is skipped rather than given a meaningless bound.
