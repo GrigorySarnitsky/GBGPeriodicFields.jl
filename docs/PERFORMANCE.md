@@ -193,9 +193,21 @@ is the recorded choice for both platforms.
 - **Wrap-hoist** (precompute the ``3(2n{+}2)`` periodic node offsets to kill inner-loop `mod`s):
   bit-identical, but **regressed the default Catmull–Rom by 10–14%** — the extra registers cut
   occupancy. Proof the kernels are memory/occupancy-bound, not ALU-bound.
-- **Morton particle sorting** (the textbook GPU-locality optimization): **0.5–1.0× on GPU** (gather)
-  — concentrating access *kills* the memory-level/DRAM-bank parallelism the GPU needs, and the field
-  is cache-resident anyway — though **2.2–4.4× on CPU**. The companion **atomic-free node-centric
+- **Morton particle sorting** (the textbook GPU-locality optimization): recorded as **0.5–1.0× on GPU**
+  (gather) — concentrating access *kills* the memory-level/DRAM-bank parallelism the GPU needs, and the
+  field is cache-resident anyway — though **2.2–4.4× on CPU**. **That gather result does NOT reproduce on
+  the RX 7900 XTX (re-measured 2026-08-07), and the question is reopened.** Identical points, reordered
+  only, at the same 1-per-27 density: Morton reaches **1.43×** (`Float32` ``128^3`` `CatmullRom`,
+  105.7 → 73.6 µs) and **1.40×** (`Float32` ``256^3`` trilinear, 116.8 → 83.4 µs), and helps in three of
+  four cells for `CatmullRom` — **the default scheme**. One cell clearly loses, `Float64` ``256^3``
+  trilinear at ``0.74\times``. The original was measured on the retired RX 6700 XT, so this is plausibly
+  an RDNA2-versus-RDNA3 difference rather than a bad measurement; either way the recorded range no longer
+  describes the hardware the project runs on. **It is reopened, not overturned**, and three things must
+  hold before it is adopted: the ordering must be rebuilt as points move (measured host cost 31.7 ms at
+  ``256^3``, paying back after 377 gathers; an on-device radix sort at an estimated 1–2 ms would pay back
+  after 12–24, which is the number that matters and is *not* yet measured), the benchmark compares
+  perfectly-sorted against perfectly-random while a real point set drifts between the two, and the
+  **companion scatter result below is unaffected and remains the larger objection**. The companion **atomic-free node-centric
   scatter** is correct, conserving and bit-**deterministic**, but **6–24× slower on GPU**: at our
   sparse 1-per-27 density it traverses ~27× more (empty) reverse-stencil cells than the atomic
   scatter touches particles. Sorting + node-centric deposition is a *dense*-particle (PIC) technique;
@@ -956,12 +968,12 @@ GPU figure below that floor cannot have been measured under it**.
 **At risk and NOT resolvable here.** These rest on GPU ratios small enough to sit inside the
 inflation's per-row variance, and none can be re-checked from this box:
 
-  - **The Morton-sorting rejection**, gather half — recorded at **0.5–1.0×**, a range straddling 1 on a
-    card (RX 6700 XT) that no longer exists, using an implementation and a dependency that were both
-    deleted. The scatter half (**6–24× slower**) is far outside the variance and stands. The rejection's
-    *mechanism* (concentrating access kills the memory-level parallelism a GPU needs) is also supported
-    independently by the CPU result moving the other way, ``2.2``–``4.4\times`` *faster*, on a path the
-    defect never touched.
+  - **The Morton-sorting rejection, gather half — RE-CHECKED, and it does not hold on the current
+    card.** This was first recorded here as unresolvable because the sorting dependency and the sorted
+    gather were deleted. That was wrong on the part that matters: only the *sort* was deleted, and the
+    sort is not what the measurement times. `interpolate!` still exists and Morton order is just a
+    permutation of the `PointSet`, which a host `sortperm` produces perfectly well for a benchmark. See
+    §3, where the entry now carries the re-measurement.
   - **The wrap-hoist rejection** — a 10–14% GPU regression, likewise inside the variance, likewise on the
     retired card.
   - **Decision 42's GPU figure** — "in-register ties in `Float32`, ``\approx 6\%`` slower in `Float64`".
@@ -1165,8 +1177,9 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    tree reductions, FFT, transfer gather/scatter, the binning) at ``128^3`` `Float64`,
    ``\sim``1–2 minutes per backend, judged on minimum times against a **committed** per-host
    baseline (`benchmark/baselines/<host>-<backend>[-tN].json`) at a 25% tolerance with a hard
-   exit code, plus the CPU serial-vs-threaded alarm ``t_\mathrm{threaded} \le 1.1
-   t_\mathrm{serial}`` on every override-governed canary — the alarm finding (l) lacked.
+   exit code, plus the CPU serial-vs-threaded alarm
+   ``t_\mathrm{threaded} \le 1.1 t_\mathrm{serial}`` on every override-governed canary — the alarm
+   that finding (l) lacked.
    Refreeze protocol: an intended slowdown reruns with `--freeze` **in the same commit**, with the
    reason. Calibration lesson from its first run, recorded so it is not relearned: 20 samples of a
    ``\sim``250 µs canary let minima jitter ``\sim 2\times`` at eight threads and false-alarm;
