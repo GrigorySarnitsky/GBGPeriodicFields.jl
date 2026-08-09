@@ -898,6 +898,35 @@ column read 1.094 against 1.177 ms. The canary was refrozen on the fixed harness
 **zero** rows needing the per-sample GC, every canary being an in-place mechanism: that lane had been
 pure collector overhead.
 
+**A defect in that fix suppressed `tune!` for the entire device suite, and is now repaired.** The
+policy returns the rows whose parameters it set deliberately so they are not re-tuned, and it
+identified them with `allocating || params.evals == 1`. The second test was meant to catch a *capped*
+row, which reports `allocating = false` but has had `evals` pinned to 1 — except that **1 is also
+`BenchmarkTools`' untuned default**, so the test matched every row in the suite and `tune!` ran on
+none of them. The flat rows are documented three paragraphs above as "tuned normally", so the code
+contradicted its own specification. A capped row now carries its own flag. The repair was verified by
+perturbation on a synthetic suite rather than by reading: a flat row must leave `fixed` empty, and a
+row whose stubbed pool grows 100 MiB per call must still appear there with no per-sample GC.
+
+**Its footprint is bounded, and confined to the fastest rows.** Tuning only raises `evals` above 1
+when a call is short enough that per-sample overhead is comparable to the work — measured on this
+harness, a ``\sim\!1.2`` µs call tunes to `evals = 10` while a ``\sim\!21`` µs call stays at 1. Of the
+RX 7900 XTX column's 131 rows, **21 fall under 20 µs**, and they are the ``O(1)`` kernel *builders*
+(`radial_kernel`, `spectral_band`, `spectral_cutoff` at ``\approx 0.34`` µs), which construct a closure
+and touch no field. Every field-sized operation is far above the threshold and would have tuned to
+`evals = 1` regardless, so the ``-81.6\%`` correction and every conclusion drawn from it stand. The
+affected rows read a per-call floor rather than the builder's true cost, in the direction of
+*over*-reporting. Both GPU lanes should be swept on the repaired harness before their builder rows are
+compared against each other or against a pre-fix archive.
+
+**Scope, stated exactly.** The policy is reached only under `USEGPU`; the CPU branch calls
+`tune!(suite)` and always did, so no CPU column is touched. Before the per-row policy existed
+`tune!(suite)` ran unconditionally for devices too, which makes the **RX 7900 XTX re-sweep of
+2026-08-07 the only archive in the tree measured with tuning suppressed** — every other column,
+device and CPU alike, is tuned. The canary is unaffected: `regress.jl` carries its own standalone
+copy of the policy that neither caps samples nor returns a do-not-tune set, so no frozen baseline
+needs refreezing.
+
 **`RESULTS.md` now holds two GPU columns in different regimes.** The RX 7900 XTX is fixed-regime; the
 RTX 5070 Ti has not been re-swept and is still inflated, so the two **must not be compared with each
 other** until the `Enteropia` lane is re-run. The two retired columns (GTX 1070, RX 6700 XT) were

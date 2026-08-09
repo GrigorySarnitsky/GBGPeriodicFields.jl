@@ -159,7 +159,7 @@ function run_sequence_lane(configs)
     sequence_entry_cutoff = threading_cutoff()
     set_threading_cutoff!(typemax(Int))
     u, v, A, uh, vh, sh, half = b.u, b.v, b.A, b.uh, b.vh, b.sh, b.T(1) / 2
-    plans1, decay = b.plans1, -b.T(1) / 10
+    decay = -b.T(1) / 10
     # FFTW's thread count is SEPARATE from the package's, and forcing the package serial above does
     # not touch it. FFTW.jl reaches its workers through a Julia callback, so a THREADED plan allocates
     # task state on every call: size-independent (identical for a 12 KB field and a 2.6 MB one) and

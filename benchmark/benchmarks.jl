@@ -119,6 +119,7 @@ setting, so an unclassifiable row behaves exactly as it did before this policy e
 function apply_gcsample_policy!(suite; device_used, reclaim)
   kept, fixed = String[], Set{String}()
   for (class, group) in suite, (key, benchmark) in group
+    sample_capped = false
     allocating = try
       warmup(benchmark)
       GC.gc(true)
@@ -149,6 +150,7 @@ function apply_gcsample_policy!(suite; device_used, reclaim)
         if capped > GCSAMPLE_MIN_SAMPLES
           benchmark.params.samples = capped
           benchmark.params.evals = 1        # keep calls == samples so the cap means what it says
+          sample_capped = true
           false                             # runs GC-free, bounded by the sample cap
         else
           true                              # one call is already huge — only a per-sample GC is safe
@@ -164,7 +166,10 @@ function apply_gcsample_policy!(suite; device_used, reclaim)
     allocating && push!(kept, name)
     # An allocating row's parameters are now deliberate — a sample cap, or a per-sample GC — so it
     # must NOT be re-tuned: `tune!` would search `evals` upward and undo the cap that bounds the pool.
-    (allocating || benchmark.params.evals == 1) && push!(fixed, name)
+    # The cap is tracked by its own flag rather than inferred from `evals == 1`, which is ALSO the
+    # untuned default: reading it here matched every row, so the whole device suite silently skipped
+    # `tune!` instead of only the capped rows.
+    (allocating || sample_capped) && push!(fixed, name)
     GC.gc(true)
     reclaim()
   end

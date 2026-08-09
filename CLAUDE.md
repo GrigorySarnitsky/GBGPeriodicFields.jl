@@ -990,7 +990,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **6179 tests** across 92 top-level testsets, identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **352** on both backends (CUDA measured 2026-08-05, ROCm 2026-08-06). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **6182 tests** across 92 top-level testsets (measured 2026-08-09; it read 6179 four days earlier, drifting again while nothing in `test/` outside the survey changed), identical at `-t1` and `-t4`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **352** on both backends (CUDA measured 2026-08-05, ROCm 2026-08-06). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
@@ -1267,9 +1267,11 @@ refreeze whose reason is in `bd1e4f30`: this host's ROCm baseline predated `cana
 two of its twelve mechanisms were timing launches rather than work (`add!` at 17.5 µs and `to_physical!`
 at 25.8 µs for a 128³ pass, both under the physical floor), Enteropia's having been refrozen by the sync
 commit itself. The **12700K 512³ band is measured** — 512³ became a CPU default in `b59a2793`, so the
-plain invocation covers it and the old advice to override `CHAR_SIZES` is obsolete. `RESULTS.md` is
-regenerated with **all twelve columns intact**, verified by the untouched columns reproducing
-bit-for-bit at +0.0%.
+plain invocation covers it and the old advice to override `CHAR_SIZES` is obsolete. `RESULTS.md` was
+regenerated with **all twelve columns of the time intact**, verified by the untouched columns
+reproducing bit-for-bit at +0.0%; it now carries **ten**, the two retired cards having been dropped
+later the same day by `db7e6dd8` (both were measured in the broken `gcsample` regime and neither card
+exists to be re-swept, so their columns could never be corrected or compared).
 
 **RESOLVED — the GPU measurement defect and its re-sweep: `PERFORMANCE.md` §4(s).** Device lanes ran
 `gcsample = true`, so a full `GC.gc()` preceded **every sample** and dominated operations lasting tens
@@ -1597,7 +1599,9 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   backends; NOT CI (cost policy; cloud runners are noise). Both hosts' baselines are committed under
   `benchmark/baselines/` — Enteropia (cpu-t1, cpu-t8, cuda) and Aiporetne (cpu-t1, cpu-t8, rocm;
   frozen 2026-07-22 with that host's post-rewrite re-sweep, its inversion alarm 8/8 ok); calibration
-  100 samples × 5 evals — 20 samples let µs-canaries false-alarm.
+  100 samples — 20 let µs-canaries false-alarm. The rows also declare `evals = 5`, but `tune!(suite)`
+  runs afterwards and re-derives `evals`, so that number is inert; it has been since the lane was
+  built, so every baseline was frozen the same way and the comparisons are sound.
   **Definition-of-done addition: a perf-relevant change runs `regress.jl` green, or refreezes with
   its reason in the same commit.**
 - **The audit-exchange declines and standing candidates (decision 35).** No general fusion API — the
