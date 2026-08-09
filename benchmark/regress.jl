@@ -112,10 +112,14 @@ end
 # and any row that cannot be probed stays on the safe default.
 if USEGPU
   const CANARY_TRIAL_BUDGET = 2 * 2^30
-  _device_used() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) : AMDGPU.used_memory()
+  # Pool-live bytes, same name on both vendors. `CUDA.available_memory` does not exist, so the old
+  # spelling threw on every call and the catch-all below silently kept the collector (§4(w)).
+  _device_used() = USECUDA ? CUDA.used_memory() : AMDGPU.used_memory()
   _reclaim() = USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
-  kept = String[]
+  kept, failed = String[], String[]
+  probe_error = Ref{Any}(nothing)
   for (name, benchmark) in suite
+    probe_failed = false
     allocating = try
       warmup(benchmark)
       GC.gc(true); _reclaim()
@@ -139,15 +143,24 @@ if USEGPU
       seconds_per_call = fastest / 1e9
       per_call * (seconds_per_call > 0 ? benchmark.params.seconds / seconds_per_call : Inf) >
         CANARY_TRIAL_BUDGET
-    catch
+    catch e
+      # Record the failure instead of hiding it behind the safe default — see benchmarks.jl.
+      probe_failed = true
+      probe_error[] === nothing && (probe_error[] = e)
       true
     end
     benchmark.params.gcsample = allocating
     allocating && push!(kept, name)
+    probe_failed && push!(failed, name)
     GC.gc(true); _reclaim()
   end
   println("canary: per-sample GC kept for $(length(kept)) row(s)",
           isempty(kept) ? "" : ": " * join(sort(kept), ", "))
+  if !isempty(failed)
+    println("canary: !! gcsample PROBE FAILED on $(length(failed)) of $(length(suite)) row(s) — they ",
+            "are timed on the collector, not the mechanism.")
+    println("canary: !! first error: ", sprint(showerror, probe_error[]))
+  end
 end
 
 # A guard for the guard: if `canary_sync()` did not actually block, an asynchronous launch would

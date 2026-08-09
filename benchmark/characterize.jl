@@ -71,7 +71,12 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 
 # The per-row `gcsample` policy lives in benchmarks.jl so the three device entry points
 # (characterize.jl and the two runbenchmarks.jl drivers) cannot drift apart. See PERFORMANCE.md §4(s).
-_device_used_bytes() = USECUDA ? (CUDA.total_memory() - CUDA.available_memory()) : AMDGPU.used_memory()
+# Both vendors expose the POOL's live bytes under the same name, which is the quantity the policy
+# wants: it starts at zero, tracks an allocation exactly (16 MiB for a 16 MiB array), returns to zero
+# on reclaim, and — unlike a device-wide `total - free` — is blind to other processes on the card.
+# `CUDA.available_memory` does NOT exist, so the CUDA path used to throw on every call and the
+# probe's catch-all classified the ENTIRE device suite as allocating (PERFORMANCE.md §4(w)).
+_device_used_bytes() = USECUDA ? CUDA.used_memory() : AMDGPU.used_memory()
 _device_reclaim() = USECUDA ? CUDA.reclaim() : AMDGPU.reclaim()
 _apply_gcsample_policy!(suite) =
   apply_gcsample_policy!(suite; device_used = _device_used_bytes, reclaim = _device_reclaim)
@@ -130,7 +135,7 @@ for N in CHAR_SIZES, T in CHAR_TYPES, class in RUN_CLASSES
   others = filter(!=(class), collect(CLASSES))
   suite = build_suite(; array_type = ARRAY_TYPE, types = (T,), sizes = (N,), skip = vcat(CHAR_SKIP, others))
   if USEGPU
-    kept, fixed = _apply_gcsample_policy!(suite)
+    kept, fixed, failed = _apply_gcsample_policy!(suite)
     println("  per-sample GC kept for $(length(kept)) allocating row(s)",
             isempty(kept) ? "" : ": " * join(kept, ", "))
     flush(stdout)

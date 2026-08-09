@@ -1292,10 +1292,43 @@ hours, and `catch => true` never fired because **a wedge is a hang, not an excep
 bounded by memory with an early exit. A capped row must never be passed to `tune!`.
 
 The 7900 XTX was re-swept 2026-08-07: median **−81.6%** over 467 rows, `convolve!` scalar-to-vector
-ratio back to 3.14, canary green with **zero** rows needing the GC. **`RESULTS.md` now holds two GPU
-columns in DIFFERENT regimes** — the 7900 XTX is fixed, the **5070 Ti is not and must not be compared
-against it** until `Enteropia` re-sweeps. The two retired columns were dropped (broken regime, no card
-to re-measure). **Outstanding: the `Enteropia` GPU re-sweep** — queued in the synced memory `enteropia-resweep-gpu-after-gcsample-fix`, with the acceptance check (the scalar-to-vector ratio recovering ~3×, not the size of the drop) and the traps written down.
+ratio back to 3.14, canary green with **zero** rows needing the GC. The two retired columns were
+dropped (broken regime, no card to re-measure).
+
+**The 5070 Ti was re-swept 2026-08-09, so BOTH GPU columns are now in the fixed regime and comparable
+again.** Median **−46.4%** over 426 rows (`convolution` −69.1%, `operators` −52.7%, `reductions`
+−48.3%, `algebra` −36.0%, `fft` −17.1%, `transfer` −16.1%) — smaller than AMD's −81.6% because
+NVIDIA's collect-and-synchronize is cheaper, and the drop is largest exactly where per-row work is
+smallest, which is the signature of removing a fixed per-sample cost. Acceptance met: `convolve!`
+scalar-to-vector recovered to 3.08 (`Float64` ``256^3``) and 2.24 (`Float32` ``128^3``); at ``64^3``
+it stays near 1.3 because 18 µs is launch-bound, not collector-bound, and the absolutes there fell
+64.2 → 18.0 µs. Rows are monotone in grid size again, and `add! scalar` at ``256^3`` now reads 782
+GB/s — 87% of the card's peak, i.e. physically interpretable for the first time. Canary refrozen and
+green. `RESULTS.md` regenerated over all ten archives with the other nine columns bit-for-bit
+identical.
+
+**Two recorded cross-card claims were corrected by it** (`PERFORMANCE.md` §4(v), §6): the "≈1.8×
+median" is **1.09×** (`Float64`) / 1.28× (`Float32`) at ``256^3`` — near parity, the NVIDIA edge being
+concentrated at small grids (2.21×/3.06× at ``64^3``) where launch latency dominates; and the
+reductions `Float32` gap, recorded at ≈3.5×, is **1.11×**. The ``\approx 48\times`` `Float64` radial
+gap is confirmed to three figures (48.07×), which makes the story cleaner: that whole gap **is** the
+emulated-`Float64`-atomic penalty, since in `Float32` the cards are equal. The RX 7900 XTX **wins the
+entire transfer class** at ``256^3`` by 1.5–1.9×. "The fleet's fastest card" holds only at small grids
+and in `Float64` atomics.
+
+**The fix itself had never run on CUDA — `PERFORMANCE.md` §4(w), found 2026-08-09 three classes into
+the Enteropia re-sweep.** The probe asked the pool for its size with `CUDA.total_memory() -
+CUDA.available_memory()`, and **`CUDA.available_memory` is not a binding** in the CUDA.jl this tree
+resolves, so it threw on every row and the catch-all ("unclassifiable ⇒ safe default") put **every CUDA
+row back on `gcsample = true`**. It then printed `per-sample GC kept for N allocating row(s)`, which
+reads as a measurement — the lists were each class's *complete* row list, `operators` naming all nine
+including `laplacian!` and `curl!`, which `test/allocations.jl` pins at zero. The AMD path was always
+correct, so **§4(s)'s −81.6% and everything drawn from it stand**; what was wrong is that no CUDA
+archive had ever been measured under the per-row policy. Fixed by `CUDA.used_memory()` (pool-scoped,
+verified: 16 MiB for a 16 MiB array, 0 after reclaim, blind to other processes — where `total - free`
+read 32 MiB for that array), and, the half that matters more, **a failed probe is now reported apart
+from a measured one** with a `!!` banner naming the count and the exception. Post-repair at ``64^3``
+`Float64`: `operators` 9 rows / 0 failures / 0 kept, `algebra` 10 / 0 / 0.
 
 **§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
 is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
@@ -1599,9 +1632,11 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   backends; NOT CI (cost policy; cloud runners are noise). Both hosts' baselines are committed under
   `benchmark/baselines/` — Enteropia (cpu-t1, cpu-t8, cuda) and Aiporetne (cpu-t1, cpu-t8, rocm;
   frozen 2026-07-22 with that host's post-rewrite re-sweep, its inversion alarm 8/8 ok); calibration
-  100 samples — 20 let µs-canaries false-alarm. The rows also declare `evals = 5`, but `tune!(suite)`
-  runs afterwards and re-derives `evals`, so that number is inert; it has been since the lane was
-  built, so every baseline was frozen the same way and the comparisons are sound.
+  100 samples × 5 evals — 20 samples let µs-canaries false-alarm. The `evals = 5` is **live**:
+  `tune!` does not override an explicitly-set `evals` (measured 2026-08-09, and the frozen baselines
+  store 5), which is load-bearing here — it amortizes a per-sample GC over five calls, so the CUDA
+  canary lane was only ~10% inflated by the §4(s) defect where that host's `characterize.jl` sweep,
+  running at `evals = 1`, was ~46%.
   **Definition-of-done addition: a perf-relevant change runs `regress.jl` green, or refreezes with
   its reason in the same commit.**
 - **The audit-exchange declines and standing candidates (decision 35).** No general fusion API — the

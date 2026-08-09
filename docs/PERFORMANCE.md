@@ -839,8 +839,9 @@ on this card**, in the same direction as CUDA. The claim recorded in `bd1e4f30` 
 **Scope.** `gcsample` is gated on `USEGPU` in both harnesses, so **CPU columns and CPU canary baselines
 are clean** and every GPU column of `RESULTS.md` — all four cards, every grid — plus both hosts' GPU
 canary baselines are affected. Cross-card GPU comparisons are affected twice over, since each vendor's
-free-and-synchronize cost differs; the recorded "RTX 5070 Ti is ≈1.8× the RX 7900 XTX" is not safe to
-rely on until re-measured.
+free-and-synchronize cost differs; the recorded "RTX 5070 Ti is ≈1.8× the RX 7900 XTX" was not safe to
+rely on until re-measured, and on re-measurement (both cards, fixed regime) it **fell to 1.09× in
+`Float64` at ``256^3``** — see the resolved cross-card entry in (v).
 
 **Why it was there, and why deleting it was not the fix.** It was added deliberately (2026-06-11)
 because the `reductions` class wedged the device: `lpnorm` materializes a magnitude field per call,
@@ -1054,13 +1055,61 @@ inflation's per-row variance, and none can be re-checked from this box:
     ``a^2``, not the multipliers' true-``\lvert k\rvert^2`` family: invariant 5 keeps the true value at
     Nyquist where the derivative wavenumbers are zeroed, so substituting it would change the answer
     there.)
-  - **Every cross-card ratio** — the "≈1.8× median", the ``\approx 48\times`` CUDA-over-ROCm `Float64`
-    radial gap, the ``\approx 87\times`` figures in §6/§7. Both sides were inflated by *vendor-specific*
-    amounts, so the large ones probably keep their direction and none keeps its magnitude.
+  - **Every cross-card ratio — RESOLVED 2026-08-09, and the headline one was wrong.** Both sides were
+    inflated by *vendor-specific* amounts, so nothing could be said until both cards were re-swept;
+    they now are. The prediction that the large ratios keep their direction and none keeps its
+    magnitude was **half right**. The ``\approx 48\times`` `Float64` radial gap is confirmed almost
+    exactly — 48.64× on `co-spectrum vec.vec` and 48.07× on `radial_spectrum vec` at ``256^3``, the
+    atomic-scatter difference — and it survives because it is enormous. The **"≈1.8× median" does
+    not**: at ``256^3`` the median over 71 comparable rows is **1.09× in `Float64` and 1.28× in
+    `Float32`**, which is near parity, and the RX 7900 XTX in fact has the wider memory bus. The
+    advantage the old figure described is real but **concentrated where the work is small**: 2.21×
+    and 3.06× at ``64^3``, 1.35× and 1.65× at ``128^3``, decaying to parity as the rows become
+    bandwidth-bound — the signature of a launch-latency edge, not a throughput one. And the AMD card
+    **wins the whole transfer class** at ``256^3`` `Float64` (`interpolate!` and `anterpolate!` at
+    0.53–0.68×, so 1.5–1.9× the NVIDIA speed), which no previous comparison could have shown.
+    Treat "the fleet's fastest card" as true only at small grids and in `Float64` atomics.
 
 **Structurally safe: everything measured on the CPU.** `gcsample` was gated on the backend throughout,
 so decisions 38, 39 and 40, the threading work, finding (k)'s and (l)'s CPU numbers, and the CPU half of
 every split decision are untouched by this. That is most of the tuning record.
+
+**(w) The fix for (s) never ran on CUDA — it called a function that does not exist, and the catch-all
+reported the failure as a measurement.** The per-row policy asks the device pool how much it grew, and
+on the NVIDIA side it asked with `CUDA.total_memory() - CUDA.available_memory()`. **`CUDA.available_memory`
+is not a binding in the CUDA.jl this tree resolves** (CUDACore 6.2.0); the call raised `UndefVarError` on
+every row. Each row's probe is wrapped in a `try`/`catch` whose documented intent is "unclassifiable ⇒
+keep the old, safe behaviour", so **every row on CUDA fell back to `gcsample = true`** — the exact regime
+(s) exists to remove.
+
+**It announced itself as a result.** The run printed `per-sample GC kept for N allocating row(s): …` and
+named them, which reads as a measurement of N allocating rows. Those lists were each class's **complete**
+row list: `operators` reported all nine of its rows — `laplacian!`, `curl!`, `divergence!` and the rest —
+every one of which `test/allocations.jl` pins at zero bytes. That is the tell, and it is the same shape as
+(s)'s own: a device column whose in-place operations look like allocators is not measuring allocation.
+The condition was caught three classes into the first `Enteropia` re-sweep (2026-08-09) by noticing that
+`add! scalar` and `spectral_cutoff` cannot possibly be allocating rows.
+
+**Root cause is unexercised code, and it was flagged in advance.** The policy was written on a host with
+no NVIDIA card, and the note queuing this re-sweep said in as many words that the CUDA branch "has never
+been exercised, unlike the AMD path". The AMD path was correct throughout — `AMDGPU.used_memory()` exists
+— so **finding (s)'s AMD re-sweep and every conclusion drawn from it are unaffected**. What follows is
+narrower and worse: **no CUDA archive has ever been measured under the per-row policy**, so the RTX 5070
+Ti column remained in the pre-fix regime even after the fix shipped.
+
+**Both halves repaired.** The call is now `CUDA.used_memory()`, the same name the AMD path already used,
+which makes the two vendors symmetric. Its semantics were verified rather than assumed: a 16 MiB `CuArray`
+moves it by exactly 16 MiB, `reclaim` returns it to zero, and it reads zero at rest — and being
+**pool-scoped it ignores other processes on the card**, where the device-wide `total - free` reported
+32 MiB for that same 16 MiB array and would drift with anything else using the GPU. The second repair
+matters more than the first: `apply_gcsample_policy!` now returns the rows whose probe **threw**
+separately from the rows it classified, and prints a `!!` banner with the count and the first exception,
+plus an unmissable line when *every* row failed. A fallback that cannot be told apart from a result is how
+a broken instrument reports success.
+
+**Verified after the repair**, `Float64` ``64^3`` on the RTX 5070 Ti: `operators` nine rows, zero probe
+failures, zero rows keeping the collector; `algebra` ten rows, the same. The probe reproduces invariant 13
+on CUDA exactly as it did on AMD, having been told nothing about it.
 
 ## 5. The benchmark suite
 
@@ -1176,10 +1225,14 @@ launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 67
 types, all six classes). Across vendors the **reductions** class shows the widest gap and the
 clearest architectural signature: the radial reductions (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
-`radial_spectrum` on a vector field at 256³ is ≈3.5× faster on the 5070 Ti than the 7900 XTX in
-`Float32`, widening to ≈48× in `Float64` (65.95 → 1.371 ms); the extra `Float64` factor is the
-emulated-atomic penalty of §4(d) (RDNA has no native global `Float64` atomics), the 7900 XTX paying
-≈21× for `Float32`→`Float64` on this op against the 5070 Ti's ≈1.5×. Those are the post-decision-34
+`radial_spectrum` on a vector field at 256³ is **≈48× faster** on the 5070 Ti than the 7900 XTX in
+`Float64` (54.973 → 1.144 ms) but only **1.11×** in `Float32` (0.915 → 0.824 ms). Re-measured
+2026-08-09 with both cards in the fixed regime of §4(s)/§4(w): the ``\approx 48\times`` is confirmed
+to three significant figures, while the `Float32` figure — previously recorded as ≈3.5× — is not,
+and its collapse sharpens the conclusion rather than weakening it. The entire cross-vendor gap on
+this operation **is** the emulated-atomic penalty of §4(d) (RDNA has no native global `Float64`
+atomics): in `Float32`, where both cards have native atomics, they are equal. The 7900 XTX pays
+≈60× going `Float32`→`Float64` on this op, against the 5070 Ti's ≈1.4×. Those are the post-decision-34
 figures, the staging planes fused away, so the atomics are the whole measurement. The full operation × type × grid × thread/backend matrix is in
 `RESULTS.md`:
 
@@ -1197,8 +1250,9 @@ size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidt
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
 threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 148.8 ms
-serial against 1.71 ms on the RTX 5070 Ti, ≈87×), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
+the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 151.4 ms
+serial against 1.646 ms on the RTX 5070 Ti, ≈92×, and 1.048 ms on the RX 7900 XTX, which **wins the
+whole transfer class** by 1.5–1.9× — re-measured 2026-08-09 in the fixed regime), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
 thread sweep — is in `benchmark/RESULTS.md`.)

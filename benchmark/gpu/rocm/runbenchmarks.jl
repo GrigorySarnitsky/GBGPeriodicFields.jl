@@ -25,7 +25,7 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 BenchmarkTools.DEFAULT_PARAMETERS.gcsample = false
 
 suite = build_suite(; array_type = ROCArray)
-kept, fixed = apply_gcsample_policy!(suite; device_used = AMDGPU.used_memory, reclaim = AMDGPU.reclaim)
+kept, fixed, failed = apply_gcsample_policy!(suite; device_used = AMDGPU.used_memory, reclaim = AMDGPU.reclaim)
 println("per-sample GC kept for $(length(kept)) allocating row(s)", isempty(kept) ? "" : ": " * join(kept, ", "))
 println("Tuning on ROCm / AMDGPU: ", AMDGPU.device(), " ...")
 for (class, group) in suite, (key, benchmark) in group

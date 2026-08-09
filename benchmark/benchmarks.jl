@@ -95,10 +95,16 @@ const GCSAMPLE_ROW_BUDGET = 4 * 2^30      # 4 GiB of pool growth tolerated withi
 const GCSAMPLE_MIN_SAMPLES = 5            # below this a minimum is not worth reporting
 
 """
-    apply_gcsample_policy!(suite; device_used, reclaim) -> (kept, fixed)
+    apply_gcsample_policy!(suite; device_used, reclaim) -> (kept, fixed, failed)
 
 Choose each benchmark's memory discipline from a measured device-pool probe. Returns the rows that
-kept the per-sample GC and the set of rows whose parameters are now deliberate and must not be tuned.
+kept the per-sample GC, the set of rows whose parameters are now deliberate and must not be tuned,
+and the rows whose probe THREW — reported separately and loudly, because a row that fell back to the
+safe default has not been measured, and must not be read as one that was.
+
+`device_used` must report the **pool's** live bytes (`CUDA.used_memory` / `AMDGPU.used_memory`), not a
+device-wide `total - free`: the pool figure starts at zero, tracks an allocation exactly, and ignores
+other processes on the card.
 
 Each row is warmed up (so compilation is not measured), then run one call at a time with the
 collector disabled while the device pool is watched, stopping as soon as growth passes
@@ -117,9 +123,11 @@ would search `evals` upward and undo the cap. Any failure to probe leaves the ro
 setting, so an unclassifiable row behaves exactly as it did before this policy existed.
 """
 function apply_gcsample_policy!(suite; device_used, reclaim)
-  kept, fixed = String[], Set{String}()
+  kept, fixed, failed = String[], Set{String}(), String[]
+  probe_error = Ref{Any}(nothing)
   for (class, group) in suite, (key, benchmark) in group
     sample_capped = false
+    probe_failed = false
     allocating = try
       warmup(benchmark)
       GC.gc(true)
@@ -158,8 +166,14 @@ function apply_gcsample_policy!(suite; device_used, reclaim)
       else
         false
       end
-    catch
-      true                             # unclassifiable ⇒ keep the old, safe behaviour
+    catch e
+      # Unclassifiable ⇒ keep the old, safe behaviour — but RECORD it. This branch once swallowed an
+      # `UndefVarError` for every row on CUDA (a memory call that does not exist under that name) and
+      # the run reported "per-sample GC kept for N allocating row(s)", which reads as a measurement.
+      # A fallback indistinguishable from a result is how a broken instrument reports success.
+      probe_failed = true
+      probe_error[] === nothing && (probe_error[] = e)
+      true
     end
     benchmark.params.gcsample = allocating
     name = "$(class)/$(strip(split(key, '|')[1]))"
@@ -170,8 +184,18 @@ function apply_gcsample_policy!(suite; device_used, reclaim)
     # untuned default: reading it here matched every row, so the whole device suite silently skipped
     # `tune!` instead of only the capped rows.
     (allocating || sample_capped) && push!(fixed, name)
+    probe_failed && push!(failed, name)
     GC.gc(true)
     reclaim()
   end
-  return kept, fixed
+  if !isempty(failed)
+    total = sum(length(group) for (_, group) in suite; init = 0)
+    println("  !! gcsample PROBE FAILED on $(length(failed)) of $(total) row(s) — those rows fell back",
+            " to the per-sample GC and are NOT measured on the operation.")
+    println("  !! first error: ", sprint(showerror, probe_error[]))
+    length(failed) == total &&
+      println("  !! EVERY row failed, so this lane is the pre-fix regime end to end. Fix the probe",
+              " before trusting any number from it (docs/PERFORMANCE.md §4(w)).")
+  end
+  return kept, fixed, failed
 end

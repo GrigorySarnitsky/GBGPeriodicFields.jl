@@ -26,7 +26,7 @@ BenchmarkTools.DEFAULT_PARAMETERS.seconds = 1.0
 BenchmarkTools.DEFAULT_PARAMETERS.gcsample = false
 
 suite = build_suite(; array_type = CuArray)
-kept, fixed = apply_gcsample_policy!(suite; device_used = () -> CUDA.total_memory() - CUDA.available_memory(), reclaim = CUDA.reclaim)
+kept, fixed, failed = apply_gcsample_policy!(suite; device_used = CUDA.used_memory, reclaim = CUDA.reclaim)
 println("per-sample GC kept for $(length(kept)) allocating row(s)", isempty(kept) ? "" : ": " * join(kept, ", "))
 println("Tuning on CUDA / NVIDIA: ", CUDA.device(), " ...")
 for (class, group) in suite, (key, benchmark) in group
