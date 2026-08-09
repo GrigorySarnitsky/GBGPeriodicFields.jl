@@ -677,7 +677,54 @@ rather than a reconstruction. `Aiporetne`'s state at this sweep: kernel `7.0.0-2
 particular — `powersave` on `intel_pstate` still boosts, but its ramp depends on recent load history,
 which is exactly the kind of cross-sweep state nothing was capturing.
 
-**(q) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
+**RESOLVED 2026-08-09 on the host that showed it: the shift was a ONE-OFF, not a persistent state
+change.** `Enteropia`'s CPU lanes were re-swept against the 2026-08-05 archive over an interval with
+**no source changes on any path**, so anything that moved would be platform or measurement. Nothing
+moved. The `fft` class is flat — per-lane medians ``-1.4\%``, ``-1.2\%`` and ``-1.1\%`` at `-t1`,
+`-t2` and `-t4` — and at ``256^3``, where the event was ``+20``–``50\%``, the medians are ``-3.7\%``,
+``-6.5\%`` and ``-1.2\%``. Every other class is flat on the same lanes, 600 rows each, with overall
+medians of ``+0.0\%``, ``-0.2\%`` and ``-0.2\%``.
+
+**What that licenses, and what it does not.** The instrument reproduces itself across four days on
+this host, so the harness is sound and the 2026-08-05 `fft` reading was a transient of that particular
+sweep rather than a lasting change in the machine — which is also why the `Aiporetne` control found
+nothing to confirm. It does **not** identify the transient's cause, and it cannot: the state that would
+have named it was never recorded, and the episode is over. The finding therefore closes as
+*unattributed but bounded* — a single sweep's `fft` column, on one host, not reproduced before or
+since. The stamping is the durable outcome: these three lanes are the first archives in the tree
+carrying platform state, so a recurrence becomes a diff. The `-t8` lane could not be re-measured at
+all, for the unrelated reason in (q).
+
+**(q) FFTW's threaded executor segfaults at `-t8` — REPRODUCIBLE on `Enteropia`, and the lane can no
+longer be completed there.** The heading below and the 105-trial non-reproduction that follows it are
+kept as the record of how this looked before 2026-08-09; both are now superseded. On that date the
+`-t8` characterization lane failed **three times consecutively** on `Enteropia` (9800X3D), taking the
+tally on that host to **four failures in five attempts** across two dates. Every crash carries the
+identical stack — `signal 11` in `spawn_apply` inside `libfftw3`, reached through FFTW.jl's
+`spawnloop` (`providers.jl:49`) on a Julia task — and every one landed in the `reductions` class,
+whose `radial_correlation` takes an inverse transform. The crash point *moves* between attempts
+(``64^3`` `Float64`, then ``128^3`` `Float64`, at 2, 8 and 10 minutes in), which marks it a race rather
+than a bad cell, and the process had accumulated 289M and 1071M allocations with 5874 and 14598
+collections when it died.
+
+**The 2026-08-07 non-reproduction was run on the wrong host.** That attempt — 105 trials, ~50,500
+transform executions, no crash — ran on `Aiporetne`. It closes as evidence about `Aiporetne`, where the
+fault has never appeared, and says nothing about `Enteropia`, where it now appears about four times in
+five. The finding already flagged that a host-specific trigger was not excluded; it is now the leading
+explanation. Two targeted repros on the *failing* host also came back clean — 2,400 `radial_correlation`
+calls at `-t8`, and twelve rounds of build → run → drop → `GC.gc(true)` across the `fft`, `transfer` and
+`reductions` classes — so the fault needs the full lane's duration and allocation pressure, not merely
+its operations. A short reproducer is not cheaply available.
+
+**Consequence for the table.** `RESULTS.md`'s `CPU 9800X3D t8` column stands at its 2026-08-05 vintage
+while its three siblings are 2026-08-09. Nothing is corrupted, `characterize.jl` writing its JSON only
+at the end, and the skew is materially harmless because the three lanes that *were* re-measured came
+back flat against 2026-08-05 (finding (p)) — but a `t1`→`t8` thread-scaling read on that host now
+crosses vintages, and the vintage line says so. **The mitigation below is not usable here**: building
+plans under `set_fft_threads!(1)` would remove the callback, but the `-t8` lane exists precisely to
+measure threaded FFT, so applying it would corrupt the column it is meant to produce.
+
+**(q, historical) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through
 FFTW.jl's `spawnloop`, while running the `reductions Float64 128^3` class — which touches FFTW because
 `radial_correlation` takes an inverse transform. The package sets FFTW's thread count to match Julia's

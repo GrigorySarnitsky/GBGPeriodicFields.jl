@@ -1330,15 +1330,29 @@ read 32 MiB for that array), and, the half that matters more, **a failed probe i
 from a measured one** with a `!!` banner naming the count and the exception. Post-repair at ``64^3``
 `Float64`: `operators` 9 rows / 0 failures / 0 kept, `algebra` 10 / 0 / 0.
 
-**§4(p) is NARROWED, not solved: the CPU `fft` shift is Enteropia-specific, and neither host's movement
-is explained.** At the larger grids the shift does not reproduce here — of 192 `fft` rows exactly one at
-256³ moved slower, by +1.0%, against `Enteropia`'s +38% (23 rows did move slower, but all the rest sit at
-64³/128³, the three over 20% being small-grid `-t4`/`-t8` cells; the first pass over one lane wrongly
-read as "nothing got slower"). Since this box runs the *same* kernel Enteropia recorded post-reboot
-(`7.0.0-28-generic`), a platform-wide kernel or microcode cause is positively **excluded**. But this
-host's `fft` rows moved *faster* by 5–46% over the same kind of comparison, equally unexplained, so the
-honest reading is that `fft` timings are unstable across sweeps on both hosts while sweep conditions go
-unrecorded — a cross-vintage `fft` comparison is uninformative, not evidence. **§4(r) is RESOLVED (2026-08-07):** the CPU kernel-op cluster is decision 51
+**§4(p) is CLOSED as unattributed-but-bounded (2026-08-09): the CPU `fft` shift was a ONE-OFF.** It had
+been narrowed to `Enteropia` (the `Aiporetne` control found no movement at the larger grids, positively
+excluding a platform-wide kernel or microcode cause, both hosts running `7.0.0-28-generic`), but neither
+host's movement was explained. Re-sweeping `Enteropia`'s CPU lanes on 2026-08-09, over an interval with
+**no source changes**, the shift **did not recur**: the `fft` class is flat at −1.4%/−1.2%/−1.1% for
+`-t1/-t2/-t4`, and at 256³ — where the event was +20–50% — the medians are −3.7%, −6.5%, −1.2%. Every
+other class is flat too, 600 rows per lane, overall +0.0%/−0.2%/−0.2%. So the harness reproduces itself
+across four days and the 2026-08-05 reading was a transient of that sweep, not a lasting change. The
+cause stays unidentified and now always will: the state that would name it was never recorded and the
+episode is over. The durable outcome is the **stamping** — those three lanes are the first archives
+carrying kernel/microcode/governor/SMT/THP, so a recurrence is a diff rather than a reconstruction.
+
+**The `-t8` lane could NOT be re-measured — §4(q) is now REPRODUCIBLE on this host.** It failed three
+times consecutively with `signal 11` in `spawn_apply` (`libfftw3`) via FFTW.jl's `spawnloop`, taking
+`Enteropia` to four failures in five attempts; the crash point moves between runs (64³ then 128³, at 2,
+8 and 10 min), so it is a race, always inside `reductions`, whose `radial_correlation` transforms. **The
+2026-08-07 "105 trials, no crash" ran on `Aiporetne`** and is evidence about that host only — the fault
+has never appeared there. Two targeted repros on the failing host were also clean (2400
+`radial_correlation` calls; twelve build→run→drop→`GC.gc(true)` rounds), so it needs the full lane's
+duration and allocation pressure. Consequence: `RESULTS.md`'s `CPU 9800X3D t8` column stays at its
+2026-08-05 vintage — harmless in practice, since the three re-measured lanes came back flat, and the
+vintage line discloses it. The `set_fft_threads!(1)` mitigation is unusable here: that lane exists to
+measure threaded FFT. **§4(r) is RESOLVED (2026-08-07):** the CPU kernel-op cluster is decision 51
 reaching those operations through finding (k). A `RadialKernel`'s symbol is a lazy `Broadcasted` over the
 3D mode grid, so against a **scalar** field it is evaluated once per mode but against a **vector** it is
 extruded over the fiber and evaluated **per component** — bisected at `48b6254a` vs HEAD with flat
