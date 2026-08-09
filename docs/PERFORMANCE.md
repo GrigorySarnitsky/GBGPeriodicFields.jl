@@ -909,16 +909,18 @@ contradicted its own specification. A capped row now carries its own flag. The r
 perturbation on a synthetic suite rather than by reading: a flat row must leave `fixed` empty, and a
 row whose stubbed pool grows 100 MiB per call must still appear there with no per-sample GC.
 
-**Its footprint is bounded, and confined to the fastest rows.** Tuning only raises `evals` above 1
-when a call is short enough that per-sample overhead is comparable to the work — measured on this
-harness, a ``\sim\!1.2`` µs call tunes to `evals = 10` while a ``\sim\!21`` µs call stays at 1. Of the
-RX 7900 XTX column's 131 rows, **21 fall under 20 µs**, and they are the ``O(1)`` kernel *builders*
-(`radial_kernel`, `spectral_band`, `spectral_cutoff` at ``\approx 0.34`` µs), which construct a closure
-and touch no field. Every field-sized operation is far above the threshold and would have tuned to
-`evals = 1` regardless, so the ``-81.6\%`` correction and every conclusion drawn from it stand. The
-affected rows read a per-call floor rather than the builder's true cost, in the direction of
-*over*-reporting. Both GPU lanes should be swept on the repaired harness before their builder rows are
-compared against each other or against a pre-fix archive.
+**Its footprint is bounded, confined to the fastest rows, and MEASURED — it is 6–8% on three of them.**
+Tuning only raises `evals` above 1 when a call is short enough that per-sample overhead is comparable
+to the work. Rather than reason about which rows those are, the two disciplines were run against each
+other on the RTX 5070 Ti at ``64^3`` `Float64`: of the whole `convolution` class only
+`spectral_cutoff`, `radial_kernel` and `spectral_band` — the ``O(1)`` closure builders at
+``\approx 0.4`` µs — tune above `evals = 1` (to ≈ 207), and untuned they read **6–8% high** (400.0
+against 373.8 ns; 390.0 against 361.2; 400.0 against 376.5). Every other row stays at `evals = 1` and
+ties to within 1%, including `materialize_kernel radial` at 11.4 µs — so the threshold sits far below
+the 20 µs a first estimate assumed, and the affected set is three builder mechanisms rather than every
+sub-20 µs row. A 6–8% bias on three closure-construction rows is inside the documented jitter and
+changes no conclusion, so the RX 7900 XTX column needs no re-sweep on this account; its builder rows
+are simply known to read a few percent high until that lane is next swept.
 
 **Scope, stated exactly.** The policy is reached only under `USEGPU`; the CPU branch calls
 `tune!(suite)` and always did, so no CPU column is touched. Before the per-row policy existed
