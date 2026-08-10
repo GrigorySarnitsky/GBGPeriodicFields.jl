@@ -9,6 +9,18 @@
 # differ. Thread count is taken from the launch (`-tN`); the thread sweep is driven by
 # benchmark/characterize.sh. Results are assembled into the committed benchmark/RESULTS.md by
 # benchmark/report.jl. See docs/PERFORMANCE.md §6.
+#
+# KNOWN FAILURE — a `-t8` CPU lane segfaults on `Enteropia`, and the workaround is to split it.
+# A single process at `-t8` dies with `signal 11` inside FFTW's threaded executor (`spawn_apply`,
+# reached through FFTW.jl's `spawnloop`) partway through the `reductions` class: four failures in five
+# attempts on that host, never once on `Aiporetne`. The package is NOT at fault — `Pkg.test()` passes
+# in full under `JULIA_NUM_THREADS=8` — and neither is any single ingredient, since the class alone,
+# the operation alone, plan churn alone and the test suite all fail to reproduce it. Run the lane as
+# one process per grid instead (`CHAR_SIZES=64`, then 128, 256, 512) and merge the part-archives; the
+# parts hold disjoint rows, so the union is what one uncrashed process would have written. Do not
+# "fix" it with `set_fft_threads!(1)`: that removes the callback and the crash, but this lane exists
+# to measure threaded FFT. Conditions, mechanism and the four clean reproduction attempts are in
+# docs/PERFORMANCE.md §4(q); the recipe is in benchmark/README.md.
 
 using BenchmarkTools
 using Dates

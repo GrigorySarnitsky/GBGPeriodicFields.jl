@@ -32,6 +32,26 @@ julia --project=benchmark benchmark/runbenchmarks.jl save results/cpu-baseline.j
 julia --project=benchmark benchmark/runbenchmarks.jl judge results/cpu-baseline.json
 ```
 
+### A `-t8` CPU characterization lane segfaults on `Enteropia` — run it split by grid
+
+A single `characterize.jl` process at `-t8` dies with `signal 11` inside FFTW's threaded executor
+(`spawn_apply` ← FFTW.jl's `spawnloop`) partway through the `reductions` class. It has failed four of
+five attempts on that host and has never been seen on `Aiporetne`; the package itself is fine at eight
+threads (`Pkg.test()` passes in full there). Full account, including the four reproduction attempts
+that came back clean, in `docs/PERFORMANCE.md` §4(q).
+
+Run the lane as one process per grid and merge the parts — 64³, 256³ and 512³ pass first time, 128³
+usually needs a retry:
+```
+for N in 64 128 256 512; do
+  CHAR_SIZES=$N julia -t8 --project=benchmark benchmark/characterize.jl cpu results/t8-part-$N.json
+done
+```
+Each part holds only its own grid's rows, so the union is disjoint and merging them with
+`BenchmarkTools.load`/`save` gives exactly what one uncrashed process would have written. Do not reach
+for `set_fft_threads!(1)`: it removes the callback and the crash with it, but this lane exists to
+measure threaded FFT, so it would corrupt the column it is meant to produce.
+
 GPU (ROCm), one-time instantiate then run:
 ```
 julia --project=benchmark/gpu/rocm -e 'using Pkg; Pkg.instantiate()'
