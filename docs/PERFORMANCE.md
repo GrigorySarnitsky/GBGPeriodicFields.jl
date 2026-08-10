@@ -678,9 +678,10 @@ particular — `powersave` on `intel_pstate` still boosts, but its ramp depends 
 which is exactly the kind of cross-sweep state nothing was capturing.
 
 **RESOLVED 2026-08-09 on the host that showed it: the shift was a ONE-OFF, not a persistent state
-change.** `Enteropia`'s CPU lanes were re-swept against the 2026-08-05 archive over an interval with
-**no source changes on any path**, so anything that moved would be platform or measurement. Nothing
-moved. The `fft` class is flat — per-lane medians ``-1.4\%``, ``-1.2\%`` and ``-1.1\%`` at `-t1`,
+change.** `Enteropia`'s CPU lanes were re-swept against the 2026-08-05 archive over an interval whose
+`src/` edits are **docstring text only** — five files were touched by a documentation pass, and
+stripping docstrings and comments from both revisions leaves **zero** differing executable lines — so
+anything that moved would be platform or measurement. Nothing moved. The `fft` class is flat — per-lane medians ``-1.4\%``, ``-1.2\%`` and ``-1.1\%`` at `-t1`,
 `-t2` and `-t4` — and at ``256^3``, where the event was ``+20``–``50\%``, the medians are ``-3.7\%``,
 ``-6.5\%`` and ``-1.2\%``. Every other class is flat on the same lanes, 600 rows each, with overall
 medians of ``+0.0\%``, ``-0.2\%`` and ``-0.2\%``.
@@ -695,8 +696,8 @@ since. The stamping is the durable outcome: these three lanes are the first arch
 carrying platform state, so a recurrence becomes a diff. The `-t8` lane could not be re-measured at
 all, for the unrelated reason in (q).
 
-**(q) FFTW's threaded executor segfaults at `-t8` — REPRODUCIBLE on `Enteropia`, and the lane can no
-longer be completed there.** The heading below and the 105-trial non-reproduction that follows it are
+**(q) FFTW's threaded executor segfaults at `-t8` — REPRODUCIBLE on `Enteropia`, and the lane completes
+only when split across processes.** The heading below and the 105-trial non-reproduction that follows it are
 kept as the record of how this looked before 2026-08-09; both are now superseded. On that date the
 `-t8` characterization lane failed **three times consecutively** on `Enteropia` (9800X3D), taking the
 tally on that host to **four failures in five attempts** across two dates. Every crash carries the
@@ -716,13 +717,29 @@ calls at `-t8`, and twelve rounds of build → run → drop → `GC.gc(true)` ac
 `reductions` classes — so the fault needs the full lane's duration and allocation pressure, not merely
 its operations. A short reproducer is not cheaply available.
 
-**Consequence for the table.** `RESULTS.md`'s `CPU 9800X3D t8` column stands at its 2026-08-05 vintage
-while its three siblings are 2026-08-09. Nothing is corrupted, `characterize.jl` writing its JSON only
-at the end, and the skew is materially harmless because the three lanes that *were* re-measured came
-back flat against 2026-08-05 (finding (p)) — but a `t1`→`t8` thread-scaling read on that host now
-crosses vintages, and the vintage line says so. **The mitigation below is not usable here**: building
-plans under `set_fft_threads!(1)` would remove the callback, but the `-t8` lane exists precisely to
-measure threaded FFT, so applying it would corrupt the column it is meant to produce.
+**The lane is obtainable anyway, by splitting it across processes.** The mitigation below is unusable
+here — building plans under `set_fft_threads!(1)` removes the callback, but the `-t8` lane exists
+precisely to measure threaded FFT, so it would corrupt the column it is meant to produce. What works
+instead is running the lane as **one process per grid** (`CHAR_SIZES=64`, then 128, 256, 512) and
+merging the four archives: 64³, 256³ and 512³ passed first time, 128³ on its second attempt, and the
+parts hold disjoint rows (150 each) so the union is what an uncrashed process would have written.
+`RESULTS.md`'s `CPU 9800X3D t8` column was rebuilt that way on 2026-08-10 and is flat against the
+2026-08-05 one it replaces — median ``+0.0\%`` over 600 rows, the largest movers being the `measure`
+twins whose `MEASURE` plan search legitimately re-decides between runs.
+
+**That is a workaround, and it sharpens the diagnosis rather than closing it.** The fault is unchanged
+and a plain `-t8` invocation still dies here. But a fresh process doing only ``128^3`` **also** crashed,
+2.5 minutes in, so the trigger is not simply a long-lived process accumulating state; splitting helps
+because it shortens each exposure and makes a retry cheap, not because it removes the hazard. Combined
+with the crash point moving between attempts, the fault reads as a low-probability race whose rate rises
+with the number of threaded transform executions — which is why the small grids, with their enormous
+call counts per second, are where it keeps landing.
+
+**Separately, the package itself is fine at eight threads.** `Pkg.test()` under `JULIA_NUM_THREADS=8`
+passes in full — 6182 tests across 92 testsets, zero failures, identical to `-t1` and `-t4` — so this
+is not a general ``-t8`` hazard for a consumer, and the CI matrix's `-t1`/`-t4` pair is not hiding a
+broken configuration. It is the sustained benchmark lane, with its millions of small threaded
+transforms, that finds the race.
 
 **(q, historical) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through

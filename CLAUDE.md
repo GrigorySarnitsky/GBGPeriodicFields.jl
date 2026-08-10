@@ -1342,17 +1342,21 @@ cause stays unidentified and now always will: the state that would name it was n
 episode is over. The durable outcome is the **stamping** — those three lanes are the first archives
 carrying kernel/microcode/governor/SMT/THP, so a recurrence is a diff rather than a reconstruction.
 
-**The `-t8` lane could NOT be re-measured — §4(q) is now REPRODUCIBLE on this host.** It failed three
-times consecutively with `signal 11` in `spawn_apply` (`libfftw3`) via FFTW.jl's `spawnloop`, taking
-`Enteropia` to four failures in five attempts; the crash point moves between runs (64³ then 128³, at 2,
-8 and 10 min), so it is a race, always inside `reductions`, whose `radial_correlation` transforms. **The
+**§4(q) is now REPRODUCIBLE on this host, and the `-t8` lane completes only when SPLIT.** A single
+`-t8` process failed three times consecutively with `signal 11` in `spawn_apply` (`libfftw3`) via
+FFTW.jl's `spawnloop`, taking `Enteropia` to four failures in five attempts; the crash point moves
+between runs, so it is a race, always inside `reductions`, whose `radial_correlation` transforms. **The
 2026-08-07 "105 trials, no crash" ran on `Aiporetne`** and is evidence about that host only — the fault
-has never appeared there. Two targeted repros on the failing host were also clean (2400
-`radial_correlation` calls; twelve build→run→drop→`GC.gc(true)` rounds), so it needs the full lane's
-duration and allocation pressure. Consequence: `RESULTS.md`'s `CPU 9800X3D t8` column stays at its
-2026-08-05 vintage — harmless in practice, since the three re-measured lanes came back flat, and the
-vintage line discloses it. The `set_fft_threads!(1)` mitigation is unusable here: that lane exists to
-measure threaded FFT. **§4(r) is RESOLVED (2026-08-07):** the CPU kernel-op cluster is decision 51
+has never appeared there. **The workaround: one process per grid** (`CHAR_SIZES=64`, then 128, 256,
+512), merged into one archive — 64³/256³/512³ passed first time, 128³ on its second, 150 disjoint rows
+each. The t8 column was rebuilt that way 2026-08-10 and is flat against the one it replaces (+0.0%
+median over 600 rows; the largest movers are the `measure` twins, whose `MEASURE` plan search
+legitimately re-decides). **It is a workaround, not a fix** — a plain `-t8` invocation still dies, and a
+*fresh* process doing only 128³ also crashed 2.5 min in, so splitting helps by shortening exposure and
+cheapening retries, not by removing the hazard. `set_fft_threads!(1)` would remove the callback but
+would corrupt the very column the lane exists to measure. **The package itself is fine at eight
+threads:** `Pkg.test()` under `JULIA_NUM_THREADS=8` passes in full (6182/92, zero failures), so the
+`-t1`/`-t4` CI matrix is not hiding a broken configuration. **§4(r) is RESOLVED (2026-08-07):** the CPU kernel-op cluster is decision 51
 reaching those operations through finding (k). A `RadialKernel`'s symbol is a lazy `Broadcasted` over the
 3D mode grid, so against a **scalar** field it is evaluated once per mode but against a **vector** it is
 extruded over the fiber and evaluated **per component** — bisected at `48b6254a` vs HEAD with flat
