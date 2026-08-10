@@ -49,7 +49,8 @@ The parts are:
 
   * **Interpolation** (grid → point, *gather*; `interpolate` ``\\equiv W``): [`interpolate`](@ref) and
     the in-place [`interpolate!`](@ref), plus the callable `f(x)` (and its broadcast `f.(xs)`) as the
-    ergonomic face of a single-point gather.
+    ergonomic face of a single-point gather, which the physical-domain spline schemes carry and the
+    spectral ones do not.
   * **Anterpolation** (point → grid, *scatter*; `anterpolate` ``\\equiv W^\\top``): [`anterpolate`](@ref)
     and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
     (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the

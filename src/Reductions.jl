@@ -560,7 +560,9 @@ of mode ``k``, and the ``N^{-2}`` the normalization the inner product itself car
 inverse transform; that one-pass form loses
 precision to cancellation when the mean dominates the fluctuations, so prefer the physical form there.
 
-The argument is:
+The arguments are:
+- `f` — the scalar section the moment is taken over: a field in physical or spectral
+  representation, or point values.
 - `corrected` — divide by the count minus one (the sample convention, the default, matching
   `Statistics.var`) or by the count itself. A grid holds the *complete* population of a field rather
   than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
@@ -580,7 +582,9 @@ well. Point values are representation-free, so that last clause reaches fields a
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second central moment.
 
-The argument is:
+The arguments are:
+- `f` — the scalar section the moment is taken over: a field in physical or spectral
+  representation, or point values.
 
 - `corrected` — divide by the base count minus one (Bessel's correction, the default) rather than by
   the count, exactly as it does for [`var`](@ref), of which this is the square root.
@@ -660,13 +664,14 @@ scalar [`var`](@ref). It returns one symmetric `FiberTensor2`: the diagonal hold
 variances (the *normal* stresses, in a turbulence reading), the off-diagonal the component covariances
 (the *shear* stresses) that a per-component variance would discard.
 
-Use this for the second moment of a vector field. `var`/`std` are deliberately scalar-only: a
+Use this for the second moment of a vector field. The `var`/`std` pair is deliberately scalar-only: a
 per-component `var` would be only the basis-dependent diagonal of this tensor, and
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no
 canonical vector form, so the covariance tensor is the honest object. The mean ``\\bar u`` is subtracted
 first, so this is the covariance of the fluctuations, not the raw second moment ``\\langle u_i u_j\\rangle``.
 
-The argument is:
+The arguments are:
+- `u` — the vector section whose fluctuations the covariance tensor is built from.
 - `corrected` — divide by the base count minus one (the sample convention, the default, matching
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
@@ -760,8 +765,8 @@ no inverse transform, applying the rfft half-spectrum weighting internally. This
 !!! note "The mixed spectral pair allocates two correction planes"
     In spectral representation `inner(f, f)` and [`l2norm`](@ref) run allocation-free, but the *mixed*
     `inner(f, g)` materializes two ``O(N^2)`` correction planes — one folded-axis plane by the fiber,
-    twice. That is small beside the ``O(N^3)`` field and it is per call, so it is worth knowing before
-    putting a mixed spectral pair in a loop. The fused alternative, a `dot` over a strided view, has no
+    twice. That is small beside the ``O(N^3)`` field, and it is paid per call, where `inner(f, f)` pays
+    nothing. The fused alternative, a `dot` over a strided view, has no
     method on the AMD path (rocBLAS `dotc`), so one route serves every backend.
 """
 function inner end

@@ -520,8 +520,9 @@ end
 """
     inv(kernel::SeparableKernel)
 
-The reciprocal kernel ``1/\\hat g``, itself separable because ``1/\\prod_a g_a = \\prod_a
-(1/g_a)`` — so it is formed per axis, at ``O(N)`` cost, with no field materialized. Applying it
+The reciprocal kernel ``1/\\hat g``, itself separable
+because ``1/\\prod_a g_a = \\prod_a (1/g_a)`` — so it is formed per axis, at ``O(N)`` cost, with no
+field materialized. Applying it
 **deconvolves** by `kernel`, which is what a mass-assignment window is built for
 ([`assignment_window`](@ref)).
 
@@ -600,8 +601,8 @@ axis-factored form trails it below cache and overtakes it above: **threaded on a
 roughly ``0.5``–``0.6`` of its speed at ``64^3`` and is faster from ``128^3`` up, settling at
 ``1.1``–``1.2`` times by ``256^3``–``512^3``; in `Float32` the crossing comes later, past ``128^3``. Single-threaded the crossing never arrives in
 this range, and on a GPU the ratio sits near parity at ``64^3`` and drifts slightly down — a device
-being bandwidth-bound at every size here rather than growing out of cache. The full grid is in
-`PERFORMANCE.md`'s finding (o) table. So a run whose grids are small, or which applies one fixed kernel very many times
+being bandwidth-bound at every size here rather than growing out of cache. So a run whose grids are
+small, or which applies one fixed kernel very many times
 with memory to spare, can materialize once and keep the field; a run at production resolution should
 not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about 10 KiB
 for the factors).

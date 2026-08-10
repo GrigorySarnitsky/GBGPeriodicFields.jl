@@ -184,7 +184,7 @@ The arguments are:
     gated loop cannot serve. To run those serially, start Julia with one thread.
 
     A third category is neither governed nor exempt: an operation that is **not threaded at all**, and
-    so unaffected by this setting for a different reason. `weighted_inner` is the one to know about —
+    so unaffected by this setting for a different reason. The `weighted_inner` reduction is the one to know about —
     its single fused pass is serial, which is why it diverges from `inner` as threads are added.
     Nothing is wrong there; it simply has no threaded route to override.
 """
@@ -1052,7 +1052,7 @@ Number of stored scalar components of a fiber of tensor order `R` (`1`, `3`, `9`
 
 Assemble one fiber of order `R` from the `scalars` tuple, reading `_fiber_component_count(Val(R))`
 entries starting after `offset`, in column-major order (so the tensor case is a direct `SMatrix`
-constructor). `scalars` is homogeneous in the section scalar type, so the tuple reads stay type-stable
+constructor). The `scalars` tuple is homogeneous in the section scalar type, so its reads stay type-stable
 even when `offset` is not a literal.
 """
 @inline _assemble_fiber(::Val{0}, scalars, offset) = @inbounds scalars[offset + 1]

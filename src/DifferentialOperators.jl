@@ -982,7 +982,8 @@ cyclically,
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
-fresh result instead. 
+fresh result instead.
+
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`, and
   it may alias `field` freely: the fused pass reads all three source coefficients of a mode before writing any component of it, so the aliased call needs no guard temporary and is bitwise-identical to the non-aliased one.
@@ -1201,7 +1202,7 @@ only when ``\\int_\\Omega f\\,\\mathrm{d}x = 0``, since any periodic ``\\psi`` h
 the solution is fixed uniquely by requiring its mean to vanish:
 
 ```math
-\\Delta\\psi = f, \\qquad \\int_\\Omega f\\,\\mathrm{d}x = 0, \\qquad \\int_\\Omega \\psi \\,\\mathrm{d}x = 0.
+\\Delta\\psi = f, \\qquad \\int_\\Omega f\\,\\mathrm{d}x = 0, \\qquad \\int_\\Omega \\psi\\,\\mathrm{d}x = 0.
 ```
 
 A general input is projected onto that compatible part: the result's zero Fourier mode is set to

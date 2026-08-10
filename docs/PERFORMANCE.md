@@ -735,7 +735,10 @@ with the crash point moving between attempts, the fault reads as a low-probabili
 with the number of threaded transform executions — which is why the small grids, with their enormous
 call counts per second, are where it keeps landing.
 
-**The conditions, tabulated from five crashes — and the four things that are NOT enough.** Every crash
+**The conditions, tabulated from five crashes — and the four things that are NOT enough.** The tally
+is five because the four failures of the single-process lane (three on 2026-08-09, one on 2026-08-05,
+against one success) are joined by a fifth from the split run of 2026-08-10, whose ``128^3`` process
+crashed on its first attempt before succeeding on its second. Every crash
 on record shares four properties: `-t8` (FFTW's thread count tracks Julia's, so eight workers; `-t1`,
 `-t2` and `-t4` have never failed across many lanes), the host `Enteropia`, the **`reductions` class**
 — five times out of five, never `fft`, `algebra`, `operators`, `convolution` or `transfer` — and a
@@ -818,7 +821,7 @@ were almost exactly the operations that *take* a kernel — `divergence!∘kerne
 measured in the broken regime of (s), so the device cluster was a difference between two
 collector-dominated measurements and says nothing about the operations. It cannot be recovered either,
 since answering it now would require the *old code* re-measured on the *fixed* harness, which no
-archive contains. `gcsample` never applied to CPU lanes, so what follows is CPU-only and is real.
+archive contains. The `gcsample` setting never applied to CPU lanes, so what follows is CPU-only and is real.
 
 **Bisected rather than argued.** The archives were gone, so the same operations were re-measured at
 `48b6254a` and at `HEAD` in adjacent worktrees sharing one dependency manifest, on an idle box, `-t1`.
@@ -849,7 +852,7 @@ radial against its own materialized twin:
 | ``R = 2`` | ``1.52`` | ``1.06`` |
 
 ``R = 0`` never pays it, which is the signature; `exponential_convolve!` takes multipliers rather than a
-kernel object and is untouched, which is the control. ``R = 2`` is *below* ``R = 1`` because nine
+kernel object and is untouched, which is the control. The case ``R = 2`` sits *below* ``R = 1`` because nine
 complex components are memory-heavy enough that bandwidth starts dominating even at ``64^3``, which is
 the same effect that removes the penalty entirely at ``128^3``.
 
@@ -1123,8 +1126,8 @@ inflation's per-row variance, and none can be re-checked from this box:
     gather were deleted. That was wrong on the part that matters: only the *sort* was deleted, and the
     sort is not what the measurement times. `interpolate!` still exists and Morton order is just a
     permutation of the `PointSet`, which a host `sortperm` produces perfectly well for a benchmark. See
-    §3, where the entry now carries the re-measurement.
-  - **The wrap-hoist rejection — RE-MEASURED, and reopened (see §3).** Filing it here as a `gcsample`
+    §4(c), where the entry now carries the re-measurement.
+  - **The wrap-hoist rejection — RE-MEASURED, and reopened (see §4(c)).** Filing it here as a `gcsample`
     casualty was probably wrong twice over: the record describes a "same-session A/B", i.e. an ad-hoc
     comparison that `BenchmarkTools` would have run with `gcsample = false` anyway, so the defect likely
     never touched it. What it *was* at risk from is the same thing as Morton — retired RDNA2 hardware.
@@ -1286,7 +1289,9 @@ runs; the large characterisation sweep behind §4 (256³/512³) is reachable wit
 `Project.toml`.
 
 **The coverage contract.** Every public operation class is benchmarked (representative members) over **{Float64, Float32} ×
-{representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}**. New code adds its benchmark to the
+{representative grid sizes} × {CPU `-t1`, CPU `-t4`, GPU}**, unless a class has an explicit exemption
+with its reason — the storage class of decision 63 is device-only, because `adapt` to the family one
+already occupies is the identity and a CPU row would time a no-op. New code adds its benchmark to the
 matching per-class file — the performance analogue of the test coverage contract (`TESTING.md` §4).
 
 
@@ -1325,11 +1330,13 @@ A representative slice — `128³`, `Float64`, minimum time (CPU = Ryzen 9800X3D
 read from the current `RESULTS.md` rather than measured for this table. The
 last two columns are speedups *in ×*: CPU thread scaling (`-t1` → `-t4`) and the GPU's lead over the
 4-thread CPU. `RESULTS.md` now carries **two CPU thread sweeps** (i7-12700K and Ryzen 9800X3D) and
-**four GPU columns** — the GTX 1070 (Pascal, CUDA, pre-swap), the RX 6700 XT shown here, the RX 7900 XTX
-(gfx1100, 24 GB), and the RTX 5070 Ti (Blackwell `sm_120`, CUDA, 16 GB). At 256³ (kernel-dominated, not
-launch- or `gcsample`-floored) the 7900 XTX runs ~1.7–3.8× faster than the 6700 XT — widest in
-`Float32` — and adds a 512³ `Float32` point; the 5070 Ti covers the full 256³ matrix (both element
-types, all six classes). Across vendors the **reductions** class shows the widest gap and the
+**two GPU columns** — the RX 7900 XTX (gfx1100, ROCm, 24 GB) and the RTX 5070 Ti (Blackwell `sm_120`,
+CUDA, 16 GB); the two retired cards were dropped on 2026-08-07, having been measured in the broken
+`gcsample` regime of §4(s) with no hardware left to re-sweep them on. The 7900 XTX adds a 512³
+`Float32` point, and both cards cover the full 256³ matrix in both element types. At 256³ the two are
+near parity (§4(v)): the median over 71 comparable rows is 1.09× in `Float64` and 1.28× in `Float32`,
+the NVIDIA lead being a small-grid launch-latency effect rather than a throughput one, and the AMD card
+winning the whole `transfer` class by 1.5–1.9×. Across vendors the **reductions** class shows the widest gap and the
 clearest architectural signature: the radial reductions (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
 `radial_spectrum` on a vector field at 256³ is **≈48× faster** on the 5070 Ti than the 7900 XTX in
@@ -1345,12 +1352,12 @@ figures, the staging planes fused away, so the atomics are the whole measurement
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
-| `to_spectral` scalar (FFT)            | 10.34 ms | 2.83 ms | 0.43 ms | 3.6× |  6.6× |
-| `mul!` tensor·vec (M3 algebra)        |  7.05 ms | 4.33 ms | 0.38 ms | 1.6× | 11.4× |
-| `laplacian!` scalar (operator)        |  2.21 ms | 0.27 ms | 0.08 ms | 8.3× |  3.5× |
-| `interpolate!` Catmull–Rom (gather)   |  5.61 ms | 1.45 ms | 0.19 ms | 3.9× |  7.7× |
-| `interpolate!` Lalescu (3,3) (gather) | 41.48 ms | 10.49 ms | 0.84 ms | 4.0× | 12.6× |
-| `anterpolate!` Catmull–Rom (scatter)  | 22.10 ms | 6.13 ms | 0.23 ms | 3.6× | 27.1× |
+| `to_spectral` scalar (FFT)            | 10.34 ms | 2.83 ms | 0.399 ms | 3.6× |  7.1× |
+| `mul!` tensor·vec (M3 algebra)        |  7.05 ms | 4.33 ms | 0.321 ms | 1.6× | 13.5× |
+| `laplacian!` scalar (operator)        |  2.21 ms | 0.27 ms | 0.030 ms | 8.3× |  9.1× |
+| `interpolate!` Catmull–Rom (gather)   |  5.61 ms | 1.45 ms | 0.132 ms | 3.9× | 11.0× |
+| `interpolate!` Lalescu (3,3) (gather) | 41.63 ms | 10.50 ms | 0.772 ms | 4.0× | 13.6× |
+| `anterpolate!` Catmull–Rom (scatter)  | 22.10 ms | 6.13 ms | 0.169 ms | 3.6× | 36.3× |
 
 Two patterns the speedup columns make plain. **The bandwidth-bound classes barely thread** at this
 size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidth-bound rather than
@@ -1367,7 +1374,7 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 
 ## 7. Current coverage and known gaps
 
-**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions)
+**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions, and the device-only storage class of decision 63)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),

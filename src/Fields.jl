@@ -33,6 +33,11 @@ The parts are:
   * **Allocation** — [`similar_field`](@ref) returns uninitialized storage carrying a reference field's
     representation, tensor order, grid and backend, which is how an operation builds scratch or a
     result without naming a concrete field type.
+  * **Moving between storage families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
+    or its transform plans between host and device memory (or any other `Adapt.jl` storage family),
+    preserving the element type and everything else the object carries. Operations refuse a pair that
+    disagrees rather than transferring one to meet the other, so that the cost of crossing the bus is
+    always visible at the call site.
   * **Broadcasting** — a dotted assignment writes into the destination's storage, an out-of-place dotted
     expression allocates a like field in the same representation, and physical and spectral
     representations cannot be mixed in one broadcast.
@@ -1092,6 +1097,11 @@ The fields are
 - `fourier_layout::L`: the [`RealFourierLayout`](@ref) for which the plans were constructed.
 - `plan_forward_fft::PF`: the plan transforming physical values to spectral coefficients.
 - `plan_inverse_fft::PI`: the plan transforming spectral coefficients to physical values.
+- `fft_flags::Union{Nothing, UInt32}`: the planner flag these plans were built with, or `nothing` for
+  the default. It is retained rather than merely used, so that rebuilding these plans in another
+  storage family can replay the intent they were created with — see [`adapt`](@ref).
+- `fft_timelimit::Float64`: the planner time limit paired with `fft_flags`, retained for the same
+  reason.
 
 The plans are backend-, array-type-, scalar-type-, and tensor-order-specific; construct a separate `FieldTransformPlans` object for each CPU/GPU backend and field tensor order.
 """
@@ -1772,58 +1782,79 @@ function read_field end
 ###################################################
 
 """
-    adapt(storage, section)
+    adapt(storage, object)
 
 Move a field, its multipliers, its kernels or its transform plans to another **storage family** —
 host to device, or device to host — returning an object of the same kind whose arrays live in the
 requested family. The element type is preserved exactly.
 
-Use this when a section built on one family has to be used on another. Invariant 14 makes every
-arithmetic operation **refuse** a mixed pair rather than promote or transfer it, because an implicit
-copy across the bus is a cost that belongs at the call site; `adapt` is that call site. The
-argument `storage` is the target array type (`Array`, `CuArray`, `ROCArray`, …) or any other
-`Adapt.jl` adaptor, and `section` is the object to move.
+A **storage family** is where an array lives — host memory, or one vendor's device memory. Use this
+when something built on one family has to be used on another. Two fields combine arithmetically only
+when they share a family and an element type, and a mixed pair is **refused** rather than promoted or
+transferred, because a copy across the bus is a cost that belongs at the call site; `adapt` is that
+call site. The argument `storage` is the target array type (`Array`, `CuArray`, `ROCArray`, …) or any
+other `Adapt.jl` adaptor, and `object` is what to move — a field or point-values (the sections), or
+one of the companions a section is useless without: multipliers, a kernel, or transform plans.
 
 The whole surface a solver needs is covered: the six field types, the point-value types, a
-`PointSet`, a [`FieldSpectralMultipliers`](@ref), the four spectral-kernel classes, and
-`FieldTransformPlans`. Everything a section carries besides its storage — the grid, the Fourier
-layout, the origin, the tensor order — is preserved by construction, since the moved object is
-rebuilt through the same allocator the package uses everywhere else.
+`PointSet`, a [`FieldSpectralMultipliers`](@ref), the four spectral-kernel classes (`StoredKernel`,
+`SeparableKernel`, `RadialKernel` and `ProductKernel`, all subtypes of [`SpectralKernel`](@ref)), and
+`FieldTransformPlans`. Everything the moved object carries besides its storage — the grid, the Fourier
+layout, the origin, the tensor order — is preserved by construction, since it is rebuilt through the
+same allocator the package uses everywhere else.
 
-!!! warning "Moving to the family a section is already in returns it unchanged"
+!!! warning "Moving to the family an object is already in returns it unchanged"
     Following `Adapt.jl` and `convert`, adapting to the family an object already belongs to is the
     identity: it returns the very same object, sharing storage, rather than a copy. Write `copy` when
     a distinct object is what is wanted.
 
 !!! warning "Transform plans are rebuilt, not moved, and that costs a planning pass"
-    An FFT plan is bound to its backend and cannot be transferred, so adapting a `FieldTransformPlans`
-    **constructs new plans** on the target. It needs nothing from the caller: the plans carry their
-    own grid, layout, element type and tensor order, so the two arrays the planner needs as witnesses
-    are allocated internally and released immediately. The planner request the plans were built with
-    is replayed, with one exception — planner flags are an `FFTW` concept, so a move to a device
-    family ignores them (`cuFFT` and `rocFFT` reject them) while retaining them, so that a later move
-    back to the host restores the original intent.
+    An FFT plan is a compiled schedule tied to one storage family and cannot be transferred, so
+    adapting a `FieldTransformPlans` **constructs new plans** on the target. It needs nothing from the
+    caller: the plans carry their own grid, layout, element type and tensor order, so the two arrays
+    the planner needs as witnesses are allocated internally and released immediately. The planner
+    request the plans were built with is replayed, with one exception. Planner flags are an `FFTW`
+    concept — `cuFFT` rejects them outright — so a move to any non-host family does **not apply** them
+    when building the new plan, but the returned plans still **record** the original flags, so a later
+    move back to the host plans with the intent they were created with.
 
 Element-type conversion is deliberately **not** part of this: a transfer that silently changed
-precision would change what a solver computes. See `docs/ARCHITECTURE.md` for that as recorded future
-work.
+precision would change what a solver computes. No operation in this package converts precision today.
 
 # Examples
 ```julia
 u_device      = adapt(CuArray, u)                 # host  -> device
 u_host        = adapt(Array, u_device)            # device -> host
-mult_device   = adapt(CuArray, multipliers)       # the partner invariant 14 requires to match
+mult_device   = adapt(CuArray, multipliers)       # a field's multipliers must share its family
 plans_device  = adapt(CuArray, plans)             # rebuilt on the device
 ```
 """
 adapt
 
 
-# The witness arrays a plan needs are allocated on the target WITHOUT a host round trip: adapting a
-# zero-length array yields a prototype of the target family, and `similar` grows it there. Allocating
-# a full-size host array and adapting it would copy an entire field's worth of uninitialised memory.
+"""
+    _storage_prototype(to, ::Type{S})
+
+Return an empty array of element type `S` in the storage family `to`, to be grown with `similar`.
+
+This is how [`adapt`](@ref) allocates a transform plan's witness arrays on the target without a host
+round trip: adapting a zero-length array costs nothing and yields a prototype of the right family,
+where allocating a full-size host array and adapting it would copy an entire field's worth of
+uninitialised memory across the bus.
+"""
 _storage_prototype(to, ::Type{S}) where {S} = adapt(to, Array{S}(undef, 0))
 
+
+"""
+    _physical_field_of_order(data, grid, layout, ::Val{R})
+    _spectral_field_of_order(data, grid, layout, ::Val{R})
+
+Wrap `data` as the physical (or spectral) field type of tensor order `R` on `grid` and `layout`.
+
+These pick the concrete type from the order alone, which `similar_field` cannot do because it copies
+its metadata from a reference field. [`adapt`](@ref) rebuilding a `FieldTransformPlans` has no such
+reference — it has only the plans' own grid, layout, element type and order — so it needs this form.
+"""
 _physical_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
 _physical_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
 _physical_field_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid, layout)
@@ -1832,9 +1863,17 @@ _spectral_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(dat
 _spectral_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
 _spectral_field_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
 
-# Reading the `Canonical` parameter back off the type. It is what lets `convolve` collapse two radial
-# kernels statically (decision 61), so a move that dropped it would silently disable that — a
-# performance regression with no wrong answer.
+"""
+    _is_canonical(multipliers::FieldSpectralMultipliers)
+
+Read back whether a multiplier set's wavenumbers were derived from its grid, rather than supplied.
+
+The answer is a type parameter, not a field, because it decides statically whether two multiplier sets
+provably hold the same coordinates — which is what lets `convolve` collapse two radial kernels without
+a runtime test. [`adapt`](@ref) has to carry it across a move deliberately: rebuilding through the
+public six-array constructor would mark the result non-canonical and silently disable that collapse,
+costing performance with no wrong answer to show for it.
+"""
 _is_canonical(::FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Canonical}) where {Canonical} = Canonical
 
 

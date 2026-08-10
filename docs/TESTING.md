@@ -354,6 +354,14 @@ operation's coverage is judged against the full axis list:
     made this a type parameter, so it selects dispatch: two canonical sets collapse under `convolve`
     while any custom set keeps both operands. It is an axis rather than a case because a kernel built on
     a custom set is admissible input to every kernel-taking entry point, not just to composition.
+17. storage family — `Array` on the host against a device array (`CuArray`, `ROCArray`). Decision 63
+    made crossing it an explicit operation, `adapt`, so a section, its multipliers, its kernels and its
+    plans are all admissible in either family. The CPU lane drives it with a **custom adaptor**, since
+    adapting to the family one already occupies is the identity and would exercise nothing; the device
+    half is the GPU suite. **NA on one combination, with its reason:** a permuted `RealFourierLayout`
+    cannot be crossed with this axis on CUDA, because `cuFFT` rejects a non-strictly-increasing FFT
+    region, so a device test that needs a layout fold must use the default one. That is a vendor limit
+    rather than a package one, and it makes the permuted folds of decision 41 a CPU-side generality.
 
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA

@@ -127,9 +127,10 @@ conceptual model and the writing/docstring conventions are recorded once — in
     **non-section partners** — a spectral field and its `FieldSpectralMultipliers` must match too,
     and multipliers are not a section, so nothing section-level covers them. The checks live in
     `_check_same_domain`, `_check_contractible` and `_check_multipliers_compatibility`; a new
-    multi-argument operation routes through one of them or states why it need not. Conversion between
-    precisions or storage families is a **future, explicitly-named operation** (roadmap below), never
-    something arithmetic does implicitly.
+    multi-argument operation routes through one of them or states why it need not. Conversion is an
+    **explicitly-named operation**, never something arithmetic does implicitly: crossing **storage
+    families** is `adapt`, extended from `Adapt.jl` and re-exported (decision 63), and crossing
+    **precisions** remains future work (roadmap below).
 
 ## Code generation rules (FiberSections + FieldAlgebra)
 

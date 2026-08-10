@@ -30,7 +30,9 @@ them. An odd-length axis has no exact Nyquist mode and so loses nothing. A secti
 **storage family** is the kind of array its data lives in — `Array` on the host, `CuArray` or
 `ROCArray` on a device — taken as the array's underlying type rather than its wrapping, so that a
 `reshape` of an `Array` is still the `Array` family. Two sections combine only within one storage
-family and one element type; a mixed pair is refused rather than converted.
+family and one element type; a mixed pair is refused rather than converted, and [`adapt`](@ref) is the
+explicit operation that moves one — a field, its multipliers, its kernels or its transform plans —
+into another family when that is what you want. It never changes the element type.
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported

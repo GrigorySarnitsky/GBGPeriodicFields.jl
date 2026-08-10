@@ -51,12 +51,13 @@ and the PNGs `structure_functions` (the headline two-panel figure), `spectrum`, 
 
 Incompressible Navier–Stokes in **rotational form**, so the nonlinear step maps onto the package. Here
 $\hat u$ is the velocity in spectral representation, $\mathbb{P}$ the Helmholtz projection onto
-divergence-free fields, $\nu$ the kinematic viscosity, and $\kappa$ the wavenumber magnitude — written
+divergence-free fields, $\omega = \nabla\times u$ the vorticity, $\nu$ the kinematic viscosity, and
+$\kappa$ the wavenumber magnitude — written
 $\kappa$ rather than $k$ throughout, because this page follows the turbulence convention in which $k$
 is the turbulent kinetic energy:
 
 ```math
-\frac{\partial \hat u}{\partial t} = \mathbb{P}\bigl[\widehat{u\times\omega}\bigr] - \nu \kappa^2 \hat u + \hat f, \qquad \omega = \nabla\times u, \qquad \mathbb{P} = \text{Leray (Helmholtz) projection}
+\frac{\partial \hat u}{\partial t} = \mathbb{P}\bigl[\widehat{u\times\omega}\bigr] - \nu \kappa^2 \hat u + \hat f
 ```
 
 - **Time integration:** integrating-factor RK2 (Heun) — viscosity exact via $\exp(-\nu \kappa^2 \Delta t)$, the
@@ -131,8 +132,7 @@ twin (`allowscalar(false)`) forced most of them in.
 
 1. **Random solenoidal field generator** with a target spectrum (an initial-condition helper). The
    script builds the random field + envelope + Helmholtz projection by hand.
-2. *Minor:* `gradient(vector)→tensor` for the velocity-gradient tensor, which the script sidesteps via
-   the homogeneous identity $\varepsilon = \nu\langle |\omega|^2\rangle$; and the Lagrangian autocorrelation / structure function are
+2. *Minor:* the Lagrangian autocorrelation / structure function are
    host-side loops over the recorded per-particle velocities (inherent to particle tracking).
 
 Forcing and time integration themselves stay a *consumer* concern (the package has no time / forcing).

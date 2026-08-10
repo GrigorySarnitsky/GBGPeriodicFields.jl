@@ -35,6 +35,10 @@ The parts are:
     `!` form).
   * **Norm operations** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius
     norms.
+Two words recur below. A **fiber** is the value at one base point — a scalar, a `FiberVector` or a
+`FiberTensor2` — and a **section** is one fiber at every point of a base, which is what a field and a
+set of point-values each are. That shared shape is why one set of formulas serves both.
+
   * **Arbitrary fiber map** — [`map!`](@ref) and [`map`](@ref) apply *any* fiber map `φ` you supply at
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
     of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
@@ -73,7 +77,7 @@ may be called with the destination aliasing an input.
     other's element ``n``, and it is the **ownership** rule that supplies it: a section's constructor
     refuses borrowed storage, so two sections can share memory only by being backed by the same array.
     Two partially-overlapping views at *different* base indices would break the argument, and they are
-    not merely undetected — they cannot be constructed. `mul!` is the one exception, keeping
+    not merely undetected — they cannot be constructed. The `mul!` operation is the one exception, keeping
     `LinearAlgebra`'s contract that its destination must not alias.
 
 Most of this module is mirrored onto point-values (`AbstractPointValues`) — the same fiberwise algebra
@@ -564,8 +568,11 @@ replacing a `combine!` followed by a `convolve!` — one pass instead of two, sa
 full write of `destination` per call. This form exists only in spectral representation (a kernel is a
 spectral object); `α`/`β` keep their combination-weight roles, and with `b === destination` it
 computes the kernel-filtered accumulate in place. The scalar kernel broadcasts over the fiber, so one
-method serves every tensor order, and the write stays coefficientwise — `a`, `b`, or the `kernel` may
-alias `destination`.
+method serves every tensor order, and the write stays coefficientwise.
+
+The additional argument is:
+- `kernel` — the transfer function ``\\hat g``, in any of its storage classes, exactly as `convolve!`
+  takes it. It may alias `destination`, as may `a` and `b`, the write being coefficientwise.
 """
 function combine! end
 
@@ -1109,7 +1116,9 @@ Use this in-place form when `destination` is already allocated; the allocating `
 returns a fresh result instead.
 
 The arguments are:
-- `destination` — the field written with the product, which must not alias either operand.
+- `destination` — the field written with the product. It must **not** share storage with either
+  operand, and that is not checked: `mul!` keeps `LinearAlgebra`'s contrary contract, where every
+  other in-place operation here is alias-safe by construction.
 - the two operands — given in the order they multiply, so the signatures above cover both the **left**
   action ``(A u)_i = A_{ij} u_j`` and the **right** action ``(u A)_i = u_j A_{ji}``. Each may be a field
   or a fiber constant: a second-order tensor field or a `FiberTensor2`, a vector field or a
@@ -1121,9 +1130,6 @@ The arguments are:
   accumulates — the `LinearAlgebra.mul!` convention.
 
 A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
-
-!!! warning "The destination must not alias an input"
-    As with `LinearAlgebra.mul!`, `destination` must not share storage with any input, and this is not checked.
 
 Pointwise over the base, with summation over the repeated fiber indices:
 
@@ -1760,7 +1766,7 @@ end
 
 # Allocate the map's result through the package's own allocator, which carries the reference's grid,
 # Fourier layout, element type and backend. Building the field from a bare constructor instead drops
-# the layout to its default, which broke `map` on every permuted `RealFourierLayout` (decision 41)
+# the layout to its default, which broke `map` on every permuted `RealFourierLayout` (decision 48)
 # from the day it shipped — the destination then mismatched its source and the call threw.
 _allocate_map_output(reference::AbstractFieldPhysical, ::Val{R}) where {R} =
   similar_field(reference, Val(R))

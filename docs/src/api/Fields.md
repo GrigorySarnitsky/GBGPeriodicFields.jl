@@ -110,7 +110,7 @@ read_field
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, and the broadcast machinery.
+These symbols are not part of the public interface; they are documented for contributors — field-allocation and compatibility helpers, the spectral-multiplier broadcast helpers, the broadcast machinery, and the storage-family helpers `adapt` rebuilds through.
 
 ### Types
 

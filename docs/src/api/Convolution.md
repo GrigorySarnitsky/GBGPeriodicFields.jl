@@ -18,6 +18,9 @@ exponential_convolve
 The kernel-composed method of `combine!` — the weighted combination convolved with a kernel in the
 same fused pass — is documented with its generic on the [`FieldAlgebra`](FieldAlgebra.md) page.
 
+Every kernel class moves between storage families with its field: `adapt` is extended for all four,
+and is documented with its generic on the [`Fields`](Fields.md) page.
+
 ## Kernel storage classes
 
 A kernel is anything an operation can apply as the coefficientwise product ``\hat f \cdot \hat g``, and the

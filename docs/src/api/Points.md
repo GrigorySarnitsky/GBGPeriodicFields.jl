@@ -41,7 +41,8 @@ similar_pointvalues
 The point values carry the same fiberwise algebra as fields in physical representation, through the very same generics —
 `add!`, `subtract!`, `multiply!`, `divide!`, `dot!`, `cross!`, `mul!`, `transpose!`,
 `norm!`, `tr!`, `det!`, the `sym`/`skew`/`dev` decompositions, and the arbitrary-fiber-map
-`map!`/`map` — extended here to accept `AbstractPointValues`. (`combine!` is deliberately absent, and for the **no-consumer** reason rather than a mathematical
+`map!`/`map` — extended here to accept `AbstractPointValues`. A `PointSet` and any point values also
+move between storage families through `adapt`, documented with its generic on the [`Fields`](Fields.md) page. (`combine!` is deliberately absent, and for the **no-consumer** reason rather than a mathematical
 one: the weighted combination is linear and coefficientwise, so it would be perfectly well defined on
 point-values. It exists on fields because a solver's stage updates are the one place the fused axpby saves a whole
 pass over a field; nothing asks it of the point layer, so it is unbuilt rather than invalid — the §2 no-speculative-structure

@@ -183,6 +183,9 @@ here rather than repeated:
 - **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)): `integral`, `inner`, `weighted_inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
 - **The grid↔point transfer** ([`Interpolation`](@ref GBGPeriodicFields.Interpolation)): interpolation ``W`` and its adjoint anterpolation
   ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
+- **Moving between storage families** ([`adapt`](@ref), decision 63): host and device are two families of
+  the same object, and crossing between them is an explicit operation rather than something arithmetic
+  does implicitly — invariant 14 refuses a mixed pair, and this is its named complement.
 - **Support mechanics** — types & memory layout ([§3](@ref "3. Types and memory layout")), validation design ([§5](@ref "5. Validation design")), code generation ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")),
   aliasing ([§7](@ref "7. Aliasing policy")), broadcasting ([§8](@ref "8. Broadcasting")), performance & threading ([§9](@ref "9. Performance model and CPU threading")).
 
@@ -252,9 +255,9 @@ with a pointer to the section that develops it.
     rather than promoting, copying, or transferring. The refusal is a decision of the package, not an
     accident of a vendor library declining a mixed-pointer call or a kernel launcher declining mixed
     arrays. It binds every argument an operation takes, the destination and the non-section partners
-    included — a spectral field and its multipliers must match too. Conversion between precisions or
-    storage families is a future, explicitly-named operation, never something an arithmetic operation
-    does implicitly.
+    included — a spectral field and its multipliers must match too. Conversion is an explicitly-named
+    operation, never something an arithmetic operation does implicitly: crossing **storage families**
+    is [`adapt`](@ref) (decision 63), and crossing **precisions** remains future work.
 
 ### Representation validity lives in the method set
 
@@ -471,8 +474,13 @@ rule: an operation may be offered in a representation **iff** its square commute
 ## 5. Validation design
 
 `Fields` owns compatibility checking, built from atomic Boolean predicates
-(`_same_scalar_type`, `_same_tensor_order`, `_same_grid`, `_same_layout`) composed
-into `_check_same_domain`, the representation-dispatched
+(`_same_scalar_type`, `_same_grid`, `_same_layout`, `_same_backend`) composed
+into `_check_same_domain`. The last of those is what realizes invariant 14: it throws when two
+sections live in different storage families (an `Array` against a `CuArray`), and it sits in the
+domain check rather than below it, so the error does not depend on which operation the user happened
+to call. Tensor order is deliberately **not** among them — `_same_tensor_order` is checked one level
+up, in `check_field_compatibility` only, because the domain check must let order differ for the
+operators that change it (`gradient`, `divergence`). Composed on top are the representation-dispatched
 `_check_field_domain_compatibility` (physical-physical and spectral-spectral
 methods — the dispatch barrier that prevents cross-representation mixing), the
 unexported `check_field_compatibility` (un-prefixed, but documented with the internals), and `_check_field_matches_context` for
@@ -2953,7 +2961,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     nothing at run time. The audit proposed a context descriptor struct; dispatch does the same work
     without a new type.
 
-    **The tensor-order ceiling is `R < 3`, documented rather than enforced** (user-decided). The
+    **The tensor-order ceiling is `R < 3` (writing `R` for a section's tensor order), documented rather than enforced** (user-decided). The
     reductions, `map` and the decompositions serve ``R \le 2``; storage, persistence, the vector-space
     operations, `inner`/`l2norm` and the spline transfer serve higher orders, and general `R` was
     deferred to ship the second-order surface a pseudospectral solver needs. Enforcement at the
@@ -3218,7 +3226,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     every call to protect a deliberate act is the wrong trade.
 
     Covered in `test/reductions.jl` (each class bitwise-equal to its own materialized form over
-    ``R = 0, 1, 2``; the complex refusal on the separable class, on a composition carrying it, and the
+    ``R = 0, 1, 2`` in the tensor order ``R``; the complex refusal on the separable class, on a composition carrying it, and the
     stored exemption), pinned allocation-free for all three newly admitted classes in
     `test/allocations.jl` — the assertion that would catch a widening which quietly reached for
     `materialize_kernel` — and given device parity in `test/gpu/suite.jl`, where the composite class
@@ -3267,7 +3275,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the user to the constructor — wrong, and the question that exposed it was whether a plan requires
     both representations. It does not: the constructor reads no data, only shape, element type and
     family, and a plan **outlives the arrays it was planned against** (verified on FFTW and cuFFT). A
-    `FieldTransformPlans` stores its own grid and layout and carries `T` and `R` as type parameters, so
+    `FieldTransformPlans` stores its own grid and layout and carries `T` (its element type) and `R` (its
+    tensor order) as type parameters, so
     it can allocate its own witnesses, plan, and release them. The struct now also records the planner
     request it was built with, because a rebuild would otherwise fall back to `ESTIMATE` — which
     finding (h) of `docs/PERFORMANCE.md` records as capable of badly mis-planning a single-precision

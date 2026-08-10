@@ -653,20 +653,28 @@ allocator holds its samples is no more intrinsic than which page of RAM they occ
 identity, not a computation:
 
 ```math
-\operatorname{adapt}(\mathcal{A}, \mathcal{S}) = \mathcal{S}' \quad\text{with}\quad
-\mathcal{S}'(n) = \mathcal{S}(n) \ \ \forall n \in \text{base}, \qquad
-\Gamma(\mathcal{S}') = \Gamma(\mathcal{S}),
+\begin{aligned}
+\operatorname{adapt}(\mathcal{A}, \mathcal{S}) &= \mathcal{S}', \\
+\mathcal{S}'(n) &= \mathcal{S}(n) \quad \forall n \in \text{base}, \\
+\mathcal{C}(\mathcal{S}') &= \mathcal{C}(\mathcal{S}).
+\end{aligned}
 ```
 
-where ``\Gamma`` collects everything the section carries besides its samples — the grid, the Fourier
-layout, the origin and the tensor order ``R`` — and the element type is likewise unchanged. Only the
-family differs. Two consequences follow and are what the tests assert. First, the move **commutes with
-every operation**: for an operation ``T`` defined on both families,
-``T(\operatorname{adapt}(\mathcal{A}, \mathcal{S})) = \operatorname{adapt}(\mathcal{A}, T(\mathcal{S}))``
+Here ``\mathcal{C}(\mathcal{S})`` is the **context** of a section — everything it carries besides its
+samples, namely the grid, the Fourier layout, the origin and the tensor order — and the element type is
+likewise unchanged. Only the family differs. Two consequences follow and are what the tests assert.
+First, the move **commutes with every operation**: for an operation ``\Phi`` defined on both families,
+``\Phi(\operatorname{adapt}(\mathcal{A}, \mathcal{S})) = \operatorname{adapt}(\mathcal{A}, \Phi(\mathcal{S}))``
 up to the floating-point reassociation any backend is free to make, which is why the device suite can
 compare a moved workspace against the host result at all. Second, it is **idempotent**, and on the
 family a section already occupies it is the identity map on objects, ``\operatorname{adapt}(\mathcal{A},
 \mathcal{S}) \equiv \mathcal{S}``, sharing storage rather than copying. ``\checkmark``
+
+The same statement covers the **companions** a section cannot be used without, none of which is itself a
+section. A `FieldSpectralMultipliers` and each of the four kernel classes move by the identity above with
+``\mathcal{C}`` reading their own context, so a moved kernel denotes the **same multiplier**,
+``\hat g_{\mathcal{A}} = \hat g`` as a function of the mode, and therefore computes the same convolution
+on the target family as on the source. ``\checkmark``
 
 Precision is deliberately **not** of this kind and is not offered here: changing the element type
 changes the values, and — because ``\texttt{Grid3D}`` stores the domain size, spacing and origin at the
@@ -674,14 +682,15 @@ field's own element type — it changes ``\Gamma`` as well, so it is a different
 weaker one.
 
 `FieldTransformPlans` is the one companion that is **rebuilt rather than moved**, because an FFT plan
-is not a section: it is a compiled schedule bound to a backend. It is nonetheless determined by data it
-already carries — the grid, the layout, ``T`` and ``R`` — so the rebuild needs no argument, and a plan
-is independent of the arrays it was planned against, which is what lets the witnesses be released
-immediately.
+is not a section: it is a compiled schedule bound to one storage family. It is nonetheless determined by
+data it already carries — the grid, the layout, its element type and its tensor order — so the rebuild
+needs no argument, and a plan is independent of the arrays it was planned against, which is what lets
+the witnesses be released immediately.
 
 **Backs** [Architecture](architecture.md) §13, decision 63.
-**Checked by** `test/adapt.jl` — value and metadata preservation across three layout folds, a non-zero
-origin, both element types, both representations and ``R = 0, 1, 2``; the identity case; the `Canonical`
-parameter of the multipliers; and a rebuilt plan transforming equally. Commutation with the operations
-is checked on device in `test/gpu/suite.jl`, where a moved workspace reproduces the host `curl` and
-`convolve`.
+**Checked by** `test/adapt.jl` — value and context preservation across three layout folds, a non-zero
+origin, both element types, both representations and ``R = 0, 1, 2``; the identity case; the point layer
+(`PointSet` and all three point-value types); each of the four kernel classes, asserted through the
+convolution it computes rather than through its storage; the `Canonical` parameter of the multipliers;
+and a rebuilt plan transforming equally. Commutation with the operations is checked on device in
+`test/gpu/suite.jl`, where a moved workspace reproduces the host `curl` and `convolve`.

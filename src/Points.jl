@@ -22,6 +22,14 @@ The parts are:
     [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
+  * **Persistence.** [`write_points`](@ref) and [`read_points`](@ref) map a point set or a point-value
+    section to and from one self-describing HDF5 group, positions and values kept separate (methods
+    load with the `HDF5` package, as a weak-dependency extension). They are the point-layer twins of
+    `write_field`/`read_field`.
+  * **Moving between storage families.** `adapt` moves a [`PointSet`](@ref) or any point values
+    between host and device memory, exactly as it moves a field; the operation is documented once,
+    with its field methods, in [`Fields`](@ref "Fields").
+
 The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
 [`Interpolation`](@ref "Interpolation") module.
 """
