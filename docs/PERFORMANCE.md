@@ -735,6 +735,32 @@ with the crash point moving between attempts, the fault reads as a low-probabili
 with the number of threaded transform executions — which is why the small grids, with their enormous
 call counts per second, are where it keeps landing.
 
+**The conditions, tabulated from five crashes — and the four things that are NOT enough.** Every crash
+on record shares four properties: `-t8` (FFTW's thread count tracks Julia's, so eight workers; `-t1`,
+`-t2` and `-t4` have never failed across many lanes), the host `Enteropia`, the **`reductions` class**
+— five times out of five, never `fft`, `algebra`, `operators`, `convolution` or `transfer` — and a
+small or middling grid (``128^3`` four times, ``64^3`` once, never ``256^3`` or ``512^3``, though that
+last is partly survivorship because the monolithic lanes died before reaching them). What it is *not*
+is an accumulation threshold: the allocation counter at death spans 158M to 1071M and the collection
+count 1753 to 14598, a sevenfold spread on both.
+
+Four reproduction attempts at `-t8` on the failing host all came back **clean**, and each one narrows
+the cause: 2,400 `radial_correlation` calls; twelve rounds of build → run → drop → `GC.gc(true)` over
+`fft`, `transfer` and `reductions`; **five rounds of the `reductions` class alone at the exact crashing
+cell**; and the full `Pkg.test()` suite. So neither the operation, nor plan churn, nor the class, nor
+eight threads is sufficient on its own.
+
+**What every real crash had that none of those had is the rest of the process.** In each one, `fft`,
+`algebra`, `operators`, `convolution` and `transfer` had already run before `reductions` was reached —
+and `fft` is the class that builds the most plans, including the `measure` twins that invoke FFTW's
+**timed planner**. That is the exact window FFTW.jl documents, quoted below: the collector may run
+during the `spawnloop` callback *while the planner is executing*. Its deferred plan destruction and
+`GC.safepoint()` spin exist to stop that **deadlocking**; a segfault is the other failure, the shape of
+a plan freed by its finalizer while another thread is still executing it. The working description is
+therefore a low-probability race, per threaded transform execution, whose window is opened by earlier
+planner activity in the same process — which explains both why the small grids catch it (their call
+counts per second are enormous) and why splitting the lane helps without fixing anything.
+
 **Separately, the package itself is fine at eight threads.** `Pkg.test()` under `JULIA_NUM_THREADS=8`
 passes in full — 6182 tests across 92 testsets, zero failures, identical to `-t1` and `-t4` — so this
 is not a general ``-t8`` hazard for a consumer, and the CI matrix's `-t1`/`-t4` pair is not hiding a
