@@ -32,15 +32,14 @@ const ELEMENT_TYPES = (Float64, Float32)
 tensor_a(x, y, z) = [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)]
 tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 
-# A device twin of `field`: same field type, grid, and layout; data copied to the
-# device. `to_device` is supplied by the backend entry script.
-on_device(field) = F.similar_field(field, to_device(copy(field_data(field))))
-
-# A device twin of point values: same type and tensor order, data copied to the device.
-on_device_pv(values) = IP.similar_pointvalues(values, to_device(copy(point_values(values))))
-
-# A device twin of a point set: coordinates copied to the device.
-on_device_ps(point_set) = PointSet(to_device(copy(point_coordinates(point_set))))
+# Device twins, through the package's own interface. These three were hand-written rewraps until the
+# storage-family move became public: each reached into a section's storage, copied it, and rebuilt the
+# section around the result — which is precisely what `adapt` now does, once, for every section, kernel
+# and plan. Using it here means the suite exercises the shipped interface rather than a private
+# imitation of it, so a defect in the real one cannot hide behind a parallel implementation.
+on_device(field)         = adapt(device_array_type(), field)
+on_device_pv(values)     = adapt(device_array_type(), values)
+on_device_ps(point_set)  = adapt(device_array_type(), point_set)
 
 
 function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
@@ -622,6 +621,45 @@ end
       # Matched pairs on either side stay legal, so the guard cannot pass by refusing everything.
       @test gradient(device_spectral, device_multipliers) isa VectorFieldSpectral
       @test gradient(host_spectral, host_multipliers) isa VectorFieldSpectral
+    end
+
+    # The move itself, on real hardware. The rest of the suite uses `adapt` through `on_device`, which
+    # exercises the field methods everywhere; what needs its own case is the companion set, because a
+    # moved field alone computes nothing — invariant 14 requires its multipliers to match, and its
+    # plans cannot be transferred at all, only rebuilt.
+    @testset "moving a whole workspace between storage families" begin
+      grid, layout = Grid3D((8, 8, 8), (2pi, 4pi, 6pi)), RealFourierLayout()
+      host_u = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid, layout)
+      host_z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+      host_plans = FieldTransformPlans(host_u, similar_field(host_z, Val(1)))
+      host_multipliers = FieldSpectralMultipliers(similar_field(host_z, Val(1)))
+      host_kernel = spectral_cutoff(host_z, host_multipliers, 3.0)
+
+      AT = device_array_type()
+      device_u, device_plans = adapt(AT, host_u), adapt(AT, host_plans)
+      device_multipliers, device_kernel = adapt(AT, host_multipliers), adapt(AT, host_kernel)
+
+      @test field_data(device_u) isa AT
+      @test device_multipliers.wavenumber_1 isa AT
+      # A round trip must return the values unchanged, and the metadata with them.
+      returned = adapt(Array, device_u)
+      @test field_data(returned) == field_data(host_u)
+      @test field_grid(returned) == field_grid(host_u)
+      @test field_layout(returned) == field_layout(host_u)
+
+      # The rebuilt plans must transform, and the moved companions must compute what the host does.
+      host_curl = field_data(to_physical(curl(to_spectral(host_u, host_plans), host_multipliers), host_plans))
+      device_curl = Array(field_data(to_physical(curl(to_spectral(device_u, device_plans), device_multipliers),
+                                                 device_plans)))
+      @test device_curl ≈ host_curl
+      host_filtered = field_data(convolve(to_spectral(host_u, host_plans), host_kernel))
+      device_filtered = Array(field_data(convolve(to_spectral(device_u, device_plans), device_kernel)))
+      @test device_filtered ≈ host_filtered
+
+      # The point layer mirrors it.
+      host_points = PointSet(rand(Float64, 6, 3) .* 2pi)
+      @test point_coordinates(adapt(AT, host_points)) isa AT
+      @test Array(point_coordinates(adapt(AT, host_points))) == point_coordinates(host_points)
     end
   end
 

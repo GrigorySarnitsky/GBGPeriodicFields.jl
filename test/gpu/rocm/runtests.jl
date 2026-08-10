@@ -17,5 +17,8 @@ AMDGPU.allowscalar(false)
 const GPU_BACKEND = "ROCm / AMDGPU"
 device_functional() = AMDGPU.functional()
 to_device(host_array) = AMDGPU.ROCArray(host_array)
+# The storage family itself, for `adapt`: the suite moves whole sections, kernels and plans with the
+# package's own interface rather than rewrapping arrays by hand.
+device_array_type() = AMDGPU.ROCArray
 
 include(joinpath(@__DIR__, "..", "suite.jl"))

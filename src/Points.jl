@@ -28,6 +28,9 @@ The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live 
 module Points
 
 using StaticArrays: SVector
+# Imported before extending, per invariant 7. The point layer mirrors the field surface here as it
+# does everywhere else: a `PointSet` and its values move between storage families the same way.
+import Adapt: adapt, adapt_structure
 using ..FiberSections:
   _check_owned_storage, AbstractFiberSection, section_scalar_type, _assign!, @_assign!,
                        _add_values, _subtract_values,
@@ -1121,6 +1124,20 @@ function map(φ::F, source1::AbstractPointValues, sources::AbstractPointValues..
   destination = similar_pointvalues(source1, Val(order))
   return map!(φ, destination, all_sources...)
 end
+
+
+###################################################
+#   Moving between storage families (Adapt.jl)    #
+###################################################
+
+# The point twins of the field methods in `Fields`. `similar_pointvalues` carries whatever the
+# section holds besides its storage, exactly as `similar_field` does; a `PointSet` holds only its
+# coordinates, so it is rebuilt through its own constructor. The documentation for the whole family
+# lives on `adapt` in `Fields`.
+adapt_structure(to, values::AbstractPointValues) =
+  similar_pointvalues(values, adapt(to, point_values(values)))
+
+adapt_structure(to, point_set::PointSet) = PointSet(adapt(to, point_coordinates(point_set)))
 
 
 end # module Points

@@ -43,6 +43,9 @@ using StaticArrays: SVector, SMatrix, SArray
 using AbstractFFTs
 using LinearAlgebra
 import FFTW
+# Imported before extending, per invariant 7. `adapt` is the ecosystem-standard way to move a struct
+# holding arrays between storage families, and extending `adapt_structure` is its sanctioned hook.
+import Adapt: adapt, adapt_structure
 using Base.ScopedValues: ScopedValue
 using ..FiberSections:
   _check_owned_storage, AbstractFiberSection, _assign!, _THREADING_OVERRIDE,
@@ -1097,6 +1100,14 @@ struct FieldTransformPlans{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFou
   fourier_layout::L
   plan_forward_fft::PF
   plan_inverse_fft::PI
+  # The planner request is retained so that moving these plans to another storage family can rebuild
+  # them with the intent they were created with. Without it a rebuild would silently fall back to
+  # `ESTIMATE`, which finding (h) in docs/PERFORMANCE.md records as capable of mis-planning a
+  # single-precision transform badly — a performance regression with no wrong answer, the kind that
+  # hides. Two plain fields rather than type parameters: they are read only when rebuilding, never on
+  # a transform, so they must not participate in dispatch.
+  fft_flags::Union{Nothing, UInt32}
+  fft_timelimit::Float64
 end
 
 
@@ -1115,7 +1126,8 @@ function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::Ab
     plan_irfft(field_data(spectral), field_grid(physical).grid_size[fft_dims[1]], fft_dims; flags = fft_flags, timelimit = fft_timelimit)
 
   return FieldTransformPlans{T, R, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(field_grid(physical)), typeof(field_layout(physical))}(
-    field_grid(physical), field_layout(physical), plan_forward_fft, plan_inverse_fft)
+    field_grid(physical), field_layout(physical), plan_forward_fft, plan_inverse_fft,
+    isnothing(fft_flags) ? nothing : UInt32(fft_flags), Float64(fft_timelimit))
 end
 
 
@@ -1753,6 +1765,118 @@ that field group under `parent`.
 Provided by a package extension, so it is available only when `HDF5` is loaded.
 """
 function read_field end
+
+
+###################################################
+#   Moving between storage families (Adapt.jl)    #
+###################################################
+
+"""
+    adapt(storage, section)
+
+Move a field, its multipliers, its kernels or its transform plans to another **storage family** —
+host to device, or device to host — returning an object of the same kind whose arrays live in the
+requested family. The element type is preserved exactly.
+
+Use this when a section built on one family has to be used on another. Invariant 14 makes every
+arithmetic operation **refuse** a mixed pair rather than promote or transfer it, because an implicit
+copy across the bus is a cost that belongs at the call site; `adapt` is that call site. The
+argument `storage` is the target array type (`Array`, `CuArray`, `ROCArray`, …) or any other
+`Adapt.jl` adaptor, and `section` is the object to move.
+
+The whole surface a solver needs is covered: the six field types, the point-value types, a
+`PointSet`, a [`FieldSpectralMultipliers`](@ref), the four spectral-kernel classes, and
+`FieldTransformPlans`. Everything a section carries besides its storage — the grid, the Fourier
+layout, the origin, the tensor order — is preserved by construction, since the moved object is
+rebuilt through the same allocator the package uses everywhere else.
+
+!!! warning "Moving to the family a section is already in returns it unchanged"
+    Following `Adapt.jl` and `convert`, adapting to the family an object already belongs to is the
+    identity: it returns the very same object, sharing storage, rather than a copy. Write `copy` when
+    a distinct object is what is wanted.
+
+!!! warning "Transform plans are rebuilt, not moved, and that costs a planning pass"
+    An FFT plan is bound to its backend and cannot be transferred, so adapting a `FieldTransformPlans`
+    **constructs new plans** on the target. It needs nothing from the caller: the plans carry their
+    own grid, layout, element type and tensor order, so the two arrays the planner needs as witnesses
+    are allocated internally and released immediately. The planner request the plans were built with
+    is replayed, with one exception — planner flags are an `FFTW` concept, so a move to a device
+    family ignores them (`cuFFT` and `rocFFT` reject them) while retaining them, so that a later move
+    back to the host restores the original intent.
+
+Element-type conversion is deliberately **not** part of this: a transfer that silently changed
+precision would change what a solver computes. See `docs/ARCHITECTURE.md` for that as recorded future
+work.
+
+# Examples
+```julia
+u_device      = adapt(CuArray, u)                 # host  -> device
+u_host        = adapt(Array, u_device)            # device -> host
+mult_device   = adapt(CuArray, multipliers)       # the partner invariant 14 requires to match
+plans_device  = adapt(CuArray, plans)             # rebuilt on the device
+```
+"""
+adapt
+
+
+# The witness arrays a plan needs are allocated on the target WITHOUT a host round trip: adapting a
+# zero-length array yields a prototype of the target family, and `similar` grows it there. Allocating
+# a full-size host array and adapting it would copy an entire field's worth of uninitialised memory.
+_storage_prototype(to, ::Type{S}) where {S} = adapt(to, Array{S}(undef, 0))
+
+_physical_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
+_physical_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
+_physical_field_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldPhysical{R}(data, grid, layout)
+
+_spectral_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid, layout)
+_spectral_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
+_spectral_field_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
+
+# Reading the `Canonical` parameter back off the type. It is what lets `convolve` collapse two radial
+# kernels statically (decision 61), so a move that dropped it would silently disable that — a
+# performance regression with no wrong answer.
+_is_canonical(::FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Canonical}) where {Canonical} = Canonical
+
+
+# Rebuilt through `similar_field`, so grid, layout, origin and tensor order propagate by construction
+# rather than by remembering to pass them — the defect that made `map` drop the layout on every
+# permuted fold (decision 48).
+adapt_structure(to, field::AbstractFieldPhysical) = similar_field(field, adapt(to, field_data(field)))
+adapt_structure(to, field::AbstractFieldSpectral) = similar_field(field, adapt(to, field_data(field)))
+
+
+adapt_structure(to, multipliers::FieldSpectralMultipliers) =
+  FieldSpectralMultipliers(_is_canonical(multipliers), multipliers.grid, multipliers.fourier_layout,
+                           adapt(to, multipliers.wavenumber_1),
+                           adapt(to, multipliers.wavenumber_2),
+                           adapt(to, multipliers.wavenumber_3),
+                           adapt(to, multipliers.squared_wavenumber_1),
+                           adapt(to, multipliers.squared_wavenumber_2),
+                           adapt(to, multipliers.squared_wavenumber_3))
+
+
+function adapt_structure(to, plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+  grid, layout = plans.grid, plans.fourier_layout
+  physical_prototype = _storage_prototype(to, T)
+  spectral_prototype = _storage_prototype(to, Complex{T})
+  physical_witness = similar(physical_prototype, T, physical_field_shape(grid, Val(R)))
+  spectral_witness = similar(spectral_prototype, Complex{T}, spectral_field_shape(grid, layout, Val(R)))
+  # Planner flags are an FFTW concept: `cuFFT` rejects them with an unrelated-looking pointer error,
+  # so they are replayed only onto a host target. They stay stored either way, so moving back to the
+  # host restores the intent the plans were built with.
+  replayed_flags = physical_witness isa Array ? plans.fft_flags : nothing
+  rebuilt = FieldTransformPlans(_physical_field_of_order(physical_witness, grid, layout, Val(R)),
+                                _spectral_field_of_order(spectral_witness, grid, layout, Val(R));
+                                fft_flags = replayed_flags, fft_timelimit = plans.fft_timelimit)
+  # Re-stamp the ORIGINAL request rather than the one just replayed. The outer constructor records
+  # what it planned with, which on a device target is `nothing`; storing that would discard the
+  # caller's intent permanently, and a later move back to the host would silently plan with
+  # `ESTIMATE`. The plan objects are taken from `rebuilt` unchanged.
+  return FieldTransformPlans{T, R, typeof(rebuilt.plan_forward_fft), typeof(rebuilt.plan_inverse_fft),
+                             typeof(grid), typeof(layout)}(
+    grid, layout, rebuilt.plan_forward_fft, rebuilt.plan_inverse_fft,
+    plans.fft_flags, plans.fft_timelimit)
+end
 
 
 end # module Fields

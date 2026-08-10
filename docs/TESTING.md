@@ -293,6 +293,24 @@ For each public operation, a test must establish:
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).
 - [ ] **GPU parity** — the result matches the CPU path on a device array, under
       `allowscalar(false)`.
+- [ ] **Metadata survives anything that ALLOCATES its result** — the grid, the Fourier layout, the
+      origin and the tensor order. An operation that returns a fresh section must carry all four, and
+      the way to guarantee it is to build the result through the package's own allocator rather than
+      through a two-argument constructor, which defaults the layout. This axis was missing when `map`
+      shipped, and `map(φ, field)` was consequently broken for every permuted `RealFourierLayout` from
+      its first day (decision 48). It applies to the whole allocating surface, not only to obviously
+      metadata-carrying operations, and it is what `test/adapt.jl` asserts across three folds, a
+      non-zero origin, both element types, both representations and all three tensor orders.
+
+**The storage-family axis, and a vendor limit on it.** Moving a section between storage families
+(decision 63) is exercised on CPU with a **custom adaptor**, because adapting to the family a section
+already occupies is deliberately the identity and would test nothing. The device half is in the GPU
+suite, which now moves whole workspaces — field, multipliers, kernels and plans — through the shipped
+interface rather than through hand-written twins. **A permuted `RealFourierLayout` cannot be used on
+CUDA at all:** `cuFFT` rejects any non-strictly-increasing FFT region, so only the default
+``(1, 2, 3)`` fold plans there, and a permuted-fold device test would fail in `plan_rfft` rather than
+in anything the package controls. The permuted folds of decision 41 are therefore a CPU-side
+generality; a device test that needs a fold must use the default one.
 
 **Grid coverage.** Use a **mixed-parity** grid (even and odd axis lengths, e.g.
 `(8, 7, 6)`) so the Nyquist split is exercised; where the Nyquist mode matters, include a

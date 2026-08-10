@@ -80,7 +80,14 @@ const MODULE_BASELINE = (
   # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
   # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
   # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
-  Fields                = 103,
+  # 103 → 115: moving sections between storage families. Four are the `adapt_structure` methods
+  # themselves (physical fields, spectral fields, `FieldSpectralMultipliers`, `FieldTransformPlans`);
+  # the other eight are the internals they need — `_storage_prototype`, the two three-method families
+  # `_physical_field_of_order`/`_spectral_field_of_order` that construct a field of a given tensor
+  # order without a reference to copy metadata from, and `_is_canonical`, which reads back the
+  # parameter that lets `convolve` collapse two radial kernels statically. Refrozen deliberately, with
+  # the reason, per decision 53's protocol.
+  Fields                = 115,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
@@ -93,8 +100,13 @@ const MODULE_BASELINE = (
   # walks names rather than objects. That double count is a property of the instrument, not of the
   # change; every alias in the package has always been counted this way. Refrozen deliberately, with the
   # reason, per decision 53's protocol.
-  Convolution           = 79,   # +6: the StoredKernel role marker and its protocol methods
-  Points                = 207,
+  # 79 → 83: one `adapt_structure` per kernel storage class, so a kernel moves between storage
+  # families with its field, and a `ProductKernel` moves both factors rather than being assembled
+  # across families by accident.
+  Convolution           = 83,   # +6 earlier: the StoredKernel role marker and its protocol methods
+  # 207 → 209: `adapt_structure` for the point-value sections and for `PointSet`, mirroring the field
+  # layer as the point layer does throughout.
+  Points                = 209,
   Interpolation         = 119,
   # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
   # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view

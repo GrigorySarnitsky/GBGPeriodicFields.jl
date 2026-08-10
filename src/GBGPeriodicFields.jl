@@ -146,7 +146,8 @@ using .Fields:
   spectral_field_shape,
   similar_field,
   FieldSpectralMultipliers,
-  set_fft_threads!
+  set_fft_threads!,
+  adapt                     # extended for every section, kernel and plan; re-exported below
 
 
 using .FieldAlgebra:
@@ -287,6 +288,11 @@ export FiberVector,
        physical_field_shape,
        spectral_field_shape,
        similar_field,
+       # Re-exported from `Adapt`, not owned here: it is the ecosystem-standard verb for moving a
+       # struct between storage families, and the package extends it for every section, kernel and
+       # plan. Re-exporting is what makes it reachable from `using GBGPeriodicFields` alone — without
+       # it the interface exists but a user has to know to reach for `Adapt` themselves.
+       adapt,
        add!,
        subtract!,
        combine!,

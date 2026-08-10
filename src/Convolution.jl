@@ -76,6 +76,9 @@ Kernel builders:
 """
 module Convolution
 
+# Imported before extending, per invariant 7. All four kernel classes move between storage families;
+# the family's documentation lives on `adapt` in `Fields`.
+import Adapt: adapt, adapt_structure
 import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the kernels below
   _context_grid, _context_layout
 using ..Fields:
@@ -1656,6 +1659,28 @@ function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpect
   axis_phase!(vec(kernel.factor_3), multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3])
   return kernel
 end
+
+
+###################################################
+#   Moving between storage families (Adapt.jl)    #
+###################################################
+
+# One method per storage class. The compressed classes carry a grid and layout that are pure bitstypes
+# and so ride along unchanged; only the arrays move. A `RadialKernel` moves its multipliers and keeps
+# its symbol, which must already be a closure over VALUES rather than a type for the kernel to launch
+# at all, so it is as transferable as the multipliers are. A `ProductKernel` moves both factors, which
+# is what keeps a cross-family composition from being assembled by accident.
+adapt_structure(to, kernel::StoredKernel) = StoredKernel(adapt(to, kernel.field))
+
+adapt_structure(to, kernel::SeparableKernel{T}) where {T} =
+  SeparableKernel{T}(adapt(to, kernel.factor_1), adapt(to, kernel.factor_2), adapt(to, kernel.factor_3),
+                     kernel.grid, kernel.layout)
+
+adapt_structure(to, kernel::RadialKernel{T}) where {T} =
+  RadialKernel{T}(kernel.sigma, adapt(to, kernel.multipliers), kernel.grid, kernel.layout)
+
+adapt_structure(to, kernel::ProductKernel{T}) where {T} =
+  ProductKernel{T}(adapt(to, kernel.first_kernel), adapt(to, kernel.second_kernel))
 
 
 end # module Convolution

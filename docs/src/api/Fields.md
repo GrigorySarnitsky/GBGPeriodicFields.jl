@@ -61,6 +61,20 @@ spectral_field_shape
 similar_field
 ```
 
+## Moving between storage families
+
+Host and device are **storage families**, not representations: the same mathematical object, held in
+different memory. Every operation refuses a pair that disagrees, rather than transferring one to meet
+the other, so that the cost of crossing the bus is always visible at the call site — `adapt` is that
+call site. It is `Adapt.jl`'s verb, extended here for every section, kernel and plan and re-exported,
+so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it dispatches on a generic
+target, `CUDA` and `AMDGPU` each supply their own storage rule without this package depending on
+either. Element type is never changed by a move.
+
+```@docs
+adapt
+```
+
 ## Spectral kernel protocol
 
 `SpectralKernel` is the supertype the kernel-taking operations dispatch on — `convolve` and the
@@ -118,4 +132,8 @@ Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:function]
+# `adapt` is rendered by the "Moving between storage families" section above. It reaches this block
+# because it is an EXTERNAL generic the module extends rather than one it owns, so `Public = false`
+# does not filter it out — the same class as the statistics on the Reductions page, and the same fix.
+Filter  = f -> nameof(f) !== :adapt
 ```

@@ -3227,3 +3227,62 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     realness check, and dropping a factor from the separable kernel's data, each fail the suite. The
     `Reductions` module baseline moves 119 → 123 — the widening itself is a signature change rather than
     new methods, and the four are the two internal helpers it needed, at two methods each.
+
+63. **Storage families are crossed by `adapt`, the ecosystem's verb, and precision is not crossed at
+    all** (2026-08-10, user-directed). Invariant 14 makes every operation **refuse** a pair of sections
+    that disagree in storage family, rather than promoting or transferring one to meet the other. That
+    refusal was always half a design: it names what the package will not do implicitly without offering
+    the explicit operation that does it. The complement has now shipped, and it is not a new verb.
+
+    **The interface is `Adapt.jl`'s `adapt`.** `Adapt` exists for exactly this — take a struct holding
+    arrays, return the same struct holding another array type — and CUDA, AMDGPU, oneAPI, Metal,
+    GPUArrays and KernelAbstractions all speak it. The package defines `adapt_structure` for the six
+    field types, the three point-value types, `PointSet`, `FieldSpectralMultipliers`, the four spectral
+    kernel classes and `FieldTransformPlans`, and re-exports `adapt` so `using GBGPeriodicFields`
+    supplies it. Every method rebuilds through the same allocator the rest of the package uses, so the
+    grid, the Fourier layout, the origin and the tensor order propagate **by construction** rather than
+    by being remembered — the defect that made `map` drop the layout on every permuted fold
+    (decision 48).
+
+    **A package-owned verb was considered and declined.** It would have been a pure synonym: with
+    precision excluded, `adapt(CuArray, u)` takes exactly one parameter, and a second spelling is a
+    second thing to keep consistent. The decisive argument is a dependency one. Because
+    `adapt_structure` dispatches on a generic target, CUDA supplies the `CuArray` storage rule and
+    AMDGPU the `ROCArray` one, so **the package gains both vendors without depending on either** —
+    preserving the rule that vendor stacks stay test-only. A hand-rolled `convert_storage` would need
+    that same generic dispatch and would be `adapt` under another name. `Adapt` itself is a
+    dependency-free package already reachable through `KernelAbstractions`, and pure Julia, so it is
+    safe for the `aarch64` target of decision 37.
+
+    **Precision is deliberately excluded, and the reason is structural as well as prudential.** The
+    prudential half is `cu`, which silently demotes `Float64` to `Float32`: a transfer that changes what
+    a solver computes is the anti-pattern invariant 14 was written against. The structural half is that
+    precision is not the same kind of operation at all — `Grid3D{T}` stores the domain size, spacing and
+    origin as ``NTuple{3, T}`` and a field demands its grid share its element type, so changing
+    precision must rebuild the grid, where changing storage touches only the array. It remains recorded
+    future work.
+
+    **Transform plans are rebuilt, and they need nothing from the caller.** An FFT plan is bound to its
+    backend and cannot be moved. It was first thought that adapting one would have to refuse and send
+    the user to the constructor — wrong, and the question that exposed it was whether a plan requires
+    both representations. It does not: the constructor reads no data, only shape, element type and
+    family, and a plan **outlives the arrays it was planned against** (verified on FFTW and cuFFT). A
+    `FieldTransformPlans` stores its own grid and layout and carries `T` and `R` as type parameters, so
+    it can allocate its own witnesses, plan, and release them. The struct now also records the planner
+    request it was built with, because a rebuild would otherwise fall back to `ESTIMATE` — which
+    finding (h) of `docs/PERFORMANCE.md` records as capable of badly mis-planning a single-precision
+    transform. Planner flags are an `FFTW` concept and a device rebuild ignores them (`cuFFT` rejects
+    them with an unrelated-looking pointer error) while **retaining** them, so a later move back to the
+    host restores the original intent.
+
+    **Adapting to the family one is already in is the identity**, following `Adapt` and `convert`: it
+    returns the same object, sharing storage. That is why the gate drives the metadata assertions with a
+    custom adaptor mapping a host array to a *distinct* host array — adapting to `Array` would exercise
+    nothing. The GPU suite's three hand-written device-twin helpers were deleted in favour of the
+    shipped interface, so the suite can no longer pass by testing a private imitation of it.
+
+    **A pre-existing limitation surfaced on the way, unrelated to this change**: `cuFFT` rejects any
+    non-strictly-increasing FFT region, so a permuted `RealFourierLayout` (decision 41) cannot be
+    planned on CUDA at all — only the default ``(1, 2, 3)`` fold works there. It is recorded in
+    `docs/TESTING.md` §4 rather than fixed, since it is a vendor constraint and the permuted folds are a
+    CPU-side generality.
