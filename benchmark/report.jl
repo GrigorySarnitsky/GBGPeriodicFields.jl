@@ -9,7 +9,9 @@
 using BenchmarkTools
 using Dates
 
-const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions")
+# `storage` (decision 63) is device-only: `adapt` to the family one already occupies is the
+# identity, so a CPU lane contributes no rows and those cells read as not-measured.
+const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage")
 
 # cpu-t1.json → "CPU t1"; cpu-9800x3d-t4.json → "CPU 9800X3D t4"; gpu-rx7900xtx.json → "GPU 7900XTX";
 # gpu-gtx1070.json → "GPU 1070"; gpu-rtx5070ti.json → "GPU 5070TI"; a bare gpu.json / cuda.json → "GPU".

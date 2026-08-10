@@ -1256,7 +1256,22 @@ and the radial reductions `radial_spectrum` / `radial_correlation` plus the two-
 inverse rfft, diagnostic-cost; the co-spectra cost the same as the single-field forms, sharing their
 binning), including the **mapped forms** `maximum(norm, u)` / `mean(norm, u)` / `mean(det, A)` /
 `mean(tr, A)`, whose `maximum(norm, u)` row pairs with the `lpnorm vec Inf` row as a direct A/B — the
-same quantity, one materializing a magnitude section and one not. Run it:
+same quantity, one materializing a magnitude section and one not.
+
+**Storage-family moves** (`adapt`, decision 63) are the seventh class, and the only one whose cost is a
+**link** rather than a device: a host↔device copy is bounded by the bus, so it does not improve with the
+card and does not scale like anything else in the table. The class is **device-only and empty on a CPU
+lane** — `adapt` to the family one already occupies is the identity, so a host row would time a no-op
+and report nanoseconds as though a transfer had happened. It sweeps both directions separately (they
+are not symmetric on any real link), the identity case (so that its being nearly free is *visible*
+rather than merely asserted), the multipliers (six ``O(N)`` axis vectors, so latency-bound where the
+field rows are volume-bound), and `adapt` on a `FieldTransformPlans`, which is not a transfer at all
+but a **planning pass** on the target and is priced separately for that reason. The practical guidance
+the class exists to support is unchanged by any of its numbers: a solver should cross the bus during
+setup and stay resident, because a per-step transfer of a ``256^3`` `Float64` field is tens of
+milliseconds against the tens of microseconds its operations take.
+
+Run it:
 
 ```sh
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'   # one-time
