@@ -381,14 +381,14 @@ function field_data end
       array_type = Array,
     ) where {T<:AbstractFloat}
 
-Scalar field in physical-space representation, stored as its values on a three-dimensional physical grid.
+Scalar field in physical representation, stored as its values on a three-dimensional physical grid.
 
 The fields are
 - `values_at_grid`: the real scalar values, one per grid point.
 - `grid`: the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
-The function constructor constructs a scalar field in physical-space representation by sampling a real-valued function on a three-dimensional physical grid.
+The function constructor constructs a scalar field in physical representation by sampling a real-valued function on a three-dimensional physical grid.
 The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
@@ -397,7 +397,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-Broadcasting over scalar fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over scalar fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
@@ -506,14 +506,14 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
       array_type = Array,
     ) where {T<:AbstractFloat}
 
-Vector field in physical-space representation, stored as its components on a three-dimensional physical grid.
+Vector field in physical representation, stored as its components on a three-dimensional physical grid.
 
 The fields are
 - `values_at_grid`: the real vector components, stored `values_at_grid[i, j, k, α]` with ``\\alpha = 1, 2, 3``.
 - `grid`: the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout`: the [`RealFourierLayout`](@ref) used when transforming the field.
 
-The function constructor constructs a vector field in physical-space representation by sampling a real vector-valued function on a three-dimensional physical grid.
+The function constructor constructs a vector field in physical representation by sampling a real vector-valued function on a three-dimensional physical grid.
 The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
@@ -523,7 +523,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-Broadcasting over vector fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over vector fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
 These operations are storage-wise and componentwise.
 
@@ -645,7 +645,7 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
       array_type = Array,
     ) where {R, T<:AbstractFloat}
 
-Tensor field of order ``R \\ge 2`` in physical-space representation, stored as its components on a three-dimensional physical grid.
+Tensor field of order ``R \\ge 2`` in physical representation, stored as its components on a three-dimensional physical grid.
 
 The fields are
 - `values_at_grid`: the real tensor components, stored `values_at_grid[i, j, k, α₁, ..., αᵣ]` with each tensor index of length `3`.
@@ -654,7 +654,7 @@ The fields are
 
 The array has shape `physical_field_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
 
-The function constructor constructs a tensor field of order ``R \\ge 2`` in physical-space representation by sampling a real tensor-valued function on a three-dimensional physical grid.
+The function constructor constructs a tensor field of order ``R \\ge 2`` in physical representation by sampling a real tensor-valued function on a three-dimensional physical grid.
 The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
@@ -664,7 +664,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-Broadcasting over tensor fields in physical-space representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
+Broadcasting over tensor fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
 These operations are storage-wise and componentwise. They do not represent tensor contractions.
 
@@ -1151,7 +1151,10 @@ end
 Transform a field from spectral space to physical space in place, returning the modified
 `physical` destination.
 
-Here `physical` is the destination, `spectral` is the source, and `transform_plans` provides the inverse FFT plan.
+The arguments are:
+- `physical` — the field that receives the transformed values.
+- `spectral` — the source coefficients, which the transform may overwrite as scratch.
+- `transform_plans` — the [`FieldTransformPlans`](@ref) supplying the inverse FFT plan.
 
 !!! warning "The source is used as scratch"
     The inverse transform uses `spectral` as scratch space and may overwrite it: on return its
@@ -1180,7 +1183,10 @@ end
 Transform a field from physical space to spectral space in place, returning the modified
 `spectral` destination.
 
-Here `spectral` is the destination, `physical` is the source, and `transform_plans` provides the forward FFT plan.
+The arguments are:
+- `spectral` — the field that receives the transformed coefficients.
+- `physical` — the source values, which the transform may overwrite as scratch.
+- `transform_plans` — the [`FieldTransformPlans`](@ref) supplying the forward FFT plan.
 
 !!! warning "The source may be overwritten"
     The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the
@@ -1204,9 +1210,12 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Transform a field from spectral space to physical space, returning a newly allocated physical-space field.
+Allocating form of [`to_physical!`](@ref): allocate the result and return it. A field in spectral
+representation gives its physical representation on the same grid.
 
-Here `spectral` is the source and `transform_plans` provides the inverse FFT plan.
+Unlike the in-place form this one **preserves `spectral`** — it transforms a copy — which is the reason
+to reach for it (invariant 11: the inverse real transform may consume its input as scratch). Here
+`spectral` is the source and `transform_plans` provides the inverse FFT plan.
 
 This is the allocating form of [`to_physical!`](@ref). Unlike the in-place form, it leaves the input `spectral` unchanged, because it copies the coefficients before transforming. Use it when `spectral` must be preserved, and use the in-place form when it need not be.
 """
@@ -1226,9 +1235,12 @@ end
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
 
-Transform a field from physical space to spectral space, returning a newly allocated spectral-space field.
+Allocating form of [`to_spectral!`](@ref): allocate the result and return it. A field in physical
+representation gives its spectral representation on the same grid.
 
-Here `physical` is the source and `transform_plans` provides the forward FFT plan.
+Unlike the in-place form this one **preserves `physical`** — it transforms a copy — which is the reason
+to reach for it (invariant 11: the forward transform may consume its input as scratch on some
+backends). Here `physical` is the source and `transform_plans` provides the forward FFT plan.
 
 The forward transform is **unnormalized** and the inverse carries the ``1/N`` (``N`` the number of grid
 points) — the `AbstractFFTs` convention. Every normalization elsewhere in the package is stated against
@@ -1567,7 +1579,7 @@ end
 """
     FieldPhysicalBroadcastStyle{N}
 
-Broadcast style for fields in physical-space representation (``N = 3 + R``, with ``R`` the tensor order). A field stands for its storage array inside a broadcast, and the style materializes the result back into a physical-space field. See also `FieldSpectralBroadcastStyle`.
+Broadcast style for fields in physical representation (``N = 3 + R``, with ``R`` the tensor order). A field stands for its storage array inside a broadcast, and the style materializes the result back into a physical-space field. See also `FieldSpectralBroadcastStyle`.
 """
 struct FieldPhysicalBroadcastStyle{N} <: Base.Broadcast.AbstractArrayStyle{N} end
 

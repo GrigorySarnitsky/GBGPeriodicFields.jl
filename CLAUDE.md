@@ -85,10 +85,13 @@ conceptual model and the writing/docstring conventions are recorded once — in
 10. α/β kernels: five-argument forms convert `T(α)`, `T(β)` and branch on
     `iszero(β_value)` (overwrite vs accumulate); three-argument forms delegate with
     `one(T)`, `zero(T)`. Throughout, α scales the computed result and β the destination
-    accumulated onto. **One deliberate exception, and the only one:** `combine!` IS the weighted
+    accumulated onto. **Two deliberate exceptions, and only these two:** `combine!` IS the weighted
     combination `α·a + β·b`, so its weights scale its two *operands* — what the operation is, and what
-    its name announces. No other operation may reuse the glyphs for a second role; that is the
-    glyph-collision rule decision 33 applies when it declines a second trailing α/β.
+    its name announces — and `exponential_convolve!`'s two-operand forms
+    `(dest, α, a, β, b, mult, c)` carry that same combination into a fused convolution. Both are
+    operations whose definition IS a weighted combination. No operation may reuse the glyphs for any
+    other role; that is the glyph-collision rule decision 33 applies when it declines a second
+    trailing α/β.
 11. Transform input contract: allocating `to_physical`/`to_spectral` preserve their
     input (they copy it); the in-place `to_physical!`/`to_spectral!` may overwrite the
     source. The inverse real transform (FFTW complex-to-real) destroys its spectral
@@ -1549,7 +1552,7 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   helps) **does not reproduce on the RX 7900 XTX**: re-measured with identical points reordered only,
   Morton order reaches **1.43×** (`Float32` 128³ `CatmullRom`) and **1.40×** (`Float32` 256³ trilinear),
   and helps in three of four cells for `CatmullRom`, the default scheme. One cell clearly loses
-  (`Float64` 256³ trilinear, 0.74×). The original ran on the retired RX 6700 XT, so this may be
+  (`Float64` 256³ trilinear, 0.74×). The original ran on a since-retired card, so this may be
   RDNA2-vs-RDNA3 rather than a bad measurement — either way the recorded range no longer describes the
   hardware in use. **Reopened, not decided.**
 

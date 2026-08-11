@@ -234,10 +234,12 @@ with a pointer to the section that develops it.
 10. **The ``\alpha``/``\beta`` convention.** A five-argument form converts both weights to the field's
     scalar type and branches on ``\beta = 0`` (overwrite) versus ``\beta \ne 0`` (accumulate); a
     three-argument form delegates to it with ``\alpha = 1``, ``\beta = 0``. Throughout, ``\alpha`` scales
-    the computed result and ``\beta`` the destination accumulated onto. **One deliberate exception, and
-    the only one:** `combine!` is the weighted combination ``\alpha a + \beta b``, so its two weights
-    scale its two *operands* instead — which is what the operation is, and what its name announces. No
-    other operation may reuse the glyphs for a second role.
+    the computed result and ``\beta`` the destination accumulated onto. **Two deliberate exceptions, and
+    only these two:** `combine!` is the weighted combination ``\alpha a + \beta b``, so its two weights
+    scale its two *operands* instead — which is what the operation is, and what its name announces —
+    and `exponential_convolve!`'s two-operand forms carry the same combination, and so the same reading
+    of the glyphs, into a fused convolution. Both are operations whose *definition* is a weighted
+    combination; no operation may reuse the glyphs for a role other than that.
 11. **The transform input contract.** The allocating transforms preserve their input; the in-place ones
     may overwrite the source, and the inverse real transform uses its spectral input as scratch on some
     backends but not others. Never rely on a `!`-transform's source surviving ([§4](@ref "4. Spectral machinery")).
@@ -771,7 +773,7 @@ this is mandatory — total water and latent heat must be conserved as vapour pa
 between droplets and the fields — so the design fixes anterpolation as the adjoint of
 whatever interpolation kernel is in use. The function–measure duality underlying this
 adjointness — evaluation as pairing with a Dirac mass, ``f(x) = \delta_x(f)``, and anterpolation
-as the pushforward of point masses, ``\sum_p q_p \delta_{x_p}`` (regularized to ``\sum_p q_p w(\cdot - x_p)``,
+as the pushforward of point masses against the normalized counting measure, ``\tfrac{1}{M}\sum_p q_p \delta_{x_p}`` (regularized to ``\tfrac{1}{M}\sum_p q_p w(\cdot - x_p)``,
 i.e. a regularized point source) — is given in full in the `Interpolation` module docstring.
 
 Those two facts — adjointness and a partition-of-unity reproduction — are the commuting identities below.
@@ -824,8 +826,10 @@ B_{\mathrm{points}} @>>{\iota}> \Omega
 
 Interpolation is the **pullback of the section**, ``W = \iota^{*} \otimes \mathrm{id}_V`` (fiber-preserving —
 the trivial bundle leaves the fiber by the identity; ``(Wf)_p = f(x_p)``); anterpolation the
-**pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \sum_p q_p \delta_{x_p}``, the
-Dirac mass above regularized by the stencil). That pushforward lands in **measures**, while
+**pushforward of the dual measure**, ``\iota_{*}`` (``\iota_{*} q = \tfrac{1}{M}\sum_p q_p \delta_{x_p}``,
+the Dirac mass above regularized by the stencil — pushed forward against the **normalized** counting
+measure, the same one ``\langle\cdot,\cdot\rangle_{\mathrm{pts}}`` uses, which is what puts the ``1/M``
+there and makes the identification below come out at ``N/M`` rather than ``N``). That pushforward lands in **measures**, while
 ``(N/M) W^{\top} q`` is a **section**; the two are identified only after regularizing by the stencil and
 taking the density with respect to the normalized grid measure, and with those two steps understood
 ``\iota_{*} = (N/M) W^{\top}`` for the uniform measures, the
@@ -1177,7 +1181,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     tested on CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) and GPU
     (ROCm). Physical-space only. The kernels loop with the **contiguous (x) axis innermost**
     (stride-1 stencil access) — a measured GPU-first choice (≈1.6× at 256³, ≈3.9× for the 512³
-    Lalescu on the RX 6700 XT), re-affirmed on CPU in the decision-37 production band: the 512³
+    Lalescu on a since-retired card), re-affirmed on CPU in the decision-37 production band: the 512³
     Zen 5 A/B found z-inner ~10% ahead only on the narrow Catmull–Rom stencil and 23% *behind* on
     the wide Lalescu one, so x-inner stands on both platforms and the reopened tiebreak is closed
     (`PERFORMANCE.md` §4b).
@@ -1609,7 +1613,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and results (the full suite is unchanged) — so a preallocated, in-place pseudospectral step allocates
     nothing per step and runs on a 12 GB consumer GPU with **no manual `GC.gc()` / `reclaim`, at flat
     VRAM** (the `examples/` HIST solvers demonstrate this — ``192^3`` Float32 at ``\sim\!34`` ms/step on
-    an RX 6700 XT). Guarded by `test/allocations.jl` (every in-place spectral operator, transform,
+    a since-retired card). Guarded by `test/allocations.jl` (every in-place spectral operator, transform,
     `convolve!`, and fiber product/shuffle, both element types). The fiber norm, `lpnorm` and `dev!`
     deliberately materialize one field (a pointwise magnitude, or the trace they subtract) and are the
     documented exceptions — a consumer's CFL speed uses `maximum(abs, …)` rather than `lpnorm`.
@@ -1649,7 +1653,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/reductions.jl` (the analytic ``\langle\sin^2\rangle`` and independent binned-circshift oracles,
     both element types) and GPU parity `test/gpu/suite.jl` (`allowscalar(false)` — the scatter is
     device-clean, no scalar indexing) both hold. End to end, the ``256^3`` Float32 forced-HIT example
-    on a 12 GB RX 6700 XT (``\approx 87`` ms/step) now runs to completion at a flat ``\sim\!6`` GB
+    on a 12 GB card (``\approx 87`` ms/step) now runs to completion at a flat ``\sim\!6`` GB
     (``\approx 8`` GB peak) through its `radial_correlation` snapshots, where the per-shell form wedged at
     the first one.
 
@@ -2469,7 +2473,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     layout/Nyquist defects shared one cause: the suite was exhaustive only over the axes it
     named, and no written list of axes existed — so an axis living solely in the type system
     (`fft_dims` with one value ever constructed) was invisible to every sweep. The denominator
-    is now written down (`docs/TESTING.md` §4, fourteen axes: representation, tensor order,
+    is now written down (`docs/TESTING.md` §4, fourteen axes at the time — decisions 60, 61 and 63 have
+    since taken the list to seventeen: representation, tensor order,
     element type on the CPU lane, layout fold, axis parity, grid-size cubicity, domain-length
     anisotropy, origin, degenerate bases, the ``\alpha = 0`` branch, aliasing patterns, Nyquist
     content, backend, thread count), with the rule that a new type parameter or admissible
@@ -2754,8 +2759,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     **Storage is a symbol, not a table, because a radial kernel has no cheap middle.** An axis-factored
     kernel wins by evaluating its transcendentals ``3N`` times and multiplying per mode; ``|k|^2`` is a
-    function of the *sum* of the squared axis wavenumbers, so it does not factor and there is no
-    per-axis table to precompute — only the closure (``\sigma`` evaluated per mode, on a ``|k|^2`` that
+    function of the *sum* of the squared axis wavenumbers, so a general ``\sigma`` of it does not factor
+    and there is no per-axis table to precompute (the exponential does factor, and is why
+    `exponential_convolve!` is its own operation rather than a `radial_kernel` call) — only the closure (``\sigma`` evaluated per mode, on a ``|k|^2`` that
     is itself already lazy over three stored ``O(N)`` axis arrays) or a full field. Which wins follows
     the crossover of `PERFORMANCE.md` finding (o) plus the symbol's own cost: a cheap ``\sigma`` (a
     mask is one comparison) or one whose parameters **change per call** — the integrating factor, whose
@@ -3289,6 +3295,12 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     custom adaptor mapping a host array to a *distinct* host array — adapting to `Array` would exercise
     nothing. The GPU suite's three hand-written device-twin helpers were deleted in favour of the
     shipped interface, so the suite can no longer pass by testing a private imitation of it.
+
+    **The derived per-module baselines move** (decision 53's protocol, refrozen with the reason in the
+    same commit): `Fields` 103 → 115 — four `adapt_structure` methods and the eight internals they need
+    (`_storage_prototype`, the two three-method order-dispatch families, and `_is_canonical`) —
+    `Convolution` 79 → 83 for one method per kernel class, and `Points` 207 → 209 for the point-value
+    and `PointSet` methods.
 
     **A pre-existing limitation surfaced on the way, unrelated to this change**: `cuFFT` rejects any
     non-strictly-increasing FFT region, so a permuted `RealFourierLayout` (decision 41) cannot be

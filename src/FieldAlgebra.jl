@@ -43,13 +43,13 @@ set of point-values each are. That shared shape is why one set of formulas serve
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
     of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
     sibling of the mapped reductions such as `mean(det, ·)`): `φ` may change the tensor order, and the
-    result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical-space representation, since an arbitrary
+    result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical representation, since an arbitrary
     `φ` is nonlinear.
 
 Field-field and field-constant operations preserve the representation of their arguments: they act
-pointwise on fields in physical-space representation and coefficient-wise on fields in spectral
+pointwise on fields in physical representation and coefficient-wise on fields in spectral
 representation. An operation that is not linear in a field argument — multiplying two fields together, or
-contracting two fields — is defined only in physical-space representation, except where one factor is a
+contracting two fields — is defined only in physical representation, except where one factor is a
 compile-time constant fiber, which keeps the operation coefficient-wise; the missing combinations are
 deliberate.
 
@@ -246,9 +246,9 @@ The arguments are:
 - `a`, `b`, `fields...` — two or more fields to add.
 - `field`, `constant` — the field-and-constant variants, in either argument order: a `Real` with a scalar field, a `FiberVector` with a vector field, a `FiberTensor2` with a second-order tensor field.
 
-Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical-space representation and coefficient-wise on fields in spectral representation.
+Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical representation and coefficient-wise on fields in spectral representation.
 
-In physical-space representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
+In physical representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
 """
 function add! end
 
@@ -268,7 +268,7 @@ The arguments are:
 - `a`, `b`, `fields...` — the fields to subtract in order.
 - `field`, `constant` — the field-and-constant variants, with the constant typed as in [`add!`](@ref); the reversed order computes `constant - field`.
 
-Field-field subtraction subtracts `b`, then each of `fields` in turn, from `a`; it is storage-wise and representation-preserving. In physical-space representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
+Field-field subtraction subtracts `b`, then each of `fields` in turn, from `a`; it is storage-wise and representation-preserving. In physical representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
 function subtract! end
 
@@ -614,7 +614,7 @@ The arguments are:
 
 Multiplication by a real number is representation-preserving and is defined for fields in both physical-space and spectral representation, in either argument order.
 
-Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical-space representation; in spectral representation the product of two fields is a convolution, which this module does not provide. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
+Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical representation; in spectral representation the product of two fields is a convolution, which this module does not provide. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
 """
 function multiply! end
 
@@ -635,7 +635,7 @@ The arguments are:
 - `scalar` — a `Real` divisor.
 - `scalar_field` — a scalar field divisor, dividing pointwise.
 
-Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical-space representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field). When the divisor is a scalar field the result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field). When the divisor is a scalar field the result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 """
 function divide! end
 
@@ -905,7 +905,7 @@ The arguments are:
 
 For two vector fields this is the Euclidean scalar product; for two second-order tensor fields it is the Frobenius double contraction. Either argument order is accepted.
 
-Contraction of two fields is nonlinear and is defined only in physical-space representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Contraction of two fields is nonlinear and is defined only in physical representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 Pointwise over the base, with summation over the repeated fiber indices:
 
@@ -920,7 +920,7 @@ function dot! end
     dot(u::VectorFieldPhysical, v::VectorFieldPhysical)
     dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
 
-Allocating form of [`dot!`](@ref) (`dot` ``\\equiv \\cdot``): allocate the scalar-field result and return it. For two vector fields this is their pointwise Euclidean product; for two second-order tensor fields, their pointwise Frobenius product. Two fields contract only in physical-space representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. The infix alias ``\\cdot`` (`⋅`) is also exported. See `dot!` for the componentwise formula.
+Allocating form of [`dot!`](@ref) (`dot` ``\\equiv \\cdot``): allocate the scalar-field result and return it. For two vector fields this is their pointwise Euclidean product; for two second-order tensor fields, their pointwise Frobenius product. Two fields contract only in physical representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. The infix alias ``\\cdot`` (`⋅`) is also exported. See `dot!` for the componentwise formula.
 """
 dot
 
@@ -1008,7 +1008,7 @@ The arguments are:
 - `a` — a constant `FiberVector` crossed with the field. Both orders have methods, and being a cross
   product they differ in sign: ``a \\times u = -(u \\times a)``.
 
-Cross products of two fields are nonlinear and are defined only in physical-space representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Cross products of two fields are nonlinear and are defined only in physical representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated ``j, k``), the components are
 
@@ -1027,7 +1027,7 @@ function cross! end
 """
     cross(u::VectorFieldPhysical, v::VectorFieldPhysical)
 
-Allocating form of [`cross!`](@ref) (`cross` ``\\equiv \\times``): allocate the vector-field result ``u \\times v`` and return it. Two vector fields cross only in physical-space representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. The infix alias ``\\times`` (`×`) is also exported. See `cross!` for the componentwise formula.
+Allocating form of [`cross!`](@ref) (`cross` ``\\equiv \\times``): allocate the vector-field result ``u \\times v`` and return it. Two vector fields cross only in physical representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. The infix alias ``\\times`` (`×`) is also exported. See `cross!` for the componentwise formula.
 """
 cross
 
@@ -1129,7 +1129,7 @@ The arguments are:
   ``\\alpha (A B) + \\beta \\texttt{destination}``, so ``\\beta = 0`` overwrites and any other value
   accumulates — the `LinearAlgebra.mul!` convention.
 
-A product of two fields is nonlinear and is defined only in physical-space representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+A product of two fields is nonlinear and is defined only in physical representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 Pointwise over the base, with summation over the repeated fiber indices:
 
@@ -1399,7 +1399,7 @@ Compute the fiberwise norm of a physical-space field (`norm` ``\\equiv |\\cdot|`
 Use this in-place form when `destination` is already allocated; the allocating [`norm`](@ref)
 returns a fresh result instead.
 
-The norm is nonlinear, so it is defined only in physical-space representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+The norm is nonlinear, so it is defined only in physical representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 Pointwise over the base — the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
 
@@ -1507,7 +1507,7 @@ returns a fresh result instead.
 
 The determinant is cubic in the tensor's components — the third principal invariant ``I_3``, the signed
 factor by which ``A`` scales volumes as a linear map. Unlike the linear trace [`tr!`](@ref), it is
-nonlinear, so it is defined in physical-space representation only; there is no spectral form. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+nonlinear, so it is defined in physical representation only; there is no spectral form. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
 Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
 fiber indices):
@@ -1841,7 +1841,7 @@ The arguments are:
 
 !!! warning "Physical-space only, and the result is aliased in spectral representation"
     An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
-    defined for fields in physical-space representation only, and its result carries content above the grid's Nyquist: it is
+    defined for fields in physical representation only, and its result carries content above the grid's Nyquist: it is
     aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
     docstring). Point-value sections are representation-free and carry no such restriction.
 """

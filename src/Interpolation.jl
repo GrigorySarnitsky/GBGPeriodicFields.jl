@@ -116,7 +116,7 @@ abstract type AbstractTransferScheme end
 
 Supertype of the physical-domain local interpolation schemes — the two hierarchies of Lalescu, Teaca &
 Carati (2010): the smooth [`LalescuSpline`](@ref) and the ``C^0`` [`LagrangeSpline`](@ref). Each acts on
-a field in physical-space representation, gathering and scattering its nodal values over a compact
+a field in physical representation, gathering and scattering its nodal values over a compact
 ``(2n{+}2)^3`` stencil around the cell ``c`` that contains a point ``x_p``. With ``t_a`` the point's
 fractional position along axis ``a`` and ``w`` the scheme's per-axis weight polynomials, interpolation is
 the tensor-product gather

@@ -303,9 +303,12 @@ The fields are
   the field against.
 
 !!! note "Radial, not separable"
-    ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so it does not factor into per-axis
-    terms and cannot be stored per axis the way a [`SeparableKernel`](@ref) is. The two families are
-    disjoint: a phase depends on direction, a magnitude-dependent multiplier does not.
+    ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so a *general* real symbol of it
+    does not factor into per-axis terms and cannot be stored per axis the way a
+    [`SeparableKernel`](@ref) is. The two families overlap rather than partition: the exponential is in
+    both, since ``\\exp(c|k|^2) = \\prod_a \\exp(ck_a^2)``, which is why `exponential_convolve!` exists as
+    its own fused operation. What this class buys is the general case, where no such factorization is
+    available.
 """
 struct RadialKernel{T, F, M, G, L} <: SpectralKernel{T}
   sigma::F
@@ -464,9 +467,10 @@ The fields are
   checks the field against.
 
 !!! note "Separable, not radial"
-    A kernel that depends only on the wavenumber magnitude is *radial*, not separable — a function of
-    ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms. This type is for kernels that
-    genuinely do factor, the typical case being a per-axis phase.
+    A kernel that depends only on the wavenumber magnitude is usually *radial*, not separable — a
+    general function of ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms, the exponential
+    being the notable exception (``\\exp(c|k|^2)`` factors, and has its own operation). This type is for
+    kernels that genuinely do factor, the typical case being a per-axis phase.
 """
 struct SeparableKernel{T, V, G, L} <: SpectralKernel{T}
   factor_1::V

@@ -380,7 +380,8 @@ Two statements, each expanded against the code and tested:
   operands as a `ProductKernel` rather than silently evaluating ``\sigma_2`` at the first set's
   coordinates. Separable
   composed with separable is separable, per axis; and radial composed with separable is a `ProductKernel`,
-  since ``\sigma(|k|^2)`` admits no factorization over axes and ``\prod_a g_a`` no reduction to
+  since a general ``\sigma(|k|^2)`` admits no factorization over axes (the exponential is the exception)
+  and ``\prod_a g_a`` no reduction to
   ``|k|^2``. Stored composed with stored is deliberately **not** closed: multiplying the coefficients
   would be an ``O(N^3)`` pass building a third array, so the pair is kept as a `ProductKernel` too.
   Composition therefore never forces a materialization. ``\checkmark``

@@ -27,7 +27,7 @@ and need not repeat the convention.
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | `Grid3D` |
-| ``N`` | the grid-point count ``\prod_i N_i``; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N`` | `prod(grid_size)` |
+| ``N`` | the grid-point count ``\prod_i N_i``; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N``. **Inside a complexity expression** — ``O(N^3)`` for a full field, ``O(N)`` for a per-axis array, ``O(N^2)`` for a plane — ``N`` instead means the **per-axis** point count, the three axes being equal in the cubic grids those claims describe; the two readings never appear in one formula, a normalization carrying the total and a complexity carrying the per-axis count | `prod(grid_size)` |
 | ``M`` | the number of points | `npoints` |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | `FieldSpectralMultipliers` |
 | ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | `radial_spectrum` |

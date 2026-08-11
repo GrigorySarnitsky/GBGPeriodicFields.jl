@@ -95,7 +95,7 @@ What bounds each public operation class — the mental model a benchmark either 
     ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
     Scattered (unsorted) points naturally *spread* access and feed that parallelism; and at the
     grids we run the field is largely **cache-resident** (a 256³ scalar `Float32` field is 67 MB, inside the
-    RX 6700 XT's 96 MB Infinity Cache), so there is little locality left to win.
+    the retired card's 96 MB Infinity Cache), so there is little locality left to win.
   - **CPU**: bound by the cache hierarchy + hardware prefetchers, which *reward* locality — the
     opposite pull.
 
@@ -154,8 +154,10 @@ architecture or the tests; they are collected here so an optimizer has them in o
 
 ## 4. What we have found
 
-Measured on the home **AMD Radeon RX 6700 XT** (gfx1031, 12 GB, 96 MB Infinity Cache, ~384 GB/s
-peak) and **Intel i7-12700K** (8 P-cores), `Float32`, ~1 point per 27 grid cells. These are the
+The transfer-layer results below were measured on an **Intel i7-12700K** (8 P-cores) and on a
+**since-retired AMD card**, `Float32`, ~1 point per 27 grid cells. That card is gone from the fleet and
+from `RESULTS.md`; what is kept here is the qualitative finding in each case, not its absolute numbers,
+and anything re-measured on the current cards (RX 7900 XTX, RTX 5070 Ti) says so explicitly. These are the
 cumulative results of the transfer-layer optimization work; the benchmark suite (§5) regenerates the
 tracked subset on demand.
 
@@ -210,7 +212,7 @@ is the recorded choice for both platforms.
   it shows: 24 registers per thread turns a ``2\times`` win at ``64^3`` into a ``2\times`` loss at
   ``256^3`` as the working set grows and occupancy becomes the binding constraint. **But it does not
   bite the default scheme on RDNA3** — `CatmullRom` hoisted is 10–30% *faster* at every grid, where the
-  RX 6700 XT recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
+  the retired AMD card recorded 10–14% slower. **And the CPU, never measured for this, wins hugely and
   everywhere** — up to ``3.6\times`` — which is what the mechanism predicts: a CPU thread has no
   occupancy to lose, and `mod` by a *runtime* grid size is a genuine integer division rather than a
   compiler-strength-reduced constant. That matters because the CPU path carries the beyond-VRAM grids
@@ -228,7 +230,7 @@ is the recorded choice for both platforms.
   only, at the same 1-per-27 density: Morton reaches **1.43×** (`Float32` ``128^3`` `CatmullRom`,
   105.7 → 73.6 µs) and **1.40×** (`Float32` ``256^3`` trilinear, 116.8 → 83.4 µs), and helps in three of
   four cells for `CatmullRom` — **the default scheme**. One cell clearly loses, `Float64` ``256^3``
-  trilinear at ``0.74\times``. The original was measured on the retired RX 6700 XT, so this is plausibly
+  trilinear at ``0.74\times``. The original was measured on a since-retired card, so this is plausibly
   an RDNA2-versus-RDNA3 difference rather than a bad measurement; either way the recorded range no longer
   describes the hardware the project runs on. **It is reopened, not overturned**, and three things must
   hold before it is adopted: the ordering must be rebuilt as points move (measured host cost 31.7 ms at
@@ -265,7 +267,7 @@ is the recorded choice for both platforms.
   loop did (decision 47), and the arithmetic is free-to-favourable on every path that matters.
 
 **(d) Anterpolation and contention.** The scatter costs ≈**2.2–2.7×** the gather (atomic
-read-modify-write + a full-grid prescale). On gfx1031 `Float32` atomic-add is native but `Float64`
+read-modify-write + a full-grid prescale). On that RDNA2 card `Float32` atomic-add was native but `Float64`
 is emulated (CAS loop) ⇒ ≈**1.3–1.7×** slower; contention is worst at *moderate* clustering
 (~2 pts/cell), not extreme (extreme stays cache-hot).
 
@@ -286,7 +288,7 @@ the component broadcasts — each now allocates ``\sim 0`` bytes in place (measu
 `test/allocations.jl`), with identical results. Payoff: a **preallocated, in-place** pseudospectral DNS
 step allocates nothing per step → **no manual `GC.gc()`/`reclaim`, flat VRAM**. The forced-HIT example
 (`examples/gpu/rocm/HIST_ROCm.jl`, 192³ `Float32`, ``\mathrm{Re}_\lambda \approx 93``) sustains **≈ 34 ms/step**
-(8000 steps, ≈ 270 s) on the RX 6700 XT this way. *Discipline for consumers:* preallocate a workspace and
+(8000 steps, ≈ 270 s) on the retired card this way. *Discipline for consumers:* preallocate a workspace and
 use the `!` forms with a destination distinct from the sources; the fiber `norm`/`lpnorm`
 deliberately materialize one field and are the exceptions (`dev!` left the list when decision 39 fused
 its trace into a register; use `maximum(abs, …)` for a CFL speed).
@@ -305,7 +307,7 @@ card at the *first* snapshot. The fix bins in a **single scatter-add pass** — 
 `KernelAbstractions` + `Atomix` histogram kernel atomically accumulating each element into its shell — so
 per-call temporaries drop from ``O(N)`` to ``O(1)``. Correctness is unchanged (same per-shell sums; CPU
 `test/reductions.jl` + GPU parity hold). Payoff: the ``256^3`` `Float32` forced-HIT example
-(``\approx 87`` ms/step) now runs to completion on the RX 6700 XT at a flat ``\sim\!6`` GB
+(``\approx 87`` ms/step) now runs to completion at a flat ``\sim\!6`` GB
 (``\approx 8`` GB peak) through its snapshots, where the per-shell form wedged at the first one. The scatter contends on the small accumulator set, acceptable for an *occasional* diagnostic
 (not a per-step call); a privatized histogram is a possible future optimization. [Decision 25.]
 Decision 34 later fused the remaining ``O(1)`` staging — the shell-index, magnitude, and weighted
@@ -1023,12 +1025,12 @@ device and CPU alike, is tuned. The canary is unaffected: `regress.jl` carries i
 copy of the policy that neither caps samples nor returns a do-not-tune set, so no frozen baseline
 needs refreezing.
 
-**`RESULTS.md` now holds two GPU columns in different regimes.** The RX 7900 XTX is fixed-regime; the
-RTX 5070 Ti has not been re-swept and is still inflated, so the two **must not be compared with each
-other** until the `Enteropia` lane is re-run. The two retired columns (GTX 1070, RX 6700 XT) were
-dropped rather than carried: both were measured in the broken regime and neither card exists to be
-re-measured, so they could never be corrected or compared, and a column like that invites exactly the
-comparison it cannot support.
+**`RESULTS.md` now holds both GPU columns in the fixed regime**, the RX 7900 XTX re-swept 2026-08-07
+and the RTX 5070 Ti 2026-08-09, so the two are comparable again — see the resolved cross-card entry in
+(v). Two further columns were **dropped rather than carried**: both belonged to cards since retired
+from the fleet, both were measured in the broken regime, and neither could be re-swept, so a reader
+could never correct or compare them — and a column like that invites exactly the comparison it cannot
+support.
 
 **(t) A threaded FFTW plan allocates Julia-side task state on every call — size-independent,
 nondeterministic, and fixed when the plan is BUILT rather than when it is called.** The 2026-08-04
@@ -1378,8 +1380,8 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),
-across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and four GPUs — GTX 1070 (Pascal,
-CUDA), RX 6700 XT, RX 7900 XTX, and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
+across two CPU 1/2/4/8 thread sweeps (i7-12700K, Ryzen 9800X3D) and two GPUs — RX 7900 XTX (gfx1100,
+ROCm) and RTX 5070 Ti (Blackwell `sm_120`, CUDA); the 7900 XTX is extended to
 a 512³ `Float32` point for the bandwidth-bound classes, and the **9800X3D sweep covers 64³–512³, both
 element types, all classes** — the first data in the CPU production band of `docs/ARCHITECTURE.md`
 decision 37 (a 512³ `Float64` CPU sweep needs tens of GB of host RAM, which a 123 GB workstation clears
@@ -1406,9 +1408,8 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    unaffected (gcsample is cheap when there is nothing to collect).
 2. **CUDA spans two NVIDIA generations, both on `Enteropia`** (the office box; CPU Ryzen 9800X3D).
    `characterize.jl` now takes a `cuda` backend beside `gpu`/`rocm` (CuArray + `CUDA.reclaim()`, no
-   comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The archived
-   **GTX 1070** (Pascal, 8 GB) stays a 64³/128³ column — an 8 GB Pascal card tops out below 256³, so
-   those rows read `—`. Its in-place replacement, the **RTX 5070 Ti** (Blackwell `sm_120`, 16 GB), covers
+   comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The **RTX 5070 Ti**
+   (Blackwell `sm_120`, 16 GB) covers
    the **full 64³–256³ matrix** (both element types, all six classes; ~10.8 GB peak). 512³ exceeds
    16 GB — the `mul!` tensor field alone is 4.5 GB and the build OOMs — but unlike AMD's HIP (gap 6),
    CUDA **OOMs gracefully** (a Julia `OutOfGPUMemoryError`, no context corruption), so probing the
@@ -1463,7 +1464,9 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    `assignment_window` / `translation_kernel`) are the noisy extreme: their threaded ``256^3``
    cells swung ±50% between two same-day sweeps (GC timing on paid-once allocating passes) — read
    them as indicative only, never as regressions.
-6. **GPU at 256³ — three traps, none a rocFFT bug** (RX 6700 XT, gfx1031, 12 GB, ROCm 7.2.4).
+6. **GPU at 256³ — three traps, none a rocFFT bug** (measured on a since-retired 12 GB AMD card;
+   the memory-ceiling trap below is specific to that capacity and does not bind the current 24 GB and
+   16 GB cards, while the cold-compile and allocator traps are not capacity-dependent).
    Earlier notes blamed "rocFFT 256³ planning"; that was wrong. The facts, measured:
    - **256³ FFT works.** Scalar and vector r2c/c2r at 256³ take ~1 s to plan and ~15–20 ms to run;
      the full `fft` class passes at 256³.
@@ -1497,7 +1500,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
      is *idle* (wedged, hours).
 
    With the per-(op-class, size, type) build the full 64³–256³ GPU column **is** in `RESULTS.md`. The
-   standing limit on the 6700 XT is the 12 GB ceiling itself: even one class's both-element-type 256³
+   standing limit on that card was the 12 GB ceiling itself: even one class's both-element-type 256³
    fields strain it (hence the one-class-at-a-time build), and 512³ won't fit on that card. If a future
    OOM-segfault degrades the context, reset with `rocm-smi --gpureset` from a console (it can crash an
    active display session) or reboot.
