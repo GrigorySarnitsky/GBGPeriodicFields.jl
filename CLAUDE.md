@@ -965,7 +965,10 @@ those are the usual rot. Then the mechanical bar:
 1. **Fields.jl** — refactored, done and test-covered (`test/fields.jl`): compatibility
    predicates; `FieldSpectralMultipliers` moved here (explicit six-array constructor +
    convenience constructor from a field; host-built wavenumbers copied to backend).
-   The transform input contract is invariant 11.
+   The transform input contract is invariant 11; its preserving allocation-free member is the scratch
+   arity `to_physical!(physical, spectral, plans, spectral_scratch)` (decision 64, IT round 3 —
+   source bitwise-preserved, scratch consumed, aliasing refused; the `to_spectral!` twin is
+   deliberately absent, every IT forward source being consumable by design).
 2. **FieldAlgebra.jl** — **done** (full public surface): M2 (add/subtract, the weighted
    combination `combine!`, real scaling, scalar-field multiplication) + M3 (dot, cross, tensor-vector and
    tensor-tensor `mul!` with α/β, transpose, tensor inner products, norms,

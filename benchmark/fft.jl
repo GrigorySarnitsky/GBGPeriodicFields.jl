@@ -13,6 +13,18 @@ function add_fft!(group, AT, ::Type{T}, grid, tag) where {T}
     spec = to_spectral(phys, plans)
     group["to_spectral $label | $tag"] = @benchmarkable (s = to_spectral($phys, $plans); bench_sync(field_data(s)))
     group["to_physical $label | $tag"] = @benchmarkable (p = to_physical($spec, $plans); bench_sync(field_data(p)))
+    # The preserving scratch arity (decision 64): the same inverse transform, allocation-free, plus
+    # one explicit copy of the coefficients. Its delta against the in-place row below IS the price of
+    # preservation; its delta against the allocating row above is the allocation and the copy the
+    # allocating form performs internally.
+    scratch = similar_field(spec, Val(field_tensor_order(spec)))
+    out_phys = similar_field(phys, Val(field_tensor_order(phys)))
+    group["to_physical! $label scratch | $tag"] =
+      @benchmarkable (to_physical!($out_phys, $spec, $plans, $scratch); bench_sync(field_data($out_phys)))
+    # And the destructive 3-arg baseline it is priced against. Its "source" is the scratch field, NOT
+    # `spec` — this row must not consume the coefficients the other rows in this group reuse.
+    group["to_physical! $label | $tag"] =
+      @benchmarkable (to_physical!($out_phys, $scratch, $plans); bench_sync(field_data($out_phys)))
     if AT === Array
       mplans = measure_plans_for(phys, T, grid)
       group["to_spectral $label measure | $tag"] = @benchmarkable (s = to_spectral($phys, $mplans); bench_sync(field_data(s)))

@@ -100,9 +100,17 @@ so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequ
   ``\mathcal F(f + c) = \hat f + c N \delta_{k,0}`` (`_spectral_constant_scale = prod(grid_size)`), since
   the unnormalized forward sums ``N`` copies of ``c`` at ``k = 0``. ``\checkmark``
 
+The scratch arity `to_physical!(physical, spectral, plans, spectral_scratch)` (decision 64) adds
+nothing to this map — it computes the same ``\mathcal F^{-1}`` — and one **contract**: `spectral`
+returns bitwise-unchanged, the copy into the scratch being what the transform consumes instead, with
+no allocation. Aliasing scratch with source is refused, the shared storage making the contract
+unsatisfiable. ``\checkmark``
+
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
-behaviour, and transform input-preservation — and `test/fieldalgebra.jl` (the constant/zero-mode invariant).
+behaviour, transform input-preservation, and the scratch arity's bitwise preservation, its bitwise
+equality with the allocating form, and its aliasing and context refusals — and `test/fieldalgebra.jl`
+(the constant/zero-mode invariant).
 
 ## Fiberwise algebra (`FieldAlgebra` / `FiberSections`)
 

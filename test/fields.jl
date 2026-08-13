@@ -81,6 +81,42 @@ const layout = RealFourierLayout()
     @test field_data(back) ≈ field_data(a)           # and the round-trip is still correct
   end
 
+  @testset "scratch arity of to_physical!: preserving AND allocation-free (decision 64)" begin
+    a = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid)
+    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(0))), grid)
+    plans = FieldTransformPlans(a, spectral_zero)
+    spectral = to_spectral(a, plans)
+    scratch = similar_field(spectral, Val(0))
+    out = similar_field(a, Val(0))
+
+    spectral_before = copy(field_data(spectral))
+    to_physical!(out, spectral, plans, scratch)
+    # The whole contract, each half separately: the source survives BITWISE (the claim the 3-arg form
+    # cannot make on FFTW), and the answer equals the allocating preserving form bitwise (that form's
+    # own oracle is the independent DFT sum, so this chain terminates independently).
+    @test field_data(spectral) == spectral_before
+    @test field_data(out) == field_data(to_physical(spectral, plans))
+
+    # Aliasing is refused, not defined: shared storage would consume the very source the arity
+    # preserves. Same-array is the only sharing decision 59 leaves constructible, so this is the case.
+    @test_throws ArgumentError to_physical!(out, spectral, plans, spectral)
+    # And the scratch is a field like any other: a context mismatch is refused the same way.
+    other_grid = Grid3D((4, 4, 4), (2pi, 2pi, 2pi))
+    mismatched = ScalarFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(other_grid, layout, Val(0))), other_grid)
+    @test_throws ArgumentError to_physical!(out, spectral, plans, mismatched)
+
+    # Vector twin through the same method (the arity is order-generic).
+    u = VectorFieldPhysical(rand(T, size(field_data(a))..., 3), grid)
+    vplans = FieldTransformPlans(u, similar_field(spectral_zero, Val(1)))
+    uh = to_spectral(u, vplans)
+    uh_before = copy(field_data(uh))
+    uscr = similar_field(uh, Val(1))
+    uout = similar_field(u, Val(1))
+    to_physical!(uout, uh, vplans, uscr)
+    @test field_data(uh) == uh_before
+    @test field_data(uout) == field_data(to_physical(uh, vplans))
+  end
+
   @testset "spectral multipliers vs AbstractFFTs" begin
     sp = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
     spectral = to_spectral(sp, FieldTransformPlans(sp, ScalarFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(0))), grid)))

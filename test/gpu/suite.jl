@@ -21,7 +21,7 @@
 
 using Test
 using GBGPeriodicFields
-using Statistics: mean, std, var, cov      # extended on sections in the Reductions module (not re-exported)
+using Statistics: mean, std, var, cov      # the umbrella re-exports these four too; explicit here so the file reads standalone
 
 const F = GBGPeriodicFields.Fields
 const IP = GBGPeriodicFields.Points
@@ -85,6 +85,18 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
         plans = plans_for(device)
         back = to_physical(to_spectral(device, plans), plans)
         @test matches(back, host)
+
+        # The preserving scratch arity (decision 64), on device: the source survives bitwise and the
+        # answer equals the allocating preserving form. On some GPU backends the 3-arg form happens
+        # to preserve too (invariant 11 is backend-divergent), so bitwise source equality here is
+        # necessary but the CPU lane is where the preservation claim is actually falsifiable.
+        spectral_device = to_spectral(device, plans)
+        spectral_before = copy(field_data(spectral_device))
+        scratch = F.similar_field(spectral_device, Val(field_tensor_order(spectral_device)))
+        out = F.similar_field(device, Val(field_tensor_order(device)))
+        to_physical!(out, spectral_device, plans, scratch)
+        @test Array(field_data(spectral_device)) == Array(spectral_before)
+        @test Array(field_data(out)) == Array(field_data(to_physical(spectral_device, plans)))
       end
     end
 

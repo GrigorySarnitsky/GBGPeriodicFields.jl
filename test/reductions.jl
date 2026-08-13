@@ -7,7 +7,7 @@ using Test
 using Random: MersenneTwister
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
-using Statistics: mean, std, var, cov      # extended on sections in the Reductions module (not re-exported)
+using Statistics: mean, std, var, cov      # the umbrella re-exports these too; explicit here so the file reads standalone
                                       # `det`/`tr`/`norm` (the fiber maps below) come from the package's re-export
 
 @testset "L²/measure reductions" begin

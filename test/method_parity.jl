@@ -87,7 +87,11 @@ const MODULE_BASELINE = (
   # order without a reference to copy metadata from, and `_is_canonical`, which reads back the
   # parameter that lets `convolve` collapse two radial kernels statically. Refrozen deliberately, with
   # the reason, per decision 53's protocol.
-  Fields                = 115,
+  # 115 → 116: the preserving scratch arity `to_physical!(physical, spectral, plans,
+  # spectral_scratch)` (decision 64, an IT round-3 request) — the allocation-free member of the
+  # preserving contract the allocating `to_physical` already offered. One new method on the existing
+  # generic; the 3-arg form and the allocating forms are unchanged.
+  Fields                = 116,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is

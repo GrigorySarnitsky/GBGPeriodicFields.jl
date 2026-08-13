@@ -153,6 +153,12 @@ _map_add(a, b) = a + b
       @alloc_below field_threshold to_physical!(psd, ss, scalar_plans)
       @alloc_below field_threshold to_physical!(pvd, sv, vector_plans)
       @alloc_below field_threshold to_physical!(ptd, st, tensor_plans)
+      # The preserving scratch arity (decision 64): allocation-free is its entire reason to exist, so
+      # this pin IS the feature. The destination fields double as scratch here — they are spectral
+      # fields of the right context whose contents this audit does not reuse.
+      @alloc_below field_threshold to_physical!(psd, ss, scalar_plans, ssd)
+      @alloc_below field_threshold to_physical!(pvd, sv, vector_plans, svd)
+      @alloc_below field_threshold to_physical!(ptd, st, tensor_plans, std_)
       @alloc_below field_threshold to_spectral!(ssd, ps, scalar_plans)
       @alloc_below field_threshold to_spectral!(svd, pu, vector_plans)
       @alloc_below field_threshold to_spectral!(std_, pt, tensor_plans)

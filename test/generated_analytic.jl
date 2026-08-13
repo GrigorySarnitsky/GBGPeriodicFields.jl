@@ -29,7 +29,7 @@
 using Test
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data
-using Statistics: mean, var      # extended on sections in Reductions (not re-exported)
+using Statistics: mean, var      # the umbrella re-exports these too; explicit here so the file reads standalone
 
 const GRID_POINTS = 16                      # Nyquist = 8; every frequency below stays exactly resolved
 const PRIMES = (2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73,

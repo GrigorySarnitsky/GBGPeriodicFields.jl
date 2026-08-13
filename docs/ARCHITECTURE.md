@@ -3311,3 +3311,41 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     planned on CUDA at all — only the default ``(1, 2, 3)`` fold works there. It is recorded in
     `docs/TESTING.md` §4 rather than fixed, since it is a vendor constraint and the permuted folds are a
     CPU-side generality.
+
+64. **The preserving scratch arity of `to_physical!`** (2026-08-13, an IT round-3 request). The
+    inverse real transform may consume its input as scratch (the transform input contract above:
+    `FFTW` destroys it, some device backends happen not to), so the package offered two contracts —
+    the destructive in-place `to_physical!(physical, spectral, plans)` and the preserving-but-
+    allocating `to_physical(spectral, plans)` — and the preserving **allocation-free** member was
+    missing. Every consumer whose spectral coefficients are a state it keeps (a spectral solver's
+    resolved fields, or any field recovered to physical space more than once) was hand-composing
+    `copyto!` plus the destructive form; the requesting solver did exactly that in two wrappers and a
+    phase-shift chain that recovers twice from one source.
+
+    **The new member is a fourth-argument arity of the existing generic, not a new verb:**
+    `to_physical!(physical, spectral, plans, spectral_scratch)` copies the coefficients into the
+    caller-supplied scratch, transforms from there, and returns with `spectral` bitwise-unchanged and
+    nothing allocated; the scratch's coefficients are undefined on return, exactly as the
+    three-argument form leaves its source — stated that way deliberately, because the destruction
+    itself is backend-divergent and the *contract* must not be. The arity form follows the house
+    convention for "same operation, more contract" (the kernel-composed operator arities of
+    decision 32, the α/β accumulation forms): the operation is still the transform, and the trailing
+    argument buys the preservation contract, checked by dispatch — the scratch must be a spectral
+    field of the same element type and tensor order, which a keyword could only check at runtime.
+
+    **Aliasing is refused, not defined**: `spectral_scratch` sharing storage with `spectral` would
+    make the copy a no-op and the transform would then consume the very source the argument exists to
+    preserve — a silent contract violation, the worst kind. Same-array is the only sharing the
+    ownership rule of decision 59 leaves constructible, so the one cheap `===` check on the storage is
+    exhaustive. The copy is a plain `copyto!` over the storage, deliberately: the price of
+    preservation is exactly one extra read and write of the coefficients, and nothing else — a
+    benchmark row prices it against the destructive form directly.
+
+    **The `to_spectral!` twin is deliberately absent.** Not because the forward transform is safe —
+    the input contract records it as backend-divergent too — but because the requesting consumer
+    established that every forward transform's source in its loops is consumable by design, so the
+    twin would be symmetry, which invariant 1 does not accept as a reason. It becomes a one-method
+    addition the day a consumer needs it. Tested by a bitwise preservation check against the
+    three-argument form's contract, bitwise equality with the allocating form (whose own oracle is
+    the independent DFT sum, terminating the chain independently), the aliasing and context
+    refusals, a zero-allocation pin, and GPU parity; the `Fields` baseline moves 115 → 116.

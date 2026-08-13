@@ -1147,27 +1147,68 @@ end
       spectral::AbstractFieldSpectral{T, R},
       transform_plans::FieldTransformPlans{T, R},
     ) where {T<:AbstractFloat, R}
+    to_physical!(
+      physical::AbstractFieldPhysical{T, R},
+      spectral::AbstractFieldSpectral{T, R},
+      transform_plans::FieldTransformPlans{T, R},
+      spectral_scratch::AbstractFieldSpectral{T, R},
+    ) where {T<:AbstractFloat, R}
 
 Transform a field from spectral space to physical space in place, returning the modified
 `physical` destination.
 
+The three-argument form consumes its source; the four-argument form **preserves it**, at the price of
+one extra pass — the coefficients are copied into `spectral_scratch` and the transform runs from
+there, so `spectral` returns bitwise-unchanged with nothing allocated. It is the allocation-free
+member of the preserving contract that the allocating [`to_physical`](@ref) offers by copying into a
+fresh field: reach for it when the spectral coefficients are a state you keep — a solver's resolved
+state, a field transformed to physical space more than once — and the loop must not allocate.
+
 The arguments are:
 - `physical` — the field that receives the transformed values.
-- `spectral` — the source coefficients, which the transform may overwrite as scratch.
+- `spectral` — the source coefficients. The three-argument form may overwrite them as scratch; the
+  four-argument form leaves them bitwise-unchanged.
 - `transform_plans` — the [`FieldTransformPlans`](@ref) supplying the inverse FFT plan.
+- `spectral_scratch` — four-argument form only: a spectral field on the same grid and layout whose
+  storage the transform consumes in `spectral`'s place; on return its coefficients are undefined,
+  exactly as the three-argument form leaves its source. It must not alias `spectral` — the same
+  storage would defeat the preservation the argument exists to buy, so that call is refused rather
+  than defined.
 
 !!! warning "The source is used as scratch"
-    The inverse transform uses `spectral` as scratch space and may overwrite it: on return its
-    coefficients are left in an undefined state (the `FFTW` CPU backend destroys them — complex-to-real
-    transforms have no input-preserving algorithm in the multidimensional case; some GPU backends
-    happen to preserve them, but this is not guaranteed). Use the allocating [`to_physical`](@ref)
-    when `spectral` must be preserved.
+    The inverse transform uses its input as scratch space and may overwrite it: on return the
+    coefficients it ran from are left in an undefined state (the `FFTW` CPU backend destroys them —
+    complex-to-real transforms have no input-preserving algorithm in the multidimensional case; some
+    GPU backends happen to preserve them, but this is not guaranteed). In the three-argument form that
+    input is `spectral` itself — use the four-argument form, or the allocating
+    [`to_physical`](@ref), when `spectral` must be preserved.
 """
 function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   _check_field_matches_context(physical, transform_plans)
   _check_field_matches_context(spectral, transform_plans)
 
   mul!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral))
+
+  return physical
+end
+
+
+function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}, spectral_scratch::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
+  _check_field_matches_context(physical, transform_plans)
+  _check_field_matches_context(spectral, transform_plans)
+  _check_field_matches_context(spectral_scratch, transform_plans)
+  # Aliasing is refused, not defined: with shared storage the copy is a no-op and the transform then
+  # consumes `spectral` itself — silently violating the one contract this arity exists to provide.
+  # Same-array is the ONLY way two sections can share memory (the constructors reject borrowed
+  # storage, decision 59), so this cheap check is exhaustive.
+  field_data(spectral_scratch) === field_data(spectral) &&
+    throw(ArgumentError("spectral_scratch must not alias spectral: a shared array would let the " *
+                        "transform consume the source this argument exists to preserve"))
+
+  # A plain `copyto!` over the storage, deliberately: the cost of preservation is exactly one extra
+  # read+write of the coefficients, and nothing else.
+  copyto!(field_data(spectral_scratch), field_data(spectral))
+  mul!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral_scratch))
 
   return physical
 end
@@ -1218,10 +1259,12 @@ end
 Allocating form of [`to_physical!`](@ref): allocate the result and return it. A field in spectral
 representation gives its physical representation on the same grid.
 
-Unlike the in-place form this one **preserves `spectral`** — it transforms a copy — which is the reason
-to reach for it: the inverse real transform may consume its input as scratch, and whether it does is
-backend-specific, so a caller that still needs the coefficients must not rely on the in-place form. Here
-`spectral` is the source and `transform_plans` provides the inverse FFT plan.
+Unlike the three-argument in-place form this one **preserves `spectral`** — it transforms a copy —
+which is the reason to reach for it: the inverse real transform may consume its input as scratch, and
+whether it does is backend-specific, so a caller that still needs the coefficients must not rely on
+that form. A loop that must not allocate gets the same preservation from the four-argument
+`to_physical!` with a caller-supplied scratch field instead. Here `spectral` is the source and
+`transform_plans` provides the inverse FFT plan.
 """
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
