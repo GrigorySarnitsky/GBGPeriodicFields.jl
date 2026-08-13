@@ -22,13 +22,24 @@ lpnorm
 
 ## Moments and order statistics
 
-These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, so they are reached through `using Statistics` and `Base` and are used exactly as their stdlib counterparts are. Extending rather than renaming is why they are not package exports; they are part of the public interface all the same.
+These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, and are used exactly as their stdlib counterparts are. All seven are in scope from `using GBGPeriodicFields` alone: the `Statistics` four are re-exported by the umbrella, exactly as `dot` and `norm` are re-exported from `LinearAlgebra`, and the `Base` three are in scope already.
+
+The four `Statistics` generics are re-exported by the umbrella, so they are **public** here; the three
+`Base` ones are not re-exported (they need no re-export, `Base` being in scope already), so they are
+collected by the unexported sweep instead. Two blocks, one group.
+
+```@autodocs
+Modules = [GBGPeriodicFields.Reductions]
+Public  = true
+Order   = [:function]
+Filter  = f -> nameof(f) in (:mean, :std, :var, :cov)
+```
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Reductions]
 Public  = false
 Order   = [:function]
-Filter  = f -> nameof(f) in (:mean, :std, :var, :cov, :maximum, :minimum, :extrema)
+Filter  = f -> nameof(f) in (:maximum, :minimum, :extrema)
 ```
 
 ## Radial reductions

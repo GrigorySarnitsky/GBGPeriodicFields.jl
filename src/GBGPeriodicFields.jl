@@ -87,7 +87,7 @@ The umbrella assembles its public surface from the submodules below:
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
   `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`, the scalar-only `std`/`var` and the
   covariance tensor `cov` that carries a vector field's second *central* moment coordinate-free, and the order
-  statistics `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections;
+  statistics `maximum`/`minimum`/`extrema`, which extend their `Statistics` and `Base` generics on sections and are all reachable from `using GBGPeriodicFields` alone;
   and the radial reductions `radial_spectrum` and `radial_correlation`. Five of them — `integral`,
   `mean`, `maximum`, `minimum` and `extrema` — also take a **leading fiber map**, which reduces a
   nonlinear invariant without building it; the others have no mapped form.
@@ -252,11 +252,17 @@ using .Reductions:
   l2norm,
   lpnorm,
   radial_spectrum,
-  radial_correlation
-
-# `mean`/`std`/`var` (Statistics) and `maximum`/`minimum`/`extrema` (Base) are *extended* on sections
-# in `Reductions`; those methods are global and reached through `using Statistics` / Base. They are
-# deliberately not re-exported here (re-exporting another package's bindings is avoided).
+  radial_correlation,
+  # The `Statistics` generics the package extends, pulled through the submodule and re-exported below
+  # exactly as `dot`/`cross`/`mul!`/`norm` are pulled through `FieldAlgebra` from `LinearAlgebra`: a
+  # user should not have to know which standard library a reduction's verb happens to live in. Safe,
+  # because two packages re-exporting the SAME binding do not collide — only two packages exporting
+  # DIFFERENT bindings of one name do. `maximum`/`minimum`/`extrema` need no such treatment, being
+  # `Base` and so already in scope.
+  mean,
+  std,
+  var,
+  cov
 
 
 export FiberVector,
@@ -384,7 +390,11 @@ export FiberVector,
        l2norm,
        lpnorm,
        radial_spectrum,
-       radial_correlation
+       radial_correlation,
+       mean,
+       std,
+       var,
+       cov
 
 
 function __init__()

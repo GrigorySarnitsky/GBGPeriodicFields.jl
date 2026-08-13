@@ -341,7 +341,11 @@ Operation names follow *what the operation is* — the same mathematics-first pr
 - **Extensions of Base / LinearAlgebra / Statistics** keep the source name, overriding the above
   (`dot`, `cross`, `mul!`, `transpose`, `norm`, `map`, `map!`, `mean`, `std`, `var`, `cov`,
   `maximum`, `minimum`, `extrema`); the continuum-mechanics decomposition abbreviations `sym` / `skew` / `dev` are likewise
-  conventional.
+  conventional. An extended generic is **re-exported when its source is not already in scope**, so that a
+  caller never has to know which standard library a verb happens to live in: the `LinearAlgebra` and
+  `Statistics` names are re-exported by the umbrella, while the `Base` ones need no such treatment.
+  Re-exporting a binding the package only extends is safe — two packages re-exporting the *same*
+  binding do not collide, only two exporting *different* bindings of one name do.
 - **Modules** carry the family **noun** (`Fields`, `DifferentialOperators`, `Reductions`,
   `Interpolation`, `Convolution`); the operations inside follow the rules above — so
   `Convolution` / `convolve` mirrors `Interpolation` / `interpolate`.

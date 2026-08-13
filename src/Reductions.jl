@@ -17,11 +17,12 @@ stay physical-only.
 
 The parts are, each linking to the home where its formula lives.
 
-!!! note "`mean`, `std`, `var` and `cov` need `using Statistics`"
-    These four **extend** `Statistics` rather than being owned here, so the umbrella module does not
-    re-export them and `using GBGPeriodicFields` alone does not put the names in scope — a bare
-    `mean(field)` will not resolve. Add `using Statistics` (or call them `Statistics.mean(field)`).
-    Every other reduction on this page, `maximum`/`minimum`/`extrema` included, is exported normally.
+!!! note "The moments extend `Statistics`; the order statistics extend `Base`"
+    `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
+    `maximum`, `minimum` and `extrema` extend `Base`. Either way they are used exactly as their
+    standard-library counterparts are, and `using GBGPeriodicFields` alone puts all of them in scope:
+    the umbrella re-exports the four `Statistics` generics, as it does `dot` and `norm` from
+    `LinearAlgebra`, so a caller need not know which standard library a reduction's verb lives in.
 
 
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
