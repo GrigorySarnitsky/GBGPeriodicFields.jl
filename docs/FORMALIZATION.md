@@ -679,7 +679,7 @@ on the target family as on the source. ``\checkmark``
 
 Precision is deliberately **not** of this kind and is not offered here: changing the element type
 changes the values, and — because ``\texttt{Grid3D}`` stores the domain size, spacing and origin at the
-field's own element type — it changes ``\Gamma`` as well, so it is a different statement rather than a
+field's own element type — it changes ``\mathcal{C}`` as well, so it is a different statement rather than a
 weaker one.
 
 `FieldTransformPlans` is the one companion that is **rebuilt rather than moved**, because an FFT plan

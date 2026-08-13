@@ -7,7 +7,7 @@ representations, on CPU (`Array`) and GPU (`CuArray`, `ROCArray`) — **single n
 target: **NAISS Arrhenius** (decision 37) — CPU nodes carry the beyond-GPU-VRAM grids (the CPU path's
 tuning target, not small tests), and the GPU nodes have **`aarch64` (Grace) hosts**, so **never adopt an
 x86-only dependency or recommendation** (e.g. the MKL FFT provider); nothing in the tree is known
-x86-only, but nothing has been built on ARM yet (`docs/PERFORMANCE.md` §7 gap 7). Built as the field
+x86-only, but nothing has been built on ARM yet (`docs/PERFORMANCE.md` §7 gap 8). Built as the field
 layer for pseudospectral fluid/turbulence solvers, with the interpolation/anterpolation point layer for
 Lagrangian-particle methods in place. Development is **GPU-first**; CPU multithreading is implemented (hybrid, behind the
 `_assign!` primitive — see `docs/ARCHITECTURE.md` §9).

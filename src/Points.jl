@@ -22,6 +22,9 @@ The parts are:
     [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
+  * **Allocation.** [`similar_pointvalues`](@ref) returns uninitialized storage carrying a reference's
+    tensor order and backend — the point-value twin of `similar_field`, and what the broadcast
+    machinery and the allocating algebra wrappers build their results with.
   * **Persistence.** [`write_points`](@ref) and [`read_points`](@ref) map a point set or a point-value
     section to and from one self-describing HDF5 group, positions and values kept separate (methods
     load with the `HDF5` package, as a weak-dependency extension). They are the point-layer twins of

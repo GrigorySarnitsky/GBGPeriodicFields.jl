@@ -31,12 +31,12 @@ The parts are, each linking to the home where its formula lives.
 - [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
   by default). `std`/`var` are **scalar-only**: the sample standard deviation and variance are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
-  tensor [`cov`](@ref) ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
+  tensor [`cov`](@ref) ``\\equiv R_{ij}`` (a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
-  spectral generalization ``\\langle f, w g\\rangle``.
+  spectral generalization ``\\langle\\cdot, w\\,\\cdot\\rangle``.
 - [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
   (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a
@@ -586,7 +586,6 @@ use [`cov`](@ref) for the vector second central moment.
 The arguments are:
 - `f` — the scalar section the moment is taken over: a field in physical or spectral
   representation, or point values.
-
 - `corrected` — divide by the base count minus one (Bessel's correction, the default) rather than by
   the count, exactly as it does for [`var`](@ref), of which this is the square root.
 """

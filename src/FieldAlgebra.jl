@@ -10,13 +10,18 @@ to, which for a field is the grid's points — applying the same formula to the 
 touching no neighbours. That is what the formulas below mean by "pointwise over the base".
 
 Acting pointwise is *not* what makes an operation available in both representations, and the two must
-not be confused: `det` and `norm` are as pointwise as any operation here and are physical-space only.
+not be confused: `det` and `norm` are as pointwise as any operation here and are physical-representation only.
 What carries an operation across the transform is **linearity in the field argument**, since only a
 linear map commutes with the rfft isomorphism — which is why the linear operations below (the sums,
 the fiber-constant contractions, the transposes, `sym`/`skew`/`dev`) exist in both representations
 while every operation nonlinear in a field is defined in physical representation alone.
 
+Two words recur below. A **fiber** is the value at one base point — a scalar, a `FiberVector` or a
+`FiberTensor2` — and a **section** is one fiber at every point of a base, which is what a field and a
+set of point-values each are. That shared shape is why one set of formulas serves both.
+
 The parts are:
+
 
   * **Vector-space and scalar-field-scaling operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
@@ -35,10 +40,6 @@ The parts are:
     `!` form).
   * **Norm operations** — [`norm!`](@ref) computes the pointwise absolute-value, Euclidean, and Frobenius
     norms.
-Two words recur below. A **fiber** is the value at one base point — a scalar, a `FiberVector` or a
-`FiberTensor2` — and a **section** is one fiber at every point of a base, which is what a field and a
-set of point-values each are. That shared shape is why one set of formulas serves both.
-
   * **Arbitrary fiber map** — [`map!`](@ref) and [`map`](@ref) apply *any* fiber map `φ` you supply at
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
     of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
@@ -63,7 +64,7 @@ deliberate.
     spectral representation folds that out-of-band content back onto the resolved modes as aliasing error.
     Before feeding such a result into a spectral computation — a solver's nonlinear term — de-alias it with
     the sharp low-pass `spectral_cutoff` or the phase-shift `translation_kernel` from
-    [`Convolution`](@ref). This is the same fact that makes these operations physical-space only: a
+    [`Convolution`](@ref). This is the same fact that makes these operations physical-representation only: a
     nonlinearity has no finite-band spectral form.
 
 The `mul!` product follows the `LinearAlgebra` convention that the destination must not share storage with an input,
@@ -527,9 +528,11 @@ Overwrite `destination` with the real-weighted linear combination ``\\alpha a + 
 compatible fields, and return `destination`.
 
 !!! note "Here α and β weight the two inputs, not the destination"
-    Every other in-place operation in the package uses trailing `α`, `β` that
+    Almost every in-place operation in the package uses trailing `α`, `β` that
     accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
-    This operation is the exception the name announces: it *is* the weighted combination, so its `α`
+    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
+    forms, which carry this same combination into a fused convolution — and it is the exception the
+    name announces: it *is* the weighted combination, so its `α`
     and `β` sit between the operands they weight and there is no accumulate form — pass
     `b === destination` when you want one.
 
@@ -537,7 +540,7 @@ Reach for `combine!` with a preallocated destination when you need a real-weight
 fields in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
 (``a + b``), and [`multiply!`](@ref), which scales a single field; the allocating equivalent is the
 operator expression ``\\alpha a + \\beta b``, which builds scratch fields instead. The combination is
-linear and representation-preserving, so it is defined for both physical-space and spectral
+linear and representation-preserving, so it is defined for both physical and spectral
 representation.
 
 The arguments are:
@@ -612,7 +615,7 @@ The arguments are:
 - `scalar_field` — a scalar field factor, multiplying the other operand pointwise.
 - `field`, `constant` — the operand being scaled: a field of any tensor order, or a constant `FiberVector` or `FiberTensor2` paired with a scalar field.
 
-Multiplication by a real number is representation-preserving and is defined for fields in both physical-space and spectral representation, in either argument order.
+Multiplication by a real number is representation-preserving and is defined for fields in both physical and spectral representation, in either argument order.
 
 Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical representation; in spectral representation the product of two fields is a convolution, which this module does not provide. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
 """
@@ -1341,7 +1344,7 @@ Transpose the fiber indices of a second-order tensor field in place (`transpose`
 Use this in-place form when `destination` is already allocated; the allocating [`transpose`](@ref)
 returns a fresh result instead.
 
-The operation is linear and representation-preserving, so it is defined for both physical-space and spectral representations. Unlike Julia's matrix `transpose`, it writes a materialized tensor field rather than a lazy wrapper.
+The operation is linear and representation-preserving, so it is defined for both physical and spectral representations. Unlike Julia's matrix `transpose`, it writes a materialized tensor field rather than a lazy wrapper.
 
 Pointwise over the base:
 
@@ -1394,7 +1397,7 @@ end
     norm!(destination::ScalarFieldPhysical, u::VectorFieldPhysical)
     norm!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
 
-Compute the fiberwise norm of a physical-space field (`norm` ``\\equiv |\\cdot|``) in place, and return `destination`.
+Compute the fiberwise norm of a field in physical representation (`norm` ``\\equiv |\\cdot|``) in place, and return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`norm`](@ref)
 returns a fresh result instead.
@@ -1415,7 +1418,7 @@ function norm! end
     norm(u::VectorFieldPhysical)
     norm(A::TensorFieldPhysical{2})
 
-Allocating form of [`norm!`](@ref) (`norm` ``\\equiv |\\cdot|``): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical-space representation only. See `norm!` for the componentwise formula.
+Allocating form of [`norm!`](@ref) (`norm` ``\\equiv |\\cdot|``): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical representation only. See `norm!` for the componentwise formula.
 """
 norm
 
@@ -1867,7 +1870,7 @@ end
 Allocating form of [`map!`](@ref): apply the fiber map `φ` at every base point and return a fresh section
 holding the result. The output's tensor order is inferred from `φ` (`map(det, A)` returns a scalar field);
 when it cannot be inferred, call `map!` with a preallocated `destination`. See [`map!`](@ref) for the
-arguments and the physical-space-only / aliasing caveats.
+arguments and the physical-representation-only / aliasing caveats.
 """
 function map(φ::F, source1::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
   all_sources = (source1, sources...)

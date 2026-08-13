@@ -306,11 +306,14 @@ For each public operation, a test must establish:
 (decision 63) is exercised on CPU with a **custom adaptor**, because adapting to the family a section
 already occupies is deliberately the identity and would test nothing. The device half is in the GPU
 suite, which now moves whole workspaces — field, multipliers, kernels and plans — through the shipped
-interface rather than through hand-written twins. **A permuted `RealFourierLayout` cannot be used on
-CUDA at all:** `cuFFT` rejects any non-strictly-increasing FFT region, so only the default
-``(1, 2, 3)`` fold plans there, and a permuted-fold device test would fail in `plan_rfft` rather than
-in anything the package controls. The permuted folds of decision 41 are therefore a CPU-side
-generality; a device test that needs a fold must use the default one.
+interface rather than through hand-written twins. **A permuted `RealFourierLayout` cannot be
+PLANNED on CUDA:** `cuFFT` rejects any non-strictly-increasing FFT region, so only the default
+``(1, 2, 3)`` fold reaches `plan_rfft` there, and a permuted-fold device test that transforms would
+fail in the vendor library rather than in anything the package controls. Everything that does **not**
+build a plan is unaffected, and the GPU suite exercises exactly that: it moves a permuted-fold
+spectral field to the device and checks `inner` and `radial_spectrum` against the host. So the
+restriction is on the transform, not on the layout — a device test needing an actual transform on a
+folded layout must use the default one.
 
 **Grid coverage.** Use a **mixed-parity** grid (even and odd axis lengths, e.g.
 `(8, 7, 6)`) so the Nyquist split is exercised; where the Nyquist mode matters, include a
@@ -358,9 +361,10 @@ operation's coverage is judged against the full axis list:
     made crossing it an explicit operation, `adapt`, so a section, its multipliers, its kernels and its
     plans are all admissible in either family. The CPU lane drives it with a **custom adaptor**, since
     adapting to the family one already occupies is the identity and would exercise nothing; the device
-    half is the GPU suite. **NA on one combination, with its reason:** a permuted `RealFourierLayout`
-    cannot be crossed with this axis on CUDA, because `cuFFT` rejects a non-strictly-increasing FFT
-    region, so a device test that needs a layout fold must use the default one. That is a vendor limit
+    half is the GPU suite. **Partial NA on one combination, with its reason:** a permuted
+    `RealFourierLayout` cannot be **planned** on CUDA, `cuFFT` rejecting a non-strictly-increasing FFT
+    region, so a device test that transforms on a folded layout must use the default one. Operations
+    that build no plan are unrestricted, and the GPU suite does cross the two axes there. That is a vendor limit
     rather than a package one, and it makes the permuted folds of decision 41 a CPU-side generality.
 
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new

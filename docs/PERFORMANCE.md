@@ -1163,8 +1163,10 @@ inflation's per-row variance, and none can be re-checked from this box:
     advantage the old figure described is real but **concentrated where the work is small**: 2.21×
     and 3.06× at ``64^3``, 1.35× and 1.65× at ``128^3``, decaying to parity as the rows become
     bandwidth-bound — the signature of a launch-latency edge, not a throughput one. And the AMD card
-    **wins the whole transfer class** at ``256^3`` `Float64` (`interpolate!` and `anterpolate!` at
-    0.53–0.68×, so 1.5–1.9× the NVIDIA speed), which no previous comparison could have shown.
+    **wins seven of the transfer class's eight rows** at ``256^3`` `Float64`, which no previous
+    comparison could have shown: the four spline gathers and scatters run at 0.53–0.68× the NVIDIA
+    time (so 1.5–1.9× the speed), the two `NUFFT` rows sit near parity at 0.85–0.95×, and the one
+    NVIDIA win is `anterpolate! Lalescu(3,3)` at 1.11×.
     Treat "the fleet's fastest card" as true only at small grids and in `Float64` atomics.
 
 **Structurally safe: everything measured on the CPU.** `gcsample` was gated on the backend throughout,
@@ -1354,20 +1356,20 @@ figures, the staging planes fused away, so the atomics are the whole measurement
 
 | operation (128³, Float64) | CPU `-t1` | CPU `-t4` | GPU | threads `-t1`→`-t4` | GPU vs `-t4` |
 |---|--:|--:|--:|--:|--:|
-| `to_spectral` scalar (FFT)            | 10.34 ms | 2.83 ms | 0.399 ms | 3.6× |  7.1× |
-| `mul!` tensor·vec (M3 algebra)        |  7.05 ms | 4.33 ms | 0.321 ms | 1.6× | 13.5× |
-| `laplacian!` scalar (operator)        |  2.21 ms | 0.27 ms | 0.030 ms | 8.3× |  9.1× |
-| `interpolate!` Catmull–Rom (gather)   |  5.61 ms | 1.45 ms | 0.132 ms | 3.9× | 11.0× |
+| `to_spectral` scalar (FFT)            | 10.27 ms | 2.93 ms | 0.399 ms | 3.5× |  7.3× |
+| `mul!` tensor·vec (M3 algebra)        |  7.03 ms | 4.43 ms | 0.321 ms | 1.6× | 13.8× |
+| `laplacian!` scalar (operator)        |  2.21 ms | 0.27 ms | 0.030 ms | 8.3× |  9.0× |
+| `interpolate!` Catmull–Rom (gather)   |  5.63 ms | 1.46 ms | 0.132 ms | 3.9× | 11.0× |
 | `interpolate!` Lalescu (3,3) (gather) | 41.63 ms | 10.50 ms | 0.772 ms | 4.0× | 13.6× |
-| `anterpolate!` Catmull–Rom (scatter)  | 22.10 ms | 6.13 ms | 0.169 ms | 3.6× | 36.3× |
+| `anterpolate!` Catmull–Rom (scatter)  | 22.47 ms | 6.13 ms | 0.169 ms | 3.7× | 36.2× |
 
 Two patterns the speedup columns make plain. **The bandwidth-bound classes barely thread** at this
 size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidth-bound rather than
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
 threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 151.4 ms
-serial against 1.646 ms on the RTX 5070 Ti, ≈92×, and 1.048 ms on the RX 7900 XTX, which **wins the
+the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 150.4 ms
+serial against 1.646 ms on the RTX 5070 Ti, ≈91×, and 1.048 ms on the RX 7900 XTX, which **wins the
 whole transfer class** by 1.5–1.9× — re-measured 2026-08-09 in the fixed regime), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
@@ -1376,7 +1378,7 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 
 ## 7. Current coverage and known gaps
 
-**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions, and the device-only storage class of decision 63)
+**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions; the device-only storage class of decision 63 is wired into the suite but has not yet been swept into the committed archive — see gap 8)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),
@@ -1399,13 +1401,13 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
 
 **Gaps:**
 
-1. **GPU `reductions`/`convolution` are measured with `gcsample` — read them as latency, not
-   throughput.** Both classes are now in `RESULTS.md` for every platform (CPU 1/2/4/8 + GPU). The GPU
-   figures use `gcsample = true` (gap 6): a GC before each sample bounds memory but adds a fixed
-   per-sample cost, so the small-grid GPU times (≈1.5 ms at 64³) are dominated by that overhead, not by
-   the kernel — read those as per-call latency, and trust the 256³ figures, where the kernel dominates
-   and the GPU pulls ahead of the CPU. The CPU columns and the non-allocating GPU classes are
-   unaffected (gcsample is cheap when there is nothing to collect).
+1. **CLOSED — the device rows no longer carry a blanket per-sample GC.** This gap used to warn that
+   the GPU `reductions`/`convolution` figures were latency rather than throughput, because every device
+   row ran with `gcsample = true`. Finding (s) removed that: the collector is now decided **per row**
+   from a measured device-pool probe, and only the documented materializers keep it. The committed
+   archive is in the fixed regime on both cards, and the old warning's own symptom is gone — a
+   ``64^3`` `Float64` `convolve! scalar` reads 33.1 µs on the RX 7900 XTX and 10.8 µs on the RTX
+   5070 Ti, against the ``\approx 1.5`` ms floor this gap was written to describe.
 2. **CUDA spans two NVIDIA generations, both on `Enteropia`** (the office box; CPU Ryzen 9800X3D).
    `characterize.jl` now takes a `cuda` backend beside `gpu`/`rocm` (CuArray + `CUDA.reclaim()`, no
    comgr warm), so the memory-bounded one-class-at-a-time sweep runs on NVIDIA too. The **RTX 5070 Ti**
@@ -1465,8 +1467,10 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    cells swung ±50% between two same-day sweeps (GC timing on paid-once allocating passes) — read
    them as indicative only, never as regressions.
 6. **GPU at 256³ — three traps, none a rocFFT bug** (measured on a since-retired 12 GB AMD card;
-   the memory-ceiling trap below is specific to that capacity and does not bind the current 24 GB and
-   16 GB cards, while the cold-compile and allocator traps are not capacity-dependent).
+   the ``256^3`` ceiling below is specific to that capacity, while the cold-compile and allocator traps
+   are not capacity-dependent. The wedge-instead-of-error behaviour itself still binds the current
+   cards — it simply moves up a grid, as this gap's own 2026-06-26 update records for a 512³
+   `Float64` sweep on the 24 GB card).
    Earlier notes blamed "rocFFT 256³ planning"; that was wrong. The facts, measured:
    - **256³ FFT works.** Scalar and vector r2c/c2r at 256³ take ~1 s to plan and ~15–20 ms to run;
      the full `fft` class passes at 256³.
@@ -1515,7 +1519,13 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
-7. **`aarch64` is a production host architecture with zero coverage.** The recorded production
+7. **The `storage` class is wired but never swept.** Decision 63's device-only class exists in
+   `benchmark/storage.jl` and is registered in both `benchmarks.jl` and `report.jl`, and its rows run
+   (verified by the tiny-grid gate), but no sweep has yet put them in `benchmark/RESULTS.md`, which
+   still carries six class sections. Until one does, the cost of crossing the bus is documented in §5
+   and unmeasured in the table. It needs a device lane, so it is an `Enteropia`/`Aiporetne` job rather
+   than something a CPU run can close.
+8. **`aarch64` is a production host architecture with zero coverage.** The recorded production
    target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
    superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the
    CPU partition is x86-64 EPYC. The GPU path's host code will therefore eventually build and run

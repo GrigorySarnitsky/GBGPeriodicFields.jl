@@ -1188,6 +1188,11 @@ The arguments are:
 - `physical` — the source values, which the transform may overwrite as scratch.
 - `transform_plans` — the [`FieldTransformPlans`](@ref) supplying the forward FFT plan.
 
+The forward transform is **unnormalized** and the inverse carries the ``1/N`` (``N`` the number of grid
+points) — the `AbstractFFTs` convention. Every normalization elsewhere in the package is stated against
+it: the mean is the zero coefficient over ``N``, adding a constant scales only that coefficient by
+``N``, and the Parseval sums carry ``1/N^2``.
+
 !!! warning "The source may be overwritten"
     The forward transform may overwrite `physical` on some backends (for example rocFFT reserves the
     right to use real-to-complex inputs as scratch); the `FFTW` CPU backend preserves it, but do not
@@ -1214,10 +1219,9 @@ Allocating form of [`to_physical!`](@ref): allocate the result and return it. A 
 representation gives its physical representation on the same grid.
 
 Unlike the in-place form this one **preserves `spectral`** — it transforms a copy — which is the reason
-to reach for it (invariant 11: the inverse real transform may consume its input as scratch). Here
+to reach for it: the inverse real transform may consume its input as scratch, and whether it does is
+backend-specific, so a caller that still needs the coefficients must not rely on the in-place form. Here
 `spectral` is the source and `transform_plans` provides the inverse FFT plan.
-
-This is the allocating form of [`to_physical!`](@ref). Unlike the in-place form, it leaves the input `spectral` unchanged, because it copies the coefficients before transforming. Use it when `spectral` must be preserved, and use the in-place form when it need not be.
 """
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
@@ -1239,15 +1243,8 @@ Allocating form of [`to_spectral!`](@ref): allocate the result and return it. A 
 representation gives its spectral representation on the same grid.
 
 Unlike the in-place form this one **preserves `physical`** — it transforms a copy — which is the reason
-to reach for it (invariant 11: the forward transform may consume its input as scratch on some
-backends). Here `physical` is the source and `transform_plans` provides the forward FFT plan.
-
-The forward transform is **unnormalized** and the inverse carries the ``1/N`` (``N`` the number of grid
-points) — the `AbstractFFTs` convention. Every normalization elsewhere in the package is stated against
-it: the mean is the zero coefficient over ``N``, adding a constant scales only that coefficient by
-``N``, and the Parseval sums carry ``1/N^2``.
-
-This is the allocating form of [`to_spectral!`](@ref). Unlike the in-place form, it leaves the input `physical` unchanged, because it copies the values before transforming. Use it when `physical` must be preserved, and use the in-place form when it need not be.
+to reach for it: the forward transform may consume its input as scratch on some backends, so a caller
+that still needs the values must not rely on the in-place form. Here `physical` is the source and `transform_plans` provides the forward FFT plan.
 """
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
@@ -1828,7 +1825,7 @@ same allocator the package uses everywhere else.
     request the plans were built with is replayed, with one exception. Planner flags are an `FFTW`
     concept — `cuFFT` rejects them outright — so a move to any non-host family does **not apply** them
     when building the new plan, but the returned plans still **record** the original flags, so a later
-    move back to the host plans with the intent they were created with.
+    move back to the host rebuilds them with the intent they were created with.
 
 Element-type conversion is deliberately **not** part of this: a transfer that silently changed
 precision would change what a solver computes. No operation in this package converts precision today.

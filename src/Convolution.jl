@@ -1452,7 +1452,8 @@ end
 
 """
     spectral_cutoff(reference::AbstractFieldSpectral,
-                    multipliers::FieldSpectralMultipliers, wavenumber_cutoff) -> RadialKernel
+                    multipliers::FieldSpectralMultipliers,
+                    wavenumber_cutoff) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to

@@ -103,8 +103,9 @@ differ only in (kernel, representation).
 
 One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
 which names what the fresh destination is built from: a `Grid3D` suffices for the spline schemes,
-whose result is a physical field, while the spectral schemes take a whole field in spectral
-representation, a spectral destination needing the layout, backend and element type too. Code
+whose result is a field in physical representation, while the spectral schemes take a whole field in
+spectral representation, their destination needing that representation's layout, backend and element
+type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 """
@@ -274,8 +275,8 @@ end
 """
     _hermite_weight_matrix(n, m)
 
-Build the ``(2n{+}2) \\times (2m{+}2)`` matrix of smooth-spline weight-polynomial coefficients (row `q`
-is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column `r+1` is
+Build the ``(2n{+}2) \\times (2m{+}2)`` matrix of smooth-spline weight-polynomial coefficients (row ``q``
+is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}1\\}``; column ``r+1`` is
 the ``t^r`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
 (offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
@@ -313,8 +314,8 @@ end
     _lagrange_weight_matrix(n)
 
 Build the ``(2n{+}2) \\times (2n{+}2)`` matrix of Lagrange cardinal-polynomial coefficients over the
-stencil offsets ``\\{-n, \\dots, n{+}1\\}`` (row `q` is the cardinal polynomial of node `q`; column
-`r+1` is the ``t^r`` coefficient). Each is the degree-``2n{+}1`` polynomial that is one at its own node
+stencil offsets ``\\{-n, \\dots, n{+}1\\}`` (row ``q`` is the cardinal polynomial of node ``q``; column
+``r+1`` is the ``t^r`` coefficient). Each is the degree-``2n{+}1`` polynomial that is one at its own node
 and zero at the others (the inverse of the offsets' Vandermonde matrix). See [`LagrangeSpline`](@ref).
 """
 function _lagrange_weight_matrix(n::Int)
