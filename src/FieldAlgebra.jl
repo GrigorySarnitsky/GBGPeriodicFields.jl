@@ -545,13 +545,13 @@ linear and representation-preserving, so it is defined for both physical and spe
 representation.
 
 The arguments are:
-- `destination` — the field that receives the result; either input may alias it (see below).
+- `destination` — the field that receives the result; either input may alias it — the write is
+  coefficientwise, so `a`, `b`, or both may be `destination` itself, with no guard temporary.
 - `α`, `a` — the real weight and the first field.
 - `β`, `b` — the real weight and the second field.
 
-The write is coefficientwise, so aliasing is safe without a guard temporary: `a`, `b`, or both may be `destination` itself.
-In particular `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b`` in
-place.
+The aliased call `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b``
+in place.
 
 ```math
 \\texttt{destination} = \\alpha  a + \\beta  b.

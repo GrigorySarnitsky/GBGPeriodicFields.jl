@@ -731,13 +731,14 @@ f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
 \\end{aligned}
 ```
 
-The first equality reads an even axis's Nyquist amplitude split across ``\\pm k`` — its band-limited
-cosine form, which is what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist,
-and at the grid nodes, the two sides agree with no convention needed.
-
-reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
+The second form reconstructs the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
 Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded rfft
-axis and, on an even-length folded axis, its Nyquist plane — and ``2`` elsewhere. Interpolation reproduces the band-limited field **exactly**, so it is
+axis and, on an even-length folded axis, its Nyquist plane — and ``2`` elsewhere. The first equality
+reads an even axis's Nyquist amplitude split across ``\\pm k`` — its band-limited cosine form, which is
+what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist, and at the grid nodes,
+the two sides agree with no convention needed.
+
+Interpolation reproduces the band-limited field **exactly**, so it is
 pointwise divergence-free on the **resolved sub-Nyquist band** (unlike the local splines) and matches
 [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as

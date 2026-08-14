@@ -85,7 +85,7 @@ export gradient!,
 
 
 ####################################################
-#        Spectral Operator Kernels                 #
+#        Spectral Multiplier Kernels               #
 ####################################################
 #
 # Coefficientwise spectral kernels for the operators below. The wavenumber

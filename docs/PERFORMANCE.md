@@ -49,10 +49,12 @@ that matters.
   build, no second lane, nothing else on the host, and *especially* not while a GPU sweep is in
   flight. A device benchmark is host-bound at small grids (the synchronisation and, on the GPU path,
   the per-sample GC), so competing work inflates it by a roughly fixed amount per case; that alone
-  invented a 2.2× "regression" at ``64^3``, an inflated canary baseline, and a phantom "environment
+  invented a 2.2× "regression" at ``64^3``, an inflated canary baseline (the frozen per-host
+  regression-guard suite `benchmark/regress.jl` judges against; §7), and a phantom "environment
   shift" attributed to a driver, all in one session. Check `uptime` and the GPU's utilisation before
   starting, and wait rather than measure into a busy box. **Then read what came back.** Running a
-  sweep and reporting that it completed is not a measurement: compare against the previous archive,
+  sweep and reporting that it completed is not a measurement: compare against the previous archive
+(the saved per-sweep result file a characterization run writes; §6),
   state which operations moved and in which direction, and account for every systematic movement
   before naming a cause. The cheapest discriminator is whether a penalty is *additive* or
   *proportional* — a fixed offset that is constant in absolute time while its ratio collapses with
@@ -779,7 +781,7 @@ transforms, that finds the race.
 
 **(q, historical) FFTW's threaded executor segfaulted once at `-t8`, and did not reproduce.** The first ``-t8``
 characterization lane died with `signal 11` inside `spawn_apply` in `libfftw3`, reached through
-FFTW.jl's `spawnloop`, while running the `reductions Float64 128^3` class — which touches FFTW because
+FFTW.jl's `spawnloop`, while running the `reductions` class at ``128^3`` `Float64` — which touches FFTW because
 `radial_correlation` takes an inverse transform. The package sets FFTW's thread count to match Julia's
 at load, so ``-t8`` is the only lane driving FFTW with eight worker threads; `-t1`, `-t2` and `-t4` all
 completed. Re-running the identical lane succeeded (30m31s, `rc=0`), so the fault is **intermittent**.

@@ -326,7 +326,13 @@ physical_field_shape(grid::Grid3D, ::Val{R}) where {R} = (grid.grid_size..., fib
       ::Val{R},
     ) where {R}
 
-Return the storage shape of a field of tensor order `R` represented in nonredundant real-to-complex spectral space.
+Return the storage shape of a field represented in nonredundant real-to-complex spectral space.
+
+The arguments are:
+- `grid` — the [`Grid3D`](@ref) whose point count sets the spatial dimensions.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) deciding which axis carries the halved real
+  transform.
+- `R` — the tensor order, whose fiber dimensions are appended after the spatial ones.
 """
 spectral_field_shape(grid::Grid3D, fourier_layout::RealFourierLayout, ::Val{R}) where {R} = (rfft_shape(grid.grid_size, fourier_layout.fft_dims)..., fiber_shape(Val(R))...)
 
@@ -1086,7 +1092,8 @@ Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; t
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
     on a Zen 5 desktop, the `Float32` transforms ran 2.3–5.1× slower than a timed plan at ``256^3``
     (the widest gap single-threaded, narrowing as threads are added),
-    and at ``512^3`` no faster than `Float64`, in both directions and at every thread count. For a
+    and at ``512^3`` still slower than `Float64` serially and at two threads, the gap closing (and
+    reversing) only as more threads are added. For a
     long CPU run, pass `fft_flags = FFTW.MEASURE` (or `FFTW.PATIENT`): the one-time timed plan search
     costs seconds and removes the guess. `MEASURE` **overwrites both reference arrays while
     planning**, so construct the plans on scratch or zero-filled fields before seeding data. The
@@ -1584,7 +1591,9 @@ end
 """
     _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{axis})
 
-Reshape the per-axis derivative wavenumber array (``\\text{axis} = 1, 2, 3``) so it broadcasts against the three spatial dimensions of a field in spectral representation. Used by the first-derivative spectral operators (gradient, divergence, curl).
+Reshape the per-axis derivative wavenumber array for axis `1`, `2` or `3` so it broadcasts against
+the three spatial dimensions of a field in spectral representation. Used by the first-derivative
+differential operators (gradient, divergence, curl), applied as spectral multipliers.
 """
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
 _wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)

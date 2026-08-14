@@ -398,7 +398,8 @@ generated kernels, so the core-types package alone leaves those operations undef
 
 Data layout is **fiber-last**: `(Nx, Ny, Nz)` for scalars, `(Nx, Ny, Nz, 3)` for
 vectors, `(Nx, Ny, Nz, 3, 3)` for tensors; spectral arrays are `Complex{T}` with
-the first axis halved per rfft. Rationale: with column-major storage, each
+the axis carrying the real transform halved per rfft — the first axis under the default
+`RealFourierLayout`, which may assign any of the three. Rationale: with column-major storage, each
 component slice `data[:, :, :, i(, j)]` is one contiguous block. That gives
 batched per-component FFTs, coalesced GPU access, pure streaming writes for
 elementwise kernels, and trivially chunkable index ranges for the CPU
@@ -860,7 +861,9 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
   grid origin, and ``x_p`` the ``p``-th sample point). The gather's ``\sum_k`` runs over the **full**
   spectrum; the equivalent sum over the *stored* rfft half — carrying the Parseval weight ``\alpha(k)``
-  and a real part, which is what the code evaluates — is written out where `DirectDFT` is detailed
+  (the per-mode multiplicity: ``1`` where a stored coefficient represents only itself, ``2`` where it
+  stands for a conjugate pair the half-spectrum dropped) and a real part, which is what the code
+  evaluates — is written out where `DirectDFT` is detailed
   below, and is worth reading before anyone reproduces the compact form against a half-spectrum array. `DirectDFT` is the exact ``O(NM)`` form — the
   *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
   reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and

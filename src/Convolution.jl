@@ -244,6 +244,11 @@ function materialize_kernel(kernel::ProductKernel{T}) where {T}
 end
 
 
+"""
+    materialize_kernel(kernel::StoredKernel)
+
+Copy a kernel already held coefficientwise, so the result owns storage no other kernel shares.
+"""
 # Materializing a kernel already held as a field is a copy: the product path above materializes its
 # first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
 # it with the full product. A stored factor must therefore not be aliased into the result.
@@ -299,7 +304,7 @@ The fields are
   the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
   coordinates keeps both operands as a [`ProductKernel`](@ref), since one composite can carry only one
   set of coordinates.
-- **`grid`**, **`layout`** — the base and Fourier layout the kernel was built for, which a call checks
+- `grid`, `layout` — the base and Fourier layout the kernel was built for, which a call checks
   the field against.
 
 !!! note "Radial, not separable"
@@ -1406,7 +1411,7 @@ end
 """
     spectral_band(reference::AbstractFieldSpectral,
                   multipliers::FieldSpectralMultipliers,
-                  wavenumber_low, wavenumber_high) -> RadialKernel
+                  wavenumber_low::Real, wavenumber_high::Real) -> RadialKernel
 
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
 itself rather than its coefficients, so it costs no field of storage. Use
@@ -1457,7 +1462,7 @@ end
 """
     spectral_cutoff(reference::AbstractFieldSpectral,
                     multipliers::FieldSpectralMultipliers,
-                    wavenumber_cutoff) -> RadialKernel
+                    wavenumber_cutoff::Real) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
@@ -1641,7 +1646,8 @@ end
 
 
 """
-    translation_kernel!(kernel::SeparableKernel, multipliers, offset)
+    translation_kernel!(kernel::SeparableKernel, multipliers::FieldSpectralMultipliers,
+                        offset::NTuple{3, Real})
 
 Rebuild `kernel` in place for a new displacement `offset`, overwriting its per-axis factors. Use this
 in-place form when a displacement changes and the kernel is already allocated; the allocating

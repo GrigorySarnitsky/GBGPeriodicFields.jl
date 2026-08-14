@@ -161,7 +161,8 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν�
 # CFL speed: ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
 # allocation-free reduction over the raw array. (`lpnorm(u, Inf)` is the true ``\sup\lvert u\rvert`` but
 # materializes a magnitude field every call — avoided so the hot loop allocates nothing; the max component
-# differs from the magnitude by at most ``\sqrt{3}``, well inside the CFL margin.)
+# under-estimates the magnitude by at most ``\sqrt{3}``, so the effective CFL number is at most that
+# much larger than the nominal one — absorbed by the conservative `cfl` the long runs use.)
 max_speed(u)      = maximum(abs, field_data(u))
 
 # The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so

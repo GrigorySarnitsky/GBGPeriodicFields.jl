@@ -57,7 +57,8 @@ true
 
 ## Differential operators
 
-Spectral operators act on a field in spectral representation, using a [`FieldSpectralMultipliers`](@ref)
+The differential operators are applied as spectral multipliers, acting on a field in spectral
+representation through a [`FieldSpectralMultipliers`](@ref)
 (the wavenumber arrays). They are *exact* on the band-limited field — e.g. the Laplacian of `sin(x)` is
 `-sin(x)`:
 

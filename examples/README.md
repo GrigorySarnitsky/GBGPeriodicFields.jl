@@ -156,7 +156,7 @@ julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # qu
 ```
 
 **Hassle-free on the GPU — the point of the preallocated rewrite.** Because the time loop is in-place
-over a preallocated workspace and the package's in-place operators are allocation-free (the spectral
+over a preallocated workspace and the package's in-place operators are allocation-free (the differential
 operators allocate ~0 bytes — `docs/ARCHITECTURE.md` decision 24), the run creates **no per-step
 garbage**: the AMDGPU memory pool stays flat, with **no manual `GC.gc()` / `reclaim`** and no wedge. A
 representative **256³ Float32** run (`--mega`) on an RX 6700 XT (12 GB) — the earlier 12 GB ceiling, below

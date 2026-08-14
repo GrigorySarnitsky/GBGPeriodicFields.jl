@@ -25,8 +25,8 @@
 #   `spectral_band` kernel (band energy via `inner`, rescale via `convolve`) and the
 #   energy spectrum is `radial_spectrum` (on-device shell binning, no host copy) —
 #   the same source as `HIST_CPU.jl`, run on device arrays. The only remaining
-#   non-package bits (the `examples/README.md` gap list) are the random-solenoidal
-#   IC generator and the Eulerian-``S_2`` field-shift, both representation-neutral.
+#   non-package bit (the `examples/README.md` gap list) is the random-solenoidal IC
+#   generator, which is representation-neutral.
 #
 # Like `HIST_CPU.jl`, the run is split into **simulate**, **dump** and **plot** stages: every
 # plotted curve is written to `output/HIST_ROCm.h5` and the figures (the compensated
@@ -98,7 +98,8 @@ huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700
 
 # Push the grid to ``256^{3}`` (`--mega`) at a lower viscosity than `--huge`: measured
 # ``\mathrm{Re}_\lambda \approx 109`` with ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved),
-# ``\approx 90`` ms/step on an RX 6700 XT. This is the practical Reynolds ceiling for the scheme — a
+# ``\approx 90`` ms/step on the earlier 12 GB RX 6700 XT, since replaced by the 24 GB RX 7900 XTX
+# behind the `--giant` figures. This is the practical Reynolds ceiling for the scheme — a
 # lower viscosity (``\nu = 2\times10^{-3}``, ``\mathrm{Re}_\lambda \approx 120``) drops
 # ``\kappa_{\max}\eta`` to ``\approx 1.08``, where the marginally-resolved flow blows up over a long
 # run. It fits a 12 GB card only because *both* the time loop and the diagnostics are
@@ -185,8 +186,9 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                 # ν�
 # CFL speed: ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
 # allocation-free device reduction over the raw array. (`lpnorm(u, Inf)` is the true
 # ``\sup\lvert u\rvert`` but materializes a magnitude field every call — avoided so the hot loop keeps
-# the GPU pool flat; the max component differs from the magnitude by at most ``\sqrt{3}``, well inside
-# the CFL margin.)
+# the GPU pool flat; the max component under-estimates the magnitude by at
+# most ``\sqrt{3}``, so the effective CFL number is at most that much larger than the nominal one —
+# absorbed by the conservative `cfl` the long runs use.)
 max_speed(u)      = maximum(abs, field_data(u))
 
 # The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so the shell sum recovers the
@@ -317,9 +319,10 @@ end
 # =============================================================================
 # Structure functions, autocorrelations and integral scales — the per-component
 # ``S_2``'s, the Lagrangian velocity autocorrelation, and the integral-scale
-# reduction all live in `examples/hist_postprocess.jl` (shared with the CPU twin;
-# `eulerian_trace_s2!` keeps the whole-field `circshift` on-device, only the scalar
-# reductions land on the host). The Eulerian integral length comes from
+# reduction all live in `examples/hist_postprocess.jl` (shared with the CPU twin).
+# The Eulerian ``S_2`` needs no spatial shift at all: it reads off the FFT-based
+# `radial_correlation`, so only the scalar reductions land on the host. The
+# Eulerian integral length comes from
 # `radial_correlation` (below); the Lagrangian integral time from `lagrangian_stats`.
 # =============================================================================
 

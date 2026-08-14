@@ -1340,8 +1340,8 @@ transform plus a single binning pass.
 !!! note "This one allocates a field, unlike `radial_spectrum`"
     Its route builds a full power field and takes an allocating inverse transform, so it costs a
     field's worth of memory per call — a deliberate exception to the package's allocation-free
-    default, guarded by a bounded rather than a zero assertion. `radial_spectrum` has no such
-    cost: its staging was fused into the binning kernel, leaving only the shell accumulators.
+    default, guarded by a bounded rather than a zero assertion; `radial_spectrum` has no such
+    cost, its staging having been fused into the binning kernel, leaving only the shell accumulators.
 """
 function radial_correlation end
 

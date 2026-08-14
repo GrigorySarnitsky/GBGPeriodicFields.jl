@@ -81,9 +81,8 @@ translation_kernel!
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors — the
-coefficientwise convolution, combination and exponential-kernel bodies, the axis-factored pair that
-evaluates a separable kernel per mode, and this module's implementations of the two kernel-protocol
-generics.
+coefficientwise convolution, combination and exponential-kernel bodies, and the axis-factored pair
+that evaluates a separable kernel per mode.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Convolution]

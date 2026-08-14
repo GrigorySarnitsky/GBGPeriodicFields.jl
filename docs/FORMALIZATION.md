@@ -118,7 +118,8 @@ Design rationale: [Architecture](architecture.md) §2, §6.
 
 The **vertical** operations act inside the fiber ``V`` at each base point, identically over grid and
 point bases (one set of generated kernels, `src/FiberSections.jl`). A `FiberVector` is ``\mathbb R^3``, a
-`FiberTensor2` genuinely a ``3\times3`` matrix, so component notation is the natural form here:
+`FiberTensor2` genuinely a ``3\times3`` matrix, so component notation is the natural form here
+(a repeated index is summed, and ``\varepsilon_{ijk}`` is the Levi-Civita symbol):
 
 ```math
 \begin{aligned}
@@ -172,7 +173,8 @@ Design rationale: [Architecture](architecture.md) §4.
 
 Each operator ``L`` is **diagonalized** by ``\mathcal F`` into a pointwise multiplier ``\hat L`` — the
 intertwiner square ``\mathcal F\circ L = \hat L\circ\mathcal F`` — applied coefficientwise in spectral
-representation (`src/DifferentialOperators.jl`):
+representation (`src/DifferentialOperators.jl`; ``a`` below is the derivative-wavenumber vector of the
+Nyquist split that follows, ``k`` the true wavenumber):
 
 ```math
 \begin{aligned}
@@ -183,10 +185,9 @@ representation (`src/DifferentialOperators.jl`):
 
 **Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the **derivative** wavenumber is
 **zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}k_N`` would break reality), while the
-**squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). Here ``a``
-denotes the derivative-wavenumber vector, so the ``a`` in ``\mathbb P``'s multiplier above is that
-derivative wavenumber — the projector is built entirely from that one family (decision 42), and
-sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
+**squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). The ``a`` in
+``\mathbb P``'s multiplier above is that derivative wavenumber — the projector is built entirely from
+that one family (decision 42), and sub-Nyquist ``a = k``. Identities, each a one-line spectral check:
 
 ```math
 \begin{gathered}

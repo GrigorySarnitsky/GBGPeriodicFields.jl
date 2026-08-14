@@ -31,8 +31,8 @@ them. An odd-length axis has no exact Nyquist mode and so loses nothing. A secti
 `ROCArray` on a device — taken as the array's underlying type rather than its wrapping, so that a
 `reshape` of an `Array` is still the `Array` family. Two sections combine only within one storage
 family and one element type; a mixed pair is refused rather than converted, and [`adapt`](@ref) is the
-explicit operation that moves one — a field, its multipliers, its kernels or its transform plans —
-into another family when that is what you want. It never changes the element type.
+explicit operation that moves one — a field, its multipliers, its kernels, its transform plans, a
+point set or point values — into another family when that is what you want. It never changes the element type.
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
@@ -58,7 +58,7 @@ The umbrella assembles its public surface from the submodules below:
   the FFT transform plans, the transforms [`to_physical`](@ref) and
   [`to_spectral`](@ref) between the two representations, the allocator [`similar_field`](@ref) that
   builds compatible scratch, the storage-family move [`adapt`](@ref) that carries a field, its
-  multipliers, its kernels or its plans between host and device, and the HDF5 persistence pair
+  multipliers, its kernels, its plans, a point set or point values between host and device, and the HDF5 persistence pair
   `write_field`/`read_field` (available once `HDF5` is loaded).
 - [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
   `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
