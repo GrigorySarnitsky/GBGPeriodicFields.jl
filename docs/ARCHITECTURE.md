@@ -242,7 +242,9 @@ with a pointer to the section that develops it.
     combination; no operation may reuse the glyphs for a role other than that.
 11. **The transform input contract.** The allocating transforms preserve their input; the in-place ones
     may overwrite the source, and the inverse real transform uses its spectral input as scratch on some
-    backends but not others. Never rely on a `!`-transform's source surviving ([§4](@ref "4. Spectral machinery")).
+    backends but not others. Never rely on a `!`-transform's source surviving — with one deliberate
+    exception that guarantees it: the four-argument scratch arity of `to_physical!`, which consumes a
+    caller-supplied scratch in the source's place (decision 64; [§4](@ref "4. Spectral machinery")).
 12. **This is a math backend — no time, and no particles.** The terminology stays domain-neutral
     (base and fiber, point and value), and the package introduces no advection, time integration, or
     per-step state; trajectory dynamics belong to the consumer ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
@@ -418,7 +420,9 @@ multidimensional case has no input-preserving algorithm at all. It is also
 backend-divergent, and *which* backend overwrites *which* direction is not uniform:
 FFTW preserves the forward `to_spectral!` but destroys the inverse `to_physical!`, while a
 GPU backend (rocFFT) can differ on either. The package therefore guarantees **nothing** about a
-`!`-transform's source on any backend, matching the `to_spectral!`/`to_physical!` docstrings; to keep
+plain `!`-transform's source on any backend, matching the `to_spectral!`/`to_physical!` docstrings —
+the one guaranteed-preserving `!` call is the four-argument `to_physical!` scratch arity, which pays
+one explicit copy into a caller-supplied scratch for exactly that guarantee (decision 64); to keep
 a uniform, portable contract, the allocating `to_physical`/`to_spectral` copy their input before
 transforming, so non-`!` calls never mutate their argument (the Julia convention)
 while `!` calls stay allocation-light and document that the source may be consumed.
@@ -3312,7 +3316,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `docs/TESTING.md` §4 rather than fixed, since it is a vendor constraint and the permuted folds are a
     CPU-side generality.
 
-64. **The preserving scratch arity of `to_physical!`** (2026-08-13, an IT round-3 request). The
+64. **The preserving scratch arity of `to_physical!`** (2026-08-13, requested by the consuming solver
+    `GBGIsotropicTurbulence` ("IT") in its third request round). The
     inverse real transform may consume its input as scratch (the transform input contract above:
     `FFTW` destroys it, some device backends happen not to), so the package offered two contracts —
     the destructive in-place `to_physical!(physical, spectral, plans)` and the preserving-but-
@@ -3344,8 +3349,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     **The `to_spectral!` twin is deliberately absent.** Not because the forward transform is safe —
     the input contract records it as backend-divergent too — but because the requesting consumer
     established that every forward transform's source in its loops is consumable by design, so the
-    twin would be symmetry, which invariant 1 does not accept as a reason. It becomes a one-method
-    addition the day a consumer needs it. Tested by a bitwise preservation check against the
+    twin would be speculative structure — the §2 rule, not invariant 1: as decision 32 says of the
+    identical shape, an invariant-1 absence is a mathematical statement a user can rely on, while this
+    one is merely unbuilt. It becomes a one-method addition the day a consumer needs it. Tested by a bitwise preservation check against the
     three-argument form's contract, bitwise equality with the allocating form (whose own oracle is
     the independent DFT sum, terminating the chain independently), the aliasing and context
     refusals, a zero-allocation pin, and GPU parity; the `Fields` baseline moves 115 → 116.

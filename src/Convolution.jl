@@ -1647,7 +1647,7 @@ The arguments are:
   the true squared ones), checked against `kernel`'s grid and layout.
 - `offset` — the physical displacement ``h`` as a three-tuple.
 
-The displacement convention and the Nyquist treatment are [`translation_kernel`](@ref)'s.
+The displacement convention and the Nyquist treatment are `translation_kernel`'s.
 """
 function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
     offset::NTuple{3, Real}) where {T}

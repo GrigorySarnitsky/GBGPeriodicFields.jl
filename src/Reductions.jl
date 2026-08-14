@@ -36,7 +36,7 @@ The parts are, each linking to the home where its formula lives.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
   [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
-  spectral generalization ``\\langle\\cdot, w\\,\\cdot\\rangle``.
+  spectral generalization weighting the pairing by a kernel multiplier.
 - [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
   (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a

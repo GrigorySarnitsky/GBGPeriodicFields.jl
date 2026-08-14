@@ -45,8 +45,9 @@ The point values carry the same fiberwise algebra as fields in physical represen
 move between storage families through `adapt`, documented with its generic on the [`Fields`](Fields.md) page. (`combine!` is deliberately absent, and for the **no-consumer** reason rather than a mathematical
 one: the weighted combination is linear and coefficientwise, so it would be perfectly well defined on
 point-values. It exists on fields because a solver's stage updates are the one place the fused axpby saves a whole
-pass over a field; nothing asks it of the point layer, so it is unbuilt rather than invalid — the §2 no-speculative-structure
-rule, not invariant 1.) There is no second set of docstrings for them: each per-component formula is
+pass over a field; nothing asks it of the point layer, so it is unbuilt rather than
+invalid — the package declines speculative structure, and this absence is that rule at work rather
+than a mathematical restriction a user could rely on.) There is no second set of docstrings for them: each per-component formula is
 generated from one builder shared with `FieldAlgebra`, so the operations are documented once, on the
 [`FieldAlgebra`](FieldAlgebra.md) page. Point values are representation-free, so the surface mirrors the
 *physical* field surface only — there is nothing spectral to mirror.

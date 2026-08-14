@@ -96,7 +96,9 @@ conceptual model and the writing/docstring conventions are recorded once — in
     input (they copy it); the in-place `to_physical!`/`to_spectral!` may overwrite the
     source. The inverse real transform (FFTW complex-to-real) destroys its spectral
     input as scratch, and this is backend-divergent (AMD/rocFFT preserves it). Never
-    rely on a `!`-transform's source surviving; use the allocating form to keep it.
+    rely on a plain `!`-transform's source surviving; use the allocating form to keep it, or the
+    four-argument `to_physical!` scratch arity (decision 64), the one `!` call that guarantees
+    preservation — it consumes the caller's scratch instead.
 12. **Math backend — no time, no particles.** The package is a field-operation library that
     solvers consume, not a solver. Use domain-neutral terminology (base/fiber, point/value),
     never *particle*/*tracer*. Introduce **no concept of time** — no advection, time
@@ -997,7 +999,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **6519 tests** across 99 top-level testsets (measured 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **361** on CUDA (measured 2026-08-10, +9 for decision 63's workspace-move testset; ROCm last measured at 352 on 2026-08-06 and will pick the same up when next run). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **6531 tests** across 99 top-level testsets (measured 2026-08-13, decision 64's twelve tests included; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **361** on CUDA (measured 2026-08-10, +9 for decision 63's workspace-move testset; ROCm last measured at 352 on 2026-08-06 and will pick the same up when next run). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic

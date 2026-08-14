@@ -1224,7 +1224,9 @@ a benchmark should assume nothing about where a driver happens to block.
 Classes covered: **FFT** transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
 the default-`ESTIMATE` experience and the tuned production path sit side by side and finding (h) is
 re-measured per host/size/type on every sweep; GPU rows have no twin, the device FFT libraries taking no
-planner flag), **field algebra** (M2 + M3, representative — including the weighted
+planner flag; plus, per scalar/vector, the decision-64 pair — the preserving scratch arity of
+`to_physical!` and the destructive three-argument baseline it is priced against, whose delta is the
+cost of preservation), **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
 decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
@@ -1378,7 +1380,7 @@ thread sweep — is in `benchmark/RESULTS.md`.)
 
 ## 7. Current coverage and known gaps
 
-**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions; the device-only storage class of decision 63 is wired into the suite but has not yet been swept into the committed archive — see gap 8)
+**Covered:** the public operation classes (FFT, algebra, operators, convolution, transfer, reductions; the device-only storage class of decision 63 is wired into the suite but has not yet been swept into the committed archive — see gap 7)
 parameterised by element type and grid size, runnable on CPU (`-t1`/`-t4`) and GPU (ROCm or CUDA) through one
 device-parameterised suite; the manual save→`judge` regression workflow; and the **exhaustive characterization**
 (`characterize.sh` → committed `benchmark/RESULTS.md`): every op-class (incl. FFT) at each backend's default grids (CPU 64³–512³, device 64³–256³),

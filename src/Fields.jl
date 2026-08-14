@@ -21,8 +21,10 @@ The parts are:
     self-describing HDF5 group (methods load with the `HDF5` package, as a weak-dependency extension).
   * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
     [`to_spectral`](@ref) move a field between the two representations. The allocating forms preserve
-    their input, while the in-place `!` forms may overwrite the source; `set_fft_threads!` sets the
-    thread count `FFTW` bakes into plans built afterwards.
+    their input, and the plain in-place `!` forms may overwrite the source — except the four-argument
+    scratch arity of `to_physical!`, which guarantees preservation by consuming a caller-supplied
+    scratch instead; `set_fft_threads!` sets the thread count `FFTW` bakes into plans built
+    afterwards.
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
     spectral differential operators multiply by.
   * **Spectral kernels** — [`SpectralKernel`](@ref) is the supertype of every coefficientwise
@@ -1181,7 +1183,7 @@ The arguments are:
     complex-to-real transforms have no input-preserving algorithm in the multidimensional case; some
     GPU backends happen to preserve them, but this is not guaranteed). In the three-argument form that
     input is `spectral` itself — use the four-argument form, or the allocating
-    [`to_physical`](@ref), when `spectral` must be preserved.
+    `to_physical`, when `spectral` must be preserved.
 """
 function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
   _check_field_matches_context(physical, transform_plans)

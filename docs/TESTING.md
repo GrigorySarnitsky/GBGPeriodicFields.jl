@@ -125,7 +125,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   (`module FieldAlgebraTests; include("fieldalgebra.jl"); end`), so per-file helpers and
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
-- **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check: a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
+- **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check and the decision-64 scratch-arity testset — bitwise source preservation, bitwise equality with the allocating form, the aliasing and context refusals: a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
   combination `combine!`, the determinant `det`, and the arbitrary-φ `map!` / `map` — decision 48 —
   against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
   physical-only absence),
@@ -440,7 +440,9 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
 
 Honest status, so the contract above reads as the target rather than a description.
 
-**Covered:** FFT round-trips; spectral multipliers cross-checked against
+**Covered:** FFT round-trips, the transforms' input contracts — the allocating forms preserving
+their inputs, and the decision-64 scratch arity's bitwise preservation, its bitwise equality with the
+allocating form, and its aliasing and context refusals; spectral multipliers cross-checked against
 `AbstractFFTs.fftfreq`/`rfftfreq`; the Nyquist split both at the multiplier level and
 end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at the
 Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted

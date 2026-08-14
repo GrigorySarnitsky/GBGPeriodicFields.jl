@@ -22,7 +22,6 @@ set of point-values each are. That shared shape is why one set of formulas serve
 
 The parts are:
 
-
   * **Vector-space and scalar-field-scaling operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
     multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition, weighted combination,
@@ -1472,7 +1471,7 @@ function tr! end
     tr(A::TensorFieldPhysical{2})
     tr(A::TensorFieldSpectral{2})
 
-Allocating form of [`tr!`](@ref): allocate the scalar-field result and return the fiberwise trace — the first principal invariant ``I_1`` — of a second-order tensor field. See [`tr!`](@ref) for the componentwise definition and the physical/spectral validity. (A single `FiberTensor2` value already has `LinearAlgebra.tr`.)
+Allocating form of [`tr!`](@ref): allocate the scalar-field result and return the fiberwise trace — the first principal invariant ``I_1`` — of a second-order tensor field. See `tr!` for the componentwise definition and the physical/spectral validity. (A single `FiberTensor2` value already has `LinearAlgebra.tr`.)
 """
 tr
 
@@ -1527,7 +1526,7 @@ function det! end
 
 Allocating form of [`det!`](@ref): allocate the scalar-field result and return the fiberwise determinant
 — the third principal invariant ``I_3`` — of a second-order tensor field. Physical-space representation
-only. See [`det!`](@ref) for the componentwise formula. (A single `FiberTensor2` value already has
+only. See `det!` for the componentwise formula. (A single `FiberTensor2` value already has
 `LinearAlgebra.det`.)
 """
 det
@@ -1580,7 +1579,7 @@ function sym! end
     sym(A::TensorFieldSpectral{2})
     sym(A::FiberTensor2)
 
-Allocating form of [`sym!`](@ref): allocate the result and return the symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`sym!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`sym!`](@ref): allocate the result and return the symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See `sym!` for the defining formula and the physical/spectral validity.
 """
 function sym end
 
@@ -1609,7 +1608,7 @@ function skew! end
     skew(A::TensorFieldSpectral{2})
     skew(A::FiberTensor2)
 
-Allocating form of [`skew!`](@ref): allocate the result and return the skew-symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`skew!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`skew!`](@ref): allocate the result and return the skew-symmetric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See `skew!` for the defining formula and the physical/spectral validity.
 """
 function skew end
 
@@ -1638,7 +1637,7 @@ function dev! end
     dev(A::TensorFieldSpectral{2})
     dev(A::FiberTensor2)
 
-Allocating form of [`dev!`](@ref): allocate the result and return the deviatoric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See [`dev!`](@ref) for the defining formula and the physical/spectral validity.
+Allocating form of [`dev!`](@ref): allocate the result and return the deviatoric part of a second-order tensor: fiberwise for a tensor field, or directly on a single `FiberTensor2` value. See `dev!` for the defining formula and the physical/spectral validity.
 """
 function dev end
 
@@ -1869,7 +1868,7 @@ end
 
 Allocating form of [`map!`](@ref): apply the fiber map `φ` at every base point and return a fresh section
 holding the result. The output's tensor order is inferred from `φ` (`map(det, A)` returns a scalar field);
-when it cannot be inferred, call `map!` with a preallocated `destination`. See [`map!`](@ref) for the
+when it cannot be inferred, call `map!` with a preallocated `destination`. See `map!` for the
 arguments and the physical-representation-only / aliasing caveats.
 """
 function map(φ::F, source1::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
