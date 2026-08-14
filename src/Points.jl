@@ -29,7 +29,7 @@ The parts are:
     section to and from one self-describing HDF5 group, positions and values kept separate (methods
     load with the `HDF5` package, as a weak-dependency extension). They are the point-layer twins of
     `write_field`/`read_field`.
-  * **Moving between storage families.** `adapt` moves a [`PointSet`](@ref) or any point values
+  * **Moving between storage families.** `adapt` moves a `PointSet` or any point values
     between host and device memory, exactly as it moves a field; the operation is documented once,
     with its field methods, in [`Fields`](@ref "Fields").
 
@@ -141,7 +141,7 @@ are [`ScalarPointValues`](@ref) at tensor order `0`, [`VectorPointValues`](@ref)
 and [`TensorPointValues`](@ref) at order `2` and above.
 
 !!! note "A section owns its storage"
-    Every constructor here — and [`PointSet`](@ref)'s — **rejects borrowed storage**, a `SubArray`
+    Every constructor here — and `PointSet`'s — **rejects borrowed storage**, a `SubArray`
     anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Ownership is what
     makes aliasing safe by construction: two sections can then share memory only by being the same
     array. Allocate with [`similar_pointvalues`](@ref), or `copy` the slice. Any owning array is fine —

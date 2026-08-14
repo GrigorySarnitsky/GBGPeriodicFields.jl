@@ -394,8 +394,8 @@ The function constructor constructs a scalar field in physical representation by
 The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
-- `grid` — the [`Grid3D`](@ref) the values are sampled on.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `grid` — the `Grid3D` the values are sampled on.
+- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
@@ -520,8 +520,8 @@ The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
   indexable object.
-- `grid` — the [`Grid3D`](@ref) the values are sampled on.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `grid` — the `Grid3D` the values are sampled on.
+- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
@@ -661,8 +661,8 @@ The arguments are:
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
   tensor-fiber shape `fiber_shape(Val(R))`.
-- `grid` — the [`Grid3D`](@ref) the values are sampled on.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
+- `grid` — the `Grid3D` the values are sampled on.
+- `fourier_layout` — the `RealFourierLayout` used when transforming the field.
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 

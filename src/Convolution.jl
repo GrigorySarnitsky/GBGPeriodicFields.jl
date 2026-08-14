@@ -1296,7 +1296,7 @@ Spectral representation only.
 
 Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a weighted combination,
 ``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the lazy-kernel
-twin of the kernel-composed [`combine!`](@ref) method, and the same fusion the kernel-composed
+twin of the kernel-composed `combine!` method, and the same fusion the kernel-composed
 `divergence!` and `helmholtz_projection!` arities perform. With `b === destination` it is the
 filtered accumulate, computed in place.
 """

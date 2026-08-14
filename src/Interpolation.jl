@@ -42,7 +42,7 @@ and scatter weights it applies.
 A transfer `scheme` (an [`AbstractTransferScheme`](@ref)) fixes the weights and the representation it acts on.
 Two families ship: the physical-domain local splines of Lalescu, Teaca & Carati (2010)
 (the default [`CatmullRom`](@ref)), which act on a field in physical representation, and the spectral-domain exact
-[`DirectDFT`](@ref) / fast [`NUFFT`](@ref) that act on a field in spectral representation. The point-value data types and their fiberwise algebra
+`DirectDFT` / fast `NUFFT` that act on a field in spectral representation. The point-value data types and their fiberwise algebra
 live in the `Points` module.
 
 The parts are:
@@ -573,7 +573,7 @@ end
 
 Evaluate `field` at a single off-grid position `x` (a length-3 indexable), returning a scalar, an
 `SVector{3}`, or an `SMatrix{3,3}` for a scalar, vector, or second-order-tensor field. This is the
-ergonomic face of a one-point [`interpolate`](@ref) gather: it builds a one-point set and runs the spline
+ergonomic face of a one-point `interpolate` gather: it builds a one-point set and runs the spline
 kernel. For many points, call [`interpolate`](@ref) with a [`PointSet`](@ref) instead.
 The `scheme` keyword selects the transfer scheme, `CatmullRom` by default.
 """
@@ -746,9 +746,9 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` **within** that plane, and the sum above meets that condition
     only when every point sits on a grid node of that axis: off-node, the two sides differ by
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
-    field, and [`to_physical`](@ref) — which is the Hermitian projector — silently keeps only its
+    field, and `to_physical` — which is the Hermitian projector — silently keeps only its
     Hermitian part, so a transform round trip does not return it unchanged. This is the same hazard
-    `translation_kernel` documents for its Nyquist factor, and it is why [`NUFFT`](@ref)
+    `translation_kernel` documents for its Nyquist factor, and it is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
     The **resolved sub-Nyquist band is unaffected**, which is the band a de-aliased spectral
     computation uses.

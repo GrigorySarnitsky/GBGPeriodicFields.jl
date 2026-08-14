@@ -125,7 +125,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   (`module FieldAlgebraTests; include("fieldalgebra.jl"); end`), so per-file helpers and
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
-- **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check and the decision-64 scratch-arity testset — bitwise source preservation, bitwise equality with the allocating form, the aliasing and context refusals: a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
+- **Per-module behaviour files** — `fields.jl` (including the decision-45 `Grid3D` uniformity check — a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types — and the decision-64 scratch-arity testset: bitwise source preservation, bitwise equality with the allocating form, the aliasing and context refusals), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
   combination `combine!`, the determinant `det`, and the arbitrary-φ `map!` / `map` — decision 48 —
   against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
   physical-only absence),

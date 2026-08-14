@@ -31,12 +31,12 @@ The parts are, each linking to the home where its formula lives.
 - [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
   by default). `std`/`var` are **scalar-only**: the sample standard deviation and variance are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
-  tensor [`cov`](@ref) ``\\equiv R_{ij}`` (a symmetric `FiberTensor2`), of which a
+  tensor `cov` ``\\equiv R_{ij}`` (a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
-  [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its multiplier-weighted
-  spectral generalization weighting the pairing by a kernel multiplier.
+  [`lpnorm`](@ref) are the norms derived from it, and [`weighted_inner`](@ref) is its spectral
+  generalization, weighting the pairing by a kernel multiplier.
 - [`maximum`](@ref), [`minimum`](@ref), [`extrema`](@ref) — the ``L^\\infty`` end, extending `Base`. The bare forms take a
   scalar section; the mapped forms below lift that restriction for any order the reductions serve
   (``R \\le 2``: scalar, vector and second-order tensor sections are the supported surface, and a
@@ -569,7 +569,7 @@ The arguments are:
   than a sample of it, so `corrected = false` is often what a field diagnostic wants; the default
   follows the standard library rather than the base.
 
-See [`std`](@ref) for its square root, [`cov`](@ref) for the vector second moment, and [`mean`](@ref) for
+See [`std`](@ref) for its square root, `cov` for the vector second moment, and [`mean`](@ref) for
 the first moment.
 """
 var
@@ -587,7 +587,7 @@ The arguments are:
 - `f` — the scalar section the moment is taken over: a field in physical or spectral
   representation, or point values.
 - `corrected` — divide by the base count minus one (Bessel's correction, the default) rather than by
-  the count, exactly as it does for [`var`](@ref), of which this is the square root.
+  the count, exactly as it does for `var`, of which this is the square root.
 """
 std
 
@@ -763,7 +763,7 @@ no inverse transform, applying the rfft half-spectrum weighting internally. This
 `lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
 
 !!! note "The mixed spectral pair allocates two correction planes"
-    In spectral representation `inner(f, f)` and [`l2norm`](@ref) run allocation-free, but the *mixed*
+    In spectral representation `inner(f, f)` and `l2norm` run allocation-free, but the *mixed*
     `inner(f, g)` materializes two ``O(N^2)`` correction planes — one folded-axis plane by the fiber,
     twice. That is small beside the ``O(N^3)`` field, and it is paid per call, where `inner(f, f)` pays
     nothing. The fused alternative, a `dot` over a strided view, has no
@@ -916,7 +916,7 @@ bases: the grid cell-volume average and the point-set counting average.
 \\sqrt{\\frac{1}{M} \\sum_p |f_p|^2} \\quad (\\texttt{PointSet}).
 ```
 
-It is defined for fields in physical representation and point-values, and — through the Parseval [`inner`](@ref) — for a
+It is defined for fields in physical representation and point-values, and — through the Parseval `inner` — for a
 field in spectral representation.
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
@@ -984,7 +984,7 @@ projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the singl
 ``\\langle f, w g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
 symmetric in `f`, `g` and may be negative.
 
-Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref). It is fused:
+Spectral representation only, being a Parseval reduction like the spectral `inner`. It is fused:
 the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner`,
 though `inner` reduces on the threaded fixed tree while this pass is still serial, so they diverge as
 threads are added — and its
@@ -1340,7 +1340,7 @@ transform plus a single binning pass.
 !!! note "This one allocates a field, unlike `radial_spectrum`"
     Its route builds a full power field and takes an allocating inverse transform, so it costs a
     field's worth of memory per call — a deliberate exception to the package's allocation-free
-    default, guarded by a bounded rather than a zero assertion. [`radial_spectrum`](@ref) has no such
+    default, guarded by a bounded rather than a zero assertion. `radial_spectrum` has no such
     cost: its staging was fused into the binning kernel, leaving only the shell accumulators.
 """
 function radial_correlation end

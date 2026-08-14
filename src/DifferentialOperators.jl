@@ -355,7 +355,8 @@ end
 
 """
     _scalar_gradient_modes!(backend, destination_1, destination_2, destination_3,
-                            source, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+                            source, wavenumber_1, wavenumber_2, wavenumber_3,
+                            imaginary_unit)
 
 Run the fused scalar-gradient pass over every mode: read the source coefficient once, write the
 three components of ``\\mathrm{i} k \\hat s``. The generic method launches
