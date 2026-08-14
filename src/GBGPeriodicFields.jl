@@ -66,7 +66,7 @@ The umbrella assembles its public surface from the submodules below:
   `transpose!`, the norm `norm`, the trace and determinant `tr`/`det`, the
   [`sym`](@ref)/`skew`/`dev` decompositions, and [`map!`](@ref)/[`map`](@ref) applying an arbitrary fiber
   map `φ` at every base point — the escape hatch for any pointwise operation not named here.
-- [`DifferentialOperators`](@ref) provides the spectral operators [`gradient`](@ref),
+- [`DifferentialOperators`](@ref) provides the differential operators [`gradient`](@ref),
   `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form

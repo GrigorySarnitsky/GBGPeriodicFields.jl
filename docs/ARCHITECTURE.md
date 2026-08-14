@@ -24,7 +24,8 @@ provides scalar, vector, and second-order tensor fields with two storage
 representations — physical and spectral (the spectral one stored non-redundantly as the
 real-to-complex / `rfft` half-spectrum) — plus
 FFT transform plans, spectral multipliers, storage-wise broadcasting, fiberwise
-algebra (`FieldAlgebra`), spectral differential operators (`DifferentialOperators`), periodic
+algebra (`FieldAlgebra`), differential operators applied as spectral multipliers
+(`DifferentialOperators`), periodic
 convolution (`Convolution`), and the L²/measure reductions (`Reductions`).
 Interpolation and its adjoint anterpolation — the grid↔point transfer layer that
 serves consumer-side Lagrangian particle tracking — are in place ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")): the point-value
@@ -577,7 +578,7 @@ original file; runtime introspection supersedes that.)
 
 ## 7. Aliasing policy
 
-Alias safety is **by construction**: every fused pass — the one-pass spectral operators
+Alias safety is **by construction**: every fused pass — the one-pass differential operators
 (decisions 32 and 38's operator kernels) and the generic fiberwise executor behind the algebra
 (decision 39) — reads all of an element's source values into registers before writing any of that
 element's destinations, and elements are disjoint, so an in-place call (`curl!(u, u, m)`,

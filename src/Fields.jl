@@ -25,8 +25,8 @@ The parts are:
     scratch arity of `to_physical!`, which guarantees preservation by consuming a caller-supplied
     scratch instead; `set_fft_threads!` sets the thread count `FFTW` bakes into plans built
     afterwards.
-  * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays that the
-    spectral differential operators multiply by.
+  * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays the
+    differential operators apply as spectral multipliers.
   * **Spectral kernels** — [`SpectralKernel`](@ref) is the supertype of every coefficientwise
     multiplier a `convolve`-style operation can apply, whatever storage it uses — including the stored
     class, which wraps a field of coefficients. It lives here, rather than with the kernels themselves,
@@ -1401,7 +1401,8 @@ function _check_kernel_compatibility end
       squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     ) where {T<:AbstractFloat}
 
-One-dimensional Fourier wavenumber arrays for coefficientwise spectral operators such as derivatives, the Laplacian, and the Helmholtz projection.
+One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
+representation — derivatives, the Laplacian, and the Helmholtz projection.
 
 The fields are
 - `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.

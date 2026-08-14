@@ -176,7 +176,7 @@ The arguments are:
 
 !!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
-    behind the algebra and the spectral operators (`helmholtz_projection!` included), and the
+    behind the algebra and the differential operators (`helmholtz_projection!` included), and the
     fixed-tree reductions. Two groups of operations run as portable device-style kernels on **every**
     backend and partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
     transfer (`interpolate!`/`anterpolate!`) and the radial reductions
@@ -218,7 +218,7 @@ end
 Return the element count at or above which a CPU field assignment is split across `Base.Threads`
 workers rather than run serially. Here an assignment is a fused elementwise write into field
 storage — the [`_assign!`](@ref) primitive behind the broadcast route, and the same gate guards the
-fused CPU loops behind the algebra and the spectral operators, and the fixed-tree reductions. Two
+fused CPU loops behind the algebra and the differential operators, and the fixed-tree reductions. Two
 groups of operations sit outside the gate and thread by `Threads.nthreads()` regardless (see the
 warning on [`with_threading`](@ref)): the grid↔point transfer and the radial reductions. The count is measured as the destination array's length (grid points
 times fiber components), and it applies on the CPU only, since GPU arrays are never threaded. The

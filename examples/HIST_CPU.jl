@@ -523,7 +523,7 @@ main()
 #md # ## On the GPU
 #md #
 #md # The device twin `gpu/rocm/HIST_ROCm.jl` runs this identical solver on `ROCArray`s (`Float32`,
-#md # `allowscalar(false)`). Because the time loop is in-place and the package's spectral operators are
+#md # `allowscalar(false)`). Because the time loop is in-place and the package's differential operators are
 #md # allocation-free, it needs **no manual garbage collection** — the device memory pool stays flat and
 #md # it sustains ``\approx 96`` ms/step at ``320^{3}`` on a 24 GB RX 7900 XTX (peak ``\approx 13`` GB; the card
 #md # reaches ``384^{3}`` at its ``\approx 21`` GB ceiling). That hassle-free GPU behaviour is the whole point

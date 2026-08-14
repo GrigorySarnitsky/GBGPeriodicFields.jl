@@ -82,7 +82,7 @@ What bounds each public operation class — the mental model a benchmark either 
   interface ([cuFFT docs](https://docs.nvidia.com/cuda/cufft/)); rocFFT has an offline tuner
   producing per-size/per-architecture solution maps, not surfaced by AMDGPU.jl. The one reachable
   lever is rocFFT's `ROCFFT_RTC_CACHE_PATH` kernel cache (an environment variable; see §7 gap 6).
-- **Field algebra (M2 + M3), spectral differential operators, and convolution** → **memory-bandwidth-bound**. A
+- **Field algebra (M2 + M3), the differential operators, and convolution** → **memory-bandwidth-bound**. A
   fiberwise add, contraction, wavenumber multiply, kernel multiply (`convolve`), or arbitrary fiber map (`map!` — its adapter assembles the fiber in registers, adding no memory traffic over the named ops, so it tracks `det!`) reads and writes `O(1)` numbers per grid point
   and does `O(1)` flops on them — arithmetic intensity well below the roofline ridge. Consequence:
   on CPU, thread scaling saturates once the cores jointly saturate DRAM bandwidth (the plateau in
@@ -277,11 +277,11 @@ the 8-thread CPU (≈ the 384-vs-~60 GB/s bandwidth ratio for the heavy schemes,
 ones via parallelism).
 
 **(f) Allocation-free in-place operators — the GPU hot-loop discipline.** A pseudospectral solver
-applies the spectral operators thousands of times in its time loop, so any per-call scratch an operator
+applies the differential operators thousands of times in its time loop, so any per-call scratch an operator
 allocates internally matters. On the GPU it matters *a lot*: such scratch escapes Julia's GC (which
 triggers on *host* memory, while the scratch is *device* memory), so the device pool grows every step
 until VRAM fills and the run wedges (allocator spinning, GPU idle) or `hipMalloc` aborts — observed at
-192³/256³. The fix made the in-place spectral operators allocate **nothing**: `_squared_wavenumber_broadcast`
+192³/256³. The fix made the in-place differential operators allocate **nothing**: `_squared_wavenumber_broadcast`
 (the ``|k|^2`` coordinate) is returned **lazily** (an unfused `Broadcasted`, no ``O(N^3)`` array), and the
 `helmholtz_projection!` / `laplacian!` / `inverse_laplacian!` kernels fuse their former temporaries into
 the component broadcasts — each now allocates ``\sim 0`` bytes in place (measured; guarded by
@@ -1232,7 +1232,7 @@ re-measured per host/size/type on every sweep; GPU rows have no twin, the device
 planner flag; plus, per scalar/vector, the decision-64 pair — the preserving scratch arity of
 `to_physical!` and the destructive three-argument baseline it is priced against, whose delta is the
 cost of preservation), **field algebra** (M2 + M3, representative — including the weighted
-combination `combine!` and the determinant `det!`), **spectral operators** (including the fused
+combination `combine!` and the determinant `det!`), **differential operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
 decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
 size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed

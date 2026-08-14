@@ -1,8 +1,8 @@
 """
     DifferentialOperators
 
-Spectral differential operators on scalar, vector, and tensor fields over three-dimensional
-rectangular periodic domains. A field in this module is its finite Fourier representation, so each
+Differential operators on scalar, vector, and tensor fields over three-dimensional rectangular
+periodic domains, applied as spectral multipliers. A field in this module is its finite Fourier representation, so each
 operator is the exact term-by-term derivative of that trigonometric polynomial, realized as a
 coefficientwise multiply by a wavenumber symbol with no finite-difference truncation. The wavenumber
 symbols are held in a [`FieldSpectralMultipliers`](@ref), built from a field with

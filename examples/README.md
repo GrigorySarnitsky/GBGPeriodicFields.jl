@@ -81,7 +81,7 @@ divergence check $\lVert\nabla\cdot u\rVert$), `radial_spectrum` (the energy spe
 integral length $L$, and from which the Eulerian per-component structure function follows as
 $S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$); **`convolve!` + `spectral_cutoff`** (the 2/3 de-alias filter, the $\exp(-\nu \kappa^2 \Delta t)$
 integrating factor, the IC envelope); and `interpolate` (grid→point). The hot loop uses the **in-place,
-allocation-free** `!` forms throughout — the spectral operators allocate ~0 bytes (`docs/ARCHITECTURE.md`
+allocation-free** `!` forms throughout — the differential operators allocate ~0 bytes (`docs/ARCHITECTURE.md`
 decision 24) — and the CFL speed uses `maximum(abs, field_data(u))` rather than `lpnorm` (the latter
 materializes a magnitude field). Built-in correctness cross-checks: the Parseval identity
 $\tfrac{1}{2}\langle\hat u, \hat u\rangle = \tfrac{1}{2}\langle |u|^2\rangle$ and $\lVert\nabla\cdot u\rVert \approx \text{roundoff}$ (both asserted).
@@ -121,7 +121,7 @@ twin (`allowscalar(false)`) forced most of them in.
 **Closed:**
 
 - ✅ **Reductions over a field** (`Reductions`): `integral`, `inner`, `l2norm`, `lpnorm`, `mean`/`std`/…
-- ✅ **Apply a diagonal spectral operator $f(k)$** (`Convolution`): `convolve!` + `spectral_cutoff`.
+- ✅ **Apply a diagonal operator in spectral representation — a Fourier multiplier $f(k)$ —** (`Convolution`): `convolve!` + `spectral_cutoff`.
 - ✅ **Radial-symbol and shell-band kernels** (`Convolution`): `radial_kernel`, `spectral_band`.
 - ✅ **Energy spectrum $E(\kappa)$** (`Reductions`): `radial_spectrum`.
 - ✅ **Eulerian structure function without a hand-rolled spatial shift** — $S^{(E)}(r) = \tfrac{2}{3}\bigl(C(0)-C(r)\bigr)$ reads
