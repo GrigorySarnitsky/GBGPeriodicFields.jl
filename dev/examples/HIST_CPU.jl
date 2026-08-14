@@ -216,7 +216,7 @@ end
 function rhs!(Nh, u, ω, ws, m, plans, dealias)
   cross!(ws.uxω, u, ω)                          # u × ω  (physical)
   to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch
-  helmholtz_projection!(Nh, ws.Nt, m)           # Leray projection — DISTINCT dest ⇒ no-alias path (no allocation)
+  helmholtz_projection!(Nh, ws.Nt, m)           # Leray projection (alias-safe and allocation-free either way)
   convolve!(Nh, Nh, dealias)                    # 2/3 de-alias (coefficientwise multiply)
   return Nh
 end
