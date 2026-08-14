@@ -1096,8 +1096,8 @@ the result. A struct rather than a closure so the input count stays type-level (
 signature), exactly the reasoning behind `_FiberGather` for the mapped reductions.
 
 The fields are
-- `φ`: the caller's fiber map, applied to the assembled fiber at each base point.
-- `orders`: the tensor orders of the inputs, carried as a type parameter so the fiber assembly is
+- `φ` — the caller's fiber map, applied to the assembled fiber at each base point.
+- `orders` — the tensor orders of the inputs, carried as a type parameter so the fiber assembly is
   resolved at compile time.
 """
 # The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct

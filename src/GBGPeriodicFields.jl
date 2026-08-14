@@ -19,8 +19,8 @@ rather than a general differential-geometry package.
 
 Four words recur in every operation's documentation. A **base** is the set of locations a value is
 attached to: a `Grid3D` of cells, or a `PointSet` of off-grid positions. A **fiber** is the value at
-one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** is the pair of the
-two: one fiber at every point of a base, which is what a field and a set of point-values each are, and
+one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** puts the two together — it assigns
+one fiber to every point of a base — which is what a field and a set of point-values each are, and
 why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
 resolution actually represents, *excluding* the Nyquist frequency of each even-length axis. Those
 Nyquist planes are excluded by definition because the package's two wavenumber families disagree
@@ -57,8 +57,9 @@ The umbrella assembles its public surface from the submodules below:
 - [`Fields`](@ref) supplies the field and grid types, the storage layout and broadcasting,
   the FFT transform plans, the transforms [`to_physical`](@ref) and
   [`to_spectral`](@ref) between the two representations, the allocator [`similar_field`](@ref) that
-  builds compatible scratch, and the HDF5 persistence pair `write_field`/`read_field` (available once
-  `HDF5` is loaded).
+  builds compatible scratch, the storage-family move [`adapt`](@ref) that carries a field, its
+  multipliers, its kernels or its plans between host and device, and the HDF5 persistence pair
+  `write_field`/`read_field` (available once `HDF5` is loaded).
 - [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
   `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
   `divide!`, the contractions `dot` and `cross`, the tensor product `mul!`, the transpose

@@ -111,7 +111,7 @@ because a periodic domain wraps any coordinate; a transfer operator takes the gr
 field it acts on.
 
 The fields are
-- `coordinates`: the positions, an `AbstractArray` of shape `(M, 3)` — point index first, coordinate
+- `coordinates` — the positions, an `AbstractArray` of shape `(M, 3)` — point index first, coordinate
   axis last — whose second axis must have length `3`.
 """
 struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
@@ -158,7 +158,7 @@ One scalar value per point, sampled at `M` points — the point-set counterpart 
 grid to transform over.
 
 The fields are
-- `data`: the values, with shape `(M,)`.
+- `data` — the values, with shape `(M,)`.
 """
 struct ScalarPointValues{T<:AbstractFloat, A<:AbstractArray{T, 1}} <: AbstractPointValues{T, 0}
   data::A
@@ -181,7 +181,7 @@ One vector value per point, sampled at `M` points — the point-set counterpart 
 `VectorFieldPhysical`.
 
 The fields are
-- `data`: the components, structure-of-arrays with shape `(M, 3)`; the second axis must have length `3`, and the constructor checks it.
+- `data` — the components, structure-of-arrays with shape `(M, 3)`; the second axis must have length `3`, and the constructor checks it.
 """
 struct VectorPointValues{T<:AbstractFloat, A<:AbstractArray{T, 2}} <: AbstractPointValues{T, 1}
   data::A
@@ -204,7 +204,7 @@ One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`]
 `TensorFieldPhysical`.
 
 The fields are
-- `data`: the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
+- `data` — the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
 
 The constructor written without an explicit `{R}` infers the order as `ndims(data) - 1`.
 """

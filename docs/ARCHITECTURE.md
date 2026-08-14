@@ -306,8 +306,8 @@ The coefficientwise product *downstairs* is **convolution** upstairs (offered as
 form — exactly why those nonlinear operations are physical-space only.
 
 The same finiteness makes a nonlinear result **aliased**. A product doubles the spectral band — the
-determinant (a triple product) triples it, a transcendental such as the norm is unbounded — so content
-beyond the grid's Nyquist (highest resolved) wavenumber folds back onto the resolved modes when the
+determinant (a triple product) triples it, a non-polynomial map such as the norm is unbounded — so content
+beyond the grid's Nyquist (highest stored) wavenumber folds back onto the resolved modes when the
 physical result is transformed to spectral representation. The gridpoint values themselves stay exact; the
 aliasing is a spectral-representation artifact, and de-aliasing — the sharp low-pass `spectral_cutoff`, or
 phase-shift via `translation_kernel` ([§11](@ref "11. Convolution")) — is the consumer's choice, the
@@ -986,7 +986,8 @@ for it (seen in a few papers) is a misnomer.
 - R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition / charge assignment; the NGP and CIC windows).
 - C. K. Birdsall, A. B. Langdon, [*Plasma Physics via Computer Simulation*](https://doi.org/10.1201/9781315275048), Adam Hilger, Bristol, 1991 (deposition / charge assignment).
 - E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
-- L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014 (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy).
+- L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer
+  (cited by the operator-as-multiplier anchor elsewhere in this document rather than by this section; kept here as its single Fourier-analysis reference), 2014 (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy).
 
 ## 11. Convolution
 
@@ -1034,11 +1035,12 @@ decision 18). The `integral` (``\equiv \int\,\mathrm{d}\mu``) is the extensive s
 `l2norm`, and `lpnorm` are the normalized L² product and norms, and `weighted_inner`
 (``\equiv \langle\cdot, w \cdot\rangle``) is the spectral multiplier-weighted product ``\langle f, w g\rangle`` —
 the reduction-dual of `convolve`, generalizing `inner` (decision 27); `mean`/`std`/`var`/`cov` (extending `Statistics`)
-and `maximum`/`minimum`/`extrema` (extending `Base`) are the moments, all acting on **fields in physical representation
+and `maximum`/`minimum`/`extrema` (extending `Base`) the order statistics, all acting on **fields in physical representation
 and point-values** (representation-free); `cov` returns the vector second *central* moment as a symmetric
 ``\mathrm{Sym}^2(V)`` tensor, which a fiber-preserving `var` would reduce to its basis-dependent diagonal.
 The scalar-only `std`/`var` additionally read from **spectral** representation through Parseval
-(decision 49), being ``\langle f,f\rangle - \langle f\rangle^2``, both terms already spectral-available. The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
+(decision 49), built from ``\langle f,f\rangle - \langle f\rangle^2`` — Bessel-scaled for `var`, its square
+root for `std` — both terms already spectral-available. The reductions `inner`/`l2norm` *also* act on a field in **spectral** representation
 via Parseval's theorem (equal to the physical inner, no transform; the rfft half-spectrum weighting), and
 `integral`/`mean` via the zero (DC) Fourier mode — ``\hat f(0) = \sum_x f`` gives the mean ``\hat f(0)/N``
 and the integral ``(|\Omega|/N) \hat f(0)``, no transform. The **radial**
@@ -1900,6 +1902,17 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the reload is **exact**. The sugar `parent[name] = field` is `setindex!` for `write_field`, made strictly
     more specific than HDF5's own array-writing `setindex!` so it never clashes.
 
+    *Scope.* Every field type (the six: scalar / vector / tensor × physical / spectral); no compression or
+    chunking options until a consumer needs them; no snapshot / time type (invariant 12).
+
+    *Verification.* The round-trip test `test/hdf5.jl` covers every field type over both element types,
+    asserting the data (real and complex), the full `Grid3D` geometry, the element type, the tensor order,
+    and the layout are recovered bit-for-bit; it exercises the `setindex!` sugar, a snapshot bundle carrying consumer-owned
+    `time` / `iteration` attributes, the self-describing attributes read back as plain HDF5, and the error
+    paths (a dataset instead of a group, an absent name, a group with no type tag). The method-set baselines
+    (206 field / 122 point-value methods) are untouched — `write_field` / `read_field` are new generics, and
+    their methods exist only under the extension.
+
 
 30. **Mapped reductions — a leading function on five of the measure reductions.** The consumer
     `GBGIsotropicTurbulence` audited its memory and found a recurring shape: to average a nonlinear
@@ -1970,17 +1983,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     given the same formula, the fused form is 1.8 ms against 4.2 ms. Vary one thing at a time when
     measuring this family. The `integral` docstring carries the practical form of both points for the
     reader who never opens this file.
-
-    *Scope.* Every field type (the six: scalar / vector / tensor × physical / spectral); no compression or
-    chunking options until a consumer needs them; no snapshot / time type (invariant 12).
-
-    *Verification.* The round-trip test `test/hdf5.jl` covers every field type over both element types,
-    asserting the data (real and complex), the full `Grid3D` geometry, the element type, the tensor order,
-    and the layout are recovered bit-for-bit; it exercises the `setindex!` sugar, a snapshot bundle carrying consumer-owned
-    `time` / `iteration` attributes, the self-describing attributes read back as plain HDF5, and the error
-    paths (a dataset instead of a group, an absent name, a group with no type tag). The method-set baselines
-    (206 field / 122 point-value methods) are untouched — `write_field` / `read_field` are new generics, and
-    their methods exist only under the extension.
 
 
 31. **The Julia compat floor moved 1.11 → 1.12, on a measurement rather than a preference.** The package
@@ -2678,8 +2680,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
     *and* spectral (the Parseval form, equal to the physical value; the spectral one-pass loses precision
     to cancellation when the mean dominates its fluctuations, which the docstring notes). A vector or
-    tensor section raises a clear error pointing to `cov`. The new **`cov`** (extending `Statistics.cov`,
-    not re-exported, like `mean`/`var`/`std`) returns the symmetric covariance `FiberTensor2` of a
+    tensor section raises a clear error pointing to `cov`. The new **`cov`** (extending `Statistics.cov`; not
+    re-exported at the time, like `mean`/`var`/`std` — all four have been re-exported by the umbrella
+    since 2026-08-13, per the naming rule's export policy in §2) returns the symmetric covariance `FiberTensor2` of a
     vector section — its diagonal the per-component variances (the normal stresses, in a turbulence
     reading), its off-diagonal the covariances (the shear stresses) a per-component `var` discarded —
     computed in one fused mapped pass as ``\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u``
@@ -2698,8 +2701,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     identical** to the materialized kernel, at every tensor order and on both the overwrite and the
     ``\alpha``/``\beta`` branch, which is what the tests assert against the stored product as oracle. What
     changes is the cost: three ``O(N)`` arrays in place of ``O(N^3)`` coefficients (5 KiB against 16.2 MiB
-    at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads **no kernel storage at
-    all** — a kernel application drops from three field-sized streams to two.
+    at ``128^3``, ~10 KiB against 129 MiB at ``256^3``), and a pass that reads **no field-sized kernel
+    stream** — the three ``O(N)`` factors are read per mode, so a kernel application drops from three
+    field-sized streams to two.
 
     Fewer streams did **not** hand back a free speed-up, and finding out why fixed the implementation.
     Applying the kernel is bandwidth-bound, so the saved stream is worth having only if evaluating the
@@ -2925,8 +2929,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *Proof:* a new exported operation in `Reductions`, tested nowhere, fails the registry.
 
     **The registry's own domain was the next instance, found within the hour.** It derived the surface
-    from `names(GBGPeriodicFields)`, and the package deliberately does not re-export the generics it
-    *extends* rather than declares — so `map`/`map!` (decision 48), `mean`/`std`/`var`/`cov` (49), the
+    from `names(GBGPeriodicFields)`, and the package at the time deliberately re-exported none of the generics it
+    *extends* rather than declares (the `Statistics` and `LinearAlgebra` ones have since been — the
+    export policy in §2) — so `map`/`map!` (decision 48), `mean`/`std`/`var`/`cov` (49), the
     order statistics, and the field arithmetic `+ - * /` were all invisible to it, as they had been to
     both ledgers. Scanning module namespaces instead reached those, and still missed `inv` (decision
     50), whose method is defined under the qualified name `Base.inv` and therefore creates no binding

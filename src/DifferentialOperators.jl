@@ -1311,14 +1311,14 @@ The arguments are:
 - `field` — the vector field to project, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol subtracts the longitudinal part ``a_i (a\\cdot\\hat u)/|a|^2`` from
+The spectral symbol subtracts the longitudinal part ``a_i (a\\cdot\\hat u)/(a \\cdot a)`` from
 ``\\hat u_i``, with ``a`` the derivative wavenumber — the Nyquist-zeroed family the gradient and
 divergence use, equal to ``k`` on the resolved band — and passes every mode with ``a = 0``
 unchanged (the zero mode, and the pure-Nyquist corners where the whole derivative wavenumber
 vanishes):
 
 ```math
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{|a|^2}\\Bigr)  \\hat u_j(k),
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{a \\cdot a}\\Bigr)  \\hat u_j(k),
 \\qquad \\delta_{ij} \\text{ the Kronecker delta}, \\qquad a \\ne 0.
 ```
 

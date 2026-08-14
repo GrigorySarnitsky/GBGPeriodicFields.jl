@@ -290,7 +290,7 @@ the value a magnitude-dependent multiplier wants there, unlike the derivative wa
 zeroed at that mode — so no case analysis is needed anywhere in the family.
 
 The fields are
-- `sigma`: the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+- `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
   Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
   the grid) or a caller's own (supplied through the explicit constructor, which validates lengths and
@@ -1223,7 +1223,8 @@ end
                           coefficient::Real, offset_scale::Real,
                           offset::ScalarFieldSpectral)
 
-Convolve a field with the exponential radial kernel ``\\exp(c |k|^2 + s \\hat w)``, where ``c`` is a real
+Convolve a field with the exponential radial kernel, optionally times a per-mode exponent field —
+``\\exp(c |k|^2 + s \\hat w)``, radial in the ``c |k|^2`` part alone — where ``c`` is a real
 coefficient on the squared wavenumber ``|k|^2``, and the optional term adds a per-mode real field
 ``\\hat w`` supplied by the consumer under a real scale ``s``. The kernel is evaluated from the
 wavenumber arrays on the fly — never built or stored as a field — and the result is written into
@@ -1277,10 +1278,13 @@ The arguments are:
   values (as a materialized radial kernel would). The pair enters as scale times field so a
   changed scale costs nothing — the resident ``\\hat w`` is built once.
 
-!!! warning "The offset must be real-valued"
-    The exponential of a real, even multiplier keeps a real field real. A complex-valued `offset` breaks
-    that Hermitian symmetry exactly as a consumer-built kernel can under `convolve!`, and the inverse
-    transform then silently keeps only the Hermitian part. There is deliberately no *scalar* exponent
+!!! warning "The offset must be real-valued and even"
+    The exponential of a real, even multiplier keeps a real field real, and **both** halves of that
+    hypothesis are the caller's to meet. A complex-valued `offset` breaks the Hermitian symmetry — and
+    so does a real-valued one that is not even in ``k`` on the self-conjugate planes, where both
+    members of a ``\\pm k`` pair are stored and nothing forces them equal. Either way the inverse
+    transform then silently keeps only the Hermitian part, exactly as a consumer-built kernel can
+    under `convolve!`. There is deliberately no *scalar* exponent
     offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
 
 The single-operand accumulate form computes
@@ -1529,6 +1533,9 @@ computed from the per-axis wavenumber ``k_a`` (kept at the Nyquist frequency) an
 ``\\Delta x_a``, so ``\\hat W(0) = 1`` and it decays toward the grid scale. Because the squared sinc
 does not vanish at any wavenumber the grid resolves, dividing by it is stable. The package supplies the
 window; the density estimate and the correlation normalization stay consumer-side.
+
+Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
+Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988.
 """
 function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
   _check_multipliers_compatibility(reference, multipliers)
@@ -1564,7 +1571,7 @@ it is separable, so building it costs three ``O(N)`` axis passes, not a field). 
 ``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
 one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
-`assignment_window`. At the **Nyquist frequency** — the highest wavenumber a grid resolves, ``\\pi/\\Delta x_a``, which an
+`assignment_window`. At the **Nyquist frequency** — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
 even-length axis stores as a single self-conjugate mode — the factor is instead the real
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.

@@ -26,6 +26,7 @@ and need not repeat the convention.
 | ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use). **One deliberate reuse:** in `Convolution`, ``g`` and its transform ``\hat g`` denote the **kernel** rather than a field — the standard symbol for a convolution kernel, kept because every formula there reads as the textbook one. A kernel is a distinct kind of object, not a field, so read ``g`` as the kernel on that page and as a field everywhere else | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
+| ``B`` | the **base** of the bundle picture — the set a section attaches values to: a `Grid3D`'s cells, or a `PointSet`'s points. A subscripted ``N_B`` is its point count (``N`` or ``M``); the bare glyph is never a scalar | `Grid3D` / `PointSet` |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | `Grid3D` |
 | ``N`` | the grid-point count ``\prod_i N_i``; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N``. A complexity expression may use either reading, and which one is always fixed by the shape it describes: the **storage** claims of the kernel and reduction families — ``O(N^3)`` for a full field, ``O(N)`` for a per-axis array, ``O(N^2)`` for a plane — count **per axis**, the three axes being equal in the cubic grids they describe, while the **transfer** costs ``O(NM)`` and ``O(N \log N + M)`` count the **total**, as `DirectDFT`'s own docstring states. The two never mix inside one formula | `prod(grid_size)` |
 | ``M`` | the number of points | `npoints` |
@@ -53,7 +54,7 @@ of the table above.
 | ``\cdot``, ``\times`` | the fiber dot and cross products | `dot` (`⋅`), `cross` (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | `inner` |
 | ``\langle\cdot\rangle`` | the base average of a single argument (the same measure, one slot) | `mean` |
-| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude | `norm` |
+| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside tables the plain-bar spelling ``|k|^2`` is the same symbol, and both denote one concept | `norm` |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |

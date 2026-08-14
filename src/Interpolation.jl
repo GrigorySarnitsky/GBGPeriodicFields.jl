@@ -98,7 +98,7 @@ choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
 transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
-acting on a field in spectral representation). Same verbs, one adjointness contract; the schemes
+acting on a field in spectral representation). Same verbs, one adjointness contract, with the one non-uniformity documented below; the schemes
 differ only in (kernel, representation).
 
 One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
@@ -730,6 +730,10 @@ f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
 (W^\\top q)(k) &= \\sum_p q_p  e^{-\\mathrm{i} k\\cdot (x_p - o)},
 \\end{aligned}
 ```
+
+The first equality reads an even axis's Nyquist amplitude split across ``\\pm k`` — its band-limited
+cosine form, which is what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist,
+and at the grid nodes, the two sides agree with no convention needed.
 
 reconstructing the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
 Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded rfft

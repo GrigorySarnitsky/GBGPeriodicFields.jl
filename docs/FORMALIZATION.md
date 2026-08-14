@@ -452,21 +452,21 @@ normalization ``\langle\cdot,\cdot\rangle`` itself carries. The **default** appl
 correction on top,
 
 ```math
-\operatorname{var}(f) = \frac{B}{B-1}\Bigl(\langle f, f\rangle - \langle f\rangle^2\Bigr),
+\operatorname{var}(f) = \frac{N_B}{N_B-1}\Bigl(\langle f, f\rangle - \langle f\rangle^2\Bigr),
   \quad\checkmark
 ```
 
-with ``B`` the base count — ``N`` cells for a grid, ``M`` points for a point set, `var` being defined
+with ``N_B`` the count of base points — ``N`` cells for a grid, ``M`` points for a point set (the subscript ties it to the base ``B`` of the bundle picture, rather than reusing that glyph for a scalar), `var` being defined
 on both exactly as `cov` is — so the identity reads from **both** representations, with ``\operatorname{std} = \sqrt{\operatorname{var}}``. A vector section's coordinate-free
 second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \in
 \operatorname{Sym}^2(\mathbb R^3)``,
 
 ```math
-R_{ij} = \frac{B}{B-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
-       = \frac{1}{B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
+R_{ij} = \frac{N_B}{N_B-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
+       = \frac{1}{N_B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
 ```
 
-where ``B`` is the count of the base the section lives over — ``N`` cells for a grid, ``M`` points for
+where ``N_B`` is again that count — ``N`` cells for a grid, ``M`` points for
 a point set — since `cov` is defined on both. The result is
 a symmetric `FiberTensor2` whose diagonal is the per-component variance a fiber-preserving `var` would
 have returned; ``\operatorname{std} = \sqrt{\operatorname{var}}`` has no canonical vector form, so it is
@@ -494,7 +494,7 @@ Two consequences are worth stating
 because they are what the tests pin. Taking the identity map recovers the bare reduction
 exactly, ``\texttt{mean}(\mathrm{id}, f) = \texttt{mean}(f)``, including its fiber-valued result at
 order ``1`` and ``2``. And with ``\varphi = \lVert\cdot\rVert`` the order statistic coincides with the
-existing supremum norm, ``\max_n \lVert f_n\rVert = \lVert f\rVert_\infty``, so `maximum(norm, u)` and
+existing supremum norm, ``\max_n \lvert f_n\rvert = \lVert f\rVert_\infty``, so `maximum(norm, u)` and
 `lpnorm(u, Inf)` are the same number by different routes — the first without materializing
 ``\varphi \circ f`` as a section. The mapped forms exist only on fields in physical representation and point-values:
 ``\varphi`` is nonlinear in general, so it has no coefficientwise meaning on a spectral representation
@@ -548,10 +548,10 @@ whose type cannot settle it is `StoredKernel`, whose storage is complex whatever
 there the real part is taken, as documented.
 
 **`lpnorm`** is the ``p``-family around that ``L^2`` pair: on a grid
-``\lVert f\rVert_p = \bigl(\tfrac{1}{N}\sum_n \lVert f_n\rVert^p\bigr)^{1/p}`` and on a point-set the
-``M``-normalized analogue, with ``\lVert f_n\rVert`` the fiber Euclidean magnitude; ``p = 2``
+``\lVert f\rVert_p = \bigl(\tfrac{1}{N}\sum_n \lvert f_n\rvert^p\bigr)^{1/p}`` and on a point-set the
+``M``-normalized analogue, with ``\lvert f_n\rvert`` the fiber Euclidean magnitude; ``p = 2``
 delegates to `l2norm` ``= \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
-``\max_n \lVert f_n\rVert`` (`src/Reductions.jl`). Physical fields and point-values only.
+``\max_n \lvert f_n\rvert`` (`src/Reductions.jl`). Physical fields and point-values only.
 ``\checkmark`` **Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
 ``p = \infty`` coincidence with `maximum(norm, u)`).
 

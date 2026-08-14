@@ -516,10 +516,15 @@ bins (2.7–2.8 ns) yet still trails serial at the ``64^3`` count (same-bin coll
 per add). At
 production sizes the mode reads are DRAM-bound and the contention hides, so the anomaly is confined
 to small-grid diagnostics costing single-digit milliseconds — recorded, not fixed. Read the ≈48×
-`Float64` radial gap as what this root-cause says it is: an **addressable implementation gap**, not a
-vendor-hardware one. Every other cross-vendor ratio in this document sits in the 1.5–4× band that a
-bandwidth ratio explains; this one is an order of magnitude larger because the global atomic scatter
-has no per-workgroup pre-reduction, which is the standard technique for exactly this kernel shape.
+`Float64` radial gap at both of its levels, which are not in tension: its **mechanism** is vendor
+hardware — RDNA emulates the global `Float64` atomic with a CAS loop where NVIDIA has it natively,
+which is why the gap collapses to 1.11× in `Float32` (§6) — while its **exposure** is an addressable
+implementation gap, because the global atomic scatter has no per-workgroup pre-reduction, the
+standard technique for exactly this kernel shape, and with one the emulated atomic would be hit a
+few times per workgroup instead of once per mode. Every other cross-vendor ratio in this document
+sits in the 1.5–4× band a bandwidth ratio explains; this one is an order of magnitude larger because
+the un-pre-reduced kernel runs straight into the one operation the two vendors implement most
+differently.
 Candidates when a
 consumer's cadence makes it matter: bin padding (backend-uniform; kills the `Float32` reversal, not
 the ``64^3`` inversion); per-thread private bins with an ordered merge on CPU (kills both *and*
@@ -1349,9 +1354,11 @@ bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outru
 `Float64` (54.973 → 1.144 ms) but only **1.11×** in `Float32` (0.915 → 0.824 ms). Re-measured
 2026-08-09 with both cards in the fixed regime of §4(s)/§4(w): the ``\approx 48\times`` is confirmed
 to three significant figures, while the `Float32` figure — previously recorded as ≈3.5× — is not,
-and its collapse sharpens the conclusion rather than weakening it. The entire cross-vendor gap on
-this operation **is** the emulated-atomic penalty of §4(d) (RDNA has no native global `Float64`
-atomics): in `Float32`, where both cards have native atomics, they are equal. The 7900 XTX pays
+and its collapse sharpens the conclusion rather than weakening it. The cross-vendor gap on this
+operation is the emulated-atomic penalty of §4(d) at work (RDNA has no native global `Float64`
+atomics): in `Float32`, where both cards have native atomics, they are equal. That names the
+mechanism; finding (n) prices the exposure — a per-workgroup pre-reduction would mostly hide it, so
+the gap is hardware-caused but implementation-addressable. The 7900 XTX pays
 ≈60× going `Float32`→`Float64` on this op, against the 5070 Ti's ≈1.4×. Those are the post-decision-34
 figures, the staging planes fused away, so the atomics are the whole measurement. The full operation × type × grid × thread/backend matrix is in
 `RESULTS.md`:

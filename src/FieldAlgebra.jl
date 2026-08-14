@@ -11,8 +11,9 @@ touching no neighbours. That is what the formulas below mean by "pointwise over 
 
 Acting pointwise is *not* what makes an operation available in both representations, and the two must
 not be confused: `det` and `norm` are as pointwise as any operation here and are physical-representation only.
-What carries an operation across the transform is **linearity in the field argument**, since only a
-linear map commutes with the rfft isomorphism — which is why the linear operations below (the sums,
+What carries an operation across the transform is **linearity in the field argument, its partners
+held fiber-constant** — a product of two *fields* is linear in each factor separately yet not in the
+pair, and it stays physical-only — since only a linear map commutes with the rfft isomorphism — which is why the linear operations below (the sums,
 the fiber-constant contractions, the transposes, `sym`/`skew`/`dev`) exist in both representations
 while every operation nonlinear in a field is defined in physical representation alone.
 
@@ -366,8 +367,9 @@ representation-validity rules.
     *(a, b)
 
 Allocating form of [`multiply!`](@ref) and, for the tensor contractions, [`mul!`](@ref): a real scale,
-a scalar-field action, or a fiber-constant contraction, returning a new section (fields and
-point-value collections alike). See those for the componentwise definitions. There is deliberately no field-times-field method in spectral representation — that
+a scalar-field action, or a tensor contraction — field-field (a tensor field acting on a vector or
+tensor field, physical representation only) as well as fiber-constant — returning a new section
+(fields and point-value collections alike). See those for the componentwise definitions. There is deliberately no field-times-field method in spectral representation — that
 coefficientwise product is a convolution and lives under `convolve`'s name, in the [`Convolution`](@ref "Convolution") module.
 """
 *
