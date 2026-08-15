@@ -37,16 +37,16 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # build was reported at the cost of an O(N³) materialization and neither could be tracked separately.
   # The builder rows now time the builder — there is no field to sync on, so sync a wavenumber row the
   # symbol closes over — and the materialization has rows of its own further down.
-  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(spectral_cutoff($s, $m, 2).multipliers.squared_wavenumber_1)
-  group["spectral_band | $tag"]    = @benchmarkable bench_sync(spectral_band($s, $m, 1, 3).multipliers.squared_wavenumber_1)
+  group["spectral_cutoff | $tag"]  = @benchmarkable bench_sync(spectral_cutoff($m, 2).multipliers.squared_wavenumber_1)
+  group["spectral_band | $tag"]    = @benchmarkable bench_sync(spectral_band($m, 1, 3).multipliers.squared_wavenumber_1)
   # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
   # and there is no field to sync on — sync one factor instead.
-  group["assignment_window | $tag"] = @benchmarkable bench_sync(assignment_window($s, $m).factor_1)
+  group["assignment_window | $tag"] = @benchmarkable bench_sync(assignment_window($m).factor_1)
   offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)     # a half-cell displacement
-  group["translation_kernel | $tag"] = @benchmarkable bench_sync(translation_kernel($s, $m, $offset).factor_1)
+  group["translation_kernel | $tag"] = @benchmarkable bench_sync(translation_kernel($m, $offset).factor_1)
   # Applying an axis-factored kernel against applying the same kernel stored as a field: same result,
   # one field-sized stream fewer (the kernel is never read from memory).
-  separable = translation_kernel(s, m, offset)
+  separable = translation_kernel(m, offset)
   stored = materialize_kernel(separable)       # the same coefficients, in the stored class
   group["convolve! vector ∘ separable | $tag"] = @benchmarkable (convolve!($uout, $u, $separable); bench_sync(field_data($uout)))
   group["convolve! vector ∘ stored    | $tag"] = @benchmarkable (convolve!($uout, $u, $stored); bench_sync(field_data($uout)))
@@ -54,21 +54,21 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # references — so it removes the same stream as the axis-factored form while paying one extra add
   # and the symbol evaluation per mode. Its own stored twin is the baseline, so the two compressed
   # classes are read against a common reference rather than against each other.
-  radial = spectral_band(s, m, 1, 3)
+  radial = spectral_band(m, 1, 3)
   radial_stored = materialize_kernel(radial)
   group["convolve! vector ∘ radial    | $tag"] = @benchmarkable (convolve!($uout, $u, $radial); bench_sync(field_data($uout)))
   group["convolve! vector ∘ radial-stored | $tag"] = @benchmarkable (convolve!($uout, $u, $radial_stored); bench_sync(field_data($uout)))
   # The general radial builder, against the two named bands above: a symbol closure costs no more to
   # build than a cutoff, so a consumer bringing its own symbol pays nothing for the generality.
   smooth = k2 -> exp(-T(0.01) * k2)
-  group["radial_kernel | $tag"] = @benchmarkable bench_sync(radial_kernel($smooth, $s, $m).multipliers.squared_wavenumber_1)
+  group["radial_kernel | $tag"] = @benchmarkable bench_sync(radial_kernel($smooth, $m).multipliers.squared_wavenumber_1)
   # The documented escape hatch. Expanding a compressed kernel allocates the O(N³) field the class
   # exists to avoid, so its cost is what a consumer trades away by materializing.
   group["materialize_kernel radial | $tag"]    = @benchmarkable bench_sync(field_data(materialize_kernel($radial).field))
   group["materialize_kernel separable | $tag"] = @benchmarkable bench_sync(field_data(materialize_kernel($separable).field))
   # Rebuilding a separable kernel in place, against the allocating builder it replaces: both are O(N)
   # per-axis work, so the difference is the three small allocations, not the trigonometry.
-  translation_scratch = translation_kernel(s, m, offset)
+  translation_scratch = translation_kernel(m, offset)
   group["translation_kernel! | $tag"] = @benchmarkable bench_sync(translation_kernel!($translation_scratch, $m, $offset).factor_1)
   # The reciprocal that deconvolves: O(N) per axis for a separable kernel, never a field.
   group["inv separable | $tag"] = @benchmarkable bench_sync(inv($separable).factor_1)

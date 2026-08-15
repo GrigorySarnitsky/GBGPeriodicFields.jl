@@ -44,8 +44,8 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
       s0, u0, A0 = spec(0), spec(1), spec(2)
       sp, up, Ap = phys(0), phys(1), phys(2)
       m = FieldSpectralMultipliers(s0)
-      sep = translation_kernel(s0, m, (TP(0.3), TP(-0.7), TP(1.1)))
-      rad = spectral_cutoff(s0, m, TP(3))
+      sep = translation_kernel(m, (TP(0.3), TP(-0.7), TP(1.1)))
+      rad = spectral_cutoff(m, TP(3))
 
       # (name, produces a field, expected tensor order). The oracle is metadata alone.
       cases = [
@@ -68,8 +68,8 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         ("exponential_convolve",     () -> exponential_convolve(u0, m, TP(-0.1)), 1),
         ("materialize_kernel sep",   () -> materialize_kernel(sep),             0),
         ("materialize_kernel rad",   () -> materialize_kernel(rad),             0),
-        ("squared_wavenumber_field", () -> materialize_kernel(radial_kernel(identity, s0, m)),     0),
-        ("assignment_window",        () -> materialize_kernel(assignment_window(s0, m)), 0),
+        ("squared_wavenumber_field", () -> materialize_kernel(radial_kernel(identity, m)),     0),
+        ("assignment_window",        () -> materialize_kernel(assignment_window(m)), 0),
         ("map tensor→scalar",        () -> map(det, Ap),                        0),
         ("map vector→tensor",        () -> map(x -> x * transpose(x), up),      2),
         ("map order-preserving",     () -> map(x -> 2x, up),                    1),

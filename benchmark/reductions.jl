@@ -15,7 +15,7 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   # A stored |k|² weight, which is what this row has always measured: `radial_kernel(identity, …)` is
   # the |k|² symbol since decision 60 removed the materializing builder, and `materialize_kernel` puts
   # it back in the stored class so the measurement — and its frozen baseline — is unchanged.
-  weight = materialize_kernel(radial_kernel(identity, scalar_spec(AT, T, grid), m))
+  weight = materialize_kernel(radial_kernel(identity, m))
   correlation_plans = plans_for(u, AT, T, grid)
   group["integral scalar | $tag"] = @benchmarkable integral($s)
   group["mean vector | $tag"]     = @benchmarkable mean($u)            # fiber-valued (sum over base + copy)

@@ -294,7 +294,7 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     # bytes moved: the three axis arrays total kilobytes and stay resident, while the stored kernel is a
     # field-sized DRAM stream. The axis arrays are deliberately left uncounted rather than recorded as a
     # 3M "regression" the ledger would otherwise imply.
-    separable = translation_kernel(ScalarFieldSpectral(zeros(ComplexF64, shape0), grid), multipliers, (0.3, -0.7, 1.1))
+    separable = translation_kernel(multipliers, (0.3, -0.7, 1.1))
     audit(() -> convolve!(d, f, separable), "convolve! vector ∘ separable kernel",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))
     audit(() -> convolve!(d, f, separable, 0.5, 2.0), "convolve! α/β ∘ separable kernel",

@@ -684,7 +684,7 @@ end
   multipliers = FieldSpectralMultipliers(spectral)
   us = VectorFieldSpectral(randn(ComplexF64,
     GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(1))), grid, layout)
-  kernel = spectral_band(spectral, multipliers, 0, 2)
+  kernel = spectral_band(multipliers, 0, 2)
   @test field_data(us ⋆ kernel) == field_data(convolve(us, kernel))
 end
 

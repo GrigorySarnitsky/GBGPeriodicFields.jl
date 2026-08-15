@@ -173,9 +173,9 @@ _map_add(a, b) = a + b
       # ----- the axis-factored SeparableKernel (decision 50): the builders allocate three O(N) axis
       # arrays where they used to allocate a whole field, and applying one materializes nothing. The
       # builder rows are the load-bearing ones: a regression to a materialized kernel fails them.
-      separable = translation_kernel(ss, multipliers, (T(0.3), T(-0.7), T(1.1)))
-      @alloc_below field_threshold translation_kernel(ss, multipliers, (T(0.3), T(-0.7), T(1.1)))
-      @alloc_below field_threshold assignment_window(ss, multipliers)
+      separable = translation_kernel(multipliers, (T(0.3), T(-0.7), T(1.1)))
+      @alloc_below field_threshold translation_kernel(multipliers, (T(0.3), T(-0.7), T(1.1)))
+      @alloc_below field_threshold assignment_window(multipliers)
       @alloc_below field_threshold inv(separable)                       # reciprocal: three O(N) axes
       @alloc_below threshold translation_kernel!(separable, multipliers, (T(0.1), T(0.2), T(0.3)))
       @alloc_below field_threshold convolve!(ssd, ss, separable)        # applying it materializes nothing
@@ -338,10 +338,10 @@ end
       # so admitting them materializes no coefficients — this is the assertion that would catch a widening
       # that quietly reached for `materialize_kernel`.
       mult_w = FieldSpectralMultipliers(ss)
-      @alloc_below threshold weighted_inner(ss, spectral_cutoff(ss, mult_w, T(2.5)))    # RadialKernel
-      @alloc_below threshold weighted_inner(ss, assignment_window(ss, mult_w))          # SeparableKernel
-      @alloc_below threshold weighted_inner(ss, convolve(spectral_cutoff(ss, mult_w, T(2.5)),
-                                                        assignment_window(ss, mult_w))) # ProductKernel
+      @alloc_below threshold weighted_inner(ss, spectral_cutoff(mult_w, T(2.5)))    # RadialKernel
+      @alloc_below threshold weighted_inner(ss, assignment_window(mult_w))          # SeparableKernel
+      @alloc_below threshold weighted_inner(ss, convolve(spectral_cutoff(mult_w, T(2.5)),
+                                                        assignment_window(mult_w))) # ProductKernel
       # radial_spectrum: since decision 34 the shell index, fiber contraction, and Parseval weight are
       # derived per mode inside the binning kernel, so the only arrays are the tiny shell accumulators
       m = FieldSpectralMultipliers(vs)

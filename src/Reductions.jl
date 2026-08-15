@@ -959,7 +959,7 @@ The arguments are:
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
-  right — see the warning below. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, f, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+  right — see the warning below. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 !!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
     Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
@@ -1163,8 +1163,8 @@ co-spectrum (which may be negative) is handled by the same rule.
     [`weighted_inner`](@ref) against a radial symbol is exact and involves no binning at all:
 
     ```julia
-    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), f, multipliers))   # ⟨f, |k| f⟩, exactly
-    weighted_inner(f, radial_kernel(identity, f, multipliers))         # ⟨f, −Δf⟩, the Dirichlet energy
+    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), multipliers))   # ⟨f, |k| f⟩, exactly
+    weighted_inner(f, radial_kernel(identity, multipliers))         # ⟨f, −Δf⟩, the Dirichlet energy
     ```
 
 ```math

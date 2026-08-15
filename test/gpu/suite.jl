@@ -311,8 +311,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
                     combine!(F.similar_field(A_spec_h, Val(2)), 2.0, A_spec_h, -3.0, A_spec_h))
 
       # kernel-composed operators (a convolution fused into ℙ and ∇·; decision 32), incl. α/β
-      kernel_h = spectral_cutoff(u_spec_h, mult_h, T(5) / 2)
-      kernel_d = spectral_cutoff(u_spec_d, mult_d, T(5) / 2)
+      kernel_h = spectral_cutoff(mult_h, T(5) / 2)
+      kernel_d = spectral_cutoff(mult_d, T(5) / 2)
       @test matches(helmholtz_projection(u_spec_d, mult_d, kernel_d),
                     helmholtz_projection(u_spec_h, mult_h, kernel_h))
       @test matches(divergence(u_spec_d, mult_d, kernel_d), divergence(u_spec_h, mult_h, kernel_h))
@@ -334,8 +334,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
       # spectral_cutoff allocates the kernel on the reference field's backend, so the device builder
       # must run entirely on-device (no scalar indexing) and match the host kernel.
-      cutoff_h = spectral_cutoff(phi_spec_h, mult_h, T(3))
-      cutoff_d = spectral_cutoff(phi_spec_d, mult_d, T(3))
+      cutoff_h = spectral_cutoff(mult_h, T(3))
+      cutoff_d = spectral_cutoff(mult_d, T(3))
       @test kernel_matches(cutoff_d, cutoff_h)                                              # the builder itself
       @test matches(convolve(phi_spec_d, cutoff_d), convolve(phi_spec_h, cutoff_h))  # scalar field
       @test matches(convolve(u_spec_d, cutoff_d), convolve(u_spec_h, cutoff_h))      # scalar kernel over a vector field
@@ -353,8 +353,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(exponential_convolve(u_spec_d, mult_d, T(-1) / 20),
                     exponential_convolve(u_spec_h, mult_h, T(-1) / 20))
       # ŵ is a FIELD (a per-mode offset), so |k|² is materialized from its radial symbol for this use.
-      k2_h = materialize_kernel(radial_kernel(identity, phi_spec_h, mult_h)).field
-      k2_d = materialize_kernel(radial_kernel(identity, phi_spec_d, mult_d)).field
+      k2_h = materialize_kernel(radial_kernel(identity, mult_h)).field
+      k2_d = materialize_kernel(radial_kernel(identity, mult_d)).field
       @test matches(exponential_convolve(phi_spec_d, mult_d, T(-1) / 20, T(1) / 100, k2_d),
                     exponential_convolve(phi_spec_h, mult_h, T(-1) / 20, T(1) / 100, k2_h))
       # the fiber-extruded offset: a VECTOR field with the per-mode ŵ (the pass-audit ŵ row's GPU twin)
@@ -370,14 +370,14 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(kerneled_d, kerneled_h)
 
       # spectral_band (annular) and the radial |k|² symbol build entirely on-device (no scalar index)
-      @test kernel_matches(spectral_band(phi_spec_d, mult_d, T(1), T(3)), spectral_band(phi_spec_h, mult_h, T(1), T(3)))
-      @test matches(materialize_kernel(radial_kernel(identity, phi_spec_d, mult_d)).field, materialize_kernel(radial_kernel(identity, phi_spec_h, mult_h)).field)
+      @test kernel_matches(spectral_band(mult_d, T(1), T(3)), spectral_band(mult_h, T(1), T(3)))
+      @test matches(materialize_kernel(radial_kernel(identity, mult_d)).field, materialize_kernel(radial_kernel(identity, mult_h)).field)
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
-      @test kernel_matches(assignment_window(phi_spec_d, mult_d), assignment_window(phi_spec_h, mult_h))
+      @test kernel_matches(assignment_window(mult_d), assignment_window(mult_h))
       # translation_kernel — the one complex kernel; the per-axis cos/sin phase builds on-device
       offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)                  # a half-cell displacement
-      shift_h = translation_kernel(phi_spec_h, mult_h, offset)
-      shift_d = translation_kernel(phi_spec_d, mult_d, offset)
+      shift_h = translation_kernel(mult_h, offset)
+      shift_d = translation_kernel(mult_d, offset)
       @test kernel_matches(shift_d, shift_h)
       # M2: a compressed kernel through the OPERATORS' kernel arity, on device — the lazy per-axis
       # product crossing a KA launch inside helmholtz/divergence, not only inside convolve!
@@ -510,8 +510,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # weighted_inner ⟨f, w·g⟩: the |k|² weight builds on-device and the reduction is fused (no field);
       # matches the CPU and the exact −Δ identity ⟨f, |k|²·f⟩ = −⟨f, Δf⟩.
       # A weight is a kernel, and |k|² is a radial symbol — so it is the symbol itself, not a field.
-      ksq_d = radial_kernel(identity, sf_spec_d, mult_d)
-      ksq_h = radial_kernel(identity, sf_spec_h, mult_h)
+      ksq_d = radial_kernel(identity, mult_d)
+      ksq_h = radial_kernel(identity, mult_h)
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
 
@@ -520,15 +520,15 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # nests two of them, so the reduction runs over a nested lazy tree. That is exactly where the
       # `instantiate` this function already needed for AMDGPU's `mapreducedim!` (a `Broadcasted` with
       # `Nothing` axes throws there) would resurface if the nesting broke it.
-      sep_d = assignment_window(sf_spec_d, mult_d);  sep_h = assignment_window(sf_spec_h, mult_h)
-      cut_d = spectral_cutoff(sf_spec_d, mult_d, 2.5); cut_h = spectral_cutoff(sf_spec_h, mult_h, 2.5)
+      sep_d = assignment_window(mult_d);  sep_h = assignment_window(mult_h)
+      cut_d = spectral_cutoff(mult_d, 2.5); cut_h = spectral_cutoff(mult_h, 2.5)
       for (kd, kh) in ((sep_d, sep_h), (cut_d, cut_h),
                        (convolve(cut_d, sep_d), convolve(cut_h, sep_h)))   # separable, radial, product
         @test eq(weighted_inner(vf_spec_d, kd), weighted_inner(vf_spec_h, kh))
         @test eq(weighted_inner(vf_spec_d, kd), weighted_inner(vf_spec_d, materialize_kernel(kd)))
       end
       # ...and a complex weight is refused on the device too, by the same type-level check.
-      phase_d = translation_kernel(sf_spec_d, mult_d, (0.3, 0.1, 0.2))
+      phase_d = translation_kernel(mult_d, (0.3, 0.1, 0.2))
       @test_throws ArgumentError weighted_inner(vf_spec_d, phase_d)
 
       # Permuted rfft layout: the Parseval fold follows fft_dims on the device too — the spectral
@@ -645,7 +645,7 @@ end
       host_z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
       host_plans = FieldTransformPlans(host_u, similar_field(host_z, Val(1)))
       host_multipliers = FieldSpectralMultipliers(similar_field(host_z, Val(1)))
-      host_kernel = spectral_cutoff(host_z, host_multipliers, 3.0)
+      host_kernel = spectral_cutoff(host_multipliers, 3.0)
 
       AT = device_array_type()
       device_u, device_plans = adapt(AT, host_u), adapt(AT, host_plans)

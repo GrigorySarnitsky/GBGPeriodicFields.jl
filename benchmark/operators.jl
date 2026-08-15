@@ -17,7 +17,7 @@ function add_operators!(group, AT, ::Type{T}, grid, tag) where {T}
   group["helmholtz! vec->vec | $tag"]     = @benchmarkable (helmholtz_projection!($uout, $u, $m); bench_sync(field_data($uout)))
   # kernel-composed forms (decision 32): the operator with a convolution fused into the same pass,
   # against which the sequential operator + convolve! pair is the baseline the fusion replaces
-  kernel = spectral_cutoff(s, m, T(size(field_data(s), 2)) / 3)
+  kernel = spectral_cutoff(m, T(size(field_data(s), 2)) / 3)
   group["helmholtz!∘kernel vec->vec | $tag"]   = @benchmarkable (helmholtz_projection!($uout, $u, $m, $kernel); bench_sync(field_data($uout)))
   group["divergence!∘kernel vec->scalar | $tag"] = @benchmarkable (divergence!($sout, $u, $m, $kernel); bench_sync(field_data($sout)))
 end

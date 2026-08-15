@@ -22,7 +22,7 @@ euclidean(v) = sqrt(sum(abs2, v))      # avoid a LinearAlgebra test-env dependen
       grid = Grid3D(gs, (T(2π), T(2π), T(2π)))
       spec0 = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
       mult = FieldSpectralMultipliers(spec0)
-      window = kernel_array(assignment_window(spec0, mult))
+      window = kernel_array(assignment_window(mult))
       @test window[1, 1, 1] ≈ one(Complex{T})              # Ŵ(0) = 1
       @test all(w -> 0 < real(w) <= 1 + sqrt(eps(T)) && abs(imag(w)) <= sqrt(eps(T)), window)  # real, (0, 1], no zeros
       # independent ∏ sinc² from the per-axis |k_a|
@@ -58,7 +58,7 @@ euclidean(v) = sqrt(sum(abs2, v))      # avoid a LinearAlgebra test-env dependen
     density = anterpolate(grid, PointSet(coordinates), ScalarPointValues(ones(M)), linear)   # counts / cell
     mean_density = M / N^3
     overdensity = to_spectral(ScalarFieldPhysical(field_data(density) ./ mean_density .- 1, grid), plans)
-    window = assignment_window(overdensity, multipliers)
+    window = assignment_window(multipliers)
     deconvolved = convolve(overdensity, inv(window))     # ÷ Ŵ, fused: 1/∏σₐ = ∏(1/σₐ), no field built
     separations, ξ = radial_correlation(deconvolved, plans)
     g_fft = 1 .+ ξ                                          # g(r) = 1 + ⟨δ(x)δ(x+r)⟩  (shot noise → shell 0)

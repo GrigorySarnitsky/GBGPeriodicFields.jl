@@ -282,7 +282,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
           # …and the EXACT moment has its own route, with no binning in it at all. This is what a
           # consumer wanting a spectral moment should use; the spectrum's abscissa deliberately stays
           # the grid's nominal one so it is field-independent and works for a co-spectrum.
-          @test isapprox(weighted_inner(field, radial_kernel(k2 -> sqrt(k2), field, m)),
+          @test isapprox(weighted_inner(field, radial_kernel(k2 -> sqrt(k2), m)),
                          exact_moment; rtol = rtol, atol = atol)
         end
 
@@ -310,8 +310,8 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         m = FieldSpectralMultipliers(zero_scalar())
         # A weight is a KERNEL: a bare `ScalarFieldSpectral` is no longer accepted in that role.
         ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp))
-        ksq = radial_kernel(identity, zero_scalar(), m)   # w = |k|², as the radial symbol itself
-        band = spectral_cutoff(zero_scalar(), m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
+        ksq = radial_kernel(identity, m)   # w = |k|², as the radial symbol itself
+        band = spectral_cutoff(m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
 
         f = tospec(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp))
         u = tospec(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp))
@@ -343,7 +343,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         # The oracle is each kernel's own materialized form: a compressed kernel and the coefficients
         # it stands for must weight the reduction identically, which is what makes the class a storage
         # choice rather than a semantic one.
-        separable = assignment_window(zero_scalar(), m)          # SeparableKernel, real sinc² factors
+        separable = assignment_window(m)          # SeparableKernel, real sinc² factors
         product   = convolve(band, separable)                     # cross-family ⇒ ProductKernel
         for (name, kernel) in (("radial", band), ("separable", separable), ("product", product))
           for spectral in (f, u, A)
@@ -356,7 +356,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         # --- a COMPLEX weight is rejected, not silently reduced to its real part (decision 62) ---
         # `translation_kernel` is the natural way to reach this: it is the one complex builder, and its
         # real part is a cosine attenuation, so accepting it would answer a question nobody asked.
-        phase = translation_kernel(zero_scalar(), m, (T(0.3), T(0.1), T(0.2)))
+        phase = translation_kernel(m, (T(0.3), T(0.1), T(0.2)))
         @test_throws ArgumentError weighted_inner(f, phase)
         @test_throws ArgumentError weighted_inner(f, g, phase)
         @test_throws ArgumentError weighted_inner(f, convolve(band, phase))   # complex survives composition

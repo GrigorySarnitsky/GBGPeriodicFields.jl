@@ -188,8 +188,8 @@ function run_relations_lane(configs)
       ("ℙ is self-adjoint",
        inner(helmholtz_projection(b.uh, m), b.vh), inner(b.uh, helmholtz_projection(b.vh, m))),
       ("⟨f, w·g⟩ symmetric in f, g",
-       weighted_inner(b.sh, b.th, materialize_kernel(radial_kernel(identity, z, m))),
-       weighted_inner(b.th, b.sh, materialize_kernel(radial_kernel(identity, z, m)))),
+       weighted_inner(b.sh, b.th, materialize_kernel(radial_kernel(identity, m))),
+       weighted_inner(b.th, b.sh, materialize_kernel(radial_kernel(identity, m)))),
       ("M⟨Wf, q⟩ = N⟨f, Wᵀq⟩",
        npoints(b.points) * inner(interpolate(b.s, b.points, CatmullRom), b.q),
        prod(config.grid.grid_size) * inner(b.s, anterpolate(config.grid, b.points, b.q, CatmullRom))),
@@ -230,8 +230,8 @@ function run_relations_lane(configs)
        first(last(radial_correlation(b.sh, b.plans0))),
        ref_spectral_inner(field_data(b.sh), field_data(b.sh), config.grid, config.layout, 0)),
       ("cutoff is idempotent",
-       field_data(convolve(convolve(b.sh, spectral_cutoff(z, m, b.T(3))), spectral_cutoff(z, m, b.T(3)))),
-       field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3))))),
+       field_data(convolve(convolve(b.sh, spectral_cutoff(m, b.T(3))), spectral_cutoff(m, b.T(3)))),
+       field_data(convolve(b.sh, spectral_cutoff(m, b.T(3))))),
       # Against the REFERENCE, not against `inner`: `l2norm(s) = sqrt(inner(s, s))` by definition
       # (src/Reductions.jl), so comparing the two was `sqrt(inner)^2` against `inner` and no defect in
       # `inner` could break it — while crediting both operations with identity coverage.
@@ -253,7 +253,7 @@ function run_relations_lane(configs)
       ("inv(k) ⋆ k = id",
        let invertible = StoredKernel(
              ScalarFieldSpectral(GBGPeriodicFields.Convolution._kernel_data(
-                                   materialize_kernel(spectral_cutoff(z, m, b.T(3)))) .+
+                                   materialize_kernel(spectral_cutoff(m, b.T(3)))) .+
                                  one(Complex{b.T}),
                                  config.grid, config.layout))
          field_data(convolve(convolve(b.sh, invertible), inv(invertible)))
@@ -285,15 +285,15 @@ function run_relations_lane(configs)
         end, point_coordinates(b.points)) :
        (:skip, nothing, nothing)),
       ("kernel composition is associative",
-       field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(z, m, b.T(3)),
-                                                   spectral_band(z, m, b.T(1), b.T(4))),
-                                          spectral_cutoff(z, m, b.T(2))))),
-       field_data(convolve(b.sh, convolve(spectral_cutoff(z, m, b.T(3)),
-                                          convolve(spectral_band(z, m, b.T(1), b.T(4)),
-                                                   spectral_cutoff(z, m, b.T(2))))))),
+       field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(m, b.T(3)),
+                                                   spectral_band(m, b.T(1), b.T(4))),
+                                          spectral_cutoff(m, b.T(2))))),
+       field_data(convolve(b.sh, convolve(spectral_cutoff(m, b.T(3)),
+                                          convolve(spectral_band(m, b.T(1), b.T(4)),
+                                                   spectral_cutoff(m, b.T(2))))))),
       ("materialize agrees with compressed",
-       field_data(convolve(b.sh, spectral_cutoff(z, m, b.T(3)))),
-       field_data(convolve(b.sh, materialize_kernel(spectral_cutoff(z, m, b.T(3)))))),
+       field_data(convolve(b.sh, spectral_cutoff(m, b.T(3)))),
+       field_data(convolve(b.sh, materialize_kernel(spectral_cutoff(m, b.T(3)))))),
     )
 
     # Coverage is recorded from the checks this lane ACTUALLY EVALUATES, matched to the table by name.
@@ -450,7 +450,7 @@ function run_property_lanes(configs)
     allocation_bound = max(512, smallest_field ÷ 4)
     # The kernel is built ONCE, outside the measurement: constructing it inside the measured call
     # charged kernel construction to `convolve!`.
-    allocation_kernel = spectral_cutoff(z, m, b.T(3))
+    allocation_kernel = spectral_cutoff(m, b.T(3))
     u, v, A, uh, vh, half = b.u, b.v, b.A, b.uh, b.vh, b.T(1) / 2
     # FRESH destinations. Measuring `add!(u, u, v)` in place mutated the workbench that the ordering
     # and rejection blocks below read, so those checks ran on data the seed does not name — the same
@@ -497,7 +497,7 @@ function run_property_lanes(configs)
          ("⟨f, Δf⟩ ≤ 0  (Δ is negative-definite)", inner(b.sh, laplacian(b.sh, m)) <= 0),
          ("minimum ≤ maximum", minimum(b.s) <= maximum(b.s)),
          ("a sharp cutoff cannot raise the norm",
-          l2norm(convolve(b.sh, spectral_cutoff(z, m, b.T(3)))) <= l2norm(b.sh) * (1 + 1e-8)))
+          l2norm(convolve(b.sh, spectral_cutoff(m, b.T(3)))) <= l2norm(b.sh) * (1 + 1e-8)))
       count!(:inequality)
       holds || record!(:inequality, "$(name) is violated [$(config.name)]")
     end
@@ -508,9 +508,9 @@ function run_property_lanes(configs)
     for (name, call) in
         (("lpnorm with p < 1", () -> lpnorm(b.u, 0.5)),
          ("lpnorm with a negative p", () -> lpnorm(b.u, -2)),
-         ("spectral_band with lo > hi", () -> spectral_band(z, m, b.T(3), b.T(1))),
-         ("spectral_band with a negative edge", () -> spectral_band(z, m, -b.T(1), b.T(3))),
-         ("spectral_cutoff with a NaN edge", () -> spectral_cutoff(z, m, b.T(NaN))),
+         ("spectral_band with lo > hi", () -> spectral_band(m, b.T(3), b.T(1))),
+         ("spectral_band with a negative edge", () -> spectral_band(m, -b.T(1), b.T(3))),
+         ("spectral_cutoff with a NaN edge", () -> spectral_cutoff(m, b.T(NaN))),
          ("NUFFT with a non-positive tolerance", () -> NUFFT(z; tol = zero(b.T))),
 
          ("NUFFT with a negative tolerance", () -> NUFFT(z; tol = -b.T(1))),

@@ -129,7 +129,7 @@ admits: `spectral_cutoff` builds an isotropic sharp low-pass as a `RadialKernel`
 storing no coefficients at all — here keeping ``|k| \le 4``:
 
 ```jldoctest tutorial
-julia> cutoff = spectral_cutoff(uh, multipliers, 4.0);
+julia> cutoff = spectral_cutoff(multipliers, 4.0);
 
 julia> field_tensor_order(convolve(uh, cutoff))
 1

@@ -153,7 +153,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     u = VectorFieldPhysical((x, y, z) -> (sin(x) + cos(2y), sin(y) * cos(z), cos(x) + sin(3z)), grid)
     us = to_spectral(u, plans_for(u))
     m = FieldSpectralMultipliers(us)
-    g = spectral_cutoff(us, m, 2.5)                     # nontrivial: removes the |k| > 2.5 shells
+    g = spectral_cutoff(m, 2.5)                     # nontrivial: removes the |k| > 2.5 shells
 
     # the fused form equals the sequential operator-then-convolve composition, coefficient for
     # coefficient (α = 1 makes the fused scale exactly ĝ, so the products round identically)
@@ -295,7 +295,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test_throws MethodError laplacian(phi, m)
     @test_throws MethodError inverse_laplacian(phi, m)
     @test_throws MethodError helmholtz_projection(u, m)
-    g_absence = spectral_cutoff(to_spectral(phi, plans_for(phi)), m, 2.5)
+    g_absence = spectral_cutoff(m, 2.5)
     @test_throws MethodError divergence(u, m, g_absence)                 # kernel-composed forms too
     @test_throws MethodError helmholtz_projection(u, m, g_absence)
   end
@@ -445,7 +445,7 @@ end
   vrh = to_spectral(vr, plans_v)
   # `squared_wavenumber_field` returns the |k|² COORDINATE, a field a consumer builds symbols from —
   # so using it as a kernel now states that role explicitly.
-  w = radial_kernel(identity, sh, m)
+  w = radial_kernel(identity, m)
   @test field_data(symmetric_gradient(vrh, m)) ≈ field_data(sym(gradient(vrh, m)))
   fused_div = F.similar_field(sh, Val(0))
   divergence!(fused_div, vrh, m, w)
@@ -482,7 +482,7 @@ end
     lk = RealFourierLayout()
     s0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(gk, lk, Val(0))), gk, lk)
     mk = FieldSpectralMultipliers(s0)
-    compressed = translation_kernel(s0, mk, (TP(0.3), TP(-0.7), TP(1.1)))
+    compressed = translation_kernel(mk, (TP(0.3), TP(-0.7), TP(1.1)))
     stored = materialize_kernel(compressed)
     rng = MersenneTwister(50)
     u = VectorFieldSpectral(rand(rng, Complex{TP}, size(field_data(s0))..., 3), gk, lk)

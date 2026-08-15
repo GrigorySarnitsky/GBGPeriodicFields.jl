@@ -85,7 +85,6 @@ using ..Fields:
   _check_matching_context,
   spectral_field_shape,
   SpectralKernel,
-  SpectralKernel,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
   FieldSpectralMultipliers,
@@ -98,6 +97,7 @@ using ..Fields:
   check_field_compatibility,
   _check_field_domain_compatibility,
   _check_multipliers_compatibility,
+  _multipliers_scalar_type,
   _squared_wavenumber_broadcast
 
 using ..FiberSections:
@@ -327,8 +327,7 @@ RadialKernel{T}(sigma::F, multipliers::M, grid::G, layout::L) where {T, F, M, G,
 
 
 """
-    radial_kernel(sigma, reference::AbstractFieldSpectral,
-                  multipliers::FieldSpectralMultipliers) -> RadialKernel
+    radial_kernel(sigma, multipliers::FieldSpectralMultipliers) -> RadialKernel
 
 Build the [`RadialKernel`](@ref) for an arbitrary real **function** of the squared wavenumber — its
 symbol, in the sense the differential operators use — the general constructor behind
@@ -340,19 +339,17 @@ The arguments are:
   `Type` is not a bitstype and a device rejects it at launch — and no mutable state or scalar indexing
   of device arrays; anything it captures by value, such as a viscosity or a substep, is free to vary per call
   because building a kernel allocates nothing of field size.
-- `reference` — a field in spectral representation fixing the base, layout and element type.
-- `multipliers` — the wavenumber arrays supplying ``|k|^2``.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid,
+  Fourier layout, element type and array backend the kernel takes as its own.
 
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
 rebuild — where a stored kernel would pay a full field write each time.
 """
-function radial_kernel(sigma::F, reference::AbstractFieldSpectral,
-    multipliers::FieldSpectralMultipliers) where {F}
-  _check_multipliers_compatibility(reference, multipliers)
-  T = field_scalar_type(reference)
-  return RadialKernel{T}(sigma, multipliers, field_grid(reference), field_layout(reference))
+function radial_kernel(sigma::F, multipliers::FieldSpectralMultipliers) where {F}
+  T = _multipliers_scalar_type(multipliers)
+  return RadialKernel{T}(sigma, multipliers, multipliers.grid, multipliers.fourier_layout)
 end
 
 
@@ -1411,14 +1408,13 @@ end
 
 
 """
-    spectral_band(reference::AbstractFieldSpectral,
-                  multipliers::FieldSpectralMultipliers,
+    spectral_band(multipliers::FieldSpectralMultipliers,
                   wavenumber_low::Real, wavenumber_high::Real) -> RadialKernel
 
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
 itself rather than its coefficients, so it costs no field of storage. Use
 [`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
-`reference`'s grid and array backend: the transfer function is ``1`` on the wavenumber shell and
+the multipliers' grid and array backend: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
 
 Convolve a field with it to keep an isotropic shell of wavenumbers — a de-aliasing band, a forcing
@@ -1427,8 +1423,8 @@ the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass c
 ``k_\\mathrm{lo} = 0``.
 
 The arguments are:
-- `reference` — a field in spectral representation whose grid and backend the kernel matches.
-- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+  and array backend the kernel takes as its own.
 - `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
   ``k_\\mathrm{hi}`` of the retained shell.
 
@@ -1439,9 +1435,9 @@ The arguments are:
 with ``|k|^2`` keeping the true value at the Nyquist frequency (the Laplacian convention). The band
 edges are the consumer's choice.
 """
-function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
-    wavenumber_low::Real, wavenumber_high::Real)
-  T = field_scalar_type(reference)
+function spectral_band(multipliers::FieldSpectralMultipliers,
+                       wavenumber_low::Real, wavenumber_high::Real)
+  T = _multipliers_scalar_type(multipliers)
   # The band is defined by |k|, so the edges must be non-negative and ordered. Squaring them first
   # hid both errors: a negative cutoff squared to a positive threshold and was silently reinterpreted
   # as its absolute value, and a reversed pair produced an empty kernel that filtered everything away
@@ -1456,20 +1452,18 @@ function spectral_band(reference::AbstractFieldSpectral, multipliers::FieldSpect
   # a device rejects it at launch ("passing non-bitstype argument"). `one(T)`/`zero(T)` inside the body
   # would do exactly that.
   in_band, out_of_band = one(T), zero(T)
-  return radial_kernel(squared -> ifelse(low_squared <= squared <= high_squared, in_band, out_of_band),
-                       reference, multipliers)
+  return radial_kernel(squared -> ifelse(low_squared <= squared <= high_squared, in_band, out_of_band), multipliers)
 end
 
 
 """
-    spectral_cutoff(reference::AbstractFieldSpectral,
-                    multipliers::FieldSpectralMultipliers,
+    spectral_cutoff(multipliers::FieldSpectralMultipliers,
                     wavenumber_cutoff::Real) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
 expand it into a `StoredKernel`. It is built on
-`reference`'s grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
+the multipliers' grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
 
 Convolve a field with it for the ideal low-pass projection, the basis of spectral truncation and
@@ -1477,8 +1471,8 @@ de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and
 special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 
 The arguments are:
-- `reference` — a field in spectral representation whose grid and backend the kernel matches.
-- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+  and array backend the kernel takes as its own.
 - `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
 
 ```math
@@ -1489,20 +1483,19 @@ The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale,
 The squared wavenumber ``|k|^2`` keeps the true value at the Nyquist frequency (the Laplacian
 convention).
 """
-function spectral_cutoff(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
-    wavenumber_cutoff::Real)
-  return spectral_band(reference, multipliers, zero(wavenumber_cutoff), wavenumber_cutoff)
+function spectral_cutoff(multipliers::FieldSpectralMultipliers,
+                         wavenumber_cutoff::Real)
+  return spectral_band(multipliers, zero(wavenumber_cutoff), wavenumber_cutoff)
 end
 
 
 """
-    assignment_window(reference::AbstractFieldSpectral,
-                      multipliers::FieldSpectralMultipliers) -> SeparableKernel
+    assignment_window(multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
 Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
 of depositing point mass onto grid cells, unrelated to the fused elementwise write that
 `threading_cutoff` measures — as a [`SeparableKernel`](@ref) — its three
-per-axis factors rather than a field of coefficients — on `reference`'s grid and array backend, for
+per-axis factors rather than a field of coefficients — on the multipliers' grid and array backend, for
 deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
@@ -1514,8 +1507,8 @@ mass over a tent, so the gridded density is the true density ``\\rho`` convolved
 ``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function ``g(r)``
 (the pair density at separation ``r`` relative to an uncorrelated uniform gas).
 
-Here `reference` is a field in spectral representation whose grid and backend the window matches, and
-`multipliers` supplies the wavenumber arrays for that grid, checked against `reference`.
+Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+and array backend the window takes as its own.
 
 As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tensor product of per-axis
 tents:
@@ -1547,10 +1540,9 @@ window; the density estimate and the correlation normalization stay consumer-sid
 Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
 Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988.
 """
-function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
-  _check_multipliers_compatibility(reference, multipliers)
-  T = field_scalar_type(reference)
-  spacing = field_grid(reference).grid_spacing
+function assignment_window(multipliers::FieldSpectralMultipliers)
+  T = _multipliers_scalar_type(multipliers)
+  spacing = multipliers.grid.grid_spacing
   # sinc²(|k_a| Δx_a / 2) per axis, GPU-safe (ifelse, not Base.sinc's branch); 1 at k_a = 0.
   axis(squared_wavenumber, Δ) =
     (y = sqrt.(squared_wavenumber) .* (T(Δ) / 2); ifelse.(iszero.(y), one(T), sin.(y) ./ y) .^ 2)
@@ -1559,17 +1551,16 @@ function assignment_window(reference::AbstractFieldSpectral, multipliers::FieldS
   w3 = reshape(axis(multipliers.squared_wavenumber_3, spacing[3]), 1, 1, :)
   # Real factors: a real multiplier against a complex field is cheaper than a complex one, and the
   # window is real by construction (an even function of each k_a).
-  return SeparableKernel{T}(w1, w2, w3, field_grid(reference), field_layout(reference))
+  return SeparableKernel{T}(w1, w2, w3, multipliers.grid, multipliers.fourier_layout)
 end
 
 
 """
-    translation_kernel(reference::AbstractFieldSpectral,
-                       multipliers::FieldSpectralMultipliers,
+    translation_kernel(multipliers::FieldSpectralMultipliers,
                        offset::NTuple{3, Real}) -> SeparableKernel
 
 Build the kernel that translates a field by the physical displacement ``h`` = `offset`, returned as a
-[`SeparableKernel`](@ref) on `reference`'s grid and array backend: convolving a field ``f``
+[`SeparableKernel`](@ref) on the multipliers' grid and array backend: convolving a field ``f``
 with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
 
 Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the
@@ -1587,8 +1578,8 @@ number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translate
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
 The arguments are:
-- `reference` — a field in spectral representation whose grid and backend the kernel matches.
-- `multipliers` — the wavenumber arrays for that grid, checked against `reference`.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+  and array backend the kernel takes as its own.
 - `offset` — the displacement ``h = (h_1, h_2, h_3)``, a physical length per axis in the units of the
   box rather than a count of cells; a half-cell displacement is `0.5 .* grid.grid_spacing` on the
   `Grid3D` the field lives on.
@@ -1628,10 +1619,9 @@ applies.
     are exact everywhere, and a field with no Nyquist content — one truncated by a de-aliasing cutoff —
     never meets the caveat at all.
 """
-function translation_kernel(reference::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers,
-    offset::NTuple{3, Real})
-  _check_multipliers_compatibility(reference, multipliers)
-  T = field_scalar_type(reference)
+function translation_kernel(multipliers::FieldSpectralMultipliers,
+                            offset::NTuple{3, Real})
+  T = _multipliers_scalar_type(multipliers)
   # exp(-i k h) = cos(k h) - i·sin(k h) splits into an even and an odd function of k, and the two
   # wavenumber families the multipliers carry (invariant 5) are precisely what each half needs: the
   # even cosine takes the true wavenumber |k_a| = √(k_a²), which keeps its Nyquist value, while the
@@ -1646,7 +1636,7 @@ function translation_kernel(reference::AbstractFieldSpectral, multipliers::Field
   phase_2 = reshape(axis_phase(multipliers.squared_wavenumber_2, multipliers.wavenumber_2, offset[2]), 1, :, 1)
   phase_3 = reshape(axis_phase(multipliers.squared_wavenumber_3, multipliers.wavenumber_3, offset[3]), 1, 1, :)
   # The three factors ARE the kernel: their product is evaluated per mode, never materialized.
-  return SeparableKernel{T}(phase_1, phase_2, phase_3, field_grid(reference), field_layout(reference))
+  return SeparableKernel{T}(phase_1, phase_2, phase_3, multipliers.grid, multipliers.fourier_layout)
 end
 
 
@@ -1669,7 +1659,7 @@ The displacement convention and the Nyquist treatment are `translation_kernel`'s
 """
 function translation_kernel!(kernel::SeparableKernel{T}, multipliers::FieldSpectralMultipliers,
     offset::NTuple{3, Real}) where {T}
-  # The allocating builder derives its context from the reference field; this one is handed a kernel
+  # The allocating builder derives its context from the multipliers; this one is handed a kernel
   # and a multiplier set that were built independently, so it has to check they agree. Without the
   # check, multipliers from another domain of the same axis lengths rewrote the kernel with the wrong
   # physical phase and the wrong displacement — a silent corruption, since every subsequent

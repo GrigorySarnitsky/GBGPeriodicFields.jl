@@ -263,21 +263,21 @@ function run_value_lane(configs)
                                                              ref_dft_forward(ds, grid, layout)),
       # The |k|² symbol itself, materialized: `squared_wavenumber_field` was DELETED by decision 60,
       # so this row tests `radial_kernel(identity, …)`, which is that same object at a closure's cost.
-      (:radial_kernel, GBGPeriodicFields.Convolution._kernel_data(materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
+      (:radial_kernel, GBGPeriodicFields.Convolution._kernel_data(materialize_kernel(radial_kernel(identity, multipliers))),
                                                              complex.(ref_squared_wavenumber(grid, layout, shape))),
-      (:spectral_cutoff, kernel_data(spectral_cutoff(spectral_zero, multipliers, cutoff)),
+      (:spectral_cutoff, kernel_data(spectral_cutoff(multipliers, cutoff)),
                                                              complex.(ref_spectral_cutoff(grid, layout, shape, cutoff))),
-      (:spectral_band,   kernel_data(spectral_band(spectral_zero, multipliers, T(1), cutoff)),
+      (:spectral_band,   kernel_data(spectral_band(multipliers, T(1), cutoff)),
                                                              complex.(ref_spectral_band(grid, layout, shape, T(1), cutoff))),
-      (:assignment_window, kernel_data(assignment_window(spectral_zero, multipliers)),
+      (:assignment_window, kernel_data(assignment_window(multipliers)),
                                                              complex.(ref_assignment_window(grid, layout, shape))),
-      (:translation_kernel, kernel_data(translation_kernel(spectral_zero, multipliers, offset)),
+      (:translation_kernel, kernel_data(translation_kernel(multipliers, offset)),
                                                              ref_translation_kernel(grid, layout, shape, offset)),
       # A SEPARABLE kernel, not the radial one the row above already materializes. `kernel_data` calls
       # `materialize_kernel` internally, so pointing this row at the same expression as its neighbour made
       # the two literally identical: it could never disagree, and it credited the operation in the oracle
       # registry while asserting nothing beyond what the neighbour asserts.
-      (:materialize_kernel, kernel_data(translation_kernel(spectral_zero, multipliers, offset)),
+      (:materialize_kernel, kernel_data(translation_kernel(multipliers, offset)),
                             ref_translation_kernel(grid, layout, shape, offset)),
       (:inner,          inner(sh, sh),                       ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
       # The Parseval-weighted fiber contraction, anchored above R = 0. At R = 0 there are `3^0 = 1`
@@ -295,7 +295,7 @@ function run_value_lane(configs)
       # `weighted_inner`'s own summation. Every sibling kernel row already used `ref_squared_wavenumber`;
       # this was the one that did not. It is the same failure decision 55 recorded for the GATE's
       # `weighted_inner` oracle — fixed there, never carried across to the survey.
-      (:weighted_inner, weighted_inner(sh, sh, materialize_kernel(radial_kernel(identity, spectral_zero, multipliers))),
+      (:weighted_inner, weighted_inner(sh, sh, materialize_kernel(radial_kernel(identity, multipliers))),
                         ref_weighted_inner(field_data(sh), field_data(sh),
                                            ref_squared_wavenumber(grid, layout, shape),
                                            grid, layout, 0)),
@@ -334,8 +334,8 @@ function run_value_lane(configs)
       # The cross-family `ProductKernel` (radial ∘ separable). Radial ∘ radial collapses back to a
       # radial kernel by decision 51, so composing two radials never builds this type at all; the pool
       # constructs one and nothing compared its coefficients to anything.
-      (:convolve,        kernel_data(convolve(spectral_cutoff(spectral_zero, multipliers, cutoff),
-                                              translation_kernel(spectral_zero, multipliers, offset))),
+      (:convolve,        kernel_data(convolve(spectral_cutoff(multipliers, cutoff),
+                                              translation_kernel(multipliers, offset))),
                          complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)) .*
                          ref_translation_kernel(grid, layout, shape, offset)),
       # The KERNEL-COMPOSED arities (decision 32). `divergence!`/`helmholtz_projection!` with a trailing
@@ -343,12 +343,12 @@ function run_value_lane(configs)
       # pass; only the plain forms were value-checked, so a defect that dropped the kernel factor or
       # applied it with the wrong placement was indistinguishable from a correct fused pass.
       (:divergence,      field_data(divergence(uh, multipliers,
-                                               spectral_cutoff(spectral_zero, multipliers, cutoff))),
+                                               spectral_cutoff(multipliers, cutoff))),
                          ref_divergence(field_data(uh), grid, layout) .*
                          ref_spectral_cutoff(grid, layout, shape, cutoff)),
       (:helmholtz_projection,
                          field_data(helmholtz_projection(uh, multipliers,
-                                                         spectral_cutoff(spectral_zero, multipliers, cutoff))),
+                                                         spectral_cutoff(multipliers, cutoff))),
                          ref_helmholtz(field_data(uh), grid, layout) .*
                          ref_spectral_cutoff(grid, layout, shape, cutoff)),
       (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tol = 1e-10))),
@@ -408,19 +408,19 @@ function run_value_lane(configs)
       (:helmholtz_projection!, field_data(helmholtz_projection!(similar_field(spectral_zero, Val(1)), uh, multipliers)),
                                                                 ref_helmholtz(field_data(uh), grid, layout)),
       # ── convolution: the coefficientwise product of Fourier symbols ───────────────────────────
-      (:convolve,       field_data(convolve(sh, spectral_cutoff(spectral_zero, multipliers, cutoff))),
+      (:convolve,       field_data(convolve(sh, spectral_cutoff(multipliers, cutoff))),
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
       (:convolve!,      field_data(convolve!(similar_field(spectral_zero, Val(0)), sh,
-                                             spectral_cutoff(spectral_zero, multipliers, cutoff))),
+                                             spectral_cutoff(multipliers, cutoff))),
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
-      (:⋆,              field_data(sh ⋆ spectral_cutoff(spectral_zero, multipliers, cutoff)),
+      (:⋆,              field_data(sh ⋆ spectral_cutoff(multipliers, cutoff)),
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
       (:exponential_convolve, field_data(exponential_convolve(sh, multipliers, -T(1) / 10)),
                         ref_convolve(field_data(sh), complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10)))),
       (:exponential_convolve!, field_data(exponential_convolve!(similar_field(spectral_zero, Val(0)), sh,
                                                                 multipliers, -T(1) / 10)),
                         ref_convolve(field_data(sh), complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10)))),
-      (:radial_kernel,  kernel_data(radial_kernel(k2 -> exp(-k2 / 10), spectral_zero, multipliers)),
+      (:radial_kernel,  kernel_data(radial_kernel(k2 -> exp(-k2 / 10), multipliers)),
                         complex.(ref_exponential_symbol(grid, layout, shape, -T(1) / 10))),
       # A NON-CONSTANT kernel. The fixture was uniformly 2 everywhere and the expectation uniformly 0.5,
       # so an implementation computing `1/data[1]` and broadcasting it over the whole array passed with
@@ -428,21 +428,21 @@ function run_value_lane(configs)
       # `materialize_kernel` returns a `StoredKernel` since decision 60, so the field arithmetic is done
       # on the field it wraps and the sum is re-declared as a kernel.
       (:inv,            kernel_data(inv(StoredKernel(spectral_zero_ones +
-                                                     materialize_kernel(spectral_cutoff(spectral_zero, multipliers, cutoff)).field))),
+                                                     materialize_kernel(spectral_cutoff(multipliers, cutoff)).field))),
                         complex.(one(T) ./ (one(T) .+ ref_spectral_cutoff(grid, layout, shape, cutoff)))),
       # The COMPOSED kernel, elementwise. Kernel-to-kernel composition was checked only by
       # "composition is associative" — and associativity holds for any associative combinator, so
       # elementwise addition, min, max, or "return the first operand" would all have passed while
       # silently replacing the coefficientwise product. The pool even builds a composed kernel; nothing
       # ever compared its coefficients to anything.
-      (:convolve,       kernel_data(convolve(spectral_cutoff(spectral_zero, multipliers, cutoff),
-                                             spectral_band(spectral_zero, multipliers, T(1), cutoff))),
+      (:convolve,       kernel_data(convolve(spectral_cutoff(multipliers, cutoff),
+                                             spectral_band(multipliers, T(1), cutoff))),
                         complex.(ref_spectral_cutoff(grid, layout, shape, cutoff) .*
                                  ref_spectral_band(grid, layout, shape, T(1), cutoff))),
       # `translation_kernel!` updates a SeparableKernel in place — the compressed per-axis factors,
       # not a materialized field — so the in-place form is fed the kernel its own builder returns.
       # Built with a DIFFERENT offset, so an in-place form that writes nothing cannot pass.
-      (:translation_kernel!, kernel_data(translation_kernel!(translation_kernel(spectral_zero, multipliers,
+      (:translation_kernel!, kernel_data(translation_kernel!(translation_kernel(multipliers,
                                                                                ntuple(d -> -offset[d], 3)),
                                                              multipliers, offset)),
                         ref_translation_kernel(grid, layout, shape, offset)),

@@ -42,7 +42,7 @@ evalues() = ScalarPointValues(zeros(12))
 
 # One carrier of each kind, built on a given context.
 carrier_of(::Val{:multipliers}, c) = FieldSpectralMultipliers(sspec(c))
-carrier_of(::Val{:kernel}, c) = spectral_band(sspec(c), carrier_of(Val(:multipliers), c), 1, 3)
+carrier_of(::Val{:kernel}, c) = spectral_band(carrier_of(Val(:multipliers), c), 1, 3)
 carrier_of(::Val{:nufft}, c) = NUFFT(sspec(c))
 carrier_of(::Val{:plans}, c) = FieldTransformPlans(sphys(c), sspec(c))
 
@@ -67,13 +67,8 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:exponential_convolve, :multipliers) => (c, k) -> exponential_convolve(sspec(c), k, -0.1),
   (:exponential_convolve!, :multipliers)=> (c, k) -> exponential_convolve!(sspec(c), sspec(c), k, -0.1),
   (:radial_spectrum, :multipliers)      => (c, k) -> radial_spectrum(sspec(c), k),
-  (:spectral_cutoff, :multipliers)      => (c, k) -> spectral_cutoff(sspec(c), k, 2),
-  (:spectral_band, :multipliers)        => (c, k) -> spectral_band(sspec(c), k, 1, 3),
-  (:radial_kernel, :multipliers)        => (c, k) -> radial_kernel(x -> exp(-x), sspec(c), k),
-  (:assignment_window, :multipliers)    => (c, k) -> assignment_window(sspec(c), k),
-  (:translation_kernel, :multipliers)   => (c, k) -> translation_kernel(sspec(c), k, (0.1, 0.2, 0.3)),
   (:translation_kernel!, :multipliers)  => (c, k) -> translation_kernel!(
-      translation_kernel(sspec(c), carrier_of(Val(:multipliers), c), (0.1, 0.2, 0.3)), k, (0.2, 0.3, 0.4)),
+      translation_kernel(carrier_of(Val(:multipliers), c), (0.1, 0.2, 0.3)), k, (0.2, 0.3, 0.4)),
 
   # --- operations taking a kernel ---
   (:convolve, :kernel)                  => (c, k) -> convolve(vspec(c), k),
@@ -106,6 +101,15 @@ const EXEMPT = Dict{Tuple{Symbol, Symbol}, String}(
   (:inv, :kernel)                => "single-carrier operation: a kernel is inverted alone, with nothing to mismatch against",
   (:materialize_kernel, :kernel) => "single-carrier operation: a kernel is expanded alone, with nothing to mismatch against",
   (:translation_kernel!, :kernel)=> "swept under its :multipliers pair, which is the argument carrying the foreign context",
+  # Decision 66 dropped the vestigial `reference` field from the five kernel builders, so each now takes
+  # exactly one context-carrying argument and the kernel simply adopts its context. There is no longer a
+  # second context for it to disagree with at BUILD time. Nothing is lost: a kernel carrying a foreign
+  # context is caught where it meets a field, which the nine (operation, :kernel) rows above cover.
+  (:spectral_cutoff, :multipliers)    => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
+  (:spectral_band, :multipliers)      => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
+  (:radial_kernel, :multipliers)      => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
+  (:assignment_window, :multipliers)  => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
+  (:translation_kernel, :multipliers) => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
   (:interpolate, :scheme)        => "the spline schemes carry no context — a LalescuSpline is weights only, valid on any grid",
   (:interpolate!, :scheme)       => "same: a spline scheme has no grid or layout to disagree with",
   (:anterpolate, :scheme)        => "same: a spline scheme has no grid or layout to disagree with",

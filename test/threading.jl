@@ -202,7 +202,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # route is one flat broadcast, the CPU route a hand-written slab loop. Same guard as helmholtz —
     # a CPU call must resolve to the ::CPU twin, or the bitwise check below would compare the
     # broadcast against itself and the twin would be dead code (decision 47's lesson).
-    let separable = translation_kernel(phis, m, (0.3, -0.7, 1.1)), d = similar_field(us, Val(1))
+    let separable = translation_kernel(m, (0.3, -0.7, 1.1)), d = similar_field(us, Val(1))
       target = which(Convolution._separable_convolution_pass!,
         Tuple{KA.CPU, typeof(field_data(d)), typeof(field_data(us)),
               map(typeof, (separable.factor_1, separable.factor_2, separable.factor_3, 1.0, 0.0))...})
@@ -217,7 +217,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
 
     # convolution: convolve! is the same coefficientwise @_assign! map as laplacian! (β = 0 overwrite
     # via the three-argument form; β ≠ 0 accumulate below).
-    kernel = spectral_cutoff(phis, m, 5)
+    kernel = spectral_cutoff(m, 5)
     @test bitwise(() -> convolve(phis, kernel))                     # scalar field ⋆ kernel
     @test bitwise(() -> convolve(us, kernel))                       # vector field ⋆ scalar kernel (over the fiber)
     cacc_s = 2.0 * convolve(phis, kernel); cacc_t = 2.0 * convolve(phis, kernel)
@@ -397,8 +397,8 @@ end
   u = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
   b = VectorFieldSpectral(rand(ComplexF64, 5, 6, 4, 3), g, l)
   d = M.Fields.similar_field(u, Val(1))
-  sep = translation_kernel(s0, m, (0.3, -0.7, 1.1))
-  rad = spectral_cutoff(s0, m, 3.0)
+  sep = translation_kernel(m, (0.3, -0.7, 1.1))
+  rad = spectral_cutoff(m, 3.0)
   up = VectorFieldPhysical(rand(8, 6, 4, 3), g)
   vp = VectorFieldPhysical(rand(8, 6, 4, 3), g)
 

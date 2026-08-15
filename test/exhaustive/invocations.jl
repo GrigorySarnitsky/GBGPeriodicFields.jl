@@ -213,18 +213,18 @@ function canonical_pool(config; device = identity)
   # claimed these pools were derived by `subtypes(...)` and `subtypes(` appeared nowhere in the suite.
   # `StoredKernel` marks a FIELD as playing the kernel role, so it wraps the materialized coefficients
   # rather than the compressed closure the builder returns.
-  push("kernel: stored",     materialize_kernel(spectral_cutoff(spectral[1], multipliers, T(3))))
-  push("kernel: radial",     spectral_cutoff(spectral[1], multipliers, T(3)))
-  push("kernel: band",       spectral_band(spectral[1], multipliers, T(1), T(3)))
-  push("kernel: separable",  translation_kernel(spectral[1], multipliers, offset))
-  push("kernel: window",     assignment_window(spectral[1], multipliers))
+  push("kernel: stored",     materialize_kernel(spectral_cutoff(multipliers, T(3))))
+  push("kernel: radial",     spectral_cutoff(multipliers, T(3)))
+  push("kernel: band",       spectral_band(multipliers, T(1), T(3)))
+  push("kernel: separable",  translation_kernel(multipliers, offset))
+  push("kernel: window",     assignment_window(multipliers))
   # A GENUINE ProductKernel. Composing two separables collapses per-axis back into a `SeparableKernel`,
   # so the entry that used to sit here was a third separable one and `ProductKernel`'s own
   # `_kernel_data`, compatibility check, `inv` and materialization were unreached. Radial ∘ separable is
   # the cross-family composition that actually produces one.
-  push("kernel: product",    convolve(spectral_cutoff(spectral[1], multipliers, T(3)),
-                                      translation_kernel(spectral[1], multipliers, offset)))
-  push("kernel: field",      materialize_kernel(radial_kernel(identity, spectral[1], multipliers)))
+  push("kernel: product",    convolve(spectral_cutoff(multipliers, T(3)),
+                                      translation_kernel(multipliers, offset)))
+  push("kernel: field",      materialize_kernel(radial_kernel(identity, multipliers)))
   # Every transfer scheme.
   push("scheme: CatmullRom", CatmullRom)
   push("scheme: Lalescu21",  LalescuSpline(2, 1))

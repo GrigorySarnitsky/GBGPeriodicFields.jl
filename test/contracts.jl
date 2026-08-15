@@ -30,7 +30,7 @@ spectral_scalar(grid) = ScalarFieldSpectral(
 
   # translation_kernel! (audit CODE-16): rewriting a kernel from foreign multipliers installed the
   # wrong physical phase, and every later application then succeeded.
-  kernel = translation_kernel(s_near, m_near, (0.1, 0.2, 0.3))
+  kernel = translation_kernel(m_near, (0.1, 0.2, 0.3))
   @test translation_kernel!(kernel, m_near, (0.2, 0.3, 0.4)) === kernel     # the legal call still works
   @test_throws ArgumentError translation_kernel!(kernel, m_far, (0.2, 0.3, 0.4))
 
@@ -47,11 +47,11 @@ spectral_scalar(grid) = ScalarFieldSpectral(
   # against the same coordinates. That is now decided by the TYPES: multipliers built from a grid are
   # marked canonical, and two canonical sets on a matching grid and layout hold identical values by
   # construction, so the collapse is unconditional there and the return type is concrete.
-  band_a = spectral_band(s_near, m_near, 1, 3)
-  band_b = spectral_band(s_near, m_near, 0, 2)
+  band_a = spectral_band(m_near, 1, 3)
+  band_b = spectral_band(m_near, 0, 2)
   @test convolve(band_a, band_b) isa RadialKernel                      # identical multiplier object
   other = FieldSpectralMultipliers(s_near)                             # a DIFFERENT canonical object…
-  @test convolve(band_a, spectral_band(s_near, other, 0, 2)) isa RadialKernel   # …still collapses
+  @test convolve(band_a, spectral_band(other, 0, 2)) isa RadialKernel   # …still collapses
   # The product of two radial symbols is radial, so this is what the mathematics says; the previous
   # `===` test was conservative, and paid for it with a Union return type.
   @test isconcretetype(only(Base.return_types(convolve, (typeof(band_a), typeof(band_b)))))
@@ -60,7 +60,7 @@ spectral_scalar(grid) = ScalarFieldSpectral(
         GBGPeriodicFields.Fields.spectral_field_shape(near, CONTRACT_LAYOUT, Val(1))), near, CONTRACT_LAYOUT)
   @test field_data(convolve(u, convolve(band_a, band_b))) ==
         field_data(convolve(convolve(u, band_a), band_b))
-  @test_throws ArgumentError convolve(band_a, spectral_band(s_far, m_far, 0, 2))
+  @test_throws ArgumentError convolve(band_a, spectral_band(m_far, 0, 2))
 
   # A CUSTOM multiplier set — the six-array constructor validates lengths, not values, which is the
   # escape hatch a sheared (Rogallo) coordinate system would use. Its coordinates are not the grid's,
@@ -70,7 +70,7 @@ spectral_scalar(grid) = ScalarFieldSpectral(
     2 .* collect(m_near.wavenumber_1), collect(m_near.wavenumber_2), collect(m_near.wavenumber_3),
     4 .* collect(m_near.squared_wavenumber_1), collect(m_near.squared_wavenumber_2),
     collect(m_near.squared_wavenumber_3))
-  sheared = spectral_band(s_near, custom, 0, 2)
+  sheared = spectral_band(custom, 0, 2)
   @test convolve(band_a, sheared) isa ProductKernel
   @test convolve(sheared, sheared) isa ProductKernel
   # Both retained forms are concrete too, so no pairing leaves a Union behind.
@@ -95,12 +95,12 @@ end
   # reversed pair produced an empty kernel that filtered everything away without complaint.
   s = spectral_scalar(Grid3D((8, 6, 4), (2π, 2π, 2π)))
   m = FieldSpectralMultipliers(s)
-  @test_throws ArgumentError spectral_cutoff(s, m, -2)
-  @test_throws ArgumentError spectral_band(s, m, 3, 1)
-  @test_throws ArgumentError spectral_band(s, m, -1, 3)
-  @test_throws ArgumentError spectral_band(s, m, 1, Inf)
-  @test spectral_band(s, m, 1, 3) isa RadialKernel
-  @test spectral_cutoff(s, m, 2) isa RadialKernel
+  @test_throws ArgumentError spectral_cutoff(m, -2)
+  @test_throws ArgumentError spectral_band(m, 3, 1)
+  @test_throws ArgumentError spectral_band(m, -1, 3)
+  @test_throws ArgumentError spectral_band(m, 1, Inf)
+  @test spectral_band(m, 1, 3) isa RadialKernel
+  @test spectral_cutoff(m, 2) isa RadialKernel
 
   # lpnorm (audit CODE-10): outside 1 <= p <= Inf the formula still evaluated — p = 0 returned
   # exactly 1 for every input, and p = -Inf returned a maximum.
@@ -158,7 +158,7 @@ end
   # a non-finite coefficient that poisons every later result.
   s = spectral_scalar(Grid3D((8, 6, 4), (2π, 2π, 2π)))
   m = FieldSpectralMultipliers(s)
-  separable = translation_kernel(s, m, (0.1, 0.2, 0.3))
+  separable = translation_kernel(m, (0.1, 0.2, 0.3))
   stored = materialize_kernel(separable)                 # the STORED KERNEL class, not a field
   @test stored isa StoredKernel
   @test inv(convolve(separable, stored)) isa ProductKernel
@@ -176,7 +176,7 @@ end
   @test isapprox(field_data(convolve(convolve(u, separable), inv(separable))), field_data(u); rtol = 1e-12)
 
   # A sharp cutoff is exactly the kernel with zeros, so it is exactly the one with no inverse.
-  @test_throws ArgumentError inv(materialize_kernel(spectral_cutoff(s, m, 2)))
+  @test_throws ArgumentError inv(materialize_kernel(spectral_cutoff(m, 2)))
 end
 
 
@@ -231,15 +231,15 @@ end
   # surfaced only on application, far from the construction that caused it.
   @test_throws DimensionMismatch SeparableKernel{Float64}(zeros(ComplexF64, 3), zeros(ComplexF64, 3),
                                                           zeros(ComplexF64, 3), grid, CONTRACT_LAYOUT)
-  @test translation_kernel(reference, multipliers, (0.1, 0.2, 0.3)) isa SeparableKernel   # legal, unaffected
+  @test translation_kernel(multipliers, (0.1, 0.2, 0.3)) isa SeparableKernel   # legal, unaffected
 
   # A product's two factors are evaluated against the SAME field, so they must share a context. The
   # check sits on the constructor, so no composition route can skip it.
   far = Grid3D((8, 6, 4), (4π, 4π, 4π))
   far_reference = spectral_scalar(far)
   far_multipliers = FieldSpectralMultipliers(far_reference)
-  @test_throws ArgumentError convolve(spectral_band(reference, multipliers, 1, 3),
-                                      translation_kernel(far_reference, far_multipliers, (0.1, 0.2, 0.3)))
+  @test_throws ArgumentError convolve(spectral_band(multipliers, 1, 3),
+                                      translation_kernel(far_multipliers, (0.1, 0.2, 0.3)))
 
   # NUFFT tol sets the window width through -log10(tol), so a non-positive or non-finite value gave a
   # nonsense width while the docstring still promised agreement "to tol". A tolerance below the element

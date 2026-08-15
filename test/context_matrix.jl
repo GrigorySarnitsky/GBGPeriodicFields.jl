@@ -43,8 +43,8 @@ scalar_on(ctx) = ScalarFieldSpectral(
 function participant_builders()
   field(ctx)       = scalar_on(ctx)
   multipliers(ctx) = FieldSpectralMultipliers(scalar_on(ctx))
-  radial(ctx)      = spectral_band(scalar_on(ctx), multipliers(ctx), 1, 3)
-  separable(ctx)   = translation_kernel(scalar_on(ctx), multipliers(ctx),
+  radial(ctx)      = spectral_band(multipliers(ctx), 1, 3)
+  separable(ctx)   = translation_kernel(multipliers(ctx),
                                         ntuple(d -> 0.5 * ctx.grid.grid_spacing[d], 3))
   return Dict{Any, Function}(
     CM.AbstractFieldSpectral   => field,

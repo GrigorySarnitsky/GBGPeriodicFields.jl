@@ -279,7 +279,7 @@ end
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
-  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), uh, m)  # concentrate at large scales (a closure)
+  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), m)  # concentrate at large scales (a closure)
   convolve!(uh, uh, envelope)                             # apply it (alias-safe, coefficientwise)
   helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-safe, one pass)
   force!(uh, band, ws, p)                                 # set the forced-band energy
@@ -326,8 +326,8 @@ function run_hist(p::Params)
                                fft_flags = FFTW.MEASURE)
   m    = FieldSpectralMultipliers(uspec0)
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
-  dealias = spectral_cutoff(uspec0, m, (2 / 3) * (p.N / 2) * (2π / p.L))
-  band    = spectral_band(uspec0, m, 0.5 * (2π / p.L), (p.k_force + 0.5) * (2π / p.L))
+  dealias = spectral_cutoff(m, (2 / 3) * (p.N / 2) * (2π / p.L))
+  band    = spectral_band(m, 0.5 * (2π / p.L), (p.k_force + 0.5) * (2π / p.L))
   ws   = make_workspace(uphys0, uspec0)                 # preallocated scratch (a step allocates nothing)
   Δx   = p.L / p.N
 
@@ -398,7 +398,7 @@ function run_hist(p::Params)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), splans)
-  κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, uh, m)) / max(inner(uh, uh), 1e-300))
+  κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)
 

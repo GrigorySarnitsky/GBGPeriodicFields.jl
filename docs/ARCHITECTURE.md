@@ -1384,7 +1384,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     absent. The `convolve` / `convolve!` / `spectral_cutoff` family are separate generics, so the `FieldAlgebra`
     198-method and point-value 118-method parity baselines are unchanged.
 
-    One neutral builder ships: `spectral_cutoff(reference, multipliers, k)` — the isotropic sharp
+    One neutral builder ships: `spectral_cutoff(multipliers, k)` — the isotropic sharp
     low-pass (idempotent projection), the basis of de-aliasing / spectral truncation; physics (an LES
     filter, an integrating factor ``\exp(-\nu k^2 \Delta t)``) stays a set of coefficients the consumer builds
     from the wavenumbers, wrapped as a `StoredKernel` since decision 60 (invariant 12). Naming follows the [§2](@ref "2. The central principle: the architecture follows established mathematics") convention (the verb `convolve` for a
@@ -1409,7 +1409,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       it with `convolve`. The package hands over the coordinate; ``\nu``, ``\Delta t``, the width stay consumer-side.
       It wraps the existing `_squared_wavenumber_broadcast` (the Laplacian's ``|k|^2``, true value at
       Nyquist — invariant 5).
-    - **`spectral_band(reference, multipliers, wavenumber_low, wavenumber_high)` (`Convolution`)** — the isotropic annular
+    - **`spectral_band(multipliers, wavenumber_low, wavenumber_high)` (`Convolution`)** — the isotropic annular
       band-pass, the generalization of `spectral_cutoff` (now its `wavenumber_low = 0` special case, refactored
       to delegate). Idempotent ⇒ a projection; it selects a wavenumber shell — a de-alias band, a
       forcing band, a filter ring. With it the demos' low-shell forcing becomes pure package ops:
@@ -2771,7 +2771,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 51. **The radial kernel: a symbol of ``|k|^2``, evaluated per mode** (2026-07-29). The escalation
     decision 35 recorded and the consuming solver `GBGIsotropicTurbulence`'s `lazy-per-mode-symbols.md` requested. `spectral_cutoff` and
     `spectral_band` no longer build a field; they return a `RadialKernel` holding the symbol
-    ``\sigma`` itself, and `radial_kernel(σ, reference, multipliers)` builds one for any other symbol
+    ``\sigma`` itself, and `radial_kernel(σ, multipliers)` builds one for any other symbol
     — a smooth filter envelope, a hyperviscous ``\exp(-\nu(|k|^2)^p\tau)``, an integrating factor.
     The kernel costs a closure and three references against ``O(N^3)`` coefficients, and the builders'
     signatures are unchanged, so no call site moves.
@@ -3175,7 +3175,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `getfield` — so the cost objection to requiring the wrapper does not exist. Two package methods
     went (`Fields` 105 → 103, refrozen with the reason), and the materializing
     `squared_wavenumber_field` was **removed**: ``\lvert k\rvert^2`` is a radial function, so
-    `radial_kernel(identity, reference, multipliers)` is the same object at a closure's cost rather
+    `radial_kernel(identity, multipliers)` is the same object at a closure's cost rather
     than ``O(N^3)`` coefficients.
 
     **The rename's one hazard was caught by the pass audit and by no other layer.** A guard reading
@@ -3406,3 +3406,47 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     identical reason. The shared context object and its compatibility protocol live in `Fields`; the
     module that owns the mathematics owns the concrete types and the builders. No method is added, so
     every parity baseline is unchanged.
+
+66. **The kernel builders drop their `reference` field** (2026-08-15, from the same panel round). The
+    five builders took a `reference` field in spectral representation *and* a
+    `FieldSpectralMultipliers`, where the multipliers already carry everything the reference supplied.
+    Reading the bodies settles it: each used the reference for exactly `field_scalar_type`,
+    `field_grid`, `field_layout` and the compatibility check, and a `FieldSpectralMultipliers` stores
+    `grid::Grid3D{T}` and `fourier_layout` — so the grid, the layout and the element type are all in
+    it. Even the array backend came from the multipliers rather than the reference: the per-axis
+    factors are built by broadcasting over `multipliers.squared_wavenumber_*`, so the result already
+    lived in the multipliers' storage family.
+
+    **The build-time check was itself the proof.** `_check_multipliers_compatibility` compares the
+    scalar type, the grid and layout, and the storage family — which is to say it refused every pair
+    in which the reference could have told us anything the multipliers did not. An argument required
+    to agree with another argument in every observable respect carries no information.
+
+    **It was a fossil, not a choice.** Before decisions 50 and 51 these builders returned a
+    materialized field of coefficients, and allocating one needs a storage prototype of the right
+    shape, type and backend — which the reference was. Those decisions replaced the materialization
+    with per-axis factors and a closure, and shipped "signatures unchanged" to avoid breaking
+    consumers; the argument's only job went with the materialization and nobody noticed, because it
+    still type-checked and was still validated. The in-place `translation_kernel!` had already been
+    written in the target shape, taking the multipliers alone.
+
+    **The audit covered every other `reference` argument and found no second instance.** The
+    `similar_*` allocators are defined by their reference; `_axis_wavenumber_arrays` and
+    `_nufft_index_map` take one as a `similar` prototype, which nothing else supplies;
+    `_nufft_deconvolution` and the `NUFFT` constructor take the only field they are given. The
+    spectral `anterpolate(reference, points, quantities, scheme)` is the one arguable case — a
+    `NUFFT` scheme stores its own `reference_grid` and `reference_layout` — but its `DirectDFT`
+    sibling is a stateless singleton with no other source of grid, layout, backend or element type,
+    and both are methods of one verb under one scheme-agnostic contract, so the argument stays and
+    the mismatch is caught: the allocating form delegates to `anterpolate!`, which runs
+    `_check_nufft_compatibility`.
+
+    *Consequence for the negative surface.* Each builder now takes exactly one context-carrying
+    argument, so there is no second context to disagree with at build time and the five move from
+    invocations to exemptions in `test/context_entrypoints.jl`. Nothing is lost — a kernel carrying a
+    foreign context is caught where it meets a field, which the nine `(operation, kernel)` rows
+    already cover — and `translation_kernel!`, which takes a kernel *and* multipliers, keeps its
+    two-carrier check. The gate moves 6541 → 6523: twenty assertions retire with the five pairs (a
+    matching case and three foreign ones each) and three replace one, the retired call now being
+    asserted to fail loudly rather than resolve. No method count changes; every parity baseline
+    holds.

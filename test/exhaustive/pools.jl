@@ -407,7 +407,7 @@ function run_mismatch_lane()
   pointset_cases = pointset_pool(grid)
   physical = ScalarFieldPhysical(rand(grid.grid_size...), grid, layout)
   values = ScalarPointValues(zeros(8))
-  kernel = spectral_cutoff(scalar, multipliers, 3.0)
+  kernel = spectral_cutoff(multipliers, 3.0)
 
   # Each entry names the operation, the CANONICAL PARTNER the foreign object has to agree with, and the
   # call that puts the foreign object in the slot under test. The partner is not decoration: a mismatch

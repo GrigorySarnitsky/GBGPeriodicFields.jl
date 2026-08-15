@@ -128,10 +128,10 @@ end
   plans = FieldTransformPlans(u, z)
   uh = to_spectral(u, plans)
 
-  kernels = (spectral_cutoff(z, m, 3.0),                    # RadialKernel
-             translation_kernel(z, m, (0.1, 0.2, 0.3)),     # SeparableKernel
-             materialize_kernel(spectral_cutoff(z, m, 3.0)),# StoredKernel
-             convolve(spectral_cutoff(z, m, 3.0), translation_kernel(z, m, (0.1, 0.2, 0.3))))  # ProductKernel
+  kernels = (spectral_cutoff(m, 3.0),                    # RadialKernel
+             translation_kernel(m, (0.1, 0.2, 0.3)),     # SeparableKernel
+             materialize_kernel(spectral_cutoff(m, 3.0)),# StoredKernel
+             convolve(spectral_cutoff(m, 3.0), translation_kernel(m, (0.1, 0.2, 0.3))))  # ProductKernel
   for kernel in kernels
     moved = adapt(CopyStorage(), kernel)
     @test nameof(typeof(moved)) === nameof(typeof(kernel))

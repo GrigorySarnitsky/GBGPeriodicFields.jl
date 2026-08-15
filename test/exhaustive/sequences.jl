@@ -127,7 +127,7 @@ function run_sequence_lane(configs)
       record!("helmholtz_projection drifts under repeated application [$(config.name)]")
 
     cells += 1
-    kernel = spectral_cutoff(z, m, b.T(3))
+    kernel = spectral_cutoff(m, b.T(3))
     filtered = convolve(b.sh, kernel)
     cycled = filtered
     for _ in 2:8

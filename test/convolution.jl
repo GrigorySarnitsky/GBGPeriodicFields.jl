@@ -99,13 +99,13 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       dx = grid.grid_spacing
 
       # a zero displacement is the identity kernel
-      @test approx(kernel_array(translation_kernel(phi_s, mult, (T(0), T(0), T(0)))), ones(Complex{T}, shape0))
+      @test approx(kernel_array(translation_kernel(mult, (T(0), T(0), T(0)))), ones(Complex{T}, shape0))
 
       # analytic oracle: translating cos(2x + 0.3)·sin(y) by Δ gives cos(2(x − Δ₁) + 0.3)·sin(y − Δ₂)
       offset = (T(0.37), T(-0.21), T(0.11))
       g = ScalarFieldPhysical((x, y, z) -> cos(2x + T(0.3)) * sin(y), grid)
       g_s = to_spectral(g, plans_for(g))
-      moved = to_physical(convolve(g_s, translation_kernel(g_s, mult, offset)), plans_for(g))
+      moved = to_physical(convolve(g_s, translation_kernel(mult, offset)), plans_for(g))
       analytic = ScalarFieldPhysical((x, y, z) -> cos(2 * (x - offset[1]) + T(0.3)) * sin(y - offset[2]), grid)
       @test approx(field_data(moved), field_data(analytic))
 
@@ -117,13 +117,13 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       noise_s = to_spectral(noise, plans_for(noise))
       for axis in 1:3, cells in (1, 2)                       # an odd and an even whole-cell shift
         displacement = ntuple(d -> d == axis ? cells * dx[d] : zero(T), 3)
-        shifted = to_physical(convolve(noise_s, translation_kernel(noise_s, mult, displacement)), plans_for(noise))
+        shifted = to_physical(convolve(noise_s, translation_kernel(mult, displacement)), plans_for(noise))
         @test approx(field_data(shifted), circshift(field_data(noise), ntuple(d -> d == axis ? cells : 0, 3)))
       end
 
       # one scalar kernel translates a whole vector or tensor field (it broadcasts over the fiber)
       one_cell = ntuple(d -> dx[d], 3)
-      cell_kernel = translation_kernel(phi_s, mult, one_cell)
+      cell_kernel = translation_kernel(mult, one_cell)
       @test approx(field_data(to_physical(convolve(u_s, cell_kernel), plans_for(u))),
                    circshift(field_data(u), (1, 1, 1, 0)))
       @test approx(field_data(to_physical(convolve(A_s, cell_kernel), plans_for(A))),
@@ -133,7 +133,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # out and back changes nothing (to_spectral ∘ to_physical is exactly the Hermitian projector).
       # This is the check the true-Nyquist-phase kernel fails.
       half_cell = ntuple(d -> dx[d] / 2, 3)
-      half_shifted = convolve(noise_s, translation_kernel(noise_s, mult, half_cell))
+      half_shifted = convolve(noise_s, translation_kernel(mult, half_cell))
       @test approx(field_data(to_spectral(to_physical(half_shifted, plans_for(noise)), plans_for(noise))),
                    field_data(half_shifted))
 
@@ -141,17 +141,17 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # axis, so a half-cell displacement annihilates it and a whole-cell one flips its sign
       nyquist = ScalarFieldPhysical((x, y, z) -> cos(4x), grid)
       nyquist_s = to_spectral(nyquist, plans_for(nyquist))
-      annihilated = to_physical(convolve(nyquist_s, translation_kernel(nyquist_s, mult, (dx[1] / 2, T(0), T(0)))),
+      annihilated = to_physical(convolve(nyquist_s, translation_kernel(mult, (dx[1] / 2, T(0), T(0)))),
                                 plans_for(nyquist))
       @test all(v -> abs(v) <= abstol, field_data(annihilated))
-      flipped = to_physical(convolve(nyquist_s, translation_kernel(nyquist_s, mult, (dx[1], T(0), T(0)))),
+      flipped = to_physical(convolve(nyquist_s, translation_kernel(mult, (dx[1], T(0), T(0)))),
                             plans_for(nyquist))
       @test approx(field_data(flipped), .-field_data(nyquist))
 
       # a pure phase of unit modulus on every resolved mode — the attenuation is confined to the
       # Nyquist frequencies, which are the modes whose derivative wavenumber is zeroed but whose
       # squared wavenumber is not
-      kernel_values = kernel_array(translation_kernel(phi_s, mult, (T(0.3), T(0.4), T(-0.2))))
+      kernel_values = kernel_array(translation_kernel(mult, (T(0.3), T(0.4), T(-0.2))))
       derivative = (Array(mult.wavenumber_1), Array(mult.wavenumber_2), Array(mult.wavenumber_3))
       squared = (Array(mult.squared_wavenumber_1), Array(mult.squared_wavenumber_2), Array(mult.squared_wavenumber_3))
       at_nyquist(axis, index) = iszero(derivative[axis][index]) && !iszero(squared[axis][index])
@@ -160,11 +160,11 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
                 if !(at_nyquist(1, i) || at_nyquist(2, j) || at_nyquist(3, l)))
 
       # translations compose and invert on the resolved band (phi carries no Nyquist content)
-      forth = translation_kernel(phi_s, mult, offset)
-      back = translation_kernel(phi_s, mult, .-offset)
+      forth = translation_kernel(mult, offset)
+      back = translation_kernel(mult, .-offset)
       @test approx(field_data(convolve(convolve(phi_s, forth), back)), field_data(phi_s))
       @test approx(field_data(convolve(phi_s, convolve(forth, forth))),                 # kernel(Δ)·kernel(Δ)
-                   field_data(convolve(phi_s, translation_kernel(phi_s, mult, 2 .* offset))))   # = kernel(2Δ)
+                   field_data(convolve(phi_s, translation_kernel(mult, 2 .* offset))))   # = kernel(2Δ)
     end
 
     @testset "translation_kernel == the exact DirectDFT evaluation at the displaced nodes" begin
@@ -173,7 +173,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # no Nyquist content, the one frequency where the two conventions part).
       mult = FieldSpectralMultipliers(phi_s)
       offset = (T(0.41), T(0.13), T(-0.29))
-      moved = to_physical(convolve(phi_s, translation_kernel(phi_s, mult, offset)), plans_for(phi))
+      moved = to_physical(convolve(phi_s, translation_kernel(mult, offset)), plans_for(phi))
       coordinates = zeros(T, prod(gs), 3)
       index = 0
       for l in 1:gs[3], j in 1:gs[2], i in 1:gs[1]          # column-major, matching vec(field_data)
@@ -188,7 +188,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
     @testset "spectral_cutoff: a sharp 0/1 low-pass projection" begin
       m = FieldSpectralMultipliers(phi_s)
-      cutoff = spectral_cutoff(phi_s, m, T(2.5))
+      cutoff = spectral_cutoff(m, T(2.5))
       vals = kernel_array(cutoff)
       @test cutoff isa RadialKernel                             # decision 51: a symbol, not a stored field
       @test all(v -> v == zero(Complex{T}) || v == one(Complex{T}), vals)   # a sharp 0/1 mask
@@ -209,16 +209,16 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
     @testset "spectral_band: annular band-pass generalizing spectral_cutoff" begin
       m = FieldSpectralMultipliers(phi_s)
-      band = spectral_band(phi_s, m, T(1.5), T(3.0))
+      band = spectral_band(m, T(1.5), T(3.0))
       vals = kernel_array(band)
       @test band isa RadialKernel
       @test all(v -> v == zero(Complex{T}) || v == one(Complex{T}), vals)    # a sharp 0/1 shell mask
       @test vals[1, 1, 1] == zero(Complex{T})                               # |k| = 0 excluded (low edge > 0)
       @test approx(kernel_array(convolve(band, band)), vals)                  # idempotent projection
       # the low-pass special case: spectral_cutoff(k) === spectral_band(0, k)
-      @test kernel_array(spectral_cutoff(phi_s, m, T(2.5))) == kernel_array(spectral_band(phi_s, m, T(0), T(2.5)))
+      @test kernel_array(spectral_cutoff(m, T(2.5))) == kernel_array(spectral_band(m, T(0), T(2.5)))
       # membership oracle: ĝ = 1 exactly on the closed shell 1.5 ≤ |k| ≤ 3.0
-      k_squared = real.(kernel_array(radial_kernel(identity, phi_s, m)))
+      k_squared = real.(kernel_array(radial_kernel(identity, m)))
       expected = map(k2 -> (T(1.5)^2 <= k2 <= T(3.0)^2) ? one(Complex{T}) : zero(Complex{T}), k_squared)
       @test vals == expected
     end
@@ -227,7 +227,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
     # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice.
     @testset "the |k|² radial symbol == the analytic Σkᵢ²" begin
       m = FieldSpectralMultipliers(phi_s)
-      k2 = kernel_array(radial_kernel(identity, phi_s, m))     # the coefficients, materialized on demand
+      k2 = kernel_array(radial_kernel(identity, m))     # the coefficients, materialized on demand
       k2_field = ScalarFieldSpectral(Complex{T}.(k2), grid)   # the same values as a field, for ŵ
       reference = reshape(Array(m.squared_wavenumber_1), :, 1, 1) .+
                   reshape(Array(m.squared_wavenumber_2), 1, :, 1) .+
@@ -237,13 +237,13 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test k2[1, 1, 1] == zero(Complex{T})                                   # |k| = 0 at the origin mode
       # consumer use: a viscous integrating factor exp(−ν|k|²Δt). The package applies this family
       # lazily through `exponential_convolve!`; built as a symbol it is a `radial_kernel`.
-      factor = radial_kernel(q -> exp(-T(0.1) * q * T(0.05)), phi_s, m)
+      factor = radial_kernel(q -> exp(-T(0.1) * q * T(0.05)), m)
       @test all(v -> abs(v) <= 1 + abstol, kernel_array(factor))              # a decay (|symbol| ≤ 1)
     end
 
     @testset "kernel composition: convolve(g₁, g₂) composes, and is associative" begin
       m = FieldSpectralMultipliers(phi_s)
-      g1 = spectral_cutoff(phi_s, m, T(3))
+      g1 = spectral_cutoff(m, T(3))
       dx = grid.grid_spacing[1]
       k1 = Array(m.wavenumber_1)
       g2 = as_kernel(Complex{T}[exp(-im * k1[i] * dx)
@@ -271,7 +271,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
     @testset "in-place is aliasing-safe (destination === field)" begin
       m = FieldSpectralMultipliers(phi_s)
-      g = spectral_cutoff(phi_s, m, T(3))
+      g = spectral_cutoff(m, T(3))
       reference = convolve(phi_s, g)
       aliased = scalar_kernel(copy(field_data(phi_s)))
       convolve!(aliased, aliased, g)
@@ -283,7 +283,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       coefficient = T(-0.037)
 
       # oracle 1: the same kernel built as a stored field and applied with convolve
-      k2 = kernel_array(radial_kernel(identity, phi_s, m))
+      k2 = kernel_array(radial_kernel(identity, m))
       k2_field = ScalarFieldSpectral(Complex{T}.(k2), grid)   # the same values as a field, for ŵ
       stored = as_kernel(Complex{T}.(exp.(coefficient .* k2)))
       @test field_data(exponential_convolve(phi_s, m, coefficient)) == field_data(convolve(phi_s, stored))
@@ -332,7 +332,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
 
     @testset "kernel-composed combine!: ĝ ⊙ (α·a + β·b) in one pass (decision 33)" begin
       m = FieldSpectralMultipliers(phi_s)
-      g = spectral_cutoff(phi_s, m, T(3))
+      g = spectral_cutoff(m, T(3))
       b_s = scalar_kernel(randn(Complex{T}, shape0))
 
       sequential = scalar_kernel(zeros(Complex{T}, shape0))
@@ -383,7 +383,12 @@ end
     ones_kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
     @test_throws MethodError convolve(phi, ones_kernel)    # no physical-space convolution (spectral only)
     @test_throws MethodError convolve(phi_s, phi)          # the kernel must be in spectral representation
-    @test_throws MethodError translation_kernel(phi, FieldSpectralMultipliers(phi_s), (0.1, 0.0, 0.0))
+    # Decision 66: a builder takes the multipliers and nothing else, so a field in EITHER
+    # representation must fail to dispatch — the retired `(reference, multipliers, …)` call has to
+    # fail loudly rather than quietly resolve to something else.
+    @test_throws MethodError translation_kernel(phi_s, (0.1, 0.0, 0.0))
+    @test_throws MethodError spectral_cutoff(phi_s, 2.0)
+    @test_throws MethodError assignment_window(phi_s)
     mult_absence = FieldSpectralMultipliers(phi_s)
     @test_throws MethodError exponential_convolve(phi, mult_absence, -0.1)          # spectral-only too
     @test_throws MethodError exponential_convolve!(phi, phi, mult_absence, -0.1)
@@ -420,13 +425,13 @@ end
     noise_s = to_spectral(noise, plans)
     for axis in 1:3
       displacement = ntuple(d -> d == axis ? grid.grid_spacing[d] : zero(T), 3)
-      shifted = to_physical(convolve(noise_s, translation_kernel(noise_s, mult, displacement)), plans)
+      shifted = to_physical(convolve(noise_s, translation_kernel(mult, displacement)), plans)
       @test isapprox(field_data(shifted), circshift(field_data(noise), ntuple(d -> d == axis ? 1 : 0, 3));
                      rtol = 1e-10)
     end
     # and the displaced field stays real (the half-spectrum stays Hermitian) under a half-cell shift
     half_cell = ntuple(d -> grid.grid_spacing[d] / 2, 3)
-    half_shifted = convolve(noise_s, translation_kernel(noise_s, mult, half_cell))
+    half_shifted = convolve(noise_s, translation_kernel(mult, half_cell))
     @test isapprox(field_data(to_spectral(to_physical(half_shifted, plans), plans)),
                    field_data(half_shifted); rtol = 1e-10)
   end
@@ -445,7 +450,7 @@ end
   # whole-cell shifts on each axis; the odd shifts along the folded axis flip its Nyquist sign
   for shift_cells in ((1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 3, 0))
     h = ntuple(a -> TP(shift_cells[a]) * grid_p.grid_spacing[a], 3)
-    kernel = translation_kernel(fh, m, h)
+    kernel = translation_kernel(m, h)
     moved = to_physical(convolve(fh, kernel), plans)
     @test isapprox(field_data(moved), circshift(field_data(f), shift_cells);
                    rtol = TP === Float64 ? 1e-10 : 2e-4)
@@ -473,12 +478,12 @@ end
   ky = [TP(j - 1 <= 3 ? j - 1 : j - 1 - 7) * TP(2π) / TP(4π) for j in 1:7]     # N=7 full axis, 4π
   kz = [TP(l - 1) * TP(2π) / TP(6π) for l in 1:4]                              # N=6 folded, 6π
   expected_w2 = [kx[i]^2 + ky[j]^2 + kz[l]^2 for i in 1:8, j in 1:7, l in 1:4]
-  w2 = kernel_array(radial_kernel(identity, fs, m))
+  w2 = kernel_array(radial_kernel(identity, m))
   @test isapprox(real(w2), expected_w2; rtol = rtol_c, atol = rtol_c)
   @test maximum(abs, imag(w2)) == 0
 
   # spectral_band membership under the permuted anisotropic box (edge-free bounds)
-  band = spectral_band(fs, m, TP(0.55), TP(1.15))
+  band = spectral_band(m, TP(0.55), TP(1.15))
   expected_band = [TP(0.55)^2 < expected_w2[i, j, l] < TP(1.15)^2 ? one(TP) : zero(TP)
                    for i in 1:8, j in 1:7, l in 1:4]
   @test real(kernel_array(band)) == expected_band
@@ -488,7 +493,7 @@ end
   Δ = grid_c.grid_spacing
   expected_win = [sinc_sq(kx[i], Δ[1]) * sinc_sq(ky[j], Δ[2]) * sinc_sq(kz[l], Δ[3])
                   for i in 1:8, j in 1:7, l in 1:4]
-  @test isapprox(real(kernel_array(assignment_window(fs, m))), expected_win; rtol = rtol_c, atol = rtol_c)
+  @test isapprox(real(kernel_array(assignment_window(m))), expected_win; rtol = rtol_c, atol = rtol_c)
 
   # the lazy exponential kernel == the stored-kernel convolve route (permuted + odd + aniso)
   c = -TP(0.3)
@@ -500,9 +505,9 @@ end
 
   # translation kernel on the anisotropic box: h is a physical length, so unequal Δx_a is the
   # exact hazard — one cell on the L=4π odd axis, and an odd 3-cell shift on the folded even axis
-  moved_y = to_physical(convolve(fs, translation_kernel(fs, m, (zero(TP), Δ[2], zero(TP)))), plans)
+  moved_y = to_physical(convolve(fs, translation_kernel(m, (zero(TP), Δ[2], zero(TP)))), plans)
   @test isapprox(field_data(moved_y), circshift(field_data(f), (0, 1, 0)); rtol = 20 * rtol_c)
-  moved_z = to_physical(convolve(fs, translation_kernel(fs, m, (zero(TP), zero(TP), 3 * Δ[3]))), plans)
+  moved_z = to_physical(convolve(fs, translation_kernel(m, (zero(TP), zero(TP), 3 * Δ[3]))), plans)
   @test isapprox(field_data(moved_z), circshift(field_data(f), (0, 0, 3)); rtol = 20 * rtol_c)
 
   # α = 0, β ≠ 0 for every α/β form in the module (previously asserted nowhere)
@@ -550,7 +555,7 @@ end
     mult = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(50)
     h = (TP(0.3), TP(-0.7), TP(1.1))
-    kernel = translation_kernel(s0, mult, h)
+    kernel = translation_kernel(mult, h)
     @test kernel isa GBGPeriodicFields.Convolution.SeparableKernel
     # the oracle: the same kernel as a stored field
     # The materialized product, declared as a kernel: it is the oracle the compressed form is compared
@@ -574,11 +579,11 @@ end
     end
 
     # composition stays inside the family and equals the materialized product
-    other = translation_kernel(s0, mult, (TP(-0.2), TP(0.5), TP(0.25)))
+    other = translation_kernel(mult, (TP(-0.2), TP(0.5), TP(0.25)))
     @test kernel_array(convolve(kernel, other)) ≈ kernel_array(kernel) .* kernel_array(other)
 
     # the reciprocal deconvolves: inv(window) ⋆ (window ⋆ f) == f (the window is zero-free in band)
-    window = assignment_window(s0, mult)
+    window = assignment_window(mult)
     @test window isa GBGPeriodicFields.Convolution.SeparableKernel
     @test eltype(window.factor_1) === TP                    # real factors, not complex storage
     fs = ScalarFieldSpectral(rand(rng, Complex{TP}, spec_shape), g, layout)
@@ -587,9 +592,9 @@ end
 
     # translation_kernel! rebuilds in place, equal to a fresh build for the new displacement
     h2 = (TP(-0.4), TP(0.9), TP(0.15))
-    updated = translation_kernel(s0, mult, h)
+    updated = translation_kernel(mult, h)
     translation_kernel!(updated, mult, h2)
-    @test kernel_array(updated) ≈ kernel_array(translation_kernel(s0, mult, h2))
+    @test kernel_array(updated) ≈ kernel_array(translation_kernel(mult, h2))
 
     # materialize_kernel: the stored twin — same coefficients, same results, bitwise
     stored = materialize_kernel(kernel)
@@ -604,7 +609,7 @@ end
     other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
     other_spec = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other_grid, layout, Val(0))),
                                      other_grid, layout)
-    foreign = translation_kernel(other_spec, FieldSpectralMultipliers(other_spec), h)
+    foreign = translation_kernel(FieldSpectralMultipliers(other_spec), h)
     @test_throws ArgumentError convolve(fs, foreign)
   end
 end
@@ -621,14 +626,14 @@ end
     m = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(51)
 
-    cutoff = spectral_cutoff(s0, m, TP(3))
+    cutoff = spectral_cutoff(m, TP(3))
     @test cutoff isa RadialKernel
     @test Base.summarysize(cutoff) < 1024                     # O(1): a closure and three references
 
     for (name, kernel) in (("cutoff", cutoff),
-                           ("band", spectral_band(s0, m, TP(1), TP(3))),
-                           ("exp", radial_kernel(k2 -> exp(-TP(0.01) * k2), s0, m)),
-                           ("|k|²", radial_kernel(identity, s0, m)))
+                           ("band", spectral_band(m, TP(1), TP(3))),
+                           ("exp", radial_kernel(k2 -> exp(-TP(0.01) * k2), m)),
+                           ("|k|²", radial_kernel(identity, m)))
       stored = materialize_kernel(kernel)
       for R in (0, 1, 2)
         shp = R == 0 ? shape : R == 1 ? (shape..., 3) : (shape..., 3, 3)
@@ -654,14 +659,14 @@ end
     # `squared_wavenumber_field` returns the |k|² COORDINATE as a field, so using it as a weight states
     # the role. (That it is materialized at all is a separate question: |k|² is a radial symbol and
     # could be a `RadialKernel` costing a closure instead of O(N³) coefficients.)
-    @test weighted_inner(u, radial_kernel(identity, s0, m)) ≈
-          weighted_inner(u, radial_kernel(identity, s0, m))
+    @test weighted_inner(u, radial_kernel(identity, m)) ≈
+          weighted_inner(u, radial_kernel(identity, m))
 
     # composition: radial∘radial stays radial; radial∘separable is the cross-family product
-    warm = radial_kernel(k2 -> exp(-TP(0.02) * k2), s0, m)
+    warm = radial_kernel(k2 -> exp(-TP(0.02) * k2), m)
     @test convolve(cutoff, warm) isa RadialKernel
     @test field_data(convolve(u, convolve(cutoff, warm))) ≈ field_data(convolve(convolve(u, cutoff), warm))
-    shift = translation_kernel(s0, m, (TP(0.3), TP(-0.7), TP(1.1)))
+    shift = translation_kernel(m, (TP(0.3), TP(-0.7), TP(1.1)))
     crossed = convolve(cutoff, shift)
     @test crossed isa ProductKernel
     @test field_data(convolve(u, crossed)) ≈ field_data(convolve(convolve(u, cutoff), shift))
@@ -670,7 +675,7 @@ end
     @test reversed isa ProductKernel
     @test field_data(convolve(u, reversed)) == field_data(convolve(u, crossed))
     # a same-family pair must still collapse rather than fall to the general product method
-    @test convolve(shift, translation_kernel(s0, m, (TP(0.1), TP(0.2), TP(0.3)))) isa SeparableKernel
+    @test convolve(shift, translation_kernel(m, (TP(0.1), TP(0.2), TP(0.3)))) isa SeparableKernel
     # and a product composes further, in either position
     @test convolve(crossed, cutoff) isa ProductKernel
     @test field_data(convolve(u, convolve(crossed, cutoff))) ≈
@@ -679,7 +684,7 @@ end
     # a kernel built for another base is rejected
     other = Grid3D((8, 7, 4), (TP(2π), TP(4π), TP(6π)))
     o0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other, layout, Val(0))), other, layout)
-    @test_throws ArgumentError convolve(u, spectral_cutoff(o0, FieldSpectralMultipliers(o0), TP(3)))
+    @test_throws ArgumentError convolve(u, spectral_cutoff(FieldSpectralMultipliers(o0), TP(3)))
   end
 end
 
@@ -697,8 +702,8 @@ end
   reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))),
                                   grid, layout)
   multipliers = FieldSpectralMultipliers(reference)
-  radial = spectral_band(reference, multipliers, 1, 3)
-  separable = translation_kernel(reference, multipliers, (0.1, 0.2, 0.3))
+  radial = spectral_band(multipliers, 1, 3)
+  separable = translation_kernel(multipliers, (0.1, 0.2, 0.3))
   specimens = Dict(RadialKernel => radial,
                    SeparableKernel => separable,
                    StoredKernel => (materialize_kernel(radial)),

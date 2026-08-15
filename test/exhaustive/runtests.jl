@@ -54,7 +54,7 @@ function operations_for(c::Config)
   A = TensorFieldPhysical{2}(rand(T, xshape(c, 2, PHYSICAL)...), c.grid, c.layout)
   # Per-axis fractions rather than a uniform half cell: at h = Δ/2 the even-axis Nyquist factor is
   # exactly zero on BOTH sides, so the comparison could not falsify that term. See `invocations.jl`.
-  kernel = translation_kernel(sspec, m,
+  kernel = translation_kernel(m,
                               ntuple(d -> (T(3)/10, T(1)/2, T(7)/10)[d] * c.grid.grid_spacing[d], 3))
   α, β = T(0.3), T(0.7)
   return [

@@ -145,7 +145,7 @@ tensor_divergence(i) = (x, y, z) -> sum((n = tslot(i, j, j); amplitude(n) * freq
       @test isapprox(inner(û, û), TP(inner_exact); rtol = rtol)                    # spectral, via Parseval
       @test isapprox(l2norm(u), sqrt(TP(inner_exact)); rtol = rtol)
       @test isapprox(inner(s, s), TP(scalar_inner_exact); rtol = rtol)
-      @test isapprox(weighted_inner(û, radial_kernel(identity, ŝ, m)), TP(dirichlet_exact); rtol = rtol)
+      @test isapprox(weighted_inner(û, radial_kernel(identity, m)), TP(dirichlet_exact); rtol = rtol)
       # every component has zero mean (every frequency is ≥ 1), so the variance IS the energy
       @test all(abs.(mean(u)) .< atol)
       @test isapprox(var(s; corrected = false), TP(scalar_inner_exact); rtol = rtol)
@@ -154,7 +154,7 @@ tensor_divergence(i) = (x, y, z) -> sum((n = tslot(i, j, j); amplitude(n) * freq
       for (lo, hi) in ((TP(0), TP(2.5)), (TP(2.5), TP(10)))
         in_band = sum((n = vslot(i, a); lo <= frequency(n) <= hi ? amplitude(n)^2 / 2 : 0.0)
                       for i in 1:3, a in 1:3)
-        @test isapprox(weighted_inner(û, spectral_band(ŝ, m, lo, hi)), TP(in_band); rtol = rtol)
+        @test isapprox(weighted_inner(û, spectral_band(m, lo, hi)), TP(in_band); rtol = rtol)
       end
       # and the radial spectrum's shells must sum to the same closed form
       _, spectrum = radial_spectrum(û, m)

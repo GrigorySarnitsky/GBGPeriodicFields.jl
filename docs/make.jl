@@ -148,7 +148,7 @@ function lint_retired_claims()
     (r"type\s+cannot\s+tell\s+those\s+apart",
      "decision 60 — the type is exactly what distinguishes the kernel role from the field role"),
     (r"squared_wavenumber_field",
-     "removed by decision 60 — use `radial_kernel(identity, reference, multipliers)`"),
+     "removed by decision 60 — use `radial_kernel(identity, multipliers)`"),
   ]
   problems = String[]
   for file in _doc_lint_sources()
