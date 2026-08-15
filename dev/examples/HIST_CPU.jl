@@ -16,7 +16,7 @@
 # **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
 # the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
 # ``\kappa = \lvert\mathbf{k}\rvert`` for its magnitude, ``\nu`` for the kinematic viscosity, and
-# ``\mathbb{P}`` for the Leray–Helmholtz projection onto divergence-free fields. The wavenumber vector
+# ``\mathbb{P}`` for the Helmholtz (Leray) projection onto divergence-free fields. The wavenumber vector
 # is set bold here, where the package pages set it plain, because this page follows the turbulence
 # convention in which italic ``k`` denotes the turbulent kinetic energy; the two never collide as a
 # result. With that notation the demo advances
@@ -404,7 +404,9 @@ function run_hist(p::Params)
 
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
-  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length
+  # ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``, which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
+  # the literature usually plots, since ``C`` contracts the fiber
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
   # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
@@ -497,7 +499,8 @@ main()
 #md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
 #md # ``\tau_\eta = \sqrt{\nu/\varepsilon}`` the Kolmogorov time, and ``C_2 \approx 2.1``, ``C_0 \approx 6``
 #md # the (adjustable, plot-time) Kolmogorov constants. The Taylor microscale ``\lambda`` and the integral
-#md # scales are marked: the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r`` and time
+#md # scales are marked: the trace-correlation integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
+#md # (``= \tfrac{2}{3}L_{11}``) and time
 #md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau`` are the areas under the normalized autocorrelations
 #md # ``\rho = C/C(0)`` and ``\rho_L = R/R(0)`` (taken to the first zero crossing).
 #md #
