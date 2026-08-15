@@ -128,6 +128,15 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    hypothesis), and one that qualifies a formula follows the formula (`translation_kernel`'s Nyquist
    attenuation). The rubric mandates a custom title, not a slot.
 
+18. **`similar_field` / `similar_pointvalues` should extend `Base.similar`.** Raised round 6,
+   **user-closed 2026-08-15** (decision 67). Declined on four grounds, and the reasoning is now on both
+   docstrings: `Base.similar`'s second positional argument means an element type or dimensions where
+   this one means tensor order; `similar(u, Float32)` would read as the implicit precision change
+   invariant 14 and decision 63 exist to refuse; the `data` form wraps supplied storage, which
+   `Base.similar` never does; and a section is not an `AbstractArray`. Defining only the
+   no-extra-argument `Base.similar(::AbstractFiberSection)` was considered and declined with it, as a
+   second spelling of one operation. Do not re-raise.
+
 17. **`FieldTransformPlans` documents its arguments before its fields, where the field types do the
    reverse.** Deliberate: a reader meets a plans object through its constructor — the two witness
    fields it is built from — while a field type's storage is what the reader meets first. Each

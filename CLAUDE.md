@@ -1615,12 +1615,9 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round
   rather than being taken piecemeal. They are recorded **here** because the panel's own findings pile
-  (`.claude/doc-review/`) is gitignored and is deleted by the second-next run. **(1)** `similar_field` /
-  `similar_pointvalues` do what `Base.similar` exists to do for an array-like wrapper — build
-  compatible uninitialized storage from a reference, optionally at a different tensor order — and no
-  rationale for declining `Base.similar` is recorded either way, unlike the explicit "we own the types
-  ⇒ not piracy" note that justifies extending `dot`/`cross`/`mean`. Either a reason belongs in the
-  docstring or the idiom is worth adopting. **(2)** A field is callable, `f(x)`, which collides with
+  (`.claude/doc-review/`) is gitignored and is deleted by the second-next run. **(1)** *(CLOSED 2026-08-15, decision 67 — `Base.similar`
+  declined for the section allocators; the reasoning is on both docstrings and the item is in the
+  do-not-re-flag list.)* **(2)** A field is callable, `f(x)`, which collides with
   `map!`'s φ slot: `map!(f, dest, g)` with a *field* `f` is accepted and means something the caller
   probably did not intend. Documented as the caller's responsibility in `map!`'s warning; removing the
   callable is breaking. **(3)** `AbstractField` is a documented `Union`, honestly labelled as one —

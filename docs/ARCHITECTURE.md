@@ -3450,3 +3450,38 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     matching case and three foreign ones each) and three replace one, the retired call now being
     asserted to fail loudly rather than resolve. No method count changes; every parity baseline
     holds.
+
+67. **`Base.similar` is declined for the section allocators** (2026-08-15, user-decided, from the same
+    panel round). A hat observed that `similar_field` and `similar_pointvalues` do what `Base.similar`
+    exists to do for an array-like wrapper — build compatible uninitialized storage from a reference —
+    and that no rationale for declining it was recorded anywhere, unlike the explicit "we own the
+    types, so extending is not piracy" note that justifies extending `dot`, `cross` and `mean`. The
+    observation is fair; the conclusion does not follow, and the names stay.
+
+    **The second argument is the problem.** `Base.similar`'s four canonical forms are `similar(A)`,
+    `similar(A, ::Type{T})`, `similar(A, dims)` and `similar(A, ::Type{T}, dims)`: that positional
+    slot means an element type or a set of dimensions. Here it means the **tensor order**, carried as
+    a `Val{R}`, which is neither. Borrowing a name while breaking the convention that gives the name
+    its meaning is worse than a distinct name, which promises nothing.
+
+    **And its most idiomatic spelling would be a trap.** `similar(A, T)` is *the* way a Julia
+    programmer changes element type, while changing element type is exactly what this package must
+    never do implicitly — invariant 14 refuses a mixed-precision pair rather than promoting it, and
+    decision 63 excluded precision from `adapt` for the same reason. So `similar(u, Float32)` would
+    read as a request for single precision, which is the one operation the design refuses to perform
+    quietly, and the better the reader knows Julia the more likely they are to write it. It is not
+    even a storage-level operation: `Grid3D{T}` holds the domain size, spacing and origin at the
+    element type, so a precision change rebuilds the grid.
+
+    Two smaller reasons complete it. The `data` form wraps storage the caller supplies, and
+    `Base.similar` never takes data, so half the family could not carry the name in any case and the
+    package would end up with both spellings. And a section is not an `AbstractArray` — these types
+    subtype `AbstractFiberSection{T, R}` — so `similar`'s eltype-and-dims contract cannot express the
+    grid, layout, representation and tensor order that propagating is this operation's whole purpose.
+
+    A narrow additive alternative was considered and declined with it: defining **only**
+    `Base.similar(::AbstractFiberSection)`, the no-extra-argument form, which carries no semantic
+    collision and would let a newcomer's reflex work while `similar(u, Float32)` failed loudly. It
+    would still be a second spelling of one operation, which invariant 1 declines to add for
+    convenience. The reasoning now lives on both allocators' docstrings, where a reader meets the
+    name and asks the question.

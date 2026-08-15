@@ -337,6 +337,12 @@ Allocate point values shaped like `reference`. The `data` form wraps the supplie
 point-value type of the same tensor order as `reference`. The `Val{R}` form allocates a fresh
 `(M, fiber_shape(Val(R))...)` array of order `R` on `reference`'s backend, through `similar`, and wraps it. The
 broadcast machinery and the allocating algebra wrappers use it to build their results.
+
+!!! note "Deliberately not an extension of `Base.similar`"
+    The reasoning is `similar_field`'s: `Base.similar`'s second argument means an element type
+    or dimensions rather than a tensor order, `similar(q, Float32)` would read as a precision change
+    the package never makes implicitly, and the `data` form wraps supplied storage rather than
+    allocating.
 """
 function similar_pointvalues end
 

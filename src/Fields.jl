@@ -802,6 +802,15 @@ Construct a field with metadata copied from `reference`.
 With storage array `data`, the field has the same representation and tensor order as `reference`. With `Val{R}`, new storage is allocated with the same representation and tensor order `R`.
 
 This is used by out-of-place field broadcasting and by allocating algebraic operations.
+
+!!! note "Deliberately not an extension of `Base.similar`"
+    `Base.similar`'s second positional argument means an element type or a set of dimensions, and
+    here it is the tensor order — so the name would be borrowed while the convention that gives it
+    meaning was broken. Worse, its most idiomatic spelling would mislead: `similar(u, Float32)` reads
+    as a request for single precision, and this package never changes precision implicitly (a mixed
+    pair is refused rather than promoted, and even the explicit [`adapt`](@ref) moves storage only).
+    The `data` form is not an allocation at all — it wraps storage you supply, which `Base.similar`
+    never does — so half of this operation could not carry the name in any case.
 """
 function similar_field end
 
