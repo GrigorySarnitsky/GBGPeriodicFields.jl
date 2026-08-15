@@ -134,7 +134,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   **kernel storage classes** — `convolve!` is walked over **all four** classes (`StoredKernel`,
   `SeparableKernel`, `RadialKernel` and the `ProductKernel` that composing across the families gives),
   each required to agree **bitwise** with its materialized twin, with the class list derived from the
-  type hierarchy so a fifth class fails until it is given a specimen; the kernel-composed
+  type hierarchy so a fifth class fails until it is given a specimen (and a small testset pins the
+  hierarchy's head public, since decision 65 exports `SpectralKernel` — the type every kernel-taking
+  signature dispatches on — beside the four classes that were already exported); the kernel-composed
   `helmholtz_projection` and `divergence` arities are walked over the separable and radial classes but
   **not** the product one; and `weighted_inner` is walked over **all four** classes since decision 62, each
   required to agree bitwise with its own materialized form (the two-class signature it had before was a

@@ -153,6 +153,7 @@ using .Fields:
   spectral_field_shape,
   similar_field,
   FieldSpectralMultipliers,
+  SpectralKernel,           # the kernel supertype; Convolution defines the four storage classes
   set_fft_threads!,
   adapt                     # extended for every section, kernel and plan; re-exported below
 
@@ -356,6 +357,7 @@ export FiberVector,
             assignment_window,
        translation_kernel,
        translation_kernel!,
+       SpectralKernel,
        StoredKernel,
        SeparableKernel,
        RadialKernel,

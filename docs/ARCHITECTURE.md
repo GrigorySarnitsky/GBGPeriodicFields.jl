@@ -3375,3 +3375,34 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     three-argument form's contract, bitwise equality with the allocating form (whose own oracle is
     the independent DFT sum, terminating the chain independently), the aliasing and context
     refusals, a zero-allocation pin, and GPU parity; the `Fields` baseline moves 115 → 116.
+
+65. **`SpectralKernel` is exported** (2026-08-15, from the round-6 documentation panel). The four
+    concrete kernel storage classes — `StoredKernel`, `SeparableKernel`, `RadialKernel` and
+    `ProductKernel` — were exported while the supertype they share was not, so a user who wanted to
+    write a method or a type annotation against the family had to name
+    `GBGPeriodicFields.Fields.SpectralKernel` explicitly. That is the type appearing in the public
+    signature of `convolve!`, of the kernel-composed `divergence!` and `helmholtz_projection!`, and of
+    `weighted_inner`, so the export makes the type public exactly where its methods already are.
+
+    **The panel's larger finding was declined, and the reason is worth recording.** A hat proposed
+    moving the protocol — the abstract type and the two generics `_kernel_data` and
+    `_check_kernel_compatibility` — out of `Fields`, on the argument that the package had met the same
+    structural problem before and solved it by extracting `FiberSections`. Three placements were
+    considered against the alternative of leaving it. `FiberSections` is refused on the architecture's
+    own mathematics: its defining property is base-agnosticism, and a spectral kernel is one
+    multiplier per Fourier mode of a specific grid under a specific layout — base-bound and
+    representation-specific, the horizontal side of the §2 split rather than the vertical one. A
+    dedicated module is refused as disproportionate: the protocol is three declarations with no
+    dependencies and no bodies, where `FiberSections` was extracted for shared *content* — the fiber
+    types, `_assign!`, the whole vertical-algebra codegen. And moving the protocol *down* into
+    `Convolution` — which the include order permits, since `Convolution` and `DifferentialOperators`
+    have no dependency edge in either direction — is refused on dependency direction: it would make
+    `DifferentialOperators` and `Reductions` depend on a heavyweight *peer* to obtain an abstract
+    type, where today all three depend only on the foundation. A protocol in the foundation is what
+    keeps the consumers independent of one another.
+
+    The placement is also not an accident but the second instance of a recorded convention:
+    `FieldSpectralMultipliers` was moved *into* `Fields` from `DifferentialOperators` for the
+    identical reason. The shared context object and its compatibility protocol live in `Fields`; the
+    module that owns the mathematics owns the concrete types and the builders. No method is added, so
+    every parity baseline is unchanged.

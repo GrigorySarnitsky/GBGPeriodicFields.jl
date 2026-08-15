@@ -77,7 +77,7 @@ adapt
 
 ## Spectral kernel protocol
 
-`SpectralKernel` is the supertype the kernel-taking operations dispatch on — `convolve` and the
+`SpectralKernel` is the exported supertype the kernel-taking operations dispatch on — `convolve` and the
 kernel-composed differential operators on the whole hierarchy, `weighted_inner` on every class
 too, subject to the separate requirement that its weight be **real**. It is defined here
 rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
@@ -85,7 +85,7 @@ and is included first, so the protocol has to precede both consumers. The concre
 it, and the builders returning them, are documented with `Convolution`.
 
 ```@docs
-GBGPeriodicFields.Fields.SpectralKernel
+SpectralKernel
 ```
 
 ## FFT thread configuration
@@ -119,9 +119,9 @@ Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:type, :constant]
 # `SpectralKernel` is rendered by the "Spectral kernel protocol" section above, so it is excluded here
-# to keep it from appearing twice on one page. It is public — it appears in `convolve!`'s own signature
-# — and reached this block only because the module does not re-export it, the same `Public = false`
-# mechanism that filed `map` and `transpose` as internals.
+# to keep it from appearing twice on one page. It is public and exported by the umbrella (decision 65);
+# it still reaches this block because Documenter reads `Fields`' own export list, not the umbrella's —
+# the same `Public = false` mechanism that filed `map` and `transpose` as internals.
 Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
                        GBGPeriodicFields.Fields.SpectralKernel))
 ```

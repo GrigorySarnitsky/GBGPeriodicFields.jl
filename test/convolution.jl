@@ -733,3 +733,18 @@ end
     @test field_data(lazy_out) == field_data(stored_out)
   end
 end
+
+
+# The kernel family's public surface: the four concrete storage classes were exported while the
+# supertype every kernel-taking signature dispatches on was not, so writing a method or a type
+# annotation against the family meant naming an internal path (decision 65). The assertion is the
+# export itself plus the hierarchy it is the head of — if a fifth class is ever added outside that
+# hierarchy, the subtype check is what notices.
+@testset "the kernel protocol is public (decision 65)" begin
+  @test :SpectralKernel in names(GBGPeriodicFields)
+  @test GBGPeriodicFields.SpectralKernel === GBGPeriodicFields.Fields.SpectralKernel
+  for class in (StoredKernel, SeparableKernel, RadialKernel, ProductKernel)
+    @test class <: SpectralKernel
+    @test :($(nameof(class))) in names(GBGPeriodicFields)
+  end
+end
