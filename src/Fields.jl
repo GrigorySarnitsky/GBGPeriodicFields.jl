@@ -1848,9 +1848,9 @@ function read_field end
 """
     adapt(storage, object)
 
-Move a field, its multipliers, its kernels or its transform plans to another **storage family** —
-host to device, or device to host — returning an object of the same kind whose arrays live in the
-requested family. The element type is preserved exactly.
+Move a section — a field or point-values — or its multipliers, its kernels, its point set or its
+transform plans to another **storage family**, host to device or device to host, returning an object
+of the same kind whose arrays live in the requested family. The element type is preserved exactly.
 
 A **storage family** is where an array lives — host memory, or one vendor's device memory. Use this
 when something built on one family has to be used on another. Two fields combine arithmetically only
