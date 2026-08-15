@@ -1008,7 +1008,9 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **6523 tests** across 100 top-level testsets (measured 2026-08-15, after decision 66 retired twenty context-entrypoint assertions with the five builder pairs; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **361** on CUDA (measured 2026-08-10, +9 for decision 63's workspace-move testset; ROCm last measured at 352 on 2026-08-06 and will pick the same up when next run). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
+   `Pkg.test()` green, **6523 tests** across 100 top-level testsets (measured 2026-08-15, after decision 66 retired twenty context-entrypoint assertions with the five builder pairs; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **373** on CUDA (measured 2026-08-15 after decision 66's sweep, green with zero
+   failures; it read 361 on 2026-08-10 and drifted by twelve unmeasured through decision 64, which is the
+   drift this sentence keeps warning about; ROCm last measured at 352 on 2026-08-06 and will pick the same up when next run). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
@@ -1421,11 +1423,26 @@ plan's stage count, not a permuted-layout defect. The gate was already right, bo
 `4096 × nthreads()`; the survey's lane used a field-proportional bound and so overran on small
 fixtures. The lane now builds a dedicated single-threaded plan for the measurement and reports 0
 B/step deterministically. Raising the bound would have been the wrong fix — it would set a threshold
-against a quantity that varies 7× run to run. **(2) The value lane has
-never executed against the current package**: `values.jl` did `field + materialize_kernel(...)`, which
-broke when decision 60 made that return a `StoredKernel`, so the lane threw before running from
-2026-08-03 until the fix on 2026-08-04. Its 112 independent oracles are therefore unverified against
-the present code; a run is ~90–115 min and needs consent (see the consent gate above).
+against a quantity that varies 7× run to run. **(2) The value lane has now executed and is
+CLOSED (2026-08-15)** — it had thrown from 2026-08-03 until a fix on 2026-08-04, leaving its
+independent oracles unverified against the present code. The survey was run in full after decision 66
+(`-t4`, from `test` so the HDF5 pair is reachable) and exits **0**: 3,579,360 invocations over 96
+configurations, 16,224 value comparisons with **111 of 113 operations carrying an independent oracle**,
+0 failures in the declared relations (2,496), representation/invariance/allocation/ordering (4,992) and
+sequences (1,632) lanes, 0 disagreeing assignments over 37,152 storage-aliasing cases, and *every*
+mismatched argument refused in the context lane. The only value disagreements are the 72 known
+`radial_spectrum` cells (Float32, mixed/shifted grids — the tie-break issue recorded below).
+
+**(3) Two HARNESS findings the same run surfaced, both from decision 63 rather than the run's own
+subject.** First, **42,336 of its findings — 18,144 structural and 24,192 type-stability — are all
+`adapt_structure(<section>, <object>)`**: `Adapt.jl`'s hook takes an *untyped adaptor* slot by design,
+so the invocation engine fills it from the section pool and calls "adapt these plans **to** this
+field", which is not a call anyone makes. They are not defects and they drown the rest of the report;
+the engine should skip a slot that carries an adaptor rather than a value. Second, **`adapt` is
+reported "NOT REACHED — lives in a weak-dependency extension", which is a mis-attribution**: it owns
+no package method because the package extends `adapt_structure`, and it has nothing to do with the
+HDF5 extension. A third, pre-existing item: the ledger's one guard violation is `schema_presence`
+**0/4** — applicable to the four persistence operations and asserted by nothing.
 
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with
