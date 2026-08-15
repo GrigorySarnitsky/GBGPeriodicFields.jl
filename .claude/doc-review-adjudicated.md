@@ -90,3 +90,45 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
 
 *If you believe an entry here is wrong on the merits, you may say so once, briefly, marked
 `confidence: low` — but do not spend a finding slot restating the original complaint.*
+
+## Verified-not-defects added after round 6 (2026-08-15)
+
+12. **`\lvert…\rvert` "leaking" outside Markdown tables.** The glossary row states an
+   *equivalence* — the bar spellings "are the same symbol, and both denote one concept" — not a
+   ban on `\lvert` outside tables. The table needs the escape because a literal pipe is eaten as
+   a GFM column delimiter; that is the row's explanation, not a scoping rule. Raised as major in
+   round 5 (dismissed) and again in round 6 by the same hat, because round 5's dismissal was never
+   written here. Do not re-raise, and do not churn hundreds of formulas to normalize the spelling.
+
+13. **`translation_kernel!` "inverts" the f/f! formula home** (the allocating form carries the
+   formula, the `!` form points back). Deliberate, and the same reasoning as item 8: the `!` form
+   rebuilds an existing `SeparableKernel` for a new displacement rather than filling a
+   `destination`, so the builder is where the operation's meaning lives. Item 8 settled the steer
+   sentence; this settles formula ownership, which round 6 correctly noted item 8 did not cover.
+
+14. **The three `\begin{CD}` commutative diagrams may fail silently in KaTeX.** Checked 2026-08-15:
+   the site loads KaTeX 0.16.8, which has supported the amscd `CD` environment since 0.11.0, and
+   this Documenter build renders math **client-side** — there are zero server-side `katex` spans,
+   so raw TeX inside `<p class="math-container">` is the normal shape of every formula on the site
+   and is not evidence of a rendering failure. Do not infer a KaTeX failure from raw TeX in the
+   built HTML.
+
+15. **The validity clause sits before the in-place steer in some `!` docstrings and after it in
+   others** (`tr!`/`sym!`/`skew!`/`dev!` vs `det!`/`transpose!`/`norm!`). Read all seven together and
+   the split tracks content, not drift: a **one-clause** validity statement ("linear and
+   representation-preserving, so it is defined for both") is part of the identity sentence and rides
+   with it, while a **multi-sentence** validity paragraph — one that also carries the aliasing
+   consequence, or contrasts with Julia's own `transpose` — is its own paragraph and follows the
+   steer. Both satisfy the rubric, which fixes the steer only relative to the identity paragraph and
+   the arguments. Do not normalize.
+
+16. **Admonitions sit in three different positions across docstrings.** Deliberate: the position
+   tracks what the caveat qualifies. An operation-wide caveat follows the identity (`helmholtz_projection!`'s
+   nonlocality), an argument-specific one follows the argument list (`exponential_convolve!`'s offset
+   hypothesis), and one that qualifies a formula follows the formula (`translation_kernel`'s Nyquist
+   attenuation). The rubric mandates a custom title, not a slot.
+
+17. **`FieldTransformPlans` documents its arguments before its fields, where the field types do the
+   reverse.** Deliberate: a reader meets a plans object through its constructor — the two witness
+   fields it is built from — while a field type's storage is what the reader meets first. Each
+   docstring leads with its own primary interface.

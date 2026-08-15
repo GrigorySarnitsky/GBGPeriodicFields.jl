@@ -1,6 +1,6 @@
 # Performance — GBGPeriodicFields
 
-This is the third companion to [`ARCHITECTURE.md`](architecture.md) and
+This is the third rationale companion to [`ARCHITECTURE.md`](architecture.md) and
 [`TESTING.md`](testing.md): where those explain *why* the package is built as it is and *how* its
 correctness is checked, this one explains *how performance is reasoned about, measured, and tracked*.
 Read it before optimizing anything or adding a benchmark. The throughline is the same as for tests:
@@ -41,8 +41,11 @@ that matters.
 - **Measure before you optimize, and measure on the production platform.** No optimization is kept
   without a same-session side-by-side comparison showing it helps the GPU. This session's record is instructive: of the
   candidates that *looked* like wins, polynomial-eval tuning was already free, the periodic-wrap
-  hoist made the default scheme *slower*, and particle sorting — the textbook locality optimization —
-  *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4).
+  hoist made the default scheme *slower*, and point sorting — the textbook locality optimization —
+  *regressed* the GPU gather. Only the one the measurement pointed at (loop order) survived (§4). The
+  lesson is the method, not those verdicts: **both negative results were re-measured on current
+  hardware in 2026-08-07 and reversed sign for the default scheme** — which is the same principle
+  applied twice, since a verdict is only ever about the platform it was taken on (§4(c)).
 
 - **A benchmark run owns the machine, and a number is not a result until it is explained.** Two
   obligations, both learned the hard way. **Run benchmarks alone** — no test suite, no documentation
@@ -103,7 +106,10 @@ What bounds each public operation class — the mental model a benchmark either 
 
   This single fact — GPU wants spread, CPU wants locality — explains the platform-divergent results
   in §4 (loop order, sorting) and is the most important thing to internalize before touching the
-  transfer.
+  transfer. Hold it as a mechanism rather than a verdict: it explains why sorting *can* fail to pay
+  on a GPU, and on the card that recorded that result it did. On the RX 7900 XTX the same experiment
+  reversed for the default scheme (§4(c)), so the balance between the two pulls is a property of the
+  card, not a constant.
 - **The spectral transfer** (`DirectDFT`/`NUFFT`) → a different cost class. `DirectDFT` is the exact
   ``O(N M)`` double sum (compute-bound, no FFT, no window) — the oracle; `NUFFT` is its
   ``O(N\log N + M)`` fast form, an oversampled FFT plus a windowed spread/gather, so it is FFT-bound in
@@ -481,7 +487,7 @@ identity holds — the loop is slow, not wrong). **Fixed (2026-07-22, decision 3
 now runs the standard fused `materialize!` per contiguous slab of the largest axis, so each slab
 executes the same SIMD kernel as serial — measured on the probe, 512³ `Float64` `add!`: t2
 187.7 → **73.3 ms** (the DRAM ceiling, previously reached only at t8), t8 unchanged at the ceiling,
-and 64³ t8 97 → 28 µs (threading now *wins* at small sizes). Both hosts' CPU columns in
+and 64³ t8 95 → 28 µs (threading now *wins* at small sizes). Both hosts' CPU columns in
 `RESULTS.md` are re-swept post-fix (Enteropia and Aiporetne, 2026-07-22); pre-fix t2–t8 numbers
 survive only in superseded archives and measure the retired loop.
 
@@ -1222,7 +1228,7 @@ on CUDA exactly as it did on AMD, having been told nothing about it.
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
 `Pkg.test()`, exactly like the GPU tests. A call to `build_suite(; array_type, types, sizes)` builds a
 `BenchmarkTools.BenchmarkGroup` parameterised by the **device array type** (`Array` on CPU;
-`ROCArray`/`CuArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
+`CuArray`/`ROCArray` on GPU — the same approach `test/gpu/suite.jl` uses with `to_device`), so one suite
 runs everywhere. A `bench_sync` blocks the backend so BenchmarkTools times GPU work to completion. **Every** row that
 writes to a device buffer synchronizes it, including the transfer rows: relying on a driver's internal
 synchronization is what left `NUFFT` anterpolation's final assignment outside its own measurement, and
@@ -1407,7 +1413,9 @@ refreshed — the RX 7900 XTX (2026-07-20) and the RTX 5070 Ti — so every deci
 `helmholtz_projection!`/`divergence!`/`combine!` arities, `exponential_convolve!`, and the fused radial
 diagnostics) now carries both GPU columns at 64³–256³, both element types. The refresh also re-confirmed
 the §6 atomic-scatter contrast on the fused decision-34 kernels: `radial_spectrum` vector `Float64` 256³
-is 65.95 ms on the 7900 XTX against 1.371 ms on the 5070 Ti — a ~48× CUDA lead on what is now a pure
+is 54.973 ms on the 7900 XTX against 1.144 ms on the 5070 Ti (the figures §6 and §4(v) carry; this
+paragraph's earlier 65.95/1.371 pair predated the §4(s) per-row GC repair and is superseded) — a ~48×
+CUDA lead on what is now a pure
 scatter-add (its staging planes are gone, so the atomics are the whole story).
 
 **Gaps:**

@@ -1,4 +1,4 @@
-# GBGPeriodicFields — Architecture and Rationale
+# Architecture — GBGPeriodicFields
 
 This document records the architecture of the package and, more importantly, *why*
 it is the way it is. It exists so that future work (human or AI) extends the design
@@ -64,8 +64,9 @@ A field, and a collection of values sampled at scattered locations, are both
 **sections of a tensor bundle over a base**. The domain is a flat periodic box (a
 3-torus) with a single global frame, so the bundle is trivial — just the product ``E = B \times V``
 of a base ``B`` and a fiber ``V``. **The word "base" carries two related meanings here, and they are
-worth separating once.** The *continuum* base is the torus ``\Omega`` itself, which is what the bundle
-picture and §10's pullback diagram are drawn over. The *discrete* base is the finite set a section is
+worth separating once.** The *continuum* base is the torus ``\Omega`` itself. The bundle is
+drawn over **both**: the trivial product exists over ``\Omega`` and over each discrete base alike, and
+§10's pullback ``\iota`` is exactly what relates them. The *discrete* base is the finite set a section is
 actually stored on — a `Grid3D` of nodes or a `PointSet` of scattered locations, each a finite subset
 of ``\Omega`` — and it is the one meant wherever the docs say a section is "over a base" or a
 reduction "integrates the base away". Neither reading is dispensable: the continuum carries the
@@ -74,7 +75,10 @@ derivative and the measure, the discrete set carries the data. The fiber is a te
 ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
 and higher (`FiberTensor3/4`).
 
-That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
+That single global frame is what lets a derivative index be stored as a fiber index: ``\nabla`` maps a
+section of ``E`` to a section of ``T^{*}\Omega \otimes E``, and the frame identifies ``T\Omega`` with
+``V``, so the package can type ``\nabla u`` as a fiber tensor of one order higher with no raising or
+lowering to track. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
 structure: components are referred to one fixed rectangular frame, indices are neither raised nor
 lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
 trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
@@ -108,14 +112,15 @@ worlds. Two of them are *parameters* of a section — what a section is built fr
   precisely, since a `Grid3D` is a finite set and has no tangent bundle of its own: the
   derivative lives on the **continuum** torus, and a grid section reaches it by standing
   for the trigonometric polynomial its coefficients define, of which each operator is the
-  exact term-by-term derivative. What distinguishes the two bases is therefore whether
+  exact term-by-term derivative on the resolved band (the even-axis Nyquist term is zeroed, invariant 5).
+What distinguishes the two bases is therefore whether
   such an identification exists — a uniform periodic grid determines that polynomial, so
   it inherits the derivative; a `PointSet` of scattered points determines no such
   interpolant, so point-value sections carry the vertical algebra and no derivatives.
 - **Base reductions are the third operation family** — integrating the base away against a
   **measure** the base carries (`Grid3D` cell volume; `PointSet` counting): `integral`
   (extensive), the normalized `inner`/`l2norm`, and the `mean`/`std`/`var` moments. They map a
-  section to a scalar or a fiber — with one member of the family deliberately excepted, since naming it
+  section to a scalar or a fiber — with one sub-family deliberately excepted, since naming it
   here saves a reader the contradiction: the **radial** reductions `radial_spectrum` and
   `radial_correlation` return a *profile*, a pair of vectors over shells, not a single value. They are
   base-dependent (the measure is the base's), yet — like
@@ -137,7 +142,8 @@ worlds. Two of them are *parameters* of a section — what a section is built fr
 connection's base directions — applied here by analogy to *operations*: the fiberwise algebra
 is order-zero and **base-preserving** — it covers the identity on the base, acting inside the fiber
 over each point and touching no neighbour. It is deliberately *not* called fiber-*preserving*, which
-is reserved throughout for a map that leaves the fiber by the identity (the transfer maps, the
+this document reserves — in a narrower sense than the standard bundle-theoretic one — for a map that
+leaves the fiber by the identity (the transfer maps, the
 fiber-preserving reductions); `dot`, `norm`, `det` and `map!` all change the fiber. The horizontal
 family, by contrast, is built from the connection's
 covariant derivative, order one. Built *from* rather than *equal to*: `gradient`, `divergence`,
@@ -162,7 +168,7 @@ A field — or values sampled at scattered points — is a **section** ``s``, a 
 projection ``\pi``:
 
 ```math
-B \xrightarrow{ s } E \xrightarrow{ \pi } B, \qquad \pi \circ s = \operatorname{id}_B,
+B \xrightarrow{ s } E \xrightarrow{ \pi } B, \qquad \pi \circ s = \mathrm{id}_B,
 ```
 
 with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
@@ -818,7 +824,7 @@ W \bigl(\operatorname{sample}_{\mathrm{grid}} \phi\bigr) = \operatorname{eval}_{
 
 the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
 normalizing each side by its base count gives the measure-weighted ``M \langle W f, q\rangle_{\mathrm{pts}} =
-N \langle f, W^{\top} q\rangle_{\mathrm{grid}}`` (``N`` grid cells, ``M`` points — the ``N/M`` is just the two
+N \langle f, W^{\top} q\rangle_{\mathrm{grid}}`` (``N`` grid nodes, ``M`` points — the ``N/M`` is just the two
 normalizations). Intrinsically the pair is a
 **pullback–pushforward**: writing ``\iota : B_{\mathrm{points}} \to \Omega`` for the map from the point base
 ``B_{\mathrm{points}}`` to the torus ``\Omega`` that carries each point to its location ``x_p``, pulling the
@@ -990,8 +996,9 @@ for it (seen in a few papers) is a misnomer.
 - R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition / charge assignment; the NGP and CIC windows).
 - C. K. Birdsall, A. B. Langdon, [*Plasma Physics via Computer Simulation*](https://doi.org/10.1201/9781315275048), Adam Hilger, Bristol, 1991 (deposition / charge assignment).
 - E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
-- L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer
-  (cited by the operator-as-multiplier anchor elsewhere in this document rather than by this section; kept here as its single Fourier-analysis reference), 2014 (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy).
+- L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014
+  (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy). It is cited by that anchor rather than by this section, and
+  is kept in this list as the document's single Fourier-analysis reference.
 
 ## 11. Convolution
 
@@ -1210,7 +1217,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `gradient`, …; return sections), and now **base reductions** — integrate the base away against a
     **measure** it carries; return a fiber value or a scalar. Math grounding ([§2](@ref "2. The central principle: the architecture follows established mathematics")): a section lives in
     ``L^2(\mathrm{base}, \mu) \otimes V`` — the fiber ``V`` is a tensor factor, not flattened away — and
-    the inner product is the metric pairing (cf. **Manifolds.jl** `inner(M,p,X,Y)`),
+    the inner product pairs the two factors — the fiber contraction is the metric pairing on ``V``
+    (cf. **Manifolds.jl** `inner(M,p,X,Y)`, a fiber-level pairing) and the base integral is the
+    ``L^2(\mathrm{base}, \mu)`` factor —
     the measure is an explicit object (cf. **Gridap.jl** `Measure`, **MeasureTheory.jl**), and the
     moments are the canonical reductions (cf. `Statistics` `mean`/`std`/`var`). All dispatch on
     `AbstractFiberSection`, so fields **and** point-values share one set of formulas (`FiberSections`
@@ -1712,7 +1721,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\overline{\hat f} \hat f = |\hat f|^2`` is real and the whole Parseval sum, correction planes
     included, is a fused `sum(abs2, …)`; but the mixed `inner(f, g)` of two distinct fields allocates an
     ``O(N^2)`` kₓ-plane correction, because a `dot` over the strided plane view (which would fuse, no
-    temporary) is unsupported on the GPU (rocBLAS `dotc` has no strided method — verified on the device).
+    temporary) has no method on the AMD path (rocBLAS `dotc` takes no strided argument — verified on the
+    device), and one route serving every backend is preferred to a per-vendor split.
     Consumers form a hot-loop energy as `inner(f, f)` or the physical `inner` (a contiguous `dot`); the
     `examples/` forcing computes its band energy as `inner(u_band, u_band)` for exactly this reason. The
     audit found the whole in-place surface already clean; the only allocation it surfaced was the mixed
@@ -1783,7 +1793,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     *Scope and verification.* The public method set grows to **206** field methods (from the 202 the
     earlier trace addition left, `combine!` adding 2 and `det`/`det!` 1 each) and **122** point-value
-    methods (from 120, `det`/`det!` 1 each); `symmetric_gradient` and
+    methods (from 120 — the same earlier trace addition that took the field surface 198 → 202 carried
+    `tr`/`tr!` onto point-values, 118 → 120 — `det`/`det!` 1 each); `symmetric_gradient` and
     `weighted_inner` live in other modules and leave those baselines untouched. Each operation carries the
     full definition-of-done: a CPU behaviour test against an independent oracle over both element types (and
     both grids where they apply), GPU device-parity, the `test/allocations.jl` guard

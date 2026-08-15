@@ -26,14 +26,14 @@ and need not repeat the convention.
 | ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use). **One deliberate reuse:** in `Convolution`, ``g`` and its transform ``\hat g`` denote the **kernel** rather than a field — the standard symbol for a convolution kernel, kept because every formula there reads as the textbook one. A kernel is a distinct kind of object, not a field, so read ``g`` as the kernel on that page and as a field everywhere else | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | a per-point value (``q_p`` sits at ``x_p``) | — |
-| ``B`` | the **base** of the bundle picture — the set a section attaches values to: a `Grid3D`'s cells, or a `PointSet`'s points. A subscripted ``N_B`` is its point count (``N`` or ``M``); the bare glyph is never a scalar | `Grid3D` / `PointSet` |
+| ``B`` | the **base** of the bundle picture — the set a section attaches values to: a `Grid3D`'s nodes, or a `PointSet`'s points. A subscripted ``N_B`` is its point count (``N`` or ``M``); the bare glyph is never a scalar | `Grid3D` / `PointSet` |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | `Grid3D` |
 | ``N`` | the grid-point count ``\prod_i N_i``; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N``. A complexity expression may use either reading, and which one is always fixed by the shape it describes: the **storage** claims of the kernel and reduction families — ``O(N^3)`` for a full field, ``O(N)`` for a per-axis array, ``O(N^2)`` for a plane — count **per axis**, the three axes being equal in the cubic grids they describe, while the **transfer** costs ``O(NM)`` and ``O(N \log N + M)`` count the **total**, as `DirectDFT`'s own docstring states. The two never mix inside one formula | `prod(grid_size)` |
 | ``M`` | the number of points | `npoints` |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | `FieldSpectralMultipliers` |
 | ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | `radial_spectrum` |
 | ``h`` | a physical displacement (``h_a`` is its component along axis ``a``) | `translation_kernel` |
-| ``\Delta`` | alone, the Laplacian. Followed by another symbol it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | `laplacian`, `radial_spectrum` |
+| ``\Delta`` | before a field it is the Laplacian; before a coordinate or parameter it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | `laplacian`, `radial_spectrum` |
 | ``\hat f`` | the field ``f`` in spectral representation | `to_spectral(f)` |
 
 The worked turbulence example sets the wavenumber vector bold, as ``\mathbf{k}``, because it follows
@@ -64,7 +64,9 @@ of the table above.
 
 Two distinct quantities are written ``\alpha``, and the argument tells them apart: the caller's
 accumulation weight is always the bare ``\alpha``, while the half-spectrum Parseval weight is always
-written with its mode argument as ``\alpha(k)``. They never denote the same thing.
+written with its mode argument as ``\alpha(k)``. They never denote the same thing. A third, purely local
+use appears in the `Fields` storage docstrings, where ``\alpha = 1, 2, 3`` numbers a stored fiber
+component; it names an array slot rather than a weight, and does not travel beyond those bullets.
 
 | Symbol | Meaning | Code |
 |:---|:---|:---|

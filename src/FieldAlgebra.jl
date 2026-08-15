@@ -6,7 +6,7 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 one exists — and an in-place `!` form.
 
 Every operation here acts **pointwise over the base** — the set of locations the field attaches a value
-to, which for a field is the grid's points — applying the same formula to the value at each one and
+to, which for a field is the grid's nodes — applying the same formula to the value at each one and
 touching no neighbours. That is what the formulas below mean by "pointwise over the base".
 
 Acting pointwise is *not* what makes an operation available in both representations, and the two must
@@ -924,7 +924,7 @@ function dot! end
     dot(u::VectorFieldPhysical, v::VectorFieldPhysical)
     dot(A::TensorFieldPhysical{2}, B::TensorFieldPhysical{2})
 
-Allocating form of [`dot!`](@ref) (`dot` ``\\equiv \\cdot``): allocate the scalar-field result and return it. For two vector fields this is their pointwise Euclidean product; for two second-order tensor fields, their pointwise Frobenius product. Two fields contract only in physical representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. The infix alias ``\\cdot`` (`⋅`) is also exported. See `dot!` for the componentwise formula.
+Allocating form of [`dot!`](@ref): allocate the scalar-field result and return it. For two vector fields this is their pointwise Euclidean product; for two second-order tensor fields, their pointwise Frobenius product. Two fields contract only in physical representation; with a constant fiber the contraction stays coefficient-wise and is available in both representations. The infix alias ``\\cdot`` (`⋅`) is also exported. See `dot!` for the componentwise formula.
 """
 dot
 
@@ -1031,7 +1031,7 @@ function cross! end
 """
     cross(u::VectorFieldPhysical, v::VectorFieldPhysical)
 
-Allocating form of [`cross!`](@ref) (`cross` ``\\equiv \\times``): allocate the vector-field result ``u \\times v`` and return it. Two vector fields cross only in physical representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. The infix alias ``\\times`` (`×`) is also exported. See `cross!` for the componentwise formula.
+Allocating form of [`cross!`](@ref): allocate the vector-field result ``u \\times v`` and return it. Two vector fields cross only in physical representation; with a constant fiber vector the operation stays coefficient-wise and is available in both representations. The infix alias ``\\times`` (`×`) is also exported. See `cross!` for the componentwise formula.
 """
 cross
 
@@ -1419,7 +1419,7 @@ function norm! end
     norm(u::VectorFieldPhysical)
     norm(A::TensorFieldPhysical{2})
 
-Allocating form of [`norm!`](@ref) (`norm` ``\\equiv |\\cdot|``): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical representation only. See `norm!` for the componentwise formula.
+Allocating form of [`norm!`](@ref): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical representation only. See `norm!` for the componentwise formula.
 """
 norm
 

@@ -1,4 +1,4 @@
-# Formalization — the typed statements behind the prose
+# Formalization — GBGPeriodicFields
 
 This page is the **formal backing** for the mathematical statements made informally in
 [Architecture](architecture.md), the module docstrings, and the API pages. For each nontrivial
@@ -56,7 +56,7 @@ interpolation section), whereas ``\Gamma_P`` is the space of *values* — a ``V`
 The transform ``\mathcal F`` (`to_spectral`, inverse `to_physical`) is the rfft isomorphism between the
 physical (nodal) and spectral representations of a grid section; ``\hat f = \mathcal F f``. Its codomain
 needs naming, because the obvious candidate is wrong: ``\mathcal F`` is **not** onto the stored complex
-array ``\mathbb C^{N_{k_1} N_2 N_3} \otimes V``, which has strictly more real dimensions than
+array ``\mathbb C^{N_{k_x} N_y N_z} \otimes V``, which has strictly more real dimensions than
 ``\Gamma_G``. The image is the **Hermitian-constrained subspace**: the planes the folded axis maps to itself under
 ``k \mapsto -k`` (the zero plane, and on an even axis the Nyquist plane) are **closed under
 conjugation**, so each stored coefficient there has its partner stored too and the pair must satisfy
@@ -640,10 +640,13 @@ windowed form — the spectral siblings of the spline ``W`` / ``W^{\top}`` above
 \end{gathered}
 ```
 
-Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes), and the
-pair satisfies the same measure-weighted adjoint as the splines,
+Type-2 reproduces the band-limited field exactly (it matches `to_physical` at the grid nodes). Type-1's
+codomain is the full stored-coefficient array, **not** ``\mathcal F``'s Hermitian-constrained image: for
+off-node points on an even axis the deposit is the half-spectrum of no real field, so read it as a
+functional on the stored modes. The adjointness below is with respect to the ``\alpha``-weighted pairing
+on those modes, and holds mode for mode. The pair satisfies the same measure-weighted adjoint as the splines,
 ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^{\top}q\rangle_{\mathrm{grid}}``. ``\checkmark``
-**`NUFFT`** is its ``O(N\log N + M)`` form — spread → oversampled (``\sigma=2``) FFT → deconvolve by
+**`NUFFT`** is its ``O(N\log N + M)`` form — for the deposit, spread → oversampled (``\sigma=2``) FFT → deconvolve by
 ``1/\hat\psi`` (window ``\psi``, transform ``\hat\psi``) — exact to a tolerance ``\varepsilon`` against
 `DirectDFT` on the resolved sub-Nyquist band (the rfft Nyquist is projected out), an exact adjoint pair there.
 

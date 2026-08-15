@@ -17,8 +17,9 @@ The tensors are **Cartesian** — components on one fixed orthonormal frame, wit
 curvilinear coordinates and no metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
-Four words recur in every operation's documentation. A **base** is the set of locations a value is
-attached to: a `Grid3D` of cells, or a `PointSet` of off-grid positions. A **fiber** is the value at
+Five words recur in every operation's documentation. A **base** is the set of locations a value is
+attached to: a `Grid3D` of nodes, or a `PointSet` of off-grid positions. (A grid cell carries the
+quadrature weight a reduction integrates against; the values sit on the nodes.) A **fiber** is the value at
 one such location — a scalar, a `FiberVector`, or a `FiberTensor2`. A **section** puts the two together — it assigns
 one fiber to every point of a base — which is what a field and a set of point-values each are, and
 why one set of formulas serves both. The **resolved band** is the set of wavenumbers a grid's
@@ -26,7 +27,10 @@ resolution actually represents, *excluding* the Nyquist frequency of each even-l
 Nyquist planes are excluded by definition because the package's two wavenumber families disagree
 exactly there — the derivative family is zeroed there while the squared family keeps the true value
 — so every identity this documentation scopes "on the resolved band" holds off them and may fail on
-them. An odd-length axis has no exact Nyquist mode and so loses nothing. A section's
+them. An odd-length axis has no exact Nyquist mode and so loses nothing. A field is **band-limited**
+when its Fourier content vanishes above the wavenumbers the grid stores, so the finite trigonometric
+series those coefficients define represents it exactly; a product of two such fields is not band-limited,
+which is why the operations that form one are offered in physical representation only. A section's
 **storage family** is the kind of array its data lives in — `Array` on the host, `CuArray` or
 `ROCArray` on a device — taken as the array's underlying type rather than its wrapping, so that a
 `reshape` of an `Array` is still the `Array` family. Two sections combine only within one storage

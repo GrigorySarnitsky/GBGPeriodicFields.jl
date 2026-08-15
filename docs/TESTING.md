@@ -1,6 +1,6 @@
 # Testing — GBGPeriodicFields
 
-This is one of three design companions: [`ARCHITECTURE.md`](architecture.md) explains why the
+This is one of four design documents — three rationale companions and the typed [`FORMALIZATION.md`](formalization.md) behind them: [`ARCHITECTURE.md`](architecture.md) explains why the
 *package* is built the way it is, [`PERFORMANCE.md`](performance.md) how it performs and is
 benchmarked, and this one explains how the *tests* are built and what they must cover. Read it
 before adding or changing tests. The goal is not a test count — it is that every claim the package
@@ -198,7 +198,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   SAME SHAPE, so every array involved is identically sized and nothing structural distinguishes them),
   `contracts.jl` (decision 56: the negative matrix for the strict compatibility protocol — context
   mismatch at identical shape, numeric domains, constructor invariants, transfer colocation, the
-  inversion zero policy, and the ``R < 3`` ceiling lane whose property is that above the ceiling every
+  inversion zero policy, and the ``R \le 2`` ceiling lane whose property is that above the ceiling every
   entry point works or throws, never returns a wrong value),
   `results_format.jl` (decision 56: the committed benchmark report must parse as GFM — every table's
   alignment and data rows must match its header's column count),
@@ -433,7 +433,7 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
   (`_assign!` alone 4.5×), which made the local suite take about six times as long for a Julia nothing in
   the fleet runs.
 - **Performance is tracked separately**, not by `Pkg.test()`: the opt-in `benchmark/` suite and its
-  coverage contract live in [`PERFORMANCE.md`](performance.md) (the third design companion).
+  coverage contract live in [`PERFORMANCE.md`](performance.md) (the third rationale companion).
 
 
 ## 7. Current coverage and known gaps

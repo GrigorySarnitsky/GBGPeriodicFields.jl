@@ -24,7 +24,7 @@ M \\langle Wf, q \\rangle_{\\mathrm{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
 \\end{aligned}
 ```
 
-Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because ``W`` and ``W^\\top`` share the same stencil weights. Because those weights sum to one
+Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because each scheme's scatter applies its own gather's transpose — the same stencil weights for the local splines, the conjugate Fourier sum for the spectral pair. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. That is a property of the **local-spline** schemes, whose weights sum
 to one at every position, and it holds for [`DirectDFT`](@ref) too, by a different route: a constant is
@@ -115,8 +115,9 @@ abstract type AbstractTransferScheme end
 """
     AbstractSplineScheme{N2, M2, T, L}
 
-Supertype of the physical-domain local interpolation schemes — the two hierarchies of Lalescu, Teaca &
-Carati (2010): the smooth [`LalescuSpline`](@ref) and the ``C^0`` [`LagrangeSpline`](@ref). Each acts on
+Supertype of the physical-domain local interpolation schemes over one shared stencil: the smooth
+[`LalescuSpline`](@ref) of Lalescu, Teaca & Carati (2010) and the ``C^0`` [`LagrangeSpline`](@ref), the
+classical Lagrange interpolant of the same nodes, matched to TurTLE's `Lagrange_polys`. Each acts on
 a field in physical representation, gathering and scattering its nodal values over a compact
 ``(2n{+}2)^3`` stencil around the cell ``c`` that contains a point ``x_p``. With ``t_a`` the point's
 fractional position along axis ``a`` and ``w`` the scheme's per-axis weight polynomials, interpolation is
@@ -133,7 +134,9 @@ stencil of ``N_2 = 2n{+}2`` nodes, each weight a degree-``(M_2-1)`` polynomial i
 position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, power]`) is precomputed
 once into an `SMatrix`, so it passes into the gather/scatter kernels by value (no device array). One of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
-[`NUFFT`](@ref) are the other.
+[`NUFFT`](@ref) are the other. Only the spline family has a shared supertype: its members differ in
+their weights alone and so share a parametric interface, while a stateless [`DirectDFT`](@ref) and a
+plan-carrying [`NUFFT`](@ref) share no structure a supertype could hold.
 
 Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 """
@@ -1036,8 +1039,9 @@ end
 
 The **fast, approximate** spectral-domain transfer scheme: the ``O(N\\log N + M)`` windowed-gridding
 (nonuniform FFT) counterpart of [`DirectDFT`](@ref) for evaluating a field in spectral representation at
-scattered points and depositing point values back, agreeing with `DirectDFT` to a tolerance `tol`. It
-spreads the transfer onto an oversampled grid through a smooth compact window and takes a single FFT, so
+scattered points and depositing point values back, agreeing with `DirectDFT` to a tolerance `tol`. It runs the transfer through an oversampled work grid and a single FFT — spreading through a smooth
+compact window then transforming for the deposit, and the reverse for the evaluation, deconvolving the
+coefficients before the transform and gathering through the window after it — so
 it is far cheaper than the exact ``O(NM)`` sum once the point and mode counts grow; for a few points or
 modes, `DirectDFT` is simpler and exact.
 
@@ -1051,11 +1055,12 @@ like the reference. The arguments are:
     a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
     element type can resolve widens the window as far as the formula goes and then saturates at that
     resolution rather than erroring.
-  - `oversampling` — the linear oversampling factor of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
+  - `oversampling` — the linear oversampling factor ``\\sigma`` of the work grid (default `2`); must be **at least 2**. That is an implementation bound rather than a
     theoretical one — lower upsampling is standard with a correspondingly wider window — because the
     width and shape formulas here are fitted for ``\\sigma \\ge 2``; a value of 1 leaves no spectral guard band, so the gridding breaks down.
   - `width` — the gridding stencil width in nodes; `0` (default) picks it from `tol`.
-  - `beta` — the window shape parameter; `0` (default) picks it from the width.
+  - `beta` — the window shape parameter, unrelated to the accumulation weight ``\\beta`` the transfer
+    verbs take; `0` (default) picks it from the width.
 
 It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
 `tol` on the resolved sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint

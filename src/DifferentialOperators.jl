@@ -3,7 +3,8 @@
 
 Differential operators on scalar, vector, and tensor fields over three-dimensional rectangular
 periodic domains, applied as spectral multipliers. A field in this module is its finite Fourier representation, so each
-operator is the exact term-by-term derivative of that trigonometric polynomial, realized as a
+operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band,
+the even-axis Nyquist term being zeroed (see the Nyquist split below), realized as a
 coefficientwise multiply by a wavenumber symbol with no finite-difference truncation. The wavenumber
 symbols are held in a [`FieldSpectralMultipliers`](@ref), built from a field with
 `FieldSpectralMultipliers(field)` or from the explicit six-array constructor. Every operator provides
@@ -1292,7 +1293,8 @@ gradient of the pressure-like potential that solves the divergence:
 \\mathbb P u = u - \\nabla  \\Delta^{-1}(\\nabla\\cdot u),
 ```
 
-an identity exact on the resolved band (the inverse Laplacian keeps the true ``k^2`` while the
+an identity exact on the resolved band — the wavenumbers the grid resolves, excluding each even axis's
+Nyquist plane (the inverse Laplacian keeps the true ``k^2`` while the
 projector is built from the derivative family — the two coincide off the Nyquist planes). The
 implemented operator is the **exact orthogonal projector onto the kernel of the discrete
 divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
@@ -1377,8 +1379,8 @@ end
     helmholtz_projection(field, multipliers, kernel::SpectralKernel)
 
 Allocating form of [`helmholtz_projection!`](@ref): allocate the result and return it, the Helmholtz
-(Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with the zero Fourier
-mode left unchanged. With a `kernel` the result is the projection convolved with the kernel,
+(Leray) projection ``\\mathbb P u`` — the divergence-free part of a vector field, with every mode whose
+derivative wavenumber vanishes left unchanged. With a `kernel` the result is the projection convolved with the kernel,
 ``g \\star (\\mathbb P u)``, in one pass. See `helmholtz_projection!` for the spectral form and the
 kernel-composed form.
 """

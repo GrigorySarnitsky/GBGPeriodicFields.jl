@@ -447,7 +447,8 @@ end
 A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a g_a(k_a)``, stored as its
 three one-dimensional per-axis factors rather than as a full field. The factors are evaluated into
 the product one mode at a time, so the kernel never occupies a field's worth of memory: three arrays
-of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the hundreds of
+of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the 129 MiB a ``256^3``
+kernel would take, roughly the
 megabytes a ``256^3`` kernel would take — and applying it reads no FIELD-SIZED kernel stream: the
 three ``O(N)`` factors are read per mode, which is the saving, not zero kernel traffic.
 
@@ -856,7 +857,7 @@ _fiber_flattened(data::AbstractArray) =
 Apply the coefficientwise spectral product that realizes the periodic convolution in spectral
 representation, writing ``\\texttt{dst} \\mathrel{.=} \\alpha \\hat g \\cdot \\hat f + \\beta \\texttt{dst}``
 (``\\texttt{dst}`` the `destination_data`, ``\\hat f`` the `source_data`, ``\\hat g`` = `kernel_data`).
-The scalar `kernel_data`, of shape `(Nx, Ny, Nz)`, broadcasts over the fiber components of
+The scalar `kernel_data`, of the field's spectral spatial shape (the folded axis halved), broadcasts over the fiber components of
 `source_data` exactly as the Laplacian's ``|k|^2`` does, so one body serves every tensor order. The
 call branches on `iszero(β)` to overwrite or accumulate. The product is coefficientwise, so it is
 alias-safe: `destination_data` may be `source_data` or the kernel.
@@ -925,7 +926,8 @@ returns a fresh result instead.
     and there is deliberately no in-place spelling, because there is nothing for one to save:
     composition never builds a field of coefficients in any storage class. Two separable kernels compose
     into their per-axis products, and two radial ones into a single closure when both are built over
-    canonical multipliers of the same concrete type ([`RadialKernel`](@ref) gives the condition); every
+    *canonical* multipliers — the grid's own wavenumbers, built by the convenience constructor rather than
+    supplied by the caller — of the same concrete type ([`RadialKernel`](@ref) gives the condition); every
     other pair — two stored kernels, a cross-family pair, or radial operands failing that test —
     becomes a [`ProductKernel`](@ref) holding both factors unmultiplied and evaluating them in a
     single pass. Composing two stored kernels allocates zero bytes, against
@@ -1536,7 +1538,10 @@ transfer function ``\\hat W(k)``, the squared sinc
 
 computed from the per-axis wavenumber ``k_a`` (kept at the Nyquist frequency) and the grid spacing
 ``\\Delta x_a``, so ``\\hat W(0) = 1`` and it decays toward the grid scale. Because the squared sinc
-does not vanish at any wavenumber the grid resolves, dividing by it is stable. The package supplies the
+does not vanish at any wavenumber the grid resolves, dividing by it is stable. Stable is not the same as
+exact: ``\\hat W`` is the transform of the continuum tent, while a grid deposit applies that transform plus
+the aliasing sum over the periodic images of ``k``, so the division undoes the smearing only up to that
+aliasing — trust the lower band, well below the Nyquist frequency. The package supplies the
 window; the density estimate and the correlation normalization stay consumer-side.
 
 Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using

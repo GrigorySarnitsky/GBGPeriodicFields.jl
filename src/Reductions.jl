@@ -4,7 +4,8 @@
 The **L² / measure structure** on sections — the third operation family, alongside the fiberwise algebra
 and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
-its **base** against the measure the base carries: a `Grid3D` uses its uniform quadrature (the cell
+its **base** against the measure the base carries — the extensive one for `integral`, its
+total-mass-one normalization for the intensive reductions: a `Grid3D` uses its uniform quadrature (the cell
 volume), and a `PointSet` uses its **counting** measure (unit weight per point,
 forced because a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
 dispatched on `AbstractFiberSection`.
@@ -31,7 +32,7 @@ The parts are, each linking to the home where its formula lives.
 - [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
   by default). `std`/`var` are **scalar-only**: the sample standard deviation and variance are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
-  tensor `cov` ``\\equiv R_{ij}`` (a symmetric `FiberTensor2`), of which a
+  tensor `cov` ``\\equiv R`` with entries ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
@@ -972,7 +973,8 @@ The arguments are:
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
 even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
-`fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` indexing the fiber components,
+`fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
+(unrelated to the exponent coefficient `Convolution` writes ``c``),
 
 ```math
 \\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
@@ -989,8 +991,8 @@ the cost is a single weighted pass over the coefficients — the same traffic as
 though `inner` reduces on the threaded fixed tree while this pass is still serial, so they diverge as
 threads are added — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
-than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which build an ``O(N)``
-scatter-add binning pass over every mode (and, for the correlation, an inverse transform).
+than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which sweep every mode with
+a scatter-add binning pass (and, for the correlation, an inverse transform).
 """
 function weighted_inner end
 
@@ -1196,7 +1198,8 @@ is taken from the box's largest side, so on a strongly anisotropic box it is fin
 combs, though its sum is unaffected. The two shells meet at a half-integer ``|k|/\\Delta k``, which an anisotropic box hits exactly; such a mode is assigned by `round`'s **ties-to-even**, so the boundary belongs to neither shell by a fixed convention but to whichever has even index. The interval is deliberately not written half-open for that reason — a half-open bracket would claim round-half-up, which is not what the code does. The reduction is GPU-portable: a single
 scatter-add binning pass over the modes that derives each mode's shell, fiber contraction, and
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
-reduction like `inner` only by the atomic binning and a square root per mode.
+reduction like `inner` only by the binning — whose accumulators take atomic (concurrency-safe) updates,
+since several modes land in one shell — and a square root per mode.
 """
 function radial_spectrum end
 
@@ -1388,7 +1391,8 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 \\end{aligned}
 ```
 
-It is physical-space only.
+It is physical-space only at every exponent, `p = 2` included; for a field in spectral representation use
+[`l2norm`](@ref), which reads the same value off the coefficients through Parseval.
 
 The exponent `p` must satisfy ``1 \\le p \\le \\infty``; outside that range the expression is not a norm
 and the call raises rather than returning a plausible number. The result carries the section's own
