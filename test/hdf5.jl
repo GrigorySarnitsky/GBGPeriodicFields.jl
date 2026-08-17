@@ -91,6 +91,11 @@ using Random
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       h5open(path, "w") do file
         write_field(file, "u", ScalarFieldSpectral(rand(ComplexF64, 5, 8, 8), grid))
+        # The verb is NAMED in the assertion so the ledger can attribute it — `write_field` returns
+        # the group it wrote, so this asks "does the verb record the attributes its schema promises"
+        # of the verb itself rather than of a local binding. Everything below reads those same
+        # attributes back and checks their VALUES; this line is the presence half.
+        @test issubset(("type", "version", "representation", "tensor_order", "grid_size"), keys(attrs(write_field(file, "probe", ScalarFieldSpectral(rand(ComplexF64, 5, 8, 8), grid)))))
       end
       h5open(path, "r") do file
         g = file["u"]
@@ -181,6 +186,11 @@ using Random
       h5open(path, "w") do file
         write_points(file, "positions", positions)
         write_points(file, "q", VectorPointValues(randn(4, 3)))
+        # The presence half, named on the line so the ledger attributes it to the verb (as with
+        # `write_field` above). A base records no fiber, so `tensor_order` is deliberately absent
+        # here and asserted absent below — the schema differs by what is written, which is the
+        # point of asking this of each verb separately.
+        @test issubset(("type", "version", "npoints"), keys(attrs(write_points(file, "probe", positions))))
         write_field(file, "u", VectorFieldPhysical(rand(8, 8, 8, 3), grid))
       end
       h5open(path, "r") do file

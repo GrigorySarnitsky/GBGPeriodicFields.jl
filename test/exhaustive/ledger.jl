@@ -277,7 +277,12 @@ const APPLICABILITY = Dict{Symbol, Any}(
   # to atomic operations put the ledger in contradiction with the universal check, which runs
   # determinism on everything — and the second-order guard is what surfaced it, 66 times.
   :determinism      => (p -> (true, "")),
-  :schema_presence  => (p -> p.serializes ? (true, "") : (false, "does not serialize")),
+  # Only a WRITER records a schema. A reader's corresponding property is that it REQUIRES one, which
+  # the corrupted-group lanes assert by rejection and which this ledger already counts as
+  # `domain_rejection` — so asking a reader to carry `schema_presence` too would demand an assertion
+  # nobody should write, and the guard would stay red for a question already answered elsewhere.
+  :schema_presence  => (p -> p.serializes && startswith(String(p.name), "write") ?
+                             (true, "") : (false, "records no schema of its own")),
   # The three relational checks take their domain from the declared relation table, because each
   # constrains a PAIR and no property of one operation can say whether a partner exists.
   :adjoint          => (p -> isempty(relations_for(p.name, :adjoint)) ?

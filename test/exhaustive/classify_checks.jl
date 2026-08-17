@@ -35,7 +35,10 @@ const CLASSES = [
   (:determinism,     [r"determinis", r"reproducib", r"seed"]),
   # SURFACED BY THE RESIDUE, not by the design's list:
   (:static_absence,  [r"!hasmethod", r"hasmethod\("]),      # absence proven statically, not by throwing
-  (:schema_presence, [r"haskey\("]),                        # a serialized attribute is present/absent
+  # `haskey(` alone missed how the suite actually asserts a schema: it READS the attribute and compares
+  # it (`attrs(g)["version"] == 1`), so every positive schema assertion in `hdf5.jl` was typed
+  # `:correct` and the check read 0/4 while being thoroughly asserted (2026-08-17).
+  (:schema_presence, [r"haskey\(", r"attrs\("]),            # a serialized attribute is present/absent
   (:structural,      [r"all\(iszero", r"any\(iszero", r"imag\.\(", r"all\(isreal", r"issymmetric"]),
   (:representation,  [r"\bsame\(", r"spectral.*physical|physical.*spectral"]),
   (:result_type,     [r"\bisa\b"]),                        # the operation returns the declared type
