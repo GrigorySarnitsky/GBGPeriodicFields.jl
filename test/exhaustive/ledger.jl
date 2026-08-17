@@ -641,9 +641,30 @@ function run_ledger_lane()
   end
 
   if !isempty(excluded)
+    # WHY an operation owns no package method decides what the reader should do about it, and there are
+    # two reasons, not one. Printing the weak-dependency line for both told the 2026-08-15 run's reader
+    # to load `HDF5` to place `adapt` — which would never place it, `adapt` being Adapt.jl's own generic
+    # that the package re-exports and reaches by extending `adapt_structure`. The discriminator is
+    # derived rather than listed: a stub the package DECLARES resolves to a package module even when its
+    # methods live elsewhere, while a re-exported foreign generic resolves to the module that owns it.
+    owned = Set(package_modules())
+    declared_here = o -> begin
+      f = _ledger_lookup(o)
+      f === nothing ? false : parentmodule(f) in owned
+    end
+    deferred = [o for o in excluded if declared_here(o)]
+    foreign  = [o for o in excluded if !declared_here(o)]
     println("\n  NOT REACHED — ", length(excluded), " public operations own no method in this process:")
-    println("      ", join(String.(excluded), ", "))
-    println("      They live in a weak-dependency extension. Load `HDF5` and rerun to place them.")
+    if !isempty(deferred)
+      println("      ", join(String.(deferred), ", "))
+      println("      Declared here, defined in a weak-dependency extension. Load `HDF5` and rerun to place them.")
+    end
+    if !isempty(foreign)
+      println("      ", join(String.(foreign), ", "))
+      println("      Re-exported generics the package does not extend directly — it extends the hook they")
+      println("      dispatch through (`adapt` reaches the package through `adapt_structure`). Loading a")
+      println("      package will not place them; they are covered wherever that hook is covered.")
+    end
   end
 
   return (total_gaps, length(violations) + length(unplaced), cells)

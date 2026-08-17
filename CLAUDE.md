@@ -1433,16 +1433,34 @@ sequences (1,632) lanes, 0 disagreeing assignments over 37,152 storage-aliasing 
 mismatched argument refused in the context lane. The only value disagreements are the 72 known
 `radial_spectrum` cells (Float32, mixed/shifted grids — the tie-break issue recorded below).
 
-**(3) Two HARNESS findings the same run surfaced, both from decision 63 rather than the run's own
-subject.** First, **42,336 of its findings — 18,144 structural and 24,192 type-stability — are all
-`adapt_structure(<section>, <object>)`**: `Adapt.jl`'s hook takes an *untyped adaptor* slot by design,
-so the invocation engine fills it from the section pool and calls "adapt these plans **to** this
-field", which is not a call anyone makes. They are not defects and they drown the rest of the report;
-the engine should skip a slot that carries an adaptor rather than a value. Second, **`adapt` is
-reported "NOT REACHED — lives in a weak-dependency extension", which is a mis-attribution**: it owns
-no package method because the package extends `adapt_structure`, and it has nothing to do with the
-HDF5 extension. A third, pre-existing item: the ledger's one guard violation is `schema_presence`
-**0/4** — applicable to the four persistence operations and asserted by nothing.
+**(3) The four HARNESS findings that run surfaced are FIXED (2026-08-17), and clearing them exposed a
+real one.** The survey reported 42,336 findings that were not defects — 18,144 structural and 24,192
+type-stability, every one an `adapt_structure(<section>, <object>)` call, because `Adapt.jl`'s hook
+takes an *untyped adaptor* slot and the invocation engine filled it from the section pool, building
+"adapt these plans **to** this field". Fixed by naming the adaptor slot (`_adaptor_slots`) and filling
+it from an adaptor pool, which keeps the operation covered by real calls instead of dropping it.
+Clearing that noise made the residue legible and it was two more of the same class, both verified
+against the code before being touched: the finiteness scan read `FieldTransformPlans`'
+`fft_timelimit = Inf` — FFTW's "no time limit" **setting** — as non-finite data (288 cells), and the
+inference query keyed on `typeof(Array) === DataType` where a real call site passes `Type{Array}`, so
+it asked a weaker question and got the correct answer `Any` (2,880 cells). And `adapt` was reported as
+living in a weak-dependency extension, which it does not; the not-reached line now splits the two
+reasons, derived from whether the binding resolves to a package module. **Result: structural findings
+0, type-stability 42,336 → 384.**
+
+**(4) OPEN, and only visible once the noise was gone: `adapt` is type-unstable for multipliers and
+radial kernels.** `adapt(Array, ·)` returns a non-concrete type for `FieldSpectralMultipliers`,
+`RadialKernel` and `ProductKernel`, though not for `SeparableKernel`. One root cause:
+`adapt_structure(to, multipliers)` passes `_is_canonical(multipliers)` as a **runtime `Bool`** to a
+constructor that lifts it into the `Canonical` **type parameter**, so inference cannot resolve it; the
+kernels inherit the imprecision because they carry the multipliers' type. **Behaviour is correct** —
+the flag is preserved (`typeof(m) === typeof(adapt(Array, m))`) — so this is inference, not a wrong
+answer. It is worth fixing because decision 61 made `canonical` a type parameter precisely so
+`convolve` can collapse two radial kernels **statically**: after a bus crossing that decision would
+fall back to runtime. The likely fix is to bind `Canonical` in the method signature so the constructor
+argument is a compile-time constant. A third, pre-existing item stands: the ledger's one guard
+violation is `schema_presence` **0/4** — applicable to the four persistence operations, asserted by
+nothing.
 
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with

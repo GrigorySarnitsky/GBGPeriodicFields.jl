@@ -186,6 +186,14 @@ const UNBOUNDED_OUTPUT = (:exponential_convolve, :exponential_convolve!, :/, :di
 # EXACT names. As a substring test, `"inv"` matched — and so exempted — anything merely containing it.
 const FINITENESS_EXEMPT = (:inverse_laplacian, :inverse_laplacian!, :divide, :divide!, :/, :inv)
 
+# The finiteness scan asks whether a computation turned finite INPUT into non-finite OUTPUT. Some
+# returned objects carry a non-finite number that is a SETTING rather than a result:
+# `FieldTransformPlans` stores `fft_timelimit = Inf`, FFTW's spelling of "search without a time
+# limit", so every `adapt(Array, plans)` was reported as producing a non-finite value (288 cells on
+# the 2026-08-17 run). Excluding the type is honest where excluding the operation would not be: the
+# object contains no field data at all, so there is nothing for this check to be right about.
+_carries_only_settings(value) = value isa GBGPeriodicFields.Fields.FieldTransformPlans
+
 # Operations whose second identical call cannot succeed because the FIRST changed external state:
 # writing into an HDF5 file throws on a duplicate name, and the pool holds one name and one shared
 # handle. The repeat therefore threw, the comparison was skipped, and the cell was counted as checked
@@ -242,8 +250,16 @@ end
 # Inference is the expensive part of the sweep, and the same (operation, argument types) pair recurs
 # thousands of times across the product.
 const _RETURN_TYPE_CACHE = Dict{Any, Any}()
+# A `Type` ARGUMENT specializes as `Type{X}`, and querying it as `typeof(X) === DataType` asks a
+# different and much weaker question. It cost 2880 cells on the 2026-08-17 run: every
+# `adapt_structure(Array, …)` was reported as inferring `Any`, because with the adaptor typed
+# `DataType` inference genuinely cannot know WHICH adaptor and `Any` is the correct answer. A real
+# call site passes `Array` as `Type{Array}` and infers concretely — verified against both layers:
+# `Base.return_types(adapt_structure, (Type{Array}, ScalarPointValues))` gives
+# `ScalarPointValues{Float64, Vector{Float64}}`. Asking about the type actually dispatched on is not a
+# widening of the check; it is the check the operation deserves.
 function _inferred_type(operation, arguments)
-  key = (operation, typeof.(arguments))
+  key = (operation, map(a -> a isa Type ? Type{a} : typeof(a), arguments))
   return get!(_RETURN_TYPE_CACHE, key) do
     try
       only(Base.return_types(operation, Tuple{key[2]...}))
@@ -317,7 +333,8 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
    # diffing the hunks is what caught it.
    if !_returns_uninitialized(invocation) && !_unbounded_output(invocation)
      count!(:structural)
-     if !_finite(result) && !(nameof(invocation.operation) in FINITENESS_EXEMPT)
+     if !_finite(result) && !(nameof(invocation.operation) in FINITENESS_EXEMPT) &&
+        !_carries_only_settings(result)
        record!(:structural, "$(invocation.label) returned a non-finite value from finite input")
      end
    end

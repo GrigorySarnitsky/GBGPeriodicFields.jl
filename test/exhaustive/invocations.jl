@@ -316,6 +316,30 @@ pool_class_gaps(config; device = identity) = _pool_class_gaps(canonical_pool(con
 # `to_physical` and fifty more as unbuildable. Comparing TYPE CONSTRUCTORS instead ignores the
 # parameters that the `where` has not bound, which over-admits slightly; `applicable` then settles
 # every candidate exactly, so the looseness costs work and never correctness.
+# ADAPTOR SLOTS — the one place derivation cannot decide, and the reason is Adapt.jl's, not ours.
+#
+# `Adapt.adapt_structure(to, x)` takes a *target* in its leading slot — a description of the storage
+# family to move into — and Adapt.jl leaves it untyped, because an adaptor may be any object a package
+# cares to define. `_slot_admits` therefore admitted the WHOLE pool there and `applicable` confirmed
+# every one, so the engine built calls reading "adapt these plans TO this field": 42_336 cells on the
+# 2026-08-15 run, every one reported as a structural or type-stability finding, and between them they
+# buried the report's real content. They are not defects and they are not calls anyone makes.
+#
+# Nothing in the signature separates a target from an operand, so the slot is NAMED — derivation's
+# honest limit, declared rather than hidden. The slot is then filled from the adaptor pool, which
+# keeps the operation covered by real calls (`adapt_structure(Array, field)` is the host-to-host
+# identity) instead of dropping it.
+_adaptor_slots(operation) = nameof(operation) === :adapt_structure ? (1,) : ()
+
+# The adaptors this process can name. `Array` is always available; a device backend adds its own array
+# type when the suite runs from `test/gpu/*`, which is where the cross-family move is worth checking.
+_adaptor_pool() = PoolEntry[PoolEntry("adaptor: Array", Array)]
+
+_slot_candidates(operation, index, parameter, pool) =
+  index in _adaptor_slots(operation) ? _adaptor_pool() :
+                                       [e for e in pool if _slot_admits(parameter, e.object)]
+
+
 function _slot_admits(parameter, object)
   parameter isa Core.TypeofVararg && return false
   base = parameter isa UnionAll ? Base.unwrap_unionall(parameter) : parameter
@@ -369,7 +393,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
           oversized += 1
           continue
         end
-        slots = [[e for e in pool if _slot_admits(p, e.object)] for p in expanded]
+        slots = [_slot_candidates(operation, i, p, pool) for (i, p) in enumerate(expanded)]
         if any(isempty, slots)
           unfillable += 1
           continue
@@ -411,7 +435,7 @@ function invocations(operation::Function, pool; cap::Int = 400)
       oversized += 1
       continue
     end
-    slots = [[e for e in pool if _slot_admits(p, e.object)] for p in parameters]
+    slots = [_slot_candidates(operation, i, p, pool) for (i, p) in enumerate(parameters)]
     # Counted, not silently dropped. A method with an unfillable slot vanished with no counter at all —
     # neither `dropped` nor `oversized` — which is how a whole method form leaves a sweep that claims
     # completeness. The operation still reports as built when another of its methods succeeds.
