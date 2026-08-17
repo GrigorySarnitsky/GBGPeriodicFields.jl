@@ -1223,6 +1223,30 @@ a broken instrument reports success.
 failures, zero rows keeping the collector; `algebra` ten rows, the same. The probe reproduces invariant 13
 on CUDA exactly as it did on AMD, having been told nothing about it.
 
+**(x) The `storage` class, measured at last: the identity is free, and the two bus directions are not
+symmetric.** The class decision 63 added was swept on the RTX 5070 Ti on 2026-08-17 (42 rows, ``64^3``
+to ``256^3``, both element types) and says three things.
+
+*Adapting to the family a section already lives in costs ``118`` ns, flat.* It reads 118.2–122.1 ns at
+every grid and both types — five orders of magnitude below the ``19.8`` ms a ``256^3`` `Float64` vector
+takes to actually cross. Decision 63 *documents* that this case is the identity; this measures it, and
+the flatness is the proof: a copy would scale with the grid and this does not.
+
+*Device-to-host is about ``4\times`` slower than host-to-device, at every size and both types.* A
+``256^3`` `Float64` scalar goes out in ``6.03`` ms and comes back in ``23.72`` ms; the vector, ``19.77``
+against ``72.18`` ms; in `Float32`, ``2.46`` against ``11.41`` ms and ``9.00`` against ``36.27`` ms. The
+outbound rate is ``\approx 22`` GB/s, which is a healthy PCIe 4.0 figure; the inbound is ``\approx 5.6``
+GB/s, far below it. The asymmetry is therefore not the bus — it is that the return trip **allocates its
+destination**, a fresh pageable host array, and pays for the pages as well as the transfer. That is
+evidence for the open design question the roadmap already carries: whether `adapt` should gain an
+in-place form writing into a caller's preallocated destination. A consumer pulling a field back every
+few steps is currently paying an allocation it has no way to hoist.
+
+*The two non-section rows behave as their structure predicts.* `adapt multipliers` is ``\approx 13`` µs
+independent of the grid — six ``O(N)`` per-axis arrays, so the cost is six transfers' fixed overhead
+rather than bytes — and `adapt plans (rebuild)` grows ``7.4 \to 23.5`` µs with the grid, which is the
+FFT planning it redoes rather than anything copied.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
@@ -1538,12 +1562,13 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
-7. **The `storage` class is wired but never swept.** Decision 63's device-only class exists in
-   `benchmark/storage.jl` and is registered in both `benchmarks.jl` and `report.jl`, and its rows run
-   (verified by the tiny-grid gate), but no sweep has yet put them in `benchmark/RESULTS.md`, which
-   still carries six class sections. Until one does, the cost of crossing the bus is documented in §5
-   and unmeasured in the table. It needs a device lane, so it is an `Enteropia`/`Aiporetne` job rather
-   than something a CPU run can close.
+7. **The `storage` class is swept on CUDA and still open on ROCm** (2026-08-17). Decision 63's
+   device-only class now carries 42 rows in the `GPU 5070TI` column and `RESULTS.md` has seven class
+   sections; see finding (x) for what they say. The `GPU 7900XTX` column is still `—` throughout, so
+   the cross-vendor comparison this class exists to support cannot be made yet, and it is an
+   `Aiporetne` job. Method note for whoever runs it: `characterize.jl` **overwrites** the archive it is
+   given, so a class-only sweep must be written to a separate file and merged into the host's existing
+   archive — the CUDA half was done that way and the other 426 rows verified bit-identical afterwards.
 8. **`aarch64` is a production host architecture with zero coverage.** The recorded production
    target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
    superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the
