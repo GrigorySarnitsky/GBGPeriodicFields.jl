@@ -1474,12 +1474,30 @@ positive assertion was typed `:correct`; and attribution scans **one line at a t
 promised attributes are present. The classifier moved six assertions from `:correct` to
 `:schema_presence` (694 → 688, 3 → 9): credit MOVED rather than appeared, as predicted.
 
-**(6) OPEN — the actual second-order guard violation:** `inner: a lane asserts allocation, which the
-ledger calls inapplicable — the applicability rule and the lane disagree`. One of the two is wrong,
-and the lane looks right: invariant 13 records the mixed spectral `inner(f, g)` as a **deliberate**
-allocator carrying a *bounded* rather than a zero guard, which `test/allocations.jl` asserts. So the
-ledger's `:allocation` applicability rule is too narrow — it appears to admit only in-place `!`
-operations. Not yet investigated.
+**(6) CLOSED 2026-08-17 — the guard was right and neither side it accused was wrong.** The violation
+read `inner: a lane asserts allocation, which the ledger calls inapplicable`. Neither the rule nor the
+lane was at fault: the ledger had never determined the *fact* the rule depends on. `:allocation`
+applies when an operation is in-place **or returns a real**, and `returns_real` was derived by asking
+`Base.return_types` about each method's **declared signature** — which, for a package that dispatches
+on abstract types throughout, has no answer. `inner`'s declared signature genuinely infers `Any`; with
+concrete arguments it infers `Float64`. The same fault as the checks lane's earlier one, in a second
+place: asking inference about a type nobody passes. **Blast radius: 42 of 112 operations** had neither
+return fact determined, silently marking `allocation`, `inequality` and `structural` inapplicable —
+`dot` among them, which plainly returns a section. The facts now come from concrete calls the
+invocation engine already builds, with the declared signature kept as the fallback for anything
+unbuildable; "neither" is 30, and those are genuine (accessors returning arrays, `cov` returning a
+fiber value rather than a section, the kernel builders). Two traps, both caught by measuring:
+`invocations` returns a *report tuple*, so the first attempt read its arity as a count and inferred
+nothing; and the concrete results include `Union{}`, inference's way of saying a call throws, which is
+a subtype of everything and made `inner` and `maximum` claim to return sections. Both `Any` and
+`Union{}` are now filtered as the non-facts they are.
+
+**The survey is now clean on every lane it asserts.** Post-fix (2026-08-17, full run): **0** correctness
+findings, **0** type-stability findings over 3,400,800 invocations, **0** guard violations, 0 failures
+in relations / representation / invariance / allocation / ordering / sequences / storage aliasing. What
+remains is the 72 known `radial_spectrum` value cells (the Float32 shell tie-break recorded above), the
+62 context-mismatch cells that refuse at dispatch rather than at a domain check, and 348
+applicable-but-unasserted ledger cells, which are a coverage report rather than a failure.
 
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with

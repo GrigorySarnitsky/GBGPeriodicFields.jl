@@ -89,6 +89,29 @@ end
 
 The facts about one operation that decide which checks apply to it, each read from the code.
 """
+# One canonical configuration, built once, purely to obtain CONCRETE argument types for the return-type
+# question above. It is deliberately not the survey's configuration product: this lane asks what an
+# operation returns, which does not vary across grids, folds or seeds.
+const _PROPERTY_POOL = Ref{Any}(nothing)
+function _property_pool()
+  if _PROPERTY_POOL[] === nothing
+    _PROPERTY_POOL[] = canonical_pool(Config("ledger-properties", Float64,
+                                             Grid3D((8, 6, 4), (2π, 2π, 2π)), RealFourierLayout(),
+                                             false, 20260731))
+  end
+  return _PROPERTY_POOL[]
+end
+
+# A few calls are enough to type a return; the engine's own cap governs how many exist.
+function _property_invocations(f)
+  try
+    return invocations(f, _property_pool(); cap = 12).built     # `.built`, not the whole report tuple
+  catch
+    return ()                                      # unbuildable: the declared-signature fallback applies
+  end
+end
+
+
 function operation_properties(name::Symbol)
   f = _ledger_lookup(name)
   f === nothing && return nothing
@@ -112,9 +135,33 @@ function operation_properties(name::Symbol)
   # What the operation RETURNS, by inference over its own method signatures. This is what separates the
   # checks that only make sense for an ordered result (sign, definiteness, bounds) from those that only
   # make sense for a section (realness, finiteness, zero pattern) — without either being declared.
+  #
+  # ASK ABOUT CONCRETE ARGUMENTS. `Base.return_types` over a method's DECLARED signature answers a
+  # question about an abstract type, and this package dispatches on abstract types throughout — so the
+  # honest answer is `Any` and the fact is simply unavailable. It came back `Any` for every method of
+  # 42 of the 112 operations, including `inner` (whose concrete answer is `Float64`) and `dot` (whose
+  # concrete answer is a section). Those rows then had `returns_real` and `returns_section` both false,
+  # which marked `allocation`, `inequality` and `structural` INAPPLICABLE for them — and manufactured
+  # the guard violation "inner: a lane asserts allocation, which the ledger calls inapplicable", a
+  # contradiction between the ledger and a lane that never existed in the package. The invocation
+  # engine already builds calls with concrete arguments; asking about those asks what a caller
+  # actually passes. The declared signature stays as the fallback for an operation the pool cannot
+  # build, so a row is never left with no fact at all.
   returns = Type[]
   inference_failures = 0
-  for m in ms
+  for invocation in _property_invocations(f)
+    try
+      append!(returns, Base.return_types(f, Tuple{map(a -> a isa Type ? Type{a} : typeof(a),
+                                                      invocation.arguments)...}))
+    catch
+      inference_failures += 1
+    end
+  end
+  # `Any` is the absence of a fact and `Union{}` is the absence of a RETURN — inference proved that
+  # call throws. Both are non-facts, and `Union{}` is the dangerous one: it is a subtype of
+  # everything, so leaving it in made `inner` and `maximum` report that they return a section.
+  filter!(R -> R !== Any && R !== Union{}, returns)
+  isempty(returns) && for m in ms
     try
       append!(returns, Base.return_types(f, Base.tuple_type_tail(Base.unwrap_unionall(m.sig))))
     catch
