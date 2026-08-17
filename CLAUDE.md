@@ -1269,7 +1269,18 @@ those are the usual rot. Then the mechanical bar:
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
 **AIPORETNE — the ROCm correctness half is CLOSED (2026-08-06); the benchmark half is in progress.**
-Check `hostname` first; on `Enteropia` this item is not actionable. **Decisions 60, 61 and 62 have now
+Check `hostname` first; on `Enteropia` this item is not actionable.
+
+**The ROCm queue as of 2026-08-17, in the order it should be run.** (1) The **GPU suite**, which has
+not run there since decisions 63–68; CUDA reads 373/373. (2) **`examples/gpu/rocm/HIST_ROCm.jl`**,
+whose four kernel-builder call sites were rewritten by decision 66 and which nothing but a run can
+check. (3) The **`storage` benchmark class**, whose CUDA half was swept on 2026-08-17 (finding (x));
+the `GPU 7900XTX` column is still `—` throughout, so the cross-vendor comparison the class exists
+for cannot be made until this runs. Method note, because it can destroy an archive:
+`characterize.jl` **overwrites** the file it is given, so sweep the class into a SEPARATE file and
+merge it into `gpu-rx7900xtx.json`, then verify the pre-existing rows are bit-identical — that is
+how the CUDA half was done. Regenerate `RESULTS.md` over **all ten** archives or the other host's
+columns vanish. **Decisions 60, 61 and 62 have now
 executed on ROCm** (RX 7900 XTX, gfx1100), where before they had shipped verified on CUDA alone. The
 pointed one was decision 62: `weighted_inner` admits a `ProductKernel`, whose `_kernel_data` nests **two
 lazy `Broadcasted`s**, and the `Base.Broadcast.instantiate` in that function exists precisely because
