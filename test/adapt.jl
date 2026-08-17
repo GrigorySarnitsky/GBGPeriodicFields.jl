@@ -174,3 +174,31 @@ end
           field_data(to_physical(to_spectral(ur, pr), pr))
   end
 end
+
+
+# The flag `FieldSpectralMultipliers` carries in its type must survive a storage-family move IN THE
+# TYPE, not merely in the value. Decision 61 put it there so `convolve` can collapse two radial kernels
+# statically; a rebuilt object whose last parameter inference cannot resolve turns that back into a
+# run-time decision, and `RadialKernel`/`ProductKernel` inherit the imprecision through the multipliers
+# type they carry. The value assertion alone passed throughout the period the type assertion would have
+# failed, which is why both are here. Found by the exhaustive survey (2026-08-17).
+@testset "adapt preserves the canonical flag in the TYPE (decision 61)" begin
+  grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+  layout = RealFourierLayout()
+  spectral = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))), grid)
+  canonical = FieldSpectralMultipliers(spectral)
+  supplied = FieldSpectralMultipliers(grid, layout,
+                                      copy(canonical.wavenumber_1), copy(canonical.wavenumber_2), copy(canonical.wavenumber_3),
+                                      copy(canonical.squared_wavenumber_1), copy(canonical.squared_wavenumber_2),
+                                      copy(canonical.squared_wavenumber_3))
+  for multipliers in (canonical, supplied)
+    moved = adapt(Array, multipliers)
+    @test typeof(moved) === typeof(multipliers)                                  # the value survives
+    @test isconcretetype(only(Base.return_types(adapt, (Type{Array}, typeof(multipliers)))))
+    for kernel in (spectral_cutoff(multipliers, 3.0),                            # radial
+                   assignment_window(multipliers),                               # separable
+                   convolve(spectral_cutoff(multipliers, 3.0), assignment_window(multipliers)))  # product
+      @test isconcretetype(only(Base.return_types(adapt, (Type{Array}, typeof(kernel)))))
+    end
+  end
+end

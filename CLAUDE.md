@@ -1008,7 +1008,7 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **6523 tests** across 100 top-level testsets (measured 2026-08-15, after decision 66 retired twenty context-entrypoint assertions with the five builder pairs; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **373** on CUDA (measured 2026-08-15 after decision 66's sweep, green with zero
+   `Pkg.test()` green, **6533 tests** across 101 top-level testsets (measured 2026-08-17, decision 68's ten type-level assertions included; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **373** on CUDA (measured 2026-08-15 after decision 66's sweep, green with zero
    failures; it read 361 on 2026-08-10 and drifted by twelve unmeasured through decision 64, which is the
    drift this sentence keeps warning about; ROCm last measured at 352 on 2026-08-06 and will pick the same up when next run). Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
@@ -1448,8 +1448,8 @@ living in a weak-dependency extension, which it does not; the not-reached line n
 reasons, derived from whether the binding resolves to a package module. **Result: structural findings
 0, type-stability 42,336 → 384.**
 
-**(4) OPEN, and only visible once the noise was gone: `adapt` is type-unstable for multipliers and
-radial kernels.** `adapt(Array, ·)` returns a non-concrete type for `FieldSpectralMultipliers`,
+**(4) CLOSED 2026-08-17 by decision 68 — `adapt` was type-unstable for multipliers and
+radial kernels, and now is not.** `adapt(Array, ·)` returns a non-concrete type for `FieldSpectralMultipliers`,
 `RadialKernel` and `ProductKernel`, though not for `SeparableKernel`. One root cause:
 `adapt_structure(to, multipliers)` passes `_is_canonical(multipliers)` as a **runtime `Bool`** to a
 constructor that lifts it into the `Canonical` **type parameter**, so inference cannot resolve it; the
@@ -1457,8 +1457,10 @@ kernels inherit the imprecision because they carry the multipliers' type. **Beha
 the flag is preserved (`typeof(m) === typeof(adapt(Array, m))`) — so this is inference, not a wrong
 answer. It is worth fixing because decision 61 made `canonical` a type parameter precisely so
 `convolve` can collapse two radial kernels **statically**: after a bus crossing that decision would
-fall back to runtime. The likely fix is to bind `Canonical` in the method signature so the constructor
-argument is a compile-time constant. A third, pre-existing item stands: the ledger's one guard
+fall back to runtime. Binding `Canonical` in `adapt_structure`'s signature was measured **insufficient** (constant
+propagation does not reach through the constructor's validation); the constructor now takes
+`Val{Canonical}`, so the flag is in the type domain at the call. Pinned by a type-level assertion in
+`test/adapt.jl`, the value-level one having passed all along. A third, pre-existing item stands: the ledger's one guard
 violation is `schema_presence` **0/4** — applicable to the four persistence operations, asserted by
 nothing.
 

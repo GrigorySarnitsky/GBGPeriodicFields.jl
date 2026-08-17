@@ -1453,14 +1453,22 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
   squared_wavenumber_2::S2
   squared_wavenumber_3::S3
 
-  # `canonical` records whether these arrays were DERIVED from the grid (the convenience constructor)
+  # `Canonical` records whether these arrays were DERIVED from the grid (the convenience constructor)
   # or supplied by a caller (the six-array form, which validates lengths only). It is a type parameter
   # rather than a field because it decides, statically, whether two multiplier sets provably hold the
   # same coordinates — which is what lets `convolve` collapse two radial kernels without a runtime test.
-  function FieldSpectralMultipliers(canonical::Bool, grid::Grid3D{T}, fourier_layout::RealFourierLayout,
+  #
+  # It is taken as `Val{Canonical}` rather than as a `Bool` so the flag is in the type domain at the
+  # CALL, not lifted out of a value inside `new`. Every construction here passes a literal, which
+  # inference folded anyway; `adapt` does not — it forwards the flag from the object it is rebuilding —
+  # and there the lift silently failed, leaving the rebuilt type's last parameter free and taking
+  # `RadialKernel` and `ProductKernel` with it. Binding the parameter in the caller's signature was not
+  # enough: constant propagation does not reach through this constructor's validation. Measured, both
+  # ways, on 2026-08-17.
+  function FieldSpectralMultipliers(::Val{Canonical}, grid::Grid3D{T}, fourier_layout::RealFourierLayout,
       wavenumber_1::K1, wavenumber_2::K2, wavenumber_3::K3,
       squared_wavenumber_1::S1, squared_wavenumber_2::S2, squared_wavenumber_3::S3) where {T<:AbstractFloat,
-      K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}}
+      K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, Canonical}
 
     spectral_spatial_shape = spectral_field_shape(grid, fourier_layout, Val(0))
 
@@ -1471,7 +1479,7 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
     length(squared_wavenumber_2) == spectral_spatial_shape[2] || throw(DimensionMismatch("length(squared_wavenumber_2) must match the second spectral spatial dimension"))
     length(squared_wavenumber_3) == spectral_spatial_shape[3] || throw(DimensionMismatch("length(squared_wavenumber_3) must match the third spectral spatial dimension"))
 
-    return new{T, K1, K2, K3, S1, S2, S3, canonical}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+    return new{T, K1, K2, K3, S1, S2, S3, Canonical}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
   end
 end
 
@@ -1484,14 +1492,14 @@ FieldSpectralMultipliers(grid::Grid3D{T}, fourier_layout::RealFourierLayout,
     wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
     squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1},
     squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat} =
-  FieldSpectralMultipliers(false, grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3,
+  FieldSpectralMultipliers(Val(false), grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3,
                            squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 
 
 function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}, wavenumber_1::AbstractArray{T, 1}, wavenumber_2::AbstractArray{T, 1}, wavenumber_3::AbstractArray{T, 1},
     squared_wavenumber_1::AbstractArray{T, 1}, squared_wavenumber_2::AbstractArray{T, 1}, squared_wavenumber_3::AbstractArray{T, 1}) where {T<:AbstractFloat}
   
-  return FieldSpectralMultipliers(false, field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+  return FieldSpectralMultipliers(Val(false), field_grid(field), field_layout(field), wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 end
 
 
@@ -1515,7 +1523,7 @@ function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:Abs
   wavenumber_2, squared_wavenumber_2 = _axis_wavenumber_arrays(reference, grid.grid_size[2], grid.domain_size[2], 2 == half_dimension)
   wavenumber_3, squared_wavenumber_3 = _axis_wavenumber_arrays(reference, grid.grid_size[3], grid.domain_size[3], 3 == half_dimension)
 
-  return FieldSpectralMultipliers(true, grid, fourier_layout,
+  return FieldSpectralMultipliers(Val(true), grid, fourier_layout,
     wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
 end
 
@@ -1957,8 +1965,17 @@ adapt_structure(to, field::AbstractFieldPhysical) = similar_field(field, adapt(t
 adapt_structure(to, field::AbstractFieldSpectral) = similar_field(field, adapt(to, field_data(field)))
 
 
-adapt_structure(to, multipliers::FieldSpectralMultipliers) =
-  FieldSpectralMultipliers(_is_canonical(multipliers), multipliers.grid, multipliers.fourier_layout,
+# `Canonical` is bound from the INPUT TYPE rather than read with `_is_canonical`, so the flag reaches
+# the constructor as a compile-time constant and the rebuilt type is concrete. Read at run time it was
+# an ordinary `Bool`, which inference cannot resolve into the type parameter it becomes — so
+# `adapt(Array, multipliers)` inferred a `FieldSpectralMultipliers` with its last parameter free, and
+# `RadialKernel`/`ProductKernel` inherited that through the multipliers type they carry. The value was
+# always right; what was lost is decision 61's whole purpose, since a non-concrete `Canonical` turns
+# `convolve`'s static collapse of two radial kernels back into a run-time decision after a bus
+# crossing. Found by the exhaustive survey once its adaptor-slot noise was cleared (2026-08-17).
+adapt_structure(to, multipliers::FieldSpectralMultipliers{T, K1, K2, K3, S1, S2, S3, Canonical}) where {
+    T, K1, K2, K3, S1, S2, S3, Canonical} =
+  FieldSpectralMultipliers(Val(Canonical), multipliers.grid, multipliers.fourier_layout,
                            adapt(to, multipliers.wavenumber_1),
                            adapt(to, multipliers.wavenumber_2),
                            adapt(to, multipliers.wavenumber_3),

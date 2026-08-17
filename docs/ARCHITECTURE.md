@@ -3485,3 +3485,32 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     would still be a second spelling of one operation, which invariant 1 declines to add for
     convenience. The reasoning now lives on both allocators' docstrings, where a reader meets the
     name and asks the question.
+
+68. **`adapt` keeps the canonical flag in the TYPE, not just in the value** (2026-08-17). Moving a
+    `FieldSpectralMultipliers` between storage families returned an object whose last type parameter —
+    decision 61's `Canonical` — inference could not resolve, and `RadialKernel` and `ProductKernel`
+    inherited the imprecision through the multipliers type they carry. The rebuilt *value* was always
+    right, so nothing computed a wrong answer; what was lost is the point of putting the flag in the
+    type at all. Decision 61 did that so `convolve` can collapse two radial kernels over canonical
+    multipliers **statically**, and a non-concrete parameter turns that back into a run-time decision
+    for every kernel that has crossed the bus.
+
+    The cause is one line: `adapt_structure` read the flag with `_is_canonical`, an ordinary `Bool`,
+    and handed it to a constructor that lifts its *value* into `new{…, canonical}`. Every other
+    construction passes a literal, which inference folds, so the defect existed only on the one path
+    that forwards the flag from an existing object — which is exactly the path no unit test typed.
+    **Binding `Canonical` in `adapt_structure`'s own signature was tried first and measured
+    insufficient**: constant propagation does not reach through the constructor's length validation.
+    The flag is therefore taken as `Val{Canonical}`, so it is in the type domain at the call rather
+    than lifted out of a value inside `new`. Four call sites, all in `Fields`, and no method is added,
+    so every parity baseline holds.
+
+    *Verification.* `test/adapt.jl` asserts both halves for canonical and caller-supplied multipliers
+    and for all three kernel classes that can carry them: that the moved object's type is unchanged,
+    and that `Base.return_types(adapt, …)` is **concrete**. The value assertion alone passed
+    throughout the period the type assertion would have failed, which is why the test now makes both.
+    The gate moves 6523 → 6533.
+
+    *How it was found.* Not by a test — by the exhaustive survey, and only after its adaptor-slot
+    noise was cleared the same day. The finding sat under 42,336 cells reporting non-defects, which is
+    the argument for repairing an instrument rather than reading around it.
