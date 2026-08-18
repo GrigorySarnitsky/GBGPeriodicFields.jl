@@ -202,3 +202,53 @@ end
     end
   end
 end
+
+
+# The in-place move (decision 69). On CPU the two sides are necessarily the same family, so what the
+# gate can prove here is everything EXCEPT the crossing: that the destination is returned and filled,
+# that metadata is untouched, that every mismatch a move must refuse is refused, that an aliased call
+# is a no-op, and that it allocates nothing. The crossing itself is the GPU suite's, which is the only
+# place a second family exists — the same split `adapt`'s own tests use.
+@testset "adapt!: the in-place storage move ($T, $(nameof(typeof(layout))))" for T in (Float64, Float32),
+                                                                                 layout in FOLDS
+  grid = grid_of(T)
+  for (source, order) in ((ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, layout), 0),
+                          (VectorFieldPhysical(rand(T, physical_field_shape(grid, Val(1))...), grid, layout), 1),
+                          (TensorFieldPhysical{2}(rand(T, physical_field_shape(grid, Val(2))...), grid, layout), 2),
+                          (ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout), 0),
+                          (VectorFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout), 1))
+    destination = similar_field(source, Val(order))
+    fill!(field_data(destination), 0)
+    @test adapt!(destination, source) === destination            # the destination is returned
+    @test field_data(destination) == field_data(source)          # and filled
+    @test field_grid(destination) === grid                       # metadata is the destination's own,
+    @test field_layout(destination) === layout                   # untouched by the move
+    @test field_tensor_order(destination) == order
+    @test adapt!(source, source) === source                      # aliased: a no-op, not an error
+  end
+
+  # Everything except the storage family must match. A representation mismatch has NO METHOD rather
+  # than an error message, since a physical field and a spectral one are not the same section.
+  source = ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, layout)
+  other_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
+  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, physical_field_shape(other_grid, Val(0))...), other_grid, layout), source)
+  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, RealFourierLayout((3, 1, 2)) === layout ? RealFourierLayout() : RealFourierLayout((3, 1, 2))), source)
+  @test_throws MethodError adapt!(ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout), source)
+
+  # Precision is not converted here, exactly as `adapt` does not convert it (invariant 14).
+  S = T === Float64 ? Float32 : Float64
+  other = grid_of(S)
+  @test_throws MethodError adapt!(ScalarFieldPhysical(rand(S, physical_field_shape(other, Val(0))...), other, layout), source)
+
+  # The point layer: no grid or layout, so the point count is the whole contract.
+  values = VectorPointValues(randn(T, 6, 3))
+  into   = similar_pointvalues(values, Val(1))
+  @test adapt!(into, values) === into
+  @test GBGPeriodicFields.Points.point_values(into) == GBGPeriodicFields.Points.point_values(values)
+  @test_throws DimensionMismatch adapt!(VectorPointValues(randn(T, 5, 3)), values)   # the point layer's own convention
+  positions = PointSet(rand(T, 6, 3))
+  landing   = PointSet(zeros(T, 6, 3))
+  @test adapt!(landing, positions) === landing
+  @test GBGPeriodicFields.Points.point_coordinates(landing) == GBGPeriodicFields.Points.point_coordinates(positions)
+  @test_throws DimensionMismatch adapt!(PointSet(zeros(T, 5, 3)), positions)
+end

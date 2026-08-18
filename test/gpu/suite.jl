@@ -653,6 +653,29 @@ end
 
       @test field_data(device_u) isa AT
       @test device_multipliers.wavenumber_1 isa AT
+
+      # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
+      # cross. The gate proves everything about `adapt!` except the crossing itself.
+      into_device = similar_field(device_u, Val(1))
+      fill!(field_data(into_device), 0)
+      @test adapt!(into_device, host_u) === into_device
+      @test field_data(into_device) isa AT                     # the destination's family is kept
+      @test Array(field_data(into_device)) == field_data(host_u)
+      into_host = similar_field(host_u, Val(1))
+      fill!(field_data(into_host), 0)
+      @test adapt!(into_host, device_u) === into_host          # and the return trip
+      @test field_data(into_host) isa Array
+      @test field_data(into_host) == field_data(host_u)
+      # Point sections cross too, and a mismatched pair is refused on the device exactly as on the host.
+      host_q = VectorPointValues(randn(Float64, 6, 3))
+      device_q = adapt(AT, host_q)
+      back_q = similar_pointvalues(host_q, Val(1))
+      @test adapt!(back_q, device_q) === back_q
+      @test GBGPeriodicFields.Points.point_values(back_q) == GBGPeriodicFields.Points.point_values(host_q)
+      @test_throws ArgumentError adapt!(similar_field(adapt(AT, host_z), Val(0)),
+                                        ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(
+                                            Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout, Val(0))...),
+                                            Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout))
       # A round trip must return the values unchanged, and the metadata with them.
       returned = adapt(Array, device_u)
       @test field_data(returned) == field_data(host_u)

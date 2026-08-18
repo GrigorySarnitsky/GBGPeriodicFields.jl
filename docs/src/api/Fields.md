@@ -71,8 +71,15 @@ so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it dis
 target, `CUDA` and `AMDGPU` each supply their own storage rule without this package depending on
 either. Element type is never changed by a move.
 
+When the destination already exists, [`adapt!`](@ref) moves into it instead of allocating a fresh
+result — which is most of what the return trip costs, so it is worth reaching for whenever a field
+comes back from a device on any regular basis. It takes no target argument, because the destination
+already is the family. It is offered for sections alone: multipliers, kernels and plans are built
+rather than filled, so there is no storage for a destination to provide.
+
 ```@docs
 adapt
+adapt!
 ```
 
 ## Spectral kernel protocol
@@ -132,8 +139,10 @@ Filter  = t -> !(t in (GBGPeriodicFields.Fields.AbstractField,
 Modules = [GBGPeriodicFields.Fields]
 Public  = false
 Order   = [:function]
-# `adapt` is rendered by the "Moving between storage families" section above. It reaches this block
-# because it is an EXTERNAL generic the module extends rather than one it owns, so `Public = false`
-# does not filter it out — the same class as the statistics on the Reductions page, and the same fix.
-Filter  = f -> nameof(f) !== :adapt
+# `adapt` and `adapt!` are rendered by the "Moving between storage families" section above. They reach
+# this block for two different reasons and need the same exclusion: `adapt` is an EXTERNAL generic the
+# module extends rather than one it owns, and `adapt!` is owned here but exported by the umbrella
+# rather than by `Fields`, which is the list Documenter reads. Either way `Public = false` does not
+# filter them — the same class as the statistics on the Reductions page, and the same fix.
+Filter  = f -> !(nameof(f) in (:adapt, :adapt!))
 ```

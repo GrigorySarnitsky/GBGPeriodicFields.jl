@@ -445,6 +445,34 @@ end
 end
 
 
+@testset "adapt! moves into a destination without allocating (decision 69)" begin
+  # The whole reason the verb exists: finding (x) measured the return trip at a quarter of the
+  # outbound rate and attributed the gap to allocating the destination. A form that allocated one
+  # anyway would be pointless, so this is the assertion the feature stands on. Both representations
+  # and both point sections, since each has its own method.
+  for T in (Float64, Float32)
+    @testset "$T" begin
+      grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
+      layout = RealFourierLayout()
+      pv = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout)
+      sv = VectorFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+      q  = VectorPointValues(randn(T, 12, 3))
+      ps = PointSet(rand(T, 12, 3))
+      # The destinations are built HERE, not inside the measured expression: `similar_field`
+      # allocates a whole field, so measuring `adapt!(similar_field(...), x)` measures the allocation
+      # this operation exists to avoid. Preallocated is the only state in which the question means
+      # anything.
+      into_pv, into_sv = similar_field(pv, Val(1)), similar_field(sv, Val(1))
+      into_q, into_ps  = similar_pointvalues(q, Val(1)), PointSet(rand(T, 12, 3))
+      @alloc_below 64 adapt!(into_pv, pv)
+      @alloc_below 64 adapt!(into_sv, sv)
+      @alloc_below 64 adapt!(into_q, q)
+      @alloc_below 64 adapt!(into_ps, ps)
+    end
+  end
+end
+
+
 # ---------------------------------------------------------------------------------------------
 # Completeness (decision 53). The audit above is a hand-written list, and a hand-written list is
 # only as complete as the last person's memory — which is exactly how the (compressed kernel ×

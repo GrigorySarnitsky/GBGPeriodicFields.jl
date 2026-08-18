@@ -155,7 +155,8 @@ using .Fields:
   FieldSpectralMultipliers,
   SpectralKernel,           # the kernel supertype; Convolution defines the four storage classes
   set_fft_threads!,
-  adapt                     # extended for every section, kernel and plan; re-exported below
+  adapt,                    # extended for every section, kernel and plan; re-exported below
+  adapt!                    # the in-place storage move, for sections only (decision 69)
 
 
 using .FieldAlgebra:
@@ -307,6 +308,7 @@ export FiberVector,
        # plan. Re-exporting is what makes it reachable from `using GBGPeriodicFields` alone — without
        # it the interface exists but a user has to know to reach for `Adapt` themselves.
        adapt,
+       adapt!,
        add!,
        subtract!,
        combine!,

@@ -363,9 +363,13 @@ operation's coverage is judged against the full axis list:
     a custom set is admissible input to every kernel-taking entry point, not just to composition.
 17. storage family — `Array` on the host against a device array (`CuArray`, `ROCArray`). Decision 63
     made crossing it an explicit operation, `adapt`, so a section, its multipliers, its kernels and its
-    plans are all admissible in either family. The CPU lane drives it with a **custom adaptor**, since
-    adapting to the family one already occupies is the identity and would exercise nothing; the device
-    half is the GPU suite. **Partial NA on one combination, with its reason:** a permuted
+    plans are all admissible in either family, and decision 69 added `adapt!` for a destination that
+    already exists (sections only). The CPU lane drives `adapt` with a **custom adaptor**, since
+    adapting to the family one already occupies is the identity and would exercise nothing; for
+    `adapt!` the gate proves everything **except** the crossing — destination returned and filled,
+    metadata untouched, each mismatch refused, the aliased no-op, and zero allocation — because a
+    host-only run has no second family to cross into. The crossing itself, in both directions and for
+    the point layer, is the GPU suite's. **Partial NA on one combination, with its reason:** a permuted
     `RealFourierLayout` cannot be **planned** on CUDA, `cuFFT` rejecting a non-strictly-increasing FFT
     region, so a device test that transforms on a folded layout must use the default one. Operations
     that build no plan are unrestricted, and the GPU suite does cross the two axes there. That is a vendor limit

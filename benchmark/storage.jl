@@ -35,6 +35,17 @@ function add_storage!(group, AT, ::Type{T}, grid, tag) where {T}
   # visible in the table rather than only in prose: this row should be a handful of nanoseconds, and
   # if it ever reads like a transfer, the identity has been lost.
   group["adapt to own family (identity) | $tag"] = @benchmarkable adapt($AT, $device_scalar)
+  # The in-place move (decision 69), placed beside the allocating rows above because the COMPARISON is
+  # the point: finding (x) measured the return trip at a quarter of the outbound rate and attributed
+  # the gap to allocating the destination, so these rows are what confirms or refutes that.
+  into_device_scalar = similar_field(device_scalar, Val(0))
+  into_device_vector = similar_field(device_vector, Val(1))
+  into_host_scalar   = similar_field(host_scalar, Val(0))
+  into_host_vector   = similar_field(host_vector, Val(1))
+  group["adapt! to device scalar | $tag"] = @benchmarkable (adapt!($into_device_scalar, $host_scalar); bench_sync(field_data($into_device_scalar)))
+  group["adapt! to device vector | $tag"] = @benchmarkable (adapt!($into_device_vector, $host_vector); bench_sync(field_data($into_device_vector)))
+  group["adapt! to host scalar | $tag"]   = @benchmarkable adapt!($into_host_scalar, $device_scalar)
+  group["adapt! to host vector | $tag"]   = @benchmarkable adapt!($into_host_vector, $device_vector)
 
   # The companions. Multipliers are six O(N) axis vectors, so this is a small transfer whose cost is
   # dominated by per-call latency rather than volume — the contrast with the field rows is the point.

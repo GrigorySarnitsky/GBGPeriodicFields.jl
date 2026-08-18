@@ -192,6 +192,12 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("dest", carr(w), (0, 3P)))
     audit(() -> transpose!(B, A), "transpose!",
       Traffic("A", carr(A), (9P, 0)), Traffic("dest", carr(B), (0, 9P)))
+    # The in-place storage move (decision 69). Its ideal is the simplest in this file — every source
+    # element read once, every destination element written once — and that is exactly what makes it
+    # worth pinning: the operation's entire claim is that it moves the data and allocates nothing, so
+    # a regression here would be a second pass appearing where the point was to have one.
+    audit(() -> adapt!(w, u), "adapt!",
+      Traffic("source", carr(u), (3P, 0)), Traffic("dest", carr(w), (0, 3P)))
     audit(() -> sym!(B, A), "sym!",
       Traffic("A", carr(A), (9P, 0)),                     # fused one-pass (was 15P: off-diagonals fed two formulas)
       Traffic("dest", carr(B), (0, 9P)))

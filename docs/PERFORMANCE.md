@@ -1242,6 +1242,12 @@ evidence for the open design question the roadmap already carries: whether `adap
 in-place form writing into a caller's preallocated destination. A consumer pulling a field back every
 few steps is currently paying an allocation it has no way to hoist.
 
+*And the asymmetry is now actionable.* Decision 69 added `adapt!`, which moves into a destination that
+already exists; measured on the same card and field, `copyto!` into a preallocated host array runs at
+``19.0`` GiB/s against ``5.1`` for the allocating form, a ``3.75\times`` recovery that brings the return
+trip to the outbound rate. The `storage` class carries `adapt!` rows beside the allocating ones, so the
+comparison stays measured rather than remembered.
+
 *The two non-section rows behave as their structure predicts.* `adapt multipliers` is ``\approx 13`` µs
 independent of the grid — six ``O(N)`` per-axis arrays, so the cost is six transfers' fixed overhead
 rather than bytes — and `adapt plans (rebuild)` grows ``7.4 \to 23.5`` µs with the grid, which is the

@@ -91,7 +91,11 @@ const MODULE_BASELINE = (
   # spectral_scratch)` (decision 64, an IT round-3 request) — the allocation-free member of the
   # preserving contract the allocating `to_physical` already offered. One new method on the existing
   # generic; the 3-arg form and the allocating forms are unchanged.
-  Fields                = 116,
+  # 116 → 119: the in-place storage move (decision 69). Two are `adapt!`'s own field methods, one per
+  # representation; the third is `_check_adapt_target`, which is `_check_same_domain` without its
+  # storage-family clause — the one thing this operation exists to let differ. Refrozen deliberately,
+  # with the reason, per decision 53's protocol.
+  Fields                = 119,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
@@ -110,7 +114,10 @@ const MODULE_BASELINE = (
   Convolution           = 83,   # +6 earlier: the StoredKernel role marker and its protocol methods
   # 207 → 209: `adapt_structure` for the point-value sections and for `PointSet`, mirroring the field
   # layer as the point layer does throughout.
-  Points                = 209,
+  # 209 → 211: `adapt!`'s two point methods (decision 69), one for the point-value sections and one
+  # for `PointSet`. The generic and its documentation live in `Fields`; these are the point twins, as
+  # the `adapt_structure` pair above already are.
+  Points                = 211,
   Interpolation         = 119,
   # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
   # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view

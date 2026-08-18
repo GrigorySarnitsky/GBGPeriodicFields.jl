@@ -268,7 +268,8 @@ with a pointer to the section that develops it.
     arrays. It binds every argument an operation takes, the destination and the non-section partners
     included — a spectral field and its multipliers must match too. Conversion is an explicitly-named
     operation, never something an arithmetic operation does implicitly: crossing **storage families**
-    is [`adapt`](@ref) (decision 63), and crossing **precisions** remains future work.
+    is [`adapt`](@ref) (decision 63), or [`adapt!`](@ref) into a destination that already exists
+    (sections only; decision 69), and crossing **precisions** remains future work.
 
 ### Representation validity lives in the method set
 
@@ -3514,3 +3515,48 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *How it was found.* Not by a test — by the exhaustive survey, and only after its adaptor-slot
     noise was cleared the same day. The finding sat under 42,336 cells reporting non-defects, which is
     the argument for repairing an instrument rather than reading around it.
+
+69. **`adapt!` — the storage move into a destination that already exists** (2026-08-18). `adapt`
+    allocates its result, and for the return trip that allocation is most of the cost: finding (x)
+    measured a device-to-host move at ``5.1`` GiB/s against the ``19.0`` GiB/s the same transfer
+    reaches into a destination that already exists, on the same card and the same ``256^3`` `Float64`
+    field. The gap is not the bus — the outbound direction runs at ``\approx 22`` GB/s — it is that
+    the return trip allocates a fresh pageable host array and pays for the pages. A consumer pulling a
+    field back on any regular basis had no way to hoist that.
+
+    **The name is ours, and `copyto!` was rejected for a reason worth recording.** `Adapt.jl` has no
+    in-place form — it exports `adapt`, `WrappedArray`, `parent_type`, `unwrap_type` and the
+    `adapt_structure`/`adapt_storage` hooks — so `adapt!` is a package-owned verb paired with a
+    re-exported one. Julia's standard verb for "into a preallocated destination" is `copyto!`, and it
+    is exactly what the implementation calls on the underlying arrays; it is the wrong *public*
+    spelling here because the package's only `copyto!` methods are the broadcast entry point. A
+    section-to-section `copyto!` that crossed storage families would cross where
+    `destination .= source` **refuses** under invariant 14 — the same two objects giving opposite
+    answers under two spellings, which is the ambiguity decision 60 removed rather than one to add.
+
+    **The signature takes no target.** `adapt(to, x)` needs one; `adapt!(destination, source)` does
+    not, because the destination already *is* the target family, so the two cannot disagree.
+    Everything except the family must match — element type, tensor order, grid, Fourier layout — and
+    the check is `_check_adapt_target`, which is `_check_same_domain` minus its backend clause;
+    reusing that check would refuse precisely the pair this verb is for. A representation mismatch has
+    **no method** rather than an error, since a physical field and a spectral one are not the same
+    section, and precision is not converted here for the same reason `adapt` does not convert it. A
+    same-family pair is an ordinary copy rather than an error, so generic code need not ask which side
+    of the bus it is on, and an aliased call is a guarded no-op.
+
+    **Sections only, deliberately.** `adapt` also moves a `FieldSpectralMultipliers`, a spectral
+    kernel and a `FieldTransformPlans`; those have no in-place spelling because they are *built*
+    rather than filled — moving plans replans the transforms and a `RadialKernel` carries a closure —
+    so there is no preallocated storage a destination could offer. That is an absence in invariant 1's
+    sense: stated, and not to be filled in for symmetry.
+
+    *Verification.* The gate proves everything except the crossing, which on a host-only run cannot
+    exist: destination returned and filled, metadata untouched, every mismatch refused, the aliased
+    no-op, and — the assertion the feature stands on — zero allocation, with the destinations built
+    outside the measured call, since building one inside it measures the very allocation the operation
+    exists to avoid. The crossing itself is the CUDA suite's, both directions and the point layer with
+    it (373 → 382). A `test/pass_audit.jl` row pins the traffic at its ideal, one read per source
+    element and one write per destination element. Benchmark rows sit beside the allocating ones in
+    the `storage` class, because the comparison *is* the justification. Gate 6535 → 6574; `Fields`
+    116 → 119 (`adapt!`'s two field methods and `_check_adapt_target`) and `Points` 209 → 211 (the two
+    point methods), both refrozen with their reasons.

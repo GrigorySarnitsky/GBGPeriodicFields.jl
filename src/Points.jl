@@ -63,7 +63,7 @@ using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
-import ..Fields: field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
+import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
 using ..FieldAlgebra: _map_pass!, _map_output_order,   # shared map!/map driver + output-order inference
@@ -1155,6 +1155,29 @@ adapt_structure(to, values::AbstractPointValues) =
   similar_pointvalues(values, adapt(to, point_values(values)))
 
 adapt_structure(to, point_set::PointSet) = PointSet(adapt(to, point_coordinates(point_set)))
+
+
+# The point twins of `adapt!`, whose documentation lives with the generic in `Fields`. A point section
+# carries no grid or layout, so the only thing a move must preserve besides the values is the point
+# count — `_check_npoints_match` is the check the rest of this module already routes through, and a
+# tensor-order mismatch has no method rather than an error, exactly as a representation mismatch does
+# on the field side. Decision 69.
+function adapt!(destination::AbstractPointValues{T, R}, source::AbstractPointValues{T, R}) where {T, R}
+  point_values(destination) === point_values(source) && return destination
+  _check_npoints_match(destination, source)
+  copyto!(point_values(destination), point_values(source))
+  return destination
+end
+
+function adapt!(destination::PointSet, source::PointSet)
+  point_coordinates(destination) === point_coordinates(source) && return destination
+  # `DimensionMismatch`, not `ArgumentError`: a point-count mismatch is what this module already
+  # throws that for (`_check_npoints_match`), and the two point methods should not disagree.
+  npoints(destination) == npoints(source) ||
+    throw(DimensionMismatch("point counts differ: $(npoints(destination)) and $(npoints(source))"))
+  copyto!(point_coordinates(destination), point_coordinates(source))
+  return destination
+end
 
 
 end # module Points

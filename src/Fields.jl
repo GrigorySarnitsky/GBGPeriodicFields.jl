@@ -1944,6 +1944,78 @@ _spectral_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(dat
 _spectral_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
 _spectral_field_of_order(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
 
+
+"""
+    adapt!(destination, source)
+
+Move `source` into `destination`, which already holds storage in the family you want, and return
+`destination`.
+
+Use this in-place form when `destination` is already allocated; the allocating [`adapt`](@ref) returns
+a fresh result instead. There is no target argument here because there is nothing to name: the
+destination already **is** the target family, so the two cannot disagree.
+
+`destination` and `source` are two sections of the same kind — two fields in the same representation,
+two point-value sections, or two point sets — agreeing in element type, tensor order, grid and Fourier
+layout, and differing at most in the storage family they live in. Everything except the family must
+match, because this moves storage and nothing else: precision is not converted here, exactly as it is
+not by `adapt`. A pair that differs in representation has no method rather than an error message,
+since a physical field and a spectral one are not the same section. Passing one section as both
+arguments is a no-op, and a `source` already in `destination`'s family is an ordinary copy rather than
+an error, so generic code need not ask which side of the bus it is on.
+
+The reason to reach for it is the return trip. Allocating the destination is most of what a
+device-to-host move costs — measured on an RTX 5070 Ti at ``256^3``, `Float64`, an allocating move
+runs at ``5.1`` GiB/s against the ``19.0`` GiB/s the same transfer reaches into a destination that
+already exists.
+
+Only sections take this form. `adapt` also moves a [`FieldSpectralMultipliers`](@ref), a spectral
+kernel and a [`FieldTransformPlans`](@ref), and those have no in-place spelling on purpose: they are
+built rather than filled — moving plans replans the transforms, and a radial kernel carries a closure
+— so there is no preallocated storage for a destination to offer.
+"""
+function adapt! end
+
+
+"""
+    _check_adapt_target(destination, source)
+
+Check that two sections agree in everything a storage move must preserve — scalar type, grid and
+Fourier layout — and deliberately **not** in storage family, which is the one thing the move exists to
+change.
+
+This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that check here would refuse
+precisely the pair `adapt!` is for, and dropping the check entirely would let a move rewrite a
+destination built for another grid.
+"""
+function _check_adapt_target(destination, source)
+  _same_scalar_type(destination, source) ||
+    throw(ArgumentError("adapt! moves storage, not precision: destination and source scalar types must be equal"))
+  _same_grid(destination, source)   || throw(ArgumentError("adapt! destination and source grids must be equal"))
+  _same_layout(destination, source) || throw(ArgumentError("adapt! destination and source Fourier layouts must be equal"))
+  return nothing
+end
+
+
+# `copyto!` on the underlying arrays is what crosses the bus; the vendor packages define it in both
+# directions. It is deliberately NOT the public spelling: the package's only `copyto!` methods are the
+# broadcast entry point, so a section-to-section `copyto!` that crossed families would cross where
+# `destination .= source` refuses (invariant 14) — the same two objects giving opposite answers under
+# two spellings. Decision 69.
+function adapt!(destination::AbstractFieldPhysical{T, R}, source::AbstractFieldPhysical{T, R}) where {T, R}
+  field_data(destination) === field_data(source) && return destination
+  _check_adapt_target(destination, source)
+  copyto!(field_data(destination), field_data(source))
+  return destination
+end
+
+function adapt!(destination::AbstractFieldSpectral{T, R}, source::AbstractFieldSpectral{T, R}) where {T, R}
+  field_data(destination) === field_data(source) && return destination
+  _check_adapt_target(destination, source)
+  copyto!(field_data(destination), field_data(source))
+  return destination
+end
+
 """
     _is_canonical(multipliers::FieldSpectralMultipliers)
 
