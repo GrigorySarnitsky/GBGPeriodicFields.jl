@@ -1652,6 +1652,56 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   wins and covers the kernel-protocol path, the stored views and their six parameters retire with it;
   if it does not cover that path, decision 70 stands and this entry closes as answered.
 
+- **`reality_residual` neither threads nor fuses — INVESTIGATE and possibly fix (recorded
+  2026-08-23, user-directed).** The 2026-08-23 sweep measured **zero thread scaling on both CPUs at
+  every grid**: the i7-12700K reads 80.2 µs at one thread against 80.6 at eight, 362 against 366 µs at
+  ``128^3``, 1.586 against 1.588 ms at ``256^3``, and at ``512^3`` eight threads is **9.7% slower**
+  (13.258 → 14.542 ms); the 9800X3D is flat to within a percent at every grid too. Decision 71's entry
+  records the observation and the reason it was left; this entry is the question of whether to close it.
+
+  **The mechanism is two facts, and the second is the one that matters.** *(1)* The pass is written as
+  whole-array `reverse`, `circshift` and `maximum` over one or two planes, so it runs through `Base`,
+  and `Base`'s `maximum` is serial. *(2)* It is **allocation-bound rather than compute-bound**:
+  measured, it allocates **≈6× the plane bytes it reads** (395 KB at ``64^3``, 1.58 MB at ``128^3``,
+  6.29 MB at ``256^3``, i.e. 5.87/5.92/5.96× — three temporaries over each of the two stored planes,
+  from `reverse`, `circshift`, and materializing `plane .- conj.(partner)` as `maximum`'s argument).
+  So **threading the reduction alone would not fix it** — the serial allocation would still dominate,
+  which is very likely what the ``512^3`` inversion is. Anyone starting from "give it a threaded
+  reduce" will do work and measure nothing.
+
+  **The fix, if it is worth doing, is to fuse rather than to thread.** One pass deriving the mirrored
+  partner index inline — the same arithmetic `reverse`-then-`circshift` performs, since index ``j``
+  pairs with ``\mathrm{mod}(-(j-1), n) + 1`` — removes all six temporaries, and *then* the gated CPU
+  loop threads it for free. That is the §9 execution-route policy's cartesian-coefficient case, so a
+  decision-38 kernel pair is the shape the architecture already prescribes.
+
+  **One structural obstacle to know before scoping it.** `reality_residual` lives in `Fields`, which is
+  included **second**, while the threaded fixed-tree reduce (`_indexed_tree_reduce`,
+  `_fiber_tree_reduce`) lives in `Reductions`, included **last** — so the operation structurally
+  *cannot* reach that tree, and no import will fix it. `FiberSections` (included first) carries
+  `_assign!` and `_use_threads` but no threaded reduction. So the routes are: write the kernel pair
+  with its own reduction, lift a threaded reduce primitive down into `FiberSections`, or move the
+  operation. Each is a different size and the middle one touches shared foundations.
+
+  **What argues against acting at all, and must be weighed rather than skipped.** The operation is
+  ``O(N^2)`` beside the ``O(N^3 \log N)`` round trip it exists to let a caller avoid, so even the
+  ``512^3`` figure is ~13 ms against a transform pair costing orders more — the diagnostic is already
+  far cheaper than the thing it replaces. The **GPU gains nothing**, being flat and launch-bound at
+  238–244 µs (AMD) and 99–104 µs (NVIDIA), so this is a CPU-only win, and decision 37 names the CPU's
+  tuning target as the beyond-VRAM grids where the ``512^3`` row does at least sit. And decision 40
+  requires any gated CPU loop to be proven **bitwise thread-count-invariant** against its device twin,
+  with decision 47 recording what happens when such a pair silently falls out of dispatch — a real
+  cost for a diagnostic.
+
+  **Decision rule.** Fuse only if the fused single-pass form is *at least as fast serially* as the
+  present one (it removes six allocations, so it should be) — the threading is then a free consequence
+  rather than the justification. If fusing does not pay serially, leave it: threading an
+  allocation-bound pass is the wrong fix, and the honest outcome is to record that and close.
+  **Definition of done** as usual: a CPU oracle test, GPU parity, bitwise thread-invariance in
+  `test/threading.jl`, a `test/pass_audit.jl` row (the allocation figure above is the baseline to beat),
+  a bounded allocation guard in `test/allocations.jl` rather than a zero one, the `reductions`
+  benchmark class re-run on **both** backends, and the four guiding docs.
+
 - **Spectral-domain transfer (decision 23) — DONE.** Both schemes shipped natively (no dependency)
   under `AbstractTransferScheme`: `DirectDFT` (exact `O(NM)` + the oracle) and the fast windowed
   `NUFFT` (`O(N log N + M)` gridding = spread→FFT→deconvolve, reusing the transfer kernels + oversampled

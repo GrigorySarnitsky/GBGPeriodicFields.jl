@@ -3649,13 +3649,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     six times faster than the CPU, which is what a launch-bound cost meeting an area-bound one looks
     like. A caller choosing where to run this should read the crossover rather than the peak.
 
-    **It does not thread, and that is by construction rather than an oversight.** The i7-12700K reads
-    80.2 µs at one thread and 80.6 at eight, 1.586 ms against 1.588 at ``256^3``, and the 9800X3D is
-    likewise flat — zero scaling on both CPUs at every grid. The pass is written as whole-array
-    `reverse`, `circshift` and `maximum` over one or two planes, so it runs through `Base` rather than
-    through the package's threaded assignment primitive or its fixed reduction tree. Threading it would
-    chase an ``O(N^2)`` diagnostic sitting beside the ``O(N^3 \log N)`` round trip it exists to let a
-    caller avoid, so the absence is recorded here rather than fixed.
+    **It does not thread, and threading is not what it would need.** The i7-12700K reads 80.2 µs at one
+    thread and 80.6 at eight, 1.586 ms against 1.588 at ``256^3``, and at ``512^3`` eight threads is
+    9.7% *slower*; the 9800X3D is likewise flat — zero scaling on both CPUs at every grid. The pass is
+    written as whole-array `reverse`, `circshift` and `maximum` over one or two planes, so it runs
+    through `Base` rather than through the package's threaded assignment primitive, and it structurally
+    cannot reach the fixed reduction tree, which lives in a module included after this one. But the
+    binding constraint is that the pass is **allocation-bound**: it allocates ``\approx 6\times`` the
+    plane bytes it reads — three temporaries over each stored plane, from the reversal, the shift, and
+    materializing the difference as the reduction's argument — so a threaded reduce alone would leave
+    the serial allocation in place, which is the likeliest reading of the ``512^3`` inversion. The fix
+    that would work is to fuse the mirrored index into one pass, after which threading follows for
+    free. That is worth doing only if the fused form is at least as fast serially, since this is an
+    ``O(N^2)`` diagnostic beside the ``O(N^3 \log N)`` round trip it exists to let a caller avoid and
+    the GPU, being launch-bound, gains nothing either way. Recorded as a roadmap item rather than
+    settled here.
 
     **Two naming decisions.** It is *not* called `symmetrize!`, though that is the requester's word and
     TurTLE's precedent: the package already exports `sym`, `sym!`, `symmetric_gradient` and
