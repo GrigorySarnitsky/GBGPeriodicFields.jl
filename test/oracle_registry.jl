@@ -60,6 +60,9 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :radial_spectrum    => (:analytic, "reductions.jl — constant → E(0)=c², cos x → E(1)=½"),
   :radial_correlation => (:independent, "reductions.jl — a binned circshift autocorrelation"),
   :lpnorm             => (:independent, "reductions.jl — explicit (Σ|·|ᵖ/N)^{1/p}"),
+  :reality_residual   => (:independent, "fields.jl — an elementwise walk of the self-conjugate planes, "
+                                        * "written from |f̂(k) − conj(f̂(−k))| and sharing no code with "
+                                        * "the implementation, which goes plane-at-a-time"),
 
   # ---- convolution and kernels ----
   :convolve           => (:independent, "convolution.jl — the circshift oracle for a whole-cell shift"),

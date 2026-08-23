@@ -152,6 +152,7 @@ using .Fields:
   physical_field_shape,
   spectral_field_shape,
   similar_field,
+  reality_residual,
   FieldSpectralMultipliers,
   SpectralKernel,           # the kernel supertype; Convolution defines the four storage classes
   set_fft_threads!,
@@ -303,6 +304,7 @@ export FiberVector,
        physical_field_shape,
        spectral_field_shape,
        similar_field,
+       reality_residual,
        # Re-exported from `Adapt`, not owned here: it is the ecosystem-standard verb for moving a
        # struct between storage families, and the package extends it for every section, kernel and
        # plan. Re-exporting is what makes it reachable from `using GBGPeriodicFields` alone — without

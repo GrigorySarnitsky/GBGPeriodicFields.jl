@@ -32,6 +32,11 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   # the pair prices what skipping the transform is worth.
   group["var scalar | $tag"]          = @benchmarkable var($s)
   group["var spectral scalar | $tag"] = @benchmarkable var($ss)
+  # The reality check (decision 71). It belongs beside the diagnostics rather than the measure
+  # reductions: it touches one or two PLANES, not the volume, so its row exists to show that
+  # O(N^2) shape against the O(N^3) rows around it rather than to be compared with them.
+  group["reality_residual scalar | $tag"] = @benchmarkable reality_residual($ss)
+  group["reality_residual vector | $tag"] = @benchmarkable reality_residual($us)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes
   group["weighted_inner vec | $tag"]     = @benchmarkable weighted_inner($us, $weight)       # fused ⟨f, |k|²·f⟩ (no filtered field)
   group["weighted_inner vec.vec | $tag"] = @benchmarkable weighted_inner($us, $vs, $weight)  # mixed ⟨f, |k|²·g⟩

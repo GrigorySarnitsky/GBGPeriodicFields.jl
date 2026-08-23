@@ -2111,4 +2111,63 @@ function adapt_structure(to, plans::FieldTransformPlans{T, R}) where {T<:Abstrac
 end
 
 
+"""
+    reality_residual(field::AbstractFieldSpectral) -> Real
+
+Measure how far a field's coefficients are from being the spectrum of a real field, returning `0`
+exactly when they are one.
+
+A real field's spectrum satisfies ``\\hat f(-k) = \\overline{\\hat f(k)}``, and the real-to-complex
+layout exploits that by storing only half the modes — so for most of them the redundant partner is
+not stored and *cannot* disagree. Two planes are the exception: the folded axis's zero plane, and its
+Nyquist plane when that axis has even length, are each their own mirror image, so within them both
+partners are stored and the constraint becomes a relation between entries that a caller can break.
+This returns the largest such discrepancy,
+
+```math
+\\max \\bigl\\lvert \\hat f(k) - \\overline{\\hat f(-k)} \\bigr\\rvert,
+```
+
+over those planes and every fiber component. A mode that is its own partner — the eight corners where
+each axis sits at zero or Nyquist — must be real, and this reports twice its imaginary part, that
+being the same discrepancy applied to a self-paired entry.
+
+Reach for it where responsibility for the coefficients changes hands: after writing them directly, or
+on accepting them from outside. Everything the package itself produces satisfies the constraint by
+construction, because a spectrum built by transforming a real field cannot violate it. The cost is one
+or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
+
+It **reports** rather than repairs, so the caller decides. The repair is already available and is
+exactly a physical round trip — [`to_physical`](@ref) followed by [`to_spectral`](@ref) — since the
+inverse real transform projects onto the coefficients of a real field; that costs two transforms and
+silently rewrites the data, which is why it is not offered under a name of its own.
+
+!!! note "The Nyquist plane is reported, never zeroed"
+    Some codes symmetrize by zeroing the Nyquist planes outright. This does not: the package keeps
+    Nyquist content and treats the two wavenumber families as disagreeing there on purpose, so a
+    violation on that plane is named like any other and what to do about it stays the caller's.
+"""
+function reality_residual(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+  data = field_data(field)
+  folded_axis = field_layout(field).fft_dims[1]
+  other_axes = Tuple(axis for axis in 1:3 if axis != folded_axis)
+  # The zero plane always; the Nyquist plane only when the FULL axis is even, which is the condition
+  # for a Nyquist mode to exist at all — the same test invariant 5 turns on.
+  stored_planes = iseven(field_grid(field).grid_size[folded_axis]) ?
+                  (1, size(data, folded_axis)) : (1,)
+  # Index j pairs with -j (mod n), which as a whole-array operation is a reversal followed by a shift
+  # of one: `reverse` sends j to n+1-j, and the extra step lands it on the wanted mod(-(j-1), n)+1.
+  # Written that way so the pass is array-level and never indexes a device array elementwise.
+  shifts = ntuple(axis -> axis in other_axes ? 1 : 0, ndims(data))
+  residual = zero(T)
+  for plane_index in stored_planes
+    plane = view(data, ntuple(axis -> axis == folded_axis ? (plane_index:plane_index) : Colon(),
+                              ndims(data))...)
+    partner = circshift(reverse(plane; dims = other_axes), shifts)
+    residual = max(residual, maximum(abs, plane .- conj.(partner)))
+  end
+  return residual
+end
+
+
 end # module Fields

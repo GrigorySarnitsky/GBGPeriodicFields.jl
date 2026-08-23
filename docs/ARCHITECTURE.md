@@ -3601,3 +3601,46 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     so it is now asserted as exactly that: the kernel *references* the caller's multipliers rather
     than copying them, and what it adds on top of them is **152 bytes at every grid**, compared across
     two that differ by 512× in mode count.
+
+71. **`reality_residual` — the contract the half-spectrum cannot enforce** (2026-08-23, requested by
+    the consuming solver at low priority). A real field's spectrum satisfies
+    ``\hat f(-k) = \overline{\hat f(k)}``, and the real-to-complex layout exploits that by storing
+    only half the modes — so for most modes the redundant partner is *not stored* and cannot disagree.
+    Two planes are the exception: the folded axis's zero plane, and its Nyquist plane when that axis
+    has even length, are each their own mirror, so within them **both** partners are stored and the
+    constraint becomes a relation a caller can break. `reality_residual` returns the largest
+    discrepancy ``\lvert \hat f(k) - \overline{\hat f(-k)} \rvert`` over those planes, zero exactly
+    when the coefficients are a real field's.
+
+    **The gap it closes is a promise the type makes but does not guarantee.** By invariant 2 a field
+    is a real physical object and the complex array is storage detail, so `ScalarFieldSpectral` *means*
+    "the coefficients of a real field" — and nothing enforced the symmetry that makes it true. Every
+    operation downstream is entitled to assume it and all of them keep working when it is false, which
+    is why the failure shows up as spectral diagnostics quietly disagreeing with physical images. The
+    consuming solver had documented the contract as far as it could: *"Coefficients written by hand
+    must respect the real-field layout's conjugate symmetry — it is not checked."* This is what lets
+    that sentence change.
+
+    **It reports rather than repairs, and the repair already exists.** A physical round trip *is* the
+    projection onto a real field's spectrum, since the inverse real transform is exactly that
+    projector — measured: a residual of `0.728` returns to `0.0`. So a repairing verb would be an
+    optimization of something reachable today, not a capability, and it would silently rewrite a
+    caller's data at the one boundary where the responsibility is explicitly theirs. The check is
+    ``O(N^2)`` — one or two planes — against the round trip's ``O(N^3 \log N)``.
+
+    **Two naming decisions.** It is *not* called `symmetrize!`, though that is the requester's word and
+    TurTLE's precedent: the package already exports `sym`, `sym!`, `symmetric_gradient` and
+    `symmetric_gradient!` for the symmetric part of a tensor's **fiber**, and reusing the word for a
+    relation among **spectral** coefficients would put one name on two operations acting on different
+    structures. It is named for the *reality condition* instead, which is the vocabulary
+    `convolve!`'s docstring and decision 28 already use. And it does **not** zero the Nyquist planes as
+    TurTLE's `symmetrize()` does: invariant 5 keeps Nyquist content deliberately, so a violation there
+    is named like any other.
+
+    *Verification.* An elementwise oracle written from the definition, sharing no code with the
+    implementation — which walks whole planes with `reverse`/`circshift` so it never indexes a device
+    array one element at a time, and is checked under `allowscalar(false)` in the CUDA suite. Crossed
+    over both element types, tensor orders 0/1/2, permuted folds, an **odd** folded axis (one
+    self-conjugate plane rather than two), the pair-consistency property (fixing the partner restores
+    zero), the self-paired corners (whose residual is twice the imaginary part), and the round-trip
+    repair. `Fields` 119 → 120, refrozen with its reason; the gate gains 170 assertions.

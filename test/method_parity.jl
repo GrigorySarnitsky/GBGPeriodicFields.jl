@@ -95,7 +95,10 @@ const MODULE_BASELINE = (
   # representation; the third is `_check_adapt_target`, which is `_check_same_domain` without its
   # storage-family clause — the one thing this operation exists to let differ. Refrozen deliberately,
   # with the reason, per decision 53's protocol.
-  Fields                = 119,
+  # 119 → 120: `reality_residual` (decision 71), the checkable half of the real-field layout's
+  # conjugate-symmetry contract. One method, on the spectral representation only — a physical field
+  # has no such constraint, so it has none. Refrozen deliberately, with the reason.
+  Fields                = 120,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is

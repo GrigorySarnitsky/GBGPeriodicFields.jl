@@ -82,6 +82,18 @@ adapt
 adapt!
 ```
 
+## The real-field reality condition
+
+The real-to-complex layout stores half the spectrum because the other half is the conjugate mirror of
+it. That redundancy is *implied* rather than stored, so it cannot disagree — except on the folded
+axis's self-conjugate planes, where both partners are kept and a hand-written coefficient can break
+the symmetry. [`reality_residual`](@ref) measures how far a field is from being the spectrum of a real
+field, which is worth asking wherever responsibility for the coefficients changes hands.
+
+```@docs
+reality_residual
+```
+
 ## Spectral kernel protocol
 
 `SpectralKernel` is the exported supertype the kernel-taking operations dispatch on — `convolve` and the

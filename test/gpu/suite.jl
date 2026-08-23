@@ -654,6 +654,16 @@ end
       @test field_data(device_u) isa AT
       @test device_multipliers.wavenumber_1 isa AT
 
+      # The reality check (decision 71) must survive `allowscalar(false)` — it walks whole planes with
+      # `reverse`/`circshift` precisely so it never touches a device array one element at a time.
+      @test reality_residual(adapt(AT, host_z)) == 0
+      # Corrupted on the HOST and then moved, because a scalar write to a device array is exactly what
+      # `allowscalar(false)` forbids — and what this operation must not need.
+      host_corrupt = ScalarFieldSpectral(copy(field_data(host_z)), grid, layout)
+      field_data(host_corrupt)[1, 3, 2] += 0.6 + 0.25im
+      @test reality_residual(adapt(AT, host_corrupt)) ≈ reality_residual(host_corrupt)
+      @test reality_residual(adapt(AT, host_corrupt)) ≈ abs(0.6 + 0.25im)
+
       # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
       # cross. The gate proves everything about `adapt!` except the crossing itself.
       into_device = similar_field(device_u, Val(1))

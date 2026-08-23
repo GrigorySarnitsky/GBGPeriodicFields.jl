@@ -263,3 +263,70 @@ end
   physical_m = ScalarFieldPhysical(zeros(TP, 8, 6, 4), grid_m, layout_m)
   @test_throws ArgumentError FieldTransformPlans(physical_m, mismatched)
 end
+
+
+# The real-field layout's conjugate-symmetry contract, made checkable (decision 71). The oracle is
+# ELEMENTWISE and written from the definition — it shares no code with the implementation, which walks
+# whole planes with `reverse`/`circshift` so it never indexes a device array one element at a time.
+@testset "reality_residual: the constraint the half-spectrum cannot enforce ($T)" for T in (Float64, Float32)
+  function reality_oracle(field)
+    d = field_data(field); fold = field_layout(field).fft_dims[1]
+    N = field_grid(field).grid_size; others = Tuple(a for a in 1:3 if a != fold)
+    planes = iseven(N[fold]) ? (1, size(d, fold)) : (1,)
+    r = zero(T)
+    for p in planes, idx in CartesianIndices(d)
+      idx[fold] == p || continue
+      t = collect(Tuple(idx))
+      for a in others; t[a] = mod(-(idx[a] - 1), N[a]) + 1 end
+      r = max(r, abs(d[idx] - conj(d[CartesianIndex(t...)])))
+    end
+    return r
+  end
+
+  # Grids chosen so the folded axis is even (two self-conjugate planes) and odd (only the zero plane),
+  # crossed with permuted folds, because the folded axis is `fft_dims[1]` and not necessarily the first.
+  for (sizes, layout) in (((8, 8, 8), RealFourierLayout()),
+                          ((8, 8, 8), RealFourierLayout((2, 1, 3))),
+                          ((8, 7, 6), RealFourierLayout()),
+                          ((7, 8, 8), RealFourierLayout()))          # ODD folded axis: no Nyquist plane
+    grid = Grid3D(sizes, T.((2pi, 2pi, 2pi)))
+    for R in (0, 1, 2)
+      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid, layout) :
+                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid, layout) :
+                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid, layout)
+      spectral = similar_field(ScalarFieldSpectral(
+        zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      plans = FieldTransformPlans(physical, spectral)
+      transformed = to_spectral(physical, plans)
+
+      # A spectrum that came from a real field satisfies it exactly — that is the whole reason the
+      # package's own outputs never need checking.
+      @test reality_residual(transformed) == 0
+      @test reality_residual(transformed) == reality_oracle(transformed)
+
+      # Break ONE of a conjugate pair: the residual is exactly the magnitude of what was injected.
+      data = field_data(transformed)
+      δ = Complex{T}(0.6, 0.25)
+      plane_index = ntuple(a -> a == layout.fft_dims[1] ? 1 : 3, 3)
+      data[plane_index..., ntuple(_ -> 1, R)...] += δ
+      @test reality_residual(transformed) ≈ abs(δ)
+      @test reality_residual(transformed) ≈ reality_oracle(transformed)
+
+      # Fixing the partner restores it, so the test is about PAIRS, not about touching storage.
+      partner = ntuple(a -> a == layout.fft_dims[1] ? 1 : mod(-(3 - 1), sizes[a]) + 1, 3)
+      data[partner..., ntuple(_ -> 1, R)...] += conj(δ)
+      @test reality_residual(transformed) ≈ 0 atol = 8 * eps(T)
+
+      # A self-paired mode must be REAL, and the residual is twice its imaginary part.
+      data[ntuple(_ -> 1, 3)..., ntuple(_ -> 1, R)...] += Complex{T}(0, 0.3)
+      @test reality_residual(transformed) ≈ 2 * T(0.3) atol = 8 * eps(T)
+
+      # The documented repair: a physical round trip IS the projection onto a real field's spectrum.
+      @test reality_residual(to_spectral(to_physical(transformed, plans), plans)) ≈ 0 atol = 8 * eps(T)
+    end
+  end
+
+  # Physical representation has no such constraint, so it has no method (invariant 1).
+  grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
+  @test_throws MethodError reality_residual(ScalarFieldPhysical(rand(T, 8, 8, 8), grid))
+end
