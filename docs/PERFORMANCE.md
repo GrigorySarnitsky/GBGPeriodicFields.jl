@@ -1261,6 +1261,26 @@ independent of the grid — six ``O(N)`` per-axis arrays, so the cost is six tra
 rather than bytes — and `adapt plans (rebuild)` grows ``7.4 \to 23.5`` µs with the grid, which is the
 FFT planning it redoes rather than anything copied.
 
+*The RX 7900 XTX was swept 2026-08-23 and confirms every structural claim above, while disagreeing on
+one magnitude.* The identity is free there too (``146``–``159`` ns, flat across grids and both element
+types, against the ``118``–``122`` ns NVIDIA reads); the outbound `adapt!` is a wash (``1.01``–``1.09``);
+the return trip recovers **``2.79``–``2.99×``** at ``256^3`` against NVIDIA's ``3.48``–``3.66×``; and the
+**size threshold reproduces exactly** — a ``128^3`` `Float64` scalar shows ``0.99×``, no gain at all,
+where the vector on the same grid shows ``3.06×``. Two structural properties holding on an independent
+runtime is what promotes them from a CUDA observation to a property of the operation.
+
+*The magnitude that differs is the outbound bus, and it is the vendor rather than the package.* A
+``256^3`` `Float64` scalar crosses **to** the AMD card in ``11.42`` ms against NVIDIA's ``6.03`` — an
+outbound rate of ``\approx 11.8`` GB/s against ``\approx 22`` — while the return trip is near parity
+(``24.40`` against ``23.72`` ms). So the ``4\times`` asymmetry this finding is named for is
+``\approx 2.1\times`` on AMD, not because the return is faster but because the outbound is slower. The
+package issues one `copyto!` per component in both cases, so nothing here is ours to fix; the
+consequence for a consumer is only that the outbound leg is the one worth hoisting on AMD, where on
+NVIDIA it is nearly free. The same latency signature shows in `adapt multipliers`, which is ``\approx
+147`` µs on AMD against ``\approx 13`` µs on NVIDIA: six small ``O(N)`` transfers, so the row prices
+per-transfer overhead, and an ``11\times`` gap there is the launch-latency profile these two cards show
+throughout the small-grid rows rather than anything about bytes.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
@@ -1576,14 +1596,16 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
-7. **The `storage` class is swept on CUDA and still open on ROCm** (2026-08-17; the rows added since
-   were filled on this host 2026-08-23). Decision 63's
-   device-only class now carries 42 rows in the `GPU 5070TI` column and `RESULTS.md` has seven class
-   sections; see finding (x) for what they say. The `GPU 7900XTX` column is still `—` throughout, so
-   the cross-vendor comparison this class exists to support cannot be made yet, and it is an
-   `Aiporetne` job. Method note for whoever runs it: `characterize.jl` **overwrites** the archive it is
-   given, so a class-only sweep must be written to a separate file and merged into the host's existing
-   archive — the CUDA half was done that way and the other 426 rows verified bit-identical afterwards.
+7. **The `storage` class is swept on BOTH vendors — CLOSED 2026-08-23.** Decision 63's device-only
+   class carries 66 rows in each of the `GPU 5070TI` and `GPU 7900XTX` columns, and the four rows
+   decisions 71 and 72 added are filled on all five `Aiporetne` lanes, so `RESULTS.md` has seven class
+   sections with no half-filled table left. See finding (x) for the cross-vendor reading, which is the
+   comparison this class exists to support. Method note, kept because it is what makes a partial sweep
+   safe: `characterize.jl` **overwrites** the archive it is given, so a class-only sweep must be
+   written to a separate file and merged. Both halves were done that way — the CUDA one verified 426
+   pre-existing rows bit-identical afterwards, the ROCm one 467 — and the merge is verified in **both
+   directions**, re-merging the pre-merge backup into the merged archive to confirm it adds nothing and
+   changes nothing, which catches a row silently dropped as well as a row silently altered.
 8. **`aarch64` is a production host architecture with zero coverage.** The recorded production
    target (`docs/ARCHITECTURE.md` decision 37) is NAISS Arrhenius, and its GPU nodes are GH200
    superchips: the CUDA device is hosted by a 72-core **Grace CPU — ARM, `aarch64`** — while the

@@ -3641,6 +3641,22 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     is flat at 99–104 µs over the same range, a plane being too small to be anything but launch-bound.
     The ``O(N^3)`` `inner` beside it goes 85 µs → 204 µs → 1.115 ms.
 
+    **A second vendor and a second CPU confirm both halves of that shape** (measured 2026-08-23). The
+    RX 7900 XTX is flat at 238–244 µs across ``64^3``/``128^3``/``256^3``, the same launch-bound
+    plateau at a different height, and the i7-12700K grows 80 µs → 362 µs → 1.586 ms → 13.258 ms out to
+    ``512^3``, fourfold per doubling as the area argument requires. The two profiles **cross**: at
+    ``64^3`` the CPU is about three times faster than the AMD card, and by ``256^3`` the card is about
+    six times faster than the CPU, which is what a launch-bound cost meeting an area-bound one looks
+    like. A caller choosing where to run this should read the crossover rather than the peak.
+
+    **It does not thread, and that is by construction rather than an oversight.** The i7-12700K reads
+    80.2 µs at one thread and 80.6 at eight, 1.586 ms against 1.588 at ``256^3``, and the 9800X3D is
+    likewise flat — zero scaling on both CPUs at every grid. The pass is written as whole-array
+    `reverse`, `circshift` and `maximum` over one or two planes, so it runs through `Base` rather than
+    through the package's threaded assignment primitive or its fixed reduction tree. Threading it would
+    chase an ``O(N^2)`` diagnostic sitting beside the ``O(N^3 \log N)`` round trip it exists to let a
+    caller avoid, so the absence is recorded here rather than fixed.
+
     **Two naming decisions.** It is *not* called `symmetrize!`, though that is the requester's word and
     TurTLE's precedent: the package already exports `sym`, `sym!`, `symmetric_gradient` and
     `symmetric_gradient!` for the symmetric part of a tensor's **fiber**, and reusing the word for a
@@ -3670,14 +3686,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     accumulator per weight, and the obvious spelling — `zip` the operands — **falls back to scalar
     indexing** and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
     tuple `+` stays on the device. That is measured, not assumed. In the committed table it beats the
-    three calls it replaces on **every lane**: **1.81–1.97× on the CPU**, uniformly across ``64^3`` to
-    ``512^3`` and every thread count, and **1.36–2.48× on the RTX 5070 Ti** — before counting the two
-    synchronizations that stop happening. Two things the spread says. The CPU figure sits near two
-    rather than three because only the *coefficient* reads are shared: each weight is still evaluated
-    per mode, so a third of the traffic was never the target. And the GPU's `Float64` rows are its
-    weakest (1.36× at ``256^3`` against 1.96× for `Float32`), which is what a consumer card doing
-    double precision at 1/64 rate looks like — compute-bound work has less to gain from reading
-    less.
+    three calls it replaces on **every one of the ten lanes**: **1.64–1.97× on the two CPUs**,
+    uniformly across ``64^3`` to ``512^3`` and every thread count, **1.36–2.48× on the RTX 5070 Ti**
+    and **1.86–2.70× on the RX 7900 XTX** — before counting the two synchronizations that stop
+    happening. Three things the spread says. The CPU figure sits near two rather than three because
+    only the *coefficient* reads are shared: each weight is still evaluated per mode, so a third of the
+    traffic was never the target. The NVIDIA card's `Float64` rows are its weakest (1.36× at ``256^3``
+    against 1.96× for `Float32`), which is what a consumer card doing double precision at 1/64 rate
+    looks like — compute-bound work has less to gain from reading less. And the AMD card does **not**
+    show that split (1.86× against 2.48× at ``256^3``, and its best figures anywhere), which is the
+    same explanation seen from the other side rather than a second one.
+
+    **The AMD figures were measured 2026-08-23, and the vendor risk they were checking did not
+    materialize.** A tuple accumulator reduced with a custom non-`+` operator is a different AMDGPU
+    code path from `sum` or `mapreduce`, and decision 62 had already found one place where that
+    vendor's `mapreducedim!` throws on a `Broadcasted` the CPU accepts — so no CUDA run could speak
+    for this one. It neither threw nor fell back: the ROCm suite reads 395 of 395, the same count as
+    CUDA, and the operation turns in its largest speedups of any lane. The `Base.Broadcast.instantiate`
+    that decision 62 made load-bearing is still what makes that true, and remains required.
 
     **It is one method on the existing generic, not a new operation.** ``\langle f, w f\rangle`` at
     several weights is the same mathematics at several ``w``, so invariant 1 is satisfied by extending
