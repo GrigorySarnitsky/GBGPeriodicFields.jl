@@ -1600,6 +1600,40 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
+- **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
+  (recorded 2026-08-23, user-directed).** Decision 70 stopped `laplacian!`, `inverse_laplacian!`,
+  `divergence!` and `exponential_convolve!` from allocating 144 B a call by storing six pre-oriented
+  views on `FieldSpectralMultipliers`. That fixed the symptom on the route those operators are on. The
+  open question is whether they belong on that route at all: `gradient!`, `curl!`,
+  `helmholtz_projection!` and `symmetric_gradient!` are **already** KernelAbstractions kernels taking
+  the raw vectors, and already measured zero — which is exactly why they never appeared in the
+  consumer's report. By §9's execution-route policy a cartesian-coefficient operator is a decision-38
+  kernel pair, so the four may simply have been on the wrong side of it, and decision 70 patched the
+  route instead of moving them.
+
+  **What kernelising would buy.** It would retire the six stored views and, with them, the six type
+  parameters and the three sites that match `Canonical` positionally (`_is_canonical`,
+  `adapt_structure`, `Convolution`'s static collapse) — which broke at once when decision 70 shifted
+  it, and which is the real cost of that fix. The 288 B of resident headers it would also reclaim are
+  not a reason; they are 0.0002% of one scalar field at ``256^3``.
+
+  **What argues against, and must be answered rather than assumed.** *(1)* It does **not** reach every
+  caller: the same helper feeds `RadialKernel`'s `_kernel_data`, which is consumed inside *other*
+  operations' fused passes, so kernelising four operators leaves the kernel-protocol path still
+  reshaping per call unless that path comes along too. *(2)* Decision 24 chose the fused-broadcast form
+  for `laplacian!`/`inverse_laplacian!` **deliberately and with measurements**, so this overturns a
+  recorded decision and needs its own. *(3)* Decision 40 requires every gated CPU loop to be proven
+  bitwise thread-count-invariant against its device twin, and decision 47 records what happens when
+  such a pair silently falls out of dispatch.
+
+  **Scope, so the cost is visible before anyone starts.** Port the three differential operators to the
+  decision-38 kernel-pair shape with gated CPU loops; prove bitwise thread-invariance in
+  `test/threading.jl`; re-run the `operators` and `convolution` benchmark classes on **both** backends
+  (this owns the machine); and decide whether `_kernel_data` can take the same treatment. **Decision
+  rule:** keep whichever route is architecturally consistent *at no performance loss* — if kernelising
+  wins and covers the kernel-protocol path, the stored views and their six parameters retire with it;
+  if it does not cover that path, decision 70 stands and this entry closes as answered.
+
 - **Spectral-domain transfer (decision 23) — DONE.** Both schemes shipped natively (no dependency)
   under `AbstractTransferScheme`: `DirectDFT` (exact `O(NM)` + the oracle) and the fast windowed
   `NUFFT` (`O(N log N + M)` gridding = spread→FFT→deconvolve, reusing the transfer kernels + oversampled
