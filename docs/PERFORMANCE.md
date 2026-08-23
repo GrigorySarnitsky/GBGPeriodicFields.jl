@@ -1248,6 +1248,14 @@ already exists; measured on the same card and field, `copyto!` into a preallocat
 trip to the outbound rate. The `storage` class carries `adapt!` rows beside the allocating ones, so the
 comparison stays measured rather than remembered.
 
+*And it is now measured, not projected.* Decision 69's `adapt!` rows sit beside the allocating ones in
+the table since 2026-08-23: on the return trip it is **3.48–3.66×** at ``256^3``, and **outbound it is
+a wash** (``1.0\times``) — which is this finding's own diagnosis confirming itself, the device
+allocation being pooled and cheap so there was never a page cost to avoid that way. The gain also has a
+**size threshold**: a ``128^3`` `Float64` scalar (16.8 MB) shows ``1.01\times`` where the vector on the
+same grid (50 MB) shows ``3.48\times``, which is what page faults on fresh host pages look like — they
+bite only once an allocation outgrows the allocator's reused blocks.
+
 *The two non-section rows behave as their structure predicts.* `adapt multipliers` is ``\approx 13`` µs
 independent of the grid — six ``O(N)`` per-axis arrays, so the cost is six transfers' fixed overhead
 rather than bytes — and `adapt plans (rebuild)` grows ``7.4 \to 23.5`` µs with the grid, which is the
@@ -1568,7 +1576,8 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    erroring — the same trap as the cold-compile / GC-free hangs above, and `gcsample` does *not* help
    when the *live* set (not GC lag) is what overflows. So the 512³ column is `Float32` and skips those two.
 
-7. **The `storage` class is swept on CUDA and still open on ROCm** (2026-08-17). Decision 63's
+7. **The `storage` class is swept on CUDA and still open on ROCm** (2026-08-17; the rows added since
+   were filled on this host 2026-08-23). Decision 63's
    device-only class now carries 42 rows in the `GPU 5070TI` column and `RESULTS.md` has seven class
    sections; see finding (x) for what they say. The `GPU 7900XTX` column is still `—` throughout, so
    the cross-vendor comparison this class exists to support cannot be made yet, and it is an

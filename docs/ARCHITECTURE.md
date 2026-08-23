@@ -3524,6 +3524,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the return trip allocates a fresh pageable host array and pays for the pages. A consumer pulling a
     field back on any regular basis had no way to hoist that.
 
+    *Measured into the table 2026-08-23, which sharpened the estimate.* On the return trip `adapt!` is
+    **3.48–3.66×** the allocating form at ``256^3`` (both element types, scalar and vector); the first
+    estimate said "about ``4\times``", from a bare-array probe. **Outbound it is a wash**
+    (``1.0\times``), which is the diagnosis confirming itself — the device allocation is pooled and
+    cheap, so there was never a page cost to avoid in that direction. And the gain has a **size
+    threshold**: a ``128^3`` `Float64` *scalar* (16.8 MB) shows ``1.01\times`` while the *vector* on
+    the same grid (50 MB) shows ``3.48\times``, consistent with the cause being page faults on fresh
+    host pages, which bite only once an allocation is too large for the allocator's reused blocks.
+
     **The name is ours, and `copyto!` was rejected for a reason worth recording.** `Adapt.jl` has no
     in-place form — it exports `adapt`, `WrappedArray`, `parent_type`, `unwrap_type` and the
     `adapt_structure`/`adapt_storage` hooks — so `adapt!` is a package-owned verb paired with a
@@ -3626,7 +3635,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     projector — measured: a residual of `0.728` returns to `0.0`. So a repairing verb would be an
     optimization of something reachable today, not a capability, and it would silently rewrite a
     caller's data at the one boundary where the responsibility is explicitly theirs. The check is
-    ``O(N^2)`` — one or two planes — against the round trip's ``O(N^3 \log N)``.
+    ``O(N^2)`` — one or two planes — against the round trip's ``O(N^3 \log N)``. The table shows that
+    shape rather than asserting it: on the CPU it runs 92 µs → 367 µs → 1.478 ms across
+    ``64^3``/``128^3``/``256^3``, about fourfold per doubling, which is a plane's area; on the GPU it
+    is flat at 99–104 µs over the same range, a plane being too small to be anything but launch-bound.
+    The ``O(N^3)`` `inner` beside it goes 85 µs → 204 µs → 1.115 ms.
 
     **Two naming decisions.** It is *not* called `symmetrize!`, though that is the requester's word and
     TurTLE's precedent: the package already exports `sym`, `sym!`, `symmetric_gradient` and
@@ -3656,9 +3669,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     its type, so the return is a concrete `NTuple{n, T}` and a caller destructures it. Fusing needs an
     accumulator per weight, and the obvious spelling — `zip` the operands — **falls back to scalar
     indexing** and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
-    tuple `+` stays on the device. That is measured, not assumed: through the package's own API on an
-    RTX 5070 Ti, ``1.65\times`` at ``128^3`` and ``1.52\times`` at ``256^3`` against the three calls
-    it replaces, before counting the two synchronizations that stop happening.
+    tuple `+` stays on the device. That is measured, not assumed. In the committed table it beats the
+    three calls it replaces on **every lane**: **1.81–1.97× on the CPU**, uniformly across ``64^3`` to
+    ``512^3`` and every thread count, and **1.36–2.48× on the RTX 5070 Ti** — before counting the two
+    synchronizations that stop happening. Two things the spread says. The CPU figure sits near two
+    rather than three because only the *coefficient* reads are shared: each weight is still evaluated
+    per mode, so a third of the traffic was never the target. And the GPU's `Float64` rows are its
+    weakest (1.36× at ``256^3`` against 1.96× for `Float32`), which is what a consumer card doing
+    double precision at 1/64 rate looks like — compute-bound work has less to gain from reading
+    less.
 
     **It is one method on the existing generic, not a new operation.** ``\langle f, w f\rangle`` at
     several weights is the same mathematics at several ``w``, so invariant 1 is satisfied by extending
