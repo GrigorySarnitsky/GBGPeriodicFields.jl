@@ -345,7 +345,26 @@ rather than re-measured for this table. The earlier printed figures were a one-o
 promises this table tracks the live record.)
 
 It is size- and CPU-specific (128³ is fine; the i7-12700K shows no such inversion) — a classic `ESTIMATE`
-pitfall on a new CPU, not a package issue. The default stays `ESTIMATE` (cheap, deterministic, right for
+pitfall, not a package issue.
+
+**The *inversion* is Zen 5's; the *mis-planning* is not — corrected 2026-08-23 from a corpus-wide sweep
+of the committed table.** Reading `ESTIMATE`/`MEASURE` as a ratio rather than looking for a
+`Float32`-slower-than-`Float64` ordering, the i7-12700K mis-plans single precision too, at
+``256^3``/t1: **2.13×** (`to_physical scalar`), **2.40×** (`to_spectral scalar`) and **2.10×**
+(`to_physical vector`), against ``5.17``/``5.07``/``4.10×`` on the 9800X3D. Double precision is
+``1.20``–``1.46×`` on the i7 and ``1.15``–``2.83×`` on the Ryzen. So the effect is **precision-specific
+on both microarchitectures** and merely three times worse on Zen 5. What is genuinely Zen-5-only is that
+it is severe enough to *flip the ordering* — on the i7 the `ESTIMATE` `Float32` transform is still
+faster than its `Float64` twin (``88.0`` against ``127.3`` ms), so nothing looks wrong unless the
+`measure` twin is consulted, which is exactly why the narrower attribution was recorded. The sentence
+above stays true as written about the inversion; what changes is that "misjudge this CPU generation"
+must not be read as "and only that generation", and a consumer on **any** x86 CPU doing long
+single-precision runs should pass `MEASURE`.
+
+*This widens rather than narrows the ARM concern in §7 gap 8*, which cites this finding as a Zen 5
+artifact among the reasons no x86 CPU result transfers to `aarch64`. An `ESTIMATE` heuristic that
+mis-plans single precision on two unrelated x86 microarchitectures is more likely to do so on a third
+platform, not less — so `MEASURE` should be in the first Arrhenius measurement, not discovered there. The default stays `ESTIMATE` (cheap, deterministic, right for
 tests and short runs); the escape hatch already exists,
 `FieldTransformPlans(phys, spec; fft_flags = FFTW.MEASURE)` (or `FFTW.PATIENT`). `MEASURE` overwrites its
 input arrays while planning, so build the plans on scratch fields before seeding data. The forced-HIT CPU
@@ -1614,7 +1633,9 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    architecture. No blocker is *known*: the stack is pure Julia plus JLL artifacts published for
    `aarch64-linux` (FFTW, HDF5), and CUDA.jl runs on `aarch64` hosts, Grace Hopper among them. But
    "no known blocker" is not "verified", and none of the x86-measured CPU findings transfer —
-   finding (h)'s `ESTIMATE` mis-planning is a Zen 5 heuristic artifact, and NEON changes FFTW's
+   finding (h)'s `ESTIMATE` mis-planning turns out to reach both x86 microarchitectures in the fleet
+   rather than being the Zen 5 artifact it was first recorded as — which is a reason to carry `MEASURE`
+   to ARM as a default expectation rather than a reason to assume it is absent — and NEON changes FFTW's
    codelet landscape entirely. Standing guard until access lands: **never adopt an x86-only
    dependency or recommendation** — the MKL FFTW provider, which has no `aarch64` build, is the
    canonical tempting example — and when it does land, the first step on an Arrhenius node is the
