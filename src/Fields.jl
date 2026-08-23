@@ -1443,7 +1443,7 @@ two radial kernels into one without testing anything at run time, and it is why 
 own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
 grid's own wavenumbers.
 """
-struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, Canonical} 
+struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, V1<:AbstractArray{T, 3}, V2<:AbstractArray{T, 3}, V3<:AbstractArray{T, 3}, W1<:AbstractArray{T, 3}, W2<:AbstractArray{T, 3}, W3<:AbstractArray{T, 3}, Canonical} 
   grid::Grid3D{T}
   fourier_layout::RealFourierLayout
   wavenumber_1::K1
@@ -1453,6 +1453,26 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
   squared_wavenumber_2::S2
   squared_wavenumber_3::S3
 
+  # The same six arrays ORIENTED along their own axis — shapes `(n,1,1)`, `(1,n,1)`, `(1,1,n)` — held
+  # so the broadcast-route operators do not rebuild them per call. A `reshape` allocates a 48-byte
+  # array header, and the two helpers below built three of them each invocation: 144 B per call of
+  # `laplacian!`, `inverse_laplacian!`, `divergence!` and `exponential_convolve!`, byte-constant in the
+  # grid and therefore pure per-step garbage in a solver's hot loop (raised by the consuming solver
+  # 2026-08-23, measured at 1152 B per RK3 step). They alias their vectors rather than copying, so this
+  # costs six array headers per multiplier set — built once, where a grid is.
+  wavenumber_view_1::V1
+  wavenumber_view_2::V2
+  wavenumber_view_3::V3
+  squared_wavenumber_view_1::W1
+  squared_wavenumber_view_2::W2
+  squared_wavenumber_view_3::W3
+
+  # THREE SITES MATCH THESE PARAMETERS POSITIONALLY and must be updated together whenever one is
+  # added: `_is_canonical` below, `adapt_structure`'s signature (decision 68), and `Convolution`'s
+  # static collapse of two radial kernels (decision 61), which spells the canonical case as a trailing
+  # `true`. Adding the six oriented views moved `Canonical` six places and broke all three at once —
+  # loudly, at load, which is the only reason this comment is a warning rather than a post-mortem.
+  #
   # `Canonical` records whether these arrays were DERIVED from the grid (the convenience constructor)
   # or supplied by a caller (the six-array form, which validates lengths only). It is a type parameter
   # rather than a field because it decides, statically, whether two multiplier sets provably hold the
@@ -1479,7 +1499,17 @@ struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:A
     length(squared_wavenumber_2) == spectral_spatial_shape[2] || throw(DimensionMismatch("length(squared_wavenumber_2) must match the second spectral spatial dimension"))
     length(squared_wavenumber_3) == spectral_spatial_shape[3] || throw(DimensionMismatch("length(squared_wavenumber_3) must match the third spectral spatial dimension"))
 
-    return new{T, K1, K2, K3, S1, S2, S3, Canonical}(grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+    view_1 = reshape(wavenumber_1, length(wavenumber_1), 1, 1)
+    view_2 = reshape(wavenumber_2, 1, length(wavenumber_2), 1)
+    view_3 = reshape(wavenumber_3, 1, 1, length(wavenumber_3))
+    squared_view_1 = reshape(squared_wavenumber_1, length(squared_wavenumber_1), 1, 1)
+    squared_view_2 = reshape(squared_wavenumber_2, 1, length(squared_wavenumber_2), 1)
+    squared_view_3 = reshape(squared_wavenumber_3, 1, 1, length(squared_wavenumber_3))
+    return new{T, K1, K2, K3, S1, S2, S3, typeof(view_1), typeof(view_2), typeof(view_3),
+               typeof(squared_view_1), typeof(squared_view_2), typeof(squared_view_3), Canonical}(
+      grid, fourier_layout, wavenumber_1, wavenumber_2, wavenumber_3,
+      squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
+      view_1, view_2, view_3, squared_view_1, squared_view_2, squared_view_3)
   end
 end
 
@@ -1612,9 +1642,9 @@ Reshape the per-axis derivative wavenumber array for axis `1`, `2` or `3` so it 
 the three spatial dimensions of a field in spectral representation. Used by the first-derivative
 differential operators (gradient, divergence, curl), applied as spectral multipliers.
 """
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = reshape(multipliers.wavenumber_1, length(multipliers.wavenumber_1), 1, 1)
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = reshape(multipliers.wavenumber_2, 1, length(multipliers.wavenumber_2), 1)
-_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = reshape(multipliers.wavenumber_3, 1, 1, length(multipliers.wavenumber_3))
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{1}) = multipliers.wavenumber_view_1
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{2}) = multipliers.wavenumber_view_2
+_wavenumber_broadcast_view(multipliers::FieldSpectralMultipliers, ::Val{3}) = multipliers.wavenumber_view_3
 
 
 """
@@ -1633,10 +1663,9 @@ operators allocation-free in place: no ``O(N^3)`` ``|k|^2`` scratch is built, wh
 otherwise accumulate in the memory pool on each call.
 """
 function _squared_wavenumber_broadcast(multipliers::FieldSpectralMultipliers)
-  squared_wavenumber_1 = reshape(multipliers.squared_wavenumber_1, length(multipliers.squared_wavenumber_1), 1, 1)
-  squared_wavenumber_2 = reshape(multipliers.squared_wavenumber_2, 1, length(multipliers.squared_wavenumber_2), 1)
-  squared_wavenumber_3 = reshape(multipliers.squared_wavenumber_3, 1, 1, length(multipliers.squared_wavenumber_3))
-  return Base.broadcasted(+, squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3)
+  return Base.broadcasted(+, multipliers.squared_wavenumber_view_1,
+                             multipliers.squared_wavenumber_view_2,
+                             multipliers.squared_wavenumber_view_3)
 end
 
 
@@ -2027,7 +2056,8 @@ a runtime test. [`adapt`](@ref) has to carry it across a move deliberately: rebu
 public six-array constructor would mark the result non-canonical and silently disable that collapse,
 costing performance with no wrong answer to show for it.
 """
-_is_canonical(::FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Canonical}) where {Canonical} = Canonical
+_is_canonical(::FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any,
+                                         <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, Canonical}) where {Canonical} = Canonical
 
 
 # Rebuilt through `similar_field`, so grid, layout, origin and tensor order propagate by construction
@@ -2045,8 +2075,9 @@ adapt_structure(to, field::AbstractFieldSpectral) = similar_field(field, adapt(t
 # always right; what was lost is decision 61's whole purpose, since a non-concrete `Canonical` turns
 # `convolve`'s static collapse of two radial kernels back into a run-time decision after a bus
 # crossing. Found by the exhaustive survey once its adaptor-slot noise was cleared (2026-08-17).
-adapt_structure(to, multipliers::FieldSpectralMultipliers{T, K1, K2, K3, S1, S2, S3, Canonical}) where {
-    T, K1, K2, K3, S1, S2, S3, Canonical} =
+adapt_structure(to, multipliers::FieldSpectralMultipliers{T, K1, K2, K3, S1, S2, S3,
+                                                          V1, V2, V3, W1, W2, W3, Canonical}) where {
+    T, K1, K2, K3, S1, S2, S3, V1, V2, V3, W1, W2, W3, Canonical} =
   FieldSpectralMultipliers(Val(Canonical), multipliers.grid, multipliers.fourier_layout,
                            adapt(to, multipliers.wavenumber_1),
                            adapt(to, multipliers.wavenumber_2),

@@ -628,7 +628,21 @@ end
 
     cutoff = spectral_cutoff(m, TP(3))
     @test cutoff isa RadialKernel
-    @test Base.summarysize(cutoff) < 1024                     # O(1): a closure and three references
+    # "A closure and three references" (decision 51), asserted as the two things that actually says.
+    # FIRST, the kernel REFERENCES the caller's multipliers rather than copying them. SECOND, what it
+    # adds on top of them is O(1) IN THE GRID — compared across two grids differing 512x in mode count.
+    # The old assertion was `summarysize(cutoff) < 1024`, which measured the kernel PLUS the referenced
+    # multipliers, whose six per-axis vectors are O(N): it was a small-grid constant wearing the name
+    # of a property, and it broke at 1136 when decision 70 gave the multipliers six oriented views
+    # while the property itself never moved.
+    big = Grid3D((64, 64, 64), (TP(2π), TP(4π), TP(6π)))
+    big_multipliers = FieldSpectralMultipliers(
+      ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(big, layout, Val(0))...), big, layout))
+    big_cutoff = spectral_cutoff(big_multipliers, TP(3))
+    @test cutoff.multipliers === m                            # references, never a copy
+    @test big_cutoff.multipliers === big_multipliers
+    @test Base.summarysize(big_cutoff) - Base.summarysize(big_multipliers) ==
+          Base.summarysize(cutoff)     - Base.summarysize(m)  # its own footprint is grid-independent
 
     for (name, kernel) in (("cutoff", cutoff),
                            ("band", spectral_band(m, TP(1), TP(3))),

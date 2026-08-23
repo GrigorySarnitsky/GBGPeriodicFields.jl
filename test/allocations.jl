@@ -445,6 +445,37 @@ end
 end
 
 
+@testset "the radial-symbol operators allocate NOTHING, not merely less than a field (decision 70)" begin
+  # `field_threshold` is generous on purpose — it exists to catch a MATERIALIZED FIELD — and that
+  # generosity is exactly why 144 B per call lived underneath it for the life of these operators:
+  # `_squared_wavenumber_broadcast` and `_wavenumber_broadcast_view` rebuilt their `reshape` wrappers
+  # every invocation, 48 B each. The audit said "no field" and the docs said "allocates nothing", and
+  # only the consuming solver, counting bytes per step, could tell the two claims apart (2026-08-23).
+  #
+  # Serial is where "nothing" can be asserted literally. Threaded, `Base.Threads` allocates its own
+  # task state per `_assign!` — kilobytes, independent of the grid — so that lane keeps a bound. Both
+  # lanes assert something, because a testset that silently skips is how the gap reappears.
+  for T in (Float64, Float32)
+    @testset "$T" begin
+      grid, layout = Grid3D((16, 16, 16), T.((2pi, 2pi, 2pi))), RealFourierLayout()
+      sv  = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+      dst = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+      ss  = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+      m   = FieldSpectralMultipliers(sv)
+      calls = (() -> laplacian!(dst, sv, m),
+               () -> inverse_laplacian!(dst, sv, m),
+               () -> divergence!(ss, sv, m),
+               () -> exponential_convolve!(dst, sv, m, T(-0.01)))
+      bound = Threads.nthreads() == 1 ? 1 : 4096 * Threads.nthreads()
+      for call in calls
+        call()                                    # warm up
+        @test (@allocated call()) < bound
+      end
+    end
+  end
+end
+
+
 @testset "adapt! moves into a destination without allocating (decision 69)" begin
   # The whole reason the verb exists: finding (x) measured the return trip at a quarter of the
   # outbound rate and attributed the gap to allocating the destination. A form that allocated one

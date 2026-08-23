@@ -3560,3 +3560,44 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the `storage` class, because the comparison *is* the justification. Gate 6535 → 6574; `Fields`
     116 → 119 (`adapt!`'s two field methods and `_check_adapt_target`) and `Points` 209 → 211 (the two
     point methods), both refrozen with their reasons.
+
+70. **The radial-symbol operators allocate nothing, not merely less than a field** (2026-08-23,
+    raised by the consuming solver with a reproduction). `laplacian!`, `inverse_laplacian!`,
+    `divergence!` and `exponential_convolve!` each allocated **144 bytes per call**, constant in the
+    grid. The cause is one line repeated: `_squared_wavenumber_broadcast` and
+    `_wavenumber_broadcast_view` built their `reshape` wrappers *per invocation*, and a `reshape`
+    allocates a 48-byte array header — three of them, every call. The consumer measured 1152 B per
+    RK3 step and 720 B per RK2 step, byte-exact multiples of 144, which is what a per-step constant
+    looks like from the outside.
+
+    **Why the audit did not see it.** `test/allocations.jl` pinned these under `field_threshold`,
+    which is deliberately generous because its job is to catch a **materialized field** — and 144 B
+    passes that trivially. So the guard said "no field" while `CLAUDE.md` said "allocates nothing per
+    step", and nothing in the tree could tell the two claims apart. A consumer counting bytes per step
+    could. The pin is now split: serial asserts **zero**, which is the claim; the threaded lane keeps
+    a bound, because `Base.Threads` allocates task state per `_assign!` that is kilobytes and
+    grid-independent. Both lanes assert something, since a testset that silently skips is how this
+    reappears.
+
+    **The fix stores the orientation instead of rebuilding it.** `FieldSpectralMultipliers` gains six
+    fields — each of its six vectors reshaped to `(n,1,1)`, `(1,n,1)` or `(1,1,n)` — built once in the
+    constructor, aliasing the vectors rather than copying them (verified: same pointer, and a mutation
+    of the vector is visible through the view). The two helpers return the stored views, and every
+    caller reaches zero. The 1-D fields stay exactly as they were, because 87 sites read them — the KA
+    kernels take raw vectors, `radial_spectrum` takes their `maximum`, the separable builders
+    broadcast per axis — so this is additive, not a change of shape.
+
+    **It cost six type parameters, and three sites match them positionally.** `_is_canonical`,
+    `adapt_structure` (decision 68) and `Convolution`'s static collapse of two radial kernels
+    (decision 61, which spells the canonical case as a trailing `true`) all broke at once when
+    `Canonical` moved six places — loudly, at load. A comment at the struct now names the three, and
+    both properties are re-verified: the collapse is still static and `adapt`'s inference still
+    concrete.
+
+    *One test was measuring the wrong thing and is now measuring the right one.* Decision 51's storage
+    claim was asserted as `summarysize(cutoff) < 1024`, which broke at 1136. But that bound counted
+    the kernel **plus the multipliers it references**, whose per-axis vectors are ``O(N)`` — a
+    small-grid constant wearing the name of a property. The claim is "a closure and three references",
+    so it is now asserted as exactly that: the kernel *references* the caller's multipliers rather
+    than copying them, and what it adds on top of them is **152 bytes at every grid**, compared across
+    two that differ by 512× in mode count.

@@ -400,7 +400,8 @@ _context_layout(kernel::RadialKernel) = kernel.layout
 # depended on object identity — invisible at the call site, and surprising given that the product of
 # two radial symbols is always radial.
 function convolve(first_kernel::RadialKernel{T, F1, M}, second_kernel::RadialKernel{T, F2, M}) where {
-    T, F1, F2, M<:FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, true}}
+    T, F1, F2, M<:FieldSpectralMultipliers{<:AbstractFloat, <:Any, <:Any, <:Any, <:Any, <:Any, <:Any,
+                                           <:Any, <:Any, <:Any, <:Any, <:Any, <:Any, true}}
   _check_matching_context(first_kernel, second_kernel)
   first_sigma, second_sigma = first_kernel.sigma, second_kernel.sigma
   return RadialKernel{T}(squared -> first_sigma(squared) * second_sigma(squared),
