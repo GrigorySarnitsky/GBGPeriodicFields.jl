@@ -1275,16 +1275,35 @@ those are the usual rot. Then the mechanical bar:
 **AIPORETNE — the ROCm correctness half is CLOSED (2026-08-06); the benchmark half is in progress.**
 Check `hostname` first; on `Enteropia` this item is not actionable.
 
-**The ROCm queue as of 2026-08-17, in the order it should be run.** (1) The **GPU suite**, which has
-not run there since decisions 63–68; CUDA reads 373/373. (2) **`examples/gpu/rocm/HIST_ROCm.jl`**,
-whose four kernel-builder call sites were rewritten by decision 66 and which nothing but a run can
-check. (3) The **`storage` benchmark class**, whose CUDA half was swept on 2026-08-17 (finding (x));
-the `GPU 7900XTX` column is still `—` throughout, so the cross-vendor comparison the class exists
-for cannot be made until this runs. Method note, because it can destroy an archive:
-`characterize.jl` **overwrites** the file it is given, so sweep the class into a SEPARATE file and
-merge it into `gpu-rx7900xtx.json`, then verify the pre-existing rows are bit-identical — that is
-how the CUDA half was done. Regenerate `RESULTS.md` over **all ten** archives or the other host's
-columns vanish. **Decisions 60, 61 and 62 have now
+**The ROCm queue as of 2026-08-23, in the order it should be run.** Nothing below has ever executed on
+that card; decisions **63–72** shipped verified on CUDA alone.
+
+**(1) The GPU suite.** Last run there before decision 63; CUDA now reads **395/395**. Run this first,
+because the two items below are pointless if it is red.
+
+**(2) `examples/gpu/rocm/HIST_ROCm.jl`.** Decision 66 rewrote its four kernel-builder call sites and
+nothing but a run can check them — the demos are the one shipped surface no other layer executes.
+
+**(3) The benchmark rows this host filled on 2026-08-23,** so the table finishes symmetric: the whole
+**`storage`** class (11 row types — the original seven plus decision 69's four `adapt!` rows) and the
+four new **`reductions`** rows (`reality_residual` scalar/vector, `weighted_inner x3 separate`/`fused`).
+The `GPU 7900XTX` column is `—` for every one, and a half-filled table reads as "this card cannot"
+rather than "nobody measured". *Method note, because getting it wrong destroys data:* `characterize.jl`
+**overwrites** the archive it is given, so measure into a SEPARATE file and merge into
+`gpu-rx7900xtx.json`, verifying afterwards that pre-existing rows are bit-identical — both halves here
+were done that way and reported `pre-existing rows changed: 0`. Regenerate `RESULTS.md` over **all ten**
+archives or the other host's columns vanish.
+
+**Two things in the new code are vendor-risky, and this is where they will show.** *(a)* Decision 72's
+tuple reduction is `reduce` with a **tuple accumulator** over an instantiated `Broadcasted`. That is
+the same family as decision 62's trap — AMDGPU's `mapreducedim!` throws on a `Broadcasted` with
+`Nothing` axes where the CPU tolerates it, which is why `instantiate` is load-bearing in
+`weighted_inner` — but `reduce` with a custom non-`+` operator is a *different* AMDGPU code path from
+`sum`/`mapreduce`, and no CUDA run can speak for it. If it throws, the fallback is a
+KernelAbstractions kernel carrying one accumulator per weight, in the decision-34 binning shape.
+*(b)* Decision 71's `reality_residual` walks whole planes with `reverse` and `circshift` on device
+arrays, chosen precisely so it never indexes one elementwise; confirm it does not fall back to scalar
+indexing under `allowscalar(false)` there as it does not on CUDA. **Decisions 60, 61 and 62 have now
 executed on ROCm** (RX 7900 XTX, gfx1100), where before they had shipped verified on CUDA alone. The
 pointed one was decision 62: `weighted_inner` admits a `ProductKernel`, whose `_kernel_data` nests **two
 lazy `Broadcasted`s**, and the `Base.Broadcast.instantiate` in that function exists precisely because
