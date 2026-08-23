@@ -1300,6 +1300,43 @@ NVIDIA it is nearly free. The same latency signature shows in `adapt multipliers
 per-transfer overhead, and an ``11\times`` gap there is the launch-latency profile these two cards show
 throughout the small-grid rows rather than anything about bytes.
 
+**(y) The two `materialize_kernel` rows cannot be read ACROSS thread counts: their ``t1`` cell depends
+on what ran before it in the same process.** A corpus sweep flagged one cell as unexplained —
+`materialize_kernel radial`, `Float64` ``512^3``, i7-12700K, ``t2`` reading 143.0 ms against ``t1``
+93.2 and ``t4`` 76.7, i.e. slower than *both* neighbours. It was re-measured on the assumption it was
+a transient. **It is not.** Two independent processes returned 143.18 and 143.57 ms, agreeing with
+each other to 0.3% and with the archive to ``1.00\times``, and the neighbours reproduced too (``t1``
+91.7, ``t4`` 76.6). The table is right.
+
+*What is wrong is the comparison, not the number.* Measured standalone, the operation scales cleanly at
+every thread count — ``296 \to 145 \to 79 \to 54`` ms for ``t1``/``t2``/``t4``/``t8``, a clean halving
+— so there is no threading defect. The ``t2`` and ``t4`` cells agree with standalone measurement to
+within 2%; the ``t1`` cell does not, and is ``3.2\times`` faster in the suite than alone. The
+difference was bisected to a single ingredient by elimination: constructing the row through
+`build_suite` gives 295.5 ms, adding `tune!` gives 298.0, but running the **whole class in one
+process** — what `characterize.jl` does — gives **91.6 ms**, reproducing the archive. So the row is
+sensitive to the 17 rows that stream through multi-GB fields ahead of it, and only at one thread.
+`materialize_kernel separable` behaves identically, which is what identifies the class: these are the
+only two rows that **allocate an ``O(N^3)`` result per call** rather than writing into a preallocated
+destination.
+
+*Five hypotheses were tested and refuted*, and they are recorded so nobody re-runs them: first-touch
+page faults (a recycled page-warm block and freshly mapped pages measure 297.8 against 299.9 ms);
+the kernel symbol (`spectral_band(1,3)`, `spectral_cutoff(N/3)` and `spectral_cutoff(2)` are within
+1% of each other); dead-code elimination, the most plausible of them, since `bench_sync` reads only
+its argument's *type* and the result is otherwise dead — but the exact harness expression measured
+standalone is 297.3 ms and forcing the data to be observed adds only ``1.14\times``; `evals`, which
+`tune!` sets to 1 in every lane; and heap history, since holding 6 GB of live fields first changes
+nothing (300.2 → 296.2 ms). A bimodal distribution was excluded by sampling 93 times at ``t1``, where
+the minimum is still 300.4 ms. **The mechanism is therefore not identified** — what is established is
+that the effect is real, reproducible, confined to ``t1``, and confined to the two allocating rows.
+
+*The consequence is a reading rule.* Thread scaling for `materialize_kernel` must be read from ``t2``
+upward, or from a standalone measurement, never from its ``t1`` cell; the apparent ``t1 \to t2``
+inversion in `RESULTS.md` is an artifact of the ``t1`` cell sitting in a different regime. This is the
+same *class* of defect as finding (s), a row reporting the harness rather than the operation, and it
+was found the same way — by re-measuring a number that looked wrong instead of explaining it.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
