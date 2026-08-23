@@ -135,7 +135,10 @@ const MODULE_BASELINE = (
   # `_multiplier_eltype`, at two methods each. This baseline counts every function a module owns,
   # internals included, which is exactly why it moved and why the enumerated per-generic lists did not.
   # Refrozen deliberately, with the reason, per decision 53's protocol.
-  Reductions            = 123,
+  # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
+  # one traversal, which is one method on the existing generic rather than a new operation.
+  # Refrozen deliberately, with the reason.
+  Reductions            = 124,
 )
 
 # The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.

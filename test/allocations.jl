@@ -333,6 +333,9 @@ end
       wkernel = GBGPeriodicFields.Convolution.StoredKernel(wfield)   # a weight is a kernel
       @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
       @alloc_below threshold weighted_inner(vs, wkernel)       # vector self-pairing (weight broadcasts over fiber)
+      # The tuple form (decision 72) must stay as light as the single one: it shares the pass rather
+      # than adding one, so n weights must not cost n times the scratch.
+      @alloc_below threshold weighted_inner(vs, (wkernel, wkernel, wkernel))
       @alloc_below threshold weighted_inner(ss, ss, wkernel)   # mixed scalar
       # ...and every other storage class stays fused too (decision 62): the compressed kernels are lazy,
       # so admitting them materializes no coefficients — this is the assertion that would catch a widening

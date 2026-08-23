@@ -35,6 +35,12 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   # The reality check (decision 71). It belongs beside the diagnostics rather than the measure
   # reductions: it touches one or two PLANES, not the volume, so its row exists to show that
   # O(N^2) shape against the O(N^3) rows around it rather than to be compared with them.
+  # Three weights fused into one traversal (decision 72) against the three separate calls it replaces:
+  # the pair of rows IS the claim, so they sit together.
+  wk1 = spectral_cutoff(m, T(3)); wk2 = radial_kernel(identity, m); wk3 = spectral_band(m, T(1), T(2))
+  group["weighted_inner x3 separate | $tag"] =
+    @benchmarkable (weighted_inner($us, $wk1), weighted_inner($us, $wk2), weighted_inner($us, $wk3))
+  group["weighted_inner x3 fused | $tag"] = @benchmarkable weighted_inner($us, ($wk1, $wk2, $wk3))
   group["reality_residual scalar | $tag"] = @benchmarkable reality_residual($ss)
   group["reality_residual vector | $tag"] = @benchmarkable reality_residual($us)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes

@@ -152,7 +152,11 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
-  `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner` + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values; and — decision 49 — the scalar-only `std`/`var` with their spectral Parseval form, the scalar-only errors, and the covariance tensor `cov` vs a per-point covariance with its symmetry and per-component diagonal),
+  `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
+  **tuple-of-weights** form (decision 72) — fused bitwise-equal to the separate calls for every count
+  from one to five over a heterogeneous tuple holding one weight of each storage class, the order
+  property that reversing the weights reverses the results and nothing else, `@inferred` for the
+  concrete `NTuple`, both refusals in any position, and the empty tuple — + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values; and — decision 49 — the scalar-only `std`/`var` with their spectral Parseval form, the scalar-only errors, and the covariance tensor `cov` vs a per-point covariance with its symmetry and per-component diagonal),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
   `eltype_genericity.jl` (Float64/Float32),
   the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in

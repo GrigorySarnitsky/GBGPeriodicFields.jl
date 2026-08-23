@@ -3644,3 +3644,55 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     self-conjugate plane rather than two), the pair-consistency property (fixing the partner restores
     zero), the self-paired corners (whose residual is twice the imaginary part), and the round-trip
     repair. `Fields` 119 → 120, refrozen with its reason; the gate gains 170 assertions.
+
+72. **Several weights, one traversal** (2026-08-23, the consuming solver's highest-value request).
+    `weighted_inner(f, (w₁, …, wₙ))` returns one scalar per weight from a **single** pass over the
+    coefficients. The requester's variance controller reduces the same field three times at every RK
+    stage — against unity, a forced band, and ``\lvert\kappa\rvert^2`` — and it is not the
+    arithmetic it pays for but the **return to the host**: each scalar is a blocking readback, nine of
+    the ten synchronizations in a default run. One call is one readback.
+
+    **The tuple is the whole design, and its spelling was not free.** A tuple carries its length in
+    its type, so the return is a concrete `NTuple{n, T}` and a caller destructures it. Fusing needs an
+    accumulator per weight, and the obvious spelling — `zip` the operands — **falls back to scalar
+    indexing** and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
+    tuple `+` stays on the device. That is measured, not assumed: through the package's own API on an
+    RTX 5070 Ti, ``1.65\times`` at ``128^3`` and ``1.52\times`` at ``256^3`` against the three calls
+    it replaces, before counting the two synchronizations that stop happening.
+
+    **It is one method on the existing generic, not a new operation.** ``\langle f, w f\rangle`` at
+    several weights is the same mathematics at several ``w``, so invariant 1 is satisfied by extending
+    `weighted_inner` rather than naming something new; a variadic form was declined because
+    `weighted_inner(f, w₁, w₂)` sits too close to the two-field `weighted_inner(f, g, w)` for a reader
+    to separate at a glance, where a tuple says *these are weights* structurally. The **two-field**
+    generalization ``\langle f, w g\rangle`` at several weights is deliberately absent: no consumer
+    asked, and invariant 1 does not add combinations for completeness. Every refusal the single-weight
+    form makes is made here in any position — a complex multiplier, a foreign context — and an empty
+    tuple returns `()` without touching the field.
+
+    **Fusion is exact, and one thing a consumer will notice is not.** The fused result is **bitwise
+    identical** to the separate calls, same arithmetic in the same order with only the pass shared.
+    But `inner(f, f)` and `weighted_inner(f, unit)` differ in the last ulps — ``1.1\times10^{-14}``
+    relative, measured — because `inner` reduces on the threaded fixed tree and this pass does not.
+    That difference is **pre-existing** and belongs to the two routes, not to fusing; it is recorded
+    because a consumer replacing `inner(f, f)` with the unit-weight entry will see it and should know
+    which of the two it came from.
+
+    **The stronger form the request floated — a device-resident scalar pack that `convolve!` accepts
+    as a coefficient source — is declined**, on a concrete cost rather than a principle. The
+    requester's own arithmetic between the reduction and the use is
+    ``A = (\varepsilon - R)/(2k_f)`` guarded by an emptiness test: a division **and a branch**.
+    Keeping the scalars on the device would require ``\alpha`` to accept a device handle across every
+    α/β signature in the package (invariant 10's contract, dozens of methods) *and* the consumer to
+    run a device-side select — the package dictating where a consumer's formula executes, which is
+    invariant 12's line. It is also diminishing: the tuple form already takes that run from ten
+    crossings to four, and the remaining three are one per stage.
+
+    *Verification.* 344 gate assertions: fused bitwise-equal to the separate calls for every ``n`` from
+    1 to 5 over a **heterogeneous** tuple holding one weight of each storage class, both element types,
+    tensor orders 0/1/2, permuted folds; the order property (reversing the weights reverses the results
+    and nothing else, which is the guard against accumulating into the wrong slot); `@inferred` for the
+    concrete `NTuple`; both refusals in any position; the empty tuple; and the `inner` agreement at its
+    honest tolerance. On device, values match both the separate device calls and the host, under
+    `allowscalar(false)`. Pinned allocation-light beside the single-weight row, with a benchmark pair —
+    fused against three separate — because that comparison is the claim. `Reductions` 123 → 124.

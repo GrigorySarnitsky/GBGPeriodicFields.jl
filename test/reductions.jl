@@ -762,3 +762,70 @@ end
     @test inner(transformed, transformed) ≈ inner(physical_field, physical_field)
   end
 end
+
+
+# Several weights, one traversal (decision 72). The property is EXACTNESS, not approximation: the
+# fused call must be bitwise identical to the separate ones, because it is the same arithmetic in the
+# same order — only the pass over the field is shared. Anything weaker would make the fused form a
+# different operation wearing the same name.
+@testset "weighted_inner over a tuple of weights ($T)" for T in (Float64, Float32)
+  grid = Grid3D((8, 8, 8), T.((2pi, 4pi, 6pi)))
+  for layout in (RealFourierLayout(), RealFourierLayout((2, 1, 3))), R in (0, 1, 2)
+    physical = R == 0 ? ScalarFieldPhysical(rand(T, 8, 8, 8), grid, layout) :
+               R == 1 ? VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) :
+                        TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid, layout)
+    scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+    spectral = similar_field(scalar_spec, Val(R))
+    field = to_spectral(physical, FieldTransformPlans(physical, spectral))
+    multipliers = FieldSpectralMultipliers(field)
+
+    # One weight of every storage class, so the tuple is heterogeneous exactly as a caller's would be.
+    unit      = radial_kernel(k2 -> one(k2), multipliers)                        # RadialKernel
+    band      = spectral_band(multipliers, T(1), T(2))                           # RadialKernel
+    window    = assignment_window(multipliers)                                   # SeparableKernel
+    stored    = materialize_kernel(spectral_cutoff(multipliers, T(3)))           # StoredKernel
+    product   = convolve(spectral_cutoff(multipliers, T(3)), window)             # ProductKernel
+    all_weights = (unit, band, window, stored, product)
+
+    for n in 1:length(all_weights)
+      weights = all_weights[1:n]
+      fused = weighted_inner(field, weights)
+      @test length(fused) == n
+      # BITWISE, and in the SAME ORDER as the weights were given.
+      for i in 1:n
+        @test fused[i] === weighted_inner(field, weights[i])
+      end
+      @test @inferred(weighted_inner(field, weights)) isa NTuple{n, T}
+    end
+
+    # Reordering the weights reorders the results and nothing else — the guard against an
+    # implementation that accumulated into the wrong slot.
+    forward = weighted_inner(field, (unit, band, window))
+    reversed = weighted_inner(field, (window, band, unit))
+    @test reversed === (forward[3], forward[2], forward[1])
+
+    # No weights is no questions: `()` back, and the field is never traversed.
+    @test weighted_inner(field, ()) === ()
+
+    # The unit weight reproduces the plain inner product, up to the two routes' summation order —
+    # `inner` reduces on the threaded fixed tree, this pass does not, so they agree numerically and
+    # not bitwise. Recorded because a consumer swapping one for the other will see the difference.
+    @test weighted_inner(field, (unit,))[1] ≈ inner(field, field) rtol = 64 * eps(T)
+  end
+
+  # Every refusal the single-weight form makes, the tuple form makes too — in any position.
+  layout = RealFourierLayout()
+  scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+  multipliers = FieldSpectralMultipliers(scalar_spec)
+  good = spectral_cutoff(multipliers, T(2))
+  complex_weight = translation_kernel(multipliers, (T(0.1), T(0.2), T(0.3)))     # a phase: not real
+  @test_throws ArgumentError weighted_inner(scalar_spec, (complex_weight,))
+  @test_throws ArgumentError weighted_inner(scalar_spec, (good, complex_weight))
+  foreign_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
+  foreign = spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(
+    zeros(Complex{T}, spectral_field_shape(foreign_grid, layout, Val(0))...), foreign_grid, layout)), T(2))
+  @test_throws ArgumentError weighted_inner(scalar_spec, (good, foreign))
+
+  # Physical representation has no weighted inner, tuple or not (invariant 1).
+  @test_throws MethodError weighted_inner(ScalarFieldPhysical(rand(T, 8, 8, 8), grid), (good,))
+end

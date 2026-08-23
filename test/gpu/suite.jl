@@ -514,6 +514,17 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       ksq_h = radial_kernel(identity, mult_h)
       @test eq(weighted_inner(vf_spec_d, ksq_d), weighted_inner(vf_spec_h, ksq_h))
       @test eq(weighted_inner(vf_spec_d, ksq_d), -inner(vf_spec_d, laplacian(vf_spec_d, mult_d)))
+      # Several weights in ONE traversal (decision 72). The device is the reason it exists — three
+      # separate calls block three times — and the tuple accumulator is the only spelling that stays
+      # on the device at all: a `zip` of the operands falls back to scalar indexing and dies here.
+      band_d = spectral_band(mult_d, 1.0, 2.0)
+      band_h = spectral_band(mult_h, 1.0, 2.0)
+      fused_d = weighted_inner(vf_spec_d, (ksq_d, band_d))
+      @test length(fused_d) == 2
+      @test eq(fused_d[1], weighted_inner(vf_spec_d, ksq_d))     # same as the separate calls,
+      @test eq(fused_d[2], weighted_inner(vf_spec_d, band_d))
+      @test eq(fused_d[1], weighted_inner(vf_spec_h, ksq_h))     # and same as the host
+      @test eq(fused_d[2], weighted_inner(vf_spec_h, band_h))
 
       # Every kernel storage class serves as a weight (decision 62). This is the case worth having on a
       # device: `_kernel_data` for the compressed classes is a lazy `Broadcasted`, and `ProductKernel`
