@@ -1331,11 +1331,46 @@ nothing (300.2 → 296.2 ms). A bimodal distribution was excluded by sampling 93
 the minimum is still 300.4 ms. **The mechanism is therefore not identified** — what is established is
 that the effect is real, reproducible, confined to ``t1``, and confined to the two allocating rows.
 
-*The consequence is a reading rule.* Thread scaling for `materialize_kernel` must be read from ``t2``
-upward, or from a standalone measurement, never from its ``t1`` cell; the apparent ``t1 \to t2``
-inversion in `RESULTS.md` is an artifact of the ``t1`` cell sitting in a different regime. This is the
-same *class* of defect as finding (s), a row reporting the harness rather than the operation, and it
-was found the same way — by re-measuring a number that looked wrong instead of explaining it.
+*The follow-up sweep (2026-08-24) generalized the finding and drew its boundary by measurement.* Every
+suite row that allocates a field-sized result per call was measured standalone at ``t1``,
+``512^3`` `Float64`, against its archived cell. **Clean: all eight allocating `fft` rows** — standalone
+agrees with the archive within 3%, so per-call allocation is *not* the discriminator, and finding (h)'s
+`ESTIMATE`/`MEASURE` ratios rest on uncontaminated cells. **Affected: exactly five rows** — the two
+`materialize_kernel` rows (``2.8``–``3.2\times``), `lpnorm vec Inf` (``1.63\times``), and
+`radial_correlation`/`cross-correlation` (``1.2``–``1.7\times``, at ``t1`` *and* ``t2``, worst in
+`Float32` at ``512^3``). The five are the rows that allocate their result *inside the operation*
+(via `similar`/broadcast) rather than through a transform plan; whether that distinction is the
+mechanism or merely coextensive with it is not established.
+
+*The archive is internally consistent, and needs no re-measurement.* Re-running the archive's exact
+process shape — all classes, one process, ``512^3`` `Float64` — reproduces the archived cell for every
+affected row at ``t1`` (``0.98``–``1.00\times``: `lpnorm` 222.1 against 223.6 ms,
+`radial_correlation` 5458 against 5581, `cross-correlation` 5607 against 5734, both `materialize_kernel`
+rows exact) and for the correlations at ``t2`` (``1.01``–``1.03\times``). A **class-only** process is
+a *third* regime: sufficient history for `materialize_kernel` (the convolution class reproduces its
+archive cells) but not for the reductions three, whose class-only values sit with standalone. So the
+fast values are not stale and not wrong — they are what the full sweep reproducibly measures — and the
+rule is that a cell from one process shape must never be compared against a measurement from another.
+The four rows decisions 71/72 added were checked the same way and are **regime-insensitive**
+(`reality_residual vector` 47.5 against the merged 47.4 ms; `weighted_inner x3 fused` 2.020 against
+2.065 s), so their class-only-merged cells are comparable with their full-sweep column.
+
+*One cell is bistable and should not be trusted at all:* `materialize_kernel separable`'s ``t2``. The
+archive reads 63.4 ms; three same-day measurements in three process shapes — class-only twice,
+full-sweep once — all read 156.5, and within the archive itself the cell sits *below* its own ``t4``
+(82.0 ms), the same inversion signature. The 2026-08-07 sweep evidently landed the fast regime at
+``t2`` for this row where every 2026-08-24 process lands the slow one, so regime selection at ``t2`` is
+not even deterministic across sweeps. Both `materialize_kernel` rows' ``t4``/``t8`` cells reproduce
+everywhere (radial 76.7/47.9, separable 82.0/50.3, matched today to 1%).
+
+*The consequence is a reading rule.* For the two `materialize_kernel` rows, read thread scaling from
+``t4`` upward — both ``t1`` (bistable, ``\approx 3\times``) and ``t2`` (bistable for `separable`) sit
+in history-selected regimes — and for `lpnorm` and the two correlation rows, compare their ``t1``/``t2``
+cells only against sweeps of the same process shape. Within `RESULTS.md` every CPU column is a full
+sweep, so the table is self-consistent; what is invalid is comparing those cells against a standalone
+probe or a class-only lane. This is the same *class* of defect as finding (s), a row reporting the
+harness rather than the operation, and it was found the same way — by re-measuring a number that looked
+wrong instead of explaining it.
 
 ## 5. The benchmark suite
 
