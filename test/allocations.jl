@@ -291,6 +291,15 @@ _map_add(a, b) = a + b
       @alloc_below threshold interpolate!(out_v, pu, points, CatmullRom)
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom)
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom, T(0.5), T(1))   # α/β accumulate
+
+      # ----- base-space motion (decision 73: displace! in the cover and on the torus, wrap!) -----
+      motion_points = PointSet(T(2π) .* rand(T, M, 3))
+      motion_source = PointSet(T(2π) .* rand(T, M, 3))
+      @alloc_below threshold displace!(motion_points, (T(0.1), qv))
+      @alloc_below threshold displace!(motion_points, (T(0.1), qv), (T(0.2), qv), (T(0.3), qv))
+      @alloc_below threshold displace!(motion_points, motion_source, (T(0.1), qv), (T(0.2), qv))
+      @alloc_below threshold displace!(motion_points, grid, (T(0.1), qv), (T(0.2), qv), (T(0.3), qv))
+      @alloc_below threshold wrap!(motion_points, grid)
     end
   end
 end

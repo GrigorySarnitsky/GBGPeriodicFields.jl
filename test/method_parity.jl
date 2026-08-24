@@ -120,7 +120,12 @@ const MODULE_BASELINE = (
   # 209 → 211: `adapt!`'s two point methods (decision 69), one for the point-value sections and one
   # for `PointSet`. The generic and its documentation live in `Fields`; these are the point twins, as
   # the `adapt_structure` pair above already are.
-  Points                = 211,
+  # 211 → 226: base-space motion (decision 73). Five public methods — `displace!` ×4 (cover and
+  # torus, each with a destination/source form and an in-place convenience) and `wrap!` ×1 — plus
+  # ten internal ones: the recursive broadcast builders (`_displacement_rhs`, `_convert_terms`,
+  # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
+  # compatibility checks.
+  Points                = 226,
   Interpolation         = 119,
   # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
   # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view

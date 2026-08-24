@@ -84,7 +84,9 @@ The umbrella assembles its public surface from the submodules below:
   puts it in that role.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical
   representation — including the same [`map!`](@ref)/[`map`](@ref) escape hatch, which needs no
-  representation split here because point-values carry none — the matching allocator
+  representation split here because point-values carry none — the base-space motion pair
+  [`displace!`](@ref)/[`wrap!`](@ref) (points moved along coefficient-weighted vector sections, and
+  positions reduced to their canonical in-box representatives), the matching allocator
   `similar_pointvalues`, and the HDF5 persistence pair `write_points`/`read_points` (available once
   `HDF5` is loaded).
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
@@ -236,6 +238,8 @@ using .Points:
   pointvalue_tensor_order,
   npoints,
   similar_pointvalues,
+  displace!,
+  wrap!,
   write_points,
   read_points
 
@@ -383,6 +387,8 @@ export FiberVector,
        pointvalue_tensor_order,
        npoints,
        similar_pointvalues,
+       displace!,
+       wrap!,
        write_points,
        read_points,
        interpolate,

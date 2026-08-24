@@ -150,6 +150,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   pairing lands in are covered alongside),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
+  `displacement.jl` (base-space motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
@@ -471,7 +472,14 @@ combination `combine!` (physical + spectral, alias-safe) and the physical-only d
 zero-mode constant invariant; the **point-value algebra** — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
-`test/interpolation.jl`; the in-place `!` forms with caller-supplied destinations
+`test/interpolation.jl`; **base-space motion** (`test/displacement.jl`, decision 73) — `displace!`
+against an independent raw-array oracle over both element types and one-to-three terms, the
+destination/source form with its source preserved and its aliased call agreeing, the fused torus
+arity bitwise-equal to cover-then-`wrap!`, in-box membership on an anisotropic box, the wrap
+contract's three pins (the folded endpoint with the `mod(-1e-20, 2π) === 2π` assumption asserted,
+non-finite pass-through for `NaN`/`±Inf`, the origin-shifted fundamental domain), sampling's
+whole-period invariance at tolerance, the mixed-precision / mismatched-count / mixed-family
+refusals, and the threading override bitwise; the in-place `!` forms with caller-supplied destinations
 and the aliased in-place calls (`cross!`, `transpose!`, `sym!`/`skew!`/`dev!`, `curl!` — alias-safe by construction since decisions 38/39, bitwise-identical to non-aliased), plus the guard-free
 aliased `helmholtz_projection!` (bitwise-equal to non-aliased; decision 32); the
 kernel-composed operator forms (`helmholtz_projection!`/`divergence!` with a trailing kernel and

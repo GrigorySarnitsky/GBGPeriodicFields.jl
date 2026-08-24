@@ -375,6 +375,35 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("output", point_values(gathered), (0, 3 * number_of_points)))
   end
 
+  # ------------------------------------------------- base-space motion (decision 73)
+  # The fused ideal is exact and small: a displacement reads the source coordinates once, each
+  # section once, and writes the destination coordinates once; the torus arity fuses the wrap into
+  # the same pass, so its counts are identical — that identity is what these rows pin. `wrap!`
+  # reads and writes each coordinate exactly once.
+  @testset "base-space motion" begin
+    number_of_points = 10
+    coordinate_count = 3 * number_of_points
+    grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+    destination = PointSet(counting(zeros(number_of_points, 3)))
+    source = PointSet(counting(rand(number_of_points, 3)))
+    section_a = VectorPointValues(counting(randn(number_of_points, 3)))
+    section_b = VectorPointValues(counting(randn(number_of_points, 3)))
+    audit(() -> displace!(destination, source, (0.3, section_a), (0.7, section_b)),
+          "displace! 2-term cover",
+      Traffic("source", point_coordinates(source), (coordinate_count, 0)),
+      Traffic("section a", point_values(section_a), (coordinate_count, 0)),
+      Traffic("section b", point_values(section_b), (coordinate_count, 0)),
+      Traffic("destination", point_coordinates(destination), (0, coordinate_count)))
+    audit(() -> displace!(destination, source, grid, (0.3, section_a), (0.7, section_b)),
+          "displace! 2-term torus (wrap fused)",
+      Traffic("source", point_coordinates(source), (coordinate_count, 0)),
+      Traffic("section a", point_values(section_a), (coordinate_count, 0)),
+      Traffic("section b", point_values(section_b), (coordinate_count, 0)),
+      Traffic("destination", point_coordinates(destination), (0, coordinate_count)))
+    audit(() -> wrap!(destination, grid), "wrap!",
+      Traffic("coordinates", point_coordinates(destination), (coordinate_count, coordinate_count)))
+  end
+
 end
 
 

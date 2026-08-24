@@ -110,6 +110,16 @@ What bounds each public operation class — the mental model a benchmark either 
   on a GPU, and on the card that recorded that result it did. On the RX 7900 XTX the same experiment
   reversed for the default scheme (§4(c)), so the balance between the two pulls is a property of the
   card, not a constant.
+- **Base-space motion** (decision 73) → four rows in the `transfer` class (`displace!` one- and
+  three-term, the three-term torus arity, and `wrap!`): ``O(M)`` streaming over ``(M, 3)`` arrays,
+  bandwidth-trivial beside a gather — 30–300× cheaper than the `CatmullRom` gather at the same point
+  count, which is the boundary-costs-nothing claim the rows document. The fused wrap is free in
+  **traffic** (the torus row's counts equal the cover row's, pinned by the pass audit) but not in
+  serial **arithmetic**: floating-point `mod` is compute-visible where one core does all the work
+  (``256^3``-derived points, `Float64`: torus 7.0 against cover 2.2 ms at ``t1``) and vanishes into
+  bandwidth where the pass is memory-bound (1.41 against 1.24 ms at ``t8``; 91.5 against 64.6 µs on
+  the RX 7900 XTX). The fusion itself pays exactly there: at ``t8`` the fused torus pass beats
+  cover-then-`wrap!` by 33% (1.41 against 2.12 ms), and on the device by 22%.
 - **The spectral transfer** (`DirectDFT`/`NUFFT`) → a different cost class. `DirectDFT` is the exact
   ``O(N M)`` double sum (compute-bound, no FFT, no window) — the oracle; `NUFFT` is its
   ``O(N\log N + M)`` fast form, an oversampled FFT plus a windowed spread/gather, so it is FFT-bound in

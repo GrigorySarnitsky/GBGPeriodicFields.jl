@@ -983,6 +983,39 @@ evaluating *outside* the convex hull of the data, whereas a sample point lies *i
 grid cell and the operation is a weighted distribution; the loose use of "extrapolation"
 for it (seen in a few papers) is a misnomer.
 
+**Base-space motion: `displace!` and `wrap!` (decision 73).** The transfer verbs above move field
+*values* between the grid and the points; nothing above moves the *points*. The consuming solver's
+trajectory update is exactly that missing operation — each position advanced along a weighted sum of
+vector values held over it, ``x_p \leftarrow x_p + \sum_j c_j v_j(p)``, where ``x_p`` is the
+position of point ``p``, the ``v_j`` are `VectorPointValues` sections (each holding one vector value
+per point), and the ``c_j`` are plain real coefficients — and until this decision it could only be
+written by unwrapping the storage and broadcasting on raw arrays, outside every contract the layer
+states. The geometry says it is a legitimate operation and says where its boundaries are. On this
+package's flat periodic base with its one global orthonormal frame
+([§2](@ref "2. The central principle: the architecture follows established mathematics")), the tangent space at every point is
+canonically the fiber's Cartesian ``\mathbb R^3``, so a vector value over a point defines a
+displacement with no connection machinery: displacement is coordinate addition. It is a **named
+operation and not a `+` method**, because positions are points of the periodic domain, not vectors —
+an algebra on positions would assert a linear structure the base does not have, and the
+position-versus-value role split stays intact. And it comes in two forms the type structure itself
+dictates: a `PointSet` deliberately carries no grid, so `displace!` **without** a grid cannot wrap
+and is displacement in the universal cover ``\mathbb R^3`` (winding preserved — a mean-square
+displacement needs it), while `displace!` **with** a trailing `Grid3D` is displacement on the torus
+proper, the wrap fused into the same pass. `wrap!(points, grid)` is the zero-term case kept as its
+own named verb: reduction to the canonical representative in the half-open fundamental domain
+``[o_a, o_a + L_a)`` per axis — origin-aware, with the floating-point endpoint folded (`mod` can
+return the period itself for a coordinate a hair below the origin) and non-finite coordinates passed
+through non-finite, so a diverged trajectory is never silently rewritten into a tidy in-box
+position. Sampling never requires the wrap — the transfer kernels wrap their stencil indices, so
+interpolation is invariant under shifting a coordinate by whole periods — but canonicalization is
+load-bearing for precision on long runs (absolute floating-point resolution degrades as a coordinate
+grows), which is why the wrap is a package contract and not consumer hygiene. The coefficients are
+part of what the operation *is*, so they are not the α/β accumulation scalars and the operation
+takes no trailing α/β (the `combine!` precedent); there is deliberately no allocating sibling,
+displacement being motion of an existing base. The ``n``-term form runs in one fused traversal —
+positions read once, each section once, positions written once — which collapses a ``K``-step
+Adams–Bashforth update from ``K`` passes to one.
+
 **References (this section).**
 
 - C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
@@ -3749,3 +3782,67 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     honest tolerance. On device, values match both the separate device calls and the host, under
     `allowscalar(false)`. Pinned allocation-light beside the single-weight row, with a benchmark pair —
     fused against three separate — because that comparison is the claim. `Reductions` 123 → 124.
+
+73. **Base-space motion: `displace!` and `wrap!` — the exponential map of the flat torus, and the
+    canonical representative** (2026-08-24, requested by the consuming solver). The solver's
+    Lagrangian layer routed every field *sampling* through the point layer but performed every
+    trajectory *update* by unwrapping storage and broadcasting on raw arrays — the only raw-array
+    arithmetic on point-typed data in its tree — because moving the base is not expressible in the
+    fiberwise algebra, which by design maps sections to sections and never moves a point. The gap is
+    real and the operation is canonical: on a flat periodic base whose fiber carries one global
+    orthonormal frame, the tangent space at every base point is canonically the Cartesian
+    ``\mathbb R^3`` of the fiber, so displacing a point ``x_p`` along vector values ``v_j(p)`` held
+    over it, scaled by real coefficients ``c_j``, is exactly ``x_p \leftarrow x_p + \sum_j c_j
+    v_j(p)`` — the exponential map of the flat metric, needing no connection choices. The design
+    facts, each argued from that geometry:
+    - **A named verb, never `+`.** Positions are points of the domain manifold, not vectors; an
+      algebra on `PointSet` would assert a linear structure the base does not have. `displace!` is
+      the one operation that legitimately couples base and fiber, and it crosses the
+      position-versus-value role split by name rather than dissolving it.
+    - **The grid argument selects cover or torus, and the type structure forces that split.** A
+      `PointSet` carries no grid (a deliberate absence recorded on its docstring), so the grid-free
+      arity *cannot* wrap: it is displacement in the universal cover, which preserves winding — a
+      mean-square-displacement diagnostic needs exactly that. The arity taking a `Grid3D` is
+      displacement on the torus proper: the reduction to the fundamental domain is fused into the
+      same pass, not a second traversal. Only `domain_size` and `origin` enter; the mesh plays no
+      role.
+    - **`wrap!` owns the periodic-box subtleties once.** The canonical representative lands in the
+      half-open ``[o_a, o_a + L_a)`` per axis — **origin-aware**, which the consumer's own
+      four-line wrap was not (`mod(X, L)` assumes a zero origin) — with the excluded endpoint
+      folded explicitly (floating-point `mod` can return the period itself: `mod(-1e-20, 2π) ===
+      2π`, a pinned test), and the fold testing equality rather than order so a non-finite
+      coordinate passes through non-finite — an `x < L` test is false for `NaN` and would silently
+      rewrite a diverged trajectory into a tidy in-box position. `mod` maps an infinity to `NaN`,
+      so divergence survives as non-finiteness, though not as the same non-finite value.
+    - **Sampling needs no wrap, and that is now a documented contract with an honest limit.** The
+      transfer kernels wrap their stencil indices, so interpolation is invariant under shifting a
+      coordinate by whole periods (tested, at tolerance — the invariance is exact in exact
+      arithmetic and floating-close in practice). It is not "any finite coordinate": at extreme
+      magnitudes the cell-index arithmetic leaves its exact range, and absolute floating-point
+      resolution degrades as coordinates grow — single precision especially — which is why regular
+      canonicalization is load-bearing on a long run rather than presentation-layer hygiene.
+    - **The coefficients are the operation's definition, not α/β.** As with `combine!` (the
+      recorded invariant-10 exception class), the ``c_j`` scale the operands of what the operation
+      *is*; no trailing α/β pair exists or may be added (the glyph-collision rule).
+    - **In-place only, one fused traversal.** There is no allocating sibling — displacement is
+      motion of an existing base, and a fresh-`PointSet` variant has no consumer (invariant 1). The
+      ``n``-term form reads the positions once, each section once, and writes once, collapsing a
+      ``K``-term Adams–Bashforth combination from ``K`` broadcast passes to one; the destination
+      may be the source (the fused pass reads an element's inputs before writing its outputs,
+      invariant 9), and a separate destination form serves the predictor step that writes
+      ``X^\ast`` beside ``X``.
+    - **Implementation shape.** The pass is `_assign!`-routed (threaded on CPU, `materialize!` on
+      device, bitwise thread-count-invariant), built by recursion over the term tuple rather than
+      by closures — a closure capturing the element type heap-allocates itself, and an unbounded
+      forwarded `Vararg` is not specialized, both measured before the recursive spelling brought
+      every arity to zero bytes. The torus arity runs column-wise so each axis sees its extent and
+      origin as plain scalars; the columns are contiguous (SoA), so traffic is still one traversal.
+    - **Refusals are the package's decision** (invariant 14): point count, scalar type and storage
+      family are checked explicitly against the destination — the torus path bypasses the broadcast
+      machinery's own enforcement, and a `Grid3D` is checked as the non-section partner it is.
+    - **Verification.** An independent raw-array oracle over both element types; the fused torus
+      arity bitwise-equal to cover-then-`wrap!`; the endpoint, non-finite and origin contracts each
+      pinned by name; GPU parity exact on both arities plus the mixed-family refusals; zero-byte
+      allocation rows for every arity; exact traffic rows (the torus row's counts identical to the
+      cover row's — the fused wrap measured free); four benchmark rows in the `transfer` class.
+      `Points` 211 → 226 (five public methods, ten internal), the field surface untouched.

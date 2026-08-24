@@ -20,4 +20,19 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
   spectral_out = interpolate(spectral, points, nufft)
   group["interpolate! NUFFT | $tag"] = @benchmarkable (interpolate!($spectral_out, $spectral, $points, $nufft); bench_sync(point_values($spectral_out)))
   group["anterpolate! NUFFT | $tag"] = @benchmarkable (anterpolate!($spectral, $points, $q, $nufft, $(T(1)), $(T(0))); bench_sync(field_data($spectral)))
+
+  # Base-space motion (decision 73): the trajectory-update primitives beside the transfer they feed.
+  # Three terms is the AB3 shape the fused n-term form exists for; the torus row prices the wrap
+  # fused into the same pass, and `wrap!` alone prices the canonicalization. All are O(M) streaming
+  # over (M, 3) arrays — bandwidth-trivial next to a gather, which is the point of measuring them:
+  # the rows document that the boundary crossing costs nothing.
+  npart = npoints(points)
+  v1 = VectorPointValues(AT(randn(T, npart, 3)))
+  v2 = VectorPointValues(AT(randn(T, npart, 3)))
+  v3 = VectorPointValues(AT(randn(T, npart, 3)))
+  c = T(0.01)
+  group["displace! 1-term | $tag"] = @benchmarkable (displace!($points, ($c, $v1)); bench_sync(point_coordinates($points)))
+  group["displace! 3-term | $tag"] = @benchmarkable (displace!($points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($points)))
+  group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($points)))
+  group["wrap! | $tag"] = @benchmarkable (wrap!($points, $grid); bench_sync(point_coordinates($points)))
 end

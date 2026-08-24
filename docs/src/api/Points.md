@@ -52,6 +52,20 @@ generated from one builder shared with `FieldAlgebra`, so the operations are doc
 [`FieldAlgebra`](FieldAlgebra.md) page. Point values are representation-free, so the surface mirrors the
 *physical* field surface only — there is nothing spectral to mirror.
 
+## Base-space motion
+
+Displacement moves the *points themselves* — the one operation family that couples the base and the
+fiber, where the algebra above maps sections to sections and never moves a point. Each point is
+carried along the weighted sum of vector values over it; without a grid the motion happens in
+unwrapped coordinates, and with a grid it lands back in the periodic box in the same fused pass.
+There is deliberately no `+` between a `PointSet` and a `VectorPointValues` — positions are
+locations, not vectors — and no allocating sibling, displacement being motion of an existing base.
+
+```@docs
+displace!
+wrap!
+```
+
 ## HDF5 persistence
 
 Serialize a `PointSet` or a point-value section to, and reconstruct it from, an HDF5 file — the

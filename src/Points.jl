@@ -22,6 +22,11 @@ The parts are:
     [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
+  * **Base-space motion.** [`displace!`](@ref) moves the points themselves along
+    coefficient-weighted vector sections — in unwrapped coordinates, or, given a `Grid3D`, landing
+    back in the periodic box in the same fused pass — and [`wrap!`](@ref) reduces positions to
+    their canonical in-box representatives. The one family that couples base and fiber; positions
+    deliberately have no `+` with point values.
   * **Allocation.** [`similar_pointvalues`](@ref) returns uninitialized storage carrying a reference's
     tensor order and backend — the point-value twin of `similar_field`, and what the broadcast
     machinery and the allocating algebra wrappers build their results with.
@@ -81,6 +86,8 @@ export Point,
        pointvalue_tensor_order,
        npoints,
        similar_pointvalues,
+       displace!,
+       wrap!,
        write_points,
        read_points
 
@@ -1140,6 +1147,271 @@ function map(φ::F, source1::AbstractPointValues, sources::AbstractPointValues..
     throw(ArgumentError("map: could not infer the output tensor order of `φ`; call `map!` with a preallocated `destination` instead"))
   destination = similar_pointvalues(source1, Val(order))
   return map!(φ, destination, all_sources...)
+end
+
+
+
+####################################
+#        Base-space motion         #
+####################################
+#
+# The one operation family that couples the base and the fiber: displacement of the point BASE
+# along vector-valued sections over it. On this package's flat periodic base the tangent space at
+# every point is canonically the fiber's Cartesian R^3 (one global orthonormal frame, ARCHITECTURE
+# §2), so "move a point along a vector value" needs no connection machinery: it is coordinate
+# addition in the universal cover R^3 and, when the periodic domain is supplied, reduction to the
+# fundamental domain [o, o + L). The fiberwise algebra deliberately excludes positions (a `Point`
+# names a location, not a value — the role split); displacement is the named crossing of that
+# split, not an algebra on it, which is why there is no `PointSet + VectorPointValues` method.
+
+using ..Fields: Grid3D   # the periodic-domain carrier; only `domain_size` and `origin` enter here
+
+
+"""
+    _displacement_rhs(base, terms...)
+
+Fold the displacement terms into one lazy broadcast expression ``\\texttt{base} + \\sum_j c_j
+v_j`` — the argument `base` is a coordinate array (or a lazy expression over one) and each
+element of `terms` is a `(coefficient, data)` tuple whose parts are already converted and
+unwrapped. The recursion keeps the term count in the type domain, so the fused pass specializes
+per arity and allocates nothing. The public methods name the vararg count `N` in their
+signatures because Julia does not specialize an unbounded `Vararg` that is only forwarded —
+the same trap as the forwarded-`Function` spelling pinned in `test/allocations.jl` — and
+without it a three-term call boxed per element.
+"""
+_displacement_rhs(base) = base
+_displacement_rhs(base, term, rest...) =
+  _displacement_rhs(Base.Broadcast.broadcasted(+, base,
+                      Base.Broadcast.broadcasted(*, first(term), last(term))), rest...)
+
+
+"""
+    _wrap_coordinate(coordinate, extent, origin)
+
+Reduce one coordinate to its canonical representative in the fundamental domain
+``[\\texttt{origin}, \\texttt{origin} + \\texttt{extent})``. Floating-point `mod` can return
+exactly `extent` for a coordinate a hair below `origin` (measured: `mod(-1e-20, 2π) === 2π`), so
+the excluded endpoint is folded back explicitly; the fold tests equality with `extent` rather
+than an order comparison, because an order test is false for a non-finite coordinate and would
+silently rewrite a diverged trajectory into a tidy in-box position. A non-finite coordinate
+therefore passes through non-finite (`mod` sends an infinity to `NaN`).
+"""
+@inline function _wrap_coordinate(coordinate::T, extent::T, origin::T) where {T<:AbstractFloat}
+  offset = mod(coordinate - origin, extent)
+  offset = ifelse(offset == extent, zero(T), offset)
+  return offset + origin
+end
+
+
+"""
+    _convert_terms(::Type{T}, terms...)
+
+Convert each `(coefficient, section)` displacement term to `(T(coefficient), data)` by recursion
+over the tuple rather than by a `map` closure: a closure would capture the type `T` as a
+`DataType` field and heap-allocate itself per call, which is the 32-byte residue the allocation
+audit would flag.
+"""
+_convert_terms(::Type{T}) where {T} = ()
+_convert_terms(::Type{T}, term, rest...) where {T} =
+  ((T(first(term)), point_values(last(term))), _convert_terms(T, rest...)...)
+
+
+"""
+    _axis_terms(axis, terms...)
+
+Take the `axis` column view of each converted term's data, keeping the coefficient — the
+per-axis operands of the fused displace-and-wrap pass. Recursion for the same reason as
+[`_convert_terms`](@ref): a specialized tuple in, a specialized tuple out, nothing boxed.
+"""
+_axis_terms(axis::Int) = ()
+_axis_terms(axis::Int, term, rest...) =
+  ((first(term), view(last(term), :, axis)), _axis_terms(axis, rest...)...)
+
+
+"""
+    _motion_storage_family(array)
+
+Identify the array's storage family by the unparameterized name of its parent's type — `Array`,
+`CuArray`, `ROCArray` — the same compile-time comparison `Fields` uses, restated here on a raw
+array because a `PointSet` is not a section and carries no `field_data`.
+"""
+_motion_storage_family(array) = Base.typename(typeof(parent(array))).wrapper
+
+
+"""
+    _check_displacement_compatibility(destination, source, sections)
+
+Require the point count, scalar type and storage family of `source` and of every displacement
+section to match `destination`'s, refusing with a clear `ArgumentError` rather than promoting or
+transferring (invariant 14). The refusal is the package's decision, not the launch layer's: the
+torus path assembles per-axis views and so bypasses the broadcast machinery's own enforcement,
+and a mixed host/device pair must fail identically on every path.
+"""
+function _check_displacement_compatibility(destination::PointSet, source::PointSet, sections)
+  _check_npoints_match(destination, source)
+  family = _motion_storage_family(point_coordinates(destination))
+  eltype(point_coordinates(source)) === eltype(point_coordinates(destination)) ||
+    throw(ArgumentError("point-set scalar types differ: $(eltype(point_coordinates(destination))) and " *
+                        "$(eltype(point_coordinates(source))); displacement does not convert between precisions"))
+  _motion_storage_family(point_coordinates(source)) === family ||
+    throw(ArgumentError("point sets must live in the same storage family; got " *
+                        "$(family) and $(_motion_storage_family(point_coordinates(source)))"))
+  for section in sections
+    _check_npoints_match(destination, section)
+    eltype(field_data(section)) === eltype(point_coordinates(destination)) ||
+      throw(ArgumentError("a displacement section's scalar type $(eltype(field_data(section))) does not " *
+                          "match the point set's $(eltype(point_coordinates(destination))); displacement " *
+                          "does not convert between precisions"))
+    _motion_storage_family(field_data(section)) === family ||
+      throw(ArgumentError("a displacement section must live in the point set's storage family; got " *
+                          "$(_motion_storage_family(field_data(section))) against $(family)"))
+  end
+  return nothing
+end
+
+
+"""
+    _check_displacement_domain(points, grid)
+
+Require the periodic domain's element type to match the point set's, refusing a mixed-precision
+pair rather than promoting (invariant 14 binds the non-section partners too — a `Grid3D` here
+plays the role `FieldSpectralMultipliers` plays for a spectral field).
+"""
+function _check_displacement_domain(points::PointSet, grid::Grid3D)
+  T = eltype(point_coordinates(points))
+  grid isa Grid3D{T} ||
+    throw(ArgumentError("the domain's element type $(eltype(grid.domain_size)) does not match the " *
+                        "point set's $(T); displacement does not convert between precisions"))
+  return nothing
+end
+
+
+"""
+    displace!(destination::PointSet, source::PointSet, terms...)
+    displace!(destination::PointSet, source::PointSet, grid::Grid3D, terms...)
+    displace!(points::PointSet, [grid::Grid3D,] terms...)
+
+Move each point of a point set along the weighted sum of vector values over it: writing ``x_p``
+for the position of point ``p`` and ``v_j(p)`` for the value the ``j``-th section holds at that
+point,
+
+```math
+x_p \\leftarrow x_p + \\sum_j c_j\\, v_j(p) .
+```
+
+Each element of `terms` is a tuple `(coefficient, section)` — a host-scalar ``c_j`` and a
+[`VectorPointValues`](@ref) ``v_j`` — and all terms are applied in **one fused traversal**: the
+positions are read once, each section once, and the positions written once, on CPU and GPU alike.
+This is the one operation that crosses the position-versus-value role split, and it is a named
+operation rather than a `+` method because positions are points of the periodic domain, not
+vectors: what is being applied is a displacement, exact because the domain is flat and the fiber
+carries one global frame.
+
+Without a `grid` the sum is taken literally, in the universal cover: coordinates may leave the
+box, and sampling such positions remains correct because the transfer kernels wrap their stencil
+indices periodically. With a `grid` the displaced coordinates are additionally reduced,
+componentwise and in the same fused pass, to the canonical representative in the fundamental
+domain — the same reduction [`wrap!`](@ref) applies on its own, whose docstring states the
+endpoint and non-finite contract. Displacement on the periodic domain proper is the `grid` form;
+the grid-free form is its lift to the cover, which preserves winding information (a
+mean-square-displacement diagnostic needs the unwrapped trajectory).
+
+The arguments are:
+- **`destination`** — the `PointSet` receiving the displaced positions. It may be the `source`
+  itself (the two-argument convenience forms are exactly that call): the pass reads each
+  element's inputs before writing its outputs, so the aliased call is computed directly.
+- **`source`** — the `PointSet` holding the starting positions. When omitted, `points` is both
+  source and destination.
+- **`grid`** — optional; a [`Grid3D`](@ref) supplying the periodic domain. Only its
+  `domain_size` and `origin` enter: the wrap needs the box, not the mesh.
+- **`terms...`** — zero or more `(coefficient, section)` tuples. The coefficients are part of
+  what the operation *is* — the displacement ``\\sum_j c_j v_j`` — so they are named
+  coefficients rather than the α/β accumulation scalars of invariant 10, and there is no
+  trailing α/β pair. With no terms the call copies (and, with a `grid`, wraps) the source
+  positions.
+
+There is deliberately no allocating sibling: displacement is motion of an existing base, and a
+freshly allocated destination would have no consumer. Sections and point sets must agree in
+point count, scalar type and storage family; a mixed pair is refused, never converted.
+"""
+function displace! end
+
+function displace!(destination::PointSet, source::PointSet,
+                   terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
+  _check_displacement_compatibility(destination, source, map(last, terms))
+  converted = _convert_terms(eltype(point_coordinates(destination)), terms...)
+  rhs = _displacement_rhs(point_coordinates(source), converted...)
+  broadcasted = rhs isa Base.Broadcast.Broadcasted ? rhs : Base.Broadcast.broadcasted(identity, rhs)
+  _assign!(point_coordinates(destination), broadcasted)
+  return destination
+end
+
+function displace!(destination::PointSet, source::PointSet, grid::Grid3D,
+                   terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
+  _check_displacement_compatibility(destination, source, map(last, terms))
+  _check_displacement_domain(destination, grid)
+  converted = _convert_terms(eltype(point_coordinates(destination)), terms...)
+  destination_coordinates = point_coordinates(destination)
+  source_coordinates = point_coordinates(source)
+  # Column-wise so each axis sees its own extent and origin as plain scalars; the columns are
+  # contiguous (SoA, fiber-last), so the three passes together still read and write each element
+  # exactly once — one-traversal traffic, with the wrap fused into the displacement.
+  for axis in 1:3
+    axis_terms = _axis_terms(axis, converted...)
+    rhs = _displacement_rhs(view(source_coordinates, :, axis), axis_terms...)
+    _assign!(view(destination_coordinates, :, axis),
+             Base.Broadcast.broadcasted(_wrap_coordinate, rhs,
+                                        grid.domain_size[axis], grid.origin[axis]))
+  end
+  return destination
+end
+
+displace!(points::PointSet, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  displace!(points, points, terms...)
+displace!(points::PointSet, grid::Grid3D, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  displace!(points, points, grid, terms...)
+
+
+"""
+    wrap!(points::PointSet, grid::Grid3D)
+
+Reduce every position to its canonical representative in the periodic domain: componentwise,
+
+```math
+x_{p,a} \\leftarrow \\operatorname{mod}(x_{p,a} - o_a,\\ L_a) + o_a ,
+```
+
+which lands each coordinate in the half-open fundamental domain ``[o_a, o_a + L_a)``, where
+``L_a`` is the domain extent along axis ``a`` and ``o_a`` the domain origin — both read from
+`grid`, whose mesh plays no role. Wrapping is never required for sampling — the transfer kernels
+wrap their stencil indices, so interpolation is invariant under shifting any coordinate by whole
+periods — but it is the operation that keeps coordinates bounded over a long run (absolute
+floating-point resolution degrades as a coordinate grows, single precision especially) and that
+presents in-box positions to a consumer bucketing by cell index. It discards winding: a
+mean-square-displacement diagnostic must run on unwrapped positions, which is why displacement
+and wrapping are separate operations rather than one.
+
+!!! warning "The endpoint is folded, and non-finite coordinates pass through non-finite"
+    Floating-point `mod` can return exactly ``L_a`` for a coordinate a hair below the origin
+    (measured: `mod(-1e-20, 2π) === 2π`), so the excluded endpoint is folded back to ``o_a``
+    explicitly. The fold tests equality rather than order, because an order test is false for
+    `NaN` and `Inf` and would silently rewrite a diverged trajectory into a tidy in-box
+    position — a non-finite coordinate comes out non-finite (an infinity as `NaN`, `mod`'s own
+    image of it), never boxed.
+
+The reduction runs in place and returns `points`. The domain's element type must match the point
+set's; a mixed pair is refused, never converted. To wrap in the same pass as a displacement, use
+the `grid` form of [`displace!`](@ref).
+"""
+function wrap!(points::PointSet, grid::Grid3D)
+  _check_displacement_domain(points, grid)
+  coordinates = point_coordinates(points)
+  for axis in 1:3
+    column = view(coordinates, :, axis)
+    _assign!(column, Base.Broadcast.broadcasted(_wrap_coordinate, column,
+                                                grid.domain_size[axis], grid.origin[axis]))
+  end
+  return points
 end
 
 

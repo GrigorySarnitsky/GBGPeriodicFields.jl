@@ -256,6 +256,50 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(norm(Ad), norm(A))
     end
 
+    @testset "base-space motion (displace!/wrap!)" begin
+      number_of_points = 300
+      host_start = rand(T, number_of_points, 3) .* T(2π)
+      host_v1 = VectorPointValues(randn(T, number_of_points, 3))
+      host_v2 = VectorPointValues(randn(T, number_of_points, 3))
+      device_v1 = on_device_pv(host_v1)
+      device_v2 = on_device_pv(host_v2)
+      motion_grid = Grid3D((8, 12, 16), (T(2π), T(4π), T(6π)))   # anisotropic box
+
+      # Cover displacement: elementwise, same formula both backends — exact agreement.
+      host_points = PointSet(copy(host_start))
+      device_points = on_device_ps(PointSet(copy(host_start)))
+      displace!(host_points, (T(0.3), host_v1), (T(-0.7), host_v2))
+      displace!(device_points, (T(0.3), device_v1), (T(-0.7), device_v2))
+      @test Array(point_coordinates(device_points)) == point_coordinates(host_points)
+
+      # Torus displacement (the wrap fused in) and the standalone wrap.
+      host_points = PointSet(copy(host_start))
+      device_points = on_device_ps(PointSet(copy(host_start)))
+      displace!(host_points, motion_grid, (T(2.5), host_v1))
+      displace!(device_points, motion_grid, (T(2.5), device_v1))
+      @test Array(point_coordinates(device_points)) == point_coordinates(host_points)
+
+      host_far = PointSet(host_start .+ T(5) .* reshape([T(2π), T(4π), T(6π)], 1, 3))
+      device_far = on_device_ps(PointSet(copy(point_coordinates(host_far))))
+      wrap!(host_far, motion_grid)
+      wrap!(device_far, motion_grid)
+      @test Array(point_coordinates(device_far)) == point_coordinates(host_far)
+
+      # The destination/source form, destination on the device.
+      host_dest = PointSet(zeros(T, number_of_points, 3))
+      device_dest = on_device_ps(PointSet(zeros(T, number_of_points, 3)))
+      host_src = PointSet(copy(host_start))
+      device_src = on_device_ps(PointSet(copy(host_start)))
+      displace!(host_dest, host_src, (T(1.5), host_v1))
+      displace!(device_dest, device_src, (T(1.5), device_v1))
+      @test Array(point_coordinates(device_dest)) == point_coordinates(host_dest)
+
+      # A device point set refuses host sections and a mixed point-set pair — the package's own
+      # ArgumentError, not a launch-layer failure (invariant 14).
+      @test_throws ArgumentError displace!(device_points, (T(1), host_v1))
+      @test_throws ArgumentError displace!(device_dest, host_src, (T(1), device_v1))
+    end
+
     @testset "spectral linear ops + differential operators" begin
       phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y), grid)
       # Components depend on more than one coordinate so curl and the Helmholtz

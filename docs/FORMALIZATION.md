@@ -707,3 +707,54 @@ origin, both element types, both representations and ``R = 0, 1, 2``; the identi
 convolution it computes rather than through its storage; the `Canonical` parameter of the multipliers;
 and a rebuilt plan transforming equally. Commutation with the operations is checked on device in
 `test/gpu/suite.jl`, where a moved workspace reproduces the host `curl` and `convolve`.
+
+## Base-space motion: displacement and the canonical representative (decision 73)
+
+**Setting.** The base is the flat torus ``\mathbb T^3 = \mathbb R^3 / \Lambda`` with lattice
+``\Lambda = L_1\mathbb Z \times L_2\mathbb Z \times L_3\mathbb Z`` and a chosen fundamental
+domain ``D = [o_1, o_1 + L_1) \times [o_2, o_2 + L_2) \times [o_3, o_3 + L_3)``, where ``L_a`` is
+the domain extent and ``o_a`` the origin along axis ``a`` (both carried by `Grid3D`). A `PointSet`
+stores a representative ``X = (x_p)_{p=1}^M \in (\mathbb R^3)^M`` of a configuration of ``M``
+points; a `VectorPointValues` is a section ``v`` of the (trivialized) tangent bundle over that
+configuration, one vector ``v(p) \in \mathbb R^3`` per point.
+
+**Statement 1 (cover displacement).** For real coefficients ``c_1, \dots, c_n`` and sections
+``v_1, \dots, v_n``, the operation `displace!` without a grid computes, per point,
+
+```math
+x_p \leftarrow x_p + \sum_{j=1}^{n} c_j\, v_j(p) ,
+```
+
+evaluated left-to-right in one fused pass. Because the torus is flat and the frame global, this is
+the exponential map of the flat metric lifted to the universal cover: no connection choice enters,
+and the operation is exact linear algebra per point. ``\checkmark``
+
+**Statement 2 (canonical representative).** The operation `wrap!` computes, per point and axis,
+
+```math
+x_{p,a} \leftarrow \operatorname{mod}(x_{p,a} - o_a, L_a) + o_a \in [o_a, o_a + L_a) ,
+```
+
+the unique representative of ``x_{p,a} + L_a\mathbb Z`` in the fundamental domain — in exact
+arithmetic. In floating point, `mod` may return exactly ``L_a`` (measured: `mod(-1e-20, 2π) === 2π`),
+and that value is folded to ``0`` before the origin is restored, so membership in the half-open
+interval holds for every **finite** input; a non-finite coordinate maps to a non-finite coordinate
+(`NaN` fixed, ``\pm\infty \mapsto`` `NaN`), never into ``D``.
+
+**Statement 3 (the fused torus arity).** `displace!` with a grid computes Statement 2 applied to
+the result of Statement 1, in one pass, and is **bitwise equal** to the sequential pair: the fused
+form performs the same floating-point operations in the same order per element, only in registers
+rather than through memory. ``\checkmark``
+
+**Statement 4 (deck invariance of sampling, with its limit).** Interpolation is invariant under the
+deck group: for any whole-period shift ``x \mapsto x + k \cdot L`` (componentwise, ``k \in
+\mathbb Z^3``) the transfer kernels wrap their stencil indices, so the sampled value is unchanged in
+exact arithmetic. In floating point the two evaluations differ by roundoff of the offset
+computation, so the test asserts closeness, not equality; and the statement does not extend to
+coordinates of arbitrary magnitude, where cell-index arithmetic leaves its exact range. This bounded
+form is the honest version of "positions need no wrap".
+
+**Backs** [Architecture](architecture.md) §10 and §13, decision 73.
+**Checked by** `test/displacement.jl` — the raw-array oracle for Statement 1 (single- and
+three-term, both element types), the endpoint/non-finite/origin pins for Statement 2, the bitwise
+equality of Statement 3, and the tolerance form of Statement 4; GPU parity in `test/gpu/suite.jl`.
