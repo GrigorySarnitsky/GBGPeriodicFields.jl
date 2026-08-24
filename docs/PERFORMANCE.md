@@ -110,6 +110,14 @@ What bounds each public operation class — the mental model a benchmark either 
   on a GPU, and on the card that recorded that result it did. On the RX 7900 XTX the same experiment
   reversed for the default scheme (§4(c)), so the balance between the two pulls is a property of the
   card, not a constant.
+- **Deliberately unbenchmarked, so the absence reads as a decision rather than a gap.** Two public
+  surfaces carry no row on purpose. The **allocating constructors** (decision 74) have none because
+  an allocator's cost is the backend allocator's, and finding (y) records what a per-call
+  field-sized allocation does to a row: it lands in a process-history-selected regime and stops
+  being comparable across process shapes, so the row would measure the harness's memory history.
+  **Scheme persistence** (decision 75) has none because it writes four HDF5 attributes and there is
+  no persistence class to put it in — inventing one to time a constant would measure the library
+  rather than the package.
 - **Base-space motion** (decision 73) → four rows in the `transfer` class (`displace!` one- and
   three-term, the three-term torus arity, and `wrap!`): ``O(M)`` streaming over ``(M, 3)`` arrays,
   bandwidth-trivial beside a gather — 30–300× cheaper than the `CatmullRom` gather at the same point
