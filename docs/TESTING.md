@@ -150,6 +150,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   pairing lands in are covered alongside),
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
+  `hdf5.jl` also covers **transfer-scheme persistence** (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
   `displacement.jl` (base-space motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
@@ -469,7 +470,7 @@ end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at t
 Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted
 combination `combine!` (physical + spectral, alias-safe) and the physical-only determinant `det`
 (against a per-point LU oracle, with its spectral absence asserted); the spectral
-zero-mode constant invariant; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
+zero-mode constant invariant; **transfer-scheme persistence** (decision 75) — the parameter round trip asserted with `===` and reinforced behaviourally, every malformed-group path refused for its own reason, and a perturbation-verified guard that a new scheme family cannot ship unpersistable; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
 type-identical to its data-built twin and to `similar_field` of that twin, across both element
 types, two layout folds, orders through ``R = 4``, the default-layout arity, a transform round trip
 through freshly allocated scratch, and the two refusals (a parameterized family disagreeing with the

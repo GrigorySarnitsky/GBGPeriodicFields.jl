@@ -3897,3 +3897,57 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       helpers; the sixteen constructor methods are Type methods the per-function count does not
       see). The consumer deletes its `_reference`/`_blank` pair, and no code of its reads a
       multipliers field for any purpose but wavenumbers.
+
+75. **Transfer schemes persist, because a scheme *is* its parameters** (2026-08-24, requested by the
+    consuming solver). The HDF5 extension persisted the ten section classes and nothing else, so a
+    consumer restoring a tracer set — positions, values, *and the scheme that samples with them* —
+    had one leaf it could not reach through the package. Writing the tags itself would have put this
+    package's type names, outside this package's schema version, in a second package: the drift
+    argument that carried decision 74, one layer up.
+    - **The line is drawn by what an object *is*, not by which types were asked for.** A
+      `LalescuSpline` stores `neighbours`, `smoothness` and a weight `SMatrix` — but the matrix is
+      **derived**, recomputed by the constructor from ``(n, m)``. So the faithful record is the
+      parameters, and storing the weights would duplicate derived data, the very thing the
+      consumer's checkpoint design avoids everywhere else. `LagrangeSpline` is the same with one
+      parameter, and `DirectDFT` is the degenerate case: a singleton whose tag is its whole record.
+      It is covered although nobody asked, because that makes the persisted class *"a scheme that is
+      its parameters"* rather than *"the two the consumer named"*.
+    - **`NUFFT` is refused, and the refusal is a statement about the object.** It owns oversampled
+      FFT plans and a deconvolution window built against a particular reference field. That is a
+      compiled schedule, the same kind of object as `FieldTransformPlans`, which decision 63 likewise
+      **rebuilds rather than moves** when storage families change. A stored NUFFT would be either a
+      large duplicate of derived data or a parameter set pretending to be the object; the consumer
+      rebuilds it from the reference field it restores anyway. The error says so and names the
+      rebuild.
+    - **The group has attributes and no `data`.** Every other persisted object is a section and its
+      group is built around an array; a scheme's is not, which is the shape difference worth naming
+      rather than smoothing over.
+    - **The element type is resolved through a closed table, never `eval`.** Reconstruction needs the
+      weight element type back from the string `"Float64"`, and the obvious spelling — parse and
+      evaluate — would execute an arbitrary expression out of a file this package did not write. The
+      mapping is a two-entry `Dict` and anything else is refused.
+    - **Reading revalidates rather than trusts.** The parameters go back through the ordinary
+      constructor, so a group asserting an impossible combination (``m > 2n``) throws there instead
+      of yielding a malformed scheme, and the group's schema version, type tag, and required
+      attributes are each checked.
+    - **An adjacent defect, found and fixed in the same change.** The extension's header has always
+      claimed its self-describing attributes are "CHECKED, not merely written", and for `read_field`
+      they were — but **`read_points` never checked its schema version**, so a point group written by
+      a newer version was silently accepted. The version gate is now one shared helper applied by all
+      three read verbs, and the header's claim is true for the first time.
+    - **Definition of done, with two reasoned exemptions.** No GPU parity lane: a scheme is a
+      host-side parameter record, and the persistence layer returns host objects by construction, so
+      there is nothing for a device to disagree about. No benchmark row: the operation writes four
+      attributes, and there is no HDF5 benchmark class to put it in — inventing one to time a
+      constant would measure the library, not the package.
+    - **Verification.** Round trips over nine schemes — both spline families across the parameter
+      region including the ``m = 2n`` boundary and the ``n = m = 0`` corner, both element types, the
+      `CatmullRom` alias (which needs no identity of its own: it *is* `LalescuSpline(1, 1)` and
+      returns egal to it), `DirectDFT`, and the `parent[name] = scheme` sugar — asserted with `===`,
+      the strongest available equality, and reinforced by a behavioural check that a read scheme
+      interpolates **bitwise** identically, so the test still bites if a scheme ever gains state that
+      egality sees and the stored parameters do not determine. Eight malformed-group paths each
+      refused for their own reason, the `NUFFT` refusal on both the verb and the sugar, and a
+      **completeness guard** walking every concrete `AbstractTransferScheme` subtype and requiring it
+      to round-trip or be a recorded refusal — verified by perturbation (dropping one scheme fails
+      it), so a future scheme family cannot ship silently unpersistable.

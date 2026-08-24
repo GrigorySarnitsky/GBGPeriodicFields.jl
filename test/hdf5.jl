@@ -277,3 +277,133 @@ end
     @test field_data(back) == field_data(plain)
   end
 end
+
+
+# Transfer-scheme persistence (decision 75). A scheme is a parameter record, not a section: no
+# `data` dataset, and the round trip stores the parameters rather than the derived weights. The
+# oracle is `===` — Julia's egality on immutable structs, which for these types means "same
+# parameters and bit-identical weights" — reinforced by a behavioural check that a read scheme
+# interpolates bitwise identically, so the test would still bite if a scheme ever gained state that
+# `===` sees but the stored parameters do not determine.
+@testset "HDF5: transfer schemes round-trip through their parameters" begin
+  mktempdir() do dir
+    path = joinpath(dir, "schemes.h5")
+
+    schemes = (CatmullRom,                         # the alias: LalescuSpline(1, 1), no own identity
+               LalescuSpline(0, 0),                # trilinear, the degenerate corner
+               LalescuSpline(3, 2),
+               LalescuSpline(2, 4),                # m = 2n, the upper bound of the valid region
+               LagrangeSpline(0),
+               LagrangeSpline(3),
+               LalescuSpline(1, 1; T = Float32),
+               LagrangeSpline(2; T = Float32),
+               DirectDFT())
+
+    h5open(path, "w") do io
+      for (i, scheme) in enumerate(schemes)
+        g = write_scheme(io, "s$i", scheme)
+        @test g isa HDF5.Group
+        @test !haskey(g, "data")               # a scheme owns no array: attributes only
+      end
+      io["sugar"] = CatmullRom                 # the `parent[name] = scheme` sugar
+    end
+
+    h5open(path, "r") do io
+      for (i, scheme) in enumerate(schemes)
+        back = read_scheme(io, "s$i")
+        @test back === scheme                  # egal: same type parameters AND identical weights
+        @test back == scheme
+        @test typeof(back) === typeof(scheme)
+      end
+      @test read_scheme(io, "sugar") === CatmullRom
+    end
+
+    # The reconstructed scheme must COMPUTE identically, which is the claim a consumer depends on.
+    grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+    field = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3 * sin(z), grid)
+    points = PointSet(2π .* rand(16, 3))
+    for scheme in (CatmullRom, LagrangeSpline(2), LalescuSpline(3, 2))
+      h5open(path, "cw") do io
+        haskey(io, "behave") && delete_object(io, "behave")
+        write_scheme(io, "behave", scheme)
+      end
+      back = h5open(path, "r") do io; read_scheme(io, "behave"); end
+      @test point_values(interpolate(field, points, back)) ==
+            point_values(interpolate(field, points, scheme))
+    end
+  end
+end
+
+
+@testset "HDF5: a NUFFT is refused, and a malformed scheme group is caught" begin
+  mktempdir() do dir
+    path = joinpath(dir, "scheme_errors.h5")
+    grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+    spectral = ScalarFieldSpectral(Array, grid)
+
+    h5open(path, "w") do io
+      # The documented refusal: a NUFFT owns plans and a reference-bound window, not parameters.
+      @test_throws ArgumentError write_scheme(io, "nufft", NUFFT(spectral; tol = 1e-6))
+      @test_throws ArgumentError io["nufft_sugar"] = NUFFT(spectral; tol = 1e-6)
+
+      write_scheme(io, "impossible", LalescuSpline(1, 1))
+      attrs(io["impossible"])["smoothness"] = 9        # violates 0 ≤ m ≤ 2n at n = 1
+      write_scheme(io, "future", CatmullRom)
+      attrs(io["future"])["version"] = 99
+      write_scheme(io, "alien_eltype", CatmullRom)
+      attrs(io["alien_eltype"])["eltype"] = "Float16"
+      write_scheme(io, "no_param", CatmullRom)
+      delete_attribute(io["no_param"], "neighbours")
+      write_scheme(io, "wrong_tag", CatmullRom)
+      attrs(io["wrong_tag"])["type"] = "GBGPeriodicFields.NotAScheme"
+      create_group(io, "bare")                         # a group with no attributes at all
+      io["plain_dataset"] = [1.0, 2.0, 3.0]
+    end
+
+    h5open(path, "r") do io
+      # Each malformed group is refused for its OWN reason, never silently reconstructed.
+      @test_throws ArgumentError read_scheme(io, "impossible")     # constructor revalidates
+      @test_throws ArgumentError read_scheme(io, "future")         # schema from a newer version
+      @test_throws ArgumentError read_scheme(io, "alien_eltype")   # closed element-type table
+      @test_throws ArgumentError read_scheme(io, "no_param")       # incomplete group
+      @test_throws ArgumentError read_scheme(io, "wrong_tag")      # unrecognized tag
+      @test_throws ArgumentError read_scheme(io, "bare")           # no `type` attribute
+      @test_throws ArgumentError read_scheme(io, "plain_dataset")  # a dataset, not a group
+      @test_throws ArgumentError read_scheme(io, "absent")         # no such object
+    end
+  end
+end
+
+
+# The completeness guard: every concrete transfer scheme the package defines must either round-trip
+# or be a RECORDED refusal. Without this, adding a scheme family (the recorded van Hinsberg
+# direction) would ship it silently unpersistable, and the consumer would discover it at a restart.
+@testset "HDF5: every concrete transfer scheme is persistable or a recorded refusal" begin
+  refused = Set([:NUFFT])          # holds plans + a reference field; rebuilt, never stored
+  # Derived from the module's own bindings rather than from `subtypes`: the guard is about the
+  # schemes THIS package defines, and a consumer that subtypes `AbstractTransferScheme` in its own
+  # code must not fail our completeness check. A parameterized scheme is a `UnionAll`, which is not
+  # abstract, so both families and the singleton are caught by the same predicate.
+  Interp = GBGPeriodicFields.Interpolation
+  concrete = Set{Symbol}()
+  for name in names(Interp; all = true)
+    isdefined(Interp, name) || continue
+    binding = getfield(Interp, name)
+    binding isa Type || continue
+    binding === AbstractTransferScheme && continue
+    (binding <: AbstractTransferScheme && !isabstracttype(binding)) || continue
+    push!(concrete, Base.typename(binding).name)
+  end
+  @test !isempty(concrete)         # the guard must not pass by finding nothing
+  mktempdir() do dir
+    path = joinpath(dir, "coverage.h5")
+    representative = Dict(:LalescuSpline => CatmullRom, :LagrangeSpline => LagrangeSpline(1),
+                          :DirectDFT => DirectDFT())
+    for name in setdiff(concrete, refused)
+      @test haskey(representative, name)     # a new scheme needs a representative here…
+      haskey(representative, name) || continue
+      h5open(path, "w") do io; write_scheme(io, "s", representative[name]); end
+      @test h5open(io -> read_scheme(io, "s"), path, "r") === representative[name]
+    end
+  end
+end

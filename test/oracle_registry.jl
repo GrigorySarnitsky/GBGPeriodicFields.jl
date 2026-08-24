@@ -113,7 +113,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
     :npoints, :point_coordinates, :point_values, :pointvalue_tensor_order, :physical_field_shape,
     :spectral_field_shape, :similar_field, :similar_pointvalues, :threading_cutoff, :with_threading))...,
   (op => (:structural, "HDF5 persistence, covered by round-trip equality in hdf5.jl") for op in
-   (:read_field, :read_points, :write_field, :write_points))...,
+   (:read_field, :read_points, :write_field, :write_points, :read_scheme, :write_scheme))...,
 
   # Moving between storage families. `adapt` is the identity on the mathematical object — it changes
   # where the storage lives and nothing else — so its oracle is a preservation property rather than a

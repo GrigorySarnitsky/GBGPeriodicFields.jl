@@ -90,7 +90,8 @@ The umbrella assembles its public surface from the submodules below:
   `similar_pointvalues`, and the HDF5 persistence pair `write_points`/`read_points` (available once
   `HDF5` is loaded).
 - [`Interpolation`](@ref) provides the grid-to-point transfer [`interpolate`](@ref) and its
-  adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes.
+  adjoint point-to-grid transfer `anterpolate`, over the local-spline and spectral schemes, together
+  with the scheme-persistence pair `write_scheme`/`read_scheme` (available once `HDF5` is loaded).
 - [`Reductions`](@ref) provides the L²/measure reductions [`integral`](@ref), `inner`,
   `weighted_inner`, `l2norm`, and `lpnorm`; the moments `mean`, the scalar-only `std`/`var` and the
   covariance tensor `cov` that carries a vector field's second *central* moment coordinate-free, and the order
@@ -254,7 +255,9 @@ using .Interpolation:
   CatmullRom,
   AbstractTransferScheme,
   DirectDFT,
-  NUFFT
+  NUFFT,
+  write_scheme,
+  read_scheme
 
 
 using .Reductions:
@@ -401,6 +404,8 @@ export FiberVector,
        AbstractTransferScheme,
        DirectDFT,
        NUFFT,
+       write_scheme,
+       read_scheme,
        integral,
        inner,
        weighted_inner,

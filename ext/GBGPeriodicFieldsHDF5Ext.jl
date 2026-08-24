@@ -5,8 +5,10 @@
 # representations are handled — a physical field stores a real array, a field in spectral representation
 # its complex half-spectrum. The point layer mirrors this: a `PointSet` and each point-value type map to
 # their own self-describing group, positions and values kept separate because they are separate objects
-# (the base, and sections over it). The consumer owns the file, so every method takes an open
-# `File`/`Group`.
+# (the base, and sections over it). A transfer SCHEME is the one persisted object that is not a
+# section: it owns no array, so its group carries attributes and no `data`, and the round trip stores
+# the parameters a scheme is made of rather than the weights it derives from them. The consumer owns
+# the file, so every method takes an open `File`/`Group`.
 module GBGPeriodicFieldsHDF5Ext
 
 using HDF5
@@ -23,6 +25,9 @@ using GBGPeriodicFields.Points:
   ScalarPointValues, VectorPointValues, TensorPointValues,
   point_coordinates, point_values, pointvalue_tensor_order, npoints
 import GBGPeriodicFields.Points: write_points, read_points
+using GBGPeriodicFields.Interpolation:
+  AbstractTransferScheme, LalescuSpline, LagrangeSpline, DirectDFT, NUFFT, spline_coefficients
+import GBGPeriodicFields.Interpolation: write_scheme, read_scheme
 
 const SCHEMA_VERSION = 1
 
@@ -38,6 +43,11 @@ _type_tag(::PointSet)            = "GBGPeriodicFields.PointSet"
 _type_tag(::ScalarPointValues)   = "GBGPeriodicFields.ScalarPointValues"
 _type_tag(::VectorPointValues)   = "GBGPeriodicFields.VectorPointValues"
 _type_tag(::TensorPointValues)   = "GBGPeriodicFields.TensorPointValues"
+# The scheme tags. `LalescuSpline` and `LagrangeSpline` are parameterized, so one method each covers
+# every parameterization; the parameters that matter are stored as attributes, not in the tag.
+_type_tag(::LalescuSpline)       = "GBGPeriodicFields.LalescuSpline"
+_type_tag(::LagrangeSpline)      = "GBGPeriodicFields.LagrangeSpline"
+_type_tag(::DirectDFT)           = "GBGPeriodicFields.DirectDFT"
 
 # A point object carries its own array: a PointSet its (M, 3) coordinates, point values their samples.
 _point_array(points::PointSet) = point_coordinates(points)
@@ -125,14 +135,21 @@ end
 # `tensor_order` contradicted its type tag and its data reconstructed silently into whatever the tag
 # said. Every attribute here is redundant with the tag or the data, which is exactly why a disagreement
 # means the file is not what it claims to be.
+# The version gate, shared by all three read verbs: a file from a future schema is refused rather
+# than guessed at. `caller` names the verb so the message points at what the user called.
+function _validate_schema_version(a, name::AbstractString, caller::AbstractString)
+  haskey(a, "version") || return nothing
+  version = Int(a["version"])
+  version <= SCHEMA_VERSION || throw(ArgumentError(
+    "$caller: group \"$name\" declares schema version $version, but this package understands " *
+    "up to $SCHEMA_VERSION — the file was written by a newer version"))
+  return nothing
+end
+
+
 function _validate_field_schema(g, name, tag, data)
   a = attrs(g)
-  if haskey(a, "version")
-    version = Int(a["version"])
-    version <= SCHEMA_VERSION || throw(ArgumentError(
-      "read_field: group \"$name\" declares schema version $version, but this package understands " *
-      "up to $SCHEMA_VERSION — the file was written by a newer version"))
-  end
+  _validate_schema_version(a, name, "read_field")
   if haskey(a, "representation")
     declared = a["representation"]
     implied = occursin("Spectral", tag) ? "spectral" : "physical"
@@ -207,6 +224,10 @@ function read_points(parent::HDF5.H5DataStore, name::AbstractString)
   haskey(attrs(g), "type") || throw(ArgumentError(
     "read_points: group \"$name\" has no `type` attribute — it was not written by write_points"))
   tag = attrs(g)["type"]
+  # The version gate the field pair has always applied. Without it a point group written by a NEWER
+  # schema was accepted and reconstructed as whatever its tag said — which the header's claim that
+  # these attributes are "CHECKED, not merely written" was already asserting was impossible.
+  _validate_schema_version(attrs(g), name, "read_points")
   haskey(g, "data") || throw(ArgumentError(
     "read_points: point group \"$name\" has no `data` dataset — the group is incomplete"))
   data = read(g["data"])
@@ -220,6 +241,115 @@ function read_points(parent::HDF5.H5DataStore, name::AbstractString)
     return TensorPointValues(data)          # the order follows the array's dimensionality
   else
     throw(ArgumentError("read_points: unrecognized point type tag \"$tag\" in group \"$name\""))
+  end
+end
+
+
+# --- transfer schemes: a parameter record, not a section. No `data` dataset: a spline's weight
+# matrix is DERIVED from (n, m), so storing the parameters is the faithful record and storing the
+# weights would duplicate derived data — the same reasoning that has a consumer recompute plans,
+# multipliers and scratch rather than store them. ---
+
+# The element types a stored scheme may name, resolved through an explicit table. The obvious
+# spelling — parse the string and evaluate it — would execute an arbitrary expression out of a file
+# the package did not write, so the mapping is a closed set and anything else is refused.
+const _SCHEME_ELTYPES = Dict("Float64" => Float64, "Float32" => Float32)
+
+function _scheme_eltype(a, name::AbstractString)
+  haskey(a, "eltype") || throw(ArgumentError(
+    "read_scheme: scheme group \"$name\" has no `eltype` attribute — the group is incomplete"))
+  declared = a["eltype"]
+  haskey(_SCHEME_ELTYPES, declared) || throw(ArgumentError(
+    "read_scheme: scheme group \"$name\" declares element type \"$declared\", which this package " *
+    "does not build schemes in (expected one of $(join(sort(collect(keys(_SCHEME_ELTYPES))), ", ")))"))
+  return _SCHEME_ELTYPES[declared]
+end
+
+function _scheme_parameter(a, name::AbstractString, key::AbstractString)
+  haskey(a, key) || throw(ArgumentError(
+    "read_scheme: scheme group \"$name\" has no `$key` attribute — the group is incomplete"))
+  return Int(a[key])
+end
+
+
+
+
+function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::LalescuSpline)
+  g = create_group(parent, name)
+  a = attrs(g)
+  a["type"] = _type_tag(scheme)
+  a["version"] = SCHEMA_VERSION
+  a["eltype"] = string(eltype(spline_coefficients(scheme)))
+  a["neighbours"] = scheme.neighbours
+  a["smoothness"] = scheme.smoothness
+  return g
+end
+
+function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::LagrangeSpline)
+  g = create_group(parent, name)
+  a = attrs(g)
+  a["type"] = _type_tag(scheme)
+  a["version"] = SCHEMA_VERSION
+  a["eltype"] = string(eltype(spline_coefficients(scheme)))
+  a["neighbours"] = scheme.neighbours
+  return g
+end
+
+function write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::DirectDFT)
+  g = create_group(parent, name)
+  a = attrs(g)
+  a["type"] = _type_tag(scheme)
+  a["version"] = SCHEMA_VERSION
+  return g                                   # a singleton: the tag is the whole record
+end
+
+# The one refusal, and it states something about the object rather than marking a missing feature: a
+# NUFFT owns oversampled plans and a deconvolution window built against a reference field, so it is a
+# compiled schedule like `FieldTransformPlans` and is rebuilt, never stored.
+function write_scheme(::HDF5.H5DataStore, ::AbstractString, ::NUFFT)
+  throw(ArgumentError(
+    "write_scheme: a NUFFT scheme is not persistable — it owns oversampled FFT plans and a " *
+    "deconvolution window built against a reference field, which are derived objects rather than " *
+    "parameters. Rebuild it from the reference field you restore anyway, `NUFFT(reference; tol)`, " *
+    "and record `tol` in your own snapshot if it varies."))
+end
+
+
+# The sugar, matching the field and point pairs. It heads off a foreseeable trap rather than existing
+# for symmetry: a consumer who has written `g["u"] = field` and `g["x"] = points` will write
+# `g["scheme"] = scheme` by analogy, and without this method HDF5 would try to store the struct as a
+# dataset and fail obscurely.
+function Base.setindex!(parent::Union{HDF5.File,HDF5.Group},
+    scheme::AbstractTransferScheme, name::AbstractString)
+
+  write_scheme(parent, name, scheme)
+  return parent
+end
+
+
+function read_scheme(parent::HDF5.H5DataStore, name::AbstractString)
+  haskey(parent, name) ||
+    throw(ArgumentError("read_scheme: no object named \"$name\" under the given parent"))
+  g = parent[name]
+  g isa HDF5.Group ||
+    throw(ArgumentError("read_scheme: \"$name\" is a dataset, not a scheme group"))
+  a = attrs(g)
+  haskey(a, "type") || throw(ArgumentError(
+    "read_scheme: group \"$name\" has no `type` attribute — it was not written by write_scheme"))
+  _validate_schema_version(a, name, "read_scheme")
+  tag = a["type"]
+  # The constructors revalidate the parameters (a spline enforces 0 <= m <= 2n), so a group asserting
+  # an impossible combination throws there rather than yielding a malformed scheme.
+  if tag == "GBGPeriodicFields.LalescuSpline"
+    return LalescuSpline(_scheme_parameter(a, name, "neighbours"),
+                         _scheme_parameter(a, name, "smoothness");
+                         T = _scheme_eltype(a, name))
+  elseif tag == "GBGPeriodicFields.LagrangeSpline"
+    return LagrangeSpline(_scheme_parameter(a, name, "neighbours"); T = _scheme_eltype(a, name))
+  elseif tag == "GBGPeriodicFields.DirectDFT"
+    return DirectDFT()
+  else
+    throw(ArgumentError("read_scheme: unrecognized scheme type tag \"$tag\" in group \"$name\""))
   end
 end
 

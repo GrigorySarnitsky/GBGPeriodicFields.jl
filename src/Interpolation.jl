@@ -55,6 +55,12 @@ The parts are:
     and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
     (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the
     common case for the scatter).
+  * **Scheme persistence.** [`write_scheme`](@ref) and [`read_scheme`](@ref) map a scheme to and from
+    one self-describing HDF5 group, so a checkpoint restores not only where a point set samples but
+    how (methods load with the `HDF5` package, as a weak-dependency extension). A scheme is a
+    parameter record rather than a section, so the group carries attributes and no dataset: the
+    weights are derived and recomputed on read. `NUFFT` is excluded by design — it owns plans built
+    against a reference field, so it is rebuilt rather than stored.
 
 # References
 
@@ -80,7 +86,7 @@ import KernelAbstractions
 import Atomix
 
 export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, LagrangeSpline, CatmullRom,
-       AbstractTransferScheme, DirectDFT, NUFFT
+       AbstractTransferScheme, DirectDFT, NUFFT, write_scheme, read_scheme
 
 
 #####################################################
@@ -1368,6 +1374,79 @@ end
 _wrap_field_spectral(data, grid, layout, ::Val{0}) = ScalarFieldSpectral(data, grid, layout)
 _wrap_field_spectral(data, grid, layout, ::Val{1}) = VectorFieldSpectral(data, grid, layout)
 _wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectral{R}(data, grid, layout)
+
+
+#####################################################
+#        Persistence: schemes to and from HDF5      #
+#####################################################
+#
+# A transfer scheme is a **parameter record**, not a section: it carries no base, no fiber and no
+# array of its own — a spline's weight matrix is derived from its `(n, m)` and recomputed by the
+# constructor. So its group holds attributes and no `data` dataset, and the round trip stores the
+# parameters rather than the weights. The generics and their documentation live here so `?write_scheme`
+# answers without HDF5 loaded; the methods live in the weak-dependency extension, exactly as the
+# field and point pairs do.
+
+"""
+    write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::AbstractTransferScheme)
+
+Persist a grid↔point transfer scheme — the choice of kernel and representation that fixes how
+[`interpolate`](@ref) and `anterpolate` are realized — as a **new HDF5 group** `name` under
+`parent`, returning the group it created. Use it when a checkpoint must restore not only the
+positions and values of a point set but also *how* that set samples a field, so a restarted run
+transfers identically rather than falling back to a default. Reload with [`read_scheme`](@ref).
+
+The group is **self-describing** and holds **no dataset**: a scheme's weight coefficients are
+derived from its parameters, so the group carries a `type` tag, a schema `version`, the weight
+element type, and the defining parameters — the neighbourhood ``n`` and, for
+[`LalescuSpline`](@ref), the smoothness ``m``. Reading reconstructs through the ordinary
+constructor, which recomputes the weights and revalidates the parameters, so a group asserting an
+impossible combination is refused rather than producing a malformed scheme. The sugar
+`parent[name] = scheme` is equivalent. `CatmullRom` needs no identity of its own: it *is*
+`LalescuSpline(1, 1)` and round-trips as one, comparing equal to the alias.
+
+Because `parent` is a handle you opened and own, this never opens or closes a file, and the package
+attaches no notion of time — the consumer bundles a snapshot and owns any `time` / `iteration`
+attributes.
+
+The arguments are:
+- `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
+- `name` — the name of the group to create.
+- `scheme` — the scheme to write: a [`LalescuSpline`](@ref), a [`LagrangeSpline`](@ref), or
+  [`DirectDFT`](@ref).
+
+!!! warning "`NUFFT` is deliberately not persistable"
+    Every other scheme *is* its parameters, which is what makes a few attributes a faithful record.
+    A [`NUFFT`](@ref) is not: it owns oversampled FFT plans and a deconvolution window built against
+    a particular reference field, so a stored copy would be either a large duplicate of derived data
+    or a set of parameters pretending to be the object. It is the same class as `FieldTransformPlans`,
+    which is likewise rebuilt rather than moved when storage families change. Rebuild it from the
+    reference field the consumer restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
+    the consumer's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded.
+"""
+function write_scheme end
+
+
+"""
+    read_scheme(parent::HDF5.H5DataStore, name::AbstractString)
+
+Reconstruct the transfer scheme written by [`write_scheme`](@ref) from the HDF5 group `name` under
+`parent`, dispatching on the stored `type` attribute to return it in the matching type. The reload
+is **exact**: the reconstructed scheme compares equal (`==`, and in fact `===`) to the one written,
+because a scheme is fully determined by the parameters the group stores and the constructor
+recomputes the weights identically.
+
+Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path)
+of that group under `parent`. The group's schema is **checked**, not merely read: a file from a
+newer schema version, a group missing a parameter its type needs, an unrecognized type tag, or a
+parameter combination the scheme's own constructor rejects all raise an `ArgumentError` rather than
+producing a scheme that is not what the file claims.
+
+Provided by a package extension, so it is available only when `HDF5` is loaded.
+"""
+function read_scheme end
 
 
 end # module Interpolation
