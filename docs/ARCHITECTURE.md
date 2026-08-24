@@ -3847,3 +3847,53 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       allocation rows for every arity; exact traffic rows (the torus row's counts identical to the
       cover row's — the fused wrap measured free); four benchmark rows in the `transfer` class.
       `Points` 211 → 226 (five public methods, ten internal), the field surface untouched.
+
+74. **Allocation from context: the constructors accept a storage family** (2026-08-24, requested by
+    the consuming solver). Every route to field storage required an existing value in hand: the six
+    concrete constructors take a storage array the caller must already have produced on the right
+    backend, and `similar_field` (decision 44) copies its context from a reference field. A consumer
+    whose domain frame deliberately owns **no** field-sized arrays — the design this package's own
+    lazy kernels enable, and which the solver's memory ledger now *asserts* — therefore had no
+    sanctioned route to its first field, and was reading a multipliers axis vector as a
+    backend-and-element-type witness for a raw `Base.similar`, reproducing the package's
+    shape-and-backend logic outside the package.
+    - **The surface is the constructors, not a new verb.** The request framed the need as "the
+      reference-free completion of the `similar_field` family", but `similar_field`'s identity is
+      allocation *from a reference* — "similar" with nothing to be similar to is a contradiction in
+      the name (and `Base.similar` itself was declined for these allocators by decision 67, for
+      convention reasons that would apply doubly here). What was missing is **construction from
+      context**, and construction already has a home: the same six constructors now accept a storage
+      *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produce the storage
+      themselves: `VectorFieldSpectral(ROCArray, grid, layout)`. No new export, no new name; the
+      representation and tensor order are carried by the type name, as they always were.
+    - **The element type comes from the grid.** `Grid3D{T}` already stores the domain at the field's
+      element type, so the metadata list the request enumerates — grid, layout, order,
+      representation, element type, backend — has one redundant entry, and the surface drops it: a
+      bare family takes `T` from the grid, a parameterized `Array{Float32}` must agree with the grid
+      or is refused (invariant 14, refusal over conversion), and a complex parameter is refused
+      always — the field's element type is its real scalar type, spectral storage being a
+      representation detail allocated as `Complex{T}` internally (invariant 2).
+    - **The backend is a generic array type**, the decision-63 argument verbatim: dispatching on a
+      generic target gains both vendors without depending on either, and the family is reduced to
+      its unparameterized wrapper (the `_storage_family` comparison in reverse) before the storage
+      is produced.
+    - **The storage is uninitialized**, exactly as `similar_field`'s is (decision 44 records the
+      same choice): zero-filling is a cost the caller may not want, and the constructor's contract
+      is storage, not values.
+    - **Dispatch note.** The physical types also carry a sampling constructor whose function
+      argument is untyped, so `ScalarFieldPhysical(Array, grid)` would have reached it (and failed
+      at call time); the family methods are typed `Type{<:AbstractArray}` and win by specificity.
+      The ambiguity check guards the pair.
+    - **No benchmark row, deliberately.** An allocator's cost is the backend allocator's, not the
+      package's, and finding (y) records exactly what a per-call field-sized allocation does to a
+      benchmark row: it lands in a process-history-selected regime and stops being comparable
+      across process shapes. A row would measure the harness's memory history, not the operation.
+    - **Verification.** Every allocated field is type-identical to its data-built twin and to
+      `similar_field` of that twin, over both element types, two layout folds (the decision-48
+      metadata trap — layout, grid and origin must survive any operation that allocates), the
+      default-layout arity, orders through ``R = 4``, and a physical round trip through freshly
+      allocated scratch; both refusals; on device, allocation directly on the vendor family with a
+      reduction and both refusals exercised (`test/gpu/suite.jl`). `Fields` 120 → 122 (the two
+      helpers; the sixteen constructor methods are Type methods the per-function count does not
+      see). The consumer deletes its `_reference`/`_blank` pair, and no code of its reads a
+      multipliers field for any purpose but wavenumbers.

@@ -761,6 +761,22 @@ end
       @test point_coordinates(adapt(AT, host_points)) isa AT
       @test Array(point_coordinates(adapt(AT, host_points))) == point_coordinates(host_points)
     end
+
+    @testset "allocating constructors produce device fields (decision 74)" begin
+      AT = device_array_type()
+      grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
+      layout = RealFourierLayout()
+      # Allocate directly on the device family — no host array, no reference field — and use it.
+      device_u = VectorFieldSpectral(AT, grid, layout)
+      @test field_data(device_u) isa AT
+      @test size(field_data(device_u)) == spectral_field_shape(grid, layout, Val(1))
+      device_s = ScalarFieldPhysical(AT, grid)
+      field_data(device_s) .= 1.0
+      @test integral(device_s) ≈ prod(grid.domain_size)
+      # The refusals are identical on a device family.
+      @test_throws ArgumentError ScalarFieldPhysical(AT{Float32}, grid)
+      @test_throws ArgumentError ScalarFieldSpectral(AT{ComplexF64}, grid)
+    end
   end
 
 end

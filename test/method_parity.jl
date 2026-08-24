@@ -98,7 +98,11 @@ const MODULE_BASELINE = (
   # 119 → 120: `reality_residual` (decision 71), the checkable half of the real-field layout's
   # conjugate-symmetry contract. One method, on the spectral representation only — a physical field
   # has no such constraint, so it has none. Refrozen deliberately, with the reason.
-  Fields                = 120,
+  # 120 → 122 (decision 74): the two helpers behind the allocating `(family, grid[, layout])`
+  # constructors — `_allocated_field_storage` and `_check_family_element_type`. The sixteen
+  # constructor methods themselves are Type methods, which this per-function count does not see;
+  # they are covered by the constructor testset and the ambiguity check instead.
+  Fields                = 122,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is

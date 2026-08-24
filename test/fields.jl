@@ -330,3 +330,62 @@ end
   grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
   @test_throws MethodError reality_residual(ScalarFieldPhysical(rand(T, 8, 8, 8), grid))
 end
+
+
+@testset "allocating constructors (family, grid[, layout]) — decision 74" begin
+  for T in (Float64, Float32)
+    grid = Grid3D((8, 6, 4), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
+    for layout in (RealFourierLayout(), RealFourierLayout((3, 1, 2)))   # incl. a permuted fold
+      # Every allocated field must be indistinguishable in TYPE and SHAPE from its data-built twin,
+      # and must carry the grid and layout it was given (the decision-48 metadata trap: metadata
+      # must survive any operation that allocates its result).
+      cases = (
+        (ScalarFieldPhysical(Array, grid, layout),
+         ScalarFieldPhysical(zeros(T, physical_field_shape(grid, Val(0))), grid, layout)),
+        (VectorFieldPhysical(Array, grid, layout),
+         VectorFieldPhysical(zeros(T, physical_field_shape(grid, Val(1))), grid, layout)),
+        (TensorFieldPhysical(Array, grid, layout),
+         TensorFieldPhysical(zeros(T, physical_field_shape(grid, Val(2))), grid, layout)),
+        (TensorFieldPhysical{3}(Array, grid, layout),
+         TensorFieldPhysical{3}(zeros(T, physical_field_shape(grid, Val(3))), grid, layout)),
+        (ScalarFieldSpectral(Array, grid, layout),
+         ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid, layout)),
+        (VectorFieldSpectral(Array, grid, layout),
+         VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid, layout)),
+        (TensorFieldSpectral(Array, grid, layout),
+         TensorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(2))), grid, layout)),
+        (TensorFieldSpectral{4}(Array, grid, layout),
+         TensorFieldSpectral{4}(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(4))), grid, layout)),
+      )
+      for (allocated, twin) in cases
+        @test typeof(allocated) === typeof(twin)
+        @test size(field_data(allocated)) == size(field_data(twin))
+        @test field_grid(allocated) === grid
+        @test field_layout(allocated) === layout
+      end
+      # ...and from similar_field of the twin — the reference-based and reference-free routes agree.
+      @test typeof(ScalarFieldSpectral(Array, grid, layout)) ===
+            typeof(similar_field(cases[5][2], Val(0)))
+    end
+
+    # The default layout is the default RealFourierLayout, as in the data constructors.
+    @test field_layout(ScalarFieldPhysical(Array, grid)) == RealFourierLayout()
+
+    # A parameterized family must AGREE with the grid's element type; complex is always refused
+    # (spectral storage is allocated as Complex{T} internally — invariant 2's storage-detail rule).
+    @test VectorFieldPhysical(Array{T}, grid) isa VectorFieldPhysical
+    Tother = T === Float64 ? Float32 : Float64
+    @test_throws ArgumentError ScalarFieldPhysical(Array{Tother}, grid)
+    @test_throws ArgumentError ScalarFieldSpectral(Array{Complex{T}}, grid)
+
+    # The storage is real storage a field can use: write it, transform it, round-trip it.
+    u = VectorFieldPhysical(Array, grid)
+    field_data(u) .= T(1)
+    uh = ScalarFieldSpectral(Array, grid)          # spectral scratch, allocated the same way
+    plans = FieldTransformPlans(ScalarFieldPhysical(Array, grid), uh)
+    s = ScalarFieldPhysical(Array, grid)
+    field_data(s) .= rand(T, size(field_data(s)))
+    back = to_physical(to_spectral(s, plans), plans)
+    @test field_data(back) ≈ field_data(s) rtol = (T === Float64 ? 1e-12 : 1e-5)
+  end
+end

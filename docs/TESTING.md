@@ -469,7 +469,11 @@ end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at t
 Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted
 combination `combine!` (physical + spectral, alias-safe) and the physical-only determinant `det`
 (against a per-point LU oracle, with its spectral absence asserted); the spectral
-zero-mode constant invariant; the **point-value algebra** — the `Points` module's
+zero-mode constant invariant; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
+type-identical to its data-built twin and to `similar_field` of that twin, across both element
+types, two layout folds, orders through ``R = 4``, the default-layout arity, a transform round trip
+through freshly allocated scratch, and the two refusals (a parameterized family disagreeing with the
+grid's element type; a complex parameter); the **point-value algebra** — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
 `test/interpolation.jl`; **base-space motion** (`test/displacement.jl`, decision 73) — `displace!`
