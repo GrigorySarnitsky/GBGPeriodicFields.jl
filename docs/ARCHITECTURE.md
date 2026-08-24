@@ -988,7 +988,8 @@ for it (seen in a few papers) is a misnomer.
 trajectory update is exactly that missing operation — each position advanced along a weighted sum of
 vector values held over it, ``x_p \leftarrow x_p + \sum_j c_j v_j(p)``, where ``x_p`` is the
 position of point ``p``, the ``v_j`` are `VectorPointValues` sections (each holding one vector value
-per point), and the ``c_j`` are plain real coefficients — and until this decision it could only be
+per point), and each ``c_j`` is one plain real number — one scalar per term of the sum, not a
+per-point array — and until this decision it could only be
 written by unwrapping the storage and broadcasting on raw arrays, outside every contract the layer
 states. The geometry says it is a legitimate operation and says where its boundaries are. On this
 package's flat periodic base with its one global orthonormal frame
@@ -3792,7 +3793,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     real and the operation is canonical: on a flat periodic base whose fiber carries one global
     orthonormal frame, the tangent space at every base point is canonically the Cartesian
     ``\mathbb R^3`` of the fiber, so displacing a point ``x_p`` along vector values ``v_j(p)`` held
-    over it, scaled by real coefficients ``c_j``, is exactly ``x_p \leftarrow x_p + \sum_j c_j
+    over it, each section scaled by one real number ``c_j``, is exactly ``x_p \leftarrow x_p + \sum_j c_j
     v_j(p)`` — the exponential map of the flat metric, needing no connection choices. The design
     facts, each argued from that geometry:
     - **A named verb, never `+`.** Positions are points of the domain manifold, not vectors; an

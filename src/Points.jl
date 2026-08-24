@@ -1299,8 +1299,11 @@ point,
 x_p \\leftarrow x_p + \\sum_j c_j\\, v_j(p) .
 ```
 
-Each element of `terms` is a tuple `(coefficient, section)` — a host-scalar ``c_j`` and a
-[`VectorPointValues`](@ref) ``v_j`` — and all terms are applied in **one fused traversal**: the
+Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term supplies **one**
+host scalar ``c_j`` — a single number, applied to every point, not a per-point array — and one
+[`VectorPointValues`](@ref) section ``v_j``, which does hold one vector per point. The subscript
+``j`` counts the terms of the call, so a two-term call has ``c_1, c_2`` and ``v_1, v_2``. All
+terms are applied in **one fused traversal**: the
 positions are read once, each section once, and the positions written once, on CPU and GPU alike.
 This is the one operation that crosses the position-versus-value role split, and it is a named
 operation rather than a `+` method because positions are points of the periodic domain, not
@@ -1324,7 +1327,8 @@ The arguments are:
   source and destination.
 - **`grid`** — optional; a [`Grid3D`](@ref) supplying the periodic domain. Only its
   `domain_size` and `origin` enter: the wrap needs the box, not the mesh.
-- **`terms...`** — zero or more `(coefficient, section)` tuples. The coefficients are part of
+- **`terms...`** — zero or more `(coefficient, section)` tuples, each pairing one real number
+  with one section. The coefficients are part of
   what the operation *is* — the displacement ``\\sum_j c_j v_j`` — so they are named
   coefficients rather than the α/β accumulation scalars of invariant 10, and there is no
   trailing α/β pair. With no terms the call copies (and, with a `grid`, wraps) the source
