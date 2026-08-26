@@ -723,6 +723,16 @@ fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a d
 CPU array they run slab-threaded plain loops that pass through the same `_use_threads` gate as the
 broadcast route, so the cutoff and the `with_threading` override govern them.
 
+**Bitwise is a same-backend contract, and the reason it cannot cross a backend is compiler
+contraction.** A device compiler folds `x + c * v` into a fused multiply-add, rounding once where the
+host's two instructions round twice, so the same source expression is not the same arithmetic. The
+difference is a last bit — for `displace!` it measures ``1.8 \times 10^{-15}`` in `Float64` on
+coordinates of order one — but it is real, it is not noise, and it is why every cross-backend
+comparison in the suites is tolerance-tested while thread-count invariance is asserted exactly.
+Writing `muladd` on the host side to force the two into agreement was measured and declined: it buys no
+speed on either backend, improves the error bound without improving every element, and would rest a
+package guarantee on undocumented vendor contraction (`PERFORMANCE.md` finding (z)).
+
 One pairing the route list above does not name outright, because it mixes two of its entries, is worth
 recording since decision 50 added the second instance: an operation may take the **broadcast route on a
 device and a hand-written gated loop on a CPU**. The `helmholtz_projection!` operator pairs a `KernelAbstractions`

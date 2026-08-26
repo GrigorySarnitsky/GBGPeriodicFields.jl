@@ -264,9 +264,18 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
   ``(\sin x, \sin y, \sin z)`` is irrotational *and* longitudinal, so both `curl` and the
   Helmholtz projection return ~0 and test nothing. Use a field whose components depend on
   more than one coordinate.
-- For **cross-backend** comparison (GPU vs CPU), the two run the same formula and agree
-  to roundoff, so compare with `isapprox(Array(device), host; rtol, atol)` carrying a
-  small absolute floor.
+- For **cross-backend** comparison (GPU vs CPU), compare with
+  `isapprox(Array(device), host; rtol, atol)` carrying a small absolute floor — never
+  bitwise. The two run the same *source expression* but not necessarily the same
+  arithmetic: a device compiler may contract `x + c * v` into a fused multiply-add, one
+  rounding where the host takes two, so results differ in the last bit. Measured for
+  `displace!` on CUDA, where the device result equals the host's `muladd` form exactly
+  (`PERFORMANCE.md` finding (z)). Bitwise is a **same-backend** contract — it is what
+  thread-count invariance asserts — and claiming it across backends is what made the
+  first `displace!` GPU assertions fail. A wrapped coordinate needs more than a
+  tolerance: compare the difference **modulo the box**, since a last-bit disagreement
+  arriving at the wrap can place the two sides on opposite edges and read as a whole box
+  length.
 - The same trap appears for **inner products of independent fields** (e.g. ``\langle \nabla\varphi, u\rangle``): they
   are near-orthogonal, so the common value of two equal inner products is small relative
   to the operand magnitudes. Scale the floor by the Cauchy–Schwarz product ``\lVert a\rVert \lVert b\rVert``, not

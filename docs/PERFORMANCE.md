@@ -1390,6 +1390,45 @@ probe or a class-only lane. This is the same *class* of defect as finding (s), a
 harness rather than the operation, and it was found the same way — by re-measuring a number that looked
 wrong instead of explaining it.
 
+**(z) A fused multiply-add is not faster here, and writing one to force cross-backend agreement was
+declined** (2026-08-26). The CUDA parity suite found decision 73's `displace!` disagreeing with its CPU
+twin in the last bit. The cause is compiler contraction, established rather than assumed: the device
+folds `x + c * v` into a fused multiply-add — one rounding — where the host multiplies and then adds,
+two. On CUDA the device result equals the host's `muladd` form **exactly**, in both precisions and for
+the two-term call, and the host's own plain-against-`muladd` mismatch count (151 of 900 in `Float64`,
+136 in `Float32`) matches the device-against-host count element for element.
+
+The obvious repair is to write `muladd` on the CPU side so both contract identically. It was measured
+on all three grounds and fails on each.
+
+- **Speed: none.** The pass reads three arrays and writes one, so it is bandwidth-bound and the
+  instruction count of the innermost expression is invisible behind the traffic. On the 9800X3D the
+  ratios are 0.998 at ``3 \times 10^5`` elements and 1.010 at ``1.7 \times 10^7`` in `Float64`, 1.006
+  and 1.051 in `Float32`; at 900 elements, amortized over a thousand inner repetitions to clear the
+  timer floor, 0.964 and 0.970 — two nanoseconds of a forty-six nanosecond call. On the 5070 Ti it
+  changes nothing at all (0.999 and 1.003 at ``1.7 \times 10^7``), which is the expected result and
+  worth stating: the device already emitted the fused instruction, so naming it in the source cannot
+  move anything.
+- **Accuracy: a better bound, not a better answer.** Against a `BigFloat` reference the maximum error
+  improves from ``8.99 \times 10^{-16}`` to ``7.95 \times 10^{-16}`` in `Float64` and from
+  ``5.09 \times 10^{-7}`` to ``4.54 \times 10^{-7}`` in `Float32` — one rounding per term rather than
+  two. Element by element it is **not** uniformly better: over 30,000 elements per type it wins 3162
+  and loses 1800 in `Float64`, wins 3116 and loses 1765 in `Float32`. A luckily-cancelling double
+  rounding can land closer than a single one.
+- **Footing: the agreement is a vendor coincidence.** It holds because the device compiler contracts
+  *and associates* exactly as `muladd` does, which is documented nowhere. A future release changing
+  contraction policy would reopen the divergence and turn a bitwise assertion red with nothing anyone
+  could act on. That is the objection invariant 14 raises against resting a package guarantee on a
+  vendor's behaviour, and it applies here as squarely as it does to a method table.
+
+Scope decides the rest. The package uses `muladd` nowhere, and the pattern is systemic — eight
+`alpha_beta` codegen sites plus the explicit ``\alpha a + \beta b`` expressions in `FiberSections`,
+`Points` and `Convolution`, since the accumulation of invariant 10 *is* two multiplies and an add. So
+adopting it in `displace!` alone would fix the line rather than the class, and adopting it across the
+class is a numerics-changing sweep of every in-place operator, invalidating pass-audit and benchmark
+baselines, in exchange for a bound. The comparison moved to a tolerance instead, which is what
+`TESTING.md` already prescribed across backends.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
