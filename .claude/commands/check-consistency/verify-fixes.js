@@ -56,7 +56,7 @@ const SCHEMA = {
         finding: { type: 'string', description: 'the finding number and title as the banked file gives them' },
         verdict: { type: 'string', enum: ['HONORED','LINE-ONLY','NEW-DEFECT','SCOPE-CREEP','UNDONE','LAUNDERED'] },
         evidence: { type: 'string', description: 'the decisive diff hunk or the absence of one; quote it' },
-        class_surfaces: { type: 'string', description: 'the other surfaces the finding named or implied, and whether each was swept — the whole basis of a LINE-ONLY verdict' },
+        class_surfaces: { type: 'string', description: 'the other surfaces the FINDING\'S OWN TEXT names or implies, one file:line each, and whether the diff swept it. Enumerate from the finding, NEVER from the diff — the diff shows only where someone already looked. An empty or vague answer demotes HONORED to LINE-ONLY by rule.' },
       },
       required: ['finding','verdict','evidence','class_surfaces'],
     } },
@@ -80,7 +80,7 @@ HARD RULES:
 - DEFAULT TO THE UNFAVOURABLE VERDICT. If you cannot find diff evidence that the class was swept, it is LINE-ONLY, not HONORED. If you cannot find any relevant edit, it is UNDONE. A lane that runs out of budget must fail safe, so never grade HONORED on the strength of a plausible story — grade it on a hunk you can quote.
 - Grade EVERY finding in the banked file, in order. If the file holds twelve findings, return twelve verdicts.
 - Count \`findings_in_file\` by actually counting the sections in the file. A zero count from a lane that should have found a file is read downstream as a DEAD LANE, not as a clean hat, so do not report zero unless the file is genuinely absent.
-- \`class_surfaces\` is not optional prose: name the other surfaces the finding reaches and say, for each, whether the diff swept it. A verdict of HONORED with an empty class_surfaces will be treated as LINE-ONLY.`
+- \`class_surfaces\` is not optional prose, and it is enumerated FROM THE FINDING, NEVER FROM THE DIFF. The diff shows only where someone already looked, so reading the class off it cannot detect the failure this instrument exists to detect. Start from the finding's own words — the family it names, the sibling docstring, the convention it says appears elsewhere — list each surface as \`file:line\`, and say for each whether the diff swept it. An empty or hand-waving answer is DEMOTED TO LINE-ONLY MECHANICALLY, after you return, so there is nothing to be gained by leaving it thin.`
 
 phase('Verify fixes')
 const results = []
@@ -101,7 +101,19 @@ Return the structured object with hat="${key}".`
   const r = await agent(prompt, { label: `verify-fixes:${key}`, phase: 'Verify fixes', schema: SCHEMA,
                                   agentType: 'general-purpose', ...(economized ? { model: 'sonnet' } : {}) })
   results.push(r)
+  // Demote by RULE, not by the grader's judgement. The whole failure mode is a fixer (and then a
+  // grader) producing a plausible account of a sweep that never happened, so HONORED has to be EARNED
+  // by an enumerated class — at least one concrete file:line surface. Leaving this to the prompt would
+  // leave it to the same agent whose laziness it exists to catch. Ported back from IT 2026-08-27.
   const v = (r && r.verdicts) || []
+  for (const x of v) {
+    if (x.verdict !== 'HONORED') continue
+    const cs = (x.class_surfaces || '').trim()
+    if (cs.length < 12 || !/[^\s]:\d+/.test(cs)) {
+      x.verdict = 'LINE-ONLY'
+      x.evidence = `[DEMOTED: HONORED claimed with no enumerated class surface] ${x.evidence || ''}`
+    }
+  }
   const honored = v.filter(x => x.verdict === 'HONORED').length
   log(`[${nn}/${HATS.length}] ${key}: ${v.length} graded, ${honored} HONORED${r && r.pile_file_read === false ? ' (no findings file)' : ''}`)
 }

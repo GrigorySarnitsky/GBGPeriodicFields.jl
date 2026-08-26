@@ -862,7 +862,9 @@ already refuses coverage that rests only on the package's own other paths.
 **Self-reported closure is not closure.** A `/check-consistency` fix pass ends by running both
 verifiers, which are given deliberately opposite information: `verify-fixes.js` audits an **act** and
 **sees the diff** (`HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`,
-with `HONORED` the only pass), while `verify.js` audits a **state** and is **blind to it**. IT measured
+with `HONORED` the only pass, earned by an enumerated `file:line` class list read **from the finding,
+never from the diff**, and a thin answer demoted **mechanically by the script** rather than by the
+grader), while `verify.js` audits a **state** and is **blind to it**. IT measured
 the unverified configuration and found **eleven of thirteen** deficiencies in one round were
 `LINE-ONLY` — the flagged site fixed, the class still alive on surfaces the finding itself had named,
 with the "fix the class" rule written down, known and quoted throughout. Stating the rule does not

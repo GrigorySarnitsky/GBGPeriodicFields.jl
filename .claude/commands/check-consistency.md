@@ -172,7 +172,14 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   verifiers in `check-consistency/`:
   - `verify-fixes.js` audits an **act** and **sees the diff**, grading every banked finding
     `HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`. `HONORED` is the
-    only passing verdict, and a verdict without a `class_surfaces` answer is treated as `LINE-ONLY`.
+    only passing verdict, and it must be **earned by an enumerated class**: the grader lists the other
+    surfaces as `file:line` and says whether the diff swept each. Two details carry the weight, both
+    from IT's second round. The list is enumerated **from the finding's own text, never from the
+    diff** — the diff shows only where someone already looked, so reading the class off it cannot
+    detect the very failure the check exists for. And the demotion of a thin answer to `LINE-ONLY` is
+    applied **mechanically by the script after the lane returns**, not asked for in the prompt:
+    leaving it to the prompt would leave it to the same agent whose plausible-sounding account is the
+    thing being checked.
   - `verify.js` audits a **state** and is **blind to the diff**, re-reading the regenerated manuscript
     and asking only whether each defect is present now.
 
