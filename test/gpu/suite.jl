@@ -265,24 +265,39 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       device_v2 = on_device_pv(host_v2)
       motion_grid = Grid3D((8, 12, 16), (T(2π), T(4π), T(6π)))   # anisotropic box
 
-      # Cover displacement: elementwise, same formula both backends — exact agreement.
+      # Displacement is arithmetic, so the backends are compared with a tolerance rather than
+      # bitwise: a device compiler contracts `x + c*v` into a fused multiply-add (one rounding)
+      # where the CPU multiplies then adds (two), so the two differ in the last bit. Measured on
+      # CUDA, the device result equals the host's `muladd` form exactly. Bitwise agreement is
+      # required of the CPU across thread counts, never across backends.
       host_points = PointSet(copy(host_start))
       device_points = on_device_ps(PointSet(copy(host_start)))
       displace!(host_points, (T(0.3), host_v1), (T(-0.7), host_v2))
       displace!(device_points, (T(0.3), device_v1), (T(-0.7), device_v2))
-      @test Array(point_coordinates(device_points)) == point_coordinates(host_points)
+      @test isapprox(Array(point_coordinates(device_points)), point_coordinates(host_points);
+                     rtol = rtol, atol = atol)
+
+      # A wrapped coordinate lives on a circle, so the torus form compares the difference
+      # modulo the box: a last-bit disagreement arriving at the wrap could otherwise place the
+      # backends on opposite sides of a boundary and read as a whole box length.
+      box = reshape(collect(motion_grid.domain_size), 1, 3)
+      wrapped_matches(device_set, host_set) =
+        all(abs.(mod.(Array(point_coordinates(device_set)) .- point_coordinates(host_set) .+ box ./ 2,
+                      box) .- box ./ 2) .<= atol .+ rtol .* box)
 
       # Torus displacement (the wrap fused in) and the standalone wrap.
       host_points = PointSet(copy(host_start))
       device_points = on_device_ps(PointSet(copy(host_start)))
       displace!(host_points, motion_grid, (T(2.5), host_v1))
       displace!(device_points, motion_grid, (T(2.5), device_v1))
-      @test Array(point_coordinates(device_points)) == point_coordinates(host_points)
+      @test wrapped_matches(device_points, host_points)
 
       host_far = PointSet(host_start .+ T(5) .* reshape([T(2π), T(4π), T(6π)], 1, 3))
       device_far = on_device_ps(PointSet(copy(point_coordinates(host_far))))
       wrap!(host_far, motion_grid)
       wrap!(device_far, motion_grid)
+      # `wrap!` alone stays bitwise: both sides start from identical host coordinates and the
+      # reduction is `mod` plus an equality fold, with no multiply-add for a device to contract.
       @test Array(point_coordinates(device_far)) == point_coordinates(host_far)
 
       # The destination/source form, destination on the device.
@@ -292,7 +307,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       device_src = on_device_ps(PointSet(copy(host_start)))
       displace!(host_dest, host_src, (T(1.5), host_v1))
       displace!(device_dest, device_src, (T(1.5), device_v1))
-      @test Array(point_coordinates(device_dest)) == point_coordinates(host_dest)
+      @test isapprox(Array(point_coordinates(device_dest)), point_coordinates(host_dest);
+                     rtol = rtol, atol = atol)
 
       # A device point set refuses host sections and a mixed point-set pair — the package's own
       # ArgumentError, not a launch-layer failure (invariant 14).
