@@ -185,6 +185,60 @@ const layout = RealFourierLayout()
 end
 
 
+@testset "transform plans carry no tensor order (decision 76) ($TP)" for TP in (Float64, Float32)
+  layout = RealFourierLayout()
+  # Every parity class, including the all-odd grids whose component offsets are the awkward ones.
+  @testset "round trip at every rank, grid $(dims)" for dims in ((8, 8, 8), (8, 7, 6), (7, 5, 3), (9, 9, 9))
+    grid = Grid3D(dims, (TP(2π), TP(2π), TP(2π)))
+    for (physical_type, spectral_type) in ((ScalarFieldPhysical, ScalarFieldSpectral),
+                                           (VectorFieldPhysical, VectorFieldSpectral),
+                                           (TensorFieldPhysical, TensorFieldSpectral))
+      physical = physical_type(Array, grid, layout)
+      spectral = spectral_type(Array, grid, layout)
+      copyto!(field_data(physical), rand(TP, size(field_data(physical))))
+      original = copy(field_data(physical))
+      plans = FieldTransformPlans(physical, spectral)
+      to_spectral!(spectral, physical, plans)
+      to_physical!(physical, spectral, plans)
+      @test isapprox(field_data(physical), original; rtol = TP === Float32 ? 1.0f-4 : 1e-12)
+    end
+  end
+
+  # The property the decision rests on: a plan pair is a property of the BASE, so one built from a
+  # scalar field transforms a vector and a tensor field. Under the old per-rank plans this call was
+  # not merely slower — it did not exist, because the plan's tensor order was part of its type.
+  grid = Grid3D((8, 7, 6), (TP(2π), TP(2π), TP(2π)))
+  scalar_plans = FieldTransformPlans(ScalarFieldPhysical(Array, grid, layout),
+                                     ScalarFieldSpectral(Array, grid, layout))
+  for (physical_type, spectral_type) in ((VectorFieldPhysical, VectorFieldSpectral),
+                                         (TensorFieldPhysical, TensorFieldSpectral))
+    physical = physical_type(Array, grid, layout)
+    spectral = spectral_type(Array, grid, layout)
+    copyto!(field_data(physical), rand(TP, size(field_data(physical))))
+    original = copy(field_data(physical))
+    to_spectral!(spectral, physical, scalar_plans)
+    to_physical!(physical, spectral, scalar_plans)
+    @test isapprox(field_data(physical), original; rtol = TP === Float32 ? 1.0f-4 : 1e-12)
+  end
+
+  # A host grid never needs the staging buffer: misalignment is answered by the planner flag.
+  @test FieldTransformPlans(ScalarFieldPhysical(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))), layout),
+                            ScalarFieldSpectral(Array, Grid3D((7, 5, 3), (TP(2π), TP(2π), TP(2π))), layout)
+                            ).component_scratch === nothing
+
+  # The alignment predicate is a fact about the base, not a guess: all-odd grids are exactly the ones
+  # a device backend refuses, and every all-even grid is accepted by both.
+  for dims in ((7, 5, 3), (9, 9, 9))
+    @test !last(GBGPeriodicFields.Fields._component_offsets_align(
+      Grid3D(dims, (TP(2π), TP(2π), TP(2π))), layout, TP))
+  end
+  for dims in ((8, 8, 8), (8, 12, 16), (64, 64, 64))
+    @test all(GBGPeriodicFields.Fields._component_offsets_align(
+      Grid3D(dims, (TP(2π), TP(2π), TP(2π))), layout, TP))
+  end
+end
+
+
 @testset "permuted rfft layout: transforms and both multiplier families ($TP)" for TP in (Float64, Float32)
   grid_p = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))        # mixed parity + anisotropic lengths
   for dims in ((2, 1, 3), (3, 2, 1))                          # odd fold (N=7), then even fold (N=6)

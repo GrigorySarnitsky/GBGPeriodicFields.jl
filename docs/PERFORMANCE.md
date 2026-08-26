@@ -1429,6 +1429,34 @@ class is a numerics-changing sweep of every in-place operator, invalidating pass
 baselines, in exchange for a bound. The comparison moved to a tolerance instead, which is what
 `TESTING.md` already prescribed across backends.
 
+**(aa) Rank-free transform plans: neutral on a device, a large win on the CPU — and the win is the
+planner's, not the plan shape's** (2026-08-26, decision 76). The `fft` class was measured on three
+lanes before the change and again after, in the same session on an idle host, so this is a
+before/after rather than a comparison against an archive.
+
+- **CUDA: flat.** Median ``1.000`` over 48 rows, worst cell ``1.014``, scalar and vector alike. The
+  device gives back its per-rank plan arrays and asks nothing for them.
+- **CPU scalar rows: flat, and this is the control.** Median ``1.000`` at ``t1`` and ``0.999`` at
+  ``t8`` over 32 rows each. A rank-0 field is one component either way, so any movement here would
+  have been the harness rather than the change — there is none.
+- **CPU vector rows under `ESTIMATE`, which is what the package plans with by default: median
+  ``0.621`` at ``t1`` and ``0.651`` at ``t8``, best cell ``0.146``.** A 1.5-fold median speedup, and
+  nearly sevenfold in the best case.
+- **CPU vector rows under `MEASURE`: median ``0.974`` and ``0.973``.** Neutral.
+
+The last two rows together say what the win actually is. **The plan shape is neutral** — given a
+properly planned transform, three single-component passes cost what one batched pass costs. What
+changed is that **`ESTIMATE` plans a three-dimensional transform far better than it plans a
+four-dimensional batched one**, and the package ships `ESTIMATE`. So the speedup is real and reaches
+every consumer that does not pass its own planner flags, but it is a planner-quality effect and would
+mostly vanish for a consumer already planning with `MEASURE`.
+
+That also sharpens finding (h). Under `ESTIMATE` a ``256^3`` `Float32` forward transform measured
+**513 ms** against `Float64`'s **496 ms** — single precision should be about twice as fast, not
+equal — where under `MEASURE` the same cells read **108 ms** and **180 ms**. The default planner
+effort is leaving a factor of ``4.7`` on the floor at that size, which is worth more than this
+decision was, and is not addressed by it.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

@@ -3961,3 +3961,68 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       **completeness guard** walking every concrete `AbstractTransferScheme` subtype and requiring it
       to round-trip or be a recorded refusal — verified by perturbation (dropping one scheme fails
       it), so a future scheme family cannot ship silently unpersistable.
+
+76. **The transform plans carry no tensor order** (2026-08-26, prompted by a residency request from
+    the consuming solver `GBGIsotropicTurbulence` ("IT")). `FieldTransformPlans` was parameterized on
+    the tensor order ``R``, and built one plan pair per rank: a scalar field, a vector field and a
+    second-order tensor field each needed their own. That was never a recorded decision — it was the
+    shape the original construction happened to take — and it is a **category error** in the terms
+    §2 already sets out. A real Fourier transform on a periodic box is defined **on the box**; a
+    rank-``R`` field is that transform applied along a fiber. The transform is therefore horizontal,
+    a property of the base, and ``R`` is vertical, a property of the fiber. Encoding the second
+    inside the first is the same defect the documentation rules name elsewhere as "a vector space
+    equated with an integer".
+
+    **What it cost, in a currency the package does not itself pay.** On a GPU backend the wrapper
+    behind `plan_rfft` allocates a device array per plan, sized to the coefficients that plan
+    transforms. Per-rank plans therefore multiply that array by the rank: IT measured 516 MiB of plan
+    residency against 1158 MiB of working arrays at ``256^3`` in single precision, with a further
+    1161 MiB once a nine-component diagnostic is enabled. The package holds no plans of its own, so
+    the saving accrues entirely to consumers — but the **arrangement** that causes it is the
+    package's, and so is the fix.
+
+    **One pair now serves every rank.** The plans are built for a single component (the tensor-order
+    zero shapes), and each transform applies them once per component over contiguous component views,
+    which the fiber-last layout of invariant 3 makes possible: a component of a rank-``R`` field is a
+    contiguous block, exposed by one reshape. `FieldTransformPlans{T, PF, PI, G, L, S}` no longer
+    names ``R``, the transform generics no longer match on it, and the compatibility check was
+    already rank-free — it compares grid and layout, which is exactly what a base-level object should
+    match on (decision 56's context protocol).
+
+    **The measured cost is nil or negative, which is why this could be taken at all.** Holding
+    planner effort fixed — and that qualifier is load-bearing, see finding (z) and below — a
+    single-component plan runs at ``0.98``–``1.04`` of the batched plan at one thread and
+    ``0.72``–``1.13`` at eight, i.e. free at ``t1`` and a **10–28% win at ``256^3`` on eight
+    threads**, which is the regime decision 37 names as the CPU tuning target. IT reports the same
+    direction on its own harness.
+
+    **The obstacle, and why it does not become a restriction.** A component of a rank-``R`` field
+    begins at element offset ``(c-1) \prod N_a``, and a transform library may refuse a pointer whose
+    alignment differs from the one it planned for. The two backends ask different questions, so the
+    package answers them differently and `_component_offsets_align` reports both. `FFTW` records an
+    alignment *class* for the real and the complex array alike; the answer there is to plan with
+    `FFTW.UNALIGNED`, which costs no memory and, measured, 2–65% of throughput — paid only by grids
+    that need it, and no production grid does. `cuFFT` needs only the real pointer aligned to its
+    complex element, which reduces to the real component stride being even, i.e. to the grid **not
+    being odd on all three axes**; a device has no `UNALIGNED` flag, so such a grid transforms
+    through a component-sized buffer instead. Both answers are chosen once, at construction, from the
+    grid alone. **No grid is refused**, which was the alternative considered and declined: every
+    other absence in the package encodes mathematics (invariant 1), whereas "no grid with three odd
+    axes" would have encoded a pointer-alignment rule, and the ``\mathrm{odd}`` axes are what
+    invariant 5's even/odd Nyquist split is tested against.
+
+    **A measurement trap that nearly reversed the conclusion, recorded because it is cheap to repeat.**
+    `FFTW_MEASURE` is `0`, so passing `flags = FFTW.UNALIGNED` **replaces** the default rather than
+    adding to it and silently selects `MEASURE`. A first pass read `UNALIGNED` as up to ``4.3\times``
+    *faster*; it was comparing planner efforts, not plan shapes. The constructor therefore composes
+    the flag onto the caller's request (`requested | FFTW.UNALIGNED`) rather than replacing it. A
+    second pass had one plan of six left on `ESTIMATE` by an incomplete edit, which read as a
+    ``4.6\times`` penalty for the very variant under test. Vary one thing at a time; this is the
+    third and fourth instance the performance notes record.
+
+    **A finding that fell out of it and is worth more than this decision.** Under `ESTIMATE`, which
+    is what the package plans with by default, a ``256^3`` `Float32` forward transform measures
+    **513 ms** against `Float64`'s **496 ms** — single precision should be roughly twice as fast, not
+    equal. Under `MEASURE` the same two cells read **108 ms** and **180 ms**. That is a factor of
+    ``4.7`` left on the floor by the default planner effort, it is independent of everything above,
+    and it belongs to `PERFORMANCE.md` finding (h)'s territory rather than to this entry.

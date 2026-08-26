@@ -75,6 +75,37 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
 
   @testset "T = $T" begin
 
+    @testset "rank-free transform plans, and the staged odd grid (decision 76)" begin
+      # The suite's own grid is (8, 7, 6) — an even product, so it takes the direct path and never
+      # reaches the staging branch. An all-odd grid is the only thing that does: a device backend
+      # refuses a component whose start is not aligned to its complex element, so those grids
+      # transform through a component buffer. Both paths must give the same answer.
+      for dims in ((8, 7, 6), (7, 5, 3))
+        odd_grid = Grid3D(dims, (T(2π), T(2π), T(2π)))
+        device_physical = VectorFieldPhysical(device_array_type(), odd_grid, layout)
+        device_spectral = VectorFieldSpectral(device_array_type(), odd_grid, layout)
+        sample = rand(T, size(field_data(device_physical)))
+        copyto!(field_data(device_physical), sample)
+        plans = FieldTransformPlans(device_physical, device_spectral)
+        # The buffer exists exactly when the offsets do not align, and not otherwise.
+        @test (plans.component_scratch === nothing) == iseven(prod(dims))
+        to_spectral!(device_spectral, device_physical, plans)
+        to_physical!(device_physical, device_spectral, plans)
+        @test isapprox(Array(field_data(device_physical)), sample; rtol = rtol, atol = atol)
+      end
+
+      # One plan pair serves every rank: built from a scalar field, applied to a vector one.
+      scalar_plans = FieldTransformPlans(ScalarFieldPhysical(device_array_type(), grid, layout),
+                                         ScalarFieldSpectral(device_array_type(), grid, layout))
+      vector_physical = VectorFieldPhysical(device_array_type(), grid, layout)
+      vector_spectral = VectorFieldSpectral(device_array_type(), grid, layout)
+      vector_sample = rand(T, size(field_data(vector_physical)))
+      copyto!(field_data(vector_physical), vector_sample)
+      to_spectral!(vector_spectral, vector_physical, scalar_plans)
+      to_physical!(vector_physical, vector_spectral, scalar_plans)
+      @test isapprox(Array(field_data(vector_physical)), vector_sample; rtol = rtol, atol = atol)
+    end
+
     @testset "FFT round-trip (scalar / vector / tensor)" begin
       for host in (
           ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y) + 0.3, grid),

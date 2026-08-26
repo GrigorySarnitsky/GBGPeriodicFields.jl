@@ -1276,19 +1276,33 @@ Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; t
 The fields are
 - `grid::G` — the [`Grid3D`](@ref) for which the plans were constructed.
 - `fourier_layout::L` — the [`RealFourierLayout`](@ref) for which the plans were constructed.
-- `plan_forward_fft::PF` — the plan transforming physical values to spectral coefficients.
-- `plan_inverse_fft::PI` — the plan transforming spectral coefficients to physical values.
+- `plan_forward_fft::PF` — the plan transforming physical values to spectral coefficients, for **one
+  component**.
+- `plan_inverse_fft::PI` — the plan transforming spectral coefficients to physical values, for one
+  component.
 - `fft_flags::Union{Nothing, UInt32}` — the planner flag these plans were built with, or `nothing` for
   the default. It is retained rather than merely used, so that rebuilding these plans in another
   storage family can replay the intent they were created with — see [`adapt`](@ref).
 - `fft_timelimit::Float64` — the planner time limit paired with `fft_flags`, retained for the same
   reason.
+- `component_scratch::S` — a component-sized buffer, or `nothing`. It exists only where a device
+  backend would refuse a component's starting address, and is `nothing` for every grid whose
+  component offsets align — which includes every grid a solver is likely to run.
 
-The plans are backend-, array-type-, scalar-type-, and tensor-order-specific; construct a separate `FieldTransformPlans` object for each CPU/GPU backend and field tensor order.
+The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
+Fourier transform on a periodic box is defined on the box, and a rank-``R`` field is that transform
+applied along a fiber, so one pair of plans serves scalar, vector and tensor fields alike. Construct a
+separate `FieldTransformPlans` object for each CPU/GPU backend and element type, but not for each
+tensor order.
 """
-struct FieldTransformPlans{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFourierLayout}
+struct FieldTransformPlans{T<:AbstractFloat, PF, PI, G<:Grid3D{T}, L<:RealFourierLayout, S}
   grid::G
   fourier_layout::L
+  # The plans transform ONE component. A real Fourier transform on a periodic box is defined on the
+  # box, and a rank-R field is that transform applied along a fiber, so the plan is a property of the
+  # base and carries no tensor order: one pair serves every rank. Six type parameters, and any site
+  # matching them POSITIONALLY must be updated together with this line (decision 76; decision 70 is
+  # the precedent for that hazard).
   plan_forward_fft::PF
   plan_inverse_fft::PI
   # The planner request is retained so that moving these plans to another storage family can rebuild
@@ -1299,6 +1313,35 @@ struct FieldTransformPlans{T<:AbstractFloat, R, PF, PI, G<:Grid3D{T}, L<:RealFou
   # a transform, so they must not participate in dispatch.
   fft_flags::Union{Nothing, UInt32}
   fft_timelimit::Float64
+  # A component of a rank-R field begins at element offset `(c-1)*prod(grid_size)`, and a transform
+  # library may refuse a pointer whose alignment differs from the one it planned for. On the host
+  # that is answered by planning with `FFTW.UNALIGNED` and costs no memory; a device backend has no
+  # such flag, so a misaligned grid there transforms through this component-sized buffer instead.
+  # It is `nothing` — and free — whenever the offsets align, which every production grid does.
+  component_scratch::S
+end
+
+
+"""
+    _component_offsets_align(grid, layout, ::Type{T}) -> (host_aligned, device_aligned)
+
+Report whether the component views of a rank-`R > 0` field begin at offsets a transform library will
+accept, given a plan built for one component. Component `c` starts `(c-1)` whole components into the
+storage, so the question is entirely a property of the base and the element type.
+
+The two answers differ because the two backends ask different questions. A **host** (`FFTW`) plan
+records the alignment *class* of the pointer it was planned for and refuses a different one, for the
+real and the complex array alike; requiring each component stride to be a multiple of 64 bytes is
+conservative — it preserves whatever class the base pointer has — and every production grid satisfies
+it. A **device** (`cuFFT`) plan needs only the real pointer aligned to its complex element, which
+reduces to the real component stride being even, i.e. to the grid not being odd on all three axes.
+"""
+function _component_offsets_align(grid::Grid3D, layout::RealFourierLayout, ::Type{T}) where {T<:AbstractFloat}
+  physical_stride = prod(physical_field_shape(grid, Val(0)))
+  spectral_stride = prod(spectral_field_shape(grid, layout, Val(0)))
+  host = (physical_stride * sizeof(T)) % 64 == 0 && (spectral_stride * sizeof(Complex{T})) % 64 == 0
+  device = iseven(physical_stride)
+  return (host, device)
 end
 
 
@@ -1306,19 +1349,81 @@ function FieldTransformPlans(physical::AbstractFieldPhysical{T, R}, spectral::Ab
   field_grid(physical)   == field_grid(spectral)   || throw(ArgumentError("field grids must be equal"))
   field_layout(physical) == field_layout(spectral) || throw(ArgumentError("field Fourier layouts must be equal"))
 
-  fft_dims = field_layout(physical).fft_dims
+  grid, layout = field_grid(physical), field_layout(physical)
+  fft_dims = layout.fft_dims
 
-  plan_forward_fft =
-    isnothing(fft_flags) ? plan_rfft(field_data(physical), fft_dims) :
-    plan_rfft(field_data(physical), fft_dims; flags = fft_flags, timelimit = fft_timelimit)
+  # One component, not one field: the prototypes carry the base shape at tensor order zero, so the
+  # resulting plans serve a scalar, a vector and a tensor field alike.
+  physical_prototype = similar(field_data(physical), T, physical_field_shape(grid, Val(0)))
+  spectral_prototype = similar(field_data(spectral), Complex{T}, spectral_field_shape(grid, layout, Val(0)))
 
-  plan_inverse_fft =
-    isnothing(fft_flags) ? plan_irfft(field_data(spectral), field_grid(physical).grid_size[fft_dims[1]], fft_dims) :
-    plan_irfft(field_data(spectral), field_grid(physical).grid_size[fft_dims[1]], fft_dims; flags = fft_flags, timelimit = fft_timelimit)
+  host_aligned, device_aligned = _component_offsets_align(grid, layout, T)
+  on_host = physical_prototype isa Array
+  # Planner flags are an `FFTW` concept and a device backend rejects them, so the misalignment answer
+  # is the flag on the host and the buffer on a device. Requesting `UNALIGNED` keeps the caller's own
+  # planner effort: dropping the `ESTIMATE` bit would silently select `MEASURE`, which is zero.
+  requested = isnothing(fft_flags) ? FFTW.ESTIMATE : UInt32(fft_flags)
+  effective_flags = (on_host && !host_aligned) ? (requested | FFTW.UNALIGNED) : requested
 
-  return FieldTransformPlans{T, R, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(field_grid(physical)), typeof(field_layout(physical))}(
-    field_grid(physical), field_layout(physical), plan_forward_fft, plan_inverse_fft,
-    isnothing(fft_flags) ? nothing : UInt32(fft_flags), Float64(fft_timelimit))
+  plan_forward_fft, plan_inverse_fft = if on_host
+    (plan_rfft(physical_prototype, fft_dims; flags = effective_flags, timelimit = fft_timelimit),
+     plan_irfft(spectral_prototype, grid.grid_size[fft_dims[1]], fft_dims; flags = effective_flags, timelimit = fft_timelimit))
+  else
+    (plan_rfft(physical_prototype, fft_dims),
+     plan_irfft(spectral_prototype, grid.grid_size[fft_dims[1]], fft_dims))
+  end
+
+  component_scratch = (!on_host && !device_aligned) ? similar(physical_prototype) : nothing
+
+  return FieldTransformPlans{T, typeof(plan_forward_fft), typeof(plan_inverse_fft), typeof(grid), typeof(layout), typeof(component_scratch)}(
+    grid, layout, plan_forward_fft, plan_inverse_fft,
+    isnothing(fft_flags) ? nothing : UInt32(fft_flags), Float64(fft_timelimit), component_scratch)
+end
+
+
+"""
+    _component_views(data, ::Val{R})
+
+View one section's storage as its base with the fiber flattened to a trailing component axis, so a
+rank-agnostic plan can be applied one component at a time. The fiber-last layout of invariant 3 makes
+each component contiguous, which is what lets a single reshape expose them; a scalar field
+(`R = 0`) comes back with one component and is transformed by the same loop as any other.
+"""
+@inline _component_views(data::AbstractArray, ::Val{R}) where {R} =
+  reshape(data, size(data, 1), size(data, 2), size(data, 3), 3^R)
+
+
+# The forward transform reads the REAL component, so a device grid needing staging copies the source
+# in; the inverse writes the real component, so it transforms into the buffer and copies out.
+@inline function _forward_components!(spectral_data, plan, physical_data, ::Val{R}, scratch) where {R}
+  source, destination = _component_views(physical_data, Val(R)), _component_views(spectral_data, Val(R))
+  for component in 1:3^R
+    source_view = view(source, :, :, :, component)
+    destination_view = view(destination, :, :, :, component)
+    if scratch === nothing
+      mul!(destination_view, plan, source_view)
+    else
+      copyto!(scratch, source_view)
+      mul!(destination_view, plan, scratch)
+    end
+  end
+  return spectral_data
+end
+
+
+@inline function _inverse_components!(physical_data, plan, spectral_data, ::Val{R}, scratch) where {R}
+  source, destination = _component_views(spectral_data, Val(R)), _component_views(physical_data, Val(R))
+  for component in 1:3^R
+    source_view = view(source, :, :, :, component)
+    destination_view = view(destination, :, :, :, component)
+    if scratch === nothing
+      mul!(destination_view, plan, source_view)
+    else
+      mul!(scratch, plan, source_view)
+      copyto!(destination_view, scratch)
+    end
+  end
+  return physical_data
 end
 
 
@@ -1326,12 +1431,12 @@ end
     to_physical!(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R},
-      transform_plans::FieldTransformPlans{T, R},
+      transform_plans::FieldTransformPlans{T},
     ) where {T<:AbstractFloat, R}
     to_physical!(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R},
-      transform_plans::FieldTransformPlans{T, R},
+      transform_plans::FieldTransformPlans{T},
       spectral_scratch::AbstractFieldSpectral{T, R},
     ) where {T<:AbstractFloat, R}
 
@@ -1364,17 +1469,18 @@ The arguments are:
     input is `spectral` itself — use the four-argument form, or the allocating
     `to_physical`, when `spectral` must be preserved.
 """
-function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   _check_field_matches_context(physical, transform_plans)
   _check_field_matches_context(spectral, transform_plans)
 
-  mul!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral))
+  _inverse_components!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral),
+                       Val(R), transform_plans.component_scratch)
 
   return physical
 end
 
 
-function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}, spectral_scratch::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
+function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T}, spectral_scratch::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
   _check_field_matches_context(physical, transform_plans)
   _check_field_matches_context(spectral, transform_plans)
   _check_field_matches_context(spectral_scratch, transform_plans)
@@ -1389,7 +1495,8 @@ function to_physical!(physical::AbstractFieldPhysical{T, R}, spectral::AbstractF
   # A plain `copyto!` over the storage, deliberately: the cost of preservation is exactly one extra
   # read+write of the coefficients, and nothing else.
   copyto!(field_data(spectral_scratch), field_data(spectral))
-  mul!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral_scratch))
+  _inverse_components!(field_data(physical), transform_plans.plan_inverse_fft, field_data(spectral_scratch),
+                       Val(R), transform_plans.component_scratch)
 
   return physical
 end
@@ -1399,7 +1506,7 @@ end
     to_spectral!(
       spectral::AbstractFieldSpectral{T, R},
       physical::AbstractFieldPhysical{T, R},
-      transform_plans::FieldTransformPlans{T, R},
+      transform_plans::FieldTransformPlans{T},
     ) where {T<:AbstractFloat, R}
 
 Transform a field from physical space to spectral space in place, returning the modified
@@ -1421,11 +1528,12 @@ it: the mean is the zero coefficient over ``N``, adding a constant scales only t
     rely on the source surviving. Use the allocating [`to_spectral`](@ref) when `physical` must be
     preserved.
 """
-function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+function to_spectral!(spectral::AbstractFieldSpectral{T, R}, physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   _check_field_matches_context(spectral, transform_plans)
   _check_field_matches_context(physical, transform_plans)
 
-  mul!(field_data(spectral), transform_plans.plan_forward_fft, field_data(physical))
+  _forward_components!(field_data(spectral), transform_plans.plan_forward_fft, field_data(physical),
+                       Val(R), transform_plans.component_scratch)
 
   return spectral
 end
@@ -1434,7 +1542,7 @@ end
 """
     to_physical(
       spectral::AbstractFieldSpectral{T, R},
-      transform_plans::FieldTransformPlans{T, R},
+      transform_plans::FieldTransformPlans{T},
     ) where {T<:AbstractFloat, R}
 
 Allocating form of [`to_physical!`](@ref): allocate the result and return it. A field in spectral
@@ -1447,7 +1555,7 @@ that form. A loop that must not allocate gets the same preservation from the fou
 `to_physical!` with a caller-supplied scratch field instead. Here `spectral` is the source and
 `transform_plans` provides the inverse FFT plan.
 """
-function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
   physical = similar_physical_field(spectral, values_at_grid)
   # The inverse transform may overwrite its input (see to_physical!); copy the
@@ -1460,7 +1568,7 @@ end
 """
     to_spectral(
       physical::AbstractFieldPhysical{T, R},
-      transform_plans::FieldTransformPlans{T, R},
+      transform_plans::FieldTransformPlans{T},
     ) where {T<:AbstractFloat, R}
 
 Allocating form of [`to_spectral!`](@ref): allocate the result and return it. A field in physical
@@ -1470,7 +1578,7 @@ Unlike the in-place form this one **preserves `physical`** — it transforms a c
 to reach for it: the forward transform may consume its input as scratch on some backends, so a caller
 that still needs the values must not rely on the in-place form. Here `physical` is the source and `transform_plans` provides the forward FFT plan.
 """
-function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
   spectral = similar_spectral_field(physical, fourier_coefficients)
   # The forward transform may overwrite its input on some backends (see to_spectral!);
@@ -2250,27 +2358,28 @@ adapt_structure(to, multipliers::FieldSpectralMultipliers{T, K1, K2, K3, S1, S2,
                            adapt(to, multipliers.squared_wavenumber_3))
 
 
-function adapt_structure(to, plans::FieldTransformPlans{T, R}) where {T<:AbstractFloat, R}
+function adapt_structure(to, plans::FieldTransformPlans{T}) where {T<:AbstractFloat}
   grid, layout = plans.grid, plans.fourier_layout
   physical_prototype = _storage_prototype(to, T)
   spectral_prototype = _storage_prototype(to, Complex{T})
-  physical_witness = similar(physical_prototype, T, physical_field_shape(grid, Val(R)))
-  spectral_witness = similar(spectral_prototype, Complex{T}, spectral_field_shape(grid, layout, Val(R)))
+  # Order-0 witnesses suffice: the plans are a property of the base and carry no tensor order.
+  physical_witness = similar(physical_prototype, T, physical_field_shape(grid, Val(0)))
+  spectral_witness = similar(spectral_prototype, Complex{T}, spectral_field_shape(grid, layout, Val(0)))
   # Planner flags are an FFTW concept: `cuFFT` rejects them with an unrelated-looking pointer error,
   # so they are replayed only onto a host target. They stay stored either way, so moving back to the
   # host restores the intent the plans were built with.
   replayed_flags = physical_witness isa Array ? plans.fft_flags : nothing
-  rebuilt = FieldTransformPlans(_physical_field_of_order(physical_witness, grid, layout, Val(R)),
-                                _spectral_field_of_order(spectral_witness, grid, layout, Val(R));
+  rebuilt = FieldTransformPlans(_physical_field_of_order(physical_witness, grid, layout, Val(0)),
+                                _spectral_field_of_order(spectral_witness, grid, layout, Val(0));
                                 fft_flags = replayed_flags, fft_timelimit = plans.fft_timelimit)
   # Re-stamp the ORIGINAL request rather than the one just replayed. The outer constructor records
   # what it planned with, which on a device target is `nothing`; storing that would discard the
   # caller's intent permanently, and a later move back to the host would silently plan with
   # `ESTIMATE`. The plan objects are taken from `rebuilt` unchanged.
-  return FieldTransformPlans{T, R, typeof(rebuilt.plan_forward_fft), typeof(rebuilt.plan_inverse_fft),
-                             typeof(grid), typeof(layout)}(
+  return FieldTransformPlans{T, typeof(rebuilt.plan_forward_fft), typeof(rebuilt.plan_inverse_fft),
+                             typeof(grid), typeof(layout), typeof(rebuilt.component_scratch)}(
     grid, layout, rebuilt.plan_forward_fft, rebuilt.plan_inverse_fft,
-    plans.fft_flags, plans.fft_timelimit)
+    plans.fft_flags, plans.fft_timelimit, rebuilt.component_scratch)
 end
 
 

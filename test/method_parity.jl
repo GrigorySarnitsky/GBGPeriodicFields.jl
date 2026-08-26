@@ -102,7 +102,14 @@ const MODULE_BASELINE = (
   # constructors — `_allocated_field_storage` and `_check_family_element_type`. The sixteen
   # constructor methods themselves are Type methods, which this per-function count does not see;
   # they are covered by the constructor testset and the ambiguity check instead.
-  Fields                = 122,
+  # 122 → 126: the transform plans stopped carrying a tensor order (decision 76). The four are
+  # `_component_offsets_align` (does a component view begin where a transform library will accept
+  # it), `_component_views` (the fiber flattened to a trailing axis, which the fiber-last layout of
+  # invariant 3 makes contiguous), and the two per-component passes `_forward_components!` /
+  # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
+  # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
+  # deliberately, with the reason, per decision 53's protocol.
+  Fields                = 126,
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
