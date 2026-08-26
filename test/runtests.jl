@@ -34,3 +34,15 @@ module MethodParityTests;          include("method_parity.jl");         end
 module AquaTests;                  include("aqua.jl");                  end
 module JETTests;                   include("jet.jl");                   end
 module HDF5Tests;                  include("hdf5.jl");                  end
+
+# Promoted witnesses from /bug-hunt (see test/regressions/README.md). Each began as a test written
+# before its fix and observed to FAIL on the tree that had the defect, and is included here unchanged
+# so the test that proves the fix is the one that proved the bug. The directory is empty until the
+# first confirmed finding; the loop is deliberately written to tolerate that rather than to require a
+# placeholder, because an empty regression suite is an honest state and a fake entry is not.
+for regression_file in sort(filter(name -> endswith(name, ".jl"),
+                                   readdir(joinpath(@__DIR__, "regressions"); join = false)))
+  @eval module $(Symbol("Regression_", replace(regression_file[1:end-3], '-' => '_')))
+    include(joinpath(@__DIR__, "regressions", $regression_file))
+  end
+end

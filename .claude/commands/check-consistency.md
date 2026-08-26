@@ -162,6 +162,28 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   **A severity in the summary never overrides the hat's own** — re-read the hat before downgrading
   anything. Report closure **per hat and per finding number** ("06: 20/20 closed"), so the count is
   auditable against the banked files rather than against the summary's clusters.
+- **Self-reported closure is not closure — MEASURE it (2026-08-27).** The rule above asks for closure
+  per hat and per finding number, and until now nothing checked whether the *class* had been swept.
+  That is the configuration `GBGIsotropicTurbulence` measured and found failing: in one round of its
+  own verifier, **eleven of thirteen deficiencies were LINE-ONLY** — the flagged site fixed, the class
+  still alive on surfaces the finding's own text had already named. The rule "a flagged instance is a
+  sample of a class" was written down, known, quoted, and broken anyway. The lesson is not to state it
+  more firmly. **Stating it does not work; measuring it does.** So a fix pass now ends by running both
+  verifiers in `check-consistency/`:
+  - `verify-fixes.js` audits an **act** and **sees the diff**, grading every banked finding
+    `HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`. `HONORED` is the
+    only passing verdict, and a verdict without a `class_surfaces` answer is treated as `LINE-ONLY`.
+  - `verify.js` audits a **state** and is **blind to the diff**, re-reading the regenerated manuscript
+    and asking only whether each defect is present now.
+
+  Their opposite information is the point, and the interesting cells are the **disagreements**:
+  `HONORED`-but-`PRESENT` is a fix that missed an occurrence, `UNDONE`-but-`ABSENT` is usually a
+  finding that was never a defect. Two further properties are load-bearing and must not be softened:
+  **both default to the unfavourable verdict**, so a truncated lane fails safe rather than certifying
+  clean; and **a zero count for a hat is a DEAD LANE, not a clean hat** — normalise to percentages and
+  check liveness, or a crashed lane reads as success. **Loop to a plateau, not to a good round:** IT's
+  honored rate ran 43 → 69 → 76 → 95 → 93 → 90%, and round 2 looked like progress while concealing the
+  eleven. Three rounds flat within noise, with no dead lanes, is closure.
 - **Bounded output per hat.** Each hat is capped at its ~25 most significant findings with tight quotes
   (the preamble enforces it): the banked file and the returned object mirror each other, so an unbounded
   dump doubles on output and overran the 64k output-token cap (it killed two hats on the 2026-07-23 run).

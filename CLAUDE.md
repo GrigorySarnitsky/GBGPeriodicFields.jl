@@ -835,12 +835,40 @@ away, never a fact the reader needs.
 **Consent gate (user-directed 2026-08-04) — unasked, run ONLY `Pkg.test()`.** Every other verification
 lane is expensive in wall-clock and in machine occupancy, and the decision to spend that is the user's:
 the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
-(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, and any
+(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, **`/bug-hunt`**, the two
+fix verifiers (`check-consistency/verify.js`, `verify-fixes.js`), and any
 multi-agent fan-out each require explicit consent **before** being started. The correct output when one
 of them would be informative is to *name it and its cost* — "the survey would confirm this, ~90 min,
 shall I run it?" — and wait. This is a consent boundary, not licence to leave work unfinished: finish
 the code, run `Pkg.test()`, and report what remains unverified and why. It also protects measurement,
 since a long unasked run occupies the box that `docs/PERFORMANCE.md` §1 requires to be idle.
+
+**Three instruments, and the third audits CODE (ported from IT 2026-08-27).** `/check-docs` is the
+deterministic battery over the source and `/check-consistency` the judgment panel over the rendered
+site — both audit **prose**, and neither asks whether the code is correct: a flawless docstring on a
+function returning the wrong number passes both. **`/bug-hunt`** (`.claude/commands/bug-hunt.md`) is
+the code instrument, and it has one rule — *a static claim about code is a hypothesis, and the only
+admissible evidence is a program that FAILS*. Every candidate reduces to a **witness**: a
+self-contained `@testset` asserting the correct behaviour, therefore observed to fail on the current
+tree. A passing witness means **not a bug**, discarded however good the argument; no witness writable
+means a latent hazard, reported and not fixed; a failing witness **is** the finding, and is promoted
+into `test/regressions/` **unchanged** when the fix lands, so the test proving the fix is the one that
+proved the bug. A failing witness is necessary and not sufficient — a witness can fail because the
+*witness* is wrong — so adjudication independently re-derives the correct behaviour from an oracle.
+This is the third member of a family the package already had: decision 52's mutation audit is the
+rule's dual (inject a defect, require the suite to catch it), and decision 55's oracle registry
+already refuses coverage that rests only on the package's own other paths.
+
+**Self-reported closure is not closure.** A `/check-consistency` fix pass ends by running both
+verifiers, which are given deliberately opposite information: `verify-fixes.js` audits an **act** and
+**sees the diff** (`HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`,
+with `HONORED` the only pass), while `verify.js` audits a **state** and is **blind to it**. IT measured
+the unverified configuration and found **eleven of thirteen** deficiencies in one round were
+`LINE-ONLY` — the flagged site fixed, the class still alive on surfaces the finding itself had named,
+with the "fix the class" rule written down, known and quoted throughout. Stating the rule does not
+work; measuring it does. Both default to the unfavourable verdict so a truncated lane fails safe, a
+zero count is a **dead lane** rather than a clean hat, and the stopping rule is a **plateau** (three
+rounds flat), never one good round.
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
 the per-operation coverage contract. Its §4 now carries the explicit **coverage-axes list**
