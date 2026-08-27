@@ -34,9 +34,14 @@ if (!PILE || !FULL) {
   throw new Error('verify needs { pile, full }: a regenerated manuscript is the state being audited.')
 }
 
-const HATS = ['consistency-matrix','software-architect','spectral-methods-mathematician','differential-geometer',
+// The lane list is an ARGUMENT. It defaults to the /check-consistency panel's hats, but any
+// instrument that banks NN-<lane>.md findings can be verified by passing its own — which is what
+// lets /check-docs be verified at all, its lanes being surfaces rather than hats. A hardcoded
+// list here is also exactly what coverage.py exists to catch drifting from the panel's.
+const PANEL_HATS = ['consistency-matrix','software-architect','spectral-methods-mathematician','differential-geometer',
               'gpu-kernel-practitioner','structure-consistency','latex-typesetter','api-user',
               'normalization-convention-auditor','citations-integrity','style-editor','cold-reader']
+const HATS = (A.lanes && A.lanes.length) ? A.lanes : PANEL_HATS
 // The two hats the panel gives the user-facing site without the design docs; their findings must be
 // re-checked against the same substrate or a "still present" verdict means something different.
 const SITEONLY_HATS = ['api-user','cold-reader']
@@ -141,7 +146,7 @@ An independent census counted ${expected[`${nn}-${key}.md`] === undefined ? 'an 
 2. Read your substrate: ${substrate}
 3. For EVERY finding in the banked file, in order, decide PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT and quote the current text that settles it.
 
-FIRST use the Write tool to bank your verdicts as markdown to ${PILE}/state/${nn}-${key}.md — one\nsection per finding headed `## Finding N`, each carrying the state (PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT) and the quoted current text. THEN return the structured\nobject with hat="${key}". The banked file is the durable record: a returned object can come back empty\nwhile the work was done, and an external coverage check can only see what was written.`,
+FIRST use the Write tool to bank your verdicts as markdown to ${PILE}/state/${nn}-${key}.md — one\nsection per finding headed \`## Finding N\`, each carrying the state (PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT) and the quoted current text. THEN return the structured\nobject with hat="${key}". The banked file is the durable record: a returned object can come back empty\nwhile the work was done, and an external coverage check can only see what was written.`,
     { label: `verify:${key}`, phase: 'Verify state', schema: SCHEMA, agentType: 'general-purpose',
       ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })
 }))

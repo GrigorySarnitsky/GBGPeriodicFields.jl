@@ -326,6 +326,33 @@ julia --project=test -e 'using GBGPeriodicFields; include("test/public_surface.j
   `notation.md` house set (the fraction one is build-enforced by `lint_notation_variants`).
 - Commit + push on `master` (no `[skip ci]`; the docs site must redeploy).
 
+## The fix pass is VERIFIED, not self-reported (added 2026-08-27)
+
+**This section exists because the instrument was run without it and the omission was invisible.** On
+2026-08-27 a full battery closed 31 banked findings — 19 fixed, 3 dismissed with written reasons — and
+nothing checked any of it. The lanes returned prose into the runner's context, where it evaporated; no
+pile was banked, so no verifier *could* have read it; and the dismissals were written by the same party
+that decided them. `/check-consistency` had carried the two verifiers since that morning and
+`/check-docs` had neither, which nobody noticed because the missing check leaves no trace.
+
+So a `/check-docs` fix pass now ends the way a panel round does:
+
+1. **BANK the findings.** Each lane Writes `NN-<lane>.md` into a pile before returning, one section per
+   finding headed `## Finding N`. A finding that exists only in the runner's context cannot be verified
+   by anything, and that is the whole failure above.
+2. **Run `check-consistency/verify-fixes.js`** over the fix range, passing this instrument's own lane
+   names — the script takes a `lanes` argument for exactly this. It grades every banked finding
+   `HONORED` / `LINE-ONLY` / `NEW-DEFECT` / `SCOPE-CREEP` / `UNDONE` / `LAUNDERED`, and `HONORED` must
+   be earned by an enumerated `file:line` class list read from the finding, never from the diff.
+3. **Run `coverage.py`** over the pile. A tally is not a closure rate until every lane's verdict file
+   covers every banked finding.
+4. **Loop to a plateau, not to a good round.** Three rounds flat within noise, with no dead lanes.
+
+**On dismissals specifically.** "Dismissed with reason" is a legitimate outcome and it is also the
+easiest place to invent one, because the reason is written by whoever wanted the work to be over. A
+dismissal is therefore a verdict the verifier grades like any other: it must name the rule or recorded
+decision that licenses it, and a dismissal the verifier cannot confirm is `UNDONE`, not closed.
+
 ## Report
 
 Report the full matrix: which surfaces × checks were run, the findings (class and count) with fixes, and
