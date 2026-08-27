@@ -2433,26 +2433,38 @@ silently rewrites the data, which is why it is not offered under a name of its o
     Nyquist content and treats the two wavenumber families as disagreeing there on purpose, so a
     violation on that plane is named like any other and what to do about it stays the caller's.
 """
-function reality_residual(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
-  data = field_data(field)
-  folded_axis = field_layout(field).fft_dims[1]
-  other_axes = Tuple(axis for axis in 1:3 if axis != folded_axis)
-  # The zero plane always; the Nyquist plane only when the FULL axis is even, which is the condition
-  # for a Nyquist mode to exist at all — the same test invariant 5 turns on.
-  stored_planes = iseven(field_grid(field).grid_size[folded_axis]) ?
-                  (1, size(data, folded_axis)) : (1,)
+# The residual over one folded axis, with that axis a TYPE parameter. Reaching the plane through a
+# runtime dimension is what made the whole operation infer `Any`: a filtered generator
+# `Tuple(a for a in 1:3 if a != folded)` has type `Tuple{Vararg{Int}}`, which inference cannot narrow,
+# and that single non-concrete value poisoned everything downstream — the shift tuple, the `dims` of
+# the reversal, and the splatted index tuple of the `view`. Found by the exhaustive survey, whose
+# type-stability check reported it on every configuration (576 cells, one operation). Naming the axis
+# as `Val{D}` is the same remedy `Interpolation`'s folded-plane helpers already use, and it makes the
+# caller's three-way branch the only place a runtime axis appears.
+@inline function _reality_residual_plane(data, ::Val{D}, other_axes, stored_planes, residual::T) where {D, T}
   # Index j pairs with -j (mod n), which as a whole-array operation is a reversal followed by a shift
   # of one: `reverse` sends j to n+1-j, and the extra step lands it on the wanted mod(-(j-1), n)+1.
   # Written that way so the pass is array-level and never indexes a device array elementwise.
-  shifts = ntuple(axis -> axis in other_axes ? 1 : 0, ndims(data))
-  residual = zero(T)
+  shifts = ntuple(axis -> axis in other_axes ? 1 : 0, Val(ndims(data)))
   for plane_index in stored_planes
-    plane = view(data, ntuple(axis -> axis == folded_axis ? (plane_index:plane_index) : Colon(),
-                              ndims(data))...)
+    plane = selectdim(data, D, plane_index:plane_index)
     partner = circshift(reverse(plane; dims = other_axes), shifts)
     residual = max(residual, maximum(abs, plane .- conj.(partner)))
   end
   return residual
+end
+
+
+function reality_residual(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+  data = field_data(field)
+  folded_axis = field_layout(field).fft_dims[1]
+  # The zero plane always; the Nyquist plane only when the FULL axis is even, which is the condition
+  # for a Nyquist mode to exist at all — the same test invariant 5 turns on.
+  stored_planes = iseven(field_grid(field).grid_size[folded_axis]) ?
+                  (1, size(data, folded_axis)) : (1,)
+  return folded_axis == 1 ? _reality_residual_plane(data, Val(1), (2, 3), stored_planes, zero(T)) :
+         folded_axis == 2 ? _reality_residual_plane(data, Val(2), (1, 3), stored_planes, zero(T)) :
+                            _reality_residual_plane(data, Val(3), (1, 2), stored_planes, zero(T))
 end
 
 

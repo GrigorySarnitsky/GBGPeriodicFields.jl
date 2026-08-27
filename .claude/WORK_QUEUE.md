@@ -11,7 +11,7 @@ the block shows in the diff instead of being silent.
 
 ## Open (authorised 2026-08-27: "continue with everything, don't stop in the middle")
 
-- [ ] Exhaustive survey: run to completion, read the result, ANALYSE it (not just report the exit code)
+- [x] Exhaustive survey: RUN (66 min), analysed — 0 correctness findings; its one real finding (576 type-stability cells, all `reality_residual` inferring `Any`) is FIXED
 - [ ] Benchmarks: transfer + convolution classes on an IDLE machine (the NUFFT fix adds a runtime
       comparison per axis per point, so the transfer class genuinely moved)
 - [ ] RESULTS.md: regenerate over all archives, diff against the previous archive, explain every

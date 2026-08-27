@@ -109,7 +109,12 @@ const MODULE_BASELINE = (
   # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
   # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
   # deliberately, with the reason, per decision 53's protocol.
-  Fields                = 127,
+  Fields                = 128,
+  # 127 → 128: `_reality_residual_plane`, the folded-plane pass with its axis as a `Val` type
+  # parameter. The exhaustive survey's type-stability check reported `reality_residual` inferring
+  # `Any` on every configuration (576 cells, one operation); reaching the plane through a runtime
+  # dimension was the cause, and naming the axis in the type domain is the same remedy
+  # `Interpolation`'s folded-plane helpers already use.
   # 126 → 127: `_component_views` (one method, returning a reshape) became `_component_view` (two —
   # a rank-0 identity and the rank-`R` fiber-indexed slice). The reshape allocated an `Array` wrapper
   # per call, twice per transform, which is the 128 B/call a consumer's zero-allocation invariant
