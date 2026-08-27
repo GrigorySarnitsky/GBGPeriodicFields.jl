@@ -884,6 +884,36 @@ work; measuring it does. Both default to the unfavourable verdict so a truncated
 zero count is a **dead lane** rather than a clean hat, and the stopping rule is a **plateau** (three
 rounds flat), never one good round.
 
+**The closure loop is BUILD-ENFORCED, and it runs over the FINDINGS, never over the battery
+(2026-08-27, user-directed; harmonized with IT).** Two separate activities, and conflating them was
+the defect: *closing a banked round* terminates, because the denominator is fixed — fix, verify, fix
+over the same banked set until every finding is HONORED or dismissed with a written reason; *re-running
+the lanes* is a new search, worth doing and not a loop. IT's `/check-docs` had "re-run the lanes after
+the fix pass" as its stopping rule with the measurement of its own non-convergence two paragraphs
+below it (18 findings, one silently skipped, eight more surfaced on the re-run). The enforcement is
+`lint_review_closure()` in `docs/make.jl`: a banked round with an ungraded or non-HONORED finding
+**fails the build**, so an unclosed review cannot ship. Its escape is an explicit committed `CLOSED.md`
+in the round's directory — the same shape as the prose ratchet's re-baseline, and the reason both stay
+on: an enforcement mechanism with no escape hatch is disabled the first time it is inconvenient, while
+one whose escape leaves a committed artifact survives (IT's parallel, 2026-08-27).
+
+**Test the check in BOTH directions — the flattering one is not the only one.** Four defects in these
+instruments in one session, and every one was invisible to reading. Three erred toward closing a round
+early: the gate counted the *string* `HONORED`, which appears inside every `[DEMOTED: HONORED
+claimed …]` note (two verdicts read as six); staleness was read from a `RANGE:` line the verifier lanes
+were asked to stamp, which **all eight ignored**, so the check was vacuous while looking present; and
+IT's identical demotion rule was **never applied at all** — its preamble said "LINE-ONLY by rule, not a
+judgement call" while nothing in the script applied it, leaving the rule to the party being graded. The
+fourth erred the other way and is the one nobody thinks to guard: the demotion misfired on **notation**,
+demanding `file:line` and a fixed vocabulary, so it demoted graders who wrote "`ARCHITECTURE.md` (lines
+195, 273)" or "no remaining instance" — ten of thirteen demotions in one round. That failure is slower
+to notice than a false pass, because nothing looks wrong; a reader who finds ten spurious demotions
+stops reading the column, and **a check nobody reads passes everything**. Hence: staleness is read from
+the **filesystem** (an mtime needs no compliance), demotion is applied **in post-processing** and its
+mechanical share reported separately, and a self-reported field is acceptable only when **the missing
+case is the failing case** — which is the real statement of the antipattern (IT's framing, sharper than
+"never self-report").
+
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
 the per-operation coverage contract. Its §4 now carries the explicit **coverage-axes list**
 (the denominator over which "exhaustive" is defined: representation, R, eltype-on-CPU, layout
