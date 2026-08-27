@@ -346,7 +346,15 @@ So a `/check-docs` fix pass now ends the way a panel round does:
    be earned by an enumerated `file:line` class list read from the finding, never from the diff.
 3. **Run `coverage.py`** over the pile. A tally is not a closure rate until every lane's verdict file
    covers every banked finding.
-4. **Loop to a plateau, not to a good round.** Three rounds flat within noise, with no dead lanes.
+4. **Loop the FIX, never the battery.** The loop is fix → verify → fix whatever came back
+   `LINE-ONLY` / `UNDONE` / `NEW-DEFECT` → verify, over the **same banked findings**, until every one
+   is `HONORED`. That converges, because the denominator is fixed.
+
+   **Do NOT re-run the lanes to check the work.** A fresh battery over a corpus that has just been
+   edited will always return new findings — prose has no fixed point, and a lane asked to review a
+   page will review it — so treating a clean re-run as the goal is a loop with no end and a fix pass
+   with no boundary. The lanes answer *what is wrong*; the verifier answers *did you fix what was
+   found*. Only the second question can close.
 
 **On dismissals specifically.** "Dismissed with reason" is a legitimate outcome and it is also the
 easiest place to invent one, because the reason is written by whoever wanted the work to be over. A
