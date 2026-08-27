@@ -66,6 +66,24 @@ lane's false positive is caught downstream while a cheap adjudicator's false neg
 downstream check). **This is an opt-in, consent-gated instrument** like the panel and the survey: it
 spends real tokens and it runs Julia repeatedly. Do not launch it unasked.
 
+## Run the witnesses yourself — the lane's account is not the program
+
+```
+julia --startup-file=no .claude/commands/bug-hunt/witnesses.jl <pile> <repo>
+```
+
+`hunt.js` asks each lane to run its own witness and report `observed: FAILS`. **That is the lane
+reporting on its own evidence** — the same shape as a verifier lane self-reporting its findings count,
+or a grader deciding whether its own `HONORED` claim was earned. Both of those were closed by moving
+the measurement outside the party being measured; this is the third, and a witness is a *program*, so
+the honest check is to run it. The instrument's founding rule is that the only admissible evidence is a
+program that fails — and an agent's **account** of a program that fails is not that program.
+
+The runner exits non-zero if any witness **passes**, because a passing witness is not a bug and must
+not reach a fix pass. It separates a failing witness (an assertion came out false — the witness
+working) from a broken one (an exception thrown inside the testset — evidence about the witness, not
+the package), and reports them apart.
+
 ## What to do with the output
 
 - **CONFIRMED** — the witness is the finding. Promote it into `test/regressions/` **unchanged**, then

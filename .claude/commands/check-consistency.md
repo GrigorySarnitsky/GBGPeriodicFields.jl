@@ -255,6 +255,18 @@ fragment is reported as **unverifiable** instead of falling back to a slice of m
   indistinguishable from real neglect. Note the **asymmetry**, which the verifiers now state: nothing
   merely *fixed* is listed in that file, so a finding's absence from it proves nothing.
 
+  **Both bank their verdicts, and an external gate checks them.** A workflow script cannot see the
+  filesystem, so nothing inside either verifier can confirm a lane actually *wrote* its file or that
+  the file covers every banked finding. `coverage.py <pile> [closure|state]` does that from outside and
+  is a mandatory post-step: **a tally is not a closure rate until it passes.** IT records the two
+  failures it was built for, and PF was exposed to both — a lane returning an empty structured result
+  while having written a full verdict file, and a verifier's hat list naming fewer hats than the panel
+  banked, so hats went unverified while the run reported success. PF's `HATS` array is hardcoded in
+  **three** files and a workflow script cannot glob the pile to check itself, so this external
+  comparison is the only thing standing between that duplication and a silent partial verification. It
+  reports `SHORT`, `MISSING`, `ORPHAN` (verified but never banked — the lists have diverged) and
+  `PARSED TO ZERO` as errors rather than passes.
+
   Their opposite information is the point, and the interesting cells are the **disagreements**:
   `HONORED`-but-`PRESENT` is a fix that missed an occurrence, `UNDONE`-but-`ABSENT` is usually a
   finding that was never a defect. Two further properties are load-bearing and must not be softened:

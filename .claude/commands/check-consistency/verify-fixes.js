@@ -147,7 +147,7 @@ An independent census counted ${expected[`${nn}-${key}.md`] === undefined ? 'an 
 2. Inspect the fix pass: \`git -C ${REPO} diff ${RANGE}\` (and any narrower git/grep commands you need).
 3. Grade EVERY finding in that file against the diff, by the verdicts above.
 
-Return the structured object with hat="${key}".`,
+FIRST use the Write tool to bank your verdicts as markdown to ${PILE}/closure/${nn}-${key}.md — one\nsection per finding headed `## Finding N`, each carrying the verdict (HONORED / LINE-ONLY / NEW-DEFECT / SCOPE-CREEP / UNDONE / LAUNDERED), the evidence, and the class_surfaces answer. THEN return the structured\nobject with hat="${key}". The banked file is the durable record: a returned object can come back empty\nwhile the work was done, and an external coverage check can only see what was written.`,
   { label: `verify-fixes:${key}`, phase: 'Verify fixes', schema: SCHEMA, agentType: 'general-purpose',
     ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })))
 

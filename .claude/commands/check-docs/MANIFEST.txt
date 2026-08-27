@@ -7,6 +7,6 @@
 # Format agreed with the IT session 2026-08-27 so either package can diff toolboxes in one read.
 
 FILE               CHANGED      PURPOSE
-argcov.jl          untracked    Argument coverage — the second of /check-docs' two non-grep backstops, extracted from check-docs
-doi_crosscheck.py  untracked    DOI cross-check — the first of /check-docs' two non-grep backstops, extracted from check-docs.md
+argcov.jl          2026-08-27   Argument coverage — the second of /check-docs' two non-grep backstops, extracted from check-docs
+doi_crosscheck.py  2026-08-27   DOI cross-check — the first of /check-docs' two non-grep backstops, extracted from check-docs.md
 guards.sh          2026-08-27   The deterministic half of /check-docs, as a program rather than a page of commands to retype.

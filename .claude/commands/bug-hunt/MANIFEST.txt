@@ -6,5 +6,6 @@
 # go stale on its own. A dash means the file does not say what it is, which is a finding.
 # Format agreed with the IT session 2026-08-27 so either package can diff toolboxes in one read.
 
-FILE     CHANGED      PURPOSE
-hunt.js  2026-08-27   /bug-hunt — a CODE instrument. Ported from GBGIsotropicTurbulence 2026-08-27 (mechanism only).
+FILE          CHANGED      PURPOSE
+hunt.js       2026-08-27   /bug-hunt — a CODE instrument. Ported from GBGIsotropicTurbulence 2026-08-27 (mechanism only).
+witnesses.jl  untracked    The witness runner — the mechanical half of /bug-hunt, and the reason the instrument can verify 

@@ -141,7 +141,7 @@ An independent census counted ${expected[`${nn}-${key}.md`] === undefined ? 'an 
 2. Read your substrate: ${substrate}
 3. For EVERY finding in the banked file, in order, decide PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT and quote the current text that settles it.
 
-Return the structured object with hat="${key}".`,
+FIRST use the Write tool to bank your verdicts as markdown to ${PILE}/state/${nn}-${key}.md — one\nsection per finding headed `## Finding N`, each carrying the state (PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT) and the quoted current text. THEN return the structured\nobject with hat="${key}". The banked file is the durable record: a returned object can come back empty\nwhile the work was done, and an external coverage check can only see what was written.`,
     { label: `verify:${key}`, phase: 'Verify state', schema: SCHEMA, agentType: 'general-purpose',
       ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })
 }))

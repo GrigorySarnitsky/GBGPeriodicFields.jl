@@ -8,6 +8,7 @@
 
 FILE                CHANGED      PURPOSE
 consolidate.py      2026-07-15   Consolidate a Documenter-built site into reader-text manuscripts for the /check-consistency pane
+coverage.py         untracked    The heading delimiter is OPTIONAL. Hats write "## 3. Title", "## Finding 3 — Title" and bare
 panel.js            2026-08-27   /check-consistency panel — a fresh-eyed 12-expert audit of the RENDERED docs, sequential & colle
 recall.py           2026-08-27   The read-back half of seeded-defect calibration (C7/C13): given the ground truth seed_defects.py
 recall_selftest.py  2026-08-27   The self-test for recall.py. Run it after ANY change to that script — especially to `fragments()
