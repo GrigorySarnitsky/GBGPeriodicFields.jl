@@ -137,7 +137,11 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 119,
+  Interpolation         = 120,
+  # 119 → 120: `_stencil_half`, the NUFFT window stencil's per-axis node offset (/bug-hunt
+  # 2026-08-27). An odd width had held `half = W ÷ 2` like an even one, putting the stencil a full
+  # cell off centre; the offset now follows the nearer node, so it depends on `t` and needs a
+  # method of its own rather than an inline expression repeated in three places.
   # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
   # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view
   # inference cannot pin, which made the spectral `inner` infer `Any`. Two extra `_fiberwise` arms from

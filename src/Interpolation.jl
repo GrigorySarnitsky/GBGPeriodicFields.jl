@@ -958,8 +958,25 @@ end
 # For fractional position t ∈ [0,1) the W nodes sit at offsets δ = i − W÷2 (i = 1…W); the weight of
 # node i is ψ(t − δ) with ψ(s) = exp(β(√(1−(2s/W)²) − 1)). Returned as an SVector so the kernels
 # index it by a runtime stencil index on CPU and GPU (as for the spline `_axis_weights`).
+# Offset of the W-point stencil around a point sitting at `base + t`, with ``t \\in [0, 1)``: node
+# ``i`` of the stencil is the grid node `base + (i - half)`, at distance ``(i - \\mathrm{half}) - t``
+# from the point, and the window is supported on ``|distance| \\le W/2``.
+#
+# For an EVEN width one fixed offset serves every `t`: the W nearest nodes are always
+# `base-(W/2-1) … base+W/2`, every one of them inside the support. For an ODD width no fixed offset
+# can be right, because the W nearest nodes are centred on `base` while ``t < 1/2`` and on `base+1`
+# once ``t \\ge 1/2`` — so the stencil must follow the nearer node. Holding `half = W ÷ 2` regardless
+# put the odd-width stencil a full cell off centre: its outermost node sat at distance
+# ``(W+1)/2 - t > W/2`` for ``t < 1/2``, outside the support and contributing exactly zero, while the
+# genuinely nearest node was never visited. A width-`W` odd stencil was therefore doing the work of a
+# `W-1` one, asymmetrically, which is why asking for a tighter tolerance could return a WORSE result
+# than a looser one.
+@inline _stencil_half(t::T, ::Val{W}) where {T, W} =
+  (isodd(W) && t < T(1) / 2) ? (W + 1) ÷ 2 : W ÷ 2
+
+
 @inline function _es_weights(t::T, beta::T, ::Val{W}) where {T, W}
-  half = W ÷ 2
+  half = _stencil_half(t, Val(W))
   return SVector{W, T}(ntuple(i -> begin
     z = 2 * (t - (i - half)) / W
     exp(beta * (sqrt(max(one(T) - z * z, zero(T))) - one(T)))
@@ -1150,19 +1167,23 @@ end
       weights_1 = _es_weights(t_1, beta, Val(W))
       weights_2 = _es_weights(t_2, beta, Val(W))
       weights_3 = _es_weights(t_3, beta, Val(W))
-      half = W ÷ 2
+      # Per AXIS, not one shared offset: for an odd width the stencil follows the node nearer to
+      # that axis's own fractional position, so the three axes can disagree.
+      half_1 = _stencil_half(t_1, Val(W))
+      half_2 = _stencil_half(t_2, Val(W))
+      half_3 = _stencil_half(t_3, Val(W))
       number_of_fibres = length(field_values) ÷ points_per_fibre
       grid_x, grid_y, grid_z = grid_size
       for fibre in 1:number_of_fibres
         accumulated = zero(eltype(output))
         for k in 1:W
-          node_z = mod(base_3 + (k - half), grid_z) + 1
+          node_z = mod(base_3 + (k - half_3), grid_z) + 1
           for j in 1:W
-            node_y = mod(base_2 + (j - half), grid_y) + 1
+            node_y = mod(base_2 + (j - half_2), grid_y) + 1
             weight_yz = weights_2[j] * weights_3[k]
             plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
             for i in 1:W
-              node_x = mod(base_1 + (i - half), grid_x) + 1
+              node_x = mod(base_1 + (i - half_1), grid_x) + 1
               accumulated += weight_yz * weights_1[i] * field_values[node_x + plane]
             end
           end
@@ -1187,19 +1208,23 @@ end
       weights_1 = _es_weights(t_1, beta, Val(W))
       weights_2 = _es_weights(t_2, beta, Val(W))
       weights_3 = _es_weights(t_3, beta, Val(W))
-      half = W ÷ 2
+      # Per AXIS, not one shared offset: for an odd width the stencil follows the node nearer to
+      # that axis's own fractional position, so the three axes can disagree.
+      half_1 = _stencil_half(t_1, Val(W))
+      half_2 = _stencil_half(t_2, Val(W))
+      half_3 = _stencil_half(t_3, Val(W))
       number_of_fibres = length(field_values) ÷ points_per_fibre
       grid_x, grid_y, grid_z = grid_size
       for fibre in 1:number_of_fibres
         quantity = point_quantities[point + number_of_points * (fibre - 1)]
         for k in 1:W
-          node_z = mod(base_3 + (k - half), grid_z) + 1
+          node_z = mod(base_3 + (k - half_3), grid_z) + 1
           for j in 1:W
-            node_y = mod(base_2 + (j - half), grid_y) + 1
+            node_y = mod(base_2 + (j - half_2), grid_y) + 1
             weight_yz = weights_2[j] * weights_3[k]
             plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
             for i in 1:W
-              node_x = mod(base_1 + (i - half), grid_x) + 1
+              node_x = mod(base_1 + (i - half_1), grid_x) + 1
               Atomix.@atomic field_values[node_x + plane] += weight_yz * weights_1[i] * quantity
             end
           end
