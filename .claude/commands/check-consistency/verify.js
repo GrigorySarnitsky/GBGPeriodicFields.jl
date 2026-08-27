@@ -51,7 +51,7 @@ const ADJUDICATED = A.adjudicated
 const ADJ_NOTE = ADJUDICATED ? `
 
 ALREADY ADJUDICATED — READ THIS FIRST: \`${ADJUDICATED}\`. It lists findings previously settled as NOT
-defects. A banked finding covered by that file is NOT an open defect: mark it accordingly and say so in
+defects. Note the asymmetry: nothing merely FIXED is listed there, so a finding's ABSENCE from it proves nothing and is not evidence the finding is open. A banked finding covered by that file is NOT an open defect: mark it accordingly and say so in
 your evidence rather than grading it as unfixed. Leaving it in the denominator makes closure
 unreachable and can drive a fix at something the owner deliberately left alone.` : ''
 
@@ -104,7 +104,11 @@ const CENSUS_SCHEMA = {
     required: ['file','findings','exists'] } } },
   required: ['counts'],
 }
-const census = await agent(
+// A caller who counted the pile mechanically (a shell one-liner, a script) can pass the counts in as
+// `findings_per_hat` and skip the census entirely — then NO agent is in the denominator's loop, which
+// is strictly better than a trustworthy agent. IT's refinement on this, adopted 2026-08-27.
+const OVERRIDE = A.findings_per_hat || null
+const census = OVERRIDE ? null : await agent(
   `Count findings in each banked panel file. Do NOT judge them, do NOT read the repository — just count.
 
 For each of these files under ${PILE}, read it and report how many distinct FINDINGS it contains
@@ -114,7 +118,9 @@ ${HATS.map((k, i) => `  ${String(i + 1).padStart(2, '0')}-${k}.md`).join('\n')}
 If a file does not exist, report exists=false and findings=0. Return the structured object.`,
   { label: 'census', phase: PHASE_NAME, schema: CENSUS_SCHEMA, agentType: 'general-purpose', model: 'sonnet' })
 const expected = {}
-for (const c of ((census && census.counts) || [])) expected[c.file] = c.findings
+if (OVERRIDE) { for (const k of Object.keys(OVERRIDE)) expected[k] = OVERRIDE[k] }
+else { for (const c of ((census && census.counts) || [])) expected[c.file] = c.findings }
+if (!Object.keys(expected).length) log('!! no denominator: neither findings_per_hat nor a census result — under-grading CANNOT be detected this run')
 // PARALLEL since 2026-08-27. These lanes were sequential only because the panel they follow was, and
 // that was a token-budget decision the fleet has since outgrown. Nothing here wanted serialising: a
 // verifier lane emits verdicts, not prose, so the per-agent output cap is not close, and there is no
@@ -147,6 +153,11 @@ outcomes.forEach((r, i) => {
   results.push(r)
   const exp = expected[`${nn}-${key}.md`]
   const got = (r.states || []).length
+  const self = r.findings_in_file
+  // Do not silently prefer the census: a lane whose own count disagrees with an independent
+  // one is telling you something about the lane, and swallowing that discards the signal.
+  if (exp !== undefined && self !== undefined && self !== exp)
+    log(`${nn} ${key}: COUNT DISAGREEMENT — lane says ${self}, census says ${exp}`)
   if (exp !== undefined && got < exp) log(`${nn} ${key}: UNDER-GRADED ${got}/${exp} — the missing ${exp - got} are UNVERIFIED, not clean`)
   const st = r.states || []
   const absent = st.filter(x => x.state === 'ABSENT').length
