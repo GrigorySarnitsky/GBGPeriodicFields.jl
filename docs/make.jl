@@ -268,7 +268,16 @@ function lint_review_closure()
         for lane in lanes
             body = read(lane, String)
             findings = length(collect(eachmatch(r"^#{2,4} +Finding +\d+"m, body)))
-            findings == 0 && continue
+            # A lane that parses to zero is a DEAD LANE unless it says otherwise: an unreadable or
+            # truncated banked file is indistinguishable from one that found nothing, and reading it
+            # as clean is the same inversion `coverage.py` exists to catch. A genuinely clean lane
+            # asserts it in words, which is a claim, where an empty parse is an absence.
+            if findings == 0
+                occursin(r"\bno findings\b"i, body) && continue
+                push!(open_rounds, "$(base)/$(basename(lane)): parses to ZERO findings and does not " *
+                                   "state that it found none — a dead lane, not a clean one")
+                continue
+            end
             verdict_file = joinpath(entry, "closure", basename(lane))
             verdicts = isfile(verdict_file) ? read(verdict_file, String) : ""
             # A verdict file persists between rounds, so a lane that did not re-run leaves its previous
