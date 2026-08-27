@@ -164,9 +164,22 @@ has corrupted the docs in order to measure the instrument. A *skipped* class (it
 occurs often enough) is reported as skipped: its recall is **undefined, not zero**.
 
 **The pair is falsified by perturbation, not by reading** — the same bar the exhaustive survey's
-self-check sets. Verified on a stand-in manuscript: an empty pile reports 0/8 with every seed `MISSED`;
-planting a single hat file that quotes one mutation flips exactly that seed to `DETECTED`, attributed
-to the right hat, with the other seven still `MISSED`.
+self-check sets — and there are **three arms**, to be re-run after any change to `recall.py`'s
+`fragments()`, since they test that function specifically:
+
+| arm | pile contains | required |
+|---|---|---|
+| A | nothing | 0 detected, every seed `MISSED` |
+| B | one hat quoting **one mutation** | exactly 1 detected, attributed to that hat |
+| C | one hat quoting the **originals** | **0 detected** |
+
+A and B check recall is not falsely **low**. **C checks it is not falsely high**, and that is the one
+that matters: a false positive credits the panel for finding a defect nobody planted, so it flatters
+and nobody questions it. Arm C was contributed by IT, and **PF failed it on the first run** — whitespace
+tokenising made `bitwise-identical` a single token, so the mutation's standalone `identical` read as
+new while being a substring of the original, and a quote of unmutated text scored a detection. The
+containment test is now substring rather than token-membership, and a seed with no distinctive
+fragment is reported as **unverifiable** instead of falling back to a slice of mostly-shared context.
 
 ## Discipline (the hard-won rules — follow them)
 
