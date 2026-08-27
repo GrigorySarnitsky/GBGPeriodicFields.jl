@@ -187,6 +187,16 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   - `verify.js` audits a **state** and is **blind to the diff**, re-reading the regenerated manuscript
     and asking only whether each defect is present now.
 
+  Two supports both verifiers need, added 2026-08-27 after they were found missing. **The denominator
+  must not come from the party being measured:** a lane used to self-report how many findings its file
+  held, which is this instrument's own antipattern one level down — a lane that grades 5 of 13 and
+  reports 5 looks complete. One cheap **census agent** now counts every pile file up front, the graders
+  are told their expected count, and a shortfall is logged as `UNDER-GRADED`, with the missing findings
+  named as *unverified, not clean*. And **the do-not-re-flag list must reach the verifiers**: a finding
+  the owner already settled as not a defect is correctly left unfixed, so a verifier blind to that list
+  grades it `UNDONE`, depresses closure with noise, and invites a fix at something deliberately left
+  alone. `panel.js` had read that file since it existed; the verifiers inherited none of it.
+
   Their opposite information is the point, and the interesting cells are the **disagreements**:
   `HONORED`-but-`PRESENT` is a fix that missed an occurrence, `UNDONE`-but-`ABSENT` is usually a
   finding that was never a defect. Two further properties are load-bearing and must not be softened:
@@ -199,7 +209,16 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   (the preamble enforces it): the banked file and the returned object mirror each other, so an unbounded
   dump doubles on output and overran the 64k output-token cap (it killed two hats on the 2026-07-23 run).
   A hat that would exceed the cap is being insufficiently selective, not thorough — 15 sharp findings beat
-  50 padded ones. A killed hat is simply re-run standalone (same persona, the cap in its prompt) to fill
+  50 padded ones. **The two failure modes are asymmetric, and since 2026-08-27 the quiet one is
+  reported.** Overrunning the *output* cap KILLS the hat, which is loud and unmissable; hitting the
+  *25-finding* cap truncates it silently, and a hat returning exactly 25 is otherwise
+  indistinguishable from one that weighed 40 and dropped 15. Each hat therefore returns
+  `candidates_considered` — the count it weighed before applying the cap — and the runner logs
+  `TRUNCATED` when it exceeds the reported findings. Measured, the cap has never once bound: banked
+  files run 436–2330 words, roughly a tenth of the output cap, so the *per-finding* limits (≤90-word
+  description, ≤20-word quote) are what actually prevent recurrence and the count is a backstop
+  behind them. The field exists so that if it ever does bind, you learn it instead of reading a clean
+  25. (Convergent with IT, which reached the same field independently.) A killed hat is simply re-run standalone (same persona, the cap in its prompt) to fill
   its `NN-<key>.md` gap; the other hats' banked files are untouched.
 
 ## Output

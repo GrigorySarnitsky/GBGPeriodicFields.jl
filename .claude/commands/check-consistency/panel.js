@@ -42,6 +42,7 @@ const SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: {
     hat: { type: 'string' },
+    candidates_considered: { type: 'integer', description: 'distinct candidate findings weighed BEFORE the 25-finding cap — the truncation signal: a value above 25 means the tail was cut, and the consolidation must say so' },
     findings: { type: 'array', items: {
       type: 'object', additionalProperties: false,
       properties: {
@@ -72,7 +73,7 @@ RULES:
 - resolution_hint is optional and advisory only.
 ${ADJUDICATED ? `- ALREADY ADJUDICATED — READ FIRST: \`${ADJUDICATED}\`. Read that file before you begin. It lists findings this panel raised in a previous round that were settled as NOT defects — extraction artifacts of the manuscript you are reading, and design inconsistencies the package owner closed deliberately. Do NOT spend a finding on anything it covers. It does NOT list previously-FIXED items, so everything else in the document is fair game and a claim that looks wrong to you IS worth flagging even if it looks recently written.
 ` : ''}- NOTE: report what you actually see NOW in the document, not what you might expect from a prior version. This package is physics-free and time-free BY DESIGN — do NOT flag the absence of a solver, time-stepping, or turbulence physics as a gap.
-- OUTPUT DISCIPLINE (HARD LIMIT — do not exceed): report at most your 25 MOST SIGNIFICANT findings, ranked most-severe first. Keep each finding's description to <= 90 words, and quote only the DECISIVE phrase (<= 20 words) on each side — never paste a long passage. The banked markdown file is the durable record and the returned object mirrors it, so a bloated findings list is duplicated on output; an unbounded dump overran the output-token cap and lost the whole hat's work. Be selective: 15 sharp findings beat 50 padded ones.`
+- OUTPUT DISCIPLINE (HARD LIMIT — do not exceed): report at most your 25 MOST SIGNIFICANT findings, ranked most-severe first. Keep each finding's description to <= 90 words, and quote only the DECISIVE phrase (<= 20 words) on each side — never paste a long passage. The banked markdown file is the durable record and the returned object mirrors it, so a bloated findings list is duplicated on output; an unbounded dump overran the output-token cap and lost the whole hat's work. Be selective: 15 sharp findings beat 50 padded ones. ALSO report \`candidates_considered\` — the count of distinct candidates you weighed BEFORE applying the cap. The two failure modes here are asymmetric and that is the whole reason this field exists: overrunning the output cap KILLS the hat, which is loud, while hitting the 25-finding cap TRUNCATES it silently, and a hat returning exactly 25 is otherwise indistinguishable from one that found 40 and dropped 15. A capped hat that reports its denominator can be re-run narrowed; a capped hat that stays silent reads as complete.`
 
 // PRIORITY order (most important first): a token-out truncates the tail, i.e. the least-critical lens.
 const hats = [
@@ -171,7 +172,9 @@ outcomes.forEach((r, i) => {
   }
   results.push(r)
   const n = r.findings ? r.findings.length : 0
-  log(`${nn} ${h.key}: ${n} findings -> ${nn}-${h.key}.md${n === 0 ? '  (returned empty — NOT the same as dead)' : ''}`)
+  const considered = r.candidates_considered || 0
+  const cut = considered > n ? `  (TRUNCATED: weighed ${considered}, reported ${n} — re-run this hat narrowed)` : ''
+  log(`${nn} ${h.key}: ${n} findings -> ${nn}-${h.key}.md${n === 0 ? '  (returned empty — NOT the same as dead)' : ''}${cut}`)
 })
 if (dead.length) log(`DEAD HATS: ${dead.join(', ')} — the panel is INCOMPLETE until these are re-run`)
 return { results, dead }

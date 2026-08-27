@@ -44,6 +44,20 @@ const HATS = ['consistency-matrix','software-architect','spectral-methods-mathem
               'gpu-kernel-practitioner','structure-consistency','latex-typesetter','api-user',
               'normalization-convention-auditor','citations-integrity','style-editor','cold-reader']
 
+const PHASE_NAME = 'Verify fixes'
+
+// The panel's do-not-re-flag list must reach the VERIFIERS too, and it did not. A finding the owner
+// already settled as NOT a defect is correctly left unfixed — so a verifier blind to that list grades
+// it UNDONE, depresses the closure rate with noise, and invites a fix pass at something deliberately
+// left alone. panel.js has read this file since it existed; the verifiers inherited none of it.
+const ADJUDICATED = A.adjudicated
+const ADJ_NOTE = ADJUDICATED ? `
+
+ALREADY ADJUDICATED — READ THIS FIRST: \`${ADJUDICATED}\`. It lists findings previously settled as NOT
+defects. A banked finding covered by that file is NOT an open defect: mark it accordingly and say so in
+your evidence rather than grading it as unfixed. Leaving it in the denominator makes closure
+unreachable and can drive a fix at something the owner deliberately left alone.` : ''
+
 const SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: {
@@ -83,6 +97,34 @@ HARD RULES:
 - \`class_surfaces\` is not optional prose, and it is enumerated FROM THE FINDING, NEVER FROM THE DIFF. The diff shows only where someone already looked, so reading the class off it cannot detect the failure this instrument exists to detect. Start from the finding's own words — the family it names, the sibling docstring, the convention it says appears elsewhere — list each surface as \`file:line\`, and say for each whether the diff swept it. An empty or hand-waving answer is DEMOTED TO LINE-ONLY MECHANICALLY, after you return, so there is nothing to be gained by leaving it thin.`
 
 phase('Verify fixes')
+
+// A CENSUS FIRST, so the denominator does not come from the party being measured. Each grading lane
+// used to report `findings_in_file` about its own file — which is the same antipattern this
+// instrument exists to correct one level down: asking the constrained party whether the constraint
+// binds. A lane that grades 5 of 13 and reports findings_in_file=5 looks complete. One cheap agent
+// now counts every pile file up front, and the graders are TOLD their expected count; a shortfall
+// between that and the verdicts returned is under-grading, detected mechanically below.
+// (IT's own verifier avoids this by taking the findings array as an argument — a better shape, but
+// this script cannot read files, so an independent counting agent is the equivalent.)
+const CENSUS_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: { counts: { type: 'array', items: {
+    type: 'object', additionalProperties: false,
+    properties: { file: { type: 'string' }, findings: { type: 'integer' }, exists: { type: 'boolean' } },
+    required: ['file','findings','exists'] } } },
+  required: ['counts'],
+}
+const census = await agent(
+  `Count findings in each banked panel file. Do NOT judge them, do NOT read the repository — just count.
+
+For each of these files under ${PILE}, read it and report how many distinct FINDINGS it contains
+(sections headed "Finding N", "## N", or equivalent — count the finding sections, not the paragraphs):
+${HATS.map((k, i) => `  ${String(i + 1).padStart(2, '0')}-${k}.md`).join('\n')}
+
+If a file does not exist, report exists=false and findings=0. Return the structured object.`,
+  { label: 'census', phase: PHASE_NAME, schema: CENSUS_SCHEMA, agentType: 'general-purpose', model: 'sonnet' })
+const expected = {}
+for (const c of ((census && census.counts) || [])) expected[c.file] = c.findings
 // PARALLEL since 2026-08-27. These lanes were sequential only because the panel they follow was, and
 // that was a token-budget decision the fleet has since outgrown. Nothing here wanted serialising: a
 // verifier lane emits verdicts, not prose, so the per-agent output cap is not close, and there is no
@@ -90,7 +132,9 @@ phase('Verify fixes')
 const numbered = HATS.map((key, i) => ({ key, nn: String(i + 1).padStart(2, '0') }))
 const outcomes = await parallel(numbered.map(({ key, nn }) => () => agent(`${PREAMBLE}
 
-YOUR LANE: the findings banked by the "${key}" hat.
+YOUR LANE: the findings banked by the "${key}" hat.${ADJ_NOTE}
+
+An independent census counted ${expected[`${nn}-${key}.md`] === undefined ? 'an unknown number of' : expected[`${nn}-${key}.md`]} findings in that file. Grade EVERY one; a shortfall is reported as under-grading.
 
 1. Read the banked findings file: ${PILE}/${nn}-${key}.md
    If it does not exist, return pile_file_read=false, findings_in_file=0 and an empty verdicts array.
@@ -109,6 +153,9 @@ outcomes.forEach((r, i) => {
   // every lane at once, so a hole no longer announces itself by a missing line in a running log.
   if (!r) { log(`${nn} ${key}: DEAD — no result`); return }
   results.push(r)
+  const exp = expected[`${nn}-${key}.md`]
+  const got = (r.verdicts || []).length
+  if (exp !== undefined && got < exp) log(`${nn} ${key}: UNDER-GRADED ${got}/${exp} — the missing ${exp - got} are UNVERIFIED, not clean`)
   // Demote by RULE, not by the grader's judgement. The whole failure mode is a fixer (and then a
   // grader) producing a plausible account of a sweep that never happened, so HONORED has to be EARNED
   // by an enumerated class — at least one concrete file:line surface. Leaving this to the prompt would
