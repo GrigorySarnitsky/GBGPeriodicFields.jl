@@ -57,6 +57,10 @@ hard "double negative thin (src)"     grep -rnP '\\\\!\\\\!' src
 hard "double negative thin (docs)"    grep -rnP '\\!\\!' "${DOCS_MD[@]}"
 hard "\\mathbb on a digit (src)"       grep -rnP '\\\\mathbb\s*\{?\s*[0-9]' src
 hard "\\mathbb on a digit (docs)"      grep -rnP '\\mathbb\s*\{?\s*[0-9]' "${DOCS_MD[@]}"
+# A `@ref` link immediately followed by a code span renders as two adjacent monospace chips with a
+# visible seam. PF documents the rule and had no check for it; there are currently zero violations,
+# which is the moment to add the guard rather than after one lands.
+hard "@ref abutting a code span"      grep -rnoE '\]\(@ref[^)]*\)`' src docs/ARCHITECTURE.md docs/FORMALIZATION.md docs/TESTING.md docs/PERFORMANCE.md
 
 echo
 echo "=== TRIAGE (heuristics — read every line; a count is not a verdict) ==="

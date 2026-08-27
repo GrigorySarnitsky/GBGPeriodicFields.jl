@@ -8,4 +8,4 @@
 
 FILE          CHANGED      PURPOSE
 hunt.js       2026-08-27   /bug-hunt — a CODE instrument. Ported from GBGIsotropicTurbulence 2026-08-27 (mechanism only).
-witnesses.jl  untracked    The witness runner — the mechanical half of /bug-hunt, and the reason the instrument can verify 
+witnesses.jl  2026-08-27   The witness runner — the mechanical half of /bug-hunt, and the reason the instrument can verify 
