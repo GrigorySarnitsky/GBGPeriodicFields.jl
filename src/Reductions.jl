@@ -30,7 +30,8 @@ The parts are, each linking to the home where its formula lives.
 - [`mean`](@ref) — the **intensive**, **fiber-preserving** arithmetic average over the ``N`` grid cells or
   the ``M`` points (it extends `Statistics`; the `mean` of a vector field is a `FiberVector`).
 - [`std`](@ref), [`var`](@ref), [`cov`](@ref) — the base moments (extending `Statistics`, `corrected = true`
-  by default). `std`/`var` are **scalar-only**: the sample standard deviation and variance are unambiguous
+  by default). The `std` and `var` reductions are **scalar-only**: the sample standard deviation and variance
+  are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
   tensor `cov` ``\\equiv R`` with entries ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.

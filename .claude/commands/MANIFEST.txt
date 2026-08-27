@@ -10,4 +10,4 @@ FILE                  CHANGED      PURPOSE
 bug-hunt.md           2026-08-27   /bug-hunt — the code instrument
 check-consistency.md  2026-08-27   /check-consistency — the fresh-eyed multi-hat RENDERED-docs panel
 check-docs.md         2026-08-04   Run the COMPLETE documentation-quality battery — every check across every doc surface, fix all f
-manifest.py           untracked    Instrument manifests. Format agreed with the IT session 2026-08-27 so either package can diff
+manifest.py           2026-08-27   Instrument manifests. Format agreed with the IT session 2026-08-27 so either package can diff

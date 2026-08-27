@@ -1296,7 +1296,7 @@ for the position of point ``p`` and ``v_j(p)`` for the value the ``j``-th sectio
 point,
 
 ```math
-x_p \\leftarrow x_p + \\sum_j c_j\\, v_j(p) .
+x_p \\leftarrow x_p + \\sum_j c_j v_j(p) .
 ```
 
 Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term supplies **one**

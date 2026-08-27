@@ -1388,7 +1388,8 @@ _wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectr
 # field and point pairs do.
 
 """
-    write_scheme(parent::HDF5.H5DataStore, name::AbstractString, scheme::AbstractTransferScheme)
+    write_scheme(parent::HDF5.H5DataStore, name::AbstractString,
+                 scheme::AbstractTransferScheme)
 
 Persist a grid↔point transfer scheme — the choice of kernel and representation that fixes how
 [`interpolate`](@ref) and `anterpolate` are realized — as a **new HDF5 group** `name` under

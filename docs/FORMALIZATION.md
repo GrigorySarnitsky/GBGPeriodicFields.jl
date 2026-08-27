@@ -722,7 +722,7 @@ configuration, one vector ``v(p) \in \mathbb R^3`` per point.
 ``v_1, \dots, v_n``, the operation `displace!` without a grid computes, per point,
 
 ```math
-x_p \leftarrow x_p + \sum_{j=1}^{n} c_j\, v_j(p) ,
+x_p \leftarrow x_p + \sum_{j=1}^{n} c_j v_j(p) ,
 ```
 
 evaluated left-to-right in one fused pass. Because the torus is flat and the frame global, this is

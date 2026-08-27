@@ -2269,7 +2269,7 @@ device-to-host move costs — measured on an RTX 5070 Ti at ``256^3``, `Float64`
 runs at ``5.1`` GiB/s against the ``19.0`` GiB/s the same transfer reaches into a destination that
 already exists.
 
-Only sections take this form. `adapt` also moves a [`FieldSpectralMultipliers`](@ref), a spectral
+Only sections take this form. The `adapt` verb also moves a [`FieldSpectralMultipliers`](@ref), a spectral
 kernel and a [`FieldTransformPlans`](@ref), and those have no in-place spelling on purpose: they are
 built rather than filled — moving plans replans the transforms, and a radial kernel carries a closure
 — so there is no preallocated storage for a destination to offer.

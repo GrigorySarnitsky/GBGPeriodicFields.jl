@@ -164,6 +164,29 @@ pages — the same set the build lints scan. The gitignored `docs/src/{architect
 performance}.md` are regenerated *copies* of the rationale sources, so exclude them (edit the source, not
 the copy). Set the doc list once:
 
+**Run the script, do not retype the battery.** `check-docs/guards.sh` is these scans as a program:
+
+```
+.claude/commands/check-docs/guards.sh          # exit 0 = every must-be-empty scan clean
+```
+
+It exists because PF has measured what hand-running costs — on 2026-08-04 the sentence-opener scan was
+run with `| head -5`, reported five hits, and there were **thirty-one**; the same day the
+`ScalarFieldSpectral` sweep showed ten of twenty. A deterministic check that depends on who types it is
+not deterministic. The script therefore **never truncates**: every scan reports its full count and its
+complete output, there is no `head` in it, and adding one would reintroduce the defect it was written
+for. Must-be-empty scans fail the run; triage scans report counts and never fail it, because a count is
+not a verdict.
+
+Its first run found four real defects the hand-run battery had missed: a gratuitous thin space in
+decision 73's `displace!` formula, in **both** the docstring and `FORMALIZATION.md`; two sentences
+opening with a lowercase code identifier; and a docstring signature over 88 columns. Three triage hits
+are known false positives and stay visible on purpose rather than being filtered away — a Julia lambda
+that legitimately contains `ν`, the rule text in `ARCHITECTURE.md` quoting its own anti-pattern, and
+`notation.md`'s delimiter row.
+
+The scans it runs, kept here as the readable source of truth:
+
 ```bash
 DOCS_MD="docs/ARCHITECTURE.md docs/FORMALIZATION.md docs/TESTING.md docs/PERFORMANCE.md \
          docs/src/notation.md docs/src/index.md docs/src/tutorial.md docs/src/api.md docs/src/api/*.md \
