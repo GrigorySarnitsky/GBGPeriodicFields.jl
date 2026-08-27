@@ -1347,7 +1347,7 @@ compatible, equal-order fields.
 
 The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
-- `plans` — transform plans for their grid and layout; a plan pair carries no tensor order, so one serves every rank.
+- `plans` — transform plans for their grid and layout; a pair carries no tensor order and serves every rank.
 
 It takes `plans` where its Fourier dual `radial_spectrum` takes `multipliers`, the one asymmetry in an
 otherwise mirrored pair: the spectrum weighs each mode where it already sits, while the correlation

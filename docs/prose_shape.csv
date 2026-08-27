@@ -17,7 +17,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Naming conventions",297,236,0
 "ARCHITECTURE.md § Representation validity lives in the method set",590,198,0
 "ARCHITECTURE.md § The architecture map",387,262,0
-"ARCHITECTURE.md § The fiber-bundle model",1328,570,0
+"ARCHITECTURE.md § The fiber-bundle model",1341,583,0
 "ARCHITECTURE.md § The invariants",45,45,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",99,99,0
@@ -30,7 +30,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 15",100,100,0
 "ARCHITECTURE.md § item 16",143,143,0
 "ARCHITECTURE.md § item 17",397,397,0
-"ARCHITECTURE.md § item 18",762,279,0
+"ARCHITECTURE.md § item 18",795,312,0
 "ARCHITECTURE.md § item 19",1091,280,0
 "ARCHITECTURE.md § item 2",33,33,0
 "ARCHITECTURE.md § item 20",409,198,0
@@ -91,7 +91,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 70",480,107,0
 "ARCHITECTURE.md § item 71",945,232,0
 "ARCHITECTURE.md § item 72",911,241,0
-"ARCHITECTURE.md § item 73",844,844,0
+"ARCHITECTURE.md § item 73",873,873,0
 "ARCHITECTURE.md § item 74",624,624,0
 "ARCHITECTURE.md § item 75",728,728,0
 "ARCHITECTURE.md § item 76",841,205,0
@@ -163,7 +163,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Internal API",56,45,0
 "DifferentialOperators.md § Projection operators",4,4,0
 "DifferentialOperators.md § Second-order differential operators",6,6,0
-"FORMALIZATION.md § Base-space motion: displacement and the canonical representa",528,129,0
+"FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
 "FORMALIZATION.md § Declarations",602,321,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",835,114,0
@@ -374,7 +374,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",264,133,0
 "Interpolation.jl :: AbstractTransferScheme",189,107,0
 "Interpolation.jl :: CatmullRom",27,26,0
-"Interpolation.jl :: DirectDFT()",457,178,1
+"Interpolation.jl :: DirectDFT()",472,178,1
 "Interpolation.jl :: Interpolation",741,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",400,198,0
@@ -479,7 +479,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: maximum(f)",127,124,0
 "Reductions.jl :: mean(f)",125,122,0
 "Reductions.jl :: minimum(f)",30,27,0
-"Reductions.jl :: radial_correlation(f, plans)",628,181,1
+"Reductions.jl :: radial_correlation(f, plans)",638,181,1
 "Reductions.jl :: radial_spectrum(f, multipliers)",958,278,2
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",343,122,0
@@ -517,12 +517,12 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 7",19,19,0
 "TESTING.md § item 8",12,12,0
 "TESTING.md § item 9",17,17,0
-"api.md § API overview",335,282,0
+"api.md § API overview",340,287,0
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",337,152,0
 "index.md § Installation",88,48,0
-"index.md § Main components",719,674,0
+"index.md § Main components",730,685,0
 "index.md § Start here",39,39,0
 "notation.md § Base and fiber",522,472,0
 "notation.md § Conventions",316,316,0

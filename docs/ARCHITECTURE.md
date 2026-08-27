@@ -107,10 +107,9 @@ worlds. Two of them are *parameters* of a section — what a section is built fr
   shared `AbstractFiberSection{T, R}` supertype spanning both, in the
   `FiberSections` module ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Differential operators are the complementary horizontal structure** — gradient,
-  divergence, curl, Laplacian are derivatives *along the base*, using the flat
-  connection of the periodic box — a *connection* being the rule that says how to compare
-  vectors sitting over different base points, and a flat one letting them be compared
-  directly, since the box supplies one fixed frame everywhere ([§4](@ref "4. Spectral machinery")). Read that
+  divergence, curl, Laplacian are derivatives *along the base*, using the periodic box's
+  flat *connection* — its one fixed frame, which lets vectors over different base points be
+  compared directly ([§4](@ref "4. Spectral machinery")). Read that
   precisely, since a `Grid3D` is a finite set and has no tangent bundle of its own: the
   derivative lives on the **continuum** torus, and a grid section reaches it by standing
   for the trigonometric polynomial its coefficients define, of which each operator is the
@@ -1012,8 +1011,8 @@ operation and not a `+` method**, because positions are points of the periodic d
 an algebra on positions would assert a linear structure the base does not have, and the
 position-versus-value role split stays intact. And it comes in two forms the type structure itself
 dictates: a `PointSet` deliberately carries no grid, so `displace!` **without** a grid cannot wrap
-and is displacement in the universal cover ``\mathbb R^3`` — the unwrapped picture of the
-      torus, in which a coordinate keeps growing instead of folding back (winding preserved — a mean-square
+and is displacement in the universal cover ``\mathbb R^3`` — the unwrapped torus, where a
+      coordinate keeps growing instead of folding back (winding preserved — a mean-square
 displacement needs it), while `displace!` **with** a trailing `Grid3D` is displacement on the torus
 proper, the wrap fused into the same pass. `wrap!(points, grid)` is the zero-term case kept as its
 own named verb: reduction to the canonical representative in the half-open fundamental domain
@@ -3812,8 +3811,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     orthonormal frame, the tangent space at every base point is canonically the Cartesian
     ``\mathbb R^3`` of the fiber, so displacing a point ``x_p`` along vector values ``v_j(p)`` held
     over it, each section scaled by one real number ``c_j``, is exactly ``x_p \leftarrow x_p + \sum_j c_j
-    v_j(p)`` — the exponential map of the flat metric, which carries a point along a vector for
-    unit time, and on a flat torus is plain addition, needing no connection choices. The design
+    v_j(p)`` — the exponential map of the flat metric, which carries a point along a vector and on
+    a flat torus is plain addition, needing no connection choices. The design
     facts, each argued from that geometry:
     - **A named verb, never `+`.** Positions are points of the domain manifold, not vectors; an
       algebra on `PointSet` would assert a linear structure the base does not have. `displace!` is
@@ -3821,8 +3820,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       position-versus-value role split by name rather than dissolving it.
     - **The grid argument selects cover or torus, and the type structure forces that split.** A
       `PointSet` carries no grid (a deliberate absence recorded on its docstring), so the grid-free
-      arity *cannot* wrap: it is displacement in the universal cover — the unwrapped picture of
-      the torus, where a coordinate keeps growing instead of folding back — which preserves winding — a
+      arity *cannot* wrap: it is displacement in the universal cover — the unwrapped torus, where a
+      coordinate keeps growing instead of folding back — which preserves winding — a
       mean-square-displacement diagnostic needs exactly that. The arity taking a `Grid3D` is
       displacement on the torus proper: the reduction to the fundamental domain is fused into the
       same pass, not a second traversal. Only `domain_size` and `origin` enter; the mesh plays no

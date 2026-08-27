@@ -755,10 +755,9 @@ x_p \leftarrow x_p + \sum_{j=1}^{n} c_j v_j(p) ,
 ```
 
 evaluated left-to-right in one fused pass. Because the torus is flat and the frame global, this is
-the exponential map of the flat metric — the map carrying a point along a vector for unit time —
-lifted to the universal cover, the *unwrapped* picture of the torus, in which a coordinate keeps
-growing instead of folding back. No choice of connection (a rule for comparing vectors over
-different points) enters,
+the exponential map of the flat metric — which carries a point along a vector — lifted to the
+universal cover, the *unwrapped* torus, in which a coordinate keeps growing instead of folding
+back. No choice of connection (a rule for comparing vectors over different points) enters,
 and the operation is exact linear algebra per point. ``\checkmark``
 
 **Statement 2 (canonical representative).** The operation `wrap!` computes, per point and axis,

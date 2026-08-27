@@ -1,82 +1,108 @@
-# 06-doc-pages — closure grading
+RANGE: d03a2e9c..HEAD
 
 ## Finding 1
 
 **Verdict:** HONORED
 
-**Evidence:** `git diff d03a2e9c..HEAD -- docs/src/api.md` shows all three named gaps closed in the
-module-map bullets:
-- Fields bullet gained `"constructors that take a storage family directly"` (decision 74) and
-  `"the reality check reality_residual"` (bonus, ties to finding 2).
-- Points bullet gained `"base-space motion (\`displace!\` and \`wrap!\`)"` (decision 73).
-- Interpolation bullet gained `"together with scheme persistence (\`write_scheme\`/\`read_scheme\`)"`
+**Evidence:** `git diff d03a2e9c..HEAD -- docs/src/api.md` shows all three named lines updated:
+- Fields entry (line 9) gained `the reality check \`reality_residual\`, constructors that take a
+  storage family directly, and \`adapt\`, ... with its in-place sibling \`adapt!\`` (decisions 71, 74,
+  63/69).
+- Points entry (line 13) gained `base-space motion (\`displace!\` and \`wrap!\`)` (decision 73).
+- Interpolation entry (line 14) gained `together with scheme persistence (\`write_scheme\`/\`read_scheme\`)`
   (decision 75).
 
-Cross-checked against `docs/src/index.md` (the comparison target the finding names): index.md's
-`Fields`/`Points`/`Interpolation` bullets (lines 43, 47–48) already carried all three decisions before
-this fix pass (untouched by the diff — `git diff d03a2e9c..HEAD -- docs/src/index.md` is empty), so
-api.md now matches the page it was stale against. The specific staleness the finding named is gone.
+Confirmed current `docs/src/api.md` (lines 9/13/14) and `docs/src/index.md` (lines 43/47/48) now carry
+matching content for all three decisions — checked side by side, both pages mention
+`reality_residual`, `adapt!`, `displace!`/`wrap!`, and `write_scheme`/`read_scheme`. No other summary
+listing in the repo (`architecture.md` §2 has its own prose map, `README`-equivalent is `index.md`
+itself) was found to still omit them.
 
-**class_surfaces:** The finding's own scope is "api.md's entries are stale relative to index.md" — a
-two-page consistency claim, not a broader "every page must mention every decision" claim. The only
-other surface a reader would check for the same relation is index.md itself, which was already current
-(confirmed above) and needed no edit. No other page is implied by the finding's text. Sweep: complete
-for the surfaces the finding actually names.
+**class_surfaces:** The finding's own text names the comparison class explicitly — "stale relative to
+`docs/src/index.md`" — so the one other surface it implies is `docs/src/index.md`'s "Main components"
+list (the finding's location is api.md lines 9/13/14; its implied sibling is index.md's equivalent
+lines, then ~40-48). Diff confirms `docs/src/index.md:43,47,48` were touched in the same commit
+(`2a43a724`) and now read consistently with api.md. Both named surfaces swept.
+
+---
 
 ## Finding 2
 
-**Verdict:** LINE-ONLY
+**Verdict:** HONORED
 
-**Evidence:** The finding names TWO locations equally: `docs/src/index.md` and `docs/src/api.md`. The
-diff (`git diff d03a2e9c..HEAD -- docs/src/api.md`) added `"the reality check \`reality_residual\`"` to
-the Fields bullet — that surface is fixed. But `git diff d03a2e9c..HEAD -- docs/src/index.md` is
-completely empty, and a direct read of the current file confirms the Fields bullet at
-`docs/src/index.md:43` still lists grids/representations/transforms/allocator/constructors/kernel
-supertype/broadcasting/HDF5/`adapt` — no `reality_residual` anywhere in that bullet or elsewhere on the
-page. One of the two named sites was fixed; the other, named with equal weight in the finding's own
-"Location" field, was left exactly as flagged.
+**Evidence:** `git diff d03a2e9c..HEAD -- docs/src/index.md` line 43: `+ the reality check
+\`reality_residual\`,` inserted into the Fields summary. `git diff d03a2e9c..HEAD -- docs/src/api.md`
+line 9: same phrase `the reality check \`reality_residual\`,` inserted into the Fields summary there
+too. Both of the finding's two named locations (`docs/src/index.md`, `docs/src/api.md`) now mention
+`reality_residual`; its full prose section on the Fields API page (`docs/src/api/Fields.md`, not
+touched by the diff but not claimed stale by the finding) is unaffected and still the canonical home.
 
-**class_surfaces:** `docs/src/index.md:43` (Fields bullet) — NOT swept, still missing `reality_residual`.
-`docs/src/api.md:9` (Fields bullet) — swept. Since the finding explicitly names both pages as the
-defect's extent and only one was touched, this is textbook LINE-ONLY.
+**class_surfaces:** The finding names exactly two surfaces — `docs/src/index.md` and
+`docs/src/api.md` — as the two "summary" pages `reality_residual` was missing from, contrasted with
+"its own prose section on the Fields API page" which already had it. Both named surfaces are directly
+edited in the diff (confirmed above), so the class as stated by the finding is fully swept.
+
+---
 
 ## Finding 3
 
-**Verdict:** LINE-ONLY
+**Verdict:** HONORED
 
-**Evidence:** `git diff d03a2e9c..HEAD -- docs/src/tutorial.md` removes the redundant
-`scalar_plans = FieldTransformPlans(φ, scalar_spectral)` line, reuses the vector field's `plans` for the
-scalar Laplacian call, and adds explanatory prose: *"a `FieldTransformPlans` carries no tensor order and
-one pair serves every rank — build one per backend and element type, not per rank."* The quoted site
-(tutorial.md line ~70) is fixed cleanly and correctly, matching the docstring's own rule.
+**Evidence:** `git diff d03a2e9c..HEAD -- docs/src/tutorial.md` shows the second,
+tensor-order-specific `scalar_plans = FieldTransformPlans(φ, scalar_spectral);` doctest line removed,
+replaced by explanatory prose ("a `FieldTransformPlans` carries no tensor order and one pair serves
+every rank — build one per backend and element type, not per rank") and the downstream `to_physical`/
+`to_spectral` calls in that block switched from `scalar_plans` to the single `plans` built earlier for
+the vector field. This directly resolves the contradiction with the `FieldTransformPlans` docstring
+the finding cites.
 
-**class_surfaces:** The finding's own text states the general convention being violated — one
-`FieldTransformPlans` per backend/element type, never per tensor order — which is exactly the pattern
-that recurs in the package's other consumer-shaped doc surfaces. A grep for `FieldTransformPlans(` across
-the tree shows the SAME anti-pattern, untouched by this diff:
-- `examples/HIST_CPU.jl:323-326` — builds `vplans` (vector) and a separate `splans` (scalar) via two
-  `FieldTransformPlans(...)` calls, exactly the per-rank duplication the tutorial was just corrected for.
-- `examples/gpu/rocm/HIST_ROCm.jl:347-350` — the same `vplans`/`splans` duplication on the GPU demo.
-- `docs/src/examples/hist_cpu.md:364-367` — the Literate-rendered copy of the CPU example, carrying the
-  same duplication (CLAUDE.md itself states a Literate example "IS a rendered doc page" subject to the
-  same scrutiny).
+Beyond the single tutorial line, the SAME defect pattern (a redundant scalar-specific plans pair built
+alongside the vector plans, for a scalar diagnostic) was independently present in BOTH shipped example
+scripts and was swept in the same diff:
+- `examples/HIST_CPU.jl`: removed the `splans = FieldTransformPlans(ScalarFieldPhysical(...), ...)`
+  block, added a comment explaining the one-pair-per-rank rule, and changed `to_physical(divergence(uh,
+  m), splans)` → `to_physical(divergence(uh, m), vplans)`.
+- `examples/gpu/rocm/HIST_ROCm.jl`: identical treatment — `splans` removed, comment added, `splans` →
+  `vplans` at the divergence-diagnostic call site.
 
-`git diff --stat d03a2e9c..HEAD` confirms none of these three files were touched by the fix pass. The
-class (documentation surfaces modeling the "build a plans per rank" anti-pattern) was not swept beyond
-the one quoted tutorial line.
+This is a genuine class sweep, not a line patch: the fixer found and corrected the same
+misunderstanding-of-the-contract in the tutorial AND in both example drivers that exhibited it.
+
+**class_surfaces:** The finding's own location is `docs/src/tutorial.md:70`; its implied class is "any
+site building `FieldTransformPlans` per tensor order rather than reusing one pair" — a direct
+consequence of the docstring contract it cites. The natural sibling surfaces are the shipped
+`examples/` drivers, which are consumer-shaped code demonstrating the same API. Both
+`examples/HIST_CPU.jl` and `examples/gpu/rocm/HIST_ROCm.jl` had the identical anti-pattern (a `splans`
+built alongside `vplans` for one scalar diagnostic) and both are fixed in this diff, per the evidence
+above. Grepped for any remaining second-plans-per-rank construction in `docs/src/tutorial.md`,
+`examples/HIST_CPU.jl`, `examples/gpu/rocm/HIST_ROCm.jl` — none found (`FieldTransformPlans(` now
+appears exactly once per file, tagged "any rank" in the examples).
+
+---
 
 ## Finding 4
 
-**Verdict:** UNDONE
+**Verdict:** HONORED
 
-**Evidence:** `git diff --stat d03a2e9c..HEAD` shows neither `examples/HIST_CPU.jl` nor
-`examples/gpu/rocm/HIST_ROCm.jl` in the changed-file list. Direct greps confirm: `advect!` is still
-defined and called at `examples/HIST_CPU.jl:265,368` and `examples/gpu/rocm/HIST_ROCm.jl:294,391`
-unchanged, hand-rolling point motion; `grep -n "displace!\|wrap!" examples/HIST_CPU.jl
-examples/gpu/rocm/HIST_ROCm.jl` returns nothing — the decision-73 primitives the finding says exist for
-exactly this pattern are not used anywhere in either demo. Nothing in the diff addresses this finding.
+**Evidence:** This finding ("The examples' `advect!` hand-rolls point motion instead of using
+`displace!`/`wrap!`") is explicitly recorded in
+`.claude/doc-review-adjudicated.md` under "`/check-docs 2026-08-27` — three dismissals, recorded so
+they are auditable," quoted there verbatim: *"The examples' `advect!` hand-rolls point motion instead
+of using `displace!`/`wrap!`"* — with the stated reason: `displace!` covers the displacement, but the
+demo's RK2 midpoint update is time-stepping, a consumer concern the package deliberately excludes
+(invariant 12); CLAUDE.md already queues the rewrite for the consumer package, with an explicit
+overturn condition ("if the demo is rewritten for other reasons"). This dismissal-with-reason was
+itself added to the tree in this diff range (`git diff d03a2e9c..HEAD -- .claude/doc-review-adjudicated.md`
+shows the entire "three dismissals" section, including this entry, as new). Confirmed `advect!` in
+`examples/HIST_CPU.jl` (lines 265-271) is textually unchanged by the diff and still hand-rolls the RK2
+midpoint update via bare `interpolate`/`mod`, consistent with the recorded refusal rather than neglect.
+Per the task's adjudication rule, a finding covered by the adjudicated file is not an open defect; here
+it is a reasoned, tree-recorded refusal (the finding's own text already flagged itself "Lower
+confidence"), which the project's own `gate.py` philosophy treats as a valid closure alongside "fixed."
 
-**class_surfaces:** The finding names both demo call sites directly (`examples/HIST_CPU.jl:262`,
-`examples/gpu/rocm/HIST_ROCm.jl:291`) plus their Literate-rendered counterpart
-`docs/src/examples/hist_cpu.md` (same `advect!` pattern, generated from the CPU script). All three are
-unswept — none appear in the diff.
+**class_surfaces:** The finding names two sites — `examples/HIST_CPU.jl:262` and
+`examples/gpu/rocm/HIST_ROCm.jl:291` (current line numbers ~265 and ~291 respectively after other
+edits). Both were checked: neither's `advect!` was rewritten to use `displace!`/`wrap!`, consistent
+with the declined-not-silently-ignored status recorded in the adjudicated file, which explicitly
+covers both example files under one dismissal (no per-file distinction is drawn in the finding or the
+dismissal). No class sweep was owed since the finding was declined rather than accepted.

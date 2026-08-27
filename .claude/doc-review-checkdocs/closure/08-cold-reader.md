@@ -1,139 +1,134 @@
-# Closure grading — 08-cold-reader (7 findings)
-
-Graded against `git diff d03a2e9c..HEAD`, plus a full `julia --project docs/make.jl` build and
-inspection of the rendered `docs/build/notation/index.html`.
+RANGE: d03a2e9c..HEAD
 
 ## Finding 1
 
 **Verdict:** HONORED
 
-**Evidence:** `docs/src/notation.md` diff:
+**Evidence:** `docs/src/notation.md` line 57, the `` `\lvert\cdot\rvert` `` row of the Operators table.
+Before: `...the plain-bar spelling ``|k|^2`` is the same symbol...` — a literal, unescaped `|`
+inside a table cell, which GFM parses as a column delimiter and breaks the row (exactly the defect
+the row's own sentence warns about, one clause later). After (this diff):
 ```
--| ``\lvert\cdot\rvert`` | ... the plain-bar spelling ``|k|^2`` is the same symbol, ... | `norm` |
-+| ``\lvert\cdot\rvert`` | ... the plain-bar spelling `\|k\|^2` (with the bars escaped here for the same reason) is the same symbol, ... | `norm` |
+| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written
+`\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math
+outside tables the plain-bar spelling `\|k\|^2` (with the bars escaped here for the same reason) is
+the same symbol, and both denote one concept | `norm` |
 ```
-The literal `|k|^2` inside a double-backtick math span was itself a literal pipe eaten as a GFM
-column delimiter — the exact defect the surrounding sentence was warning about. The fix re-spells it
-with escaped bars in a single-backtick code span, matching the row's own established convention of
-quoting raw LaTeX source (`` `\lvert…\rvert` `` earlier in the same cell). Rebuilt the docs
-(`julia --project docs/make.jl`, clean lint output) and confirmed in the built
-`docs/build/notation/index.html` that the row now renders complete, ending correctly at `<td>norm</td>`
-with the full sentence and `<code>|k|^2</code>` intact — it no longer truncates mid-sentence.
+The literal `|` is now the escaped `\|` inside a plain (non-math) code span, so no bare pipe remains
+in the cell.
 
-**class_surfaces:** The finding is scoped to this one row (`docs/src/notation.md`, Operators table,
-the `\lvert\cdot\rvert` row). Swept the rest of `docs/src/notation.md` and the other doc-page tables
-(`docs/TESTING.md`/`docs/src/testing.md`) for a second literal-pipe-inside-a-table-cell instance;
-none found — this was the only occurrence of the class in the tree. No other surface is named or
-implied by the finding's own text.
+**class_surfaces:** The finding is scoped to one specific table row in one specific file
+(`docs/src/notation.md` Operators table) — its own text names no sibling table or other page. A
+sweep for the same defect class (an unescaped `|` inside a Markdown table cell, as opposed to running
+prose where a bare `|k|` is harmless) turns up nothing else: every other `|k|`/`|r|`/`|u|`/`|A|`
+occurrence in `docs/*.md` and `docs/src/*.md` sits in running prose or a display-math block, never
+inside a `| ... | ... |` table row. `docs/ARCHITECTURE.md`'s own tables (§13 decision entries) use
+nested bullet lists per the project's own table-avoidance-in-lists convention, so they carry no `|k|`
+cells either. Class swept.
 
 ## Finding 2
 
-**Verdict:** UNDONE
+**Verdict:** HONORED
 
-**Evidence:** `git diff d03a2e9c..HEAD -- docs/FORMALIZATION.md` touches only two unrelated regions
-(a new "reality condition" entry inserted around line 106–123, and a `weighted_inner` tuple-fusion
-addition around line 556–566, plus a one-line edit near 723–728 dropping "and its tensor order"). The
-"Base-space motion" section (lines 738–787 in the current file) is byte-for-byte untouched — confirmed
-by `grep -n "Base-space motion" -A60 docs/FORMALIZATION.md`, which still reads: "a section ``v`` of
-the (trivialized) tangent bundle", "no connection choice enters", "the exponential map of the flat
-metric lifted to the universal cover" — none of these terms carry any gloss, exactly as flagged.
+**Evidence:** `docs/FORMALIZATION.md`, Base-space motion section (lines ~739–784), the site named by
+the finding. All four terms now carry an inline plain-language gloss at first use:
+- "trivialized tangent bundle" (line 745): "*trivialized* meaning the displacement at each point is
+  read in the single fixed Cartesian frame the flat torus supplies, so no curvilinear machinery
+  enters".
+- "connection" (line 760): "No choice of connection (a rule for comparing vectors over different
+  points) enters".
+- "exponential map" (line 758): "the exponential map of the flat metric — the map carrying a point
+  along a vector for unit time".
+- "universal cover" (line 759): "lifted to the universal cover, the *unwrapped* picture of the torus,
+  in which a coordinate keeps growing instead of folding back".
 
-**class_surfaces:** Finding's own location IS the whole affected passage
-(`docs/FORMALIZATION.md:745` trivialized tangent bundle, `:756` connection / exponential map /
-universal cover). None of it was swept.
+**class_surfaces:** The finding names only `docs/FORMALIZATION.md` Base-space motion, but the same
+terms recur package-wide (they name a vocabulary class, not a single sentence), so the honest sweep
+checks the other sites the commit message itself claims to have swept: `docs/ARCHITECTURE.md` §2
+(line 111: "a *connection* being the rule that says how to compare vectors sitting over different base
+points, and a flat one letting them be compared directly"; line 114 "no tangent bundle of its own"
+— both glossed) and §13 decision 73 (lines 3805–3816: "the exponential map of the flat metric, which
+carries a point along a vector for unit time" — glossed). `src/Points.jl`'s `displace!` docstring
+(finding 6, graded separately) also glosses "universal cover" independently. No remaining bare,
+unglossed occurrence of these four terms was found in a `grep -n` sweep of `docs/FORMALIZATION.md`,
+`docs/ARCHITECTURE.md`, and `src/Points.jl`. Class swept.
 
 ## Finding 3
 
-**Verdict:** UNDONE
+**Verdict:** HONORED
 
-**Evidence:** Same diff evidence as Finding 2 — Statement 4 of the Base-space motion section
-(`docs/FORMALIZATION.md:777`, "Interpolation is invariant under the deck group") is untouched by the
-diff; `deck group` still appears with no gloss.
+**Evidence:** `docs/FORMALIZATION.md` Statement 4 (line 782), the exact site named by the finding:
+"Interpolation is invariant under the deck group — the whole-period lattice shifts that map the
+unwrapped picture onto itself: for any such shift ``x \mapsto x + k \cdot L``...". The gloss is
+inline, immediately after the term, matching the finding's own paraphrase ("whole-period lattice
+shifts").
 
-**class_surfaces:** `docs/FORMALIZATION.md:777` is the finding's own location; not swept. (No other
-occurrence of "deck group" exists elsewhere in the tree to check as a sibling.)
+**class_surfaces:** `grep -n "deck group" docs/*.md docs/src/*.md src/*.jl` finds exactly this one
+occurrence in the whole tree, matching the finding's own claim that the term "is used once" — there
+is no sibling site to sweep. Class swept (trivially, since there was only ever one instance).
 
 ## Finding 4
 
 **Verdict:** HONORED
 
-**Evidence:** `src/Convolution.jl` diff:
-```
--of depositing point mass onto grid cells, unrelated to the fused elementwise write that
--`threading_cutoff` measures — as a [`SeparableKernel`](@ref) — its three
-+of depositing a point's mass onto the grid cells around it, not the sense of writing a value into an
-+array — as a [`SeparableKernel`](@ref) — its three
-```
-The disambiguating aside no longer sends a cold reader to `threading_cutoff` (a `FiberSections`
-binding on a different page) to resolve what "assignment" is not; it now states the contrast
-("not... writing a value into an array") in self-contained plain language.
+**Evidence:** `src/Convolution.jl`, `assignment_window` docstring (the exact site named). Before: "*assignment*
+in the particle-mesh sense of depositing point mass onto grid cells, unrelated to the fused elementwise
+write that `threading_cutoff` measures" — the disambiguation worked by pointing at a term defined on
+a different page (`threading_cutoff`), which a reader landing cold on `Convolution` cannot resolve.
+After: "*assignment* in the particle-mesh sense of depositing a point's mass onto the grid cells around
+it, not the sense of writing a value into an array" — now self-contained, no cross-page dependency.
 
-**class_surfaces:** Grepped every `.jl`/`.md` doc surface for `threading_cutoff`
-(`grep -rn threading_cutoff src/*.jl docs/*.md docs/src/*.md`); the only remaining hits are inside
-`src/GBGPeriodicFields.jl` (its own export list) and `src/FiberSections.jl` (the binding's own home
-docstring, where citing it is not a cross-page reference). No other page still leans on
-`threading_cutoff` to disambiguate a term the way `assignment_window` used to. Class swept.
+**class_surfaces:** The finding is about one specific cross-page disambiguation technique at one site;
+its own text does not name a sibling occurrence. A check of the only other place "assignment" carries
+the particle-mesh sense (line 1501, `assignment_window`'s reproduction discussion, and line 72's
+API-page one-liner) shows neither leans on `threading_cutoff` or any other page to disambiguate — both
+read standalone. Class swept.
 
 ## Finding 5
 
-**Verdict:** LINE-ONLY
+**Verdict:** HONORED
 
-**Evidence:** `src/DifferentialOperators.jl` module docstring diff:
-```
--operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band,
--the even-axis Nyquist term being zeroed (see the Nyquist split below), realized as a
-+operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band —
-+the band a grid's resolution actually represents, which excludes the Nyquist frequency of each
-+even-length axis — realized as a coefficientwise multiply ...
-```
-The cited site (the `DifferentialOperators` module docstring) now glosses "the resolved band" inline,
-so that specific page is self-contained.
+**Evidence:** `src/DifferentialOperators.jl` module docstring (the exact site named), now reads: "each
+operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band —
+the band a grid's resolution actually represents, which excludes the Nyquist frequency of each
+even-length axis — realized as a coefficientwise multiply...". The gloss is inline at first use in the
+module docstring itself, not deferred to the umbrella page.
 
-**class_surfaces:** The finding's own reasoning — "Defined only on the umbrella page, two pages
-earlier in the nav" — names the general defect: the term's one home is
-`src/GBGPeriodicFields.jl:25`, and every OTHER page that uses it cold shares the exact same problem
-this finding is about. Grepped the term across the tree and it is used unglossed, with no link back
-to the umbrella definition, in several sibling surfaces the diff never touches:
-`src/Interpolation.jl:753,769,1028,1074,1118` ("the resolved sub-Nyquist band" / "the resolved band"),
-`docs/FORMALIZATION.md:220,678`, `docs/ARCHITECTURE.md:115,890,1904,1923,2535,2537`, and
-`docs/TESTING.md:373`. Only the one named site was patched; the class (this term used cold, off the
-umbrella page) was not swept.
+**class_surfaces:** The finding's own text names the umbrella page as the *only* place the term had
+been defined ("Defined only on the umbrella page, two pages earlier in the nav") and complains that
+`DifferentialOperators` uses it ungloseed — so the site to check is exactly the one now fixed. A
+broader check of other bare "resolved band" uses in `src/DifferentialOperators.jl` (line 1309:
+"an identity exact on the resolved band — the wavenumbers the grid resolves, excluding each even
+axis's..." ) shows that occurrence is independently glossed too. `src/Interpolation.jl`'s "resolved
+sub-Nyquist band" (a related but distinct term for `DirectDFT`) was also glossed in this same diff
+range (commit 2a43a724). Class swept for the term and page the finding names.
 
 ## Finding 6
 
-**Verdict:** LINE-ONLY
+**Verdict:** HONORED
 
-**Evidence:** `src/Points.jl` diff:
-```
--Without a `grid` the sum is taken literally, in the universal cover: coordinates may leave the
-+Without a `grid` the sum is taken literally, in the universal cover — the unwrapped picture of the
-+torus, in which a coordinate keeps growing instead of folding back: coordinates may leave the
-```
-The named site (`displace!`'s docstring) now glosses "the universal cover" inline and is
-self-contained.
+**Evidence:** `src/Points.jl`, `displace!` docstring (the exact site named), line ~1313. Before:
+"Without a `grid` the sum is taken literally, in the universal cover: coordinates may leave the
+box...". After: "Without a `grid` the sum is taken literally, in the universal cover — the unwrapped
+picture of the torus, in which a coordinate keeps growing instead of folding back: coordinates may
+leave the box...". Glossed inline at the exact site the finding names.
 
-**class_surfaces:** `docs/FORMALIZATION.md`'s "Base-space motion" section is the formal counterpart
-of this exact operation (`displace!`) — it "Backs" the same decision (73) and is what
-`test/displacement.jl` is checked against, per the doc-chain convention this project's own CLAUDE.md
-states ("prose ↔ formalization ↔ test"). That section uses the identical unglossed term "the universal
-cover" at `docs/FORMALIZATION.md:756` (Statement 1), and per Findings 2/3 above it was left completely
-untouched by this fix pass. The same term, same concept, same operation's formal home — one sibling
-swept, the other (linked) sibling not.
+**class_surfaces:** "Universal cover" is a term-of-art the finding says needs introducing at this
+site; the same term recurs in `docs/ARCHITECTURE.md` (two sites describing `displace!`, per the
+commit message — verified at lines ~1010–1015 and ~3821, both now carrying the same inline gloss) and
+in `docs/FORMALIZATION.md` (graded under finding 2, also glossed). `grep -n "universal cover"
+src/*.jl docs/*.md` turns up no remaining bare occurrence. Class swept.
 
 ## Finding 7
 
 **Verdict:** HONORED
 
-**Evidence:** `docs/src/api/Fields.md` diff:
-```
--kernel-composed differential operators on the whole hierarchy, `weighted_inner` on every class
-+kernel-composed differential operators on all four storage classes, `weighted_inner` on every class
-```
-The ambiguous "the whole hierarchy" (which per the finding could read as either the four storage
-classes or the tensor orders) is replaced with the explicit, disambiguated "all four storage classes".
+**Evidence:** `docs/src/api/Fields.md`, "Spectral kernel protocol" section (the exact site named).
+Before: "the kernel-composed differential operators on the whole hierarchy" — ambiguous antecedent
+(four storage classes, or tensor orders, per the finding). After: "the kernel-composed differential
+operators on all four storage classes" — the ambiguity is resolved by naming the referent directly
+rather than leaving a dangling "the whole hierarchy".
 
-**class_surfaces:** Grepped the tree for "whole hierarchy"
-(`grep -rn "whole hierarchy" src/*.jl docs/*.md docs/src/*.md docs/src/api/*.md`) — zero remaining
-hits anywhere, including the fixed line. No sibling occurrence of this exact ambiguous phrase exists
-elsewhere to check; the finding names only this one site and it is the only site. Class swept (trivially,
-being a single instance).
+**class_surfaces:** The finding is scoped to this one page/section; `grep -n "whole hierarchy"
+docs/src/api/*.md docs/*.md src/*.jl` returns nothing anywhere in the tree, so there is no sibling
+occurrence of the same ambiguous phrase left standing. Class swept.
