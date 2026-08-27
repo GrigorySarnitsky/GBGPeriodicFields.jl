@@ -488,6 +488,49 @@ end
 end
 
 
+@testset "the transforms allocate LITERALLY ZERO, not merely below a field" begin
+  # `field_threshold` is `sizeof(one field) + 4096 * nthreads()`, and that slack exists for a real
+  # reason: FFTW reaches its workers through a Julia callback, so a plan built with more than one
+  # thread allocates task state per call — size-independent and nondeterministic, 7008 to 48557 B for
+  # the SAME configuration across runs (`docs/PERFORMANCE.md` §4(t)). A threshold is the only honest
+  # bound while that callback is live.
+  #
+  # But the slack also HID a defect. Decision 76 applied a rank-agnostic plan per component by first
+  # reshaping the fiber into a trailing component axis, and `reshape` on an `Array` returns a new
+  # `Array` sharing the data — a heap-allocated wrapper, twice per transform, a constant 128 B per
+  # call whatever the rank or the grid. Comfortably under the threshold, invisible here for ten days,
+  # and caught by a CONSUMER whose own hot-loop invariant asserts literal zero. A threshold cannot see
+  # a constant that never grows, so the class is pinned at its true value where that value is
+  # knowable: single-threaded FFTW, where the callback is gone and the only bytes left are ours.
+  try
+    set_fft_threads!(1)
+    for T in (Float64, Float32)
+      @testset "$T" begin
+        grid = Grid3D((8, 8, 8), (T(2π), T(2π), T(2π)))
+        layout = RealFourierLayout()
+        physicals = (ScalarFieldPhysical(zeros(T, 8, 8, 8), grid),
+                     VectorFieldPhysical(zeros(T, 8, 8, 8, 3), grid),
+                     TensorFieldPhysical{2}(zeros(T, 8, 8, 8, 3, 3), grid))
+        for (R, physical) in enumerate(physicals)
+          shape = GBGPeriodicFields.spectral_field_shape(grid, layout, Val(R - 1))
+          spectral = R == 1 ? ScalarFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
+                     R == 2 ? VectorFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
+                              TensorFieldSpectral{2}(zeros(Complex{T}, shape...), grid, layout)
+          scratch = similar_field(spectral, similar(field_data(spectral)))
+          plans = FieldTransformPlans(physical, spectral)
+          to_spectral!(spectral, physical, plans)                       # warm both paths first
+          to_physical!(physical, spectral, plans, scratch)
+          @test (@allocated to_spectral!(spectral, physical, plans)) == 0
+          @test (@allocated to_physical!(physical, spectral, plans, scratch)) == 0
+        end
+      end
+    end
+  finally
+    set_fft_threads!(Threads.nthreads())   # the default `__init__` installs
+  end
+end
+
+
 @testset "adapt! moves into a destination without allocating (decision 69)" begin
   # The whole reason the verb exists: finding (x) measured the return trip at a quarter of the
   # outbound rate and attributed the gap to allocating the destination. A form that allocated one

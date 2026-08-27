@@ -109,7 +109,11 @@ const MODULE_BASELINE = (
   # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
   # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
   # deliberately, with the reason, per decision 53's protocol.
-  Fields                = 126,
+  Fields                = 127,
+  # 126 → 127: `_component_views` (one method, returning a reshape) became `_component_view` (two —
+  # a rank-0 identity and the rank-`R` fiber-indexed slice). The reshape allocated an `Array` wrapper
+  # per call, twice per transform, which is the 128 B/call a consumer's zero-allocation invariant
+  # caught and this package's field-sized threshold did not (/bug-hunt-adjacent report, 2026-08-27).
   FieldAlgebra          = 275,
   DifferentialOperators = 79,
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is

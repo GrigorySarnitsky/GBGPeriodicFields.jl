@@ -1382,24 +1382,33 @@ end
 
 
 """
-    _component_views(data, ::Val{R})
+    _component_view(data, ::Val{R}, component::Int)
 
-View one section's storage as its base with the fiber flattened to a trailing component axis, so a
-rank-agnostic plan can be applied one component at a time. The fiber-last layout of invariant 3 makes
-each component contiguous, which is what lets a single reshape expose them; a scalar field
-(`R = 0`) comes back with one component and is transformed by the same loop as any other.
+One component of a section's storage, as a three-dimensional array over the base, so a rank-agnostic
+plan can be applied one component at a time. The fiber-last layout of invariant 3 makes each component
+contiguous, which is what makes the slice a plain strided view.
+
+Indexing the fiber axes DIRECTLY, rather than reshaping the fiber into one trailing component axis
+first, is what keeps the transforms allocation-free. `reshape` on an `Array` returns a new `Array`
+sharing the data, and that wrapper is heap-allocated: two of them per transform, one for the source
+and one for the destination, cost a constant 128 bytes per call whatever the rank or the grid — small
+enough to sit under `test/allocations.jl`'s field-sized threshold, and reported from a consumer whose
+own contract asserts literal zero. A rank-0 section is its own component and is returned untouched,
+which is also what it was before the plans became rank-agnostic.
 """
-@inline _component_views(data::AbstractArray, ::Val{R}) where {R} =
-  reshape(data, size(data, 1), size(data, 2), size(data, 3), 3^R)
+@inline _component_view(data::AbstractArray, ::Val{0}, ::Int) = data
+@inline function _component_view(data::AbstractArray, ::Val{R}, component::Int) where {R}
+  fiber_index = CartesianIndices(ntuple(_ -> 3, Val(R)))[component]
+  return view(data, :, :, :, Tuple(fiber_index)...)
+end
 
 
 # The forward transform reads the REAL component, so a device grid needing staging copies the source
 # in; the inverse writes the real component, so it transforms into the buffer and copies out.
 @inline function _forward_components!(spectral_data, plan, physical_data, ::Val{R}, scratch) where {R}
-  source, destination = _component_views(physical_data, Val(R)), _component_views(spectral_data, Val(R))
   for component in 1:3^R
-    source_view = view(source, :, :, :, component)
-    destination_view = view(destination, :, :, :, component)
+    source_view = _component_view(physical_data, Val(R), component)
+    destination_view = _component_view(spectral_data, Val(R), component)
     if scratch === nothing
       mul!(destination_view, plan, source_view)
     else
@@ -1412,10 +1421,9 @@ end
 
 
 @inline function _inverse_components!(physical_data, plan, spectral_data, ::Val{R}, scratch) where {R}
-  source, destination = _component_views(spectral_data, Val(R)), _component_views(physical_data, Val(R))
   for component in 1:3^R
-    source_view = view(source, :, :, :, component)
-    destination_view = view(destination, :, :, :, component)
+    source_view = _component_view(spectral_data, Val(R), component)
+    destination_view = _component_view(physical_data, Val(R), component)
     if scratch === nothing
       mul!(destination_view, plan, source_view)
     else
