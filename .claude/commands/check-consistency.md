@@ -192,10 +192,20 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
   held, which is this instrument's own antipattern one level down — a lane that grades 5 of 13 and
   reports 5 looks complete. One cheap **census agent** now counts every pile file up front, the graders
   are told their expected count, and a shortfall is logged as `UNDER-GRADED`, with the missing findings
-  named as *unverified, not clean*. And **the do-not-re-flag list must reach the verifiers**: a finding
+  named as *unverified, not clean*. Two refinements from IT, which had the same bug on its own doc side:
+  a caller who counted the pile mechanically can pass `findings_per_hat` and skip the census, putting
+  **no agent in the denominator's loop at all**, which beats a trustworthy agent; and where a lane's
+  self-reported count disagrees with the census the **disagreement is logged rather than silently
+  overridden**, because a lane whose own count is wrong is telling you something about the lane. If
+  neither source yields a denominator the run says so outright — under-grading is undetectable that
+  round, and silence about that would be the same defect again. And **the do-not-re-flag list must
+  reach the verifiers**: a finding
   the owner already settled as not a defect is correctly left unfixed, so a verifier blind to that list
   grades it `UNDONE`, depresses closure with noise, and invites a fix at something deliberately left
-  alone. `panel.js` had read that file since it existed; the verifiers inherited none of it.
+  alone. `panel.js` had read that file since it existed; the verifiers inherited none of it. The
+  consequence is sharpest in `verify-fixes.js`, where the mis-verdict is `UNDONE` — the one verdict
+  indistinguishable from real neglect. Note the **asymmetry**, which the verifiers now state: nothing
+  merely *fixed* is listed in that file, so a finding's absence from it proves nothing.
 
   Their opposite information is the point, and the interesting cells are the **disagreements**:
   `HONORED`-but-`PRESENT` is a fix that missed an occurrence, `UNDONE`-but-`ABSENT` is usually a
