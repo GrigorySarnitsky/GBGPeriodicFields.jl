@@ -207,7 +207,9 @@ end
 Local, ``C^0``, Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
 nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
-`coefficients`. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
+`coefficients`. The `n` argument is the stencil half-width: it fixes both the stencil, which reaches
+`n` nodes below a point and `n + 1` above it, and the degree, so a larger `n` buys reproduction of a
+higher-degree polynomial at the cost of a wider gather. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
 samples one branch of that polynomial (a wrapped stencil draws from the opposite edge, which no
 non-periodic polynomial continues), but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
