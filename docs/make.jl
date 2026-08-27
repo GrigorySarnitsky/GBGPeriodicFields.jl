@@ -200,6 +200,140 @@ function lint_api_page_structure()
   @info "doc lint: API page structure OK"
 end
 
+# ---------------------------------------------------------------------------------------------
+# PROSE SHAPE — a RATCHET against accretion. Ported from GBGIsotropicTurbulence 2026-08-27, and
+# EXTENDED from its docstrings-only scope to the pages and rationale docs, which is where PF measured
+# its own accretion (+34 lines of clause-appending in one fix pass, against -5 in the one file that
+# was rewritten rather than appended to).
+#
+# THE DEFECT IT CATCHES is invisible to every per-finding check, because each edit is locally correct:
+# across successive fix passes a docstring or section GROWS, each fix appending a clause to an existing
+# sentence instead of rewriting the passage. The docs get longer and worse while no individual change
+# is wrong.
+#
+# WHY A RATCHET AND NOT A THRESHOLD. A hard cap either fires on everything that predates the rule or is
+# set so high it never fires — and a check that cries wolf is one the operator learns to wave through,
+# which is worse than no check. A ratchet has NOTHING TO TUNE: a unit may not grow past what it already
+# is, whatever that is. Its false-positive rate on prose that did not grow is structurally zero, and a
+# rewrite BANKS the improvement, because shrinking rewrites the baseline down.
+#
+# THREE NUMBERS, not one. Total words alone misses a unit that stays the same length while one
+# paragraph swells and something else is cut. `longest_paragraph` is the number the append-a-clause
+# defect actually moves. `admonitions` catches the other accretion shape — a caveat added per finding
+# until the docstring is a list of warnings.
+#
+# THE UNIT MATTERS FOR PAGES, and this is the extension. `ARCHITECTURE.md`'s decision log is
+# append-only BY DESIGN, so ratcheting a whole file would fire on every new decision. The unit is
+# therefore a SECTION (a heading) for markdown and a DOCSTRING for source: a new section is allowed
+# and gets the newcomer caps, while growth of an EXISTING section is exactly what is caught.
+const PROSE_BASELINE = joinpath(@__DIR__, "prose_shape.csv")
+const NEW_UNIT_PARAGRAPH_CAP = 120
+const NEW_UNIT_ADMONITION_CAP = 3
+
+function _prose_metrics(text)
+    paragraphs = split(text, r"\n\s*\n")
+    longest = isempty(paragraphs) ? 0 : maximum(length(split(p)) for p in paragraphs)
+    (words = length(split(text)), longest = longest, admonitions = count(!isnothing, eachmatch(r"!!! ", text)))
+end
+
+function _prose_units()
+    units = Dict{String, NamedTuple}()
+    for file in filter(f -> endswith(f, ".jl"), readdir(joinpath(@__DIR__, "..", "src"); join = true))
+        source = read(file, String)
+        for m in eachmatch(r"\"\"\"\n(.*?)\n\"\"\""s, source)
+            body = m.captures[1]
+            signature = strip(first(split(body, "\n")))
+            isempty(signature) && continue
+            units["$(basename(file)) :: $(first(signature, 60))"] = _prose_metrics(body)
+        end
+    end
+    pages = String[]
+    for d in (joinpath(@__DIR__), joinpath(@__DIR__, "src"), joinpath(@__DIR__, "src", "api"))
+        isdir(d) || continue
+        append!(pages, filter(f -> endswith(f, ".md"), readdir(d; join = true)))
+    end
+    for file in pages
+        # The generated copies of the rationale docs are regenerated from their sources; ratchet the
+        # source, never the copy, or every build would report the copy as new.
+        occursin(joinpath("docs", "src"), file) && basename(file) in
+            ("architecture.md", "formalization.md", "testing.md", "performance.md") && continue
+        section, buffer = "(preamble)", IOBuffer()
+        function flush_section!()
+            body = String(take!(buffer))
+            isempty(strip(body)) && return
+            units["$(basename(file)) § $(first(section, 60))"] = _prose_metrics(body)
+        end
+        for line in eachline(file)
+            # A heading opens a new unit — and so does a TOP-LEVEL NUMBERED ITEM, which is what makes
+            # this work on an append-only log. `ARCHITECTURE.md` §13 writes each decision as `NN. **…**`
+            # rather than as a heading, so ratcheting the section as a whole would fire on every NEW
+            # decision, which is the one growth that is correct by design. Splitting per entry makes a
+            # new decision a NEW unit (allowed, newcomer-capped) while editing an existing one grows
+            # that entry and is caught — which is the actual defect.
+            if startswith(line, "#")
+                flush_section!()
+                section = strip(replace(line, r"^#+" => ""))
+            elseif (m = match(r"^(\d+)\. ", line)) !== nothing
+                flush_section!()
+                section = "item " * m.captures[1]
+                println(buffer, line)
+            else
+                println(buffer, line)
+            end
+        end
+        flush_section!()
+    end
+    return units
+end
+
+function lint_prose_shape()
+    units = _prose_units()
+    if get(ENV, "PROSE_SHAPE_BASELINE", "0") == "1" || !isfile(PROSE_BASELINE)
+        open(PROSE_BASELINE, "w") do io
+            println(io, "unit,words,longest_paragraph,admonitions")
+            for k in sort(collect(keys(units)))
+                u = units[k]
+                println(io, "\"", replace(k, "\"" => "'"), "\",", u.words, ",", u.longest, ",", u.admonitions)
+            end
+        end
+        @info "doc lint: prose-shape baseline WRITTEN ($(length(units)) units) — this is deliberate and shows in the diff"
+        return
+    end
+    baseline = Dict{String, NTuple{3, Int}}()
+    for (i, line) in enumerate(eachline(PROSE_BASELINE))
+        i == 1 && continue
+        m = match(r"^\"(.*)\",(\d+),(\d+),(\d+)$", line)
+        m === nothing && continue
+        baseline[m.captures[1]] = (parse(Int, m.captures[2]), parse(Int, m.captures[3]), parse(Int, m.captures[4]))
+    end
+    grown, capped, shrunk = String[], String[], 0
+    for k in sort(collect(keys(units)))
+        u = units[k]
+        key = replace(k, "\"" => "'")
+        if haskey(baseline, key)
+            w, l, a = baseline[key]
+            if u.words > w || u.longest > l || u.admonitions > a
+                push!(grown, "$key: words $w->$(u.words), longest paragraph $l->$(u.longest), admonitions $a->$(u.admonitions)")
+            elseif u.words < w || u.longest < l || u.admonitions < a
+                shrunk += 1
+            end
+        else
+            u.longest > NEW_UNIT_PARAGRAPH_CAP && push!(capped, "$key: new unit, longest paragraph $(u.longest) > $NEW_UNIT_PARAGRAPH_CAP words")
+            u.admonitions > NEW_UNIT_ADMONITION_CAP && push!(capped, "$key: new unit, $(u.admonitions) admonitions > $NEW_UNIT_ADMONITION_CAP")
+        end
+    end
+    if !isempty(grown) || !isempty(capped)
+        for g in grown;  println("  GREW:   ", g); end
+        for c in capped; println("  CAPPED: ", c); end
+        error("doc lint failed: prose shape. A unit grew past what it already was, or a new one exceeded " *
+              "the newcomer caps. Rewrite the passage rather than appending to it — a rewrite that comes " *
+              "out shorter banks the improvement automatically. If the growth is genuinely new content, " *
+              "re-baseline deliberately with PROSE_SHAPE_BASELINE=1, which shows in the diff.")
+    end
+    @info "doc lint: prose shape OK ($(length(units)) units, $shrunk improved)"
+end
+
+
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
@@ -207,6 +341,7 @@ lint_inline_math()
 lint_notation_variants()
 lint_retired_claims()
 lint_api_page_structure()
+lint_prose_shape()
 
 using Documenter
 using GBGPeriodicFields
