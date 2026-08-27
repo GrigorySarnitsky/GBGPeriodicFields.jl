@@ -1691,6 +1691,62 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 ## Planned directions (recorded — not started)
 
+- **The instruments are FROZEN in-tree, and a shared instrument package is DEFERRED (user-decided
+  2026-08-27).** Two rulings, and the first binds now. **(1) Stop changing the instruments.** They were
+  edited all week while grading the very work they measure — four defects fixed in PF's graders
+  mid-round, one of them ported to IT three days earlier — which is why PF's round 3→4 rate jump
+  (54.8 → 74.2%) is uninterpretable: the predicate moved between rounds. PF's copies are frozen as of
+  `faa164a1`. An instrument change is now a deliberate act with its own commit, never a fix folded into
+  a round it is scoring. **(2) The shared package is not a priority; it will be made later.** Do not
+  build it. What follows is the survey taken before the deferral, recorded so the work is not
+  re-derived — the piles it came from are transcript-only, and IT's findings piles are untracked.
+
+  **Sizes.** PF: 17 scripts, 1977 lines. IT: 33 scripts, 4583 lines (measured 2026-08-27, both trees).
+
+  **The split both sessions independently reached:** shared **engines**, per-package **config**
+  (personas, catalogue, notation patterns, package description, paths), per-package **`.md`**. The
+  evidence is where the coupling sits: IT's `panel.js` carries 22 package-specific lines and almost all
+  are inside its 27 `persona:` strings plus one preamble paragraph; `hunt.js`'s are module names and a
+  `julia` invocation; the `.md` definitions hold the surface lists and the rubric (IT `check-docs.md`
+  21, `check-consistency.md` 8).
+
+  **Zero-coupling in BOTH trees, shareable as-is:** `gate.py`, `coverage.py`, `recall.py`,
+  `witnesses.jl`, `argcov.jl`, `manifest.py`. IT additionally has `closure.py`, `finished.py`,
+  `dismissals.js`, `rubric_extract.py`, `rubric_prep.py`, `dupref.jl` at zero; PF has
+  `recall_selftest.py`.
+
+  **Behavioural divergences a shared package must RESOLVE, not merge.** The demotion predicate — IT
+  tests **emptiness** of the class answer, PF **parses content**; IT's wins, and PF's round 3 (ten of
+  thirteen demotions spurious, on notation alone) is the recorded reason, which belongs in the shared
+  docs because the pull to "improve" emptiness into a citation check is real. Staleness — PF reads
+  **mtime**, which needs no compliance, and that mechanism wins, with IT's **default-direction rule**
+  stated beside it: a self-reported field is acceptable only when the missing case is the failing case.
+  The `/bug-hunt` **verdict sets** may differ between the trees, which is a schema divergence rather
+  than wording, since `dismissals`/`closure`/`finished` all key off it. And same-named files differ by
+  1.5–2× in length (`hunt.js` 324 vs 213, `verify.js` 269 vs 186), part commentary and part behaviour —
+  that needs a real diff, never a count comparison.
+
+  **No counterpart, both ways.** IT has the whole `/audit-changes` instrument (499 lines), `bug-hunt`'s
+  `closure.py`/`finished.py`, the `rubric_*` triple, `severity_recheck.js`, `abutting_spans.py`,
+  `dupref.jl`, `signature_fidelity.jl`, `xlink.jl`, `lanes.js`. PF has `lint_review_closure()`,
+  `guards.sh`, `recall_selftest.py` — and `recall_selftest.py` is the one IT named as the piece it
+  would take immediately, its own perturbation arms being a **comment instructing a human to re-run
+  them** where PF's is a script.
+
+  **Two constraints on the eventual design.** The closure gate cannot move unchanged: PF's is a Julia
+  build lint and IT's build is not PF's, so it becomes a script both builds call — and **IT's findings
+  piles are untracked by standing decision**, so on a fresh clone such a gate finds no round and passes
+  **vacuously**, which the missing-case-must-fail rule forbids; it needs a tracked open-round marker or
+  must fail when the pile it expects is absent. And `manifest.py` is **kept**, demoted rather than
+  retired: a shared package can be pinned at different versions in two consumers, and then the toolboxes
+  are being diffed again.
+
+  **Undecided, and the user's call when this resumes:** where the package lives (a sibling private
+  GitHub repo — the recommendation, since instrument changes are exactly what wants review and history
+  — versus an untracked Dropbox folder, versus living inside one package), and how each tree consumes it
+  (symlink, which makes divergence impossible, versus vendored copies plus a manifest, which only
+  detects it).
+
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
 - **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
