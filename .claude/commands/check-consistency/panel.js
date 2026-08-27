@@ -129,11 +129,15 @@ NOTE: the gratuitous-\\,, unbraced-fraction, and the CLAUDE.md spacing / \\left 
 ]
 
 phase('Panel')
-const results = []
-for (let i = 0; i < hats.length; i++) {
-  const h = hats[i]
-  const nn = String(i + 1).padStart(2, '0')
-  const prompt = `${PREAMBLE}
+// PARALLEL since 2026-08-27. This loop was sequential, and the reason was explicit: a token-out
+// truncated the tail, so hats ran in priority order and the least-critical lens was the one lost.
+// That constraint is gone — the fleet's budget is no longer the binding limit — so the hats now run
+// concurrently and the whole panel costs one hat's wall-clock. Do NOT "restore" the sequential form
+// without restoring its premise: the ordering below is now presentation only, not triage.
+//
+// The per-hat OUTPUT cap is a different limit and is unaffected by this: it is per agent, so a hat
+// that would overrun still overruns, and the preamble's ~25-finding bound is still what prevents it.
+const prompt = (h, nn) => `${PREAMBLE}
 
 YOUR HAT:
 ${h.persona}
@@ -144,10 +148,30 @@ ${h.substrate}
 When your review is complete, FIRST use the Write tool to save your findings as readable markdown to:
   ${PILE}/${nn}-${h.key}.md
 (a title line naming your hat, then one clearly-formatted section per finding: type / severity / confidence / locations-with-quotes / contradicts / description). THEN return the structured object with hat="${h.key}".`
+
+const numbered = hats.map((h, i) => ({ h, nn: String(i + 1).padStart(2, '0') }))
+const outcomes = await parallel(numbered.map(({ h, nn }) => () => {
   const economized = STRENGTH === 'economy' && !h.anchor
-  const r = await agent(prompt, { label: h.key, phase: 'Panel', schema: SCHEMA, agentType: 'general-purpose',
-                                  ...(economized ? { model: 'sonnet' } : {}) })
+  return agent(prompt(h, nn), { label: h.key, phase: 'Panel', schema: SCHEMA, agentType: 'general-purpose',
+                                ...(economized ? { model: 'sonnet' } : {}) })
+}))
+
+// A hat that DIED and a hat that found NOTHING both look like "0 findings", and the panel's stopping
+// rule depends on telling them apart — a dead lane read as a clean one is a silent false pass. With
+// the lanes concurrent this matters more, not less: a sequential run announced each hat as it landed,
+// where a barrier reports them all at once and a hole is easy to miss.
+const results = []
+const dead = []
+outcomes.forEach((r, i) => {
+  const { h, nn } = numbered[i]
+  if (!r) {
+    dead.push(h.key)
+    log(`${nn} ${h.key}: DEAD — no result (re-run this hat standalone to fill ${nn}-${h.key}.md)`)
+    return
+  }
   results.push(r)
-  log(`[${nn}/${hats.length}] ${h.key}${economized ? ' (economy)' : ' (anchor/full)'}: ${r && r.findings ? r.findings.length : 0} findings -> ${nn}-${h.key}.md`)
-}
-return { results }
+  const n = r.findings ? r.findings.length : 0
+  log(`${nn} ${h.key}: ${n} findings -> ${nn}-${h.key}.md${n === 0 ? '  (returned empty — NOT the same as dead)' : ''}`)
+})
+if (dead.length) log(`DEAD HATS: ${dead.join(', ')} — the panel is INCOMPLETE until these are re-run`)
+return { results, dead }

@@ -46,7 +46,10 @@ that rests only on the package's own other paths. This instrument is the third m
 
 ## Lanes are free, not class-bound
 
-Lanes differ by **territory** (which files) so coverage spreads, and are otherwise unconstrained. IT
+Lanes differ by **territory** (which files) so coverage spreads, and are otherwise unconstrained. They
+run **in parallel**, which forces one rule: every witness filename is prefixed with its lane key. An
+unprefixed name can collide with another lane's, and a collision here is not a lost file — it is one
+lane overwriting a witness while another is running it, yielding a verdict about the wrong program. IT
 measured unconstrained readers beating eight defect-class lanes at a third of the cost, and catching
 four regressions it had introduced itself. A class list is a hypothesis the instrument then reports
 `complete` over — a false comfort, and worse than no list.

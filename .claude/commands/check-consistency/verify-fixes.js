@@ -83,11 +83,12 @@ HARD RULES:
 - \`class_surfaces\` is not optional prose, and it is enumerated FROM THE FINDING, NEVER FROM THE DIFF. The diff shows only where someone already looked, so reading the class off it cannot detect the failure this instrument exists to detect. Start from the finding's own words — the family it names, the sibling docstring, the convention it says appears elsewhere — list each surface as \`file:line\`, and say for each whether the diff swept it. An empty or hand-waving answer is DEMOTED TO LINE-ONLY MECHANICALLY, after you return, so there is nothing to be gained by leaving it thin.`
 
 phase('Verify fixes')
-const results = []
-for (let i = 0; i < HATS.length; i++) {
-  const key = HATS[i]
-  const nn = String(i + 1).padStart(2, '0')
-  const prompt = `${PREAMBLE}
+// PARALLEL since 2026-08-27. These lanes were sequential only because the panel they follow was, and
+// that was a token-budget decision the fleet has since outgrown. Nothing here wanted serialising: a
+// verifier lane emits verdicts, not prose, so the per-agent output cap is not close, and there is no
+// priority order to protect because closure needs every hat's findings graded, not the first few.
+const numbered = HATS.map((key, i) => ({ key, nn: String(i + 1).padStart(2, '0') }))
+const outcomes = await parallel(numbered.map(({ key, nn }) => () => agent(`${PREAMBLE}
 
 YOUR LANE: the findings banked by the "${key}" hat.
 
@@ -96,16 +97,23 @@ YOUR LANE: the findings banked by the "${key}" hat.
 2. Inspect the fix pass: \`git -C ${REPO} diff ${RANGE}\` (and any narrower git/grep commands you need).
 3. Grade EVERY finding in that file against the diff, by the verdicts above.
 
-Return the structured object with hat="${key}".`
-  const economized = STRENGTH === 'economy'
-  const r = await agent(prompt, { label: `verify-fixes:${key}`, phase: 'Verify fixes', schema: SCHEMA,
-                                  agentType: 'general-purpose', ...(economized ? { model: 'sonnet' } : {}) })
+Return the structured object with hat="${key}".`,
+  { label: `verify-fixes:${key}`, phase: 'Verify fixes', schema: SCHEMA, agentType: 'general-purpose',
+    ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })))
+
+const results = []
+outcomes.forEach((r, i) => {
+  const { key, nn } = numbered[i]
+  // A lane that returned NOTHING AT ALL is dead — distinct from one that read an absent file, and
+  // distinct again from one that graded findings. Concurrency makes this sharper: a barrier reports
+  // every lane at once, so a hole no longer announces itself by a missing line in a running log.
+  if (!r) { log(`${nn} ${key}: DEAD — no result`); return }
   results.push(r)
   // Demote by RULE, not by the grader's judgement. The whole failure mode is a fixer (and then a
   // grader) producing a plausible account of a sweep that never happened, so HONORED has to be EARNED
   // by an enumerated class — at least one concrete file:line surface. Leaving this to the prompt would
   // leave it to the same agent whose laziness it exists to catch. Ported back from IT 2026-08-27.
-  const v = (r && r.verdicts) || []
+  const v = r.verdicts || []
   for (const x of v) {
     if (x.verdict !== 'HONORED') continue
     const cs = (x.class_surfaces || '').trim()
@@ -115,8 +123,8 @@ Return the structured object with hat="${key}".`
     }
   }
   const honored = v.filter(x => x.verdict === 'HONORED').length
-  log(`[${nn}/${HATS.length}] ${key}: ${v.length} graded, ${honored} HONORED${r && r.pile_file_read === false ? ' (no findings file)' : ''}`)
-}
+  log(`${nn} ${key}: ${v.length} graded, ${honored} HONORED${r.pile_file_read === false ? ' (no findings file)' : ''}`)
+})
 
 // Liveness before arithmetic: a lane that returned nothing while its file held findings is a DEAD
 // AGENT, and averaging over it silently inflates the honored rate. Report it as a lane failure, not

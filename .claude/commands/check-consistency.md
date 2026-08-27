@@ -12,9 +12,13 @@ memory — it judges the docs as written, from its own expertise) and banks its 
 exception:** the `latex-typesetter` hat (#7) also reads the authored **source** (`src/`, `docs/`,
 `examples/`) and the **`CLAUDE.md` §Style** rulebook — typesetting idiom lives in the source markup, not the
 rendered output, and the house style it enforces is defined in `CLAUDE.md`. The
-panel is **collect-only**: it never edits `src/` or `docs/`; you act only when the user says fix. It runs
-**sequentially**, so a token-out loses at most the current hat; the hat order is **priority** (most
-critical first).
+panel is **collect-only**: it never edits `src/` or `docs/`; you act only when the user says fix. The hats
+run **in parallel** (changed 2026-08-27): they were sequential so that a token-out would lose only the
+tail, and the fleet's budget is no longer the binding constraint, so the whole panel now costs one hat's
+wall-clock. The listed order is therefore **presentation, not triage**. Two things did not change with
+it — the per-hat **output** cap is per agent and still bounds each hat at ~25 findings, and a hat that
+**dies** is now reported separately from one that returns **nothing**, because a barrier reports every
+lane at once and a hole no longer announces itself by a gap in a running log.
 
 ## What it catches — and what it does not
 

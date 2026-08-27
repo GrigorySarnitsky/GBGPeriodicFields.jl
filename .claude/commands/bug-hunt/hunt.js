@@ -120,9 +120,16 @@ HARD RULES:
   not latent. Your witnesses target what the suite passes over.`
 
 phase('Hunt')
-const laneResults = []
-for (const lane of LANES) {
-  const prompt = `${HUNT_PREAMBLE}
+// PARALLEL since 2026-08-27, with one change that MUST come with it: witness filenames are now
+// namespaced by lane. Concurrent lanes choosing their own short names could otherwise collide, and a
+// collision here is not a lost file — it is one lane overwriting a witness while another lane is
+// running it, which produces a verdict about the wrong program. Sequential execution hid that hazard
+// rather than removing it.
+//
+// Julia contention was the other reason to serialise, and it is not a correctness reason: witnesses
+// assert values, not timings, so concurrent runs may be slower but cannot be wrong. Five lanes against
+// this box's concurrency cap is comfortable.
+const outcomes = await parallel(LANES.map(lane => () => agent(`${HUNT_PREAMBLE}
 
 YOUR TERRITORY (read this; you may read anything else in the repo to understand it, but hunt HERE):
 ${lane.territory}
@@ -130,15 +137,24 @@ ${lane.territory}
 Repository root: ${REPO}
 Witness pile:    ${PILE}
 
+NAME EVERY WITNESS \`witness-${lane.key}-<short-name>.jl\` — the leading lane key is REQUIRED. Other
+lanes are hunting at the same time and an unprefixed name can collide with theirs, which would mean
+one lane silently overwriting a witness another lane is in the middle of running.
+
 Write your lane report as markdown to ${PILE}/hunt-${lane.key}.md (one section per candidate: title,
 location, oracle, witness path, observed outcome, quoted output), THEN return the structured object
-with lane="${lane.key}".`
-  const r = await agent(prompt, { label: `hunt:${lane.key}`, phase: 'Hunt', schema: SCHEMA,
-                                  agentType: 'general-purpose', ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })
+with lane="${lane.key}".`,
+  { label: `hunt:${lane.key}`, phase: 'Hunt', schema: SCHEMA, agentType: 'general-purpose',
+    ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })))
+
+const laneResults = []
+outcomes.forEach((r, i) => {
+  const lane = LANES[i]
+  if (!r) { log(`hunt:${lane.key} — DEAD, no result (its territory is UNHUNTED, not clean)`); return }
   laneResults.push(r)
-  const c = (r && r.candidates) || []
+  const c = r.candidates || []
   log(`hunt:${lane.key} — ${c.length} candidates (${c.filter(x => x.observed === 'FAILS').length} with a FAILING witness)`)
-}
+})
 
 // Only candidates with a witness OBSERVED TO FAIL reach adjudication. Everything else is already
 // decided by the rule: a passing witness is not a bug, an erroring witness is not evidence, and a

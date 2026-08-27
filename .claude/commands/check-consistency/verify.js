@@ -73,14 +73,16 @@ HARD RULES — the first is what makes this lane worth running:
 - Quote the decisive CURRENT text in every evidence field. A verdict with no quotation is not evidence.`
 
 phase('Verify state')
-const results = []
-for (let i = 0; i < HATS.length; i++) {
-  const key = HATS[i]
-  const nn = String(i + 1).padStart(2, '0')
+// PARALLEL since 2026-08-27. These lanes were sequential only because the panel they follow was, and
+// that was a token-budget decision the fleet has since outgrown. Nothing here wanted serialising: a
+// verifier lane emits verdicts, not prose, so the per-agent output cap is not close, and there is no
+// priority order to protect because closure needs every hat's findings graded, not the first few.
+const numbered = HATS.map((key, i) => ({ key, nn: String(i + 1).padStart(2, '0') }))
+const outcomes = await parallel(numbered.map(({ key, nn }) => () => {
   const substrate = SITEONLY_HATS.indexOf(key) >= 0
     ? `The current user-facing site, design docs withheld: ${SITEONLY}`
     : `The current whole rendered site incl. the design docs: ${FULL}`
-  const prompt = `${PREAMBLE}
+  return agent(`${PREAMBLE}
 
 YOUR LANE: the findings banked by the "${key}" hat.
 
@@ -89,15 +91,20 @@ YOUR LANE: the findings banked by the "${key}" hat.
 2. Read your substrate: ${substrate}
 3. For EVERY finding in the banked file, in order, decide PRESENT / ABSENT / UNCLEAR / NEVER-A-DEFECT and quote the current text that settles it.
 
-Return the structured object with hat="${key}".`
-  const economized = STRENGTH === 'economy'
-  const r = await agent(prompt, { label: `verify:${key}`, phase: 'Verify state', schema: SCHEMA,
-                                  agentType: 'general-purpose', ...(economized ? { model: 'sonnet' } : {}) })
+Return the structured object with hat="${key}".`,
+    { label: `verify:${key}`, phase: 'Verify state', schema: SCHEMA, agentType: 'general-purpose',
+      ...(STRENGTH === 'economy' ? { model: 'sonnet' } : {}) })
+}))
+
+const results = []
+outcomes.forEach((r, i) => {
+  const { key, nn } = numbered[i]
+  if (!r) { log(`${nn} ${key}: DEAD — no result`); return }
   results.push(r)
-  const st = (r && r.states) || []
+  const st = r.states || []
   const absent = st.filter(x => x.state === 'ABSENT').length
-  log(`[${nn}/${HATS.length}] ${key}: ${st.length} checked, ${absent} ABSENT${r && r.pile_file_read === false ? ' (no findings file)' : ''}`)
-}
+  log(`${nn} ${key}: ${st.length} checked, ${absent} ABSENT${r.pile_file_read === false ? ' (no findings file)' : ''}`)
+})
 
 const live = results.filter(r => r && r.pile_file_read !== false)
 const dead = live.filter(r => (!r.states || r.states.length === 0) && r.findings_in_file > 0)
