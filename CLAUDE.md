@@ -110,6 +110,18 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
     temporaries into the assignment, never materialize them. This is load-bearing for GPU hot loops: a
     per-call device temporary escapes Julia's GC (which triggers on *host* pressure, blind to the *device*
     buffer a dead array owns), so the pool grows every step until the run wedges (decisions 24, 25, 26).
+    **A threshold cannot see a constant that never grows, so the class is also pinned at zero where
+    zero is knowable.** Most rows are `@alloc_below field_threshold` (one field plus `4096 ×
+    nthreads()`), and that slack is honest — FFTW reaches its workers through a Julia callback, so a
+    multi-threaded plan allocates nondeterministic task state, 7008–48557 B for one configuration
+    across runs (`docs/PERFORMANCE.md` §4(t)). But decision 76's per-component transforms then leaked
+    a **constant 128 B a call** — two `reshape` wrappers, one per operand, `reshape` on an `Array`
+    returning a new heap-allocated `Array` sharing the data — and it sat under that threshold for ten
+    days, invisible here and found by a **consumer** whose hot loop asserts literal zero per step. The
+    transforms therefore carry a second lane that sets FFTW to one thread, where the callback is gone
+    and the only remaining bytes are the package's own, and asserts `== 0` for `R = 0, 1, 2`. The
+    general rule: where a bound exists only to cover someone else's nondeterminism, add a
+    configuration in which that nondeterminism is absent and pin the true value there.
     Enforced **exhaustively** by `test/allocations.jl` via `@allocated` **on the CPU** — where a
     materialized array's full bytes are counted; on the GPU it is a device buffer behind a tiny host
     wrapper, invisible to `@allocated`, so a GPU measurement would miss the very leak that wedges a hot
