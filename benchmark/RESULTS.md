@@ -1,6 +1,6 @@
 # Benchmark results
 
-Minimum time per operation; `—` = not measured for that column (a device / grid / element-type combination not run). Generated 2026-08-24 at commit `dd893507` on Julia 1.12.6, assembled on host `Aiporetne` — a **multi-host** report (each device names its own host below). Columns are the supplied runs; grids and element types are in the row labels. **CPUs** — thread sweep 1/2/4/8: **i7-12700K** (8 P-cores — `Aiporetne`, 64³–**512³** both element types) and **Ryzen 9800X3D** (8 Zen 5 cores / 16 threads, 96 MB 3D V-Cache — `Enteropia`, 64³–**512³** both element types — the CPU production band of ARCHITECTURE.md decision 37; RAM bounds nothing at 123 GB); both CPU columns are measured at the decision-38/39 rewrite — slab-threaded assignments and the fused one-pass kernels, so thread scaling is monotone (the retired inversion the previous archive carried is finding (l) in PERFORMANCE.md §4). Both CPU columns now carry post-decision-40 threaded reductions — the fixed-tree reduce scaling monotonically with thread count (e.g. `maximum scalar` 128³ Float64, 9800X3D: 442 → 59 µs t1→t8) — so the reductions cells are cross-host comparable. **GPUs**, newest last: **RX 7900 XTX** (gfx1100, ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the `transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ and the radial diagnostics' working set hits the 24 GB ceiling); **RTX 5070 Ti** (Blackwell sm_120, CUDA, 16 GB — `Enteropia`, 64³–256³ both types; 512³ exceeds 16 GB — the `mul!` tensor field alone is 4.5 GB). **Two columns for since-retired cards were DROPPED on 2026-08-07** — both were measured under the `gcsample` regime of PERFORMANCE.md §4(s), which inflated device rows 2–29×, and neither card is in the fleet to re-sweep, so those columns could never be corrected or compared against anything measured after the fix. Every remaining column is measured at the decision-38/39 rewrite. **Both GPU columns are now in the fixed measurement regime and are comparable again.** Device lanes used to run with a blanket `gcsample = true`, so a full `GC.gc()` — whose finalizers free device buffers and synchronize — preceded every sample and dominated operations lasting tens of microseconds, inflating device rows 18.4–29.2× at ``64^3``, 5.8–19.8× at ``128^3`` and 1.9–4.25× at ``256^3`` on the AMD card. `gcsample` is now decided per row from a measured device-pool probe and kept only for rows that genuinely materialize. **GPU 7900XTX was re-swept 2026-08-07** (median −81.6%) and **GPU 5070TI on 2026-08-09** (median −46.4% over 426 rows). The NVIDIA correction is the smaller of the two because that vendor's collect-and-synchronize is cheaper, not because less was wrong: the CUDA branch of the probe called `CUDA.available_memory`, which is not a binding, so it threw on every row and the catch-all held every CUDA row on the collector until 2026-08-09 — see PERFORMANCE.md §4(w), and note that a fallback reported as a measurement is the reason that went unnoticed. CPU columns were never affected, `gcsample` being gated on the backend. See PERFORMANCE.md §4(s). **`fft` rows are comparable only within a column vintage, and the 2026-08-05 shift is `Enteropia`-specific.** That re-sweep of the 9800X3D lanes found the `fft` class 20–50% slower than the 2026-07-30 archive at the larger grids (``256^3`` `Float64` `to_physical scalar` t1: 83.8 → 116.0 ms), reproducible to under 1% across three standalone probes, while the other 596 rows moved by a median of −0.12% and the cuFFT lane showed no `fft` mover at all. It is not the package (zero changed lines on the transform path), not FFTW, and not Julia; a reboot fell between the two sweeps and no pre-reboot platform state was recorded. **The 2026-08-07 `Aiporetne` re-sweep is the control, and at the larger grids the shift does not reproduce:** across that host's 192 `fft` rows (four lanes × 48) against its 2026-07-22 archive, exactly **one** row at ``256^3`` moved slower and by +1.0%, where `Enteropia` moved +38%; per-lane medians run −4.5% to −6.8%. Twenty-three rows did move slower, but all except that one sit at ``64^3``/``128^3``, and the three exceeding 20% are small-grid high-thread-count cells where thread overhead dominates a sub-millisecond workload. This host's rows moved materially *faster* at the larger grids (up to a ratio of 0.54), which is no better explained, so a cross-vintage `fft` comparison is uninformative rather than evidence. `Aiporetne` runs kernel `7.0.0-28-generic`, the same version `Enteropia` recorded post-reboot, so a platform-wide kernel or microcode regression is not supported. **The 2026-08-09 `Enteropia` re-sweep settles it: the shift was a ONE-OFF, not a persistent state change.** Re-measuring t1/t2/t4 against the 2026-08-05 archive over an interval with no source changes, the `fft` class is flat — per-lane medians −1.1% to −1.4%, and at ``256^3`` specifically −3.7%, −6.5% and −1.2%, where the event being explained was +20–50%. Every other class is flat too (600 rows per lane, overall medians +0.0%, −0.2%, −0.2%), so the sweep reproduces itself and the instrument is sound. Those three lanes are also the first archives carrying stamped platform state (kernel, microcode, governor, SMT, transparent huge pages), so a recurrence is now falsifiable instead of unattributable. See PERFORMANCE.md §4(p). **Five CPU rows are process-history-sensitive and comparable only against same-shaped sweeps — PERFORMANCE.md §4(y).** The two `materialize_kernel` rows, `lpnorm vec Inf`, `radial_correlation vec` and `cross-correlation vec.vec` measure faster at low thread counts inside a full sweep than standalone (up to ``3.2\times`` for `materialize_kernel` at ``t1``, ``1.2``–``1.7\times`` for the reductions three), because their per-call field-sized allocation lands in a regime selected by what streamed through the process before them; the eight allocating `fft` rows are verified clean. Every CPU column here is a full sweep, so the table is self-consistent, but those cells must not be compared against a standalone probe or a class-only lane, and `materialize_kernel` thread scaling should be read from ``t4`` upward (the ``t2`` cell of `materialize_kernel separable` is bistable across sweeps). **The `CPU 9800X3D t8` column was assembled from FOUR per-grid runs, not one lane.** A single `-t8` process segfaults on `Enteropia` inside FFTW's threaded executor — PERFORMANCE.md §4(q), reproducible there and never seen on the other host — and failed three times running. Splitting the lane by grid (`CHAR_SIZES=64`, then 128, 256, 512) completes it: 64³, 256³ and 512³ passed first time and 128³ on its second attempt, and the four part-archives merge into one lane archive with disjoint rows, 150 per grid. That is what an uncrashed process would have written, and it is a harness workaround rather than a fix — the fault is unchanged and a plain `characterize.jl` invocation at `-t8` will still die here. The merged column is flat against the 2026-08-05 one it replaces (median +0.0% over 600 rows), and its largest movers are the `measure` twins, whose FFTW `MEASURE` plan search legitimately re-decides between runs. A row may name an operation the package has since REMOVED — `squared_wavenumber_field` was deleted by decision 60, its |k|² being a radial symbol rather than a field. Such rows are a historical measurement, not a callable surface, and they disappear the next time their lane is swept. The GPU sweep builds one (op-class, grid, element-type) at a time so the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand over **every** archive in `benchmark/results/`, this table's own column list included. Do not use `characterize.sh` for a multi-host report: it passes only the lanes it just produced to `report.jl`, so the columns belonging to the other host and to retired cards would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was measured at, stamped into its JSON by `characterize.jl`: `0f1caf57 @ 2026-08-09`: GPU 5070TI; `2d1f1de2 @ 2026-08-10`: CPU 9800X3D t8; `93d9d8da @ 2026-08-07`: GPU 7900XTX; `978a1609 @ 2026-08-09`: CPU 9800X3D t1, CPU 9800X3D t2, CPU 9800X3D t4; `bd1e4f30 @ 2026-08-07`: CPU 12700K t1, CPU 12700K t2, CPU 12700K t4, CPU 12700K t8. **Jitter is ~10% for most cells but NOT uniform: it reaches 1.44x at small grids under high thread counts.** Measured on the 12700K, `mean(norm) vec` `Float32`, five repeats of the same measurement: at ``64^3`` `-t8` the minimum came out 31.2, 31.0, 31.3, 30.8 and 44.4 us, where the same row at `-t1` spans 1.01x and at ``256^3`` `-t8` spans 1.09x. The work there (~31 us) is comparable to the cost of spawning eight threads, and taking BenchmarkTools' minimum over a one-second budget does not suppress it. So a movement of tens of percent in a small-grid, high-thread cell is NOT evidence of anything; compare those at ``256^3`` or above, or at low thread counts. PERFORMANCE.md §4(u).
+Minimum time per operation; `—` = not measured for that column (a device / grid / element-type combination not run). Generated 2026-08-28 at commit `1f45dfbe` on Julia 1.12.7, assembled on host `Enteropia` — a **multi-host** report (each device names its own host below). Columns are the supplied runs; grids and element types are in the row labels. **CPUs** — thread sweep 1/2/4/8: **i7-12700K** (8 P-cores — `Aiporetne`, 64³–**512³** both element types) and **Ryzen 9800X3D** (8 Zen 5 cores / 16 threads, 96 MB 3D V-Cache — `Enteropia`, 64³–**512³** both element types — the CPU production band of ARCHITECTURE.md decision 37; RAM bounds nothing at 123 GB); both CPU columns are measured at the decision-38/39 rewrite — slab-threaded assignments and the fused one-pass kernels, so thread scaling is monotone (the retired inversion the previous archive carried is finding (l) in PERFORMANCE.md §4). Both CPU columns now carry post-decision-40 threaded reductions — the fixed-tree reduce scaling monotonically with thread count (e.g. `maximum scalar` 128³ Float64, 9800X3D: 442 → 59 µs t1→t8) — so the reductions cells are cross-host comparable. **GPUs**, newest last: **RX 7900 XTX** (gfx1100, ROCm, 24 GB, power-capped 294 W — `Aiporetne`, 64³–256³ both types + 512³ `Float32`, the `transfer` and `reductions` classes omitted at 512³ — transfer's NUFFT oversamples to 1024³ and the radial diagnostics' working set hits the 24 GB ceiling); **RTX 5070 Ti** (Blackwell sm_120, CUDA, 16 GB — `Enteropia`, 64³–256³ both types; 512³ exceeds 16 GB — the `mul!` tensor field alone is 4.5 GB). **Two columns for since-retired cards were DROPPED on 2026-08-07** — both were measured under the `gcsample` regime of PERFORMANCE.md §4(s), which inflated device rows 2–29×, and neither card is in the fleet to re-sweep, so those columns could never be corrected or compared against anything measured after the fix. Every remaining column is measured at the decision-38/39 rewrite. **Both GPU columns are now in the fixed measurement regime and are comparable again.** Device lanes used to run with a blanket `gcsample = true`, so a full `GC.gc()` — whose finalizers free device buffers and synchronize — preceded every sample and dominated operations lasting tens of microseconds, inflating device rows 18.4–29.2× at ``64^3``, 5.8–19.8× at ``128^3`` and 1.9–4.25× at ``256^3`` on the AMD card. `gcsample` is now decided per row from a measured device-pool probe and kept only for rows that genuinely materialize. **GPU 7900XTX was re-swept 2026-08-07** (median −81.6%) and **GPU 5070TI on 2026-08-09** (median −46.4% over 426 rows). The NVIDIA correction is the smaller of the two because that vendor's collect-and-synchronize is cheaper, not because less was wrong: the CUDA branch of the probe called `CUDA.available_memory`, which is not a binding, so it threw on every row and the catch-all held every CUDA row on the collector until 2026-08-09 — see PERFORMANCE.md §4(w), and note that a fallback reported as a measurement is the reason that went unnoticed. CPU columns were never affected, `gcsample` being gated on the backend. See PERFORMANCE.md §4(s). **`fft` rows are comparable only within a column vintage, and the 2026-08-05 shift is `Enteropia`-specific.** That re-sweep of the 9800X3D lanes found the `fft` class 20–50% slower than the 2026-07-30 archive at the larger grids (``256^3`` `Float64` `to_physical scalar` t1: 83.8 → 116.0 ms), reproducible to under 1% across three standalone probes, while the other 596 rows moved by a median of −0.12% and the cuFFT lane showed no `fft` mover at all. It is not the package (zero changed lines on the transform path), not FFTW, and not Julia; a reboot fell between the two sweeps and no pre-reboot platform state was recorded. **The 2026-08-07 `Aiporetne` re-sweep is the control, and at the larger grids the shift does not reproduce:** across that host's 192 `fft` rows (four lanes × 48) against its 2026-07-22 archive, exactly **one** row at ``256^3`` moved slower and by +1.0%, where `Enteropia` moved +38%; per-lane medians run −4.5% to −6.8%. Twenty-three rows did move slower, but all except that one sit at ``64^3``/``128^3``, and the three exceeding 20% are small-grid high-thread-count cells where thread overhead dominates a sub-millisecond workload. This host's rows moved materially *faster* at the larger grids (up to a ratio of 0.54), which is no better explained, so a cross-vintage `fft` comparison is uninformative rather than evidence. `Aiporetne` runs kernel `7.0.0-28-generic`, the same version `Enteropia` recorded post-reboot, so a platform-wide kernel or microcode regression is not supported. **The 2026-08-09 `Enteropia` re-sweep settles it: the shift was a ONE-OFF, not a persistent state change.** Re-measuring t1/t2/t4 against the 2026-08-05 archive over an interval with no source changes, the `fft` class is flat — per-lane medians −1.1% to −1.4%, and at ``256^3`` specifically −3.7%, −6.5% and −1.2%, where the event being explained was +20–50%. Every other class is flat too (600 rows per lane, overall medians +0.0%, −0.2%, −0.2%), so the sweep reproduces itself and the instrument is sound. Those three lanes are also the first archives carrying stamped platform state (kernel, microcode, governor, SMT, transparent huge pages), so a recurrence is now falsifiable instead of unattributable. See PERFORMANCE.md §4(p). **Five CPU rows are process-history-sensitive and comparable only against same-shaped sweeps — PERFORMANCE.md §4(y).** The two `materialize_kernel` rows, `lpnorm vec Inf`, `radial_correlation vec` and `cross-correlation vec.vec` measure faster at low thread counts inside a full sweep than standalone (up to ``3.2\times`` for `materialize_kernel` at ``t1``, ``1.2``–``1.7\times`` for the reductions three), because their per-call field-sized allocation lands in a regime selected by what streamed through the process before them; the eight allocating `fft` rows are verified clean. Every CPU column here is a full sweep, so the table is self-consistent, but those cells must not be compared against a standalone probe or a class-only lane, and `materialize_kernel` thread scaling should be read from ``t4`` upward (the ``t2`` cell of `materialize_kernel separable` is bistable across sweeps). **The `CPU 9800X3D t8` column was assembled from FOUR per-grid runs, not one lane.** A single `-t8` process segfaults on `Enteropia` inside FFTW's threaded executor — PERFORMANCE.md §4(q), reproducible there and never seen on the other host — and failed three times running. Splitting the lane by grid (`CHAR_SIZES=64`, then 128, 256, 512) completes it: 64³, 256³ and 512³ passed first time and 128³ on its second attempt, and the four part-archives merge into one lane archive with disjoint rows, 150 per grid. That is what an uncrashed process would have written, and it is a harness workaround rather than a fix — the fault is unchanged and a plain `characterize.jl` invocation at `-t8` will still die here. The merged column is flat against the 2026-08-05 one it replaces (median +0.0% over 600 rows), and its largest movers are the `measure` twins, whose FFTW `MEASURE` plan search legitimately re-decides between runs. A row may name an operation the package has since REMOVED — `squared_wavenumber_field` was deleted by decision 60, its |k|² being a radial symbol rather than a field. Such rows are a historical measurement, not a callable surface, and they disappear the next time their lane is swept. The GPU sweep builds one (op-class, grid, element-type) at a time so the working set stays bounded (PERFORMANCE.md §7). **Regenerate** by re-sweeping the lanes you can measure — `characterize.jl` once per lane — and then invoking `report.jl` by hand over **every** archive in `benchmark/results/`, this table's own column list included. Do not use `characterize.sh` for a multi-host report: it passes only the lanes it just produced to `report.jl`, so the columns belonging to the other host and to retired cards would silently vanish (PERFORMANCE.md §6). **Column vintages** — the commit (and sweep date) each archive was measured at, stamped into its JSON by `characterize.jl`: `0f1caf57 @ 2026-08-09`: GPU 5070TI; `2d1f1de2 @ 2026-08-10`: CPU 9800X3D t8; `93d9d8da @ 2026-08-07`: GPU 7900XTX; `978a1609 @ 2026-08-09`: CPU 9800X3D t1, CPU 9800X3D t2, CPU 9800X3D t4; `bd1e4f30 @ 2026-08-07`: CPU 12700K t1, CPU 12700K t2, CPU 12700K t4, CPU 12700K t8. **Jitter is ~10% for most cells but NOT uniform: it reaches 1.44x at small grids under high thread counts.** Measured on the 12700K, `mean(norm) vec` `Float32`, five repeats of the same measurement: at ``64^3`` `-t8` the minimum came out 31.2, 31.0, 31.3, 30.8 and 44.4 us, where the same row at `-t1` spans 1.01x and at ``256^3`` `-t8` spans 1.09x. The work there (~31 us) is comparable to the cost of spawning eight threads, and taking BenchmarkTools' minimum over a one-second budget does not suppress it. So a movement of tens of percent in a small-grid, high-thread cell is NOT evidence of anything; compare those at ``256^3`` or above, or at low thread counts. PERFORMANCE.md §4(u).
 
 ## fft
 
@@ -237,251 +237,251 @@ Minimum time per operation; `—` = not measured for that column (a device / gri
 
 | operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 7900XTX | GPU 5070TI |
 |:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
-| assignment_window | Float32 128^3 | 1.184 μs | 1.116 μs | 1.122 μs | 1.118 μs | 1.181 μs | 1.166 μs | 1.172 μs | 1.168 μs | 78.810 μs | 28.151 μs |
-| assignment_window | Float32 256^3 | 2.182 μs | 2.182 μs | 2.189 μs | 2.200 μs | 2.258 μs | 2.238 μs | 2.237 μs | 2.216 μs | 80.246 μs | 27.860 μs |
-| assignment_window | Float32 512^3 | 4.430 μs | 4.419 μs | 4.440 μs | 4.459 μs | 4.549 μs | 4.476 μs | 4.460 μs | 4.459 μs | 74.877 μs | — |
-| assignment_window | Float32 64^3 | 604.128 ns | 590.983 ns | 609.251 ns | 601.374 ns | 616.994 ns | 608.282 ns | 608.011 ns | 607.034 ns | 83.731 μs | 27.930 μs |
-| assignment_window | Float64 128^3 | 1.466 μs | 1.505 μs | 1.496 μs | 1.577 μs | 1.556 μs | 1.565 μs | 1.557 μs | 1.569 μs | 75.875 μs | 29.330 μs |
-| assignment_window | Float64 256^3 | 3.065 μs | 3.143 μs | 3.116 μs | 3.315 μs | 3.104 μs | 3.080 μs | 3.072 μs | 3.100 μs | 81.655 μs | 29.990 μs |
-| assignment_window | Float64 512^3 | 5.945 μs | 6.063 μs | 6.048 μs | 6.401 μs | 5.974 μs | 5.946 μs | 5.960 μs | 5.954 μs | — | — |
-| assignment_window | Float64 64^3 | 734.540 ns | 743.932 ns | 799.793 ns | 786.742 ns | 833.222 ns | 821.095 ns | 822.933 ns | 826.468 ns | 76.851 μs | 28.870 μs |
-| combine!∘kernel vector | Float32 128^3 | 4.733 ms | 2.219 ms | 1.598 ms | 1.471 ms | 3.152 ms | 1.553 ms | 776.420 μs | 408.304 μs | 58.199 μs | 77.072 μs |
-| combine!∘kernel vector | Float32 256^3 | 31.065 ms | 20.832 ms | 19.500 ms | 18.608 ms | 25.281 ms | 14.242 ms | 9.995 ms | 9.907 ms | 956.156 μs | 861.350 μs |
-| combine!∘kernel vector | Float32 512^3 | 263.209 ms | 173.203 ms | 161.672 ms | 153.536 ms | 203.215 ms | 102.960 ms | 91.322 ms | 93.085 ms | 7.226 ms | — |
-| combine!∘kernel vector | Float32 64^3 | 490.575 μs | 278.176 μs | 136.540 μs | 74.747 μs | 419.024 μs | 206.082 μs | 104.551 μs | 55.481 μs | 37.616 μs | 14.520 μs |
-| combine!∘kernel vector | Float64 128^3 | 5.425 ms | 4.648 ms | 4.138 ms | 3.926 ms | 3.740 ms | 2.077 ms | 1.078 ms | 746.077 μs | 244.750 μs | 227.311 μs |
-| combine!∘kernel vector | Float64 256^3 | 48.876 ms | 43.187 ms | 40.859 ms | 38.569 ms | 34.162 ms | 22.905 ms | 21.956 ms | 22.125 ms | 1.849 ms | 1.717 ms |
-| combine!∘kernel vector | Float64 512^3 | 355.482 ms | 337.734 ms | 321.947 ms | 308.026 ms | 244.153 ms | 186.297 ms | 186.136 ms | 185.343 ms | — | — |
-| combine!∘kernel vector | Float64 64^3 | 518.029 μs | 280.676 μs | 141.916 μs | 84.508 μs | 383.243 μs | 226.883 μs | 116.831 μs | 60.911 μs | 50.051 μs | 31.880 μs |
-| convolve! scalar | Float32 128^3 | 1.593 ms | 299.555 μs | 202.038 μs | 87.165 μs | 922.239 μs | 102.811 μs | 54.191 μs | 39.251 μs | 42.054 μs | 21.801 μs |
-| convolve! scalar | Float32 256^3 | 13.168 ms | 7.734 ms | 7.298 ms | 6.742 ms | 7.584 ms | 2.900 ms | 2.712 ms | 2.746 ms | 282.937 μs | 259.493 μs |
-| convolve! scalar | Float32 512^3 | 105.047 ms | 65.771 ms | 63.420 ms | 59.295 ms | 62.108 ms | 37.052 ms | 36.521 ms | 37.139 ms | 2.061 ms | — |
-| convolve! scalar | Float32 64^3 | 196.941 μs | 26.366 μs | 21.237 μs | 13.663 μs | 117.311 μs | 16.320 μs | 8.710 μs | 7.227 μs | 29.300 μs | 8.560 μs |
-| convolve! scalar | Float64 128^3 | 1.766 ms | 1.342 ms | 1.158 ms | 1.024 ms | 1.006 ms | 172.722 μs | 93.441 μs | 72.531 μs | 57.277 μs | 35.680 μs |
-| convolve! scalar | Float64 256^3 | 17.950 ms | 16.185 ms | 15.215 ms | 14.239 ms | 10.853 ms | 7.937 ms | 7.601 ms | 7.768 ms | 553.726 μs | 517.290 μs |
-| convolve! scalar | Float64 512^3 | 144.010 ms | 132.439 ms | 125.743 ms | 118.467 ms | 89.752 ms | 74.762 ms | 73.720 ms | 74.130 ms | — | — |
-| convolve! scalar | Float64 64^3 | 176.050 μs | 53.891 μs | 36.206 μs | 21.416 μs | 127.861 μs | 25.471 μs | 14.760 μs | 10.510 μs | 33.147 μs | 10.770 μs |
-| convolve! vector | Float32 128^3 | 2.984 ms | 1.838 ms | 1.551 ms | 1.479 ms | 2.098 ms | 1.099 ms | 551.147 μs | 286.373 μs | 49.134 μs | 60.552 μs |
-| convolve! vector | Float32 256^3 | 22.387 ms | 20.504 ms | 19.166 ms | 18.409 ms | 19.675 ms | 10.895 ms | 9.914 ms | 9.889 ms | 622.981 μs | 618.518 μs |
-| convolve! vector | Float32 512^3 | 191.859 ms | 170.217 ms | 159.751 ms | 153.181 ms | 151.043 ms | 91.312 ms | 91.146 ms | 92.730 ms | 4.636 ms | — |
-| convolve! vector | Float32 64^3 | 310.204 μs | 175.555 μs | 91.565 μs | 50.635 μs | 269.053 μs | 145.192 μs | 74.271 μs | 40.570 μs | 36.096 μs | 11.750 μs |
-| convolve! vector | Float64 128^3 | 4.894 ms | 4.657 ms | 4.123 ms | 3.924 ms | 2.612 ms | 1.542 ms | 868.442 μs | 753.287 μs | 180.042 μs | 161.911 μs |
-| convolve! vector | Float64 256^3 | 45.023 ms | 42.534 ms | 40.240 ms | 38.388 ms | 30.522 ms | 22.744 ms | 21.910 ms | 23.347 ms | 1.211 ms | 1.232 ms |
-| convolve! vector | Float64 512^3 | 334.361 ms | 334.536 ms | 321.022 ms | 307.704 ms | 214.586 ms | 184.704 ms | 183.469 ms | 184.549 ms | — | — |
-| convolve! vector | Float64 64^3 | 275.006 μs | 169.460 μs | 89.733 μs | 55.406 μs | 220.422 μs | 138.772 μs | 75.351 μs | 37.291 μs | 42.174 μs | 23.030 μs |
-| convolve! vector ∘ radial    | Float32 128^3 | 4.137 ms | 2.168 ms | 1.467 ms | 1.230 ms | 2.498 ms | 1.250 ms | 619.778 μs | 319.083 μs | 125.566 μs | 83.212 μs |
-| convolve! vector ∘ radial    | Float32 256^3 | 32.442 ms | 19.540 ms | 16.261 ms | 14.167 ms | 19.796 ms | 9.981 ms | 8.277 ms | 8.365 ms | 852.081 μs | 610.357 μs |
-| convolve! vector ∘ radial    | Float32 512^3 | 260.754 ms | 153.051 ms | 125.871 ms | 105.766 ms | 160.345 ms | 81.768 ms | 81.274 ms | 93.492 ms | 6.554 ms | — |
-| convolve! vector ∘ radial    | Float32 64^3 | 525.698 μs | 272.587 μs | 132.730 μs | 75.186 μs | 316.153 μs | 160.912 μs | 81.781 μs | 44.471 μs | 43.746 μs | 17.221 μs |
-| convolve! vector ∘ radial    | Float64 128^3 | 5.089 ms | 4.032 ms | 3.543 ms | 2.914 ms | 2.878 ms | 1.458 ms | 726.269 μs | 412.764 μs | 163.756 μs | 136.801 μs |
-| convolve! vector ∘ radial    | Float64 256^3 | 41.150 ms | 36.634 ms | 29.849 ms | 26.341 ms | 26.210 ms | 20.438 ms | 18.748 ms | 19.046 ms | 1.067 ms | 1.066 ms |
-| convolve! vector ∘ radial    | Float64 512^3 | 328.914 ms | 292.288 ms | 227.544 ms | 198.790 ms | 194.606 ms | 159.754 ms | 162.605 ms | 163.974 ms | — | — |
-| convolve! vector ∘ radial    | Float64 64^3 | 532.804 μs | 275.934 μs | 146.401 μs | 94.811 μs | 351.373 μs | 176.712 μs | 91.631 μs | 48.421 μs | 46.419 μs | 18.950 μs |
-| convolve! vector ∘ radial-stored | Float32 128^3 | 2.965 ms | 1.833 ms | 1.563 ms | 1.486 ms | 2.099 ms | 1.106 ms | 549.687 μs | 280.453 μs | 49.126 μs | 58.082 μs |
-| convolve! vector ∘ radial-stored | Float32 256^3 | 22.549 ms | 20.741 ms | 19.339 ms | 18.401 ms | 19.707 ms | 10.927 ms | 9.885 ms | 9.878 ms | 620.835 μs | 618.797 μs |
-| convolve! vector ∘ radial-stored | Float32 512^3 | 193.133 ms | 169.985 ms | 159.839 ms | 153.165 ms | 146.309 ms | 92.588 ms | 91.295 ms | 92.422 ms | 4.649 ms | — |
-| convolve! vector ∘ radial-stored | Float32 64^3 | 310.387 μs | 176.035 μs | 91.522 μs | 51.388 μs | 270.003 μs | 145.181 μs | 73.751 μs | 40.541 μs | 36.090 μs | 11.631 μs |
-| convolve! vector ∘ radial-stored | Float64 128^3 | 4.923 ms | 4.608 ms | 4.180 ms | 3.932 ms | 2.615 ms | 1.532 ms | 867.192 μs | 750.087 μs | 180.471 μs | 162.001 μs |
-| convolve! vector ∘ radial-stored | Float64 256^3 | 44.713 ms | 42.494 ms | 40.030 ms | 38.411 ms | 30.309 ms | 22.436 ms | 21.879 ms | 23.303 ms | 1.216 ms | 1.231 ms |
-| convolve! vector ∘ radial-stored | Float64 512^3 | 333.016 ms | 334.888 ms | 320.659 ms | 307.456 ms | 211.443 ms | 183.174 ms | 183.241 ms | 183.957 ms | — | — |
-| convolve! vector ∘ radial-stored | Float64 64^3 | 276.289 μs | 168.856 μs | 88.106 μs | 52.225 μs | 220.733 μs | 137.892 μs | 75.461 μs | 37.681 μs | 42.120 μs | 22.860 μs |
-| convolve! vector ∘ separable | Float32 128^3 | 6.760 ms | 3.455 ms | 1.754 ms | 1.213 ms | 4.666 ms | 2.346 ms | 1.169 ms | 591.166 μs | 130.674 μs | 84.622 μs |
-| convolve! vector ∘ separable | Float32 256^3 | 53.473 ms | 27.624 ms | 17.239 ms | 13.202 ms | 37.269 ms | 18.658 ms | 9.395 ms | 8.450 ms | 867.930 μs | 616.487 μs |
-| convolve! vector ∘ separable | Float32 512^3 | 426.551 ms | 218.832 ms | 136.861 ms | 106.705 ms | 294.913 ms | 148.262 ms | 81.528 ms | 82.742 ms | 6.851 ms | — |
-| convolve! vector ∘ separable | Float32 64^3 | 842.577 μs | 435.665 μs | 225.713 μs | 118.591 μs | 588.766 μs | 298.043 μs | 150.473 μs | 77.831 μs | 43.832 μs | 17.450 μs |
-| convolve! vector ∘ separable | Float64 128^3 | 6.753 ms | 4.128 ms | 3.389 ms | 2.475 ms | 3.952 ms | 1.990 ms | 997.644 μs | 510.675 μs | 241.880 μs | 208.571 μs |
-| convolve! vector ∘ separable | Float64 256^3 | 53.841 ms | 36.812 ms | 29.162 ms | 23.952 ms | 32.745 ms | 19.455 ms | 18.965 ms | 19.233 ms | 1.696 ms | 1.594 ms |
-| convolve! vector ∘ separable | Float64 512^3 | 428.037 ms | 295.548 ms | 232.862 ms | 189.892 ms | 259.680 ms | 156.383 ms | 163.323 ms | 164.761 ms | — | — |
-| convolve! vector ∘ separable | Float64 64^3 | 808.651 μs | 436.674 μs | 215.832 μs | 120.351 μs | 494.325 μs | 249.453 μs | 126.451 μs | 66.711 μs | 57.607 μs | 34.431 μs |
-| convolve! vector ∘ stored    | Float32 128^3 | 2.991 ms | 1.833 ms | 1.554 ms | 1.483 ms | 2.100 ms | 1.103 ms | 550.617 μs | 283.372 μs | 48.991 μs | 60.601 μs |
-| convolve! vector ∘ stored    | Float32 256^3 | 22.564 ms | 20.516 ms | 19.219 ms | 18.417 ms | 19.714 ms | 10.946 ms | 9.952 ms | 9.905 ms | 621.345 μs | 618.058 μs |
-| convolve! vector ∘ stored    | Float32 512^3 | 193.408 ms | 169.825 ms | 159.741 ms | 153.249 ms | 147.081 ms | 92.869 ms | 91.457 ms | 92.661 ms | 4.641 ms | — |
-| convolve! vector ∘ stored    | Float32 64^3 | 309.962 μs | 178.565 μs | 91.368 μs | 54.553 μs | 270.223 μs | 145.102 μs | 74.491 μs | 40.201 μs | 36.063 μs | 11.700 μs |
-| convolve! vector ∘ stored    | Float64 128^3 | 4.906 ms | 4.598 ms | 4.136 ms | 3.929 ms | 2.625 ms | 1.546 ms | 874.261 μs | 753.248 μs | 181.099 μs | 160.571 μs |
-| convolve! vector ∘ stored    | Float64 256^3 | 44.753 ms | 42.666 ms | 40.028 ms | 38.471 ms | 30.548 ms | 22.757 ms | 21.924 ms | 22.075 ms | 1.214 ms | 1.229 ms |
-| convolve! vector ∘ stored    | Float64 512^3 | 330.158 ms | 334.980 ms | 320.788 ms | 307.347 ms | 213.616 ms | 184.267 ms | 183.549 ms | 184.189 ms | — | — |
-| convolve! vector ∘ stored    | Float64 64^3 | 274.539 μs | 164.133 μs | 88.964 μs | 60.719 μs | 220.972 μs | 138.412 μs | 74.781 μs | 38.920 μs | 42.133 μs | 22.961 μs |
-| exponential_convolve! scalar | Float32 128^3 | 6.109 ms | 2.702 ms | 1.361 ms | 722.348 μs | 5.044 ms | 2.118 ms | 1.065 ms | 542.335 μs | 50.382 μs | 26.981 μs |
-| exponential_convolve! scalar | Float32 256^3 | 48.311 ms | 21.234 ms | 10.718 ms | 6.141 ms | 39.830 ms | 16.540 ms | 8.306 ms | 4.377 ms | 258.551 μs | 189.552 μs |
-| exponential_convolve! scalar | Float32 512^3 | 384.722 ms | 167.829 ms | 84.785 ms | 50.497 ms | 317.337 ms | 131.750 ms | 67.951 ms | 34.887 ms | 1.888 ms | — |
-| exponential_convolve! scalar | Float32 64^3 | 762.967 μs | 349.962 μs | 179.859 μs | 101.305 μs | 641.867 μs | 280.853 μs | 144.643 μs | 78.210 μs | 31.027 μs | 9.900 μs |
-| exponential_convolve! scalar | Float64 128^3 | 5.784 ms | 2.553 ms | 1.331 ms | 835.192 μs | 5.549 ms | 2.396 ms | 1.208 ms | 615.146 μs | 94.509 μs | 78.220 μs |
-| exponential_convolve! scalar | Float64 256^3 | 45.717 ms | 20.058 ms | 12.133 ms | 10.752 ms | 43.859 ms | 18.831 ms | 9.499 ms | 4.997 ms | 600.686 μs | 565.660 μs |
-| exponential_convolve! scalar | Float64 512^3 | 364.009 ms | 160.020 ms | 97.219 ms | 90.369 ms | 350.692 ms | 150.323 ms | 77.410 ms | 55.133 ms | — | — |
-| exponential_convolve! scalar | Float64 64^3 | 719.321 μs | 328.503 μs | 170.993 μs | 103.498 μs | 698.116 μs | 313.573 μs | 158.511 μs | 85.951 μs | 39.895 μs | 18.030 μs |
-| exponential_convolve! vector | Float32 128^3 | 20.248 ms | 9.678 ms | 4.892 ms | 2.629 ms | 16.579 ms | 7.694 ms | 3.848 ms | 1.950 ms | 131.385 μs | 86.193 μs |
-| exponential_convolve! vector | Float32 256^3 | 160.278 ms | 76.157 ms | 38.541 ms | 22.375 ms | 130.858 ms | 60.311 ms | 31.218 ms | 15.565 ms | 866.298 μs | 628.098 μs |
-| exponential_convolve! vector | Float32 512^3 | 1.274 s | 603.661 ms | 304.604 ms | 182.939 ms | 1.041 s | 481.001 ms | 241.359 ms | 125.574 ms | 6.877 ms | — |
-| exponential_convolve! vector | Float32 64^3 | 2.542 ms | 1.233 ms | 639.809 μs | 332.578 μs | 2.128 ms | 996.140 μs | 503.627 μs | 261.002 μs | 43.958 μs | 17.660 μs |
-| exponential_convolve! vector | Float64 128^3 | 19.539 ms | 9.328 ms | 4.822 ms | 3.554 ms | 18.764 ms | 8.647 ms | 4.354 ms | 2.205 ms | 263.200 μs | 219.411 μs |
-| exponential_convolve! vector | Float64 256^3 | 154.206 ms | 72.909 ms | 38.108 ms | 33.695 ms | 148.158 ms | 68.008 ms | 35.112 ms | 19.341 ms | 1.887 ms | 1.671 ms |
-| exponential_convolve! vector | Float64 512^3 | 1.226 s | 579.498 ms | 304.348 ms | 273.431 ms | 1.181 s | 542.706 ms | 272.155 ms | 165.636 ms | — | — |
-| exponential_convolve! vector | Float64 64^3 | 2.475 ms | 1.167 ms | 606.307 μs | 324.223 μs | 2.367 ms | 1.095 ms | 553.575 μs | 284.693 μs | 60.930 μs | 35.850 μs |
-| inv separable | Float32 128^3 | 951.739 ns | 950.238 ns | 952.333 ns | 966.625 ns | 761.248 ns | 761.827 ns | 761.616 ns | 763.645 ns | 201.579 μs | 53.881 μs |
-| inv separable | Float32 256^3 | 1.964 μs | 1.958 μs | 1.961 μs | 1.977 μs | 1.558 μs | 1.554 μs | 1.566 μs | 1.617 μs | 210.015 μs | 56.711 μs |
-| inv separable | Float32 512^3 | 3.819 μs | 3.800 μs | 3.825 μs | 3.861 μs | 3.000 μs | 3.027 μs | 3.027 μs | 3.040 μs | 241.827 μs | — |
-| inv separable | Float32 64^3 | 506.674 ns | 505.212 ns | 506.068 ns | 509.042 ns | 409.101 ns | 411.105 ns | 408.598 ns | 407.990 ns | 202.306 μs | 51.610 μs |
-| inv separable | Float64 128^3 | 1.096 μs | 1.129 μs | 1.097 μs | 1.132 μs | 1.056 μs | 1.055 μs | 1.061 μs | 1.071 μs | 194.038 μs | 53.470 μs |
-| inv separable | Float64 256^3 | 2.143 μs | 2.425 μs | 2.151 μs | 2.153 μs | 2.054 μs | 2.036 μs | 2.041 μs | 2.066 μs | 195.568 μs | 60.361 μs |
-| inv separable | Float64 512^3 | 4.041 μs | 4.067 μs | 4.037 μs | 4.086 μs | 4.003 μs | 3.984 μs | 3.912 μs | 3.987 μs | — | — |
-| inv separable | Float64 64^3 | 530.085 ns | 531.698 ns | 530.872 ns | 533.005 ns | 518.539 ns | 529.795 ns | 537.163 ns | 520.372 ns | 196.892 μs | 52.700 μs |
-| materialize_kernel radial | Float32 128^3 | 1.380 ms | 607.802 μs | 408.922 μs | 232.532 μs | 1.131 ms | 351.851 μs | 179.052 μs | 93.401 μs | 55.598 μs | 26.751 μs |
-| materialize_kernel radial | Float32 256^3 | 11.162 ms | 4.595 ms | 3.615 ms | 2.618 ms | 8.921 ms | 2.766 ms | 1.906 ms | 1.884 ms | 339.070 μs | 149.522 μs |
-| materialize_kernel radial | Float32 512^3 | 88.854 ms | 36.249 ms | 28.671 ms | 21.990 ms | 70.877 ms | 22.102 ms | 16.917 ms | 17.154 ms | 4.562 ms | — |
-| materialize_kernel radial | Float32 64^3 | 174.953 μs | 85.421 μs | 40.399 μs | 31.178 μs | 145.891 μs | 47.981 μs | 25.520 μs | 15.730 μs | 39.123 μs | 10.540 μs |
-| materialize_kernel radial | Float64 128^3 | 1.481 ms | 916.003 μs | 693.147 μs | 440.954 μs | 1.176 ms | 376.404 μs | 259.003 μs | 325.063 μs | 64.210 μs | 30.300 μs |
-| materialize_kernel radial | Float64 256^3 | 11.692 ms | 7.861 ms | 5.675 ms | 5.391 ms | 9.401 ms | 3.989 ms | 3.921 ms | 3.987 ms | 486.936 μs | 174.353 μs |
-| materialize_kernel radial | Float64 512^3 | 93.204 ms | 142.965 ms | 76.707 ms | 47.893 ms | 74.816 ms | 33.938 ms | 34.030 ms | 35.693 ms | — | — |
-| materialize_kernel radial | Float64 64^3 | 177.126 μs | 71.706 μs | 53.233 μs | 35.568 μs | 151.251 μs | 48.890 μs | 25.780 μs | 15.951 μs | 37.026 μs | 11.490 μs |
-| materialize_kernel separable | Float32 128^3 | 1.794 ms | 782.748 μs | 448.019 μs | 322.260 μs | 1.534 ms | 446.533 μs | 225.793 μs | 117.181 μs | 56.445 μs | 26.511 μs |
-| materialize_kernel separable | Float32 256^3 | 14.330 ms | 6.139 ms | 3.949 ms | 3.060 ms | 12.136 ms | 3.527 ms | 1.797 ms | 2.041 ms | 341.665 μs | 156.792 μs |
-| materialize_kernel separable | Float32 512^3 | 114.889 ms | 49.178 ms | 31.341 ms | 23.919 ms | 96.532 ms | 28.113 ms | 18.405 ms | 17.817 ms | 4.659 ms | — |
-| materialize_kernel separable | Float32 64^3 | 227.903 μs | 102.342 μs | 54.917 μs | 34.716 μs | 196.622 μs | 59.690 μs | 31.701 μs | 18.780 μs | 39.063 μs | 10.540 μs |
-| materialize_kernel separable | Float64 128^3 | 1.778 ms | 958.451 μs | 773.722 μs | 503.520 μs | 1.451 ms | 463.685 μs | 271.743 μs | 306.793 μs | 86.700 μs | 50.440 μs |
-| materialize_kernel separable | Float64 256^3 | 14.237 ms | 7.910 ms | 5.980 ms | 5.604 ms | 11.487 ms | 4.448 ms | 3.996 ms | 4.007 ms | 652.647 μs | 332.905 μs |
-| materialize_kernel separable | Float64 512^3 | 114.959 ms | 63.370 ms | 82.029 ms | 50.289 ms | 91.639 ms | 38.299 ms | 58.586 ms | 43.805 ms | — | — |
-| materialize_kernel separable | Float64 64^3 | 224.892 μs | 101.110 μs | 56.287 μs | 51.687 μs | 186.452 μs | 61.401 μs | 32.181 μs | 19.360 μs | 41.853 μs | 14.670 μs |
-| radial_kernel | Float32 128^3 | 3.451 ns | 2.814 ns | 2.817 ns | 2.817 ns | 3.050 ns | 3.200 ns | 3.180 ns | 3.050 ns | 337.000 ns | 366.053 ns |
-| radial_kernel | Float32 256^3 | 2.814 ns | 2.814 ns | 2.817 ns | 2.815 ns | 3.050 ns | 3.220 ns | 3.180 ns | 3.050 ns | 340.000 ns | 374.981 ns |
-| radial_kernel | Float32 512^3 | 2.814 ns | 2.815 ns | 2.817 ns | 2.820 ns | 3.050 ns | 3.210 ns | 3.190 ns | 3.050 ns | 337.000 ns | — |
-| radial_kernel | Float32 64^3 | 2.818 ns | 2.815 ns | 2.816 ns | 2.816 ns | 3.050 ns | 3.200 ns | 3.190 ns | 3.190 ns | 341.000 ns | 365.446 ns |
-| radial_kernel | Float64 128^3 | 3.014 ns | 3.014 ns | 3.017 ns | 3.013 ns | 3.190 ns | 3.200 ns | 3.200 ns | 3.170 ns | 348.000 ns | 365.657 ns |
-| radial_kernel | Float64 256^3 | 3.015 ns | 3.014 ns | 3.020 ns | 3.014 ns | 3.190 ns | 3.190 ns | 3.200 ns | 3.170 ns | 349.000 ns | 366.333 ns |
-| radial_kernel | Float64 512^3 | 3.015 ns | 3.014 ns | 3.016 ns | 3.013 ns | 3.180 ns | 3.190 ns | 3.200 ns | 3.160 ns | — | — |
-| radial_kernel | Float64 64^3 | 3.014 ns | 3.014 ns | 3.016 ns | 3.013 ns | 3.190 ns | 3.200 ns | 3.210 ns | 3.180 ns | 347.000 ns | 367.488 ns |
-| spectral_band | Float32 128^3 | 12.428 ns | 10.398 ns | 11.325 ns | 11.830 ns | 9.399 ns | 9.379 ns | 9.228 ns | 8.799 ns | 357.000 ns | 371.568 ns |
-| spectral_band | Float32 256^3 | 12.430 ns | 10.404 ns | 11.311 ns | 11.829 ns | 9.399 ns | 9.389 ns | 9.208 ns | 9.489 ns | 358.000 ns | 366.785 ns |
-| spectral_band | Float32 512^3 | 12.417 ns | 10.391 ns | 11.282 ns | 11.829 ns | 9.389 ns | 9.389 ns | 9.229 ns | 9.419 ns | 341.000 ns | — |
-| spectral_band | Float32 64^3 | 12.417 ns | 10.359 ns | 11.441 ns | 11.831 ns | 9.399 ns | 9.389 ns | 9.228 ns | 10.410 ns | 350.000 ns | 367.064 ns |
-| spectral_band | Float64 128^3 | 11.688 ns | 10.924 ns | 11.498 ns | 11.851 ns | 10.881 ns | 10.290 ns | 9.329 ns | 9.820 ns | 349.000 ns | 371.845 ns |
-| spectral_band | Float64 256^3 | 11.688 ns | 10.916 ns | 11.493 ns | 11.852 ns | 10.871 ns | 10.261 ns | 9.309 ns | 11.021 ns | 344.000 ns | 370.786 ns |
-| spectral_band | Float64 512^3 | 11.668 ns | 10.915 ns | 11.499 ns | 11.855 ns | 10.882 ns | 10.280 ns | 9.329 ns | 10.411 ns | — | — |
-| spectral_band | Float64 64^3 | 11.686 ns | 10.913 ns | 11.498 ns | 11.847 ns | 10.891 ns | 10.280 ns | 9.319 ns | 10.060 ns | 342.000 ns | 369.055 ns |
-| spectral_cutoff | Float32 128^3 | 11.711 ns | 10.366 ns | 10.675 ns | 11.023 ns | 9.419 ns | 9.139 ns | 9.138 ns | 9.229 ns | 353.000 ns | 367.739 ns |
-| spectral_cutoff | Float32 256^3 | 11.704 ns | 10.550 ns | 10.680 ns | 11.023 ns | 9.419 ns | 9.119 ns | 9.148 ns | 9.269 ns | 356.000 ns | 375.174 ns |
-| spectral_cutoff | Float32 512^3 | 11.706 ns | 10.368 ns | 10.676 ns | 11.021 ns | 9.409 ns | 9.129 ns | 9.148 ns | 9.098 ns | 345.000 ns | — |
-| spectral_cutoff | Float32 64^3 | 11.714 ns | 10.358 ns | 10.668 ns | 11.022 ns | 9.409 ns | 9.109 ns | 9.158 ns | 10.460 ns | 352.000 ns | 368.792 ns |
-| spectral_cutoff | Float64 128^3 | 11.674 ns | 10.926 ns | 11.456 ns | 11.642 ns | 10.751 ns | 10.420 ns | 10.000 ns | 9.349 ns | 345.000 ns | 369.325 ns |
-| spectral_cutoff | Float64 256^3 | 11.669 ns | 10.909 ns | 11.461 ns | 11.648 ns | 10.761 ns | 10.430 ns | 10.010 ns | 10.571 ns | 350.000 ns | 369.714 ns |
-| spectral_cutoff | Float64 512^3 | 11.673 ns | 10.931 ns | 11.460 ns | 11.644 ns | 10.771 ns | 10.400 ns | 10.020 ns | 10.812 ns | — | — |
-| spectral_cutoff | Float64 64^3 | 11.670 ns | 10.891 ns | 11.469 ns | 11.642 ns | 10.771 ns | 10.420 ns | 9.950 ns | 10.050 ns | 346.000 ns | 369.612 ns |
-| translation_kernel | Float32 128^3 | 1.837 μs | 1.801 μs | 1.813 μs | 1.805 μs | 1.434 μs | 1.420 μs | 1.410 μs | 1.413 μs | 51.833 μs | 17.351 μs |
-| translation_kernel | Float32 256^3 | 3.550 μs | 3.551 μs | 3.571 μs | 3.558 μs | 2.747 μs | 2.731 μs | 2.729 μs | 2.723 μs | 54.419 μs | 17.380 μs |
-| translation_kernel | Float32 512^3 | 6.921 μs | 6.928 μs | 6.938 μs | 6.920 μs | 5.305 μs | 5.290 μs | 5.324 μs | 5.303 μs | 50.052 μs | — |
-| translation_kernel | Float32 64^3 | 898.475 ns | 898.286 ns | 908.450 ns | 900.683 ns | 755.328 ns | 739.347 ns | 742.370 ns | 742.818 ns | 52.453 μs | 17.020 μs |
-| translation_kernel | Float64 128^3 | 2.032 μs | 2.041 μs | 2.035 μs | 2.149 μs | 1.830 μs | 1.841 μs | 1.873 μs | 1.839 μs | 58.936 μs | 18.610 μs |
-| translation_kernel | Float64 256^3 | 3.872 μs | 3.864 μs | 3.868 μs | 4.096 μs | 3.458 μs | 3.450 μs | 3.495 μs | 3.473 μs | 61.653 μs | 19.870 μs |
-| translation_kernel | Float64 512^3 | 7.391 μs | 7.417 μs | 7.390 μs | 7.712 μs | 6.790 μs | 6.830 μs | 6.790 μs | 6.823 μs | — | — |
-| translation_kernel | Float64 64^3 | 1.018 μs | 1.019 μs | 1.019 μs | 1.071 μs | 935.556 ns | 932.903 ns | 938.276 ns | 949.667 ns | 57.776 μs | 18.370 μs |
-| translation_kernel! | Float32 128^3 | 1.775 μs | 1.757 μs | 1.775 μs | 1.761 μs | 1.375 μs | 1.367 μs | 1.368 μs | 1.368 μs | 31.682 μs | 14.191 μs |
-| translation_kernel! | Float32 256^3 | 3.433 μs | 3.411 μs | 3.421 μs | 3.430 μs | 2.621 μs | 2.617 μs | 2.612 μs | 2.622 μs | 34.762 μs | 14.220 μs |
-| translation_kernel! | Float32 512^3 | 6.790 μs | 6.763 μs | 6.760 μs | 6.778 μs | 5.127 μs | 5.115 μs | 5.122 μs | 5.123 μs | 31.335 μs | — |
-| translation_kernel! | Float32 64^3 | 855.857 ns | 858.097 ns | 856.365 ns | 856.349 ns | 702.035 ns | 705.326 ns | 698.826 ns | 701.041 ns | 34.609 μs | 14.110 μs |
-| translation_kernel! | Float64 128^3 | 1.869 μs | 1.861 μs | 1.869 μs | 1.896 μs | 1.686 μs | 1.691 μs | 1.716 μs | 1.699 μs | 36.474 μs | 15.510 μs |
-| translation_kernel! | Float64 256^3 | 3.619 μs | 3.666 μs | 3.606 μs | 3.691 μs | 3.249 μs | 3.241 μs | 3.254 μs | 3.259 μs | 36.599 μs | 16.750 μs |
-| translation_kernel! | Float64 512^3 | 7.133 μs | 7.091 μs | 7.125 μs | 7.262 μs | 6.376 μs | 6.360 μs | 6.328 μs | 6.358 μs | — | — |
-| translation_kernel! | Float64 64^3 | 961.850 ns | 963.632 ns | 960.789 ns | 984.600 ns | 878.654 ns | 874.118 ns | 877.547 ns | 891.151 ns | 37.894 μs | 15.610 μs |
+| assignment_window | Float32 128^3 | 1.184 μs | 1.116 μs | 1.122 μs | 1.118 μs | 1.174 μs | 1.166 μs | 1.172 μs | 1.168 μs | 78.810 μs | 25.091 μs |
+| assignment_window | Float32 256^3 | 2.182 μs | 2.182 μs | 2.189 μs | 2.200 μs | 2.229 μs | 2.238 μs | 2.247 μs | 2.216 μs | 80.246 μs | 25.140 μs |
+| assignment_window | Float32 512^3 | 4.430 μs | 4.419 μs | 4.440 μs | 4.459 μs | 4.479 μs | 4.476 μs | 4.466 μs | 4.459 μs | 74.877 μs | — |
+| assignment_window | Float32 64^3 | 604.128 ns | 590.983 ns | 609.251 ns | 601.374 ns | 616.349 ns | 608.282 ns | 608.971 ns | 607.034 ns | 83.731 μs | 25.180 μs |
+| assignment_window | Float64 128^3 | 1.466 μs | 1.505 μs | 1.496 μs | 1.577 μs | 1.573 μs | 1.565 μs | 1.552 μs | 1.569 μs | 75.875 μs | 26.490 μs |
+| assignment_window | Float64 256^3 | 3.065 μs | 3.143 μs | 3.116 μs | 3.315 μs | 3.118 μs | 3.080 μs | 3.075 μs | 3.100 μs | 81.655 μs | 27.031 μs |
+| assignment_window | Float64 512^3 | 5.945 μs | 6.063 μs | 6.048 μs | 6.401 μs | 6.025 μs | 5.946 μs | 5.950 μs | 5.954 μs | — | — |
+| assignment_window | Float64 64^3 | 734.540 ns | 743.932 ns | 799.793 ns | 786.742 ns | 838.218 ns | 821.095 ns | 822.933 ns | 826.468 ns | 76.851 μs | 25.921 μs |
+| combine!∘kernel vector | Float32 128^3 | 4.733 ms | 2.219 ms | 1.598 ms | 1.471 ms | 3.149 ms | 1.553 ms | 780.537 μs | 408.304 μs | 58.199 μs | 77.751 μs |
+| combine!∘kernel vector | Float32 256^3 | 31.065 ms | 20.832 ms | 19.500 ms | 18.608 ms | 27.719 ms | 14.242 ms | 9.881 ms | 9.907 ms | 956.156 μs | 860.969 μs |
+| combine!∘kernel vector | Float32 512^3 | 263.209 ms | 173.203 ms | 161.672 ms | 153.536 ms | 235.663 ms | 102.960 ms | 92.534 ms | 93.085 ms | 7.226 ms | — |
+| combine!∘kernel vector | Float32 64^3 | 490.575 μs | 278.176 μs | 136.540 μs | 74.747 μs | 421.225 μs | 206.082 μs | 104.781 μs | 55.481 μs | 37.616 μs | 13.201 μs |
+| combine!∘kernel vector | Float64 128^3 | 5.425 ms | 4.648 ms | 4.138 ms | 3.926 ms | 3.721 ms | 2.077 ms | 1.088 ms | 746.077 μs | 244.750 μs | 224.432 μs |
+| combine!∘kernel vector | Float64 256^3 | 48.876 ms | 43.187 ms | 40.859 ms | 38.569 ms | 36.792 ms | 22.905 ms | 21.988 ms | 22.125 ms | 1.849 ms | 1.714 ms |
+| combine!∘kernel vector | Float64 512^3 | 355.482 ms | 337.734 ms | 321.947 ms | 308.026 ms | 255.209 ms | 186.297 ms | 184.833 ms | 185.343 ms | — | — |
+| combine!∘kernel vector | Float64 64^3 | 518.029 μs | 280.676 μs | 141.916 μs | 84.508 μs | 385.604 μs | 226.883 μs | 116.041 μs | 60.911 μs | 50.051 μs | 25.580 μs |
+| convolve! scalar | Float32 128^3 | 1.593 ms | 299.555 μs | 202.038 μs | 87.165 μs | 919.419 μs | 102.811 μs | 59.230 μs | 39.251 μs | 42.054 μs | 21.351 μs |
+| convolve! scalar | Float32 256^3 | 13.168 ms | 7.734 ms | 7.298 ms | 6.742 ms | 7.570 ms | 2.900 ms | 2.672 ms | 2.746 ms | 282.937 μs | 260.693 μs |
+| convolve! scalar | Float32 512^3 | 105.047 ms | 65.771 ms | 63.420 ms | 59.295 ms | 61.972 ms | 37.052 ms | 36.482 ms | 37.139 ms | 2.061 ms | — |
+| convolve! scalar | Float32 64^3 | 196.941 μs | 26.366 μs | 21.237 μs | 13.663 μs | 116.112 μs | 16.320 μs | 9.410 μs | 7.227 μs | 29.300 μs | 8.160 μs |
+| convolve! scalar | Float64 128^3 | 1.766 ms | 1.342 ms | 1.158 ms | 1.024 ms | 1.003 ms | 172.722 μs | 110.881 μs | 72.531 μs | 57.277 μs | 36.731 μs |
+| convolve! scalar | Float64 256^3 | 17.950 ms | 16.185 ms | 15.215 ms | 14.239 ms | 11.141 ms | 7.937 ms | 7.597 ms | 7.768 ms | 553.726 μs | 516.695 μs |
+| convolve! scalar | Float64 512^3 | 144.010 ms | 132.439 ms | 125.743 ms | 118.467 ms | 120.890 ms | 74.762 ms | 73.846 ms | 74.130 ms | — | — |
+| convolve! scalar | Float64 64^3 | 176.050 μs | 53.891 μs | 36.206 μs | 21.416 μs | 129.081 μs | 25.471 μs | 15.330 μs | 10.510 μs | 33.147 μs | 10.000 μs |
+| convolve! vector | Float32 128^3 | 2.984 ms | 1.838 ms | 1.551 ms | 1.479 ms | 2.096 ms | 1.099 ms | 551.375 μs | 286.373 μs | 49.134 μs | 57.220 μs |
+| convolve! vector | Float32 256^3 | 22.387 ms | 20.504 ms | 19.166 ms | 18.409 ms | 20.340 ms | 10.895 ms | 9.828 ms | 9.889 ms | 622.981 μs | 614.776 μs |
+| convolve! vector | Float32 512^3 | 191.859 ms | 170.217 ms | 159.751 ms | 153.181 ms | 175.550 ms | 91.312 ms | 92.278 ms | 92.730 ms | 4.636 ms | — |
+| convolve! vector | Float32 64^3 | 310.204 μs | 175.555 μs | 91.565 μs | 50.635 μs | 272.183 μs | 145.192 μs | 74.380 μs | 40.570 μs | 36.096 μs | 10.690 μs |
+| convolve! vector | Float64 128^3 | 4.894 ms | 4.657 ms | 4.123 ms | 3.924 ms | 2.641 ms | 1.542 ms | 879.047 μs | 753.287 μs | 180.042 μs | 160.471 μs |
+| convolve! vector | Float64 256^3 | 45.023 ms | 42.534 ms | 40.240 ms | 38.388 ms | 30.497 ms | 22.744 ms | 21.922 ms | 23.347 ms | 1.211 ms | 1.228 ms |
+| convolve! vector | Float64 512^3 | 334.361 ms | 334.536 ms | 321.022 ms | 307.704 ms | 222.077 ms | 184.704 ms | 184.437 ms | 184.549 ms | — | — |
+| convolve! vector | Float64 64^3 | 275.006 μs | 169.460 μs | 89.733 μs | 55.406 μs | 224.382 μs | 138.772 μs | 70.370 μs | 37.291 μs | 42.174 μs | 18.721 μs |
+| convolve! vector ∘ radial    | Float32 128^3 | 4.137 ms | 2.168 ms | 1.467 ms | 1.230 ms | 2.487 ms | 1.250 ms | 626.615 μs | 319.083 μs | 125.566 μs | 83.251 μs |
+| convolve! vector ∘ radial    | Float32 256^3 | 32.442 ms | 19.540 ms | 16.261 ms | 14.167 ms | 19.769 ms | 9.981 ms | 9.934 ms | 8.365 ms | 852.081 μs | 612.607 μs |
+| convolve! vector ∘ radial    | Float32 512^3 | 260.754 ms | 153.051 ms | 125.871 ms | 105.766 ms | 158.498 ms | 81.768 ms | 81.853 ms | 93.492 ms | 6.554 ms | — |
+| convolve! vector ∘ radial    | Float32 64^3 | 525.698 μs | 272.587 μs | 132.730 μs | 75.186 μs | 314.593 μs | 160.912 μs | 81.461 μs | 44.471 μs | 43.746 μs | 16.720 μs |
+| convolve! vector ∘ radial    | Float64 128^3 | 5.089 ms | 4.032 ms | 3.543 ms | 2.914 ms | 2.876 ms | 1.458 ms | 722.717 μs | 412.764 μs | 163.756 μs | 137.602 μs |
+| convolve! vector ∘ radial    | Float64 256^3 | 41.150 ms | 36.634 ms | 29.849 ms | 26.341 ms | 23.914 ms | 20.438 ms | 18.707 ms | 19.046 ms | 1.067 ms | 1.066 ms |
+| convolve! vector ∘ radial    | Float64 512^3 | 328.914 ms | 292.288 ms | 227.544 ms | 198.790 ms | 192.848 ms | 159.754 ms | 163.898 ms | 163.974 ms | — | — |
+| convolve! vector ∘ radial    | Float64 64^3 | 532.804 μs | 275.934 μs | 146.401 μs | 94.811 μs | 347.843 μs | 176.712 μs | 89.690 μs | 48.421 μs | 46.419 μs | 18.480 μs |
+| convolve! vector ∘ radial-stored | Float32 128^3 | 2.965 ms | 1.833 ms | 1.563 ms | 1.486 ms | 2.095 ms | 1.106 ms | 553.835 μs | 280.453 μs | 49.126 μs | 57.141 μs |
+| convolve! vector ∘ radial-stored | Float32 256^3 | 22.549 ms | 20.741 ms | 19.339 ms | 18.401 ms | 20.221 ms | 10.927 ms | 9.832 ms | 9.878 ms | 620.835 μs | 617.606 μs |
+| convolve! vector ∘ radial-stored | Float32 512^3 | 193.133 ms | 169.985 ms | 159.839 ms | 153.165 ms | 175.355 ms | 92.588 ms | 92.072 ms | 92.422 ms | 4.649 ms | — |
+| convolve! vector ∘ radial-stored | Float32 64^3 | 310.387 μs | 176.035 μs | 91.522 μs | 51.388 μs | 271.602 μs | 145.181 μs | 75.200 μs | 40.541 μs | 36.090 μs | 10.690 μs |
+| convolve! vector ∘ radial-stored | Float64 128^3 | 4.923 ms | 4.608 ms | 4.180 ms | 3.932 ms | 2.641 ms | 1.532 ms | 890.728 μs | 750.087 μs | 180.471 μs | 160.332 μs |
+| convolve! vector ∘ radial-stored | Float64 256^3 | 44.713 ms | 42.494 ms | 40.030 ms | 38.411 ms | 30.188 ms | 22.436 ms | 21.902 ms | 23.303 ms | 1.216 ms | 1.228 ms |
+| convolve! vector ∘ radial-stored | Float64 512^3 | 333.016 ms | 334.888 ms | 320.659 ms | 307.456 ms | 223.949 ms | 183.174 ms | 184.091 ms | 183.957 ms | — | — |
+| convolve! vector ∘ radial-stored | Float64 64^3 | 276.289 μs | 168.856 μs | 88.106 μs | 52.225 μs | 222.642 μs | 137.892 μs | 70.941 μs | 37.681 μs | 42.120 μs | 18.930 μs |
+| convolve! vector ∘ separable | Float32 128^3 | 6.760 ms | 3.455 ms | 1.754 ms | 1.213 ms | 4.664 ms | 2.346 ms | 1.173 ms | 591.166 μs | 130.674 μs | 84.111 μs |
+| convolve! vector ∘ separable | Float32 256^3 | 53.473 ms | 27.624 ms | 17.239 ms | 13.202 ms | 37.241 ms | 18.658 ms | 9.379 ms | 8.450 ms | 867.930 μs | 614.676 μs |
+| convolve! vector ∘ separable | Float32 512^3 | 426.551 ms | 218.832 ms | 136.861 ms | 106.705 ms | 295.935 ms | 148.262 ms | 82.006 ms | 82.742 ms | 6.851 ms | — |
+| convolve! vector ∘ separable | Float32 64^3 | 842.577 μs | 435.665 μs | 225.713 μs | 118.591 μs | 588.665 μs | 298.043 μs | 150.311 μs | 77.831 μs | 43.832 μs | 16.890 μs |
+| convolve! vector ∘ separable | Float64 128^3 | 6.753 ms | 4.128 ms | 3.389 ms | 2.475 ms | 3.941 ms | 1.990 ms | 1.002 ms | 510.675 μs | 241.880 μs | 145.332 μs |
+| convolve! vector ∘ separable | Float64 256^3 | 53.841 ms | 36.812 ms | 29.162 ms | 23.952 ms | 32.188 ms | 19.455 ms | 18.931 ms | 19.233 ms | 1.696 ms | 1.078 ms |
+| convolve! vector ∘ separable | Float64 512^3 | 428.037 ms | 295.548 ms | 232.862 ms | 189.892 ms | 258.096 ms | 156.383 ms | 162.871 ms | 164.761 ms | — | — |
+| convolve! vector ∘ separable | Float64 64^3 | 808.651 μs | 436.674 μs | 215.832 μs | 120.351 μs | 495.644 μs | 249.453 μs | 126.261 μs | 66.711 μs | 57.607 μs | 25.430 μs |
+| convolve! vector ∘ stored    | Float32 128^3 | 2.991 ms | 1.833 ms | 1.554 ms | 1.483 ms | 2.098 ms | 1.103 ms | 550.435 μs | 283.372 μs | 48.991 μs | 58.690 μs |
+| convolve! vector ∘ stored    | Float32 256^3 | 22.564 ms | 20.516 ms | 19.219 ms | 18.417 ms | 20.205 ms | 10.946 ms | 9.849 ms | 9.905 ms | 621.345 μs | 614.696 μs |
+| convolve! vector ∘ stored    | Float32 512^3 | 193.408 ms | 169.825 ms | 159.741 ms | 153.249 ms | 175.445 ms | 92.869 ms | 92.280 ms | 92.661 ms | 4.641 ms | — |
+| convolve! vector ∘ stored    | Float32 64^3 | 309.962 μs | 178.565 μs | 91.368 μs | 54.553 μs | 271.242 μs | 145.102 μs | 74.481 μs | 40.201 μs | 36.063 μs | 10.620 μs |
+| convolve! vector ∘ stored    | Float64 128^3 | 4.906 ms | 4.598 ms | 4.136 ms | 3.929 ms | 2.659 ms | 1.546 ms | 871.887 μs | 753.248 μs | 181.099 μs | 159.591 μs |
+| convolve! vector ∘ stored    | Float64 256^3 | 44.753 ms | 42.666 ms | 40.028 ms | 38.471 ms | 30.524 ms | 22.757 ms | 21.930 ms | 22.075 ms | 1.214 ms | 1.228 ms |
+| convolve! vector ∘ stored    | Float64 512^3 | 330.158 ms | 334.980 ms | 320.788 ms | 307.347 ms | 222.960 ms | 184.267 ms | 184.856 ms | 184.189 ms | — | — |
+| convolve! vector ∘ stored    | Float64 64^3 | 274.539 μs | 164.133 μs | 88.964 μs | 60.719 μs | 222.042 μs | 138.412 μs | 71.421 μs | 38.920 μs | 42.133 μs | 18.860 μs |
+| exponential_convolve! scalar | Float32 128^3 | 6.109 ms | 2.702 ms | 1.361 ms | 722.348 μs | 5.023 ms | 2.118 ms | 1.066 ms | 542.335 μs | 50.382 μs | 26.420 μs |
+| exponential_convolve! scalar | Float32 256^3 | 48.311 ms | 21.234 ms | 10.718 ms | 6.141 ms | 39.686 ms | 16.540 ms | 8.419 ms | 4.377 ms | 258.551 μs | 189.311 μs |
+| exponential_convolve! scalar | Float32 512^3 | 384.722 ms | 167.829 ms | 84.785 ms | 50.497 ms | 316.044 ms | 131.750 ms | 66.685 ms | 34.887 ms | 1.888 ms | — |
+| exponential_convolve! scalar | Float32 64^3 | 762.967 μs | 349.962 μs | 179.859 μs | 101.305 μs | 654.236 μs | 280.853 μs | 144.602 μs | 78.210 μs | 31.027 μs | 9.300 μs |
+| exponential_convolve! scalar | Float64 128^3 | 5.784 ms | 2.553 ms | 1.331 ms | 835.192 μs | 5.580 ms | 2.396 ms | 1.199 ms | 615.146 μs | 94.509 μs | 79.511 μs |
+| exponential_convolve! scalar | Float64 256^3 | 45.717 ms | 20.058 ms | 12.133 ms | 10.752 ms | 44.038 ms | 18.831 ms | 9.462 ms | 4.997 ms | 600.686 μs | 566.596 μs |
+| exponential_convolve! scalar | Float64 512^3 | 364.009 ms | 160.020 ms | 97.219 ms | 90.369 ms | 350.119 ms | 150.323 ms | 75.126 ms | 55.133 ms | — | — |
+| exponential_convolve! scalar | Float64 64^3 | 719.321 μs | 328.503 μs | 170.993 μs | 103.498 μs | 695.827 μs | 313.573 μs | 157.831 μs | 85.951 μs | 39.895 μs | 17.400 μs |
+| exponential_convolve! vector | Float32 128^3 | 20.248 ms | 9.678 ms | 4.892 ms | 2.629 ms | 16.568 ms | 7.694 ms | 3.858 ms | 1.950 ms | 131.385 μs | 84.901 μs |
+| exponential_convolve! vector | Float32 256^3 | 160.278 ms | 76.157 ms | 38.541 ms | 22.375 ms | 130.549 ms | 60.311 ms | 30.553 ms | 15.565 ms | 866.298 μs | 625.526 μs |
+| exponential_convolve! vector | Float32 512^3 | 1.274 s | 603.661 ms | 304.604 ms | 182.939 ms | 1.038 s | 481.001 ms | 241.285 ms | 125.574 ms | 6.877 ms | — |
+| exponential_convolve! vector | Float32 64^3 | 2.542 ms | 1.233 ms | 639.809 μs | 332.578 μs | 2.149 ms | 996.140 μs | 502.265 μs | 261.002 μs | 43.958 μs | 16.940 μs |
+| exponential_convolve! vector | Float64 128^3 | 19.539 ms | 9.328 ms | 4.822 ms | 3.554 ms | 18.391 ms | 8.647 ms | 4.312 ms | 2.205 ms | 263.200 μs | 219.213 μs |
+| exponential_convolve! vector | Float64 256^3 | 154.206 ms | 72.909 ms | 38.108 ms | 33.695 ms | 148.831 ms | 68.008 ms | 34.099 ms | 19.341 ms | 1.887 ms | 1.671 ms |
+| exponential_convolve! vector | Float64 512^3 | 1.226 s | 579.498 ms | 304.348 ms | 273.431 ms | 1.164 s | 542.706 ms | 270.310 ms | 165.636 ms | — | — |
+| exponential_convolve! vector | Float64 64^3 | 2.475 ms | 1.167 ms | 606.307 μs | 324.223 μs | 2.326 ms | 1.095 ms | 551.885 μs | 284.693 μs | 60.930 μs | 35.360 μs |
+| inv separable | Float32 128^3 | 951.739 ns | 950.238 ns | 952.333 ns | 966.625 ns | 769.717 ns | 761.827 ns | 756.225 ns | 763.645 ns | 201.579 μs | 51.990 μs |
+| inv separable | Float32 256^3 | 1.964 μs | 1.958 μs | 1.961 μs | 1.977 μs | 1.559 μs | 1.554 μs | 1.556 μs | 1.617 μs | 210.015 μs | 58.720 μs |
+| inv separable | Float32 512^3 | 3.819 μs | 3.800 μs | 3.825 μs | 3.861 μs | 3.016 μs | 3.027 μs | 3.025 μs | 3.040 μs | 241.827 μs | — |
+| inv separable | Float32 64^3 | 506.674 ns | 505.212 ns | 506.068 ns | 509.042 ns | 410.256 ns | 411.105 ns | 408.555 ns | 407.990 ns | 202.306 μs | 49.551 μs |
+| inv separable | Float64 128^3 | 1.096 μs | 1.129 μs | 1.097 μs | 1.132 μs | 1.067 μs | 1.055 μs | 1.062 μs | 1.071 μs | 194.038 μs | 51.420 μs |
+| inv separable | Float64 256^3 | 2.143 μs | 2.425 μs | 2.151 μs | 2.153 μs | 2.076 μs | 2.036 μs | 2.024 μs | 2.066 μs | 195.568 μs | 56.020 μs |
+| inv separable | Float64 512^3 | 4.041 μs | 4.067 μs | 4.037 μs | 4.086 μs | 4.006 μs | 3.984 μs | 3.999 μs | 3.987 μs | — | — |
+| inv separable | Float64 64^3 | 530.085 ns | 531.698 ns | 530.872 ns | 533.005 ns | 524.089 ns | 529.795 ns | 521.314 ns | 520.372 ns | 196.892 μs | 49.960 μs |
+| materialize_kernel radial | Float32 128^3 | 1.380 ms | 607.802 μs | 408.922 μs | 232.532 μs | 1.130 ms | 351.851 μs | 179.392 μs | 93.401 μs | 55.598 μs | 26.181 μs |
+| materialize_kernel radial | Float32 256^3 | 11.162 ms | 4.595 ms | 3.615 ms | 2.618 ms | 8.984 ms | 2.766 ms | 1.637 ms | 1.884 ms | 339.070 μs | 150.002 μs |
+| materialize_kernel radial | Float32 512^3 | 88.854 ms | 36.249 ms | 28.671 ms | 21.990 ms | 71.489 ms | 22.102 ms | 17.242 ms | 17.154 ms | 4.562 ms | — |
+| materialize_kernel radial | Float32 64^3 | 174.953 μs | 85.421 μs | 40.399 μs | 31.178 μs | 145.741 μs | 47.981 μs | 25.481 μs | 15.730 μs | 39.123 μs | 9.860 μs |
+| materialize_kernel radial | Float64 128^3 | 1.481 ms | 916.003 μs | 693.147 μs | 440.954 μs | 1.176 ms | 376.404 μs | 318.103 μs | 325.063 μs | 64.210 μs | 29.681 μs |
+| materialize_kernel radial | Float64 256^3 | 11.692 ms | 7.861 ms | 5.675 ms | 5.391 ms | 9.477 ms | 3.989 ms | 4.035 ms | 3.987 ms | 486.936 μs | 178.312 μs |
+| materialize_kernel radial | Float64 512^3 | 93.204 ms | 142.965 ms | 76.707 ms | 47.893 ms | 213.686 ms | 33.938 ms | 34.240 ms | 35.693 ms | — | — |
+| materialize_kernel radial | Float64 64^3 | 177.126 μs | 71.706 μs | 53.233 μs | 35.568 μs | 151.292 μs | 48.890 μs | 25.601 μs | 15.951 μs | 37.026 μs | 11.090 μs |
+| materialize_kernel separable | Float32 128^3 | 1.794 ms | 782.748 μs | 448.019 μs | 322.260 μs | 1.535 ms | 446.533 μs | 225.882 μs | 117.181 μs | 56.445 μs | 25.870 μs |
+| materialize_kernel separable | Float32 256^3 | 14.330 ms | 6.139 ms | 3.949 ms | 3.060 ms | 12.213 ms | 3.527 ms | 1.807 ms | 2.041 ms | 341.665 μs | 159.531 μs |
+| materialize_kernel separable | Float32 512^3 | 114.889 ms | 49.178 ms | 31.341 ms | 23.919 ms | 96.765 ms | 28.113 ms | 18.552 ms | 17.817 ms | 4.659 ms | — |
+| materialize_kernel separable | Float32 64^3 | 227.903 μs | 102.342 μs | 54.917 μs | 34.716 μs | 196.362 μs | 59.690 μs | 31.620 μs | 18.780 μs | 39.063 μs | 9.710 μs |
+| materialize_kernel separable | Float64 128^3 | 1.778 ms | 958.451 μs | 773.722 μs | 503.520 μs | 1.450 ms | 463.685 μs | 307.133 μs | 306.793 μs | 86.700 μs | 36.591 μs |
+| materialize_kernel separable | Float64 256^3 | 14.237 ms | 7.910 ms | 5.980 ms | 5.604 ms | 11.611 ms | 4.448 ms | 4.345 ms | 4.007 ms | 652.647 μs | 235.243 μs |
+| materialize_kernel separable | Float64 512^3 | 114.959 ms | 63.370 ms | 82.029 ms | 50.289 ms | 218.394 ms | 38.299 ms | 36.888 ms | 43.805 ms | — | — |
+| materialize_kernel separable | Float64 64^3 | 224.892 μs | 101.110 μs | 56.287 μs | 51.687 μs | 186.322 μs | 61.401 μs | 32.470 μs | 19.360 μs | 41.853 μs | 12.600 μs |
+| radial_kernel | Float32 128^3 | 3.451 ns | 2.814 ns | 2.817 ns | 2.817 ns | 1.330 ns | 3.200 ns | 1.330 ns | 3.050 ns | 337.000 ns | 309.231 ns |
+| radial_kernel | Float32 256^3 | 2.814 ns | 2.814 ns | 2.817 ns | 2.815 ns | 1.330 ns | 3.220 ns | 1.330 ns | 3.050 ns | 340.000 ns | 307.211 ns |
+| radial_kernel | Float32 512^3 | 2.814 ns | 2.815 ns | 2.817 ns | 2.820 ns | 1.330 ns | 3.210 ns | 1.330 ns | 3.050 ns | 337.000 ns | — |
+| radial_kernel | Float32 64^3 | 2.818 ns | 2.815 ns | 2.816 ns | 2.816 ns | 1.330 ns | 3.200 ns | 1.330 ns | 3.190 ns | 341.000 ns | 306.806 ns |
+| radial_kernel | Float64 128^3 | 3.014 ns | 3.014 ns | 3.017 ns | 3.013 ns | 0.960 ns | 3.200 ns | 1.330 ns | 3.170 ns | 348.000 ns | 304.679 ns |
+| radial_kernel | Float64 256^3 | 3.015 ns | 3.014 ns | 3.020 ns | 3.014 ns | 0.960 ns | 3.190 ns | 1.320 ns | 3.170 ns | 349.000 ns | 311.849 ns |
+| radial_kernel | Float64 512^3 | 3.015 ns | 3.014 ns | 3.016 ns | 3.013 ns | 0.960 ns | 3.190 ns | 1.320 ns | 3.160 ns | — | — |
+| radial_kernel | Float64 64^3 | 3.014 ns | 3.014 ns | 3.016 ns | 3.013 ns | 0.960 ns | 3.200 ns | 1.330 ns | 3.180 ns | 347.000 ns | 306.301 ns |
+| spectral_band | Float32 128^3 | 12.428 ns | 10.398 ns | 11.325 ns | 11.830 ns | 1.330 ns | 9.379 ns | 1.330 ns | 8.799 ns | 357.000 ns | 307.394 ns |
+| spectral_band | Float32 256^3 | 12.430 ns | 10.404 ns | 11.311 ns | 11.829 ns | 1.330 ns | 9.389 ns | 1.320 ns | 9.489 ns | 358.000 ns | 312.546 ns |
+| spectral_band | Float32 512^3 | 12.417 ns | 10.391 ns | 11.282 ns | 11.829 ns | 1.330 ns | 9.389 ns | 1.330 ns | 9.419 ns | 341.000 ns | — |
+| spectral_band | Float32 64^3 | 12.417 ns | 10.359 ns | 11.441 ns | 11.831 ns | 1.330 ns | 9.389 ns | 1.350 ns | 10.410 ns | 350.000 ns | 306.309 ns |
+| spectral_band | Float64 128^3 | 11.688 ns | 10.924 ns | 11.498 ns | 11.851 ns | 1.330 ns | 10.290 ns | 0.960 ns | 9.820 ns | 349.000 ns | 305.304 ns |
+| spectral_band | Float64 256^3 | 11.688 ns | 10.916 ns | 11.493 ns | 11.852 ns | 1.330 ns | 10.261 ns | 0.960 ns | 11.021 ns | 344.000 ns | 306.684 ns |
+| spectral_band | Float64 512^3 | 11.668 ns | 10.915 ns | 11.499 ns | 11.855 ns | 1.330 ns | 10.280 ns | 0.960 ns | 10.411 ns | — | — |
+| spectral_band | Float64 64^3 | 11.686 ns | 10.913 ns | 11.498 ns | 11.847 ns | 1.330 ns | 10.280 ns | 0.960 ns | 10.060 ns | 342.000 ns | 307.153 ns |
+| spectral_cutoff | Float32 128^3 | 11.711 ns | 10.366 ns | 10.675 ns | 11.023 ns | 0.960 ns | 9.139 ns | 0.960 ns | 9.229 ns | 353.000 ns | 307.453 ns |
+| spectral_cutoff | Float32 256^3 | 11.704 ns | 10.550 ns | 10.680 ns | 11.023 ns | 1.330 ns | 9.119 ns | 0.960 ns | 9.269 ns | 356.000 ns | 308.421 ns |
+| spectral_cutoff | Float32 512^3 | 11.706 ns | 10.368 ns | 10.676 ns | 11.021 ns | 1.320 ns | 9.129 ns | 0.960 ns | 9.098 ns | 345.000 ns | — |
+| spectral_cutoff | Float32 64^3 | 11.714 ns | 10.358 ns | 10.668 ns | 11.022 ns | 1.330 ns | 9.109 ns | 0.960 ns | 10.460 ns | 352.000 ns | 306.927 ns |
+| spectral_cutoff | Float64 128^3 | 11.674 ns | 10.926 ns | 11.456 ns | 11.642 ns | 1.330 ns | 10.420 ns | 1.330 ns | 9.349 ns | 345.000 ns | 305.654 ns |
+| spectral_cutoff | Float64 256^3 | 11.669 ns | 10.909 ns | 11.461 ns | 11.648 ns | 1.330 ns | 10.430 ns | 1.330 ns | 10.571 ns | 350.000 ns | 311.803 ns |
+| spectral_cutoff | Float64 512^3 | 11.673 ns | 10.931 ns | 11.460 ns | 11.644 ns | 1.330 ns | 10.400 ns | 1.330 ns | 10.812 ns | — | — |
+| spectral_cutoff | Float64 64^3 | 11.670 ns | 10.891 ns | 11.469 ns | 11.642 ns | 1.330 ns | 10.420 ns | 1.330 ns | 10.050 ns | 346.000 ns | 307.073 ns |
+| translation_kernel | Float32 128^3 | 1.837 μs | 1.801 μs | 1.813 μs | 1.805 μs | 1.410 μs | 1.420 μs | 1.415 μs | 1.413 μs | 51.833 μs | 15.530 μs |
+| translation_kernel | Float32 256^3 | 3.550 μs | 3.551 μs | 3.571 μs | 3.558 μs | 2.731 μs | 2.731 μs | 2.724 μs | 2.723 μs | 54.419 μs | 15.661 μs |
+| translation_kernel | Float32 512^3 | 6.921 μs | 6.928 μs | 6.938 μs | 6.920 μs | 5.298 μs | 5.290 μs | 5.283 μs | 5.303 μs | 50.052 μs | — |
+| translation_kernel | Float32 64^3 | 898.475 ns | 898.286 ns | 908.450 ns | 900.683 ns | 742.139 ns | 739.347 ns | 741.703 ns | 742.818 ns | 52.453 μs | 15.491 μs |
+| translation_kernel | Float64 128^3 | 2.032 μs | 2.041 μs | 2.035 μs | 2.149 μs | 1.841 μs | 1.841 μs | 1.836 μs | 1.839 μs | 58.936 μs | 16.800 μs |
+| translation_kernel | Float64 256^3 | 3.872 μs | 3.864 μs | 3.868 μs | 4.096 μs | 3.524 μs | 3.450 μs | 3.479 μs | 3.473 μs | 61.653 μs | 18.360 μs |
+| translation_kernel | Float64 512^3 | 7.391 μs | 7.417 μs | 7.390 μs | 7.712 μs | 6.847 μs | 6.830 μs | 6.780 μs | 6.823 μs | — | — |
+| translation_kernel | Float64 64^3 | 1.018 μs | 1.019 μs | 1.019 μs | 1.071 μs | 936.897 ns | 932.903 ns | 932.069 ns | 949.667 ns | 57.776 μs | 17.050 μs |
+| translation_kernel! | Float32 128^3 | 1.775 μs | 1.757 μs | 1.775 μs | 1.761 μs | 1.369 μs | 1.367 μs | 1.371 μs | 1.368 μs | 31.682 μs | 13.200 μs |
+| translation_kernel! | Float32 256^3 | 3.433 μs | 3.411 μs | 3.421 μs | 3.430 μs | 2.618 μs | 2.617 μs | 2.621 μs | 2.622 μs | 34.762 μs | 13.241 μs |
+| translation_kernel! | Float32 512^3 | 6.790 μs | 6.763 μs | 6.760 μs | 6.778 μs | 5.113 μs | 5.115 μs | 5.107 μs | 5.123 μs | 31.335 μs | — |
+| translation_kernel! | Float32 64^3 | 855.857 ns | 858.097 ns | 856.365 ns | 856.349 ns | 706.930 ns | 705.326 ns | 702.944 ns | 701.041 ns | 34.609 μs | 13.190 μs |
+| translation_kernel! | Float64 128^3 | 1.869 μs | 1.861 μs | 1.869 μs | 1.896 μs | 1.690 μs | 1.691 μs | 1.699 μs | 1.699 μs | 36.474 μs | 14.490 μs |
+| translation_kernel! | Float64 256^3 | 3.619 μs | 3.666 μs | 3.606 μs | 3.691 μs | 3.245 μs | 3.241 μs | 3.250 μs | 3.259 μs | 36.599 μs | 15.890 μs |
+| translation_kernel! | Float64 512^3 | 7.133 μs | 7.091 μs | 7.125 μs | 7.262 μs | 6.344 μs | 6.360 μs | 6.358 μs | 6.358 μs | — | — |
+| translation_kernel! | Float64 64^3 | 961.850 ns | 963.632 ns | 960.789 ns | 984.600 ns | 878.059 ns | 874.118 ns | 885.745 ns | 891.151 ns | 37.894 μs | 14.380 μs |
 
 ## transfer
 
 | operation | workload | CPU 12700K t1 | CPU 12700K t2 | CPU 12700K t4 | CPU 12700K t8 | CPU 9800X3D t1 | CPU 9800X3D t2 | CPU 9800X3D t4 | CPU 9800X3D t8 | GPU 7900XTX | GPU 5070TI |
 |:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|:--|
-| anterpolate! CatmullRom | Float32 128^3 | 27.523 ms | 13.706 ms | 7.329 ms | 4.417 ms | 20.742 ms | 11.018 ms | 5.937 ms | 3.419 ms | 186.914 μs | 140.684 μs |
-| anterpolate! CatmullRom | Float32 256^3 | 392.571 ms | 204.137 ms | 108.428 ms | 67.165 ms | 176.985 ms | 89.706 ms | 44.681 ms | 23.750 ms | 1.344 ms | 2.850 ms |
-| anterpolate! CatmullRom | Float32 512^3 | 3.899 s | 2.043 s | 1.152 s | 802.658 ms | 2.956 s | 1.494 s | 779.705 ms | 431.109 ms | — | — |
-| anterpolate! CatmullRom | Float32 64^3 | 3.184 ms | 1.886 ms | 1.209 ms | 858.655 μs | 2.518 ms | 1.452 ms | 934.254 μs | 653.547 μs | 70.805 μs | 51.930 μs |
-| anterpolate! CatmullRom | Float64 128^3 | 28.517 ms | 14.544 ms | 7.615 ms | 4.620 ms | 22.469 ms | 11.719 ms | 6.131 ms | 3.561 ms | 249.010 μs | 169.321 μs |
-| anterpolate! CatmullRom | Float64 256^3 | 515.747 ms | 260.488 ms | 147.343 ms | 103.501 ms | 261.639 ms | 132.067 ms | 69.336 ms | 36.145 ms | 2.426 ms | 4.616 ms |
-| anterpolate! CatmullRom | Float64 512^3 | 4.975 s | 2.629 s | 1.421 s | 881.899 ms | 3.279 s | 1.653 s | 899.223 ms | 532.488 ms | — | — |
-| anterpolate! CatmullRom | Float64 64^3 | 3.273 ms | 1.912 ms | 1.242 ms | 897.872 μs | 2.533 ms | 1.503 ms | 987.970 μs | 693.617 μs | 100.725 μs | 64.730 μs |
-| anterpolate! Lalescu(3,3) | Float32 128^3 | 197.640 ms | 100.081 ms | 50.847 ms | 28.541 ms | 160.014 ms | 80.793 ms | 40.643 ms | 21.733 ms | 1.257 ms | 910.444 μs |
-| anterpolate! Lalescu(3,3) | Float32 256^3 | 2.313 s | 1.165 s | 669.872 ms | 483.110 ms | 1.287 s | 657.162 ms | 321.767 ms | 162.216 ms | 14.164 ms | 14.934 ms |
-| anterpolate! Lalescu(3,3) | Float32 512^3 | 21.687 s | 11.570 s | 6.858 s | 5.090 s | 11.795 s | 6.020 s | 3.081 s | 1.627 s | — | — |
-| anterpolate! Lalescu(3,3) | Float32 64^3 | 23.886 ms | 13.323 ms | 8.134 ms | 5.592 ms | 19.880 ms | 10.638 ms | 6.447 ms | 4.341 ms | 401.373 μs | 260.621 μs |
-| anterpolate! Lalescu(3,3) | Float64 128^3 | 203.551 ms | 105.091 ms | 52.715 ms | 29.850 ms | 160.698 ms | 80.783 ms | 40.559 ms | 21.654 ms | 1.995 ms | 1.090 ms |
-| anterpolate! Lalescu(3,3) | Float64 256^3 | 2.781 s | 1.392 s | 837.619 ms | 617.127 ms | 1.397 s | 698.922 ms | 353.348 ms | 190.033 ms | 26.794 ms | 24.200 ms |
-| anterpolate! Lalescu(3,3) | Float64 512^3 | 23.251 s | 12.461 s | 7.362 s | 5.495 s | 12.657 s | 6.404 s | 3.350 s | 2.203 s | — | — |
-| anterpolate! Lalescu(3,3) | Float64 64^3 | 24.346 ms | 13.244 ms | 8.209 ms | 5.637 ms | 19.935 ms | 10.737 ms | 6.559 ms | 4.427 ms | 563.974 μs | 259.511 μs |
-| anterpolate! NUFFT | Float32 128^3 | 396.778 ms | 226.554 ms | 136.043 ms | 108.198 ms | 357.647 ms | 191.398 ms | 99.333 ms | 59.788 ms | 2.950 ms | 2.796 ms |
-| anterpolate! NUFFT | Float32 256^3 | 4.215 s | 2.310 s | 1.384 s | 1.018 s | 3.754 s | 1.909 s | 1.037 s | 680.463 ms | 33.140 ms | 28.618 ms |
-| anterpolate! NUFFT | Float32 512^3 | 38.579 s | 21.459 s | 12.714 s | 9.095 s | 30.890 s | 16.351 s | 9.040 s | 5.537 s | — | — |
-| anterpolate! NUFFT | Float32 64^3 | 31.561 ms | 18.156 ms | 11.315 ms | 8.234 ms | 27.136 ms | 14.321 ms | 8.464 ms | 5.923 ms | 525.400 μs | 327.982 μs |
-| anterpolate! NUFFT | Float64 128^3 | 515.978 ms | 298.422 ms | 216.821 ms | 176.299 ms | 418.711 ms | 230.303 ms | 144.742 ms | 100.381 ms | 10.092 ms | 6.539 ms |
-| anterpolate! NUFFT | Float64 256^3 | 4.964 s | 2.890 s | 1.931 s | 1.565 s | 3.586 s | 2.004 s | 1.224 s | 874.590 ms | 55.413 ms | 58.464 ms |
-| anterpolate! NUFFT | Float64 512^3 | 44.022 s | 25.243 s | 16.235 s | 12.790 s | 39.840 s | 21.729 s | 12.663 s | 8.264 s | — | — |
-| anterpolate! NUFFT | Float64 64^3 | 36.987 ms | 21.460 ms | 14.337 ms | 10.866 ms | 33.390 ms | 17.777 ms | 10.756 ms | 7.131 ms | 951.238 μs | 712.594 μs |
-| anterpolate! trilinear | Float32 128^3 | 4.695 ms | 2.261 ms | 1.352 ms | 881.126 μs | 4.568 ms | 2.524 ms | 1.407 ms | 859.638 μs | 52.056 μs | 28.911 μs |
-| anterpolate! trilinear | Float32 256^3 | 80.940 ms | 44.334 ms | 25.586 ms | 20.086 ms | 43.373 ms | 22.274 ms | 11.212 ms | 6.554 ms | 308.344 μs | 684.988 μs |
-| anterpolate! trilinear | Float32 512^3 | 730.809 ms | 400.257 ms | 248.098 ms | 201.541 ms | 749.572 ms | 381.702 ms | 212.602 ms | 117.736 ms | — | — |
-| anterpolate! trilinear | Float32 64^3 | 485.517 μs | 322.905 μs | 208.906 μs | 161.045 μs | 370.194 μs | 248.803 μs | 165.942 μs | 127.541 μs | 34.865 μs | 15.240 μs |
-| anterpolate! trilinear | Float64 128^3 | 5.140 ms | 2.667 ms | 1.561 ms | 1.087 ms | 5.990 ms | 3.278 ms | 1.864 ms | 1.185 ms | 66.586 μs | 49.711 μs |
-| anterpolate! trilinear | Float64 256^3 | 93.226 ms | 51.331 ms | 33.258 ms | 27.126 ms | 71.163 ms | 36.641 ms | 20.170 ms | 11.407 ms | 637.033 μs | 1.059 ms |
-| anterpolate! trilinear | Float64 512^3 | 788.544 ms | 452.004 ms | 270.764 ms | 210.306 ms | 768.945 ms | 393.645 ms | 218.274 ms | 129.702 ms | — | — |
-| anterpolate! trilinear | Float64 64^3 | 522.769 μs | 338.908 μs | 241.823 μs | 191.637 μs | 379.164 μs | 262.013 μs | 176.891 μs | 135.091 μs | 46.714 μs | 24.030 μs |
-| displace! 1-term | Float32 128^3 | 53.830 μs | 34.942 μs | 19.813 μs | 13.012 μs | — | — | — | — | 25.956 μs | — |
-| displace! 1-term | Float32 256^3 | 466.209 μs | 263.686 μs | 135.063 μs | 73.291 μs | — | — | — | — | 40.262 μs | — |
-| displace! 1-term | Float32 512^3 | 6.036 ms | 5.117 ms | 4.544 ms | 4.130 ms | — | — | — | — | — | — |
-| displace! 1-term | Float32 64^3 | 6.737 μs | 7.199 μs | 5.428 μs | 5.967 μs | — | — | — | — | 25.791 μs | — |
-| displace! 1-term | Float64 128^3 | 66.863 μs | 36.749 μs | 20.283 μs | 15.228 μs | — | — | — | — | 27.819 μs | — |
-| displace! 1-term | Float64 256^3 | 948.336 μs | 557.894 μs | 427.815 μs | 216.328 μs | — | — | — | — | 45.661 μs | — |
-| displace! 1-term | Float64 512^3 | 12.090 ms | 11.345 ms | 9.781 ms | 9.269 ms | — | — | — | — | — | — |
-| displace! 1-term | Float64 64^3 | 7.078 μs | 7.319 μs | 5.575 μs | 6.599 μs | — | — | — | — | 26.785 μs | — |
-| displace! 3-term torus | Float32 128^3 | 866.819 μs | 481.162 μs | 254.967 μs | 159.077 μs | — | — | — | — | 63.789 μs | — |
-| displace! 3-term torus | Float32 256^3 | 7.065 ms | 3.756 ms | 1.969 ms | 1.142 ms | — | — | — | — | 58.564 μs | — |
-| displace! 3-term torus | Float32 512^3 | 56.790 ms | 29.969 ms | 16.164 ms | 10.334 ms | — | — | — | — | — | — |
-| displace! 3-term torus | Float32 64^3 | 107.941 μs | 108.082 μs | 107.937 μs | 105.779 μs | — | — | — | — | 50.365 μs | — |
-| displace! 3-term torus | Float64 128^3 | 871.380 μs | 490.514 μs | 258.649 μs | 149.431 μs | — | — | — | — | 53.225 μs | — |
-| displace! 3-term torus | Float64 256^3 | 7.025 ms | 3.790 ms | 2.000 ms | 1.410 ms | — | — | — | — | 91.502 μs | — |
-| displace! 3-term torus | Float64 512^3 | 56.454 ms | 30.516 ms | 17.740 ms | 16.342 ms | — | — | — | — | — | — |
-| displace! 3-term torus | Float64 64^3 | 108.280 μs | 108.158 μs | 108.382 μs | 106.021 μs | — | — | — | — | 65.335 μs | — |
-| displace! 3-term | Float32 128^3 | 167.001 μs | 104.950 μs | 56.014 μs | 33.463 μs | — | — | — | — | 28.684 μs | — |
-| displace! 3-term | Float32 256^3 | 1.470 ms | 850.045 μs | 470.063 μs | 239.996 μs | — | — | — | — | 45.439 μs | — |
-| displace! 3-term | Float32 512^3 | 13.333 ms | 9.474 ms | 8.182 ms | 7.622 ms | — | — | — | — | — | — |
-| displace! 3-term | Float32 64^3 | 20.896 μs | 17.857 μs | 11.928 μs | 10.046 μs | — | — | — | — | 25.650 μs | — |
-| displace! 3-term | Float64 128^3 | 170.048 μs | 109.853 μs | 56.923 μs | 35.563 μs | — | — | — | — | 33.073 μs | — |
-| displace! 3-term | Float64 256^3 | 2.185 ms | 1.698 ms | 1.435 ms | 1.235 ms | — | — | — | — | 64.565 μs | — |
-| displace! 3-term | Float64 512^3 | 21.836 ms | 20.060 ms | 17.248 ms | 16.034 ms | — | — | — | — | — | — |
-| displace! 3-term | Float64 64^3 | 20.901 μs | 18.513 μs | 11.953 μs | 10.347 μs | — | — | — | — | 29.115 μs | — |
-| interpolate! CatmullRom | Float32 128^3 | 11.612 ms | 5.895 ms | 2.955 ms | 1.650 ms | 5.428 ms | 2.786 ms | 1.407 ms | 740.627 μs | 106.344 μs | 80.722 μs |
-| interpolate! CatmullRom | Float32 256^3 | 271.654 ms | 139.395 ms | 75.000 ms | 47.020 ms | 59.365 ms | 29.394 ms | 13.167 ms | 7.124 ms | 627.839 μs | 803.859 μs |
-| interpolate! CatmullRom | Float32 512^3 | 2.493 s | 1.307 s | 770.720 ms | 536.386 ms | 1.856 s | 920.235 ms | 482.228 ms | 258.785 ms | — | — |
-| interpolate! CatmullRom | Float32 64^3 | 1.311 ms | 708.196 μs | 429.733 μs | 300.112 μs | 633.546 μs | 329.073 μs | 202.033 μs | 135.892 μs | 53.885 μs | 34.371 μs |
-| interpolate! CatmullRom | Float64 128^3 | 12.345 ms | 6.808 ms | 3.482 ms | 1.941 ms | 5.627 ms | 2.937 ms | 1.458 ms | 772.507 μs | 136.993 μs | 132.050 μs |
-| interpolate! CatmullRom | Float64 256^3 | 312.744 ms | 154.605 ms | 88.131 ms | 60.708 ms | 150.422 ms | 73.220 ms | 39.351 ms | 19.610 ms | 1.048 ms | 1.646 ms |
-| interpolate! CatmullRom | Float64 512^3 | 2.726 s | 1.439 s | 765.411 ms | 487.613 ms | 1.962 s | 965.358 ms | 517.983 ms | 303.136 ms | — | — |
-| interpolate! CatmullRom | Float64 64^3 | 1.360 ms | 739.388 μs | 449.929 μs | 314.905 μs | 670.417 μs | 354.534 μs | 215.472 μs | 144.631 μs | 80.880 μs | 63.871 μs |
-| interpolate! Lalescu(3,3) | Float32 128^3 | 73.947 ms | 37.408 ms | 18.912 ms | 10.471 ms | 42.333 ms | 21.416 ms | 10.699 ms | 5.669 ms | 559.598 μs | 409.621 μs |
-| interpolate! Lalescu(3,3) | Float32 256^3 | 1.512 s | 784.647 ms | 496.217 ms | 326.458 ms | 356.011 ms | 190.347 ms | 85.056 ms | 43.983 ms | 5.570 ms | 4.624 ms |
-| interpolate! Lalescu(3,3) | Float32 512^3 | 15.272 s | 8.498 s | 5.646 s | 3.875 s | 5.372 s | 2.813 s | 1.493 s | 884.715 ms | — | — |
-| interpolate! Lalescu(3,3) | Float32 64^3 | 8.741 ms | 4.700 ms | 2.857 ms | 1.950 ms | 5.084 ms | 2.681 ms | 1.603 ms | 1.082 ms | 306.223 μs | 215.131 μs |
-| interpolate! Lalescu(3,3) | Float64 128^3 | 78.951 ms | 42.466 ms | 21.810 ms | 12.118 ms | 41.629 ms | 20.980 ms | 10.501 ms | 5.546 ms | 824.893 μs | 772.043 μs |
-| interpolate! Lalescu(3,3) | Float64 256^3 | 1.986 s | 993.830 ms | 653.060 ms | 434.240 ms | 577.057 ms | 295.707 ms | 146.908 ms | 76.019 ms | 5.306 ms | 9.985 ms |
-| interpolate! Lalescu(3,3) | Float64 512^3 | 16.377 s | 8.856 s | 5.559 s | 3.792 s | 6.413 s | 3.459 s | 1.813 s | 1.257 s | — | — |
-| interpolate! Lalescu(3,3) | Float64 64^3 | 8.954 ms | 4.856 ms | 2.961 ms | 2.003 ms | 5.282 ms | 2.804 ms | 1.677 ms | 1.120 ms | 468.356 μs | 267.741 μs |
-| interpolate! NUFFT | Float32 128^3 | 307.002 ms | 186.337 ms | 125.670 ms | 97.362 ms | 242.806 ms | 134.777 ms | 76.022 ms | 45.829 ms | 2.090 ms | 1.803 ms |
-| interpolate! NUFFT | Float32 256^3 | 3.498 s | 1.980 s | 1.276 s | 917.061 ms | 2.967 s | 1.531 s | 858.915 ms | 607.798 ms | 26.237 ms | 17.655 ms |
-| interpolate! NUFFT | Float32 512^3 | 31.922 s | 18.012 s | 11.453 s | 8.282 s | 24.704 s | 13.142 s | 7.671 s | 4.970 s | — | — |
-| interpolate! NUFFT | Float32 64^3 | 16.519 ms | 10.207 ms | 6.795 ms | 5.326 ms | 12.215 ms | 6.498 ms | 3.819 ms | 2.534 ms | 413.539 μs | 298.952 μs |
-| interpolate! NUFFT | Float64 128^3 | 421.433 ms | 255.981 ms | 192.904 ms | 161.776 ms | 223.198 ms | 134.504 ms | 96.663 ms | 77.522 ms | 8.509 ms | 5.508 ms |
-| interpolate! NUFFT | Float64 256^3 | 3.901 s | 2.356 s | 1.699 s | 1.365 s | 1.969 s | 1.198 s | 854.414 ms | 718.001 ms | 40.571 ms | 47.795 ms |
-| interpolate! NUFFT | Float64 512^3 | 35.462 s | 20.845 s | 14.870 s | 13.148 s | 24.912 s | 14.158 s | 9.166 s | 9.478 s | — | — |
-| interpolate! NUFFT | Float64 64^3 | 21.974 ms | 14.169 ms | 10.812 ms | 9.007 ms | 17.867 ms | 9.981 ms | 5.956 ms | 4.009 ms | 835.506 μs | 844.885 μs |
-| interpolate! trilinear | Float32 128^3 | 2.029 ms | 1.026 ms | 520.481 μs | 291.684 μs | 1.309 ms | 681.704 μs | 339.234 μs | 180.222 μs | 32.797 μs | 22.531 μs |
-| interpolate! trilinear | Float32 256^3 | 54.025 ms | 28.417 ms | 15.244 ms | 8.952 ms | 15.123 ms | 7.971 ms | 3.236 ms | 1.775 ms | 120.643 μs | 184.972 μs |
-| interpolate! trilinear | Float32 512^3 | 482.975 ms | 257.090 ms | 148.905 ms | 97.158 ms | 436.764 ms | 220.397 ms | 123.783 ms | 62.477 ms | — | — |
-| interpolate! trilinear | Float32 64^3 | 227.223 μs | 124.212 μs | 77.823 μs | 55.854 μs | 147.632 μs | 79.011 μs | 48.080 μs | 33.140 μs | 30.081 μs | 12.850 μs |
-| interpolate! trilinear | Float64 128^3 | 2.207 ms | 1.220 ms | 654.707 μs | 379.324 μs | 1.358 ms | 712.638 μs | 353.545 μs | 189.811 μs | 50.404 μs | 37.360 μs |
-| interpolate! trilinear | Float64 256^3 | 60.265 ms | 31.979 ms | 19.700 ms | 13.551 ms | 32.519 ms | 16.644 ms | 7.992 ms | 4.353 ms | 238.024 μs | 348.426 μs |
-| interpolate! trilinear | Float64 512^3 | 511.520 ms | 279.357 ms | 155.258 ms | 105.064 ms | 436.420 ms | 233.795 ms | 121.114 ms | 68.471 ms | — | — |
-| interpolate! trilinear | Float64 64^3 | 239.320 μs | 132.276 μs | 81.600 μs | 57.898 μs | 162.212 μs | 87.841 μs | 49.670 μs | 33.610 μs | 40.168 μs | 21.130 μs |
-| wrap! | Float32 128^3 | 526.428 μs | 337.965 μs | 168.903 μs | 114.155 μs | — | — | — | — | 35.636 μs | — |
-| wrap! | Float32 256^3 | 4.257 ms | 2.623 ms | 1.303 ms | 848.706 μs | — | — | — | — | 43.670 μs | — |
-| wrap! | Float32 512^3 | 34.015 ms | 20.658 ms | 10.568 ms | 7.612 ms | — | — | — | — | — | — |
-| wrap! | Float32 64^3 | 65.705 μs | 65.589 μs | 65.615 μs | 64.332 μs | — | — | — | — | 34.478 μs | — |
-| wrap! | Float64 128^3 | 576.324 μs | 370.903 μs | 194.994 μs | 125.910 μs | — | — | — | — | 39.668 μs | — |
-| wrap! | Float64 256^3 | 4.660 ms | 2.957 ms | 1.508 ms | 887.407 μs | — | — | — | — | 52.011 μs | — |
-| wrap! | Float64 512^3 | 37.471 ms | 23.418 ms | 11.922 ms | 7.668 ms | — | — | — | — | — | — |
-| wrap! | Float64 64^3 | 71.689 μs | 71.537 μs | 71.838 μs | 70.138 μs | — | — | — | — | 35.852 μs | — |
+| anterpolate! CatmullRom | Float32 128^3 | 27.523 ms | 13.706 ms | 7.329 ms | 4.417 ms | 20.924 ms | 11.018 ms | 5.966 ms | 3.419 ms | 186.914 μs | 140.531 μs |
+| anterpolate! CatmullRom | Float32 256^3 | 392.571 ms | 204.137 ms | 108.428 ms | 67.165 ms | 176.690 ms | 89.706 ms | 46.257 ms | 23.750 ms | 1.344 ms | 2.883 ms |
+| anterpolate! CatmullRom | Float32 512^3 | 3.899 s | 2.043 s | 1.152 s | 802.658 ms | 2.994 s | 1.494 s | 787.555 ms | 431.109 ms | — | — |
+| anterpolate! CatmullRom | Float32 64^3 | 3.184 ms | 1.886 ms | 1.209 ms | 858.655 μs | 2.511 ms | 1.452 ms | 936.849 μs | 653.547 μs | 70.805 μs | 61.170 μs |
+| anterpolate! CatmullRom | Float64 128^3 | 28.517 ms | 14.544 ms | 7.615 ms | 4.620 ms | 21.944 ms | 11.719 ms | 6.214 ms | 3.561 ms | 249.010 μs | 175.192 μs |
+| anterpolate! CatmullRom | Float64 256^3 | 515.747 ms | 260.488 ms | 147.343 ms | 103.501 ms | 267.248 ms | 132.067 ms | 69.063 ms | 36.145 ms | 2.426 ms | 4.609 ms |
+| anterpolate! CatmullRom | Float64 512^3 | 4.975 s | 2.629 s | 1.421 s | 881.899 ms | 3.271 s | 1.653 s | 884.756 ms | 532.488 ms | — | — |
+| anterpolate! CatmullRom | Float64 64^3 | 3.273 ms | 1.912 ms | 1.242 ms | 897.872 μs | 2.528 ms | 1.503 ms | 969.569 μs | 693.617 μs | 100.725 μs | 58.580 μs |
+| anterpolate! Lalescu(3,3) | Float32 128^3 | 197.640 ms | 100.081 ms | 50.847 ms | 28.541 ms | 159.986 ms | 80.793 ms | 40.664 ms | 21.733 ms | 1.257 ms | 926.569 μs |
+| anterpolate! Lalescu(3,3) | Float32 256^3 | 2.313 s | 1.165 s | 669.872 ms | 483.110 ms | 1.288 s | 657.162 ms | 323.847 ms | 162.216 ms | 14.164 ms | 15.032 ms |
+| anterpolate! Lalescu(3,3) | Float32 512^3 | 21.687 s | 11.570 s | 6.858 s | 5.090 s | 11.863 s | 6.020 s | 3.057 s | 1.627 s | — | — |
+| anterpolate! Lalescu(3,3) | Float32 64^3 | 23.886 ms | 13.323 ms | 8.134 ms | 5.592 ms | 19.874 ms | 10.638 ms | 6.461 ms | 4.341 ms | 401.373 μs | 292.803 μs |
+| anterpolate! Lalescu(3,3) | Float64 128^3 | 203.551 ms | 105.091 ms | 52.715 ms | 29.850 ms | 160.591 ms | 80.783 ms | 40.599 ms | 21.654 ms | 1.995 ms | 1.055 ms |
+| anterpolate! Lalescu(3,3) | Float64 256^3 | 2.781 s | 1.392 s | 837.619 ms | 617.127 ms | 1.407 s | 698.922 ms | 355.702 ms | 190.033 ms | 26.794 ms | 24.186 ms |
+| anterpolate! Lalescu(3,3) | Float64 512^3 | 23.251 s | 12.461 s | 7.362 s | 5.495 s | 12.674 s | 6.404 s | 3.307 s | 2.203 s | — | — |
+| anterpolate! Lalescu(3,3) | Float64 64^3 | 24.346 ms | 13.244 ms | 8.209 ms | 5.637 ms | 19.913 ms | 10.737 ms | 6.578 ms | 4.427 ms | 563.974 μs | 245.223 μs |
+| anterpolate! NUFFT | Float32 128^3 | 396.778 ms | 226.554 ms | 136.043 ms | 108.198 ms | 359.202 ms | 191.398 ms | 101.333 ms | 59.788 ms | 2.950 ms | 2.697 ms |
+| anterpolate! NUFFT | Float32 256^3 | 4.215 s | 2.310 s | 1.384 s | 1.018 s | 3.772 s | 1.909 s | 1.127 s | 680.463 ms | 33.140 ms | 28.789 ms |
+| anterpolate! NUFFT | Float32 512^3 | 38.579 s | 21.459 s | 12.714 s | 9.095 s | 31.371 s | 16.351 s | 9.162 s | 5.537 s | — | — |
+| anterpolate! NUFFT | Float32 64^3 | 31.561 ms | 18.156 ms | 11.315 ms | 8.234 ms | 27.040 ms | 14.321 ms | 8.643 ms | 5.923 ms | 525.400 μs | 328.703 μs |
+| anterpolate! NUFFT | Float64 128^3 | 515.978 ms | 298.422 ms | 216.821 ms | 176.299 ms | 411.005 ms | 230.303 ms | 148.645 ms | 100.381 ms | 10.092 ms | 6.621 ms |
+| anterpolate! NUFFT | Float64 256^3 | 4.964 s | 2.890 s | 1.931 s | 1.565 s | 3.771 s | 2.004 s | 1.279 s | 874.590 ms | 55.413 ms | 59.134 ms |
+| anterpolate! NUFFT | Float64 512^3 | 44.022 s | 25.243 s | 16.235 s | 12.790 s | 40.507 s | 21.729 s | 12.898 s | 8.264 s | — | — |
+| anterpolate! NUFFT | Float64 64^3 | 36.987 ms | 21.460 ms | 14.337 ms | 10.866 ms | 33.674 ms | 17.777 ms | 10.846 ms | 7.131 ms | 951.238 μs | 780.067 μs |
+| anterpolate! trilinear | Float32 128^3 | 4.695 ms | 2.261 ms | 1.352 ms | 881.126 μs | 4.782 ms | 2.524 ms | 1.415 ms | 859.638 μs | 52.056 μs | 33.690 μs |
+| anterpolate! trilinear | Float32 256^3 | 80.940 ms | 44.334 ms | 25.586 ms | 20.086 ms | 42.704 ms | 22.274 ms | 12.000 ms | 6.554 ms | 308.344 μs | 686.086 μs |
+| anterpolate! trilinear | Float32 512^3 | 730.809 ms | 400.257 ms | 248.098 ms | 201.541 ms | 750.867 ms | 381.702 ms | 204.785 ms | 117.736 ms | — | — |
+| anterpolate! trilinear | Float32 64^3 | 485.517 μs | 322.905 μs | 208.906 μs | 161.045 μs | 369.553 μs | 248.803 μs | 170.432 μs | 127.541 μs | 34.865 μs | 14.760 μs |
+| anterpolate! trilinear | Float64 128^3 | 5.140 ms | 2.667 ms | 1.561 ms | 1.087 ms | 6.156 ms | 3.278 ms | 1.870 ms | 1.185 ms | 66.586 μs | 47.810 μs |
+| anterpolate! trilinear | Float64 256^3 | 93.226 ms | 51.331 ms | 33.258 ms | 27.126 ms | 73.081 ms | 36.641 ms | 20.264 ms | 11.407 ms | 637.033 μs | 1.069 ms |
+| anterpolate! trilinear | Float64 512^3 | 788.544 ms | 452.004 ms | 270.764 ms | 210.306 ms | 767.934 ms | 393.645 ms | 210.218 ms | 129.702 ms | — | — |
+| anterpolate! trilinear | Float64 64^3 | 522.769 μs | 338.908 μs | 241.823 μs | 191.637 μs | 379.113 μs | 262.013 μs | 178.031 μs | 135.091 μs | 46.714 μs | 26.350 μs |
+| displace! 1-term | Float32 128^3 | 53.830 μs | 34.942 μs | 19.813 μs | 13.012 μs | 45.741 μs | — | 13.730 μs | — | 25.956 μs | 7.663 μs |
+| displace! 1-term | Float32 256^3 | 466.209 μs | 263.686 μs | 135.063 μs | 73.291 μs | 366.034 μs | — | 96.081 μs | — | 40.262 μs | 18.200 μs |
+| displace! 1-term | Float32 512^3 | 6.036 ms | 5.117 ms | 4.544 ms | 4.130 ms | 3.296 ms | — | 952.089 μs | — | — | — |
+| displace! 1-term | Float32 64^3 | 6.737 μs | 7.199 μs | 5.428 μs | 5.967 μs | 5.722 μs | — | 3.570 μs | — | 25.791 μs | 6.320 μs |
+| displace! 1-term | Float64 128^3 | 66.863 μs | 36.749 μs | 20.283 μs | 15.228 μs | 49.590 μs | — | 14.450 μs | — | 27.819 μs | 7.780 μs |
+| displace! 1-term | Float64 256^3 | 948.336 μs | 557.894 μs | 427.815 μs | 216.328 μs | 389.774 μs | — | 100.031 μs | — | 45.661 μs | 19.681 μs |
+| displace! 1-term | Float64 512^3 | 12.090 ms | 11.345 ms | 9.781 ms | 9.269 ms | 5.066 ms | — | 3.982 ms | — | — | — |
+| displace! 1-term | Float64 64^3 | 7.078 μs | 7.319 μs | 5.575 μs | 6.599 μs | 5.898 μs | — | 3.625 μs | — | 26.785 μs | 6.423 μs |
+| displace! 3-term torus | Float32 128^3 | 866.819 μs | 481.162 μs | 254.967 μs | 159.077 μs | 707.777 μs | — | 211.042 μs | — | 63.789 μs | 22.820 μs |
+| displace! 3-term torus | Float32 256^3 | 7.065 ms | 3.756 ms | 1.969 ms | 1.142 ms | 5.677 ms | — | 1.569 ms | — | 58.564 μs | 31.120 μs |
+| displace! 3-term torus | Float32 512^3 | 56.790 ms | 29.969 ms | 16.164 ms | 10.334 ms | 45.512 ms | — | 12.727 ms | — | — | — |
+| displace! 3-term torus | Float32 64^3 | 107.941 μs | 108.082 μs | 107.937 μs | 105.779 μs | 88.130 μs | — | 88.240 μs | — | 50.365 μs | 22.291 μs |
+| displace! 3-term torus | Float64 128^3 | 871.380 μs | 490.514 μs | 258.649 μs | 149.431 μs | 736.987 μs | — | 220.572 μs | — | 53.225 μs | 26.461 μs |
+| displace! 3-term torus | Float64 256^3 | 7.025 ms | 3.790 ms | 2.000 ms | 1.410 ms | 5.922 ms | — | 1.648 ms | — | 91.502 μs | 108.981 μs |
+| displace! 3-term torus | Float64 512^3 | 56.454 ms | 30.516 ms | 17.740 ms | 16.342 ms | 47.477 ms | — | 13.097 ms | — | — | — |
+| displace! 3-term torus | Float64 64^3 | 108.280 μs | 108.158 μs | 108.382 μs | 106.021 μs | 91.681 μs | — | 94.981 μs | — | 65.335 μs | 24.050 μs |
+| displace! 3-term | Float32 128^3 | 167.001 μs | 104.950 μs | 56.014 μs | 33.463 μs | 94.221 μs | — | 41.530 μs | — | 28.684 μs | 8.650 μs |
+| displace! 3-term | Float32 256^3 | 1.470 ms | 850.045 μs | 470.063 μs | 239.996 μs | 746.828 μs | — | 305.183 μs | — | 45.439 μs | 22.530 μs |
+| displace! 3-term | Float32 512^3 | 13.333 ms | 9.474 ms | 8.182 ms | 7.622 ms | 7.841 ms | — | 3.457 ms | — | — | — |
+| displace! 3-term | Float32 64^3 | 20.896 μs | 17.857 μs | 11.928 μs | 10.046 μs | 11.570 μs | — | 8.404 μs | — | 25.650 μs | 7.037 μs |
+| displace! 3-term | Float64 128^3 | 170.048 μs | 109.853 μs | 56.923 μs | 35.563 μs | 95.621 μs | — | 43.210 μs | — | 33.073 μs | 9.700 μs |
+| displace! 3-term | Float64 256^3 | 2.185 ms | 1.698 ms | 1.435 ms | 1.235 ms | 761.737 μs | — | 318.383 μs | — | 64.565 μs | 70.261 μs |
+| displace! 3-term | Float64 512^3 | 21.836 ms | 20.060 ms | 17.248 ms | 16.034 ms | 12.483 ms | — | 8.913 ms | — | — | — |
+| displace! 3-term | Float64 64^3 | 20.901 μs | 18.513 μs | 11.953 μs | 10.347 μs | 11.810 μs | — | 8.464 μs | — | 29.115 μs | 7.587 μs |
+| interpolate! CatmullRom | Float32 128^3 | 11.612 ms | 5.895 ms | 2.955 ms | 1.650 ms | 5.414 ms | 2.786 ms | 1.397 ms | 740.627 μs | 106.344 μs | 80.660 μs |
+| interpolate! CatmullRom | Float32 256^3 | 271.654 ms | 139.395 ms | 75.000 ms | 47.020 ms | 57.170 ms | 29.394 ms | 14.838 ms | 7.124 ms | 627.839 μs | 865.958 μs |
+| interpolate! CatmullRom | Float32 512^3 | 2.493 s | 1.307 s | 770.720 ms | 536.386 ms | 1.809 s | 920.235 ms | 487.251 ms | 258.785 ms | — | — |
+| interpolate! CatmullRom | Float32 64^3 | 1.311 ms | 708.196 μs | 429.733 μs | 300.112 μs | 624.606 μs | 329.073 μs | 198.982 μs | 135.892 μs | 53.885 μs | 33.300 μs |
+| interpolate! CatmullRom | Float64 128^3 | 12.345 ms | 6.808 ms | 3.482 ms | 1.941 ms | 5.618 ms | 2.937 ms | 1.457 ms | 772.507 μs | 136.993 μs | 110.131 μs |
+| interpolate! CatmullRom | Float64 256^3 | 312.744 ms | 154.605 ms | 88.131 ms | 60.708 ms | 152.482 ms | 73.220 ms | 39.034 ms | 19.610 ms | 1.048 ms | 1.677 ms |
+| interpolate! CatmullRom | Float64 512^3 | 2.726 s | 1.439 s | 765.411 ms | 487.613 ms | 1.948 s | 965.358 ms | 501.426 ms | 303.136 ms | — | — |
+| interpolate! CatmullRom | Float64 64^3 | 1.360 ms | 739.388 μs | 449.929 μs | 314.905 μs | 667.657 μs | 354.534 μs | 213.692 μs | 144.631 μs | 80.880 μs | 72.170 μs |
+| interpolate! Lalescu(3,3) | Float32 128^3 | 73.947 ms | 37.408 ms | 18.912 ms | 10.471 ms | 42.390 ms | 21.416 ms | 10.691 ms | 5.669 ms | 559.598 μs | 409.064 μs |
+| interpolate! Lalescu(3,3) | Float32 256^3 | 1.512 s | 784.647 ms | 496.217 ms | 326.458 ms | 353.713 ms | 190.347 ms | 95.724 ms | 43.983 ms | 5.570 ms | 5.694 ms |
+| interpolate! Lalescu(3,3) | Float32 512^3 | 15.272 s | 8.498 s | 5.646 s | 3.875 s | 5.470 s | 2.813 s | 1.526 s | 884.715 ms | — | — |
+| interpolate! Lalescu(3,3) | Float32 64^3 | 8.741 ms | 4.700 ms | 2.857 ms | 1.950 ms | 5.081 ms | 2.681 ms | 1.610 ms | 1.082 ms | 306.223 μs | 320.353 μs |
+| interpolate! Lalescu(3,3) | Float64 128^3 | 78.951 ms | 42.466 ms | 21.810 ms | 12.118 ms | 41.376 ms | 20.980 ms | 10.515 ms | 5.546 ms | 824.893 μs | 942.349 μs |
+| interpolate! Lalescu(3,3) | Float64 256^3 | 1.986 s | 993.830 ms | 653.060 ms | 434.240 ms | 605.420 ms | 295.707 ms | 154.468 ms | 76.019 ms | 5.306 ms | 9.954 ms |
+| interpolate! Lalescu(3,3) | Float64 512^3 | 16.377 s | 8.856 s | 5.559 s | 3.792 s | 6.387 s | 3.459 s | 1.737 s | 1.257 s | — | — |
+| interpolate! Lalescu(3,3) | Float64 64^3 | 8.954 ms | 4.856 ms | 2.961 ms | 2.003 ms | 5.248 ms | 2.804 ms | 1.680 ms | 1.120 ms | 468.356 μs | 224.732 μs |
+| interpolate! NUFFT | Float32 128^3 | 307.002 ms | 186.337 ms | 125.670 ms | 97.362 ms | 241.823 ms | 134.777 ms | 83.249 ms | 45.829 ms | 2.090 ms | 1.935 ms |
+| interpolate! NUFFT | Float32 256^3 | 3.498 s | 1.980 s | 1.276 s | 917.061 ms | 2.989 s | 1.531 s | 944.210 ms | 607.798 ms | 26.237 ms | 17.862 ms |
+| interpolate! NUFFT | Float32 512^3 | 31.922 s | 18.012 s | 11.453 s | 8.282 s | 24.778 s | 13.142 s | 7.726 s | 4.970 s | — | — |
+| interpolate! NUFFT | Float32 64^3 | 16.519 ms | 10.207 ms | 6.795 ms | 5.326 ms | 11.959 ms | 6.498 ms | 3.835 ms | 2.534 ms | 413.539 μs | 411.504 μs |
+| interpolate! NUFFT | Float64 128^3 | 421.433 ms | 255.981 ms | 192.904 ms | 161.776 ms | 212.241 ms | 134.504 ms | 96.382 ms | 77.522 ms | 8.509 ms | 5.577 ms |
+| interpolate! NUFFT | Float64 256^3 | 3.901 s | 2.356 s | 1.699 s | 1.365 s | 2.076 s | 1.198 s | 877.432 ms | 718.001 ms | 40.571 ms | 48.174 ms |
+| interpolate! NUFFT | Float64 512^3 | 35.462 s | 20.845 s | 14.870 s | 13.148 s | 24.837 s | 14.158 s | 8.815 s | 9.478 s | — | — |
+| interpolate! NUFFT | Float64 64^3 | 21.974 ms | 14.169 ms | 10.812 ms | 9.007 ms | 17.548 ms | 9.981 ms | 6.180 ms | 4.009 ms | 835.506 μs | 917.289 μs |
+| interpolate! trilinear | Float32 128^3 | 2.029 ms | 1.026 ms | 520.481 μs | 291.684 μs | 1.303 ms | 681.704 μs | 336.633 μs | 180.222 μs | 32.797 μs | 22.081 μs |
+| interpolate! trilinear | Float32 256^3 | 54.025 ms | 28.417 ms | 15.244 ms | 8.952 ms | 14.909 ms | 7.971 ms | 3.911 ms | 1.775 ms | 120.643 μs | 185.532 μs |
+| interpolate! trilinear | Float32 512^3 | 482.975 ms | 257.090 ms | 148.905 ms | 97.158 ms | 437.324 ms | 220.397 ms | 114.859 ms | 62.477 ms | — | — |
+| interpolate! trilinear | Float32 64^3 | 227.223 μs | 124.212 μs | 77.823 μs | 55.854 μs | 147.452 μs | 79.011 μs | 47.771 μs | 33.140 μs | 30.081 μs | 16.270 μs |
+| interpolate! trilinear | Float64 128^3 | 2.207 ms | 1.220 ms | 654.707 μs | 379.324 μs | 1.372 ms | 712.638 μs | 352.453 μs | 189.811 μs | 50.404 μs | 34.040 μs |
+| interpolate! trilinear | Float64 256^3 | 60.265 ms | 31.979 ms | 19.700 ms | 13.551 ms | 33.768 ms | 16.644 ms | 8.352 ms | 4.353 ms | 238.024 μs | 354.074 μs |
+| interpolate! trilinear | Float64 512^3 | 511.520 ms | 279.357 ms | 155.258 ms | 105.064 ms | 440.901 ms | 233.795 ms | 116.387 ms | 68.471 ms | — | — |
+| interpolate! trilinear | Float64 64^3 | 239.320 μs | 132.276 μs | 81.600 μs | 57.898 μs | 161.901 μs | 87.841 μs | 50.170 μs | 33.610 μs | 40.168 μs | 24.090 μs |
+| wrap! | Float32 128^3 | 526.428 μs | 337.965 μs | 168.903 μs | 114.155 μs | 442.934 μs | — | 139.072 μs | — | 35.636 μs | 10.900 μs |
+| wrap! | Float32 256^3 | 4.257 ms | 2.623 ms | 1.303 ms | 848.706 μs | 3.547 ms | — | 1.080 ms | — | 43.670 μs | 14.421 μs |
+| wrap! | Float32 512^3 | 34.015 ms | 20.658 ms | 10.568 ms | 7.612 ms | 28.385 ms | — | 8.572 ms | — | — | — |
+| wrap! | Float32 64^3 | 65.705 μs | 65.589 μs | 65.615 μs | 64.332 μs | 55.330 μs | — | 55.291 μs | — | 34.478 μs | 10.750 μs |
+| wrap! | Float64 128^3 | 576.324 μs | 370.903 μs | 194.994 μs | 125.910 μs | 441.175 μs | — | 142.821 μs | — | 39.668 μs | 15.960 μs |
+| wrap! | Float64 256^3 | 4.660 ms | 2.957 ms | 1.508 ms | 887.407 μs | 3.557 ms | — | 1.106 ms | — | 52.011 μs | 58.981 μs |
+| wrap! | Float64 512^3 | 37.471 ms | 23.418 ms | 11.922 ms | 7.668 ms | 29.421 ms | — | 8.795 ms | — | — | — |
+| wrap! | Float64 64^3 | 71.689 μs | 71.537 μs | 71.838 μs | 70.138 μs | 55.140 μs | — | 55.250 μs | — | 35.852 μs | 12.271 μs |
 
 ## reductions
 

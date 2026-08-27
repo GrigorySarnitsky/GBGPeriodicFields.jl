@@ -1457,6 +1457,40 @@ equal — where under `MEASURE` the same cells read **108 ms** and **180 ms**. T
 effort is leaving a factor of ``4.7`` on the floor at that size, which is worth more than this
 decision was, and is not addressed by it.
 
+
+**(ab) The odd-width NUFFT stencil fix costs nothing measurable, and the small-grid device transfer
+shift beside it is NOT that fix** (2026-08-28). The `transfer` and `convolution` classes were re-swept
+on three lanes — `CPU 9800X3D t1`, `t4` and `GPU 5070TI` — after the stencil correction, which adds one
+runtime comparison per axis per point inside both transfer kernels and so had to be priced rather than
+assumed free.
+
+- **It is free where work dominates.** Medians over 208, 208 and 156 rows are ``\times 0.999``,
+  ``\times 1.000`` and ``\times 0.975``. The NUFFT rows specifically are flat at every grid whose time
+  is dominated by arithmetic rather than launch: on the device ``\times 1.012`` and ``\times 1.006`` at
+  ``256^3``, ``\times 1.074`` and ``\times 0.965`` at ``128^3``; on the CPU ``\times 0.997``–``1.008``
+  at ``512^3``. A per-point cost would scale with the point count and appear first at the largest grid,
+  which is exactly where it is absent.
+- **The device small-grid rows DID move, and the movement is real rather than noise.** At ``64^3``
+  `Float32`, `interpolate! Lalescu(3,3)` reads ``\times 1.489`` against the previous archive and
+  `interpolate! NUFFT` ``\times 1.376``. Re-measuring the whole ``64^3`` `Float32` transfer group
+  reproduced the new values to within 1.3% (median ``\times 0.997``), so these are a stable state, not
+  a bad sample.
+- **It is not attributable to the fix, and the discriminator is which kernels moved.** `Lalescu`,
+  `CatmullRom` and `trilinear` are local splines whose stencil arithmetic the change never touched, and
+  they move as much as or more than `NUFFT` in the same regime. Whatever shifted, it shifted kernels
+  with no edit between them.
+- **The cause is NOT identified, and naming one here would be a guess.** The previous device archive was
+  measured 2026-08-09, nineteen days and thirteen decisions earlier, and the CUDA toolchain was pinned
+  away from `CUDA_Compiler_jll` 0.5.2 in that window — a plausible story that this data cannot test. The
+  honest reading is a launch-latency-regime shift of unknown origin, recorded so a future sweep can
+  compare against something rather than reconstruct it. Attributing it needs a bisect on this card,
+  which is its own piece of work.
+
+**Method note.** `characterize.jl` saves only what it just measured, so the three lanes were measured
+into separate part-archives and merged, and the merge verified in both directions: re-merging each
+pre-merge backup reported 0 rows missing and 0 untouched-class rows altered. The regenerated
+`RESULTS.md` changes exactly 30 distinct operations, every one of them in the two classes swept.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

@@ -1545,13 +1545,16 @@ fixtures. The lane now builds a dedicated single-threaded plan for the measureme
 B/step deterministically. Raising the bound would have been the wrong fix — it would set a threshold
 against a quantity that varies 7× run to run. **(2) The value lane has now executed and is
 CLOSED (2026-08-15)** — it had thrown from 2026-08-03 until a fix on 2026-08-04, leaving its
-independent oracles unverified against the present code. The survey was run in full after decision 66
-(`-t4`, from `test` so the HDF5 pair is reachable) and exits **0**: 3,579,360 invocations over 96
-configurations, 16,224 value comparisons with **111 of 113 operations carrying an independent oracle**,
-0 failures in the declared relations (2,496), representation/invariance/allocation/ordering (4,992) and
-sequences (1,632) lanes, 0 disagreeing assignments over 37,152 storage-aliasing cases, and *every*
-mismatched argument refused in the context lane. The only value disagreements are the 72 known
-`radial_spectrum` cells (Float32, mixed/shifted grids — the tie-break issue recorded below).
+independent oracles unverified against the present code. The survey was run in full after decision 66 and
+again on **2026-08-28** over decisions 68–76 (`-t4`, from `test` so the HDF5 pair is reachable, 66
+minutes). The current figures are the later run's: **3,482,375 cells** over 96 configurations,
+**17,376 value comparisons with 119 of 119 operations carrying an independent oracle** (111 of 113
+before the value rows of that date), 0 failures in the declared relations (2,496),
+representation/invariance/allocation/ordering (4,992) and sequences (1,632) lanes, 0 disagreeing
+assignments in the storage-aliasing lane, and *every* mismatched argument refused in the context lane.
+**Re-measure rather than cite these** — every one of them has been found stale by the first
+measurement taken after a gap. The only value disagreements are the 72 known `radial_spectrum` cells
+(Float32, mixed/shifted grids — the tie-break issue recorded below).
 
 **(3) The four HARNESS findings that run surfaced are FIXED (2026-08-17), and clearing them exposed a
 real one.** The survey reported 42,336 findings that were not defects — 18,144 structural and 24,192
@@ -1612,12 +1615,18 @@ nothing; and the concrete results include `Union{}`, inference's way of saying a
 a subtype of everything and made `inner` and `maximum` claim to return sections. Both `Any` and
 `Union{}` are now filtered as the non-facts they are.
 
-**The survey is now clean on every lane it asserts.** Post-fix (2026-08-17, full run): **0** correctness
-findings, **0** type-stability findings over 3,400,800 invocations, **0** guard violations, 0 failures
-in relations / representation / invariance / allocation / ordering / sequences / storage aliasing. What
-remains is the 72 known `radial_spectrum` value cells (the Float32 shell tie-break recorded above), the
-62 context-mismatch cells that refuse at dispatch rather than at a domain check, and 348
-applicable-but-unasserted ledger cells, which are a coverage report rather than a failure.
+**The survey is clean on every lane it asserts, and its 2026-08-28 run found exactly one real defect.**
+That run (the first since 2026-08-17, covering decisions 68–76) reported **0** correctness findings, **0**
+guard violations, and 0 failures in relations / representation / invariance / allocation / ordering /
+sequences / storage aliasing — and **576 type-stability findings, all one operation**: `reality_residual`
+inferred `Any` on every configuration, because it reached the folded plane through a runtime dimension
+and the filtered generator `Tuple(a for a in 1:3 if a != folded)` has a type inference cannot narrow.
+Fixed by naming the axis as `Val{D}`, the same remedy `Interpolation`'s folded-plane helpers use. That is
+what the survey is for: the operation was correct, tested, and documented, and only a lane asking a
+question nobody had asked of it could see the defect. What remains is the 72 known `radial_spectrum`
+value cells (the Float32 shell tie-break recorded above), 63 context-mismatch cells that refuse at
+dispatch rather than at a domain check, and 369 applicable-but-unasserted ledger cells, which are a
+coverage report rather than a failure.
 
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with

@@ -12,10 +12,9 @@ the block shows in the diff instead of being silent.
 ## Open (authorised 2026-08-27: "continue with everything, don't stop in the middle")
 
 - [x] Exhaustive survey: RUN (66 min), analysed — 0 correctness findings; its one real finding (576 type-stability cells, all `reality_residual` inferring `Any`) is FIXED
-- [ ] Benchmarks: transfer + convolution classes on an IDLE machine (the NUFFT fix adds a runtime
+- [x] Benchmarks: transfer + convolution re-swept on CPU t1, CPU t4 and GPU 5070TI, idle machine
       comparison per axis per point, so the transfer class genuinely moved)
-- [ ] RESULTS.md: regenerate over all archives, diff against the previous archive, explain every
+- [x] RESULTS.md: regenerated over the correct ten archives, merge verified both directions, analysed as finding (ab)
       systematic movement before naming a cause
-- [ ] CLAUDE.md: replace the stale survey figures (111 of 113 oracles, 3.4M invocations) with the
-      numbers this run actually measures
-- [ ] Commit and push everything, including this harness
+- [x] CLAUDE.md: survey figures replaced with the 2026-08-28 run's measured numbers
+- [x] Commit and push everything, including this harness

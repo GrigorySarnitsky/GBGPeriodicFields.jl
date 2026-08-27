@@ -21,82 +21,82 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § The invariants",45,45,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",99,99,0
-"ARCHITECTURE.md § item 1",11,11,0
-"ARCHITECTURE.md § item 10",111,111,0
-"ARCHITECTURE.md § item 11",165,165,0
-"ARCHITECTURE.md § item 12",113,113,0
-"ARCHITECTURE.md § item 13",194,194,0
-"ARCHITECTURE.md § item 14",127,127,0
-"ARCHITECTURE.md § item 15",100,100,0
-"ARCHITECTURE.md § item 16",143,143,0
-"ARCHITECTURE.md § item 17",397,397,0
-"ARCHITECTURE.md § item 18",795,312,0
-"ARCHITECTURE.md § item 19",1091,280,0
-"ARCHITECTURE.md § item 2",33,33,0
-"ARCHITECTURE.md § item 20",409,198,0
-"ARCHITECTURE.md § item 21",556,305,0
-"ARCHITECTURE.md § item 22",1453,332,0
-"ARCHITECTURE.md § item 23",680,221,0
-"ARCHITECTURE.md § item 24",388,388,0
-"ARCHITECTURE.md § item 25",506,217,0
-"ARCHITECTURE.md § item 26",642,254,0
-"ARCHITECTURE.md § item 27",975,537,0
-"ARCHITECTURE.md § item 28",1034,269,0
-"ARCHITECTURE.md § item 29",633,168,0
-"ARCHITECTURE.md § item 3",41,41,0
-"ARCHITECTURE.md § item 30",941,220,0
-"ARCHITECTURE.md § item 31",414,154,0
-"ARCHITECTURE.md § item 32",771,431,0
-"ARCHITECTURE.md § item 33",901,289,0
-"ARCHITECTURE.md § item 34",383,242,0
-"ARCHITECTURE.md § item 35",876,423,0
-"ARCHITECTURE.md § item 36",678,324,0
-"ARCHITECTURE.md § item 37",662,256,0
-"ARCHITECTURE.md § item 38",313,313,0
-"ARCHITECTURE.md § item 39",339,339,0
-"ARCHITECTURE.md § item 4",20,20,0
-"ARCHITECTURE.md § item 40",399,399,0
-"ARCHITECTURE.md § item 41",308,308,0
-"ARCHITECTURE.md § item 42",217,217,0
-"ARCHITECTURE.md § item 43",607,607,0
-"ARCHITECTURE.md § item 44",225,225,0
-"ARCHITECTURE.md § item 45",228,228,0
-"ARCHITECTURE.md § item 46",457,118,0
-"ARCHITECTURE.md § item 47",387,150,0
-"ARCHITECTURE.md § item 48",388,161,0
-"ARCHITECTURE.md § item 49",453,283,0
-"ARCHITECTURE.md § item 5",18,18,0
-"ARCHITECTURE.md § item 50",817,270,0
-"ARCHITECTURE.md § item 51",697,283,0
-"ARCHITECTURE.md § item 52",467,148,0
-"ARCHITECTURE.md § item 53",294,111,0
-"ARCHITECTURE.md § item 54",456,129,0
-"ARCHITECTURE.md § item 55",584,148,0
-"ARCHITECTURE.md § item 56",735,119,0
-"ARCHITECTURE.md § item 57",519,146,0
-"ARCHITECTURE.md § item 58",479,150,0
-"ARCHITECTURE.md § item 59",515,101,0
-"ARCHITECTURE.md § item 6",16,16,0
-"ARCHITECTURE.md § item 60",361,112,0
-"ARCHITECTURE.md § item 61",404,120,0
-"ARCHITECTURE.md § item 62",673,166,0
-"ARCHITECTURE.md § item 63",834,223,0
-"ARCHITECTURE.md § item 64",494,139,0
-"ARCHITECTURE.md § item 65",358,212,0
-"ARCHITECTURE.md § item 66",488,118,0
-"ARCHITECTURE.md § item 67",411,118,0
-"ARCHITECTURE.md § item 68",344,127,0
-"ARCHITECTURE.md § item 69",697,143,0
-"ARCHITECTURE.md § item 7",63,63,0
-"ARCHITECTURE.md § item 70",480,107,0
-"ARCHITECTURE.md § item 71",945,232,0
-"ARCHITECTURE.md § item 72",911,241,0
-"ARCHITECTURE.md § item 73",873,873,0
-"ARCHITECTURE.md § item 74",624,624,0
-"ARCHITECTURE.md § item 75",728,728,0
-"ARCHITECTURE.md § item 76",841,205,0
-"ARCHITECTURE.md § item 8",49,49,0
-"ARCHITECTURE.md § item 9",32,32,0
+"ARCHITECTURE.md § item 1",4,4,0
+"ARCHITECTURE.md § item 10",97,97,0
+"ARCHITECTURE.md § item 11",153,153,0
+"ARCHITECTURE.md § item 12",93,93,0
+"ARCHITECTURE.md § item 13",181,181,0
+"ARCHITECTURE.md § item 14",106,106,0
+"ARCHITECTURE.md § item 15",82,82,0
+"ARCHITECTURE.md § item 16",113,113,0
+"ARCHITECTURE.md § item 17",376,376,0
+"ARCHITECTURE.md § item 18",780,312,0
+"ARCHITECTURE.md § item 19",1077,280,0
+"ARCHITECTURE.md § item 2",26,26,0
+"ARCHITECTURE.md § item 20",388,177,0
+"ARCHITECTURE.md § item 21",543,305,0
+"ARCHITECTURE.md § item 22",1440,332,0
+"ARCHITECTURE.md § item 23",667,221,0
+"ARCHITECTURE.md § item 24",375,375,0
+"ARCHITECTURE.md § item 25",492,206,0
+"ARCHITECTURE.md § item 26",631,254,0
+"ARCHITECTURE.md § item 27",964,537,0
+"ARCHITECTURE.md § item 28",1020,269,0
+"ARCHITECTURE.md § item 29",620,168,0
+"ARCHITECTURE.md § item 3",30,30,0
+"ARCHITECTURE.md § item 30",926,220,0
+"ARCHITECTURE.md § item 31",396,154,0
+"ARCHITECTURE.md § item 32",756,431,0
+"ARCHITECTURE.md § item 33",888,289,0
+"ARCHITECTURE.md § item 34",367,226,0
+"ARCHITECTURE.md § item 35",862,423,0
+"ARCHITECTURE.md § item 36",663,324,0
+"ARCHITECTURE.md § item 37",644,238,0
+"ARCHITECTURE.md § item 38",297,297,0
+"ARCHITECTURE.md § item 39",325,325,0
+"ARCHITECTURE.md § item 4",8,8,0
+"ARCHITECTURE.md § item 40",386,386,0
+"ARCHITECTURE.md § item 41",295,295,0
+"ARCHITECTURE.md § item 42",203,203,0
+"ARCHITECTURE.md § item 43",591,591,0
+"ARCHITECTURE.md § item 44",215,215,0
+"ARCHITECTURE.md § item 45",217,217,0
+"ARCHITECTURE.md § item 46",444,105,0
+"ARCHITECTURE.md § item 47",372,135,0
+"ARCHITECTURE.md § item 48",376,161,0
+"ARCHITECTURE.md § item 49",436,266,0
+"ARCHITECTURE.md § item 5",7,7,0
+"ARCHITECTURE.md § item 50",803,270,0
+"ARCHITECTURE.md § item 51",683,283,0
+"ARCHITECTURE.md § item 52",450,148,0
+"ARCHITECTURE.md § item 53",281,98,0
+"ARCHITECTURE.md § item 54",443,129,0
+"ARCHITECTURE.md § item 55",571,148,0
+"ARCHITECTURE.md § item 56",720,119,0
+"ARCHITECTURE.md § item 57",506,146,0
+"ARCHITECTURE.md § item 58",466,150,0
+"ARCHITECTURE.md § item 59",500,101,0
+"ARCHITECTURE.md § item 6",22,22,0
+"ARCHITECTURE.md § item 60",348,99,0
+"ARCHITECTURE.md § item 61",389,120,0
+"ARCHITECTURE.md § item 62",658,166,0
+"ARCHITECTURE.md § item 63",818,223,0
+"ARCHITECTURE.md § item 64",481,139,0
+"ARCHITECTURE.md § item 65",346,212,0
+"ARCHITECTURE.md § item 66",473,118,0
+"ARCHITECTURE.md § item 67",398,118,0
+"ARCHITECTURE.md § item 68",327,127,0
+"ARCHITECTURE.md § item 69",683,143,0
+"ARCHITECTURE.md § item 7",51,51,0
+"ARCHITECTURE.md § item 70",467,107,0
+"ARCHITECTURE.md § item 71",933,232,0
+"ARCHITECTURE.md § item 72",900,241,0
+"ARCHITECTURE.md § item 73",857,857,0
+"ARCHITECTURE.md § item 74",611,611,0
+"ARCHITECTURE.md § item 75",714,714,0
+"ARCHITECTURE.md § item 76",826,205,0
+"ARCHITECTURE.md § item 8",38,38,0
+"ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",788,206,0
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",487,139,1
@@ -310,7 +310,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _check_multipliers_compatibility(field::AbstractFieldSpectra",22,20,0
 "Fields.jl :: _check_same_domain(a, b)",53,51,0
 "Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",157,102,0
-"Fields.jl :: _component_views(data, ::Val{R})",70,68,0
+"Fields.jl :: _component_view(data, ::Val{R}, component::Int)",155,107,0
 "Fields.jl :: _context_grid(object)",72,71,0
 "Fields.jl :: _context_layout(object)",13,12,0
 "Fields.jl :: _first_field(x)",44,43,0
@@ -402,19 +402,47 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 1. Philosophy",829,521,0
 "PERFORMANCE.md § 2. The performance model",804,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
-"PERFORMANCE.md § 4. What we have found",16340,669,0
+"PERFORMANCE.md § 4. What we have found",86,86,0
 "PERFORMANCE.md § 5. The benchmark suite",1102,637,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",976,384,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
-"PERFORMANCE.md § item 1",113,113,0
-"PERFORMANCE.md § item 2",113,113,0
-"PERFORMANCE.md § item 3",286,286,0
-"PERFORMANCE.md § item 4",160,160,0
-"PERFORMANCE.md § item 5",169,169,0
-"PERFORMANCE.md § item 6",727,510,0
-"PERFORMANCE.md § item 7",162,162,0
-"PERFORMANCE.md § item 8",224,224,0
+"PERFORMANCE.md § finding (a)",105,59,0
+"PERFORMANCE.md § finding (aa)",346,123,0
+"PERFORMANCE.md § finding (ab)",411,286,0
+"PERFORMANCE.md § finding (b)",211,150,0
+"PERFORMANCE.md § finding (c)",979,669,0
+"PERFORMANCE.md § finding (d)",46,46,0
+"PERFORMANCE.md § finding (e)",50,50,0
+"PERFORMANCE.md § finding (f)",255,255,0
+"PERFORMANCE.md § finding (g)",295,295,0
+"PERFORMANCE.md § finding (h)",741,312,0
+"PERFORMANCE.md § finding (i)",512,130,0
+"PERFORMANCE.md § finding (j)",269,153,0
+"PERFORMANCE.md § finding (k)",437,269,0
+"PERFORMANCE.md § finding (l)",433,433,0
+"PERFORMANCE.md § finding (m)",231,231,0
+"PERFORMANCE.md § finding (n)",419,419,0
+"PERFORMANCE.md § finding (o)",992,224,0
+"PERFORMANCE.md § finding (p)",1299,242,0
+"PERFORMANCE.md § finding (q)",1525,164,0
+"PERFORMANCE.md § finding (r)",942,99,0
+"PERFORMANCE.md § finding (s)",1709,200,0
+"PERFORMANCE.md § finding (t)",352,119,0
+"PERFORMANCE.md § finding (u)",316,79,0
+"PERFORMANCE.md § finding (v)",1063,649,0
+"PERFORMANCE.md § finding (w)",509,144,0
+"PERFORMANCE.md § finding (x)",782,176,0
+"PERFORMANCE.md § finding (y)",924,167,0
+"PERFORMANCE.md § finding (z)",512,279,0
+"PERFORMANCE.md § item 1",94,94,0
+"PERFORMANCE.md § item 2",98,98,0
+"PERFORMANCE.md § item 3",277,277,0
+"PERFORMANCE.md § item 4",143,143,0
+"PERFORMANCE.md § item 5",155,155,0
+"PERFORMANCE.md § item 6",708,491,0
+"PERFORMANCE.md § item 7",147,147,0
+"PERFORMANCE.md § item 8",211,211,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
 "Points.jl :: PointSet(coordinates::AbstractArray{T, 2}) where {T<:Abstrac",95,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
@@ -499,25 +527,19 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 7. Current coverage and known gaps",1688,1673,0
 "TESTING.md § A GATE and a SURVEY, and how to tell which a test is",139,114,0
 "TESTING.md § Testing — GBGPeriodicFields",80,80,0
-"TESTING.md § item 1",28,28,0
-"TESTING.md § item 10",14,14,0
-"TESTING.md § item 11",15,15,0
-"TESTING.md § item 12",36,36,0
-"TESTING.md § item 13",23,23,0
-"TESTING.md § item 14",14,14,0
-"TESTING.md § item 15",71,71,0
-"TESTING.md § item 16",78,78,0
-"TESTING.md § item 17",204,204,0
-"TESTING.md § item 18",167,167,0
-"TESTING.md § item 19",219,85,0
-"TESTING.md § item 2",39,39,0
-"TESTING.md § item 3",21,21,0
-"TESTING.md § item 4",15,15,0
-"TESTING.md § item 5",9,9,0
-"TESTING.md § item 6",18,18,0
-"TESTING.md § item 7",19,19,0
-"TESTING.md § item 8",12,12,0
-"TESTING.md § item 9",17,17,0
+"TESTING.md § item 1",15,15,0
+"TESTING.md § item 12",20,20,0
+"TESTING.md § item 13",8,8,0
+"TESTING.md § item 15",57,57,0
+"TESTING.md § item 16",64,64,0
+"TESTING.md § item 17",188,188,0
+"TESTING.md § item 18",154,154,0
+"TESTING.md § item 19",203,85,0
+"TESTING.md § item 2",27,27,0
+"TESTING.md § item 3",6,6,0
+"TESTING.md § item 4",207,80,0
+"TESTING.md § item 6",2,2,0
+"TESTING.md § item 7",7,7,0
 "api.md § API overview",340,287,0
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0

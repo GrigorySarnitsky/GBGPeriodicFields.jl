@@ -394,6 +394,14 @@ function _prose_units()
             elseif (m = match(r"^(\d+)\. ", line)) !== nothing
                 flush_section!()
                 section = "item " * m.captures[1]
+            # The same argument, one file over. `PERFORMANCE.md` §4 is an append-only FINDINGS log
+            # whose entries open `**(x) …**` rather than with a number or a heading, so the whole
+            # section was one unit and every new finding grew it — the growth that is correct by
+            # design. Splitting per finding makes a new one a NEW unit under the newcomer caps, while
+            # editing an existing finding grows that entry and is still caught.
+            elseif (m = match(r"^\*\*\(([a-z]{1,2})\) ", line)) !== nothing
+                flush_section!()
+                section = "finding (" * m.captures[1] * ")"
                 println(buffer, line)
             else
                 println(buffer, line)
