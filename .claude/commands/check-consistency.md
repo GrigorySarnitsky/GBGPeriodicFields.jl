@@ -133,6 +133,41 @@ manuscripts go in `$SCRATCH`; the findings pile is the repo's `.claude/doc-revie
    **rank** by severity × corroboration, and record which batteries came back **clean** and which are
    confirmed **false positives**.
 
+## Seeded-defect calibration — giving the panel a denominator
+
+**The panel measures YIELD and was being read as COVERAGE.** Nothing in it measured *recall*, so a hat
+that returned nothing was indistinguishable from a corpus with nothing wrong. PF has a concrete
+instance of that conflation rather than a hypothetical one: round 6's summary records that the two
+mathematician anchors "independently re-derived and **confirmed** the core spectral and structural
+mathematics sound", and that sentence was later used — in an argument about instruments, of all
+places — as though it established coverage. It establishes only that two hats found nothing.
+
+`seed_defects.py` injects **k known, labelled defects** into the consolidated manuscripts *before* a
+round; `recall.py` reads the banked pile afterwards and reports per-class and per-hat recall. **A
+class with 0/k seeded recall is UNMEASURED, not clean** — which is a thing yield can never tell you.
+
+```
+seed_defects.py <manuscript_full.md> <manuscript_siteonly.md> <ground_truth.json>   # before the round
+recall.py       <ground_truth.json>  <pile_dir>                                     # after it
+```
+
+The mechanism is IT's; **the catalog is PF's own and must stay that way** — it plants defects of
+classes PF's hats exist to catch (normalization, citation drift, quantifier weakening, the banned bare
+imaginary unit, a retired binding, a one-site cross-page divergence, a bitwise guarantee downgraded to
+a tolerance, a negated idempotence claim), anchored to text verified present in PF's corpus. Seeding
+is deterministic — a fixed occurrence index, no RNG — so a re-run reproduces the same round.
+
+**Discipline, which matters more than the code.** The seeded manuscripts are **disposable**. Never fix
+the real corpus from a seeded finding without checking `ground_truth.json`, and the consolidation must
+**subtract** seeded hits before the summary is written. A planted defect that reaches a real fix pass
+has corrupted the docs in order to measure the instrument. A *skipped* class (its anchor no longer
+occurs often enough) is reported as skipped: its recall is **undefined, not zero**.
+
+**The pair is falsified by perturbation, not by reading** — the same bar the exhaustive survey's
+self-check sets. Verified on a stand-in manuscript: an empty pile reports 0/8 with every seed `MISSED`;
+planting a single hat file that quotes one mutation flips exactly that seed to `DETECTED`, attributed
+to the right hat, with the other seven still `MISSED`.
+
 ## Discipline (the hard-won rules — follow them)
 
 - **Collect-only.** The panel proposes; the user disposes. Do not touch `src/` or `docs/` during a panel
