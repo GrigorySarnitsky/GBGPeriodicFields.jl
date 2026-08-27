@@ -63,7 +63,11 @@ The umbrella assembles its public surface from the submodules below:
   [`to_spectral`](@ref) between the two representations, the allocator [`similar_field`](@ref) that
   builds compatible scratch, the storage-family move [`adapt`](@ref) that carries a field, its
   multipliers, its kernels, its plans, a point set or point values between host and device, and the HDF5 persistence pair
-  `write_field`/`read_field` (available once `HDF5` is loaded).
+  `write_field`/`read_field` (available once `HDF5` is loaded). The six field constructors also accept a
+  storage **family** in place of an array — `VectorFieldSpectral(CuArray, grid, layout)` — for a caller
+  holding domain context but no field to copy from, `adapt` has an in-place sibling `adapt!` for a
+  destination that already exists, and `reality_residual` reports how far a field's coefficients are
+  from being a real field's spectrum (it reports, and never repairs).
 - [`FieldAlgebra`](@ref) provides the fiberwise algebra: the vector-space operations `add!` and
   `subtract!`, the weighted combination [`combine!`](@ref), the scalar actions `multiply!` and
   `divide!`, the contractions `dot` and `cross`, the tensor product `mul!`, the transpose

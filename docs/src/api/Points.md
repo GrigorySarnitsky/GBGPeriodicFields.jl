@@ -84,8 +84,9 @@ read_points
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors — the
-point-value broadcast style, the compatibility checks the algebra routes through, and the shape and
-unwrapping helpers. (The section-interface accessors the `FieldAlgebra` builders reuse — `field_data`
+point-value broadcast style, the compatibility checks the algebra routes through, the shape and
+unwrapping helpers, and the base-space motion internals of decision 73 — the coefficient conversion,
+the fused displacement expression, the per-axis terms and the single-coordinate wrap. (The section-interface accessors the `FieldAlgebra` builders reuse — `field_data`
 and the component accessors — are extended here but owned by `Fields`, so they are documented on that
 page.)
 

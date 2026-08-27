@@ -1310,7 +1310,8 @@ operation rather than a `+` method because positions are points of the periodic 
 vectors: what is being applied is a displacement, exact because the domain is flat and the fiber
 carries one global frame.
 
-Without a `grid` the sum is taken literally, in the universal cover: coordinates may leave the
+Without a `grid` the sum is taken literally, in the universal cover — the unwrapped picture of the
+torus, in which a coordinate keeps growing instead of folding back: coordinates may leave the
 box, and sampling such positions remains correct because the transfer kernels wrap their stencil
 indices periodically. With a `grid` the displaced coordinates are additionally reduced,
 componentwise and in the same fused pass, to the canonical representative in the fundamental

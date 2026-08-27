@@ -2723,7 +2723,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
     \langle f\rangle^2 = N^{-2}\sum_{k \ne 0} \alpha(k) |\hat f_k|^2`` (the fluctuation energy, with
     ``\alpha(k)`` the rfft half-spectrum multiplicity and the ``N^{-2}`` the normalization the inner
-    product itself carries), both terms already
+    product itself carries; that displayed form is the **population** moment — `corrected = false` —
+    and `var`'s default `corrected = true` returns it scaled by ``N/(N-1)``), both terms already
     Parseval-available, so they were wrongly grouped with the genuinely physical-only `lpnorm`/`maximum`.
     Second, the per-component value is only the **basis-dependent diagonal** of the covariance tensor
     ``R_{ij} = \langle u'_i u'_j\rangle \in \operatorname{Sym}^2(V)`` — the coordinate-free second *central* moment, the primes marking fluctuations about the mean —
@@ -3354,9 +3355,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the user to the constructor — wrong, and the question that exposed it was whether a plan requires
     both representations. It does not: the constructor reads no data, only shape, element type and
     family, and a plan **outlives the arrays it was planned against** (verified on FFTW and cuFFT). A
-    `FieldTransformPlans` stores its own grid and layout and carries `T` (its element type) and `R` (its
-    tensor order) as type parameters, so
-    it can allocate its own witnesses, plan, and release them. The struct now also records the planner
+    `FieldTransformPlans` stores its own grid and layout and carries `T` (its element type) as a type
+    parameter, so it can allocate its own witnesses, plan, and release them. (It also carried `R`, its
+    tensor order, when this was written; **decision 76 removed it** — a transform is a property of the
+    base, so one plan pair now serves every rank and the rebuild uses order-0 witnesses.) The struct now also records the planner
     request it was built with, because a rebuild would otherwise fall back to `ESTIMATE` — which
     finding (h) of `docs/PERFORMANCE.md` records as capable of badly mis-planning a single-precision
     transform. Planner flags are an `FFTW` concept and a device rebuild ignores them (`cuFFT` rejects

@@ -97,7 +97,7 @@ reality_residual
 ## Spectral kernel protocol
 
 `SpectralKernel` is the exported supertype the kernel-taking operations dispatch on — `convolve` and the
-kernel-composed differential operators on the whole hierarchy, `weighted_inner` on every class
+kernel-composed differential operators on all four storage classes, `weighted_inner` on every class
 too, subject to the separate requirement that its weight be **real**. It is defined here
 rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
 and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
@@ -156,5 +156,10 @@ Order   = [:function]
 # module extends rather than one it owns, and `adapt!` is owned here but exported by the umbrella
 # rather than by `Fields`, which is the list Documenter reads. Either way `Public = false` does not
 # filter them — the same class as the statistics on the Reductions page, and the same fix.
-Filter  = f -> !(nameof(f) in (:adapt, :adapt!))
+# `reality_residual` joins them for the SAME reason as `adapt!`: it is owned here and exported by the
+# umbrella, not by `Fields`, so `Public = false` swept it in and it rendered TWICE on this page — once
+# under "The reality constraint" above and once here. Found by the built-HTML pass, which is the only
+# surface that can see it: the duplicate is invisible in this file, where each block looks correct
+# alone. Whenever a Fields-owned binding is added to the umbrella's export list, it must be added here.
+Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual))
 ```

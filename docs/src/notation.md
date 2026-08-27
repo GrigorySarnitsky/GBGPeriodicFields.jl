@@ -54,7 +54,7 @@ of the table above.
 | ``\cdot``, ``\times`` | the fiber dot and cross products | `dot` (`⋅`), `cross` (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | `inner` |
 | ``\langle\cdot\rangle`` | the base average of a single argument (the same measure, one slot) | `mean` |
-| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside tables the plain-bar spelling ``|k|^2`` is the same symbol, and both denote one concept | `norm` |
+| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside tables the plain-bar spelling `\|k\|^2` (with the bars escaped here for the same reason) is the same symbol, and both denote one concept | `norm` |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | `l2norm` |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | `integral` |
 | ``\star`` | periodic convolution | `convolve` |

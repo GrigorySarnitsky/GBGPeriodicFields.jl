@@ -1695,6 +1695,11 @@ The fields are
 - `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: the per-axis physical (angular) wavenumbers ``k`` along each axis, used for first derivatives via multiplication by ``\\mathrm{i} k``.
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by ``-k^2``.
+- `wavenumber_view_1..3`, `squared_wavenumber_view_1..3` — the same six vectors, each stored
+  pre-oriented as a 3-D view along its own axis. They hold no data of their own: they alias the
+  vectors above, and exist so a broadcast-route operator never rebuilds a `reshape` per call
+  (decision 70). Read them through `_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast`
+  rather than directly.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
@@ -2192,7 +2197,8 @@ same allocator the package uses everywhere else.
 !!! warning "Transform plans are rebuilt, not moved, and that costs a planning pass"
     An FFT plan is a compiled schedule tied to one storage family and cannot be transferred, so
     adapting a `FieldTransformPlans` **constructs new plans** on the target. It needs nothing from the
-    caller: the plans carry their own grid, layout, element type and tensor order, so the two arrays
+    caller: the plans carry their own grid, layout and element type — and no tensor order, since
+    decision 76 — so the two arrays
     the planner needs as witnesses are allocated internally and released immediately. The planner
     request the plans were built with is replayed, with one exception. Planner flags are an `FFTW`
     concept — `cuFFT` rejects them outright — so a move to any non-host family does **not apply** them

@@ -1087,6 +1087,8 @@ one-tuple, a `StaticArray` its `Tuple`.
 @inline _flatten_fiber(value::StaticArray) = Tuple(value)
 
 
+# The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct
+# kernel-argument structs positionally, so a mismatch would swap the fields on the device.
 """
     _MapValues(φ, orders)
 
@@ -1100,8 +1102,6 @@ The fields are
 - `orders` — the tensor orders of the inputs, carried as a type parameter so the fiber assembly is
   resolved at compile time.
 """
-# The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct
-# kernel-argument structs positionally, so a mismatch would swap the fields on the device.
 struct _MapValues{F, Orders} <: Function
   φ::F
   orders::Orders

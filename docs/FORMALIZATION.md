@@ -106,6 +106,23 @@ returns bitwise-unchanged, the copy into the scratch being what the transform co
 no allocation. Aliasing scratch with source is refused, the shared storage making the contract
 unsatisfiable. ``\checkmark``
 
+**The reality condition (decision 71).** A half-spectrum is the spectrum of a REAL field iff it is
+Hermitian, ``\hat f(-k) = \overline{\hat f(k)}``. The rfft stores only non-negative wavenumbers on the
+folded axis, so for almost every mode the partner is not stored and the condition is automatic; it can
+be violated only on a **self-conjugate plane** of the folded axis — the zero plane, and on an
+even-length axis the Nyquist plane — where a mode's partner lies in the same plane. `reality_residual`
+measures the departure,
+
+```math
+\mathrm{reality\_residual}(\hat f) = \max_{k \in \text{self-conjugate planes}}
+                                      \bigl\lvert \hat f(k) - \overline{\hat f(-k)} \bigr\rvert ,
+```
+
+which is zero for anything the package produces — only a hand-written coefficient can break it. It
+**reports and never repairs**: the repair is a physical round trip, which is the inverse transform's
+Hermitian projection. Cost is ``O(N^2)`` — one or two planes — against the ``O(N^3 \log N)`` of that
+round trip, which is what makes it usable as a check rather than a fix.
+
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
 behaviour, transform input-preservation, and the scratch arity's bitwise preservation, its bitwise
@@ -539,7 +556,17 @@ negative.
 \langle f, w g\rangle = \frac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
 ```
 
-generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. For ``w=|k|^2`` (the
+generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. Given a **tuple** of
+weights it answers all of them in one traversal, and the identity that licenses the fusion is that each
+answer is the one the separate call would give:
+
+```math
+\mathrm{weighted\_inner}(f, (w_1,\dots,w_n))_j = \mathrm{weighted\_inner}(f, w_j),
+\qquad j = 1,\dots,n ,
+```
+
+**bitwise**, not merely to roundoff — the coefficient reads are shared while each weight is still
+evaluated per mode, so no summation order changes (decision 72). For ``w=|k|^2`` (the
 squared-wavenumber symbol, true ``k^2`` at Nyquist) it is the Dirichlet energy ``\langle f,-\Delta g\rangle``;
 and since ``w`` is real it equals the naive ``\langle w\star f, w\star g\rangle`` **iff** ``w`` is idempotent
 (``w^2=w``, a sharp band), not for a general ``w``. Symmetric in ``f,g``, may be negative, spectral-only. The realness of ``w`` is a **hypothesis of the
@@ -696,7 +723,7 @@ weaker one.
 
 `FieldTransformPlans` is the one companion that is **rebuilt rather than moved**, because an FFT plan
 is not a section: it is a compiled schedule bound to one storage family. It is nonetheless determined by
-data it already carries — the grid, the layout, its element type and its tensor order — so the rebuild
+data it already carries — the grid, the layout and its element type — so the rebuild
 needs no argument, and a plan is independent of the arrays it was planned against, which is what lets
 the witnesses be released immediately.
 

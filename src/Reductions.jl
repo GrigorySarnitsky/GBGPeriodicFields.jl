@@ -112,6 +112,14 @@ _cell_measure(field::AbstractFieldSpectral) = prod(field_grid(field).grid_spacin
 _cell_measure(::AbstractPointValues{T}) where {T} = one(T)
 
 
+# DISPATCHED on the tensor order, not branched on it. The three arms return a scalar, a `FiberVector`
+# and a `FiberTensor2`, so a runtime `R` left the result inferring as `Any` — and that propagated to
+# every fiber-preserving reduction built on it, `mean` and `cov` among them. `R` is a type parameter of
+# the section, so `Val` recovers it at compile time and each arm infers concretely.
+# `Val(_tensor_order(section))` is NOT enough: `_tensor_order` returns the type parameter as an `Int`,
+# and inference reports `Int64` rather than a constant, so the `Val` is built dynamically and the
+# dispatch stays dynamic. Taking `R` straight off the section's own type in the signature makes it a
+# compile-time parameter, which is what the arms below need.
 """
     _fiberwise(section, whole_reduce, over_base_reduce)
 
@@ -121,14 +129,6 @@ is used for the scalar case (reduce the whole array); `over_base_reduce(data, ba
 the leading base dimensions for higher orders. The (tiny) reduced array is copied to the host before
 the `SVector`/`SMatrix` build, so no device array is scalar-indexed.
 """
-# DISPATCHED on the tensor order, not branched on it. The three arms return a scalar, a `FiberVector`
-# and a `FiberTensor2`, so a runtime `R` left the result inferring as `Any` — and that propagated to
-# every fiber-preserving reduction built on it, `mean` and `cov` among them. `R` is a type parameter of
-# the section, so `Val` recovers it at compile time and each arm infers concretely.
-# `Val(_tensor_order(section))` is NOT enough: `_tensor_order` returns the type parameter as an `Int`,
-# and inference reports `Int64` rather than a constant, so the `Val` is built dynamically and the
-# dispatch stays dynamic. Taking `R` straight off the section's own type in the signature makes it a
-# compile-time parameter, which is what the arms below need.
 _fiberwise(section::AbstractFiberSection{T, R}, whole_reduce, over_base_reduce) where {T, R} =
   _fiberwise(section, whole_reduce, over_base_reduce, Val(R))
 
@@ -299,6 +299,11 @@ _tree_sum(::KernelAbstractions.CPU, data) =
 _tree_sum(::Any, data) = sum(data)                      # a device runs its own parallel reduce
 
 
+# THE BASE ARITY IS A TYPE PARAMETER, not an `Int`. Every `ntuple` below and the closing `reshape` are
+# sized by it, so a runtime value left their types unknown and the whole reduction inferred `Any` —
+# which propagated to `mean` and `cov` on any section above R = 0. The caller knows the arity
+# statically (`ndims(data) - R`, both compile-time), so it is passed as the base tuple and recovered
+# from its length.
 """
     _tree_dims_reduce(scalar_reduce, data, base_count)
 
@@ -306,11 +311,6 @@ Apply `scalar_reduce` (a whole-array tree reduction) to each fiber component of 
 component slices over the leading `base_count` base axes are contiguous, so each reduces linearly —
 returning the array of per-component results the `dims`-style Base call used to produce.
 """
-# THE BASE ARITY IS A TYPE PARAMETER, not an `Int`. Every `ntuple` below and the closing `reshape` are
-# sized by it, so a runtime value left their types unknown and the whole reduction inferred `Any` —
-# which propagated to `mean` and `cov` on any section above R = 0. The caller knows the arity
-# statically (`ndims(data) - R`, both compile-time), so it is passed as the base tuple and recovered
-# from its length.
 _tree_dims_reduce(scalar_reduce::F, data, base::NTuple{B, Any}) where {F, B} =
   _tree_dims_reduce(KernelAbstractions.get_backend(data), scalar_reduce, data, Val(B))
 _tree_dims_reduce(scalar_reduce::F, data, base_count::Int) where {F} =
@@ -764,10 +764,11 @@ no inverse transform, applying the rfft half-spectrum weighting internally. This
 `l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
 `lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
 
-!!! note "The mixed spectral pair allocates two correction planes"
+!!! note "The mixed spectral pair allocates one or two correction planes"
     In spectral representation `inner(f, f)` and `l2norm` run allocation-free, but the *mixed*
-    `inner(f, g)` materializes two ``O(N^2)`` correction planes — one folded-axis plane by the fiber,
-    twice. That is small beside the ``O(N^3)`` field, and it is paid per call, where `inner(f, f)` pays
+    `inner(f, g)` materializes ``O(N^2)`` correction planes — the folded axis's zero plane always, and
+    its Nyquist plane as well when that axis has even length, so an odd folded axis pays for one plane
+    and an even one for two. That is small beside the ``O(N^3)`` field, and it is paid per call, where `inner(f, f)` pays
     nothing. The fused alternative, a `dot` over a strided view, has no
     method on the AMD path (rocBLAS `dotc`), so one route serves every backend.
 """
@@ -956,6 +957,9 @@ and reduces against `f` in a single fused pass, materializing no weighted field 
 
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
+- `weights` — in the tuple form, a tuple of such kernels: every one is answered in a single traversal
+  and one device readback, bitwise-equal to calling the operation once per weight, and the results are
+  returned in the order given.
 - `w` — the weight: a spectral kernel in **any** of its storage classes, holding a **real** multiplier
   ``w(k)``. All four classes give bitwise-identical results, so the choice is one of storage only. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel

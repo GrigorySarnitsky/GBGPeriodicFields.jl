@@ -244,14 +244,14 @@ function materialize_kernel(kernel::ProductKernel{T}) where {T}
 end
 
 
+# Materializing a kernel already held as a field is a copy: the product path above materializes its
+# first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
+# it with the full product. A stored factor must therefore not be aliased into the result.
 """
     materialize_kernel(kernel::StoredKernel)
 
 Copy a kernel already held coefficientwise, so the result owns storage no other kernel shares.
 """
-# Materializing a kernel already held as a field is a copy: the product path above materializes its
-# first factor to obtain correctly-shaped storage carrying the right grid and layout, then overwrites
-# it with the full product. A stored factor must therefore not be aliased into the result.
 materialize_kernel(kernel::StoredKernel) =
   StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)),
                                    _context_grid(kernel), _context_layout(kernel)))
@@ -333,14 +333,13 @@ Build the [`RadialKernel`](@ref) for an arbitrary real **function** of the squar
 symbol, in the sense the differential operators use — the general constructor behind
 [`spectral_cutoff`](@ref) and [`spectral_band`](@ref), for the multipliers the package does not name.
 
-The arguments are:
-- `sigma` — a function of one real argument, the squared wavenumber ``|k|^2``, returning a real
-  value. It must be pure and GPU-safe: capture only **values**, never a type — a closure holding a
-  `Type` is not a bitstype and a device rejects it at launch — and no mutable state or scalar indexing
-  of device arrays; anything it captures by value, such as a viscosity or a substep, is free to vary per call
-  because building a kernel allocates nothing of field size.
-- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid,
-  Fourier layout, element type and array backend the kernel takes as its own.
+Here `sigma` is a function of one real argument — the squared wavenumber ``|k|^2`` — returning a real
+value, and it must be pure and GPU-safe: it may capture only **values**, never a type, since a closure
+holding a `Type` is not a bitstype and a device rejects it at launch, and it may hold no mutable state
+and do no scalar indexing of device arrays. Anything it does capture by value, such as a viscosity or a
+substep, is free to vary per call, because building a kernel allocates nothing of field size. The
+`multipliers` are the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid, Fourier
+layout, element type and array backend the kernel takes as its own.
 
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
@@ -446,8 +445,7 @@ A spectral kernel that factors over the axes, ``\\hat g(k) = \\prod_a g_a(k_a)``
 three one-dimensional per-axis factors rather than as a full field. The factors are evaluated into
 the product one mode at a time, so the kernel never occupies a field's worth of memory: three arrays
 of ``O(N)`` entries in place of ``O(N^3)`` coefficients — kilobytes rather than the 129 MiB a ``256^3``
-kernel would take, roughly the
-megabytes a ``256^3`` kernel would take — and applying it reads no FIELD-SIZED kernel stream: the
+kernel would take — and applying it reads no field-sized kernel stream: the
 three ``O(N)`` factors are read per mode, which is the saving, not zero kernel traffic.
 
 There is no public constructor, which is why no signature is shown above: a kernel of this class is
@@ -1471,10 +1469,9 @@ Convolve a field with it for the ideal low-pass projection, the basis of spectra
 de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and it is the low-pass
 special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 
-The arguments are:
-- `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-  and array backend the kernel takes as its own.
-- `wavenumber_cutoff` — the cutoff wavenumber ``k_c``; a mode is kept when ``|k| \\le k_c``.
+Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+and array backend the kernel takes as its own, and `wavenumber_cutoff` is the cutoff wavenumber
+``k_c`` — a mode is kept when ``|k| \\le k_c``.
 
 ```math
 \\hat g(k) = \\mathbf{1}\\bigl[ |k| \\le k_c \\bigr].
@@ -1494,8 +1491,8 @@ end
     assignment_window(multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
 Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
-of depositing point mass onto grid cells, unrelated to the fused elementwise write that
-`threading_cutoff` measures — as a [`SeparableKernel`](@ref) — its three
+of depositing a point's mass onto the grid cells around it, not the sense of writing a value into an
+array — as a [`SeparableKernel`](@ref) — its three
 per-axis factors rather than a field of coefficients — on the multipliers' grid and array backend, for
 deconvolving a gridded point density.
 
@@ -1578,12 +1575,10 @@ even-length axis stores as a single self-conjugate mode — the factor is instea
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
-The arguments are:
-- `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-  and array backend the kernel takes as its own.
-- `offset` — the displacement ``h = (h_1, h_2, h_3)``, a physical length per axis in the units of the
-  box rather than a count of cells; a half-cell displacement is `0.5 .* grid.grid_spacing` on the
-  `Grid3D` the field lives on.
+Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+and array backend the kernel takes as its own, and `offset` is the displacement
+``h = (h_1, h_2, h_3)`` — a physical length per axis in the units of the box rather than a count of
+cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the `Grid3D` the field lives on.
 
 As a real physical object the translation is the convolution with a Dirac delta displaced to ``h`` and
 periodized on the box, ``g = \\delta(x - h)``, whose sifting property (integrating against a delta

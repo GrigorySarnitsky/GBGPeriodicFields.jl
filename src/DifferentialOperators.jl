@@ -3,9 +3,11 @@
 
 Differential operators on scalar, vector, and tensor fields over three-dimensional rectangular
 periodic domains, applied as spectral multipliers. A field in this module is its finite Fourier representation, so each
-operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band,
-the even-axis Nyquist term being zeroed (see the Nyquist split below), realized as a
-coefficientwise multiply by a wavenumber symbol with no finite-difference truncation. The wavenumber
+operator is the exact term-by-term derivative of that trigonometric polynomial on the resolved band —
+the band a grid's resolution actually represents, which excludes the Nyquist frequency of each
+even-length axis — realized as a coefficientwise multiply by a wavenumber symbol with no
+finite-difference truncation. The two symbol families treat that Nyquist term differently and
+deliberately so (see the Nyquist split below), so it is not simply zeroed everywhere. The wavenumber
 symbols are held in a [`FieldSpectralMultipliers`](@ref), built from a field with
 `FieldSpectralMultipliers(field)` or from the explicit six-array constructor. Every operator provides
 an allocating form and an in-place `!` form, and each per-operator docstring gives both the
@@ -226,23 +228,22 @@ operator kernel serve both its plain and kernel-composed forms with the branch c
 end
 
 
-"""
-    _apply_helmholtz_projection!(destination, field, multipliers,
-                                 kernel_data, α, β)
-
-Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
-on the backend of `destination`'s storage: a `KernelAbstractions` launch of
-`_helmholtz_projection_kernel!` on a device, or the gated slab-threaded loop on a CPU. It passes the
-**three** derivative-wavenumber arrays and the already-converted `α`/`β` — the projector's denominator
-is formed inside the pass by squaring those same three values, so no second multiplier family is
-read. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
-plain projection. Shared by every `helmholtz_projection!` method.
-"""
 # The gated CPU twin of the projection kernel (the decision-38 pattern): the same per-mode
 # arithmetic as `_helmholtz_projection_kernel!`, expression for expression, so the two engines are
 # bitwise-equal — but run as a slab-threaded stride-1 loop through the `_use_threads` gate, which a
 # KA launch cannot consult. Alias-safe for the same reason as the kernel: all of a mode's reads
 # precede its writes.
+"""
+    _helmholtz_projection_modes!(backend, destination_1, destination_2, destination_3,
+                                 source_1, source_2, source_3,
+                                 wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α, β)
+
+Apply the projector to every mode, dispatching on `backend`: a `KernelAbstractions` launch of
+`_helmholtz_projection_kernel!` on a device, and the gated slab-threaded loop below on a CPU. The two
+arms carry the same per-mode arithmetic expression for expression, so a threaded run agrees with a
+device one bitwise — which is what the GPU parity suite compares. The `kernel_data` is a
+coefficientwise kernel's storage or `nothing`, and `α`/`β` arrive already converted.
+"""
 function _helmholtz_projection_modes!(::KernelAbstractions.CPU,
     destination_1, destination_2, destination_3, source_1, source_2, source_3,
     wavenumber_1, wavenumber_2, wavenumber_3,
@@ -301,6 +302,18 @@ function _helmholtz_projection_modes!(backend,
 end
 
 
+"""
+    _apply_helmholtz_projection!(destination, field, multipliers,
+                                 kernel_data, α, β)
+
+Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
+on the backend of `destination`'s storage: a `KernelAbstractions` launch of
+`_helmholtz_projection_kernel!` on a device, or the gated slab-threaded loop on a CPU. It passes the
+**three** derivative-wavenumber arrays and the already-converted `α`/`β` — the projector's denominator
+is formed inside the pass by squaring those same three values, so no second multiplier family is
+read. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
+plain projection. Shared by every `helmholtz_projection!` method.
+"""
 function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
     multipliers::FieldSpectralMultipliers, kernel_data, α::T, β::T) where {T<:AbstractFloat}
   _helmholtz_projection_modes!(get_backend(field_data(destination)),

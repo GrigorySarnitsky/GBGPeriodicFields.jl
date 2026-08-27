@@ -125,7 +125,8 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   (`module FieldAlgebraTests; include("fieldalgebra.jl"); end`), so per-file helpers and
   constants (`comp`, `plans_for`, `grid`, `T`) cannot collide. Every file is also
   runnable on its own (`julia --project=. test/<file>.jl`).
-- **Per-module behaviour files** — `fields.jl` (including the real-field **reality condition** of
+- **Per-module behaviour files** — `fields.jl` (including the rank-free transform plans and their
+  component-offset alignment lane, decision 76; the real-field **reality condition** of
   decision 71 — `reality_residual` against an elementwise oracle written from the definition, over
   both element types, tensor orders 0/1/2, permuted folds and an **odd** folded axis, which has one
   self-conjugate plane rather than two, plus the pair-consistency property, the self-paired corners
@@ -397,6 +398,18 @@ operation's coverage is judged against the full axis list:
     region, so a device test that transforms on a folded layout must use the default one. Operations
     that build no plan are unrestricted, and the GPU suite does cross the two axes there. That is a vendor limit
     rather than a package one, and it makes the permuted folds of decision 41 a CPU-side generality.
+
+18. **component-offset alignment**, per FFT backend (decision 76). A rank-``R`` field's component `c`
+    begins at element offset ``(c-1)\prod_a N_a``, and a transform library may refuse a pointer whose
+    alignment differs from the one it planned for — so the plans, which now carry no tensor order and
+    are applied one component at a time, must work at every offset. The two backends ask different
+    questions and the axis has a value for each: on the host `FFTW` records an alignment class, and a
+    grid whose component stride is not a multiple of 64 bytes is planned `UNALIGNED`; on a device
+    `cuFFT` needs only the real pointer aligned to its complex element, which fails exactly when the
+    grid is **odd on all three axes**, and such a grid transforms through a component-sized buffer
+    instead. `test/fields.jl` carries the lane — every rank over `(8,8,8)`, `(8,7,6)`, `(7,5,3)` and
+    `(9,9,9)`, plus the predicate itself asserted directly — and the GPU suite carries the staged half,
+    since the host never reaches it.
 
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA
