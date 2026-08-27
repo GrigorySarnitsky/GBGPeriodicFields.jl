@@ -1,0 +1,16 @@
+# check-consistency — instrument manifest
+#
+# One line per file: name, the date git last changed it, and its purpose.
+# Regenerate with `python3 .claude/commands/manifest.py` and commit the result.
+# PURPOSE is DERIVED from each file's first substantive comment — never typed, so it cannot
+# go stale on its own. A dash means the file does not say what it is, which is a finding.
+# Format agreed with the IT session 2026-08-27 so either package can diff toolboxes in one read.
+
+FILE                CHANGED      PURPOSE
+consolidate.py      2026-07-15   Consolidate a Documenter-built site into reader-text manuscripts for the /check-consistency pane
+panel.js            2026-08-27   /check-consistency panel — a fresh-eyed 12-expert audit of the RENDERED docs, sequential & colle
+recall.py           2026-08-27   The read-back half of seeded-defect calibration (C7/C13): given the ground truth seed_defects.py
+recall_selftest.py  untracked    The self-test for recall.py. Run it after ANY change to that script — especially to `fragments()
+seed_defects.py     2026-08-27   Seeded-defect calibration for the /check-consistency panel. Ported from GBGIsotropicTurbulence
+verify-fixes.js     2026-08-27   Fix verification — the ACT auditor. Ported from GBGIsotropicTurbulence 2026-08-27 (its request
+verify.js           2026-08-27   Fix verification — the STATE auditor. The other half of the pair; see verify-fixes.js for why th

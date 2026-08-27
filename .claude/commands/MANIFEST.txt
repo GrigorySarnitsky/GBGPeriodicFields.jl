@@ -1,0 +1,13 @@
+# commands — instrument manifest
+#
+# One line per file: name, the date git last changed it, and its purpose.
+# Regenerate with `python3 .claude/commands/manifest.py` and commit the result.
+# PURPOSE is DERIVED from each file's first substantive comment — never typed, so it cannot
+# go stale on its own. A dash means the file does not say what it is, which is a finding.
+# Format agreed with the IT session 2026-08-27 so either package can diff toolboxes in one read.
+
+FILE                  CHANGED      PURPOSE
+bug-hunt.md           2026-08-27   /bug-hunt — the code instrument
+check-consistency.md  2026-08-27   /check-consistency — the fresh-eyed multi-hat RENDERED-docs panel
+check-docs.md         2026-08-04   Run the COMPLETE documentation-quality battery — every check across every doc surface, fix all f
+manifest.py           untracked    Instrument manifests. Format agreed with the IT session 2026-08-27 so either package can diff
