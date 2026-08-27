@@ -7,5 +7,5 @@
 # Format agreed with the IT session 2026-08-27 so either package can diff toolboxes in one read.
 
 FILE      CHANGED      PURPOSE
-audit.js  untracked    /audit-changes — WERE THESE EDITS JUSTIFIED, AND DID THEY SILENTLY CHANGE BEHAVIOUR?
-gate.py   untracked    -
+audit.js  2026-08-27   /audit-changes — WERE THESE EDITS JUSTIFIED, AND DID THEY SILENTLY CHANGE BEHAVIOUR?
+gate.py   2026-08-27   -

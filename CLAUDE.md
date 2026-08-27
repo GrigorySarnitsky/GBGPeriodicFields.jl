@@ -835,7 +835,7 @@ away, never a fact the reader needs.
 **Consent gate (user-directed 2026-08-04) — unasked, run ONLY `Pkg.test()`.** Every other verification
 lane is expensive in wall-clock and in machine occupancy, and the decision to spend that is the user's:
 the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
-(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, **`/bug-hunt`**, the two
+(`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, **`/bug-hunt`**, **`/audit-changes`**, the two
 fix verifiers (`check-consistency/verify.js`, `verify-fixes.js`), and any
 multi-agent fan-out each require explicit consent **before** being started. The correct output when one
 of them would be informative is to *name it and its cost* — "the survey would confirm this, ~90 min,
@@ -843,7 +843,19 @@ shall I run it?" — and wait. This is a consent boundary, not licence to leave 
 the code, run `Pkg.test()`, and report what remains unverified and why. It also protects measurement,
 since a long unasked run occupies the box that `docs/PERFORMANCE.md` §1 requires to be idle.
 
-**Three instruments, and the third audits CODE (ported from IT 2026-08-27).** `/check-docs` is the
+**Four instruments, and each audits a DIFFERENT OBJECT (the last two ported from IT 2026-08-27).**
+`/audit-changes` audits **changes to code** — it reads the **diff**, not the tree, and asks whether
+each edit was *proportionate to the defect it claims to fix* and whether it *silently altered
+behaviour for input that previously worked*. An edit can be a correct fix and still be wrong to make,
+and neither the code nor the fix looks wrong in isolation, which is why a hunt cannot find it. It
+exists because a witness gate structurally cannot: a witness exists only for a defect the hunt
+**found**, so a regression introduced by a **fix** is invisible to it — IT measured its own witnesses
+reporting `NEWLY BROKEN = 0` with two live regressions. Its `executing` lane is the anchor, because
+every other lane reads, and an edit justified by a measurement written in a comment would otherwise be
+certified by an agent that read the comment; PF's claims are executable (`Pkg.test()`,
+`test/allocations.jl`, `test/pass_audit.jl`, `test/method_parity.jl`), so that lane runs them.
+`gate.py` then requires every serious finding to be **answered** — fixed, refused *with a reason*, or
+escalated, never absent. `/check-docs` is the
 deterministic battery over the source and `/check-consistency` the judgment panel over the rendered
 site — both audit **prose**, and neither asks whether the code is correct: a flawless docstring on a
 function returning the wrong number passes both. **`/bug-hunt`** (`.claude/commands/bug-hunt.md`) is
