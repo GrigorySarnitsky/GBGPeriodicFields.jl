@@ -18,7 +18,10 @@
 import os, re, subprocess, sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-COMMENT = {".py": "#", ".js": "//", ".jl": "#", ".md": None}
+# Every extension an instrument can be written in. A missing entry means the file is silently
+# absent from its own manifest — which is the staleness this exists to prevent, so the table is
+# checked whenever a new kind of script lands. `.sh` was missing when guards.sh was added.
+COMMENT = {".py": "#", ".js": "//", ".jl": "#", ".sh": "#", ".md": None}
 
 
 def changed(path):

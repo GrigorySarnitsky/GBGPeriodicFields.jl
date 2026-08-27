@@ -219,7 +219,27 @@ grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed cit
 grep -rnE '\. (`[a-z]|``)' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose SENTENCE opens with a lowercase code identifier OR a math formula → REWORD to lead with a capitalized word (NEVER capitalize the lowercase binding); exempt: bullets / list items (incl. §13 entries, arg-docs), `#` code comments, a CAPITALIZED type/module opener; FPs: e.g./i.e. abbreviations, end-of-line ``\checkmark`` markers
 ```
 
-Two deterministic backstops that are not one-line greps:
+The two non-grep backstops are scripts too, for the same reason:
+
+```
+python3 .claude/commands/check-docs/doi_crosscheck.py     # exit 1 if a docstring DOI is missing from §References
+julia --startup-file=no .claude/commands/check-docs/argcov.jl
+```
+
+`doi_crosscheck.py` checks **both directions** — a docstring DOI absent from §References is a failure;
+a §References DOI cited by no docstring is reported as information, since a design doc may legitimately
+be its only citer. `argcov.jl` applies the rubric's **three named exemptions** rather than reporting
+raw hits, which is the difference between an instrument and noise: the unfiltered sweep returns 204
+candidates, almost all correct-by-rubric, and a tool reporting 204 non-defects gets ignored. Skipping
+thin allocating wrappers (detected by PF's own "Allocating form of" spelling), internal `_`-prefixed
+helpers, and the fewer-than-three-arguments prose form takes it to **0 genuine candidates over 198
+exemptions**. That zero is falsifiable and was falsified: a fixture with one undocumented argument in
+each class is caught in the bulleted form and exempted in the other three.
+
+Prose binding is not machine-checkable, and the script says so rather than pretending otherwise — that
+half stays a human read.
+
+The scans, kept here as the readable source of truth:
 
 ```bash
 # DOI cross-check — every DOI cited in a src docstring must appear (verbatim) in ARCHITECTURE.md's
