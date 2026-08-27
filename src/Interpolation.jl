@@ -750,8 +750,9 @@ what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist
 the two sides agree with no convention needed.
 
 Interpolation reproduces the band-limited field **exactly**, so it is
-pointwise divergence-free on the **resolved sub-Nyquist band** (unlike the local splines) and matches
-[`to_physical`](@ref) at the grid nodes;
+pointwise divergence-free on the **resolved sub-Nyquist band** — the frequencies a grid of this
+size actually represents, each even axis's Nyquist plane excluded — where the local splines are
+not, and matches [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
 `DirectDFT()` and pass it as the `scheme`.
 

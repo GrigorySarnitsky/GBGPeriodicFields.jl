@@ -226,6 +226,99 @@ end
 # append-only BY DESIGN, so ratcheting a whole file would fire on every new decision. The unit is
 # therefore a SECTION (a heading) for markdown and a DOCSTRING for source: a new section is allowed
 # and gets the newcomer caps, while growth of an EXISTING section is exactly what is caught.
+# ---------------------------------------------------------------------------------------------
+# REVIEW CLOSURE — the verifier is a BUILD REQUIREMENT, not an instruction.
+#
+# WHY THIS IS A LINT AND NOT A SENTENCE IN A COMMAND FILE. Both /check-docs and /check-consistency
+# documented "run verify-fixes.js and loop until every finding is HONORED", and nothing enforced it.
+# On 2026-08-27 a full /check-docs pass was reported as "22 findings, all closed" with the verifier
+# never run; when it was finally run against the same work it returned 16.1% honored — 5 HONORED, 21
+# LINE-ONLY, 5 UNDONE over 31 findings — including two the fixer had listed in his own written plan
+# and forgotten. The rule was in the tree, and its presence read as compliance. That is the defect
+# this whole instrument set exists to catch, committed by its author, so the rule moves out of prose
+# and into the one place that cannot be skipped: the build's exit code.
+#
+# WHAT IT CHECKS. A banked findings pile (`NN-<lane>.md` under a `.claude/doc-review*` directory) is
+# an OPEN ROUND until every finding in it is closed, and a finding is closed only by an independent
+# record: a `HONORED` verdict in `<pile>/closure/NN-<lane>.md`, or an entry in
+# `.claude/doc-review-adjudicated.md` naming it. A dismissal written only in a commit message closes
+# nothing — that was the exact failure the first run measured, and the verifier graded all three of
+# that day's dismissals UNDONE for precisely this reason.
+#
+# NO PILE MEANS NO OPEN ROUND, so a tree that has never run an instrument builds normally. The escape
+# is to CLOSE the round, not to argue with it.
+function lint_review_closure()
+    claude = joinpath(@__DIR__, "..", ".claude")
+    isdir(claude) || return
+    adjudicated_path = joinpath(claude, "doc-review-adjudicated.md")
+    adjudicated = isfile(adjudicated_path) ? read(adjudicated_path, String) : ""
+    open_rounds = String[]
+    ranges = Int[]
+    for entry in readdir(claude; join = true)
+        isdir(entry) || continue
+        base = basename(entry)
+        (startswith(base, "doc-review") && !endswith(base, "-prev")) || continue
+        lanes = filter(f -> occursin(r"^\d\d-.*\.md$", basename(f)), readdir(entry; join = true))
+        isempty(lanes) && continue
+        # A round closed by a process that predates the verifier is exempt, but only by an explicit,
+        # committed record — the same shape as the prose ratchet's re-baseline. `CLOSED.md` must say
+        # how the round was closed and where the account lives; writing one is a deliberate act that
+        # shows in the diff, which is the property that keeps it from becoming a silent escape.
+        isfile(joinpath(entry, "CLOSED.md")) && continue
+        for lane in lanes
+            body = read(lane, String)
+            findings = length(collect(eachmatch(r"^#{2,4} +Finding +\d+"m, body)))
+            findings == 0 && continue
+            verdict_file = joinpath(entry, "closure", basename(lane))
+            verdicts = isfile(verdict_file) ? read(verdict_file, String) : ""
+            # A verdict file persists between rounds, so a lane that did not re-run leaves its previous
+            # verdicts behind and they read as current — which is how a round-1 result was almost
+            # reported as a round-2 one. Each file stamps the range it graded, and every lane in a
+            # round must agree: lanes at different ranges are not one round.
+            # Staleness is read from the FILESYSTEM, never from a field the grader writes. The first
+            # design asked each verifier lane to stamp `RANGE:` as its first line; the instruction was
+            # in the prompt and all eight lanes ignored it, so the check was vacuous while looking
+            # present — asking the graded party to certify its own currency, which is the antipattern
+            # this whole gate exists to remove. An mtime is recorded by the OS and needs no compliance.
+            if mtime(verdict_file) < mtime(lane)
+                push!(open_rounds, "$(base)/$(basename(lane)): verdicts predate the findings they " *
+                                   "grade — the lane did not re-run")
+                continue
+            end
+            push!(ranges, floor(Int, mtime(verdict_file) / 21600))  # 6-hour buckets: one round, one sitting
+            # Count the VERDICT, never the word. A LINE-ONLY demotion note reads "[DEMOTED: HONORED
+            # claimed with no enumerated class surface]", so a bare string count inflated 2 honored
+            # verdicts to 6 — in the direction that closes a round early, which is the direction that
+            # never gets questioned.
+            honored = length(collect(eachmatch(r"^\*\*Verdict:\*\* *HONORED *$"m, verdicts)))
+            # A finding whose title the adjudicated list names is closed by that record instead.
+            titles = [strip(m.captures[1]) for m in eachmatch(r"^#{2,4} +Finding +\d+ +[—-] +(.*)$"m, body)]
+            dismissed = count(t -> !isempty(t) && occursin(first(t, 40), adjudicated), titles)
+            if honored + dismissed < findings
+                push!(open_rounds, "$(base)/$(basename(lane)): $(findings) finding(s), " *
+                                   "$(honored) HONORED, $(dismissed) adjudicated — $(findings - honored - dismissed) OPEN")
+            end
+        end
+    end
+    if !isempty(ranges) && (maximum(ranges) - minimum(ranges)) > 1
+        error("doc lint failed: the banked round is incoherent — its verdict files were written more " *
+              "than six hours apart, so a lane that did not re-run left its previous verdicts in " *
+              "place and they read as current. Re-run the verifier over every lane before reading " *
+              "the tally.")
+    end
+    if !isempty(open_rounds)
+        for r in open_rounds; println("  OPEN: ", r); end
+        error("doc lint failed: an instrument round is banked but not closed. Run " *
+              "`.claude/commands/check-consistency/verify-fixes.js` over the pile (passing that " *
+              "instrument's lane names), fix whatever comes back LINE-ONLY / UNDONE / NEW-DEFECT, and " *
+              "verify again — the loop runs over the SAME findings, never by re-running the lanes. A " *
+              "finding you are deliberately not fixing is closed by recording it in " *
+              ".claude/doc-review-adjudicated.md, where a verifier can read it; a reason in a commit " *
+              "message closes nothing.")
+    end
+    @info "doc lint: review closure OK (no open rounds)"
+end
+
 const PROSE_BASELINE = joinpath(@__DIR__, "prose_shape.csv")
 const NEW_UNIT_PARAGRAPH_CAP = 120
 const NEW_UNIT_ADMONITION_CAP = 3
@@ -342,6 +435,7 @@ lint_notation_variants()
 lint_retired_claims()
 lint_api_page_structure()
 lint_prose_shape()
+lint_review_closure()
 
 using Documenter
 using GBGPeriodicFields
