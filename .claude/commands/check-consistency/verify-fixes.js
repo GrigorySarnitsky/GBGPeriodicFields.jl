@@ -180,7 +180,13 @@ outcomes.forEach((r, i) => {
   for (const x of v) {
     if (x.verdict !== 'HONORED') continue
     const cs = (x.class_surfaces || '').trim()
-    if (cs.length < 12 || !/[^\s]:\d+/.test(cs)) {
+    // A COVERAGE-GAP finding has no class: "no entry exists for X" names one missing site and has no
+    // sibling to sweep, so demanding a file:line list is the rule mis-firing rather than the fixer
+    // being thin. Measured: of 21 LINE-ONLY verdicts in the first real run, 17 were this demotion and
+    // most were coverage gaps. The escape is deliberately narrow — the grader must ASSERT the absence
+    // of siblings in words, which is a claim it can be held to, not merely leave the field short.
+    const singleSite = /\b(no sibling|no other site|single site|coverage gap|only site|nothing to sweep)\b/i.test(cs)
+    if (cs.length < 12 || (!/[^\s]:\d+/.test(cs) && !singleSite)) {
       x.verdict = 'LINE-ONLY'
       x.evidence = `[DEMOTED: HONORED claimed with no enumerated class surface] ${x.evidence || ''}`
     }

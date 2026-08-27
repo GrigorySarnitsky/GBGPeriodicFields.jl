@@ -141,3 +141,24 @@ keep. (Round 2 caught a mathematically false sentence that round 1's fix pass ha
    reverse.** Deliberate: a reader meets a plans object through its constructor — the two witness
    fields it is built from — while a field type's storage is what the reader meets first. Each
    docstring leads with its own primary interface.
+
+## /check-docs 2026-08-27 — three dismissals, recorded so they are auditable
+
+These were dismissed during the fix pass and the reasons lived only in a commit message, where no
+verifier could see them. `verify-fixes.js` correctly graded all three **UNDONE**, because a dismissal
+that is not recorded in the tree is indistinguishable from neglect. They are recorded here now; a
+future round that re-raises one should close against this note or overturn it explicitly.
+
+- **No FORMALIZATION entry for decisions 74 and 75.** Decision 74 is an allocation-shape change and
+  decision 75 is I/O persistence; neither states a new mathematical fact. Their siblings carry no
+  entries either — `similar_field` has none, and `write_field`/`read_field` have none — so adding
+  these two would make the page inconsistent in the other direction. **Overturn this** if a later
+  round shows an untested nontrivial claim resting on either.
+- **Formula-like pseudo-code in backticks in the `FiberSections` codegen builders.** The spans
+  (`destination = α * formula + β * destination`) describe the *shape of the code the generator
+  emits*, not mathematics, in internal `_`-prefixed builders that the rubric already treats loosely.
+  Rewriting them as LaTeX would misrepresent them as formulas.
+- **The examples' `advect!` hand-rolls point motion.** `displace!` covers the displacement, but the
+  demo's RK2 midpoint update is *time-stepping*, which is a consumer concern the package deliberately
+  excludes (invariant 12). CLAUDE.md already queues that rewrite for the consumer package. **Overturn
+  this** if the demo is rewritten for other reasons, since it would then be free to adopt the verb.

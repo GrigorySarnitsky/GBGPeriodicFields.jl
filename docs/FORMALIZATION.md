@@ -742,7 +742,9 @@ and a rebuilt plan transforming equally. Commutation with the operations is chec
 domain ``D = [o_1, o_1 + L_1) \times [o_2, o_2 + L_2) \times [o_3, o_3 + L_3)``, where ``L_a`` is
 the domain extent and ``o_a`` the origin along axis ``a`` (both carried by `Grid3D`). A `PointSet`
 stores a representative ``X = (x_p)_{p=1}^M \in (\mathbb R^3)^M`` of a configuration of ``M``
-points; a `VectorPointValues` is a section ``v`` of the (trivialized) tangent bundle over that
+points; a `VectorPointValues` is a section ``v`` of the (trivialized) tangent bundle — *trivialized*
+meaning the displacement at each point is read in the single fixed Cartesian frame the flat torus
+supplies, so no curvilinear machinery enters — over that
 configuration, one vector ``v(p) \in \mathbb R^3`` per point.
 
 **Statement 1 (cover displacement).** For real coefficients ``c_1, \dots, c_n`` and sections
@@ -753,7 +755,8 @@ x_p \leftarrow x_p + \sum_{j=1}^{n} c_j v_j(p) ,
 ```
 
 evaluated left-to-right in one fused pass. Because the torus is flat and the frame global, this is
-the exponential map of the flat metric lifted to the universal cover: no connection choice enters,
+the exponential map of the flat metric lifted to the universal cover — the *unwrapped* picture of the
+torus, in which a coordinate keeps growing instead of folding back. No connection choice enters,
 and the operation is exact linear algebra per point. ``\checkmark``
 
 **Statement 2 (canonical representative).** The operation `wrap!` computes, per point and axis,
@@ -774,7 +777,7 @@ form performs the same floating-point operations in the same order per element, 
 rather than through memory. ``\checkmark``
 
 **Statement 4 (deck invariance of sampling, with its limit).** Interpolation is invariant under the
-deck group: for any whole-period shift ``x \mapsto x + k \cdot L`` (componentwise, ``k \in
+deck group — the whole-period lattice shifts that map the unwrapped picture onto itself: for any such shift ``x \mapsto x + k \cdot L`` (componentwise, ``k \in
 \mathbb Z^3``) the transfer kernels wrap their stencil indices, so the sampled value is unchanged in
 exact arithmetic. In floating point the two evaluations differ by roundoff of the offset
 computation, so the test asserts closeness, not equality; and the statement does not extend to
