@@ -97,7 +97,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 76",841,205,0
 "ARCHITECTURE.md § item 8",49,49,0
 "ARCHITECTURE.md § item 9",32,32,0
-"Convolution.jl :: Convolution",755,173,0
+"Convolution.jl :: Convolution",788,206,0
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",487,139,1
 "Convolution.jl :: SeparableKernel",391,99,1
@@ -107,9 +107,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",72,56,0
 "Convolution.jl :: _apply_exponential_convolution!(destination_data, source_dat",90,76,0
 "Convolution.jl :: _apply_separable_combination!(destination_data, a_data, b_da",41,35,0
-"Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",197,113,0
+"Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",245,113,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",413,115,0
-"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",718,174,2
+"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
 "Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",918,232,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
@@ -120,7 +120,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: inv(kernel::StoredKernel)",77,58,0
 "Convolution.jl :: materialize_kernel(kernel::ProductKernel)",45,44,0
 "Convolution.jl :: materialize_kernel(kernel::RadialKernel)",45,44,0
-"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",266,189,1
+"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",282,189,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",16,15,0
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",217,117,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",188,57,0
@@ -508,7 +508,8 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 15",71,71,0
 "TESTING.md § item 16",78,78,0
 "TESTING.md § item 17",204,204,0
-"TESTING.md § item 18",252,167,0
+"TESTING.md § item 18",167,167,0
+"TESTING.md § item 19",219,85,0
 "TESTING.md § item 2",39,39,0
 "TESTING.md § item 3",21,21,0
 "TESTING.md § item 4",15,15,0

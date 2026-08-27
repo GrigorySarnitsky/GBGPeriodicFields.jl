@@ -478,6 +478,31 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(convolve(phi_spec_d, shift_d), convolve(phi_spec_h, shift_h))   # scalar field
       @test matches(convolve(u_spec_d, shift_d), convolve(u_spec_h, shift_h))       # over a vector fiber
       @test matches(convolve(A_spec_d, shift_d), convolve(A_spec_h, shift_h))       # over a tensor fiber (R=2)
+
+      # Storage-class agreement ON THE DEVICE, at α ≠ 1. The CPU suite asserts this class-wide, but
+      # the compressed path it exercises is dead code there — the gated CPU twin always wins — so the
+      # broadcast route was only ever compared against a materialized kernel at α = 1, where scaling
+      # is exact and the association cannot show. It left-associated ((((α σ₁) σ₂) σ₃) f̂) against the
+      # stored path's α((σ₁σ₂)σ₃)f̂, and disagreed with its own materialized kernel at every other α.
+      # /bug-hunt 2026-08-27; REAL factors, so the complex-multiply FMA contraction below cannot
+      # confound it and bitwise is the honest bar.
+      window_d = assignment_window(mult_d)
+      stored_d = materialize_kernel(window_d)
+      for (α, β) in ((T(1), T(0)), (T(37) / 10, T(0)), (T(1) / 10, T(1) / 2))
+        compressed_out = similar_field(phi_spec_d, similar(field_data(phi_spec_d)))
+        stored_out     = similar_field(phi_spec_d, similar(field_data(phi_spec_d)))
+        fill!(field_data(compressed_out), 0); fill!(field_data(stored_out), 0)
+        convolve!(compressed_out, phi_spec_d, window_d, α, β)
+        convolve!(stored_out,     phi_spec_d, stored_d, α, β)
+        @test Array(field_data(compressed_out)) == Array(field_data(stored_out))
+      end
+      # A COMPLEX kernel is the documented exception: a device contracts the `ac - bd` of a complex
+      # multiply into an FMA and does it differently inlined than read back from stored coefficients,
+      # so the classes agree to rounding rather than bitwise. Pinned as a tolerance, which is what the
+      # docstrings now promise — asserting bitwise here would be asserting something untrue.
+      @test isapprox(Array(field_data(convolve(phi_spec_d, shift_d))),
+                     Array(field_data(convolve(phi_spec_d, materialize_kernel(shift_d))));
+                     rtol = rtol, atol = atol)
     end
 
     @testset "interpolation / anterpolation (Lalescu splines)" begin

@@ -21,8 +21,9 @@ package does not define. Every kernel
 subtypes [`SpectralKernel`](@ref), and the four classes reach every entry point that **applies** a
 kernel to a field interchangeably — `StoredKernel` holds one coefficient per mode, and the three
 compressed classes hold the parameters of a closed-form multiplier and evaluate it per mode. All four
-agree bit for bit, so for applying a kernel the choice is one of memory and speed rather than of
-result. Two entry points are narrower, and neither applies a kernel: `weighted_inner` takes one as a
+agree bit for bit on the host, so for applying a kernel the choice is one of memory and speed rather
+than of result. On a **device** a *complex*-valued kernel is the one exception, the classes agreeing
+to rounding rather than bitwise there; the choice of class is still one of memory and speed. Two entry points are narrower, and neither applies a kernel: `weighted_inner` takes one as a
 reduction *weight* and requires it to be **real**, refusing a complex multiplier wherever the type
 settles the question, and [`inv`](@ref) is a genuine partial operation whose classes report an
 annihilated mode differently.
@@ -597,8 +598,9 @@ end
     materialize_kernel(kernel::SeparableKernel)
 
 Evaluate an axis-factored kernel into a kernel held as a **field**, returning the `StoredKernel`
-whose coefficients are the product of the per-axis factors. The result applies identically and gives
-bit-identical results — the two differ only in what they cost.
+whose coefficients are the product of the per-axis factors. The result applies identically and, for
+real factors, gives bit-identical results — the two differ only in what they cost. Complex factors
+agree bitwise on the host and to rounding on a device.
 
 Use this to trade memory back for speed on a **small base**. Applying an axis-factored kernel moves two
 field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
@@ -767,8 +769,11 @@ a GPU services as one wide memory transaction rather than many narrow ones. The 
 length that is not a multiple of the *warp* — the group of threads a GPU issues in lockstep, 32 on
 NVIDIA and 64 on AMD — leaving every row's last transaction partly idle.
 
-The kernel value is associated as the stored path associates it, so an axis-factored kernel and its
-materialized product agree bit for bit.
+The kernel value is associated as the stored path associates it,
+``\\alpha((\\sigma_1\\sigma_2)\\sigma_3)\\hat f``, so a **real**-factored kernel and its materialized
+product agree bit for bit. A **complex**-factored one can differ by an ulp on a device whatever the
+association: the compiler contracts the ``ac - bd`` of a complex multiply into a fused multiply-add,
+differently when the product is inlined here than when a stored kernel rounds it to memory first.
 """
 function _apply_separable_convolution!(destination_data, source_data, kernel::SeparableKernel, α, β)
   _separable_convolution_pass!(get_backend(destination_data), destination_data, source_data,
@@ -780,10 +785,17 @@ end
 # Device route: one flat broadcast, which indexes the factors cartesian and keeps the launch coalesced.
 function _separable_convolution_pass!(backend, destination_data, source_data,
     factor_1, factor_2, factor_3, α, β)
+  # The parentheses are load-bearing, not decoration. Broadcasting associates left, so the unbracketed
+  # form computed ``(((\alpha\sigma_1)\sigma_2)\sigma_3)\hat f`` while the stored path and the CPU
+  # twin below both compute ``\alpha((\sigma_1\sigma_2)\sigma_3)\hat f`` — the same value in exact
+  # arithmetic, a different rounding in floating point. At ``\alpha = 1`` the two coincide (scaling by
+  # one is exact), which is why every test the package had passed: they all take the three-argument
+  # form, which delegates ``\alpha = 1``. At any other ``\alpha`` the device route disagreed with its
+  # own materialized kernel, and it is the ONLY route that did, being unreachable on a CPU.
   if iszero(β)
-    @_assign! destination_data .= α .* factor_1 .* factor_2 .* factor_3 .* source_data
+    @_assign! destination_data .= α .* (factor_1 .* factor_2 .* factor_3) .* source_data
   else
-    @_assign! destination_data .= α .* factor_1 .* factor_2 .* factor_3 .* source_data .+
+    @_assign! destination_data .= α .* (factor_1 .* factor_2 .* factor_3) .* source_data .+
                                   β .* destination_data
   end
   return nothing
@@ -937,7 +949,8 @@ The arguments are:
   [`SpectralKernel`](@ref): a `StoredKernel` holding one coefficient per mode, or one of the compressed
   classes evaluated per mode (radial, separable, or their product), which costs ``O(N)`` or a closure
   rather than ``O(N^3)``. One scalar kernel serves scalar, vector, and tensor `field`s, and every
-  storage class gives bitwise-identical results.
+  storage class gives bitwise-identical results on the host, a *complex* kernel on a device agreeing
+  to rounding instead.
 - `destination` — the field written with the result; it may alias `field` or `kernel`, since the
   product is coefficientwise.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type; the three-argument form
