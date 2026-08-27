@@ -15,6 +15,7 @@
 using GBGPeriodicFields
 using Statistics
 using LinearAlgebra
+using Adapt
 using Random
 
 
@@ -241,6 +242,14 @@ function run_value_lane(configs)
     raw_qt = rand(T, 9, 3, 3)
     qa, qb = VectorPointValues(copy(raw_qa)), VectorPointValues(copy(raw_qb))
     qt = TensorPointValues{2}(copy(raw_qt))
+    # A spectrum that is NOT a real field's: one coefficient on the folded axis's zero plane is given
+    # an imaginary part its mirror does not match, which is exactly the discrepancy `reality_residual`
+    # exists to report and the only way to make its zero answer falsifiable.
+    broken_reality = similar_field(sh, similar(field_data(sh)))
+    copyto!(field_data(broken_reality), field_data(sh))
+    let d = field_data(broken_reality)
+      d[CartesianIndices(d)[1]] += Complex{T}(0, 1) * T(3) / 4
+    end
     sh2 = to_spectral(s2, plans)
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
@@ -528,6 +537,40 @@ function run_value_lane(configs)
       # getter, so the live value cannot be read back — an earlier version claimed to restore "what it
       # was" while assigning `nthreads()` immediately before reading it, which preserved nothing. This
       # says what it actually does.
+      # ── base-space motion, the reality check, and the in-place family move ────────────────────
+      # These six operations shipped between decisions 69 and 76 and reached this lane through NONE of
+      # its rows: the derived lanes exercised them, but the independent value oracles are hand-written
+      # and nobody wrote one. An operation covered only by universal properties is checked for being
+      # finite and type-stable, not for being RIGHT.
+      (:wrap!,      point_coordinates(wrap!(PointSet(copy(raw_coordinates) .+
+                                                     3 .* reshape(collect(grid.domain_size), 1, 3)), grid)),
+                    ref_wrap(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3), grid)),
+      # In the universal cover: winding is PRESERVED, so a displacement that leaves the box stays out.
+      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), (α, qa))),
+                    ref_displace(raw_coordinates, (α, point_values(qa)))),
+      # TWO terms, with distinct coefficients and distinct sections. One term cannot see a fused
+      # traversal that drops or double-counts a term, and equal coefficients cannot see them swapped.
+      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), (α, qa), (β, qb))),
+                    ref_displace(raw_coordinates, (α, point_values(qa)), (β, point_values(qb)))),
+      # On the torus proper: the trailing grid fuses the wrap in, so the result is the canonical
+      # representative of the same displacement.
+      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), grid, (α, qa), (β, qb))),
+                    ref_displace_wrapped(raw_coordinates, grid, (α, point_values(qa)), (β, point_values(qb)))),
+      # Zero for anything the package produces — a spectrum built by transforming a real field cannot
+      # violate the constraint — and exactly twice the imaginary part it is handed otherwise. The
+      # second row is what makes the first non-vacuous: a residual that always returned zero would
+      # pass the first and fail this one.
+      (:reality_residual, reality_residual(sh), ref_reality_residual(field_data(sh), grid, layout)),
+      (:reality_residual, reality_residual(broken_reality),
+                          ref_reality_residual(field_data(broken_reality), grid, layout)),
+      # The in-place family move (decision 69): into a destination that already exists, within one
+      # family, which must leave the destination holding exactly the source's values.
+      (:adapt!,     field_data(adapt!(similar_field(u, Val(1)), u)), du),
+      # Adapting to one's OWN storage family is the identity — the documented no-op that makes a
+      # consumer's unconditional `adapt(Array, x)` free on the host — so the values must come back
+      # untouched. `adapt_structure` is the hook `adapt` dispatches through, checked at the same bar.
+      (:adapt,            field_data(adapt(Array, u)),                             du),
+      (:adapt_structure,  field_data(Adapt.adapt_structure(Array, u)),             du),
       (:set_fft_threads!, begin
                             set_fft_threads!(1)
                             observed = field_data(to_spectral(s, plans))
@@ -542,6 +585,8 @@ function run_value_lane(configs)
     # again and its datasets are read with the HDF5 API directly, and the largest one is compared with
     # the array that went in.
     persistence_comparisons = if HDF5_AVAILABLE
+      written_scheme = LalescuSpline(2, 1; T = T)
+      written_lagrange = LagrangeSpline(2; T = T)
       path = joinpath(mktempdir(), "value.h5")
       HDF5.h5open(path, "w") do file
         write_field(file, "field", u)
@@ -556,6 +601,9 @@ function run_value_lane(configs)
         write_field(file, "spectral_tensor", Ah)
         write_points(file, "qv", qa)
         write_points(file, "qt", qt)
+        write_scheme(file, "scheme", written_scheme)
+        write_scheme(file, "lagrange", written_lagrange)
+        write_scheme(file, "direct", DirectDFT())
       end
       raw_datasets(name) = begin
         found = Array[]
@@ -567,6 +615,13 @@ function run_value_lane(configs)
           walk(file[name])
         end
         found
+      end
+      stored_scheme_attributes = HDF5.h5open(path, "r") do file
+        a = HDF5.attrs(file["scheme"])
+        [Int(a["neighbours"]), Int(a["smoothness"])]
+      end
+      recovered_scheme, recovered_lagrange, recovered_direct = HDF5.h5open(path, "r") do file
+        (read_scheme(file, "scheme"), read_scheme(file, "lagrange"), read_scheme(file, "direct"))
       end
       stored_field = argmax(length, raw_datasets("field"))
       stored_points = argmax(length, raw_datasets("points"))
@@ -593,7 +648,19 @@ function run_value_lane(configs)
        (:read_points,  point_values(others[5]),           raw_qa),
        (:read_points,  point_values(others[6]),           raw_qt),
        (:read_points,  [typeof(others[5]) === typeof(qa), typeof(others[6]) === typeof(qt)],
-                       [true, true]))
+                       [true, true]),
+       # A SCHEME is a parameter record, not a section: its group carries attributes and no `data`
+       # dataset (decision 75), so the raw oracle reads the attributes rather than an array. Reading
+       # back with `read_scheme` alone would again be the pair agreeing with itself.
+       (:write_scheme, stored_scheme_attributes,        [2, 1]),
+       (:read_scheme,  [recovered_scheme.neighbours, recovered_scheme.smoothness], [2, 1]),
+       # The TYPE must survive too — the reader resolves the element type through a closed table and
+       # reconstructs through the ordinary constructor, so a tag-dispatch defect rebuilds the wrong
+       # family with plausible numbers.
+       (:read_scheme,  [typeof(recovered_scheme) === typeof(written_scheme),
+                        typeof(recovered_lagrange) === typeof(written_lagrange),
+                        typeof(recovered_direct) === typeof(DirectDFT())],
+                       [true, true, true]))
     else
       ()
     end

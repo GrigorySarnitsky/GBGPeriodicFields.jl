@@ -655,3 +655,51 @@ function ref_radial_correlation(spectral, grid, layout)
   end
   return [c == 0 ? 0.0 : s / c for (s, c) in zip(sums, counts)]
 end
+
+
+# --- base-space motion and the reality check (decisions 71, 73) -------------------------------------
+# Written from the docstrings, over raw arrays. `wrap!` is the canonical representative in the
+# half-open box `[o, o+L)`; `displace!` is `x_p + Σ_j c_j v_j(p)`, taken literally in the universal
+# cover, and composed with the wrap when a grid is supplied.
+ref_wrap(coordinates, grid) =
+  [mod(coordinates[p, d] - grid.origin[d], grid.domain_size[d]) + grid.origin[d]
+   for p in axes(coordinates, 1), d in 1:3]
+
+
+function ref_displace(coordinates, terms...)
+  moved = copy(coordinates)
+  for (coefficient, values) in terms
+    for p in axes(moved, 1), d in 1:3
+      moved[p, d] += coefficient * values[p, d]
+    end
+  end
+  return moved
+end
+
+
+ref_displace_wrapped(coordinates, grid, terms...) = ref_wrap(ref_displace(coordinates, terms...), grid)
+
+
+# The largest ``|f̂(k) - conj(f̂(-k))|`` over the folded axis's self-conjugate planes — its zero plane,
+# and its Nyquist plane when that axis has even length — and every fiber component. Which array axis is
+# folded is read from the layout, so a permuted fold is checked rather than assumed; the mirror of index
+# `i` on a full axis of length `n` is `mod(-(i-1), n) + 1`. A mode that is its own mirror contributes
+# twice its imaginary part, which falls out of the same expression rather than being special-cased.
+function ref_reality_residual(data, grid, layout)
+  folded = layout.fft_dims[1]
+  others = Tuple(d for d in 1:3 if d != folded)
+  a, b = others
+  na, nb = size(data, a), size(data, b)
+  planes = iseven(grid.grid_size[folded]) ? (1, size(data, folded)) : (1,)
+  fiber_shape = ntuple(i -> size(data, 3 + i), max(0, ndims(data) - 3))
+  worst = zero(real(eltype(data)))
+  index, mirror = Vector{Int}(undef, 3), Vector{Int}(undef, 3)
+  for plane in planes, component in CartesianIndices(fiber_shape), i in 1:na, j in 1:nb
+    index[folded] = plane;  index[a] = i;  index[b] = j
+    mirror[folded] = plane; mirror[a] = mod(-(i - 1), na) + 1; mirror[b] = mod(-(j - 1), nb) + 1
+    here    = data[index[1], index[2], index[3], Tuple(component)...]
+    partner = data[mirror[1], mirror[2], mirror[3], Tuple(component)...]
+    worst = max(worst, abs(here - conj(partner)))
+  end
+  return worst
+end
