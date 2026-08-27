@@ -320,10 +320,10 @@ function run_hist(p::Params)
   # `MEASURE` overwrites its input arrays while
   # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
   # condition below.
-  vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)   # vector physical ↔ spectral
-  splans = FieldTransformPlans(ScalarFieldPhysical(zeros(p.N, p.N, p.N), grid),
-                               ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid);
-                               fft_flags = FFTW.MEASURE)
+  # One plan pair serves every tensor order: a transform is a property of the box, and a rank-`R`
+  # field is that transform along a fiber, so the scalar divergence diagnostic below reuses these
+  # vector plans rather than planning a second pair of its own.
+  vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)   # physical ↔ spectral, any rank
   m    = FieldSpectralMultipliers(uspec0)
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
   dealias = spectral_cutoff(m, (2 / 3) * (p.N / 2) * (2π / p.L))
@@ -397,7 +397,7 @@ function run_hist(p::Params)
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
-  divp = to_physical(divergence(uh, m), splans)
+  divp = to_physical(divergence(uh, m), vplans)
   κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)

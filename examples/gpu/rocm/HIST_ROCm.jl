@@ -344,9 +344,9 @@ function run_hist(p::Params)
   layout = RealFourierLayout()
   uphys0 = VectorFieldPhysical(dev(zeros(FT, p.N, p.N, p.N, 3)), grid)
   uspec0 = VectorFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(1)))), grid)
-  vplans = FieldTransformPlans(uphys0, uspec0)            # vector physical ↔ spectral (device FFT plans)
-  splans = FieldTransformPlans(ScalarFieldPhysical(dev(zeros(FT, p.N, p.N, p.N)), grid),
-                               ScalarFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(0)))), grid))
+  # One plan pair serves every tensor order (a transform is a property of the box), so the scalar
+  # divergence diagnostic below reuses these plans instead of planning a second pair.
+  vplans = FieldTransformPlans(uphys0, uspec0)            # physical ↔ spectral, any rank (device plans)
   m    = FieldSpectralMultipliers(uspec0)                 # wavenumbers copied to the device backend
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels (device).
   dealias = spectral_cutoff(m, (2 / 3) * (p.N / 2) * (2π / p.L))
@@ -421,7 +421,7 @@ function run_hist(p::Params)
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
   # divergence check (should be ~`Float32` roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
-  divp = to_physical(divergence(uh, m), splans)
+  divp = to_physical(divergence(uh, m), vplans)
   κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)

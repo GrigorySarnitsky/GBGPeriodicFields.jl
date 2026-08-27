@@ -185,8 +185,21 @@ outcomes.forEach((r, i) => {
     // being thin. Measured: of 21 LINE-ONLY verdicts in the first real run, 17 were this demotion and
     // most were coverage gaps. The escape is deliberately narrow — the grader must ASSERT the absence
     // of siblings in words, which is a claim it can be held to, not merely leave the field short.
-    const singleSite = /\b(no sibling|no other site|single site|coverage gap|only site|nothing to sweep)\b/i.test(cs)
-    if (cs.length < 12 || (!/[^\s]:\d+/.test(cs) && !singleSite)) {
+    // An explicit assertion that the class has no other member — the grader's own claim, which it can
+    // be held to. The list is the original one plus equivalent phrasings; round 3 demoted four sound
+    // answers for writing "no remaining instance" or "single-site" where the list said "nothing to
+    // sweep" and "single site". Matching a fixed vocabulary rather than the claim is the same defect
+    // as counting the word HONORED.
+    const singleSite = /\b(no sibling|no (other|further|remaining) (site|surface|instance)s?|single[ -]site|coverage gap|only site|nothing (else )?to sweep)\b/i.test(cs)
+    const namesFile = /\.(md|jl|toml|sh|py|js)\b/.test(cs)
+    // Accept the enumeration in either notation. The rule demands a CONCRETE surface, not a
+    // particular spelling, and round 3 demoted three sound answers for writing "docs/ARCHITECTURE.md
+    // (lines 195, 273)" instead of "docs/ARCHITECTURE.md:195". A named file plus a line number is an
+    // enumeration; the teeth are unchanged, since prose naming neither still demotes.
+    const enumerated = /[^\s]:\d+/.test(cs) || (namesFile && /\blines?\s+~?\d+/i.test(cs))
+    // A sweep that names where it looked and reports the class empty is an answer, not a hand-wave.
+    const sweptEmpty = namesFile && /\b(no remaining|no other|no further|found no|nothing (else )?to sweep)\b/i.test(cs)
+    if (cs.length < 12 || !(enumerated || sweptEmpty || singleSite)) {
       x.verdict = 'LINE-ONLY'
       x.evidence = `[DEMOTED: HONORED claimed with no enumerated class surface] ${x.evidence || ''}`
     }
