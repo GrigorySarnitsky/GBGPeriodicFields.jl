@@ -290,7 +290,23 @@ function lint_review_closure()
             # claimed with no enumerated class surface]", so a bare string count inflated 2 honored
             # verdicts to 6 — in the direction that closes a round early, which is the direction that
             # never gets questioned.
-            honored = length(collect(eachmatch(r"^\*\*Verdict:\*\* *HONORED *$"m, verdicts)))
+            # The verdict in this file is the GRADER'S OWN, before the verifier's mechanical demotion.
+            # The demotion runs in the workflow script's post-processing, and a workflow script cannot
+            # write files, so it never reaches the markdown: round 4 banked 30 HONORED while the
+            # script's authoritative tally was 23. The gate was reading the flattering artifact and
+            # went green on a round with eight findings still open. So apply the same predicate here,
+            # over the evidence the file does carry. This is deliberately a TWIN of the predicate in
+            # `check-consistency/verify-fixes.js` — edit the two together.
+            honored = 0
+            for chunk in split(verdicts, r"^#{2,4} +Finding "m)[2:end]
+                occursin(r"^\*\*Verdict:\*\* *HONORED *$"m, chunk) || continue
+                cs = (m = match(r"class_surfaces:?\*{0,2}(.*)"s, chunk)) === nothing ? "" : m.captures[1]
+                names_file = occursin(r"\.(md|jl|toml|sh|py|js)\b", cs)
+                enumerated = occursin(r"[^\s]:\d+", cs) || (names_file && occursin(r"\blines? +~?\d+"i, cs))
+                swept_empty = names_file && occursin(r"\b(no remaining|no other|no further|found no|nothing (else )?to sweep)\b"i, cs)
+                single_site = occursin(r"\b(no sibling|no (other|further|remaining) (site|surface|instance)s?|single[ -]site|coverage gap|only site|nothing (else )?to sweep)\b"i, cs)
+                (length(strip(cs)) >= 12 && (enumerated || swept_empty || single_site)) && (honored += 1)
+            end
             # A finding whose title the adjudicated list names is closed by that record instead.
             titles = [strip(m.captures[1]) for m in eachmatch(r"^#{2,4} +Finding +\d+ +[—-] +(.*)$"m, body)]
             dismissed = count(t -> !isempty(t) && occursin(first(t, 40), adjudicated), titles)

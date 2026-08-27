@@ -168,3 +168,32 @@ future round that re-raises one should close against this note or overturn it ex
   demo's RK2 midpoint update is *time-stepping*, which is a consumer concern the package deliberately
   excludes (invariant 12). CLAUDE.md already queues that rewrite for the consumer package. **Overturn
   this** if the demo is rewritten for other reasons, since it would then be free to adopt the verb.
+
+## /check-docs 2026-08-27 — five closed by verification, not by dismissal
+
+These five were fixed. They are recorded here because the verifier's mechanical demotion
+demoted them anyway: each grader's `class_surfaces` answer named the class by **identifier**
+(`radial_kernel`, "the same three builders") rather than by file path or line, and the predicate
+demands a named file or an explicit absence claim. The fix is real, the citation was thin, and
+the honest close is a checkable record rather than a fourth loosening of the predicate — three
+successive rounds have already been spent tuning it, which is itself the argument for IT's
+choice of testing **emptiness** rather than parsing content.
+
+Each was verified against the tree, not against the grader's account:
+
+- **radial_kernel uses the bulleted argument form with two positional args and no keyword** —
+  fixed. The only `The arguments are:` lists remaining in `src/Convolution.jl` are at lines 934,
+  1265, 1424 and 1648, belonging to `convolve`, `convolve!`, `spectral_band` and
+  `translation_kernel!`; every one takes three or more arguments, which the rubric's shape rule 1
+  requires to be bulleted. No two-argument builder carries one.
+- **spectral_cutoff uses the bulleted argument form with two positional args** — fixed, same
+  evidence.
+- **translation_kernel uses the bulleted argument form with two positional args** — fixed, same
+  evidence.
+- **'deck group' is used once and never glossed** — fixed. `docs/FORMALIZATION.md:781` now reads
+  "deck group — the whole-period lattice shifts that map the unwrapped picture onto itself".
+- **'the whole hierarchy' has no clear antecedent** — fixed. The phrase no longer occurs anywhere
+  in `src/` or the four rationale docs; the passage was rewritten rather than patched.
+
+Overturn condition: if a grep finds a two-argument, no-keyword builder still carrying a bulleted
+argument list, or either term used cold again, reopen the finding rather than citing this note.
