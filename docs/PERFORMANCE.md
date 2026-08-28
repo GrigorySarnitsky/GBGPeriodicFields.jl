@@ -1458,61 +1458,50 @@ effort is leaving a factor of ``4.7`` on the floor at that size, which is worth 
 decision was, and is not addressed by it.
 
 
-**(ab) The odd-width NUFFT stencil fix costs nothing measurable, and the small-grid device transfer
-shift beside it is NOT that fix** (2026-08-28). The `transfer` and `convolution` classes were re-swept
-on three lanes — `CPU 9800X3D t1`, `t4` and `GPU 5070TI` — after the stencil correction, which adds one
-runtime comparison per axis per point inside both transfer kernels and so had to be priced rather than
-assumed free.
+**(ab) Every "slowdown" in the 2026-08-28 re-sweep was the MEASUREMENT, not the code — and the
+method that settled it is the one to reuse** (2026-08-28). Re-sweeping `transfer` and `convolution`
+on three lanes after the odd-width stencil fix flagged twenty rows against the archives. All twenty
+were chased to a cause. None is a code regression.
 
-- **It is free where work dominates.** Medians over 208, 208 and 156 rows are ``\times 0.999``,
-  ``\times 1.000`` and ``\times 0.975``. The NUFFT rows specifically are flat at every grid whose time
-  is dominated by arithmetic rather than launch: on the device ``\times 1.012`` and ``\times 1.006`` at
-  ``256^3``, ``\times 1.074`` and ``\times 0.965`` at ``128^3``; on the CPU ``\times 0.997``–``1.008``
-  at ``512^3``. A per-point cost would scale with the point count and appear first at the largest grid,
-  which is exactly where it is absent.
-- **The device small-grid rows DID move, and the movement is real rather than noise.** At ``64^3``
-  `Float32`, `interpolate! Lalescu(3,3)` reads ``\times 1.489`` against the previous archive and
-  `interpolate! NUFFT` ``\times 1.376``. Re-measuring the whole ``64^3`` `Float32` transfer group
-  reproduced the new values to within 1.3% (median ``\times 0.997``), so these are a stable state, not
-  a bad sample.
-- **It is not attributable to the fix, and the discriminator is which kernels moved.** `Lalescu`,
-  `CatmullRom` and `trilinear` are local splines whose stencil arithmetic the change never touched, and
-  they move as much as or more than `NUFFT` in the same regime. Whatever shifted, it shifted kernels
-  with no edit between them.
-- **The cause is NOT identified, and naming one here would be a guess.** The previous device archive was
-  measured 2026-08-09, nineteen days and thirteen decisions earlier, and the CUDA toolchain was pinned
-  away from `CUDA_Compiler_jll` 0.5.2 in that window — a plausible story that this data cannot test. The
-  honest reading is a launch-latency-regime shift of unknown origin, recorded so a future sweep can
-  compare against something rather than reconstruct it. Attributing it needs a bisect on this card,
-  which is its own piece of work.
+**The instrument that settles it is a back-to-back A/B, not a repeat.** A `git worktree` at the
+archive's own commit, with the *current* dependency manifest copied in so only package source
+differs, measured alternately with the new tree in the same thermal and memory state. Re-running the
+identical lane — which I did first — establishes stability and says nothing about cause: the GPU
+group reproduced to 1.3% while being wrong about the code.
 
-**A CLASS-SKIPPED LANE CANNOT MEASURE THE FINDING-(y) ROWS, and this sweep proved it the hard way.**
-The first merge of these lanes carried `materialize_kernel radial` at ``512^3`` `Float64` reading
-``\times 2.856`` against the archive, and `materialize_kernel separable` ``\times 2.383`` — the two
-rows finding (y) names as process-history-sensitive. They are not a regression and not noise. Re-run
-with the `transfer` class also skipped, `materialize_kernel radial` reads **75.4 ms** against the
-full-sweep archive's **74.8**; with `transfer` in the same process ahead of it, **213.7 ms**. The
-oversampled NUFFT fields that class streams leave the allocator in a different regime, which is
-finding (y)'s mechanism reached by a different route — there the sensitivity was to the 17 rows of its
-own class, here to a whole class that a full sweep would have run in a different order. Both
-`materialize_kernel` rows were therefore RESTORED from the full-sweep archives rather than merged, and
-a class-skipped lane must do the same in future.
+**CPU ``512^3`` convolution (five rows, ``\times 1.16``–``1.35``).** Back-to-back, old against new
+reads ``\times 1.012``. The same binary, same shape, run four times, alternates **178.1, 159.5,
+177.8, 158.7 ms** — two stable bands ``12\%`` apart, chosen per process. Within one process the
+rows agree to ``0.03\%``, so a sweep is self-consistent and two sweeps need not be.
 
-The discriminator that separates the two cases is re-running the lane in a different SHAPE, not merely
-re-running it: `convolve! scalar` at ``512^3`` reads 120.9 ms with `transfer` ahead of it and 122.7 ms
-without, so it is stable under exactly the perturbation that moves `materialize_kernel` by ``2.8\times``.
+**The band is not what the obvious suspects say.** Six stored kernels allocated in ONE process all
+time 160–166 ms, so it is not the kernel array's placement. Pinning to a single core still alternates
+(158.6, 177.5, 177.3, 158.5), so it is not scheduling. Both bands report ``0\%`` transparent huge
+pages. A minimal three-array probe sits in the slow band always, while the full class reaches the
+fast one — which places this in finding (y)'s family: sensitivity to the process's allocation
+history, here selecting between two bands rather than shifting one row.
 
-**What survives as a real, unexplained movement.** Five ``512^3`` convolution rows at ``t1``
-(``\times 1.16``–``1.35``: `convolve! scalar`, `convolve! vector`, its `∘ stored` and `∘ radial-stored`
-variants, and `combine!∘kernel vector`) and five ``t4`` rows at ``128^3``/``256^3``. They reproduce, they
-are confined to one grid size per lane, and **none of them goes through the code this session changed** —
-the stored-kernel path is untouched, and the separable path's edit is on the device branch, which a CPU
-lane never reaches. Against a 19-day-old archive spanning thirteen decisions, that is a movement to
-record, not to attribute.
+**CPU ``128^3``/``256^3`` at ``t4`` (five rows).** Back-to-back, the new tree is equal or **faster**:
+`interpolate! Lalescu(3,3)` 88.1 against 95.0 ms, `trilinear` 3.72 against 3.79, `CatmullRom` 14.36
+against 14.55. `convolve! vector ∘ radial` re-measures at 8.195 ms against the archive's 8.277.
 
-**Method note.** `characterize.jl` saves only what it just measured, so the three lanes were measured
-into separate part-archives and merged, and the merge verified in both directions: re-merging each
-pre-merge backup reported 0 rows missing and 0 untouched-class rows altered.
+**Device small grids (ten rows, up to ``\times 1.49``).** Two regimes were being compared, not two
+codes: the archive's vintage keeps per-sample GC on **8** device transfer rows where the current
+harness keeps it on **0**. Measured directly on the real row, new code, GC-free,
+`interpolate! Lalescu(3,3)` ``64^3`` `Float32` reads **214.9 µs** against the archive's **215.1** —
+exact agreement. The ``320`` µs in the sweep is the sweep's context.
+
+**So the stencil fix is free, and the evidence for that is the A/B rather than the sweep.** The sweep
+also showed it — NUFFT rows flat at ``256^3`` and ``512^3``, where a per-point cost would appear
+first — but that reading was only as trustworthy as the comparison it rested on.
+
+**Consequence, and it is a rule rather than an observation: a CLASS-SKIPPED LANE MUST NOT BE MERGED
+INTO A FULL-SWEEP TABLE.** Skipping `fft`, `algebra`, `operators`, `reductions` and `storage` changes
+the process history that finding (y) shows several rows depend on, and it changes which rows the
+per-row `gcsample` probe classifies. The whole re-sweep was therefore REVERTED from the archives and
+`RESULTS.md` regenerated back to its previous content, verified byte-identical outside the generation
+header. Re-measure a class by sweeping the lane whole, or measure it as an A/B and keep the result
+out of the table.
 
 ## 5. The benchmark suite
 

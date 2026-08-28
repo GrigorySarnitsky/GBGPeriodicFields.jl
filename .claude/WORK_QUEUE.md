@@ -18,3 +18,13 @@ the block shows in the diff instead of being silent.
       systematic movement before naming a cause
 - [x] CLAUDE.md: survey figures replaced with the 2026-08-28 run's measured numbers
 - [x] Commit and push everything, including this harness
+
+## Open (authorised 2026-08-28: "find out the reason for all of the slowdowns. And I mean all")
+
+- [x] CPU t1: five 512³ convolution rows, x1.16–1.35 — isolate CODE from ENVIRONMENT by measuring the
+      baseline commit in the same sweep shape
+- [x] CPU t4: five 128³/256³ rows (convolve! scalar, ∘radial, and three spline interpolate rows), same method
+- [x] GPU 5070TI: ten small-grid transfer rows, x1.13–1.49, same method against its own baseline commit
+- [x] Attribute each cluster to a named cause, or state precisely what was excluded and what remains
+- [x] Record the findings and commit
+
