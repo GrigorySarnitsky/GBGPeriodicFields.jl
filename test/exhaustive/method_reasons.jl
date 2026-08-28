@@ -22,7 +22,19 @@
 # that site. Silently closing a group is the "covered by a sibling builder" escape the design warns
 # about, so the number of methods a reason closes must be DECLARED and is verified against the method
 # table. A reason whose declared count is wrong is reported rather than applied.
-const LEDGER_REASONS = Dict{String, Tuple{Symbol, Int, String}}()
+const LEDGER_REASONS = Dict{String, Tuple{Symbol, Int, String}}(
+  # Error fallbacks. Both exist to REFUSE a call and say why, so there is no value for an oracle to
+  # compare; the refusal itself is asserted by the survey's domain-rejection lane, not here.
+  "Reductions.jl:1496" => (:not_a_value, 1,
+    "`extrema(::AbstractFiberSection)` throws: an order statistic above R = 0 is ill-posed until a fiber map names what is ordered"),
+  "Reductions.jl:655" => (:not_a_value, 1,
+    "`var` on a non-scalar section throws: the fiber-preserving variance is basis-dependent and the package declines it"),
+  # An ambiguity resolver the field layer cannot be driven through. A destination whose tensor order
+  # matches the operands dispatches to the more specific method; one whose order does not is REFUSED
+  # by the compatibility check, so no call both reaches this method and returns a value.
+  "FieldAlgebra.jl:767" => (:unreachable, 1,
+    "exists to resolve dispatch ambiguity; a matching destination reaches the more specific method and a mismatched one is refused"),
+)
 
 
 """

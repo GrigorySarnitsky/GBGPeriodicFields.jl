@@ -154,6 +154,22 @@ function ref_divergence(u, grid, layout)
   return out
 end
 
+
+# The TENSOR divergence, contracting the SECOND fiber index: (∇·A)_i = ∂_{x_j} A_ij. Written out
+# because the vector form above cannot be pointed at a rank-2 fibre, which is the "reference not yet
+# generic" the per-method ledger's design names by hand.
+function ref_divergence_tensor(A, grid, layout)
+  shape = size(A)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+  out = similar(A, (shape..., 3))
+  for c in CartesianIndices(shape)
+    k = (k1[c[1]], k2[c[2]], k3[c[3]])
+    for i in 1:3
+      out[c, i] = sum(im * k[j] * A[c, i, j] for j in 1:3)
+    end
+  end
+  return out
+end
+
 function ref_curl(u, grid, layout)
   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
   out = similar(u)
@@ -633,9 +649,19 @@ end
 #
 # Written from the documented definition: C(r) = 𝓕⁻¹(|f̂|²)/N, averaged over the shell of
 # minimum-image separations |r|. The inverse transform is the reference's own, not the package's.
-function ref_radial_correlation(spectral, grid, layout)
+# The TWO-FIELD co-correlation: the same construction with the cross-power `conj(f̂)·ĝ` in place of
+# `|f̂|²`, which is what makes the single-field form the `g = f` case rather than a separate formula.
+# Widened here because the per-method ledger showed the two-field method reached by nothing.
+ref_radial_correlation(f, g, grid, layout, R) =
+  _ref_radial_correlation_from_power(conj.(f) .* g, grid, layout)
+
+
+ref_radial_correlation(spectral, grid, layout) =
+  _ref_radial_correlation_from_power(abs2.(spectral), grid, layout)
+
+
+function _ref_radial_correlation_from_power(power, grid, layout)
   N = grid.grid_size
-  power = abs2.(spectral)
   # |f̂|² is real and Hermitian, so its inverse transform is real: reuse the reference inverse DFT,
   # which performs the Hermitian completion from the stored half-spectrum.
   correlation = ref_dft_inverse(complex.(power), grid, layout) ./ prod(N)
@@ -908,3 +934,27 @@ function ref_dev_generic(A)                      # A minus its isotropic part, t
   return out
 end
 
+
+
+# The spectral-domain SCATTER, written from the docstring's sum rather than from the gather's code:
+# f̂(k) += Σ_p q_p exp(-i k·(x_p - o)), one term per point, accumulated onto the destination.
+function ref_spectral_anterpolate(destination, coordinates, values, grid, layout, R, α, β)
+  shape = size(destination)[1:3]
+  components = 3^R
+  (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+  flat_destination = reshape(copy(destination), :, components)
+  flat_values = reshape(values, size(values, 1), components)
+  out = zeros(eltype(destination), size(flat_destination))
+  for (linear, index) in enumerate(CartesianIndices(shape))
+    k = (k1[index[1]], k2[index[2]], k3[index[3]])
+    for p in axes(coordinates, 1)
+      phase = exp(-im * (k[1] * (coordinates[p, 1] - grid.origin[1]) +
+                         k[2] * (coordinates[p, 2] - grid.origin[2]) +
+                         k[3] * (coordinates[p, 3] - grid.origin[3])))
+      for c in 1:components
+        out[linear, c] += flat_values[p, c] * phase
+      end
+    end
+  end
+  return reshape(α .* out .+ β .* flat_destination, size(destination))
+end

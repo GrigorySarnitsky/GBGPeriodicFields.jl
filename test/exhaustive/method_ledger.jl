@@ -326,7 +326,10 @@ function selfcheck_method_ledger()
       failures += 1
     end
   end
-  rm(scratch; recursive = true, force = true)
+  # The scratch copy is KEPT until the end: probes 4 and 5 need a genuinely uncovered cell, and once
+  # the ledger reaches zero there is none in the real tree. Taking their target from the perturbed
+  # copy is what stops those two probes going dark exactly when the ledger is complete — a check that
+  # silently skips on success is the failure mode this whole lane exists to prevent.
 
   # --- probe 3: a reason for a site no method occupies must be reported STALE --------------------
   LEDGER_REASONS["NoSuchFile.jl:99999"] = (:unreachable, 1, "a probe, not a real exclusion")
@@ -340,14 +343,19 @@ function selfcheck_method_ledger()
   delete!(LEDGER_REASONS, "NoSuchFile.jl:99999")
 
   # --- probe 4: a reason closes a cell WITHOUT it counting as covered ----------------------------
-  if isempty(baseline.uncovered_cells)
-    println("  probe 4 SKIPPED — no uncovered cell to close; re-check when one exists")
+  # The target comes from the PERTURBED tree, where deleting a row left one cell uncovered, so this
+  # probe keeps working when the real ledger is at zero.
+  perturbed_baseline = isdir(scratch) ? run_method_ledger(; verbose = false, source_dir = scratch) : baseline
+  if isempty(perturbed_baseline.uncovered_cells)
+    println("  probe 4 FAILED — the perturbation left no uncovered cell, so the probe cannot run")
+    failures += 1
   else
-    victim = first(baseline.uncovered_cells)
+    victim = first(perturbed_baseline.uncovered_cells)
     group = count(cell -> cell.site == victim.site, _ledger_cells())
     LEDGER_REASONS[victim.site] = (:unreachable, group, "a probe, not a real exclusion")
-    closed_run = run_method_ledger(; verbose = false)
+    closed_run = run_method_ledger(; verbose = false, source_dir = scratch)
     delete!(LEDGER_REASONS, victim.site)
+    baseline = perturbed_baseline
     if closed_run.covered == baseline.covered && closed_run.closed == baseline.closed + group &&
        closed_run.uncovered == baseline.uncovered - group
       println("  probe 4 (reason ≠ row)   a reason closes its DECLARED ", group,
@@ -364,7 +372,7 @@ function selfcheck_method_ledger()
   if !isempty(baseline.uncovered_cells)
     victim = first(baseline.uncovered_cells)
     LEDGER_REASONS[victim.site] = (:unreachable, 0, "declares zero, so it must not close anything")
-    miscounted_run = run_method_ledger(; verbose = false)
+    miscounted_run = run_method_ledger(; verbose = false, source_dir = scratch)
     delete!(LEDGER_REASONS, victim.site)
     if miscounted_run.uncovered == baseline.uncovered && !isempty(miscounted_run.miscounted_reasons)
       println("  probe 5 (miscount)       a reason closing more than it declares is refused, not applied  ✓")
@@ -374,5 +382,6 @@ function selfcheck_method_ledger()
       failures += 1
     end
   end
+  rm(scratch; recursive = true, force = true)
   return failures
 end

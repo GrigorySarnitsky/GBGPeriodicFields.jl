@@ -257,6 +257,7 @@ function run_value_lane(configs)
     let d = field_data(broken_reality)
       d[CartesianIndices(d)[1]] += Complex{T}(0, 1) * T(3) / 4
     end
+    rng_for_scatter = MersenneTwister(20260828)
     sh2 = to_spectral(s2, plans)
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
@@ -924,6 +925,228 @@ function run_value_lane(configs)
       push!(generated, (:sym!, point_values(sym!(similar_pointvalues(qt, Val(2)), qt)), ref_sym_generic(point_values(qt))))
       push!(generated, (:skew!, point_values(skew!(similar_pointvalues(qt, Val(2)), qt)), ref_skew_generic(point_values(qt))))
       push!(generated, (:dev!, point_values(dev!(similar_pointvalues(qt, Val(2)), qt)), ref_dev_generic(point_values(qt))))
+    end
+
+    # ── sweep 6: the storage hook, kernel composition, and the spectral scatter's arities ────────
+    if !LEDGER_FIXTURES_ONLY
+      # `adapt_structure` is the hook `adapt` dispatches through, one method per carrier. Adapting to
+      # the family a section already occupies is the documented identity, so the values must return
+      # untouched — which is exactly what a consumer's unconditional `adapt(Array, x)` relies on.
+      push!(generated, (:adapt_structure, field_data(Adapt.adapt_structure(Array, sh)), field_data(sh)))
+      push!(generated, (:adapt_structure, point_values(Adapt.adapt_structure(Array, qa)), point_values(qa)))
+      push!(generated, (:adapt_structure, point_coordinates(Adapt.adapt_structure(Array, points)),
+                        point_coordinates(points)))
+      push!(generated, (:adapt_structure, Adapt.adapt_structure(Array, multipliers).wavenumber_1,
+                        multipliers.wavenumber_1))
+      radial_k = spectral_cutoff(multipliers, cutoff)
+      separable_k = assignment_window(multipliers)
+      stored_k = materialize_kernel(separable_k)
+      product_k = convolve(radial_k, separable_k)
+      for (name, kernel) in ((:radial, radial_k), (:separable, separable_k), (:stored, stored_k), (:product, product_k))
+        push!(generated, (:adapt_structure,
+                          Array(kernel_data(Adapt.adapt_structure(Array, kernel))),
+                          Array(kernel_data(kernel))))
+      end
+
+      # Composing two kernels of the same class stays in that class; the composite must apply as the
+      # coefficientwise product of the two symbols, which is what `convolve` on two kernels means.
+      push!(generated, (:convolve, Array(kernel_data(convolve(radial_k, radial_k))),
+                        Array(kernel_data(radial_k)) .* Array(kernel_data(radial_k))))
+      push!(generated, (:convolve, Array(kernel_data(convolve(separable_k, separable_k))),
+                        Array(kernel_data(separable_k)) .* Array(kernel_data(separable_k))))
+      # Both argument orders APPLY a kernel to a field and must agree (decision 60).
+      push!(generated, (:convolve, field_data(convolve(radial_k, sh)),
+                        ref_convolve(field_data(sh), Array(kernel_data(radial_k)))))
+      push!(generated, (:⋆, field_data(sh ⋆ radial_k),
+                        ref_convolve(field_data(sh), Array(kernel_data(radial_k)))))
+
+      # The lazy exponential kernel's TWO-OPERAND form: a weighted combination convolved in one pass.
+      exponent = -T(1) / 10
+      symbol = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2,
+                                                         multipliers, exponent)),
+                        ref_convolve(α .* field_data(sh) .+ β .* field_data(sh2), symbol)))
+
+      # The spectral SCATTER at its arities, both schemes, against the adjoint sum — compared on the
+      # RESOLVED BAND. The rfft Nyquist is projected out so the gather/scatter pair stay exact
+      # adjoints, so the naive sum and the package agree everywhere except those planes, by design:
+      # measured here, 55 of 160 cells differ before the projection and none after.
+      band(x) = ref_project_out_nyquist(x, grid, layout)
+      for scheme in (DirectDFT(), NUFFT(sh; tol = 1e-10))
+        base = zeros(Complex{T}, size(field_data(sh)))
+        push!(generated, (:anterpolate!,
+                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(base), grid, layout), points, q, scheme))),
+                          band(ref_spectral_anterpolate(base, point_coordinates(points), point_values(q),
+                                                        grid, layout, 0, one(T), zero(T)))))
+        seeded = randn(rng_for_scatter, Complex{T}, size(field_data(sh)))
+        push!(generated, (:anterpolate!,
+                          band(field_data(anterpolate!(ScalarFieldSpectral(copy(seeded), grid, layout), points, q, scheme, α, β))),
+                          band(ref_spectral_anterpolate(seeded, point_coordinates(points), point_values(q),
+                                                        grid, layout, 0, α, β))))
+      end
+    end
+
+    # ── sweep 7: the tail the ledger named one method at a time ──────────────────────────────────
+    if !LEDGER_FIXTURES_ONLY
+      # Unary plus and minus, on a field and on a point-value section.
+      push!(generated, (:+, field_data(+s), ds))
+      push!(generated, (:-, field_data(-s), -ds))
+      push!(generated, (:+, point_values(+qa), point_values(qa)))
+      push!(generated, (:-, point_values(-qa), -point_values(qa)))
+
+      # The VARIADIC forms, three distinct operands so a dropped or duplicated argument shows.
+      push!(generated, (:+, point_values(qa + qb + qa), point_values(qa) .+ point_values(qb) .+ point_values(qa)))
+      push!(generated, (:-, point_values(qa - qb - qa), point_values(qa) .- point_values(qb) .- point_values(qa)))
+      push!(generated, (:add!, point_values(add!(similar_pointvalues(qa, Val(1)), qa, qb, qa)),
+                        point_values(qa) .+ point_values(qb) .+ point_values(qa)))
+      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(qa, Val(1)), qa, qb, qa)),
+                        point_values(qa) .- point_values(qb) .- point_values(qa)))
+
+      # A Real against a SCALAR point section, both argument orders.
+      push!(generated, (:add!, point_values(add!(similar_pointvalues(q, Val(0)), q, α)), point_values(q) .+ α))
+      push!(generated, (:add!, point_values(add!(similar_pointvalues(q, Val(0)), α, q)), α .+ point_values(q)))
+      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(q, Val(0)), q, α)), point_values(q) .- α))
+      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(q, Val(0)), α, q)), α .- point_values(q)))
+
+      # `adapt!` into a destination of the family it already occupies: the values must arrive intact.
+      push!(generated, (:adapt!, field_data(adapt!(similar_field(sh, Val(0)), sh)), field_data(sh)))
+      push!(generated, (:adapt!, point_values(adapt!(similar_pointvalues(qa, Val(1)), qa)), point_values(qa)))
+      push!(generated, (:adapt!, point_coordinates(adapt!(PointSet(similar(point_coordinates(points))), points)),
+                        point_coordinates(points)))
+
+      # The Frobenius pairing of two TENSOR sections, and its in-place and operator spellings.
+      push!(generated, (:dot, field_data(dot(A, B)), ref_tensor_inner_generic(dA, field_data(B))))
+      push!(generated, (:⋅, field_data(A ⋅ B), ref_tensor_inner_generic(dA, field_data(B))))
+      push!(generated, (:dot!, field_data(dot!(similar_field(s, Val(0)), A, B)), ref_tensor_inner_generic(dA, field_data(B))))
+      push!(generated, (:dot, point_values(dot(qt, qt)), ref_tensor_inner_generic(point_values(qt), point_values(qt))))
+      push!(generated, (:⋅, point_values(qt ⋅ qt), ref_tensor_inner_generic(point_values(qt), point_values(qt))))
+      push!(generated, (:dot!, point_values(dot!(similar_pointvalues(q, Val(0)), qt, qt)),
+                        ref_tensor_inner_generic(point_values(qt), point_values(qt))))
+
+      # A fiber constant on the LEFT of a section of the complementary order.
+      for (vec, vraw, ten, traw, data) in ((u, du, A, dA, field_data),
+                                           (uh, field_data(uh), Ah, field_data(Ah), field_data),
+                                           (qa, point_values(qa), qt, point_values(qt), point_values))
+        push!(generated, (:*, data(ct * vec), ref_matvec_generic(_fiber_broadcast(ct, (_base_shape(vraw, 1)..., 3, 3), 2), vraw)))
+        push!(generated, (:*, data(cv * ten), ref_vecmat_generic(_fiber_broadcast(cv, (_base_shape(traw, 2)..., 3), 1), traw)))
+      end
+
+      # The tensor DIVERGENCE in spectral representation, plain and kernel-composed.
+      radial_k2 = spectral_cutoff(multipliers, cutoff)
+      push!(generated, (:divergence, field_data(divergence(Ah, multipliers)),
+                        ref_divergence_tensor(field_data(Ah), grid, layout)))
+      push!(generated, (:divergence!, field_data(divergence!(similar_field(uh, Val(1)), Ah, multipliers)),
+                        ref_divergence_tensor(field_data(Ah), grid, layout)))
+      push!(generated, (:divergence, field_data(divergence(Ah, multipliers, radial_k2)),
+                        ref_convolve(ref_divergence_tensor(field_data(Ah), grid, layout),
+                                     _fiber_broadcast_scalar(Array(kernel_data(radial_k2)),
+                                                             size(field_data(uh)), 1))))
+
+      # `map!` with α/β, and its variadic point form.
+      push!(generated, (:map!, field_data(map!(x -> 2x, similar_field(s, Val(0)), s, α, zero(T))),
+                        α .* (2 .* ds)))
+      push!(generated, (:map!, point_values(map!(x -> 2x, similar_pointvalues(q, Val(0)), q, α, zero(T))),
+                        α .* (2 .* point_values(q))))
+      push!(generated, (:map!, point_values(map!((x, y) -> x - 2y, similar_pointvalues(qa, Val(1)), qa, qb)),
+                        point_values(qa) .- 2 .* point_values(qb)))
+
+      # A scalar-by-scalar product written into a destination of the general field type.
+      push!(generated, (:multiply!, field_data(multiply!(similar_field(s, Val(0)), s, s2)), ds .* field_data(s2)))
+      push!(generated, (:multiply!, point_values(multiply!(similar_pointvalues(q, Val(0)), q, q2)),
+                        point_values(q) .* point_values(q2)))
+
+      # Reductions the tail named: the spectral `integral`, the mapped form, and the whole-section
+      # order statistics.
+      push!(generated, (:integral, integral(sh), ref_integral(ds, 0, grid)))
+      push!(generated, (:integral, integral(abs2, s), ref_integral(abs2.(ds), 0, grid)))
+      push!(generated, (:extrema, collect(extrema(s)), collect(extrema(ds))))
+      push!(generated, (:var, var(s), ref_var(ds)))
+      push!(generated, (:ndims, [ndims(qa), ndims(typeof(sh))], [2, 3]))
+
+      # Kernel inversion for the compressed classes, and the single-field weighted inner.
+      separable_k2 = assignment_window(multipliers)
+      push!(generated, (:inv, Array(kernel_data(inv(separable_k2))), 1 ./ Array(kernel_data(separable_k2))))
+      push!(generated, (:weighted_inner, weighted_inner(sh, radial_k2),
+                        ref_weighted_inner(field_data(sh), field_data(sh),
+                                           Array(kernel_data(radial_k2)), grid, layout, 0)))
+
+      # The preserving scratch arity of the inverse transform (decision 64) — the source must SURVIVE.
+      scratch = similar_field(sh, similar(field_data(sh)))
+      before = copy(field_data(sh))
+      recovered = to_physical!(similar_field(s, Val(0)), sh, plans, scratch)
+      push!(generated, (:to_physical!, field_data(recovered), ref_dft_inverse(field_data(sh), grid, layout)))
+      push!(generated, (:to_physical!, field_data(sh), before))
+    end
+
+    # ── sweep 8: the last cells the ledger named ─────────────────────────────────────────────────
+    if !LEDGER_FIXTURES_ONLY
+      radial_a = spectral_cutoff(multipliers, cutoff)
+      radial_b = spectral_band(multipliers, T(1), T(3))
+      # Composing two radials whose multiplier sets are the SAME canonical object collapses into a
+      # single radial (decision 61, decided in the type domain). Two radials over sets that are not
+      # known to be the same take the other method and keep both operands — reached here by building
+      # the second set through the explicit six-array constructor, which cannot claim canonicity.
+      push!(generated, (:convolve, Array(kernel_data(convolve(radial_a, radial_b))),
+                        Array(kernel_data(radial_a)) .* Array(kernel_data(radial_b))))
+      noncanonical = FieldSpectralMultipliers(grid, layout,
+                                              copy(multipliers.wavenumber_1), copy(multipliers.wavenumber_2),
+                                              copy(multipliers.wavenumber_3), copy(multipliers.squared_wavenumber_1),
+                                              copy(multipliers.squared_wavenumber_2), copy(multipliers.squared_wavenumber_3))
+      radial_c = spectral_band(noncanonical, T(1), T(3))
+      push!(generated, (:convolve, Array(kernel_data(convolve(radial_a, radial_c))),
+                        Array(kernel_data(radial_a)) .* Array(kernel_data(radial_c))))
+      push!(generated, (:⋆, Array(kernel_data(radial_a ⋆ radial_c)),
+                        Array(kernel_data(radial_a)) .* Array(kernel_data(radial_c))))
+      # `inv` of a product kernel is the product of the reciprocals — built from factors with NO
+      # ZEROS, since a sharp cutoff's reciprocal is not a kernel at all. A smooth radial symbol and
+      # the displacement phase (unit modulus everywhere) are both nonvanishing by construction.
+      smooth_radial = radial_kernel(k2 -> exp(-T(1) / 100 * k2), multipliers)
+      phase = translation_kernel(multipliers, ntuple(d -> T(1) / 2 * grid.grid_spacing[d], 3))
+      product_kernel = convolve(smooth_radial, phase)
+      push!(generated, (:inv, Array(kernel_data(inv(product_kernel))), 1 ./ Array(kernel_data(product_kernel))))
+
+      # The exponential kernel's OFFSET arities: exp(c|k|² + s·ŵ), with ŵ a per-mode real field
+      # entered as scale × field, in the single-operand and two-operand forms.
+      exponent2 = -T(1) / 20
+      offset_scale = T(3) / 10
+      offset_field = ScalarFieldSpectral(real.(field_data(sh)) .+ zero(Complex{T}), grid, layout)
+      symbol2 = complex.(ref_exponential_symbol(grid, layout, size(field_data(sh))[1:3], exponent2)) .*
+                exp.(offset_scale .* real.(field_data(offset_field)))
+      push!(generated, (:exponential_convolve,
+                        field_data(exponential_convolve(sh, multipliers, exponent2, offset_scale, offset_field)),
+                        ref_convolve(field_data(sh), symbol2)))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers,
+                                                         exponent2, offset_scale, offset_field)),
+                        ref_convolve(field_data(sh), symbol2)))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), sh, multipliers,
+                                                         exponent2, offset_scale, offset_field, α, zero(T))),
+                        α .* ref_convolve(field_data(sh), symbol2)))
+      push!(generated, (:exponential_convolve!,
+                        field_data(exponential_convolve!(similar_field(sh, Val(0)), α, sh, β, sh2,
+                                                         multipliers, exponent2, offset_scale, offset_field)),
+                        ref_convolve(α .* field_data(sh) .+ β .* field_data(sh2), symbol2)))
+
+      # The two-field CO-correlation, the Wiener–Khinchin dual of the co-spectrum.
+      separations, cross_correlation = radial_correlation(sh, sh2, plans)
+      _, self_correlation = radial_correlation(sh, sh, plans)
+      push!(generated, (:radial_correlation, cross_correlation,
+                        ref_radial_correlation(field_data(sh), field_data(sh2), grid, layout, 0)))
+      push!(generated, (:radial_correlation, self_correlation,
+                        ref_radial_correlation(field_data(sh), field_data(sh), grid, layout, 0)))
+
+      # The FIBER-level decompositions, on a bare constant rather than a section.
+      push!(generated, (:sym, Array(sym(ct)), (Array(ct) .+ Array(ct)') ./ 2))
+      push!(generated, (:skew, Array(skew(ct)), (Array(ct) .- Array(ct)') ./ 2))
+
+      # The point layer ACCEPTS a destination whose order exceeds the operands', broadcasting the
+      # scalar product over the fiber. The field layer REFUSES the identical shape. Pinned here as
+      # measured, and reported as an asymmetry between two surfaces that mirror each other by design.
+      push!(generated, (:multiply!,
+                        point_values(multiply!(similar_pointvalues(qa, Val(1)), q, q)),
+                        repeat(point_values(q) .* point_values(q), 1, 3)))
     end
 
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, generated, persistence_comparisons))

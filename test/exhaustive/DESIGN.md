@@ -347,9 +347,44 @@ A cell removed because the combination does not exist keeps the completeness cla
 removed because there were too many destroys it, and destroys it silently. Where an axis must be
 sampled, it is declared sampled and reported as a limitation.
 
-## FINISHING THE PRODUCT — the per-method coverage ledger (PLANNED, not built)
+## FINISHING THE PRODUCT — the per-method coverage ledger (BUILT 2026-08-28, uncovered = 0)
 
-This is the resumption point. Everything below is design, agreed 2026-08-02; none of it is implemented.
+**This resumption point is CLOSED.** The design below is what was agreed 2026-08-02 and is kept as the
+record; `method_ledger.jl` and `method_reasons.jl` implement it, and the count it was built to drive
+reached zero.
+
+**Outcome.** 575 cells over 114 operations: **572 covered by an assertion, 3 closed by a recorded
+reason, 0 uncovered.** The value lane went from 169 rows to 516 comparisons across eight generated
+dispatch sweeps, and every one of them agrees with an independent reference.
+
+**Coverage is derived, not declared.** The lane runs under `--code-coverage` twice — once whole, once
+with the assertion tuples empty but every fixture still built — and a method counts as covered only if
+an assertion added hits to its span. Rows carry no annotation saying which method they exercise,
+because a hand-maintained mapping is the bookkeeping defect the ledger replaces.
+
+**Three defects in the LEDGER ITSELF, each found by perturbation or by chasing one cell, none visible
+by reading it.** A reason keyed by definition site silently closed four codegen methods at once — the
+"covered by a sibling builder" escape this design warns about — so a reason now DECLARES how many
+methods it closes and a miscounted one is refused. The fixture subtraction was boolean per span, so
+one fixture touching a shared span stripped credit from every method at that site. And the line index
+was re-enumerated from `names(mod; all = true)`, which does not report an operator a module imports
+from `Base`, so every `+` method read uncovered with four recorded hits sitting in the coverage file;
+that one alone was suppressing 107 cells.
+
+**The five probes are in `selfcheck_method_ledger()` and take their target from a perturbed COPY of
+the lane**, so probes 4 and 5 keep working now that the real count is zero. A check that skips on
+success is the failure this lane exists to prevent.
+
+**What the sweeps confirmed rather than found.** No dispatch defect surfaced: every one of the 347 new
+comparisons matched. Two absences the sweep asked for are design — section-times-section and a
+scalar-by-scalar product in spectral representation are nonlinear, so invariant 1 puts them in physical
+representation only. One asymmetry IS a finding and is reported rather than normalised: the point layer
+accepts `multiply!(vector_destination, scalar, scalar)` and broadcasts over the fiber, while the field
+layer refuses the identical shape.
+
+---
+
+*The original design, kept as written on 2026-08-02:*
 
 ### The diagnosis
 
