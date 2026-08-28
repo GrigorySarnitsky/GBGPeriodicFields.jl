@@ -428,6 +428,12 @@ asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/de
 thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a
 closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
 
+**The value lane is audited PER METHOD** by `test/exhaustive/method_ledger.jl`, which asks of every
+`(operation, method)` cell whether an assertion reached it — derived from coverage, not declared. It
+reads 572 covered, 3 closed by a recorded reason, **0 uncovered**. So a new operation needs a row that
+actually dispatches to each of its methods, and the survey fails when a cell has neither a row nor a
+recorded reason.
+
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA
 with its reason. "Exhaustive" means exhaustive over this written list — an axis missing from the

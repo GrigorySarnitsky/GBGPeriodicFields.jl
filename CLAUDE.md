@@ -1515,22 +1515,36 @@ the synced memory `aiporetne-verify-rocm-decisions-60-62`.
 **Do not run `characterize.sh` there** — it would hand `report.jl` only the lanes it just produced and
 silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
 
-**RESUMPTION POINT — the exhaustive survey's per-method coverage ledger (designed 2026-08-02, NOT
-built).** The survey crosses its axes everywhere except where the independent oracles live: the
-universal-checks lane derives its product from the method table, while the **value lane is a hand-written
-list** of rows — one fixture per operation, mostly `R = 0`, one scheme, one α/β setting. A reasoned
-mutation audit produced eighteen survivors and every one is that single fact rather than a missing axis
-(tensor order, α/β, scheme, or the operation axis taken per METHOD rather than per symbol). Coverage is
-bookkept per symbol, so one checked method marks a whole generic done — `mul!` has 48 methods and reports
-covered on one row. **Measured denominator: 112 operations, 556 package-owned methods, 169 value rows**;
-556 overstates the work because the heavy operations are code-generated from one builder, so the estimate
-of genuinely distinct behaviours needing an oracle is 60–120. **Definition of done: every
-`(operation × method)` cell has a value row or a recorded reason, and the ledger fails when it has
-neither** — decision 55's provenance rule applied per method. The ledger is the measuring instrument, so
-it must be **falsified by perturbation, never by reading** (delete a row, the count rises by exactly one;
-add one, it falls; a row naming a nonexistent method reports unmatched; a reason-closed cell stays
-distinguishable from a row-closed one) — this session already shipped one instrument that measured the
-wrong set and reported success. Full design, queue and order of work in `test/exhaustive/DESIGN.md`.
+**The per-method coverage ledger is BUILT and reads ZERO uncovered (2026-08-28).** The resumption
+point recorded here since 2026-08-02 is closed; `test/exhaustive/method_ledger.jl` implements it and
+`test/exhaustive/DESIGN.md` carries the full account. **575 cells over 114 operations: 572 covered by
+an assertion, 3 closed by a recorded reason, 0 uncovered**, with the value lane at 516 comparisons
+against 169 rows before. The gap it existed to close was per-symbol bookkeeping — one checked method
+marked a whole generic done, so `mul!` reported covered on one row out of dozens.
+
+**Coverage is DERIVED, never declared:** the value lane runs under `--code-coverage` twice, once whole
+and once with the assertion tuples empty but every fixture still built, and a method counts as covered
+only if an assertion added hits to its span. No row is annotated with the method it exercises, because
+a hand-maintained mapping is the defect being replaced. Methods sharing a definition site (the codegen
+families) are closed together and the grouping is REPORTED rather than merged silently.
+
+**A reason must DECLARE how many methods it closes**, and the count is checked against the method
+table; a miscounted reason is refused rather than applied. That exists because the ledger's own probe
+4 caught a site-keyed reason silently closing four codegen methods — the "covered by a sibling builder"
+escape, which is exactly how an escape hatch widens itself.
+
+**Five falsification probes live in `selfcheck_method_ledger()`, and they take their target from a
+perturbed COPY of the lane** so probes 4 and 5 keep working now that the real count is zero: a check
+that goes dark when the thing it guards succeeds is the failure this lane exists to prevent. Three
+defects in the ledger itself were found this way or by chasing one uncredited cell, and none was
+visible by reading it — the boolean fixture subtraction stripping credit across shared spans, and a
+line index re-enumerated from `names(mod; all = true)`, which does not report an operator a module
+imports from `Base` and so suppressed 107 cells while their hits sat in the coverage file.
+
+**An asymmetry the sweeps surfaced, reported rather than normalised:** the point layer accepts
+`multiply!(vector_destination, scalar, scalar)` and broadcasts the scalar product over the fiber, while
+the field layer refuses the identical shape with an `ArgumentError`. The two surfaces mirror each other
+by design, so one of them is wrong; which one is a design call and is not made here.
 
 **Open items from the 2026-08-04 survey runs.** **(1) `to_spectral!`'s ~8–12 KB per step is CLOSED
 (2026-08-07): it was the harness, not a leak** — `PERFORMANCE.md` §4(t). FFTW.jl reaches its worker
