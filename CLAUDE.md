@@ -1559,11 +1559,12 @@ fixtures. The lane now builds a dedicated single-threaded plan for the measureme
 B/step deterministically. Raising the bound would have been the wrong fix — it would set a threshold
 against a quantity that varies 7× run to run. **(2) The value lane has now executed and is
 CLOSED (2026-08-15)** — it had thrown from 2026-08-03 until a fix on 2026-08-04, leaving its
-independent oracles unverified against the present code. The survey was run in full after decision 66 and
-again on **2026-08-28** over decisions 68–76 (`-t4`, from `test` so the HDF5 pair is reachable, 66
-minutes). The current figures are the later run's: **3,482,375 cells** over 96 configurations,
-**17,376 value comparisons with 119 of 119 operations carrying an independent oracle** (111 of 113
-before the value rows of that date), 0 failures in the declared relations (2,496),
+independent oracles unverified against the present code. The survey was run in full after decision 66, again on
+2026-08-28, and again on **2026-08-29** after the per-method ledger landed (`-t4`, from `test` so the
+HDF5 pair is reachable, ~85 minutes). The current figures are the last run's: **3,416,256 invocations**
+over 96 configurations, **49,632 value comparisons with 121 of 121 operations carrying an independent
+oracle** (111 of 113 before this work), **0 correctness findings and 0 type-stability findings**, the
+per-method ledger at **0 uncovered of 575 cells**, and 0 failures in the declared relations (2,496),
 representation/invariance/allocation/ordering (4,992) and sequences (1,632) lanes, 0 disagreeing
 assignments in the storage-aliasing lane, and *every* mismatched argument refused in the context lane.
 **Re-measure rather than cite these** — every one of them has been found stale by the first
@@ -1629,10 +1630,10 @@ nothing; and the concrete results include `Union{}`, inference's way of saying a
 a subtype of everything and made `inner` and `maximum` claim to return sections. Both `Any` and
 `Union{}` are now filtered as the non-facts they are.
 
-**The survey is clean on every lane it asserts, and its 2026-08-28 run found exactly one real defect.**
-That run (the first since 2026-08-17, covering decisions 68–76) reported **0** correctness findings, **0**
-guard violations, and 0 failures in relations / representation / invariance / allocation / ordering /
-sequences / storage aliasing — and **576 type-stability findings, all one operation**: `reality_residual`
+**The survey is clean on every lane it asserts.** The 2026-08-29 run reports **0** correctness findings,
+**0** type-stability findings, **0** guard violations, and 0 failures in relations / representation /
+invariance / allocation / ordering / sequences / storage aliasing. The 576 type-stability findings its
+predecessor reported are gone because the defect they named was fixed — **all one operation**: `reality_residual`
 inferred `Any` on every configuration, because it reached the folded plane through a runtime dimension
 and the filtered generator `Tuple(a for a in 1:3 if a != folded)` has a type inference cannot narrow.
 Fixed by naming the axis as `Val{D}`, the same remedy `Interpolation`'s folded-plane helpers use. That is
@@ -1641,6 +1642,17 @@ question nobody had asked of it could see the defect. What remains is the 72 kno
 value cells (the Float32 shell tie-break recorded above), 63 context-mismatch cells that refuse at
 dispatch rather than at a domain check, and 369 applicable-but-unasserted ledger cells, which are a
 coverage report rather than a failure.
+
+**The survey's EXIT CODE is permanently 2, and the reason is the harness finding below.** Measured
+2026-08-29 (`SURVEY_EXIT_CODE=2`, captured rather than inferred, after two earlier runs whose status
+was lost to a detached launch). Every lane that asserts behaviour is clean — 0 correctness findings, 0
+type-stability findings, 0 guard violations, 0 relation/representation/invariance/allocation/ordering/
+sequence/aliasing failures, and the per-method ledger at 0 uncovered — but `value_findings > 0` forces
+exit 2, and those 72 cells are the `radial_spectrum` Float32 shell tie-break recorded immediately
+below. So the survey cannot exit 0 until that harness issue is fixed, which means **its exit status
+currently carries no information**: it is red for a reason everyone knows, which is the same failure as
+a check whose column reads as noise. Read the report, not the status, until the tie-break lands — and
+fixing it is the thing that makes the status meaningful again.
 
 **Open HARNESS finding (not a package defect) — the survey's `radial_spectrum` oracle is
 convention-dependent (2026-08-04).** The value lane reports `radial_spectrum` disagreeing with

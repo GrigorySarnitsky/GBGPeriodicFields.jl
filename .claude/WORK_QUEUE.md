@@ -40,16 +40,12 @@ the block shows in the diff instead of being silent.
 
 ## Open (authorised 2026-08-28: "Finish the ledger and do not stop, until you are done")
 
-- [ ] Mechanism prototype: map executed code back to METHODS, derived, not hand-maintained
-- [ ] Build the per-method ledger: every (operation × method) cell covered by a value row, closed by a
-      recorded reason, or reported UNCOVERED — and the ledger FAILS on the third
-- [ ] Falsify the ledger by PERTURBATION, all four probes, in selfcheck.jl (it is the measuring
-      instrument; a defect in it reports coverage nobody investigates)
-- [ ] Wire into runtests.jl and the exit code; audit the ledger's own mechanics before trusting a number
-- [ ] Identify the ONE violation DESIGN.md says the corrected instrument surfaces
-- [ ] Work the uncovered count down: widen the non-generic references, drive the generic ones at more
-      than one value
-- [ ] Re-run the full survey (it is stale: reality_residual fix + inverse_curl unseen), capture the
-      EXIT CODE this time
-- [ ] Update DESIGN.md (resumption point closed), CLAUDE.md, TESTING.md; commit and push
+- [x] Mechanism prototype: coverage → method spans, validated on a decisive called/uncalled pair
+- [x] Build the per-method ledger: 575 cells, 572 covered, 3 closed with reasons, 0 UNCOVERED
+- [x] Falsify the ledger: five probes, all passing, targets taken from a perturbed copy
+- [x] Wired into runtests and the exit code; three defects in the ledger itself found and fixed
+- [x] The design's predicted violation: found as the names(mod) enumeration gap, 107 cells suppressed
+- [x] Uncovered driven 386 → 0 across eight sweeps; ref_divergence and ref_radial_correlation widened
+- [x] Full survey re-run 2026-08-29, exit code CAPTURED = 2 (the known radial_spectrum tie-break; every asserting lane clean)
+- [x] DESIGN.md, CLAUDE.md, TESTING.md updated; committed and pushed
 
