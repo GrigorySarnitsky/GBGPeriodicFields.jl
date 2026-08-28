@@ -28,6 +28,13 @@ _value_tolerance(T) = T === Float32 ? 1.0f-4 : 1e-10
 # There is no getter, so this is the value to restore TO, not a capture of what was there.
 const FFTW_DEFAULT_THREADS = max(1, Threads.nthreads())
 
+# The per-method ledger runs this lane TWICE under coverage: once whole, and once with the assertion
+# tuples empty but every fixture still built. Subtracting the second from the first leaves the methods
+# an ASSERTION reached, not the ones a destination allocation happened to touch on the way. Without
+# that subtraction the ledger credits `similar_field` and friends as covered and reports a coverage it
+# does not have — which is the failure mode this instrument exists to avoid, one level up.
+const LEDGER_FIXTURES_ONLY = haskey(ENV, "GBG_LEDGER_FIXTURES_ONLY")
+
 _as_array(x) =
   x isa GBGI.FiberSections.AbstractFiberSection ? Array(field_data(x)) :
   x isa Number                                  ? [x] :
@@ -88,7 +95,7 @@ function run_value_lane(configs)
     ds, du, dA = field_data(s), field_data(u), field_data(A)
 
     # (name, what the package computes, what the definition says it should be)
-    comparisons = (
+    comparisons = LEDGER_FIXTURES_ONLY ? () : (
       # ── the vertical (fiberwise) algebra ──────────────────────────────────────────────────────
       (:+,          u + v,                    ref_add(du, field_data(v))),
       (:-,          u - v,                    ref_subtract(du, field_data(v))),
@@ -254,7 +261,7 @@ function run_value_lane(configs)
     raw_values2 = rand(T, 9)
     q2 = ScalarPointValues(copy(raw_values2))
     cutoff = T(3)
-    spectral_comparisons = (
+    spectral_comparisons = LEDGER_FIXTURES_ONLY ? () : (
       (:to_spectral,   field_data(sh),                       ref_dft_forward(ds, grid, layout)),
       (:to_physical,   field_data(to_physical(sh, plans)),   ref_dft_inverse(field_data(sh), grid, layout)),
       # ABOVE R = 0. The transform was anchored to a raw-array oracle only for a scalar, while every
@@ -588,7 +595,7 @@ function run_value_lane(configs)
     # one package's own pair agrees with itself however the bytes are laid out. So the file is opened
     # again and its datasets are read with the HDF5 API directly, and the largest one is compared with
     # the array that went in.
-    persistence_comparisons = if HDF5_AVAILABLE
+    persistence_comparisons = if HDF5_AVAILABLE && !LEDGER_FIXTURES_ONLY
       written_scheme = LalescuSpline(2, 1; T = T)
       written_lagrange = LagrangeSpline(2; T = T)
       path = joinpath(mktempdir(), "value.h5")

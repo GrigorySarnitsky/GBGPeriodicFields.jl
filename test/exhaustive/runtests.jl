@@ -29,6 +29,7 @@ include("invocations.jl")
 include("checks.jl")
 include("selfcheck.jl")
 include("ledger.jl")
+include("method_ledger.jl")
 
 # Citations, applied to output only. Nothing here suppresses, filters or greens a failure: a cited
 # entry is still reported as not working. The citation answers "is this known?", not "is this fine?".
@@ -312,6 +313,12 @@ println()
 mismatch_findings, mismatch_cells = run_mismatch_lane()
 println()
 ledger_gaps, ledger_violations, ledger_cells = run_ledger_lane()
+# The PER-METHOD ledger, one level finer than the per-symbol one above: `mul!` reports covered on one
+# row out of dozens of methods there, and here every method answers for itself. Its probes run first —
+# a coverage number from an unfalsified instrument is not evidence, which is the whole reason this lane
+# exists rather than an audit loop.
+method_probe_failures = selfcheck_method_ledger()
+method_ledger = run_method_ledger()
 close_pool_handles!()          # written in round one and never called: ~100 handles stayed open
 println()
 
@@ -353,6 +360,9 @@ println("  storage aliasing             ", affected, " operations with a disagre
 println("  context mismatch             ", mismatch_findings, " findings over ", mismatch_cells, " cells")
 println("  applicability ledger         ", ledger_gaps, " applicable-but-unasserted cells, ",
         ledger_violations, " guard violations")
+println("  per-method ledger            ", method_ledger.uncovered, " UNCOVERED of ", method_ledger.cells,
+        " cells (", method_ledger.covered, " by an assertion, ", method_ledger.closed, " by a recorded reason)",
+        method_probe_failures > 0 ? string("  — ", method_probe_failures, " SELF-CHECK PROBE(S) FAILED") : "")
 println()
 println("  A gap in the ledger is a COVERAGE report, not a failure: it says a question the design")
 println("  admits has not been asked of that operation. The exit status is driven by the lanes that")
@@ -363,7 +373,9 @@ println("  assert behaviour, so a survey number can grow without turning the rep
 # with a separate tally that reached neither the summary nor the exit code.
 harness_errors == 0 ||
   println("\n  ", harness_errors, " cells failed inside the HARNESS — not package findings, gaps in the sweep")
-exit(harness_errors > 0 || selfcheck_failures > 0 || disagreeing > 0 || value_findings > 0 ||
+exit(harness_errors > 0 || selfcheck_failures > 0 || method_probe_failures > 0 ||
+     !isempty(method_ledger.stale_reasons) || !isempty(method_ledger.miscounted_reasons) ||
+     disagreeing > 0 || value_findings > 0 ||
      relation_findings > 0 || property_findings > 0 || sequence_findings > 0 || unexplained > 0 || mismatch_findings > 0 ||
      ledger_violations > 0 || invocation_findings > 0 ? 2 :
-     (affected > 0 || invocation_quality > 0 ? 1 : 0))
+     (affected > 0 || invocation_quality > 0 || method_ledger.uncovered > 0 ? 1 : 0))

@@ -38,3 +38,18 @@ the block shows in the diff instead of being silent.
 - [x] docs: decision 77, FORMALIZATION entry, TESTING, API page, CLAUDE.md; four baselines refrozen
 - [x] Pkg.test() 126 testsets green, CUDA green, docs green
 
+## Open (authorised 2026-08-28: "Finish the ledger and do not stop, until you are done")
+
+- [ ] Mechanism prototype: map executed code back to METHODS, derived, not hand-maintained
+- [ ] Build the per-method ledger: every (operation × method) cell covered by a value row, closed by a
+      recorded reason, or reported UNCOVERED — and the ledger FAILS on the third
+- [ ] Falsify the ledger by PERTURBATION, all four probes, in selfcheck.jl (it is the measuring
+      instrument; a defect in it reports coverage nobody investigates)
+- [ ] Wire into runtests.jl and the exit code; audit the ledger's own mechanics before trusting a number
+- [ ] Identify the ONE violation DESIGN.md says the corrected instrument surfaces
+- [ ] Work the uncovered count down: widen the non-generic references, drive the generic ones at more
+      than one value
+- [ ] Re-run the full survey (it is stale: reality_residual fix + inverse_curl unseen), capture the
+      EXIT CODE this time
+- [ ] Update DESIGN.md (resumption point closed), CLAUDE.md, TESTING.md; commit and push
+
