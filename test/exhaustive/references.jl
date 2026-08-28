@@ -860,3 +860,51 @@ function ref_tensor_inner_generic(A, B)         # the Frobenius pairing A_ij B_i
   end
   return out
 end
+
+
+# Widen a SCALAR section's data over the fiber axes of a rank-`order` section, so a scalar-section
+# action can be written as one elementwise product against the raw arrays.
+function _fiber_broadcast_scalar(scalar_data, shape, order)
+  out = Array{eltype(scalar_data)}(undef, shape)
+  base = length(shape) - order
+  for index in CartesianIndices(shape)
+    out[index] = scalar_data[CartesianIndex(Tuple(index)[1:base])]
+  end
+  return out
+end
+
+
+# --- base-agnostic fiber norms and decompositions ------------------------------------------------
+ref_norm_generic(a) = [sqrt(sum(a[I, i]^2 for i in 1:3)) for I in CartesianIndices(_base_shape(a, 1))]
+ref_frobenius_generic(A) = [sqrt(sum(A[I, i, j]^2 for i in 1:3, j in 1:3)) for I in CartesianIndices(_base_shape(A, 2))]
+
+
+function ref_sym_generic(A)
+  out = similar(A)
+  for I in CartesianIndices(_base_shape(A, 2)), i in 1:3, j in 1:3
+    out[I, i, j] = (A[I, i, j] + A[I, j, i]) / 2
+  end
+  return out
+end
+
+
+function ref_skew_generic(A)
+  out = similar(A)
+  for I in CartesianIndices(_base_shape(A, 2)), i in 1:3, j in 1:3
+    out[I, i, j] = (A[I, i, j] - A[I, j, i]) / 2
+  end
+  return out
+end
+
+
+function ref_dev_generic(A)                      # A minus its isotropic part, tr(dev A) = 0
+  out = similar(A)
+  for I in CartesianIndices(_base_shape(A, 2))
+    trace = sum(A[I, k, k] for k in 1:3)
+    for i in 1:3, j in 1:3
+      out[I, i, j] = A[I, i, j] - (i == j ? trace / 3 : zero(eltype(A)))
+    end
+  end
+  return out
+end
+

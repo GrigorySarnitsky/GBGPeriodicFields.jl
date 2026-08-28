@@ -788,6 +788,144 @@ function run_value_lane(configs)
       end
     end
 
+    # ── sweep 3: the scalar-field action and the remaining products ─────────────────────────────
+    # Multiplying a section by a SCALAR SECTION (not a number) is a separate dispatch family from the
+    # real scaling above, and it exists for fields and point-values, in both argument orders, with the
+    # scalar-by-scalar case its own method. The right action `u * A` is also distinct from `A * u`.
+    if !LEDGER_FIXTURES_ONLY
+      scalar_products = ((s, ds, s2, field_data(s2), () -> similar_field(s, Val(0)), field_data),
+                         (q, point_values(q), q2, point_values(q2), () -> similar_pointvalues(q, Val(0)), point_values))
+      for (scalar, sraw, other, oraw, mkscalar, data) in scalar_products
+        push!(generated, (:multiply!, data(multiply!(mkscalar(), scalar, other)), sraw .* oraw))
+        push!(generated, (:*, data(scalar * other), sraw .* oraw))
+        push!(generated, (:divide!, data(divide!(mkscalar(), scalar, other)), sraw ./ oraw))
+        push!(generated, (:/, data(scalar / other), sraw ./ oraw))
+      end
+
+      # A vector or tensor section scaled by a SCALAR section, both argument orders.
+      for (section, raw, mk, data, scalar, sraw) in
+          ((u, du, () -> similar_field(u, Val(1)), field_data, s, ds),
+           (A, dA, () -> similar_field(A, Val(2)), field_data, s, ds),
+           (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), point_values, q, point_values(q)),
+           (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), point_values, q, point_values(q)))
+        order = ndims(raw) - ndims(sraw)
+        widened = _fiber_broadcast_scalar(sraw, size(raw), order)
+        push!(generated, (:multiply!, data(multiply!(mk(), section, scalar)), raw .* widened))
+        push!(generated, (:multiply!, data(multiply!(mk(), scalar, section)), widened .* raw))
+        push!(generated, (:*, data(section * scalar), raw .* widened))
+        push!(generated, (:*, data(scalar * section), widened .* raw))
+        push!(generated, (:divide!, data(divide!(mk(), section, scalar)), raw ./ widened))
+        push!(generated, (:/, data(section / scalar), raw ./ widened))
+      end
+
+      # The remaining products: tensor·vector and the vector·tensor RIGHT action, section against
+      # section and against a constant, over all three carriers.
+      # SECTION against SECTION is nonlinear in the fields, so invariant 1 puts it in physical
+      # representation and on point-values only — a spectral pair is a deliberate absence, not a gap.
+      for (vec, vraw, ten, traw, data) in ((u, du, A, dA, field_data),
+                                           (qa, point_values(qa), qt, point_values(qt), point_values))
+        push!(generated, (:*, data(ten * vec), ref_matvec_generic(traw, vraw)))
+        push!(generated, (:*, data(vec * ten), ref_vecmat_generic(vraw, traw)))
+        push!(generated, (:*, data(ten * ten), ref_matmul_generic(traw, traw)))
+      end
+      # A CONSTANT operand is linear in the field, so these exist in both representations.
+      for (vec, vraw, ten, traw, data) in ((u, du, A, dA, field_data),
+                                           (uh, field_data(uh), Ah, field_data(Ah), field_data),
+                                           (qa, point_values(qa), qt, point_values(qt), point_values))
+        push!(generated, (:*, data(vec * ct), ref_vecmat_generic(vraw, _fiber_broadcast(ct, (_base_shape(vraw, 1)..., 3, 3), 2))))
+        push!(generated, (:*, data(ten * cv), ref_matvec_generic(traw, _fiber_broadcast(cv, (_base_shape(traw, 2)..., 3), 1))))
+      end
+    end
+
+    # ── sweep 4: a fiber CONSTANT against a SCALAR section, and the point-value scalar action ────
+    # `φ * v` where φ is a scalar section and v a fiber constant RAISES the order, and it dispatches
+    # separately per representation, per constant kind and per argument order. Linear in the field, so
+    # it exists in spectral representation too.
+    if !LEDGER_FIXTURES_ONLY
+      scalar_carriers = ((s, ds, () -> similar_field(s, Val(0)), () -> similar_field(u, Val(1)), () -> similar_field(A, Val(2)), field_data),
+                         (sh, field_data(sh), () -> similar_field(sh, Val(0)), () -> similar_field(uh, Val(1)), () -> similar_field(Ah, Val(2)), field_data),
+                         (q, point_values(q), () -> similar_pointvalues(q, Val(0)), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qt, Val(2)), point_values))
+      for (scalar, sraw, mk0, mk1, mk2, data) in scalar_carriers
+        base = size(sraw)
+        wide1 = _fiber_broadcast_scalar(sraw, (base..., 3), 1)
+        wide2 = _fiber_broadcast_scalar(sraw, (base..., 3, 3), 2)
+        bv = _fiber_broadcast(cv, (base..., 3), 1)
+        bt = _fiber_broadcast(ct, (base..., 3, 3), 2)
+        push!(generated, (:*, data(scalar * cv), wide1 .* bv))
+        push!(generated, (:*, data(cv * scalar), bv .* wide1))
+        push!(generated, (:*, data(scalar * ct), wide2 .* bt))
+        push!(generated, (:*, data(ct * scalar), bt .* wide2))
+        push!(generated, (:multiply!, data(multiply!(mk1(), scalar, cv)), wide1 .* bv))
+        push!(generated, (:multiply!, data(multiply!(mk1(), cv, scalar)), bv .* wide1))
+        push!(generated, (:multiply!, data(multiply!(mk2(), scalar, ct)), wide2 .* bt))
+        push!(generated, (:multiply!, data(multiply!(mk2(), ct, scalar)), bt .* wide2))
+        # A scalar-by-scalar product and any division by a scalar section are NONLINEAR in the
+        # field, so both are physical-only — in spectral representation the coefficientwise product
+        # is a convolution and is offered under that name, never as `*` (invariant 1).
+        if !(scalar === sh)
+          push!(generated, (:multiply!, data(multiply!(mk0(), scalar, scalar)), sraw .* sraw))
+          push!(generated, (:/, data(cv / scalar), bv ./ wide1))
+          push!(generated, (:/, data(ct / scalar), bt ./ wide2))
+          push!(generated, (:divide!, data(divide!(mk1(), cv, scalar)), bv ./ wide1))
+          push!(generated, (:divide!, data(divide!(mk2(), ct, scalar)), bt ./ wide2))
+          push!(generated, (:/, data(α / scalar), α ./ sraw))
+          push!(generated, (:divide!, data(divide!(mk0(), α, scalar)), α ./ sraw))
+        end
+      end
+
+      # The point-value real scaling, with the in-place verbs: the field side of this was swept
+      # already, the point side reached nothing.
+      for (section, raw, mk, data) in ((q, point_values(q), () -> similar_pointvalues(q, Val(0)), point_values),
+                                       (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), point_values),
+                                       (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), point_values))
+        push!(generated, (:multiply!, data(multiply!(mk(), section, α)), ref_scale(raw, α)))
+        push!(generated, (:multiply!, data(multiply!(mk(), α, section)), ref_scale(raw, α)))
+        push!(generated, (:divide!, data(divide!(mk(), section, α)), ref_divide(raw, α)))
+      end
+    end
+
+    # ── sweep 5: the type-level accessors, the point-value reductions and the fiber decompositions ─
+    # The tail the ledger exposed: `eltype`/`ndims` have TYPE-level methods a value never reaches,
+    # the order statistics and `std`/`var` exist on point-values as well as fields, `norm!` writes a
+    # scalar point section from each order, and sym/skew/dev have point-value twins.
+    if !LEDGER_FIXTURES_ONLY
+      # `eltype` reports the STORAGE element type, so a field in spectral representation reports
+      # `Complex{T}` — which is invariant 2's "complex arrays are storage detail" showing through an
+      # accessor rather than contradicting it. The base of a point-value section is one axis, so
+      # `ndims` counts one plus the tensor order.
+      # Asserted as BOOLEANS, the lane's own convention for an identity: its comparator is numeric
+      # and a `Type` is not a number.
+      push!(generated, (:eltype, [eltype(typeof(s)) === T, eltype(typeof(sh)) === Complex{T},
+                                  eltype(typeof(q)) === T], [true, true, true]))
+      push!(generated, (:ndims, [ndims(typeof(s)), ndims(typeof(u)), ndims(typeof(A))], [3, 4, 5]))
+      push!(generated, (:ndims, [ndims(typeof(q)), ndims(typeof(qa)), ndims(typeof(qt))], [1, 2, 3]))
+      push!(generated, (:size, collect(size(qa)), collect(size(point_values(qa)))))
+
+      pq = point_values(q)
+      push!(generated, (:extrema, collect(extrema(q)), collect(extrema(pq))))
+      push!(generated, (:maximum, maximum(q), maximum(pq)))
+      push!(generated, (:minimum, minimum(q), minimum(pq)))
+      push!(generated, (:std, std(q), ref_std(pq)))
+      push!(generated, (:var, var(q), ref_var(pq)))
+      # The MAPPED order statistics over a point-value section, the fused form with no intermediate.
+      push!(generated, (:maximum, maximum(norm, qa), maximum(ref_norm_generic(point_values(qa)))))
+      push!(generated, (:minimum, minimum(norm, qa), minimum(ref_norm_generic(point_values(qa)))))
+      push!(generated, (:extrema, collect(extrema(norm, qa)), collect(extrema(ref_norm_generic(point_values(qa))))))
+
+      # `norm!` into a scalar point section, from each tensor order.
+      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_pointvalues(q, Val(0)), qa)),
+                        ref_norm_generic(point_values(qa))))
+      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_pointvalues(q, Val(0)), qt)),
+                        ref_frobenius_generic(point_values(qt))))
+
+      # The fiber decompositions on point-values, in place and allocating.
+      push!(generated, (:sym, point_values(sym(qt)), ref_sym_generic(point_values(qt))))
+      push!(generated, (:skew, point_values(skew(qt)), ref_skew_generic(point_values(qt))))
+      push!(generated, (:sym!, point_values(sym!(similar_pointvalues(qt, Val(2)), qt)), ref_sym_generic(point_values(qt))))
+      push!(generated, (:skew!, point_values(skew!(similar_pointvalues(qt, Val(2)), qt)), ref_skew_generic(point_values(qt))))
+      push!(generated, (:dev!, point_values(dev!(similar_pointvalues(qt, Val(2)), qt)), ref_dev_generic(point_values(qt))))
+    end
+
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, generated, persistence_comparisons))
       cells += 1
       # The comparison tuples are built eagerly, so this guards the COMPARISON; a throw during

@@ -1,0 +1,874 @@
+        - # Independent reference implementations — the oracle for the exhaustive sweep.
+        - #
+        - # WHY THESE EXIST. The sweep's first oracle compared the package against ITSELF: an aliased call
+        - # against an unaliased one. That catches a defect which depends on aliasing and is blind to every
+        - # defect that does not — a wrong cross product is wrong identically on both sides and reports clean.
+        - # It is the self-referential assertion decision 52 named, rebuilt at 17,000 cases.
+        - #
+        - # So each operation gets a reference computed here, from raw arrays, by the plainest expression of its
+        - # definition. Slow, obviously correct, and sharing no code with the implementation — which is the only
+        - # property that matters. A correctness oracle also SUBSUMES the aliasing one: if an aliased call
+        - # produces the right answer, aliasing did not break it.
+        - #
+        - # Wavenumbers are rebuilt here from the grid rather than taken from `FieldSpectralMultipliers`, or the
+        - # spectral references would inherit the package's own convention instead of checking it.
+        - 
+        - using GBGPeriodicFields
+        - 
+        - # --- wavenumbers, derived from the grid alone -------------------------------------------------------
+        - # The derivative wavenumber is zeroed at an even axis's Nyquist frequency (invariant 5); the squared
+        - # wavenumber keeps the true value there. Both are rebuilt from first principles.
+      276 function reference_wavenumbers(grid::Grid3D{T}, layout, axis, len) where {T}
+      276   n = grid.grid_size[axis]
+      276   L = grid.domain_size[axis]
+      276   folded = axis == layout.fft_dims[1]
+        -   # `k < (n + 1) ÷ 2`, not `k <= n ÷ 2`. On an even non-folded axis the two disagree at exactly the
+        -   # Nyquist slot — the first gives −n/2 (what `fftfreq` and the package produce), the second +n/2. Every
+        -   # current consumer masks it (the squared family is even, cos is even, sinc² is even, and the derivative
+        -   # family is zeroed there by invariant 5), so it is invisible today and would silently hand the wrong
+        -   # oracle to the first operation that is odd in k and does not zero the Nyquist.
+      644   raw = folded ? T[2π * k / L for k in 0:(n ÷ 2)] :
+        -                  T[2π * (k < (n + 1) ÷ 2 ? k : k - n) / L for k in 0:(n - 1)]
+      276   @assert length(raw) == len "reference wavenumber length $(length(raw)) ≠ $len on axis $axis"
+      552   derivative = copy(raw)
+      276   if iseven(n)
+      460     nyquist = folded ? lastindex(derivative) : findfirst(≈(2π * (n ÷ 2) / L), abs.(raw))
+      552     nyquist === nothing || (derivative[nyquist] = zero(T))
+        -   end
+      276   return derivative, raw
+        - end
+        - 
+        - # --- physical fiberwise algebra ---------------------------------------------------------------------
+       14 ref_add(a, b) = a .+ b
+        4 ref_subtract(a, b) = a .- b
+        2 ref_combine(α, a, β, b) = α .* a .+ β .* b
+       56 ref_scale(a, s) = a .* s
+       34 ref_divide(a, s) = a ./ s
+        - 
+        6 function ref_cross(a, b)                      # (u×v)_i = ε_ijk u_j v_k, written out
+        6   out = similar(a)
+       12   out[:, :, :, 1] .= a[:, :, :, 2] .* b[:, :, :, 3] .- a[:, :, :, 3] .* b[:, :, :, 2]
+       12   out[:, :, :, 2] .= a[:, :, :, 3] .* b[:, :, :, 1] .- a[:, :, :, 1] .* b[:, :, :, 3]
+       12   out[:, :, :, 3] .= a[:, :, :, 1] .* b[:, :, :, 2] .- a[:, :, :, 2] .* b[:, :, :, 1]
+        6   return out
+        - end
+        - 
+        6 ref_dot(a, b) = sum(a[:, :, :, i] .* b[:, :, :, i] for i in 1:3)
+        4 ref_norm(a) = sqrt.(sum(a[:, :, :, i] .^ 2 for i in 1:3))
+        - 
+       12 function ref_transpose(A)
+       12   out = similar(A)
+       36   for i in 1:3, j in 1:3; out[:, :, :, i, j] .= A[:, :, :, j, i]; end
+       12   return out
+        - end
+        - 
+        4 ref_sym(A) = (A .+ ref_transpose(A)) ./ 2
+        4 ref_skew(A) = (A .- ref_transpose(A)) ./ 2
+        8 ref_trace(A) = sum(A[:, :, :, i, i] for i in 1:3)
+        - 
+        4 function ref_dev(A)
+        8   out = copy(A)
+        8   third = ref_trace(A) ./ 3
+       12   for i in 1:3; out[:, :, :, i, i] .-= third; end
+        4   return out
+        - end
+        - 
+        4 function ref_det(A)                            # the 3×3 cofactor expansion, written out
+        4   a11, a12, a13 = A[:,:,:,1,1], A[:,:,:,1,2], A[:,:,:,1,3]
+        4   a21, a22, a23 = A[:,:,:,2,1], A[:,:,:,2,2], A[:,:,:,2,3]
+        4   a31, a32, a33 = A[:,:,:,3,1], A[:,:,:,3,2], A[:,:,:,3,3]
+        4   return a11 .* (a22 .* a33 .- a23 .* a32) .-
+        -          a12 .* (a21 .* a33 .- a23 .* a31) .+
+        -          a13 .* (a21 .* a32 .- a22 .* a31)
+        - end
+        - 
+        4 function ref_matvec(A, u)                      # (Au)_i = A_ij u_j
+        4   out = similar(u)
+        4   for i in 1:3
+       24     out[:, :, :, i] .= sum(A[:, :, :, i, j] .* u[:, :, :, j] for j in 1:3)
+       20   end
+        4   return out
+        - end
+        - 
+        - # --- spectral operators, per mode --------------------------------------------------------------------
+        - # Each walks every stored mode explicitly and applies the definition, so nothing is shared with the
+        - # package's fused kernels or its multiplier arrays.
+        - function mode_wavenumbers(grid, layout, shape)
+       44   k1, s1 = reference_wavenumbers(grid, layout, 1, shape[1])
+       44   k2, s2 = reference_wavenumbers(grid, layout, 2, shape[2])
+       44   k3, s3 = reference_wavenumbers(grid, layout, 3, shape[3])
+       44   return (k1, k2, k3), (s1, s2, s3)
+        - end
+        - 
+        4 function ref_gradient(f, grid, layout)
+        4   shape = size(f); (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        4   out = similar(f, (shape..., 3))
+        4   for c in CartesianIndices(shape)
+     1280     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+     3840     for i in 1:3; out[c, i] = im * k[i] * f[c]; end
+     1284   end
+        4   return out
+        - end
+        - 
+        - # The JACOBIAN mode of `gradient`, whose index convention was checked only through `sym`. The one
+        - # exercise of `gradient(vector)` in the suite was `symmetric_gradient = sym(gradient(u))` — and
+        - # `sym(M) = sym(Mᵀ)`, so a transposed fiber-index pair was erased before the comparison ever saw it.
+        - # The convention here is the package's own, stated in its `symmetric_gradient` formula
+        - # `Ŝ_ij = (i/2)(k_j û_i + k_i û_j)`: the DERIVATIVE index is second, so (∇u)_ij = i k_j û_i.
+        2 function ref_gradient_jacobian(u, grid, layout)
+        2   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        2   out = similar(u, (shape..., 3, 3))          # (base..., i, j) — a second-order fiber, not a vector
+        2   for c in CartesianIndices(shape)
+      640     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+      640     for i in 1:3, j in 1:3
+     5760       out[c, i, j] = im * k[j] * u[c, i]
+     7040     end
+      642   end
+        2   return out
+        - end
+        - 
+        - # The tensor-tensor product, (AB)_ij = A_ik B_kj. The suite's only exercise of it was
+        - # `det(AB) = det(A)det(B)` — and the determinant is multiplicative AND transpose-invariant, so that
+        - # identity holds equally for `BA`, `AᵀB`, `ABᵀ` and the rest of the family. It cannot tell a correct
+        - # product from a transposed or reversed one; this can.
+        2 function ref_matmul(A, B)
+        2   shape = size(A)[1:3]
+        2   out = similar(A)
+        2   for c in CartesianIndices(shape), i in 1:3, j in 1:3
+     9216     total = zero(eltype(A))
+     9216     for k in 1:3
+    27648       total += A[c, i, k] * B[c, k, j]
+    46080     end
+     9216     out[c, i, j] = total
+     9218   end
+        2   return out
+        - end
+        - 
+        6 function ref_divergence(u, grid, layout)
+        6   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        6   out = similar(u, shape)
+        6   for c in CartesianIndices(shape)
+     1920     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+     1920     out[c] = sum(im * k[i] * u[c, i] for i in 1:3)
+     1926   end
+        6   return out
+        - end
+        - 
+        4 function ref_curl(u, grid, layout)
+        4   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        4   out = similar(u)
+        4   for c in CartesianIndices(shape)
+     1280     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+     1280     out[c, 1] = im * (k[2] * u[c, 3] - k[3] * u[c, 2])
+     1280     out[c, 2] = im * (k[3] * u[c, 1] - k[1] * u[c, 3])
+     1280     out[c, 3] = im * (k[1] * u[c, 2] - k[2] * u[c, 1])
+     1284   end
+        4   return out
+        - end
+        - 
+        4 function ref_laplacian(f, grid, layout)
+        4   shape = size(f); _, (s1, s2, s3) = mode_wavenumbers(grid, layout, shape)
+        4   out = similar(f)
+        4   for c in CartesianIndices(shape)
+     1280     out[c] = -(s1[c[1]]^2 + s2[c[2]]^2 + s3[c[3]]^2) * f[c]
+     1284   end
+        4   return out
+        - end
+        - 
+        4 function ref_inverse_laplacian(f, grid, layout)
+        4   shape = size(f); _, (s1, s2, s3) = mode_wavenumbers(grid, layout, shape)
+        4   out = similar(f)
+        4   for c in CartesianIndices(shape)
+     1280     k2 = s1[c[1]]^2 + s2[c[2]]^2 + s3[c[3]]^2
+     1280     out[c] = iszero(k2) ? zero(eltype(f)) : -f[c] / k2
+     1284   end
+        4   return out
+        - end
+        - 
+        4 function ref_symmetric_gradient(u, grid, layout)
+        4   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        4   out = similar(u, (shape..., 3, 3))
+        4   for c in CartesianIndices(shape)
+     1280     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+     1280     for i in 1:3, j in 1:3
+    11520       out[c, i, j] = im * (k[j] * u[c, i] + k[i] * u[c, j]) / 2
+    14080     end
+     1284   end
+        4   return out
+        - end
+        - 
+        6 function ref_helmholtz(u, grid, layout)
+        6   shape = size(u)[1:3]; (k1, k2, k3), _ = mode_wavenumbers(grid, layout, shape)
+        6   out = similar(u)
+        6   for c in CartesianIndices(shape)
+     1920     k = (k1[c[1]], k2[c[2]], k3[c[3]])
+     1920     kk = sum(abs2, k)
+     3792     longitudinal = iszero(kk) ? zero(eltype(u)) : sum(k[j] * u[c, j] for j in 1:3) / kk
+     1920     for i in 1:3
+     5760       out[c, i] = u[c, i] - k[i] * longitudinal
+     9600     end
+     1926   end
+        6   return out
+        - end
+        - 
+       10 ref_convolve(f, kernel_data) = f .* kernel_data
+        - 
+        - 
+        - # --- the L²/measure reductions ---------------------------------------------------------------------
+        - #
+        - # Written from the DOCUMENTED definitions (the docstrings' own display formulas), not from the
+        - # implementation — which is the point. An oracle copied off the code checks that the code equals
+        - # itself; one written from the stated contract checks that the code means what the documentation
+        - # claims, so a disagreement is a real finding either way round.
+        - #
+        - #   integral   ∫_Ω f dμ = (|Ω|/N) Σ_x f(x)            fiber-preserving, the one EXTENSIVE reduction
+        - #   inner      ⟨f, g⟩   = (1/N) Σ_x f(x)·g(x)          normalized, fiber contracted
+        - #   l2norm     ‖f‖₂     = √⟨f, f⟩
+        - #   lpnorm     ‖f‖_p    = ((1/N) Σ_x |f(x)|^p)^(1/p),  p = Inf → max_x |f(x)|
+        - #   mean       (1/N) Σ_x f(x)                          fiber-preserving
+        - #   var        (1/(N-1)) Σ_n (f_n - f̄)²                scalar only, Bessel-corrected by default
+        - #   cov        R_ij = (1/(N-1)) Σ_n (u_i - ū_i)(u_j - ū_j)
+        - 
+        - # Base points down the rows, fiber components across the columns. This uses only the DOCUMENTED
+        - # storage contract — fiber-last, component slices contiguous (invariant 3) — and a plain `reshape`, so
+        - # it borrows no code from the implementation. Partial linear indexing (`data[n, i]` on a 4-D array) is
+        - # not a thing in Julia and was the first attempt.
+    23586 _ref_flat(data, R) = reshape(data, :, 3^R)
+        - 
+    23552 _ref_fiber(data, index, R) = _ref_flat(data, R)[index, :]
+       34 _ref_base_count(data, R) = size(_ref_flat(data, R), 1)
+        - 
+        - # |f(x)|, the fiber magnitude — the 2-norm of the components, which is what every normalized reduction
+        - # means by the bars.
+     7168 _ref_magnitude(data, index, R) = sqrt(sum(abs2, _ref_fiber(data, index, R)))
+        - 
+        8 function ref_mean(data, R)
+        8   N = _ref_base_count(data, R)
+        8   total = sum(_ref_fiber(data, n, R) for n in 1:N)
+        8   return total ./ N
+        - end
+        - 
+        4 ref_integral(data, R, grid) =
+        -   ref_mean(data, R) .* prod(grid.domain_size)          # (|Ω|/N)·Σ = |Ω|·mean
+        - 
+       12 function ref_inner(a, b, R)
+       12   N = _ref_base_count(a, R)
+       12   return sum(sum(_ref_fiber(a, n, R) .* _ref_fiber(b, n, R)) for n in 1:N) / N
+        - end
+        - 
+        6 ref_l2norm(a, R) = sqrt(ref_inner(a, a, R))
+        - 
+       14 function ref_lpnorm(data, p, R)
+       14   N = _ref_base_count(data, R)
+       14   magnitudes = [_ref_magnitude(data, n, R) for n in 1:N]
+       14   isinf(p) && return maximum(magnitudes)
+       10   return (sum(m^p for m in magnitudes) / N)^(1 / p)
+        - end
+        - 
+        8 function ref_var(data)                                  # scalar sections only
+        8   N = length(data)
+        8   average = sum(data) / N
+        8   return sum(abs2, data .- average) / (N - 1)
+        - end
+        - 
+        4 ref_std(data) = sqrt(ref_var(data))
+        - 
+        2 function ref_cov(data)                                  # a vector section's Sym²(V) second moment
+        2   N = div(length(data), 3)
+        2   averages = [sum(data[:, :, :, i]) / N for i in 1:3]
+       18   out = zeros(eltype(data), 3, 3)
+        2   for i in 1:3, j in 1:3
+       18     out[i, j] = sum((data[:, :, :, i] .- averages[i]) .* (data[:, :, :, j] .- averages[j])) / (N - 1)
+       22   end
+        2   return out
+        - end
+        - 
+        - 
+        - # --- the transforms, from the DFT definition --------------------------------------------------------
+        - #
+        - # Written as the literal sum, not by calling any FFT: the package's transform is what is under test, and
+        - # an oracle that calls `fft` would only be checking one library against another. The phase is
+        - # index-based, exp(-2πi Σ_d n_d m_d / N_d), because the transform is a plain DFT over the storage
+        - # indices — the grid's origin enters position-dependent operations (the transfer verbs, the translation
+        - # kernel), never the FFT itself.
+        - # FIBER-AWARE, and it was not. The three-index read `data[n1+1, n2+1, n3+1]` does not ERROR on a vector
+        - # field's 4-D array — Julia's trailing-dimension linearization makes it silently return component 1 — so
+        - # this oracle was not merely unexercised above R = 0, it was unequipped, and would have "agreed" with the
+        - # package while reading a third of the field. Every spectral vector and tensor operation in the suite
+        - # takes its transformed input on trust from here. The transform is a batched 3-D DFT over the base with
+        - # the fiber carried along, so the fiber is looped, never mixed.
+       10 function ref_dft_forward(data, grid, layout)
+       10   N = grid.grid_size
+       10   folded = layout.fft_dims[1]
+       60   stored = ntuple(d -> d == folded ? (N[d] ÷ 2 + 1) : N[d], 3)
+       10   fiber = size(data)[4:end]
+       10   out = zeros(Complex{eltype(data)}, stored..., fiber...)
+       10   for component in CartesianIndices(fiber)
+       30     for m1 in 0:stored[1]-1, m2 in 0:stored[2]-1, m3 in 0:stored[3]-1
+     9600       total = zero(Complex{eltype(data)})
+     9600       for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+  4915200         phase = -2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+  4915200         total += data[n1 + 1, n2 + 1, n3 + 1, component] * cis(phase)
+  4982400       end
+     9600       out[m1 + 1, m2 + 1, m3 + 1, component] = total
+     9720     end
+       34   end
+       10   return out
+        - end
+        - 
+        - # The inverse, reconstructed from the STORED half-spectrum by Hermitian completion: the unstored
+        - # partner of mode k is conj(f̂(-k)), which is what makes the result real. Normalized by N (AbstractFFTs'
+        - # convention, invariant 4).
+        - # Fiber-aware for the same reason as `ref_dft_forward`: the fiber is carried, never mixed.
+       10 function ref_dft_inverse(spectral, grid, layout)
+       10   N = grid.grid_size
+       10   folded = layout.fft_dims[1]
+       10   T = real(eltype(spectral))
+       10   fiber = size(spectral)[4:end]
+       10   out = zeros(T, N..., fiber...)
+       10   stored = size(spectral)[1:3]
+ 11796490   wrap(m, n) = mod(m, n)
+       10   for component in CartesianIndices(fiber)
+       30     for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+    15360       total = zero(Complex{T})
+    15360       for m1 in 0:N[1]-1, m2 in 0:N[2]-1, m3 in 0:N[3]-1
+  7864320         m = (m1, m2, m3)
+        -         # Reach the stored coefficient for this mode, conjugating when only the partner is kept.
+  7864320         if m[folded] <= N[folded] ÷ 2
+  9830400           index = ntuple(d -> m[d] + 1, 3)
+ 19660800           all(d -> index[d] <= stored[d], 1:3) || continue
+  4915200           coefficient = spectral[index..., component]
+        -         else
+ 11796480           partner = ntuple(d -> wrap(-m[d], N[d]), 3)
+  5898240           index = ntuple(d -> partner[d] + 1, 3)
+ 11796480           all(d -> index[d] <= stored[d], 1:3) || continue
+  2949120           coefficient = conj(spectral[index..., component])
+        -         end
+  7864320         phase = 2π * (n1 * m1 / N[1] + n2 * m2 / N[2] + n3 * m3 / N[3])
+  7864320         total += coefficient * cis(phase)
+  7971840       end
+    15360       out[n1 + 1, n2 + 1, n3 + 1, component] = real(total) / prod(N)
+    15570     end
+       34   end
+       10   return out
+        - end
+        - 
+        - # --- the spectral kernel symbols, from their documented formulas -------------------------------------
+        - #
+        - # Each builder's docstring states its multiplier; these evaluate that statement per mode, from
+        - # wavenumbers rebuilt here.
+        - function _ref_mode_wavenumbers(grid, layout, shape)
+       48   k1 = reference_wavenumbers(grid, layout, 1, shape[1])
+       48   k2 = reference_wavenumbers(grid, layout, 2, shape[2])
+       48   k3 = reference_wavenumbers(grid, layout, 3, shape[3])
+       48   return (derivative = (k1[1], k2[1], k3[1]), true_k = (k1[2], k2[2], k3[2]))
+        - end
+        - 
+        4 function ref_squared_wavenumber(grid, layout, shape)
+       38   w = _ref_mode_wavenumbers(grid, layout, shape).true_k
+       38   return [w[1][i]^2 + w[2][j]^2 + w[3][l]^2 for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
+        - end
+        - 
+        4 function ref_spectral_band(grid, layout, shape, k_lo, k_hi)
+       22   k2 = ref_squared_wavenumber(grid, layout, shape)
+       22   return [(k_lo^2 <= v <= k_hi^2) ? one(eltype(k2)) : zero(eltype(k2)) for v in k2]
+        - end
+        - 
+       18 ref_spectral_cutoff(grid, layout, shape, k) = ref_spectral_band(grid, layout, shape, zero(k), k)
+        - 
+        6 ref_exponential_symbol(grid, layout, shape, c) = exp.(c .* ref_squared_wavenumber(grid, layout, shape))
+        - 
+        - # Ŵ = ∏_a sinc²(k_a Δx_a / 2), the linear/CIC assignment window. `sinc` here is the UNNORMALIZED
+        - # sin(x)/x, which is what the formula means; Julia's `sinc` is sin(πx)/(πx), so the argument is divided
+        - # by π to undo that.
+        2 function ref_assignment_window(grid, layout, shape)
+        2   w = _ref_mode_wavenumbers(grid, layout, shape).true_k
+        2   Δ = grid.grid_spacing
+     3554   factor(k, d) = sinc(k * Δ[d] / (2π))^2
+        2   return [factor(w[1][i], 1) * factor(w[2][j], 2) * factor(w[3][l], 3)
+        -           for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
+        - end
+        - 
+        - # ĝ = e^{-i k·h}, the shift theorem's phase, with decision 28's Nyquist split: the even (cos) part
+        - # comes from the TRUE |k| and the odd (sin) part from the Nyquist-zeroed derivative k, so an even
+        - # axis's Nyquist multiplier is the real cos(πh/Δ) rather than a phase.
+        8 function ref_translation_kernel(grid, layout, shape, h)
+        8   modes = _ref_mode_wavenumbers(grid, layout, shape)
+        8   even, odd = modes.true_k, modes.derivative
+        -   # PER AXIS, then multiplied. The kernel is separable — ∏_a e^{-i k_a h_a} — so the Nyquist split is
+        -   # applied to each axis's own factor. Splitting the SUMMED argument instead gives a different function
+        -   # entirely (it was the first attempt, and it disagreed).
+        8   out = zeros(Complex{eltype(grid.domain_size)}, shape...)
+     2568   factor(axis, index) = complex(cos(even[axis][index] * h[axis]), -sin(odd[axis][index] * h[axis]))
+        8   for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]
+     2560     out[i, j, l] = factor(1, i) * factor(2, j) * factor(3, l)
+     2592   end
+        8   return out
+        - end
+        - 
+        - 
+        - # --- the spectral reductions ------------------------------------------------------------------------
+        - #
+        - # Parseval with the rfft half-spectrum weighting: the folded axis stores only its non-negative
+        - # frequencies, so each mode stands for itself AND its unstored conjugate partner and counts twice,
+        - # EXCEPT that axis's self-conjugate zero plane and — when the axis is even — its Nyquist plane, which
+        - # count once. Written from that statement rather than from the implementation's fused form.
+        - function _ref_parseval_weight(index, grid, layout, shape)
+    34560   folded = layout.fft_dims[1]
+    34560   m = index[folded] - 1
+    34560   n = grid.grid_size[folded]
+    62208   self_conjugate = m == 0 || (iseven(n) && m == n ÷ 2)
+    55296   return self_conjugate ? 1 : 2
+        - end
+        - 
+       10 function ref_spectral_inner(a, b, grid, layout, R)
+       10   shape = size(a)[1:3]
+       10   N = prod(grid.grid_size)
+       10   total = 0.0
+       10   components = 3^R
+       14   flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+       10   for index in CartesianIndices(shape)
+     5120     weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+     3200     linear = LinearIndices(shape)[index]
+     3200     for c in 1:components
+    10880       total += weight * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+    18560     end
+     3210   end
+       10   return total / N^2
+        - end
+        - 
+        - # ⟨f, w·g⟩ — the multiplier-weighted spectral inner, the reduction-dual of `convolve`. Same weighting,
+        - # with the real per-mode multiplier folded in.
+        2 function ref_weighted_inner(a, b, weight_field, grid, layout, R)
+        2   shape = size(a)[1:3]
+        2   N = prod(grid.grid_size)
+        2   components = 3^R
+        4   flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+        2   total = 0.0
+        2   for index in CartesianIndices(shape)
+     1024     parseval = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+      640     linear = LinearIndices(shape)[index]
+      640     w = real(weight_field[index])
+      640     for c in 1:components
+      640       total += parseval * w * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+      640     end
+      642   end
+        2   return total / N^2
+        - end
+        - 
+        - # The shell-resolved inner: the same Parseval sum, binned by |k| into unit-width shells. Its defining
+        - # property is that the shells sum to `inner`, which the value lane asserts separately.
+        4 function ref_radial_spectrum(a, grid, layout, R)
+        4   shape = size(a)[1:3]
+        4   N = prod(grid.grid_size)
+        4   components = 3^R
+        6   flat = reshape(a, :, components)
+        4   k2 = ref_squared_wavenumber(grid, layout, shape)
+        4   Δk = 2π / maximum(grid.domain_size)
+        4   shells = zeros(Float64, 0)
+        4   for index in CartesianIndices(shape)
+     1280     linear = LinearIndices(shape)[index]
+     1280     shell = round(Int, sqrt(k2[index]) / Δk) + 1
+     1312     shell > length(shells) && append!(shells, zeros(shell - length(shells)))
+     2048     weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+     1280     for c in 1:components
+     2560       shells[shell] += weight * abs2(flat[linear, c])
+     3840     end
+     1284   end
+        4   return shells ./ N^2
+        - end
+        - 
+        - # The TWO-FIELD co-spectrum (decision 22): the same shell binning, contracting `Re(f̂ conj(ĝ))` instead
+        - # of `|f̂|²`. It is a distinct branch — it may be negative, and dropping the conjugate would break the
+        - # documented f↔g symmetry — and the single-field form is the g = f case, so this reference must be
+        - # written from the definition rather than delegated to the one above.
+        2 function ref_radial_spectrum(a, b, grid, layout, R)
+        2   shape = size(a)[1:3]
+        2   N = prod(grid.grid_size)
+        2   components = 3^R
+        4   flat_a, flat_b = reshape(a, :, components), reshape(b, :, components)
+        2   k2 = ref_squared_wavenumber(grid, layout, shape)
+        2   Δk = 2π / maximum(grid.domain_size)
+        2   shells = zeros(Float64, 0)
+        2   for index in CartesianIndices(shape)
+      640     linear = LinearIndices(shape)[index]
+      640     shell = round(Int, sqrt(k2[index]) / Δk) + 1
+      656     shell > length(shells) && append!(shells, zeros(shell - length(shells)))
+     1024     weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+      640     for c in 1:components
+      640       shells[shell] += weight * real(flat_a[linear, c] * conj(flat_b[linear, c]))
+      640     end
+      642   end
+        2   return shells ./ N^2
+        - end
+        - 
+        - # The exact spectral evaluation of a band-limited field at an arbitrary point — the definition
+        - # `DirectDFT` implements and `NUFFT` approximates to a tolerance. Written as the literal sum over stored
+        - # modes with the rfft multiplicity applied, and the position measured from the grid ORIGIN.
+        - #
+        - # This exists because `NUFFT` had no independent value oracle anywhere in the survey: it was built as a
+        - # scheme argument and its bad-tolerance rejection was checked, but the spread/FFT/deconvolve pipeline
+        - # itself was compared to nothing, so a wrong exponent in the deconvolution window or a transposed axis
+        - # in the gridding produced a finite, deterministic, correctly-shaped, wrong answer that every universal
+        - # check passed.
+        - # The folded axis's Nyquist plane, zeroed. `NUFFT` is exact against `DirectDFT` only on the RESOLVED
+        - # SUB-NYQUIST band — it projects the rfft Nyquist out so the spread and gather stay exact adjoints —
+        - # while `DirectDFT` evaluates the stored spectrum as it is. One reference serves both, with this applied
+        - # for the NUFFT comparison: measured on an 8³ grid, `DirectDFT` agrees with the unprojected reference to
+        - # 6.7e-16 and `NUFFT` differs from it by 0.104, which is the projection, not an error.
+        2 function ref_project_out_nyquist(spectral, grid, layout)
+        4   out = copy(spectral)
+        2   for axis in 1:3
+        6     n = grid.grid_size[axis]
+        6     iseven(n) || continue
+        -     # EVERY even axis, not only the folded one — measured: projecting the folded axis alone leaves NUFFT
+        -     # disagreeing by 0.219, projecting all of them brings it to 3.3e-12. On the folded axis the Nyquist
+        -     # is the last stored slot; elsewhere the stored order runs 0, 1, …, so it sits at `n ÷ 2 + 1`.
+        8     index = axis == layout.fft_dims[1] ? size(out, axis) : (n ÷ 2 + 1)
+       24     plane = ntuple(d -> d == axis ? (index:index) : Base.axes(out, d), ndims(out))
+        8     out[plane...] .= 0
+       10   end
+        2   return out
+        - end
+        - 
+        6 function ref_spectral_interpolate(spectral, grid, layout, coordinates, R)
+        6   shape = size(spectral)[1:3]
+        6   components = 3^R
+       10   flat = reshape(spectral, :, components)
+        -   # The TRUE wavenumbers, not the derivative family. Evaluating a field is not differentiating it, so the
+        -   # Nyquist slot carries its real value here (invariant 5's split, taken on the other side).
+        6   _, (k1, k2, k3) = mode_wavenumbers(grid, layout, shape)
+        6   N = prod(grid.grid_size)
+        6   M = size(coordinates, 1)
+       90   out = zeros(real(eltype(spectral)), M, components)
+        6   for p in 1:M, c in 1:components
+       90     total = 0.0
+       90     for index in CartesianIndices(shape)
+    28800       linear = LinearIndices(shape)[index]
+    28800       k = (k1[index[1]], k2[index[2]], k3[index[3]])
+    57600       phase = sum(k[d] * (coordinates[p, d] - grid.origin[d]) for d in 1:3)
+        -       # The rfft stores half the spectrum; a mode with an unstored conjugate partner counts twice, which
+        -       # is the same multiplicity the Parseval weight applies.
+    46080       weight = _ref_parseval_weight(Tuple(index), grid, layout, shape)
+    28800       total += weight * real(flat[linear, c] * cis(phase))
+    28890     end
+       90     out[p, c] = total / N
+      138   end
+        6   return components == 1 ? vec(out) : out
+        - end
+        - 
+        - # --- the grid↔point transfer ------------------------------------------------------------------------
+        - #
+        - # The Catmull-Rom weights, written out. These are the standard two-point Hermite cubics — the
+        - # `LalescuSpline(1, 1)` the package takes as its default — and are stated here as polynomials in the
+        - # cell-local coordinate rather than obtained from the package's weight builder.
+      432 _ref_catmull_rom(t) = (-0.5t^3 + t^2 - 0.5t,
+        -                         1.5t^3 - 2.5t^2 + 1,
+        -                        -1.5t^3 + 2t^2 + 0.5t,
+        -                         0.5t^3 - 0.5t^2)
+        - 
+        - # Gather: f(x_p) = Σ_stencil w_i w_j w_k f[n + offset], with periodic wrap. Positions are measured from
+        - # the grid's ORIGIN, which is the axis a fixture at origin 0 cannot see.
+        8 function ref_interpolate_catmull_rom(data, grid, points, R)
+        8   N, Δ, o = grid.grid_size, grid.grid_spacing, grid.origin
+        8   M = size(points, 1)
+        8   components = 3^R
+       14   flat = reshape(data, :, components)
+        8   linear = LinearIndices(N)
+      108   out = zeros(eltype(data), M, components)
+        8   for p in 1:M
+       72     base = ntuple(3) do d
+      216       position = (points[p, d] - o[d]) / Δ[d]
+      216       floor(Int, position)
+        -     end
+      144     local_t = ntuple(d -> (points[p, d] - o[d]) / Δ[d] - base[d], 3)
+      144     weights = ntuple(d -> _ref_catmull_rom(local_t[d]), 3)
+       72     for i in 1:4, j in 1:4, k in 1:4
+     9216       n1 = mod(base[1] + i - 2, N[1]) + 1
+     9216       n2 = mod(base[2] + j - 2, N[2]) + 1
+     9216       n3 = mod(base[3] + k - 2, N[3]) + 1
+     4608       w = weights[1][i] * weights[2][j] * weights[3][k]
+     4608       index = linear[n1, n2, n3]
+     4608       for c in 1:components
+     6912         out[p, c] += w * flat[index, c]
+     9216       end
+     4824     end
+      136   end
+        8   return R == 0 ? out[:, 1] : reshape(out, M, ntuple(_ -> 3, R)...)
+        - end
+        - 
+        - # Scatter: the transpose of the gather, accumulating each point's value into the same stencil.
+        8 function ref_anterpolate_catmull_rom(values, grid, points, R)
+        8   N, Δ, o = grid.grid_size, grid.grid_spacing, grid.origin
+        8   M = size(points, 1)
+        8   components = 3^R
+        8   flat_values = reshape(values, M, components)
+     4096   out = zeros(eltype(values), prod(N), components)
+        8   linear = LinearIndices(N)
+        8   for p in 1:M
+      144     base = ntuple(d -> floor(Int, (points[p, d] - o[d]) / Δ[d]), 3)
+      144     local_t = ntuple(d -> (points[p, d] - o[d]) / Δ[d] - base[d], 3)
+      144     weights = ntuple(d -> _ref_catmull_rom(local_t[d]), 3)
+       72     for i in 1:4, j in 1:4, k in 1:4
+     9216       n1 = mod(base[1] + i - 2, N[1]) + 1
+     9216       n2 = mod(base[2] + j - 2, N[2]) + 1
+     9216       n3 = mod(base[3] + k - 2, N[3]) + 1
+     4608       w = weights[1][i] * weights[2][j] * weights[3][k]
+     4608       index = linear[n1, n2, n3]
+     4608       for c in 1:components
+     4608         out[index, c] += w * flat_values[p, c]
+     4608       end
+     4824     end
+      136   end
+        8   return reshape(out, N..., ntuple(_ -> 3, R)...)
+        - end
+        - 
+        - 
+        - # The Wiener–Khinchin dual, shell by shell.
+        - #
+        - # `radial_spectrum` was compared only through `sum(...)` until an adversarial pass, and the sum is
+        - # invariant to how modes are binned — so the binning, the operation's entire purpose, was checked by
+        - # nothing. That was fixed for the spectrum and never carried to its dual: `radial_correlation` was
+        - # checked only at `C(0)`, which Parseval forces, leaving every non-zero separation with no reference.
+        - #
+        - # Written from the documented definition: C(r) = 𝓕⁻¹(|f̂|²)/N, averaged over the shell of
+        - # minimum-image separations |r|. The inverse transform is the reference's own, not the package's.
+        2 function ref_radial_correlation(spectral, grid, layout)
+        2   N = grid.grid_size
+        4   power = abs2.(spectral)
+        -   # |f̂|² is real and Hermitian, so its inverse transform is real: reuse the reference inverse DFT,
+        -   # which performs the Hermitian completion from the stored half-spectrum.
+        4   correlation = ref_dft_inverse(complex.(power), grid, layout) ./ prod(N)
+        2   Δ = grid.grid_spacing
+        -   # The minimum-image separation of each offset, and the shell it falls in.
+     3074   separation(n, d) = min(n, N[d] - n) * Δ[d]
+        2   Δr = minimum(Δ)
+        2   sums, counts = Float64[], Int[]
+        2   for n1 in 0:N[1]-1, n2 in 0:N[2]-1, n3 in 0:N[3]-1
+     1024     r = sqrt(separation(n1, 1)^2 + separation(n2, 2)^2 + separation(n3, 3)^2)
+     1024     shell = round(Int, r / Δr) + 1
+     1040     while shell > length(sums)
+       16       Base.push!(sums, 0.0); Base.push!(counts, 0)
+       16     end
+     1024     sums[shell] += correlation[n1 + 1, n2 + 1, n3 + 1]
+     1024     counts[shell] += 1
+     1038   end
+        2   return [c == 0 ? 0.0 : s / c for (s, c) in zip(sums, counts)]
+        - end
+        - 
+        - 
+        - # --- base-space motion and the reality check (decisions 71, 73) -------------------------------------
+        - # Written from the docstrings, over raw arrays. `wrap!` is the canonical representative in the
+        - # half-open box `[o, o+L)`; `displace!` is `x_p + Σ_j c_j v_j(p)`, taken literally in the universal
+        - # cover, and composed with the wrap when a grid is supplied.
+        4 ref_wrap(coordinates, grid) =
+        -   [mod(coordinates[p, d] - grid.origin[d], grid.domain_size[d]) + grid.origin[d]
+        -    for p in axes(coordinates, 1), d in 1:3]
+        - 
+        - 
+        6 function ref_displace(coordinates, terms...)
+       12   moved = copy(coordinates)
+        6   for (coefficient, values) in terms
+       10     for p in axes(moved, 1), d in 1:3
+      270       moved[p, d] += coefficient * values[p, d]
+      350     end
+       15   end
+        6   return moved
+        - end
+        - 
+        - 
+        2 ref_displace_wrapped(coordinates, grid, terms...) = ref_wrap(ref_displace(coordinates, terms...), grid)
+        - 
+        - 
+        - # The largest ``|f̂(k) - conj(f̂(-k))|`` over the folded axis's self-conjugate planes — its zero plane,
+        - # and its Nyquist plane when that axis has even length — and every fiber component. Which array axis is
+        - # folded is read from the layout, so a permuted fold is checked rather than assumed; the mirror of index
+        - # `i` on a full axis of length `n` is `mod(-(i-1), n) + 1`. A mode that is its own mirror contributes
+        - # twice its imaginary part, which falls out of the same expression rather than being special-cased.
+        4 function ref_reality_residual(data, grid, layout)
+        4   folded = layout.fft_dims[1]
+        4   others = Tuple(d for d in 1:3 if d != folded)
+        4   a, b = others
+        8   na, nb = size(data, a), size(data, b)
+        8   planes = iseven(grid.grid_size[folded]) ? (1, size(data, folded)) : (1,)
+        4   fiber_shape = ntuple(i -> size(data, 3 + i), max(0, ndims(data) - 3))
+        4   worst = zero(real(eltype(data)))
+        4   index, mirror = Vector{Int}(undef, 3), Vector{Int}(undef, 3)
+        8   for plane in planes, component in CartesianIndices(fiber_shape), i in 1:na, j in 1:nb
+      512     index[folded] = plane;  index[a] = i;  index[b] = j
+      512     mirror[folded] = plane; mirror[a] = mod(-(i - 1), na) + 1; mirror[b] = mod(-(j - 1), nb) + 1
+      512     here    = data[index[1], index[2], index[3], Tuple(component)...]
+      512     partner = data[mirror[1], mirror[2], mirror[3], Tuple(component)...]
+      512     worst = max(worst, abs(here - conj(partner)))
+      512   end
+        4   return worst
+        - end
+        - 
+        - 
+        - # `û = i a × ŵ / |a|²`, the divergence-free preimage of a curl, with the k = 0 mode zero. Written from
+        - # the docstring over raw arrays: the wavenumbers are rebuilt from the grid by `mode_wavenumbers`, and
+        - # the cross product is expanded by hand rather than taken from the package's own `curl`.
+        4 function ref_inverse_curl(data, grid, layout)
+        4   result = zeros(eltype(data), size(data))
+        4   (k1, k2, k3), _ = mode_wavenumbers(grid, layout, size(data)[1:3])
+        4   for i in axes(data, 1), j in axes(data, 2), l in axes(data, 3)
+     1280     a1, a2, a3 = k1[i], k2[j], k3[l]
+     1280     squared = a1 * a1 + a2 * a2 + a3 * a3
+     2528     reciprocal = iszero(squared) ? zero(squared) : inv(squared)
+     1280     w1, w2, w3 = data[i, j, l, 1], data[i, j, l, 2], data[i, j, l, 3]
+     1280     result[i, j, l, 1] = im * (a2 * w3 - a3 * w2) * reciprocal
+     1280     result[i, j, l, 2] = im * (a3 * w1 - a1 * w3) * reciprocal
+     1280     result[i, j, l, 3] = im * (a1 * w2 - a2 * w1) * reciprocal
+     1296   end
+        4   return result
+        - end
+        - 
+        - 
+        - # --- constants against a section --------------------------------------------------------------
+        - # A constant added in PHYSICAL representation lands on every base point; in SPECTRAL representation
+        - # invariant 4 says it lands on the zero (DC) Fourier mode alone, scaled by the number of grid points.
+        - # Written from the invariant rather than from the package, which is the point of a reference.
+       30 ref_add_constant_physical(data, c, R) = data .+ _fiber_broadcast(c, size(data), R)
+       18 ref_subtract_constant_physical(data, c, R) = data .- _fiber_broadcast(c, size(data), R)
+       18 ref_constant_minus_physical(data, c, R) = _fiber_broadcast(c, size(data), R) .- data
+        - 
+        - 
+      108 function _fiber_broadcast(c, shape, R)
+      108   R == 0 && return fill(c, shape)
+        -   # The fiber axes are the TRAILING R, whatever the base is: a field has three base axes and a
+        -   # point-value section has one, and hard-coding three broke on the point sections.
+       86   base = length(shape) - R
+       86   out = Array{typeof(first(c))}(undef, shape)
+      142   for index in CartesianIndices(shape)
+   304956     fibre = Tuple(index)[(base + 1):end]
+   152478     out[index] = R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]]
+   152564   end
+       86   return out
+        - end
+        - 
+        - 
+       18 function ref_add_constant_spectral(data, c, grid, R)
+       36   out = copy(data)
+       18   scale = prod(grid.grid_size)
+       18   if R == 0
+        6     out[1, 1, 1] += scale * c
+        -   else
+       24     for fibre in CartesianIndices(ntuple(_ -> 3, R))
+      126       out[1, 1, 1, Tuple(fibre)...] += scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+       72     end
+        -   end
+       18   return out
+        - end
+        - 
+        - 
+       12 function ref_subtract_constant_spectral(data, c, grid, R)
+       24   out = copy(data)
+       12   scale = prod(grid.grid_size)
+       12   if R == 0
+        4     out[1, 1, 1] -= scale * c
+        -   else
+       16     for fibre in CartesianIndices(ntuple(_ -> 3, R))
+       84       out[1, 1, 1, Tuple(fibre)...] -= scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+       48     end
+        -   end
+       12   return out
+        - end
+        - 
+        - 
+        - # `c - f` is not `-(f - c)` in spectral representation: negating the field negates every mode, while
+        - # the constant still lands on the DC mode alone. Written out rather than derived from the sibling.
+       12 function ref_constant_minus_spectral(data, c, grid, R)
+       12   out = -data
+       12   scale = prod(grid.grid_size)
+       12   if R == 0
+        4     out[1, 1, 1] += scale * c
+        -   else
+       16     for fibre in CartesianIndices(ntuple(_ -> 3, R))
+       84       out[1, 1, 1, Tuple(fibre)...] += scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+       48     end
+        -   end
+       12   return out
+        - end
+        - 
+        - 
+        - # --- base-agnostic contraction references -------------------------------------------------------
+        - # The references above index `a[:, :, :, i]`, which assumes a three-axis base and so cannot be pointed
+        - # at a point-value section, whose base is one axis. These take the fiber as the TRAILING axes and work
+        - # over any base, which is what lets one sweep drive the field and point families from one definition.
+      324 _base_shape(a, R) = ntuple(d -> size(a, d), ndims(a) - R)
+        - 
+        - 
+       24 function ref_dot_generic(a, b)
+       24   base = _base_shape(a, 1)
+        -   # Promote: one operand may be a REAL constant broadcast against a complex spectral section, and
+        -   # `eltype(a)` alone silently narrowed the result and threw on assignment.
+       88   out = zeros(promote_type(eltype(a), eltype(b)), base)
+       24   for I in CartesianIndices(base), i in 1:3
+    20184     out[I] += a[I, i] * b[I, i]
+    20208   end
+       24   return out
+        - end
+        - 
+        - 
+       24 function ref_cross_generic(a, b)
+       24   base = _base_shape(a, 1)
+       24   out = Array{promote_type(eltype(a), eltype(b))}(undef, size(a))
+       24   for I in CartesianIndices(base)
+     6728     out[I, 1] = a[I, 2] * b[I, 3] - a[I, 3] * b[I, 2]
+     6728     out[I, 2] = a[I, 3] * b[I, 1] - a[I, 1] * b[I, 3]
+     6728     out[I, 3] = a[I, 1] * b[I, 2] - a[I, 2] * b[I, 1]
+     6752   end
+       24   return out
+        - end
+        - 
+        - 
+       22 function ref_matvec_generic(A, u)               # (Au)_i = A_ij u_j
+       22   base = _base_shape(A, 2)
+      230   out = zeros(promote_type(eltype(A), eltype(u)), (base..., 3))
+       22   for I in CartesianIndices(base), i in 1:3, j in 1:3
+    54792     out[I, i] += A[I, i, j] * u[I, j]
+    54814   end
+       22   return out
+        - end
+        - 
+        - 
+       16 function ref_vecmat_generic(u, A)               # (uᵀA)_j = u_i A_ij, the right action
+       16   base = _base_shape(A, 2)
+      172   out = zeros(promote_type(eltype(A), eltype(u)), (base..., 3))
+       16   for I in CartesianIndices(base), j in 1:3, i in 1:3
+    39654     out[I, j] += u[I, i] * A[I, i, j]
+    39670   end
+       16   return out
+        - end
+        - 
+        - 
+       28 function ref_matmul_generic(A, B)               # (AB)_ik = A_ij B_jk
+       28   base = _base_shape(A, 2)
+       28   out = zeros(promote_type(eltype(A), eltype(B)), (base..., 3, 3))
+       28   for I in CartesianIndices(base), i in 1:3, k in 1:3, j in 1:3
+   209790     out[I, i, k] += A[I, i, j] * B[I, j, k]
+   209818   end
+       28   return out
+        - end
+        - 
+        - 
+       24 function ref_tensor_inner_generic(A, B)         # the Frobenius pairing A_ij B_ij
+       24   base = _base_shape(A, 2)
+       88   out = zeros(promote_type(eltype(A), eltype(B)), base)
+       24   for I in CartesianIndices(base), i in 1:3, j in 1:3
+    60552     out[I] += A[I, i, j] * B[I, i, j]
+    60576   end
+       24   return out
+        - end
+        - 
+        - 
+        - # Widen a SCALAR section's data over the fiber axes of a rank-`order` section, so a scalar-section
+        - # action can be written as one elementwise product against the raw arrays.
+        8 function _fiber_broadcast_scalar(scalar_data, shape, order)
+        8   out = Array{eltype(scalar_data)}(undef, shape)
+        8   base = length(shape) - order
+       12   for index in CartesianIndices(shape)
+    12504     out[index] = scalar_data[CartesianIndex(Tuple(index)[1:base])]
+    12512   end
+        8   return out
+        - end
