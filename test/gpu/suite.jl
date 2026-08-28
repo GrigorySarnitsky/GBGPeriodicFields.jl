@@ -375,6 +375,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       u_spec_d = to_spectral(ud, plans_for(ud))
       @test matches(divergence(u_spec_d, mult_d), divergence(u_spec_h, mult_h))
       @test matches(curl(u_spec_d, mult_d), curl(u_spec_h, mult_h))
+      @test matches(inverse_curl(u_spec_d, mult_d), inverse_curl(u_spec_h, mult_h))
       @test matches(gradient(u_spec_d, mult_d), gradient(u_spec_h, mult_h))          # vector -> tensor
       @test matches(symmetric_gradient(u_spec_d, mult_d), symmetric_gradient(u_spec_h, mult_h))  # fused sym∇
       @test matches(helmholtz_projection(u_spec_d, mult_d), helmholtz_projection(u_spec_h, mult_h))

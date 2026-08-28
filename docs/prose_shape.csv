@@ -95,6 +95,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 74",611,611,0
 "ARCHITECTURE.md § item 75",714,714,0
 "ARCHITECTURE.md § item 76",826,205,0
+"ARCHITECTURE.md § item 77",301,262,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",788,206,0
@@ -140,6 +141,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _apply_spectral_laplacian!(destination_data, source_data, sq",37,34,0
 "DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",59,48,0
 "DifferentialOperators.jl :: _helmholtz_projection_modes!(backend, destination_1, destina",83,70,0
+"DifferentialOperators.jl :: _inverse_curl_modes!(backend, destination_1, destination_2, ",67,56,0
 "DifferentialOperators.jl :: _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)",46,42,0
 "DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",47,38,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
@@ -152,6 +154,8 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
 "DifferentialOperators.jl :: helmholtz_projection!(",559,89,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
+"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",339,86,1
+"DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
 "DifferentialOperators.jl :: inverse_laplacian!(",297,76,1
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
 "DifferentialOperators.jl :: laplacian!(",159,56,0
@@ -162,11 +166,11 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § First-order differential operators",10,10,0
 "DifferentialOperators.md § Internal API",56,45,0
 "DifferentialOperators.md § Projection operators",4,4,0
-"DifferentialOperators.md § Second-order differential operators",6,6,0
+"DifferentialOperators.md § Second-order differential operators",8,8,0
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
 "FORMALIZATION.md § Declarations",602,321,0
-"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",835,114,0
+"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1070,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",297,74,0
@@ -367,7 +371,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Types",11,11,0
 "Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",10,10,0
 "Fields.md § the same `Public = false` mechanism that filed `map` and `tr",9,9,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",1156,519,1
+"GBGPeriodicFields.jl :: GBGPeriodicFields",1157,520,1
 "GBGPeriodicFields.md § GBGPeriodicFields.jl",8,8,0
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
@@ -409,7 +413,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
 "PERFORMANCE.md § finding (a)",105,59,0
 "PERFORMANCE.md § finding (aa)",346,123,0
-"PERFORMANCE.md § finding (ab)",697,286,0
+"PERFORMANCE.md § finding (ab)",535,95,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -534,7 +538,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 16",64,64,0
 "TESTING.md § item 17",188,188,0
 "TESTING.md § item 18",154,154,0
-"TESTING.md § item 19",203,85,0
+"TESTING.md § item 19",277,85,0
 "TESTING.md § item 2",27,27,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0

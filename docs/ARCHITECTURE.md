@@ -4035,3 +4035,29 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     equal. Under `MEASURE` the same two cells read **108 ms** and **180 ms**. That is a factor of
     ``4.7`` left on the floor by the default planner effort, it is independent of everything above,
     and it belongs to `PERFORMANCE.md` finding (h)'s territory rather than to this entry.
+
+77. **The inverse curl — `curl` inverted on the solenoidal subspace** (2026-08-28, user-requested).
+    `inverse_curl!`/`inverse_curl` recover the divergence-free vector field ``u`` whose curl is a
+    given ``w``, as one coefficientwise pass ``\hat u = \mathrm{i}\,a\times\hat w/\lvert a\rvert^{2}``
+    with ``a`` the derivative wavenumbers of invariant 5 and the ``k = 0`` mode written zero.
+
+    - **Why it is well posed, and what the choice costs.** ``\nabla\times u = w`` fixes ``u`` only up
+      to a gradient, since ``\nabla\times\nabla\phi = 0``; this returns the representative that is
+      itself divergence-free, which is the *gauge* the operator picks and the one a velocity field
+      satisfies. It also needs a solvable right-hand side — a curl is divergence-free, so
+      ``\nabla\cdot w = 0`` is a condition on the input, and a violating ``w`` has its longitudinal
+      part annihilated rather than reported. That mirrors `inverse_laplacian`, which likewise
+      projects a non-mean-free input onto the compatible part instead of refusing it.
+    - **Both wavenumber families would give the same answer sub-Nyquist; only one is exact.** The
+      numerator and the denominator are built from the SAME derivative family, so
+      ``(\nabla\times)^{-1}(\nabla\times)`` reproduces a solenoidal field exactly at every mode
+      rather than only on the resolved band — decision 42's argument, one operator over.
+    - **Route.** A one-pass `KernelAbstractions` kernel with a gated CPU twin, which is what §9's
+      execution-route policy prescribes for a cartesian-coefficient operator reading three components
+      of a mode and writing three. It is therefore alias-safe by construction (all of a mode's reads
+      precede its writes) and needs no guard temporary. The decision-47 dispatch-pair guard counted
+      the new pair and the reachability probe covers it, so a stale CPU-twin arity fails at test time.
+    - **Deliberate absences.** No α/β arity and no kernel-composed arity, matching `curl!` rather than
+      `helmholtz_projection!`: there is no consumer for either, and invariant 1 says a combination is
+      added when something needs it, not for symmetry with a neighbour.
+

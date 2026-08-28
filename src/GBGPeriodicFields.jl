@@ -75,7 +75,7 @@ The umbrella assembles its public surface from the submodules below:
   [`sym`](@ref)/`skew`/`dev` decompositions, and [`map!`](@ref)/[`map`](@ref) applying an arbitrary fiber
   map `φ` at every base point — the escape hatch for any pointwise operation not named here.
 - [`DifferentialOperators`](@ref) provides the differential operators [`gradient`](@ref),
-  `divergence`, `curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
+  `divergence`, `curl`, `inverse_curl`, `symmetric_gradient`, `laplacian`, `inverse_laplacian`, and
   `helmholtz_projection`.
 - [`Convolution`](@ref) provides periodic convolution [`convolve`](@ref), its lazy exponential form
   `exponential_convolve` and the kernel-composed `combine!` method, together with the
@@ -202,6 +202,8 @@ using .DifferentialOperators:
   divergence,
   curl!,
   curl,
+  inverse_curl!,
+  inverse_curl,
   symmetric_gradient!,
   symmetric_gradient,
   laplacian!,
@@ -354,6 +356,8 @@ export FiberVector,
        divergence,
        curl!,
        curl,
+       inverse_curl!,
+       inverse_curl,
        symmetric_gradient!,
        symmetric_gradient,
        laplacian!,

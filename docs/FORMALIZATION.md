@@ -248,6 +248,34 @@ conjugates it, and ``\overline{\mathrm{i}a} = -\mathrm{i}a`` for real ``a`` supp
 — it needs only that both operators read one derivative family, the Nyquist planes included, which
 invariant 5 guarantees. Pinned in `test/adjointness.jl`.
 
+The **inverse curl** inverts ``\nabla\times`` on the solenoidal subspace. Writing ``a`` for the
+derivative wavenumber and ``\mathbb S = \{\hat u : a\cdot\hat u = 0,\ \hat u(0) = 0\}`` for the
+discretely divergence-free, mean-free fields, the operator is
+
+```math
+(\nabla\times)^{-1}\hat w(k) = \frac{\mathrm{i}\,a\times\hat w}{\lvert a\rvert^{2}},
+\qquad k \ne 0, \quad\checkmark
+```
+
+and zero at ``k = 0``. Two statements hold, and the second is the reason numerator and denominator
+must come from the SAME wavenumber family. First, the range is ``\mathbb S``: expanding the triple
+product, ``a\cdot(a\times\hat w) = 0`` identically, so the result is divergence-free at every mode,
+which fixes the gauge that ``\nabla\times u = w`` leaves free. Second, on ``\mathbb S`` it is a true
+inverse — from ``\mathrm{i}a\times(\mathrm{i}a\times\hat u) = a(a\cdot\hat u) - \lvert a\rvert^{2}\hat u``
+and ``a\cdot\hat u = 0``,
+
+```math
+(\nabla\times)^{-1}(\nabla\times) \hat u = \hat u \quad\text{for } \hat u \in \mathbb S,
+\quad\checkmark
+```
+
+exactly, at every mode including the Nyquist planes, because the cancellation is between two copies
+of the same ``\lvert a\rvert^{2}`` rather than between the derivative family and the true ``\lvert
+k\rvert^{2}``. A non-solenoidal input has its longitudinal part annihilated rather than reported,
+which is the compatibility condition ``\nabla\cdot w = 0`` stated as a projection. Backs
+`inverse_curl`; checked by `test/differentialoperators.jl` against the closed-form pair
+``u = (\sin y, \sin z, \sin x)``, ``w = \nabla\times u = (-\cos z, -\cos x, -\cos y)``.
+
 The **`curl` is self-adjoint** on the same pairing,
 
 ```math

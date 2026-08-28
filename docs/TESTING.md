@@ -422,6 +422,12 @@ operation's coverage is judged against the full axis list:
     odd branch never numerically exercised — a parameter with two regimes, tested in one.
     `test/regressions/nufft-odd-width-mis-centered.jl` carries the lane.
 
+`inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
+element types, three grids including an anisotropic mixed-parity one, the aliased in-place call
+asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/device pair — bitwise
+thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a
+closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
+
 **The rule.** A new type parameter, constructor argument, or admissible input region is a new
 axis: it gets a row in this list and a lane in the suite *in the same change*, or an explicit NA
 with its reason. "Exhaustive" means exhaustive over this written list — an axis missing from the

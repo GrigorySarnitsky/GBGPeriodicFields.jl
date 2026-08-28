@@ -251,6 +251,11 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     audit(() -> curl!(vd, u, multipliers), "curl!",
       Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 6M: two formulas per component)
       Traffic("dest", carr(vd), (0, 3M)))
+    # The inverse curl reads and writes exactly what the forward curl does — the extra reciprocal is
+    # arithmetic on values already in registers, not traffic — so it sits at the same fused ideal.
+    audit(() -> inverse_curl!(vd, u, multipliers), "inverse_curl!",
+      Traffic("u", carr(u), (3M, 0)),
+      Traffic("dest", carr(vd), (0, 3M)))
     audit(() -> symmetric_gradient!(td, u, multipliers), "symmetric_gradient!",
       Traffic("u", carr(u), (3M, 0)),                   # fused one-pass (was 15M: five formulas per component)
       Traffic("dest", carr(td), (0, 9M)))

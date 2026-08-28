@@ -139,6 +139,7 @@ _map_add(a, b) = a + b
       @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel)                # kernel-composed ℙ
       @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel, T(0.5), T(1))
       @alloc_below field_threshold curl!(svd, sv, multipliers)
+      @alloc_below field_threshold inverse_curl!(svd, sv, multipliers)
       @alloc_below field_threshold divergence!(ssd, sv, multipliers)            # vector → scalar
       @alloc_below field_threshold divergence!(svd, st, multipliers)            # tensor → vector
       @alloc_below field_threshold divergence!(ssd, sv, multipliers, kernel)                          # kernel-composed ∇·

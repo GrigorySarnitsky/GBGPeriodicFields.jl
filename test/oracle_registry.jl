@@ -34,6 +34,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :laplacian          => (:analytic, "generated_analytic.jl — −q² per term"),
   :symmetric_gradient => (:analytic, "generated_analytic.jl — ½(∇u + ∇uᵀ) on an asymmetric fixture"),
   :inverse_laplacian  => (:analytic, "differentialoperators.jl — analytic round trip on a mean-free field"),
+  :inverse_curl       => (:analytic, "differentialoperators.jl — the closed-form pair u = (sin y, sin z, sin x), w = ∇×u = (−cos z, −cos x, −cos y): the field is recovered from its own curl without the package computing either"),
   :helmholtz_projection => (:property, "adjointness.jl — idempotent, self-adjoint, divergence-annihilating"),
 
   # ---- transforms ----

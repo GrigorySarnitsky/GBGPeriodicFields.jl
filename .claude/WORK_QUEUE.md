@@ -28,3 +28,13 @@ the block shows in the diff instead of being silent.
 - [x] Attribute each cluster to a named cause, or state precisely what was excluded and what remains
 - [x] Record the findings and commit
 
+## Open (authorised 2026-08-28: "Implement now inverse curl")
+
+- [x] `inverse_curl!`/`inverse_curl` — one-pass KA kernel + gated CPU twin
+- [x] CPU correctness against the closed-form pair, round trip, gauge, zero mode, aliasing
+- [x] GPU parity 432/432; bitwise thread-invariance + decision-47 probe green
+- [x] allocations zero row, pass_audit row, oracle_registry entry, survey value rows (121/121)
+- [x] benchmark row added; tiny-grid gate 88/88
+- [x] docs: decision 77, FORMALIZATION entry, TESTING, API page, CLAUDE.md; four baselines refrozen
+- [x] Pkg.test() 126 testsets green, CUDA green, docs green
+

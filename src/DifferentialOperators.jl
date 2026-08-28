@@ -77,6 +77,8 @@ export gradient!,
        divergence,
        curl!,
        curl,
+       inverse_curl!,
+       inverse_curl,
        symmetric_gradient!,
        symmetric_gradient,
        laplacian!,
@@ -568,6 +570,94 @@ function _curl_modes!(::KernelAbstractions.CPU, destination_1, destination_2, de
 end
 
 
+# --- inverse curl ----------------------------------------------------------------------------
+
+# One work-item per mode: the three source components read once, the three outputs written from
+# them. The mode value is ``\mathrm{i}\,a\times\hat w/|a|^2``, and the denominator is the
+# DERIVATIVE-family ``|a|^2`` squared from the same values the numerator reads — not the true-``|k|^2``
+# family — for decision 42's reason one operator over: it is what makes `curl(inverse_curl(w))`
+# reproduce `w` exactly at every mode rather than only sub-Nyquist. The zero mode has no preimage and
+# is written zero, which is the same mean-free convention `inverse_laplacian!` uses.
+@kernel function _inverse_curl_kernel!(destination_1, destination_2, destination_3,
+    source_1, source_2, source_3,
+    @Const(wavenumber_1), @Const(wavenumber_2), @Const(wavenumber_3),
+    imaginary_unit)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    wavenumber_value_1 = wavenumber_1[mode_1]
+    wavenumber_value_2 = wavenumber_2[mode_2]
+    wavenumber_value_3 = wavenumber_3[mode_3]
+    squared = wavenumber_value_1 * wavenumber_value_1 + wavenumber_value_2 * wavenumber_value_2 +
+              wavenumber_value_3 * wavenumber_value_3
+    reciprocal = ifelse(iszero(squared), zero(squared), inv(squared))
+
+    source_value_1 = source_1[mode_1, mode_2, mode_3]
+    source_value_2 = source_2[mode_1, mode_2, mode_3]
+    source_value_3 = source_3[mode_1, mode_2, mode_3]
+
+    destination_1[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_2 * source_value_3 - wavenumber_value_3 * source_value_2) * reciprocal
+    destination_2[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_3 * source_value_1 - wavenumber_value_1 * source_value_3) * reciprocal
+    destination_3[mode_1, mode_2, mode_3] =
+      imaginary_unit * (wavenumber_value_1 * source_value_2 - wavenumber_value_2 * source_value_1) * reciprocal
+  end
+end
+
+
+"""
+    _inverse_curl_modes!(backend, destination_1, destination_2, destination_3,
+                         source_1, source_2, source_3,
+                         wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+
+Apply the inverse curl to every mode, dispatching on `backend`: a `KernelAbstractions` launch of
+`_inverse_curl_kernel!` on a device, and the gated slab-threaded loop below on a CPU. The two arms
+carry the same per-mode arithmetic expression for expression, so a threaded run agrees with a device
+one bitwise, which is what the GPU parity suite compares.
+"""
+function _inverse_curl_modes!(backend, destination_1, destination_2, destination_3,
+    source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  _inverse_curl_kernel!(backend)(
+    destination_1, destination_2, destination_3, source_1, source_2, source_3,
+    wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit;
+    ndrange = size(destination_1))
+  synchronize(backend)
+  return nothing
+end
+
+
+function _inverse_curl_modes!(::KernelAbstractions.CPU, destination_1, destination_2, destination_3,
+    source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
+  axis_1, axis_2 = axes(source_1, 1), axes(source_1, 2)
+  _foreach_outer_slab(axes(source_1, 3), 3 * length(source_1)) do outer_modes
+    @inbounds for mode_3 in outer_modes
+      wavenumber_value_3 = wavenumber_3[mode_3]
+      squared_3 = wavenumber_value_3 * wavenumber_value_3
+      for mode_2 in axis_2
+        wavenumber_value_2 = wavenumber_2[mode_2]
+        squared_23 = wavenumber_value_2 * wavenumber_value_2 + squared_3
+        @simd for mode_1 in axis_1
+          wavenumber_value_1 = wavenumber_1[mode_1]
+          squared = wavenumber_value_1 * wavenumber_value_1 + squared_23
+          reciprocal = ifelse(iszero(squared), zero(squared), inv(squared))
+          source_value_1 = source_1[mode_1, mode_2, mode_3]
+          source_value_2 = source_2[mode_1, mode_2, mode_3]
+          source_value_3 = source_3[mode_1, mode_2, mode_3]
+          destination_1[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_2 * source_value_3 - wavenumber_value_3 * source_value_2) * reciprocal
+          destination_2[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_3 * source_value_1 - wavenumber_value_1 * source_value_3) * reciprocal
+          destination_3[mode_1, mode_2, mode_3] =
+            imaginary_unit * (wavenumber_value_1 * source_value_2 - wavenumber_value_2 * source_value_1) * reciprocal
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
 # --- symmetric gradient ----------------------------------------------------------------------
 
 # One work-item per mode: the three source components read once, the six distinct components of
@@ -1048,6 +1138,83 @@ function curl end
 function curl(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
   destination = similar_field(field, Val(1))
   return curl!(destination, field, multipliers)
+end
+
+
+"""
+    inverse_curl!(destination::VectorFieldSpectral, field::VectorFieldSpectral,
+                  multipliers::FieldSpectralMultipliers)
+
+Recover the divergence-free vector field whose curl is `field`, writing it into `destination` —
+the inverse of [`curl!`](@ref) ``\\equiv \\nabla\\times`` on the fields where that inverse exists.
+
+Use this in-place form when `destination` is already allocated; the allocating
+[`inverse_curl`](@ref) returns a fresh result instead.
+
+Given a vorticity ``w`` the equation ``\\nabla\\times u = w`` fixes ``u`` only up to a gradient, since
+``\\nabla\\times\\nabla\\phi = 0``. This returns the one representative that is itself
+divergence-free, ``\\nabla\\cdot u = 0``, which is the *gauge* the choice amounts to and the one a
+velocity field satisfies. It also requires a solvable right-hand side: a curl is divergence-free, so
+``\\nabla\\cdot w = 0`` is a compatibility condition on the input, and a `field` violating it has its
+longitudinal part silently discarded rather than reported.
+
+The arguments are:
+
+- `destination` — the vector field written with the result. It may alias `field`: every mode's three
+  source coefficients are read before any of its components are written.
+- `field` — the vector field to invert, in spectral representation.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying the derivative wavenumbers, which
+  must match the field's grid, layout, element type and storage family.
+
+!!! warning "The zero mode has no preimage and is returned as zero"
+    A constant field is the curl of nothing, so the ``k = 0`` coefficient carries no information and
+    is written zero. The recovered field therefore has zero mean, which is the same convention
+    [`inverse_laplacian!`](@ref) uses for the same reason.
+
+Because ``\\nabla\\times(\\nabla\\times u) = \\nabla(\\nabla\\cdot u) - \\Delta u`` and the result is
+divergence-free, the operator is a Laplacian solve composed with a curl, and in spectral
+representation it is one coefficientwise pass,
+
+```math
+\\hat u(k) = \\frac{\\mathrm{i}\\,a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
+```
+
+with ``a`` the derivative wavenumbers of invariant 5 and the ``k = 0`` mode set to zero. Numerator and
+denominator are built from the SAME wavenumber family, which is what makes
+``\\nabla\\times(\\nabla\\times)^{-1}`` reproduce a divergence-free field exactly at every mode rather
+than only on the resolved band.
+"""
+function inverse_curl! end
+
+
+function inverse_curl!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat}
+  _check_field_domain_compatibility(destination, field)
+  _check_multipliers_compatibility(field, multipliers)
+
+  _inverse_curl_modes!(get_backend(field_data(destination)),
+                       _vector_component_data(destination, 1), _vector_component_data(destination, 2),
+                       _vector_component_data(destination, 3),
+                       _vector_component_data(field, 1), _vector_component_data(field, 2),
+                       _vector_component_data(field, 3),
+                       multipliers.wavenumber_1, multipliers.wavenumber_2, multipliers.wavenumber_3,
+                       Complex{T}(zero(T), one(T)))
+  return destination
+end
+
+
+"""
+    inverse_curl(field, multipliers::FieldSpectralMultipliers)
+
+Allocating form of [`inverse_curl!`](@ref): allocate the result and return it, the divergence-free
+vector field whose curl is `field`. See `inverse_curl!` for the componentwise definition, the gauge
+it picks, and the compatibility condition on the input.
+"""
+function inverse_curl end
+
+
+function inverse_curl(field::VectorFieldSpectral, multipliers::FieldSpectralMultipliers)
+  destination = similar_field(field, Val(1))
+  return inverse_curl!(destination, field, multipliers)
 end
 
 

@@ -120,7 +120,11 @@ const MODULE_BASELINE = (
   # per call, twice per transform, which is the 128 B/call a consumer's zero-allocation invariant
   # caught and this package's field-sized threshold did not (/bug-hunt-adjacent report, 2026-08-27).
   FieldAlgebra          = 275,
-  DifferentialOperators = 79,
+  DifferentialOperators = 90,
+  # 79 → 90: `inverse_curl` (2026-08-28). Two public generics with one method each, plus the
+  # `@kernel` expansion of `_inverse_curl_kernel!` and the two `_inverse_curl_modes!` arms — the
+  # device launch and its gated CPU twin. The same shape `curl` and `helmholtz_projection` already
+  # have, so the count moves by the same amount adding either of them would.
   # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
   # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice
   # through `materialize_kernel`, which is what that escape hatch is for.

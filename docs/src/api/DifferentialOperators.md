@@ -25,6 +25,8 @@ laplacian!
 laplacian
 inverse_laplacian!
 inverse_laplacian
+inverse_curl!
+inverse_curl
 ```
 
 ## Projection operators

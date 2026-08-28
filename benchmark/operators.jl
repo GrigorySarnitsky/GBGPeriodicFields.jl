@@ -9,6 +9,9 @@ function add_operators!(group, AT, ::Type{T}, grid, tag) where {T}
   group["gradient! scalar->vec | $tag"]   = @benchmarkable (gradient!($uout, $s, $m); bench_sync(field_data($uout)))
   group["divergence! vec->scalar | $tag"] = @benchmarkable (divergence!($sout, $u, $m); bench_sync(field_data($sout)))
   group["curl! vec->vec | $tag"]          = @benchmarkable (curl!($uout, $u, $m); bench_sync(field_data($uout)))
+  # The inverse curl reads and writes what the forward curl does; the reciprocal is register
+  # arithmetic, so this row is the forward curl's price with a divide added per mode.
+  group["inverse_curl! vec->vec | $tag"]  = @benchmarkable (inverse_curl!($uout, $u, $m); bench_sync(field_data($uout)))
   group["symmetric_gradient! vec->tensor | $tag"] = @benchmarkable (symmetric_gradient!($tout, $u, $m); bench_sync(field_data($tout)))
   group["laplacian! scalar | $tag"]       = @benchmarkable (laplacian!($sout, $s, $m); bench_sync(field_data($sout)))
   # The inverse is a separate kernel, not the same pass run backwards: it divides by ``|k|^2`` and must

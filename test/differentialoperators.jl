@@ -544,3 +544,63 @@ end
     @test all(abs.(tcomp(J, i, j)) .< 1e-10)
   end
 end
+
+
+# `inverse_curl` (2026-08-28). The oracle is a CLOSED-FORM PAIR, not the package's own `curl`: for
+# u = (sin y, sin z, sin x) — divergence-free and mean-free by inspection — the curl is
+# ∇×u = (−cos z, −cos x, −cos y), differentiated by hand. Feeding the package the hand-written w and
+# asking for u back tests the operator against mathematics rather than against `curl!`, which is
+# decision 55's rule: a round trip through the package's own forward map would agree with itself
+# however both were wrong.
+@testset "inverse_curl recovers the closed-form field from its hand-differentiated curl ($T)" for T in (Float64, Float32)
+  atol = T === Float64 ? 1e-12 : 5e-5
+  for (gs, L) in (((16, 16, 16), (2π, 2π, 2π)), ((16, 12, 10), (2π, 2π, 2π)))
+    grid = Grid3D(gs, T.(L))
+    layout = RealFourierLayout()
+    u_exact(x, y, z) = (sin(y), sin(z), sin(x))
+    w_exact(x, y, z) = (-cos(z), -cos(x), -cos(y))
+    u_phys = VectorFieldPhysical(u_exact, grid)
+    w_phys = VectorFieldPhysical(w_exact, grid)
+    spec(f) = to_spectral(f, FieldTransformPlans(f, VectorFieldSpectral(
+      zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)))
+    w_hat = spec(w_phys)
+    multipliers = FieldSpectralMultipliers(w_hat)
+    recovered = to_physical(inverse_curl(w_hat, multipliers),
+                            FieldTransformPlans(u_phys, w_hat))
+    @test isapprox(Array(field_data(recovered)), Array(field_data(u_phys)); atol = atol, rtol = atol)
+  end
+end
+
+
+@testset "inverse_curl: gauge, the zero mode, and aliasing ($T)" for T in (Float64, Float32)
+  atol = T === Float64 ? 1e-10 : 1e-4
+  grid = Grid3D((16, 12, 10), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity
+  layout = RealFourierLayout()
+  rng = MersenneTwister(4242)
+  raw = VectorFieldPhysical(rand(rng, T, 16, 12, 10, 3), grid, layout)
+  scratch = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+  plans = FieldTransformPlans(raw, scratch)
+  field = to_spectral(raw, plans)
+  multipliers = FieldSpectralMultipliers(field)
+  # A curl is divergence-free, so this is a compatible right-hand side by construction.
+  vorticity = curl(field, multipliers)
+  recovered = inverse_curl(vorticity, multipliers)
+
+  # The defining property, at every mode rather than to a tolerance on a norm.
+  @test isapprox(Array(field_data(curl(recovered, multipliers))), Array(field_data(vorticity)); atol = atol, rtol = atol)
+  # The GAUGE: of all preimages, the one returned is the divergence-free one.
+  @test maximum(abs.(Array(field_data(divergence(recovered, multipliers))))) < atol
+  # The zero mode carries no information and is returned zero, so adding a constant to the input —
+  # which moves only the DC coefficient, invariant 4 — cannot change the answer.
+  shifted = similar_field(vorticity, similar(field_data(vorticity)))
+  copyto!(field_data(shifted), field_data(vorticity))
+  add!(shifted, shifted, FiberVector{T}(T(3), T(-1), T(2)))
+  @test Array(field_data(inverse_curl(shifted, multipliers))) == Array(field_data(recovered))
+
+  # Alias-safe by construction: every mode's three sources are read before any component is written,
+  # so an in-place call is BITWISE equal to the out-of-place one rather than merely close.
+  aliased = similar_field(vorticity, similar(field_data(vorticity)))
+  copyto!(field_data(aliased), field_data(vorticity))
+  inverse_curl!(aliased, aliased, multipliers)
+  @test Array(field_data(aliased)) == Array(field_data(recovered))
+end

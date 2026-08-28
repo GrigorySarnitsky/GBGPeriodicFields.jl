@@ -703,3 +703,22 @@ function ref_reality_residual(data, grid, layout)
   end
   return worst
 end
+
+
+# `û = i a × ŵ / |a|²`, the divergence-free preimage of a curl, with the k = 0 mode zero. Written from
+# the docstring over raw arrays: the wavenumbers are rebuilt from the grid by `mode_wavenumbers`, and
+# the cross product is expanded by hand rather than taken from the package's own `curl`.
+function ref_inverse_curl(data, grid, layout)
+  result = zeros(eltype(data), size(data))
+  (k1, k2, k3), _ = mode_wavenumbers(grid, layout, size(data)[1:3])
+  for i in axes(data, 1), j in axes(data, 2), l in axes(data, 3)
+    a1, a2, a3 = k1[i], k2[j], k3[l]
+    squared = a1 * a1 + a2 * a2 + a3 * a3
+    reciprocal = iszero(squared) ? zero(squared) : inv(squared)
+    w1, w2, w3 = data[i, j, l, 1], data[i, j, l, 2], data[i, j, l, 3]
+    result[i, j, l, 1] = im * (a2 * w3 - a3 * w2) * reciprocal
+    result[i, j, l, 2] = im * (a3 * w1 - a1 * w3) * reciprocal
+    result[i, j, l, 3] = im * (a1 * w2 - a2 * w1) * reciprocal
+  end
+  return result
+end

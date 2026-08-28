@@ -176,6 +176,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     @test bitwise(() -> inverse_laplacian(laplacian(phis, m), m))
     @test bitwise(() -> divergence(us, m))
     @test bitwise(() -> curl(us, m))
+    @test bitwise(() -> inverse_curl(us, m))                        # gated CPU loop twin, like helmholtz
     @test bitwise(() -> gradient(us, m))                            # vector → tensor
     @test bitwise(() -> symmetric_gradient(us, m))                  # fused sym∇ (gated kernel pair)
     @test bitwise(() -> laplacian(us, m))                           # vector Δ (coefficientwise)
@@ -269,9 +270,12 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
         dispatch_pairs += 1
       end
     end
-    # the five DifferentialOperators `_*_modes!`, the FiberSections `_fiberwise_pass!`, and the five
-    # Reductions `_tree_*`/`_reduce_fiber` — eleven pairs. Bump this when a new one is added.
-    @test dispatch_pairs == 11
+    # the six DifferentialOperators `_*_modes!`, the FiberSections `_fiberwise_pass!`, and the five
+    # Reductions `_tree_*`/`_reduce_fiber` — twelve pairs. Bump this when a new one is added.
+    # 11 → 12: `_inverse_curl_modes!` (2026-08-28). The guard did its job — the new pair announced
+    # itself here — and it is covered: `inverse_curl` is in the reachability probe above, so a stale
+    # CPU-twin arity would report dead code rather than pass silently.
+    @test dispatch_pairs == 12
   end
 
   @testset "kernel sites reproducible across thread counts" begin
@@ -385,6 +389,7 @@ end
   C._separable_combination_pass!(::KA.CPU, d, x, y, f1, f2, f3, a, b) = throw(Reached("separable_combination"))
   C._radial_convolution_pass!(::KA.CPU, d, s, sym, q1, q2, q3, a, b) = throw(Reached("radial_convolution"))
   D._helmholtz_projection_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, k, a, b) = throw(Reached("helmholtz"))
+  D._inverse_curl_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, iu) = throw(Reached("inverse_curl"))
   # NOTE the exact signature: an override must be at least as specific as the method it replaces, or
   # Julia keeps the real one and the probe reports "NOTHING" — indistinguishable from dead code. The
   # assertion below that every override lives in Main is what tells the two apart.
@@ -408,6 +413,7 @@ end
                   (C._separable_combination_pass!, "separable_combination"),
                   (C._radial_convolution_pass!, "radial_convolution"),
                   (D._helmholtz_projection_modes!, "helmholtz"),
+                  (D._inverse_curl_modes!, "inverse_curl"),
                   (FS._fiberwise_pass!, "fiberwise_pass"))
     any(m -> m.module === Main, methods(f)) || println(nm, "=STALE-PROBE")
   end
@@ -418,6 +424,7 @@ end
     (() -> combine!(d, 0.5, u, 0.5, b, sep),         "separable_combination"),
     (() -> convolve!(d, u, rad),                     "radial_convolution"),
     (() -> helmholtz_projection!(d, u, m),           "helmholtz"),
+    (() -> inverse_curl!(d, u, m),                   "inverse_curl"),
     (() -> cross(up, vp),                            "fiberwise_pass"),
   ]
   for (call, expected) in probes
@@ -433,7 +440,7 @@ end
   results = Dict(split(line, "=")[1] => split(line, "=")[2]
                  for line in split(output, '\n') if occursin('=', line))
   for twin in ("separable_convolution", "separable_combination", "radial_convolution",
-               "helmholtz", "fiberwise_pass")
+               "helmholtz", "inverse_curl", "fiberwise_pass")
     haskey(results, twin) || error("probe produced no line for $twin; output was:\n$output")
     results[twin] == twin ||
       @error "a gated CPU twin is NOT reached from its public entry point — it is dead code" twin reached = results[twin]
