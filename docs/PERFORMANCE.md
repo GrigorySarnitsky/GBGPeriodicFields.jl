@@ -1486,10 +1486,33 @@ assumed free.
   compare against something rather than reconstruct it. Attributing it needs a bisect on this card,
   which is its own piece of work.
 
+**A CLASS-SKIPPED LANE CANNOT MEASURE THE FINDING-(y) ROWS, and this sweep proved it the hard way.**
+The first merge of these lanes carried `materialize_kernel radial` at ``512^3`` `Float64` reading
+``\times 2.856`` against the archive, and `materialize_kernel separable` ``\times 2.383`` — the two
+rows finding (y) names as process-history-sensitive. They are not a regression and not noise. Re-run
+with the `transfer` class also skipped, `materialize_kernel radial` reads **75.4 ms** against the
+full-sweep archive's **74.8**; with `transfer` in the same process ahead of it, **213.7 ms**. The
+oversampled NUFFT fields that class streams leave the allocator in a different regime, which is
+finding (y)'s mechanism reached by a different route — there the sensitivity was to the 17 rows of its
+own class, here to a whole class that a full sweep would have run in a different order. Both
+`materialize_kernel` rows were therefore RESTORED from the full-sweep archives rather than merged, and
+a class-skipped lane must do the same in future.
+
+The discriminator that separates the two cases is re-running the lane in a different SHAPE, not merely
+re-running it: `convolve! scalar` at ``512^3`` reads 120.9 ms with `transfer` ahead of it and 122.7 ms
+without, so it is stable under exactly the perturbation that moves `materialize_kernel` by ``2.8\times``.
+
+**What survives as a real, unexplained movement.** Five ``512^3`` convolution rows at ``t1``
+(``\times 1.16``–``1.35``: `convolve! scalar`, `convolve! vector`, its `∘ stored` and `∘ radial-stored`
+variants, and `combine!∘kernel vector`) and five ``t4`` rows at ``128^3``/``256^3``. They reproduce, they
+are confined to one grid size per lane, and **none of them goes through the code this session changed** —
+the stored-kernel path is untouched, and the separable path's edit is on the device branch, which a CPU
+lane never reaches. Against a 19-day-old archive spanning thirteen decisions, that is a movement to
+record, not to attribute.
+
 **Method note.** `characterize.jl` saves only what it just measured, so the three lanes were measured
 into separate part-archives and merged, and the merge verified in both directions: re-merging each
-pre-merge backup reported 0 rows missing and 0 untouched-class rows altered. The regenerated
-`RESULTS.md` changes exactly 30 distinct operations, every one of them in the two classes swept.
+pre-merge backup reported 0 rows missing and 0 untouched-class rows altered.
 
 ## 5. The benchmark suite
 
