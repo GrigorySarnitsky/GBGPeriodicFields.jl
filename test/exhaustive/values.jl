@@ -676,7 +676,119 @@ function run_value_lane(configs)
       ()
     end
 
-    for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, persistence_comparisons))
+    # ── the GENERATED dispatch sweep ──────────────────────────────────────────────────────────
+    # The hand-written rows above are one fixture per operation. The per-method ledger showed what
+    # that leaves: the constant-operand families dispatch on representation × tensor order × argument
+    # order × operand kind, and 84 of those methods were reached by nothing. A wrong dispatch there
+    # returns a finite, well-shaped, WRONG answer — the class `Points.jl`'s kernel-choosing wrappers
+    # already produced once — so these are driven rather than excused as "one shared builder".
+    generated = Tuple{Symbol, Any, Any}[]
+    if !LEDGER_FIXTURES_ONLY
+      physical_sections = ((0, s, ds), (1, u, du), (2, A, dA))
+      spectral_sections = ((0, sh, field_data(sh)), (1, uh, field_data(uh)), (2, Ah, field_data(Ah)))
+      point_sections    = ((0, q, point_values(q)), (1, qa, point_values(qa)), (2, qt, point_values(qt)))
+      constant_for(R) = R == 0 ? T(3) / 2 : R == 1 ? rand(FiberVector{T}) : rand(FiberTensor2{T})
+
+      for (R, section, raw) in physical_sections
+        c = constant_for(R)
+        push!(generated, (:+, field_data(section + c), ref_add_constant_physical(raw, c, R)))
+        push!(generated, (:+, field_data(c + section), ref_add_constant_physical(raw, c, R)))
+        push!(generated, (:-, field_data(section - c), ref_subtract_constant_physical(raw, c, R)))
+        push!(generated, (:-, field_data(c - section), ref_constant_minus_physical(raw, c, R)))
+        push!(generated, (:add!, field_data(add!(similar_field(section, Val(R)), section, c)),
+                          ref_add_constant_physical(raw, c, R)))
+        push!(generated, (:subtract!, field_data(subtract!(similar_field(section, Val(R)), section, c)),
+                          ref_subtract_constant_physical(raw, c, R)))
+        push!(generated, (:subtract!, field_data(subtract!(similar_field(section, Val(R)), c, section)),
+                          ref_constant_minus_physical(raw, c, R)))
+      end
+
+      for (R, section, raw) in spectral_sections
+        c = constant_for(R)
+        push!(generated, (:+, field_data(section + c), ref_add_constant_spectral(raw, c, grid, R)))
+        push!(generated, (:+, field_data(c + section), ref_add_constant_spectral(raw, c, grid, R)))
+        push!(generated, (:-, field_data(section - c), ref_subtract_constant_spectral(raw, c, grid, R)))
+        push!(generated, (:-, field_data(c - section), ref_constant_minus_spectral(raw, c, grid, R)))
+        push!(generated, (:add!, field_data(add!(similar_field(section, Val(R)), section, c)),
+                          ref_add_constant_spectral(raw, c, grid, R)))
+        push!(generated, (:subtract!, field_data(subtract!(similar_field(section, Val(R)), section, c)),
+                          ref_subtract_constant_spectral(raw, c, grid, R)))
+        push!(generated, (:subtract!, field_data(subtract!(similar_field(section, Val(R)), c, section)),
+                          ref_constant_minus_spectral(raw, c, grid, R)))
+      end
+
+      for (R, section, raw) in point_sections
+        c = constant_for(R)
+        push!(generated, (:+, point_values(section + c), ref_add_constant_physical(raw, c, R)))
+        push!(generated, (:+, point_values(c + section), ref_add_constant_physical(raw, c, R)))
+        push!(generated, (:-, point_values(section - c), ref_subtract_constant_physical(raw, c, R)))
+        push!(generated, (:-, point_values(c - section), ref_constant_minus_physical(raw, c, R)))
+      end
+
+      # The real scaling family, both argument orders and both representations.
+      for (R, section, raw) in (physical_sections..., spectral_sections...)
+        push!(generated, (:*, field_data(section * α), ref_scale(raw, α)))
+        push!(generated, (:*, field_data(α * section), ref_scale(raw, α)))
+        push!(generated, (:/, field_data(section / α), ref_divide(raw, α)))
+        push!(generated, (:multiply!, field_data(multiply!(similar_field(section, Val(R)), section, α)),
+                          ref_scale(raw, α)))
+        push!(generated, (:divide!, field_data(divide!(similar_field(section, Val(R)), section, α)),
+                          ref_divide(raw, α)))
+      end
+      for (R, section, raw) in point_sections
+        push!(generated, (:*, point_values(section * α), ref_scale(raw, α)))
+        push!(generated, (:*, point_values(α * section), ref_scale(raw, α)))
+        push!(generated, (:/, point_values(section / α), ref_divide(raw, α)))
+      end
+    end
+
+    # ── sweep 2: the M3 contraction families, constants and both argument orders ────────────────
+    # `dot`, `cross`, `mul!` and the scalar action dispatch on (representation × tensor order ×
+    # which operand is the constant × argument order). The ledger found 130 of those methods reached
+    # by nothing. The references are the base-agnostic ones, so a field row and a point-value row are
+    # driven from one definition rather than two that can disagree.
+    if !LEDGER_FIXTURES_ONLY
+      vector_carriers = ((u, du, () -> similar_field(u, Val(1)), () -> similar_field(s, Val(0)), field_data),
+                         (uh, field_data(uh), () -> similar_field(uh, Val(1)), () -> similar_field(sh, Val(0)), field_data),
+                         (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qa, Val(0)), point_values))
+      tensor_carriers = ((A, dA, () -> similar_field(A, Val(2)), () -> similar_field(u, Val(1)), () -> similar_field(s, Val(0)), field_data),
+                         (Ah, field_data(Ah), () -> similar_field(Ah, Val(2)), () -> similar_field(uh, Val(1)), () -> similar_field(sh, Val(0)), field_data),
+                         (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qa, Val(0)), point_values))
+      cv = rand(FiberVector{T})
+      ct = rand(FiberTensor2{T})
+
+      for (section, raw, mkvec, mkscalar, data) in vector_carriers
+        broadcast_v = _fiber_broadcast(cv, size(raw), 1)
+        push!(generated, (:dot, data(dot(section, cv)), ref_dot_generic(raw, broadcast_v)))
+        push!(generated, (:dot, data(dot(cv, section)), ref_dot_generic(broadcast_v, raw)))
+        push!(generated, (:dot!, data(dot!(mkscalar(), section, cv)), ref_dot_generic(raw, broadcast_v)))
+        push!(generated, (:dot!, data(dot!(mkscalar(), cv, section)), ref_dot_generic(broadcast_v, raw)))
+        push!(generated, (:cross, data(cross(section, cv)), ref_cross_generic(raw, broadcast_v)))
+        push!(generated, (:cross, data(cross(cv, section)), ref_cross_generic(broadcast_v, raw)))
+        push!(generated, (:cross!, data(cross!(mkvec(), section, cv)), ref_cross_generic(raw, broadcast_v)))
+        push!(generated, (:cross!, data(cross!(mkvec(), cv, section)), ref_cross_generic(broadcast_v, raw)))
+        push!(generated, (:mul!, data(mul!(mkvec(), ct, section)),
+                          ref_matvec_generic(_fiber_broadcast(ct, (size(raw)..., 3), 2), raw)))
+      end
+
+      for (section, raw, mktensor, mkvec, mkscalar, data) in tensor_carriers
+        broadcast_t = _fiber_broadcast(ct, size(raw), 2)
+        push!(generated, (:dot, data(dot(section, ct)), ref_tensor_inner_generic(raw, broadcast_t)))
+        push!(generated, (:dot, data(dot(ct, section)), ref_tensor_inner_generic(broadcast_t, raw)))
+        push!(generated, (:dot!, data(dot!(mkscalar(), section, ct)), ref_tensor_inner_generic(raw, broadcast_t)))
+        push!(generated, (:dot!, data(dot!(mkscalar(), ct, section)), ref_tensor_inner_generic(broadcast_t, raw)))
+        push!(generated, (:mul!, data(mul!(mktensor(), section, ct)), ref_matmul_generic(raw, broadcast_t)))
+        push!(generated, (:mul!, data(mul!(mktensor(), ct, section)), ref_matmul_generic(broadcast_t, raw)))
+        push!(generated, (:mul!, data(mul!(mkvec(), section, cv)),
+                          ref_matvec_generic(raw, _fiber_broadcast(cv, (_base_shape(raw, 2)..., 3), 1))))
+        push!(generated, (:mul!, data(mul!(mkvec(), cv, section)),
+                          ref_vecmat_generic(_fiber_broadcast(cv, (_base_shape(raw, 2)..., 3), 1), raw)))
+        push!(generated, (:*, data(section * ct), ref_matmul_generic(raw, broadcast_t)))
+        push!(generated, (:*, data(ct * section), ref_matmul_generic(broadcast_t, raw)))
+      end
+    end
+
+    for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, generated, persistence_comparisons))
       cells += 1
       # The comparison tuples are built eagerly, so this guards the COMPARISON; a throw during
       # construction still propagates. What it prevents is one unexpected result type aborting the lane

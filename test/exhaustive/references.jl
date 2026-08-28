@@ -722,3 +722,141 @@ function ref_inverse_curl(data, grid, layout)
   end
   return result
 end
+
+
+# --- constants against a section --------------------------------------------------------------
+# A constant added in PHYSICAL representation lands on every base point; in SPECTRAL representation
+# invariant 4 says it lands on the zero (DC) Fourier mode alone, scaled by the number of grid points.
+# Written from the invariant rather than from the package, which is the point of a reference.
+ref_add_constant_physical(data, c, R) = data .+ _fiber_broadcast(c, size(data), R)
+ref_subtract_constant_physical(data, c, R) = data .- _fiber_broadcast(c, size(data), R)
+ref_constant_minus_physical(data, c, R) = _fiber_broadcast(c, size(data), R) .- data
+
+
+function _fiber_broadcast(c, shape, R)
+  R == 0 && return fill(c, shape)
+  # The fiber axes are the TRAILING R, whatever the base is: a field has three base axes and a
+  # point-value section has one, and hard-coding three broke on the point sections.
+  base = length(shape) - R
+  out = Array{typeof(first(c))}(undef, shape)
+  for index in CartesianIndices(shape)
+    fibre = Tuple(index)[(base + 1):end]
+    out[index] = R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]]
+  end
+  return out
+end
+
+
+function ref_add_constant_spectral(data, c, grid, R)
+  out = copy(data)
+  scale = prod(grid.grid_size)
+  if R == 0
+    out[1, 1, 1] += scale * c
+  else
+    for fibre in CartesianIndices(ntuple(_ -> 3, R))
+      out[1, 1, 1, Tuple(fibre)...] += scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+    end
+  end
+  return out
+end
+
+
+function ref_subtract_constant_spectral(data, c, grid, R)
+  out = copy(data)
+  scale = prod(grid.grid_size)
+  if R == 0
+    out[1, 1, 1] -= scale * c
+  else
+    for fibre in CartesianIndices(ntuple(_ -> 3, R))
+      out[1, 1, 1, Tuple(fibre)...] -= scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+    end
+  end
+  return out
+end
+
+
+# `c - f` is not `-(f - c)` in spectral representation: negating the field negates every mode, while
+# the constant still lands on the DC mode alone. Written out rather than derived from the sibling.
+function ref_constant_minus_spectral(data, c, grid, R)
+  out = -data
+  scale = prod(grid.grid_size)
+  if R == 0
+    out[1, 1, 1] += scale * c
+  else
+    for fibre in CartesianIndices(ntuple(_ -> 3, R))
+      out[1, 1, 1, Tuple(fibre)...] += scale * (R == 1 ? c[fibre[1]] : c[fibre[1], fibre[2]])
+    end
+  end
+  return out
+end
+
+
+# --- base-agnostic contraction references -------------------------------------------------------
+# The references above index `a[:, :, :, i]`, which assumes a three-axis base and so cannot be pointed
+# at a point-value section, whose base is one axis. These take the fiber as the TRAILING axes and work
+# over any base, which is what lets one sweep drive the field and point families from one definition.
+_base_shape(a, R) = ntuple(d -> size(a, d), ndims(a) - R)
+
+
+function ref_dot_generic(a, b)
+  base = _base_shape(a, 1)
+  # Promote: one operand may be a REAL constant broadcast against a complex spectral section, and
+  # `eltype(a)` alone silently narrowed the result and threw on assignment.
+  out = zeros(promote_type(eltype(a), eltype(b)), base)
+  for I in CartesianIndices(base), i in 1:3
+    out[I] += a[I, i] * b[I, i]
+  end
+  return out
+end
+
+
+function ref_cross_generic(a, b)
+  base = _base_shape(a, 1)
+  out = Array{promote_type(eltype(a), eltype(b))}(undef, size(a))
+  for I in CartesianIndices(base)
+    out[I, 1] = a[I, 2] * b[I, 3] - a[I, 3] * b[I, 2]
+    out[I, 2] = a[I, 3] * b[I, 1] - a[I, 1] * b[I, 3]
+    out[I, 3] = a[I, 1] * b[I, 2] - a[I, 2] * b[I, 1]
+  end
+  return out
+end
+
+
+function ref_matvec_generic(A, u)               # (Au)_i = A_ij u_j
+  base = _base_shape(A, 2)
+  out = zeros(promote_type(eltype(A), eltype(u)), (base..., 3))
+  for I in CartesianIndices(base), i in 1:3, j in 1:3
+    out[I, i] += A[I, i, j] * u[I, j]
+  end
+  return out
+end
+
+
+function ref_vecmat_generic(u, A)               # (uᵀA)_j = u_i A_ij, the right action
+  base = _base_shape(A, 2)
+  out = zeros(promote_type(eltype(A), eltype(u)), (base..., 3))
+  for I in CartesianIndices(base), j in 1:3, i in 1:3
+    out[I, j] += u[I, i] * A[I, i, j]
+  end
+  return out
+end
+
+
+function ref_matmul_generic(A, B)               # (AB)_ik = A_ij B_jk
+  base = _base_shape(A, 2)
+  out = zeros(promote_type(eltype(A), eltype(B)), (base..., 3, 3))
+  for I in CartesianIndices(base), i in 1:3, k in 1:3, j in 1:3
+    out[I, i, k] += A[I, i, j] * B[I, j, k]
+  end
+  return out
+end
+
+
+function ref_tensor_inner_generic(A, B)         # the Frobenius pairing A_ij B_ij
+  base = _base_shape(A, 2)
+  out = zeros(promote_type(eltype(A), eltype(B)), base)
+  for I in CartesianIndices(base), i in 1:3, j in 1:3
+    out[I] += A[I, i, j] * B[I, i, j]
+  end
+  return out
+end

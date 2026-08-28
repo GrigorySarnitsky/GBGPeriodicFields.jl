@@ -59,24 +59,22 @@ end
 
 
 """
-    _definition_lines() -> Dict{String, Vector{Int}}
+    _definition_lines(cells) -> Dict{String, Vector{Int}}
 
-Every package method's definition line, per source file, sorted. A method's span runs from its own
-line to the line before the next definition in the same file, which is what lets an executed line be
-attributed to the method containing it.
+Every package method's definition line, per source file, sorted, taken FROM THE SAME CELL LIST the
+ledger is accountable for. A method's span runs from its own line to the line before the next
+definition in the same file, which is what lets an executed line be attributed to a method.
+
+Derived from `cells` rather than re-enumerated, because re-enumerating is how this went wrong: the
+first version walked `names(mod; all = true)`, which does not report an operator a module IMPORTS
+from Base, so `+`'s methods were absent from the line index while present in the cell list. Every
+`+` cell then failed its span lookup and read as uncovered — with four recorded hits sitting in the
+coverage file. One enumeration, used twice, cannot disagree with itself.
 """
-function _definition_lines()
+function _definition_lines(cells)
   lines = Dict{String, Vector{Int}}()
-  for mod in _LEDGER_MODULES, name in names(mod; all = true)
-    isdefined(mod, name) || continue
-    object = getfield(mod, name)
-    object isa Function || continue
-    for method in methods(object)
-      # PACKAGE-OWNED only. `methods(+)` hands back everything Base defines too, and crediting or
-      # faulting the package for those would make the denominator meaningless.
-      method.module in _LEDGER_MODULES || continue
-      push!(get!(lines, basename(String(method.file)), Int[]), method.line)
-    end
+  for cell in cells
+    push!(get!(lines, basename(String(cell.method.file)), Int[]), cell.method.line)
   end
   for value in values(lines)
     sort!(unique!(value))
@@ -92,16 +90,38 @@ Whether any line in `method`'s definition span was executed. The span ends at th
 the same file; a trailing method is given a generous bound, which can only over-credit within its own
 file and never crosses into another method's code.
 """
-function _method_executed(method, coverage, definition_lines)
+function _method_span(method, definition_lines)
   file = basename(String(method.file))
-  haskey(coverage, file) && haskey(definition_lines, file) || return false
+  haskey(definition_lines, file) || return nothing
   starts = definition_lines[file]
   index = searchsortedfirst(starts, method.line)
-  index <= length(starts) && starts[index] == method.line || return false
+  index <= length(starts) && starts[index] == method.line || return nothing
   stop = index < length(starts) ? starts[index + 1] - 1 : method.line + 500
-  counts = coverage[file]
-  for line in method.line:stop
-    get(counts, line, 0) > 0 && return true
+  return (file, method.line, stop)
+end
+
+
+"""
+    _method_asserted(method, asserted, fixtures, definition_lines) -> Bool
+
+Whether an ASSERTION reached this method: some line in its span was executed MORE TIMES in the full
+run than in the fixtures-only run.
+
+Counts, not booleans, and that distinction is a defect this instrument had. Comparing "executed at
+all" between the two runs loses every method whose span a fixture also touches — and 98 definition
+sites carry more than one method, so one fixture allocation could silently strip credit from a whole
+codegen family. `+ (ScalarFieldPhysical, Real)` was uncovered for exactly that reason while a row
+driving it sat in the lane.
+"""
+function _method_asserted(method, asserted, fixtures, definition_lines)
+  span = _method_span(method, definition_lines)
+  span === nothing && return false
+  file, from, to = span
+  haskey(asserted, file) || return false
+  hits = asserted[file]
+  baseline = get(fixtures, file, Dict{Int, Int}())
+  for line in from:to
+    get(hits, line, 0) > get(baseline, line, 0) && return true
   end
   return false
 end
@@ -189,8 +209,8 @@ function run_method_ledger(; verbose::Bool = true, source_dir = @__DIR__)
   root = dirname(dirname(@__DIR__))
   asserted = _run_value_lane_under_coverage(root, false; here = source_dir)
   fixtures = _run_value_lane_under_coverage(root, true; here = source_dir)
-  definition_lines = _definition_lines()
   cells = _ledger_cells()
+  definition_lines = _definition_lines(cells)
 
   covered_sites = Set{String}()
   for (file, counts) in asserted, (line, hits) in counts
@@ -203,8 +223,7 @@ function run_method_ledger(; verbose::Bool = true, source_dir = @__DIR__)
   miscounted_sites = Set(split(entry, " declares")[1] for entry in miscounted)
   covered, closed, uncovered = NamedTuple[], NamedTuple[], NamedTuple[]
   for cell in cells
-    if _method_executed(cell.method, asserted, definition_lines) &&
-       !_method_executed(cell.method, fixtures, definition_lines)
+    if _method_asserted(cell.method, asserted, fixtures, definition_lines)
       push!(covered, cell)
     elseif !(cell.site in miscounted_sites) && (reason = ledger_reason(cell)) !== nothing
       push!(closed, (cell..., reason = reason))
@@ -235,6 +254,14 @@ function run_method_ledger(; verbose::Bool = true, source_dir = @__DIR__)
     stale = ledger_stale_reasons(cells)
     isempty(stale) || println("\n  STALE REASONS — recorded for a method that no longer exists: ", join(stale, ", "))
     isempty(miscounted) || println("\n  MISCOUNTED REASONS — not honoured: ", join(miscounted, "; "))
+  end
+  # A machine-readable dump so the queue can be worked down against signatures rather than counts.
+  if haskey(ENV, "GBG_LEDGER_DUMP")
+    open(ENV["GBG_LEDGER_DUMP"], "w") do io
+      for cell in uncovered
+        println(io, cell.operation, "\t", cell.site, "\t", cell.method.sig)
+      end
+    end
   end
   return (cells = length(cells), covered = length(covered), closed = length(closed),
           uncovered = length(uncovered), uncovered_cells = uncovered,
