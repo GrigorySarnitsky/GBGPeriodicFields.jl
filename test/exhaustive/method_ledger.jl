@@ -151,14 +151,22 @@ function _run_value_lane_under_coverage(directory, fixtures_only::Bool; here = @
   environment = copy(ENV)
   environment["GBG_LEDGER_FIXTURES_ONLY"] = fixtures_only ? "1" : ""
   fixtures_only || delete!(environment, "GBG_LEDGER_FIXTURES_ONLY")
-  for path in readdir(joinpath(root, "src"); join = true)
-    endswith(path, ".cov") && rm(path; force = true)
+  # `ext/` too: coverage writes a .cov beside EVERY executed source file, and the HDF5 extension
+  # runs in the persistence rows. Sweeping only `src/` left 109 of them to be committed by accident.
+  for dir in (joinpath(root, "src"), joinpath(root, "ext"))
+    isdir(dir) || continue
+    for path in readdir(dir; join = true)
+      endswith(path, ".cov") && rm(path; force = true)
+    end
   end
   command = `$(Base.julia_cmd()) --startup-file=no --code-coverage=user --project=$(Base.active_project()) -e $script`
   run(pipeline(setenv(command, environment); stdout = devnull, stderr = devnull))
   coverage = _read_coverage(joinpath(root, "src"))
-  for path in readdir(joinpath(root, "src"); join = true)
-    endswith(path, ".cov") && rm(path; force = true)
+  for dir in (joinpath(root, "src"), joinpath(root, "ext"))
+    isdir(dir) || continue
+    for path in readdir(dir; join = true)
+      endswith(path, ".cov") && rm(path; force = true)
+    end
   end
   return coverage
 end
