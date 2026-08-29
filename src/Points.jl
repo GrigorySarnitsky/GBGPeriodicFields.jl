@@ -1007,6 +1007,18 @@ _scalar_pv_broadcast_data(scalar_values::ScalarPointValues, values::AbstractPoin
 function _multiply_by_scalar_pv!(destination::AbstractPointValues, scalar_values::ScalarPointValues, values::AbstractPointValues)
   _check_npoints_match(destination, values)
   _check_npoints_match(scalar_values, values)
+  # The DESTINATION'S ORDER, which the point count cannot speak for. Scaling by a scalar section is
+  # order-preserving, so the destination must carry the same order as `values`. Checking only the
+  # point count let a scalar × scalar product be written into a vector destination — where it was
+  # broadcast over the fiber — and, worse, let a VECTOR result be written into a tensor destination,
+  # which Julia's broadcasting expands along the trailing axis and returns as a wrong-shaped answer
+  # rather than an error. Invariant 14 binds every argument of a multi-argument operation, the
+  # destination of an in-place call included, and the field twin has always enforced exactly this
+  # through `check_field_compatibility`; these four signatures are documented as mirroring it.
+  pointvalue_tensor_order(destination) == pointvalue_tensor_order(values) ||
+    throw(ArgumentError("point-value tensor orders must be equal: the destination carries order " *
+                        "$(pointvalue_tensor_order(destination)) and scaling by a scalar section " *
+                        "preserves the order $(pointvalue_tensor_order(values)) of its operand"))
   @_assign! field_data(destination) .= _scalar_pv_broadcast_data(scalar_values, values) .* field_data(values)
   return destination
 end
@@ -1046,6 +1058,12 @@ end
 function divide!(destination::AbstractPointValues, values::AbstractPointValues, scalar_values::ScalarPointValues)
   _check_npoints_match(destination, values)
   _check_npoints_match(scalar_values, values)
+  # The destination's ORDER, for the same reason `_multiply_by_scalar_pv!` checks it: division by a
+  # scalar section preserves the order, and the point count cannot speak for the fiber.
+  pointvalue_tensor_order(destination) == pointvalue_tensor_order(values) ||
+    throw(ArgumentError("point-value tensor orders must be equal: the destination carries order " *
+                        "$(pointvalue_tensor_order(destination)) and division by a scalar section " *
+                        "preserves the order $(pointvalue_tensor_order(values)) of its operand"))
   @_assign! field_data(destination) .= field_data(values) ./ _scalar_pv_broadcast_data(scalar_values, values)
   return destination
 end

@@ -1541,10 +1541,16 @@ visible by reading it — the boolean fixture subtraction stripping credit acros
 line index re-enumerated from `names(mod; all = true)`, which does not report an operator a module
 imports from `Base` and so suppressed 107 cells while their hits sat in the coverage file.
 
-**An asymmetry the sweeps surfaced, reported rather than normalised:** the point layer accepts
-`multiply!(vector_destination, scalar, scalar)` and broadcasts the scalar product over the fiber, while
-the field layer refuses the identical shape with an `ArgumentError`. The two surfaces mirror each other
-by design, so one of them is wrong; which one is a design call and is not made here.
+**A DEFECT the sweeps surfaced, and it was the point layer.** Writing a row to reach one cell showed
+`multiply!`/`divide!` on point-values accepting a destination of the wrong tensor order: a scalar ×
+scalar product written into a vector destination was broadcast over the fiber, and a VECTOR result
+written into a tensor destination was expanded along the trailing axis and returned as a wrong-shaped
+answer rather than an error. The field twin has always refused both, because it calls
+`check_field_compatibility`, which is the domain check AND `_same_tensor_order`, where the point twin
+checked only `_check_npoints_match` — the point count, which cannot speak for the fiber. Invariant 14
+binds the destination of an in-place call, and `Points.jl` documents those four signatures as
+"mirroring FieldAlgebra"; they did not. Fixed 2026-08-29, witness promoted to
+`test/regressions/pointvalues-scalar-action-wrong-order-destination.jl`.
 
 **Open items from the 2026-08-04 survey runs.** **(1) `to_spectral!`'s ~8–12 KB per step is CLOSED
 (2026-08-07): it was the harness, not a leak** — `PERFORMANCE.md` §4(t). FFTW.jl reaches its worker

@@ -1141,12 +1141,6 @@ function run_value_lane(configs)
       push!(generated, (:sym, Array(sym(ct)), (Array(ct) .+ Array(ct)') ./ 2))
       push!(generated, (:skew, Array(skew(ct)), (Array(ct) .- Array(ct)') ./ 2))
 
-      # The point layer ACCEPTS a destination whose order exceeds the operands', broadcasting the
-      # scalar product over the fiber. The field layer REFUSES the identical shape. Pinned here as
-      # measured, and reported as an asymmetry between two surfaces that mirror each other by design.
-      push!(generated, (:multiply!,
-                        point_values(multiply!(similar_pointvalues(qa, Val(1)), q, q)),
-                        repeat(point_values(q) .* point_values(q), 1, 3)))
     end
 
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, generated, persistence_comparisons))

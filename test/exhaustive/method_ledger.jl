@@ -220,12 +220,11 @@ function run_method_ledger(; verbose::Bool = true, source_dir = @__DIR__)
   end
 
   miscounted = ledger_miscounted_reasons(cells)
-  miscounted_sites = Set(split(entry, " declares")[1] for entry in miscounted)
   covered, closed, uncovered = NamedTuple[], NamedTuple[], NamedTuple[]
   for cell in cells
     if _method_asserted(cell.method, asserted, fixtures, definition_lines)
       push!(covered, cell)
-    elseif !(cell.site in miscounted_sites) && (reason = ledger_reason(cell)) !== nothing
+    elseif (reason = ledger_reason(cell)) !== nothing
       push!(closed, (cell..., reason = reason))
     else
       push!(uncovered, cell)
@@ -332,15 +331,15 @@ function selfcheck_method_ledger()
   # silently skips on success is the failure mode this whole lane exists to prevent.
 
   # --- probe 3: a reason for a site no method occupies must be reported STALE --------------------
-  LEDGER_REASONS["NoSuchFile.jl:99999"] = (:unreachable, 1, "a probe, not a real exclusion")
+  LEDGER_REASONS["Tuple{typeof(nothing), NoSuchType}"] = (:unreachable, "a probe, not a real exclusion")
   stale = ledger_stale_reasons(_ledger_cells())
-  if "NoSuchFile.jl:99999" in stale
+  if any(startswith(entry, "Tuple{typeof(nothing)") for entry in stale)
     println("  probe 3 (stale reason)   a reason for a nonexistent method is reported, not ignored  ✓")
   else
     println("  probe 3 FAILED — a reason naming no method was silently accepted")
     failures += 1
   end
-  delete!(LEDGER_REASONS, "NoSuchFile.jl:99999")
+  delete!(LEDGER_REASONS, "Tuple{typeof(nothing), NoSuchType}")
 
   # --- probe 4: a reason closes a cell WITHOUT it counting as covered ----------------------------
   # The target comes from the PERTURBED tree, where deleting a row left one cell uncovered, so this
@@ -351,10 +350,10 @@ function selfcheck_method_ledger()
     failures += 1
   else
     victim = first(perturbed_baseline.uncovered_cells)
-    group = count(cell -> cell.site == victim.site, _ledger_cells())
-    LEDGER_REASONS[victim.site] = (:unreachable, group, "a probe, not a real exclusion")
+    group = 1                                       # a signature names exactly one method
+    LEDGER_REASONS[string(victim.method.sig)] = (:unreachable, "a probe, not a real exclusion")
     closed_run = run_method_ledger(; verbose = false, source_dir = scratch)
-    delete!(LEDGER_REASONS, victim.site)
+    delete!(LEDGER_REASONS, string(victim.method.sig))
     baseline = perturbed_baseline
     if closed_run.covered == baseline.covered && closed_run.closed == baseline.closed + group &&
        closed_run.uncovered == baseline.uncovered - group
@@ -368,17 +367,21 @@ function selfcheck_method_ledger()
       failures += 1
     end
   end
-  # --- probe 5: a reason that closes MORE than it declares must not be honoured -------------------
+  # --- probe 5: one reason closes exactly ONE method, never a group ------------------------------
+  # The defect this replaced: a reason keyed by definition site closed every codegen method sharing
+  # that `@eval` line. Keying by signature makes over-closing impossible, and this asserts it rather
+  # than assuming it — a property that holds by construction is the cheapest kind to keep true.
   if !isempty(baseline.uncovered_cells)
     victim = first(baseline.uncovered_cells)
-    LEDGER_REASONS[victim.site] = (:unreachable, 0, "declares zero, so it must not close anything")
-    miscounted_run = run_method_ledger(; verbose = false, source_dir = scratch)
-    delete!(LEDGER_REASONS, victim.site)
-    if miscounted_run.uncovered == baseline.uncovered && !isempty(miscounted_run.miscounted_reasons)
-      println("  probe 5 (miscount)       a reason closing more than it declares is refused, not applied  ✓")
+    siblings = count(cell -> cell.site == victim.site, _ledger_cells())
+    LEDGER_REASONS[string(victim.method.sig)] = (:unreachable, "a probe, not a real exclusion")
+    single_run = run_method_ledger(; verbose = false, source_dir = scratch)
+    delete!(LEDGER_REASONS, string(victim.method.sig))
+    if single_run.closed == baseline.closed + 1 && isempty(single_run.miscounted_reasons)
+      println("  probe 5 (one method)     one reason closed exactly one method, of ", siblings,
+              " sharing its definition site  ✓")
     else
-      println("  probe 5 FAILED — a reason with a wrong declared count was honoured anyway (uncovered ",
-              baseline.uncovered, "→", miscounted_run.uncovered, ")")
+      println("  probe 5 FAILED — one reason closed ", single_run.closed - baseline.closed, " methods")
       failures += 1
     end
   end
