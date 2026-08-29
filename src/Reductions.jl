@@ -802,6 +802,17 @@ function _check_contractible(f::ReducibleSection, g::ReducibleSection)
   length(field_data(f)) == length(field_data(g)) ||
     throw(DimensionMismatch("sections have different storage lengths: " *
                             "$(length(field_data(f))) and $(length(field_data(g)))"))
+  # For a FIELD pair, the base is a grid, and two grids agreeing in shape can still be different
+  # manifolds — a ``2\pi`` box and a ``4\pi`` box, or two layouts. Every sibling that combines two
+  # fields refuses that pair through the domain check; this one did not, so the mixed physical
+  # `inner(f, g)` accepted sections over different bases and returned a number that means nothing.
+  # Found by the peer-rejection gate on its first run (2026-08-29): `inner` was the single caller of
+  # this predicate, and the single one of the pairwise operations whose refusal nothing asserted.
+  # `ReducibleSection` is physical-fields-or-point-values, so the pair is matched as
+  # physical/physical directly — which is also the only name this module imports.
+  if f isa AbstractFieldPhysical && g isa AbstractFieldPhysical
+    _check_field_domain_compatibility(f, g)
+  end
   # STORAGE FAMILY, for the same reason `_check_same_domain` carries it: without the check a
   # host/device pair passes every structural test above and then fails somewhere below, so the error a
   # user meets depends on which operation they called and on the backend. That was literally the case
