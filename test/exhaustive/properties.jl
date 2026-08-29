@@ -192,7 +192,15 @@ function run_relations_lane(configs)
        weighted_inner(b.th, b.sh, materialize_kernel(radial_kernel(identity, m)))),
       ("M⟨Wf, q⟩ = N⟨f, Wᵀq⟩",
        npoints(b.points) * inner(interpolate(b.s, b.points, CatmullRom), b.q),
-       prod(config.grid.grid_size) * inner(b.s, anterpolate(config.grid, b.points, b.q, CatmullRom))),
+       # The scatter destination must CARRY THE CONFIG'S LAYOUT. `anterpolate(grid, …)` builds a
+       # default-layout field, and on a permuted-fold configuration that made this row `inner` a
+       # fold2 field with a fold1 one — two different contexts, which every pairwise operation
+       # refuses and `inner` now does too (the peer-rejection gate found `inner` was the one
+       # exception, 2026-08-29). The lane conflated the contexts, not the package.
+       prod(config.grid.grid_size) *
+         inner(b.s, anterpolate!(GBGI.Fields.ScalarFieldPhysical(zeros(b.T, config.grid.grid_size...),
+                                                                 config.grid, config.layout),
+                                 b.points, b.q, CatmullRom))),
       # ── algebraic identity ────────────────────────────────────────────────────────────────────
       ("∇·(∇×u) = 0",
        l2norm(divergence(curl(b.uh, m), m)), zero(b.T), l2norm(divergence(b.uh, m))),

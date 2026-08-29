@@ -16,6 +16,7 @@ module ContractTests;              include("contracts.jl");          end
 module ContextMatrixTests;         include("context_matrix.jl");    end
 module ContextEntryTests;          include("context_entrypoints.jl"); end
 module PeerRejectionTests;         include("peer_rejections.jl");    end
+module AbsenceGateTests;           include("absence_gate.jl");       end
 module DifferentialOperatorsTests; include("differentialoperators.jl"); end
 module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end

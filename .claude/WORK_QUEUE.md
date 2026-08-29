@@ -62,3 +62,14 @@ the block shows in the diff instead of being silent.
 - [x] Measured on a full run: applicable 1086 → 966 (−120), unasserted 378 → 283 (−95), every other lane byte-identical
 - [x] Survey re-run, SURVEY_EXIT_CODE=2 captured; committed and pushed
 
+## Open (authorised 2026-08-29: ENFORCE the un-guarded promise kinds)
+
+- [ ] A completeness GATE for domain_rejection: every operation that validates must have a refusal
+      asserted, derived denominator, fails on a missing one — the allocation-audit shape
+- [ ] Close every gap the new gate names: write the missing refusal tests (or a recorded reason a
+      refusal cannot be asserted)
+- [ ] The same for absence/static_absence (invariant 1's deliberate absences must throw)
+- [ ] Decide invariance/metadata/representation: enforce, or retire their ledger rows with reasons
+- [ ] Falsify each new gate by perturbation before trusting it
+- [ ] Pkg.test() green, survey re-run with exit code captured, docs green, commit and push
+

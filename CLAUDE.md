@@ -1666,6 +1666,33 @@ value cells (the Float32 shell tie-break recorded above), 63 context-mismatch ce
 dispatch rather than at a domain check, and 369 applicable-but-unasserted ledger cells, which are a
 coverage report rather than a failure.
 
+**The un-guarded promise kinds are now ENFORCED, and the enforcement found a defect on its first run
+(2026-08-29, user-directed).** The applicability ledger tracked five promise kinds advisorily; the two
+with no other guard are now gates in `Pkg.test()`, in the allocation-audit shape — derived denominator,
+an invocation or a cited exemption per member, completeness both directions, falsified by perturbation:
+
+- **`test/peer_rejections.jl` (tier 3 of the context matrix).** 88 operations validate (a `_check_*`
+  reachable in their lowered IR); 36 were enforced by tier 2's carrier gate; the other **52 had no gate
+  at all** — the PEER family, whose check is against a second section. Every one is now invoked with a
+  foreign peer and must refuse. **First run found the mixed physical `inner(f, g)` accepting two fields
+  on different domains and on different layouts** — `_check_contractible` compared orders and counts
+  but never the grid's domain or the layout, `inner` was its single caller, and every sibling refuses
+  the identical pair. Fixed by delegating a field pair to the same domain check the siblings use; the
+  gate is the permanent witness. Also first-asserted: `wrap!`'s precision refusal, `displace!`'s
+  point-count refusal, `copyto!` refusing a cross-context broadcast.
+- **`test/absence_gate.jl`.** Every representation-asymmetric operation (38, derived by
+  `typeintersect` over its signatures) is CALLED on the side invariant 1 leaves absent and must throw.
+  No exemptions — every absence is spellable. All 38 refuse; the absence half of the ledger's backlog
+  is now enforced rather than counted.
+- **`invariance`, `metadata` and `representation` are NOT given new gates, deliberately.** Each is
+  already checked per-operation by the survey's DERIVED lanes — the universal metadata check
+  (160,992 cells), the representation/invariance lane (4,992 cells), both built from the method table,
+  so their completeness holds by construction and now reaches every public operation. The gate suite
+  keeps its representative threading assertions plus the decision-47 dispatch-pair guard; a per-op
+  threaded-vs-serial sweep in `Pkg.test()` would re-run the survey's lane at gate cost for no new
+  information. The ledger's under-count on these rows is its text attribution failing to see runtime
+  lanes, not missing enforcement.
+
 **A quarter of the applicability ledger's backlog was an accounting entry for a DEAD CHECK (fixed
 2026-08-29).** `:result_type` asked whether a result matched what inference promised, which
 `Base.return_types` makes unfalsifiable — it is a sound over-approximation, so in valid Julia the

@@ -428,6 +428,13 @@ asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/de
 thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a
 closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
 
+**Two promise kinds are gate-enforced with derived denominators.** `test/peer_rejections.jl` requires
+every operation with a reachable `_check_*` predicate, minus the carrier gate's registry, to refuse a
+peer on a foreign context; `test/absence_gate.jl` calls every representation-asymmetric operation on
+the side invariant 1 leaves absent and requires the refusal. Both carry completeness assertions in
+both directions, so a new validating or asymmetric operation fails the suite until its disposition is
+decided.
+
 **The value lane is audited PER METHOD** by `test/exhaustive/method_ledger.jl`, which asks of every
 `(operation, method)` cell whether an assertion reached it — derived from coverage, not declared. It
 reads 572 covered, 3 closed by a recorded reason, **0 uncovered**. So a new operation needs a row that
