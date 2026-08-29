@@ -64,12 +64,10 @@ the block shows in the diff instead of being silent.
 
 ## Open (authorised 2026-08-29: ENFORCE the un-guarded promise kinds)
 
-- [ ] A completeness GATE for domain_rejection: every operation that validates must have a refusal
-      asserted, derived denominator, fails on a missing one — the allocation-audit shape
-- [ ] Close every gap the new gate names: write the missing refusal tests (or a recorded reason a
-      refusal cannot be asserted)
-- [ ] The same for absence/static_absence (invariant 1's deliberate absences must throw)
-- [ ] Decide invariance/metadata/representation: enforce, or retire their ledger rows with reasons
-- [ ] Falsify each new gate by perturbation before trusting it
-- [ ] Pkg.test() green, survey re-run with exit code captured, docs green, commit and push
+- [x] peer_rejections.jl: derived denominator, falsified 3 arms — and it FOUND inner accepting cross-domain pairs
+- [x] All 52 closed: 29 invocations + cited exemptions; inner FIXED; wrap!/displace!/copyto! first-asserted
+- [x] absence_gate.jl: all 38 asymmetric operations refuse their absent side; falsified both ways
+- [x] Decided: survey-enforced by derived lanes; no redundant gates; recorded in CLAUDE.md
+- [x] Both gates falsified by perturbation before being trusted
+- [x] Pkg.test() 130 testsets green; survey SURVEY_EXIT_CODE=2 (the known 72), relations lane green after its fixture fix
 
