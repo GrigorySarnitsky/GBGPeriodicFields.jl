@@ -238,7 +238,11 @@ function run_method_ledger(; verbose::Bool = true, source_dir = @__DIR__)
     println("\n  ", length(cells), " cells over ", length(unique(c.operation for c in cells)),
             " operations · ", shared, " definition sites carry more than one method (codegen groups)")
     println("  covered by an assertion   ", lpad(length(covered), 5))
-    println("  closed by a recorded reason ", lpad(length(closed), 3))
+    println("  closed by a recorded reason ", lpad(length(closed), 3),
+            "  (no VALUE oracle is possible; each cites the test asserting its refusal)")
+    for cell in closed
+      println("      ", rpad(String(cell.operation), 14), cell.reason)
+    end
     println("  UNCOVERED                 ", lpad(length(uncovered), 5))
     if !isempty(uncovered)
       println("\n  UNCOVERED CELLS — each needs a value row or a recorded reason:")

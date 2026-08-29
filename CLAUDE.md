@@ -1528,10 +1528,18 @@ only if an assertion added hits to its span. No row is annotated with the method
 a hand-maintained mapping is the defect being replaced. Methods sharing a definition site (the codegen
 families) are closed together and the grouping is REPORTED rather than merged silently.
 
-**A reason must DECLARE how many methods it closes**, and the count is checked against the method
-table; a miscounted reason is refused rather than applied. That exists because the ledger's own probe
-4 caught a site-keyed reason silently closing four codegen methods — the "covered by a sibling builder"
-escape, which is exactly how an escape hatch widens itself.
+**A reason is NOT a dismissal.** The four cells closed that way are two error fallbacks that exist to
+throw (`extrema` and `var` on a non-scalar section) and two dispatch-ambiguity resolvers a valid call
+cannot reach — none of them returns a value an oracle could compare. Each one's REFUSAL is asserted,
+and each reason cites the assertion by file and line (`test/reductions.jl:658,664-665,668` and the
+point-value regression). A reason that cannot name its assertion is not admissible: write the
+assertion, or leave the cell uncovered.
+
+**A reason names exactly ONE method, by signature**. Keying by definition SITE was tried first and was wrong twice over: one entry silently closed the
+four codegen methods sharing an `@eval` line — the "covered by a sibling builder" escape, caught by
+probe 4 — and any edit above the method invalidated the key, which the stale check then reported as a
+missing method when only the line had moved. A signature is stable under edits and names one method,
+so a reason can neither drift nor over-close.
 
 **Five falsification probes live in `selfcheck_method_ledger()`, and they take their target from a
 perturbed COPY of the lane** so probes 4 and 5 keep working now that the real count is zero: a check

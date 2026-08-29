@@ -16,6 +16,12 @@
 #
 #   :unreachable  — the method cannot be called with any argument the package admits, so no row exists
 #                   that could drive it (a fallback whose sole purpose is to throw a better error).
+#
+# A REASON IS NOT A DISMISSAL, and every entry here has to show it. A cell closed here is one no VALUE
+# oracle can drive, because the method returns no value to compare — but its behaviour, which is a
+# refusal, is asserted somewhere, and each reason CITES the assertion by file and line. If a reason
+# cannot name one, the honest options are to write that assertion or to leave the cell uncovered; what
+# it must not become is a place where a method quietly stops being tested.
 #   :not_a_value  — the method returns no value an oracle can compare: a setter, a printer, a
 #                   constructor of an opaque handle.
 #   :device_only  — the method dispatches on a device backend and a CPU survey cannot reach it. The
@@ -25,17 +31,17 @@ const LEDGER_REASONS = Dict{String, Tuple{Symbol, String}}(
   # Error fallbacks. Both exist to REFUSE a call and say why, so there is no value for an oracle to
   # compare; the refusal itself is asserted by the survey's domain-rejection lane, not here.
   "Tuple{typeof(extrema), AbstractFiberSection}" => (:not_a_value,
-    "`extrema` on a non-scalar section throws: an order statistic above R = 0 is ill-posed until a fiber map names what is ordered"),
+    "`extrema` on a non-scalar section throws: an order statistic above R = 0 is ill-posed until a fiber map names what is ordered — refusal asserted at test/reductions.jl:664-665"),
   "Tuple{typeof(var), AbstractFiberSection}" => (:not_a_value,
-    "`var` on a non-scalar section throws: the fiber-preserving variance is basis-dependent and the package declines it"),
+    "`var` on a non-scalar section throws: the fiber-preserving variance is basis-dependent and the package declines it — refusal asserted at test/reductions.jl:658,668"),
   # The two ambiguity resolvers of the scalar-by-scalar product, one per layer. A destination whose
   # order matches reaches the more specific method; one whose order does not is refused — which for
   # the point layer became true only on 2026-08-29, when writing a row to reach this very cell showed
   # it accepting what its field twin had always refused.
   "Tuple{typeof(multiply!), AbstractFieldPhysical, ScalarFieldPhysical, ScalarFieldPhysical}" => (:unreachable,
-    "exists to resolve dispatch ambiguity; a matching destination reaches the more specific method and a mismatched one is refused"),
+    "exists to resolve dispatch ambiguity; a matching destination reaches the more specific method and a mismatched one is refused — refusal asserted at test/regressions/pointvalues-scalar-action-wrong-order-destination.jl:26"),
   "Tuple{typeof(multiply!), AbstractPointValues, ScalarPointValues, ScalarPointValues}" => (:unreachable,
-    "the point twin of the above, unreachable for the same reason now that the destination's tensor order is checked"),
+    "the point twin of the above, unreachable for the same reason now that the destination's tensor order is checked — refusal asserted at test/regressions/pointvalues-scalar-action-wrong-order-destination.jl:18"),
 )
 
 
