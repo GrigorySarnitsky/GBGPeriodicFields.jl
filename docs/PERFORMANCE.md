@@ -1523,6 +1523,12 @@ class gets an element source reproducing its `_kernel_data` expression exactly �
 ``\sigma((s_1+s_2)+s_3)``, the three-argument broadcast's own left fold — keeping the storage
 classes bitwise-equal to each other, which the suite pins.
 
+**Cross-box after-record (i7-12700K, IT's own re-measurement after taking the bump):** the ``|\kappa|^2``
+radial weight at ``128^3`` `Float64` reads 19.2 → 4.49 ms serial and **1.08 ms at `-t8`** (17.8×), the
+ratio to same-size `inner` falling from ~12 to 1.6 — and the consumer's whole CPU step 248 → 202 ms
+(1.23×). Their 300-step checksum is identical to the pre-fix run at print precision and their frozen
+audits stay green, so the pathology is dead on both CPU generations with values preserved.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of
