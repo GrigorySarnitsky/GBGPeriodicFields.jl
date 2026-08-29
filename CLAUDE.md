@@ -1858,6 +1858,24 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
+- **IT's 2026-08-29 codegen report, items 2 and 3 — RECORDED, not started** (the synced request is
+  `GBGIsotropicTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
+  serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2)** `exponential_convolve!`
+  evaluates the scalar libm `exp` per fiber component though the factor is fiber-constant — IT
+  measures ~3.5× single-thread against the shape-identical `combine!` at ``128^3``. This is the pass
+  audit's standing ŵ-extrusion holder, and CLAUDE.md already says it "should be re-priced against
+  §4(r) before anyone acts": §4(r) declined a related hoist as bandwidth-bound at ``256^3``, but
+  IT's number is COMPUTE-bound at low thread counts, so the two measurements are not in conflict —
+  they price different regimes, and the fiber hoist (evaluate `exp` once per mode) is a smaller
+  change than the declined row-buffer hoist. **(3)** The fused fiberwise executor compiles fully
+  scalar — the `map(array -> array[n], arrays)` closures block `@inbounds` propagation and the
+  deliberate may-alias contract (invariant 9) stops the vectorizer; near-zero thread scaling on the
+  cross kernel. Fix shape: propagated-inbounds accessors plus a no-alias fast path — but the alias
+  contract is load-bearing (decisions 38/39), so the fast path needs the same bitwise-equal proof
+  the guard-free rewrite carried. Also in the file, take-or-leave: no FMA anywhere on CPU, KA's
+  ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
+  copies a rocFFT native scale factor could fold.
+
 - **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
   (recorded 2026-08-23, user-directed).** Decision 70 stopped `laplacian!`, `inverse_laplacian!`,
   `divergence!` and `exponential_convolve!` from allocating 144 B a call by storing six pre-oriented

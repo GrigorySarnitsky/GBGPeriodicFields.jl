@@ -1503,6 +1503,26 @@ per-row `gcsample` probe classifies. The whole re-sweep was therefore REVERTED f
 header. Re-measure a class by sweeping the lane whole, or measure it as an A/B and keep the result
 out of the table.
 
+**(ac) The weighted reductions ran Base's serial broadcast fold on CPU — 70× `inner` at eight
+threads — and now run the fixed tree** (2026-08-30, from IT's codegen report). `weighted_inner` was
+GPU-first: one fused `sum` over a lazy `Broadcasted`, which a device parallelizes and a CPU hands to
+Base's serial cartesian fold. It never met the decision-30/40 backend split, so it sat at 14.7 ms at
+``128^3`` `Float64` on the 9800X3D at one thread AND at eight, against `inner`'s 0.2 ms — in the
+consumer's per-stage hot loop.
+
+The CPU leg now runs the fixed tree over contiguous axis-1 columns — bitwise thread-count-invariant,
+asserted in `test/threading.jl`'s battery, both weight classes and the tuple form. Measured after:
+**0.44 ms at `-t8`** (33×) and 2.43 ms serial (6×); the three-weight tuple 24.3 → 1.16 ms (21×). The
+GPU branch is byte-identical and the CUDA suite is green over it.
+
+Two traps inside the fix, both measured rather than read. An accumulator that a `map` closure
+captures while the loop reassigns it is BOXED — 15 MB allocated per ``32^3`` call, 462 ms serial —
+so the tuple accumulation is recursion on `first`/`tail`, no closure, 432 B. And the generic
+per-element `getindex(::Broadcasted, CartesianIndex)` costs 8.6× the stored class, so each kernel
+class gets an element source reproducing its `_kernel_data` expression exactly — the radial one is
+``\sigma((s_1+s_2)+s_3)``, the three-argument broadcast's own left fold — keeping the storage
+classes bitwise-equal to each other, which the suite pins.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

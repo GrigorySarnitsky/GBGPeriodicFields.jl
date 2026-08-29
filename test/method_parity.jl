@@ -171,7 +171,15 @@ const MODULE_BASELINE = (
   # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
   # one traversal, which is one method on the existing generic rather than a new operation.
   # Refrozen deliberately, with the reason.
-  Reductions            = 124,
+  Reductions            = 131,
+  # 124 → 131: the weighted reductions' CPU leg (2026-08-30, from IT's codegen report). The weighted
+  # inner products ran Base's SERIAL broadcast fold on CPU — 70× the same-size `inner` at eight
+  # threads — because their GPU-first fused `sum` never met the decision-30/40 backend split. Seven
+  # functions give them the same split `inner` has: `_weighted_totals_cpu` and `_weighted_column`
+  # (the fixed tree over contiguous axis-1 columns), `_weighted_step` ×2 (tuple-recursive
+  # accumulation — a closure here boxes the accumulator and allocated 15 MB a call), and
+  # `_cpu_weight` ×3 (per-class element sources, so a radial weight is evaluated by its symbol
+  # rather than through per-element Broadcasted getindex).
 )
 
 # The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.

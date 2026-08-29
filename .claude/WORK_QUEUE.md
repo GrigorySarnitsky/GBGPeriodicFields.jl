@@ -71,3 +71,11 @@ the block shows in the diff instead of being silent.
 - [x] Both gates falsified by perturbation before being trusted
 - [x] Pkg.test() 130 testsets green; survey SURVEY_EXIT_CODE=2 (the known 72), relations lane green after its fixture fix
 
+## Open (2026-08-29: IT's CPU performance report — verify, fix the bug-grade one, present the rest)
+
+- [x] VERIFIED: 70x at -t8 on the 9800X3D (14.7 ms flat across thread counts): weighted_inner CPU vs inner, same size, and read the code path
+- [x] FIXED: fixed-tree over axis-1 columns; 33x at t8, 21x tuple; decision-72 bitwise held; invariance asserted through the fixed-tree path, single and tuple forms,
+- [x] Micro-measured; CUDA suite 432/432 over the byte-identical GPU branch (not the benchmark suite — that stays consent-gated); GPU parity run
+- [x] Findings 2 and 3 recorded below as planned items with IT's evidence; record with measurements as planned items, no fixes unasked
+- [x] Replied, committed, pushed
+

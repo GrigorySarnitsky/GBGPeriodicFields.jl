@@ -1042,6 +1042,103 @@ function weighted_inner end
 end
 
 
+
+# ── The CPU leg of the weighted reductions ─────────────────────────────────────────────────────────
+#
+# The weighted inner products were GPU-first: one fused `sum`/`reduce` over a lazy `Broadcasted`,
+# which a device parallelizes and a CPU quietly hands to Base's SERIAL cartesian fold. Measured on a
+# 9800X3D at ``128^3`` `Float64`, that read 14.7 ms at one thread AND at eight — 70× the same-size
+# `inner`, which routes through the fixed-tree reduce — and the consumer's variance controller pays it
+# per stage (IT's codegen report, 2026-08-29). This leg gives the weighted family the same
+# decision-30/40 split `inner` has: the tree over CONTIGUOUS axis-1 columns, one column per tree
+# element, so the summation order is fixed by the tree's own shape and a threaded run stays bitwise
+# equal to a serial one.
+#
+# One reducer serves the single-weight and tuple forms — the single weight is the 1-tuple — which is
+# what makes decision 72's promise (the tuple form bitwise-equal to the separate calls) hold BY
+# CONSTRUCTION on this path rather than by parallel maintenance of two loops.
+#
+# The Parseval factor is oriented along the FOLDED axis (decision 41), which may be any of the three:
+# along axis 1 it varies within a column and is indexed per element; along axis 2 or 3 it is constant
+# per column and is hoisted. A stored weight is indexed linearly down its own contiguous column; a
+# compressed weight (radial / product) is a lazy `Broadcasted` and is evaluated per mode through its
+# cartesian index — the same value its materialized form stores, so the storage classes stay
+# bitwise-equal to each other.
+
+# Per-class element sources. The generic route — `getindex(::Broadcasted, CartesianIndex)` — pays the
+# broadcast machinery per element and measured 8.6× the stored class on the radial kernels, which are
+# the consumer's hot case (`spectral_band`, the ``|\kappa|^2`` weight). Each source reproduces its
+# class's `_kernel_data` expression EXACTLY — the radial one is ``\sigma((s_1+s_2)+s_3)``, the
+# left-fold of the three-argument broadcast `+` — so the storage classes stay bitwise-equal to each
+# other and to their materialized forms.
+struct _StoredWeight{A}; data::A; end
+@inline (w::_StoredWeight)(base, i, i2, i3) = @inbounds real(w.data[base + i])
+
+struct _RadialWeight{F, V}; sigma::F; s1::V; s2::V; s3::V; end
+@inline (w::_RadialWeight)(base, i, i2, i3) =
+  @inbounds w.sigma((w.s1[i] + w.s2[i2]) + w.s3[i3])
+
+struct _LazyWeight{B}; broadcastable::B; end
+@inline (w::_LazyWeight)(base, i, i2, i3) = @inbounds w.broadcastable[CartesianIndex(i, i2, i3)]
+
+_cpu_weight(w::StoredKernel) = _StoredWeight(_kernel_data(w))
+_cpu_weight(w::RadialKernel) = _RadialWeight(w.sigma, w.multipliers.squared_wavenumber_1,
+                                             w.multipliers.squared_wavenumber_2,
+                                             w.multipliers.squared_wavenumber_3)
+_cpu_weight(w::SpectralKernel) = _LazyWeight(Base.Broadcast.instantiate(_kernel_data(w)))
+
+
+# One accumulation step over the weight tuple, unrolled by recursion on the tuple itself. A `map`
+# with a closure here is the classic boxing trap: the accumulator is reassigned in the loop AND
+# captured by the closure, so Julia boxes it and every element allocates — measured at 15 MB per call
+# on a ``32^3`` field before this was written out. Recursion on `first`/`tail` carries no closure.
+@inline _weighted_step(::Tuple{}, ::Tuple{}, p, d, weight_base, i, i2, i3) = ()
+@inline _weighted_step(totals::Tuple, weights::Tuple, p, d, weight_base, i, i2, i3) =
+  (first(totals) + p * first(weights)(weight_base, i, i2, i3) * d,
+   _weighted_step(Base.tail(totals), Base.tail(weights), p, d, weight_base, i, i2, i3)...)
+
+
+function _weighted_column(parseval, folded_dimension, weights::WS, a, b, column::Int,
+                          n1::Int, n2::Int, weight_columns::Int, ::Val{N}) where {WS <: Tuple, N}
+  T = eltype(parseval)
+  base = (column - 1) * n1
+  weight_column = (column - 1) % weight_columns
+  weight_base = weight_column * n1
+  i3, i2_zero = divrem(weight_column, n2)
+  i2 = i2_zero + 1
+  i3 += 1
+  totals = ntuple(_ -> zero(T), Val(N))
+  if folded_dimension == 1
+    # The Parseval factor varies WITHIN the column; branch hoisted to column level so the inner loop
+    # carries no per-element conditional.
+    @inbounds for i in 1:n1
+      p = parseval[i]
+      d = real(a[base + i] * conj(b[base + i]))
+      totals = _weighted_step(totals, weights, p, d, weight_base, i, i2, i3)
+    end
+  else
+    pv_column = folded_dimension == 2 ? (@inbounds parseval[i2]) : (@inbounds parseval[i3])
+    @inbounds for i in 1:n1
+      d = real(a[base + i] * conj(b[base + i]))
+      totals = _weighted_step(totals, weights, pv_column, d, weight_base, i, i2, i3)
+    end
+  end
+  return totals
+end
+
+
+function _weighted_totals_cpu(a, b, parseval, folded_dimension::Int,
+                              weights::WS, ::Val{N}) where {WS <: Tuple, N}
+  n1, n2, n3 = size(a, 1), size(a, 2), size(a, 3)
+  weight_columns = n2 * n3
+  total_columns = div(length(a), n1)
+  pv = vec(parseval)
+  element = column -> _weighted_column(pv, folded_dimension, weights, a, b, column,
+                                       n1, n2, weight_columns, Val(N))
+  return _indexed_tree_reduce(element, (x, y) -> map(+, x, y), 1, total_columns)
+end
+
+
 function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T},
                         w::SpectralKernel{T}) where {T<:AbstractFloat}
   _check_field_domain_compatibility(f, g)
@@ -1057,9 +1154,15 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
   # `Base.broadcasted(...)` carries `Nothing` axes, so AMDGPU's `mapreducedim!` throws `axes(::Broadcasted, ::Int)`
   # (CPU tolerates it; the GPU does not). `instantiate` fills the axes without materializing, keeping the
   # reduction fused on both backends.
-  weight = Base.broadcasted(*, _parseval_weight(f), _weight_data(w))
-  density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
   normalization = T(prod(field_grid(f).grid_size))^2
+  weight_lazy = _weight_data(w)                   # the complex-multiplier refusal runs here
+  if KernelAbstractions.get_backend(field_data(f)) isa KernelAbstractions.CPU
+    totals = _weighted_totals_cpu(field_data(f), field_data(g), _parseval_weight(f),
+                                  field_layout(f).fft_dims[1], (_cpu_weight(w),), Val(1))
+    return totals[1] / normalization
+  end
+  weight = Base.broadcasted(*, _parseval_weight(f), weight_lazy)
+  density = Base.broadcasted(real, Base.broadcasted(*, field_data(f), Base.broadcasted(conj, field_data(g))))
   return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
@@ -1086,13 +1189,19 @@ function weighted_inner(f::AbstractFieldSpectral{T},
   foreach(w -> _check_kernel_compatibility(f, w), weights)
   weight_data = map(_weight_data, weights)          # each one's complex-multiplier refusal runs here
   parseval = _parseval_weight(f)
+  normalization = T(prod(field_grid(f).grid_size))^2
+  if KernelAbstractions.get_backend(field_data(f)) isa KernelAbstractions.CPU
+    totals = _weighted_totals_cpu(field_data(f), field_data(f), parseval,
+                                  field_layout(f).fft_dims[1], map(_cpu_weight, weights),
+                                  Val(length(weights)))
+    return map(total -> total / normalization, totals)
+  end
   density = Base.broadcasted(abs2, field_data(f))
   # One element of the pass yields one value per weight. `map` over the tuple keeps the closure generic
   # in the count while staying isbits, which is what the device reduction requires.
   packed = Base.broadcasted((d, p, ws...) -> map(w -> p * w * d, ws), density, parseval, weight_data...)
   zeros_tuple = ntuple(_ -> zero(T), length(weights))
   totals = reduce((a, b) -> map(+, a, b), Base.Broadcast.instantiate(packed); init = zeros_tuple)
-  normalization = T(prod(field_grid(f).grid_size))^2
   return map(total -> total / normalization, totals)
 end
 

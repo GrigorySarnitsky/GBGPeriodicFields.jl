@@ -328,9 +328,16 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
     red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
     red_us = VectorFieldSpectral(rand(Complex{T}, F.spectral_field_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
+    # The weighted family joined the fixed tree on 2026-08-30 (it had been Base's serial fold, so its
+    # invariance was vacuous); both forms are asserted, single and tuple, on both weight classes.
+    red_mult = FieldSpectralMultipliers(red_us)
+    red_band = spectral_band(red_mult, T(1), T(6))
+    red_stored = materialize_kernel(red_band)
     red_ops = (() -> inner(red_u, red_u), () -> inner(red_us, red_us), () -> l2norm(red_us),
                () -> integral(red_u), () -> Statistics.mean(red_A), () -> Statistics.mean(det, red_A),
-               () -> Statistics.std(red_phi), () -> maximum(red_phi), () -> extrema(red_phi))
+               () -> Statistics.std(red_phi), () -> maximum(red_phi), () -> extrema(red_phi),
+               () -> weighted_inner(red_us, red_band), () -> weighted_inner(red_us, red_stored),
+               () -> weighted_inner(red_us, (red_band, red_stored)))
     for op in red_ops
       @test (with_threading(enabled = false) do; op() end) == (with_threading(enabled = true) do; op() end)
     end
@@ -345,12 +352,17 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     red_phi = ScalarFieldPhysical(rand(T, 24, 24, 24), red_grid)
     red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
     red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
+    red_us = VectorFieldSpectral(rand(Complex{T}, GBGPeriodicFields.Fields.spectral_field_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
+    red_band = spectral_band(FieldSpectralMultipliers(red_us), T(1), T(6))
     values = Float64[inner(red_u, red_u), integral(red_u)..., Statistics.mean(det, red_A),
-                     Statistics.std(red_phi), maximum(red_phi)]
+                     Statistics.std(red_phi), maximum(red_phi),
+                     weighted_inner(red_us, red_band), weighted_inner(red_us, (red_band, red_band))...]
     println(ka_digest(values))
     """
+    local_band = spectral_band(FieldSpectralMultipliers(red_us), T(1), T(6))
     local_values = Float64[inner(red_u, red_u), integral(red_u)..., Statistics.mean(det, red_A),
-                           Statistics.std(red_phi), maximum(red_phi)]
+                           Statistics.std(red_phi), maximum(red_phi),
+                           weighted_inner(red_us, local_band), weighted_inner(red_us, (local_band, local_band))...]
     other = Threads.nthreads() == 1 ? 4 : 1
     red_output = readchomp(`$(Base.julia_cmd()) --project=$(Base.active_project()) -t$other -e $reduction_probe`)
     @test red_output == string(ka_digest(local_values))
