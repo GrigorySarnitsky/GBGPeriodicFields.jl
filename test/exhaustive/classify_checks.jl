@@ -41,7 +41,9 @@ const CLASSES = [
   (:schema_presence, [r"haskey\(", r"attrs\("]),            # a serialized attribute is present/absent
   (:structural,      [r"all\(iszero", r"any\(iszero", r"imag\.\(", r"all\(isreal", r"issymmetric"]),
   (:representation,  [r"\bsame\(", r"spectral.*physical|physical.*spectral"]),
-  (:result_type,     [r"\bisa\b"]),                        # the operation returns the declared type
+  # `:result_type` was HERE and is deliberately gone with the check it fed (see `ledger.jl`). An
+  # assertion spelled with `isa` now classifies on its other content, which is what it was always
+  # asserting: `isa` is how a test writes "the result is still a field", a CORRECTNESS claim.
   # `[^=!<>]>[^=]` matches `->`, so every assertion containing a lambda — and every `where {T<:Real}` —
   # was filed as an inequality, shifting credit off `:correct` for both the report and the residue that
   # defines the axis. The arrow and the subtype operator are excluded explicitly.

@@ -56,3 +56,9 @@ the block shows in the diff instead of being silent.
 - [x] Measured: "every public operation is reached by the invocation engine"; invocations 3,416,256 → 3,417,216
 - [x] Full survey re-run, SURVEY_EXIT_CODE=2 captured (the known radial_spectrum cells); committed
 
+## Open (authorised 2026-08-29: retire result_type from the applicability ledger)
+
+- [x] Removed `:result_type` from APPLICABILITY and from the classifier
+- [x] Measured on a full run: applicable 1086 → 966 (−120), unasserted 378 → 283 (−95), every other lane byte-identical
+- [x] Survey re-run, SURVEY_EXIT_CODE=2 captured; committed and pushed
+

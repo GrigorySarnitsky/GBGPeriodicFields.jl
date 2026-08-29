@@ -1666,6 +1666,18 @@ value cells (the Float32 shell tie-break recorded above), 63 context-mismatch ce
 dispatch rather than at a domain check, and 369 applicable-but-unasserted ledger cells, which are a
 coverage report rather than a failure.
 
+**A quarter of the applicability ledger's backlog was an accounting entry for a DEAD CHECK (fixed
+2026-08-29).** `:result_type` asked whether a result matched what inference promised, which
+`Base.return_types` makes unfalsifiable — it is a sound over-approximation, so in valid Julia the
+answer is always yes and the check could only ever have caught a compiler bug. `checks.jl` retired it
+for `:type_stability`, which asks the falsifiable question and immediately found 576 real cells. But
+its applicability row survived the retirement, marked applicable to every operation, so the ledger kept
+120 cells on its books and counted 95 of them as gaps nothing would ever close. Removed from both
+`APPLICABILITY` and the assertion classifier; measured on a full run, applicable 1086 → 966 and
+unasserted **378 → 283**, with every other lane byte-identical. **The lesson generalises past this
+instance: when a check is retired, its ledger row is a second place to delete, and a coverage backlog
+should be audited for dead questions before anyone is asked to work it down.**
+
 **The survey's EXIT CODE is permanently 2, and the reason is the harness finding below.** Measured
 2026-08-29 (`SURVEY_EXIT_CODE=2`, captured rather than inferred, after two earlier runs whose status
 was lost to a detached launch). Every lane that asserts behaviour is clean — 0 correctness findings, 0

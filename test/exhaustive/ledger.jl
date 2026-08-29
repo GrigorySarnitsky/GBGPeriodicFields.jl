@@ -286,7 +286,13 @@ end
 
 const APPLICABILITY = Dict{Symbol, Any}(
   :correct          => (p -> (true, "")),
-  :result_type      => (p -> (true, "")),
+  # `:result_type` was HERE and is deliberately gone. It asked whether the result matched what
+  # inference promised — and `Base.return_types` is a sound over-approximation, so in valid Julia the
+  # answer is always yes and the check could only ever have caught a compiler bug. `checks.jl` retired
+  # it for `:type_stability`, which asks the falsifiable question (did inference reach a CONCRETE
+  # type) and immediately found 576 real cells. The applicability row outlived the check by a fortnight
+  # and kept 120 cells on the books, 95 of them counted as gaps, for a question nothing would ever
+  # answer — a quarter of this ledger's own backlog was an accounting entry for a dead check.
   :type_stability   => (p -> (true, "")),
   # A completeness guard asserts a property of the SUITE — that a ledger's domain is covered, that a
   # method count has not moved — so it has no per-operation cell to fill. Counting it against every
