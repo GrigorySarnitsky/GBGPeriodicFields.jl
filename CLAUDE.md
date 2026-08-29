@@ -1644,6 +1644,15 @@ nothing; and the concrete results include `Union{}`, inference's way of saying a
 a subtype of everything and made `inner` and `maximum` claim to return sections. Both `Any` and
 `Union{}` are now filtered as the non-facts they are.
 
+**Every public operation is now REACHED by the invocation engine (2026-08-29).** Two were not:
+`displace!`, whose terms are `(coefficient, section)` TUPLES that no pool object could supply — the one
+operation put out of reach by its argument SHAPE rather than its types — now fixed by a term-pair pool
+entry, so its four methods get the five universal checks across all 96 configurations; and `adapt`,
+which the package never defines at all (it extends `adapt_structure`, the hook `adapt` dispatches
+through) and which is now reported as *not defined here, covered through its hook* rather than counted
+as a coverage hole. The two are different things and lumping them together read as a gap where there
+was none.
+
 **The survey is clean on every lane it asserts.** The 2026-08-29 run reports **0** correctness findings,
 **0** type-stability findings, **0** guard violations, and 0 failures in relations / representation /
 invariance / allocation / ordering / sequences / storage aliasing. The 576 type-stability findings its

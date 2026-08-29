@@ -49,3 +49,10 @@ the block shows in the diff instead of being silent.
 - [x] Full survey re-run 2026-08-29, exit code CAPTURED = 2 (the known radial_spectrum tie-break; every asserting lane clean)
 - [x] DESIGN.md, CLAUDE.md, TESTING.md updated; committed and pushed
 
+## Open (authorised 2026-08-29: close survey item 4, the two operations with no buildable call)
+
+- [x] `displace!`: term-pair pool entry added; its four methods now get the universal checks
+- [x] `adapt`: reported as not-defined-here, covered through its hook, not as a gap
+- [x] Measured: "every public operation is reached by the invocation engine"; invocations 3,416,256 → 3,417,216
+- [x] Full survey re-run, SURVEY_EXIT_CODE=2 captured (the known radial_spectrum cells); committed
+

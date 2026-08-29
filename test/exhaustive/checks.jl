@@ -501,6 +501,7 @@ function run_check_lanes(pool; configuration_name::String = "", bitwise_determin
   set_fft_threads!(entry_fft_threads)
   return (findings = findings, attempted = attempted, live = live, lane_errors = lane_errors,
           built = length(work.built), unbuildable = work.unbuildable,
+          hook_extended = work.hook_extended,
           dropped = work.dropped, oversized = work.oversized, unfillable = work.unfillable,
           operations = length(work.operations),
           configuration = configuration_name)
@@ -542,6 +543,7 @@ function run_invocation_lane(configs)
   built = live = dropped = oversized = unfillable = unbuilt_pools = 0
   lane_errors = Dict{String, Int}()
   unbuildable = Symbol[]
+  hook_extended = Symbol[]
   operations = 0
   for config in configs, (backend_name, device) in backends
     pool = try
@@ -577,6 +579,7 @@ function run_invocation_lane(configs)
     # Accumulated, not overwritten: assigning per configuration left the printed NOT REACHED list
     # showing only whatever the last configuration happened to fail on.
     unbuildable = sort(union(unbuildable, result.unbuildable); by = String)
+    hook_extended = sort(union(hook_extended, result.hook_extended); by = String)
     for (kind, messages) in result.findings
       append!(get!(totals, kind, String[]), ("[$(config.name)] " * m for m in messages))
     end
@@ -608,6 +611,12 @@ function run_invocation_lane(configs)
   println("\n  ", operations, " public operations · ", length(unbuildable), " with no buildable call")
   isempty(unbuildable) ||
     println("      NOT REACHED: ", join(String.(unbuildable), ", "))
+  # Distinct from a hole in the pool: the package defines no method for these at all. It extends the
+  # HOOK they dispatch through, so they are covered wherever that hook is, and counting them as
+  # unreachable reads as a coverage gap where there is none.
+  isempty(hook_extended) ||
+    println("      NOT DEFINED HERE (covered through the hook they dispatch to): ",
+            join(String.(hook_extended), ", "))
   println("  ", built, " invocations built over ", length(configs), " configurations · ",
           live, " returned a value and were checked")
   dropped == 0 ||

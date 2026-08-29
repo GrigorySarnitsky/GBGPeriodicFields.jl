@@ -190,6 +190,12 @@ function canonical_pool(config; device = identity)
   for (R, f) in enumerate(physical); push("physical R=$(R-1)", f); end
   for (R, f) in enumerate(spectral); push("spectral R=$(R-1)", f); end
   for (R, q) in enumerate(values);   push("pointvalues R=$(R-1)", q); end
+  # A DISPLACEMENT TERM. `displace!` takes its terms as `(coefficient, section)` TUPLES, and no pool
+  # object was a tuple, so the variadic expansion above found the slot unfillable and the operation was
+  # reported as having no buildable call at all — the only public operation whose argument SHAPE, not
+  # its type, put it out of reach. One entry restores it; the engine's own Vararg expansion then builds
+  # both the one-term and two-term forms, and the value lane drives the coefficients.
+  push("displacement term (coefficient, vector point values)", (T(3) / 10, values[2]))
   # A SECOND, INDEPENDENTLY DRAWN instance of each. With one object per (representation, order), every
   # same-order slot the engine fills draws the SAME object, so it could only ever build `add!(v, v, v)`,
   # `cross!(v, v, v)`, `dot!(s, v, v)`, `mul!(C, A, A)`. That is not merely thin coverage: the
@@ -491,6 +497,12 @@ function all_invocations(pool; cap::Int = 400)
   # the entire invocation product twice for each of the three alias pairs.
   swept = Base.IdSet{Any}()
   built, unbuildable, dropped, oversized, unfillable = NamedTuple[], Symbol[], 0, 0, 0
+  # An operation the package does not define AT ALL is a different thing from one whose arguments the
+  # pool cannot build, and lumping them together reads as a coverage hole where there is none.
+  # `adapt` is Adapt.jl's own generic: the package extends `adapt_structure`, the hook it dispatches
+  # through, and never adds an `adapt` method. So there is no package-owned method here to call, and
+  # the operation is covered exactly where that hook is covered.
+  hook_extended = Symbol[]
   for name in operations
     f = nothing
     for mod in (GBGPeriodicFields, Base, Statistics, LinearAlgebra, PACKAGE_MODULES...)
@@ -510,8 +522,15 @@ function all_invocations(pool; cap::Int = 400)
     dropped += result.dropped
     oversized += result.oversized
     unfillable += result.unfillable
-    isempty(result.built) ? Base.push!(unbuildable, name) : append!(built, result.built)
+    if isempty(result.built)
+      # No package-owned method at all → the hook class above. Otherwise the pool genuinely could not
+      # fill a slot, which IS a hole and stays named as one.
+      any(_owned_by_package, methods(f)) ? Base.push!(unbuildable, name) : Base.push!(hook_extended, name)
+    else
+      append!(built, result.built)
+    end
   end
-  return (built = built, unbuildable = unbuildable, dropped = dropped, oversized = oversized,
+  return (built = built, unbuildable = unbuildable, hook_extended = hook_extended,
+          dropped = dropped, oversized = oversized,
           unfillable = unfillable, operations = operations)
 end
