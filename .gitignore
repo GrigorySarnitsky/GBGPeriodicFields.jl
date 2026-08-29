@@ -19,3 +19,4 @@ inspiration/
 # do-not-re-flag list .claude/doc-review-adjudicated.md, which panel.js reads.
 .claude/doc-review/
 .claude/doc-review-prev/
+*.cov
