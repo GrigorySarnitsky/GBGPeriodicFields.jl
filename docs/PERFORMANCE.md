@@ -1582,6 +1582,35 @@ and the order's own scattered reads of the coordinates cost more than they save.
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ae) After (ad), the transfer is memory-bound in every measured cell — so the compute-side
+optimizations do not pay, and that closes a class** (2026-08-30). A static-unroll rewrite was the
+top-ranked recommendation of a survey of GPU transfer techniques, on the strength of a compiled
+measurement: the stencil nest emits a stack frame with a local load in its innermost loop, and about
+one outstanding field load per thread where the memory system wants two or more. The predicted gain
+was ``1.3``–``2\times``.
+
+It was implemented — the node count moved into the type domain, so the three loops take static trip
+counts and the weights resolve to registers — verified **bitwise identical** over the same 48
+configurations, and **measured at nothing**: ``2.374`` against ``2.370`` ms on the device gather and
+within noise on both CPU element types. It was reverted rather than kept, since it adds a type
+parameter to two kernels and two launch sites for no gain. The count was evidently already folding.
+
+The reading that matters is the general one. Ordering and the wrap walk moved this operation off the
+compute side: what was left after them is fetching bytes, and no rearrangement of the arithmetic
+around those fetches changes the time. That retires, for this kernel and this regime, the whole family
+the survey ranked below the unroll — explicit `muladd`, a restructured contraction, a fiber-innermost
+loop, `Int32` indices — none of which is worth machine time until a measurement shows the kernel
+compute-bound again. It also explains finding (z)'s `muladd` result on `displace!` and finding (r)'s
+declined hoist as the same phenomenon rather than three separate curiosities.
+
+Two independent predictions in that survey were confirmed and are worth keeping. Shared-memory
+privatization would **lose** here: the published crossover is at a point density of ``0.05``, measured
+with a stencil eight times wider than this one, and this regime sits at ``0.06`` with the narrow
+stencil, so the tile flush cost — which is proportional to the GRID, not the points — would dominate.
+And the node-centric scatter this package measured at ``6``–``24\times`` slower fails by exactly the
+predicted law: its waste factor is the reciprocal of the point density, ``16.7\times`` here, which
+brackets the measurement.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

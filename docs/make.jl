@@ -490,10 +490,13 @@ makedocs(
     # The root redirects to whatever the default version is, so it stays correct either way.
     canonical     = "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl",
     collapselevel = 1,
-    # The architecture document is deliberately one page (the top-level design doc with its
-    # append-only decision log), and its rendered size now exceeds Documenter's default hard
-    # size_threshold. Exempt that one page; every other page keeps the guard.
-    size_threshold_ignore = ["architecture.md"],
+    # Two documents are deliberately one page each, and both carry an APPEND-ONLY log that grows
+    # with the project: the architecture doc's decision log, and the performance doc's numbered
+    # findings. Their rendered size exceeds Documenter's default hard size_threshold for that
+    # reason rather than through padding, and splitting either would break the numbering that the
+    # rest of the corpus cites by (decision 78, finding (ae)). Exempt those two; every other page
+    # keeps the guard, which is what catches a page that grew by accident.
+    size_threshold_ignore = ["architecture.md", "performance.md"],
   ),
   checkdocs = :exports,
   doctest   = true,
