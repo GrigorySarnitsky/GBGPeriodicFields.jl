@@ -1534,8 +1534,11 @@ division (2026-08-30, user-directed).** Two independent changes, measured on an 
 Ryzen 9800X3D at the regime a consumer actually runs — ``256^3`` grid, ``10^6`` points, `CatmullRom`.
 
 *The periodic wrap was an integer division per stencil NODE.* Each node index came from `mod`, which
-LLVM shared down to 32 `idiv` instructions per point per fibre — around 200 cycles of a non-pipelined
-divider, for arithmetic that is an increment and a compare, and a hard barrier to vectorization.
+LLVM shared down to 32 `idiv` instructions per point — around 200 cycles of a non-pipelined divider,
+for arithmetic that is an increment and a compare. Two qualifications an adversarial re-measurement
+added: the 32 is the count at four nodes per axis, rising to 41 at eight; and it is per POINT, not per
+point per fibre, because loop-invariant motion hoists the divisions out of the fibre loop — nine fibre
+components cost the same divisions as three.
 
 The stencil walks consecutive nodes, so each index is its predecessor plus one, wrapped: `_wrap_step`
 replaces the division with a conditional zero and keeps three `mod`s per point for the starts. It is
@@ -1557,22 +1560,40 @@ stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the C
 | 6 (`LalescuSpline(2,1)`) | ``1.85\times`` | ``1.76\times`` |
 | 8 (`LalescuSpline(3,3)`, `LagrangeSpline(3)`) | ``1.14\times`` | **``0.86\times``** |
 
-At eight nodes per axis with a fibre the walk is **14% SLOWER**, reproducibly and on all three width-8
-schemes, so it is the structure and not noise — **at eight threads**. An adversarial re-measurement
-interleaving the arms found the sign FLIPS with thread count: ``1.17\times`` (walk faster) at one
-thread, ``0.86\times`` at eight, ``0.96\times`` at sixteen. The mechanism is consistent with that —
-compute-bound at one thread, where the divisions dominate and removing them wins; bandwidth-bound
-above four, where they were already hidden and only the serial index chain and its registers remain.
-The table above is a `-t8` table, which the first version of this finding did not say. The mechanism is the one that sank the `ntuple` hoist:
+At eight nodes per axis the walk can be SLOWER, and the first two versions of this finding both
+described it wrongly. What survives adversarial re-measurement, interleaved and across seeds:
+
+- **The sign flips with thread count.** At one thread the walk is ``1.17``–``1.22\times`` FASTER on
+  every width-8 scheme; the loss appears only from about four threads (``0.86``–``0.96\times`` at
+  eight and sixteen). The table above is a `-t8` table, which was not stated.
+- **The magnitude is 4–14%, not 14%.** Only `LalescuSpline(3,2)` reaches 14%; `LalescuSpline(3,3)`
+  and `LagrangeSpline(3)` reach 4–7%. The recorded 617 → 720 ms was one scheme at the machine's
+  default sixteen threads, generalized to a corner it does not describe.
+- **It is ``R = 1`` specifically, not "with a fibre".** ``R = 2`` is LESS affected than ``R = 1``
+  (0.92–0.99 against 0.87–0.95), which falsifies the "width 8 × 3 components" framing — nine
+  components would have to be worse than three, and they are not.
+- **The recorded MECHANISM was backwards.** The claim was that `mod` blocks vectorization and that
+  the walk's registers cost more. Measured AVX instruction counts say the opposite: the `mod` nest
+  emits 983–1588 vector instructions against the walk's 133–138, so the `mod` form is the VECTORIZED
+  one and the walk's index-to-index dependence is what prevents it — and neither variant spills, so
+  the register half had no support at all. The consistent story is the memory roof: the walk's
+  per-thread time is lower, so it saturates bandwidth first and then forfeits the memory-level
+  parallelism the independent `mod` indices retain. That also explains the thread-count sign flip,
+  which a per-thread register argument cannot.
+- The cost is attributable to the **innermost-axis** walk specifically, confirmed by two probe
+  variants: walking only the innermost axis reproduces the regression, and leaving `mod` there
+  recovers it. The mechanism is the one that sank the `ntuple` hoist:
 the walk keeps six live indices across the nest and makes each index depend on its predecessor, where
 `mod` computes all of them independently, and at width 8 × 3 components that serial chain and its
-registers cost more than the divisions saved. The GPU does not show it — there the walk is
-``1.03``–``1.13\times`` across every scheme and both ranks, with one ``0.93\times`` cell at trilinear
-``R = 1``.
+registers cost more than the divisions saved. The GPU does not show it: across six schemes and three ranks every one of 36 cells is at least
+``1.03\times``, the range running to ``1.28\times``. An earlier ``0.93\times`` cell recorded at
+trilinear ``R = 1`` did not reproduce and was noise.
 
 **It is kept, and the corner is stated rather than fixed.** A hybrid — walking the outer axes and
-leaving `mod` on the innermost — was measured and is strictly worse overall: it recovers width 8 but
-gives back the width-6 win (291.9 → 453.5 ms at ``R = 1``). Making the choice conditional on scheme,
+leaving `mod` on the innermost — recovers width 8 but gives back the width-6 win (291.9 → 453.5 ms at
+``R = 1``, independently reproduced at 344.5 → 543.4). It is not *strictly* worse, as first recorded:
+against the pre-walk kernel it was never behind in 60 measured cells. It is worse against the shipped
+walk where the walk wins, which is the common case and the default scheme. Making the choice conditional on scheme,
 rank and backend would mean a second kernel body, which is exactly what decision 47 records going
 silently dead. The default scheme is width 4, where the walk wins on both backends, and the affected
 corner is a wide stencil on a vector field on CPU.

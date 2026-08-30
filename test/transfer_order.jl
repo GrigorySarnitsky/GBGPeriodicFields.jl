@@ -226,3 +226,40 @@ end
   wild = PointSet([NaN 0.0 0.0; Inf 1.0 1.0; -Inf 2.0 2.0; 1e300 3.0 3.0])
   @test length(transfer_order(wild, Grid3D((8, 8, 8), (2π, 2π, 2π)))) == 4
 end
+
+
+@testset "the periodic walk is the mod it replaced" begin
+  # Promoted from the adversarial review of 2026-08-30, which observed that the bit-identity of the
+  # walk (decision 78) had been checked ONCE, out of tree, against a kernel that no longer exists —
+  # and that nothing in the committed suite could catch a wrong index map under wrapping. The
+  # "stencil wider than the grid" case in `interpolation_transfer.jl` asserts adjointness and
+  # conservation, and BOTH are invariant under any consistent permutation of the stencil indices,
+  # because the gather and the scatter share the map. That is the self-referential-assertion class
+  # decision 52 names.
+  #
+  # The property is checked here on the arithmetic itself, where it is exact and cheap: starting from
+  # `mod(base - neighbourhood, n)` and stepping with `_wrap_step` must visit `mod(base + t - neighbourhood, n)`
+  # for every `t`. Proof, so the test is a guard on a settled statement rather than a search: for
+  # `m = mod(b, n)` we have `m + 1 ≤ n`, so `ifelse(m + 1 == n, 0, m + 1)` is `mod(b + 1, n)`; induct.
+  step = GBGPeriodicFields.Interpolation._wrap_step
+  mismatches = 0
+  for extent in 1:12, width in 1:16, base in (-40, -7, -1, 0, 1, 5, 39, 1000, -1000, 10^7, -10^7)
+    neighbourhood = (width - 2) ÷ 2
+    node = mod(base - neighbourhood, extent)
+    for i in 1:width
+      node == mod(base + (i - 1 - neighbourhood), extent) || (mismatches += 1)
+      node = step(node + 1, extent)
+    end
+  end
+  @test mismatches == 0
+
+  # The walk must keep cycling when the stencil is many times wider than the axis — the case the
+  # spline schemes reach on a small grid, and the one a single-wrap implementation would fail.
+  for extent in 1:4
+    node = 0
+    for t in 0:199
+      @test node == mod(t, extent)
+      node = step(node + 1, extent)
+    end
+  end
+end

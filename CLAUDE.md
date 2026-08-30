@@ -2032,12 +2032,14 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   stencil visits consecutive nodes, so `_wrap_step` advances each index by one with a conditional zero
   instead of calling `mod` per node, removing 29 of the 32 integer divisions LLVM was emitting per
   point per fibre. **Bitwise identical** over 48 configurations including a stencil wider than the
-  grid. **It is NOT immune to the failure that sank the old hoist**, which the first sweep missed by
-  measuring only `CatmullRom`: it wins ``1.3``–``1.9\times`` on CPU up to six nodes per axis and
-  ``1.03``–``1.13\times`` on the device throughout, but is **14% SLOWER on CPU at eight nodes per axis
-  with a fibre**, the walk's index-to-index dependence costing more there than the divisions saved.
-  Kept with the corner documented (a hybrid measured strictly worse; a scheme/rank/backend-conditional
-  kernel is the second body decision 47 records going dead). Finding (ad) carries the swept table.
+  grid. **It has one bad corner**, which the first sweep missed by measuring only
+  `CatmullRom`: it wins ``1.3``–``1.9\times`` on CPU up to six nodes per axis and
+  ``1.03``–``1.28\times`` on the device throughout, but loses **4–14% on CPU at eight nodes per axis,
+  only above about four threads and only at ``R = 1``** — at one thread it is 17–22% FASTER, and
+  ``R = 2`` is less affected. **The mechanism first recorded was backwards**: `mod` is the form that
+  vectorizes and neither variant spills, so the loss is the walk saturating bandwidth sooner and
+  forfeiting the memory-level parallelism independent indices keep, which is also the only story
+  consistent with a sign that flips on thread count. Kept with the corner documented. Finding (ad) carries the swept table.
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round

@@ -4122,14 +4122,22 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       kernel**, verified over 48 configurations including a stencil wider than the grid, where the
       walk wraps repeatedly; only the index arithmetic changed.
 
-    - **The walk has ONE bad corner, and the first version of this entry missed it.** It is worth
-      ``1.3``–``1.9\times`` on the CPU gather up to six nodes per axis and ``1.03``–``1.13\times`` on
-      the device throughout, but at **eight nodes per axis with a fibre it is 14% slower on CPU** — the
-      mechanism that sank the `ntuple` hoist §3 rejected, the walk making each index depend on its
-      predecessor where `mod` computes them independently. The corner is stated rather than fixed: a
-      hybrid was measured and is strictly worse overall, and a choice conditional on scheme, rank and
-      backend would mean the second kernel body decision 47 records going silently dead. The claim
-      that it "helps both backends" was made from figures taken only at the default scheme.
+    - **The walk has one bad corner, and this entry has now described it wrongly twice.** It is worth
+      ``1.3``–``1.9\times`` on the CPU gather up to six nodes per axis and ``1.03``–``1.28\times`` on
+      the device throughout, but at eight nodes per axis it can lose on CPU: **4–14% depending on the
+      scheme, only from about four threads, and at ``R = 1`` rather than at every rank** — ``R = 2``
+      is less affected, and at one thread the walk is 17–22% FASTER. The mechanism recorded here was
+      backwards: `mod` is the form that VECTORIZES (983–1588 vector instructions against the walk's
+      133–138) and neither variant spills, so the loss is the walk saturating bandwidth sooner and
+      forfeiting the memory-level parallelism independent indices keep — which is also the only story
+      consistent with a sign that flips on thread count. The corner is stated rather than fixed,
+      since a scheme/rank/thread-conditional kernel is the second body decision 47 records going
+      silently dead. `docs/PERFORMANCE.md` finding (ad) carries the tables.
+
+    - **What the two wrong versions had in common** is worth more than either correction: each was
+      measured at one point of a space and written as though it held across it — first at one scheme,
+      then at one thread count. The rule the package already applies to tests, that a fixture must be
+      able to falsify the claim its name makes, applies to benchmarks in exactly the same way.
 
     - **Where it does not pay, which is why it is an option and not a default.** At ``64^3`` with
       ``10^5`` points everything is launch-bound and building an order for a single transfer loses. On
