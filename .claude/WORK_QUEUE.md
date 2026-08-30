@@ -116,3 +116,12 @@ Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
 - [x] Witnesses promoted into test/transfer_order.jl, plus the index-equivalence proof the suite lacked
 - [x] Pkg.test 137, CUDA 454, docs green; committed and pushed (097c3c23, 04923f79)
 
+## Open (2026-08-30, user-directed: the born-slow triage, wired into the post-benchmark analyzer)
+
+- [x] triage.jl built: every-host flatness + declared docstring-cost peers; class-median tried and dropped as noise
+- [x] Wired into report.jl; standalone entry kept
+- [x] Run: 46 flat (43 known; weighted_inner retro-flags at 0.99x) + 91 peer (all known) + ONE genuine discovery: radial shell binning flat on both hosts
+- [x] triage_selftest: flags a flattened scaler, spares a true one, retro-flags the known pair
+- [x] Regenerated; all ten columns bit-for-bit identical, triage section appended
+- [x] Finding (ag); the new radial-binning investigate item in CLAUDE.md; committed
+

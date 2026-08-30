@@ -1667,6 +1667,36 @@ was backwards for a sweep-seeded set and has been corrected. The visit order giv
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ag) The benchmark instruments had no referee for a defect present from birth — the born-slow
+triage is that referee** (2026-08-30, user-directed, after finding (ac) asked why nothing caught it).
+Every existing check compares a row against itself: the canary against its own frozen baseline, a
+re-sweep against the previous archive, decision 72's speedup against a sibling sharing the same code
+path. `weighted_inner` was serial from the day it shipped, sat in `RESULTS.md` flat across four thread
+columns at ``5\times`` the same-size `inner`, and no instrument — or reader — ever asked the question
+those numbers answered. That is the third instance of one pattern: a comparison whose two sides share
+the defect is blind to it (decision 52 closed it for tests, decision 55 for oracles; benchmarks had no
+counterpart).
+
+`benchmark/triage.jl` asks the two absolute questions over archives that already exist, riding every
+`report.jl` regeneration as a section of `RESULTS.md` — no new measurement. **(A) Thread-flat on every
+host**: genuinely serial code reads ``1.0\times`` from t1 to t8 on all hosts, where a
+bandwidth-saturated streaming op reads ``1.1``–``1.3\times`` on one. Both qualifiers were forced by
+measurement: a ``1.3`` threshold flagged 211 rows of honest saturation, and the 9800X3D saturates DRAM
+from a single core (`add!` at ``512^3`` is flat at 44 GB/s there while scaling ``1.5\times`` on the
+12700K), so flat-on-one-host is that host's physics and flat-on-every-host is the code's. **(B)
+Declared peers**: pairs whose docstrings claim comparable cost, asserted for the first time — a
+class-median comparison was tried and dropped, a class mixing algorithms whose work legitimately
+differs ``64\times``. Both scans skip sub-millisecond rows (§4(u)); flags are questions, closed by a
+fix or a recorded reason, never by deletion; the self-test perturbs a scaling row flat and demands the
+flag.
+
+**First run over the ten committed archives: every flag accounted but one pair.** 46 thread-flat rows
+— 43 known (`weighted_inner` retro-flags at ``0.99\times``, `reality_residual`, the materializers),
+and **`radial_spectrum` / the co-spectrum flat on BOTH hosts at ``\approx 2.7`` GB/s** — far off the
+roof, so not saturation: the shell-binning scatter-add does not scale on CPU, a genuinely new
+born-slow candidate for the same treatment as finding (ac). 91 peer violations, all 91 known
+(`weighted_inner` until the lanes are re-swept; `exponential_convolve!` = the recorded IT item 2).
+
 **(af) The transfer benchmark class had only ever measured SCALAR fields** (2026-08-30, found by the
 technique survey). Every row in the class built `scalar_phys`, so the vector gather — what a
 particle-tracking consumer actually calls, and the case where the visit order pays most, the field

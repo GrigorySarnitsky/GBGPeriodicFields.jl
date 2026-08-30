@@ -1910,6 +1910,17 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   wins and covers the kernel-protocol path, the stored views and their six parameters retire with it;
   if it does not cover that path, decision 70 stands and this entry closes as answered.
 
+- **The radial shell binning does not thread on CPU — INVESTIGATE (recorded 2026-08-30, found by
+  the born-slow triage's first run).** `radial_spectrum vec` and the co-spectrum read flat t1 → t8 on
+  BOTH hosts at ``\approx 2.7`` GB/s — far below the roof, so it is not bandwidth saturation: the
+  Atomix scatter-add into the shell accumulators serialises on cache-line contention (a few hundred
+  shells, every thread hammering the same lines). Same class as finding (ac), found by the instrument
+  built in answer to it (finding (ag)). The fix shape would be per-thread shell accumulators reduced
+  at the end — the accumulator is ``O(N)``, tiny, so the memory objection to privatization does not
+  apply — but §9's KA-everywhere policy for the binning kernels and GPU parity bind, and any change
+  re-runs the `reductions` class on both backends (owns the machine). Until then the row stays
+  flagged as UNEXPLAINED in `RESULTS.md`'s triage section, which is the designed pressure.
+
 - **`reality_residual` neither threads nor fuses — INVESTIGATE and possibly fix (recorded
   2026-08-23, user-directed).** The 2026-08-23 sweep measured **zero thread scaling on both CPUs at
   every grid**: the i7-12700K reads 80.2 µs at one thread against 80.6 at eight, 362 against 366 µs at

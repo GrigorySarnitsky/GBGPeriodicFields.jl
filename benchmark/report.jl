@@ -9,6 +9,8 @@
 using BenchmarkTools
 using Dates
 
+include("triage.jl")   # the born-slow scan rides every regeneration — finding (ag)
+
 # `storage` (decision 63) is device-only: `adapt` to the family one already occupies is the
 # identity, so a CPU lane contributes no rows and those cells read as not-measured.
 const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage")
@@ -125,6 +127,10 @@ for class in CLASSES
   end
   println(io)
 end
+
+# The born-slow triage (finding (ag)): the referee every per-row-history check lacks. It rides the
+# regeneration because report.jl is the one place that already holds every lane — no new measurement.
+print(io, triage_section(groups))
 
 open(joinpath(@__DIR__, "RESULTS.md"), "w") do f
   write(f, String(take!(io)))
