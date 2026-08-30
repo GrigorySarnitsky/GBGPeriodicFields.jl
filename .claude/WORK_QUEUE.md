@@ -98,11 +98,10 @@ Everything opt-in behind options — techniques help or hurt by setup, so measur
 Honest answer: no on both. Every perf number was CatmullRom (4 nodes/axis) at <= 256^3.
 Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
 
-- [ ] Sweep the scheme axis: trilinear (2), CatmullRom (4), Lalescu(2,1) (6), Lalescu(3,3) (8),
+- [x] Swept 2/4/6/8 nodes per axis, both backends: ordering payoff RISES with width (to 6.95x CPU); wrap walk REGRESSES 14% at width 8 with a fibre
       Lagrange(3) (8) — visit-order payoff AND wrap-walk payoff per scheme, both backends
-- [ ] Reach 512^3 (and the largest the 16 GB card allows), both backends
-- [ ] Check the register-pressure prediction: wider stencil -> lower occupancy -> ordering may pay
-      differently; the old ntuple hoist LOST at R=3 for exactly this reason
-- [ ] Update finding (ad)/(ae) and the tile_size guidance if the optimum moves with the scheme
-- [ ] Commit and push
+- [x] Reached 1024^3 on device (8 GiB of fields) and 512^3 on CPU
+- [x] Prediction CONFIRMED: the walk hits the same failure as the ntuple hoist at width 8; hybrid measured and strictly worse; kept with the corner documented
+- [x] Finding (ad), decision 78 and CLAUDE.md corrected (not appended to)
+- [x] Committed and pushed (86101f93)
 
