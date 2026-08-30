@@ -487,9 +487,8 @@ end
 Build a **visit order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
 the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
 
-Pass the result as the `order` keyword of [`interpolate!`](@ref) or [`anterpolate!`](@ref), or of
-their allocating siblings. It is purely an option — the same call without it is unchanged — and it
-moves no data: `order[i]` names the
+Pass it as the `order` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their allocating
+siblings. It is an option — the same call without it is unchanged — and moves no data: `order[i]` names the
 point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
 own indexing, and every result lands in the slot it would have anyway.
 
