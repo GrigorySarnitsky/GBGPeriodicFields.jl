@@ -463,7 +463,7 @@ Base.eltype(order::TransferOrder) = eltype(order.indices)
     @inbounds begin
       index = indices[slot]
       # The range was established before this kernel ran, so the write is in bounds.
-      seen[index] = Int32(1)
+      seen[index] = true
     end
   end
 end
@@ -482,11 +482,13 @@ function _validate_order(indices::AbstractVector)
     throw(ArgumentError("a transfer order must name points in 1:$(number_of_points), but it spans " *
                         "$(low):$(high); an out-of-range index would read past the end of the point arrays"))
   backend = get_backend(indices)
-  seen = similar(indices, Int32, number_of_points)
-  fill!(seen, Int32(0))
+  # `Bool`, not an integer width: the marks are one bit of information each, and this array is the
+  # one that accumulates on a device when a consumer rebuilds the order as its points move.
+  seen = similar(indices, Bool, number_of_points)
+  fill!(seen, false)
   _mark_visited_kernel!(backend)(seen, indices, number_of_points; ndrange = number_of_points)
   synchronize(backend)
-  visited = Int(sum(seen))
+  visited = Int(count(seen))
   visited == number_of_points ||
     throw(ArgumentError("a transfer order must name every point exactly once, but it names " *
                         "$(visited) of $(number_of_points) — $(number_of_points - visited) are " *
@@ -632,18 +634,19 @@ and never changes a result.
     decide how often to rebuild it — this package holds no notion of time (see the manual), so the
     cadence is the consumer's. A stale order is never wrong, only progressively less useful.
 
-Cost is one pass over the points plus a cumulative sum over the buckets, and building the order costs
-a small fraction of one gather at ``256^3`` with ``10^6`` points. It allocates its result and three
+Cost is one pass over the points, a cumulative sum over the buckets, and the validation above —
+``\\approx 0.27`` ms against an ordered gather of 0.71 at ``256^3`` with ``10^6`` points, so roughly a
+third of one transfer, and well inside what a single ordered transfer saves. It allocates its result and three
 working arrays, and **two of those scale with the GRID rather than the points** — the bucket histogram
 and its cumulative sum, the latter at twice the width. That is what `tile_size` prices: 3 MiB of
 scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
 
 !!! warning "Rebuilding this on a device grows the pool"
-    Every call allocates, and on a device those allocations are freed by Julia's collector, which
-    runs on host pressure and cannot see them — 100 rebuilds at ``256^3`` with ``10^6`` points leave
-    about a gigabyte resident. A consumer rebuilding the order as its points move should either
-    rebuild it rarely, since a stale order stays valid, or reclaim between rebuilds. There is no
-    in-place form yet.
+    Every call allocates about 15 MiB at ``256^3`` with ``10^6`` points, and on a device those
+    allocations are freed by Julia's collector, which runs on host pressure and cannot see them — a
+    hundred rebuilds leave roughly 1.5 GiB resident. A consumer rebuilding the order as its points
+    move should either rebuild it rarely, since a stale order stays valid, or reclaim between
+    rebuilds. There is no in-place form yet.
 """
 function transfer_order(points::PointSet, grid::Grid3D{T}; tile_size::Integer = 4) where {T<:AbstractFloat}
   tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))

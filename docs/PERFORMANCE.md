@@ -1628,8 +1628,11 @@ At ``4\times 10^6`` points the device gains hold or grow — the `Float64` vecto
 ``5.54\times`` and the scalar ``5.00\times`` — because the unordered kernel degrades as the point set
 outgrows cache while the ordered one does not.
 
-Building the order costs **0.098–0.13 ms** on device against a gather it saves 1.7 ms on, so it repays
+Building the order cost **0.098–0.13 ms** on device against a gather it saves 1.7 ms on, so it repays
 inside a SINGLE transfer — where the estimate it replaces guessed 12–24, having assumed a vendor sort.
+Validating the permutation (the adversarial review below) roughly doubled that to **0.24–0.27 ms**,
+which still repays six times over in one transfer; the figure is quoted post-validation everywhere
+else, since that is the code that ships.
 It is not a sort: a counting pass over blocks of cells, three portable kernels, no new dependency. The
 vendor `sortperm` over the same keys costs 2.8 ms, ``25\times`` more.
 

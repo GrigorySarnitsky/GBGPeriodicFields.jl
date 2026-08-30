@@ -397,7 +397,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: transfer_order(points::PointSet, grid::Grid3D; tile_size = 4",628,153,2
+"Interpolation.jl :: transfer_order(points::PointSet, grid::Grid3D; tile_size = 4",650,153,2
 "Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",37,37,0
@@ -419,7 +419,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (aa)",346,123,0
 "PERFORMANCE.md § finding (ab)",535,95,0
 "PERFORMANCE.md § finding (ac)",324,96,0
-"PERFORMANCE.md § finding (ad)",1680,364,0
+"PERFORMANCE.md § finding (ad)",1716,364,0
 "PERFORMANCE.md § finding (ae)",369,107,0
 "PERFORMANCE.md § finding (af)",105,105,0
 "PERFORMANCE.md § finding (b)",211,150,0
