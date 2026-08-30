@@ -487,8 +487,9 @@ end
 Build a **visit order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
 the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
 
-Pass the result as the `order` keyword of [`interpolate!`](@ref) or [`anterpolate!`](@ref). It is
-purely an option — the same call without it is unchanged — and it moves no data: `order[i]` names the
+Pass the result as the `order` keyword of [`interpolate!`](@ref) or [`anterpolate!`](@ref), or of
+their allocating siblings. It is purely an option — the same call without it is unchanged — and it
+moves no data: `order[i]` names the
 point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
 own indexing, and every result lands in the slot it would have anyway.
 
@@ -762,10 +763,11 @@ Allocating form of [`interpolate!`](@ref): allocate a new [`AbstractPointValues`
 tensor order and return `field` sampled at `points`. See `interpolate!` for the schemes and their
 accuracy.
 """
-function interpolate(field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
+function interpolate(field::AbstractFieldPhysical, points::PointSet,
+                     scheme::AbstractSplineScheme = CatmullRom; order = nothing)
   T = field_scalar_type(field)
   data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(field_tensor_order(field)))...))
-  return interpolate!(_wrap_pointvalues(data, Val(field_tensor_order(field))), field, points, scheme)
+  return interpolate!(_wrap_pointvalues(data, Val(field_tensor_order(field))), field, points, scheme; order)
 end
 
 
@@ -876,10 +878,11 @@ schemes deposit onto a physical-space field on `grid`; the spectral schemes depo
 spectral representation like `reference` (same grid and layout). See `anterpolate!` for the schemes and
 the ``\\alpha``/``\\beta`` accumulate form.
 """
-function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues, scheme::AbstractSplineScheme = CatmullRom) where {T<:AbstractFloat}
+function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
+                     scheme::AbstractSplineScheme = CatmullRom; order = nothing) where {T<:AbstractFloat}
   R = pointvalue_tensor_order(quantities)
   data = similar(point_values(quantities), T, physical_field_shape(grid, Val(R)))
-  return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme)
+  return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; order)
 end
 
 
@@ -1544,11 +1547,11 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
 end
 
 
-function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT; order = nothing)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
   data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(R))...))
-  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme)
+  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme; order)
 end
 
 
@@ -1591,9 +1594,10 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
 end
 
 
-function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::NUFFT)
+function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
+                     scheme::NUFFT; order = nothing)
   out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
-  return anterpolate!(out, points, quantities, scheme)
+  return anterpolate!(out, points, quantities, scheme; order)
 end
 
 

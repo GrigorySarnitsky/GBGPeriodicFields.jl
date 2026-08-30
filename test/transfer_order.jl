@@ -89,6 +89,14 @@ end
       # and it must survive reordering — a lost or doubly-visited point would show here.
       @test isapprox(sum(field_data(plain)), sum(field_data(sorted)); rtol = 100 * eps(T))
 
+      # The ALLOCATING forms take it too — they are thin wrappers, and a consumer that never writes
+      # the in-place spelling would otherwise be unable to use the option at all.
+      @test point_values(interpolate(field, points, scheme)) ==
+            point_values(interpolate(field, points, scheme; order))
+      @test isapprox(field_data(anterpolate(grid, points, quantities, scheme)),
+                     field_data(anterpolate(grid, points, quantities, scheme; order));
+                     rtol = 100 * eps(T))
+
       # The α/β accumulate path takes the order too.
       accumulated_plain, accumulated_sorted = blank(), blank()
       anterpolate!(accumulated_plain, points, quantities, scheme, T(2), T(0))
@@ -124,6 +132,12 @@ end
     anterpolate!(deposited_plain, points, quantities, scheme)
     anterpolate!(deposited_sorted, points, quantities, scheme; order)
     @test isapprox(field_data(deposited_plain), field_data(deposited_sorted); rtol = sqrt(eps(T)))
+
+    @test point_values(interpolate(spectral, points, scheme)) ==
+          point_values(interpolate(spectral, points, scheme; order))
+    @test isapprox(field_data(anterpolate(reference, points, quantities, scheme)),
+                   field_data(anterpolate(reference, points, quantities, scheme; order));
+                   rtol = sqrt(eps(T)))
 
     # `DirectDFT` deliberately takes NO order: it reads every mode for every point, so its cost is
     # arithmetic rather than locality and an order would only add an indirection. The absence is part
