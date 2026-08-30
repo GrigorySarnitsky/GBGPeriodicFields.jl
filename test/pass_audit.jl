@@ -316,8 +316,10 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     w = ScalarFieldSpectral(counting(ones(ComplexF64, shape0)), grid)   # ŵ is a field, not a kernel
     audit(() -> exponential_convolve!(d, f, multipliers, -0.1, 0.01, w), "exponential_convolve! ŵ offset",
       Traffic("f", carr(f), (3M, 0)), Traffic("dest", carr(d), (0, 3M)),
-      Traffic("ŵ", carr(w), (3M, 0), (M, 0),
-              "the broadcast extrudes the per-mode offset field over the fiber, one read per output component — the finding-(k) mode-loop hoist is the priced fix"))
+      # 3M → M on 2026-08-30: the fiber hoist (IT item 2) retired this ledger's LAST holder — the
+      # mode-loop now reads the offset field once per mode and reuses the factor across components,
+      # exactly the fix the old note priced. Frozen at the fused ideal.
+      Traffic("ŵ", carr(w), (M, 0)))
     audit(() -> exponential_convolve!(d, 0.3, a, 0.7, b, multipliers, -0.1),
       "exponential_convolve! two-operand",
       Traffic("a", carr(a), (3M, 0)), Traffic("b", carr(b), (3M, 0)), Traffic("dest", carr(d), (0, 3M)))

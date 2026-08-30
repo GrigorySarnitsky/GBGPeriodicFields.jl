@@ -104,11 +104,12 @@ using ..Fields:
 using ..FiberSections:
   _assign!,
   _foreach_outer_slab,
+  _use_threads,
   @_assign!,
   _fiberwise_pass!
 
 import KernelAbstractions
-using KernelAbstractions: get_backend
+using KernelAbstractions: get_backend, @kernel, @index, @Const, synchronize
 
 # Extended with the kernel-composed method (the weighted combination convolved in the same pass);
 # the generic and its docstring live in FieldAlgebra, the kerneled method here with the kernels.
@@ -1226,6 +1227,260 @@ function _apply_exponential_combination!(destination_data, a_data, b_data, squar
 end
 
 
+
+
+# ── The fiber hoist (IT item 2, 2026-08-30) ────────────────────────────────────────────────────────
+#
+# The exponential factor depends on the MODE alone — ``\exp(c |k|^2 [+ s \hat w])`` carries no fiber
+# index — yet the broadcast route above evaluates it per output ELEMENT, so a vector field pays the
+# scalar `exp` three times per mode and a tensor nine times, for identical arguments. The consumer's
+# codegen report measured that at ``\approx 3.5\times`` the shape-identical `combine!` single-threaded
+# at ``128^3``, where `exp` is the whole difference; this was also the pass audit's standing
+# ŵ-extrusion holder. The route below computes the factor ONCE per mode and reuses it across the
+# fiber, which is §9's execution-route policy applied as written — a cartesian-coefficient operator
+# belongs on a decision-38 kernel pair.
+#
+# BITWISE, BY CONSTRUCTION, and this is load-bearing: the per-element arithmetic is exactly the
+# broadcast's — the exponent associates ``(c \cdot k^2) + (s \cdot \hat w)``, the squared wavenumber
+# ``(k_1^2 + k_2^2) + k_3^2`` (the three-argument broadcast `+`'s own left fold), the product
+# ``(\alpha f) \cdot \hat s`` then ``+ (\beta \cdot \texttt{dst})`` — only the number of times `exp`
+# is EVALUATED changes, and equal arguments give equal bits. The scalar (R = 0) forms stay on the
+# broadcast route: one component means there is nothing to hoist, and an untouched route cannot
+# regress.
+
+# The exponent at one mode: the optional per-mode offset field enters by dispatch on `Nothing`, so
+# the plain form compiles with no dead argument (the `_optional_kernel_value` idiom).
+@inline _exponential_exponent(scaled_k2, ::Nothing, ::Nothing, linear_mode) = scaled_k2
+@inline _exponential_exponent(scaled_k2, offset_scale, offset_data, linear_mode) =
+  @inbounds scaled_k2 + offset_scale * offset_data[linear_mode]
+
+
+# The row buffer's element type. Without an offset the exponent is the real ``c |k|^2`` and the
+# factor is real. WITH one, the factor's type is the offset storage's: ŵ is documented as a real
+# per-mode field, but it arrives in a spectral field's complex storage, and the broadcast route has
+# always computed the complex exponential of whatever it was handed — a buffer typed real would
+# TIGHTEN that contract by InexactError, which is a behaviour change decision 79 must not make. The
+# fixtures that missed this held real values in complex storage; a true spectrum as ŵ found it.
+@inline _exponential_factor_type(::Type{T}, ::Nothing) where {T} = T
+@inline _exponential_factor_type(::Type{T}, offset_data) where {T} = eltype(offset_data)
+
+
+# One work-item per mode: the factor computed once, every fiber component scaled with it. Linear
+# offsets (`mode + modes_per_fibre * (fibre - 1)`) reach the components without a reshape — the same
+# addressing the transfer kernels use — so no per-call wrapper is allocated (the decision-76 lesson).
+# Coefficientwise, hence alias-safe; sources deliberately not @Const where aliasing is legal.
+@kernel function _exponential_convolution_kernel!(destination, source,
+    @Const(squared_1), @Const(squared_2), @Const(squared_3), coefficient, offset_scale, offset_data,
+    α, β, fibres, modes_per_fibre, mode_size, ::Val{ACCUMULATE}) where {ACCUMULATE}
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    linear_mode = mode_1 + mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+    scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3[mode_3])
+    scaled_factor = α * exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, linear_mode))
+    for fibre in 1:fibres
+      index = linear_mode + modes_per_fibre * (fibre - 1)
+      if ACCUMULATE
+        destination[index] = scaled_factor * source[index] + β * destination[index]
+      else
+        destination[index] = scaled_factor * source[index]
+      end
+    end
+  end
+end
+
+
+@kernel function _exponential_combination_kernel!(destination, a_data, b_data,
+    @Const(squared_1), @Const(squared_2), @Const(squared_3), coefficient, offset_scale, offset_data,
+    α, β, fibres, modes_per_fibre, mode_size)
+
+  mode_1, mode_2, mode_3 = @index(Global, NTuple)
+  @inbounds begin
+    linear_mode = mode_1 + mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+    scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3[mode_3])
+    factor = exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, linear_mode))
+    for fibre in 1:fibres
+      index = linear_mode + modes_per_fibre * (fibre - 1)
+      destination[index] = factor * (α * a_data[index] + β * b_data[index])
+    end
+  end
+end
+
+
+"""
+    _exponential_convolution_modes!(backend, destination, source, multipliers, coefficient,
+                                    offset_scale, offset_data, α, β, fibres, mode_size)
+
+Run the fiber-hoisted exponential pass over every mode: the factor
+``\\exp(c |k|^2 [+ s \\hat w])`` computed once per mode and applied to all `fibres` components. The
+generic method launches `_exponential_convolution_kernel!` on the backend; the `CPU` method runs the
+slab-threaded loop, bitwise identical at every thread count (each element is written exactly once).
+"""
+function _exponential_convolution_modes!(backend, destination, source, multipliers, coefficient,
+    offset_scale, offset_data, α, β, fibres, mode_size)
+  modes_per_fibre = prod(mode_size)
+  accumulate = !iszero(β)
+  _exponential_convolution_kernel!(backend)(destination, source,
+    multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2,
+    multipliers.squared_wavenumber_3, coefficient, offset_scale, offset_data, α, β,
+    fibres, modes_per_fibre, mode_size, Val(accumulate); ndrange = mode_size)
+  synchronize(backend)
+  return nothing
+end
+
+function _exponential_convolution_modes!(::KernelAbstractions.CPU, destination, source, multipliers,
+    coefficient, offset_scale, offset_data, α, β, fibres, mode_size)
+  squared_1 = multipliers.squared_wavenumber_1
+  squared_2 = multipliers.squared_wavenumber_2
+  squared_3 = multipliers.squared_wavenumber_3
+  modes_per_fibre = prod(mode_size)
+  accumulate = !iszero(β)
+  T = real(eltype(destination))
+  # SERIAL takes the bufferless body: decision 70's lane pins this operator at literally zero bytes
+  # on the serial lane, and the row buffer below is an allocation, however small. The two bodies are
+  # bitwise identical — same arithmetic per element, and elements are independent — so the split
+  # costs nothing but this comment. Serial is also where the buffer bought nothing: the fibre-inner
+  # walk already wins ``2.4``–``3.9\times`` there, the strided-stream penalty being a property of a
+  # SATURATED memory bus, which one thread does not produce.
+  if !_use_threads(fibres * modes_per_fibre)
+    @inbounds for mode_3 in 1:mode_size[3]
+      squared_3_value = squared_3[mode_3]
+      for mode_2 in 1:mode_size[2]
+        row = mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+        for mode_1 in 1:mode_size[1]
+          linear_mode = mode_1 + row
+          scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3_value)
+          scaled_factor = α * exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, linear_mode))
+          for fibre in 1:fibres
+            index = linear_mode + modes_per_fibre * (fibre - 1)
+            destination[index] = accumulate ?
+              scaled_factor * source[index] + β * destination[index] :
+              scaled_factor * source[index]
+          end
+        end
+      end
+    end
+    return nothing
+  end
+  _foreach_outer_slab(Base.OneTo(mode_size[3]), fibres * modes_per_fibre) do outer_modes
+    # One x-row of factors — a wavenumber row, not a field. The first shape of this loop kept the
+    # fibre loop INNERMOST, which walked 3^R strided destination and source streams concurrently and
+    # measured 0.76x the broadcast at ``256^3`` `Float64` `-t8`, where the pass is at the memory
+    # roof and the pattern is everything. Buffering one row of factors instead keeps the hoist (one
+    # `exp` per mode) while every inner loop streams a CONTIGUOUS row of one component, the same
+    # pattern the broadcast had. The buffer is per slab task, so no state is shared across threads.
+    factors = Vector{_exponential_factor_type(T, offset_data)}(undef, mode_size[1])
+    @inbounds for mode_3 in outer_modes
+      squared_3_value = squared_3[mode_3]
+      for mode_2 in 1:mode_size[2]
+        row = mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+        # The FIRST component's pass computes each factor and applies it in the same iteration, so
+        # the `exp` hides under that stream the way it hides under the broadcast's; the remaining
+        # components reuse the buffered factors as pure contiguous streams. Strictly less work than
+        # the broadcast in every regime — same first pass, then streams with no `exp` at all.
+        for mode_1 in 1:mode_size[1]
+          # Association preserved: (k1² + k2²) + k3² is the broadcast's own left fold — the hoist
+          # may reorder nothing.
+          scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3_value)
+          scaled_factor = α * exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, mode_1 + row))
+          factors[mode_1] = scaled_factor
+          destination[mode_1 + row] = accumulate ?
+            scaled_factor * source[mode_1 + row] + β * destination[mode_1 + row] :
+            scaled_factor * source[mode_1 + row]
+        end
+        for fibre in 2:fibres
+          base = row + modes_per_fibre * (fibre - 1)
+          if accumulate
+            @simd for mode_1 in 1:mode_size[1]
+              destination[mode_1 + base] = factors[mode_1] * source[mode_1 + base] +
+                                           β * destination[mode_1 + base]
+            end
+          else
+            @simd for mode_1 in 1:mode_size[1]
+              destination[mode_1 + base] = factors[mode_1] * source[mode_1 + base]
+            end
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
+"""
+    _exponential_combination_modes!(backend, destination, a_data, b_data, multipliers, coefficient,
+                                    offset_scale, offset_data, α, β, fibres, mode_size)
+
+The combination twin of [`_exponential_convolution_modes!`](@ref):
+``\\exp(c |k|^2 [+ s \\hat w]) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` with the factor computed once
+per mode. Both operands are always read (`combine!`'s α/β exception class — β scales an operand,
+never the destination), so there is no overwrite/accumulate split.
+"""
+function _exponential_combination_modes!(backend, destination, a_data, b_data, multipliers,
+    coefficient, offset_scale, offset_data, α, β, fibres, mode_size)
+  _exponential_combination_kernel!(backend)(destination, a_data, b_data,
+    multipliers.squared_wavenumber_1, multipliers.squared_wavenumber_2,
+    multipliers.squared_wavenumber_3, coefficient, offset_scale, offset_data, α, β,
+    fibres, prod(mode_size), mode_size; ndrange = mode_size)
+  synchronize(backend)
+  return nothing
+end
+
+function _exponential_combination_modes!(::KernelAbstractions.CPU, destination, a_data, b_data,
+    multipliers, coefficient, offset_scale, offset_data, α, β, fibres, mode_size)
+  squared_1 = multipliers.squared_wavenumber_1
+  squared_2 = multipliers.squared_wavenumber_2
+  squared_3 = multipliers.squared_wavenumber_3
+  modes_per_fibre = prod(mode_size)
+  T = real(eltype(destination))
+  # Serial bufferless, threaded row-buffered — the reason is on the convolution twin above.
+  if !_use_threads(fibres * modes_per_fibre)
+    @inbounds for mode_3 in 1:mode_size[3]
+      squared_3_value = squared_3[mode_3]
+      for mode_2 in 1:mode_size[2]
+        row = mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+        for mode_1 in 1:mode_size[1]
+          linear_mode = mode_1 + row
+          scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3_value)
+          factor = exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, linear_mode))
+          for fibre in 1:fibres
+            index = linear_mode + modes_per_fibre * (fibre - 1)
+            destination[index] = factor * (α * a_data[index] + β * b_data[index])
+          end
+        end
+      end
+    end
+    return nothing
+  end
+  _foreach_outer_slab(Base.OneTo(mode_size[3]), fibres * modes_per_fibre) do outer_modes
+    # The row-buffered shape, for the reason on the convolution twin above.
+    factors = Vector{_exponential_factor_type(T, offset_data)}(undef, mode_size[1])
+    @inbounds for mode_3 in outer_modes
+      squared_3_value = squared_3[mode_3]
+      for mode_2 in 1:mode_size[2]
+        row = mode_size[1] * ((mode_2 - 1) + mode_size[2] * (mode_3 - 1))
+        # First component fused with the factor fill, as in the convolution twin above.
+        for mode_1 in 1:mode_size[1]
+          scaled_k2 = coefficient * ((squared_1[mode_1] + squared_2[mode_2]) + squared_3_value)
+          factor = exp(_exponential_exponent(scaled_k2, offset_scale, offset_data, mode_1 + row))
+          factors[mode_1] = factor
+          destination[mode_1 + row] = factor * (α * a_data[mode_1 + row] + β * b_data[mode_1 + row])
+        end
+        for fibre in 2:fibres
+          base = row + modes_per_fibre * (fibre - 1)
+          @simd for mode_1 in 1:mode_size[1]
+            destination[mode_1 + base] = factors[mode_1] *
+                                         (α * a_data[mode_1 + base] + β * b_data[mode_1 + base])
+          end
+        end
+      end
+    end
+  end
+  return nothing
+end
+
+
 """
     exponential_convolve!(destination, field, multipliers, coefficient::Real)
     exponential_convolve!(destination, field, multipliers, coefficient::Real, α, β)
@@ -1327,8 +1582,16 @@ function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::
     multipliers::FieldSpectralMultipliers, coefficient::Real, α::Real, β::Real) where {T<:AbstractFloat, R}
   check_field_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
-  _apply_exponential_convolution!(field_data(destination), field_data(field),
-    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  if R == 0
+    _apply_exponential_convolution!(field_data(destination), field_data(field),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  else
+    # The fiber hoist: exp once per mode, reused across the 3^R components (bitwise identical —
+    # see the kernel-pair block above). The scalar case stays on the broadcast, having no fiber.
+    data = field_data(destination)
+    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
+      T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
+  end
   return destination
 end
 
@@ -1345,9 +1608,15 @@ function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::
   check_field_compatibility(destination, field)
   _check_field_domain_compatibility(field, offset)
   _check_multipliers_compatibility(field, multipliers)
-  _apply_exponential_convolution!(field_data(destination), field_data(field),
-    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
-    T(α), T(β))
+  if R == 0
+    _apply_exponential_convolution!(field_data(destination), field_data(field),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
+      T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_convolution_modes!(get_backend(data), data, field_data(field), multipliers,
+      T(coefficient), T(offset_scale), field_data(offset), T(α), T(β), 3^R, size(data)[1:3])
+  end
   return destination
 end
 
@@ -1365,8 +1634,14 @@ function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Rea
   check_field_compatibility(destination, a)
   check_field_compatibility(destination, b)
   _check_multipliers_compatibility(a, multipliers)
-  _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
-    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  if R == 0
+    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
+      multipliers, T(coefficient), nothing, nothing, T(α), T(β), 3^R, size(data)[1:3])
+  end
   return destination
 end
 
@@ -1378,9 +1653,15 @@ function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Rea
   check_field_compatibility(destination, b)
   _check_field_domain_compatibility(a, offset)
   _check_multipliers_compatibility(a, multipliers)
-  _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
-    _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
-    T(α), T(β))
+  if R == 0
+    _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
+      _squared_wavenumber_broadcast(multipliers), T(coefficient), T(offset_scale), field_data(offset),
+      T(α), T(β))
+  else
+    data = field_data(destination)
+    _exponential_combination_modes!(get_backend(data), data, field_data(a), field_data(b),
+      multipliers, T(coefficient), T(offset_scale), field_data(offset), T(α), T(β), 3^R, size(data)[1:3])
+  end
   return destination
 end
 

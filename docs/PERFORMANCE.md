@@ -1667,6 +1667,16 @@ was backwards for a sweep-seeded set and has been corrected. The visit order giv
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ah) The exponential fiber hoist — decision 79's measurements, kept here for the record**
+(2026-08-30). Before: the broadcast evaluated ``\exp(c |k|^2 [+ s \hat w])`` per output element.
+After: once per mode, reused across the fiber, bitwise identical. CPU ``256^3`` `Float64` vector:
+`-t1` conv 152.7 → 63.4 ms, `-t4` 35.4 → 21.3, `-t8` 19.9 → 20.8 (the one residual, +3–6%, the
+V-Cache transition band; ``512^3`` `-t8` is even at 165.3 vs 165.3); `Float32` `-t8` 13.5 → 9.1
+(``1.47\times``). Device `Float64` ``256^3``: conv ``1.64\times``, with-offset ``2.09\times``,
+combination ``1.33\times``; `Float32` wins except the ``256^3`` combination at −2% stable. The
+born-slow triage's declared-peer table carries `exponential_convolve!` against `convolve!` at a cap
+of ``5\times``, so the next re-sweep will show these rows closing the flag the old route earned.
+
 **(ag) The benchmark instruments had no referee for a defect present from birth — the born-slow
 triage is that referee** (2026-08-30, user-directed, after finding (ac) asked why nothing caught it).
 Every existing check compares a row against itself: the canary against its own frozen baseline, a

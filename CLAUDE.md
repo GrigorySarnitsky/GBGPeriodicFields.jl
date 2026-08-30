@@ -1860,14 +1860,15 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
 
 - **IT's 2026-08-29 codegen report, items 2 and 3 — RECORDED, not started** (the synced request is
   `GBGIsotropicTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
-  serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2)** `exponential_convolve!`
-  evaluates the scalar libm `exp` per fiber component though the factor is fiber-constant — IT
-  measures ~3.5× single-thread against the shape-identical `combine!` at ``128^3``. This is the pass
-  audit's standing ŵ-extrusion holder, and CLAUDE.md already says it "should be re-priced against
-  §4(r) before anyone acts": §4(r) declined a related hoist as bandwidth-bound at ``256^3``, but
-  IT's number is COMPUTE-bound at low thread counts, so the two measurements are not in conflict —
-  they price different regimes, and the fiber hoist (evaluate `exp` once per mode) is a smaller
-  change than the declined row-buffer hoist. **(3)** The fused fiberwise executor compiles fully
+  serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2) is DONE (2026-08-30, decision 79):** the
+  exponential family's ``R \ge 1`` forms run a decision-38 kernel pair evaluating `exp` ONCE per
+  mode — bitwise identical to the broadcast (126-cell A/B), zero bytes on the serial lane, the
+  ŵ-extrusion holder retired at the fused ideal. Measured: CPU `-t1` ``2.4``–``3.9\times``, `-t4`
+  ``1.65\times``, device ``1.3``–``2.1\times`` `Float64`; two residual cells disclosed in the
+  decision (F64 ``256^3``-at-exactly-t8 +3–6% on the V-Cache host; device F32 combination −2%).
+  The change also found the decision-47 guard's module-shaped blind spot — three Convolution
+  kernel pairs had NEVER been in its scan — and a fixture-blindness instance (a real-typed factor
+  buffer passing 126 cells because every ŵ fixture was real-valued in complex storage). **(3)** The fused fiberwise executor compiles fully
   scalar — the `map(array -> array[n], arrays)` closures block `@inbounds` propagation and the
   deliberate may-alias contract (invariant 9) stops the vectorizer; near-zero thread scaling on the
   cross kernel. Fix shape: propagated-inbounds accessors plus a no-alias fast path — but the alias

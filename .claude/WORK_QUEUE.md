@@ -125,3 +125,18 @@ Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
 - [x] Regenerated; all ten columns bit-for-bit identical, triage section appended
 - [x] Finding (ag); the new radial-binning investigate item in CLAUDE.md; committed
 
+## Open (2026-08-30, user-directed: IT item 2 — hoist the fiber-constant exp)
+
+Constraint from the user: NO performance or allocation regression anywhere. So: R=0 route untouched;
+bitwise identity proven against the committed code; A/B on both backends across sizes/threads BEFORE
+committing; allocation pins stay at zero; if any measured cell regresses, that cell keeps its old route.
+
+- [x] Read: 4 broadcast helpers, 6 public arities
+- [x] Implemented: kernel pair, exp once per mode; serial bufferless (zero-pin), threaded row-buffered with the factor fill fused into the first component
+- [x] BITWISE IDENTICAL, 126 cells; plus the complex-ŵ case the fixtures missed (buffer type fixed)
+- [x] A/B'd: t1 2.4-3.9x, t4 1.65x, device 1.3-2.1x F64; residuals DISCLOSED (F64 256^3-t8 +3-6%, device F32 comb -2%); 512^3-t8 even
+      cell keeps the broadcast
+- [x] Guards: toggle bitwise (two real bodies), pair guard extended to Convolution (found 3 pre-existing unguarded pairs, 12->17), holder retired at ideal, parity 83->105 with reasons
+- [x] Decision 79, finding (ah), CLAUDE item 2 closed; convolution tiny-grid gate 18/18
+- [x] Pkg.test 137 green, CUDA 454 green; committed and pushed
+

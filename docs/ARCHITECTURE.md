@@ -4164,3 +4164,58 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       consumer whose points move decides when to rebuild it; the package holds no notion of time, and
       the measured build cost is small enough that "every step" is a defensible default for a consumer
       to choose.
+
+79. **The exponential fiber hoist — one `exp` per mode, and the routes it forced** (2026-08-30,
+    user-directed; IT item 2). The exponential kernel ``\exp(c |k|^2 [+ s \hat w])`` depends on the
+    mode alone, yet the broadcast route evaluated it per output element — three times per mode for a
+    vector field, nine for a tensor, identical arguments each time. The consumer's codegen report
+    measured that at ``\approx 3.5\times`` the shape-identical `combine!` single-threaded, and it was
+    the pass audit's standing ŵ-extrusion holder.
+
+    - **The change is BITWISE INVISIBLE, and that is the contract it was built under.** The user's
+      condition was no regression of any kind, so every variant was verified bit-identical to the
+      committed broadcast over 126 cells — seven arities including the aliased filtered accumulate,
+      three tensor orders, both element types, odd folds — before any performance was even measured.
+      Equal arguments give equal bits; only the number of `exp` EVALUATIONS changes. The scalar
+      (``R = 0``) forms keep the broadcast route untouched: one component, nothing to hoist.
+
+    - **Three CPU bodies, each forced by a measurement.** The first attempt looped the fiber
+      innermost and lost 24% at ``256^3`` `Float64` `-t8` — the visit-order lesson in reverse, 3^R
+      strided streams where the broadcast had one. The second buffered one x-row of factors and
+      still trailed by 3–6% there, the factors being computed BEFORE the row streams rather than
+      under them. The shipped body fuses the factor computation into the FIRST component's pass —
+      `exp` hides under that stream exactly as it hides under the broadcast — and the remaining
+      components reuse the buffer as pure streams: strictly less work than the broadcast in every
+      regime. SERIALLY the bufferless body runs instead, because decision 70's lane pins this
+      operator at literally zero bytes on the serial lane and a row buffer is an allocation; the
+      two bodies are bitwise identical, so the split costs a comment.
+
+    - **What it bought, measured.** CPU `-t1` (the consumer's stated pain): ``2.4``–``3.9\times``;
+      `-t4` at ``256^3``: ``1.65\times``; device: ``1.3``–``2.1\times`` across every `Float64` cell.
+      **What it did not: two residual cells, disclosed rather than absorbed.** `Float64` vector at
+      ``256^3`` and EXACTLY eight threads on the 9800X3D reads +3–6% (the transition band where the
+      field just exceeds the V-Cache and eight threads just saturate the bus while `exp` still fills
+      a third of the roof — at ``512^3`` `-t8` the two routes are even to 0.7%); and the device
+      `Float32` combination at ``256^3`` reads −2%, stable. Both are the price of the constraint
+      being measured honestly instead of asserted.
+
+    - **A complex ŵ found the fixture blindness.** The factor buffer was first typed real, and 126
+      bitwise cells passed — every fixture held real values in complex storage, so the imaginary
+      part was zero everywhere (decision 52's class, again). A true spectrum as ŵ threw
+      `InexactError` where the broadcast had always computed the complex exponential; the buffer now
+      takes the offset storage's element type, so decision 79 tightens no contract the broadcast
+      honoured. The threading toggle keeps that fixture, at an offset scale small enough that the
+      exponent stays finite — its first version overflowed `exp` and read three identical NaN
+      payloads as a route mismatch.
+
+    - **The decision-47 guard had a module-shaped blind spot, and this change found it.** The
+      dispatch-pair scan named three modules, and Convolution was not one — so the two new
+      `_*_modes!` pairs did not announce themselves, and neither had the THREE pre-existing pairs
+      (`_separable_*_pass!` ×2, `_radial_convolution_pass!`) that had carried gated CPU loops since
+      the decision-50/51 era with nothing checking their arities stayed dispatch candidates. The
+      scan now includes Convolution and the frozen count is 17, with the lesson recorded where the
+      count is: a frozen count only defends the modules the scan names.
+
+    - **The ŵ-extrusion holder is retired at the fused ideal.** The pass audit measured the offset
+      field's traffic drop 3M → M on the vector fixture, which is the entire fix the holder had
+      priced; `test/pass_audit.jl` freezes the new ideal with the history in place.

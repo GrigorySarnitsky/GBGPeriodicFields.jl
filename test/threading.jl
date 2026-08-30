@@ -183,6 +183,25 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     As = gradient(us, m)
     @test bitwise(() -> divergence(As, m))                          # tensor2 → vector arity
     @test bitwise(() -> helmholtz_projection(us, m))                # gated CPU loop twin (decision 40)
+    # The exponential fiber hoist (decision 79): the serial and threaded CPU routes are DIFFERENT
+    # BODIES — bufferless fibre-inner serially (decision 70's zero pin), row-buffered under threads —
+    # so this toggle compares two real implementations, not a path against itself.
+    @test bitwise(() -> exponential_convolve(us, m, -0.03))
+    # The offset scale is small so the exponent stays finite everywhere: `phis` is a raw spectrum
+    # whose large coefficients would overflow `exp` at an O(1) scale, and a NaN cell fails `==`
+    # in EVERY route — three identical NaN payloads read as a mismatch. The complex-capable factor
+    # buffer is still exercised, `phis` being genuinely complex (the fixture that found the
+    # InexactError the real-valued-in-complex-storage fixtures missed).
+    @test bitwise(() -> exponential_convolve(us, m, -0.03, 1e-4, phis))
+    ws = similar_field(us, Val(1))
+    with_threading(enabled = false) do
+      exponential_convolve!(ws, 1.5, us, -0.5, laplacian(us, m), m, -0.03)
+    end
+    ws2 = similar_field(us, Val(1))
+    with_threading(enabled = true) do
+      exponential_convolve!(ws2, 1.5, us, -0.5, laplacian(us, m), m, -0.03)
+    end
+    @test field_data(ws) == field_data(ws2)
     # `helmholtz_projection` belongs here since decision 40 gave it a gated CPU loop beside its
     # device kernel: the `with_threading` override `bitwise` toggles now reaches it, so the two
     # lanes really do execute different code. Its cross-thread-count digest is checked below.
@@ -257,7 +276,11 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     end
 
     dispatch_pairs = 0
-    for mod in (GBGPeriodicFields.DifferentialOperators, FS, GBGPeriodicFields.Reductions)
+    # Convolution joined the scanned set on 2026-08-30, when the exponential fiber hoist gave it its
+    # first kernel pairs — and the scan NOT having covered it is exactly how a new pair in an
+    # unscanned module would have gone unguarded: this list must name every module that owns one.
+    for mod in (GBGPeriodicFields.DifferentialOperators, FS, GBGPeriodicFields.Reductions,
+                GBGPeriodicFields.Convolution)
       for name in names(mod; all = true)
         isdefined(mod, name) || continue
         f = getfield(mod, name)
@@ -275,7 +298,14 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # 11 → 12: `_inverse_curl_modes!` (2026-08-28). The guard did its job — the new pair announced
     # itself here — and it is covered: `inverse_curl` is in the reachability probe above, so a stale
     # CPU-twin arity would report dead code rather than pass silently.
-    @test dispatch_pairs == 12
+    # 12 → 17: the two exponential `_*_modes!` pairs (decision 79, 2026-08-30) — and this time the
+    # guard did NOT announce them, because Convolution was not in its module list. Adding the module
+    # surfaced THREE pre-existing pairs that had never been guarded at all: the two separable
+    # `_*_pass!` twins and `_radial_convolution_pass!`, each carrying a gated CPU loop since the
+    # decision-50/51 era with nothing checking its arity stayed a dispatch candidate. The guard's
+    # own blind spot was module-shaped, which is worth remembering: a frozen count only defends the
+    # modules the scan names.
+    @test dispatch_pairs == 17
   end
 
   @testset "kernel sites reproducible across thread counts" begin

@@ -138,7 +138,14 @@ const MODULE_BASELINE = (
   # 79 → 83: one `adapt_structure` per kernel storage class, so a kernel moves between storage
   # families with its field, and a `ProductKernel` moves both factors rather than being assembled
   # across families by accident.
-  Convolution           = 83,   # +6 earlier: the StoredKernel role marker and its protocol methods
+  Convolution           = 105,
+  # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
+  # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
+  # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with
+  # their gated CPU twins, the two KernelAbstractions kernels (four generated methods each, plus the
+  # CPU/GPU twins KA stamps), `_exponential_exponent` ×2, and `_exponential_factor_type` ×2 — the
+  # buffer-typing hook that keeps a complex ŵ on the semantics the broadcast always had. The public
+  # surface is unchanged.   # +6 earlier: the StoredKernel role marker and its protocol methods
   # 207 → 209: `adapt_structure` for the point-value sections and for `PointSet`, mirroring the field
   # layer as the point layer does throughout.
   # 209 → 211: `adapt!`'s two point methods (decision 69), one for the point-value sections and one

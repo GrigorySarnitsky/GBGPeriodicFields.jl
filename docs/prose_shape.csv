@@ -97,6 +97,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 76",826,205,0
 "ARCHITECTURE.md § item 77",301,262,0
 "ARCHITECTURE.md § item 78",1271,166,0
+"ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",788,206,0
@@ -110,6 +111,8 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _apply_exponential_convolution!(destination_data, source_dat",90,76,0
 "Convolution.jl :: _apply_separable_combination!(destination_data, a_data, b_da",41,35,0
 "Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",245,113,0
+"Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",61,49,0
+"Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",64,53,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",413,115,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
@@ -423,6 +426,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ae)",369,107,0
 "PERFORMANCE.md § finding (af)",105,105,0
 "PERFORMANCE.md § finding (ag)",379,162,0
+"PERFORMANCE.md § finding (ah)",125,125,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
