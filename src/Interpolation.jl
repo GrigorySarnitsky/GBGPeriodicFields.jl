@@ -728,6 +728,12 @@ The arguments are:
   [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space**
   field over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in
   **spectral representation** in the Fourier basis; each scheme's own docstring gives its weights.
+- `order` — an optional visit order from [`transfer_order`](@ref): a permutation of the point indices
+  saying which point each work item handles. It changes only the sequence in which points are
+  visited, never the result — the gather is bitwise unchanged — and is worth several times the
+  throughput when the points are in an order unrelated to the grid. It must name every point exactly
+  once and live in the same storage family as the field; `nothing`, the default, visits them in
+  index order.
 
 The spline schemes are exact at grid nodes and for polynomials up to the scheme's reproduction degree
 and approximate otherwise; the spectral schemes reconstruct the band-limited field exactly
@@ -834,6 +840,12 @@ The arguments are:
 - **`β`** — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
   accumulates onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling
   scatter — a deposit that accumulates onto a field the same points also sample).
+- `order` — an optional visit order from [`transfer_order`](@ref): a permutation of the point indices
+  saying which point each work item handles. It changes only the sequence in which points are
+  deposited, and since the accumulation is atomic its summation order was never fixed to begin with,
+  so the result moves by no more than it already does between runs. It must name every point exactly
+  once and live in the same storage family as the field; `nothing`, the default, visits them in
+  index order.
 
 Reference: A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
 equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
