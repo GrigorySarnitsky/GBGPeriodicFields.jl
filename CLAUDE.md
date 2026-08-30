@@ -1880,9 +1880,17 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   ``1.16``–``1.58\times`` `Float64` and ``1.32``–``3.58\times`` `Float32`, but at four and eight
   threads every out-of-cache size is ALREADY at the memory roof (43–47 GB/s, both arms, ratios
   0.96–1.05) — the 9800X3D's cores are fast enough that the scalar engine saturates DRAM from t4.
-  IT's 12700K reads 30 GB/s aggregate at t8 — far below any DDR5 roof — so THAT host would likely
-  gain at all thread counts, and the port's trigger is therefore a measurement of this prototype ON
-  the 12700K (bundle it with the next Aiporetne session), not more work here. The port itself, if
+  IT's 12700K reads 30 GB/s aggregate at t8 — which the first version of
+  this entry called "far below any DDR5 roof" and read as headroom. **That host runs DDR4-2666**
+  (user-corrected): dual-channel theoretical 42.7 GB/s, practically ~32–36 for a multi-stream
+  pattern, so 30 GB/s at t8 is ~90% of the achievable roof and the 12700K is ALSO saturated at
+  high threads. IT's own "instruction-capped, not bandwidth-capped" inference falls with it. The
+  corrected expectation: the port gains ~nothing at production thread counts on EITHER fleet host —
+  its remaining value is the ``1.2``–``1.6\times`` at one/two threads (their 23 GB/s at t1 against
+  a ~32–36 roof leaves perhaps ``1.3\times``), and IT runs production at 16–20 threads, so the
+  consumer case is weak. The trigger stays a run of this prototype on the 12700K (bundle with the
+  next Aiporetne session), now to CONFIRM saturation rather than to unlock a port; unless t1-heavy
+  usage appears, expect this to close as measured-and-declined. The port itself, if
   triggered, is a ONE-body restructuring of `_fiberwise_pass!`'s CPU loop — the highest-blast-radius
   engine in the package, so it takes the full battery, but no second body and no new contract. Also in the file, take-or-leave: no FMA anywhere on CPU, KA's
   ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
