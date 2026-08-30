@@ -552,7 +552,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # assertion below is that a device order gives the device's OWN unordered answer bitwise: an
       # order is only ever a visiting sequence, and if two orders of the same points ever disagreed,
       # the kernel would be sharing state between points.
-      device_order = transfer_order(device_points, grid)
+      device_order = transfer_order(grid, device_points)
       @test sort(Array(device_order.indices)) == collect(Int32(1):Int32(number_of_points))
       # A non-permutation is refused ON DEVICE too. This matters more here than on the host: the
       # adversarial review of 2026-08-30 found that an out-of-range entry SEGFAULTED on CPU but

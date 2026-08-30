@@ -161,7 +161,7 @@ const PEER_EXEMPT = Dict{Symbol, String}(
   :tr     => "unary allocating form; the peer check is `tr!`'s, invoked here",
   :transpose => "unary allocating form; the peer check is `transpose!`'s, invoked here",
   :cov    => "unary (one vector section in, one fiber tensor out); no peer",
-  # A point set carries no grid affiliation, so `transfer_order(points, grid)` has no context pair
+  # A point set carries no grid affiliation, so `transfer_order(grid, points)` has no context pair
   # that COULD disagree — and a point outside the grid is deliberately clamped into an edge bucket
   # rather than refused, because an order is a hint that never changes a result (decision 78). Its
   # own refusals are of a malformed `tile_size`, asserted in test/transfer_order.jl.

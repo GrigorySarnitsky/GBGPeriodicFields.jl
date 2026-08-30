@@ -147,3 +147,11 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] Measured t1/t4/t8 x 128/256/512 x F64/F32 with GB/s: t1 wins 1.16-3.58x; t4/t8 out-of-cache AT THE ROOF (43-47 GB/s both arms)
 - [x] Verdict: option 2 DEAD (simd==plain everywhere); option 1 regime-bound here, trigger = the 12700K measurement; recorded in CLAUDE.md
 
+## Open (2026-08-30, user-directed: transfer_order argument order + the tile_size question)
+
+- [x] Swapped to transfer_order(grid, points; ...) — the transfer-family order
+- [x] All call sites updated (a regex over-match into _check_transfer_order caught and repaired; the parenthesised sites hand-fixed)
+- [x] Measured both backends x widths 4/8: the optimum tracks the BACKEND, not the scheme
+- [x] tile_size KEPT on the data; keyword/positional policy codified in CLAUDE.md §Style
+- [x] 137 + 454 + docs green; the gate caught a benchmark row broken since TransferOrder landed (fixed)
+

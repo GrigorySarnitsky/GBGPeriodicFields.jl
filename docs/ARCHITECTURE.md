@@ -4160,6 +4160,15 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       repairs a bad order rather than improving a good one, which is the honest statement of when a
       consumer should reach for it.
 
+    - **The signature leads with the grid** (`transfer_order(grid, points)`), corrected 2026-08-30
+      from a points-first first version: the function is TRANSFER infrastructure, so it takes the
+      transfer verbs' argument order (`anterpolate(grid, points, …)`), not the motion verbs'
+      trailing-grid one (`wrap!(points, grid)`) it briefly borrowed. The `tile_size` option was
+      questioned the same day and KEPT on a measurement: the optimal tile tracks the backend, not
+      the interpolation scheme (flat in tile on the device at stencil widths 4 and 8 alike; the CPU
+      prefers coarser blocks for both), and one order serves any scheme and both directions, so a
+      scheme argument would misstate both what the option controls and what the order is valid for.
+
     - **No cadence, per invariant 12.** An order describes where the points were when it was built. A
       consumer whose points move decides when to rebuild it; the package holds no notion of time, and
       the measured build cost is small enough that "every step" is a defensible default for a consumer

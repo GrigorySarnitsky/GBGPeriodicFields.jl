@@ -26,7 +26,7 @@ using Random
     coordinates = hcat(T(-1) .+ T(2π) .* rand(T, M), T(4π) .* rand(T, M), T(0.5) .+ T(6π) .* rand(T, M))
     points = PointSet(coordinates)
     for tile_size in (1, 2, 3, 4, 8, 32)
-      order = transfer_order(points, grid; tile_size)
+      order = transfer_order(grid, points; tile_size)
       @test sort(Array(order.indices)) == collect(Int32(1):Int32(M))  # a bijection of 1:M
 
       # Host-recomputed keys: the order must visit buckets in ascending order.
@@ -38,13 +38,13 @@ using Random
       end
       @test issorted([key(p) for p in Array(order.indices)])
     end
-    @test_throws ArgumentError transfer_order(points, grid; tile_size = 0)
-    @test_throws ArgumentError transfer_order(points, grid; tile_size = -1)
+    @test_throws ArgumentError transfer_order(grid, points; tile_size = 0)
+    @test_throws ArgumentError transfer_order(grid, points; tile_size = -1)
     # A degenerate base has an order, and it is empty rather than an error.
-    @test length(transfer_order(PointSet(zeros(T, 0, 3)), grid)) == 0
+    @test length(transfer_order(grid, PointSet(zeros(T, 0, 3)))) == 0
     # A point outside the grid is clamped into an edge bucket, never refused: an order is a hint.
     far = PointSet(fill(T(1000), 3, 3))
-    @test sort(Array(transfer_order(far, grid).indices)) == Int32[1, 2, 3]
+    @test sort(Array(transfer_order(grid, far).indices)) == Int32[1, 2, 3]
   end
 end
 
@@ -55,7 +55,7 @@ end
     Random.seed!(4242); M = 600
     coordinates = hcat(T(0.25) .+ T(2π) .* rand(T, M), T(-2) .+ T(2π) .* rand(T, M), T(4π) .* rand(T, M))
     points = PointSet(coordinates)
-    order = transfer_order(points, grid)
+    order = transfer_order(grid, points)
     shape = (grid.grid_size..., ntuple(_ -> 3, R)...)
     field = R == 0 ? ScalarFieldPhysical(rand(T, shape...), grid) :
             R == 1 ? VectorFieldPhysical(rand(T, shape...), grid) :
@@ -115,7 +115,7 @@ end
     layout = RealFourierLayout()
     Random.seed!(99); M = 300
     points = PointSet(T(2π) .* rand(T, M, 3))
-    order = transfer_order(points, grid)
+    order = transfer_order(grid, points)
     spectral = ScalarFieldSpectral(randn(Complex{T}, GBGPeriodicFields.spectral_field_shape(grid, layout, Val(0))...),
                                    grid, layout)
     reference = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid, layout)
@@ -198,7 +198,7 @@ end
 
   # The element-type pair invariant 14 binds: an order built from Float32 points could never drive a
   # transfer against a Float64 grid, so it is refused where it is built.
-  @test_throws ArgumentError transfer_order(PointSet(rand(Float32, 10, 3)), grid)
+  @test_throws ArgumentError transfer_order(grid, PointSet(rand(Float32, 10, 3)))
 end
 
 
@@ -224,7 +224,7 @@ end
   @test GBGPeriodicFields.Interpolation._tile_index(T(0), zero(T), inverse, Int64(64)) == 0
   # And a genuinely non-finite point set still yields a valid order.
   wild = PointSet([NaN 0.0 0.0; Inf 1.0 1.0; -Inf 2.0 2.0; 1e300 3.0 3.0])
-  @test length(transfer_order(wild, Grid3D((8, 8, 8), (2π, 2π, 2π)))) == 4
+  @test length(transfer_order(Grid3D((8, 8, 8), (2π, 2π, 2π)), wild)) == 4
 end
 
 

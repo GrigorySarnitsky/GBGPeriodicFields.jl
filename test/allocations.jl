@@ -297,11 +297,11 @@ _map_add(a, b) = a + b
       # points. `transfer_order` ITSELF allocates by design (its result plus the counting sort's keys
       # and bucket counts), so it is a documented allocator with a bounded guard rather than a zero
       # one, and the bound is written against the point count it is proportional to.
-      visit_order = transfer_order(points, grid)
+      visit_order = transfer_order(grid, points)
       @alloc_below threshold interpolate!(out_v, pu, points, CatmullRom; order = visit_order)
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom; order = visit_order)
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom, T(0.5), T(1); order = visit_order)
-      @test (@allocated transfer_order(points, grid)) < 64 * M + 200_000
+      @test (@allocated transfer_order(grid, points)) < 64 * M + 200_000
 
       # ----- base-space motion (decision 73: displace! in the cover and on the torus, wrap!) -----
       motion_points = PointSet(T(2π) .* rand(T, M, 3))

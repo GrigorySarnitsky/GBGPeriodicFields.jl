@@ -517,7 +517,7 @@ end
 
 function _check_transfer_order(order, number_of_points, reference)
   throw(ArgumentError("a transfer order must be a `TransferOrder`, got $(typeof(order)). Build one " *
-                      "with `transfer_order(points, grid)`, or wrap your own permutation as " *
+                      "with `transfer_order(grid, points)`, or wrap your own permutation as " *
                       "`TransferOrder(indices)`, which checks that it names every point exactly once " *
                       "— an unchecked order silently leaves points unvisited."))
 end
@@ -593,7 +593,7 @@ end
 
 
 """
-    transfer_order(points::PointSet, grid::Grid3D; tile_size = 4)
+    transfer_order(grid::Grid3D, points::PointSet; tile_size = 4)
 
 Build a **visit order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
 the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
@@ -615,16 +615,21 @@ already does between runs.
 
 The arguments are:
 
+- `grid`: the grid whose cells define the blocks, and whose origin the points are measured from. It
+  leads, as it does in [`anterpolate`](@ref): `transfer_order` is transfer infrastructure, so it
+  follows the transfer verbs' argument order, not the motion verbs' trailing-grid one.
 - `points`: the point set to order. Its storage family decides where the ordering is built and
   returned — a device point set gives a device vector, built by device kernels.
-- `grid`: the grid whose cells define the blocks, and whose origin the points are measured from.
 - `tile_size`: the target block edge in grid cells (default `4`). Each axis is divided into
   ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks, so the block is exactly `tile_size` cells wide
   only when it divides the grid, and slightly narrower otherwise. The bucket count falls as the cube
   of the edge, and with it both the build time and the working memory: at ``256^3`` the default builds
   in ``\\approx 0.1`` ms against 3 MiB of scratch, while `tile_size = 1` — one bucket per cell — takes
-  ``14\\times`` the time and **192 MiB**, for no better locality. Larger blocks order more coarsely and
-  eventually stop helping.
+  ``14\\times`` the time and **192 MiB**, for no better locality. The optimum tracks the BACKEND, not the
+  interpolation scheme — measured across stencil widths 4 and 8, a device is flat in the tile while a
+  CPU gathers faster with coarser blocks (up to about 16) — which is why this option is a block size
+  and not a scheme: one order serves any scheme and both transfer directions, and the scheme does not
+  determine the best tile.
 
 Points outside the grid are clamped into the edge blocks rather than refused, since an order is a hint
 and never changes a result.
@@ -648,7 +653,7 @@ scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
     move should either rebuild it rarely, since a stale order stays valid, or reclaim between
     rebuilds. There is no in-place form yet.
 """
-function transfer_order(points::PointSet, grid::Grid3D{T}; tile_size::Integer = 4) where {T<:AbstractFloat}
+function transfer_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
   tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
   coordinates = point_coordinates(points)
   # Invariant 14 binds every argument, not the obvious ones: an order built from points of one

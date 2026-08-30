@@ -17,8 +17,11 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
   # are the ones a consumer sees when it reuses positions across transfers, and the `transfer_order`
   # row is what that costs — the three belong together, because the option only pays when the build is
   # amortized over at least one transfer.
-  visit_order = transfer_order(points, grid)
-  group["transfer_order | $tag"] = @benchmarkable (bench_sync(transfer_order($points, $grid)))
+  visit_order = transfer_order(grid, points)
+  # `.indices`: the builder returns the validated `TransferOrder`, and `bench_sync` synchronizes on
+  # an array. This row broke silently when the wrapper landed and the tiny-grid gate was not re-run —
+  # the decision-60 class, caught by the next gate run.
+  group["transfer_order | $tag"] = @benchmarkable (bench_sync(transfer_order($grid, $points).indices))
   group["interpolate! CatmullRom ordered | $tag"] =
     @benchmarkable (interpolate!($out, $field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($out)))
   group["anterpolate! CatmullRom ordered | $tag"] =
