@@ -1858,7 +1858,7 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
-- **IT's 2026-08-29 codegen report, items 2 and 3 — RECORDED, not started** (the synced request is
+- **IT's 2026-08-29 codegen report — item 2 DONE, item 3 prototyped and half-rejected** (the synced request is
   `GBGIsotropicTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
   serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2) is DONE (2026-08-30, decision 79):** the
   exponential family's ``R \ge 1`` forms run a decision-38 kernel pair evaluating `exp` ONCE per
