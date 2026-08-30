@@ -85,7 +85,7 @@ using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
 
-export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order,
+export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order, TransferOrder,
   LalescuSpline, LagrangeSpline, CatmullRom,
        AbstractTransferScheme, DirectDFT, NUFFT, write_scheme, read_scheme
 
@@ -417,26 +417,135 @@ end
 
 # The point handled by work-item `i`. `Nothing` is the unordered case and compiles the indirection
 # away, the same dispatch-on-Nothing the optional operator kernels use.
-# An order is an option, but a WRONG order is a silent wrong answer — a short one leaves points
-# unvisited and a foreign-family one cannot be indexed by the kernel at all. Invariant 14 binds every
-# argument, the non-section ones included, so it is checked like any other participant.
+"""
+    TransferOrder(indices)
+
+A validated **visit order**: a permutation of `1:M` saying which point each work item of a transfer
+handles. Build one with [`transfer_order`](@ref), or wrap your own permutation by calling this
+constructor, which checks it.
+
+The type exists because the guarantee has to be carried rather than asserted. An order that is the
+right length but not a permutation is not a detectable mistake at the point of use: it silently leaves
+some points unvisited and others visited twice, so a gather returns whatever was in the unwritten slots
+and a scatter quietly loses part of the total, while an out-of-range entry indexes past the end of an
+array inside `@inbounds`.
+
+Checking that on every transfer would cost a pass and an allocation on the hot path. Checking it
+**once, here**, costs the same work where the order is built and leaves the transfers nothing to do
+but read a field they can trust — validity as a property of the type, in the way that a section owning
+its storage is what makes aliasing safe by construction.
+
+The constructor throws an `ArgumentError` unless `indices` names every point in `1:M` exactly once.
+It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
+is given — build a device order from device points, since a transfer will not mix families.
+"""
+struct TransferOrder{V <: AbstractVector}
+  indices::V
+
+  function TransferOrder{V}(indices::V; _validated::Bool = false) where {V <: AbstractVector}
+    _validated || _validate_order(indices)
+    return new{V}(indices)
+  end
+end
+
+TransferOrder(indices::V) where {V <: AbstractVector} = TransferOrder{V}(indices)
+# A range is a lawful spelling of an order (`1:M` is the identity, `M:-1:1` the reversal) but carries
+# no storage family a kernel can index, so it is materialized into an ordinary vector.
+TransferOrder(indices::AbstractRange) = TransferOrder(collect(Int32, indices))
+
+Base.length(order::TransferOrder) = length(order.indices)
+Base.eltype(order::TransferOrder) = eltype(order.indices)
+
+
+@kernel function _mark_visited_kernel!(seen, @Const(indices), number_of_points)
+  slot = @index(Global, Linear)
+  if slot ≤ number_of_points
+    @inbounds begin
+      index = indices[slot]
+      # The range was established before this kernel ran, so the write is in bounds.
+      seen[index] = Int32(1)
+    end
+  end
+end
+
+
+# Every index in `1:M`, and every one of them reached. The two together are a bijection: `M` entries
+# drawn from `1:M` with all `M` targets marked leaves no room for a repeat. Both passes are reductions
+# over the device's own arrays, so this never indexes an order elementwise from the host.
+function _validate_order(indices::AbstractVector)
+  number_of_points = length(indices)
+  number_of_points == 0 && return nothing
+  eltype(indices) <: Integer ||
+    throw(ArgumentError("a transfer order must hold integer indices, got $(eltype(indices))"))
+  low, high = extrema(indices)
+  (low ≥ 1 && high ≤ number_of_points) ||
+    throw(ArgumentError("a transfer order must name points in 1:$(number_of_points), but it spans " *
+                        "$(low):$(high); an out-of-range index would read past the end of the point arrays"))
+  backend = get_backend(indices)
+  seen = similar(indices, Int32, number_of_points)
+  fill!(seen, Int32(0))
+  _mark_visited_kernel!(backend)(seen, indices, number_of_points; ndrange = number_of_points)
+  synchronize(backend)
+  visited = Int(sum(seen))
+  visited == number_of_points ||
+    throw(ArgumentError("a transfer order must name every point exactly once, but it names " *
+                        "$(visited) of $(number_of_points) — $(number_of_points - visited) are " *
+                        "repeated and as many never visited, which would leave their results unwritten"))
+  return nothing
+end
+
+
+# An order is an option, but a WRONG order is a silent wrong answer. Being a permutation is settled by
+# `TransferOrder`'s constructor, so what is left here is what only the CALL can know: that the order
+# covers this transfer's points, and that it lives where the kernel can index it (invariant 14 binds
+# every argument, the non-section ones included).
 function _check_transfer_order(::Nothing, number_of_points, reference)
   return nothing
 end
 
-function _check_transfer_order(order::AbstractVector, number_of_points, reference)
+function _check_transfer_order(order::TransferOrder, number_of_points, reference)
   length(order) == number_of_points ||
     throw(ArgumentError("the transfer order has $(length(order)) entries but there are " *
                         "$(number_of_points) points; it must name every point exactly once"))
-  get_backend(order) === get_backend(reference) ||
+  get_backend(order.indices) === get_backend(reference) ||
     throw(ArgumentError("the transfer order is on a different storage family than the field; " *
                         "build it from the same point set with `transfer_order`, or move it with `adapt`"))
   return nothing
 end
 
+function _check_transfer_order(order, number_of_points, reference)
+  throw(ArgumentError("a transfer order must be a `TransferOrder`, got $(typeof(order)). Build one " *
+                      "with `transfer_order(points, grid)`, or wrap your own permutation as " *
+                      "`TransferOrder(indices)`, which checks that it names every point exactly once " *
+                      "— an unchecked order silently leaves points unvisited."))
+end
+
 
 @inline _visit(::Nothing, i) = i
-@inline _visit(order, i) = @inbounds Int(order[i])
+@inline _visit(indices, i) = @inbounds Int(indices[i])
+
+
+# The kernel takes the INDEX ARRAY, never the wrapper. `TransferOrder` is a validity guarantee for
+# the API boundary, and a struct holding a device array is not a bitstype, so a launch cannot carry
+# it — which the GPU suite says out loud rather than silently. Unwrapping here keeps the guarantee
+# where it is checked and gives the kernel the plain array it can index.
+@inline _order_indices(::Nothing) = nothing
+@inline _order_indices(order::TransferOrder) = order.indices
+
+
+# The block a coordinate falls in, SATURATING. `unsafe_trunc` wraps — it returns `typemin` for
+# anything outside the integer range and for `Inf` and `NaN` — so truncating first and clamping after
+# sent a far-away point to the NEAR block. The comparisons therefore happen in floating point, before
+# any conversion. A non-finite coordinate is a real input here rather than a hypothetical: `wrap!`
+# deliberately passes non-finite through so a diverged trajectory is never silently boxed, and such a
+# point must still get a valid block, an order being a hint that never changes a result.
+@inline function _tile_index(coordinate, origin, inverse_tile, tiles::Int64)
+  u = (coordinate - origin) * inverse_tile
+  isnan(u) && return Int64(0)
+  u ≤ zero(u) && return Int64(0)
+  u ≥ oftype(u, tiles) && return tiles - Int64(1)
+  return unsafe_trunc(Int64, u)
+end
 
 
 @kernel function _tile_key_kernel!(keys, @Const(coordinates), origin, inverse_tile, tiles,
@@ -444,15 +553,15 @@ end
   point = @index(Global, Linear)
   if point ≤ number_of_points
     @inbounds begin
-      i1 = clamp(unsafe_trunc(Int32, (coordinates[point, 1] - origin[1]) * inverse_tile[1]),
-                 Int32(0), tiles[1] - Int32(1))
-      i2 = clamp(unsafe_trunc(Int32, (coordinates[point, 2] - origin[2]) * inverse_tile[2]),
-                 Int32(0), tiles[2] - Int32(1))
-      i3 = clamp(unsafe_trunc(Int32, (coordinates[point, 3] - origin[3]) * inverse_tile[3]),
-                 Int32(0), tiles[3] - Int32(1))
+      i1 = _tile_index(coordinates[point, 1], origin[1], inverse_tile[1], tiles[1])
+      i2 = _tile_index(coordinates[point, 2], origin[2], inverse_tile[2], tiles[2])
+      i3 = _tile_index(coordinates[point, 3], origin[3], inverse_tile[3], tiles[3])
+      # Int64 throughout: the bucket count is a product of three block counts and overflows Int32 at
+      # a grid this package explicitly targets — 1291³ at `tile_size = 1` — where the wrapped
+      # NEGATIVE key became an unguarded atomic write below the histogram, i.e. a segfault.
       # +1 twice: once for Julia's 1-based bucket index, once for the head slot that turns a plain
       # cumulative sum into the EXCLUSIVE prefix `_place_kernel!` needs.
-      keys[point] = Int32(2) + i1 + tiles[1] * (i2 + tiles[2] * i3)
+      keys[point] = Int64(2) + i1 + tiles[1] * (i2 + tiles[2] * i3)
     end
   end
 end
@@ -474,7 +583,7 @@ end
       # past the count of everything before it — its 1-based start. Points within a bucket land in
       # whatever order the atomics resolve, which is why this is an ORDER and not a sort: the
       # buckets are ordered, their contents are not, and nothing downstream needs them to be.
-      slot = Atomix.@atomic offsets[keys[point] - Int32(1)] += Int32(1)
+      slot = Atomix.@atomic offsets[keys[point] - Int64(1)] += Int32(1)
       order[slot] = Int32(point)
     end
   end
@@ -492,19 +601,28 @@ siblings. It is an option — the same call without it is unchanged — and move
 point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
 own indexing, and every result lands in the slot it would have anyway.
 
-Use it when the same point positions serve more than one transfer, or when the points are in an order
-unrelated to the grid (a solver's seeding order usually is). The gather is bitwise unchanged by the
-order; the scatter's atomic summation order changes, as it already does between runs.
+Use it when the points are in an order unrelated to the grid — a set that has been advected long
+enough to decorrelate index from position is the case it is for. **It is not free, and it is not
+always a gain.** Points still in a lattice or sweep order are already local, and ordering them costs a
+few percent on top of a build that never repays; the measured span across seedings runs from
+``0.93\times`` to ``12\times``, so what the option repairs is a BAD order rather than improving a good
+one. Measure your own case if the points are not well mixed.
+
+The gather is bitwise unchanged by the order; the scatter's atomic summation order changes, as it
+already does between runs.
 
 The arguments are:
 
 - `points`: the point set to order. Its storage family decides where the ordering is built and
   returned — a device point set gives a device vector, built by device kernels.
 - `grid`: the grid whose cells define the blocks, and whose origin the points are measured from.
-- `tile_size`: the block edge in grid cells (default `4`). A block holds ``\\texttt{tile\\_size}^3``
-  cells, so the bucket count falls as its cube. The default builds in ``\\approx 0.1`` ms at ``256^3``;
-  `tile_size = 1`, one bucket per cell, costs ``14\\times`` more for no better locality, and larger
-  blocks order more coarsely and eventually stop helping.
+- `tile_size`: the target block edge in grid cells (default `4`). Each axis is divided into
+  ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks, so the block is exactly `tile_size` cells wide
+  only when it divides the grid, and slightly narrower otherwise. The bucket count falls as the cube
+  of the edge, and with it both the build time and the working memory: at ``256^3`` the default builds
+  in ``\\approx 0.1`` ms against 3 MiB of scratch, while `tile_size = 1` — one bucket per cell — takes
+  ``14\\times`` the time and **192 MiB**, for no better locality. Larger blocks order more coarsely and
+  eventually stop helping.
 
 Points outside the grid are clamped into the edge blocks rather than refused, since an order is a hint
 and never changes a result.
@@ -514,21 +632,36 @@ and never changes a result.
     decide how often to rebuild it — this package holds no notion of time (see the manual), so the
     cadence is the consumer's. A stale order is never wrong, only progressively less useful.
 
-Cost is one pass over the points plus a cumulative sum over the buckets, and it allocates its result
-and two working arrays. Measured against the transfer it accelerates on an ``256^3`` grid with
-``10^6`` points, building the order costs a small fraction of one gather.
+Cost is one pass over the points plus a cumulative sum over the buckets, and building the order costs
+a small fraction of one gather at ``256^3`` with ``10^6`` points. It allocates its result and three
+working arrays, and **two of those scale with the GRID rather than the points** — the bucket histogram
+and its cumulative sum, the latter at twice the width. That is what `tile_size` prices: 3 MiB of
+scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
+
+!!! warning "Rebuilding this on a device grows the pool"
+    Every call allocates, and on a device those allocations are freed by Julia's collector, which
+    runs on host pressure and cannot see them — 100 rebuilds at ``256^3`` with ``10^6`` points leave
+    about a gigabyte resident. A consumer rebuilding the order as its points move should either
+    rebuild it rarely, since a stale order stays valid, or reclaim between rebuilds. There is no
+    in-place form yet.
 """
 function transfer_order(points::PointSet, grid::Grid3D{T}; tile_size::Integer = 4) where {T<:AbstractFloat}
   tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
   coordinates = point_coordinates(points)
+  # Invariant 14 binds every argument, not the obvious ones: an order built from points of one
+  # precision could never drive a transfer against a grid of another, and refusing here is the
+  # package's decision rather than a downstream method table's.
+  eltype(coordinates) === T ||
+    throw(ArgumentError("the points hold $(eltype(coordinates)) coordinates but the grid is " *
+                        "$(T); a transfer order is built for one precision and does not convert"))
   number_of_points = npoints(points)
-  tiles = ntuple(d -> Int32(max(cld(grid.grid_size[d], tile_size), 1)), 3)
+  tiles = ntuple(d -> Int64(max(cld(grid.grid_size[d], tile_size), 1)), 3)
   inverse_tile = ntuple(d -> T(tiles[d]) / T(grid.domain_size[d]), 3)
   origin = ntuple(d -> T(grid.origin[d]), 3)
   order = similar(coordinates, Int32, number_of_points)
-  number_of_points == 0 && return order
+  number_of_points == 0 && return TransferOrder{typeof(order)}(order; _validated = true)
   backend = get_backend(coordinates)
-  keys = similar(coordinates, Int32, number_of_points)
+  keys = similar(coordinates, Int64, number_of_points)
   # One head slot so the cumulative sum below is the exclusive prefix, and one tail slot so a point
   # in the last bucket has somewhere to count.
   counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
@@ -539,7 +672,11 @@ function transfer_order(points::PointSet, grid::Grid3D{T}; tile_size::Integer = 
   offsets = cumsum(counts)
   _place_kernel!(backend)(order, offsets, keys, number_of_points; ndrange = number_of_points)
   synchronize(backend)
-  return order
+  # Validated rather than trusted. These are the package's own kernels, but an atomic placement over
+  # a prefix sum is exactly the shape where an arithmetic slip yields a plausible-looking array —
+  # the Int32 key overflow that used to live in `_tile_key_kernel!` produced a *negative* index — and
+  # the check costs two reductions against a pass that already touched every point.
+  return TransferOrder(order)
 end
 
 
@@ -753,7 +890,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, po
   _check_transfer_order(order, number_of_points, field_data(field))
   _interpolate_kernel!(backend)(point_values(out), point_coordinates(points), field_data(field), coefficients,
     T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
-    order; ndrange = number_of_points)
+    _order_indices(order); ndrange = number_of_points)
   synchronize(backend)
   return out
 end
@@ -872,7 +1009,7 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   _check_transfer_order(order, number_of_points, data)
   _anterpolate_kernel!(backend)(data, point_coordinates(points), point_values(quantities), coefficients,
     T(α), T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
-    order; ndrange = number_of_points)
+    _order_indices(order); ndrange = number_of_points)
   synchronize(backend)
   return field
 end
@@ -1552,7 +1689,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   over_grid = scheme.oversampled_grid
   _nufft_gather_kernel!(backend)(point_values(out), point_coordinates(points), field_data(oversampled_physical), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out),
-    Val(scheme.width), order; ndrange = npoints(out))
+    Val(scheme.width), _order_indices(order); ndrange = npoints(out))
   synchronize(backend)
   return out
 end
@@ -1584,7 +1721,7 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   over_grid = scheme.oversampled_grid
   _nufft_spread_kernel!(backend)(over_phys_data, point_coordinates(points), point_values(quantities), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities),
-    Val(scheme.width), order; ndrange = npoints(quantities))
+    Val(scheme.width), _order_indices(order); ndrange = npoints(quantities))
   synchronize(backend)
   oversampled_spectral = to_spectral(oversampled_physical, scheme.oversampled_plans)
   over_data = field_data(oversampled_spectral)

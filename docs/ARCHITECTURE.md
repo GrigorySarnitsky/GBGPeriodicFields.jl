@@ -4089,6 +4089,17 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       order changes, which it already does between runs (§9), so it is compared to tolerance with
       conservation asserted beside it.
 
+    - **Validity is carried by a TYPE, after an adversarial review showed it was only asserted.** The
+      first version took a bare index vector and checked its length and storage family. A vector of
+      the right length that was not a permutation was accepted, and every failure it caused was
+      silent: a gather left slots unwritten, so the allocating form returned uninitialised memory as
+      point values; a scatter lost part of the deposited total; an out-of-range entry read and wrote
+      past the end of an array inside `@inbounds`, segfaulting on CPU and corrupting quietly on
+      device. The check's own error message already claimed the bijection was enforced.
+      `TransferOrder` now validates once, where the order is built — two reductions and a marking
+      pass, the same work a per-transfer check would do but paid once — so the transfers read a field
+      they can trust. Same shape as decision 59: make the property structural rather than guarded.
+
     - **The order is built by a counting pass, not a sort.** Three portable
       `KernelAbstractions`/`Atomix` kernels — key, histogram, place — over blocks of cells, adding no
       dependency and needing no vendor sort. It costs **0.098–0.13 ms** on device at ``256^3``, so it
@@ -4133,6 +4144,13 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       ``1024^3`` the default gets ``1.21\times`` where an eight-node stencil gets ``4.29\times``. The
       option therefore matters most exactly where a run is most expensive. The measured tables are
       `docs/PERFORMANCE.md` finding (ad).
+
+    - **The speedups are a property of the INPUT order.** Measured across seedings at ``256^3`` with
+      ``10^6`` points, the same operation reads ``12\times`` for uniformly random positions and
+      ``0.93\times`` for a lattice in sweep order, with the ordered arm nearly constant throughout —
+      it normalises the access pattern, and what varies is how bad the baseline was. The option
+      repairs a bad order rather than improving a good one, which is the honest statement of when a
+      consumer should reach for it.
 
     - **No cadence, per invariant 12.** An order describes where the points were when it was built. A
       consumer whose points move decides when to rebuild it; the package holds no notion of time, and

@@ -150,7 +150,7 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 156,
+  Interpolation         = 170,
   # 120 → 151: the transfer visit order (decision 78). The public surface is UNCHANGED — the four
   # transfer verbs gained a keyword argument, not a positional method, which is what keeps the 206/122
   # baselines above intact — so every one of the 31 is new machinery or a keyword sorter: three
@@ -159,7 +159,13 @@ const MODULE_BASELINE = (
   # itself, and the keyword sorters the four verbs now carry. Then 151 → 156: the four ALLOCATING
   # wrappers took the same keyword, so a consumer that never writes the in-place spelling can use the
   # option — one keyword sorter each, plus the spline `interpolate`'s.  The public 206/122 baselines
-  # are untouched throughout: these are keyword arguments, not new positional methods.
+  # are untouched throughout: these are keyword arguments, not new positional methods. Then 156 → 168
+  # when the adversarial review of 2026-08-30 turned the order's bijection from a claim into a type:
+  # `TransferOrder`'s constructors and its `length`/`eltype`, `_validate_order`, `_tile_index`, the
+  # marking kernel with its CPU and GPU twins, and `_check_transfer_order`'s third method — the one
+  # that refuses a bare vector, which is where the old silent-wrong-answer entered. The last two are
+  # `_order_indices`, which unwraps the guarantee at the launch site because a struct holding a device
+  # array is not a bitstype and cannot cross into a kernel — a defect only the GPU suite could show.
   # 119 → 120: `_stencil_half`, the NUFFT window stencil's per-axis node offset (/bug-hunt
   # 2026-08-27). An odd width had held `half = W ÷ 2` like an even one, putting the stencil a full
   # cell off centre; the offset now follows the nearer node, so it depends on `t` and needs a

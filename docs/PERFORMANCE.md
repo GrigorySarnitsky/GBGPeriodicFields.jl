@@ -1558,7 +1558,12 @@ stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the C
 | 8 (`LalescuSpline(3,3)`, `LagrangeSpline(3)`) | ``1.14\times`` | **``0.86\times``** |
 
 At eight nodes per axis with a fibre the walk is **14% SLOWER**, reproducibly and on all three width-8
-schemes, so it is the structure and not noise. The mechanism is the one that sank the `ntuple` hoist:
+schemes, so it is the structure and not noise — **at eight threads**. An adversarial re-measurement
+interleaving the arms found the sign FLIPS with thread count: ``1.17\times`` (walk faster) at one
+thread, ``0.86\times`` at eight, ``0.96\times`` at sixteen. The mechanism is consistent with that —
+compute-bound at one thread, where the divisions dominate and removing them wins; bandwidth-bound
+above four, where they were already hidden and only the serial index chain and its registers remain.
+The table above is a `-t8` table, which the first version of this finding did not say. The mechanism is the one that sank the `ntuple` hoist:
 the walk keeps six live indices across the nest and makes each index depend on its predecessor, where
 `mod` computes all of them independently, and at width 8 × 3 components that serial chain and its
 registers cost more than the divisions saved. The GPU does not show it — there the walk is
@@ -1622,7 +1627,19 @@ dominating the cumulative sum; including the build, the default `4` is optimal o
 *Where it does not pay, which the option exists for.* At ``64^3`` with ``10^5`` points every backend
 is launch-bound and building an order for one transfer loses (``0.9\times`` including the build). On
 CPU at `Float32` scalar the field is small enough to sit in a 96 MB V-Cache, so there is little to win
-and the order's own scattered reads of the coordinates cost more than they save. The visit order gives
+and the order's own scattered reads of the coordinates cost more than they save.
+
+**And the headline ratios measure the INPUT, not the method** — the sharpest correction an adversarial
+re-measurement produced, since every figure above was taken with uniformly random point positions,
+which is the worst possible order. Re-seeding the same count four ways (`Float32` vector gather,
+``256^3``, ``10^6`` points): uniformly random ``12.28\times``, a lattice in sweep order
+``0.93\times``, a lattice jittered by one cell ``0.98\times``, and a lattice advected far enough to
+decorrelate ``5.09\times``. The ORDERED arm barely moves across all four (0.313–0.433 ms) — the visit
+order normalises the access pattern — while the baseline varies eighteenfold. So the honest span for a
+consumer is ``0.93``–``12\times``, and what the option repairs is a bad order rather than improving a
+good one: a lattice-seeded set runs the UNORDERED kernel faster than any ordered configuration. The
+docstring's original justification — that a solver's seeding order is usually unrelated to the grid —
+was backwards for a sweep-seeded set and has been corrected. The visit order gives
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 

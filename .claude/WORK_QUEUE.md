@@ -105,3 +105,21 @@ Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
 - [x] Finding (ad), decision 78 and CLAUDE.md corrected (not appended to)
 - [x] Committed and pushed (86101f93)
 
+## Open (2026-08-30: adversarial review of decision 78 found REAL defects — fix them)
+
+- [ ] HIGH: a non-bijective order of the right length is ACCEPTED — silent wrong answers, the
+      allocating gather returns UNINITIALISED memory, scatter loses 8% of the mass, and an
+      out-of-range entry does an @inbounds OOB read/write (SEGFAULT on CPU, silent on GPU).
+      The error message already claims "must name every point exactly once".
+- [ ] HIGH: Int32 bucket-key overflow in `_tile_key_kernel!` → negative index → wild atomic write →
+      SIGSEGV. Reachable at N>=1291 with tile_size=1 (N>=5164 at the default), i.e. the beyond-VRAM
+      CPU grids decision 37 names as the tuning target.
+- [ ] MEDIUM: `unsafe_trunc` wraps, so far-outside / Inf / NaN coordinates clamp to the NEAR block,
+      not the far one — the docstring says otherwise, and `wrap!` deliberately passes non-finite through
+- [ ] LOW: `transfer_order` accepts Float32 points with a Float64 grid (invariant 14 binds every argument)
+- [ ] LOW: docstring wrong twice — "block edge in grid cells" (only when tile_size divides N) and
+      "two working arrays" (four, and they scale with the GRID: 192 MiB at tile_size=1 on 256^3)
+- [ ] LOW: `order = 1:M` refused by a leaked KernelAbstractions error rather than the package's
+- [ ] Promote the adversarial witnesses into test/regressions/ unchanged, then fix
+- [ ] Pkg.test, GPU suite, docs, commit and push
+

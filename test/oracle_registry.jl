@@ -110,7 +110,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   # appear here rather than being filtered because an interface method IS reachable by a user, and a
   # domain that quietly drops a class is the defect this whole file exists to prevent.
   (op => (:structural, "the AbstractArray/broadcast interface: returns storage or a shape") for op in
-   (:axes, :copy, :eltype, :getindex, :ndims, :size))...,
+   (:axes, :copy, :eltype, :getindex, :length, :ndims, :size))...,
 
   # ---- structural: metadata, storage and configuration, with no value to have an oracle for ----
   (op => (:structural, "returns metadata or storage, not a computed value") for op in

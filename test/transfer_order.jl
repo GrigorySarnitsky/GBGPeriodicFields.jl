@@ -27,7 +27,7 @@ using Random
     points = PointSet(coordinates)
     for tile_size in (1, 2, 3, 4, 8, 32)
       order = transfer_order(points, grid; tile_size)
-      @test sort(Array(order)) == collect(Int32(1):Int32(M))        # a bijection of 1:M
+      @test sort(Array(order.indices)) == collect(Int32(1):Int32(M))  # a bijection of 1:M
 
       # Host-recomputed keys: the order must visit buckets in ascending order.
       tiles = ntuple(d -> max(cld(grid.grid_size[d], tile_size), 1), 3)
@@ -36,7 +36,7 @@ using Random
         i = ntuple(d -> clamp(floor(Int, (coordinates[p, d] - grid.origin[d]) / edge[d]), 0, tiles[d] - 1), 3)
         1 + i[1] + tiles[1] * (i[2] + tiles[2] * i[3])
       end
-      @test issorted([key(p) for p in Array(order)])
+      @test issorted([key(p) for p in Array(order.indices)])
     end
     @test_throws ArgumentError transfer_order(points, grid; tile_size = 0)
     @test_throws ArgumentError transfer_order(points, grid; tile_size = -1)
@@ -44,7 +44,7 @@ using Random
     @test length(transfer_order(PointSet(zeros(T, 0, 3)), grid)) == 0
     # A point outside the grid is clamped into an edge bucket, never refused: an order is a hint.
     far = PointSet(fill(T(1000), 3, 3))
-    @test sort(Array(transfer_order(far, grid))) == Int32[1, 2, 3]
+    @test sort(Array(transfer_order(far, grid).indices)) == Int32[1, 2, 3]
   end
 end
 
@@ -75,7 +75,7 @@ end
       @test point_values(unordered) == point_values(ordered)
       # A different permutation of the same points, to show the invariance is of the ORDER and not of
       # this one order — `reverse` is a permutation the builder would never produce.
-      interpolate!(reversed, field, points, scheme; order = reverse(order))
+      interpolate!(reversed, field, points, scheme; order = TransferOrder(reverse(Array(order.indices))))
       @test point_values(unordered) == point_values(reversed)
 
       quantities = R == 0 ? ScalarPointValues(rand(T, M)) :
@@ -158,8 +158,71 @@ end
   deposit = ScalarFieldPhysical(zeros(T, 8, 8, 8), grid)
 
   # An order that does not name every point would leave some unvisited — silently wrong, so refused.
-  short = transfer_order(points, grid)[1:(M - 1)]
+  short = TransferOrder(collect(Int32(1):Int32(M - 1)))
   @test_throws ArgumentError interpolate!(out, field, points, CatmullRom; order = short)
   @test_throws ArgumentError anterpolate!(deposit, points, quantities, CatmullRom; order = short)
-  @test_throws ArgumentError interpolate!(out, field, points, CatmullRom; order = Int32[])
+  @test_throws ArgumentError interpolate!(out, field, points, CatmullRom; order = TransferOrder(Int32[]))
+end
+
+
+@testset "transfer_order: a non-permutation is refused, not silently believed" begin
+  # Promoted from the adversarial review of 2026-08-30. Every case below was ACCEPTED before
+  # `TransferOrder` carried the guarantee, and each produced a different silent failure: a gather
+  # leaving slots at whatever the buffer held (uninitialised memory, from the allocating form), a
+  # scatter losing part of the deposited total, and — for an out-of-range entry — an `@inbounds` read
+  # and write past the end of the point arrays, which segfaulted on CPU and corrupted silently on GPU.
+  M = 40
+  @test_throws ArgumentError TransferOrder(fill(Int32(1), M))               # every point the same
+  duplicate = collect(Int32, 1:M); duplicate[7] = Int32(8)
+  @test_throws ArgumentError TransferOrder(duplicate)                       # one repeat, one omission
+  for stray in (Int32(0), Int32(-1), Int32(M + 1), Int32(10^9))
+    wrong = collect(Int32, 1:M); wrong[3] = stray
+    @test_throws ArgumentError TransferOrder(wrong)
+  end
+  @test_throws ArgumentError TransferOrder([1.5, 2.5])                      # not integers
+
+  # A raw vector at the call site is refused too: the guarantee lives in the type, so a bare array
+  # cannot carry it however well-formed it happens to be.
+  grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+  Random.seed!(11)
+  points = PointSet(2π .* rand(M, 3))
+  field = ScalarFieldPhysical(rand(8, 8, 8), grid)
+  out = ScalarPointValues(zeros(M))
+  @test_throws ArgumentError interpolate!(out, field, points, CatmullRom; order = collect(Int32, 1:M))
+
+  # And the lawful spellings still work, including the two ranges a reader would reach for first.
+  @test interpolate!(out, field, points, CatmullRom; order = TransferOrder(1:M)) !== nothing
+  @test interpolate!(out, field, points, CatmullRom; order = TransferOrder(M:-1:1)) !== nothing
+  @test length(TransferOrder(collect(Int32, M:-1:1))) == M
+  @test length(TransferOrder(Int32[])) == 0                                  # the degenerate base
+
+  # The element-type pair invariant 14 binds: an order built from Float32 points could never drive a
+  # transfer against a Float64 grid, so it is refused where it is built.
+  @test_throws ArgumentError transfer_order(PointSet(rand(Float32, 10, 3)), grid)
+end
+
+
+@testset "transfer_order: the bucket key does not overflow" begin
+  # A grid large enough that the bucket count passes typemax(Int32) used to wrap the key NEGATIVE and
+  # write below the histogram — an unguarded atomic store, i.e. a segfault. The key arithmetic is
+  # checked directly rather than by allocating the 8 GiB histogram such a grid would need.
+  tiles = (Int64(1300), Int64(1300), Int64(1300))
+  @test prod(tiles) > typemax(Int32)
+  far = ntuple(d -> tiles[d] - Int64(1), 3)
+  key = Int64(2) + far[1] + tiles[1] * (far[2] + tiles[2] * far[3])
+  @test key > 0
+  @test key == prod(tiles) + 1
+  # The saturating index: non-finite and far-outside coordinates land in a real block, and a
+  # coordinate past the far edge lands in the LAST block rather than wrapping to the first.
+  T = Float64
+  inverse = T(64) / T(2π)
+  @test GBGPeriodicFields.Interpolation._tile_index(T(NaN), zero(T), inverse, Int64(64)) == 0
+  @test GBGPeriodicFields.Interpolation._tile_index(T(Inf), zero(T), inverse, Int64(64)) == 63
+  @test GBGPeriodicFields.Interpolation._tile_index(T(-Inf), zero(T), inverse, Int64(64)) == 0
+  @test GBGPeriodicFields.Interpolation._tile_index(T(1e300), zero(T), inverse, Int64(64)) == 63
+  @test GBGPeriodicFields.Interpolation._tile_index(T(-1e300), zero(T), inverse, Int64(64)) == 0
+  @test GBGPeriodicFields.Interpolation._tile_index(T(0), zero(T), inverse, Int64(64)) == 0
+  # And a genuinely non-finite point set still yields a valid order.
+  wild = PointSet([NaN 0.0 0.0; Inf 1.0 1.0; -Inf 2.0 2.0; 1e300 3.0 3.0])
+  @test length(transfer_order(wild, Grid3D((8, 8, 8), (2π, 2π, 2π)))) == 4
 end

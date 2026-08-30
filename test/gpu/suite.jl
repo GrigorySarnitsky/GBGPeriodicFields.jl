@@ -40,6 +40,7 @@ tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
 on_device(field)         = adapt(device_array_type(), field)
 on_device_pv(values)     = adapt(device_array_type(), values)
 on_device_ps(point_set)  = adapt(device_array_type(), point_set)
+on_device_raw(array)     = device_array_type()(array)   # a bare device array, not a section
 
 
 function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
@@ -552,7 +553,14 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # order is only ever a visiting sequence, and if two orders of the same points ever disagreed,
       # the kernel would be sharing state between points.
       device_order = transfer_order(device_points, grid)
-      @test sort(Array(device_order)) == collect(Int32(1):Int32(number_of_points))
+      @test sort(Array(device_order.indices)) == collect(Int32(1):Int32(number_of_points))
+      # A non-permutation is refused ON DEVICE too. This matters more here than on the host: the
+      # adversarial review of 2026-08-30 found that an out-of-range entry SEGFAULTED on CPU but
+      # returned quietly on the GPU, having read and written past the end of a device buffer with no
+      # `--check-bounds` escape available. The validation runs as device kernels and reductions.
+      @test_throws ArgumentError TransferOrder(on_device_raw(fill(Int32(1), number_of_points)))
+      @test_throws ArgumentError TransferOrder(on_device_raw(collect(Int32, 2:(number_of_points + 1))))
+      @test TransferOrder(on_device_raw(collect(Int32, number_of_points:-1:1))) !== nothing
       for (host_field, host_quantities) in cases
         device_field = on_device(host_field)
         device_quantities = on_device_pv(host_quantities)
@@ -570,7 +578,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # is not a section, so nothing else would have caught it.
       @test_throws ArgumentError interpolate!(interpolate(on_device(cases[1][1]), device_points),
                                               on_device(cases[1][1]), device_points, CatmullRom;
-                                              order = Array(device_order))
+                                              order = TransferOrder(Array(device_order.indices)))
     end
 
     @testset "spectral transfer (DirectDFT / NUFFT)" begin

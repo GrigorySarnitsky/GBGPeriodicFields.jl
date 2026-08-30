@@ -22,6 +22,7 @@ it changes the sequence in which the points are visited and never the result.
 
 ```@docs
 transfer_order
+TransferOrder
 ```
 
 ## Transfer-scheme types
