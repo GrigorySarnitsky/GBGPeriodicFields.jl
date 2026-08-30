@@ -140,3 +140,10 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] Decision 79, finding (ah), CLAUDE item 2 closed; convolution tiny-grid gate 18/18
 - [x] Pkg.test 137 green, CUDA 454 green; committed and pushed
 
+## Open (2026-08-30, user-directed: IT item 3, option 3 — the standalone prototype, NO src changes)
+
+- [x] Prototype run: pkg vs hand vs @simd, cross + mul!, 36 cells
+- [x] Bitwise: every variant == the package in every cell
+- [x] Measured t1/t4/t8 x 128/256/512 x F64/F32 with GB/s: t1 wins 1.16-3.58x; t4/t8 out-of-cache AT THE ROOF (43-47 GB/s both arms)
+- [x] Verdict: option 2 DEAD (simd==plain everywhere); option 1 regime-bound here, trigger = the 12700K measurement; recorded in CLAUDE.md
+

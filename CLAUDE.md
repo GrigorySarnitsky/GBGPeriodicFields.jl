@@ -1868,12 +1868,23 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   decision (F64 ``256^3``-at-exactly-t8 +3–6% on the V-Cache host; device F32 combination −2%).
   The change also found the decision-47 guard's module-shaped blind spot — three Convolution
   kernel pairs had NEVER been in its scan — and a fixture-blindness instance (a real-typed factor
-  buffer passing 126 cells because every ŵ fixture was real-valued in complex storage). **(3)** The fused fiberwise executor compiles fully
-  scalar — the `map(array -> array[n], arrays)` closures block `@inbounds` propagation and the
-  deliberate may-alias contract (invariant 9) stops the vectorizer; near-zero thread scaling on the
-  cross kernel. Fix shape: propagated-inbounds accessors plus a no-alias fast path — but the alias
-  contract is load-bearing (decisions 38/39), so the fast path needs the same bitwise-equal proof
-  the guard-free rewrite carried. Also in the file, take-or-leave: no FMA anywhere on CPU, KA's
+  buffer passing 126 cells because every ŵ fixture was real-valued in complex storage). **(3) is PROTOTYPED and half-REJECTED (2026-08-30,
+  option 3 run on the user's word; scripts in the session scratchpad, no src changes).** The
+  prototype ran the PACKAGE call against two hand loops replicating its exact formulas — a plain
+  `@inbounds` restructuring (option 1) and the same under `@simd`, i.e. the explicit no-overlap
+  promise (option 2) — for `cross` and the tensor–vector `mul!`, bitwise-verified in all 36 cells.
+  **Option 2 is DEAD: `@simd` ≡ plain within noise everywhere**, because LLVM already vectorizes the
+  restructured loop behind its own runtime overlap guards — so the two-body no-alias fast path, with
+  its bitwise proof burden and decision-47 drift risk, buys nothing over restructuring alone and
+  must not be built. **Option 1 is real but regime-bound on this host**: at one thread it wins
+  ``1.16``–``1.58\times`` `Float64` and ``1.32``–``3.58\times`` `Float32`, but at four and eight
+  threads every out-of-cache size is ALREADY at the memory roof (43–47 GB/s, both arms, ratios
+  0.96–1.05) — the 9800X3D's cores are fast enough that the scalar engine saturates DRAM from t4.
+  IT's 12700K reads 30 GB/s aggregate at t8 — far below any DDR5 roof — so THAT host would likely
+  gain at all thread counts, and the port's trigger is therefore a measurement of this prototype ON
+  the 12700K (bundle it with the next Aiporetne session), not more work here. The port itself, if
+  triggered, is a ONE-body restructuring of `_fiberwise_pass!`'s CPU loop — the highest-blast-radius
+  engine in the package, so it takes the full battery, but no second body and no new contract. Also in the file, take-or-leave: no FMA anywhere on CPU, KA's
   ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
   copies a rocFFT native scale factor could fold.
 
