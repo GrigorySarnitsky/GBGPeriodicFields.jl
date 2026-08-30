@@ -1544,8 +1544,33 @@ verified over 48 configurations including a stencil wider than the grid, where t
 than once. Measured: CPU gather ``1.3``–``2.1\times``, GPU gather ``1.1``–``1.2\times``.
 
 This is NOT the wrap-hoist §3 rejected: that one precomputed index tuples with `ntuple` and paid
-registers for them, which is why it lost occupancy at higher tensor order; this adds three integers
-and no arrays.
+registers for them; this adds three integers and no arrays.
+
+**But the walk has the SAME failure mode at the widest stencil, and the first version of this finding
+missed it** because every figure above was taken at `CatmullRom`. Swept across the scheme axis — a
+stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the CPU gather reads:
+
+| stencil | ``R = 0`` | ``R = 1`` |
+|---|---|---|
+| 2 (trilinear) | ``1.33\times`` | ``1.63\times`` |
+| 4 (`CatmullRom`) | ``1.35\times`` | ``1.70\times`` |
+| 6 (`LalescuSpline(2,1)`) | ``1.85\times`` | ``1.76\times`` |
+| 8 (`LalescuSpline(3,3)`, `LagrangeSpline(3)`) | ``1.14\times`` | **``0.86\times``** |
+
+At eight nodes per axis with a fibre the walk is **14% SLOWER**, reproducibly and on all three width-8
+schemes, so it is the structure and not noise. The mechanism is the one that sank the `ntuple` hoist:
+the walk keeps six live indices across the nest and makes each index depend on its predecessor, where
+`mod` computes all of them independently, and at width 8 × 3 components that serial chain and its
+registers cost more than the divisions saved. The GPU does not show it — there the walk is
+``1.03``–``1.13\times`` across every scheme and both ranks, with one ``0.93\times`` cell at trilinear
+``R = 1``.
+
+**It is kept, and the corner is stated rather than fixed.** A hybrid — walking the outer axes and
+leaving `mod` on the innermost — was measured and is strictly worse overall: it recovers width 8 but
+gives back the width-6 win (291.9 → 453.5 ms at ``R = 1``). Making the choice conditional on scheme,
+rank and backend would mean a second kernel body, which is exactly what decision 47 records going
+silently dead. The default scheme is width 4, where the walk wins on both backends, and the affected
+corner is a wide stencil on a vector field on CPU.
 
 *Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so
 consecutive work-items touched unrelated parts of the field and every stencil was a fresh set of
@@ -1558,6 +1583,20 @@ option (decision 78). At ``256^3`` with ``10^6`` points:
 | `Float64` vector | ``4.52\times`` | ``4.06\times`` | ``2.86\times`` | ``2.26\times`` |
 | `Float32` scalar | ``7.10\times`` | ``3.10\times`` | ``1.37\times`` | ``1.12\times`` |
 | `Float32` vector | ``12.43\times`` | ``4.06\times`` | ``3.96\times`` | ``1.94\times`` |
+
+**The ordering payoff RISES with stencil width**, which the CatmullRom-only sweep could not show.
+Device gather at ``256^3``, ``10^6`` points, `Float64`: ``1.86\times`` at 2 nodes per axis,
+``3.39\times`` at 4, ``3.84\times`` at 6, ``3.69\times`` at 8 — and on CPU it rises monotonically to
+``6.95\times`` (`Float64` vector, width 8). A wider stencil reads more nodes per point, so there is
+more traffic for locality to save. The CPU scatter moves the other way, ``1.53\times`` at width 4 down
+to ``1.15\times`` at width 8, as the atomic accumulation comes to dominate.
+
+**At grids past ``256^3`` the two separate.** At ``512^3`` with ``10^6`` points the density falls
+eightfold and `CatmullRom` gets only ``1.38``–``1.99\times``, while `LalescuSpline(3,3)` gets
+``4.59``–``5.68\times``; at ``1024^3`` (`Float32`, ``4\times 10^6`` points, 8 GiB of fields on a 16 GB
+card) it is ``1.21\times`` against ``4.29\times``. So the option matters most exactly where a run is
+most expensive — a wide stencil on a large grid — and least for a narrow stencil on a sparse large
+grid.
 
 At ``4\times 10^6`` points the device gains hold or grow — the `Float64` vector scatter reaches
 ``5.54\times`` and the scalar ``5.00\times`` — because the unordered kernel degrades as the point set

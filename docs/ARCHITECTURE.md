@@ -4109,17 +4109,30 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       integer divisions per point per fibre. `_wrap_step` replaces the division with a conditional
       zero, keeping three `mod`s per point for the starts. It is **bitwise identical to the previous
       kernel**, verified over 48 configurations including a stencil wider than the grid, where the
-      walk wraps repeatedly; only the index arithmetic changed. This is not the `ntuple` wrap-hoist
-      `docs/PERFORMANCE.md` §3 rejected, which paid registers for precomputed index tuples and lost
-      occupancy at higher tensor order — this adds three integers and no arrays, and helps both
-      backends.
+      walk wraps repeatedly; only the index arithmetic changed.
+
+    - **The walk has ONE bad corner, and the first version of this entry missed it.** It is worth
+      ``1.3``–``1.9\times`` on the CPU gather up to six nodes per axis and ``1.03``–``1.13\times`` on
+      the device throughout, but at **eight nodes per axis with a fibre it is 14% slower on CPU** — the
+      mechanism that sank the `ntuple` hoist §3 rejected, the walk making each index depend on its
+      predecessor where `mod` computes them independently. The corner is stated rather than fixed: a
+      hybrid was measured and is strictly worse overall, and a choice conditional on scheme, rank and
+      backend would mean the second kernel body decision 47 records going silently dead. The claim
+      that it "helps both backends" was made from figures taken only at the default scheme.
 
     - **Where it does not pay, which is why it is an option and not a default.** At ``64^3`` with
       ``10^5`` points everything is launch-bound and building an order for a single transfer loses. On
       a CPU whose cache holds the whole field there is little locality to win, and the order's own
       scattered reads of the coordinates cost more than they save. The win grows with tensor order,
-      because a vector field reads three components per point against one coordinate triple. The
-      measured table is `docs/PERFORMANCE.md` finding (ad).
+      because a vector field reads three components per point against one coordinate triple.
+
+    - **It also grows with the STENCIL, which is the axis the first sweep missed.** Across schemes of
+      2, 4, 6 and 8 nodes per axis the device gather reads ``1.86``, ``3.39``, ``3.84``, ``3.69\times``
+      and the CPU rises to ``6.95\times`` at the widest — a wider stencil reads more nodes per point,
+      so there is more traffic for locality to save. Past ``256^3`` the schemes separate sharply: at
+      ``1024^3`` the default gets ``1.21\times`` where an eight-node stencil gets ``4.29\times``. The
+      option therefore matters most exactly where a run is most expensive. The measured tables are
+      `docs/PERFORMANCE.md` finding (ad).
 
     - **No cadence, per invariant 12.** An order describes where the points were when it was built. A
       consumer whose points move decides when to rebuild it; the package holds no notion of time, and

@@ -93,3 +93,16 @@ Everything opt-in behind options — techniques help or hurt by setup, so measur
 - [x] Docs: decision 78, findings (ad)/(ae)/(af), TESTING axis, CLAUDE.md, API page — two roadmap items closed
 - [x] Committed and pushed (a017dfe4, 48d06122, 3a89c67f, bed3c997, ca7e7143)
 
+## Open (2026-08-30, user question: was the SCHEME varied, and did we reach 512^3?)
+
+Honest answer: no on both. Every perf number was CatmullRom (4 nodes/axis) at <= 256^3.
+Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
+
+- [ ] Sweep the scheme axis: trilinear (2), CatmullRom (4), Lalescu(2,1) (6), Lalescu(3,3) (8),
+      Lagrange(3) (8) — visit-order payoff AND wrap-walk payoff per scheme, both backends
+- [ ] Reach 512^3 (and the largest the 16 GB card allows), both backends
+- [ ] Check the register-pressure prediction: wider stencil -> lower occupancy -> ordering may pay
+      differently; the old ntuple hoist LOST at R=3 for exactly this reason
+- [ ] Update finding (ad)/(ae) and the tile_size guidance if the optimum moves with the scheme
+- [ ] Commit and push
+

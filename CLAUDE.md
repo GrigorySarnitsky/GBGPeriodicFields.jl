@@ -2016,7 +2016,10 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   changed, and a `PointSet` can never desynchronise from the `PointValues` beside it. Measured at
   ``256^3`` with ``10^6`` points: device gather ``3.4\times`` and scatter ``3.7\times`` (scalar
   `Float64`), rising to ``4.5\times``/``4.1\times`` for a vector field; CPU ``2.2\times`` and
-  ``3.2\times``. **The gating measurement the old entry demanded is taken: 0.098–0.13 ms**, a portable
+  ``3.2\times`` — and the payoff RISES with stencil width, reaching ``6.95\times`` on CPU at eight
+  nodes per axis, so the option matters most exactly where a run is most expensive; at ``1024^3`` the
+  default scheme gets ``1.21\times`` where an eight-node stencil gets ``4.29\times``. **The gating
+  measurement the old entry demanded is taken: 0.098–0.13 ms**, a portable
   counting pass over blocks of cells rather than a sort, so it repays inside ONE transfer rather than
   the estimated 12–24 — and the vendor `sortperm` it assumed is ``25\times`` more expensive than the
   portable route, so the dependency question closed itself. **Morton lost to plain lexicographic block
@@ -2027,10 +2030,14 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   than the one that was rejected.** The rejected hoist precomputed index tuples with `ntuple` and paid
   registers for them, which is why it lost occupancy at ``R = 3``. The shipped form is a WALK: the
   stencil visits consecutive nodes, so `_wrap_step` advances each index by one with a conditional zero
-  instead of calling `mod` per node — three integers, no arrays, and it removes 29 of the 32 integer
-  divisions LLVM was emitting per point per fibre. **Bitwise identical** to the previous kernel over 48
-  configurations including a stencil wider than the grid; CPU gather ``1.3``–``2.1\times``, GPU
-  ``1.1``–``1.2\times``.
+  instead of calling `mod` per node, removing 29 of the 32 integer divisions LLVM was emitting per
+  point per fibre. **Bitwise identical** over 48 configurations including a stencil wider than the
+  grid. **It is NOT immune to the failure that sank the old hoist**, which the first sweep missed by
+  measuring only `CatmullRom`: it wins ``1.3``–``1.9\times`` on CPU up to six nodes per axis and
+  ``1.03``–``1.13\times`` on the device throughout, but is **14% SLOWER on CPU at eight nodes per axis
+  with a fibre**, the walk's index-to-index dependence costing more there than the divisions saved.
+  Kept with the corner documented (a hybrid measured strictly worse; a scheme/rank/backend-conditional
+  kernel is the second body decision 47 records going dead). Finding (ad) carries the swept table.
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round
