@@ -84,15 +84,12 @@ the block shows in the diff instead of being silent.
 Target: 256^3 grid, 1,000,000 points, BOTH backends (CPU + CUDA here; ROCm needs Aiporetne).
 Everything opt-in behind options — techniques help or hurt by setup, so measure, never assume.
 
-- [ ] RESEARCH: survey augmenting techniques beyond the interpolation scheme itself (ordering,
+- [x] RESEARCH: three lanes (ordering/sort, GPU kernel+memory, CPU) — findings acted on or recorded
       blocking, memory layout, scatter strategy, batching, precision, occupancy)
-- [ ] BASELINE: measure the current transfer at 256^3 x 1e6 on both backends, both verbs, both
-      element types — this is the number every technique is judged against
-- [ ] Implement the techniques that survive the research, each behind an option, purely additive
-      (GBGIsotropicTurbulence is in final development — no signature may change)
-- [ ] MEASURE each across grid sizes and point counts on both backends; keep only what wins,
-      record what loses and why
-- [ ] Correctness: reordering must not change results (the real oracle); GPU parity; Pkg.test green
-- [ ] Docs: PERFORMANCE finding, ARCHITECTURE decision, TESTING axes, CLAUDE.md
-- [ ] Commit and push
+- [x] BASELINE measured both backends, both element types, R=0/1, four grid/point combinations
+- [x] Shipped: transfer_order + `order` on all EIGHT entry points (opt-in), and the wrap walk (bit-identical)
+- [x] MEASURED across the full product; three candidates measured and REJECTED (Morton, bucket stability, static unroll)
+- [x] Bitwise gather invariance (and under a reversed order), GPU parity 448, Pkg.test 134, allocation pins
+- [x] Docs: decision 78, findings (ad)/(ae)/(af), TESTING axis, CLAUDE.md, API page — two roadmap items closed
+- [x] Committed and pushed (a017dfe4, 48d06122, 3a89c67f, bed3c997, ca7e7143)
 
