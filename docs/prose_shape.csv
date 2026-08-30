@@ -96,6 +96,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 75",714,714,0
 "ARCHITECTURE.md § item 76",826,205,0
 "ARCHITECTURE.md § item 77",301,262,0
+"ARCHITECTURE.md § item 78",740,120,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",788,206,0
@@ -395,6 +396,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",241,142,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
+"Interpolation.jl :: transfer_order(points::PointSet, grid::Grid3D; tile_size = 4",387,104,1
 "Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",37,37,0
@@ -403,6 +405,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Transfer operations",7,7,0
 "Interpolation.md § Transfer-scheme types",8,8,0
 "Interpolation.md § Types",19,19,0
+"Interpolation.md § Visit order",34,31,0
 "PERFORMANCE.md § 1. Philosophy",829,521,0
 "PERFORMANCE.md § 2. The performance model",804,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
@@ -414,6 +417,8 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (a)",105,59,0
 "PERFORMANCE.md § finding (aa)",346,123,0
 "PERFORMANCE.md § finding (ab)",535,95,0
+"PERFORMANCE.md § finding (ac)",324,96,0
+"PERFORMANCE.md § finding (ad)",629,105,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -538,7 +543,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 16",64,64,0
 "TESTING.md § item 17",188,188,0
 "TESTING.md § item 18",154,154,0
-"TESTING.md § item 19",414,85,0
+"TESTING.md § item 19",480,85,0
 "TESTING.md § item 2",27,27,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0

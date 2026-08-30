@@ -161,6 +161,11 @@ const PEER_EXEMPT = Dict{Symbol, String}(
   :tr     => "unary allocating form; the peer check is `tr!`'s, invoked here",
   :transpose => "unary allocating form; the peer check is `transpose!`'s, invoked here",
   :cov    => "unary (one vector section in, one fiber tensor out); no peer",
+  # A point set carries no grid affiliation, so `transfer_order(points, grid)` has no context pair
+  # that COULD disagree — and a point outside the grid is deliberately clamped into an edge bucket
+  # rather than refused, because an order is a hint that never changes a result (decision 78). Its
+  # own refusals are of a malformed `tile_size`, asserted in test/transfer_order.jl.
+  :transfer_order => "no context pair: points carry no grid, and out-of-grid points are clamped by design (decision 78); its tile_size refusals are asserted in test/transfer_order.jl",
   :ndims  => "an accessor; reads one object, validates nothing a peer could contradict",
   :setindex! => "a single-element write through the AbstractArray interface; its bounds check is Julia's, not a context check",
   :reality_residual => "unary; reads one spectral section's self-conjugate planes",

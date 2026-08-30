@@ -1529,6 +1529,59 @@ ratio to same-size `inner` falling from ~12 to 1.6 — and the consumer's whole 
 (1.23×). Their 300-step checksum is identical to the pre-fix run at print precision and their frozen
 audits stay green, so the pathology is dead on both CPU generations with values preserved.
 
+**(ad) The transfer was spending most of its time on cache misses it did not need, and on integer
+division (2026-08-30, user-directed).** Two independent changes, measured on an RTX 5070 Ti and a
+Ryzen 9800X3D at the regime a consumer actually runs — ``256^3`` grid, ``10^6`` points, `CatmullRom`.
+
+*The periodic wrap was an integer division per stencil NODE.* Each node index came from `mod`, which
+LLVM shared down to 32 `idiv` instructions per point per fibre — around 200 cycles of a non-pipelined
+divider, for arithmetic that is an increment and a compare, and a hard barrier to vectorization.
+
+The stencil walks consecutive nodes, so each index is its predecessor plus one, wrapped: `_wrap_step`
+replaces the division with a conditional zero and keeps three `mod`s per point for the starts. It is
+**bitwise identical** — only the index arithmetic changed, the multiply and accumulate order did not —
+verified over 48 configurations including a stencil wider than the grid, where the walk wraps more
+than once. Measured: CPU gather ``1.3``–``2.1\times``, GPU gather ``1.1``–``1.2\times``.
+
+This is NOT the wrap-hoist §3 rejected: that one precomputed index tuples with `ntuple` and paid
+registers for them, which is why it lost occupancy at higher tensor order; this adds three integers
+and no arrays.
+
+*Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so
+consecutive work-items touched unrelated parts of the field and every stencil was a fresh set of
+misses. `transfer_order` groups them by block of cells and the transfer verbs take it as an `order`
+option (decision 78). At ``256^3`` with ``10^6`` points:
+
+| | GPU gather | GPU scatter | CPU gather | CPU scatter |
+|---|---|---|---|---|
+| `Float64` scalar | ``3.4\times`` | ``3.7\times`` | ``2.2\times`` | ``1.5\times`` |
+| `Float64` vector | ``4.5\times`` | ``4.1\times`` | ``3.2\times`` | ``2.4\times`` |
+| `Float32` vector | ``13.1\times`` | ``4.1\times`` | ``4.1\times`` | ``1.9\times`` |
+
+Building the order costs **0.098–0.13 ms** on device against a gather it saves 1.7 ms on, so it repays
+inside a SINGLE transfer — where the estimate it replaces guessed 12–24, having assumed a vendor sort.
+It is not a sort: a counting pass over blocks of cells, three portable kernels, no new dependency. The
+vendor `sortperm` over the same keys costs 2.8 ms, ``25\times`` more.
+
+*Three things were measured and NOT adopted, which is the more useful half.*
+
+**Morton order loses to plain lexicographic tile order** (3.10 vs 3.49 on the ``256^3`` `Float64`
+scatter), and the same result is published: Domínguez et al. (2011) find lexicographic beats Z-order
+in SPH and name the discriminator — Morton wins where cell access is RANDOM, lexicographic where it is
+a sequential sweep, which a sorted stencil transfer is. The recorded plan had assumed Morton.
+
+**Stability within a bucket buys nothing**, within noise everywhere but one cell, so the atomic
+placement stands and no backend split was built for it. **One bucket per cell is not better** and
+costs ``14\times`` more to build (1.55 ms against 0.11 at ``256^3``), the ``16.7`` million buckets
+dominating the cumulative sum; including the build, the default `4` is optimal on both backends.
+
+*Where it does not pay, which the option exists for.* At ``64^3`` with ``10^5`` points every backend
+is launch-bound and building an order for one transfer loses (``0.9\times`` including the build). On
+CPU at `Float32` scalar the field is small enough to sit in a 96 MB V-Cache, so there is little to win
+and the order's own scattered reads of the coordinates cost more than they save. The visit order gives
+locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
+order — a vector field reads three components per point against one coordinate triple.
+
 ## 5. The benchmark suite
 
 A standing suite under `benchmark/` (sibling of `test/`), **opt-in** — *not* part of

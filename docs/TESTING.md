@@ -428,6 +428,11 @@ asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/de
 thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a
 closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
 
+**A transfer's VISIT ORDER is a coverage axis** (decision 78): the four point-indexed verbs each have
+two routes through one kernel. `test/transfer_order.jl` covers it by the property rather than by a
+sample — the gather is BITWISE equal with and without an order, and again under a reversed one, so the
+invariance belongs to the order rather than to the one the builder happens to produce.
+
 **Two promise kinds are gate-enforced with derived denominators.** `test/peer_rejections.jl` requires
 every operation with a reachable `_check_*` predicate, minus the carrier gate's registry, to refuse a
 peer on a foreign context; `test/absence_gate.jl` calls every representation-asymmetric operation on

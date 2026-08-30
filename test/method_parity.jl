@@ -150,7 +150,13 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 120,
+  Interpolation         = 151,
+  # 120 → 151: the transfer visit order (decision 78). The public surface is UNCHANGED — the four
+  # transfer verbs gained a keyword argument, not a positional method, which is what keeps the 206/122
+  # baselines above intact — so every one of the 31 is new machinery or a keyword sorter: three
+  # KernelAbstractions kernels for the counting sort at four methods each plus their CPU and GPU twins
+  # (18), `_visit` ×2 and `_wrap_step` for the index walk, `_check_transfer_order` ×2, `transfer_order`
+  # itself, and the keyword sorters the four verbs now carry.
   # 119 → 120: `_stencil_half`, the NUFFT window stencil's per-axis node offset (/bug-hunt
   # 2026-08-27). An odd width had held `half = W ÷ 2` like an even one, putting the stencil a full
   # cell off centre; the offset now follows the nearer node, so it depends on `t` and needs a

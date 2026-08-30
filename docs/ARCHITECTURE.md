@@ -4061,3 +4061,67 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `helmholtz_projection!`: there is no consumer for either, and invariant 1 says a combination is
       added when something needs it, not for symmetry with a neighbour.
 
+
+78. **The transfer visit order — locality as an option, and the wrap as a walk** (2026-08-30,
+    user-directed). The grid↔point transfer is dominated by *where* its points read and write, not by
+    the arithmetic on them, and two separate things were costing it.
+
+    - **The problem, measured before anything was built.** A consumer holds points in the order it
+      seeded them, which bears no relation to the grid, so consecutive work-items touch unrelated
+      parts of the field and every stencil is a fresh set of cache misses. At a ``256^3`` grid with
+      ``10^6`` points — the regime the consumer runs — visiting the same points in grid order instead
+      was worth ``3.1\times`` on the device gather and ``3.8\times`` on the scatter. The signature was
+      visible in the baseline before the cause was: the `Float64` gather cost ``2.0\times`` its
+      `Float32` twin at ``256^3`` but only ``1.26\times`` at ``128^3``, which is a field outgrowing
+      cache rather than arithmetic getting harder.
+
+    - **An order is a VISIT ORDER, not a reordering, and that is the whole design.** `order[i]` names
+      the point work-item ``i`` handles. Nothing is moved, and each point's result still lands in its
+      own slot. The alternative — permuting the `PointSet` — was rejected because a consumer holds
+      `PointValues` indexed alongside its points, and a permutation behind its back desynchronises
+      them silently. It also makes the option **purely additive**: a keyword on the four point-indexed
+      verbs, no signature changed, and a consumer that ignores it sees nothing. `GBGIsotropicTurbulence`
+      is in final development, which made that a requirement rather than a preference.
+
+    - **The gather is bitwise invariant under any order**, because each output element is an
+      independent sum; the tests assert `==`, not `isapprox`, and a *reversed* order beside the built
+      one, so the invariance is of the order and not of one order. The scatter's atomic summation
+      order changes, which it already does between runs (§9), so it is compared to tolerance with
+      conservation asserted beside it.
+
+    - **The order is built by a counting pass, not a sort.** Three portable
+      `KernelAbstractions`/`Atomix` kernels — key, histogram, place — over blocks of cells, adding no
+      dependency and needing no vendor sort. It costs **0.098–0.13 ms** on device at ``256^3``, so it
+      repays inside a single transfer; the recorded estimate it replaces guessed 12–24 transfers,
+      having assumed a vendor sort, and the vendor `sortperm` over the same keys does cost
+      ``25\times`` more.
+
+    - **Morton was the recorded plan and it LOSES.** Plain lexicographic block order beat Z-order on
+      every measured cell, and the literature agrees for this access pattern: Domínguez et al. (2011)
+      report the same result in SPH and name the discriminator — Morton wins where cell access is
+      random, lexicographic where it is a sequential sweep, which a sorted stencil transfer is. Two
+      further candidates were measured and dropped: stability within a bucket changes nothing, so the
+      atomic placement stands, and one bucket per cell is no better while costing ``14\times`` more to
+      build.
+
+    - **The periodic wrap became a walk.** The stencil visits consecutive nodes, so each index is its
+      predecessor plus one — yet every node index came from `mod`, which LLVM shared down to 32
+      integer divisions per point per fibre. `_wrap_step` replaces the division with a conditional
+      zero, keeping three `mod`s per point for the starts. It is **bitwise identical to the previous
+      kernel**, verified over 48 configurations including a stencil wider than the grid, where the
+      walk wraps repeatedly; only the index arithmetic changed. This is not the `ntuple` wrap-hoist
+      `docs/PERFORMANCE.md` §3 rejected, which paid registers for precomputed index tuples and lost
+      occupancy at higher tensor order — this adds three integers and no arrays, and helps both
+      backends.
+
+    - **Where it does not pay, which is why it is an option and not a default.** At ``64^3`` with
+      ``10^5`` points everything is launch-bound and building an order for a single transfer loses. On
+      a CPU whose cache holds the whole field there is little locality to win, and the order's own
+      scattered reads of the coordinates cost more than they save. The win grows with tensor order,
+      because a vector field reads three components per point against one coordinate triple. The
+      measured table is `docs/PERFORMANCE.md` finding (ad).
+
+    - **No cadence, per invariant 12.** An order describes where the points were when it was built. A
+      consumer whose points move decides when to rebuild it; the package holds no notion of time, and
+      the measured build cost is small enough that "every step" is a defensible default for a consumer
+      to choose.

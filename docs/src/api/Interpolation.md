@@ -15,6 +15,15 @@ anterpolate!
 anterpolate
 ```
 
+## Visit order
+
+An order is an option on the transfer operations above, not an operation on the sections themselves:
+it changes the sequence in which the points are visited and never the result.
+
+```@docs
+transfer_order
+```
+
 ## Transfer-scheme types
 
 ```@docs

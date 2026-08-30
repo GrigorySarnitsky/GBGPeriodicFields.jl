@@ -544,6 +544,33 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       crowded_quantities = ScalarPointValues(rand(T, 3000))
       @test matches(anterpolate(grid, on_device_ps(crowded), on_device_pv(crowded_quantities)),
                     anterpolate(grid, crowded, crowded_quantities))
+
+      # The visit order (decision 78), built and applied ON DEVICE. Its counting sort is three device
+      # kernels over an atomically-built histogram, so the ordering it produces is not the host's —
+      # points within a tile land in whatever order the atomics resolve. That is exactly why the
+      # assertion below is that a device order gives the device's OWN unordered answer bitwise: an
+      # order is only ever a visiting sequence, and if two orders of the same points ever disagreed,
+      # the kernel would be sharing state between points.
+      device_order = transfer_order(device_points, grid)
+      @test sort(Array(device_order)) == collect(Int32(1):Int32(number_of_points))
+      for (host_field, host_quantities) in cases
+        device_field = on_device(host_field)
+        device_quantities = on_device_pv(host_quantities)
+        ordered = interpolate(device_field, device_points)
+        unordered_values = copy(point_values(ordered))
+        interpolate!(ordered, device_field, device_points, CatmullRom; order = device_order)
+        @test point_values(ordered) == unordered_values
+        # The scatter reorders its atomic summation, so it is compared to the CPU like every other
+        # atomic result here, not bitwise against itself.
+        scattered = anterpolate(grid, device_points, device_quantities)
+        anterpolate!(scattered, device_points, device_quantities, CatmullRom, T(1), T(0); order = device_order)
+        @test matches(scattered, anterpolate(grid, host_points, host_quantities))
+      end
+      # A host order cannot drive a device transfer: invariant 14 binds every argument, and this one
+      # is not a section, so nothing else would have caught it.
+      @test_throws ArgumentError interpolate!(interpolate(on_device(cases[1][1]), device_points),
+                                              on_device(cases[1][1]), device_points, CatmullRom;
+                                              order = Array(device_order))
     end
 
     @testset "spectral transfer (DirectDFT / NUFFT)" begin

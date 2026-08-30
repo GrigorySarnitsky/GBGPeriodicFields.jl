@@ -13,6 +13,16 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
     group["interpolate! $label | $tag"] = @benchmarkable (interpolate!($out, $field, $points, $scheme); bench_sync(point_values($out)))
     group["anterpolate! $label | $tag"] = @benchmarkable (anterpolate!($field, $points, $q, $scheme, $(T(1)), $(T(0))); bench_sync(field_data($field)))
   end
+  # The visit order (decision 78): building one, and the same two verbs following it. The ordered rows
+  # are the ones a consumer sees when it reuses positions across transfers, and the `transfer_order`
+  # row is what that costs — the three belong together, because the option only pays when the build is
+  # amortized over at least one transfer.
+  visit_order = transfer_order(points, grid)
+  group["transfer_order | $tag"] = @benchmarkable (bench_sync(transfer_order($points, $grid)))
+  group["interpolate! CatmullRom ordered | $tag"] =
+    @benchmarkable (interpolate!($out, $field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($out)))
+  group["anterpolate! CatmullRom ordered | $tag"] =
+    @benchmarkable (anterpolate!($field, $points, $q, CatmullRom, $(T(1)), $(T(0)); order = $visit_order); bench_sync(field_data($field)))
   # Spectral-domain transfer: the fast windowed NUFFT (one plan built once). DirectDFT is the exact
   # O(N·M) oracle — its cost is quadratic in the work and not a regression target, so it is not swept.
   spectral = scalar_spec(AT, T, grid)

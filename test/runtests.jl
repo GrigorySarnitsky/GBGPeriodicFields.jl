@@ -23,6 +23,7 @@ module InterpolationTests;         include("interpolation.jl");         end
 module PointValuesAlgebraTests;    include("pointvalues_algebra.jl");   end
 module DisplacementTests;          include("displacement.jl");          end
 module InterpolationTransferTests; include("interpolation_transfer.jl"); end
+module TransferOrderTests;         include("transfer_order.jl");       end
 module SpectralTransferTests;      include("transfer_spectral.jl");     end
 module ReductionsTests;            include("reductions.jl");            end
 module RDFTests;                   include("rdf.jl");                   end

@@ -85,7 +85,8 @@ using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
 
-export interpolate, interpolate!, anterpolate, anterpolate!, LalescuSpline, LagrangeSpline, CatmullRom,
+export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order,
+  LalescuSpline, LagrangeSpline, CatmullRom,
        AbstractTransferScheme, DirectDFT, NUFFT, write_scheme, read_scheme
 
 
@@ -390,8 +391,176 @@ end
 
 
 #####################################################
+#        Visit order (spatial locality)             #
+#####################################################
+
+
+# A transfer's cost is dominated by where its points READ and WRITE, not by the arithmetic on them.
+# Points arrive in whatever order the consumer holds them — for a turbulence solver, the order they
+# were seeded in, which is spatially random — so consecutive work-items touch unrelated parts of the
+# field and every stencil is a fresh set of cache misses. Visiting them in an order that follows the
+# grid makes consecutive work-items share cache lines instead.
+#
+# THE ORDER IS A VISIT ORDER, NOT A REORDERING. `order[i]` is the point that work-item `i` handles;
+# nothing is moved, and each point's result still lands in its own slot. That distinction is what
+# makes the option safe to add to a package whose consumer holds `PointValues` indexed alongside its
+# `PointSet`: a permuted `PointSet` would desynchronise from them silently, while a visit order
+# cannot, because the arrays it indexes never change. It also makes the gather BITWISE INVARIANT
+# under the order — each output element is an independent sum — which is the property the tests
+# assert, and the scatter's atomic summation order changes as it already does between runs.
+#
+# MEASURED (2026-08-30, RTX 5070 Ti / Ryzen 9800X3D, ``256^3`` grid, ``10^6`` points, `Float64`):
+# GPU gather 2.59 → 0.82 ms and scatter 7.35 → 1.86 ms; CPU gather 35.3 → 9.7 ms. The ordering
+# itself costs 0.111 ms to build on device, so it repays inside a SINGLE transfer — where the
+# estimate this replaces guessed 12–24. See `docs/PERFORMANCE.md` finding (ad).
+
+
+# The point handled by work-item `i`. `Nothing` is the unordered case and compiles the indirection
+# away, the same dispatch-on-Nothing the optional operator kernels use.
+# An order is an option, but a WRONG order is a silent wrong answer — a short one leaves points
+# unvisited and a foreign-family one cannot be indexed by the kernel at all. Invariant 14 binds every
+# argument, the non-section ones included, so it is checked like any other participant.
+function _check_transfer_order(::Nothing, number_of_points, reference)
+  return nothing
+end
+
+function _check_transfer_order(order::AbstractVector, number_of_points, reference)
+  length(order) == number_of_points ||
+    throw(ArgumentError("the transfer order has $(length(order)) entries but there are " *
+                        "$(number_of_points) points; it must name every point exactly once"))
+  get_backend(order) === get_backend(reference) ||
+    throw(ArgumentError("the transfer order is on a different storage family than the field; " *
+                        "build it from the same point set with `transfer_order`, or move it with `adapt`"))
+  return nothing
+end
+
+
+@inline _visit(::Nothing, i) = i
+@inline _visit(order, i) = @inbounds Int(order[i])
+
+
+@kernel function _tile_key_kernel!(keys, @Const(coordinates), origin, inverse_tile, tiles,
+                                   number_of_points)
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds begin
+      i1 = clamp(unsafe_trunc(Int32, (coordinates[point, 1] - origin[1]) * inverse_tile[1]),
+                 Int32(0), tiles[1] - Int32(1))
+      i2 = clamp(unsafe_trunc(Int32, (coordinates[point, 2] - origin[2]) * inverse_tile[2]),
+                 Int32(0), tiles[2] - Int32(1))
+      i3 = clamp(unsafe_trunc(Int32, (coordinates[point, 3] - origin[3]) * inverse_tile[3]),
+                 Int32(0), tiles[3] - Int32(1))
+      # +1 twice: once for Julia's 1-based bucket index, once for the head slot that turns a plain
+      # cumulative sum into the EXCLUSIVE prefix `_place_kernel!` needs.
+      keys[point] = Int32(2) + i1 + tiles[1] * (i2 + tiles[2] * i3)
+    end
+  end
+end
+
+
+@kernel function _tile_count_kernel!(counts, @Const(keys), number_of_points)
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds Atomix.@atomic counts[keys[point]] += Int32(1)
+  end
+end
+
+
+@kernel function _place_kernel!(order, offsets, @Const(keys), number_of_points)
+  point = @index(Global, Linear)
+  if point ≤ number_of_points
+    @inbounds begin
+      # The atomic returns the INCREMENTED value, so the first point of a bucket takes the slot one
+      # past the count of everything before it — its 1-based start. Points within a bucket land in
+      # whatever order the atomics resolve, which is why this is an ORDER and not a sort: the
+      # buckets are ordered, their contents are not, and nothing downstream needs them to be.
+      slot = Atomix.@atomic offsets[keys[point] - Int32(1)] += Int32(1)
+      order[slot] = Int32(point)
+    end
+  end
+end
+
+
+"""
+    transfer_order(points::PointSet, grid::Grid3D; tile_size = 4)
+
+Build a **visit order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
+the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
+
+Pass the result as the `order` keyword of [`interpolate!`](@ref) or [`anterpolate!`](@ref). It is
+purely an option — the same call without it is unchanged — and it moves no data: `order[i]` names the
+point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
+own indexing, and every result lands in the slot it would have anyway.
+
+Use it when the same point positions serve more than one transfer, or when the points are in an order
+unrelated to the grid (a solver's seeding order usually is). The gather is bitwise unchanged by the
+order; the scatter's atomic summation order changes, as it already does between runs.
+
+The arguments are:
+
+- `points`: the point set to order. Its storage family decides where the ordering is built and
+  returned — a device point set gives a device vector, built by device kernels.
+- `grid`: the grid whose cells define the blocks, and whose origin the points are measured from.
+- `tile_size`: the block edge in grid cells (default `4`). A block holds ``\\texttt{tile\\_size}^3``
+  cells, so the bucket count falls as its cube. The default builds in ``\\approx 0.1`` ms at ``256^3``;
+  `tile_size = 1`, one bucket per cell, costs ``14\\times`` more for no better locality, and larger
+  blocks order more coarsely and eventually stop helping.
+
+Points outside the grid are clamped into the edge blocks rather than refused, since an order is a hint
+and never changes a result.
+
+!!! note "An order goes stale as points move"
+    The order describes where the points were when it was built. A consumer whose points move must
+    decide how often to rebuild it — this package holds no notion of time (see the manual), so the
+    cadence is the consumer's. A stale order is never wrong, only progressively less useful.
+
+Cost is one pass over the points plus a cumulative sum over the buckets, and it allocates its result
+and two working arrays. Measured against the transfer it accelerates on an ``256^3`` grid with
+``10^6`` points, building the order costs a small fraction of one gather.
+"""
+function transfer_order(points::PointSet, grid::Grid3D{T}; tile_size::Integer = 4) where {T<:AbstractFloat}
+  tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
+  coordinates = point_coordinates(points)
+  number_of_points = npoints(points)
+  tiles = ntuple(d -> Int32(max(cld(grid.grid_size[d], tile_size), 1)), 3)
+  inverse_tile = ntuple(d -> T(tiles[d]) / T(grid.domain_size[d]), 3)
+  origin = ntuple(d -> T(grid.origin[d]), 3)
+  order = similar(coordinates, Int32, number_of_points)
+  number_of_points == 0 && return order
+  backend = get_backend(coordinates)
+  keys = similar(coordinates, Int32, number_of_points)
+  # One head slot so the cumulative sum below is the exclusive prefix, and one tail slot so a point
+  # in the last bucket has somewhere to count.
+  counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
+  fill!(counts, Int32(0))
+  _tile_key_kernel!(backend)(keys, coordinates, origin, inverse_tile, tiles, number_of_points;
+                             ndrange = number_of_points)
+  _tile_count_kernel!(backend)(counts, keys, number_of_points; ndrange = number_of_points)
+  offsets = cumsum(counts)
+  _place_kernel!(backend)(order, offsets, keys, number_of_points; ndrange = number_of_points)
+  synchronize(backend)
+  return order
+end
+
+
+#####################################################
 #        Gather (interpolation) kernel              #
 #####################################################
+
+
+# One step of the periodic walk: the next node index, wrapped. The stencil visits consecutive nodes
+# along each axis, so each index is its predecessor plus one — a comparison and a conditional zero,
+# where `mod` is an integer division. That division is not cheap and not pipelined (7 cycles on Zen 5,
+# 10 on Golden Cove), it cannot be vectorized around, and the nest called it once per stencil NODE:
+# LLVM shared them down to 32 divisions per point per fibre, which is over 200 cycles of divider
+# occupancy for arithmetic that is three additions and a compare.
+#
+# The walk is exactly equivalent, not approximately: starting from `mod(base - neighbourhood, n)` and
+# stepping this way visits `mod(base - neighbourhood + t, n)` for every `t`, including when the
+# stencil is WIDER than the grid and wraps more than once, because each step re-checks. The three
+# leading `mod`s stay, so a negative base is handled as before. Only the index arithmetic changes:
+# the multiply and accumulate order is untouched, so results are BITWISE what they were.
+@inline _wrap_step(next, extent) = ifelse(next == extent, zero(next), next)
 
 
 # One work-item per point. For each fibre component, accumulate the tensor-product spline sum over
@@ -399,9 +568,11 @@ end
 # the output array are indexed linearly (column-major, fibre-last), so a single kernel serves scalar,
 # vector, and tensor orders.
 @kernel function _interpolate_kernel!(output, @Const(coordinates), @Const(field_values), coefficients,
-                                      origin, spacing, grid_size, points_per_fibre, number_of_points)
-  point = @index(Global, Linear)
-  if point ≤ number_of_points
+                                      origin, spacing, grid_size, points_per_fibre, number_of_points,
+                                      order)
+  work_item = @index(Global, Linear)
+  if work_item ≤ number_of_points
+    point = _visit(order, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -413,22 +584,29 @@ end
       neighbourhood = (number_of_nodes - 2) ÷ 2
       number_of_fibres = length(field_values) ÷ points_per_fibre
       grid_x, grid_y, grid_z = grid_size
+      # The three wrapped starts, once per point rather than once per stencil node (`_wrap_step`).
+      first_1 = mod(base_1 - neighbourhood, grid_x)
+      first_2 = mod(base_2 - neighbourhood, grid_y)
+      first_3 = mod(base_3 - neighbourhood, grid_z)
       for fibre in 1:number_of_fibres
         accumulated = zero(eltype(output))
         # Contiguous (x) axis innermost ⇒ stride-1 stencil reads: a GPU-first choice (measured a
         # large GPU speedup from cache/transaction reuse; mildly slower on CPU, whose larger caches
         # absorb the stride — invariant 6 prioritises GPU). y/z weight and plane offset are hoisted.
+        node_z = first_3
         for k in 1:number_of_nodes
-          node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
+          node_y = first_2
           for j in 1:number_of_nodes
-            node_y = mod(base_2 + (j - 1 - neighbourhood), grid_y) + 1
             weight_yz = weights_2[j] * weights_3[k]
-            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            plane = grid_x * node_y + grid_x * grid_y * node_z + points_per_fibre * (fibre - 1)
+            node_x = first_1
             for i in 1:number_of_nodes
-              node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
-              accumulated += weight_yz * weights_1[i] * field_values[node_x + plane]
+              accumulated += weight_yz * weights_1[i] * field_values[node_x + plane + 1]
+              node_x = _wrap_step(node_x + 1, grid_x)
             end
+            node_y = _wrap_step(node_y + 1, grid_y)
           end
+          node_z = _wrap_step(node_z + 1, grid_z)
         end
         output[point + number_of_points * (fibre - 1)] = accumulated
       end
@@ -446,9 +624,11 @@ end
 # stencil, accumulating atomically into the field because distinct points can target the same grid
 # node. `factor` is the α scale; the β prescale is applied to the field before launch.
 @kernel function _anterpolate_kernel!(field_values, @Const(coordinates), @Const(point_quantities), coefficients,
-                                      factor, origin, spacing, grid_size, points_per_fibre, number_of_points)
-  point = @index(Global, Linear)
-  if point ≤ number_of_points
+                                      factor, origin, spacing, grid_size, points_per_fibre, number_of_points,
+                                      order)
+  work_item = @index(Global, Linear)
+  if work_item ≤ number_of_points
+    point = _visit(order, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -460,21 +640,28 @@ end
       neighbourhood = (number_of_nodes - 2) ÷ 2
       number_of_fibres = length(field_values) ÷ points_per_fibre
       grid_x, grid_y, grid_z = grid_size
+      # The three wrapped starts, once per point rather than once per stencil node (`_wrap_step`).
+      first_1 = mod(base_1 - neighbourhood, grid_x)
+      first_2 = mod(base_2 - neighbourhood, grid_y)
+      first_3 = mod(base_3 - neighbourhood, grid_z)
       for fibre in 1:number_of_fibres
         quantity = factor * point_quantities[point + number_of_points * (fibre - 1)]
         # Contiguous (x) axis innermost ⇒ stride-1 scatter writes (same GPU-first rationale as the
         # gather's reads). y/z weight and plane offset are hoisted out of the inner loop.
+        node_z = first_3
         for k in 1:number_of_nodes
-          node_z = mod(base_3 + (k - 1 - neighbourhood), grid_z) + 1
+          node_y = first_2
           for j in 1:number_of_nodes
-            node_y = mod(base_2 + (j - 1 - neighbourhood), grid_y) + 1
             weight_yz = weights_2[j] * weights_3[k]
-            plane = grid_x * (node_y - 1) + grid_x * grid_y * (node_z - 1) + points_per_fibre * (fibre - 1)
+            plane = grid_x * node_y + grid_x * grid_y * node_z + points_per_fibre * (fibre - 1)
+            node_x = first_1
             for i in 1:number_of_nodes
-              node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1
-              Atomix.@atomic field_values[node_x + plane] += weight_yz * weights_1[i] * quantity
+              Atomix.@atomic field_values[node_x + plane + 1] += weight_yz * weights_1[i] * quantity
+              node_x = _wrap_step(node_x + 1, grid_x)
             end
+            node_y = _wrap_step(node_y + 1, grid_y)
           end
+          node_z = _wrap_step(node_z + 1, grid_z)
         end
       end
     end
@@ -546,7 +733,8 @@ The spline schemes are exact at grid nodes and for polynomials up to the scheme'
 and approximate otherwise; the spectral schemes reconstruct the band-limited field exactly
 (`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
-function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
+function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
+                      scheme::AbstractSplineScheme = CatmullRom; order = nothing)
   pointvalue_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
@@ -556,8 +744,10 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, po
   coefficients = _coefficients_as(scheme, T)
   number_of_points = npoints(out)
   backend = get_backend(field_data(field))
+  _check_transfer_order(order, number_of_points, field_data(field))
   _interpolate_kernel!(backend)(point_values(out), point_coordinates(points), field_data(field), coefficients,
-    T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points; ndrange = number_of_points)
+    T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
+    order; ndrange = number_of_points)
   synchronize(backend)
   return out
 end
@@ -649,7 +839,8 @@ equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. 
 (an early use of "anterpolation" for the adjoint of interpolation).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
-                      scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false)
+                      scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false;
+                      order = nothing)
   field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
@@ -665,8 +856,10 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   coefficients = _coefficients_as(scheme, T)
   number_of_points = npoints(quantities)
   backend = get_backend(data)
+  _check_transfer_order(order, number_of_points, data)
   _anterpolate_kernel!(backend)(data, point_coordinates(points), point_values(quantities), coefficients,
-    T(α), T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points; ndrange = number_of_points)
+    T(α), T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
+    order; ndrange = number_of_points)
   synchronize(backend)
   return field
 end
@@ -1157,9 +1350,11 @@ end
 # Window gather (type-2): one work-item per point sums the W³ stencil of the oversampled physical
 # field with the ES window weights (no atomics). Mirrors `_interpolate_kernel!`.
 @kernel function _nufft_gather_kernel!(output, @Const(coordinates), @Const(field_values), beta,
-                                       origin, spacing, grid_size, points_per_fibre, number_of_points, ::Val{W}) where {W}
-  point = @index(Global, Linear)
-  if point ≤ number_of_points
+                                       origin, spacing, grid_size, points_per_fibre, number_of_points,
+                                       ::Val{W}, order) where {W}
+  work_item = @index(Global, Linear)
+  if work_item ≤ number_of_points
+    point = _visit(order, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -1198,9 +1393,11 @@ end
 # Window spread (type-1): the transpose of the gather — one work-item per point scatters its value
 # over the W³ stencil, atomically. Mirrors `_anterpolate_kernel!`.
 @kernel function _nufft_spread_kernel!(field_values, @Const(coordinates), @Const(point_quantities), beta,
-                                       origin, spacing, grid_size, points_per_fibre, number_of_points, ::Val{W}) where {W}
-  point = @index(Global, Linear)
-  if point ≤ number_of_points
+                                       origin, spacing, grid_size, points_per_fibre, number_of_points,
+                                       ::Val{W}, order) where {W}
+  work_item = @index(Global, Linear)
+  if work_item ≤ number_of_points
+    point = _visit(order, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -1312,7 +1509,9 @@ function _check_nufft_compatibility(scheme::NUFFT{T}, field::AbstractFieldSpectr
 end
 
 
-function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT)
+function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
+                      scheme::NUFFT; order = nothing)
+  _check_transfer_order(order, npoints(out), field_data(field))
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
@@ -1338,8 +1537,8 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   oversampled_physical = to_physical(oversampled_spectral, scheme.oversampled_plans)
   over_grid = scheme.oversampled_grid
   _nufft_gather_kernel!(backend)(point_values(out), point_coordinates(points), field_data(oversampled_physical), scheme.beta,
-    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out), Val(scheme.width);
-    ndrange = npoints(out))
+    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out),
+    Val(scheme.width), order; ndrange = npoints(out))
   synchronize(backend)
   return out
 end
@@ -1354,7 +1553,8 @@ end
 
 
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                      scheme::NUFFT, α::Real = true, β::Real = false)
+                      scheme::NUFFT, α::Real = true, β::Real = false; order = nothing)
+  _check_transfer_order(order, npoints(quantities), field_data(field))
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
@@ -1369,8 +1569,8 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   fill!(over_phys_data, zero(T))
   over_grid = scheme.oversampled_grid
   _nufft_spread_kernel!(backend)(over_phys_data, point_coordinates(points), point_values(quantities), scheme.beta,
-    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities), Val(scheme.width);
-    ndrange = npoints(quantities))
+    T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities),
+    Val(scheme.width), order; ndrange = npoints(quantities))
   synchronize(backend)
   oversampled_spectral = to_spectral(oversampled_physical, scheme.oversampled_plans)
   over_data = field_data(oversampled_spectral)

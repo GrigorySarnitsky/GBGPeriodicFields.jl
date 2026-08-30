@@ -79,3 +79,20 @@ the block shows in the diff instead of being silent.
 - [x] Findings 2 and 3 recorded below as planned items with IT's evidence; record with measurements as planned items, no fixes unasked
 - [x] Replied, committed, pushed
 
+## Open (2026-08-30, user-directed: accelerate the point transfer — research, build, MEASURE)
+
+Target: 256^3 grid, 1,000,000 points, BOTH backends (CPU + CUDA here; ROCm needs Aiporetne).
+Everything opt-in behind options — techniques help or hurt by setup, so measure, never assume.
+
+- [ ] RESEARCH: survey augmenting techniques beyond the interpolation scheme itself (ordering,
+      blocking, memory layout, scatter strategy, batching, precision, occupancy)
+- [ ] BASELINE: measure the current transfer at 256^3 x 1e6 on both backends, both verbs, both
+      element types — this is the number every technique is judged against
+- [ ] Implement the techniques that survive the research, each behind an option, purely additive
+      (GBGIsotropicTurbulence is in final development — no signature may change)
+- [ ] MEASURE each across grid sizes and point counts on both backends; keep only what wins,
+      record what loses and why
+- [ ] Correctness: reordering must not change results (the real oracle); GPU parity; Pkg.test green
+- [ ] Docs: PERFORMANCE finding, ARCHITECTURE decision, TESTING axes, CLAUDE.md
+- [ ] Commit and push
+
