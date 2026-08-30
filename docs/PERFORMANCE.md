@@ -1582,6 +1582,14 @@ and the order's own scattered reads of the coordinates cost more than they save.
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(af) The transfer benchmark class had only ever measured SCALAR fields** (2026-08-30, found by the
+technique survey). Every row in the class built `scalar_phys`, so the vector gather — what a
+particle-tracking consumer actually calls, and the case where the visit order pays most, the field
+traffic being three components against one coordinate triple — had never been benchmarked at all. Four
+rows were added: the vector gather and scatter, each with and without an order. This is the same class
+of gap as decision 60's two dead classes, found the same way: by asking what the rows actually build
+rather than whether they run.
+
 **(ae) After (ad), the transfer is memory-bound in every measured cell — so the compute-side
 optimizations do not pay, and that closes a class** (2026-08-30). A static-unroll rewrite was the
 top-ranked recommendation of a survey of GPU transfer techniques, on the strength of a compiled

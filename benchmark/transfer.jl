@@ -23,6 +23,22 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
     @benchmarkable (interpolate!($out, $field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($out)))
   group["anterpolate! CatmullRom ordered | $tag"] =
     @benchmarkable (anterpolate!($field, $points, $q, CatmullRom, $(T(1)), $(T(0)); order = $visit_order); bench_sync(field_data($field)))
+  # A VECTOR field, which is what a particle-tracking consumer actually gathers — every transfer row
+  # above is scalar, so the case that matters most to the consumer had never been measured (noted by
+  # the 2026-08-30 technique survey). It is also where the visit order pays most, the field traffic
+  # being three components against one coordinate triple, so the ordered pair is measured beside it.
+  vector_field = vector_phys(AT, T, grid)
+  vector_out = interpolate(vector_field, points, CatmullRom)
+  vector_q = interpolate(vector_field, points, CatmullRom)
+  group["interpolate! CatmullRom vector | $tag"] =
+    @benchmarkable (interpolate!($vector_out, $vector_field, $points, CatmullRom); bench_sync(point_values($vector_out)))
+  group["interpolate! CatmullRom vector ordered | $tag"] =
+    @benchmarkable (interpolate!($vector_out, $vector_field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($vector_out)))
+  group["anterpolate! CatmullRom vector | $tag"] =
+    @benchmarkable (anterpolate!($vector_field, $points, $vector_q, CatmullRom, $(T(1)), $(T(0))); bench_sync(field_data($vector_field)))
+  group["anterpolate! CatmullRom vector ordered | $tag"] =
+    @benchmarkable (anterpolate!($vector_field, $points, $vector_q, CatmullRom, $(T(1)), $(T(0)); order = $visit_order); bench_sync(field_data($vector_field)))
+
   # Spectral-domain transfer: the fast windowed NUFFT (one plan built once). DirectDFT is the exact
   # O(N·M) oracle — its cost is quadratic in the work and not a regression target, so it is not swept.
   spectral = scalar_spec(AT, T, grid)
