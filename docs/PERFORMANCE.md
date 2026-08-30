@@ -1552,11 +1552,16 @@ consecutive work-items touched unrelated parts of the field and every stencil wa
 misses. `transfer_order` groups them by block of cells and the transfer verbs take it as an `order`
 option (decision 78). At ``256^3`` with ``10^6`` points:
 
-| | GPU gather | GPU scatter | CPU gather | CPU scatter |
+| ``256^3``, ``10^6`` points | GPU gather | GPU scatter | CPU gather | CPU scatter |
 |---|---|---|---|---|
-| `Float64` scalar | ``3.4\times`` | ``3.7\times`` | ``2.2\times`` | ``1.5\times`` |
-| `Float64` vector | ``4.5\times`` | ``4.1\times`` | ``3.2\times`` | ``2.4\times`` |
-| `Float32` vector | ``13.1\times`` | ``4.1\times`` | ``4.1\times`` | ``1.9\times`` |
+| `Float64` scalar | ``3.40\times`` | ``3.73\times`` | ``2.01\times`` | ``1.55\times`` |
+| `Float64` vector | ``4.52\times`` | ``4.06\times`` | ``2.86\times`` | ``2.26\times`` |
+| `Float32` scalar | ``7.10\times`` | ``3.10\times`` | ``1.37\times`` | ``1.12\times`` |
+| `Float32` vector | ``12.43\times`` | ``4.06\times`` | ``3.96\times`` | ``1.94\times`` |
+
+At ``4\times 10^6`` points the device gains hold or grow — the `Float64` vector scatter reaches
+``5.54\times`` and the scalar ``5.00\times`` — because the unordered kernel degrades as the point set
+outgrows cache while the ordered one does not.
 
 Building the order costs **0.098–0.13 ms** on device against a gather it saves 1.7 ms on, so it repays
 inside a SINGLE transfer — where the estimate it replaces guessed 12–24, having assumed a vendor sort.
