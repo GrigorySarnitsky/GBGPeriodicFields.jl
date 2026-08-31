@@ -1112,7 +1112,9 @@ those are the usual rot. Then the mechanical bar:
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
    interim, so the suite was silently unrunnable rather than merely unrun. **ROCm re-ran 2026-08-31 and reads 454/454, exit 0** — up from the
-   stale 395 of 2026-08-23, and now at exact parity with CUDA. That run is the first to stage
+   stale 395 of 2026-08-23. Whether that is PARITY with CUDA is UNVERIFIED: the handover note claimed
+   CUDA reads 454, this file's own figure above says 422 at 2026-08-27, and no NVIDIA device exists on
+   `Aiporetne` to settle it — re-measure on `Enteropia` rather than repeating either number. That run is the first to stage
    decisions 73–79 on AMD at all, so the three ROCm-specific first-runs are covered: the
    `TransferOrder` Int32 atomics with its device `cumsum`, the exponential kernel's device `exp`
    including the complex-ŵ parity case, and decision 76's staged odd-grid lane.) Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
@@ -1377,12 +1379,13 @@ those are the usual rot. Then the mechanical bar:
 All eight items ran. Nothing here is actionable again until the next sweep; the durable lessons are
 kept below and the one new open question is in the roadmap (the decision-76 device cost).
 
-- **Environments — FIVE were stale, not the three the queue named.** The root project itself and
-  `examples/gpu/rocm` were broken too (`PrecompileTools` missing; `failed to find source of parent
-  package: "LLVM"`), and each surfaced only at LOAD. The queue's own load check for
-  `--project=benchmark` was wrong: that environment deliberately declares no `AMDGPU`, being the CPU
-  lane. Check every environment a queue touches, and check the one you assume is fine.
-- **ROCm suite 395 → 454/454, exit 0 — parity with CUDA.** Decisions 73–79 are now staged on AMD,
+- **Environments — FOUR were stale, and the queue named three.** `test/gpu/rocm`,
+  `benchmark/gpu/rocm`, `examples/gpu/rocm` and the ROOT project all needed `instantiate`
+  (`PrecompileTools` missing; `failed to find source of parent package: "LLVM"`), each surfacing only
+  at LOAD. `benchmark` was NOT stale: it failed the queue's check only because that check asked for
+  `AMDGPU`, which the CPU lane deliberately does not declare. A failing load is not by itself a stale
+  environment — read the error before counting it.
+- **ROCm suite 395 → 454/454, exit 0.** Decisions 73–79 are now staged on AMD,
   including the three first-runs: the `TransferOrder` Int32 atomics and device `cumsum`, the
   exponential kernel's device `exp` with the complex-ŵ parity case, and decision 76's staged
   odd-grid lane. `examples/gpu/rocm/HIST_ROCm.jl --smoke` is green (Parseval exact,
@@ -1940,12 +1943,20 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
 - **Decision 76 costs on ROCm what it gained on the host — INVESTIGATE (recorded 2026-08-31, found
   by the first AMD sweep to stage it).** The rank-free plans apply a transform per contiguous
   component. On the host that WON, up to ``2.4\times`` on vector transforms at ``512^3`` `Float32`.
-  On the device it LOSES: an A/B against the pre-decision commit, both arms measured back-to-back on
-  an idle card, reads ``1.39``–``1.61\times`` slower for vector transforms at ``64^3`` and
-  ``1.24``–``1.28\times`` at ``512^3`` `Float32`, with the intermediate grids washing out at
-  ``0.84``–``1.16\times``. Scalar transforms are flat, which is the signature that names the cause:
-  the change touches only multi-component fields, a rank-0 field being its own single component
-  either way. **The mechanism is the per-component loop, NOT the staging buffer** — `_forward_components!`
+  On the device it LOSES **at ``64^3``, and that is the only grid where the attribution is
+  established**: an A/B against the pre-decision commit, both arms back-to-back on an idle card,
+  reads ``1.15``–``1.61\times`` slower for vector transforms there against ``1.00``–``1.09\times``
+  for the scalar controls in the same run. Scalar flat while vector moves is the signature that names
+  the cause, decision 76 being unable to touch a rank-0 field, which is its own single component
+  either way.
+
+  **The ``512^3`` `Float32` shift is NOT decision 76 — the control fails there.** Scalar moved
+  ``1.17``–``1.27\times`` against vector's ``1.24``–``1.28\times``, i.e. together, so whatever moved
+  that grid moved every transform on it and the decision's marginal contribution is within noise of
+  zero. Its cause is unidentified and lies in the wide `93d9d8da..b452fb17` range or in the
+  environment. Do not cite it as evidence for the per-component loop; the first version of this entry
+  did, and that was an attribution error caught by re-reading the scalar column. The intermediate
+  grids wash out at ``0.84``–``1.16\times``. **The mechanism is the per-component loop, NOT the staging buffer** — `_forward_components!`
   issues one `mul!` per component, so a rank-1 transform became three single-component plan executions
   where it had been one batched execution over three. The buffer is built only when
   `_component_offsets_align` reports an odd physical stride (`device = iseven(physical_stride)`), and

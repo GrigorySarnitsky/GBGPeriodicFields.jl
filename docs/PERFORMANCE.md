@@ -1676,8 +1676,8 @@ the changed operations.
 
 The movers each match a recorded mechanism. The `transfer` class median is ``0.92``–``0.95`` on all
 four CPU lanes, the decision-78 wrap walk, with `interpolate! CatmullRom` at ``0.35``–``0.49\times``.
-Vector `exponential_convolve!` runs ``3.2``–``3.9\times`` against a scalar twin at exactly
-``1.000\times``, which is decision 79's ``R \ge 1`` scope measured rather than asserted.
+Vector `exponential_convolve!` runs ``3.2``–``3.9\times`` against a scalar twin spanning
+``0.998``–``1.012\times``, which is decision 79's ``R \ge 1`` scope measured rather than asserted.
 `weighted_inner` gains ``2.5``–``7.3\times`` across every shape (finding (ac)), and the decision-76
 vector transforms up to ``2.4\times`` at ``512^3`` `Float32`. Canaries are green on all three lanes
 and refrozen.
@@ -1687,16 +1687,22 @@ plans gaining up to ``2.4\times`` on host vector transforms COST on ROCm. The me
 per-component loop itself: `_forward_components!` issues one `mul!` per component, so a rank-1
 transform became three single-component plan executions where it had been one batched execution over
 three. An A/B against the old commit, both arms measured back-to-back on an idle card, gives
-``1.39``–``1.61\times`` slower for vector transforms at ``64^3`` and ``1.24``–``1.28\times`` at
-``512^3`` `Float32`.
+``1.15``–``1.61\times`` slower for vector transforms at ``64^3``, against ``1.00``–``1.09\times`` for
+the scalar controls in the same run.
 
-Scalar transforms stay flat at ``64^3`` (``1.00``–``1.09\times``), and that is the signature
-identifying the cause, decision 76 changing only how a multi-component field is transformed — a rank-0
-field is its own single component either way. The staging buffer is NOT involved: it is built only
-when `_component_offsets_align` reports an odd physical stride, and every measured grid is even. The
-intermediate grids wash out at ``0.84``–``1.16\times``, so the cost sits at the launch-bound and
-bandwidth-bound extremes. The old code reproduces its own 2026-08-07 archive to within 1%, which is
-what licenses the comparison.
+The scalar control is what licenses that attribution, and it holds only at ``64^3``. Decision 76
+cannot move a scalar transform — a rank-0 field is its own single component either way — so scalar
+staying at ``1.00``–``1.09\times`` while vector runs ``1.15``–``1.61\times`` is the signature. The
+staging buffer is NOT involved: it is built only when `_component_offsets_align` reports an odd
+physical stride, and every measured grid is even. The old code reproduces its own 2026-08-07 archive
+to within 1%, which is what licenses the comparison at all.
+
+**At ``512^3`` `Float32` that control FAILS, so the shift there is not decision 76.** Scalar moved
+``1.17``–``1.27\times`` and vector ``1.24``–``1.28\times``, together, where the decision can only move
+one of them. Whatever shifted that grid shifted every transform on it, and decision 76's marginal
+contribution is within noise of zero. The cause is unidentified, sitting in the wide
+`93d9d8da..b452fb17` range or in the environment; reading it as the per-component loop was an
+attribution error. The intermediate grids wash out at ``0.84``–``1.16\times``.
 
 **Decision 76's own "the measured cost is nil or negative" was a HOST measurement**, taken against
 `FFTW` at one and eight threads. No device arm was measured then, and its two obstacles — the
@@ -1718,7 +1724,7 @@ reads ``1.275\times``, so most of the apparent movement is artefact rather than 
 rows allocating a field-sized result per call join the five CPU rows §4(y) names.
 
 **A cross-vintage `fft` comparison is uninformative, now demonstrated rather than inferred.** The
-``256^3`` `Float64` SCALAR rows read ``1.14``–``1.17\times`` slower than the 2026-08-07 archive, yet
+``256^3`` `Float64` SCALAR rows read ``1.14``–``1.18\times`` slower than the 2026-08-07 archive, yet
 the same rows measured from the OLD commit on today's host read ``0.99\times`` against the new code:
 identical code, ``+15``–``18\%`` against its own archive. The package did not touch scalar
 transforms, so the residual is the measurement environment, the §4(p) class. The current archives
@@ -1730,16 +1736,22 @@ non-monotonically and differently in each, which is FFTW threaded-plan selection
 
 **The IT item-3 restructuring closes as measured-and-declined on the second host.** The standalone
 prototype at one, four and eight threads on the i7-12700K reproduces the 9800X3D verdict. Out of
-cache the hand-restructured arm runs ``1.03``–``1.05\times`` at t1 for `Float64` and
-``1.06``–``1.42\times`` for `Float32`, falling to ``1.01``–``1.03\times`` at t4 and
-``0.99``–``1.00\times`` at t8, with `bitwise=true` on every row. The `@simd` arm is
-indistinguishable from the plain one in all 36 cells, so option 2 is dead on a second
-microarchitecture and its bitwise proof burden buys nothing.
+the hand-restructured arm spans ``1.03``–``1.42\times`` at t1, ``0.99``–``1.14\times`` at t4 and
+``0.99``–``1.09\times`` at t8, with `bitwise=true` on every row. The `@simd` arm is indistinguishable
+from the plain one in all 36 cells, so option 2 is dead on a second microarchitecture and its bitwise
+proof burden buys nothing.
 
-The one real win is `Float32` `mul!` at a single thread, ``1.42\times`` at ``256^3``, and the
-bandwidth column shows why it vanishes: the package call sits at 20.3 GB/s there against the hand
-loop's 28.7, whereas by t4 both arms read 27–28 GB/s. The consumer runs production at 16–20 threads,
-so the port is declined.
+The t4 and t8 spans are NOT flat, and flattening them would misreport the study. One cell survives at
+production thread counts, `Float32` `mul!` at ``128^3``, holding ``1.14\times`` at t4 and
+``1.09\times`` at t8, while every other t4/t8 cell sits within ``\pm 5\%``. The verdict rule asks for
+a BROAD win before touching the package's highest-blast-radius engine, and one operation at one
+element type and one grid is not that, so the port stays declined — against a measured residual
+rather than against a clean ``1.00``.
+
+The largest win is `Float32` `mul!` at a single thread, ``1.42\times`` at ``256^3``, and the
+bandwidth column shows why it decays: the package call sits at 20.3 GB/s there against the hand loop's
+28.7, whereas by t4 both arms read 27–28 GB/s. The consumer runs production at 16–20 threads, where
+only the ``128^3`` `Float32` cell still pays.
 
 **(ai) The 2026-08-31 Enteropia re-sweep: five lanes, and every mover is an intended fix** (the
 first sweep since 2026-08-09/10, so decisions 76–79, the `weighted_inner` fix and the transfer work
