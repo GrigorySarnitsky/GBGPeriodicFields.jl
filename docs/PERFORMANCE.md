@@ -1710,6 +1710,41 @@ attribution error. The intermediate grids wash out at ``0.84``–``1.16\times``.
 from *how many executions a transform costs*. The batched-to-per-component change is the part that
 crosses to the device, and it crossed unmeasured.
 
+**Decision 78's wrap walk regresses the device gather where the field EXCEEDS cache, and the
+recorded "wins 1.03–1.28x on device throughout" is wrong.** The matched A/B — same sizes, types and
+class set in both arms, so identical process history — puts `interpolate! CatmullRom` at ``256^3``
+`Float64` at ``1.74``–``1.78\times`` SLOWER, reproduced three times against a new-code value stable to
+0.6% (1539.3, 1532.0, 1540.4 us against an old-code 866.3, 879.3, 1047.6).
+
+The mechanism is dependency structure, not instruction count. The old kernel computed every stencil
+address independently, `node_x = mod(base_1 + (i - 1 - neighbourhood), grid_x) + 1`, so all the loads
+of a stencil could be in flight together. The walk makes each address depend on its predecessor,
+`node_x = _wrap_step(node_x + 1, grid_x)`, which serialises the address chain: it buys cheaper
+arithmetic and sells memory-level parallelism. That is the same trade §4 records for the walk's CPU
+corner, which decision 78 judged absent on a device.
+
+The sign therefore tracks the working set against the RX 7900 XTX's 96 MB Infinity Cache, monotonically:
+``128^3`` `Float32` (8.4 MB) ``0.75\times``, ``128^3`` `Float64` (16.8 MB) ``0.92\times``, ``256^3``
+`Float32` (67 MB) ``\approx 1.22\times``, ``256^3`` `Float64` (134 MB, the only measured configuration
+that exceeds the cache) ``1.74\times``. In cache there is little latency to hide and the cheaper
+arithmetic wins; out of cache the concurrency that hid DRAM latency is what was sold. `CatmullRom` is
+the scheme it bites, reading 64 nodes per point — the lowest arithmetic intensity of the family —
+where `Lalescu(3,3)` reads 512 and measures flat at ``0.98``–``1.05\times``.
+
+**Two device rows are NOT regressions, though the archive diff called them so.** `interpolate! NUFFT`
+at ``256^3`` reads ``1.474\times`` against the archives and ``1.005``–``1.013\times`` in the matched
+A/B; `anterpolate! Lalescu(3,3)` reads ``0.661\times`` against the archives and ``1.05\times`` matched,
+so that WIN was equally an artefact. Only `anterpolate! NUFFT` survives, at ``1.11\times`` and
+reproduced, which pairs with the CPU NUFFT rows at ``1.05``–``1.15\times`` in all four thread lanes —
+the same operation slower on both backends, which is the cross-backend test a real regression passes.
+
+**A measurement hazard found while establishing this, and it cost two arms.** Some old-code transfer
+runs on the device produce a size-independent ``\approx 20`` ms floor across many rows — 20331 us for a
+``256^3`` `Float32` gather whose archive says 627.8 — while other runs of the SAME commit reproduce the
+archive to within 20%. It appeared in the arms that included `Float32` and not in the `Float64`-only
+ones, but the cause is unidentified. A device transfer A/B is therefore only trustworthy when the old
+arm is checked against its own archive first; two arms here were discarded on exactly that check.
+
 **The canary cannot see it.** That lane's `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
 exactly the configuration decision 76 leaves alone and one grid away from both regressed extremes, so
 all three lanes read green through a ``1.6\times`` device regression. A canary is a fixed sample of

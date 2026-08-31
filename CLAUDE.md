@@ -2152,7 +2152,15 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   `CatmullRom`: it wins ``1.3``–``1.9\times`` on CPU up to six nodes per axis and
   ``1.03``–``1.28\times`` on the device throughout, but loses **4–14% on CPU at eight nodes per axis,
   only above about four threads and only at ``R = 1``** — at one thread it is 17–22% FASTER, and
-  ``R = 2`` is less affected. **The mechanism first recorded was backwards**: `mod` is the form that
+  ``R = 2`` is less affected. **"On the device throughout" is WRONG and was corrected 2026-08-31**:
+  the device `CatmullRom` gather at ``256^3`` `Float64` is ``1.74``–``1.78\times`` SLOWER, measured
+  three times by matched A/B. The sign tracks the working set against the card's 96 MB Infinity
+  Cache — ``0.75``/``0.92\times`` at ``128^3``, ``\approx 1.22\times`` at ``256^3`` `Float32`
+  (67 MB), ``1.74\times`` at ``256^3`` `Float64` (134 MB, the only measured configuration exceeding
+  it) — so the very memory-level-parallelism mechanism this entry already names for the CPU corner
+  applies on the device too, and the original device sweep simply never crossed the cache boundary.
+  `CatmullRom` is the scheme it bites because it reads 64 nodes per point, the family's lowest
+  arithmetic intensity; `Lalescu(3,3)` reads 512 and stays flat. See PERFORMANCE.md finding (aj). **The mechanism first recorded was backwards**: `mod` is the form that
   vectorizes and neither variant spills, so the loss is the walk saturating bandwidth sooner and
   forfeiting the memory-level parallelism independent indices keep, which is also the only story
   consistent with a sign that flips on thread count. Kept with the corner documented. Finding (ad) carries the swept table.
