@@ -98,9 +98,12 @@ What bounds each public operation class — the mental model a benchmark either 
   - **GPU**: maximize **memory-level parallelism** — many distinct cache lines and DRAM banks in
     flight at once to hide latency
     ([coalescing/occupancy](https://rocm.docs.amd.com/projects/HIP/en/latest/how-to/performance_guidelines.html)).
-    Scattered (unsorted) points naturally *spread* access and feed that parallelism; and at the
-    grids we run the field is largely **cache-resident** (a 256³ scalar `Float32` field is 67 MB, inside the
-    the retired card's 96 MB Infinity Cache), so there is little locality left to win.
+    Scattered (unsorted) points naturally *spread* access and feed that parallelism. **The corollary
+    once drawn here — that the field is largely cache-resident at the grids we run, so little
+    locality is left to win — is FALSIFIED.** It reasoned from a retired card's 96 MB against a 67 MB
+    ``256^3`` scalar `Float32` field; decision 78 then won ``3.06\times`` by reordering for locality
+    on that very grid (finding (ad)). A consumer's fields are often `Float64` or rank-1, several times
+    67 MB, and no current card carries 96 MB.
   - **CPU**: bound by the cache hierarchy + hardware prefetchers, which *reward* locality — the
     opposite pull.
 
@@ -1219,6 +1222,13 @@ inflation's per-row variance, and none can be re-checked from this box:
     NVIDIA win is `anterpolate! Lalescu(3,3)` at 1.11×.
     Treat "the fleet's fastest card" as true only at small grids and in `Float64` atomics.
 
+    **That transfer verdict is a 2026-08-09 reading and decision 78 has since overturned part of it;
+    the paragraph above is kept as the record of that date.** On the table as regenerated 2026-08-31
+    the AMD card wins **five** of the eight, not seven, at ``1.25``–``1.79\times``, and it now LOSES
+    `interpolate! CatmullRom` (``1.04\times`` to NVIDIA) and both `NUFFT` directions
+    (``1.23``–``1.25\times``). The gather reversal is finding (aj)'s AMD-only walk regression arriving
+    in a vendor comparison: that row reads 1.048 ms in the 2026-08-09 archive against 1.540 ms now.
+
 **Structurally safe: everything measured on the CPU.** `gcsample` was gated on the backend throughout,
 so decisions 38, 39 and 40, the threading work, finding (k)'s and (l)'s CPU numbers, and the CPU half of
 every split decision are untouched by this. That is most of the tuning record.
@@ -2218,7 +2228,8 @@ CUDA, 16 GB); the two retired cards were dropped on 2026-08-07, having been meas
 `Float32` point, and both cards cover the full 256³ matrix in both element types. At 256³ the two are
 near parity (§4(v)): the median over 71 comparable rows is 1.09× in `Float64` and 1.28× in `Float32`,
 the NVIDIA lead being a small-grid launch-latency effect rather than a throughput one, and the AMD card
-winning the whole `transfer` class by 1.5–1.9×. Across vendors the **reductions** class shows the widest gap and the
+winning **five of the transfer class's eight** ``256^3`` `Float64` rows (§4(v), corrected
+2026-08-31). Across vendors the **reductions** class shows the widest gap and the
 clearest architectural signature: the radial reductions (`radial_spectrum`/`radial_correlation`)
 bin on an `Atomix` scatter-add histogram, and CUDA's atomic throughput far outruns RDNA3's —
 `radial_spectrum` on a vector field at 256³ is **≈48× faster** on the 5070 Ti than the 7900 XTX in
@@ -2248,9 +2259,9 @@ size — the tensor product gains only 1.6× from 4 threads, being DRAM-bandwidt
 compute-bound, confirming §2. (Before decision 38 the cheapest of them, `add!`, *regressed* under
 threading; the slab-threaded rewrite made thread scaling monotone, which is why no row here does.) **The transfer threads well** (≈3.9×
 on the Catmull–Rom gather) because its stencil gather carries more work per byte. And the **GPU leads
-the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 150.4 ms
-serial against 1.646 ms on the RTX 5070 Ti, ≈91×, and 1.048 ms on the RX 7900 XTX, which **wins the
-whole transfer class** by 1.5–1.9× — re-measured 2026-08-09 in the fixed regime), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
+the 4-thread CPU by ~3.5–27×**, the spread itself being the point (and the serial CPU by far more — the Catmull–Rom gather at ``256^3`` `Float64` runs 105.6 ms
+serial against 1.485 ms on the RTX 5070 Ti, ≈71×, and 1.540 ms on the RX 7900 XTX — parity on that
+row, §4(v)), widest for the light/parallel ops and narrowing toward the bandwidth ratio for the heavy
 streaming ones. (`Float32` is ~0.6–0.7× of these `Float64` times on the GPU; the full
 operation × type × grid × thread/backend matrix — including the per-grid scaling and the 1/2/4/8
 thread sweep — is in `benchmark/RESULTS.md`.)

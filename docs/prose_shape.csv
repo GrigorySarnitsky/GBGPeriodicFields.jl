@@ -90,7 +90,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 7",51,51,0
 "ARCHITECTURE.md § item 70",467,107,0
 "ARCHITECTURE.md § item 71",933,232,0
-"ARCHITECTURE.md § item 72",900,241,0
+"ARCHITECTURE.md § item 72",990,128,0
 "ARCHITECTURE.md § item 73",857,857,0
 "ARCHITECTURE.md § item 74",611,611,0
 "ARCHITECTURE.md § item 75",714,714,0
@@ -411,11 +411,11 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Types",19,19,0
 "Interpolation.md § Visit order",35,31,0
 "PERFORMANCE.md § 1. Philosophy",829,521,0
-"PERFORMANCE.md § 2. The performance model",804,415,0
+"PERFORMANCE.md § 2. The performance model",845,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
 "PERFORMANCE.md § 5. The benchmark suite",1102,637,0
-"PERFORMANCE.md § 6. Tracking regressions, and per-platform results",976,384,0
+"PERFORMANCE.md § 6. Tracking regressions, and per-platform results",973,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
 "PERFORMANCE.md § finding (a)",105,59,0
@@ -428,6 +428,9 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ag)",379,162,0
 "PERFORMANCE.md § finding (ah)",125,125,0
 "PERFORMANCE.md § finding (ai)",349,111,0
+"PERFORMANCE.md § finding (aj)",1517,102,0
+"PERFORMANCE.md § finding (ak)",1026,92,0
+"PERFORMANCE.md § finding (al)",882,94,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -448,7 +451,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (s)",1709,200,0
 "PERFORMANCE.md § finding (t)",352,119,0
 "PERFORMANCE.md § finding (u)",316,79,0
-"PERFORMANCE.md § finding (v)",1063,649,0
+"PERFORMANCE.md § finding (v)",1149,649,0
 "PERFORMANCE.md § finding (w)",509,144,0
 "PERFORMANCE.md § finding (x)",782,176,0
 "PERFORMANCE.md § finding (y)",924,167,0

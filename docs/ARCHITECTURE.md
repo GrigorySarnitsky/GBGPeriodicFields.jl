@@ -3745,10 +3745,19 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     accumulator per weight, and the obvious spelling — `zip` the operands — **falls back to scalar
     indexing** and dies under `allowscalar(false)`; broadcasting into an `NTuple` and reducing with a
     tuple `+` stays on the device. That is measured, not assumed. In the committed table it beats the
-    three calls it replaces on **every one of the ten lanes**: **1.64–1.97× on the two CPUs**,
-    uniformly across ``64^3`` to ``512^3`` and every thread count, **1.36–2.48× on the RTX 5070 Ti**
-    and **1.86–2.70× on the RX 7900 XTX** — before counting the two synchronizations that stop
-    happening. Three things the spread says. The CPU figure sits near two rather than three because
+    three calls it replaces on **every one of the ten lanes** — **1.16–2.97× on the two CPUs** (median
+    ``1.33``) and **1.51–2.81× on the two GPUs** — before counting the two synchronizations that stop
+    happening.
+
+    **The CPU band was re-derived 2026-08-31; this entry's original ``1.64``–``1.97\times``
+    "uniformly" is retired.** Only 4 of 64 CPU cells now fall in that band, and one row (12700K,
+    ``256^3`` `Float64`) spans ``1.56`` to ``2.89\times`` across its thread lanes where it read
+    ``1.71``–``1.72`` flat. Nothing about the tuple form changed: finding (ac) moved the CPU leg onto
+    the threaded fixed tree, the path **both** compared rows traverse, so the ratio moved without
+    either arm being touched. The decision stands — the tuple form wins every cell — but a ratio
+    between two rows is not stable under a change to the path they share.
+
+    Three things the spread says. The CPU figure sits near two rather than three because
     only the *coefficient* reads are shared: each weight is still evaluated per mode, so a third of the
     traffic was never the target. The NVIDIA card's `Float64` rows are its weakest (1.36× at ``256^3``
     against 1.96× for `Float32`), which is what a consumer card doing double precision at 1/64 rate
