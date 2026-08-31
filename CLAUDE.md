@@ -1375,6 +1375,54 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
+**ENTEROPIA — QUEUE OPEN as of 2026-08-31 (handed over from Aiporetne at `b56c9076`).** Check
+`hostname`; on `Aiporetne` this is not actionable. `git pull` first. The 2026-08-31 Aiporetne sweep
+found **three regressions, all measured on ROCm only**. Both causing decisions shipped verified on
+CUDA alone, so nobody knows whether the sign is the same on NVIDIA. That is this queue.
+
+**The three regressions, with the code that caused them:**
+
+| # | code | config | ROCm slowdown | cause |
+|:--|:--|:--|:--|:--|
+| 1 | `_interpolate_kernel!`, `src/Interpolation.jl` | `interpolate! CatmullRom`, ``256^3`` `Float64` | ``1.74\times`` | decision 78's `_wrap_step` walk |
+| 2 | `_forward_components!` / `_inverse_components!`, `src/Fields.jl` | vector `to_spectral`/`to_physical`, ``64^3`` | ``1.15``–``1.61\times`` | decision 76's per-component loop |
+| 3 | the same walk, through the NUFFT spread path | `anterpolate! NUFFT` | ``1.05``–``1.15\times`` | decision 78's `_wrap_step` walk |
+
+Regression 3 already reproduces on the 9800X3D CPU in all four thread lanes, so it is cross-backend
+and needs no further confirmation — only 1 and 2 are open.
+
+**Run these three A/Bs on the 5070 Ti** (`93d9d8da` predates both decisions and is the old arm for
+each):
+
+1. **The gather.** `CHAR_SIZES=256 CHAR_TYPES=Float64` then `Float32`,
+   `CHAR_SKIP=algebra,convolution,fft,reductions,storage,operators`.
+2. **The transforms.** `CHAR_SIZES=64 CHAR_TYPES=Float64,Float32`,
+   `CHAR_SKIP=algebra,operators,convolution,transfer,reductions,storage`.
+3. **A ``128^3`` control for the gather**, same flags as (1) at `CHAR_SIZES=128`. On ROCm that grid
+   is FASTER (``0.75``–``0.92\times``); if the mechanism is right it should stay faster on CUDA too.
+
+**The falsifiable prediction, and it is sharper on this card.** Regression 1's sign tracks the field
+against the last-level cache: it is the working set exceeding cache that costs, because the walk
+serialises the stencil's address chain and so forfeits the memory-level parallelism that hides DRAM
+latency. The RX 7900 XTX has **96 MB** of Infinity Cache, the RTX 5070 Ti about **48 MB** of L2 — so
+**``256^3`` `Float32` (67 MB) should regress MORE on the 5070 Ti than the ``\approx 1.22\times`` it
+did on the AMD card**, where 67 MB still fitted. If it does not, the cache explanation is wrong and
+PERFORMANCE.md finding (aj) must be corrected.
+
+**Method, and it is not optional — two arms were discarded here for skipping it.** Both arms must use
+IDENTICAL `CHAR_SIZES`/`CHAR_TYPES`/`CHAR_SKIP`, so process history matches; an archive-to-archive
+diff is NOT adequate for the transfer class and called `interpolate! NUFFT` a ``1.474\times``
+regression that a matched A/B put at ``1.005\times``. **Verify the old arm against its own archive
+before trusting it**: some old-code device transfer runs produce a size-independent ``\approx 20`` ms
+floor across many rows (20331 us for a gather whose archive reads 627.8), cause unidentified, and it
+appeared in the arms including `Float32`.
+
+**Two smaller items while there.** Resolve the CUDA test count — the handover claimed 454, this file's
+own figure says **422** at 2026-08-27, and ROCm now reads 454; re-measure rather than repeat either.
+And the canary cannot see regression 2 (its `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
+exactly what decision 76 leaves alone), so if these confirm on CUDA, the canary needs a device
+vector-transform mechanism or the next regression on this axis is equally invisible.
+
 **AIPORETNE — the queue is CLOSED (run 2026-08-31 on this host; the handover was `b452fb17`).**
 All eight items ran. Nothing here is actionable again until the next sweep; the durable lessons are
 kept below and the one new open question is in the roadmap (the decision-76 device cost).
