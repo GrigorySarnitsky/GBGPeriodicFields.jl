@@ -2009,7 +2009,8 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   copies a rocFFT native scale factor could fold.
 
 - **Decision 76 costs a device vector transform at ``64^3`` on BOTH vendors, and nothing above it —
-  LOW PRIORITY (recorded 2026-08-31 from the AMD sweep; scoped by the CUDA A/B the same day).**
+  and the open question is whether it can be made faster EVERYWHERE (TODO below; recorded
+  2026-08-31 from the AMD sweep, scoped by the CUDA A/B the same day, target set by the user).**
   **Read this scoping first:** the cost is a SMALL-GRID one. On CUDA the ``64^3`` vector rows run
   ``1.11``–``1.35\times`` slower, and at ``128^3``/``256^3`` they run ``0.87``–``1.03\times`` — flat
   or faster — against scalar controls at ``0.98``–``1.00``; ROCm's intermediate grids wash out the
@@ -2048,13 +2049,30 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   green through this. Any fix must add a device vector-transform mechanism to that lane, or the next
   regression on this axis is equally invisible.
 
-  **What is NOT yet known**, and should be measured before designing anything: whether a device can
-  keep decision 76's rank-freedom AND recover the single batched execution — the natural route is a
-  plan built once per rank on demand, or a backend that accepts a batch count at execution rather than
-  at plan time, since invariant 3 already makes the three components one contiguous block; and
-  whether CUDA shows the same sign — no NVIDIA A/B has been taken, and decision 76 shipped verified
-  on that vendor alone. Both hosts would need to agree before a route is chosen. Decision 76 is
-  correct and stays; this is a performance question about how it reaches the device, not a
+  **TODO — can decision 76 be made faster EVERYWHERE? (user-directed 2026-08-31.)** The framing that
+  matters is not "recover what the batched plan had" but "beat both arms at every grid", because the
+  two arms each win somewhere: the per-component loop gains up to ``2.4\times`` on host vector
+  transforms at ``512^3`` `Float32` and loses ``1.11``–``1.61\times`` on a device at ``64^3``, while
+  above that grid it is already flat or faster on both vendors. A route that keeps the host gain and
+  removes the small-grid device cost is therefore a strict improvement over BOTH the old code and the
+  current code, and that is the target.
+
+  The natural route is to keep the rank-freedom in the TYPE and recover batching at EXECUTION: a plan
+  built once per rank on demand and cached on the `FieldTransformPlans`, or a backend that accepts a
+  batch count when the transform is executed rather than when it is planned. Invariant 3 already makes
+  a rank-1 field's three components one contiguous block, which is what makes this possible at all;
+  decision 76's own argument was that a transform is defined on the box and a rank-`R` field is that
+  transform along a fiber, and nothing in it requires ISSUING the executions separately.
+
+  **Measure before designing.** The whole device cost is a fixed per-call overhead — three plan
+  executions where there was one — so the first question is how much of the ``64^3`` gap is launch
+  overhead that a batched execution would remove, and whether a per-rank plan cache costs anything at
+  the grids where the loop currently WINS. A route that fixes ``64^3`` and gives back the ``512^3``
+  host gain is not worth taking. **Definition of done** as usual, plus: an A/B on BOTH vendors across
+  ``64^3``–``512^3`` (not one grid — the mis-scoping this entry already records twice), and a device
+  vector-transform mechanism added to the canary, since that lane is structurally blind here.
+
+  Decision 76 is correct and stays; this is a question about how it reaches the device, not a
   correctness one, and the ROCm suite is green at 454/454 throughout.
 
 - **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
