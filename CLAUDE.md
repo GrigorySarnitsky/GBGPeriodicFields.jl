@@ -1111,8 +1111,11 @@ those are the usual rot. Then the mechanical bar:
    after the run that took the measurement found six real ones, all in decision 73's `displace!`, three per
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
-   interim, so the suite was silently unrunnable rather than merely unrun. **ROCm's 395 of 2026-08-23
-   predates those decisions too, so it is stale and will show the same six failures until re-run.**) Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
+   interim, so the suite was silently unrunnable rather than merely unrun. **ROCm re-ran 2026-08-31 and reads 454/454, exit 0** — up from the
+   stale 395 of 2026-08-23, and now at exact parity with CUDA. That run is the first to stage
+   decisions 73–79 on AMD at all, so the three ROCm-specific first-runs are covered: the
+   `TransferOrder` Int32 atomics with its device `cumsum`, the exponential kernel's device `exp`
+   including the complex-ŵ parity case, and decision 76's staged odd-grid lane.) Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
    `fftfreq`/`rfftfreq`, Nyquist behavior, validation, transform input-preservation. The
    **permuted-layout lane** (decision 41) spans the suite: `fields.jl` (round-trip + both
    multiplier families under odd and even permuted folds), `differentialoperators.jl` (analytic
@@ -1370,57 +1373,35 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
-**AIPORETNE — the queue is FULL as of 2026-08-31 (handed over from Enteropia; the user runs the
-benchmarks there).** Check `hostname` first; on `Enteropia` this item is not actionable. Everything
-below is committed and pushed through `ea8b7480`+; `git pull` first, and let Dropbox finish syncing
-`benchmark/results/` (the raw archives are gitignored but the repo lives in Dropbox, which is how
-Enteropia's five fresh 2026-08-31 lanes reach this host — check their mtimes before regenerating any
-report). The queue, in run order:
+**AIPORETNE — the queue is CLOSED (run 2026-08-31 on this host; the handover was `b452fb17`).**
+All eight items ran. Nothing here is actionable again until the next sweep; the durable lessons are
+kept below and the one new open question is in the roadmap (the decision-76 device cost).
 
-1. **Environment load checks, not just resolve** (the 2026-08-26 lesson: only LOAD catches all) —
-   `julia --project=test/gpu/rocm -e 'using AMDGPU, GBGPeriodicFields'`, same for
-   `--project=benchmark` and `--project=benchmark/gpu/rocm`; `Pkg.resolve` any that fail.
-2. **The ROCm GPU suite** — `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl`. The last run
-   (395, 2026-08-23) predates decisions **73–79**: displacement, family constructors, scheme
-   persistence, rank-free plans (no rocFFT run has EVER staged decision 76's per-component device
-   path), `inverse_curl`, the transfer visit order + wrap walk, and the exponential fiber hoist.
-   CUDA reads **454**; ROCm should match. Three ROCm-specific eyes: the `TransferOrder` validation
-   kernels (Int32 atomics + a device `cumsum` — both native on gfx1100, but this is their first AMD
-   run), the exponential kernel's `exp` on device including the complex-ŵ parity case, and
-   decision 76's staged odd-grid lane.
-3. **`examples/gpu/rocm/HIST_ROCm.jl --smoke`** — nothing else executes it, and the public surface
-   changed (decision 78's keywords). After a reboot, warm the card with a trivial kernel first —
-   cold comgr JIT looks like a hang; never kill a cold run.
-4. **The item-3 study, 15 minutes, BEFORE the sweeps** —
-   `benchmark/study_fiberwise_simd.jl` at `-t1`/`-t4`/`-t8` (header has commands and the verdict
-   rule). Expected: confirm the 12700K saturates its DDR4-2666 roof at t4/t8 and close IT item 3 as
-   measured-and-declined; only a broad t4/t8 win reopens the port.
-5. **The benchmark lanes** (each owns the machine; box idle, nothing else running):
-   - CPU: `julia -tN --project=benchmark benchmark/characterize.jl cpu
-     benchmark/results/cpu-12700k-tN.json` for N = 1, 2, 4, 8. A plain `-t8` lane is fine on THIS
-     host — the §4(q) FFTW segfault is Enteropia-specific.
-   - GPU: `julia --project=benchmark/gpu/rocm benchmark/characterize.jl rocm
-     benchmark/results/gpu-rx7900xtx.json`, then the 512³ `Float32` extra lane per §7
-     (`CHAR_SIZES=512 CHAR_TYPES=Float32 CHAR_SKIP=transfer,reductions`) into a SEPARATE file and
-     merge — `benchmark/merge_parts.jl` is the both-directions-verified merge tool (name the parts
-     `t8-part-<N>.json` in a scratch dir, or adapt its glob); characterize.jl OVERWRITES whatever
-     path it is given, and an unconditional cleanup after an unverified merge destroyed four sweeps
-     on Enteropia (finding (ai)) — delete parts only after the tool exits 0.
-   - **Diff every lane against its predecessor before moving on** (back the old archives up first);
-     expected movers and nothing else: `weighted_inner` ~8–60×, `exponential_convolve!` vector
-     1.5–2.3×, transfer gathers, separable `convolve!`; medians elsewhere ≈ 1.00.
-6. **Canaries** — `benchmark/regress.jl cpu` at `-t1` and `-t8` and `rocm`, then `--freeze` all
-   three with the reason (intended improvements refreeze like slowdowns; Enteropia's three lanes
-   were refrozen 2026-08-31 for the same changes).
-7. **`report.jl` over ALL TEN archives** (never `characterize.sh` — it drops the other host's
-   columns), then check the triage: the `weighted_inner` and `exponential_convolve!` known-flags
-   should VANISH once both hosts are fresh — **update the two `TRIAGE_KNOWN` notes in
-   `benchmark/triage.jl`** that still say "stale until that host re-sweeps" — and the radial-binning
-   rows should remain the only section-A unexplained (they are the open investigate item, expected
-   flat here too).
-8. **Commit ⇒ push everything**, including RESULTS.md, the refrozen baselines, the triage-note
-   update, the study verdict recorded in the CLAUDE.md item-3 entry, and a PERFORMANCE.md finding
-   for the sweep in the finding-(ai) shape (medians, movers, each explained).
+- **Environments — FIVE were stale, not the three the queue named.** The root project itself and
+  `examples/gpu/rocm` were broken too (`PrecompileTools` missing; `failed to find source of parent
+  package: "LLVM"`), and each surfaced only at LOAD. The queue's own load check for
+  `--project=benchmark` was wrong: that environment deliberately declares no `AMDGPU`, being the CPU
+  lane. Check every environment a queue touches, and check the one you assume is fine.
+- **ROCm suite 395 → 454/454, exit 0 — parity with CUDA.** Decisions 73–79 are now staged on AMD,
+  including the three first-runs: the `TransferOrder` Int32 atomics and device `cumsum`, the
+  exponential kernel's device `exp` with the complex-ŵ parity case, and decision 76's staged
+  odd-grid lane. `examples/gpu/rocm/HIST_ROCm.jl --smoke` is green (Parseval exact,
+  ``\lVert\nabla\cdot u\rVert_{\mathrm{rel}} = 10^{-7}``).
+- **The five lanes are swept and merged**: CPU t1/t2/t4/t8 (60/51/44/41 min) and the ROCm lane plus
+  its ``512^3`` `Float32` part, merged with `merge_parts.jl` reporting `forward: true | reverse:
+  true`. A plain `-t8` invocation completed without incident, re-confirming that the §4(q) FFTW
+  segfault is `Enteropia`-specific. Canaries green on all three lanes and refrozen; `RESULTS.md`
+  regenerated over all ten archives with both hosts now stamped 2026-08-31.
+- **Every mover is explained — finding (aj).** Medians 0.994–1.002 across all five lanes. The two
+  candidate regressions were each settled by an A/B against the old commit rather than by argument,
+  and they came out opposite ways: the CPU scalar `fft` shift is NOT the package (old and new code
+  measure identically today, so it is the §4(p) measurement-environment class), while the ROCm
+  vector `fft` slowdown IS the package (decision 76, 1.39–1.61× at ``64^3``).
+- **The triage notes are corrected.** The `exponential_convolve!` known-flag entry was DELETED, its
+  condition fully resolved on both hosts — a note whose premise has expired is worse than no note.
+  The `weighted_inner` entry now says what is actually left: only the ``64^3`` rows, carrying ~1.1 ms
+  against a 1 ms floor, overhead-bound rather than the finding-(ac) pathology. The radial shell
+  binning remains the only section-A unexplained, which is the intended pressure.
 
 *Method note, kept because getting it wrong destroys data:* `characterize.jl` **overwrites** the
 archive it is given, so measure into a SEPARATE file and merge. Verify the merge in **both
@@ -1907,7 +1888,7 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
-- **IT's 2026-08-29 codegen report — item 2 DONE, item 3 prototyped and half-rejected** (the synced request is
+- **IT's 2026-08-29 codegen report — item 2 DONE, item 3 CLOSED as measured-and-declined (2026-08-31)** (the synced request is
   `GBGIsotropicTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
   serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2) is DONE (2026-08-30, decision 79):** the
   exponential family's ``R \ge 1`` forms run a decision-38 kernel pair evaluating `exp` ONCE per
@@ -1937,13 +1918,51 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   corrected expectation: the port gains ~nothing at production thread counts on EITHER fleet host —
   its remaining value is the ``1.2``–``1.6\times`` at one/two threads (their 23 GB/s at t1 against
   a ~32–36 roof leaves perhaps ``1.3\times``), and IT runs production at 16–20 threads, so the
-  consumer case is weak. The trigger stays a run of this prototype on the 12700K (bundle with the
-  next Aiporetne session), now to CONFIRM saturation rather than to unlock a port; unless t1-heavy
-  usage appears, expect this to close as measured-and-declined. The port itself, if
-  triggered, is a ONE-body restructuring of `_fiberwise_pass!`'s CPU loop — the highest-blast-radius
+  consumer case is weak. **CLOSED as measured-and-declined 2026-08-31**, the 12700K run having been
+  taken on `Aiporetne` and confirmed the expectation: out of cache the restructured arm is
+  ``1.03``–``1.05\times`` at t1 for `Float64` and ``1.06``–``1.42\times`` for `Float32`, falling to
+  ``1.01``–``1.03\times`` at t4 and ``0.99``–``1.00\times`` at t8, with `bitwise=true` in all 36
+  cells. The script's own verdict rule — hand ``\approx`` simd ``\approx`` package at t4/t8 out of
+  cache — is therefore met on a second microarchitecture, and **option 2 is dead**: `@simd` is
+  indistinguishable from the plain restructuring everywhere, so the two-body no-alias fast path must
+  not be built. The single real win is `Float32` `mul!` at ONE thread (``1.42\times`` at ``256^3``),
+  and the bandwidth column explains why it does not survive: the package call sits at 20.3 GB/s there
+  against the hand loop's 28.7, while by t4 both arms read 27–28 GB/s. Note the honest limit of the
+  claim — what is measured is that restructuring gains nothing at t4/t8, which is the decision
+  criterion; DRAM saturation is the likely mechanism but the ratio, not the roof, is what the verdict
+  rests on. `benchmark/study_fiberwise_simd.jl` has answered its question and is deletable.
+  Full figures in PERFORMANCE.md finding (aj). The port itself, if it were ever
+  re-triggered, is a ONE-body restructuring of `_fiberwise_pass!`'s CPU loop — the highest-blast-radius
   engine in the package, so it takes the full battery, but no second body and no new contract. Also in the file, take-or-leave: no FMA anywhere on CPU, KA's
   ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
   copies a rocFFT native scale factor could fold.
+
+- **Decision 76 costs on ROCm what it gained on the host — INVESTIGATE (recorded 2026-08-31, found
+  by the first AMD sweep to stage it).** The rank-free plans apply a transform per contiguous
+  component. On the host that WON, up to ``2.4\times`` on vector transforms at ``512^3`` `Float32`.
+  On the device it LOSES: an A/B against the pre-decision commit, both arms measured back-to-back on
+  an idle card, reads ``1.39``–``1.61\times`` slower for vector transforms at ``64^3`` and
+  ``1.24``–``1.28\times`` at ``512^3`` `Float32`, with the intermediate grids washing out at
+  ``0.84``–``1.16\times``. Scalar transforms are flat, which is the signature that names the cause:
+  the change touches only multi-component fields. The mechanism is in decision 76's own text — on a
+  device the per-component path goes through **a component buffer**, so three launches plus staging
+  replace one batched plan, which is launch-bound at ``64^3`` and bandwidth-bound at ``512^3``.
+
+  **Two cautions before anyone acts.** The archive-to-archive diff OVERSTATES it at ``512^3``
+  (``1.759\times`` against the A/B's ``1.275\times``), because those allocating device rows are
+  process-history-sensitive — finding (y), which this sweep extended to the device at ``1.74\times``
+  for one row on identical code. And the canary is blind here: its `fft` mechanism is `to_physical!`
+  SCALAR at ``128^3``, exactly the configuration the decision leaves alone, so all three lanes read
+  green through this. Any fix must add a device vector-transform mechanism to that lane, or the next
+  regression on this axis is equally invisible.
+
+  **What is NOT yet known**, and should be measured before designing anything: whether the staging
+  buffer can be avoided for a fiber-contiguous field (invariant 3 makes component slices contiguous,
+  so the batched plan may be recoverable on device without giving up decision 76's rank-freedom), and
+  whether CUDA shows the same sign — no NVIDIA A/B has been taken, and decision 76 shipped verified
+  on that vendor alone. Both hosts would need to agree before a route is chosen. Decision 76 is
+  correct and stays; this is a performance question about how it reaches the device, not a
+  correctness one, and the ROCm suite is green at 454/454 throughout.
 
 - **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
   (recorded 2026-08-23, user-directed).** Decision 70 stopped `laplacian!`, `inverse_laplacian!`,

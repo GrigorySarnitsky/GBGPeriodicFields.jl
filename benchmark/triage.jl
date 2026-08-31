@@ -46,8 +46,7 @@ const TRIAGE_KNOWN = (
   ("lpnorm", "deliberate materializer — invariant 13's documented exception list"),
   ("radial_correlation", "materializes its power field + inverse transform by design — decision 22"),
   ("cross-correlation", "the radial_correlation co-spectrum form — same materialization"),
-  ("weighted_inner", "the finding-(ac) pathology, FIXED 2026-08-30; the 9800X3D lanes are re-swept (2026-08-31) and clean — remaining flags are the 12700K archives, stale until that host re-sweeps"),
-  ("exponential_convolve!", "the VECTOR extrusion is FIXED by decision 79 (2026-08-30); flags on the stale 12700K archives close when that host re-sweeps"),
+  ("weighted_inner", "the finding-(ac) pathology, FIXED 2026-08-30; BOTH hosts are now re-swept (2026-08-31) and the pathology is gone — the only surviving flags are the 64^3 rows, which carry ~1.1 ms of work against a 1 ms floor and are overhead-bound, not the pathology"),
 )
 
 _known_note(key) = begin

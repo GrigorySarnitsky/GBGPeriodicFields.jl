@@ -1667,6 +1667,71 @@ was backwards for a sweep-seeded set and has been corrected. The visit order giv
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(aj) The 2026-08-31 Aiporetne re-sweep: the CPU half is intended fixes and nothing else, and the
+ROCm half found a cross-backend regression no AMD run had staged** (this host's first sweep since
+2026-08-07, so decisions 63–79 enter its archives at once; the Enteropia twin is finding (ai)).
+Medians against the previous archives: CPU t1/t2/t4/t8 ``0.997``/``0.994``/``0.996``/``0.995`` over
+664 rows each, GPU ``1.002`` over 581. The harness reproduces itself, and the movement is confined to
+the changed operations.
+
+The movers each match a recorded mechanism. The `transfer` class median is ``0.92``–``0.95`` on all
+four CPU lanes, the decision-78 wrap walk, with `interpolate! CatmullRom` at ``0.35``–``0.49\times``.
+Vector `exponential_convolve!` runs ``3.2``–``3.9\times`` against a scalar twin at exactly
+``1.000\times``, which is decision 79's ``R \ge 1`` scope measured rather than asserted.
+`weighted_inner` gains ``2.5``–``7.3\times`` across every shape (finding (ac)), and the decision-76
+vector transforms up to ``2.4\times`` at ``512^3`` `Float32`. Canaries are green on all three lanes
+and refrozen.
+
+**Decision 76 is a cross-backend divergence, and this is its first AMD measurement.** The rank-free
+plans gaining up to ``2.4\times`` on host vector transforms COST on ROCm, a device applying the
+per-component path through a component buffer where the host applies it in place. An A/B against the
+old commit, both arms measured back-to-back on an idle card, gives ``1.39``–``1.61\times`` slower for
+vector transforms at ``64^3`` and ``1.24``–``1.28\times`` at ``512^3`` `Float32`.
+
+Scalar transforms stay flat at ``64^3`` (``1.00``–``1.09\times``), and that is the signature
+identifying the cause, decision 76 changing only how a multi-component field is transformed. At
+``64^3`` three launches plus staging replace one batched plan where launch cost dominates. The
+intermediate grids wash out at ``0.84``–``1.16\times``, so the cost sits at the launch-bound and
+bandwidth-bound extremes. The old code reproduces its own 2026-08-07 archive to within 1%, which is
+what licenses the comparison.
+
+**The canary cannot see it.** That lane's `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
+exactly the configuration decision 76 leaves alone and one grid away from both regressed extremes, so
+all three lanes read green through a ``1.6\times`` device regression. A canary is a fixed sample of
+mechanisms, and this is the cost when the sample misses an axis: the archive diff found the
+regression, not the guard built to catch regressions.
+
+**Finding (y) extends to the device, and is larger there.** The ``512^3`` `Float32`
+`to_spectral vector` row measures 45.2 ms when the `fft` class runs after `algebra`, `convolution`
+and `operators`, and 25.9 ms when it runs alone — ``1.74\times`` from process history on identical
+code. The archive diff therefore reads ``1.759\times`` for that row where the controlled fft-only A/B
+reads ``1.275\times``, so most of the apparent movement is artefact rather than regression. Device
+rows allocating a field-sized result per call join the five CPU rows §4(y) names.
+
+**A cross-vintage `fft` comparison is uninformative, now demonstrated rather than inferred.** The
+``256^3`` `Float64` SCALAR rows read ``1.14``–``1.17\times`` slower than the 2026-08-07 archive, yet
+the same rows measured from the OLD commit on today's host read ``0.99\times`` against the new code:
+identical code, ``+15``–``18\%`` against its own archive. The package did not touch scalar
+transforms, so the residual is the measurement environment, the §4(p) class. The current archives
+carry stamped platform state, so a recurrence is a diff rather than a reconstruction.
+
+Those rows also swing ``0.66``–``1.62\times`` across the four thread lanes in both archives,
+non-monotonically and differently in each, which is FFTW threaded-plan selection at that size. The
+``512^3`` twin scales cleanly and reads old ``\approx`` new in every lane.
+
+**The IT item-3 restructuring closes as measured-and-declined on the second host.** The standalone
+prototype at one, four and eight threads on the i7-12700K reproduces the 9800X3D verdict. Out of
+cache the hand-restructured arm runs ``1.03``–``1.05\times`` at t1 for `Float64` and
+``1.06``–``1.42\times`` for `Float32`, falling to ``1.01``–``1.03\times`` at t4 and
+``0.99``–``1.00\times`` at t8, with `bitwise=true` on every row. The `@simd` arm is
+indistinguishable from the plain one in all 36 cells, so option 2 is dead on a second
+microarchitecture and its bitwise proof burden buys nothing.
+
+The one real win is `Float32` `mul!` at a single thread, ``1.42\times`` at ``256^3``, and the
+bandwidth column shows why it vanishes: the package call sits at 20.3 GB/s there against the hand
+loop's 28.7, whereas by t4 both arms read 27–28 GB/s. The consumer runs production at 16–20 threads,
+so the port is declined.
+
 **(ai) The 2026-08-31 Enteropia re-sweep: five lanes, and every mover is an intended fix** (the
 first sweep since 2026-08-09/10, so decisions 76–79, the `weighted_inner` fix and the transfer work
 all enter the archives at once). Medians against the previous archives: CUDA 0.987 over 516 rows,
