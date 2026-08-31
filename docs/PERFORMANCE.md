@@ -1683,17 +1683,26 @@ vector transforms up to ``2.4\times`` at ``512^3`` `Float32`. Canaries are green
 and refrozen.
 
 **Decision 76 is a cross-backend divergence, and this is its first AMD measurement.** The rank-free
-plans gaining up to ``2.4\times`` on host vector transforms COST on ROCm, a device applying the
-per-component path through a component buffer where the host applies it in place. An A/B against the
-old commit, both arms measured back-to-back on an idle card, gives ``1.39``–``1.61\times`` slower for
-vector transforms at ``64^3`` and ``1.24``–``1.28\times`` at ``512^3`` `Float32`.
+plans gaining up to ``2.4\times`` on host vector transforms COST on ROCm. The mechanism is the
+per-component loop itself: `_forward_components!` issues one `mul!` per component, so a rank-1
+transform became three single-component plan executions where it had been one batched execution over
+three. An A/B against the old commit, both arms measured back-to-back on an idle card, gives
+``1.39``–``1.61\times`` slower for vector transforms at ``64^3`` and ``1.24``–``1.28\times`` at
+``512^3`` `Float32`.
 
 Scalar transforms stay flat at ``64^3`` (``1.00``–``1.09\times``), and that is the signature
-identifying the cause, decision 76 changing only how a multi-component field is transformed. At
-``64^3`` three launches plus staging replace one batched plan where launch cost dominates. The
+identifying the cause, decision 76 changing only how a multi-component field is transformed — a rank-0
+field is its own single component either way. The staging buffer is NOT involved: it is built only
+when `_component_offsets_align` reports an odd physical stride, and every measured grid is even. The
 intermediate grids wash out at ``0.84``–``1.16\times``, so the cost sits at the launch-bound and
 bandwidth-bound extremes. The old code reproduces its own 2026-08-07 archive to within 1%, which is
 what licenses the comparison.
+
+**Decision 76's own "the measured cost is nil or negative" was a HOST measurement**, taken against
+`FFTW` at one and eight threads. No device arm was measured then, and its two obstacles — the
+`UNALIGNED` flag and the odd-stride buffer — are both about *alignment*, which is a different question
+from *how many executions a transform costs*. The batched-to-per-component change is the part that
+crosses to the device, and it crossed unmeasured.
 
 **The canary cannot see it.** That lane's `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
 exactly the configuration decision 76 leaves alone and one grid away from both regressed extremes, so

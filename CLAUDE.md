@@ -1944,9 +1944,14 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   an idle card, reads ``1.39``–``1.61\times`` slower for vector transforms at ``64^3`` and
   ``1.24``–``1.28\times`` at ``512^3`` `Float32`, with the intermediate grids washing out at
   ``0.84``–``1.16\times``. Scalar transforms are flat, which is the signature that names the cause:
-  the change touches only multi-component fields. The mechanism is in decision 76's own text — on a
-  device the per-component path goes through **a component buffer**, so three launches plus staging
-  replace one batched plan, which is launch-bound at ``64^3`` and bandwidth-bound at ``512^3``.
+  the change touches only multi-component fields, a rank-0 field being its own single component
+  either way. **The mechanism is the per-component loop, NOT the staging buffer** — `_forward_components!`
+  issues one `mul!` per component, so a rank-1 transform became three single-component plan executions
+  where it had been one batched execution over three. The buffer is built only when
+  `_component_offsets_align` reports an odd physical stride (`device = iseven(physical_stride)`), and
+  every benchmark grid is even, so no measured row touches it. Decision 76's own "measured cost is nil
+  or negative" was a HOST measurement against `FFTW`; the batched-to-per-component change is the part
+  that crosses to a device, and it crossed unmeasured.
 
   **Two cautions before anyone acts.** The archive-to-archive diff OVERSTATES it at ``512^3``
   (``1.759\times`` against the A/B's ``1.275\times``), because those allocating device rows are
@@ -1956,9 +1961,10 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   green through this. Any fix must add a device vector-transform mechanism to that lane, or the next
   regression on this axis is equally invisible.
 
-  **What is NOT yet known**, and should be measured before designing anything: whether the staging
-  buffer can be avoided for a fiber-contiguous field (invariant 3 makes component slices contiguous,
-  so the batched plan may be recoverable on device without giving up decision 76's rank-freedom), and
+  **What is NOT yet known**, and should be measured before designing anything: whether a device can
+  keep decision 76's rank-freedom AND recover the single batched execution — the natural route is a
+  plan built once per rank on demand, or a backend that accepts a batch count at execution rather than
+  at plan time, since invariant 3 already makes the three components one contiguous block; and
   whether CUDA shows the same sign — no NVIDIA A/B has been taken, and decision 76 shipped verified
   on that vendor alone. Both hosts would need to agree before a route is chosen. Decision 76 is
   correct and stays; this is a performance question about how it reaches the device, not a
