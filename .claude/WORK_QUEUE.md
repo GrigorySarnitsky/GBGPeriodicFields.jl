@@ -155,3 +155,14 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] tile_size KEPT on the data; keyword/positional policy codified in CLAUDE.md §Style
 - [x] 137 + 454 + docs green; the gate caught a benchmark row broken since TransferOrder landed (fixed)
 
+## Open (2026-08-31, user-granted: THE BENCHMARK SESSION — the box is mine, run to completion)
+
+- [x] Box idle (load 0.00); all 21 archives backed up first
+- [x] CUDA lane swept: median 0.987, movers = decisions 78/79 + the alpha-association fix only
+- [x] t1/t2/t4 swept: medians 1.000/0.999/1.000; weighted_inner 7.7x/14x/30x
+- [x] t8 split-swept TWICE: the first merge threw and an unconditional rm destroyed the parts (recorded in finding (ai)); re-swept into scratchpad, merged verified both directions (760 rows), benchmark/merge_parts.jl committed as the tool
+- [x] Every lane diffed and every mover explained; two micro-second cells noted as §4(u) jitter
+- [x] Canaries green x3; baselines refrozen (improvements refreeze too — a stale slow baseline hides the next regression)
+- [x] RESULTS.md over all ten; triage A 46->23 (only the radial-binning discovery unexplained, CONFIRMED on fresh lanes), B 91->33 all known/stale-host; the scalar exponential peer pair corrected to a non-declaration
+- [x] Finding (ai); committed and pushed
+

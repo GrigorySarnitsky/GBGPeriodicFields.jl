@@ -1667,6 +1667,36 @@ was backwards for a sweep-seeded set and has been corrected. The visit order giv
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ai) The 2026-08-31 Enteropia re-sweep: five lanes, and every mover is an intended fix** (the
+first sweep since 2026-08-09/10, so decisions 76–79, the `weighted_inner` fix and the transfer work
+all enter the archives at once). Medians against the previous archives: CUDA 0.987 over 516 rows,
+CPU t1/t2/t4/t8 1.000/0.999/1.000/0.998 over 632–760 — the harness reproduces itself, and the
+movement is confined to the changed operations.
+
+The movers, each matching its recorded mechanism: `weighted_inner` **7.7× at t1 rising to 59× at t8**
+(finding (ac) — the tuple form at ``512^3`` fell 1.47 s → 40 ms); `exponential_convolve!` vector
+1.5–2.3× on both backends (decision 79); the transfer gathers 1.1–2.9× unordered (the decision-78
+wrap walk; the `Lalescu(3,3)` device gather 0.35×), with the separable `convolve!` 1.47× on device
+from the α-association regrouping. Canaries green on all three lanes and refrozen — an intended
+improvement refreezes like an intended slowdown, since a stale slow baseline hides the next
+regression inside its tolerance band.
+
+The born-slow triage after the sweep: section A fell 46 → 23 flags and its only unexplained rows
+remain the radial shell binning, now confirmed flat on FRESH lanes (``\times 1.08`` at eight
+threads), so that discovery survives its first re-measurement; section B fell 91 → 33, all known,
+all on the stale 12700K archives. One triage entry was corrected in the process: the SCALAR
+exponential peer pair flagged the freshly-fixed code at ~20×, because that ratio measures the
+documented lazy-vs-stored tradeoff (one `exp` per mode, no fiber to amortize over) rather than a
+defect — the pair is now a recorded non-declaration, the vector pair staying as the defect-shaped
+guard.
+
+**And one self-inflicted loss, recorded so the next sweep does not repeat it**: the first t8 merge
+threw (assigning `tags` on an immutable struct) and an unconditional cleanup deleted the four part
+archives before the error was read — forty minutes of measurement destroyed by a `rm` that did not
+wait for verification. The re-run swept into the scratchpad, and `benchmark/merge_parts.jl` now
+exists: it verifies both directions and THROWS rather than half-succeeding, so cleanup has no
+excuse to run on faith.
+
 **(ah) The exponential fiber hoist — decision 79's measurements, kept here for the record**
 (2026-08-30). Before: the broadcast evaluated ``\exp(c |k|^2 [+ s \hat w])`` per output element.
 After: once per mode, reused across the fiber, bitwise identical. CPU ``256^3`` `Float64` vector:

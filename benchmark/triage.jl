@@ -46,8 +46,8 @@ const TRIAGE_KNOWN = (
   ("lpnorm", "deliberate materializer — invariant 13's documented exception list"),
   ("radial_correlation", "materializes its power field + inverse transform by design — decision 22"),
   ("cross-correlation", "the radial_correlation co-spectrum form — same materialization"),
-  ("weighted_inner", "the finding-(ac) pathology: serial CPU fold, FIXED 2026-08-30 — flags until the lanes are re-swept"),
-  ("exponential_convolve!", "IT item 2, recorded: the fiber-constant exp is evaluated per component — CLAUDE.md planned directions"),
+  ("weighted_inner", "the finding-(ac) pathology, FIXED 2026-08-30; the 9800X3D lanes are re-swept (2026-08-31) and clean — remaining flags are the 12700K archives, stale until that host re-sweeps"),
+  ("exponential_convolve!", "the VECTOR extrusion is FIXED by decision 79 (2026-08-30); flags on the stale 12700K archives close when that host re-sweeps"),
 )
 
 _known_note(key) = begin
@@ -141,9 +141,15 @@ function triage_section(groups; flat_ratio = 1.1, floor_ns = 1.0e6, outlier_rati
     ("weighted_inner vec", "inner spectral", 4.0,
      "the weighted_inner docstring: \"the same traffic as one spectral `inner`\""),
     ("exponential_convolve! vector", "convolve! vector", 5.0,
-     "the lazy exponential kernel is one convolve-shaped pass (decision 33); IT items 2 re-prices the exp cost"),
-    ("exponential_convolve! scalar", "convolve! scalar", 5.0,
-     "the lazy exponential kernel is one convolve-shaped pass (decision 33)"),
+     "the VECTOR pair is defect-shaped: with the decision-79 hoist the exp amortizes over the fiber, so a large ratio means the extrusion is back"),
+    # The SCALAR pair is deliberately NOT declared. Its ratio measures the documented lazy-vs-stored
+    # tradeoff — one exp per mode against a pure stream, which the exponential_convolve! docstring
+    # prices explicitly ("choose between this and a stored kernel by reuse") — and with one component
+    # there is no fiber to amortize over, so the ratio is large by DESIGN and shrinks only with
+    # thread count. The first version declared it, and the freshly re-swept 9800X3D lanes flagged it
+    # at ~20x at t2 — a correctly-working operation reported as a violation, which is the
+    # class-median mistake in a smaller box. IT item 2's take-or-leave tail (a vectorized exp) is
+    # the recorded lever on this cost.
   )
   peer_rows = Vector{NTuple{7, Any}}()
   for (label, group) in groups, class in classes
