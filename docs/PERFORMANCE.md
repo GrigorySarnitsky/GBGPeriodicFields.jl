@@ -1706,6 +1706,26 @@ Vector ``1.11``–``1.35\times`` against a flat scalar control is what ROCm show
 ``1.15``–``1.61\times``, so the per-component loop costs on both vendors. The roadmap item's own
 precondition — both hosts agreeing before a route is chosen — is therefore met.
 
+**But the cost is confined to ``64^3``, and the first version of this finding did not say so because
+it had only measured there.** Extending the same A/B to ``128^3`` and ``256^3`` — same arms, same
+flags — the vector rows run flat or FASTER against scalar controls at ``0.98``–``1.00``:
+
+| vector, new/old | ``128^3`` `Float32` | ``128^3`` `Float64` | ``256^3`` `Float32` | ``256^3`` `Float64` |
+|---|--:|--:|--:|--:|
+| `to_spectral` | ``1.03`` | ``1.03`` | ``0.94`` | ``1.00`` |
+| `to_physical` | ``0.93`` | ``0.96`` | ``0.90`` | ``1.00`` |
+| `to_physical!` | ``0.87`` | ``0.96`` | ``0.89`` | ``1.00`` |
+
+Read the in-place row first: it carries hundreds of samples GC-free, where the two allocating verbs
+run at three samples with a per-sample collector in BOTH arms — comparable, but coarse.
+
+That grid dependence is what the mechanism predicts. Three plan executions where there was one is a
+FIXED cost per call, decisive when the transform itself takes ``\approx 20`` us and invisible when it
+takes milliseconds. ROCm agrees, its intermediate grids washing out at ``0.84``–``1.16\times``. So
+the per-component loop costs on both vendors at ``64^3`` and is neutral-to-positive on both across
+the ``256^3``–``512^3`` production band decision 37 names, which makes the roadmap item a small-grid
+inefficiency rather than a regression against the grids that matter.
+
 **Decision 78's walk does not regress on this card; it wins in every cell.** All 24 gather and
 scatter cells over two grids, two element types and three stencil widths land at or below
 ``1.002\times``, the scatter rows moving less (``0.77``–``1.00``) than the gather:

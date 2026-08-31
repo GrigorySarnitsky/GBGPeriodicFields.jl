@@ -1380,10 +1380,14 @@ Check `hostname`; on `Aiporetne` this is not actionable. Both open A/Bs ran, and
 surfaced while running them. The record is `docs/PERFORMANCE.md` findings (al) — the A/B — and (ak),
 the stale visit order. Nothing here is actionable again until the next sweep.
 
-- **Decision 76 regresses on CUDA too, so it is cross-vendor.** Vector transforms run
-  ``1.11``–``1.35\times`` slower at ``64^3`` against eight scalar controls flat at
-  ``0.99``–``1.01\times`` — the same signature ROCm gave at ``1.15``–``1.61\times``. The roadmap
-  item's own precondition, both hosts agreeing before a route is chosen, is therefore met.
+- **Decision 76 regresses on CUDA too, so it is cross-vendor — but ONLY at ``64^3``.** Vector
+  transforms run ``1.11``–``1.35\times`` slower there against eight scalar controls flat at
+  ``0.99``–``1.01\times``, the same signature ROCm gave at ``1.15``–``1.61\times``. Extending the A/B
+  to ``128^3`` and ``256^3`` puts the vector rows at ``0.87``–``1.03\times`` — flat or FASTER — and
+  ROCm's intermediate grids wash out likewise. Three plan executions where there was one is a fixed
+  per-call cost: decisive at ``\approx 20`` us, invisible at milliseconds. **So the roadmap item is a
+  small-grid inefficiency, not a regression at the production band**, and should be re-prioritised
+  accordingly rather than treated as the cross-vendor regression the handover framed.
 - **Decision 78's walk does NOT regress on CUDA; it wins in every cell.** All 24 gather and scatter
   cells sit at or below ``1.002\times``, `Lalescu(3,3)` reaching ``0.46\times``. **The falsifiable
   prediction FAILED**: ``256^3`` `Float32` (67 MB) was predicted to regress harder on this card's
@@ -2004,8 +2008,16 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
   copies a rocFFT native scale factor could fold.
 
-- **Decision 76 costs on ROCm what it gained on the host — INVESTIGATE (recorded 2026-08-31, found
-  by the first AMD sweep to stage it).** The rank-free plans apply a transform per contiguous
+- **Decision 76 costs a device vector transform at ``64^3`` on BOTH vendors, and nothing above it —
+  LOW PRIORITY (recorded 2026-08-31 from the AMD sweep; scoped by the CUDA A/B the same day).**
+  **Read this scoping first:** the cost is a SMALL-GRID one. On CUDA the ``64^3`` vector rows run
+  ``1.11``–``1.35\times`` slower, and at ``128^3``/``256^3`` they run ``0.87``–``1.03\times`` — flat
+  or faster — against scalar controls at ``0.98``–``1.00``; ROCm's intermediate grids wash out the
+  same way. Three plan executions where there was one is a fixed per-call cost, decisive against a
+  ``\approx 20`` us transform and invisible against a millisecond one. Since decision 37 names the
+  beyond-VRAM grids as the tuning target, **this is an inefficiency at a grid nobody tunes for**, not
+  a regression against the production band, and it should be weighed against the host gain below
+  rather than treated as a defect needing a route. The rank-free plans apply a transform per contiguous
   component. On the host that WON, up to ``2.4\times`` on vector transforms at ``512^3`` `Float32`.
   On the device it LOSES **at ``64^3``, and that is the only grid where the attribution is
   established**: an A/B against the pre-decision commit, both arms back-to-back on an idle card,
