@@ -1417,6 +1417,19 @@ before trusting it**: some old-code device transfer runs produce a size-independ
 floor across many rows (20331 us for a gather whose archive reads 627.8), cause unidentified, and it
 appeared in the arms including `Float32`.
 
+**The benchmark code across that commit range was checked and is safe to A/B, with one caveat.**
+`benchmark/harness.jl` is byte-identical (so the point set, the field construction and `bench_sync`
+all match), and `transfer.jl` and `fft.jl` are purely ADDITIVE — zero removed or modified lines, the
+new vector and ordered rows taking new names — so a same-named row means the same workload in both
+arms. But `characterize.jl` differs substantially: the old `_apply_gcsample_policy!` excluded a row
+from `tune!` when `benchmark.params.evals == 1`, which is BenchmarkTools' default and therefore true
+of every untuned row, so the old driver tunes nothing while the new one tunes all but the capped
+rows. That changed nothing here — the reported rows came out at identical `evals` and `samples` in
+both arms (`evals=1, samples=10000` for the ``256^3`` gather; `evals=1, samples=168` for the ``64^3``
+transform), `tune!` leaving `evals` at 1 for any operation this long. **Check `t.params.evals` and
+`t.params.samples` on both arms before believing a short-row result**, where that difference would
+bite.
+
 **Two smaller items while there.** Resolve the CUDA test count — the handover claimed 454, this file's
 own figure says **422** at 2026-08-27, and ROCm now reads 454; re-measure rather than repeat either.
 And the canary cannot see regression 2 (its `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
