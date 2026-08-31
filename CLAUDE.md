@@ -1375,66 +1375,69 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
-**ENTEROPIA — QUEUE OPEN as of 2026-08-31 (handed over from Aiporetne at `b56c9076`).** Check
-`hostname`; on `Aiporetne` this is not actionable. `git pull` first. The 2026-08-31 Aiporetne sweep
-found **three regressions, all measured on ROCm only**. Both causing decisions shipped verified on
-CUDA alone, so nobody knows whether the sign is the same on NVIDIA. That is this queue.
+**ENTEROPIA — the queue is CLOSED (run 2026-08-31 on this host; the handover was `225d3581`).**
+Check `hostname`; on `Aiporetne` this is not actionable. Both open A/Bs ran, and a third defect
+surfaced while running them. The record is `docs/PERFORMANCE.md` findings (al) — the A/B — and (ak),
+the stale visit order. Nothing here is actionable again until the next sweep.
 
-**The three regressions, with the code that caused them:**
+- **Decision 76 regresses on CUDA too, so it is cross-vendor.** Vector transforms run
+  ``1.11``–``1.35\times`` slower at ``64^3`` against eight scalar controls flat at
+  ``0.99``–``1.01\times`` — the same signature ROCm gave at ``1.15``–``1.61\times``. The roadmap
+  item's own precondition, both hosts agreeing before a route is chosen, is therefore met.
+- **Decision 78's walk does NOT regress on CUDA; it wins in every cell.** All 24 gather and scatter
+  cells sit at or below ``1.002\times``, `Lalescu(3,3)` reaching ``0.46\times``. **The falsifiable
+  prediction FAILED**: ``256^3`` `Float32` (67 MB) was predicted to regress harder on this card's
+  ``\approx 48`` MB L2 than on the 7900 XTX's 96 MB Infinity Cache, and it WINS at ``0.90\times``.
+  The weaker monotone claim fails too, `CatmullRom`'s win growing with the working set while
+  `Lalescu(3,3)`'s shrinks. Finding (aj)'s cache-boundary account is corrected in place: it describes
+  the ROCm measurements and is not a property of the walk. **The AMD regression is vendor-specific
+  and now has no mechanism** — that question is Aiporetne's, below.
+- **The old arm this queue named was the WRONG COMMIT, and the queue's own caveat caught it.**
+  `93d9d8da` predates `d5f6814a`, which repaired the CUDA `gcsample` probe (§4(w)), so every row
+  measured there ran on the per-sample collector: three samples with `gcsample = true` against 668
+  GC-free in the new arm. That compares two measurement disciplines rather than two versions of a
+  kernel, and it would have reported the new code faster for the wrong reason. The arm was rebuilt at
+  `ef70e913` — the last commit before decision 76 and after the probe repair — with `GPUCompiler`
+  pinned to 2.4.1 in both. **Compare per-row `evals`, `samples` and `gcsample` before believing any
+  arm**; that is the check that fired.
+- **Still open here, and deliberately NOT run** (consent-gated): the CUDA test count. This file says
+  **422** at 2026-08-27 and the ROCm handover claimed 454 — re-measure rather than repeat either.
+  Decision 76 being confirmed on both vendors, the canary also still needs a device
+  vector-transform mechanism; its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
+  configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-| # | code | config | ROCm slowdown | cause |
-|:--|:--|:--|:--|:--|
-| 1 | `_interpolate_kernel!`, `src/Interpolation.jl` | `interpolate! CatmullRom`, ``256^3`` `Float64` | ``1.74\times`` | decision 78's `_wrap_step` walk |
-| 2 | `_forward_components!` / `_inverse_components!`, `src/Fields.jl` | vector `to_spectral`/`to_physical`, ``64^3`` | ``1.15``–``1.61\times`` | decision 76's per-component loop |
-| 3 | the same walk, through the NUFFT spread path | `anterpolate! NUFFT` | ``1.05``–``1.15\times`` | decision 78's `_wrap_step` walk |
+**AIPORETNE — TWO ITEMS OPEN, filed 2026-08-31 from Enteropia** (the sweep queue below that date is
+closed and stays closed; these are new). Check `hostname`; on `Enteropia` neither is actionable.
 
-Regression 3 already reproduces on the 9800X3D CPU in all four thread lanes, so it is cross-backend
-and needs no further confirmation — only 1 and 2 are open.
+**(1) Five of this host's archives report a benchmark defect rather than a measurement, and only
+this host can repair them.** The `ordered` transfer rows timed a STALE visit order — the class shared
+one `PointSet` between its `displace!`/`wrap!` rows, which mutate positions in place, and the
+`ordered` rows, whose order was built from those positions (`PERFORMANCE.md` finding (ak)). The
+harness is fixed and Enteropia's five archives are repaired; `cpu-12700k-t{1,2,4,8}` and
+`gpu-rx7900xtx` are not, so `RESULTS.md` currently reports decision 78's visit order as a **loss** in
+those five columns where it is a ``3``–``4\times`` win. Steps:
 
-**Run these three A/Bs on the 5070 Ti** (`93d9d8da` predates both decisions and is the old arm for
-each):
+1. `git pull`, then run the gate on both backends: `julia --project=benchmark benchmark/gate.jl` and
+   the `rocm` arm. Every transfer point set must report unmutated; that is the invariant that broke.
+2. Re-measure the **transfer class only** on each of the five lanes —
+   `CHAR_SKIP=fft,algebra,operators,convolution,reductions,storage` — into a SEPARATE file per lane,
+   never over the archive. The `-t8` lane needs no split here; §4(q) is `Enteropia`-specific.
+3. Splice each with `julia --project=benchmark benchmark/replace_class.jl <archive> <fresh> transfer`.
+   It verifies every untouched row bit-identical, refuses a row-set mismatch, and restores from its
+   backup on failure. **A splice is only honest while the package is unchanged between the two
+   measurements** — confirm `git diff <the archive's commit tag> HEAD -- src/` is empty first, which
+   is what licensed it on Enteropia. If `src/` moved, re-sweep the lane instead.
+4. Regenerate `RESULTS.md` over all ten archives, and delete the stale-`ordered` caveat paragraph
+   from `report.jl`'s header prose once no column carries one.
 
-1. **The gather.** `CHAR_SIZES=256 CHAR_TYPES=Float64` then `Float32`,
-   `CHAR_SKIP=algebra,convolution,fft,reductions,storage,operators`.
-2. **The transforms.** `CHAR_SIZES=64 CHAR_TYPES=Float64,Float32`,
-   `CHAR_SKIP=algebra,operators,convolution,transfer,reductions,storage`.
-3. **A ``128^3`` control for the gather**, same flags as (1) at `CHAR_SIZES=128`. On ROCm that grid
-   is FASTER (``0.75``–``0.92\times``); if the mechanism is right it should stay faster on CUDA too.
-
-**The falsifiable prediction, and it is sharper on this card.** Regression 1's sign tracks the field
-against the last-level cache: it is the working set exceeding cache that costs, because the walk
-serialises the stencil's address chain and so forfeits the memory-level parallelism that hides DRAM
-latency. The RX 7900 XTX has **96 MB** of Infinity Cache, the RTX 5070 Ti about **48 MB** of L2 — so
-**``256^3`` `Float32` (67 MB) should regress MORE on the 5070 Ti than the ``\approx 1.22\times`` it
-did on the AMD card**, where 67 MB still fitted. If it does not, the cache explanation is wrong and
-PERFORMANCE.md finding (aj) must be corrected.
-
-**Method, and it is not optional — two arms were discarded here for skipping it.** Both arms must use
-IDENTICAL `CHAR_SIZES`/`CHAR_TYPES`/`CHAR_SKIP`, so process history matches; an archive-to-archive
-diff is NOT adequate for the transfer class and called `interpolate! NUFFT` a ``1.474\times``
-regression that a matched A/B put at ``1.005\times``. **Verify the old arm against its own archive
-before trusting it**: some old-code device transfer runs produce a size-independent ``\approx 20`` ms
-floor across many rows (20331 us for a gather whose archive reads 627.8), cause unidentified, and it
-appeared in the arms including `Float32`.
-
-**The benchmark code across that commit range was checked and is safe to A/B, with one caveat.**
-`benchmark/harness.jl` is byte-identical (so the point set, the field construction and `bench_sync`
-all match), and `transfer.jl` and `fft.jl` are purely ADDITIVE — zero removed or modified lines, the
-new vector and ordered rows taking new names — so a same-named row means the same workload in both
-arms. But `characterize.jl` differs substantially: the old `_apply_gcsample_policy!` excluded a row
-from `tune!` when `benchmark.params.evals == 1`, which is BenchmarkTools' default and therefore true
-of every untuned row, so the old driver tunes nothing while the new one tunes all but the capped
-rows. That changed nothing here — the reported rows came out at identical `evals` and `samples` in
-both arms (`evals=1, samples=10000` for the ``256^3`` gather; `evals=1, samples=168` for the ``64^3``
-transform), `tune!` leaving `evals` at 1 for any operation this long. **Check `t.params.evals` and
-`t.params.samples` on both arms before believing a short-row result**, where that difference would
-bite.
-
-**Two smaller items while there.** Resolve the CUDA test count — the handover claimed 454, this file's
-own figure says **422** at 2026-08-27, and ROCm now reads 454; re-measure rather than repeat either.
-And the canary cannot see regression 2 (its `fft` mechanism is `to_physical!` SCALAR at ``128^3``,
-exactly what decision 76 leaves alone), so if these confirm on CUDA, the canary needs a device
-vector-transform mechanism or the next regression on this axis is equally invisible.
+**(2) Why is decision 78's device gather regression AMD-only?** Enteropia measured 24 of 24
+gather/scatter cells at or below ``1.002\times`` on the 5070 Ti, so the cache-boundary explanation
+finding (aj) offered is dead — it predicted a regression on that card at ``256^3`` `Float32` and got
+a ``0.90\times`` win, and the two schemes move in opposite directions across the same boundary. The
+``1.74\times`` on the 7900 XTX is real and was reproduced three times, and it now has **no
+mechanism**. The candidates need the card: how the AMDGPU backend schedules the walk's serialised
+address chain, and what occupancy that chain costs. Until one is established, the corner stays
+documented rather than fixed, as decision 78 already records.
 
 **AIPORETNE — the queue is CLOSED (run 2026-08-31 on this host; the handover was `b452fb17`).**
 All eight items ran. Nothing here is actionable again until the next sweep; the durable lessons are

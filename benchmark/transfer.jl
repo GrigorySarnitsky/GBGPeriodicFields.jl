@@ -5,9 +5,13 @@
 # overlap it with the next evaluation. A benchmark must not depend on a driver's internal
 # synchronisation anyway: assume nothing and sync the destination of every transfer row.
 
-function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
+# `registry`, when given, records this tag's point set and a pristine copy of its coordinates, so
+# `benchmark/gate.jl` can assert the invariant this class once broke: a row must not mutate state
+# another row's SETUP captured. Nothing else reads it, and it is `nothing` in every measured run.
+function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) where {T}
   field = scalar_phys(AT, T, grid)
   points, q, _ = point_setup(AT, T, grid)
+  registry === nothing || (registry[tag] = (points, copy(point_coordinates(points))))
   out = interpolate(field, points, CatmullRom)   # allocate the matching output once, reuse
   for (label, scheme) in (("trilinear", LalescuSpline(0, 0)), ("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(3, 3)))
     group["interpolate! $label | $tag"] = @benchmarkable (interpolate!($out, $field, $points, $scheme); bench_sync(point_values($out)))
@@ -55,13 +59,21 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag) where {T}
   # fused into the same pass, and `wrap!` alone prices the canonicalization. All are O(M) streaming
   # over (M, 3) arrays — bandwidth-trivial next to a gather, which is the point of measuring them:
   # the rows document that the boundary crossing costs nothing.
-  npart = npoints(points)
+  #
+  # These rows MUTATE their point set in place, and tune!/run execute every row in the group —
+  # so they take their OWN copy of the positions. Sharing `points` poisoned the ordered rows
+  # above: `visit_order` describes the initial positions, and ~10^4 samples of drift at c = 0.01
+  # left it a valid permutation with no locality, so every archived ordered row up to 2026-08-31
+  # timed a stale order (1.75 ms where a fresh order gives 0.49 ms — PERFORMANCE.md finding (ak)).
+  # The unordered rows never noticed: drifted-then-wrapped positions are as uniform as fresh ones.
+  motion_points = PointSet(copy(point_coordinates(points)))
+  npart = npoints(motion_points)
   v1 = VectorPointValues(AT(randn(T, npart, 3)))
   v2 = VectorPointValues(AT(randn(T, npart, 3)))
   v3 = VectorPointValues(AT(randn(T, npart, 3)))
   c = T(0.01)
-  group["displace! 1-term | $tag"] = @benchmarkable (displace!($points, ($c, $v1)); bench_sync(point_coordinates($points)))
-  group["displace! 3-term | $tag"] = @benchmarkable (displace!($points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($points)))
-  group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($points)))
-  group["wrap! | $tag"] = @benchmarkable (wrap!($points, $grid); bench_sync(point_coordinates($points)))
+  group["displace! 1-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1)); bench_sync(point_coordinates($motion_points)))
+  group["displace! 3-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($motion_points)))
+  group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($motion_points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($motion_points)))
+  group["wrap! | $tag"] = @benchmarkable (wrap!($motion_points, $grid); bench_sync(point_coordinates($motion_points)))
 end

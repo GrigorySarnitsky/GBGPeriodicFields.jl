@@ -1667,6 +1667,170 @@ was backwards for a sweep-seeded set and has been corrected. The visit order giv
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(al) The CUDA arm of the A/B finding (aj) handed over: decision 76 costs on BOTH vendors, and
+decision 78's device gather regression is AMD-only** (2026-08-31 on `Enteropia`; old arm
+`ef70e913`, both arms run back-to-back on an idle RTX 5070 Ti with matched
+`CHAR_SIZES`/`CHAR_TYPES`/`CHAR_SKIP`, so process history matches, and with the two dependency
+stacks pinned identical).
+
+**The old arm the handover named was the wrong commit, and the handover's own caveat is what caught
+it.** `93d9d8da` predates `d5f6814a`, which repaired the `gcsample` probe on CUDA (§4(w):
+`CUDA.available_memory` is not a binding there, so every row fell back to the per-sample collector).
+Measured from that commit the transfer rows run at three samples with `gcsample = true` against 668
+samples GC-free in the new arm — two measurement disciplines rather than two versions of a kernel,
+and an arm that would have reported the new code faster for the wrong reason.
+
+Comparing per-row `evals`, `samples` and `gcsample` is what surfaced it, which is the check the
+handover asked for. The arm was rebuilt at `ef70e913`, the last commit before decision 76 and after
+the probe repair, with `GPUCompiler` pinned to 2.4.1 in both.
+
+**Decision 76 regresses on CUDA, with the signature ROCm gave.** At ``64^3``:
+
+| vector, ``64^3`` `Float32` | old | new | ratio |
+|---|--:|--:|--:|
+| `to_spectral` | 22.0 us | 29.7 us | ``1.35\times`` |
+| `to_physical!` | 32.7 us | 40.1 us | ``1.23\times`` |
+| `to_physical` | 37.7 us | 45.0 us | ``1.20\times`` |
+| `to_physical!` scratch | 35.4 us | 42.2 us | ``1.19\times`` |
+
+| vector, ``64^3`` `Float64` | old | new | ratio |
+|---|--:|--:|--:|
+| `to_spectral` | 111.0 us | 126.1 us | ``1.14\times`` |
+| `to_physical!` | 122.1 us | 137.6 us | ``1.13\times`` |
+| `to_physical!` scratch | 127.0 us | 142.0 us | ``1.12\times`` |
+| `to_physical` | 130.7 us | 145.7 us | ``1.11\times`` |
+
+The eight scalar controls — the same four verbs at each element type — span ``0.99``–``1.01\times``.
+
+Vector ``1.11``–``1.35\times`` against a flat scalar control is what ROCm showed at
+``1.15``–``1.61\times``, so the per-component loop costs on both vendors. The roadmap item's own
+precondition — both hosts agreeing before a route is chosen — is therefore met.
+
+**Decision 78's walk does not regress on this card; it wins in every cell.** All 24 gather and
+scatter cells over two grids, two element types and three stencil widths land at or below
+``1.002\times``, the scatter rows moving less (``0.77``–``1.00``) than the gather:
+
+| gather, new/old | ``128^3`` `Float32` | ``128^3`` `Float64` | ``256^3`` `Float32` | ``256^3`` `Float64` |
+|---|--:|--:|--:|--:|
+| trilinear | ``0.72`` | ``0.78`` | ``0.93`` | ``0.85`` |
+| `CatmullRom` | ``0.95`` | ``0.93`` | ``0.90`` | ``0.89`` |
+| `Lalescu(3,3)` | ``0.56`` | ``0.46`` | ``0.62`` | ``0.86`` |
+
+**The falsifiable prediction fails, and the mechanism behind it does not generalise either.** Finding
+(aj) predicted that ``256^3`` `Float32` (67 MB) would regress WORSE on this card's ``\approx 48`` MB
+L2 than the ``\approx 1.22\times`` it cost on the 7900 XTX's 96 MB Infinity Cache, the field
+exceeding the smaller cache. It measures ``0.90\times``, a win.
+
+The weaker claim fails too: the sign is said to track the working set monotonically, and here
+`CatmullRom`'s win GROWS with it (``0.95\times`` at 8.4 MB to ``0.89\times`` at 134 MB) while
+`Lalescu(3,3)`'s SHRINKS (``0.46\times`` to ``0.86\times``), so two schemes move in opposite
+directions across the same boundary. The cache-boundary account describes the ROCm measurements and
+is not a property of the walk; (aj)'s statement of it is corrected in place.
+
+**What that leaves open.** The AMD gather regression is real and was reproduced three times there,
+and it is now known to be vendor-specific rather than a consequence of the walk. Naming its mechanism
+needs the card, so it is Aiporetne's; the candidates are the AMDGPU backend's handling of the
+serialised address chain and the occupancy that chain costs, and neither is testable from this host.
+Decision 78 stands unqualified on CUDA.
+
+**(ak) The benchmark's `ordered` transfer rows had been timing a STALE visit order since decision 78
+shipped, so `RESULTS.md` reported that feature as a LOSS while this file reported it as a
+``3.4\times`` win** (found 2026-08-31 on `Enteropia` while reading the transfer class for finding
+(al)'s A/B; it is a harness defect, and the package is not implicated).
+
+The class built `visit_order = transfer_order(grid, points)` and then handed the SAME `PointSet` to
+its `displace!` and `wrap!` rows, which move points in place. Every row in a group is executed many
+times before its own trial — by `tune!`, by the device `gcsample` probe, and by `run` — so the points
+had moved long before the ordered rows were timed.
+
+The `displace!` verb applies a FIXED per-point
+direction field, so this is a drift rather than a random walk: at ``c = 0.01`` over ``10^4`` calls each point
+translates by ``\approx 100``, some sixteen domain lengths, and by a different amount per point. The
+order stayed a valid permutation throughout, so nothing errored and no check fired; it simply stopped
+describing where the points were.
+
+**The unordered rows were never affected, which is why this survived.** Drifted-then-wrapped
+positions are as uniformly distributed as fresh ones, so the baseline every ordered row is compared
+against measured correctly the whole time.
+
+Witness on the RTX 5070 Ti, ``256^3`` `Float64`, 621378 points, `CatmullRom` gather:
+
+| | ms |
+|---|--:|
+| unordered, fresh points | 1.486 |
+| ordered, fresh order | 0.489 |
+| unordered, after the drift | 1.487 |
+| ordered, STALE order | 1.749 |
+| ordered, order rebuilt for the moved points | 0.487 |
+
+The archived row reads 1.756 ms against that stale 1.749, and the archived unordered row 1.497
+against 1.486 — the archive is reproduced by the DEFECT, not by the fix.
+
+**The repair moves only what it should.** Re-measuring the class with the motion rows on their own
+copy of the positions, medians of fresh over archived:
+
+| lane | control (88 rows) | motion (32) | `ordered` (32) |
+|---|--:|--:|--:|
+| CUDA | ``0.997`` | ``0.997`` | ``0.589`` |
+| CPU t1 | ``1.000`` | ``0.999`` | ``0.687`` |
+| CPU t2 | ``1.004`` | ``0.999`` | ``0.680`` |
+| CPU t4 | ``1.002`` | ``1.002`` | ``0.668`` |
+| CPU t8 | ``0.998`` | ``1.001`` | ``0.615`` |
+
+A second device confirmation came free: two transfer-only processes, one on the old harness and one
+on the new, reproduce every UNORDERED row to ``0.99``–``1.001`` while the ordered rows move
+``0.099``–``0.319``. The `transfer_order` build row also improves ``0.78``–``0.80\times`` on device,
+the same root cause — drifted coordinates saturate the tile index, so the counting histogram collides
+on a few boundary counters.
+
+**The sign flips**, and the repaired columns now agree with finding (ad)'s bespoke script, whose
+figures were right all along (``3.06\times`` here against its ``3.40``, and ``4.03`` against ``4.52``
+for the vector gather, the residual being density — 621 thousand points against its ``10^6``):
+
+| `interpolate! CatmullRom`, ``256^3`` `Float64` | unordered | ordered | speedup |
+|---|--:|--:|--:|
+| 9800X3D t1 (repaired) | 105.58 ms | 41.48 ms | ``2.55\times`` |
+| 9800X3D t8 (repaired) | 15.23 ms | 7.42 ms | ``2.05\times`` |
+| RTX 5070 Ti (repaired) | 1.49 ms | 0.49 ms | ``3.06\times`` |
+| 12700K t8 (still stale) | 35.65 ms | 45.66 ms | ``0.78\times`` |
+| RX 7900 XTX (still stale) | 1.54 ms | 1.81 ms | ``0.85\times`` |
+
+**The lesson is the contradiction, not the bug.** Two committed artefacts described one operation and
+disagreed by a factor of four for a day — `RESULTS.md` had the visit order costing 10–25%, finding
+(ad) had it saving ``3.4\times`` — and neither was read against the other, because a bespoke study
+and the standing harness are consulted at different moments and for different questions. Where both
+exist for one operation, the disagreement is itself a measurement: reconcile them, or one of them is
+wrong.
+
+**No existing instrument could have caught it, which is the second lesson.** The canary measures the
+package and builds its own state per mechanism, so it has no shared-mutation hazard — and no
+`ordered` mechanism either. `Pkg.test()` does not execute the benchmark suite. The tiny-grid gate
+runs every row once, which catches a row that no longer dispatches (the decision-60 class) but cannot
+see a difference that takes thousands of samples to develop.
+
+What catches this class is an assertion about the harness's OWN invariant — a row must not mutate
+state another row's setup captured — and `benchmark/gate.jl` now makes it one: it snapshots each
+transfer point set, runs every row once, and requires the coordinates unchanged. One `displace!` call
+already breaks it, so a single pass suffices. It was verified in BOTH directions rather than assumed:
+exit 0 with the fix (190 rows on CPU, 204 on CUDA), exit 1 with the fix reverted, naming both tags.
+
+**Only half the archives could be repaired here.** This host's five were re-measured and spliced with
+`benchmark/replace_class.jl`, which verified all 2930 untouched rows bit-identical; `Aiporetne`'s four
+`12700K` lanes and the `RX 7900 XTX` still carry the defect and are marked in `RESULTS.md` until that
+host repeats it. Splicing rather than re-sweeping is honest here **because `src/` is identical between
+the archives' commit and HEAD**, so the untouched rows measure the same package and the archive's
+`commit=` vintage tag stays truthful; had the package moved, the lane would have needed a full sweep.
+
+**A jitter result fell out of checking that splice, and it contradicts standing guidance.** Four
+independent `t1` measurements of identical code put `trilinear` at ``256^3`` `Float32` at 10.5, 12.8,
+17.1 and 12.3 ms — a ``1.62\times`` spread — with `CatmullRom` at ``1.49\times`` and `Lalescu(3,3)`
+at ``1.34\times``, while their `Float64` twins in the very same processes span ``1.04``–``1.06``.
+
+The three move together within a run and were monotone in run order, so this is per-process state and
+possibly drift rather than random scatter; the flat `Float64` twins rule out a machine-wide cause.
+The standing advice to compare at ``256^3`` or above does not cover those three rows, and
+`RESULTS.md` now says so.
+
 **(aj) The 2026-08-31 Aiporetne re-sweep: the CPU half is intended fixes and nothing else, and the
 ROCm half found a cross-backend regression no AMD run had staged** (this host's first sweep since
 2026-08-07, so decisions 63–79 enter its archives at once; the Enteropia twin is finding (ai)).
@@ -1730,6 +1894,13 @@ that exceeds the cache) ``1.74\times``. In cache there is little latency to hide
 arithmetic wins; out of cache the concurrency that hid DRAM latency is what was sold. `CatmullRom` is
 the scheme it bites, reading 64 nodes per point — the lowest arithmetic intensity of the family —
 where `Lalescu(3,3)` reads 512 and measures flat at ``0.98``–``1.05\times``.
+
+**That account is ROCm-only, and the CUDA arm falsified it — see finding (al).** It was written as a
+mechanism ("the sign tracks the working set against the last-level cache"), which makes a prediction
+for any card, and the prediction is wrong on the 5070 Ti: ``256^3`` `Float32` sits above that card's
+smaller L2 and still WINS at ``0.90\times``, and across the same boundary two schemes move in
+opposite directions. The measurements above stand as measurements of this card; the generalisation
+does not, and the AMD regression has no mechanism yet.
 
 **Two device rows are NOT regressions, though the archive diff called them so.** `interpolate! NUFFT`
 at ``256^3`` reads ``1.474\times`` against the archives and ``1.005``–``1.013\times`` in the matched

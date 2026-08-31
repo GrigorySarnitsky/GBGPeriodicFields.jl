@@ -31,7 +31,8 @@ const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "redu
 # `skip` drops whole classes before any of their fields/plans are built — required for the GPU
 # sweep, where merely *building* the fft class creates rocFFT plans (the gfx103x stall point); see
 # characterize.jl and docs/PERFORMANCE.md §6 gap 5.
-function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = String[])
+function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = String[],
+                     registry = nothing)
   suite = BenchmarkGroup()
   want(class) = !(class in skip)
   for class in CLASSES
@@ -44,7 +45,7 @@ function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = 
     want("algebra")    && add_algebra!(suite["algebra"], array_type, T, grid, tag)
     want("operators")  && add_operators!(suite["operators"], array_type, T, grid, tag)
     want("convolution") && add_convolution!(suite["convolution"], array_type, T, grid, tag)
-    want("transfer")   && add_transfer!(suite["transfer"], array_type, T, grid, tag)
+    want("transfer")   && add_transfer!(suite["transfer"], array_type, T, grid, tag; registry)
     want("reductions") && add_reductions!(suite["reductions"], array_type, T, grid, tag)
     want("storage")    && add_storage!(suite["storage"], array_type, T, grid, tag)
   end
