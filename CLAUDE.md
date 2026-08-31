@@ -1370,19 +1370,57 @@ those are the usual rot. Then the mechanical bar:
    in the suite; consumers: the integrating-factor state updates (2 passes per site saved, 6+6 per RK3
    step) and every exponential factor build IT's `velocity_factor!` used to pay per stage.
 
-**AIPORETNE — the ROCm queue is EMPTY as of 2026-08-23. Decisions 63–72 have now executed on that
-card.** Check `hostname` first; on `Enteropia` this item is not actionable. Nothing here is pending —
-what follows is the record of what was run, kept because the two vendor risks it was checking are the
-kind that recur.
+**AIPORETNE — the queue is FULL as of 2026-08-31 (handed over from Enteropia; the user runs the
+benchmarks there).** Check `hostname` first; on `Enteropia` this item is not actionable. Everything
+below is committed and pushed through `ea8b7480`+; `git pull` first, and let Dropbox finish syncing
+`benchmark/results/` (the raw archives are gitignored but the repo lives in Dropbox, which is how
+Enteropia's five fresh 2026-08-31 lanes reach this host — check their mtimes before regenerating any
+report). The queue, in run order:
 
-**All three queued items are closed.** *(1)* The **ROCm GPU suite reads 395/395**, exit 0, the same
-count as CUDA and up from 352 on 2026-08-06. *(2)* **`examples/gpu/rocm/HIST_ROCm.jl --smoke` exits
-0** — `‖∇·u‖_rel = 1.0e-07` at `Float32`, Parseval agreeing three ways (physical 0.664797, spectral
-`inner` 0.664797, `Σ E(k)` 0.6648) — so decision 66's four rewritten kernel-builder call sites are
-sound on AMD. *(3)* The **benchmark table is symmetric**: the `storage` class (11 row types, 66 rows)
-now fills the `GPU 7900XTX` column, and the four `reductions` rows decisions 71 and 72 added
-(`reality_residual` scalar/vector, `weighted_inner x3 separate`/`fused`) are filled on all five of this
-host's lanes. Findings are in `docs/PERFORMANCE.md` §7 gap 7 and finding (x), and in decisions 71–72.
+1. **Environment load checks, not just resolve** (the 2026-08-26 lesson: only LOAD catches all) —
+   `julia --project=test/gpu/rocm -e 'using AMDGPU, GBGPeriodicFields'`, same for
+   `--project=benchmark` and `--project=benchmark/gpu/rocm`; `Pkg.resolve` any that fail.
+2. **The ROCm GPU suite** — `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl`. The last run
+   (395, 2026-08-23) predates decisions **73–79**: displacement, family constructors, scheme
+   persistence, rank-free plans (no rocFFT run has EVER staged decision 76's per-component device
+   path), `inverse_curl`, the transfer visit order + wrap walk, and the exponential fiber hoist.
+   CUDA reads **454**; ROCm should match. Three ROCm-specific eyes: the `TransferOrder` validation
+   kernels (Int32 atomics + a device `cumsum` — both native on gfx1100, but this is their first AMD
+   run), the exponential kernel's `exp` on device including the complex-ŵ parity case, and
+   decision 76's staged odd-grid lane.
+3. **`examples/gpu/rocm/HIST_ROCm.jl --smoke`** — nothing else executes it, and the public surface
+   changed (decision 78's keywords). After a reboot, warm the card with a trivial kernel first —
+   cold comgr JIT looks like a hang; never kill a cold run.
+4. **The item-3 study, 15 minutes, BEFORE the sweeps** —
+   `benchmark/study_fiberwise_simd.jl` at `-t1`/`-t4`/`-t8` (header has commands and the verdict
+   rule). Expected: confirm the 12700K saturates its DDR4-2666 roof at t4/t8 and close IT item 3 as
+   measured-and-declined; only a broad t4/t8 win reopens the port.
+5. **The benchmark lanes** (each owns the machine; box idle, nothing else running):
+   - CPU: `julia -tN --project=benchmark benchmark/characterize.jl cpu
+     benchmark/results/cpu-12700k-tN.json` for N = 1, 2, 4, 8. A plain `-t8` lane is fine on THIS
+     host — the §4(q) FFTW segfault is Enteropia-specific.
+   - GPU: `julia --project=benchmark/gpu/rocm benchmark/characterize.jl rocm
+     benchmark/results/gpu-rx7900xtx.json`, then the 512³ `Float32` extra lane per §7
+     (`CHAR_SIZES=512 CHAR_TYPES=Float32 CHAR_SKIP=transfer,reductions`) into a SEPARATE file and
+     merge — `benchmark/merge_parts.jl` is the both-directions-verified merge tool (name the parts
+     `t8-part-<N>.json` in a scratch dir, or adapt its glob); characterize.jl OVERWRITES whatever
+     path it is given, and an unconditional cleanup after an unverified merge destroyed four sweeps
+     on Enteropia (finding (ai)) — delete parts only after the tool exits 0.
+   - **Diff every lane against its predecessor before moving on** (back the old archives up first);
+     expected movers and nothing else: `weighted_inner` ~8–60×, `exponential_convolve!` vector
+     1.5–2.3×, transfer gathers, separable `convolve!`; medians elsewhere ≈ 1.00.
+6. **Canaries** — `benchmark/regress.jl cpu` at `-t1` and `-t8` and `rocm`, then `--freeze` all
+   three with the reason (intended improvements refreeze like slowdowns; Enteropia's three lanes
+   were refrozen 2026-08-31 for the same changes).
+7. **`report.jl` over ALL TEN archives** (never `characterize.sh` — it drops the other host's
+   columns), then check the triage: the `weighted_inner` and `exponential_convolve!` known-flags
+   should VANISH once both hosts are fresh — **update the two `TRIAGE_KNOWN` notes in
+   `benchmark/triage.jl`** that still say "stale until that host re-sweeps" — and the radial-binning
+   rows should remain the only section-A unexplained (they are the open investigate item, expected
+   flat here too).
+8. **Commit ⇒ push everything**, including RESULTS.md, the refrozen baselines, the triage-note
+   update, the study verdict recorded in the CLAUDE.md item-3 entry, and a PERFORMANCE.md finding
+   for the sweep in the finding-(ai) shape (medians, movers, each explained).
 
 *Method note, kept because getting it wrong destroys data:* `characterize.jl` **overwrites** the
 archive it is given, so measure into a SEPARATE file and merge. Verify the merge in **both
