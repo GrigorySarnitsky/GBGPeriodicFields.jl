@@ -2077,6 +2077,24 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   Decision 76 is correct and stays; this is a question about how it reaches the device, not a
   correctness one, and the ROCm suite is green at 454/454 throughout.
 
+- **Reverse decision 78's width-8 scatter regression — the only SHIPPED regression the history hunt
+  found (recorded 2026-09-01; `PERFORMANCE.md` finding (am)).** `anterpolate! Lalescu(3,3)` at
+  ``512^3`` `Float64` costs ``1.45``–``1.48\times`` on the 9800X3D, on every thread lane, confirmed by
+  A/B against `7bbbc75a`. It is one cell — the same row is the 12700K's largest win — but it sits on
+  the CPU production grid decision 37 names, and a consumer using the widest stencil pays it.
+
+  **Do NOT fix it with a branch.** Conditioning the walk on scheme, rank, verb or host means a second
+  kernel body, which decision 47 records going silently dead. The target is an implementation that
+  keeps the walk's cheaper arithmetic **without serialising the address chain** — for instance
+  advancing a small block of stencil indices independently so several address streams stay in flight,
+  which is the property the `mod` form has and the walk gave up. Measure against BOTH arms across the
+  scheme × verb × grid × element-type product, not one verb: this regression exists precisely because
+  finding (ad) swept the gather and left the scatter at `CatmullRom`.
+
+  **Test the cache hypothesis while there**, since it now covers four platforms and would predict
+  where else this bites: the walk regresses on the two ``\approx 96`` MB last-level-cache platforms
+  and helps on the two ``\le 48`` MB ones. A third large-cache platform should regress.
+
 - **The retired-RX-6700-XT verdict cluster — RE-MEASURE (recorded 2026-08-31 by the adversarial
   claim audit; the largest remaining hole it found).** Four GPU verdicts in `PERFORMANCE.md` §4 rest
   on a card that left the fleet, and §4(v) — the section written to re-audit exactly that class —
@@ -2284,6 +2302,18 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   vectorizes and neither variant spills, so the loss is the walk saturating bandwidth sooner and
   forfeiting the memory-level parallelism independent indices keep, which is also the only story
   consistent with a sign that flips on thread count. Kept with the corner documented. Finding (ad) carries the swept table.
+
+  **THE CORNER IS BIGGER THAN THIS ENTRY SAYS, found 2026-09-01 (finding (am)).** Every figure above
+  is the GATHER; the width-8 **scatter** was never swept, and it costs **``1.45``–``1.48\times`` at
+  ``512^3`` `Float64` on the 9800X3D** — confirmed by A/B against `7bbbc75a`, on every thread lane
+  including ``t1``, where this entry claims the walk is 17–22% faster. It is ONE cell (widest stencil
+  × largest grid × `Float64` × that host); the rest of the class is ``0.73``–``1.11\times`` there and
+  ``0.56``–``0.95\times`` on the 12700K, where the same cell is the table's largest win. **The
+  working-set story above is superseded**: the walk regresses on the two ``\approx 96`` MB
+  last-level-cache platforms (9800X3D V-Cache, RX 7900 XTX Infinity Cache) and helps on the two
+  smaller ones (12700K, RTX 5070 Ti), and a 1 GB field fits none of them — so the split is by the
+  memory system's capacity to serve independent misses, not by residency. Still kept, still not
+  branched (decision 47), and the route to reversing it is in the roadmap.
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round

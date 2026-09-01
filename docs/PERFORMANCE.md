@@ -1571,7 +1571,12 @@ stencil of 2, 4, 6 and 8 nodes per axis, i.e. 8 to 512 nodes per point — the C
 | 8 (`LalescuSpline(3,3)`, `LagrangeSpline(3)`) | ``1.14\times`` | **``0.86\times``** |
 
 At eight nodes per axis the walk can be SLOWER, and the first two versions of this finding both
-described it wrongly. What survives adversarial re-measurement, interleaved and across seeds:
+described it wrongly. **A third correction landed 2026-09-01: the table below is the GATHER, and the
+width-8 SCATTER — which no version of this finding ever swept — is far worse, ``1.45``–``1.48\times``
+at ``512^3`` `Float64` on every thread lane. See finding (am); the qualifications immediately below
+describe the gather corner and do not carry over to it.**
+
+What survives adversarial re-measurement, interleaved and across seeds:
 
 - **The sign flips with thread count.** At one thread the walk is ``1.17``–``1.22\times`` FASTER on
   every width-8 scheme; the loss appears only from about four threads (``0.86``–``0.96\times`` at
@@ -1676,6 +1681,58 @@ docstring's original justification — that a solver's seeding order is usually 
 was backwards for a sweep-seeded set and has been corrected. The visit order gives
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
+
+**(am) A SHIPPED REGRESSION nobody had found: decision 78's walk costs ``1.45``–``1.48\times`` on the
+width-8 CPU scatter at ``512^3`` `Float64`, and the corner (ad) documents is not that corner**
+(2026-09-01, from a regression hunt over the committed history of `RESULTS.md` rather than over
+prose — the question being not whether a claim is worded well but whether anything shipped slower).
+
+**The measurement.** `anterpolate! Lalescu(3,3)` at ``512^3`` `Float64` on the 9800X3D sat at
+3350 ms (t4) for twenty consecutive sweeps and then stepped to 5135 ms at the first sweep carrying
+decisions 76–79. A direct A/B against `7bbbc75a`, the last commit before decision 78, reproduces it:
+**t4 3379 → 5005 ms (``1.48\times``), t1 12707 → 18419 ms (``1.45\times``)**, with each arm
+reproducing its own archive to within 3%. Decision 79 cannot touch a scatter, so the walk is the only
+candidate in the range.
+
+**It is one cell, and the scoping is the useful part.** Across scheme × grid × element type ×
+thread count on this host, everything else moved to ``0.73``–``1.11\times`` — flat or faster:
+
+| `anterpolate!`, after/before | 9800X3D (96 MB V-Cache) | 12700K (25 MB L3) |
+|---|--:|--:|
+| trilinear, ``512^3`` `Float64` | ``0.74``–``0.79\times`` | ``0.76``–``0.95\times`` |
+| `CatmullRom`, ``512^3`` `Float64` | ``0.95``–``0.97\times`` | ``0.59``–``0.83\times`` |
+| `Lalescu(3,3)`, ``256^3`` `Float64` | ``0.96``–``1.01\times`` | ``0.61``–``0.65\times`` |
+| `Lalescu(3,3)`, ``512^3`` `Float32` | ``1.00``–``1.11\times`` | ``0.56``–``0.64\times`` |
+| **`Lalescu(3,3)`, ``512^3`` `Float64`** | **``1.29``–``1.51\times``** | ``0.57``–``0.65\times`` |
+
+So the widest stencil, the largest grid, `Float64`, on ONE host — and on the other host that same cell
+is the largest WIN in the table. Nine smaller flags accompany it, all `NUFFT` on this host
+(``1.17``–``1.29\times``), which spreads through the same kernels and is plausibly the same effect at
+a smaller grid; that is unconfirmed.
+
+**Why it was missed, and it is the session's own failure mode again.** Finding (ad) swept the scheme
+axis and recorded a width-8 corner of "4–14%, above four threads, ``R = 1``" — but it swept the
+**gather**. The scatter was left at `CatmullRom`, so the width-8 scatter was never measured at all,
+and the corner as documented understates this cell by an order of magnitude and gets its thread
+dependence backwards: here every lane regresses, including ``t1``, where (ad) records the walk running
+``1.17``–``1.22\times`` FASTER. A sweep that covers one verb is not a sweep of the axis.
+
+**It also supplies the mechanism (aj) and (al) were left without, as a hypothesis worth testing.** The
+walk regresses on the 9800X3D (96 MB V-Cache) and the RX 7900 XTX (96 MB Infinity Cache), and helps on
+the i7-12700K (25 MB L3) and the RTX 5070 Ti (``\approx 48`` MB L2). The split is by last-level cache
+SIZE, not by vendor and not by whether the working set fits — a ``512^3`` `Float64` field is 1 GB and
+fits nothing.
+
+The reading that covers all four platforms: the walk serialises the stencil's address chain, and what
+that gives up is worth most exactly where the memory system could have served many independent misses
+at once. **It supersedes (aj)'s working-set account**, which (al) falsified without replacing, and it
+is falsifiable — a third large-cache platform should regress, a third small-cache one should not.
+
+**Not fixed, and deliberately.** Making the walk conditional on scheme, rank, verb or host means a
+second kernel body, which is what decision 47 records going silently dead; and the honest ledger is
+233 rows faster against 10 slower. The corner is now documented where it actually is. Reversing it
+needs the route the roadmap records: not a branch, but an implementation that keeps the cheaper
+arithmetic without serialising the chain.
 
 **(al) The CUDA arm of the A/B finding (aj) handed over: decision 76 costs on BOTH vendors, and
 decision 78's device gather regression is AMD-only** (2026-08-31 on `Enteropia`; old arm
