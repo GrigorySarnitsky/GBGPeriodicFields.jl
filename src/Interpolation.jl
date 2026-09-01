@@ -153,7 +153,7 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 """
     LalescuSpline(n, m = 1; T = Float64)
 
-Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned bit-for-bit to
+Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned to 1e-12 against
 the `beta_n{n}_m{m}` weights of TurTLE, the reference pseudospectral turbulence solver with Lagrangian
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the

@@ -2487,8 +2487,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ideal (and the audit immediately caught — and priced away — a first-component double pass in
     the new dims reducer, doing exactly its job). The switch changes reduction values once, in the
     last bits (a different, deeper summation tree), absorbed by the analytic oracles.
-    `weighted_inner` stays serial for now: its coefficient is the lazy cartesian ``|k|^2``, the
-    finding-(k) class, deferred with the exponential family's hoist. Measured honestly on the
+    `weighted_inner` stayed serial at the time of this decision — its coefficient being the lazy
+    cartesian ``|k|^2``, the finding-(k) class — and was moved onto this same fixed tree on
+    2026-08-30 (PERFORMANCE.md finding (ac)), so the deferral recorded here is discharged. Measured honestly on the
     2-channel desktop the gains are 10–25% at eight threads (serial streaming already sits near the
     read ceiling there); the beneficiary is the decision-37 node, where serial is a twelfth of the
     socket. Finally, `helmholtz_projection!` gains the decision-38-shape gated `::CPU` loop twin —

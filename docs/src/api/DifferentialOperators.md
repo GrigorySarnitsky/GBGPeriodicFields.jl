@@ -39,8 +39,9 @@ helmholtz_projection
 ## Internal API
 
 These symbols are not part of the public interface; they are documented for contributors — the
-coefficientwise spectral kernels each operator applies per mode, and the gated CPU loops that mirror
-them expression for expression so a threaded run agrees with a device one bitwise.
+coefficientwise spectral kernels each operator applies per mode, and the gated CPU loops — "gated" meaning a
+loop that consults the threading setting before splitting — that mirror them expression for
+expression so a threaded run agrees with a device one bitwise.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.DifferentialOperators]

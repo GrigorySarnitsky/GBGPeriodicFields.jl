@@ -222,7 +222,9 @@ end
 Return the element count at or above which a CPU field assignment is split across `Base.Threads`
 workers rather than run serially. Here an assignment is a fused elementwise write into field
 storage — the [`_assign!`](@ref) primitive behind the broadcast route, and the same gate guards the
-fused CPU loops behind the algebra and the differential operators, and the fixed-tree reductions. Two
+fused CPU loops behind the algebra and the differential operators, and the fixed-tree reductions
+(a reduction whose summation tree depends on the array length alone, so its value is the same at
+every thread count). Two
 groups of operations sit outside the gate and thread by `Threads.nthreads()` regardless (see the
 warning on [`with_threading`](@ref)): the grid↔point transfer and the radial reductions. The count is measured as the destination array's length (grid points
 times fiber components), and it applies on the CPU only, since GPU arrays are never threaded. The

@@ -83,7 +83,7 @@ translation_kernel!
 These symbols are not part of the public interface; they are documented for contributors — the
 coefficientwise convolution, combination and exponential-kernel bodies, the axis-factored pair that
 evaluates a separable kernel per mode, and the exponential kernel pair — a device kernel and its
-gated CPU twin — that evaluates the mode factor once per mode rather than once per component.
+gated CPU twin — "gated" meaning a loop that consults the threading setting before splitting — that evaluates the mode factor once per mode rather than once per component.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Convolution]

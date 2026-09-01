@@ -208,8 +208,8 @@ that one family (decision 42), and sub-Nyquist ``a = k``. Identities, each a one
 
 ```math
 \begin{gathered}
-\nabla\cdot(\nabla\times u) = 0\ \ \bigl(k\cdot(k\times\hat u)=0\bigr), \qquad
-\nabla\times(\nabla\phi) = 0\ \ \bigl(k\times \mathrm{i}k\hat\phi=0\bigr), \\
+\nabla\cdot(\nabla\times u) = 0\ \ \bigl(a\cdot(a\times\hat u)=0\bigr), \qquad
+\nabla\times(\nabla\phi) = 0\ \ \bigl(a\times \mathrm{i}a\hat\phi=0\bigr), \\
 \mathbb P^2 = \mathbb P, \qquad \nabla\cdot(\mathbb P u) = 0, \quad\checkmark
 \end{gathered}
 ```
@@ -290,10 +290,10 @@ Pinned in `test/adjointness.jl`.
 
 The **symmetric gradient** ``\operatorname{sym}\nabla`` (`symmetric_gradient`) is the **fused symmetric peer**
 of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its multiplier is the symmetric
-part of ``\nabla u``'s multiplier ``\mathrm{i}k_j\hat u_i``,
+part of ``\nabla u``'s multiplier ``\mathrm{i}a_j\hat u_i``,
 
 ```math
-\hat S_{ij} = \tfrac{\mathrm{i}}{2} (k_j\hat u_i + k_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
+\hat S_{ij} = \tfrac{\mathrm{i}}{2} (a_j\hat u_i + a_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
 ```
 
 formed without materializing the full gradient tensor and sharing the derivative-wavenumber Nyquist zeroing.
@@ -306,7 +306,7 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 ```math
 \hat g \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) \hat u = \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) (\hat g \hat u)
 \in \mathbb C^3, \qquad
-\hat g  \bigl(\mathrm{i}k\cdot\hat u\bigr) = \mathrm{i}k\cdot(\hat g \hat u) \in \mathbb C
+\hat g  \bigl(\mathrm{i}a\cdot\hat u\bigr) = \mathrm{i}a\cdot(\hat g \hat u) \in \mathbb C
 \qquad\checkmark
 ```
 

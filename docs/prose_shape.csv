@@ -55,7 +55,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 38",297,297,0
 "ARCHITECTURE.md § item 39",327,327,0
 "ARCHITECTURE.md § item 4",8,8,0
-"ARCHITECTURE.md § item 40",386,386,0
+"ARCHITECTURE.md § item 40",406,406,0
 "ARCHITECTURE.md § item 41",297,297,0
 "ARCHITECTURE.md § item 42",203,203,0
 "ARCHITECTURE.md § item 43",591,591,0
@@ -134,7 +134,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",735,210,1
 "Convolution.md § Convolution",8,8,0
 "Convolution.md § Convolution operations",61,28,0
-"Convolution.md § Internal API",70,60,0
+"Convolution.md § Internal API",82,72,0
 "Convolution.md § Kernel builders",94,86,0
 "Convolution.md § Kernel storage classes",317,107,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
@@ -168,7 +168,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
 "DifferentialOperators.md § DifferentialOperators",8,8,0
 "DifferentialOperators.md § First-order differential operators",10,10,0
-"DifferentialOperators.md § Internal API",56,45,0
+"DifferentialOperators.md § Internal API",69,58,0
 "DifferentialOperators.md § Projection operators",4,4,0
 "DifferentialOperators.md § Second-order differential operators",8,8,0
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
@@ -239,7 +239,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: section_scalar_type(section::AbstractFiberSection)",51,50,0
 "FiberSections.jl :: section_tensor_order(section)",32,31,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
-"FiberSections.jl :: threading_cutoff()",121,120,0
+"FiberSections.jl :: threading_cutoff()",142,141,0
 "FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",288,135,1
 "FiberSections.md § Fiber-section supertype",3,3,0
 "FiberSections.md § FiberSections",8,8,0
@@ -385,7 +385,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: DirectDFT()",472,178,1
 "Interpolation.jl :: Interpolation",741,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
-"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",400,198,0
+"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",509,186,1
 "Interpolation.jl :: TransferOrder(indices)",226,76,0
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
