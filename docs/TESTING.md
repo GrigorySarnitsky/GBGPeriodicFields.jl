@@ -1,7 +1,7 @@
-# Testing — GBGPeriodicFields
-
 !!! info "Written by AI, not regularly reviewed"
     This page is written by AI and is not reviewed regularly by a human.
+
+# Testing — GBGPeriodicFields
 
 This is one of four design documents — three rationale companions and the typed [`FORMALIZATION.md`](formalization.md) behind them: [`ARCHITECTURE.md`](architecture.md) explains why the
 *package* is built the way it is, [`PERFORMANCE.md`](performance.md) how it performs and is
@@ -155,7 +155,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `interpolation.jl` (the point-data types),
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `hdf5.jl` also covers **transfer-scheme persistence** (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
-  `displacement.jl` (base-space motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
+  `displacement.jl` (spatial motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
@@ -530,14 +530,14 @@ end-to-end (the derivative wavenumber zeroed vs the squared wavenumber kept at t
 Nyquist mode); M2 + M3 algebra and contractions in both representations, including the weighted
 combination `combine!` (physical + spectral, alias-safe) and the physical-only determinant `det`
 (against a per-point LU oracle, with its spectral absence asserted); the spectral
-zero-mode constant invariant; **transfer-scheme persistence** (decision 75) — the parameter round trip asserted with `===` and reinforced behaviourally, every malformed-group path refused for its own reason, and a perturbation-verified guard that a new scheme family cannot ship unpersistable; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
+zero-mode constant invariant; **transfer-scheme HDF5 persistence** (decision 75) — the parameter round trip asserted with `===` and reinforced behaviourally, every malformed-group path refused for its own reason, and a perturbation-verified guard that a new scheme family cannot ship unpersistable; the **allocating constructors** (decision 74) — each `(family, grid[, layout])` field
 type-identical to its data-built twin and to `similar_field` of that twin, across both element
 types, two layout folds, orders through ``R = 4``, the default-layout arity, a transform round trip
 through freshly allocated scratch, and the two refusals (a parameterized family disagreeing with the
 grid's element type; a complex parameter); the **point-value algebra** — the `Points` module's
 M2 + M3 mirror of the *physical* field surface (storage-wise broadcasting), checked per-point
 on CPU across `Float64`/`Float32` (`test/pointvalues_algebra.jl`) with the point-data types in
-`test/interpolation.jl`; **base-space motion** (`test/displacement.jl`, decision 73) — `displace!`
+`test/interpolation.jl`; **spatial motion** (`test/displacement.jl`, decision 73) — `displace!`
 against an independent raw-array oracle over both element types and one-to-three terms, the
 destination/source form with its source preserved and its aliased call agreeing, the fused torus
 arity bitwise-equal to cover-then-`wrap!`, in-box membership on an anisotropic box, the wrap

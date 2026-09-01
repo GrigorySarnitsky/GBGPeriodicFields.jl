@@ -1,4 +1,5 @@
 unit,words,longest_paragraph,admonitions
+"ARCHITECTURE.md § (preamble)",22,22,1
 "ARCHITECTURE.md § 1. Purpose and scope",329,264,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1523,248,0
 "ARCHITECTURE.md § 11. Convolution",529,375,1
@@ -11,7 +12,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 7. Aliasing policy",216,77,0
 "ARCHITECTURE.md § 8. Broadcasting",158,99,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading",700,219,0
-"ARCHITECTURE.md § Architecture — GBGPeriodicFields",174,82,1
+"ARCHITECTURE.md § Architecture — GBGPeriodicFields",152,82,0
 "ARCHITECTURE.md § Documentation policy",239,154,0
 "ARCHITECTURE.md § Layers",383,309,0
 "ARCHITECTURE.md § Naming conventions",298,237,0
@@ -72,7 +73,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 53",281,98,0
 "ARCHITECTURE.md § item 54",443,129,0
 "ARCHITECTURE.md § item 55",571,148,0
-"ARCHITECTURE.md § item 56",767,156,0
+"ARCHITECTURE.md § item 56",768,156,0
 "ARCHITECTURE.md § item 57",506,146,0
 "ARCHITECTURE.md § item 58",466,150,0
 "ARCHITECTURE.md § item 59",500,101,0
@@ -93,7 +94,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 72",990,128,0
 "ARCHITECTURE.md § item 73",861,861,0
 "ARCHITECTURE.md § item 74",611,611,0
-"ARCHITECTURE.md § item 75",714,714,0
+"ARCHITECTURE.md § item 75",716,716,0
 "ARCHITECTURE.md § item 76",885,207,0
 "ARCHITECTURE.md § item 77",302,262,0
 "ARCHITECTURE.md § item 78",1453,212,0
@@ -171,12 +172,13 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Internal API",69,58,0
 "DifferentialOperators.md § Projection operators",4,4,0
 "DifferentialOperators.md § Second-order differential operators",8,8,0
+"FORMALIZATION.md § (preamble)",22,22,1
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1440,248,0
 "FORMALIZATION.md § Declarations",659,376,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1080,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
-"FORMALIZATION.md § Formalization — GBGPeriodicFields",244,96,2
+"FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",511,107,0
@@ -409,6 +411,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Transfer-scheme types",8,8,0
 "Interpolation.md § Types",19,19,0
 "Interpolation.md § Visit order",35,31,0
+"PERFORMANCE.md § (preamble)",22,22,1
 "PERFORMANCE.md § 1. Philosophy",829,521,0
 "PERFORMANCE.md § 2. The performance model",845,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
@@ -416,7 +419,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 5. The benchmark suite",1102,637,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",973,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
-"PERFORMANCE.md § Performance — GBGPeriodicFields",97,75,1
+"PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
 "PERFORMANCE.md § finding (a)",105,59,0
 "PERFORMANCE.md § finding (aa)",346,123,0
 "PERFORMANCE.md § finding (ab)",537,95,0
@@ -539,15 +542,16 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Moments and order statistics",153,69,0
 "Reductions.md § Radial reductions",91,87,0
 "Reductions.md § Reductions",8,8,0
+"TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
 "TESTING.md § 2. Layout",1827,1827,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 5. GPU testing",234,141,0
 "TESTING.md § 6. Maintenance",294,294,0
-"TESTING.md § 7. Current coverage and known gaps",1688,1673,0
+"TESTING.md § 7. Current coverage and known gaps",1689,1674,0
 "TESTING.md § A GATE and a SURVEY, and how to tell which a test is",139,114,0
-"TESTING.md § Testing — GBGPeriodicFields",102,80,1
+"TESTING.md § Testing — GBGPeriodicFields",80,80,0
 "TESTING.md § item 1",15,15,0
 "TESTING.md § item 12",20,20,0
 "TESTING.md § item 13",8,8,0
@@ -561,22 +565,23 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0
 "TESTING.md § item 7",7,7,0
-"api.md § API overview",346,293,0
+"api.md § API overview",347,294,0
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0
-"index.md § GBGPeriodicFields.jl",303,120,0
+"index.md § GBGPeriodicFields.jl",324,120,0
 "index.md § Installation",88,48,0
-"index.md § Main components",350,350,0
+"index.md § Main components",360,360,0
 "index.md § Start here",39,39,0
 "notation.md § Base and fiber",609,559,0
 "notation.md § Conventions",316,316,0
 "notation.md § Notation",56,56,0
 "notation.md § Operators",285,285,0
 "notation.md § Scalar weights",246,167,0
+"tutorial.md § (preamble)",22,22,1
 "tutorial.md § Convolution (apply a Fourier kernel)",70,58,0
 "tutorial.md § Differential operators",143,60,0
 "tutorial.md § Fiberwise algebra and L²/measure reductions",212,61,0
-"tutorial.md § Getting started",101,45,1
+"tutorial.md § Getting started",79,45,0
 "tutorial.md § Grids and fields",82,47,0
 "tutorial.md § Points: interpolation and anterpolation",143,47,0
 "tutorial.md § Representations: physical ↔ spectral",176,115,0

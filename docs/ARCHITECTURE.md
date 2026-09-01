@@ -1,7 +1,7 @@
-# Architecture — GBGPeriodicFields
-
 !!! info "Written by AI, not regularly reviewed"
     This page is written by AI and is not reviewed regularly by a human.
+
+# Architecture — GBGPeriodicFields
 
 This document records the architecture of the package and, more importantly, *why*
 it is the way it is. It exists so that future work (human or AI) extends the design
@@ -3059,7 +3059,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     without a new type.
 
     **The tensor-order ceiling is `R < 3` (writing `R` for a section's tensor order), documented rather than enforced** (user-decided). The
-    reductions, `map` and the decompositions serve ``R \le 2``; storage, persistence, the vector-space
+    reductions, `map` and the decompositions serve ``R \le 2``; storage, HDF5 persistence, the vector-space
     operations, `inner`/`l2norm` and the spline transfer serve higher orders, and general `R` was
     deferred to ship the second-order surface a pseudospectral solver needs. Enforcement at the
     constructor was considered and rejected: it would break the R=3 paths that legitimately work, and
@@ -3953,7 +3953,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       parameters, and storing the weights would duplicate derived data, the very thing the
       consumer's checkpoint design avoids everywhere else. `LagrangeSpline` is the same with one
       parameter, and `DirectDFT` is the degenerate case: a singleton whose tag is its whole record.
-      It is covered although nobody asked, because that makes the persisted class *"a scheme that is
+      It is covered although nobody asked, because that makes the HDF5-persisted class *"a scheme that is
       its parameters"* rather than *"the two the consumer named"*.
     - **`NUFFT` is refused, and the refusal is a statement about the object.** It owns oversampled
       FFT plans and a deconvolution window built against a particular reference field. That is a
@@ -3962,7 +3962,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       large duplicate of derived data or a parameter set pretending to be the object; the consumer
       rebuilds it from the reference field it restores anyway. The error says so and names the
       rebuild.
-    - **The group has attributes and no `data`.** Every other persisted object is a section and its
+    - **The group has attributes and no `data`.** Every other object written to HDF5 is a section and its
       group is built around an array; a scheme's is not, which is the shape difference worth naming
       rather than smoothing over.
     - **The element type is resolved through a closed table, never `eval`.** Reconstruction needs the

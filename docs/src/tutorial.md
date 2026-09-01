@@ -1,7 +1,7 @@
-# Getting started
-
 !!! info "Written by AI, not regularly reviewed"
     This page is written by AI and is not reviewed regularly by a human.
+
+# Getting started
 
 A short, runnable tour of the package. Every code block below is a **doctest** — the output shown is
 checked when the docs are built, so the tutorial cannot silently drift from the code.

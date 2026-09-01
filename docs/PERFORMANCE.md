@@ -1,7 +1,7 @@
-# Performance — GBGPeriodicFields
-
 !!! info "Written by AI, not regularly reviewed"
     This page is written by AI and is not reviewed regularly by a human.
+
+# Performance — GBGPeriodicFields
 
 This is the third rationale companion to [`ARCHITECTURE.md`](architecture.md) and
 [`TESTING.md`](testing.md): where those explain *why* the package is built as it is and *how* its
