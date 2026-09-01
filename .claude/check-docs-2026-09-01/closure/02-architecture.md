@@ -2,106 +2,71 @@ RANGE: ac1226e4..HEAD
 
 ## Finding 1
 
-**Verdict:** HONORED
-
-**Evidence:** `git diff ac1226e4..HEAD -- docs/ARCHITECTURE.md` shows, at decision 56 (the
-exact quoted line 3061 in the finding), the sentence:
-
-```
-that case guard-free after measurement. **(FALSE, per decision 59: the target ``(i,j)`` and source
-``(j,i)`` views select disjoint memory, so `mightalias` is `false` and would not reject the call.
-No guard is still the right answer, for decision 59's different reason. Marked here because this
-belief deferred the defect for a day.)** Rather than ship a check that might break a measured,
-```
-
-This is a correction note at exactly the flagged location, in substance matching the fix the
-finding itself proposed ("Add a parenthetical correction note at line 3061 … a `mightalias` guard
-would in fact accept `sym!(A, A)`"). It states the premise was false, names decision 59 as the
-source of the correction, and preserves the operational conclusion (no guard) while attributing it
-to the correct reasoning — exactly the shape asked for.
-
-**class_surfaces:** The finding's own text names the contradiction as being between exactly two
-sites — decision 56 (`docs/ARCHITECTURE.md:3061`) and decision 59
-(`docs/ARCHITECTURE.md:3196–3198`) — and does not claim the false `mightalias` premise is repeated
-anywhere else in the log or elsewhere in the docs; it explicitly frames decisions 57/60/61 as the
-*correctly-annotated* comparison class, not as further instances of the defect. A grep of
-`docs/ARCHITECTURE.md` for `mightalias` (lines 3064, 3067, 3177, 3202, 3203) confirms the only two
-substantive claims are the decision-56 site (now corrected) and the decision-59 site (already
-correct, unchanged). No other file in the repo mentions `mightalias`. The finding names no sibling
-docstring or other page carrying the same false claim, and none was found. Sweep: complete over the
-finding's own named class.
+- **Verdict:** HONORED
+- **Evidence:** `git diff ac1226e4..HEAD -- docs/ARCHITECTURE.md` shows, inside decision 56
+  (around line 3061-3067), the sentence "A `mightalias` guard would reject `sym!(A, A)` itself,
+  whose target and source component views already have different footprints on one parent, and
+  decision 39 made that case guard-free after measurement." is now immediately followed by:
+  "**(FALSE, per decision 59: the target ``(i,j)`` and source ``(j,i)`` views select disjoint
+  memory, so `mightalias` is `false` and would not reject the call. No guard is still the right
+  answer, for decision 59's different reason. Marked here because this belief deferred the
+  defect for a day.)**" This matches the finding's exact suggested remedy (a parenthetical
+  correction note at decision 56, in the style of the log's other superseded-by annotations,
+  naming decision 59 and stating the operational conclusion still holds for a different reason).
+  The false claim at decision 56 no longer stands unqualified.
+- **class_surfaces:** The finding's own text scopes the contradiction to exactly two locations
+  inside `docs/ARCHITECTURE.md` — decision 56 (`docs/ARCHITECTURE.md:3061`) and decision 59
+  (`docs/ARCHITECTURE.md:3196-3198`) — and names no other surface, sibling docstring, or
+  convention elsewhere that would need sweeping; it is a single internal-contradiction defect,
+  not a claimed class. Both named locations are addressed by the diff (decision 56 now carries
+  the correction; decision 59's text is unchanged and was already correct). No other surface is
+  implied by the finding's own words.
+  (Incidental, not counted against this verdict since the finding never named it: `CLAUDE.md:2301`
+  still repeats the uncorrected claim "it would have rejected `sym!(A, A)`" in its own roadmap
+  prose — the finding did not point at `CLAUDE.md`, so this is not part of this finding's class
+  under the enumerate-from-the-finding rule, but is worth flagging separately.)
 
 ## Finding 2
 
-**Verdict:** LINE-ONLY
-
-**Evidence:** The diff fixes exactly the two quoted sites:
-
-```
--      magnitude via `lpnorm(·, Inf)`.
-+      magnitude via `lpnorm` at ``p = \infty``.
-...
--    base point and *writes a section*, where `mean(φ, ·)` reduces it. It reuses the `_fiberwise_pass!`
-+    base point and *writes a section*, where a mapped `mean` reduces it. It reuses the `_fiberwise_pass!`
-```
-
-Both backtick-wrapped middle-dot placeholders named in the finding are gone from
-`docs/ARCHITECTURE.md`. But the finding explicitly frames this as an instance of a *class* — "this
-is precisely the class the rubric singles out by name" (a backtick span holding a non-Julia
-placeholder such as a lone `·`) — and that class was not swept. `src/FieldAlgebra.jl:46`, a
-rendered module docstring, still reads:
-
-```
-sibling of the mapped reductions such as `mean(det, ·)`): `φ` may change the tensor order, and the
-```
-
-— the identical defect (a backtick span containing `mean(det, ·)`, with `·` as a placeholder
-argument, not valid Julia), on a different doc surface (a `src/` docstring rendered on the API
-page) than either quoted site. This is exactly the sibling-surface class the finding's rubric
-citation implies is in scope ("never math that merely looks code-ish … a lone ≤/·"), and it was
-missed.
-
-**class_surfaces:** The finding names the defect class generically (any backtick span holding a
-bare `·` placeholder) rather than an enumerated list of sites, so the sweep obligation is to grep
-the corpus for the pattern. Checked: `docs/ARCHITECTURE.md`, `docs/FORMALIZATION.md`,
-`docs/TESTING.md`, `docs/PERFORMANCE.md` (clean — no remaining backtick-wrapped `·`), and
-`src/*.jl` + `docs/src/*.md` + `examples/*.jl` (grep `` `[^`]*·[^`]*` ``). Found one live instance:
-`src/FieldAlgebra.jl:46` (`` `mean(det, ·)` ``, inside the module's rendered docstring, un-swept by
-this diff). `src/Reductions.jl:631` and `:705` contain a bare `·` but inside `#`-comments (not
-backtick spans, not rendered) — correctly out of scope, not defects. Sweep: incomplete — one real
-sibling instance survives.
+- **Verdict:** HONORED
+- **Evidence:** Both quoted sites are fixed: line 1301 `` `lpnorm(·, Inf)` `` → `` `lpnorm` at
+  ``p = \infty`` `` (verified at `docs/ARCHITECTURE.md:1304`, now a real code span plus a
+  separate LaTeX math span, no interpunct-in-backticks); line 2698 `` `mean(φ, ·)` `` → "a mapped
+  `mean`" (verified at `docs/ARCHITECTURE.md:2701`, interpunct placeholder removed entirely). The
+  finding explicitly framed this as a CLASS ("precisely the class the rubric singles out by
+  name"), and the banked file's own addendum records a round-2 sweep that found and fixed a
+  survivor outside this lane's file, `src/FieldAlgebra.jl:46` (`` `mean(det, ·)` `` →
+  `` `mean(det, A)` ``), confirmed present in `git diff ac1226e4..HEAD -- src/FieldAlgebra.jl`.
+  Independently re-swept here: `grep -rnP '`[^`\n]*·[^`\n]*`' src/*.jl docs/*.md docs/src/*.md
+  docs/src/api/*.md examples/*.jl examples/gpu/rocm/*.jl`, excluding `#` comment lines, returns
+  zero hits; the same check for a lone `≤` in backticks also returns zero. The class is swept
+  clean across every rendered surface named in the rubric.
+- **class_surfaces:** The finding names the general rubric class ("a lone ≤/·" in backticks) but
+  no specific sibling location beyond the two quoted lines; the two quoted sites
+  (`docs/ARCHITECTURE.md:1301`, `docs/ARCHITECTURE.md:2698`) are both fixed, and an independent
+  corpus-wide grep (not merely trusting the diff or the addendum) confirms no remaining instance
+  of the flagged pattern anywhere in `src/*.jl`, the rationale docs, `docs/src/*.md`,
+  `docs/src/api/*.md`, or the two Literate examples.
 
 ## Finding 3
 
-**Verdict:** HONORED
-
-**Evidence:** The diff renames the section heading from a section-scoped label to the document-wide
-one the citation policy expects:
-
-```
--**References (this section).**
-+**References.** The canonical list for the WHOLE document — every section and every docstring cites
-+into it, which is why the citation policy and the `check-docs` DOI cross-check both name it
-+§References. It sits here because the transfer literature is its largest single block, not because
-+its scope is this section.
-```
-
-This is exactly the first of the finding's two offered fix options ("rename §10's 'References (this
-section)' heading to something that documents it as the file-wide bibliography and drop 'this
-section' from its own heading"), including an explanatory sentence for why it lives inside §10 despite
-being document-wide. `grep -rn "References (this section)"` across the repo now returns no hits in
-`docs/ARCHITECTURE.md` (only in the banked findings/closure files themselves, which is expected —
-they are historical records of the finding). `CLAUDE.md`'s four `§References` citations (lines 196,
-499, 502, 693) now resolve to prose that self-identifies as exactly that: "The canonical list for
-the WHOLE document … §References."
-
-**class_surfaces:** The finding's scope is a single naming mismatch between one `CLAUDE.md` policy
-phrase ("`docs/ARCHITECTURE.md` §References") and one heading in `docs/ARCHITECTURE.md`
-(`docs/ARCHITECTURE.md:1032`, §10's reference list) — it does not name or imply any other section
-carrying the same kind of dangling pointer. Checked `grep -rn "§References" src/*.jl docs/src/*.md`
-(excluding the generated `docs/src/architecture.md` mirror) — zero hits, so no other doc surface
-points at a `§References` anchor that could be similarly stale. The decision-19 Grafakos citation's
-adjacent "cited by that anchor rather than by this section" sentence (line 1050) was checked for
-staleness against the rename and remains accurate (it distinguishes a within-§10 anchor, unrelated
-to the document-wide rename). Sweep: complete — the finding names one surface and it was fixed with
-no sibling left unaddressed.
+- **Verdict:** HONORED
+- **Evidence:** `docs/ARCHITECTURE.md:1032` changed from "**References (this section).**" to:
+  "**References.** The canonical list for the WHOLE document — every section and every docstring
+  cites into it, which is why the citation policy and the `check-docs` DOI cross-check both name
+  it §References. It sits here because the transfer literature is its largest single block, not
+  because its scope is this section." This is exactly the finding's first suggested remedy
+  ("rename §10's 'References (this section)' heading … and drop 'this section' from its own
+  heading"), plus an explanation binding the name "§References" (as `CLAUDE.md` uses it) to this
+  location. Confirmed the section-header structure (`grep -n '^#' docs/ARCHITECTURE.md`) still
+  places this bold lead-in inside `## 10. Interpolation and anterpolation`, i.e. it remains a
+  bold paragraph rather than a distinct `##`/`###` heading with its own anchor — the fixer chose
+  the "rename" option over the "add a real top-level heading" option, both of which the finding
+  offered as acceptable alternatives.
+- **class_surfaces:** The finding's location is singular — "`docs/ARCHITECTURE.md` as a whole (no
+  '## References' or '§References' heading anywhere)" — naming only the one missing/mis-scoped
+  heading and citing `CLAUDE.md`'s policy text as the source of the expectation, not as a second
+  site needing edits. `CLAUDE.md`'s own uses of "§References" (lines 196, 499, 502, 505, 693) are
+  the reader's *expectations*, not additional defect sites the finding asks to be swept — they are
+  now satisfied by the renamed/explained heading rather than needing edits of their own. No other
+  surface is implied by the finding's text.

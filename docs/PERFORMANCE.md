@@ -1179,7 +1179,7 @@ inflation's per-row variance, and none can be re-checked from this box:
   - **The Morton-sorting rejection, gather half — RE-CHECKED, and it does not hold on the current
     card.** This was first recorded here as unresolvable because the sorting dependency and the sorted
     gather were deleted. That was wrong on the part that matters: only the *sort* was deleted, and the
-    sort is not what the measurement times. `interpolate!` still exists and Morton order is just a
+    sort is not what the measurement times. The `interpolate!` verb still exists and Morton order is just a
     permutation of the `PointSet`, which a host `sortperm` produces perfectly well for a benchmark. See
     §4(c), where the entry now carries the re-measurement.
   - **The wrap-hoist rejection — RE-MEASURED, and reopened (see §4(c)).** Filing it here as a `gcsample`
@@ -1514,7 +1514,7 @@ header. Re-measure a class by sweeping the lane whole, or measure it as an A/B a
 out of the table.
 
 **(ac) The weighted reductions ran Base's serial broadcast fold on CPU — 70× `inner` at eight
-threads — and now run the fixed tree** (2026-08-30, from IT's codegen report). `weighted_inner` was
+threads — and now run the fixed tree** (2026-08-30, from IT's codegen report). The `weighted_inner` reduction was
 GPU-first: one fused `sum` over a lazy `Broadcasted`, which a device parallelizes and a CPU hands to
 Base's serial cartesian fold. It never met the decision-30/40 backend split, so it sat at 14.7 ms at
 ``128^3`` `Float64` on the 9800X3D at one thread AND at eight, against `inner`'s 0.2 ms — in the
@@ -1615,7 +1615,7 @@ corner is a wide stencil on a vector field on CPU.
 
 *Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so
 consecutive work-items touched unrelated parts of the field and every stencil was a fresh set of
-misses. `transfer_order` groups them by block of cells and the transfer verbs take it as an `order`
+misses. The `transfer_order` builder groups them by block of cells and the transfer verbs take it as an `order`
 option (decision 78). At ``256^3`` with ``10^6`` points:
 
 | ``256^3``, ``10^6`` points | GPU gather | GPU scatter | CPU gather | CPU scatter |
@@ -2110,7 +2110,7 @@ of ``5\times``, so the next re-sweep will show these rows closing the flag the o
 triage is that referee** (2026-08-30, user-directed, after finding (ac) asked why nothing caught it).
 Every existing check compares a row against itself: the canary against its own frozen baseline, a
 re-sweep against the previous archive, decision 72's speedup against a sibling sharing the same code
-path. `weighted_inner` was serial from the day it shipped, sat in `RESULTS.md` flat across four thread
+path. The `weighted_inner` reduction was serial from the day it shipped, sat in `RESULTS.md` flat across four thread
 columns at ``5\times`` the same-size `inner`, and no instrument — or reader — ever asked the question
 those numbers answered. That is the third instance of one pattern: a comparison whose two sides share
 the defect is blind to it (decision 52 closed it for tests, decision 55 for oracles; benchmarks had no
@@ -2463,7 +2463,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
      degrade the HIP context until a reboot / `rocm-smi --gpureset`, after which even small ops segfault
      under load.
    - **A GC-free benchmark loop wedges the allocating reductions** — independent of grid size (seen at
-     64³), and the cause of a 4-hour hang. `lpnorm` materializes a pointwise-magnitude field per call;
+     64³), and the cause of a 4-hour hang. The `lpnorm` reduction materializes a pointwise-magnitude field per call;
      BenchmarkTools' `tune!`/`run` does almost no *host* allocation, so Julia's GC (host-pressure
      triggered) never fires, the dead GPU temps pile into the AMDGPU pool until it hits 12 GB, and the
      allocator spins — CPU pegged, GPU idle, VRAM maxed, for hours. It is **GC-lag, not a leak**

@@ -407,7 +407,7 @@ operation's coverage is judged against the full axis list:
     grid whose component stride is not a multiple of 64 bytes is planned `UNALIGNED`; on a device
     `cuFFT` needs only the real pointer aligned to its complex element, which fails exactly when the
     grid is **odd on all three axes**, and such a grid transforms through a component-sized buffer
-    instead. `test/fields.jl` carries the lane — every rank over `(8,8,8)`, `(8,7,6)`, `(7,5,3)` and
+    instead. The file `test/fields.jl` carries the lane — every rank over `(8,8,8)`, `(8,7,6)`, `(7,5,3)` and
     `(9,9,9)`, plus the predicate itself asserted directly — and the GPU suite carries the staged half,
     since the host never reaches it.
 
@@ -429,7 +429,7 @@ thread-count invariance and the decision-47 reachability probe in `test/threadin
 closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
 
 **A transfer's VISIT ORDER is a coverage axis** (decision 78): the four point-indexed verbs each have
-two routes through one kernel. `test/transfer_order.jl` covers it by the property rather than by a
+two routes through one kernel. The file `test/transfer_order.jl` covers it by the property rather than by a
 sample — the gather is BITWISE equal with and without an order, and again under a reversed one, so the
 invariance belongs to the order rather than to the one the builder happens to produce.
 

@@ -110,7 +110,7 @@ unsatisfiable. ``\checkmark``
 Hermitian, ``\hat f(-k) = \overline{\hat f(k)}``. The rfft stores only non-negative wavenumbers on the
 folded axis, so for almost every mode the partner is not stored and the condition is automatic; it can
 be violated only on a **self-conjugate plane** of the folded axis — the zero plane, and on an
-even-length axis the Nyquist plane — where a mode's partner lies in the same plane. `reality_residual`
+even-length axis the Nyquist plane — where a mode's partner lies in the same plane. The `reality_residual` diagnostic
 measures the departure,
 
 ```math

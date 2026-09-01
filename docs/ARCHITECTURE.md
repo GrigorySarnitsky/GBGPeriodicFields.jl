@@ -237,7 +237,7 @@ with a pointer to the section that develops it.
    ``n``, which is the **ownership** half of the invariant and not a detail of it: the constructors
    reject borrowed storage — a `SubArray` anywhere in the parent chain — leaving same-array as the only
    way two sections can share memory (decision 59). Ownership, not layout: an `Array`, a `CuArray`, a
-   `ROCArray` and a `reshape` of any of them all pass. `mul!` keeps
+   `ROCArray` and a `reshape` of any of them all pass. The `mul!` contract keeps
    `LinearAlgebra`'s documented contract that the destination must not alias ([§7](@ref "7. Aliasing policy")).
 10. **The ``\alpha``/``\beta`` convention.** A five-argument form converts both weights to the field's
     scalar type and branches on ``\beta = 0`` (overwrite) versus ``\beta \ne 0`` (accumulate); a
@@ -2463,7 +2463,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     is preserved); `dot!`/`tr!`/the norms stay broadcasts — their traffic was already ideal. The
     exponential family's fiber extrusion stays a named holder: its per-mode coefficient is the
     lazy cartesian ``|k|^2``, which the linear executor cannot see — the priced fix is the
-    finding-(k) mode-loop hoist. `dev!` stopped materializing its trace (now a per-element
+    finding-(k) mode-loop hoist. The `dev!` operation stopped materializing its trace (now a per-element
     register) and left the documented-allocators list. Every routed operation verified **bitwise**
     against captured oracles (54 cases: both element types, physical and spectral, field and
     fiber-constant patterns, aliased shuffles through the former guard path, α/β accumulates, the
@@ -2510,7 +2510,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     reshaped along it, the correction planes select it, and the shell kernel takes it as a `Val` and
     picks the folded mode index — with the default layout bitwise unchanged. Why the tests never
     caught it: no test ever *constructed* a non-default layout, so the hardcoded dimension always
-    coincided with the fold on every tested path. `test/reductions.jl` now runs the Parseval, shell,
+    coincided with the fold on every tested path. The suite's `test/reductions.jl` now runs the Parseval, shell,
     and weighted identities under permuted layouts (`(2, 1, 3)`, `(3, 2, 1)`, a mixed-parity grid),
     and `test/gpu/suite.jl` carries a device-parity case. The follow-up layout sweep (same
     session) extends the lane across every layer whose correctness rests on `fft_dims`:
@@ -2743,7 +2743,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the result would be an order-4 **fiber value**, not a section, so the ``R < 3`` *section* ceiling is
     not what stands in the way — `FiberTensor4` exists as a type. The actual limit is narrower: the
     fiber assembly in `FiberSections` (`_fiber_type`/`_assemble_fiber`) is enumerated through order 2,
-    so an order-4 result has nowhere to be built. `cov` is therefore defined on **vector** sections
+    so an order-4 result has nowhere to be built. The `cov` reduction is therefore defined on **vector** sections
     alone, which is where its consumer is).
 
     So `var`/`std` are now **scalar-only** — the one representation where each is unambiguous — physical
@@ -2823,7 +2823,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\sigma(|k|^2)`` is a separate closure-shaped escalation and is not this decision.
 
 51. **The radial kernel: a symbol of ``|k|^2``, evaluated per mode** (2026-07-29). The escalation
-    decision 35 recorded and the consuming solver `GBGIsotropicTurbulence`'s `lazy-per-mode-symbols.md` requested. `spectral_cutoff` and
+    decision 35 recorded and the consuming solver `GBGIsotropicTurbulence`'s `lazy-per-mode-symbols.md` requested. The builders `spectral_cutoff` and
     `spectral_band` no longer build a field; they return a `RadialKernel` holding the symbol
     ``\sigma`` itself, and `radial_kernel(σ, multipliers)` builds one for any other symbol
     — a smooth filter envelope, a hyperviscous ``\exp(-\nu(|k|^2)^p\tau)``, an integrating factor.
@@ -3628,7 +3628,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     point methods), both refrozen with their reasons.
 
 70. **The radial-symbol operators allocate nothing, not merely less than a field** (2026-08-23,
-    raised by the consuming solver with a reproduction). `laplacian!`, `inverse_laplacian!`,
+    raised by the consuming solver with a reproduction). The operators `laplacian!`, `inverse_laplacian!`,
     `divergence!` and `exponential_convolve!` each allocated **144 bytes per call**, constant in the
     grid. The cause is one line repeated: `_squared_wavenumber_broadcast` and
     `_wavenumber_broadcast_view` built their `reshape` wrappers *per invocation*, and a `reshape`
@@ -3674,7 +3674,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     only half the modes — so for most modes the redundant partner is *not stored* and cannot disagree.
     Two planes are the exception: the folded axis's zero plane, and its Nyquist plane when that axis
     has even length, are each their own mirror, so within them **both** partners are stored and the
-    constraint becomes a relation a caller can break. `reality_residual` returns the largest
+    constraint becomes a relation a caller can break. The `reality_residual` diagnostic returns the largest
     discrepancy ``\lvert \hat f(k) - \overline{\hat f(-k)} \rvert`` over those planes, zero exactly
     when the coefficients are a real field's.
 
@@ -3830,7 +3830,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a flat torus is plain addition, needing no connection choices. The design
     facts, each argued from that geometry:
     - **A named verb, never `+`.** Positions are points of the domain manifold, not vectors; an
-      algebra on `PointSet` would assert a linear structure the base does not have. `displace!` is
+      algebra on `PointSet` would assert a linear structure the base does not have. The verb `displace!` is
       the one operation that legitimately couples base and fiber, and it crosses the
       position-versus-value role split by name rather than dissolving it.
     - **The grid argument selects cover or torus, and the type structure forces that split.** A
@@ -3847,7 +3847,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       folded explicitly (floating-point `mod` can return the period itself: `mod(-1e-20, 2π) ===
       2π`, a pinned test), and the fold testing equality rather than order so a non-finite
       coordinate passes through non-finite — an `x < L` test is false for `NaN` and would silently
-      rewrite a diverged trajectory into a tidy in-box position. `mod` maps an infinity to `NaN`,
+      rewrite a diverged trajectory into a tidy in-box position. The `mod` function maps an infinity to `NaN`,
       so divergence survives as non-finiteness, though not as the same non-finite value.
     - **Sampling needs no wrap, and that is now a documented contract with an honest limit.** The
       transfer kernels wrap their stencil indices, so interpolation is invariant under shifting a
@@ -4026,7 +4026,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     package answers them differently and `_component_offsets_align` reports both. `FFTW` records an
     alignment *class* for the real and the complex array alike; the answer there is to plan with
     `FFTW.UNALIGNED`, which costs no memory and, measured, 2–65% of throughput — paid only by grids
-    that need it, and no production grid does. `cuFFT` needs only the real pointer aligned to its
+    that need it, and no production grid does. The `cuFFT` library needs only the real pointer aligned to its
     complex element, which reduces to the real component stride being even, i.e. to the grid **not
     being odd on all three axes**; a device has no `UNALIGNED` flag, so such a grid transforms
     through a component-sized buffer instead. Both answers are chosen once, at construction, from the
@@ -4147,7 +4147,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       forfeiting the memory-level parallelism independent indices keep — which is also the only story
       consistent with a sign that flips on thread count. The corner is stated rather than fixed,
       since a scheme/rank/thread-conditional kernel is the second body decision 47 records going
-      silently dead. `docs/PERFORMANCE.md` finding (ad) carries the tables.
+      silently dead. The record in `docs/PERFORMANCE.md` finding (ad) carries the tables.
 
     - **What the two wrong versions had in common** is worth more than either correction: each was
       measured at one point of a space and written as though it held across it — first at one scheme,

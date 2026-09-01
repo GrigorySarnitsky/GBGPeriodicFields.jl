@@ -53,10 +53,10 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 36",663,324,0
 "ARCHITECTURE.md § item 37",644,238,0
 "ARCHITECTURE.md § item 38",297,297,0
-"ARCHITECTURE.md § item 39",325,325,0
+"ARCHITECTURE.md § item 39",327,327,0
 "ARCHITECTURE.md § item 4",8,8,0
 "ARCHITECTURE.md § item 40",386,386,0
-"ARCHITECTURE.md § item 41",295,295,0
+"ARCHITECTURE.md § item 41",297,297,0
 "ARCHITECTURE.md § item 42",203,203,0
 "ARCHITECTURE.md § item 43",591,591,0
 "ARCHITECTURE.md § item 44",215,215,0
@@ -64,10 +64,10 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 46",444,105,0
 "ARCHITECTURE.md § item 47",372,135,0
 "ARCHITECTURE.md § item 48",377,161,0
-"ARCHITECTURE.md § item 49",436,266,0
+"ARCHITECTURE.md § item 49",438,268,0
 "ARCHITECTURE.md § item 5",7,7,0
 "ARCHITECTURE.md § item 50",803,270,0
-"ARCHITECTURE.md § item 51",683,283,0
+"ARCHITECTURE.md § item 51",685,283,0
 "ARCHITECTURE.md § item 52",450,148,0
 "ARCHITECTURE.md § item 53",281,98,0
 "ARCHITECTURE.md § item 54",443,129,0
@@ -88,15 +88,15 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 68",327,127,0
 "ARCHITECTURE.md § item 69",683,143,0
 "ARCHITECTURE.md § item 7",51,51,0
-"ARCHITECTURE.md § item 70",467,107,0
-"ARCHITECTURE.md § item 71",933,232,0
+"ARCHITECTURE.md § item 70",469,107,0
+"ARCHITECTURE.md § item 71",935,232,0
 "ARCHITECTURE.md § item 72",990,128,0
-"ARCHITECTURE.md § item 73",857,857,0
+"ARCHITECTURE.md § item 73",861,861,0
 "ARCHITECTURE.md § item 74",611,611,0
 "ARCHITECTURE.md § item 75",714,714,0
-"ARCHITECTURE.md § item 76",826,205,0
+"ARCHITECTURE.md § item 76",828,207,0
 "ARCHITECTURE.md § item 77",302,262,0
-"ARCHITECTURE.md § item 78",1384,166,0
+"ARCHITECTURE.md § item 78",1387,169,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
@@ -179,7 +179,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",297,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1190,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",507,107,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",509,107,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",254,140,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
@@ -250,7 +250,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: +(a, b, fields...)",43,40,0
 "FieldAlgebra.jl :: -(a, b)",29,27,0
 "FieldAlgebra.jl :: /(a, b)",37,35,0
-"FieldAlgebra.jl :: FieldAlgebra",1016,284,2
+"FieldAlgebra.jl :: FieldAlgebra",1015,283,2
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
 "FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
@@ -421,11 +421,11 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (a)",105,59,0
 "PERFORMANCE.md § finding (aa)",346,123,0
 "PERFORMANCE.md § finding (ab)",535,95,0
-"PERFORMANCE.md § finding (ac)",324,96,0
-"PERFORMANCE.md § finding (ad)",1770,364,0
+"PERFORMANCE.md § finding (ac)",326,96,0
+"PERFORMANCE.md § finding (ad)",1772,364,0
 "PERFORMANCE.md § finding (ae)",369,107,0
 "PERFORMANCE.md § finding (af)",105,105,0
-"PERFORMANCE.md § finding (ag)",379,162,0
+"PERFORMANCE.md § finding (ag)",381,162,0
 "PERFORMANCE.md § finding (ah)",125,125,0
 "PERFORMANCE.md § finding (ai)",349,111,0
 "PERFORMANCE.md § finding (aj)",1517,102,0
@@ -452,7 +452,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (s)",1709,200,0
 "PERFORMANCE.md § finding (t)",352,119,0
 "PERFORMANCE.md § finding (u)",316,79,0
-"PERFORMANCE.md § finding (v)",1149,649,0
+"PERFORMANCE.md § finding (v)",1151,651,0
 "PERFORMANCE.md § finding (w)",509,144,0
 "PERFORMANCE.md § finding (x)",782,176,0
 "PERFORMANCE.md § finding (y)",924,167,0
@@ -462,7 +462,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § item 3",277,277,0
 "PERFORMANCE.md § item 4",143,143,0
 "PERFORMANCE.md § item 5",155,155,0
-"PERFORMANCE.md § item 6",708,491,0
+"PERFORMANCE.md § item 6",710,493,0
 "PERFORMANCE.md § item 7",147,147,0
 "PERFORMANCE.md § item 8",211,211,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
@@ -555,8 +555,8 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 15",57,57,0
 "TESTING.md § item 16",64,64,0
 "TESTING.md § item 17",188,188,0
-"TESTING.md § item 18",154,154,0
-"TESTING.md § item 19",480,85,0
+"TESTING.md § item 18",156,156,0
+"TESTING.md § item 19",482,85,0
 "TESTING.md § item 2",27,27,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0

@@ -63,3 +63,36 @@ the rubric's three named exemptions.
   anti-pattern (`⟨f,g⟩` shown as what NOT to write). Recorded false positive.
 - `docs/src/notation.md:20` ``\left``/``\right``: the glossary row that documents the ban and must
   spell the banned form to do so. Recorded false positive.
+
+---
+
+## Fix-pass addendum (main thread, round 3) — closing Finding 2's LINE-ONLY
+
+The round-3 verifier graded Finding 2 **LINE-ONLY**, and it was right about something I had asserted
+without checking. My round-1 note claimed the sentence-opener class was clean because `guards.sh`
+reported 0 for it. **`guards.sh`'s scan for that class is scoped to `src/*.jl` only** — line 77 —
+while the command's own readable source-of-truth spells it `grep -rnE '\. (`[a-z]|``)' src/*.jl
+$DOCS_MD`. The script is NARROWER THAN ITS OWN SPEC, and the doc pages had never been scanned for
+this rule at all. The verifier found three survivors by scanning what the rule governs rather than
+what the script covers.
+
+Swept properly. Running the documented scan over every rendered surface — the four rationale docs,
+`docs/src/*.md`, `docs/src/api/*.md`, and both Literate examples — with the documented exemptions
+applied (list items, `#` comments, `e.g.`/`i.e.`/`cf.`/`incl.` abbreviations, end-of-line
+``\checkmark`` markers, and a math-formula opener judged separately) leaves **19 genuine
+violations**, all now reworded to lead with an ordinary capitalized word, never by capitalizing the
+binding:
+
+- `docs/ARCHITECTURE.md` — 11 (lines 240, 2466, 2513, 2746, 2826, 3631, 3677, 3833, 3850, 4029, 4150)
+- `docs/PERFORMANCE.md` — 5 (1182, 1517, 1618, 2113, 2466)
+- `docs/TESTING.md` — 2 (410, 432)
+- `docs/FORMALIZATION.md` — 1 (113)
+
+Re-scan after the sweep: **0 remaining on every doc surface, and 0 in `src/`**.
+
+**Instrument finding, reported not silently fixed** (instruments are frozen; a change to one is its
+own deliberate commit): `guards.sh:77` should scan `$DOCS_MD` alongside `src/*.jl`, as the command
+documentation says it does. Until it does, its "ok" for this class covers `src/` only — and a check
+that is narrower than it appears is worse than an absent one, because it is read as coverage. This is
+the same class of defect the instrument's own history records: a scan run with `| head -5` that
+reported five hits when there were thirty-one.
