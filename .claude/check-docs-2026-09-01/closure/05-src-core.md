@@ -4,40 +4,40 @@ RANGE: ac1226e4..HEAD
 
 - Verdict: HONORED
 - Evidence: `git diff ac1226e4..HEAD -- src/FieldAlgebra.jl` shows the `transpose!` docstring
-  identity sentence changed from `"Transpose the fiber indices of a second-order tensor field in
-  place (\`transpose\` ``\equiv (\cdot)^\top``), and return \`destination\`."` to `"Transpose the
-  fiber indices of the second-order tensor field \`A\` in place (\`transpose\`
-  ``\equiv (\cdot)^\top``), writing the result into \`destination\`, which is returned."` — `A`
-  is now bound in running prose, matching the finding's proposed fix essentially verbatim
-  (confirmed by reading the current file at `src/FieldAlgebra.jl:1372`, not just the diff hunk).
-- class_surfaces: The finding's own text enumerates the class surfaces and asserts them already
-  clean, naming: `sym!`/`skew!`/`dev!` (same file, said to already read "the second-order tensor
-  field `A`"), `tr!` (said to already name `A`), and `det!` (said to already use `A` in running
-  prose, "the signed factor by which `A` scales volumes"). I independently re-read the current
-  file and confirmed the allocating sibling `transpose(A)` at `src/FieldAlgebra.jl:1371-1378`
-  already reads "the transpose ``A^\top`` of a second-order tensor field" — so `A` was already
-  bound there too, and in any case a thin allocating wrapper is exempt from the binding rule per
-  the rubric. No sibling site in the class the finding names was left unbound by the diff; the
-  finding names no other file or docstring as part of this class, and I found none. The named
-  site is fixed and no unswept instance of the same class survives.
+  changed from `"Transpose the fiber indices of a second-order tensor field in place ..."` to
+  `"Transpose the fiber indices of the second-order tensor field `A` in place (...), writing the
+  result into `destination`, which is returned."` — this binds `A` in running prose exactly as the
+  finding's suggested fix specified. Confirmed in the current file at
+  `src/FieldAlgebra.jl:1339-1355`.
+- class_surfaces: The finding's own text names the class as "every sibling decomposition in the
+  same file explicitly names its input tensor argument in the first sentence" and lists them by
+  name: `sym!`/`skew!`/`dev!` (`src/FieldAlgebra.jl`, same file, decomposition family),
+  `tr!` (`src/FieldAlgebra.jl`), `det!` (`src/FieldAlgebra.jl`) — and states these are ALREADY
+  correct ("`transpose!` is the one outlier in its own family"), so the finding itself scopes the
+  defect class to this single docstring. I independently checked the allocating wrapper
+  `transpose(A)` (`src/FieldAlgebra.jl:1372-1379`, unchanged by the diff) and confirmed it is a
+  thin wrapper exempt from the argument-bulleting/binding rule by the rubric's explicit exemption
+  ("a thin allocating wrapper documents no arguments at all"), so it is not a surface this finding's
+  class reaches. No other surface named by the finding was left unswept; the one quoted site was the
+  entire class as the finding itself defined it.
 
 ## Finding 2
 
 - Verdict: HONORED
 - Evidence: `git diff ac1226e4..HEAD -- src/DifferentialOperators.jl` shows the `laplacian!`
-  docstring changed `"...and it acts on each component of a vector or tensor field alike..."` to
-  `"...and it acts on each component of a vector or tensor field ``u`` alike..."`, binding `u`
-  immediately before the display formula `(\Delta u)_j`, matching the finding's proposed fix
-  (confirmed by reading the current file at `src/DifferentialOperators.jl:1315`).
-- class_surfaces: The finding's own text enumerates the class surfaces and asserts them already
-  clean, naming every sibling differential operator in the same file — `gradient!`,
-  `divergence!`, `curl!`, `symmetric_gradient!`, `helmholtz_projection!`, `inverse_curl!` — as
-  already naming their field argument (`\varphi`, `u`, `A`, `w`) in prose. I independently
-  re-read the current file and confirmed: the allocating sibling `laplacian(field)` at
-  `src/DifferentialOperators.jl:1349-1355` is a thin "Allocating form of `laplacian!`" wrapper,
-  exempt from the binding rule; and the near-twin `inverse_laplacian!` at
-  `src/DifferentialOperators.jl:1372-1418` already binds its field argument via the bulleted
-  "The arguments are:" form (it takes three arguments, above the bulleting threshold, so it was
-  never in scope for the prose-binding rule this finding invokes). No sibling site in the named
-  class was left unbound; the finding names no other file or docstring as part of this class, and
-  I found none. The named site is fixed and no unswept instance of the same class survives.
+  docstring sentence changed from "...and it acts on each component of a vector or tensor field
+  alike..." to "...and it acts on each component of a vector or tensor field `u` alike...",
+  binding the `u` used in the display formula `(\Delta u)_j = \partial^2_{x_i x_i} u_j`. Confirmed
+  in the current file at `src/DifferentialOperators.jl:1306-1320`. Checked for glyph collision: `u`
+  is used with the identical meaning (a vector field) immediately above in the `symmetric_gradient`
+  docstring (`src/DifferentialOperators.jl:1285`, `\operatorname{sym}\nabla u`), so no new
+  inconsistency was introduced.
+- class_surfaces: The finding's own text names the class as every sibling differential operator in
+  the same file naming its field argument in prose before its formula, and lists them:
+  `gradient!`, `divergence!`, `curl!`, `symmetric_gradient!`, `helmholtz_projection!`,
+  `inverse_curl!` (all `src/DifferentialOperators.jl`) — and states these are ALREADY correct
+  ("`laplacian!` is again the outlier in its own family"), per "a systematic sweep of every
+  display-math symbol in this file against its own docstring's prose found this as the one other
+  unbound-argument instance". The finding thus scopes its own class to this single docstring within
+  the audited file; the sibling operators named were not touched by the diff because the finding's
+  own sweep already found them clean. No other surface named by the finding was left unswept.

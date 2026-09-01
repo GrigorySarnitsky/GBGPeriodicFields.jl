@@ -2,18 +2,20 @@ RANGE: ac1226e4..HEAD
 
 ## Summary
 
-The banked file `06-src-ops.md` (internally titled "Lane 05-src-ops") reports **zero findings**. Its
-body is headed "## Result: no findings survive verification" and consists entirely of the positive
-verification procedure (formula re-derivation, symbol/argument coverage, notation, formatting,
-currency, citations) plus a "Candidates raised and retracted" section whose three items were each
-explicitly checked and dismissed by the hat itself (not reported as findings), and a final "Enumerated
-but not exhaustively re-derived" disclosure section.
+The banked file `.claude/check-docs-2026-09-01/06-src-ops.md` was read in full (183 lines). It is a
+"no findings survive verification" report: the src-ops hat checked `src/Convolution.jl`,
+`src/Points.jl`, `src/Interpolation.jl`, `src/Reductions.jl`, and `src/GBGPeriodicFields.jl` against
+the five-point checklist and reported that every candidate defect it raised during the pass was
+checked and resolved as compliant (formula re-derivations, symbol bindings, notation collisions,
+bidirectional formatting, currency/completeness, citations). The file contains no `## Finding N`
+sections — grep for `^## Finding` returns 0 matches. The only enumerated sub-sections are the six
+checklist categories (CORRECT, SELF-CONTAINED, NOTATION, FORMATTED, CURRENT/COMPLETE, CITED) plus a
+"Candidates raised and retracted" section (3 items, each explicitly marked NOT reported as a finding,
+with stated reasons — not traceable to a CLAUDE.md rule, sanctioned elsewhere, or unverifiable without
+a docs build) and a final "Enumerated but not exhaustively re-derived" scope note.
 
-There is no numbered "## Finding N" section anywhere in the file — no defect was banked for a fix pass
-to act on. Consequently there is nothing in `git diff ac1226e4..HEAD` to grade against this file: a fix
-pass cannot honor, launder, or leave undone a finding that was never raised.
+This matches the independent census's count of 0 findings in this file. There is nothing for a fix
+pass to have addressed, and nothing to verify against the diff — a fix-pass audit requires a finding to
+check for HONORED/LINE-ONLY/etc., and none exists here.
 
-`findings_in_file` = 0. This is a genuine zero (the file exists, was read in full, and its own explicit
-verdict is "no findings survive verification"), not a dead-lane zero.
-
-No verdicts to report.
+findings_in_file = 0. No verdicts to render.

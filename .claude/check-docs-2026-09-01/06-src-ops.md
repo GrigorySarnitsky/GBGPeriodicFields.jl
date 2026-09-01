@@ -12,7 +12,7 @@ docstrings, or against an explicit CLAUDE.md rule, and each one resolved as comp
 reported as a finding. What follows is the enumeration and the checks run, per the "positive
 procedure" instruction, so the absence of findings is verifiable rather than asserted.
 
-## 1. CORRECT — formulas, normalizations, adjoints, complexity claims, quantifiers
+### Check 1 — CORRECT — formulas, normalizations, adjoints, complexity claims, quantifiers
 
 Checked against the implementing code, line by line, for every display formula in the five files:
 
@@ -56,7 +56,7 @@ No false, imprecise, or overclaimed statement found. No nontrivial formula lacki
 `docs/FORMALIZATION.md` correspondence was spot-checked further given the volume, but every formula
 independently re-derived above matched the code exactly.
 
-## 2. SELF-CONTAINED — symbol and argument-coverage sweep
+### Check 2 — SELF-CONTAINED — symbol and argument-coverage sweep
 
 Enumerated every math symbol, sub/superscript, and operator name across all display formulas in the
 five files; every one traced to a binding clause (own-docstring or the package-wide convention stated
@@ -82,7 +82,7 @@ against its body for every operation in the five files, including the freshest a
 Terms of art (a "kernel" vs. a "field", "canonical" multipliers, a "visit order", the "resolved band")
 are each explained in the owning docstring before or at first use.
 
-## 3. NOTATION — one symbol per concept, one concept per symbol
+### Check 3 — NOTATION — one symbol per concept, one concept per symbol
 
 No synonym pair or symbol collision found across the five files. Checked in particular that
 `RadialKernel`'s "canonical" vs. "caller's own" multiplier distinction is introduced once (its own
@@ -91,7 +91,7 @@ section/base-flattening matrix notation found in these five files (the `𝟙`/`W
 flags as a past defect belongs to `docs/FORMALIZATION.md`, not these docstrings). Fiber-component
 notation (`A_{ij}`, `(Au)_i = A_{ij}u_j`) is the sanctioned carve-out and is used consistently with it.
 
-## 4. FORMATTED, BIDIRECTIONALLY
+### Check 4 — FORMATTED, BIDIRECTIONALLY
 
 - Ran an automated sweep for a code identifier sitting inside a `` `` ``…`` `` `` math span across all
   five files (regex over every double-backtick span, flagging any `snake_case` token not already
@@ -122,7 +122,7 @@ notation (`A_{ij}`, `(Au)_i = A_{ij}u_j`) is the sanctioned carve-out and is use
   Fornberg 1988, Sundaram & Collins 1996, Brandt & Lubrecht 1990, Barnett/Magland/af Klinteberg 2019):
   every one matches its `§References` entry character-for-character, including the DOI links.
 
-## 5. CURRENT and COMPLETE
+### Check 5 — CURRENT and COMPLETE
 
 - The umbrella `GBGPeriodicFields.jl` module docstring's per-submodule bullet list was checked against
   each submodule's actual export list (`Convolution`, `Points`, `Interpolation`, `Reductions`): every
@@ -141,7 +141,7 @@ notation (`A_{ij}`, `(Au)_i = A_{ij}u_j`) is the sanctioned carve-out and is use
   radial_correlation`, plus the `Statistics`/`Base` extensions `mean`/`std`/`var`/`cov`/
   `maximum`/`minimum`/`extrema`) and `Interpolation`/`Points` — all current.
 
-## 6. CITED
+### Check 6 — CITED
 
 Covered under item 4 above; every citation in these five files is verbatim-consistent with
 `docs/ARCHITECTURE.md` §References, uses context-standard author-year, and carries a clickable DOI on
