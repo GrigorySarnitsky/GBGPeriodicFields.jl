@@ -3,7 +3,7 @@
 # analytic polynomial reproduction (interior points, so the periodic stencil does not wrap), the
 # adjointness identity ⟨W f, q⟩ = ⟨f, Wᵀ q⟩ (holds for ANY field/values), partition-of-unity
 # conservation, known closed-form weights (linear at m=0, Catmull–Rom at n=1,m=1, the Lagrange
-# cardinal basis for LagrangeSpline), and a bit-for-bit pin to TurTLE's reference coefficients. GPU
+# cardinal basis for LagrangeSpline), and a 1e-12 pin to TurTLE's reference coefficients. GPU
 # parity lives in test/gpu/suite.jl.
 
 using Test
@@ -68,7 +68,7 @@ spline_weights(scheme, t) = scheme.coefficients * [t^p for p in 0:size(scheme.co
   end
 
   @testset "TurTLE reference coefficients (pin)" begin
-    # The smooth weights are pinned bit-for-bit to TurTLE's beta_n{n}_m{m}
+    # The smooth weights are pinned to TurTLE's beta_n{n}_m{m} at atol = 1e-12 (not bitwise)
     # (cpp/particles/interpolation/spline_n{n}.cpp), transcribed here verbatim (deriv 0).
     turtle = Dict(
       (1, 1) => x -> [x*(x*(-x/2 + 1) - 1/2), x^2*(3x/2 - 5/2) + 1, x*(x*(-3x/2 + 2) + 1/2), x^2*(x/2 - 1/2)],

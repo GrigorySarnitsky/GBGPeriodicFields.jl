@@ -14,7 +14,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Architecture — GBGPeriodicFields",152,82,0
 "ARCHITECTURE.md § Documentation policy",239,154,0
 "ARCHITECTURE.md § Layers",383,309,0
-"ARCHITECTURE.md § Naming conventions",297,236,0
+"ARCHITECTURE.md § Naming conventions",298,237,0
 "ARCHITECTURE.md § Representation validity lives in the method set",590,198,0
 "ARCHITECTURE.md § The architecture map",387,262,0
 "ARCHITECTURE.md § The fiber-bundle model",1341,583,0
@@ -29,7 +29,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 14",106,106,0
 "ARCHITECTURE.md § item 15",82,82,0
 "ARCHITECTURE.md § item 16",113,113,0
-"ARCHITECTURE.md § item 17",376,376,0
+"ARCHITECTURE.md § item 17",378,378,0
 "ARCHITECTURE.md § item 18",783,312,0
 "ARCHITECTURE.md § item 19",1077,280,0
 "ARCHITECTURE.md § item 2",26,26,0
@@ -94,9 +94,9 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 73",861,861,0
 "ARCHITECTURE.md § item 74",611,611,0
 "ARCHITECTURE.md § item 75",714,714,0
-"ARCHITECTURE.md § item 76",828,207,0
+"ARCHITECTURE.md § item 76",885,207,0
 "ARCHITECTURE.md § item 77",302,262,0
-"ARCHITECTURE.md § item 78",1387,169,0
+"ARCHITECTURE.md § item 78",1430,212,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
@@ -138,7 +138,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Kernel builders",94,86,0
 "Convolution.md § Kernel storage classes",317,107,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
-"DifferentialOperators.jl :: DifferentialOperators",388,212,0
+"DifferentialOperators.jl :: DifferentialOperators",415,239,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",132,62,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
@@ -174,7 +174,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
 "FORMALIZATION.md § Declarations",602,321,0
-"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1071,114,0
+"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1076,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",297,74,0
@@ -240,7 +240,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: section_tensor_order(section)",32,31,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
 "FiberSections.jl :: threading_cutoff()",121,120,0
-"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",242,89,1
+"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",288,135,1
 "FiberSections.md § Fiber-section supertype",3,3,0
 "FiberSections.md § FiberSections",8,8,0
 "FiberSections.md § Internal API",65,51,0
@@ -325,7 +325,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",87,71,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
-"Fields.jl :: _physical_field_of_order(data, grid, layout, ::Val{R})",74,49,0
+"Fields.jl :: _physical_field_of_order(data, grid, layout, ::Val{R})",83,58,0
 "Fields.jl :: _spectral_constant_scale(field::AbstractFieldSpectral)",38,37,0
 "Fields.jl :: _spectral_zero_mode_component_data(field::VectorFieldSpectra",27,22,0
 "Fields.jl :: _spectral_zero_mode_data(field::ScalarFieldSpectral)",25,24,0
@@ -392,7 +392,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
 "Interpolation.jl :: _fornberg(evaluation_point, nodes, max_order)",58,38,0
-"Interpolation.jl :: _hermite_weight_matrix(n, m)",88,86,0
+"Interpolation.jl :: _hermite_weight_matrix(n, m)",89,87,0
 "Interpolation.jl :: _lagrange_weight_matrix(n)",59,58,0
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",47,43,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",425,228,0
@@ -533,7 +533,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: radial_spectrum(f, multipliers)",958,278,2
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",343,122,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",664,207,1
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",661,207,1
 "Reductions.md § Inner-product and norm reductions",6,6,0
 "Reductions.md § Integral reductions",3,3,0
 "Reductions.md § Internal API",78,54,0
@@ -567,7 +567,7 @@ unit,words,longest_paragraph,admonitions
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",337,152,0
 "index.md § Installation",88,48,0
-"index.md § Main components",745,700,0
+"index.md § Main components",748,703,0
 "index.md § Start here",39,39,0
 "notation.md § Base and fiber",522,472,0
 "notation.md § Conventions",316,316,0

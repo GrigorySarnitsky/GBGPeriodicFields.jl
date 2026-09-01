@@ -292,7 +292,7 @@ is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}
 the ``t^r`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
 (offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
-``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned bit-for-bit against TurTLE's `beta_n{n}_m{m}`.
+``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned against TurTLE's `beta_n{n}_m{m}` to 1e-12.
 """
 function _hermite_weight_matrix(n::Int, m::Int)
   offsets = collect(-n:n+1)
@@ -607,7 +607,7 @@ Use it when the points are in an order unrelated to the grid — a set that has 
 enough to decorrelate index from position is the case it is for. **It is not free, and it is not
 always a gain.** Points still in a lattice or sweep order are already local, and ordering them costs a
 few percent on top of a build that never repays; the measured span across seedings runs from
-``0.93\times`` to ``12\times``, so what the option repairs is a BAD order rather than improving a good
+``0.93\\times`` to ``12\\times``, so what the option repairs is a BAD order rather than improving a good
 one. Measure your own case if the points are not well mixed.
 
 The gather is bitwise unchanged by the order; the scatter's atomic summation order changes, as it

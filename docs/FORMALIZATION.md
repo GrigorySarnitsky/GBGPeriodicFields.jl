@@ -195,13 +195,13 @@ Nyquist split that follows, ``k`` the true wavenumber):
 
 ```math
 \begin{aligned}
-\nabla &\to \mathrm{i}k, & \nabla\cdot &\to \mathrm{i}k\cdot, & \nabla\times &\to \mathrm{i}k\times,\\
+\nabla &\to \mathrm{i}a, & \nabla\cdot &\to \mathrm{i}a\cdot, & \nabla\times &\to \mathrm{i}a\times,\\
 \Delta &\to -|k|^2, & \Delta^{-1} &\to -|k|^{-2}\ (0\text{ at }k=0), & \mathbb P &\to \mathrm{id} - \frac{a a^{\top}}{a \cdot a}\ (\mathrm{id}\text{ where } a\cdot a = 0).
 \end{aligned}
 ```
 
 **Nyquist split** (even axes, deliberate — `FieldSpectralMultipliers`): the **derivative** wavenumber is
-**zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}k_N`` would break reality), while the
+**zeroed** at Nyquist (the Nyquist mode is a real cosine, so ``\mathrm{i}a_N`` taken from the true wavenumber would break reality), while the
 **squared** wavenumber keeps the true ``k^2`` (correct ``\Delta`` / ``\Delta^{-1}``). The ``a`` in
 ``\mathbb P``'s multiplier above is that derivative wavenumber — the projector is built entirely from
 that one family (decision 42), and sub-Nyquist ``a = k``. Identities, each a one-line spectral check:

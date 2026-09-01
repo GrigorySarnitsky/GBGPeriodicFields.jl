@@ -21,6 +21,8 @@ The parts are:
   rotation at **twice** the angular rate — the rate itself is ``\\tfrac{1}{2}\\nabla\\times u`` — and preserves
   the tensor order. (A fluid-dynamics consumer calls ``\\nabla\\times u`` the vorticity; the package keeps
   the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
+- [`inverse_curl`](@ref) ``\\equiv (\\nabla\\times)^{-1}`` returns the solenoidal preimage of a curl —
+  the divergence-free field whose curl is the given one — and preserves the tensor order.
 - [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
 - [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.

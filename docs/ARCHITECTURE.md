@@ -342,8 +342,8 @@ Operation names follow *what the operation is* — the same mathematics-first pr
 - **Reductions** (section → scalar/fiber) take the **quantity's noun**: `integral`, `inner`,
   `l2norm`, `lpnorm`, `radial_spectrum` (the radial profile is still the quantity's noun).
 - **Canonically named operators** (section → section with a standard, often eponymous operator name
-  and no natural verb) take that **noun**: `gradient`, `divergence`, `curl`, `laplacian`,
-  `inverse_laplacian`, `helmholtz_projection`.
+  and no natural verb) take that **noun**: `gradient`, `divergence`, `curl`, `inverse_curl`,
+  `laplacian`, `inverse_laplacian`, `helmholtz_projection`.
 - **Generic transformations** (section → section, named by the action) take the **verb**: the
   elementwise algebra (`add`, `subtract`, `multiply`, `divide`), the representation changes
   (`to_physical`, `to_spectral`), and the kernel-measure maps `interpolate` / `anterpolate` and
@@ -934,7 +934,7 @@ be matched to the spectral resolution (standard practice for pseudospectral part
 tracking). The transfer kernels are implemented as portable KernelAbstractions gather/scatter
 kernels (the scatter accumulates atomically); the smooth per-axis weights are generated for any
 `(n, m)` by a small linear solve — match the value and the order-`1…m` centred-finite-difference
-(Fornberg 1988) derivatives at the two bracketing nodes — and **pinned bit-for-bit against TurTLE's
+(Fornberg 1988) derivatives at the two bracketing nodes — and **pinned to 1e-12 against TurTLE's
 `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
 (`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
 ``\min(2m+1, 2n)`` for ``n \ge 1``; the Lagrange scheme to degree ``2n+1``. The bound needs that scope because
@@ -1239,7 +1239,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     degree ``2m{+}1`` matching the value and the order-``1, \dots, m`` derivatives (centred Fornberg
     finite differences) at the two bracketing nodes, ``C^m`` with ``0 \le m \le 2n`` (`CatmullRom`, the
     cubic ``n=1, m=1``, is the default; ``m=0`` is linear) — and the ``C^0`` `LagrangeSpline(n)`, the
-    degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are **pinned bit-for-bit
+    degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are **pinned to a tolerance
     against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement
     ``\le`` 1e-15) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
     after reading the TurTLE source, Lalescu's smooth spline being a *two-point* Hermite, not a
@@ -1932,7 +1932,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     a benchmark. The method-set baselines (206 field / 122 point-value methods) are untouched: like
     `convolve` itself, this is a new generic in `Convolution`.
 
-
 29. **HDF5 field persistence — `write_field` / `read_field`, a weak-dependency extension.** The sibling
     consumer `GBGStreamingStatistics` ships `write_histogram` / `read_histogram` to persist its durable
     summaries to HDF5; the request was the field analogue, so a solver can **checkpoint a field for
@@ -1980,7 +1979,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     paths (a dataset instead of a group, an absent name, a group with no type tag). The method-set baselines
     (206 field / 122 point-value methods) are untouched — `write_field` / `read_field` are new generics, and
     their methods exist only under the extension.
-
 
 30. **Mapped reductions — a leading function on five of the measure reductions.** The consumer
     `GBGIsotropicTurbulence` audited its memory and found a recurring shape: to average a nonlinear
@@ -2051,7 +2049,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     given the same formula, the fused form is 1.8 ms against 4.2 ms. Vary one thing at a time when
     measuring this family. The `integral` docstring carries the practical form of both points for the
     reader who never opens this file.
-
 
 31. **The Julia compat floor moved 1.11 → 1.12, on a measurement rather than a preference.** The package
     declared `julia = "1.11"`, and CI ran that as an explicit compat-floor lane beside current stable. The
@@ -4013,7 +4010,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     already rank-free — it compares grid and layout, which is exactly what a base-level object should
     match on (decision 56's context protocol).
 
-    **The measured cost is nil or negative, which is why this could be taken at all.** Holding
+    **The measured cost is nil or negative ON THE HOST, which is why this could be taken at all —
+    and the device was not measured then.** PERFORMANCE.md findings (aj) and (al) later measured
+    it on both vendors: the per-component loop costs ``1.11``–``1.61\times`` on a device vector
+    transform at ``64^3`` and is flat or faster at every larger grid, so the host verdict below
+    stands and is not a claim about a GPU. Holding
     planner effort fixed — and that qualifier is load-bearing, see finding (z) and below — a
     single-component plan runs at ``0.98``–``1.04`` of the batched plan at one thread and
     ``0.72``–``1.13`` at eight, i.e. free at ``t1`` and a **10–28% win at ``256^3`` on eight
@@ -4076,7 +4077,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `helmholtz_projection!`: there is no consumer for either, and invariant 1 says a combination is
       added when something needs it, not for symmetry with a neighbour.
 
-
 78. **The transfer visit order — locality as an option, and the wrap as a walk** (2026-08-30,
     user-directed). The grid↔point transfer is dominated by *where* its points read and write, not by
     the arithmetic on them, and two separate things were costing it.
@@ -4138,8 +4138,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       walk wraps repeatedly; only the index arithmetic changed.
 
     - **The walk has one bad corner, and this entry has now described it wrongly twice.** It is worth
-      ``1.3``–``1.9\times`` on the CPU gather up to six nodes per axis and ``1.03``–``1.28\times`` on
-      the device throughout, but at eight nodes per axis it can lose on CPU: **4–14% depending on the
+      ``1.3``–``1.9\times`` on the CPU gather up to six nodes per axis, and on the device it wins on
+      CUDA (24 of 24 cells at or below ``1.002\times``) while LOSING ``1.74\times`` on the RX 7900
+      XTX `CatmullRom` gather at ``256^3`` `Float64` — the "1.03–1.28x on the device throughout"
+      this entry used to carry is RETRACTED by PERFORMANCE.md findings (aj) and (al). At eight
+      nodes per axis it can also lose on CPU: **4–14% depending on the
       scheme, only from about four threads, and at ``R = 1`` rather than at every rank** — ``R = 2``
       is less affected, and at one thread the walk is 17–22% FASTER. The mechanism recorded here was
       backwards: `mod` is the form that VECTORIZES (983–1588 vector instructions against the walk's

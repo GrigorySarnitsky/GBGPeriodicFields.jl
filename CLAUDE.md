@@ -1169,7 +1169,7 @@ those are the usual rot. Then the mechanical bar:
    against per-point references, Float64/Float32. `test/interpolation_transfer.jl`: the Lalescu-spline
    transfer — interior polynomial reproduction, adjointness `⟨Wf,q⟩=⟨f,Wᵀq⟩`, conservation, α/β,
    periodicity, the weight limits (linear `m=0`, Catmull–Rom `n=1,m=1`, Lagrange cardinal basis) and
-   the **bit-for-bit TurTLE `beta_n{n}_m{m}` pin**, plus adversarial corners (non-zero origin /
+   the **TurTLE `beta_n{n}_m{m}` pin** (to 1e-12, not bitwise — the test asserts `atol = 1e-12`), plus adversarial corners (non-zero origin /
    anisotropic grid, on-node points, stencil-wider-than-grid, heavy atomic-scatter contention, R=3,
    the smooth `(2,1)`/`(3,2)` schemes). `test/transfer_spectral.jl`: the spectral-domain `DirectDFT`
    transfer — `interpolate` == `to_physical` at the grid nodes and **exact off-grid reconstruction** of
@@ -1296,7 +1296,7 @@ those are the usual rot. Then the mechanical bar:
    degree `2m+1`, `0≤m≤2n`; `m=0` linear, `CatmullRom = (1,1)` default) and `C⁰` `LagrangeSpline(n)`
    (degree `2n+1`). `interpolate` (gather `W`) and `anterpolate` (scatter `Wᵀ`, α/β) as portable
    **KernelAbstractions + Atomix** kernels (CPU/CUDA/AMDGPU; atomic scatter). The smooth weights are
-   **pinned bit-for-bit to TurTLE's `beta_n{n}_m{m}`** (`n`↔`interp_neighbours`, `m`↔`smoothness`);
+   **pinned to TurTLE's `beta_n{n}_m{m}` at `atol = 1e-12`** (`n`↔`interp_neighbours`, `m`↔`smoothness`);
    reproduction `min(2m+1,2n)` smooth / `2n+1` Lagrange; adjoint and conserving (partition of unity).
    Tested CPU (`test/interpolation_transfer.jl`, Float64/Float32, incl. the TurTLE pin) + GPU (ROCm).
    Physical-space only; the L²-weighted (measure-consistent) adjoint is **done** — uniform measures make

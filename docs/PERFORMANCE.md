@@ -676,8 +676,7 @@ platform change can be neither confirmed nor excluded on that host alone.
 
 **The control ran on `Aiporetne` (i7-12700K) on 2026-08-07, and at the larger grids the shift does not
 reproduce.** That host's lanes were last measured 2026-07-22, so the comparison spans an even wider
-commit range than the one that produced the finding. Across its **192** `fft` rows (four thread lanes ×
-48) exactly **one** row at ``256^3`` moved slower, by ``+1.0\%``, against `Enteropia`'s ``+38\%`` on the
+commit range than the one that produced the finding. Across its **192** `fft` rows (four thread lanes × 48), exactly **one** row at ``256^3`` moved slower, by ``+1.0\%``, against `Enteropia`'s ``+38\%`` on the
 row the finding names; the per-lane medians run ``-4.5\%`` to ``-6.8\%``. State this precisely rather
 than as "nothing got slower", which a first pass over a single lane wrongly suggested: **23 of the 192
 rows did move slower**, but all except that one ``256^3`` row sit at ``64^3`` or ``128^3``, and the three

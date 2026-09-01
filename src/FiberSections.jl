@@ -177,11 +177,15 @@ The arguments are:
 !!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
     behind the algebra and the differential operators (`helmholtz_projection!` included), and the
-    fixed-tree reductions. Two groups of operations run as portable device-style kernels on **every**
+    fixed-tree reductions — a reduction whose summation tree is a function of the array length
+    alone, so it returns the same value at every thread count. Two groups of operations run as
+    portable device-style kernels on **every**
     backend and partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
     transfer (`interpolate!`/`anterpolate!`) and the radial reductions
     (`radial_spectrum`/`radial_correlation`) — the kernels with atomic or irregular access, which a
-    gated loop cannot serve. To run those serially, start Julia with one thread.
+    gated loop cannot serve — "gated" meaning a CPU loop that consults this setting before
+    threading, as against a kernel that always partitions by thread count. To run those
+    serially, start Julia with one thread.
 
     A third category is neither governed nor exempt: an operation that is **not threaded at all**, and
     so unaffected by this setting for a different reason. The `weighted_inner` reduction is the one to know about —

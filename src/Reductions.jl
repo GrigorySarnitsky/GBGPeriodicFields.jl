@@ -1005,7 +1005,7 @@ symmetric in `f`, `g` and may be negative.
 
 Spectral representation only, being a Parseval reduction like the spectral `inner`. It is fused:
 the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner`,
-though `inner` reduces on the threaded fixed tree while this pass is still serial, so they diverge as
+both reducing on the threaded fixed tree since the 2026-08-30 fix, so they agree as
 threads are added — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
 than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which sweep every mode with

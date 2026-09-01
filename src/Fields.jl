@@ -2248,7 +2248,8 @@ Wrap `data` as the physical (or spectral) field type of tensor order `R` on `gri
 
 These pick the concrete type from the order alone, which `similar_field` cannot do because it copies
 its metadata from a reference field. [`adapt`](@ref) rebuilding a `FieldTransformPlans` has no such
-reference — it has only the plans' own grid, layout, element type and order — so it needs this form.
+reference — it has only the plans' own grid, layout and element type, decision 76 having removed the
+tensor order from `FieldTransformPlans` entirely — so it needs this form.
 """
 _physical_field_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
 _physical_field_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
