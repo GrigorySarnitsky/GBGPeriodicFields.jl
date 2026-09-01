@@ -490,7 +490,7 @@ fluctuation energy carried by every mode but the mean:
 
 ```math
 \operatorname{var}(f)\bigm|_{\texttt{corrected=false}} = \langle f, f\rangle - \langle f\rangle^2
-  = \frac{1}{N^2}\sum_{k\ne 0} \alpha(k) |\hat f(k)|^2, \quad\checkmark
+  = \frac{1}{N^2}\sum_{\text{stored }k\ne 0} \alpha(k) |\hat f(k)|^2, \quad\checkmark
 ```
 
 with ``\alpha(k)`` the rfft half-spectrum multiplicity of mode ``k`` and the ``1/N^2`` the
@@ -581,7 +581,7 @@ negative.
 **`weighted_inner`** applies a real Fourier multiplier ``w(k)`` inside the same Parseval sum,
 
 ```math
-\langle f, w g\rangle = \frac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
+\langle f, w g\rangle = \frac{1}{N^2}\sum_{\text{stored }k} \alpha(k) w(k)\sum_c \mathrm{Re}\bigl(\hat f_c \overline{\hat g_c}\bigr), \quad\checkmark
 ```
 
 generalizing `inner` (the ``w\equiv1`` case) — the reduction-dual of `convolve`. Given a **tuple** of

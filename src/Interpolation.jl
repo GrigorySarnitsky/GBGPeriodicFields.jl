@@ -24,6 +24,11 @@ M \\langle Wf, q \\rangle_{\\mathrm{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
 \\end{aligned}
 ```
 
+The middle sum is written over the ``N`` grid nodes, which is the physical-representation form. For
+the spectral schemes the same identity holds with the mode-wise pairing instead, and the two are the
+same number by Parseval — which is why `inner` on a field in spectral representation returns the
+physical value.
+
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because each scheme's scatter applies its own gather's transpose — the same stencil weights for the local splines, the conjugate Fourier sum for the spectral pair. Because those weights sum to one
 (a partition of unity), anterpolation **conserves** the total it deposits — the property that coupling a
 quantity back onto the flow needs. That is a property of the **local-spline** schemes, whose weights sum

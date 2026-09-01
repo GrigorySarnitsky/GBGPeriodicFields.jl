@@ -17,7 +17,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Naming conventions",298,237,0
 "ARCHITECTURE.md § Representation validity lives in the method set",591,198,0
 "ARCHITECTURE.md § The architecture map",387,262,0
-"ARCHITECTURE.md § The fiber-bundle model",1341,583,0
+"ARCHITECTURE.md § The fiber-bundle model",1390,583,0
 "ARCHITECTURE.md § The invariants",45,45,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",99,99,0
@@ -178,7 +178,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",297,74,0
-"FORMALIZATION.md § Reductions (`Reductions`)",1190,155,0
+"FORMALIZATION.md § Reductions (`Reductions`)",1192,155,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",509,107,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",254,140,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
@@ -383,7 +383,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: AbstractTransferScheme",189,107,0
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",472,178,1
-"Interpolation.jl :: Interpolation",741,242,0
+"Interpolation.jl :: Interpolation",793,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",509,186,1
