@@ -1687,12 +1687,26 @@ width-8 CPU scatter at ``512^3`` `Float64`, and the corner (ad) documents is not
 (2026-09-01, from a regression hunt over the committed history of `RESULTS.md` rather than over
 prose — the question being not whether a claim is worded well but whether anything shipped slower).
 
-**The measurement.** `anterpolate! Lalescu(3,3)` at ``512^3`` `Float64` on the 9800X3D sat at
-3350 ms (t4) for twenty consecutive sweeps and then stepped to 5135 ms at the first sweep carrying
-decisions 76–79. A direct A/B against `7bbbc75a`, the last commit before decision 78, reproduces it:
-**t4 3379 → 5005 ms (``1.48\times``), t1 12707 → 18419 ms (``1.45\times``)**, with each arm
-reproducing its own archive to within 3%. Decision 79 cannot touch a scatter, so the walk is the only
-candidate in the range.
+**The measurement, and the archive step is NOT the evidence.** `anterpolate! Lalescu(3,3)` at
+``512^3`` `Float64` on the 9800X3D sat at 3350 ms (t4) for twenty consecutive sweeps and stepped to
+5135 ms at the first sweep carrying decisions 76–79. That step alone would not settle anything,
+because the harness changed in the same range: decision 78 added seven rows to this very group,
+three of them allocating ``512^3`` vector fields, so roughly 3 GB more sits live while the row runs —
+which can move a neighbour with no kernel changing.
+
+So the claim rests on an A/B that **bypasses the benchmark group entirely** — a standalone script
+building one scalar field and one point set and timing `anterpolate!` directly, byte-identical in
+both arms, with no `BenchmarkTools`, no `gcsample` policy and no `characterize.jl`. Against
+`7bbbc75a`, the last commit before decision 78, interleaved A-B-A-B:
+
+| | pre-78 | HEAD | ratio |
+|---|--:|--:|--:|
+| t4, repeat 1 | 3384.9 ms | 4952.4 ms | ``1.463\times`` |
+| t4, repeat 2 | 3389.6 ms | 4941.8 ms | ``1.458\times`` |
+| t1, single | 12707 ms | 18419 ms | ``1.449\times`` |
+
+Each arm reproduces itself to 0.2% and its own archive to within 3%. Decision 79 cannot touch a
+scatter, so the walk is the only candidate in the range.
 
 **It is one cell, and the scoping is the useful part.** Across scheme × grid × element type ×
 thread count on this host, everything else moved to ``0.73``–``1.11\times`` — flat or faster:
@@ -1729,10 +1743,16 @@ at once. **It supersedes (aj)'s working-set account**, which (al) falsified with
 is falsifiable — a third large-cache platform should regress, a third small-cache one should not.
 
 **Not fixed, and deliberately.** Making the walk conditional on scheme, rank, verb or host means a
-second kernel body, which is what decision 47 records going silently dead; and the honest ledger is
-233 rows faster against 10 slower. The corner is now documented where it actually is. Reversing it
-needs the route the roadmap records: not a branch, but an implementation that keeps the cheaper
-arithmetic without serialising the chain.
+second kernel body, which is what decision 47 records going silently dead. The corner is now
+documented where it actually is; reversing it needs the route the roadmap records — not a branch, but
+an implementation that keeps the cheaper arithmetic without serialising the chain.
+
+**On proportion, with the same caution applied to the good news.** The cross-boundary ledger reads
+233 transfer cells faster against 10 slower, but that count comes from the TABLE and so inherits the
+harness change above; on this host it also compares a transfer-only re-measurement against a full
+sweep (finding (y)). The half that is methodology-clean is the 12700K, full sweep against full sweep,
+and there **every** transfer cell improved, ``0.56``–``0.95\times``. Decision 78 is strongly
+net-positive. It has one bad cell, and it is on the grid decision 37 tunes for.
 
 **(al) The CUDA arm of the A/B finding (aj) handed over: decision 76 costs on BOTH vendors, and
 decision 78's device gather regression is AMD-only** (2026-08-31 on `Enteropia`; old arm
