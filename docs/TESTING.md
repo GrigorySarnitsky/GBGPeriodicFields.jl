@@ -1,5 +1,8 @@
 # Testing — GBGPeriodicFields
 
+!!! info "Written by AI, not regularly reviewed"
+    This page is written by AI and is not reviewed regularly by a human.
+
 This is one of four design documents — three rationale companions and the typed [`FORMALIZATION.md`](formalization.md) behind them: [`ARCHITECTURE.md`](architecture.md) explains why the
 *package* is built the way it is, [`PERFORMANCE.md`](performance.md) how it performs and is
 benchmarked, and this one explains how the *tests* are built and what they must cover. Read it

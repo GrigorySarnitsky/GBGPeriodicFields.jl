@@ -1,5 +1,8 @@
 # Architecture — GBGPeriodicFields
 
+!!! info "Written by AI, not regularly reviewed"
+    This page is written by AI and is not reviewed regularly by a human.
+
 This document records the architecture of the package and, more importantly, *why*
 it is the way it is. It exists so that future work (human or AI) extends the design
 instead of accidentally reverting it. `CLAUDE.md` carries the operational summary;

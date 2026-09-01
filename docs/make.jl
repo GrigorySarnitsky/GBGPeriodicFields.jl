@@ -20,6 +20,12 @@ end
 # `examples/HIST_CPU.jl` a user downloads becomes the tutorial. Rendered with plain (non-executed)
 # code fences, the pre-generated GPU-produced figures (committed under examples/figures/) embedded — so
 # the page never runs the DNS in CI — and the script copied beside it for download. Output gitignored.
+#
+# `documenter = true` is load-bearing and was `false` until 2026-09-01: with it false, Literate rewrites
+# every Documenter admonition into a plain blockquote, so this page alone rendered the AI-provenance
+# banner as quoted text while the other five got an info box. The flag costs an `EditURL` block at the
+# top of the generated markdown, which is a gain — it links the page back to the runnable script — and
+# the `codefence` override below still keeps the fences plain and unexecuted.
 function build_examples()
   output = joinpath(@__DIR__, "src", "examples")
   figures = joinpath(@__DIR__, "..", "examples", "figures")
@@ -29,7 +35,7 @@ function build_examples()
   end
   cp(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), joinpath(output, "HIST_CPU.jl"); force = true)
   Literate.markdown(joinpath(@__DIR__, "..", "examples", "HIST_CPU.jl"), output;
-                    name = "hist_cpu", documenter = false, execute = false,
+                    name = "hist_cpu", documenter = true, execute = false,
                     codefence = "```julia" => "```")
 end
 
@@ -487,7 +493,41 @@ function lint_prose_shape()
 end
 
 
+# Every page a human did not write carries the same provenance banner, and "the same" is checked
+# rather than trusted: six copies maintained by hand drift, and a banner that says something slightly
+# different on each page reads as six different claims. The four rationale docs and the tutorial carry
+# it as markdown; `examples/HIST_CPU.jl` carries the identical text as full-line Literate comments,
+# which render as prose on the built page. It lives in the sources rather than being injected at build
+# time so that a reader of the raw file on GitHub sees it too.
+const AI_BANNER = [
+  "!!! info \"Written by AI, not regularly reviewed\"",
+  "    This page is written by AI and is not reviewed regularly by a human.",
+]
+
+function lint_ai_banner()
+  root = joinpath(@__DIR__, "..")
+  markdown = [joinpath(@__DIR__, f) for f in
+              ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")]
+  push!(markdown, joinpath(@__DIR__, "src", "tutorial.md"))
+  literate = joinpath(root, "examples", "HIST_CPU.jl")
+  missing_banner = String[]
+  for path in markdown
+    occursin(join(AI_BANNER, "\n"), read(path, String)) || push!(missing_banner, relpath(path, root))
+  end
+  commented = join(["# " * line for line in AI_BANNER], "\n")
+  occursin(commented, read(literate, String)) || push!(missing_banner, relpath(literate, root))
+  if !isempty(missing_banner)
+    for m in missing_banner; println("  NO AI BANNER: ", m); end
+    error("doc lint failed: a page that should carry the AI-provenance banner does not, or carries " *
+          "text that differs from the others. The banner is one string, `AI_BANNER` in docs/make.jl; " *
+          "every listed page must contain it verbatim (the Literate example with each line prefixed " *
+          "`# `). Edit all of them together, or edit the constant and then all of them.")
+  end
+  @info "doc lint: AI-provenance banner present and identical on $(length(markdown) + 1) pages"
+end
+
 remove_jupyter_files()
+lint_ai_banner()
 copy_rationale_pages()
 build_examples()
 lint_inline_math()

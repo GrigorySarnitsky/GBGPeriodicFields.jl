@@ -1,5 +1,8 @@
 # Formalization — GBGPeriodicFields
 
+!!! info "Written by AI, not regularly reviewed"
+    This page is written by AI and is not reviewed regularly by a human.
+
 This page is the **formal backing** for the mathematical statements made informally in
 [Architecture](architecture.md), the module docstrings, and the API pages. For each nontrivial
 operation it records a *typed* statement — every object given its space, every operator its domain and
