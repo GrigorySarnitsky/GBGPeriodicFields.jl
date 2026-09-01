@@ -127,6 +127,16 @@ the source:
    list is derived, so they drift apart silently whenever code moves between modules or a `Filter`
    changes. Read the blurb against the rendered entries and check every clause names something
    present. Three of nine were wrong.
+5. **No markup rendered literally.** Questions 1–4 are all about `@docs`/`@autodocs` *placement*, so
+   for a long time nothing on this surface read the rendered **prose** and asked whether the markup
+   had actually worked. It had not: `docs/src/index.md` opened the Home page with
+   `*pairs a section against a **measure***`, an emphasis nesting CommonMark cannot resolve, which
+   rendered as literal asterisks — past all eleven lanes, past a twelve-hat panel whose
+   `style-editor` reads the raw built HTML for exactly this class, and past every `guards.sh` run.
+   A reader found it. **Now build-enforced by `lint_rendered_markup()` in `docs/make.jl`**, which
+   runs after `makedocs` and fails the build on any emphasis marker surviving into prose (code, `pre`
+   and math stripped first). It is deliberately NOT duplicated into `guards.sh`: a second copy of a
+   predicate is the twin that drifted between `lint_review_closure()` and `verify-fixes.js`.
 
 ## Mechanism
 
