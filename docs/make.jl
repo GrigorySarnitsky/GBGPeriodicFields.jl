@@ -258,7 +258,11 @@ function lint_review_closure()
         isdir(entry) || continue
         base = basename(entry)
         (startswith(base, "doc-review") && !endswith(base, "-prev")) || continue
-        lanes = filter(f -> occursin(r"^\d\d-.*\.md$", basename(f)), readdir(entry; join = true))
+        # `00-SUMMARY.md` is the CONSOLIDATION's reading aid, not a lane: it is written by the main
+        # thread after the hats return, holds no findings of its own, and so parsed as a lane that
+        # found nothing — reported as a dead lane on every build. Excluding it by its `00-` prefix
+        # keeps the dead-lane check pointed at actual lanes, which are numbered from 01.
+        lanes = filter(f -> occursin(r"^(?!00-)\d\d-.*\.md$", basename(f)), readdir(entry; join = true))
         isempty(lanes) && continue
         # A round closed by a process that predates the verifier is exempt, but only by an explicit,
         # committed record — the same shape as the prose ratchet's re-baseline. `CLOSED.md` must say
@@ -267,7 +271,15 @@ function lint_review_closure()
         isfile(joinpath(entry, "CLOSED.md")) && continue
         for lane in lanes
             body = read(lane, String)
-            findings = length(collect(eachmatch(r"^#{2,4} +Finding +\d+"m, body)))
+            # BOTH heading forms the hats actually emit. `panel.js` asks each hat for "one
+            # clearly-formatted section per finding" and prescribes NO heading syntax, so the ten
+            # economy hats' `## Finding 1 — title` and the two anchor hats' `## 1. title` are equally
+            # compliant. This regex matched only the first, so hats 03 and 04 — the two mathematician
+            # ANCHORS, the lanes carrying the round's hardest findings — parsed to zero and were
+            # reported as dead lanes. It failed safe (red, not green) and was still wrong: three of
+            # eleven OPEN lines were this and the summary artifact, and a gate whose output is mostly
+            # noise is one nobody reads.
+            findings = length(collect(eachmatch(r"^#{2,4} +(?:Finding +\d+|\d+[.)])"m, body)))
             # A lane that parses to zero is a DEAD LANE unless it says otherwise: an unreadable or
             # truncated banked file is indistinguishable from one that found nothing, and reading it
             # as clean is the same inversion `coverage.py` exists to catch. A genuinely clean lane
@@ -308,7 +320,11 @@ function lint_review_closure()
             # `check-consistency/verify-fixes.js` — edit the two together.
             honored = 0
             for chunk in split(verdicts, r"^#{2,4} +Finding "m)[2:end]
-                occursin(r"^\*\*Verdict:\*\* *HONORED *$"m, chunk) || continue
+                # Both bold/colon spellings a grader emits: `**Verdict:** X` and `**Verdict**: X`.
+                # 14 of this round's 66 verdicts — the whole of hat 03 — used the second, so the lane
+                # read as 0 HONORED of 14 while every one of its findings was graded. Still anchored
+                # to end-of-line so a demotion note ("[DEMOTED: HONORED claimed …]") cannot match.
+                occursin(r"^\*\*Verdict:?\*\*:? *HONORED *$"m, chunk) || continue
                 cs = (m = match(r"class_surfaces:?\*{0,2}(.*)"s, chunk)) === nothing ? "" : m.captures[1]
                 # EMPTINESS, NOT CONTENT (2026-09-01) — synced with the twin in
                 # `check-consistency/verify-fixes.js`, which this comment block already required be
@@ -327,7 +343,8 @@ function lint_review_closure()
                 substantive && (honored += 1)
             end
             # A finding whose title the adjudicated list names is closed by that record instead.
-            titles = [strip(m.captures[1]) for m in eachmatch(r"^#{2,4} +Finding +\d+ +[—-] +(.*)$"m, body)]
+            titles = [strip(m.captures[1]) for m in
+                      eachmatch(r"^#{2,4} +(?:Finding +\d+ +[—-]|\d+[.)]) +(.*)$"m, body)]
             dismissed = count(t -> !isempty(t) && occursin(first(t, 40), adjudicated), titles)
             if honored + dismissed < findings
                 push!(open_rounds, "$(base)/$(basename(lane)): $(findings) finding(s), " *
