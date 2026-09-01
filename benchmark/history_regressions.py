@@ -26,10 +26,14 @@ Measurement-regime boundaries are respected, because ignoring them produces nons
     (2026-07-22) reshaped them, so that is their floor.
 A cell is only compared against readings inside its own regime.
 """
-import re, subprocess, sys, statistics
+import os, re, subprocess, sys, statistics
 from collections import defaultdict
 
-REPO = "/home/grigory/Dropbox/Research and Teach/Isotropic Turbulence/GBGPeriodicFields"
+# Derived from this file's own location, not hardcoded: `report.jl` invokes the script from
+# whatever directory a sweep happens to run in, and the fleet's two hosts need not agree on
+# an absolute path. A wrong REPO here would not error — `git show` would simply find nothing,
+# and the scan would report a clean history it never read.
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def sh(*a):
     return subprocess.run(a, cwd=REPO, capture_output=True, text=True).stdout

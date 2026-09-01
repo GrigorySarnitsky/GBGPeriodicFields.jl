@@ -134,6 +134,58 @@ end
 # regeneration because report.jl is the one place that already holds every lane — no new measurement.
 print(io, triage_section(groups))
 
+"""
+    history_section() -> String
+
+The shipped-slower scan (finding (am)), rendered for `RESULTS.md`.
+
+It rides the regeneration for the same reason the triage does — no new measurement, and this is the
+moment someone is already looking at the numbers. What it adds is the one question no other layer
+asks: every other check compares a row against *itself* somewhere. The canary is a fixed sample of
+mechanisms, the triage asks whether an operation threads and whether it matches its declared peers,
+and a sweep's write-up compares one archive against its predecessor. A slow drift, or a step in a row
+nobody was watching, is invisible to all three. This reads each cell's whole committed history.
+
+Two properties of the output are deliberate and must not be smoothed away. **A flagged cell is a
+HYPOTHESIS**, not a regression: the table mixes hosts, sweep shapes and measurement regimes, and
+several documented effects move rows with no code change (finding (y) process history, §4(u) jitter,
+finding (ak)'s stale visit order). Confirming one takes a matched A/B against the commit before the
+step. And the scan reads the **committed** history, so the sweep being written right now enters it
+only at the next regeneration after this file is committed — the section describes HEAD, not the
+archives just merged.
+
+Never fails the report. A missing `python3`, or a script that errors, yields a section saying so:
+the numbers above are the artifact, and a broken accessory must not cost them.
+"""
+function history_section()
+  script = joinpath(@__DIR__, "history_regressions.py")
+  isfile(script) || return ""
+  out, err = IOBuffer(), IOBuffer()
+  ok = try
+    run(pipeline(`python3 $script`; stdout = out, stderr = err))
+    true
+  catch
+    false
+  end
+  body = String(take!(out))
+  header = "\n## Shipped slower? — the history scan\n\n"
+  if !ok || isempty(strip(body))
+    reason = strip(String(take!(err)))
+    return string(header, "Not run (`benchmark/history_regressions.py`)",
+                  isempty(reason) ? "" : string(": `", first(reason, 200), "`"), ".\n")
+  end
+  return string(header,
+    "Every cell's whole committed history, read at once — the drift and the step-in-an-unwatched-row ",
+    "that the canary, the triage and a one-archive-against-its-predecessor write-up all miss.\n\n",
+    "**A flagged cell is a hypothesis, not a regression.** This table mixes hosts, sweep shapes and ",
+    "measurement regimes, and documented effects move rows with no code change. Confirm with a ",
+    "matched A/B against the commit before the step before calling one real. The scan reads the ",
+    "*committed* history, so a sweep merged in this same change appears only at the next ",
+    "regeneration.\n\n```\n", strip(body), "\n```\n")
+end
+
+print(io, history_section())
+
 open(joinpath(@__DIR__, "RESULTS.md"), "w") do f
   write(f, String(take!(io)))
 end
