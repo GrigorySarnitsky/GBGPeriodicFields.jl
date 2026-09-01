@@ -166,8 +166,8 @@ dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν�
 max_speed(u)      = maximum(abs, field_data(u))
 
 # The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so
-# that its shells sum to the kinetic energy: ``\sum_\kappa E(\kappa) =
-# \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the kinetic energy.
+# that its shells sum to the kinetic energy:
+# ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``.
 function energy_spectrum(uh, m)
   shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
   return shells, 0.5 .* spectrum                                       # E(κ): physics ½ stays consumer-side
@@ -405,7 +405,8 @@ function run_hist(p::Params)
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
   # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length
-  # ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``, which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
+  # ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r`` — written ``\mathcal{L}`` because ``L`` is
+  # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
   # the literature usually plots, since ``C`` contracts the fiber
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
@@ -499,7 +500,7 @@ main()
 #md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
 #md # ``\tau_\eta = \sqrt{\nu/\varepsilon}`` the Kolmogorov time, and ``C_2 \approx 2.1``, ``C_0 \approx 6``
 #md # the (adjustable, plot-time) Kolmogorov constants. The Taylor microscale ``\lambda`` and the integral
-#md # scales are marked: the trace-correlation integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
+#md # scales are marked: the trace-correlation integral length ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
 #md # (``= \tfrac{2}{3}L_{11}``) and time
 #md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau`` are the areas under the normalized autocorrelations
 #md # ``\rho = C/C(0)`` and ``\rho_L = R/R(0)`` (taken to the first zero crossing).
