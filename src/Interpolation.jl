@@ -624,7 +624,7 @@ The arguments are:
   ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks, so the block is exactly `tile_size` cells wide
   only when it divides the grid, and slightly narrower otherwise. The bucket count falls as the cube
   of the edge, and with it both the build time and the working memory: at ``256^3`` the default builds
-  in ``\\approx 0.1`` ms against 3 MiB of scratch, while `tile_size = 1` — one bucket per cell — takes
+  in ``\\approx 0.27`` ms (post-validation, the figure that ships) against 3 MiB of scratch, while `tile_size = 1` — one bucket per cell — takes
   ``14\\times`` the time and **192 MiB**, for no better locality. The optimum tracks the BACKEND, not the
   interpolation scheme — measured across stencil widths 4 and 8, a device is flat in the tile while a
   CPU gathers faster with coarser blocks (up to about 16) — which is why this option is a block size

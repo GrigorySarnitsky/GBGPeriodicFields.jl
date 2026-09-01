@@ -15,7 +15,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Documentation policy",239,154,0
 "ARCHITECTURE.md § Layers",383,309,0
 "ARCHITECTURE.md § Naming conventions",298,237,0
-"ARCHITECTURE.md § Representation validity lives in the method set",590,198,0
+"ARCHITECTURE.md § Representation validity lives in the method set",591,198,0
 "ARCHITECTURE.md § The architecture map",387,262,0
 "ARCHITECTURE.md § The fiber-bundle model",1341,583,0
 "ARCHITECTURE.md § The invariants",45,45,0
@@ -113,7 +113,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",245,113,0
 "Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",61,49,0
 "Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",64,53,0
-"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",413,115,0
+"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",422,115,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
 "Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",918,232,1
@@ -345,7 +345,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: physical_field_shape(grid::Grid3D, ::Val{R}) where {R}",21,17,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",119,55,0
-"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",350,89,1
+"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",375,89,1
 "Fields.jl :: rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, In",67,41,0
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
@@ -400,7 +400,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: transfer_order(grid::Grid3D, points::PointSet; tile_size = 4",734,237,2
+"Interpolation.jl :: transfer_order(grid::Grid3D, points::PointSet; tile_size = 4",739,242,2
 "Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",42,42,0
@@ -530,7 +530,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: mean(f)",125,122,0
 "Reductions.jl :: minimum(f)",30,27,0
 "Reductions.jl :: radial_correlation(f, plans)",638,181,1
-"Reductions.jl :: radial_spectrum(f, multipliers)",958,278,2
+"Reductions.jl :: radial_spectrum(f, multipliers)",960,278,2
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",343,122,0
 "Reductions.jl :: weighted_inner(f, w::SpectralKernel)",661,207,1

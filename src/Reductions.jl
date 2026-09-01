@@ -1306,7 +1306,7 @@ wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted f
 modes whose rounded magnitude falls in shell ``i``:
 
 The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
-``\\lvert k\\rvert`` within ``\\pm\\Delta\\kappa/2`` of ``m\\Delta\\kappa`` — which is what makes
+``\\lvert k\\rvert`` within ``\\pm\\Delta k/2`` of ``m\\Delta k`` — which is what makes
 ``\\kappa_m`` an energy-density sample AT ``\\kappa_m`` rather than at the band's edge. The abscissa is a
 property of the grid alone, identical for every field on it, so two spectra are directly comparable and a
 co-spectrum (which may be negative) is handled by the same rule.

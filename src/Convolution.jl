@@ -1832,7 +1832,8 @@ aliasing — trust the lower band, well below the Nyquist frequency. The package
 window; the density estimate and the correlation normalization stay consumer-side.
 
 Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
-Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988.
+Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition /
+charge assignment; the NGP and CIC windows).
 """
 function assignment_window(multipliers::FieldSpectralMultipliers)
   T = _multipliers_scalar_type(multipliers)

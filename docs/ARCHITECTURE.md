@@ -317,7 +317,7 @@ form — exactly why those nonlinear operations are physical-space only.
 The same finiteness makes a nonlinear result **aliased**. A product doubles the spectral band — the
 determinant (a triple product) triples it, a non-polynomial map such as the norm is unbounded — so content
 beyond the grid's Nyquist (highest stored) wavenumber folds back onto the resolved modes when the
-physical result is transformed to spectral representation. The gridpoint values themselves stay exact; the
+physical result is transformed to spectral representation. The grid point values themselves stay exact; the
 aliasing is a spectral-representation artifact, and de-aliasing — the sharp low-pass `spectral_cutoff`, or
 phase-shift via `translation_kernel` ([§11](@ref "11. Convolution")) — is the consumer's choice, the
 package supplying the tools rather than the strategy.

@@ -2437,8 +2437,9 @@ This returns the largest such discrepancy,
 \\max \\bigl\\lvert \\hat f(k) - \\overline{\\hat f(-k)} \\bigr\\rvert,
 ```
 
-over those planes and every fiber component. A mode that is its own partner — the eight corners where
-each axis sits at zero or Nyquist — must be real, and this reports twice its imaginary part, that
+over those planes and every fiber component. A mode that is its own partner — the corners where each axis
+sits at zero or, on an even-length axis, at Nyquist; eight of them when all three axes are even,
+fewer when an axis is odd and so has no Nyquist plane — must be real, and this reports twice its imaginary part, that
 being the same discrepancy applied to a self-paired entry.
 
 Reach for it where responsibility for the coefficients changes hands: after writing them directly, or
