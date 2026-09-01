@@ -28,8 +28,9 @@ package holds one in whichever of four forms is cheapest for its multiplier: a `
 coefficients wrapped in a `StoredKernel` when the multiplier is arbitrary, the per-axis factors when it
 separates, the **function** computing it when it depends on the wavenumber only through
 ``\lvert k\rvert^2``, or **any two kernels** held unmultiplied when a composition cannot be collapsed
-into a single one. All four are *applied* identically and give bitwise-identical results, so for
-applying a kernel to a field the choice is one of storage, not of meaning.
+into a single one. All four are *applied* identically and give bitwise-identical results on the host —
+on a device a **complex**-valued kernel is the one exception, the classes agreeing there to rounding —
+so for applying a kernel to a field the choice is one of storage, not of meaning.
 
 Inverting one is the exception. [`inv`](@ref) is a genuine mathematical partial operation — a kernel
 that annihilates a mode has no inverse there — and the classes report that differently: a

@@ -799,7 +799,7 @@ end
 """
     _fiberwise_pass!(backend, f, targets, arrays, constants, α, β)
 
-Run one fused fiberwise pass — every target element receives ``\\alpha\\, f(\\text{element values}, \\text{constants})``, plus `β` times its prior value when the accumulate is requested — over the common
+Run one fused fiberwise pass — every target element receives ``\\alpha f(\\text{element values}, \\text{constants})``, plus `β` times its prior value when the accumulate is requested — over the common
 linear index range of the participating storage. Here `f` is a pure scalar values function: it
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.

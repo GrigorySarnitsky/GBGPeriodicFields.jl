@@ -20,6 +20,9 @@ questions" as item 5, to be decided with the other breaking naming items rather 
 Blast radius measured at the time: 15 in-repo call sites, none in `examples/` or `benchmark/`, and no
 `origin =` call in `GBGIsotropicTurbulence`.
 
+Settles, verbatim: `Grid3D`'s convenience constructor puts `origin` in a keyword, contradicting the
+package's own positional-vs-keyword rule (and its own other constructor)
+
 ### `inv` has three different failure behaviours across the four `SpectralKernel` subtypes
 **SETTLED 2026-09-01 (user): NOT a defect — do not re-flag.** `StoredKernel` and `SeparableKernel`
 throw on a zero coefficient; `RadialKernel` returns a non-finite multiplier, and `ProductKernel`
@@ -40,6 +43,9 @@ CLAUDE.md's "Open interface questions" (item 4) on 2026-08-15, and the 2026-09-0
 independently — which is the panel working, not a new finding. It waits for the breaking round
 alongside `Grid3D`'s `origin` (item 5), deferred there by the user on 2026-09-01.
 
+Settles, verbatim: `Points` accessor names use three different naming conventions where `Fields` uses
+one uniform prefix
+
 ### Consumer-contingent API-symmetry observations
 **SETTLED 2026-09-01 (user): NOT a defect — do not re-flag.** *(software-architect 2, 5, 6, 7, 8.)*
 Which operators take a kernel-composed arity, why `combine!` is field-only, why `weighted_inner`'s
@@ -58,6 +64,18 @@ The residual point — that a second consumer cannot enumerate the gaps without 
 was weighed against three remedies (a consolidated absence list in §2, per-module absence notes, and
 deferral to the breaking round) and the user declined all three: the rule is stated once and the
 absences are documented where they occur, which is where "one concept, one home" puts them.
+
+Settles, verbatim — the five titles this entry covers:
+- The public surface's regularity is consumer-contingent, not structural: several operator families are
+  asymmetric only because "no consumer asked yet"
+- `exponential_convolve!`'s six overloads let `α, β` play two different positional roles, disambiguated
+  only by argument position/arity
+- The "mapped form" (leading fiber-map argument) covers five reductions but not `std`/`var`, with no
+  structural predicate distinguishing them
+- `map!`'s α/β accumulate arity exists only for the single-source form, not the variadic multi-source
+  form
+- The Convolution kernel-composed `combine!` method is documented on a page (`Convolution`) different
+  from its generic's primary home (`FieldAlgebra`)
 
 ### The intrinsic-structure findings — DERIVED then FIXED (2026-09-01)
 *(differential-geometer 1, 3, 10; spectral-methods-mathematician 7.)* The user asked for each to be

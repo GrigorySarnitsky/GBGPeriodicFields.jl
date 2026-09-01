@@ -678,7 +678,7 @@ The arguments are:
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
 Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
-pass as ``\\operatorname{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as [`var`](@ref) is), over the grid
+pass as ``\\texttt{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as [`var`](@ref) is), over the grid
 cell-average measure and the point counting measure alike.
 """
 function cov end
@@ -970,13 +970,21 @@ The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
 - `weights` — in the tuple form, a tuple of such kernels: every one is answered in a single traversal
   and one device readback, bitwise-equal to calling the operation once per weight, and the results are
-  returned in the order given.
+  returned in the order given. An empty tuple answers `()` without reading the field, and every refusal
+  the single-weight form makes is made here in any position.
 - `w` — the weight: a spectral kernel in **any** of its storage classes, holding a **real** multiplier
   ``w(k)``. All four classes give bitwise-identical results, so the choice is one of storage only. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
   right — see the warning below. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+
+!!! note "The unit weight and `inner` agree numerically, not bitwise"
+    ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
+    [`inner`](@ref) — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
+    same threaded fixed tree, so the residue is the weighted pass carrying a multiplication by one
+    through each mode rather than a different summation order. Worth knowing when replacing one with
+    the other in code that compares against a stored number.
 
 !!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
     Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
@@ -986,6 +994,8 @@ The arguments are:
     permit — so that class keeps the real-part behaviour, and a complex weight reaching it returns a
     number rather than raising. It is the one route by which a phase kernel can serve as a weight and
     answer a question you did not ask.
+
+Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref).
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
@@ -1003,7 +1013,7 @@ projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the singl
 ``\\langle f, w g\\rangle`` above, not ``\\lVert w \\star f\\rVert^2``. The co-spectrum-like mixed form is
 symmetric in `f`, `g` and may be negative.
 
-Spectral representation only, being a Parseval reduction like the spectral `inner`. It is fused:
+It is fused:
 the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner`,
 both reducing on the threaded fixed tree since the 2026-08-30 fix, so they agree as
 threads are added — and its
@@ -1299,6 +1309,9 @@ The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `multipliers` — the per-axis wavenumbers ``k`` for the field's grid ([`FieldSpectralMultipliers`](@ref)).
 
+This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
+`inner`.
+
 It returns `(shells, spectrum)`, a pair of `Vector{T}` in the section's own scalar type and on the
 **host** whatever backend the field lives on (the shell accumulators are small and are brought back).
 Here `shells` are the bin-center
@@ -1323,24 +1336,6 @@ co-spectrum (which may be negative) is handled by the same rule.
     weighted_inner(f, radial_kernel(identity, multipliers))         # ⟨f, −Δf⟩, the Dirichlet energy
     ```
 
-Given a **tuple of weights** it answers all of them in **one traversal**, returning one value per
-weight in the order they were given:
-
-    whole, band, dissipation = weighted_inner(f, (unit, band_kernel, squared_wavenumber))
-
-Reach for that when several weighted inners of the same field are wanted together. It reads the
-coefficients once instead of once per weight, and — the reason it exists — returns a single tuple
-rather than a scalar at a time, so a device is asked for its answer once rather than blocking on each.
-The results are **bitwise identical** to the separate calls; only the pass is shared. An empty tuple
-answers `()` without touching the field, and every refusal the single-weight form makes is made here
-in any position.
-
-!!! note "The unit weight and `inner` agree numerically, not bitwise"
-    ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
-    [`inner`](@ref) — to about ``10^{-14}`` relative, not to the last bit, because `inner` reduces on
-    the threaded fixed tree while this pass does not. Worth knowing when replacing one with the other
-    in code that compares against a stored number.
-
 ```math
 \\begin{gathered}
 P(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
@@ -1360,8 +1355,7 @@ spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's 
 spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (it integrates to the turbulent kinetic energy, half
 the L² energy); the package keeps the neutral power-spectrum name, physics stays consumer-side.
 
-This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
-`inner`. Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
+Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
 refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box the shells
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
 with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` the per-axis Nyquist wavenumber — are

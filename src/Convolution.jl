@@ -309,6 +309,17 @@ The fields are
 - `grid`, `layout` — the base and Fourier layout the kernel was built for, which a call checks
   the field against.
 
+!!! note "Storing no coefficients is not the same as costing nothing on a small CPU grid"
+    The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` the trailing
+    singleton is extruded over the fiber, so it is evaluated **once per component** rather than once per
+    mode. On a CPU at a small grid that recompute outweighs the kernel-array traffic the class saves:
+    measured at ``64^3``, applying one of these costs ``\\approx 2\\times`` a materialized
+    [`StoredKernel`](@ref) at ``R = 1`` and ``\\approx 1.5\\times`` at ``R = 2``, against ``1.02\\times``
+    at ``R = 0``. The sign reverses as the grid grows — by ``256^3`` the radial route is ``\\approx 7\\%``
+    **faster**, the saved traffic having overtaken the recompute — and a device never pays it. Hoisting
+    the evaluation was prototyped and measured, and was declined because it lost at the sizes that
+    matter; [`materialize_kernel`](@ref) is the escape where a small CPU grid and ``R \\ge 1`` meet.
+
 !!! note "Radial, not separable"
     ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so a *general* real symbol of it
     does not factor into per-axis terms and cannot be stored per axis the way a
@@ -958,6 +969,8 @@ The arguments are:
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
+Spectral representation only: on the torus convolution is the coefficientwise spectral product.
+
 As a real physical object the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
@@ -994,8 +1007,6 @@ accumulate:
     the multiplier is real and even whatever the consumer's closure computes. A consumer-built
     kernel that breaks the symmetry yields coefficients that are those of no real field, and the
     inverse transform then silently keeps only their Hermitian part.
-
-Spectral representation only: on the torus convolution is the coefficientwise spectral product.
 """
 function convolve! end
 
@@ -1506,6 +1517,8 @@ wavenumber arrays on the fly — never built or stored as a field — and the re
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
 returns a fresh result instead.
 
+Spectral representation only.
+
 For a coefficient ``c \\le 0`` this is, as a real physical object, convolution with the periodic
 Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field at the length scale
 ``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
@@ -1517,10 +1530,13 @@ Choose between this and a stored kernel by reuse. When the exponent changes betw
 so a stored kernel would be rebuilt each time — the lazy form wins: it removes the kernel's build
 pass, its residency, and its per-application field read, reading three one-dimensional wavenumber
 arrays instead (measured ``\\approx 1.4\\times`` over rebuild-then-[`convolve!`](@ref) on a GPU at
-``256^3``). When one **fixed** kernel is applied many times, a stored kernel with `convolve!` is the
-faster route: the per-mode exponential costs more than the field read it saves
-(``\\approx 1.1\\times`` on a GPU; ``\\approx 1.7\\times`` on a CPU, where the exponential is expensive
-and is evaluated once per fiber component). The two-operand forms win on both backends —
+``256^3``). For one **fixed** kernel reused across many calls, a stored kernel with `convolve!` has
+been the faster route, the per-mode exponential costing more than the field read it saves — measured at
+``\\approx 1.1\\times`` on a GPU and ``\\approx 1.7\\times`` on a CPU. Both figures predate decision 79,
+which made the ``R \\ge 1`` forms evaluate the exponential **once per mode** rather than once per fiber
+component and cut the CPU cost by ``2.4``–``3.9\\times`` serially, so the remaining margin is narrower
+than those numbers and has not been re-measured; treat them as an upper bound on what a stored kernel
+now buys. The two-operand forms win on both backends —
 ``\\approx 1.5\\times`` over the sequential `combine!`-then-`convolve!` pair, except the CPU
 two-operand exponential at ``\\approx 1.1\\times`` — fusing away the combination's destination write
 and re-read as well.
@@ -1566,8 +1582,6 @@ The single-operand accumulate form computes
 \\widehat{\\texttt{destination}}(k) = \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k)
                                     + \\beta  \\widehat{\\texttt{destination}}(k),
 ```
-
-Spectral representation only.
 
 # The two-operand form
 

@@ -1107,7 +1107,7 @@ what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist
 the two sides agree with no convention needed.
 
 Interpolation reproduces the band-limited field **exactly**, so it is
-pointwise divergence-free on the **resolved sub-Nyquist band** — the frequencies this grid
+pointwise divergence-free on the **resolved band** — the frequencies this grid
 represents, each even axis's Nyquist plane excluded — where the local splines are not, and
 matches [`to_physical`](@ref) at the grid nodes;
 anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
@@ -1124,7 +1124,7 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     Hermitian part, so a transform round trip does not return it unchanged. This is the same hazard
     `translation_kernel` documents for its Nyquist factor, and it is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
-    The **resolved sub-Nyquist band is unaffected**, which is the band a de-aliased spectral
+    The **resolved band is unaffected**, which is the band a de-aliased spectral
     computation uses.
 """
 struct DirectDFT <: AbstractTransferScheme end
@@ -1400,7 +1400,7 @@ function _nufft_deconvolution(reference::AbstractFieldSpectral{T}, oversampling:
     end
     # Project out the exact Nyquist mode on even axes: the rfft half-spectrum Nyquist cannot be
     # split losslessly into the finer oversampled grid (the gridding NUFFT's known edge). Zeroing it
-    # here makes type-1 and type-2 exact adjoints on the resolved sub-Nyquist band — exactly the band
+    # here makes type-1 and type-2 exact adjoints on the resolved band — exactly the band
     # a spectral solver uses (de-aliasing zeros the Nyquist), where the transfer is exact to ε.
     if iseven(number_of_points)
       host[is_half ? stored : number_of_points ÷ 2 + 1] = zero(T)
@@ -1432,8 +1432,9 @@ Build a plan once from a `reference` field in spectral representation, which fix
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
 like the reference. The arguments are:
 
-  - `reference` — a field in spectral representation, fixing the grid, layout and element type the
-    plan is built for.
+  - `reference` — a field in spectral representation, fixing the grid, layout, element type and tensor
+    order the plan is built for. The order is fixed with the rest because the plan stores oversampled
+    field templates, which carry the fiber; a plan built at one order does not serve another.
   - `tol` — the target accuracy; the window width and shape default to the values that reach it. It is
     a **target**, not a guaranteed bound: it must be finite and positive, and a value finer than the
     element type can resolve widens the window as far as the formula goes and then saturates at that
@@ -1446,9 +1447,9 @@ like the reference. The arguments are:
     verbs take; `0` (default) picks it from the width.
 
 It agrees with `DirectDFT` (hence [`to_physical`](@ref) / [`to_spectral`](@ref) at the grid nodes) to
-`tol` on the resolved sub-Nyquist band (the rfft Nyquist plane is projected out), shares its adjoint
+`tol` on the resolved band (the rfft Nyquist plane is projected out), shares its adjoint
 relation, and like it reconstructs the band-limited field (divergence-free on the resolved
-sub-Nyquist band — the package's derivative wavenumbers are zeroed at an even axis's Nyquist frequency
+band — the package's derivative wavenumbers are zeroed at an even axis's Nyquist frequency
 while this scheme evaluates the true phase there, so a discretely divergence-free field carrying
 Nyquist content is not pointwise divergence-free in the continuum).
 

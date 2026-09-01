@@ -377,7 +377,7 @@ end
                             imaginary_unit)
 
 Run the fused scalar-gradient pass over every mode: read the source coefficient once, write the
-three components of ``\\mathrm{i} k \\hat s``. The generic method launches
+three components of ``\\mathrm{i} a \\hat s``, with ``a`` the derivative wavenumber. The generic method launches
 `_scalar_gradient_kernel!` on the backend; the `CPU` method runs the slab-threaded `@simd` loop.
 """
 function _scalar_gradient_modes!(backend, destination_1, destination_2, destination_3,
@@ -449,7 +449,7 @@ end
                             wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
 
 Run the fused vector-gradient pass over every mode: read the three source coefficients once,
-write the nine components of ``\\mathrm{i} k_j \\hat u_i``. Destinations are ordered row-major —
+write the nine components of ``\\mathrm{i} a_j \\hat u_i``, with ``a`` the derivative wavenumber. Destinations are ordered row-major —
 `(1,1), (1,2), (1,3), (2,1), …` — matching `_tensor2_component_data`.
 """
 function _vector_gradient_modes!(backend, destinations::NTuple{9, AbstractArray},
@@ -797,12 +797,14 @@ The arguments are:
 - `multipliers` — the wavenumber symbols for the field's grid.
 
 Each output component is the source component multiplied coefficientwise by ``\\mathrm{i}`` times the
-wavenumber of the differentiation axis:
+derivative wavenumber of the differentiation axis. Below, ``k`` labels the mode and ``a`` is the
+**derivative** wavenumber family — the one zeroed at an even axis's Nyquist frequency, kept apart from
+the true squared wavenumber the Laplacian uses (invariant 5):
 
 ```math
-\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}  k_i  \\hat\\varphi(k),
+\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}  a_i  \\hat\\varphi(k),
 \\qquad
-\\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}  k_j  \\hat u_i(k).
+\\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}  a_j  \\hat u_i(k).
 ```
 """
 function gradient! end
@@ -914,7 +916,8 @@ arguments are:
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
   separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``,
-  exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); it may
+  exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
+  ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; it may
   alias `destination`, since the product is coefficientwise.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
@@ -1098,13 +1101,15 @@ The arguments are:
 - `multipliers` — the wavenumber symbols for the field's grid.
 
 The spectral symbol is a coefficientwise multiply by ``\\mathrm{i}`` times the cross product with the
-wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  k \\times \\hat u(k)``, componentwise:
+derivative wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  a \\times \\hat u(k)``, where
+``k`` labels the mode and ``a`` is the **derivative** wavenumber family of invariant 5 — zeroed at an
+even axis's Nyquist frequency, unlike the true squared wavenumber the Laplacian uses. Componentwise:
 
 ```math
 \\begin{gathered}
-\\widehat{(\\nabla\\times u)_1}(k) = \\mathrm{i} (k_2 \\hat u_3 - k_3 \\hat u_2), \\\\
-\\widehat{(\\nabla\\times u)_2}(k) = \\mathrm{i} (k_3 \\hat u_1 - k_1 \\hat u_3), \\\\
-\\widehat{(\\nabla\\times u)_3}(k) = \\mathrm{i} (k_1 \\hat u_2 - k_2 \\hat u_1).
+\\widehat{(\\nabla\\times u)_1}(k) = \\mathrm{i} (a_2 \\hat u_3 - a_3 \\hat u_2), \\\\
+\\widehat{(\\nabla\\times u)_2}(k) = \\mathrm{i} (a_3 \\hat u_1 - a_1 \\hat u_3), \\\\
+\\widehat{(\\nabla\\times u)_3}(k) = \\mathrm{i} (a_1 \\hat u_2 - a_2 \\hat u_1).
 \\end{gathered}
 ```
 """
@@ -1254,10 +1259,12 @@ The arguments are:
 - `field` — the vector field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol symmetrizes ``\\mathrm{i} k_j \\hat u_i`` in its two indices:
+The spectral symbol symmetrizes ``\\mathrm{i} a_j \\hat u_i`` in its two indices, with ``k`` labelling the
+mode and ``a`` the **derivative** wavenumber family of invariant 5 — zeroed at an even axis's Nyquist
+frequency, unlike the true squared wavenumber the Laplacian uses:
 
 ```math
-\\widehat{S_{ij}}(k) = \\tfrac{\\mathrm{i}}{2} \\bigl(k_j \\hat u_i(k) + k_i \\hat u_j(k)\\bigr).
+\\widehat{S_{ij}}(k) = \\tfrac{\\mathrm{i}}{2} \\bigl(a_j \\hat u_i(k) + a_i \\hat u_j(k)\\bigr).
 ```
 """
 function symmetric_gradient! end
@@ -1517,7 +1524,8 @@ projection symbol. The additional arguments are:
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
   separable, or their product), which costs ``O(N)`` or a closure rather than ``O(N^3)``,
-  exactly as `convolve!` takes it (including its reality condition on ``\\hat g``); one
+  exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
+  ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; one
   scalar kernel weights all three components.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes

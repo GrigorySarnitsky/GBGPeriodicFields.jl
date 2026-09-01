@@ -2334,7 +2334,8 @@ that would have caught this class, so it earns its place ahead of work that repa
   ``3.2\times`` — and the payoff RISES with stencil width, reaching ``6.95\times`` on CPU at eight
   nodes per axis, so the option matters most exactly where a run is most expensive; at ``1024^3`` the
   default scheme gets ``1.21\times`` where an eight-node stencil gets ``4.29\times``. **The gating
-  measurement the old entry demanded is taken: 0.098–0.13 ms**, a portable
+  measurement the old entry demanded is taken: 0.24–0.27 ms as shipped** (0.098–0.13 ms for the build
+  alone, before the permutation validation), a portable
   counting pass over blocks of cells rather than a sort, so it repays inside ONE transfer rather than
   the estimated 12–24 — and the vendor `sortperm` it assumed is ``25\times`` more expensive than the
   portable route, so the dependency question closed itself. **Morton lost to plain lexicographic block

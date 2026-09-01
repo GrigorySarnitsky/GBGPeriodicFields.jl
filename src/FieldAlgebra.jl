@@ -559,8 +559,10 @@ in place.
 
 # The kernel-composed form
 
-Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, in any storage class, exactly as `convolve!` takes
-it — convolves the combination with the kernel in the same fused pass. As a real physical object the
+Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, held either as one coefficient
+per mode or in a compressed class evaluated per mode, exactly as `convolve!` takes it — convolves the
+combination with the kernel in the same fused pass. As there, ``\\hat g`` must be Hermitian,
+``\\hat g(-k) = \\overline{\\hat g(k)}``, or the result is the spectrum of no real field. As a real physical object the
 result is the kernel-weighted local average of the combination, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,
 

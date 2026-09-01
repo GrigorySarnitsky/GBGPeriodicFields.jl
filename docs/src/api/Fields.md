@@ -31,7 +31,6 @@ TensorFieldSpectral
 ```@docs
 FieldTransformPlans
 FieldSpectralMultipliers
-FieldSpectralMultipliers(::AbstractFieldSpectral)
 ```
 
 ## Transform operations

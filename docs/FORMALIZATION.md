@@ -92,7 +92,7 @@ f(x) = \frac{1}{N} \sum_{k} \hat f(k) e^{\mathrm{i} k\cdot x},
 so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequences used elsewhere:
 
 - **Half-spectrum + conjugate symmetry.** ``f`` real ``\Rightarrow`` ``\hat f(-k) = \overline{\hat f(k)}``,
-  so only ``k_x \ge 0`` is stored (`rfft_shape`: length ``N_x/2{+}1`` on the rfft axis — the folded
+  so only ``k_x \ge 0`` is stored (`_rfft_shape`: length ``N_x/2{+}1`` on the rfft axis — the folded
   axis is `fft_dims[1]`, the first by default, and ``x`` names it throughout); the ``k_x = 0``
   plane, and on an even axis the Nyquist plane (the highest stored frequency, ``k_x = \pi/\Delta x``),
   are self-conjugate.
@@ -114,7 +114,7 @@ even-length axis the Nyquist plane — where a mode's partner lies in the same p
 measures the departure,
 
 ```math
-\mathrm{reality\_residual}(\hat f) = \max_{k \in \text{self-conjugate planes}}
+\texttt{reality\_residual}(\hat f) = \max_{k \in \text{self-conjugate planes}}
                                       \bigl\lvert \hat f(k) - \overline{\hat f(-k)} \bigr\rvert ,
 ```
 
@@ -304,10 +304,12 @@ scalar commutes through both the matrix symbol and the contraction — per mode 
 ``\hat u(k) \in \mathbb C^3``,
 
 ```math
-\hat g \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) \hat u = \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) (\hat g \hat u)
-\in \mathbb C^3, \qquad
+\begin{gathered}
+\hat g \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) \hat u
+  = \Bigl(\mathrm{id} - \frac{a a^{\top}}{a \cdot a}\Bigr) (\hat g \hat u) \in \mathbb C^3, \\
 \hat g  \bigl(\mathrm{i}a\cdot\hat u\bigr) = \mathrm{i}a\cdot(\hat g \hat u) \in \mathbb C
 \qquad\checkmark
+\end{gathered}
 ```
 
 so the composition "operator then convolve" is itself a single Fourier multiplier (the product of
@@ -508,7 +510,7 @@ second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \
 \operatorname{Sym}^2(\mathbb R^3)``,
 
 ```math
-R_{ij} = \frac{N_B}{N_B-1}\Bigl(\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
+R_{ij} = \frac{N_B}{N_B-1}\Bigl(\texttt{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
        = \frac{1}{N_B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
 ```
 
@@ -589,7 +591,7 @@ weights it answers all of them in one traversal, and the identity that licenses 
 answer is the one the separate call would give:
 
 ```math
-\mathrm{weighted\_inner}(f, (w_1,\dots,w_n))_j = \mathrm{weighted\_inner}(f, w_j),
+\texttt{weighted\_inner}(f, (w_1,\dots,w_n))_j = \texttt{weighted\_inner}(f, w_j),
 \qquad j = 1,\dots,n ,
 ```
 
@@ -637,18 +639,22 @@ W^{\top} := W_b^{\top} \otimes \mathrm{id}_V : \Gamma_P \to \Gamma_G .
 **Adjoint, raw (counting) form.** For ``f \in \Gamma_G``, ``q \in \Gamma_P``:
 
 ```math
+\begin{aligned}
 \sum_p (Wf)_p\cdot q_p
-= \sum_p \sum_n (W_b)_{pn} (f_n\cdot q_p)
-= \sum_n f_n\cdot (W^{\top} q)_n \qquad\checkmark
+  &= \sum_p \sum_n (W_b)_{pn} (f_n\cdot q_p) \\
+  &= \sum_n f_n\cdot (W^{\top} q)_n \qquad\checkmark
+\end{aligned}
 ```
 
 **Adjoint, normalized inner.** Dividing the two sides by ``M`` and ``N``:
 
 ```math
+\begin{aligned}
 M \langle Wf, q\rangle_{\mathrm{pts}}
-= \sum_p (Wf)_p\cdot q_p
-= \sum_n f_n\cdot(W^{\top}q)_n
-= N \langle f, W^{\top} q\rangle_{\mathrm{grid}} \qquad\checkmark
+  &= \sum_p (Wf)_p\cdot q_p \\
+  &= \sum_n f_n\cdot(W^{\top}q)_n \\
+  &= N \langle f, W^{\top} q\rangle_{\mathrm{grid}} \qquad\checkmark
+\end{aligned}
 ```
 
 So the *bare* ``\langle Wf, q\rangle_{\mathrm{pts}} = \langle f, W^{\top}q\rangle_{\mathrm{grid}}`` is **false**
@@ -657,19 +663,23 @@ type-checks, but the expansion does not match. The clean adjunction uses the mea
 ``\iota_* := (N/M) W^{\top}``:
 
 ```math
+\begin{aligned}
 \langle f, \iota_* q\rangle_{\mathrm{grid}}
-= \frac{1}{N}\sum_n f_n\cdot\tfrac{N}{M} (W^{\top}q)_n
-= \frac{1}{M}\sum_n f_n\cdot(W^{\top}q)_n
-= \langle Wf, q\rangle_{\mathrm{pts}} \qquad\checkmark
+  &= \frac{1}{N}\sum_n f_n\cdot\tfrac{N}{M} (W^{\top}q)_n \\
+  &= \frac{1}{M}\sum_n f_n\cdot(W^{\top}q)_n \\
+  &= \langle Wf, q\rangle_{\mathrm{pts}} \qquad\checkmark
+\end{aligned}
 ```
 
 **Conservation** (sum the deposit over the grid, per fiber component):
 
 ```math
+\begin{aligned}
 \sum_n (W^{\top} q)_n
-= \sum_n\sum_p (W_b)_{pn} q_p
-= \sum_p \Bigl(\textstyle\sum_n (W_b)_{pn}\Bigr) q_p
-= \sum_p q_p \in V \qquad\checkmark
+  &= \sum_n\sum_p (W_b)_{pn} q_p \\
+  &= \sum_p \Bigl(\textstyle\sum_n (W_b)_{pn}\Bigr) q_p \\
+  &= \sum_p q_p \in V \qquad\checkmark
+\end{aligned}
 ```
 
 (uses the partition-of-unity row sum ``\sum_n (W_b)_{pn} = 1``).
@@ -703,7 +713,7 @@ on those modes, and holds mode for mode. The pair satisfies the same measure-wei
 ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^{\top}q\rangle_{\mathrm{grid}}``. ``\checkmark``
 **`NUFFT`** is its ``O(N\log N + M)`` form — for the deposit, spread → oversampled (``\sigma=2``) FFT → deconvolve by
 ``1/\hat\psi`` (window ``\psi``, transform ``\hat\psi``) — exact to a tolerance ``\varepsilon`` against
-`DirectDFT` on the resolved sub-Nyquist band (the rfft Nyquist is projected out), an exact adjoint pair there.
+`DirectDFT` on the resolved band (the rfft Nyquist is projected out), an exact adjoint pair there.
 
 **Backs** [Architecture](architecture.md) §10, decision 23.
 **Checked by** `test/transfer_spectral.jl` — `interpolate` == `to_physical` at the nodes, exact off-grid

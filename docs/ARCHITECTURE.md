@@ -831,10 +831,11 @@ the ``N`` grid cells) — exactly as the package's `inner` computes them. Writin
 ``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
 
 ```math
-\sum_{p} (W f)_p\cdot q_p = \sum_{x} f(x)\cdot(W^{\top} q)(x),
-\qquad\qquad
+\begin{gathered}
+\sum_{p} (W f)_p\cdot q_p = \sum_{x} f(x)\cdot(W^{\top} q)(x), \\
 W \bigl(\operatorname{sample}_{\mathrm{grid}} \phi\bigr) = \operatorname{eval}_{\mathrm{pts}} \phi
 \quad (\phi \in \Pi_d),
+\end{gathered}
 ```
 
 the left is the plain transpose ``W^{\top}`` — the partition-of-unity scatter `anterpolate` applies;
@@ -891,7 +892,7 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
-  ``\varepsilon`` on the resolved sub-Nyquist band). The adjoint relation carries
+  ``\varepsilon`` on the resolved band). The adjoint relation carries
   the measure factor as for the splines: ``M \langle W\hat f, q\rangle_{\mathrm{pts}} = N \langle \hat f, W^\top q\rangle_{\mathrm{grid}}``.
 
 **Method: the local splines (the physical-domain family).** The package uses the local high-order spline
@@ -1048,6 +1049,7 @@ its scope is this section.
 - C. S. Peskin, [*The immersed boundary method*](https://doi.org/10.1017/S0962492902000077), Acta Numerica **11** (2002) 479–517 (spreading = adjoint of interpolation).
 - R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition / charge assignment; the NGP and CIC windows).
 - C. K. Birdsall, A. B. Langdon, [*Plasma Physics via Computer Simulation*](https://doi.org/10.1201/9781315275048), Adam Hilger, Bristol, 1991 (deposition / charge assignment).
+- J. M. Domínguez, A. J. C. Crespo, M. Gómez-Gesteira, J. C. Marongiu, [*Neighbour lists in smoothed particle hydrodynamics*](https://doi.org/10.1002/fld.2481), Int. J. Numer. Methods Fluids **67**(12) (2011) 2026–2042 (cell traversal order for neighbour search; corroborates decision 78's own measurement that lexicographic block order beats Z-order/Morton for this access pattern).
 - E. Catmull, R. Rom, [*A class of local interpolating splines*](https://doi.org/10.1016/B978-0-12-079050-0.50020-5), in: Computer Aided Geometric Design, Academic Press, 1974, pp. 317–326.
 - L. Grafakos, [*Classical Fourier Analysis*](https://doi.org/10.1007/978-1-4939-1194-3), 3rd ed., Graduate Texts in Mathematics **249**, Springer, 2014
   (Thm 2.5.10: on a uniform periodic box every homogeneous linear operator is a Fourier multiplier — the math anchor for decision 19's taxonomy). It is cited by that anchor rather than by this section, and
@@ -1519,7 +1521,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     correlation. The two are the **radial reductions**: a Fourier-dual pair in `Reductions`, each mapping
     a field to a 1-D radial profile, named by the quantity's noun per [§2](@ref "2. The central principle: the architecture follows established mathematics") (`spectrum` / `correlation`)
     under the `radial` qualifier. The `radial_spectrum` math is unchanged (`sum == inner`). Physics names
-    stay consumer-side: the energy spectrum ``E(k) = \tfrac{1}{2} \texttt{radial\_spectrum}``, the integral/Taylor scales from
+    stay consumer-side: the energy spectrum ``E(\kappa) = \tfrac{1}{2} \texttt{radial\_spectrum}``, the integral/Taylor scales from
     `radial_correlation`, the RDF `g(r)` from `radial_correlation` of a density field. (The rename was
     safe — the API is not frozen and `shell_spectrum` had shipped the same day with no external users.)
 
@@ -1659,7 +1661,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *The Nyquist edge.* The one subtlety: the rfft half-spectrum Nyquist mode of an even axis cannot be
     split losslessly into the finer oversampled grid (zero-padding a real spectrum). It is **projected
     out** in the deconvolution, so `NUFFT`'s type-1/type-2 remain exact adjoints on the **resolved
-    sub-Nyquist band** — exactly the band a spectral solver uses (de-aliasing, or any natural spectral
+    band** — exactly the band a spectral solver uses (de-aliasing, or any natural spectral
     decay, zeros the Nyquist), where the transfer is exact to ``\varepsilon``. `DirectDFT` (no
     oversampling) carries the Nyquist exactly; the two agree on the sub-Nyquist band.
 
@@ -1830,7 +1832,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       consumer, exactly as the package says `curl` where the consumer says "vorticity".
     - `weighted_inner(f, w)` / `weighted_inner(f, g, w)` (`Reductions`) is the multiplier-weighted L² inner
       product of two fields ``f, g`` in spectral representation against a real Fourier multiplier ``w(k)``,
-      ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_k \alpha(k) w(k)\sum_c \mathrm{Re}(\hat f_c 
+      ``\langle f, w g\rangle = \tfrac{1}{N^2}\sum_{\text{stored }k} \alpha(k) w(k)\sum_c \mathrm{Re}(\hat f_c 
       \overline{\hat g_c})`` (with ``\alpha(k)`` the rfft half-spectrum Parseval weight — a fixed
       per-mode function, distinct from the scalar accumulation weight ``\alpha`` of `combine!` above —
       ``N`` the grid-point count, and ``c`` the fiber index) — the field ``g`` filtered by ``w`` and paired with ``f`` in one
@@ -1841,7 +1843,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `inner`; the fused form removes that scratch field.
 
     *The deferral.* A fifth request, a quadratic-form reduction ``\langle v, A v\rangle =
-    \operatorname{mean}(v_i A_{ij} v_j)`` (a vector field ``v`` contracted through a second-order tensor field
+    \texttt{mean}(v_i A_{ij} v_j)`` (a vector field ``v`` contracted through a second-order tensor field
     ``A``), was **declined for now**: its own request flagged it "for completeness of the fused-reduction
     set", its saving is a single *vector* intermediate at diagnostic cadence, and its consumer (the enstrophy
     production ``\langle \omega_i S_{ij} \omega_j\rangle``, the vorticity ``\omega`` through the strain ``S``)
@@ -2731,7 +2733,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     covariance `cov`** (2026-07-28). The fiber-preserving `var`/`std` — a per-component variance /
     standard deviation for a vector or tensor section — were two mistakes wearing one API. First, they
     were physical-only by *scoping*, not validity: ``\operatorname{var}(f) = \langle f, f\rangle -
-    \langle f\rangle^2 = N^{-2}\sum_{k \ne 0} \alpha(k) |\hat f_k|^2`` (the fluctuation energy, with
+    \langle f\rangle^2 = N^{-2}\sum_{\text{stored }k \ne 0} \alpha(k) |\hat f_k|^2`` (the fluctuation energy, with
     ``\alpha(k)`` the rfft half-spectrum multiplicity and the ``N^{-2}`` the normalization the inner
     product itself carries; that displayed form is the **population** moment — `corrected = false` —
     and `var`'s default `corrected = true` returns it scaled by ``N/(N-1)``), both terms already
@@ -2756,7 +2758,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     since 2026-08-13, per the naming rule's export policy in §2) returns the symmetric covariance `FiberTensor2` of a
     vector section — its diagonal the per-component variances (the normal stresses, in a turbulence
     reading), its off-diagonal the covariances (the shear stresses) a per-component `var` discarded —
-    computed in one fused mapped pass as ``\operatorname{mean}(u \otimes u) - \bar u \otimes \bar u``
+    computed in one fused mapped pass as ``\texttt{mean}(u \otimes u) - \bar u \otimes \bar u``
     (reusing decision 48's `map!` machinery through the mapped `mean`), Bessel-scaled. It is physical-only
     (the outer product is nonlinear). The 206/122 parity baselines are unchanged — these are `Statistics`
     extensions, outside the M2 + M3 surface.
@@ -4122,7 +4124,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **The order is built by a counting pass, not a sort.** Three portable
       `KernelAbstractions`/`Atomix` kernels — key, histogram, place — over blocks of cells, adding no
-      dependency and needing no vendor sort. It costs **0.098–0.13 ms** on device at ``256^3``, so it
+      dependency and needing no vendor sort. It costs **0.24–0.27 ms** on device at ``256^3`` — the
+      figure for the code that ships, the build itself being 0.098–0.13 ms before the permutation
+      validation the adversarial review added — so it
       repays inside a single transfer; the recorded estimate it replaces guessed 12–24 transfers,
       having assumed a vendor sort, and the vendor `sortperm` over the same keys does cost
       ``25\times`` more.

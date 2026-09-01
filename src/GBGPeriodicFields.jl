@@ -40,7 +40,10 @@ point set or point values — into another family when that is what you want. It
 
 !!! note "Scalar, vector and second-order tensors only"
     Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
-    surface, and every operation below is defined over them. The field and point-value types are
+    surface: no operation below reaches past it, though not every operation spans all three. Some are
+    defined at one order by their own mathematics — `det` and `tr` need a matrix, `cov` a vector,
+    `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
+    docstring. The field and point-value types are
     parameterized on `R`, so higher orders can be constructed and several layers serve them
     (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and the local-spline
     transfer). Others do not: the fiber-preserving and mapped reductions, `map`, and the
@@ -83,7 +86,8 @@ The umbrella assembles its public surface from the submodules below:
   wavenumber. A kernel is its own kind of object rather than a field: it is held as a `StoredKernel` of
   one coefficient per mode, or in one of the compressed classes `SeparableKernel`, `RadialKernel` and
   `ProductKernel`, which store a closed-form multiplier instead of its coefficients; the classes are
-  interchangeable and agree bit for bit, and `materialize_kernel` expands a compressed one into a
+  interchangeable and agree bit for bit on the host (on a device a **complex**-valued kernel is the one
+  exception, the classes agreeing there to rounding), and `materialize_kernel` expands a compressed one into a
   `StoredKernel`. A field of coefficients is not itself a kernel; `StoredKernel` is the wrapper that
   puts it in that role.
 - [`Points`](@ref) supplies the point-data types, their fiberwise algebra mirroring the field surface in physical

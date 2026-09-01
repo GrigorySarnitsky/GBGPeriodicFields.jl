@@ -1696,27 +1696,46 @@ function _check_kernel_compatibility end
       squared_wavenumber_1, squared_wavenumber_2, squared_wavenumber_3,
     ) where {T<:AbstractFloat}
 
+    FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
+
 One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
 representation — derivatives, the Laplacian, and the Helmholtz projection.
 
-The fields are
-- `grid`, `fourier_layout`: the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers were built for.
-- `wavenumber_1`, `wavenumber_2`, `wavenumber_3`: the per-axis physical (angular) wavenumbers ``k`` along each axis, used for first derivatives via multiplication by ``\\mathrm{i} k``.
-- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3`: per-axis squared wavenumbers, used for the Laplacian via multiplication by ``-k^2``.
-- `wavenumber_view_1..3`, `squared_wavenumber_view_1..3` — the same six vectors, each stored
-  pre-oriented as a 3-D view along its own axis. They hold no data of their own: they alias the
-  vectors above, and exist so a broadcast-route operator never rebuilds a `reshape` per call
-  (decision 70). Read them through `_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast`
-  rather than directly.
+The arguments are:
+- `grid`, `fourier_layout` — the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers are
+  built for. The two-argument forms take them from `field` instead.
+- `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the per-axis **derivative** wavenumbers, written
+  ``a`` where the operators' formulas need to name them apart from the true wavenumber ``k``. They are
+  the physical (angular) wavenumbers used for first derivatives, through multiplication by
+  ``\\mathrm{i} a``, and they carry invariant 5's Nyquist zeroing.
+- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the per-axis squared
+  wavenumbers, used for the Laplacian through multiplication by ``-k^2``. These keep the **true**
+  ``k^2`` at the Nyquist frequency, which is why the two families are stored rather than derived from
+  each other.
+- `field` — in the one-argument convenience form, the field whose grid and layout the multipliers are
+  built from; both families are then derived with the correct Nyquist treatment and allocated on that
+  field's storage backend.
 
 Each array runs along one spatial axis in the FFT frequency ordering of `fourier_layout`; the half axis `fourier_layout.fft_dims[1]` stores only the nonnegative frequencies.
 The arrays must live on storage (CPU or GPU) matching the fields the multipliers are applied to.
 
-These two constructors are explicit: you supply both the wavenumbers and the squared wavenumbers, and only their lengths are checked.
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
-A convenience constructor `FieldSpectralMultipliers(field)` builds both families from the field's grid and layout with the correct Nyquist treatment, and carries
-its own docstring below.
+The explicit forms take both families from the caller and check only their lengths; the convenience
+form derives them, which is what makes them canonical (see the `Canonical` parameter below).
+
+Every argument above is stored under its own name. Six further fields — `wavenumber_view_1..3` and
+`squared_wavenumber_view_1..3` — are derived rather than passed: each is one of the six vectors
+pre-oriented as a 3-D view along its own axis, holding no data of its own, so that a broadcast-route
+operator never rebuilds a `reshape` per call (decision 70). They are internal; read them through
+`_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast` rather than directly.
+
+In the convenience form the wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L`` along
+each axis, with ``L`` the domain length and ``n`` running over the FFT frequency indices. On an
+even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to
+zero, so that derivatives of real fields stay real, while its squared wavenumber keeps the true
+``k^2``, so that the Laplacian and Poisson-type solves stay correct. On an odd-length axis there is no
+exact Nyquist mode and no special treatment is applied.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
 final `Canonical` parameter: the convenience constructor marks them canonical, the explicit forms do
@@ -1817,16 +1836,8 @@ function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}, wavenumber_1:
 end
 
 
-"""
-    FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
-
-Build the spectral multipliers from the grid and Fourier layout of `field`, allocated on the field's storage backend.
-
-The wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L`` along each axis, where ``L`` is the domain length and ``n`` runs over the FFT frequency indices.
-On an even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to zero, so that derivatives of real fields stay real,
-while its squared wavenumber keeps the true ``k^2``, so that the Laplacian and Poisson-type solves stay correct.
-On an odd-length axis there is no exact Nyquist mode and no special treatment is applied.
-"""
+# The convenience constructor. Its docstring is merged into the type's, which is where every other
+# multi-constructor type in the package documents its constructors.
 function FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) where {T<:AbstractFloat}
   grid = field_grid(field)
   fourier_layout = field_layout(field)

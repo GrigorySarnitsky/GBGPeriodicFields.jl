@@ -1,6 +1,6 @@
 unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 1. Purpose and scope",329,264,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1520,249,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1521,248,0
 "ARCHITECTURE.md § 11. Convolution",529,375,1
 "ARCHITECTURE.md § 12. Reductions",311,311,0
 "ARCHITECTURE.md § 13. Decision log",22,22,0
@@ -36,11 +36,11 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 20",388,177,0
 "ARCHITECTURE.md § item 21",543,305,0
 "ARCHITECTURE.md § item 22",1440,332,0
-"ARCHITECTURE.md § item 23",667,221,0
+"ARCHITECTURE.md § item 23",666,221,0
 "ARCHITECTURE.md § item 24",375,375,0
 "ARCHITECTURE.md § item 25",492,206,0
 "ARCHITECTURE.md § item 26",631,254,0
-"ARCHITECTURE.md § item 27",964,537,0
+"ARCHITECTURE.md § item 27",965,538,0
 "ARCHITECTURE.md § item 28",1020,269,0
 "ARCHITECTURE.md § item 29",620,168,0
 "ARCHITECTURE.md § item 3",30,30,0
@@ -64,7 +64,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 46",444,105,0
 "ARCHITECTURE.md § item 47",372,135,0
 "ARCHITECTURE.md § item 48",377,161,0
-"ARCHITECTURE.md § item 49",438,268,0
+"ARCHITECTURE.md § item 49",439,269,0
 "ARCHITECTURE.md § item 5",7,7,0
 "ARCHITECTURE.md § item 50",803,270,0
 "ARCHITECTURE.md § item 51",685,283,0
@@ -96,13 +96,13 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 75",714,714,0
 "ARCHITECTURE.md § item 76",885,207,0
 "ARCHITECTURE.md § item 77",302,262,0
-"ARCHITECTURE.md § item 78",1430,212,0
+"ARCHITECTURE.md § item 78",1453,212,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",788,206,0
 "Convolution.jl :: ProductKernel",234,116,0
-"Convolution.jl :: RadialKernel",487,139,1
+"Convolution.jl :: RadialKernel",649,162,2
 "Convolution.jl :: SeparableKernel",391,99,1
 "Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",202,110,0
 "Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",98,93,0
@@ -116,7 +116,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",422,115,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",918,232,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",970,232,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",65,33,1
@@ -136,7 +136,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Convolution operations",61,28,0
 "Convolution.md § Internal API",82,72,0
 "Convolution.md § Kernel builders",94,86,0
-"Convolution.md § Kernel storage classes",317,107,0
+"Convolution.md § Kernel storage classes",338,128,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
 "DifferentialOperators.jl :: DifferentialOperators",415,239,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -147,16 +147,16 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _helmholtz_projection_modes!(backend, destination_1, destina",83,70,0
 "DifferentialOperators.jl :: _inverse_curl_modes!(backend, destination_1, destination_2, ",67,56,0
 "DifferentialOperators.jl :: _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)",46,42,0
-"DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",47,38,0
+"DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",52,43,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
-"DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",43,36,0
-"DifferentialOperators.jl :: curl!(",236,78,0
+"DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
+"DifferentialOperators.jl :: curl!(",268,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",389,91,0
+"DifferentialOperators.jl :: divergence!(",408,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
-"DifferentialOperators.jl :: gradient!(",157,53,0
+"DifferentialOperators.jl :: gradient!(",192,53,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
-"DifferentialOperators.jl :: helmholtz_projection!(",559,89,1
+"DifferentialOperators.jl :: helmholtz_projection!(",578,108,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
 "DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",340,86,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
@@ -164,7 +164,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
 "DifferentialOperators.jl :: laplacian!(",160,57,0
 "DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",34,32,0
-"DifferentialOperators.jl :: symmetric_gradient!(",185,49,0
+"DifferentialOperators.jl :: symmetric_gradient!(",215,49,0
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
 "DifferentialOperators.md § DifferentialOperators",8,8,0
 "DifferentialOperators.md § First-order differential operators",10,10,0
@@ -174,13 +174,13 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
 "FORMALIZATION.md § Declarations",602,321,0
-"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1076,114,0
+"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1078,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
-"FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",297,74,0
+"FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1192,155,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",509,107,0
-"FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",254,140,0
+"FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
 "FiberSections.jl :: AbstractFiberSection{T, R}",89,58,0
@@ -254,7 +254,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
 "FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
-"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",476,98,1
+"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",509,98,1
 "FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",206,57,0
 "FieldAlgebra.jl :: cross(u::VectorFieldPhysical, v::VectorFieldPhysical)",53,51,0
 "FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",125,66,0
@@ -292,8 +292,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",157,94,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",42,41,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
-"Fields.jl :: FieldSpectralMultipliers(",390,126,0
-"Fields.jl :: FieldSpectralMultipliers(field::AbstractFieldSpectral{T}) wh",111,90,0
+"Fields.jl :: FieldSpectralMultipliers(",582,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
 "Fields.jl :: Fields",452,401,0
 "Fields.jl :: Grid3D(",211,103,0
@@ -371,22 +370,22 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Spectral kernel protocol",81,78,0
 "Fields.md § The real-field reality condition",78,75,0
 "Fields.md § Transform operations",6,6,0
-"Fields.md § Transform-plan and multiplier types",5,5,0
+"Fields.md § Transform-plan and multiplier types",4,4,0
 "Fields.md § Types",11,11,0
 "Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",10,10,0
 "Fields.md § the same `Public = false` mechanism that filed `map` and `tr",9,9,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",1157,520,1
+"GBGPeriodicFields.jl :: GBGPeriodicFields",1218,539,1
 "GBGPeriodicFields.md § GBGPeriodicFields.jl",8,8,0
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
 "Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",264,133,0
 "Interpolation.jl :: AbstractTransferScheme",189,107,0
 "Interpolation.jl :: CatmullRom",27,26,0
-"Interpolation.jl :: DirectDFT()",472,178,1
+"Interpolation.jl :: DirectDFT()",470,177,1
 "Interpolation.jl :: Interpolation",793,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",509,186,1
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",537,216,1
 "Interpolation.jl :: TransferOrder(indices)",226,76,0
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0
@@ -530,10 +529,10 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: mean(f)",125,122,0
 "Reductions.jl :: minimum(f)",30,27,0
 "Reductions.jl :: radial_correlation(f, plans)",638,181,1
-"Reductions.jl :: radial_spectrum(f, multipliers)",960,278,2
+"Reductions.jl :: radial_spectrum(f, multipliers)",771,262,1
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",343,122,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",661,207,1
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",765,229,2
 "Reductions.md § Inner-product and norm reductions",6,6,0
 "Reductions.md § Integral reductions",3,3,0
 "Reductions.md § Internal API",78,54,0
