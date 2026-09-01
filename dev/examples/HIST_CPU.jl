@@ -372,7 +372,7 @@ function run_hist(p::Params)
     end
     if n % p.snap_stride == 0
       ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, shell-averaged): the
-      ## per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length L = ∫ρ follow from it — no hand-rolled
+      ## per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length ℒ = ∫ρ follow from it — no hand-rolled
       ## spatial shift. Accumulate C over snapshots for a time average.
       s, Csnap = radial_correlation(uh, vplans)
       isempty(Cacc) ? (sep = s; Cacc = copy(Csnap)) : (Cacc .+= Csnap)
