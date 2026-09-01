@@ -920,6 +920,22 @@ in the round's directory — the same shape as the prose ratchet's re-baseline, 
 on: an enforcement mechanism with no escape hatch is disabled the first time it is inconvenient, while
 one whose escape leaves a committed artifact survives (IT's parallel, 2026-08-27).
 
+**The seeded calibration and the closure gate CONTRADICT each other, and the contradiction is
+unresolved (recorded 2026-09-01).** `seed_defects.py` plants labelled defects in the *manuscript* so
+`recall.py` can measure what the panel misses. Those seeded findings must **never** be fixed in the
+corpus — a planted defect reaching a fix pass corrupts the docs to measure the instrument. But
+`lint_review_closure()` counts every banked finding and demands each be HONORED or adjudicated, and a
+seeded finding can be neither: there is nothing to fix, and the one mechanism for "deliberately not
+fixed" is `.claude/doc-review-adjudicated.md`, which `panel.js` **injects into every future hat's
+preamble** — so recording a seed there tells the next round's hats the answer and destroys that seed's
+measurement value, the seeds being deterministic and reused. The 2026-09-01 round hit this with 11
+seeded findings of 67; it was closed with the round's `CLOSED.md` escape and an explicit subtraction.
+**Do not "solve" it by putting seeds in the adjudicated file.** The two candidate fixes, neither built:
+a separate seed list the lint reads and `panel.js` does not, tied to a `ground_truth.json` present in
+the round so the escape cannot be claimed where nothing was seeded; or a `SEEDED` verdict the graders
+may write and the lint counts. Note the second hands the party being graded a verdict that closes a
+finding, which is the antipattern this apparatus exists to remove — so the first is the better shape.
+
 **Test the check in BOTH directions — the flattering one is not the only one.** Four defects in these
 instruments in one session, and every one was invisible to reading. Three erred toward closing a round
 early: the gate counted the *string* `HONORED`, which appears inside every `[DEMOTED: HONORED
