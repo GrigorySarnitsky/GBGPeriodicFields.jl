@@ -2010,6 +2010,141 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   ~1.8 MB/step task spawns at ``128^3``, oversized device workgroups, and the 18 `lmul` + 18 pre-C2R
   copies a rocFFT native scale factor could fold.
 
+- **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
+  (recorded 2026-08-23, user-directed).** Decision 70 stopped `laplacian!`, `inverse_laplacian!`,
+  `divergence!` and `exponential_convolve!` from allocating 144 B a call by storing six pre-oriented
+  views on `FieldSpectralMultipliers`. That fixed the symptom on the route those operators are on. The
+  open question is whether they belong on that route at all: `gradient!`, `curl!`,
+  `helmholtz_projection!` and `symmetric_gradient!` are **already** KernelAbstractions kernels taking
+  the raw vectors, and already measured zero — which is exactly why they never appeared in the
+  consumer's report. By §9's execution-route policy a cartesian-coefficient operator is a decision-38
+  kernel pair, so the four may simply have been on the wrong side of it, and decision 70 patched the
+  route instead of moving them.
+
+  **What kernelising would buy.** It would retire the six stored views and, with them, the six type
+  parameters and the three sites that match `Canonical` positionally (`_is_canonical`,
+  `adapt_structure`, `Convolution`'s static collapse) — which broke at once when decision 70 shifted
+  it, and which is the real cost of that fix. The 288 B of resident headers it would also reclaim are
+  not a reason; they are 0.0002% of one scalar field at ``256^3``.
+
+  **What argues against, and must be answered rather than assumed.** *(1)* It does **not** reach every
+  caller: the same helper feeds `RadialKernel`'s `_kernel_data`, which is consumed inside *other*
+  operations' fused passes, so kernelising four operators leaves the kernel-protocol path still
+  reshaping per call unless that path comes along too. *(2)* Decision 24 chose the fused-broadcast form
+  for `laplacian!`/`inverse_laplacian!` **deliberately and with measurements**, so this overturns a
+  recorded decision and needs its own. *(3)* Decision 40 requires every gated CPU loop to be proven
+  bitwise thread-count-invariant against its device twin, and decision 47 records what happens when
+  such a pair silently falls out of dispatch.
+
+  **Scope, so the cost is visible before anyone starts.** Port the three differential operators to the
+  decision-38 kernel-pair shape with gated CPU loops; prove bitwise thread-invariance in
+  `test/threading.jl`; re-run the `operators` and `convolution` benchmark classes on **both** backends
+  (this owns the machine); and decide whether `_kernel_data` can take the same treatment. **Decision
+  rule:** keep whichever route is architecturally consistent *at no performance loss* — if kernelising
+  wins and covers the kernel-protocol path, the stored views and their six parameters retire with it;
+  if it does not cover that path, decision 70 stands and this entry closes as answered.
+
+- **The radial shell binning does not thread on CPU — INVESTIGATE (recorded 2026-08-30, found by
+  the born-slow triage's first run).** `radial_spectrum vec` and the co-spectrum read flat t1 → t8 on
+  BOTH hosts at ``\approx 2.7`` GB/s — far below the roof, so it is not bandwidth saturation: the
+  Atomix scatter-add into the shell accumulators serialises on cache-line contention (a few hundred
+  shells, every thread hammering the same lines). Same class as finding (ac), found by the instrument
+  built in answer to it (finding (ag)). The fix shape would be per-thread shell accumulators reduced
+  at the end — the accumulator is ``O(N)``, tiny, so the memory objection to privatization does not
+  apply — but §9's KA-everywhere policy for the binning kernels and GPU parity bind, and any change
+  re-runs the `reductions` class on both backends (owns the machine). Until then the row stays
+  flagged as UNEXPLAINED in `RESULTS.md`'s triage section, which is the designed pressure.
+
+- **`reality_residual` neither threads nor fuses — INVESTIGATE and possibly fix (recorded
+  2026-08-23, user-directed).** The 2026-08-23 sweep measured **zero thread scaling on both CPUs at
+  every grid**: the i7-12700K reads 80.2 µs at one thread against 80.6 at eight, 362 against 366 µs at
+  ``128^3``, 1.586 against 1.588 ms at ``256^3``, and at ``512^3`` eight threads is **9.7% slower**
+  (13.258 → 14.542 ms); the 9800X3D is flat to within a percent at every grid too. Decision 71's entry
+  records the observation and the reason it was left; this entry is the question of whether to close it.
+
+  **The mechanism is two facts, and the second is the one that matters.** *(1)* The pass is written as
+  whole-array `reverse`, `circshift` and `maximum` over one or two planes, so it runs through `Base`,
+  and `Base`'s `maximum` is serial. *(2)* It is **allocation-bound rather than compute-bound**:
+  measured, it allocates **≈6× the plane bytes it reads** (395 KB at ``64^3``, 1.58 MB at ``128^3``,
+  6.29 MB at ``256^3``, i.e. 5.87/5.92/5.96× — three temporaries over each of the two stored planes,
+  from `reverse`, `circshift`, and materializing `plane .- conj.(partner)` as `maximum`'s argument).
+  So **threading the reduction alone would not fix it** — the serial allocation would still dominate,
+  which is very likely what the ``512^3`` inversion is. Anyone starting from "give it a threaded
+  reduce" will do work and measure nothing.
+
+  **The fix, if it is worth doing, is to fuse rather than to thread.** One pass deriving the mirrored
+  partner index inline — the same arithmetic `reverse`-then-`circshift` performs, since index ``j``
+  pairs with ``\mathrm{mod}(-(j-1), n) + 1`` — removes all six temporaries, and *then* the gated CPU
+  loop threads it for free. That is the §9 execution-route policy's cartesian-coefficient case, so a
+  decision-38 kernel pair is the shape the architecture already prescribes.
+
+  **One structural obstacle to know before scoping it.** `reality_residual` lives in `Fields`, which is
+  included **second**, while the threaded fixed-tree reduce (`_indexed_tree_reduce`,
+  `_fiber_tree_reduce`) lives in `Reductions`, included **last** — so the operation structurally
+  *cannot* reach that tree, and no import will fix it. `FiberSections` (included first) carries
+  `_assign!` and `_use_threads` but no threaded reduction. So the routes are: write the kernel pair
+  with its own reduction, lift a threaded reduce primitive down into `FiberSections`, or move the
+  operation. Each is a different size and the middle one touches shared foundations.
+
+  **What argues against acting at all, and must be weighed rather than skipped.** The operation is
+  ``O(N^2)`` beside the ``O(N^3 \log N)`` round trip it exists to let a caller avoid, so even the
+  ``512^3`` figure is ~13 ms against a transform pair costing orders more — the diagnostic is already
+  far cheaper than the thing it replaces. The **GPU gains nothing**, being flat and launch-bound at
+  238–244 µs (AMD) and 99–104 µs (NVIDIA), so this is a CPU-only win, and decision 37 names the CPU's
+  tuning target as the beyond-VRAM grids where the ``512^3`` row does at least sit. And decision 40
+  requires any gated CPU loop to be proven **bitwise thread-count-invariant** against its device twin,
+  with decision 47 recording what happens when such a pair silently falls out of dispatch — a real
+  cost for a diagnostic.
+
+  **Decision rule.** Fuse only if the fused single-pass form is *at least as fast serially* as the
+  present one (it removes six allocations, so it should be) — the threading is then a free consequence
+  rather than the justification. If fusing does not pay serially, leave it: threading an
+  allocation-bound pass is the wrong fix, and the honest outcome is to record that and close.
+  **Definition of done** as usual: a CPU oracle test, GPU parity, bitwise thread-invariance in
+  `test/threading.jl`, a `test/pass_audit.jl` row (the allocation figure above is the baseline to beat),
+  a bounded allocation guard in `test/allocations.jl` rather than a zero one, the `reductions`
+  benchmark class re-run on **both** backends, and the four guiding docs.
+
+**LOW PRIORITY — the 2026-08-31/09-01 performance-regression cluster (user-ruled 2026-09-01).**
+The items below came out of the CUDA A/B, the adversarial claim audit and the regression hunt over
+the committed history of `RESULTS.md`. They are grouped and deprioritised deliberately, and the
+reasoning is kept so nobody re-escalates them on sight: each defect is NARROW (one cell, or one
+grid, or one retired card), each sits inside a change that is strongly net-positive, and **each fix
+is riskier than the defect it repairs** — conditioning a kernel on scheme, rank, verb, host or grid
+means a second body, which is what decision 47 records going silently dead. Two notes against a flat
+reading. The AMD gather is the most consequential of the set, because unlike the others it hits the
+DEFAULT scheme at a production grid across a whole backend; it ranks here only because it is blocked
+on hardware that lives on the other host, where it is already queued. And the GUARD below is worth
+more than any single fix in the group and costs about an hour, so do that one first.
+
+- **Make the history regression scan ride the post-sweep analysis — the cheapest item here, and the
+  one to do first.** `benchmark/history_regressions.py` reads `RESULTS.md` at every commit that
+  regenerated it and flags cells slower at HEAD than their in-regime best. Its first run found
+  finding (am), a ``1.46``–``1.48\times`` regression that had shipped for two days past the canary
+  (a fixed sample not containing the row), the born-slow triage (which asks about thread scaling and
+  declared peers, never history) and three sweep write-ups (each comparing one archive against one
+  predecessor). None of those can see a step in a row nobody is watching; this reads every cell's
+  whole history at once. Print it beside the triage in `report.jl`, and carry its docstring's warning
+  with every flag: a flagged cell is a HYPOTHESIS until a matched A/B against the commit before the
+  step confirms it, because the table mixes hosts, sweep shapes and measurement regimes.
+
+- **Sweep an axis for BOTH verbs, not one — the assessment lesson behind finding (am).** The width-8
+  scatter regressed because finding (ad) swept the scheme axis on the GATHER and left the scatter at
+  `CatmullRom`, so the configuration that broke was never measured at all. Add the verb to the
+  `docs/TESTING.md` §4 coverage-axes list beside scheme and stencil width, and treat "swept the axis"
+  as false until every verb defined on it has been swept. A checklist change, not code, and it
+  generalises past the transfer.
+
+- **The unconfirmed flags, recorded so they are not re-found as news.** The history hunt also raised
+  the CPU `fft` cluster (``1.5``–``1.74\times`` on the 12700K), `materialize_kernel`
+  (``1.9``–``2.5\times``), `adapt plans (rebuild)`, and small-grid `NUFFT` on the 9800X3D. None is
+  confirmed and most are probably measurement: the `fft` rows move SCALAR and vector together and by
+  the same amount, which fails the control that would implicate decision 76 and puts them in the
+  §4(p) environment class, and `materialize_kernel` is named in finding (y) as process-history
+  sensitive to ``3.2\times`` on identical code. `divergence!∘kernel` and `helmholtz!∘kernel` were
+  checked and are FLAT on this host (10.331 → 10.315 and 19.313 → 19.336 ms), so they are vintage
+  artefacts and are closed.
+
 - **Decision 76 costs a device vector transform at ``64^3`` on BOTH vendors, and nothing above it —
   and the open question is whether it can be made faster EVERYWHERE (TODO below; recorded
   2026-08-31 from the AMD sweep, scoped by the CUDA A/B the same day, target set by the user).**
@@ -2118,101 +2253,6 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   summation, matched `CHAR_*` in both arms, and **report per scheme, never as a median** — finding (al)
   measured two schemes moving in opposite directions across one cache boundary. The headline
   ``512^3`` cell needs Aiporetne; 16 GB cannot hold it.
-
-- **Should the four radial-symbol operators move to the KERNEL route? — INVESTIGATE, not started
-  (recorded 2026-08-23, user-directed).** Decision 70 stopped `laplacian!`, `inverse_laplacian!`,
-  `divergence!` and `exponential_convolve!` from allocating 144 B a call by storing six pre-oriented
-  views on `FieldSpectralMultipliers`. That fixed the symptom on the route those operators are on. The
-  open question is whether they belong on that route at all: `gradient!`, `curl!`,
-  `helmholtz_projection!` and `symmetric_gradient!` are **already** KernelAbstractions kernels taking
-  the raw vectors, and already measured zero — which is exactly why they never appeared in the
-  consumer's report. By §9's execution-route policy a cartesian-coefficient operator is a decision-38
-  kernel pair, so the four may simply have been on the wrong side of it, and decision 70 patched the
-  route instead of moving them.
-
-  **What kernelising would buy.** It would retire the six stored views and, with them, the six type
-  parameters and the three sites that match `Canonical` positionally (`_is_canonical`,
-  `adapt_structure`, `Convolution`'s static collapse) — which broke at once when decision 70 shifted
-  it, and which is the real cost of that fix. The 288 B of resident headers it would also reclaim are
-  not a reason; they are 0.0002% of one scalar field at ``256^3``.
-
-  **What argues against, and must be answered rather than assumed.** *(1)* It does **not** reach every
-  caller: the same helper feeds `RadialKernel`'s `_kernel_data`, which is consumed inside *other*
-  operations' fused passes, so kernelising four operators leaves the kernel-protocol path still
-  reshaping per call unless that path comes along too. *(2)* Decision 24 chose the fused-broadcast form
-  for `laplacian!`/`inverse_laplacian!` **deliberately and with measurements**, so this overturns a
-  recorded decision and needs its own. *(3)* Decision 40 requires every gated CPU loop to be proven
-  bitwise thread-count-invariant against its device twin, and decision 47 records what happens when
-  such a pair silently falls out of dispatch.
-
-  **Scope, so the cost is visible before anyone starts.** Port the three differential operators to the
-  decision-38 kernel-pair shape with gated CPU loops; prove bitwise thread-invariance in
-  `test/threading.jl`; re-run the `operators` and `convolution` benchmark classes on **both** backends
-  (this owns the machine); and decide whether `_kernel_data` can take the same treatment. **Decision
-  rule:** keep whichever route is architecturally consistent *at no performance loss* — if kernelising
-  wins and covers the kernel-protocol path, the stored views and their six parameters retire with it;
-  if it does not cover that path, decision 70 stands and this entry closes as answered.
-
-- **The radial shell binning does not thread on CPU — INVESTIGATE (recorded 2026-08-30, found by
-  the born-slow triage's first run).** `radial_spectrum vec` and the co-spectrum read flat t1 → t8 on
-  BOTH hosts at ``\approx 2.7`` GB/s — far below the roof, so it is not bandwidth saturation: the
-  Atomix scatter-add into the shell accumulators serialises on cache-line contention (a few hundred
-  shells, every thread hammering the same lines). Same class as finding (ac), found by the instrument
-  built in answer to it (finding (ag)). The fix shape would be per-thread shell accumulators reduced
-  at the end — the accumulator is ``O(N)``, tiny, so the memory objection to privatization does not
-  apply — but §9's KA-everywhere policy for the binning kernels and GPU parity bind, and any change
-  re-runs the `reductions` class on both backends (owns the machine). Until then the row stays
-  flagged as UNEXPLAINED in `RESULTS.md`'s triage section, which is the designed pressure.
-
-- **`reality_residual` neither threads nor fuses — INVESTIGATE and possibly fix (recorded
-  2026-08-23, user-directed).** The 2026-08-23 sweep measured **zero thread scaling on both CPUs at
-  every grid**: the i7-12700K reads 80.2 µs at one thread against 80.6 at eight, 362 against 366 µs at
-  ``128^3``, 1.586 against 1.588 ms at ``256^3``, and at ``512^3`` eight threads is **9.7% slower**
-  (13.258 → 14.542 ms); the 9800X3D is flat to within a percent at every grid too. Decision 71's entry
-  records the observation and the reason it was left; this entry is the question of whether to close it.
-
-  **The mechanism is two facts, and the second is the one that matters.** *(1)* The pass is written as
-  whole-array `reverse`, `circshift` and `maximum` over one or two planes, so it runs through `Base`,
-  and `Base`'s `maximum` is serial. *(2)* It is **allocation-bound rather than compute-bound**:
-  measured, it allocates **≈6× the plane bytes it reads** (395 KB at ``64^3``, 1.58 MB at ``128^3``,
-  6.29 MB at ``256^3``, i.e. 5.87/5.92/5.96× — three temporaries over each of the two stored planes,
-  from `reverse`, `circshift`, and materializing `plane .- conj.(partner)` as `maximum`'s argument).
-  So **threading the reduction alone would not fix it** — the serial allocation would still dominate,
-  which is very likely what the ``512^3`` inversion is. Anyone starting from "give it a threaded
-  reduce" will do work and measure nothing.
-
-  **The fix, if it is worth doing, is to fuse rather than to thread.** One pass deriving the mirrored
-  partner index inline — the same arithmetic `reverse`-then-`circshift` performs, since index ``j``
-  pairs with ``\mathrm{mod}(-(j-1), n) + 1`` — removes all six temporaries, and *then* the gated CPU
-  loop threads it for free. That is the §9 execution-route policy's cartesian-coefficient case, so a
-  decision-38 kernel pair is the shape the architecture already prescribes.
-
-  **One structural obstacle to know before scoping it.** `reality_residual` lives in `Fields`, which is
-  included **second**, while the threaded fixed-tree reduce (`_indexed_tree_reduce`,
-  `_fiber_tree_reduce`) lives in `Reductions`, included **last** — so the operation structurally
-  *cannot* reach that tree, and no import will fix it. `FiberSections` (included first) carries
-  `_assign!` and `_use_threads` but no threaded reduction. So the routes are: write the kernel pair
-  with its own reduction, lift a threaded reduce primitive down into `FiberSections`, or move the
-  operation. Each is a different size and the middle one touches shared foundations.
-
-  **What argues against acting at all, and must be weighed rather than skipped.** The operation is
-  ``O(N^2)`` beside the ``O(N^3 \log N)`` round trip it exists to let a caller avoid, so even the
-  ``512^3`` figure is ~13 ms against a transform pair costing orders more — the diagnostic is already
-  far cheaper than the thing it replaces. The **GPU gains nothing**, being flat and launch-bound at
-  238–244 µs (AMD) and 99–104 µs (NVIDIA), so this is a CPU-only win, and decision 37 names the CPU's
-  tuning target as the beyond-VRAM grids where the ``512^3`` row does at least sit. And decision 40
-  requires any gated CPU loop to be proven **bitwise thread-count-invariant** against its device twin,
-  with decision 47 recording what happens when such a pair silently falls out of dispatch — a real
-  cost for a diagnostic.
-
-  **Decision rule.** Fuse only if the fused single-pass form is *at least as fast serially* as the
-  present one (it removes six allocations, so it should be) — the threading is then a free consequence
-  rather than the justification. If fusing does not pay serially, leave it: threading an
-  allocation-bound pass is the wrong fix, and the honest outcome is to record that and close.
-  **Definition of done** as usual: a CPU oracle test, GPU parity, bitwise thread-invariance in
-  `test/threading.jl`, a `test/pass_audit.jl` row (the allocation figure above is the baseline to beat),
-  a bounded allocation guard in `test/allocations.jl` rather than a zero one, the `reductions`
-  benchmark class re-run on **both** backends, and the four guiding docs.
 
 - **Spectral-domain transfer (decision 23) — DONE.** Both schemes shipped natively (no dependency)
   under `AbstractTransferScheme`: `DirectDFT` (exact `O(NM)` + the oracle) and the fast windowed
