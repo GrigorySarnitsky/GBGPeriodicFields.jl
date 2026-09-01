@@ -111,11 +111,11 @@ export gradient!,
                                 wavenumber_1, wavenumber_2, wavenumber_3,
                                 kernel_data, α, β, ::Type{T})
 
-Apply a coefficientwise contraction with the wavenumber vector, computing ``\\mathrm{i} (k_1 \\hat s_1 + k_2 \\hat s_2 + k_3 \\hat s_3)``, where ``k_a`` is the wavenumber component and ``\\hat s_a`` is the source field's spectral component along axis ``a = 1, 2, 3``. The `divergence` operator uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
+Apply a coefficientwise contraction with the derivative wavenumber vector, computing ``\\mathrm{i} (a_1 \\hat s_1 + a_2 \\hat s_2 + a_3 \\hat s_3)``, where ``a_j`` is the derivative wavenumber component and ``\\hat s_j`` is the source field's spectral component along axis ``j = 1, 2, 3``. The `divergence` operator uses this kernel for the vector-to-scalar case, and once per output component for the tensor-to-vector case.
 
 The eleven-argument form composes the contraction with a coefficientwise kernel and the
 ``\\alpha``/``\\beta`` accumulate in the same fused pass, computing
-``\\texttt{destination\\_component} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (k_a \\hat s_a) + \\beta \\texttt{destination\\_component}``
+``\\texttt{destination\\_component} \\mathrel{.=} \\alpha \\hat g \\cdot \\mathrm{i} (a_j \\hat s_j) + \\beta \\texttt{destination\\_component}``
 with ``\\hat g`` = `kernel_data`, branching on `iszero(β)` to overwrite or accumulate — the
 divergence analogue of `_apply_convolution!`.
 """
@@ -708,7 +708,7 @@ end
                                imaginary_unit, half_imaginary)
 
 Run the fused symmetric-gradient pass over every mode: read the three source coefficients once,
-compute the six distinct components of ``\\tfrac{\\mathrm{i}}{2}(k_j \\hat u_i + k_i \\hat u_j)``
+compute the six distinct components of ``\\tfrac{\\mathrm{i}}{2}(a_j \\hat u_i + a_i \\hat u_j)``
 once each, and write all nine entries. Destinations are ordered row-major, matching
 `_tensor2_component_data`.
 """
@@ -896,13 +896,16 @@ The arguments are:
 - `field` — the field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The result is the coefficientwise contraction of the source with ``\\mathrm{i}`` times the wavenumber
-vector, summed over the three axes:
+The result is the coefficientwise contraction of the source with ``\\mathrm{i}`` times the derivative
+wavenumber vector, summed over the three axes. Below, ``k`` labels the mode and ``a`` is the
+**derivative** wavenumber family of invariant 5 — zeroed at an even axis's Nyquist frequency, unlike
+the true squared wavenumber the Laplacian uses:
 
 ```math
-\\widehat{\\nabla\\cdot u}(k) = \\mathrm{i} (k_1 \\hat u_1 + k_2 \\hat u_2 + k_3 \\hat u_3),
-\\qquad
-\\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i} (k_1 \\hat A_{i1} + k_2 \\hat A_{i2} + k_3 \\hat A_{i3}).
+\\begin{gathered}
+\\widehat{\\nabla\\cdot u}(k) = \\mathrm{i} (a_1 \\hat u_1 + a_2 \\hat u_2 + a_3 \\hat u_3), \\\\
+\\widehat{(\\nabla\\cdot A)_i}(k) = \\mathrm{i} (a_1 \\hat A_{i1} + a_2 \\hat A_{i2} + a_3 \\hat A_{i3}).
+\\end{gathered}
 ```
 
 # The kernel-composed form

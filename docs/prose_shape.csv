@@ -1,6 +1,6 @@
 unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 1. Purpose and scope",329,264,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1521,248,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1523,248,0
 "ARCHITECTURE.md § 11. Convolution",529,375,1
 "ARCHITECTURE.md § 12. Reductions",311,311,0
 "ARCHITECTURE.md § 13. Decision log",22,22,0
@@ -140,7 +140,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
 "DifferentialOperators.jl :: DifferentialOperators",415,239,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
-"DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",132,62,0
+"DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",134,64,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
 "DifferentialOperators.jl :: _apply_spectral_laplacian!(destination_data, source_data, sq",37,34,0
 "DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",59,48,0
@@ -152,7 +152,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
 "DifferentialOperators.jl :: curl!(",268,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",408,110,0
+"DifferentialOperators.jl :: divergence!(",442,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
 "DifferentialOperators.jl :: gradient!(",192,53,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
@@ -173,7 +173,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Second-order differential operators",8,8,0
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
 "FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
-"FORMALIZATION.md § Declarations",602,321,0
+"FORMALIZATION.md § Declarations",604,321,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1078,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1

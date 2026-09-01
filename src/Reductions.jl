@@ -745,6 +745,11 @@ homogeneous turbulence, where kinetic energy is ``\\tfrac{1}{2}\\langle u, u\\ra
 from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a wavenumber or separation
 shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
 
+For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
+no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
+`l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
+`lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
+
 The arguments `f` and `g` are two compatible sections of equal tensor order. On a grid the pairing is the
 equal-weight average over the ``N`` cells (``\\Omega`` is the periodic box, ``|\\Omega|`` its volume); on a
 point-set it is the average over the ``M`` points. The grid's continuum form below is exact when the
@@ -758,11 +763,6 @@ exactly); under aliasing — both fields carrying Nyquist content, say — the d
 \\langle f, g\\rangle &= \\frac{1}{M} \\sum_p f_p \\cdot g_p && (\\texttt{PointSet}).
 \\end{aligned}
 ```
-
-For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
-no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
-`l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
-`lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
 
 !!! note "The mixed spectral pair allocates one or two correction planes"
     In spectral representation `inner(f, f)` and `l2norm` run allocation-free, but the *mixed*

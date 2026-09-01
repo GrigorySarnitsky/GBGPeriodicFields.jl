@@ -818,10 +818,11 @@ below carry — which is what makes them intensive averages rather than extensiv
 precisely that normalization the ``N/M`` factor further down is accounting for:
 
 ```math
-\langle a, b\rangle_{\mathrm{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
-\qquad\qquad
+\begin{gathered}
+\langle a, b\rangle_{\mathrm{pts}} = \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p, \\
 \langle f, g\rangle_{\mathrm{grid}} = \frac{1}{|\Omega|}\int_{\Omega} f(x)\cdot g(x)\,\mathrm{d}x
 = \frac{1}{N} \sum_{x} f(x)\cdot g(x),
+\end{gathered}
 ```
 
 each normalized by its total measure — the ``M`` points, and the box volume ``|\Omega|`` (equivalently

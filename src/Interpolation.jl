@@ -1316,7 +1316,7 @@ end
 # node i is ψ(t − δ) with ψ(s) = exp(β(√(1−(2s/W)²) − 1)). Returned as an SVector so the kernels
 # index it by a runtime stencil index on CPU and GPU (as for the spline `_axis_weights`).
 # Offset of the W-point stencil around a point sitting at `base + t`, with ``t \\in [0, 1)``: node
-# ``i`` of the stencil is the grid node `base + (i - half)`, at distance ``(i - \\mathrm{half}) - t``
+# ``i`` of the stencil is the grid node `base + (i - half)`, at distance ``(i - \\texttt{half}) - t``
 # from the point, and the window is supported on ``|distance| \\le W/2``.
 #
 # For an EVEN width one fixed offset serves every `t`: the W nearest nodes are always

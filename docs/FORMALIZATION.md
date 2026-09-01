@@ -68,9 +68,10 @@ contraction ``\cdot : V \times V \to \mathbb R`` and the wavenumber ``k``, the i
 package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, data) / _base_count`):
 
 ```math
-\langle a, b\rangle_{\mathrm{pts}} := \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p,
-\qquad
+\begin{gathered}
+\langle a, b\rangle_{\mathrm{pts}} := \frac{1}{M} \sum_{p=1}^{M} a_p\cdot b_p, \\
 \langle f, g\rangle_{\mathrm{grid}} := \frac{1}{N} \sum_{n=1}^{N} f_n\cdot g_n .
+\end{gathered}
 ```
 
 ## Representations and transforms (`Fields`)
