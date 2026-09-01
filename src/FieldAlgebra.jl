@@ -916,7 +916,9 @@ Contraction of two fields is nonlinear and is defined only in physical represent
 Pointwise over the base, with summation over the repeated fiber indices:
 
 ```math
-(u \\cdot v)(x) = u_i(x)  v_i(x), \\qquad (A : B)(x) = A_{ij}(x)  B_{ij}(x).
+\\begin{gathered}
+(u \\cdot v)(x) = u_i(x)  v_i(x), \\\\ (A : B)(x) = A_{ij}(x)  B_{ij}(x).
+\\end{gathered}
 ```
 """
 function dot! end
@@ -1140,7 +1142,11 @@ A product of two fields is nonlinear and is defined only in physical representat
 Pointwise over the base, with summation over the repeated fiber indices:
 
 ```math
-(A u)_i = A_{ij} u_j, \\qquad (u A)_i = u_j A_{ji}, \\qquad (A B)_{ij} = A_{ik} B_{kj}.
+\\begin{gathered}
+(A u)_i = A_{ij} u_j, \\\\
+(u A)_i = u_j A_{ji}, \\\\
+(A B)_{ij} = A_{ik} B_{kj}.
+\\end{gathered}
 ```
 """
 mul!
@@ -1411,7 +1417,11 @@ The norm is nonlinear, so it is defined only in physical representation. Its res
 Pointwise over the base — the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
 
 ```math
-|\\varphi|, \\qquad |u| = \\sqrt{u_i u_i}, \\qquad |A| = \\sqrt{A_{ij} A_{ij}}.
+\\begin{gathered}
+|\\varphi|, \\\\
+|u| = \\sqrt{u_i u_i}, \\\\
+|A| = \\sqrt{A_{ij} A_{ij}}.
+\\end{gathered}
 ```
 """
 function norm! end

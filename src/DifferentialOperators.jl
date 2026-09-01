@@ -532,7 +532,7 @@ end
                  wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
 
 Run the fused curl pass over every mode: read the three source coefficients once, write the three
-components of ``\\mathrm{i} (k \\times \\hat u)``. Alias-safe by construction — all of a mode's
+components of ``\\mathrm{i} (a \\times \\hat u)``, with ``a`` the derivative wavenumber. Alias-safe by construction — all of a mode's
 reads precede its writes — so the destination may alias the source with no guard temporary.
 """
 function _curl_modes!(backend, destination_1, destination_2, destination_3,
@@ -802,9 +802,10 @@ derivative wavenumber of the differentiation axis. Below, ``k`` labels the mode 
 the true squared wavenumber the Laplacian uses (invariant 5):
 
 ```math
-\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}  a_i  \\hat\\varphi(k),
-\\qquad
+\\begin{gathered}
+\\widehat{(\\nabla\\varphi)_i}(k) = \\mathrm{i}  a_i  \\hat\\varphi(k), \\\\
 \\widehat{(\\nabla u)_{ij}}(k) = \\mathrm{i}  a_j  \\hat u_i(k).
+\\end{gathered}
 ```
 """
 function gradient! end
@@ -1328,7 +1329,9 @@ a scalar field ``f`` over the three axes, and it acts on each component of a vec
 alike, so it preserves the tensor order:
 
 ```math
-\\Delta f = \\partial^2_{x_i x_i} f, \\qquad (\\Delta u)_j = \\partial^2_{x_i x_i} u_j.
+\\begin{gathered}
+\\Delta f = \\partial^2_{x_i x_i} f, \\\\ (\\Delta u)_j = \\partial^2_{x_i x_i} u_j.
+\\end{gathered}
 ```
 
 Use this in-place form when `destination` is already allocated; the allocating [`laplacian`](@ref)
@@ -1342,7 +1345,9 @@ The arguments are:
 The spectral symbol is a coefficientwise multiply by ``-|k|^2``:
 
 ```math
-\\widehat{\\Delta f}(k) = -|k|^2  \\hat f(k), \\qquad |k|^2 = k_1^2 + k_2^2 + k_3^2.
+\\begin{gathered}
+\\widehat{\\Delta f}(k) = -|k|^2  \\hat f(k), \\\\ |k|^2 = k_1^2 + k_2^2 + k_3^2.
+\\end{gathered}
 ```
 """
 function laplacian! end
@@ -1396,7 +1401,11 @@ only when ``\\int_\\Omega f\\,\\mathrm{d}x = 0``, since any periodic ``\\psi`` h
 the solution is fixed uniquely by requiring its mean to vanish:
 
 ```math
-\\Delta\\psi = f, \\qquad \\int_\\Omega f\\,\\mathrm{d}x = 0, \\qquad \\int_\\Omega \\psi\\,\\mathrm{d}x = 0.
+\\begin{gathered}
+\\Delta\\psi = f, \\\\
+\\int_\\Omega f\\,\\mathrm{d}x = 0, \\\\
+\\int_\\Omega \\psi\\,\\mathrm{d}x = 0.
+\\end{gathered}
 ```
 
 A general input is projected onto that compatible part: the result's zero Fourier mode is set to

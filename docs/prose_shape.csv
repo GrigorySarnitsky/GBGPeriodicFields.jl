@@ -6,7 +6,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 13. Decision log",22,22,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
 "ARCHITECTURE.md § 3. Types and memory layout",197,115,0
-"ARCHITECTURE.md § 4. Spectral machinery",645,161,0
+"ARCHITECTURE.md § 4. Spectral machinery",663,161,0
 "ARCHITECTURE.md § 5. Validation design",216,131,0
 "ARCHITECTURE.md § 7. Aliasing policy",216,77,0
 "ARCHITECTURE.md § 8. Broadcasting",158,99,0
@@ -127,9 +127,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: materialize_kernel(kernel::RadialKernel)",45,44,0
 "Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",282,189,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",16,15,0
-"Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",217,117,0
-"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",188,57,0
-"Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",180,56,0
+"Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",250,117,0
+"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
+"Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",215,91,0
 "Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",735,210,1
 "Convolution.md § Convolution",8,8,0
@@ -143,7 +143,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",134,64,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
 "DifferentialOperators.jl :: _apply_spectral_laplacian!(destination_data, source_data, sq",37,34,0
-"DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",59,48,0
+"DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",64,53,0
 "DifferentialOperators.jl :: _helmholtz_projection_modes!(backend, destination_1, destina",83,70,0
 "DifferentialOperators.jl :: _inverse_curl_modes!(backend, destination_1, destination_2, ",67,56,0
 "DifferentialOperators.jl :: _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)",46,42,0
@@ -154,15 +154,15 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
 "DifferentialOperators.jl :: divergence!(",442,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
-"DifferentialOperators.jl :: gradient!(",192,53,0
+"DifferentialOperators.jl :: gradient!(",194,53,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
 "DifferentialOperators.jl :: helmholtz_projection!(",578,108,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
 "DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",340,86,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
-"DifferentialOperators.jl :: inverse_laplacian!(",297,76,1
+"DifferentialOperators.jl :: inverse_laplacian!(",299,76,1
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
-"DifferentialOperators.jl :: laplacian!(",160,57,0
+"DifferentialOperators.jl :: laplacian!(",164,57,0
 "DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",34,32,0
 "DifferentialOperators.jl :: symmetric_gradient!(",215,49,0
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
@@ -172,14 +172,14 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Projection operators",4,4,0
 "DifferentialOperators.md § Second-order differential operators",8,8,0
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",542,129,0
-"FORMALIZATION.md § Convolution (`Convolution`)",1436,248,0
-"FORMALIZATION.md § Declarations",604,321,0
-"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1078,114,0
+"FORMALIZATION.md § Convolution (`Convolution`)",1440,248,0
+"FORMALIZATION.md § Declarations",659,376,0
+"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",1080,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
-"FORMALIZATION.md § Reductions (`Reductions`)",1192,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",509,107,0
+"FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",511,107,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
@@ -262,13 +262,13 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",72,33,0
 "FieldAlgebra.jl :: dev(A::TensorFieldPhysical{2})",41,38,0
 "FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",172,91,0
-"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",194,53,0
+"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",196,53,0
 "FieldAlgebra.jl :: dot(u::VectorFieldPhysical, v::VectorFieldPhysical)",69,65,0
 "FieldAlgebra.jl :: map!(φ, destination, sources...)",592,151,2
 "FieldAlgebra.jl :: map(φ, sources...)",59,57,0
-"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",332,161,0
+"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",334,161,0
 "FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",228,100,0
-"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, scalar_field::Scalar",117,32,0
+"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, scalar_field::Scalar",119,32,0
 "FieldAlgebra.jl :: norm(scalar_field::ScalarFieldPhysical)",36,33,0
 "FieldAlgebra.jl :: skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhy",65,32,0
 "FieldAlgebra.jl :: skew(A::TensorFieldPhysical{2})",41,38,0
@@ -568,7 +568,7 @@ unit,words,longest_paragraph,admonitions
 "index.md § Installation",88,48,0
 "index.md § Main components",748,703,0
 "index.md § Start here",39,39,0
-"notation.md § Base and fiber",522,472,0
+"notation.md § Base and fiber",609,559,0
 "notation.md § Conventions",316,316,0
 "notation.md § Notation",56,56,0
 "notation.md § Operators",285,285,0

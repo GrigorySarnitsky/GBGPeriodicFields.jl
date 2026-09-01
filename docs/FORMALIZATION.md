@@ -35,7 +35,10 @@ V        &:= (\mathbb R^3)^{\otimes R}   &&\text{fiber, tensor order } R\ (\dim 
 A grid cell is a triple ``(i_1, i_2, i_3)`` of per-axis indices (a **standalone** ``k`` is reserved for
 the wavenumber below; as a subscripted *component* index — ``\varepsilon_{ijk}``, ``A_{ik}B_{kj}`` — it
 keeps its ordinary meaning, the two never colliding since one is a free symbol and the other always
-sits in a subscript run), so the scalar field over the grid is the 3-axis tensor product
+sits in a subscript run). **The same rule governs ``a``**, which below is the *derivative* wavenumber —
+the Nyquist-zeroed family, kept apart from the true ``k`` — when it stands alone or carries a numeric
+component subscript (``a_1, a_2, a_3``), and is an ordinary per-axis index when it *sits in* a subscript
+or a product bound (``k_a``, ``\Delta x_a``, ``\prod_{a=1}^{3}``). So the scalar field over the grid is the 3-axis tensor product
 ``\mathbb R^{N_x}\otimes\mathbb R^{N_y}\otimes\mathbb R^{N_z}`` (the array ``f_{i_1 i_2 i_3}``) — one real per cell.
 As a vector space this is ``\mathbb R^N`` with ``N = N_x N_y N_z``: a column-major flat index ``n`` collapses
 ``(i_1, i_2, i_3)``, and the global pairings below use that flat ``n`` (the per-axis structure is irrelevant to
@@ -86,8 +89,10 @@ coordinate is what makes it agree with the spectral transfer below, whose phase 
 subtracts that origin explicitly because a point ``x_p`` is given in absolute coordinates:
 
 ```math
-\hat f(k) = \sum_{x} f(x) e^{-\mathrm{i} k\cdot x}, \qquad
+\begin{gathered}
+\hat f(k) = \sum_{x} f(x) e^{-\mathrm{i} k\cdot x}, \\
 f(x) = \frac{1}{N} \sum_{k} \hat f(k) e^{\mathrm{i} k\cdot x},
+\end{gathered}
 ```
 
 so ``\mathcal F^{-1}\mathcal F = \mathrm{id}`` (exact to round-off). Two consequences used elsewhere:
@@ -294,7 +299,10 @@ of ``\nabla\times`` (which takes the antisymmetric part of ``\nabla u``): its mu
 part of ``\nabla u``'s multiplier ``\mathrm{i}a_j\hat u_i``,
 
 ```math
-\hat S_{ij} = \tfrac{\mathrm{i}}{2} (a_j\hat u_i + a_i\hat u_j), \qquad S = \operatorname{sym}(\nabla u), \quad\checkmark
+\begin{gathered}
+\hat S_{ij} = \tfrac{\mathrm{i}}{2} (a_j\hat u_i + a_i\hat u_j), \\
+S = \operatorname{sym}(\nabla u), \quad\checkmark
+\end{gathered}
 ```
 
 formed without materializing the full gradient tensor and sharing the derivative-wavenumber Nyquist zeroing.
@@ -337,8 +345,10 @@ applies a scalar kernel ``\hat g`` (a `SpectralKernel`, broadcast over the fiber
 (`src/Convolution.jl`):
 
 ```math
-\mathcal F(f \star g) = \hat f\cdot\hat g, \qquad
+\begin{gathered}
+\mathcal F(f \star g) = \hat f\cdot\hat g, \\
 \widehat{\texttt{dest}} = \alpha \hat f \hat g + \beta \widehat{\texttt{dest}}. \quad\checkmark
+\end{gathered}
 ```
 
 This is exactly the product invariant 1 bans as ``*`` — it is convolution, not the (absent) pointwise
@@ -348,8 +358,10 @@ spectral product. The neutral kernel builders: `spectral_cutoff` is the sharp lo
 of ``|k|^2`` (its ``\sigma = \mathrm{identity}`` case being that coordinate itself); and `assignment_window` the linear/CIC mass-assignment window
 
 ```math
-\hat W(k) = \prod_{a=1}^{3}\operatorname{sinc}^2\Bigl(\tfrac{k_a \Delta x_a}{2}\Bigr),
-\qquad \operatorname{sinc} y = \tfrac{\sin y}{y},
+\begin{gathered}
+\hat W(k) = \prod_{a=1}^{3}\operatorname{sinc}^2\Bigl(\tfrac{k_a \Delta x_a}{2}\Bigr), \\
+\operatorname{sinc} y = \tfrac{\sin y}{y},
+\end{gathered}
 ```
 
 undone by dividing (deconvolution).
@@ -481,7 +493,10 @@ grid cell volume, point counting); `inner` is the **normalized** L² product (de
 forward gives the DC coefficient ``\hat f(0) = \sum_x f_x`` (real for a real field), so
 
 ```math
-\texttt{mean}(f) = \frac{\hat f(0)}{N}, \qquad \int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
+\begin{gathered}
+\texttt{mean}(f) = \frac{\hat f(0)}{N}, \\
+\int_\Omega f\,\mathrm{d}\mu = \frac{|\Omega|}{N} \hat f(0). \quad\checkmark
+\end{gathered}
 ```
 
 Both equal the physical reductions (since ``\sum_x f_x = \hat f(0)``), read from the same zero-mode slot

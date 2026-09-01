@@ -9,6 +9,24 @@ finding's absence from this file proves nothing about it.
 
 ---
 
+## 2026-09-01 — substrate artifacts (a finding the hat's own manuscript could not disprove)
+
+### ``N_B`` is introduced in the notation glossary but never exercised
+**NOT a defect — do not re-flag.** ``N_B`` (the base point count, ``N`` for a grid and ``M`` for a
+point set) is defined on the notation page and **is** used: `docs/FORMALIZATION.md` carries it four
+times in the Bessel-corrected `var` and `cov` statements, with its own binding beside them.
+
+The finding is correct within its substrate and wrong about the corpus. The `cold-reader` hat runs on
+**SITEONLY**, which withholds the four design docs by design, so the one page that exercises the symbol
+was not in front of it. Its narrower phrasing — "no *docstring* uses it" — is literally true and is not
+a defect either: the glossary serves the whole rendered site, and a symbol used in `FORMALIZATION` is
+exercised.
+
+This will recur on every SITEONLY round unless recorded, which is why it is here rather than merely
+dismissed in a verdict file. A future panel re-raising it should close against this note.
+
+Settles, verbatim: `N_B` introduced in the notation glossary but never exercised in any docstring
+
 ## 2026-09-01 — the panel's escalated findings, walked one by one with the owner
 
 ### `Grid3D`'s two-argument constructor takes `origin` as a keyword

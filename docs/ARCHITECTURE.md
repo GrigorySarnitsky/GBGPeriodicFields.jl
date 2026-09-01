@@ -477,8 +477,9 @@ vs the squared wavenumber kept) — see `docs/TESTING.md`.
 **Operators are multipliers — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
 `to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
 ``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
-``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k) \cdot`` (``\mathrm{i}k``,
-``\mathrm{i}k\cdot``, ``\mathrm{i}k\times``, ``-|k|^2``):
+``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k) \cdot`` (``\mathrm{i}a``,
+``\mathrm{i}a\cdot``, ``\mathrm{i}a\times``, ``-|k|^2``, writing ``a`` for the derivative wavenumber and ``k`` for
+the true one — the Nyquist split just above):
 
 ```math
 \begin{CD}
@@ -1346,7 +1347,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\lVert T\rVert_{L^2 \to L^2} = \lVert m\rVert_\infty``. So "apply ``m(k)``" is not a convenience — it is the complete representation of
     the translation commutant. The existing operators are all such multipliers: `helmholtz_projection` ([§4](@ref "4. Spectral machinery")),
     the consumer's 2/3 de-alias mask, and the integrating factor ``\exp(-\nu k^2 \Delta t)`` are the **bounded** ones
-    (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``\mathrm{i}k``, ``-|k|^2 \notin L^\infty``),
+    (``m \in L^\infty``); `gradient`/`curl`/`laplacian` are the **unbounded** multipliers (symbols ``\mathrm{i}a``, ``-|k|^2 \notin L^\infty``),
     diagonalized identically but outside the norm identity above.
 
     The roles — each as *what it is; operation(s); the map it performs; status*:
@@ -2122,7 +2123,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     the [§4](@ref "4. Spectral machinery") multiplier picture closing under composition: a
     coefficientwise kernel ``\hat g`` (a Fourier symbol, as `convolve!` takes it) commutes through both
     operators — scalar times matrix symbol for ``\mathbb P``, scalar times the contraction
-    ``\mathrm{i} k \cdot`` for the divergence — so "operator then convolve" is itself one Fourier
+    ``\mathrm{i} a \cdot`` for the divergence — so "operator then convolve" is itself one Fourier
     multiplier, and the fused form computes it in the operator's own pass. The consumer pattern it
     serves is mask-de-aliasing: every de-aliased right-hand side in a pseudospectral solver is the
     operator followed immediately by `convolve!` with the de-alias kernel, so fusing saves that pass's

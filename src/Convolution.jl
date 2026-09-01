@@ -357,7 +357,7 @@ layout, element type and array backend the kernel takes as its own.
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
-rebuild — where a stored kernel would pay a full field write each time.
+rebuild — where a stored kernel would pay a full field write each time. That evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component; [`RadialKernel`](@ref) carries the measured trade-off against a materialized kernel.
 """
 function radial_kernel(sigma::F, multipliers::FieldSpectralMultipliers) where {F}
   T = _multipliers_scalar_type(multipliers)
@@ -1721,7 +1721,7 @@ end
                   wavenumber_low::Real, wavenumber_high::Real) -> RadialKernel
 
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
-itself rather than its coefficients, so it costs no field of storage. Use
+itself rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see [`RadialKernel`](@ref) for the measured trade-off against a materialized kernel. Use
 [`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
 the multipliers' grid and array backend: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
@@ -1770,7 +1770,7 @@ end
                     wavenumber_cutoff::Real) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
-rather than its coefficients, so it costs no field of storage. Use [`materialize_kernel`](@ref) to
+rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see [`RadialKernel`](@ref) for the measured trade-off against a materialized kernel. Use [`materialize_kernel`](@ref) to
 expand it into a `StoredKernel`. It is built on
 the multipliers' grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
