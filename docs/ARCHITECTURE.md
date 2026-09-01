@@ -1059,7 +1059,8 @@ its scope is this section.
     object, never a field**; `SpectralKernel` is the abstract supertype of four storage classes —
     `StoredKernel` (one coefficient per mode), `SeparableKernel` (per-axis factors), `RadialKernel` (a
     symbol of ``\lvert k\rvert^2``) and `ProductKernel` (any two held unmultiplied); all four are
-    interchangeable wherever a kernel is *applied* and agree bit for bit, `materialize_kernel` expands a
+    interchangeable wherever a kernel is *applied* and agree bit for bit on the host (on a device a
+    *complex*-valued kernel is the one exception, the classes agreeing there to rounding), `materialize_kernel` expands a
     compressed one, and `inv` and `weighted_inner` are the two entry points with narrower contracts.
 
 `Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
@@ -1240,8 +1241,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     finite differences) at the two bracketing nodes, ``C^m`` with ``0 \le m \le 2n`` (`CatmullRom`, the
     cubic ``n=1, m=1``, is the default; ``m=0`` is linear) — and the ``C^0`` `LagrangeSpline(n)`, the
     degree-``2n{+}1`` interpolant of all ``2n{+}2`` nodes. The smooth weights are **pinned to a tolerance
-    against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; agreement
-    ``\le`` 1e-15) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
+    against TurTLE's `beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`; the pin asserts
+    ``\le`` 1e-12, `test/interpolation_transfer.jl`) — an earlier "interpolate the central ``2(n{-}m){+}2`` nodes" draft was corrected
     after reading the TurTLE source, Lalescu's smooth spline being a *two-point* Hermite, not a
     central-node hybrid. Reproduction is ``\min(2m{+}1, 2n)`` for ``n \ge 1`` (smooth) / ``2n{+}1`` (Lagrange); the
     closed-form Catmull–Rom and the Lagrange cardinal

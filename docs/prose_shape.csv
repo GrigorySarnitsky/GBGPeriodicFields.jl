@@ -1,7 +1,7 @@
 unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 1. Purpose and scope",329,264,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1520,249,0
-"ARCHITECTURE.md § 11. Convolution",510,375,1
+"ARCHITECTURE.md § 11. Convolution",529,375,1
 "ARCHITECTURE.md § 12. Reductions",311,311,0
 "ARCHITECTURE.md § 13. Decision log",22,22,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
@@ -29,7 +29,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 14",106,106,0
 "ARCHITECTURE.md § item 15",82,82,0
 "ARCHITECTURE.md § item 16",113,113,0
-"ARCHITECTURE.md § item 17",378,378,0
+"ARCHITECTURE.md § item 17",381,381,0
 "ARCHITECTURE.md § item 18",783,312,0
 "ARCHITECTURE.md § item 19",1077,280,0
 "ARCHITECTURE.md § item 2",26,26,0
@@ -520,7 +520,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: _tree_dims_reduce(scalar_reduce, data, base_count)",45,42,0
 "Reductions.jl :: _tree_sum(data)",35,34,0
 "Reductions.jl :: _tree_var(data; corrected)",22,20,0
-"Reductions.jl :: cov(u; corrected = true)",234,81,0
+"Reductions.jl :: cov(u; corrected = true)",245,81,0
 "Reductions.jl :: extrema(f)",45,42,0
 "Reductions.jl :: inner(f, g)",356,106,1
 "Reductions.jl :: integral(f)",540,121,1

@@ -678,7 +678,7 @@ The arguments are:
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
 Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
-pass as ``\\operatorname{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled), over the grid
+pass as ``\\operatorname{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as [`var`](@ref) is), over the grid
 cell-average measure and the point counting measure alike.
 """
 function cov end
