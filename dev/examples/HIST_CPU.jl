@@ -1,5 +1,8 @@
 # # Forced HIT — building a pseudospectral DNS on GBGPeriodicFields
 #
+# !!! info "Written by AI, not regularly reviewed"
+#     This page is written by AI and is not reviewed regularly by a human.
+#
 # A *small, demonstration* pseudospectral DNS of forced homogeneous-isotropic turbulence, written the
 # way a real consumer would use `GBGPeriodicFields`. It plots the Eulerian and Lagrangian second-order
 # velocity structure functions — each compensated by its Kolmogorov (K41) inertial scaling, side by side —
