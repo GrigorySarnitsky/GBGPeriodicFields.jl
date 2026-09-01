@@ -190,18 +190,28 @@ outcomes.forEach((r, i) => {
     // answers for writing "no remaining instance" or "single-site" where the list said "nothing to
     // sweep" and "single site". Matching a fixed vocabulary rather than the claim is the same defect
     // as counting the word HONORED.
-    const singleSite = /\b(no sibling|no (other|further|remaining) (site|surface|instance)s?|single[ -]site|coverage gap|only site|nothing (else )?to sweep)\b/i.test(cs)
-    const namesFile = /\.(md|jl|toml|sh|py|js)\b/.test(cs)
-    // Accept the enumeration in either notation. The rule demands a CONCRETE surface, not a
-    // particular spelling, and round 3 demoted three sound answers for writing "docs/ARCHITECTURE.md
-    // (lines 195, 273)" instead of "docs/ARCHITECTURE.md:195". A named file plus a line number is an
-    // enumeration; the teeth are unchanged, since prose naming neither still demotes.
-    const enumerated = /[^\s]:\d+/.test(cs) || (namesFile && /\blines?\s+~?\d+/i.test(cs))
-    // A sweep that names where it looked and reports the class empty is an answer, not a hand-wave.
-    const sweptEmpty = namesFile && /\b(no remaining|no other|no further|found no|nothing (else )?to sweep)\b/i.test(cs)
-    if (cs.length < 12 || !(enumerated || sweptEmpty || singleSite)) {
+    // EMPTINESS, NOT CONTENT (2026-09-01). This tested a fixed vocabulary — `site|surface|instance`
+    // and a short list of phrasings — and so demoted every sound answer that used a synonym. The
+    // 2026-09-01 /check-docs round 5 was the measurement: SIX of six demotions were spurious, on
+    // notation alone, each one's own evidence independently re-verifying its class clean by corpus
+    // grep. A grader who has swept a class TO ZERO has no `file:line` list to give, so under the old
+    // predicate a fully-closed finding demoted BY CONSTRUCTION and the loop could never terminate.
+    //
+    // The predicate now tests whether a substantive class answer was GIVEN, which is IT's shape and
+    // the one CLAUDE.md records as winning; this file's own comment three lines up already named the
+    // defect ("matching a fixed vocabulary rather than the claim is the same defect as counting the
+    // word HONORED") while continuing to do it.
+    //
+    // The teeth that remain are the ones that matter: an ABSENT or boilerplate answer still demotes,
+    // which is the case the rule was written for — a grader who never considered the class at all.
+    // The accepted cost is that a substantive but WRONG class answer now passes here. That trade is
+    // deliberate: a wrong answer is caught by the next round re-grading the same finding, whereas a
+    // column of spurious demotions is not caught by anything, because a reader who finds six of them
+    // stops reading the column — and a check nobody reads passes everything.
+    const substantive = cs.length >= 60 && /\s/.test(cs) && !/^(n\/?a|none|see above|as noted)\b/i.test(cs)
+    if (!substantive) {
       x.verdict = 'LINE-ONLY'
-      x.evidence = `[DEMOTED: HONORED claimed with no enumerated class surface] ${x.evidence || ''}`
+      x.evidence = `[DEMOTED: HONORED claimed with no class answer] ${x.evidence || ''}`
     }
   }
   const honored = v.filter(x => x.verdict === 'HONORED').length

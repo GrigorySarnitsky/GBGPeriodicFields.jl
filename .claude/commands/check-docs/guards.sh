@@ -74,7 +74,20 @@ soft "\\left/\\right (docs)"            grep -rnP '\\(left|right)(?![a-zA-Z])' "
 soft "manual \;/\\: spacing (src)"     grep -rnP '\\\\[;:]' src
 soft "crammed citation block"          grep -rnzoE 'Reference[s]?:[^"]*;' src
 soft "dead §-ref in a docstring"       bash -c "grep -rnE '§[0-9]|docs/(src|ARCHITECTURE|FORMALIZATION|TESTING|PERFORMANCE)|ARCHITECTURE\.md|inspiration/' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'"
-soft "sentence opens with code/math"   bash -c "grep -rnE '\. (\`[a-z]|\`\`)' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'"
+# SCOPE FIX (2026-09-01): this scanned `src/*.jl` only, while the command's own readable
+# source-of-truth spells it `... src/*.jl $DOCS_MD`. The script was narrower than its spec, so no doc
+# page had ever been scanned for this rule — and the 2026-09-01 battery read its "ok" as coverage and
+# reported the class clean. It was not: the documented scan over the doc surfaces found 22 genuine
+# violations. A check narrower than it appears is worse than an absent one, because it is believed.
+#
+# The exclusions are part of the check, not decoration, and they are the rule's own documented
+# exemptions — without them the doc pages contribute hundreds of list items and end-of-line
+# ``\checkmark`` markers, and a triage line reporting hundreds of non-defects is a line that stops
+# being read. Excluded: list/table/heading/quote leaders (a bullet is exempt by rule, §13 entries and
+# argument docs included), `#` comment lines, the `e.g.`/`i.e.`/`cf.`/`vs.`/`incl.` abbreviations, and
+# a ``\checkmark`` end-of-line marker. A math-formula opener (```` `` ````) is kept: it is a real
+# member of the class the rule names.
+soft "sentence opens with code/math"   bash -c "grep -rnE '\. (\`[a-z]|\`\`)' src/*.jl ${DOCS_MD[*]} | grep -vE ':[0-9]+:[[:space:]]*#' | grep -vE ':[0-9]+:[[:space:]]*([-*+>|]|[0-9]+\.)' | grep -vE '(e\.g|i\.e|cf|vs|incl)\. \`' | grep -v 'checkmark'"
 soft "wide docstring signature (>88)"  awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/GBGPeriodicFields.jl src/Fields.jl src/FieldAlgebra.jl src/FiberSections.jl src/DifferentialOperators.jl src/Convolution.jl src/Points.jl src/Interpolation.jl src/Reductions.jl
 
 echo
