@@ -2105,20 +2105,33 @@ The package is feature-complete for its core mission. Recorded next steps, in pr
   a bounded allocation guard in `test/allocations.jl` rather than a zero one, the `reductions`
   benchmark class re-run on **both** backends, and the four guiding docs.
 
-**LOW PRIORITY — the 2026-08-31/09-01 performance-regression cluster (user-ruled 2026-09-01).**
-The items below came out of the CUDA A/B, the adversarial claim audit and the regression hunt over
-the committed history of `RESULTS.md`. They are grouped and deprioritised deliberately, and the
-reasoning is kept so nobody re-escalates them on sight: each defect is NARROW (one cell, or one
-grid, or one retired card), each sits inside a change that is strongly net-positive, and **each fix
-is riskier than the defect it repairs** — conditioning a kernel on scheme, rank, verb, host or grid
-means a second body, which is what decision 47 records going silently dead. Two notes against a flat
-reading. The AMD gather is the most consequential of the set, because unlike the others it hits the
-DEFAULT scheme at a production grid across a whole backend; it ranks here only because it is blocked
-on hardware that lives on the other host, where it is already queued. And the GUARD below is worth
-more than any single fix in the group and costs about an hour, so do that one first.
+**LOW PRIORITY — the 2026-08-31/09-01 performance work (user-ruled 2026-09-01).** All of it came
+out of the CUDA A/B, the adversarial claim audit and the regression hunt over the committed history
+of `RESULTS.md`. It is deprioritised deliberately, and the reasoning is kept so nobody re-escalates
+it on sight: every defect here is NARROW (one cell, or one grid, or one retired card), each sits
+inside a change that is strongly net-positive, and **each fix is riskier than the defect it repairs**
+— conditioning a kernel on scheme, rank, verb, host or grid means a second body, which is what
+decision 47 records going silently dead.
+
+**It is FOUR KINDS of thing, and reading it as one ranked list makes nonsense of it** — the sections
+below are labelled by kind, and are ordered by what to do FIRST rather than by kind.
+**PREVENTION** is a monitoring script to wire in and a checklist rule; neither repairs a number, they
+stop the next defect shipping unseen. **DISMISSALS** are flags already checked and closed, recorded
+so they are not re-found as news. **CONFIRMED DEFECTS** are shipped regressions with a matched A/B
+behind them. **OPEN QUESTIONS** are measurements that would tell us whether a defect exists at all;
+nothing is known to be wrong in them yet.
+
+Two rankings, over two different sets, because they are the two questions a reader actually has.
+*Which defect matters most?* The **AMD gather**: alone among the three it hits the DEFAULT scheme at
+a production grid across a whole backend, and it ranks low only because it is blocked on hardware
+that lives on the other host, where it is already queued. *What should be done first?* The
+**prevention item**, which is not a defect at all — it costs about an hour and is the only instrument
+that would have caught this class, so it earns its place ahead of work that repairs a single cell.
+
+*PREVENTION — do these first; they repair no number.*
 
 - **Make the history regression scan ride the post-sweep analysis — the cheapest item here, and the
-  one to do first.** `benchmark/history_regressions.py` reads `RESULTS.md` at every commit that
+  one to do first. It is TOOLING, not a regression.** `benchmark/history_regressions.py` reads `RESULTS.md` at every commit that
   regenerated it and flags cells slower at HEAD than their in-regime best. Its first run found
   finding (am), a ``1.46``–``1.48\times`` regression that had shipped for two days past the canary
   (a fixed sample not containing the row), the born-slow triage (which asks about thread scaling and
@@ -2135,6 +2148,8 @@ more than any single fix in the group and costs about an hour, so do that one fi
   as false until every verb defined on it has been swept. A checklist change, not code, and it
   generalises past the transfer.
 
+*DISMISSALS — checked and closed; do not re-open without new evidence.*
+
 - **The unconfirmed flags, recorded so they are not re-found as news.** The history hunt also raised
   the CPU `fft` cluster (``1.5``–``1.74\times`` on the 12700K), `materialize_kernel`
   (``1.9``–``2.5\times``), `adapt plans (rebuild)`, and small-grid `NUFFT` on the 9800X3D. None is
@@ -2144,6 +2159,9 @@ more than any single fix in the group and costs about an hour, so do that one fi
   sensitive to ``3.2\times`` on identical code. `divergence!∘kernel` and `helmholtz!∘kernel` were
   checked and are FLAT on this host (10.331 → 10.315 and 19.313 → 19.336 ms), so they are vintage
   artefacts and are closed.
+
+*CONFIRMED DEFECTS — each with a matched A/B behind it. The third, the AMD gather at
+``1.74\times``, is not listed here: it needs the card and is queued in the AIPORETNE block above.*
 
 - **Decision 76 costs a device vector transform at ``64^3`` on BOTH vendors, and nothing above it —
   and the open question is whether it can be made faster EVERYWHERE (TODO below; recorded
@@ -2229,6 +2247,8 @@ more than any single fix in the group and costs about an hour, so do that one fi
   **Test the cache hypothesis while there**, since it now covers four platforms and would predict
   where else this bites: the walk regresses on the two ``\approx 96`` MB last-level-cache platforms
   and helps on the two ``\le 48`` MB ones. A third large-cache platform should regress.
+
+*OPEN QUESTIONS — nothing is known to be wrong yet; these are measurements, not fixes.*
 
 - **The retired-RX-6700-XT verdict cluster — RE-MEASURE (recorded 2026-08-31 by the adversarial
   claim audit; the largest remaining hole it found).** Four GPU verdicts in `PERFORMANCE.md` §4 rest
