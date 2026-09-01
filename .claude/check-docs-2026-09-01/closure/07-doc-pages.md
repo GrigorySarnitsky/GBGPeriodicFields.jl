@@ -11,25 +11,24 @@ RANGE: ac1226e4..HEAD
 +| ``\lvert\cdot\rvert`` | ... in running math outside a table the same symbol is written with plain single bars, which cannot be shown in this cell because the literal pipe would split it — note that `\|` is NOT that spelling, being LaTeX's DOUBLE bar and so the ``\lVert\cdot\rVert`` of the next row | `norm` |
 ```
 
-Both defects the finding named are fixed: (a) the content error — the cell no longer
-asserts `\|k\|^2` is "the same symbol"/"the plain-bar spelling"; it now explicitly states
-`\|` is NOT that spelling (it is the double-bar `l2norm` glyph), matching the finding's own
-correction. (b) the formatting error — the surviving `` `\|` `` single-backtick span is now
-used the way the finding's proposed fix explicitly permitted: as a literal citation of the
-command text (paired with an explicit "is NOT that spelling" gloss), the same exempted
-pattern as `` `\imath` ``/`` `\bigl` `` elsewhere on the page, not as an assertion of a
-rendered formula. No bare `\|k\|^2`-as-formula claim remains anywhere.
+Both defects the finding named are resolved: (a) the wrong content — the old cell asserted
+`\|k\|^2` (LaTeX double-bar) *is* the plain-bar spelling of `|k|^2` (single-bar magnitude); the new
+cell explicitly states the opposite, that `\|` is the *distinct* double-bar command belonging to
+the `l2norm`/`` \lVert\cdot\rVert `` row, not to this `norm` row. (b) the format defect — the old
+cell rendered a full formula `` `\|k\|^2` `` in single backticks (monospace, not math); the new
+cell drops the formula entirely from the cell (correctly, since a literal single bar would still
+collide with the column delimiter) and keeps only `` `\|` `` in single backticks, which is now used
+correctly as a literal-command citation (the pattern the finding itself sanctioned, citing
+`` `\imath` ``/`` `\bigl` `` as the established precedent), not as an assertion of a formula.
 
-**class_surfaces:** The finding is a single-cell defect (one table row, `notation.md:57`);
-its own text states "Nowhere in `src/` is the escaped-backslash-pipe spelling `\|k\|` used
-for this symbol" — i.e., the finding itself asserts this is the ONLY site carrying the wrong
-spelling, naming no sibling surface (no other docstring, no other table row) that shares the
-defect. Re-checked post-fix: `grep -rn '\\|k\\|' src/ docs/src/` returns nothing, and
-`grep -rn 'plain-bar\|plain single bar'` finds only the corrected `notation.md:57` line
-itself. There is no other instance of this specific mis-spelling/mis-backtick pattern on the
-lane's nine files (the banked "Verified clean" section's check-4 sweep, run before the fix,
-found no other single-backtick-LaTeX-as-formula violation on this lane). Class is fully
-swept because the class had exactly one member.
+**class_surfaces:** The finding is self-contained to one table cell, `docs/src/notation.md:57`
+(the `norm` row). It cites `src/DifferentialOperators.jl:1333`, `src/Fields.jl:1937`,
+`src/Convolution.jl:993` only as *evidence* of the correct in-source spelling, not as sibling
+surfaces carrying the same defect — those source docstrings were already found correct by the
+finding's own text ("every in-source use of this symbol writes the plain, unescaped single bar").
+Grepped `docs/src/*.md` and `src/`, `examples/` for "plain-bar"/"plain single bar" post-fix: only
+the one now-corrected instance at `notation.md:57` exists. No other surface is named or implied, so
+there is no unswept sibling to demote on.
 
 ## Finding 2
 
@@ -37,20 +36,26 @@ swept because the class had exactly one member.
 
 **Evidence:** `git diff ac1226e4..HEAD -- docs/src/index.md docs/src/api.md`:
 
-- `docs/src/index.md:48` (Interpolation bullet): added ", with an optional visit order
-  (`transfer_order`, `TransferOrder`) that changes only which point each work-item handles;"
-  before the CPU/CUDA/AMDGPU portability clause.
-- `docs/src/api.md:14` (Interpolation bullet): added ", an optional visit order
-  (`transfer_order`, `TransferOrder`)," before the "together with scheme persistence" clause.
+`docs/src/api.md` (Interpolation bullet):
+```
+-... the exact spectral `DirectDFT`, and the fast spectral `NUFFT`, together with scheme persistence (`write_scheme`/`read_scheme`).
++... the exact spectral `DirectDFT`, and the fast spectral `NUFFT`, an optional visit order (`transfer_order`, `TransferOrder`), together with scheme persistence (`write_scheme`/`read_scheme`).
+```
 
-Both quoted locations the finding cited are edited, each now naming
-`transfer_order`/`TransferOrder` in one clause, matching the finding's proposed fix
-("Add a clause to both bullets... Keep it to one clause per bullet").
+`docs/src/index.md` (Interpolation bullet):
+```
+-... and the fast spectral `NUFFT`; all three schemes' kernels are portable across CPU/CUDA/AMDGPU.
++... and the fast spectral `NUFFT`, with an optional visit order (`transfer_order`, `TransferOrder`) that changes only which point each work-item handles; all three schemes' kernels are portable across CPU/CUDA/AMDGPU.
+```
+
+Both of the finding's two quoted locations (`index.md:48` and `api.md:14`) now name
+`transfer_order`/`TransferOrder`, each in one added clause, matching the finding's proposed fix
+almost verbatim (index.md's clause even echoes the "changes only which point... visit order,
+without changing the transferred result" framing from the proposed fix).
 
 **class_surfaces:** The finding names exactly two surfaces — `docs/src/index.md:48` and
-`docs/src/api.md:14` — as the two top-level module-summary bullets missing the decision-78
-addition ("These two top-level summaries were evidently written... and were not updated").
-It does not name or imply a third surface (the finding contrasts these two against
-`docs/src/api/Interpolation.md:18-26`, which it explicitly says ALREADY documents the
-feature correctly in its own "## Visit order" section, so that page is not part of the
-defect class). Both of the two named surfaces are edited in the diff. Class fully swept.
+`docs/src/api.md:14` — as the two top-level module-summary bullets that were stale; both are the
+finding's entire scope (it does not claim a third summary surface is missing the mention). Both are
+directly edited in the diff. `docs/src/api/Interpolation.md`'s own "## Visit order" section, cited
+by the finding as already-correct evidence that the feature is documented somewhere, is untouched
+by the diff and needed no change (the finding never asked for a change there).

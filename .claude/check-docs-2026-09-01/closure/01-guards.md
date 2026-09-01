@@ -1,77 +1,118 @@
 RANGE: ac1226e4..HEAD
 
+# Verify-fixes: 01-guards.md (guards hat)
+
 ## Finding 1
 
-- **Verdict:** HONORED
-- **Evidence:** `git diff ac1226e4..HEAD -- src/DifferentialOperators.jl docs/ARCHITECTURE.md docs/FORMALIZATION.md` shows all three named sites changed identically (the gratuitous `\,` between `\mathrm{i}` and `a` dropped to a plain space):
-  - `src/DifferentialOperators.jl:1179`: `` \hat u = \mathrm{i}\,a\times\hat w/\lvert a\rvert^{2} `` → `` \mathrm{i} a\times\hat w/\lvert a\rvert^{2} ``
-  - `docs/ARCHITECTURE.md:4050`: `` \frac{\mathrm{i}\,a\times\hat w}{\lvert a\rvert^{2}} `` → `` \frac{\mathrm{i} a\times\hat w}{\lvert a\rvert^{2}} ``
-  - `docs/FORMALIZATION.md:256`: `` \\mathrm{i}\\,a(k) `` → `` \\mathrm{i} a(k) ``
-  Independently re-ran the finding's own cited check, `guards.sh`'s must-be-empty scans
-  (`grep -rnP '\\\\,(?!\\\\mathrm\{d\})' src` and `grep -rnP '\\,(?!\\mathrm\{d\})'` over the DOCS_MD
-  set): **both return empty**, confirming the rendered-surface class this specific check governs is
-  clean, not just the three quoted lines.
-  One textual survivor exists but is out of the check's scope: `src/DifferentialOperators.jl:576`, a
-  `#` comment immediately above `_inverse_curl_kernel!` restating the same formula
-  (`` \mathrm{i}\,a\times\hat w/|a|^2 ``, single backslash, unescaped). `guards.sh`'s src scan
-  deliberately matches only `\\,` (the double-backslash form a `"""`-docstring's escaping produces),
-  not a comment's single-backslash LaTeX-lookalike text — the same "comments are not rendered, and are
-  correctly out of scope" reasoning this repo's own round-2 fix (commit `bd86f4cc`) already applied to
-  an analogous interpunct survivor in `src/Reductions.jl`. Since the finding's own three named sites
-  are exactly "decision 77's `inverse_curl` formula" reproduced across the docstring/ARCHITECTURE/
-  FORMALIZATION trio, and does not claim the implementation's own explanatory comment as a fourth
-  member, and since that comment is not a rendered surface under CLAUDE.md's "plain `#` code comments
-  stay Unicode (they are not rendered)" carve-out, this is not counted against the verdict.
-- **class_surfaces:** The finding's own location list names exactly three surfaces —
-  `src/DifferentialOperators.jl:1179`, `docs/ARCHITECTURE.md:4050`, `docs/FORMALIZATION.md:256` — all
-  three re-derivations of one formula (decision 77's `inverse_curl`), explicitly framed as "ONE class
-  carried on three surfaces." No other rendered surface carries this formula (checked: `grep -rn
-  "mathrm{i}" src docs` finds no fourth docstring/doc-page occurrence). All three are swept.
+**Verdict: LINE-ONLY**
+
+- **Quoted claim:** "All three sites are decision 77's `inverse_curl` formula, so this is ONE class
+  carried on three surfaces — swept together, which is the 'fix the class, not the line' rule."
+- **Evidence the three named sites are fixed** (`git diff ac1226e4..HEAD`):
+  ```
+  -    given ``w``, as one coefficientwise pass ``\hat u = \mathrm{i}\,a\times\hat w/\lvert a\rvert^{2}``
+  +    given ``w``, as one coefficientwise pass ``\hat u = \mathrm{i} a\times\hat w/\lvert a\rvert^{2}``
+  -(\nabla\times)^{-1}\hat w(k) = \frac{\mathrm{i}\,a\times\hat w}{\lvert a\rvert^{2}},
+  +(\nabla\times)^{-1}\hat w(k) = \frac{\mathrm{i} a\times\hat w}{\lvert a\rvert^{2}},
+  -\\hat u(k) = \\frac{\\mathrm{i}\\,a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
+  +\\hat u(k) = \\frac{\\mathrm{i} a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
+  ```
+  `src/DifferentialOperators.jl` (docstring, ~1179), `docs/ARCHITECTURE.md` (~4050),
+  `docs/FORMALIZATION.md` (~256) all converted `\mathrm{i}\,a` → `\mathrm{i} a`. These three are genuinely fixed.
+- **But the class is bigger than the finding's own enumeration, and a fourth surface restating the
+  identical formula was left untouched.** `src/DifferentialOperators.jl:576`, a plain `#` comment
+  immediately above `_inverse_curl_kernel!` (the same operator, same decision 77), still reads:
+  `# them. The mode value is ``\mathrm{i}\,a\times\hat w/|a|^2``, and the denominator is the` —
+  confirmed present at `ac1226e4` (`git show ac1226e4:src/DifferentialOperators.jl | sed -n '576p'`)
+  and unchanged through HEAD. This is the exact same gratuitous ``\,`` before `a` in the exact same
+  formula, in the exact same file, ~600 lines from the fixed docstring.
+  `guards.sh`'s "gratuitous thin space (src)" hard check does not catch it only because it greps for
+  the doubled backslash `\\\\,` that a Julia string literal needs to escape — a plain `#` comment
+  needs no such escaping and so is invisible to that particular pattern, not because the comment is
+  outside the rule's scope (CLAUDE.md exempts comments from the *render* requirement, not from LaTeX
+  idiom once LaTeX-looking notation is written there, and this file already writes double-backtick
+  math in other comments around it). The finding's own framing — "decision 77's `inverse_curl`
+  formula … swept together" — names the class as every restatement of this formula, and this
+  restatement was not found.
+- **class_surfaces** (from the finding's own words: "decision 77's `inverse_curl` formula" carried on
+  however many surfaces it appears):
+  - `src/DifferentialOperators.jl:1179` (docstring) — swept (fixed).
+  - `docs/ARCHITECTURE.md:4050` — swept (fixed).
+  - `docs/FORMALIZATION.md:256` — swept (fixed).
+  - `src/DifferentialOperators.jl:576` (the `_inverse_curl_kernel!` comment restating the same
+    formula) — **NOT swept**, identical defect still present at HEAD.
 
 ## Finding 2
 
-- **Verdict:** LINE-ONLY
-- **Evidence:** `git diff ac1226e4..HEAD -- src/Fields.jl` shows the one quoted line fixed by reword:
-  "…is what keeps the transforms allocation-free. `reshape` on an `Array` returns a new `Array` sharing
-  the data…" → "…allocation-free. A `reshape` of an `Array` returns a new `Array` sharing the data…".
-  But the rule invoked — CLAUDE.md §Style, "a sentence opens with a capitalized ordinary word, never a
-  lowercase code identifier" — is a general, package-wide prose convention, not scoped to
-  `src/Fields.jl`, and `guards.sh` has **no hard (must-be-empty) check for it at all**: the only related
-  scan is the *soft* heuristic `sentence opens with code/math`
-  (`grep -rnE '\. (\`[a-z]|\`\`)' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'`), which is itself scoped
-  only to `src/*.jl` and never touches the `docs/` pages at all. Re-running that soft scan on `src/*.jl`
-  does return empty, but independently searching the doc pages the finding's rule equally governs
-  (`docs/ARCHITECTURE.md`, `docs/FORMALIZATION.md`, `docs/TESTING.md`, `docs/PERFORMANCE.md`,
-  `docs/src/**`) for the same pattern, filtering bullet/list items and `e.g./i.e.` (both CLAUDE.md's
-  own stated exemptions) turns up multiple live, non-exempt survivors in plain prose paragraphs:
-  - `docs/FORMALIZATION.md:113` — "…where a mode's partner lies in the same plane. `` `reality_residual` `` measures the departure," — a bold-lead prose paragraph ("**The reality condition (decision 71).**"), not a bullet, not `e.g./i.e.`.
-  - `docs/PERFORMANCE.md:1517` — "…(2026-08-30, from IT's codegen report). `` `weighted_inner` `` was GPU-first: …" — a bold finding-label prose paragraph ("**(ac) …**"), not a bullet.
-  - `docs/PERFORMANCE.md:2113` — "…a comparison whose two sides share…" context: "…decision 72's speedup against a sibling sharing the same code path. `` `weighted_inner` `` was serial from the day it shipped…" — same class, plain prose ("**(ag) …**").
-  So the class (sentences opening with a lowercase code identifier, package-wide) was fixed at the one
-  cited line and not swept — the closure note claiming "the class-level scan… clean" conflated a
-  narrower `src/*.jl`-only soft heuristic with the general rule the finding actually cites, and never
-  ran a scan over the doc pages at all.
-- **class_surfaces:** The finding's own rule text is generic — "CLAUDE.md §Style" naming a package-wide
-  sentence-opener convention, with only one example location given (`src/Fields.jl:1392`). The implied
-  class-surfaces are every rendered prose surface the same style rule governs: every `src/*.jl`
-  docstring (swept — soft scan clean) and every `docs/*.md` / `docs/src/**.md` page (NOT swept — three
-  live counterexamples quoted above, found by a five-minute grep). LINE-ONLY by the instrument's own
-  "an empty or vague answer demotes" rule is not needed here since concrete surviving instances are
-  quoted directly.
+**Verdict: LINE-ONLY**
+
+- **Quoted claim (as it stood after this file's own round-3 addendum):** "Re-scan after the sweep:
+  **0 remaining on every doc surface, and 0 in `src/`**," following a 19-line reword sweep in commit
+  `4b9c8a2d` across `ARCHITECTURE.md` (11), `PERFORMANCE.md` (5), `TESTING.md` (2),
+  `FORMALIZATION.md` (1).
+- **The specific quoted site (`src/Fields.jl:1392`) is fixed:**
+  ```
+  -is what keeps the transforms allocation-free. `reshape` on an `Array` returns a new `Array` sharing
+  +is what keeps the transforms allocation-free. A `reshape` of an `Array` returns a new `Array`
+  +sharing
+  ```
+  (verified against the diff; the sentence now opens "A `reshape`…").
+- **The class was swept twice (round 1 nominally, round 3 for real) and the second sweep's own "0
+  remaining" claim is still wrong.** Running the documented scan
+  (`grep -nE '\. (\`[a-z]|\`\`)'` over every rationale doc, `docs/src/*.md`, `docs/src/api/*.md`, both
+  Literate examples, filtered for comments/bullets/decision-log entries/abbreviations/checkmarks —
+  exactly the exemption list the round-3 commit itself states) at HEAD still finds two genuine,
+  unexempted violations, neither in the round-3 fixed-line list (ARCHITECTURE.md 240, 2466, 2513,
+  2746, 2826, 3631, 3677, 3833, 3850, 4029, 4150; PERFORMANCE.md 1182, 1517, 1618, 2113, 2466):
+  - `docs/ARCHITECTURE.md:1017` — plain body prose (§10, not a bullet, not a decision-log entry):
+    "…proper, the wrap fused into the same pass. `wrap!(points, grid)` is the zero-term case kept as
+    its own named verb: …" — a new sentence opening with a backtick code identifier.
+  - `docs/PERFORMANCE.md:1496` — plain body prose inside a `**CPU …** (five rows).` paragraph:
+    "…14.36 against 14.55. `convolve! vector ∘ radial` re-measures at 8.195 ms against the archive's
+    8.277." — same defect.
+  - (Checked and correctly excluded as false positives / exempt: `docs/ARCHITECTURE.md:3279` and
+    `:3576` sit inside §13 decision-log entries 62 and 69, exempt by CLAUDE.md's explicit "a bullet /
+    list item — including a §13 decision-log entry" exemption; the eleven `docs/FORMALIZATION.md`
+    hits all end in the documented `` ``\checkmark`` `` marker or are `i.e.` abbreviations, both
+    named exemptions; `docs/TESTING.md:153,178` are commas inside one flowing bulleted list item.)
+  - `guards.sh` itself still reports 0 for "sentence opens with code/math" at HEAD, but only because
+    its scan (line 77 of the script) remains scoped to `src/*.jl` and was never extended to
+    `$DOCS_MD` — the exact instrument gap this file's own round-3 addendum diagnosed and reported as
+    an open instrument finding rather than fixing. The manual sweep meant to compensate for that gap
+    is itself incomplete.
+- **class_surfaces** (from the finding's own words — "a sentence opens with a capitalized ordinary
+  word… reword" is a corpus-wide rule, and the round-3 addendum itself names the class as "every
+  rendered surface — the four rationale docs, `docs/src/*.md`, `docs/src/api/*.md`, and both Literate
+  examples"):
+  - `src/Fields.jl:1392` — swept (the quoted site, fixed).
+  - The 19 lines named in the round-3 commit across `ARCHITECTURE.md`/`PERFORMANCE.md`/`TESTING.md`/
+    `FORMALIZATION.md` — swept (fixed; spot-checked several, all now open on a capitalized word).
+  - `docs/ARCHITECTURE.md:1017` — **NOT swept**, still violates.
+  - `docs/PERFORMANCE.md:1496` — **NOT swept**, still violates.
+  - `guards.sh:77`'s `$DOCS_MD` scope gap — reported as an open instrument finding, not closed (this
+    part is honestly disclosed, not a hidden miss).
 
 ## Finding 3
 
-- **Verdict:** HONORED
-- **Evidence:** `git diff ac1226e4..HEAD -- src/Convolution.jl` shows both signatures re-wrapped with
-  one additional line break each, hanging indent under the first argument preserved:
-  - `_exponential_convolution_modes!` (was `src/Convolution.jl:1311`): `backend, destination, source, multipliers, coefficient,` / `offset_scale, offset_data, α, β, fibres, mode_size)` (91 cols) → three lines, `backend, destination, source, multipliers,` / `coefficient, offset_scale, offset_data,` / `α, β, fibres, mode_size)`.
-  - `_exponential_combination_modes!` (was `:1412`): same shape, three lines.
-  Independently re-ran the finding's own cited check — the "wide docstring signature (>88)" awk scan
-  from `guards.sh`, across all nine audited `src/` files — and it returns **zero** hits, confirming the
-  class (not merely the two quoted lines) is clean.
-- **class_surfaces:** The finding names exactly two sites, `src/Convolution.jl:1311` and `:1412`, and
-  explicitly scopes the class to "decision 79's kernel-pair helpers, added 2026-08-30" — it does not
-  claim other files or other decisions carry the same overflow. The guard's repo-wide awk re-scan
-  (independently re-run above, not merely trusted from the banked note) confirms no docstring signature
-  in any of the nine `src/` files exceeds 88 columns, so the class as the finding frames it is fully
-  swept.
+**Verdict: HONORED**
+
+- **Quoted claim:** both signatures in `src/Convolution.jl` (originally lines 1311 and 1412)
+  rewrapped with one further break each, hanging indent preserved, "Scan now reports 0."
+- **Evidence, both sites, from the diff:**
+  ```
+  -    _exponential_convolution_modes!(backend, destination, source, multipliers, coefficient,
+  -                                    offset_scale, offset_data, α, β, fibres, mode_size)
+  +    _exponential_convolution_modes!(backend, destination, source, multipliers,
+  +                                    coefficient, offset_scale, offset_data,
+  +                                    α, β, fibres, mode_size)
+  ```
+  and the matching change at the `_exponential_combination_modes!` docstring ~1412. Measured directly
+  in the current file: the three wrapped lines are 78/75/60 and 86/75/60 columns — all ≤ 88.
+- **Class swept, not just the line:** re-ran the exact class check
+  (`awk '/^"""/{...} length>88{print FILENAME":"FNR}'` over all nine `src/*.jl` files, the same
+  formula `guards.sh`'s "wide docstring signature (>88)" triage line uses) at HEAD — **0 hits**,
+  confirming no docstring signature anywhere in `src/` currently exceeds the column limit, not only
+  the two touched lines.
+- **class_surfaces:** the finding names no sibling docstring or convention beyond "every rendered
+  docstring signature ≤ ~88 columns" (CLAUDE.md's no-horizontal-scroll rule, corpus-wide); the
+  independent full-corpus re-check above is the sweep and it is clean.

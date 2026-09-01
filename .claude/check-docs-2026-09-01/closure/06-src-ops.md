@@ -2,28 +2,18 @@ RANGE: ac1226e4..HEAD
 
 ## Summary
 
-The banked file `.claude/check-docs-2026-09-01/06-src-ops.md` (the "src-ops" / "05-src-ops" hat,
-covering `src/Convolution.jl`, `src/Points.jl`, `src/Interpolation.jl`, `src/Reductions.jl`, and
-`src/GBGPeriodicFields.jl`) reports, verbatim, under its own "Result" heading:
+The banked file `06-src-ops.md` (internally titled "Lane 05-src-ops") reports **zero findings**. Its
+body is headed "## Result: no findings survive verification" and consists entirely of the positive
+verification procedure (formula re-derivation, symbol/argument coverage, notation, formatting,
+currency, citations) plus a "Candidates raised and retracted" section whose three items were each
+explicitly checked and dismissed by the hat itself (not reported as findings), and a final "Enumerated
+but not exhaustively re-derived" disclosure section.
 
-> ## Result: no findings survive verification
->
-> Every candidate raised during the pass was checked against the implementation, against sibling
-> docstrings, or against an explicit CLAUDE.md rule, and each one resolved as compliant. None is
-> reported as a finding.
+There is no numbered "## Finding N" section anywhere in the file — no defect was banked for a fix pass
+to act on. Consequently there is nothing in `git diff ac1226e4..HEAD` to grade against this file: a fix
+pass cannot honor, launder, or leave undone a finding that was never raised.
 
-The file goes on to enumerate three "Candidates raised and retracted" (bold-vs-plain field bullets,
-`\quad`/`\qquad` in `l2norm`, bare source-line wraps inside ```math``` blocks) — each explicitly
-retracted by the hat itself, with reasons, and none reported as a finding requiring a fix.
+`findings_in_file` = 0. This is a genuine zero (the file exists, was read in full, and its own explicit
+verdict is "no findings survive verification"), not a dead-lane zero.
 
-This matches the independent census, which also counted 0 findings in this file.
-
-There is therefore nothing for a fix pass to have addressed under this hat: no `## Finding N`
-sections exist in the banked file, so there are zero verdicts to render. This closure file is
-correctly empty of findings, not a sign of under-grading.
-
-**findings_in_file = 0** (counted directly: the file contains no `## Finding` headers, only a
-"Result: no findings survive verification" section and a "Candidates raised and retracted" section
-whose three items are explicitly not findings).
-
-No verdicts follow, as there are no findings to grade.
+No verdicts to report.

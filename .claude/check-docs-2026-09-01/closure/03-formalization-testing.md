@@ -2,43 +2,40 @@ RANGE: ac1226e4..HEAD
 
 ## Finding 1
 - verdict: HONORED
-- evidence: `git diff ac1226e4..HEAD -- docs/FORMALIZATION.md` shows the exact hunk:
+- evidence: `git diff ac1226e4..HEAD -- docs/FORMALIZATION.md` shows at the finding's cited line:
   ```
   -changes the values, and — because ``\texttt{Grid3D}`` stores the domain size, spacing and origin at the
   +changes the values, and — because `Grid3D` stores the domain size, spacing and origin at the
   ```
-  This is precisely the fix the finding requested: replace the math-mode `\texttt{Grid3D}` with a
-  plain backtick code span. Confirmed no residual bare `\texttt{Grid3D}` (or any other bare, non-formula
-  `\texttt{...}` instance) remains: `grep -n 'texttt{' docs/FORMALIZATION.md docs/TESTING.md` now shows
-  every remaining `\texttt{...}` instance sitting inside a real formula with math operators (`=`, `·`,
-  `α`, `β`, e.g. `docs/FORMALIZATION.md:159,170,178,316,338,405,473,481,492,532,541`), matching exactly
-  the "correct usages" class the finding itself contrasted against (its own examples at
-  `docs/TESTING.md:586,600,604,627,647`). No other instance of this misuse exists in either surface.
-- class_surfaces: The finding names one class — a bare code identifier wrapped in a math-mode
-  `\texttt{}` span with no surrounding formula content, contrasted explicitly against the
-  "correct" in-formula usages at `docs/TESTING.md:586`, `600`, `604`, `627`, `647` (which the finding
-  says should NOT be touched, being load-bearing). The finding's scope is the two files this lane
-  covers (`docs/FORMALIZATION.md`, `docs/TESTING.md`); Finding 2 covers the sibling instance in
-  `docs/TESTING.md`. A post-fix grep of both files for `texttt{` (see evidence) confirms zero
-  remaining bare, non-formula instances — the class was fully swept across both surfaces the finding
-  could reach, and the correctly-in-formula lines were left untouched as the finding itself required.
+  This is exactly the fix requested: the bare identifier wrapped in a math span (`` ``\texttt{Grid3D}`` ``)
+  was replaced with a plain backtick code span (`` `Grid3D` ``), no math delimiters. Confirmed no
+  regression: `grep -n '\\texttt{' docs/FORMALIZATION.md` shows only in-formula uses remain (lines 159,
+  170, 178, 316, 338, 405, 473, 481, 492, 532, 541 — all inside actual equations with `=`, α/β, etc.,
+  matching the finding's own description of the *correct* usage pattern).
+- class_surfaces: The finding is a narrow style nit about ONE specific misuse pattern (a bare code
+  identifier with no surrounding math operators, wrapped in a math span via `\texttt{}` for no
+  formula-internal reason) at one cited location, `docs/FORMALIZATION.md:748`. The finding's own "why"
+  section implicitly names the class (any `\texttt{X}` with no math content in its span) but does not
+  name other specific sites — it only contrasts with *correct* in-formula usages elsewhere in the
+  corpus (not sites needing the same fix). I swept `docs/FORMALIZATION.md` and `docs/TESTING.md` for
+  every remaining `\texttt{...}` occurrence post-fix and found zero bare/no-formula instances left in
+  either file — every surviving occurrence sits inside a real equation (`=`, α/β accumulate forms,
+  etc.), consistent with the rule's own carve-out. The class is empty after the fix, not merely the
+  quoted line.
 
 ## Finding 2
 - verdict: HONORED
-- evidence: `git diff ac1226e4..HEAD -- docs/TESTING.md` shows the exact hunk:
+- evidence: `git diff ac1226e4..HEAD -- docs/TESTING.md` at line 585 (finding's cited location):
   ```
   -points), the extensive/intensive relation between ``\texttt{integral}`` and ``\texttt{mean}`` — the one is the other times the base measure — (incl. an anisotropic box), the
   +points), the extensive/intensive relation between `integral` and `mean` — the one is the other times the base measure — (incl. an anisotropic box), the
   ```
-  This is exactly the fix requested: both bare identifiers converted from math-mode `\texttt{}` spans
-  to plain backtick code spans. Post-fix grep (see Finding 1's evidence) confirms no other bare,
-  non-formula `\texttt{integral}`/`\texttt{mean}` instance remains in either file; the only surviving
-  `\texttt{integral}`/`\texttt{mean}` occurrences are inside real formulas (`docs/FORMALIZATION.md:473,
-  481,532,541`; `docs/TESTING.md:647`'s `\texttt{integral} = |\Omega|\cdot\texttt{mean}`), which are
-  the legitimate in-formula class the finding explicitly did not ask to change.
-- class_surfaces: Same class as Finding 1 (bare-identifier-in-math-mode misuse), this instance in
-  `docs/TESTING.md:585` (`integral`/`mean`). The finding names the contrast set at `docs/FORMALIZATION.md:473`
-  (the real display formula for the same relation) and the correct in-formula usages at
-  `docs/TESTING.md:586,600,604,627,647` — none of which the finding asks to be touched. Grep confirms
-  those are untouched and still correctly in math mode, and no other bare instance of `integral`/`mean`
-  in math mode remains anywhere in the two files this lane covers.
+  Exactly the requested fix: both bare identifiers replaced with plain backtick spans, math
+  delimiters removed. The finding explicitly contrasted this site against "correct usages at the same
+  file's lines 586, 600, 604, 627, 647" (all in-formula) — those were NOT touched by the diff, which is
+  correct, since the finding itself says those are fine as-is.
+- class_surfaces: Same class as Finding 1 (bare `\texttt{}` with no formula content), one cited site
+  `docs/TESTING.md:585`. Verified via the same post-fix grep of `docs/TESTING.md` (line 586, 600, 604,
+  627, 647 all still `\texttt{}`-wrapped but all in-formula, exactly the finding's own "correct usage"
+  list, left untouched as they should be). No other bare-wrapped instance remains in either of this
+  lane's two surfaces. The class is swept, not just the one line.

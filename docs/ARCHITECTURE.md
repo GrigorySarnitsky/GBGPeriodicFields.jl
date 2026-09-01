@@ -1014,7 +1014,7 @@ dictates: a `PointSet` deliberately carries no grid, so `displace!` **without** 
 and is displacement in the universal cover ``\mathbb R^3`` — the unwrapped torus, where a
       coordinate keeps growing instead of folding back (winding preserved — a mean-square
 displacement needs it), while `displace!` **with** a trailing `Grid3D` is displacement on the torus
-proper, the wrap fused into the same pass. `wrap!(points, grid)` is the zero-term case kept as its
+proper, the wrap fused into the same pass. The call `wrap!(points, grid)` is the zero-term case kept as its
 own named verb: reduction to the canonical representative in the half-open fundamental domain
 ``[o_a, o_a + L_a)`` per axis — origin-aware, with the floating-point endpoint folded (`mod` can
 return the period itself for a coordinate a hair below the origin) and non-finite coordinates passed
@@ -3276,7 +3276,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     what it says.
 
 62. **Any kernel class may weight a reduction, and a complex weight is refused** (2026-08-05,
-    user-directed). `weighted_inner(f, g, w)` — the multiplier-weighted inner product
+    user-directed). The reduction `weighted_inner(f, g, w)` — the multiplier-weighted inner product
     ``\langle f, w g\rangle`` of decision 27 — took its weight as `Union{StoredKernel, RadialKernel}`,
     two of the four storage classes a kernel comes in (decision 60). It now takes any `SpectralKernel`.
 

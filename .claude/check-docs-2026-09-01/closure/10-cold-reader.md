@@ -1,10 +1,16 @@
 RANGE: ac1226e4..HEAD
 
-The banked file `10-cold-reader.md` contains zero findings. The hat's own "Findings" section
-reads "None survived verification," and the file ends with "## Findings count / 0" after
-explicitly discarding twelve candidates (upstream-docstring-ordering artifacts, verified against
-the real REPL `helpmode` path) and two further candidate classes (domain-standard vocabulary,
-explanatory apposition). There is nothing banked for a fix pass to address, so there is nothing
-to grade.
+# Closure grading — 10-cold-reader
 
-No `## Finding N` sections follow, since none exist in the source file.
+The banked file `/.claude/check-docs-2026-09-01/10-cold-reader.md` records **zero findings**
+("None survived verification" / "Findings count: 0"). The lane discarded every candidate it
+raised (twelve dispatch-artifact candidates, plus domain-standard-vocabulary and
+explanatory-apposition candidates) during its own verification pass, and banked no finding
+requiring a fix.
+
+There is nothing for a fix pass to have addressed, so there are no per-finding verdicts to
+render. This is consistent with the independent census of the file (0 findings counted).
+
+## Findings
+
+(none present in the banked file)

@@ -96,3 +96,39 @@ documentation says it does. Until it does, its "ok" for this class covers `src/`
 that is narrower than it appears is worse than an absent one, because it is read as coverage. This is
 the same class of defect the instrument's own history records: a scan run with `| head -5` that
 reported five hits when there were thirty-one.
+
+---
+
+## Fix-pass addendum (main thread, round 4)
+
+Two LINE-ONLY verdicts, one honoured and one dismissed with reason.
+
+### Finding 2 — the sentence-opener class: MY sweep was narrower than the rule
+
+Round 3 claimed "0 remaining on every doc surface". Wrong, and wrong in the exact way I had just
+criticised `guards.sh` for one commit earlier. My scan matched
+`` \.\s+`[a-z][A-Za-z0-9_!./]*` `` — a character class that excludes parentheses, commas, spaces and
+`∘`, so any span holding a CALL or a multi-word row name slipped through silently. The verifier found
+two survivors; the corrected pattern `` \.\s+`[a-z][^`]*` `` finds three:
+
+- `docs/ARCHITECTURE.md:1017` — `` `wrap!(points, grid)` `` → "The call `wrap!(points, grid)`"
+- `docs/ARCHITECTURE.md:3279` — `` `weighted_inner(f, g, w)` `` → "The reduction `weighted_inner(…)`"
+- `docs/PERFORMANCE.md:1496` — `` `convolve! vector ∘ radial` `` → "The row `convolve! vector ∘ radial`"
+
+Re-scan with the corrected pattern: **0**. The lesson is the one this battery keeps re-teaching — a
+scan is only as wide as its pattern, and reporting its silence as coverage is how a class survives a
+sweep that claims to have closed it. I did to my own scan what `guards.sh` does to this rule.
+
+### Finding 1 — the fourth thin-space site: DISMISSED with reason
+
+`src/DifferentialOperators.jl:576` restates the `inverse_curl` formula with ``\mathrm{i}\,a`` in a
+plain `#` comment above `_inverse_curl_kernel!`. It is **not a defect**: CLAUDE.md exempts `#`
+comments from the rendering rules twice over — "`#` comments are exempt — not rendered" in the
+check-docs surface list, and "Plain `#` code comments stay Unicode (they are not rendered)" in
+§Style. The thin-space rule is a rule about RENDERED math spacing, and nothing renders that line.
+
+This is consistent with what the examples lane did rather than in tension with it: there I fixed two
+`##` code comments for the `L` glyph collision, because one symbol meaning two things is a
+COMPREHENSION defect that a reader of the code meets whether or not it renders. A gratuitous thin
+space in an unrendered comment has no reader-visible effect at all. Semantic defects reach into
+comments; typographic ones do not.

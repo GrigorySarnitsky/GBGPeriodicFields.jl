@@ -4,36 +4,40 @@ RANGE: ac1226e4..HEAD
 
 - Verdict: HONORED
 - Evidence: `git diff ac1226e4..HEAD -- src/FieldAlgebra.jl` shows the `transpose!` docstring
-  changed from `"Transpose the fiber indices of a second-order tensor field in place (...)"` to
-  `"Transpose the fiber indices of the second-order tensor field `A` in place (`transpose`
-  ``\\equiv (\\cdot)^\\top``), writing the result into `destination`, which is returned."` — `A`
-  is now bound in running prose, exactly the fix the finding proposed verbatim.
-- class_surfaces: The finding's own text names the class-check surfaces explicitly and asserts
-  they are already clean: `src/FieldAlgebra.jl` — `sym!`/`skew!`/`dev!` (already name `A` in
-  prose, not defective), `tr!` (already names `A`), `det!` (already uses `A` in prose) — the
-  finding states `transpose!` was "the one outlier in its own family". I additionally checked the
-  allocating sibling `transpose(A)` at `src/FieldAlgebra.jl:1371-1378`, which is a thin allocating
-  wrapper ("Allocating form of `transpose!`...") and is exempt from the argument-bulleting/binding
-  rule under the rubric's explicit thin-wrapper exemption, so it carries no independent instance of
-  this defect. No other surface is named or implied by the finding. The single named site is fixed
-  and no unswept sibling instance exists.
+  identity sentence changed from `"Transpose the fiber indices of a second-order tensor field in
+  place (\`transpose\` ``\equiv (\cdot)^\top``), and return \`destination\`."` to `"Transpose the
+  fiber indices of the second-order tensor field \`A\` in place (\`transpose\`
+  ``\equiv (\cdot)^\top``), writing the result into \`destination\`, which is returned."` — `A`
+  is now bound in running prose, matching the finding's proposed fix essentially verbatim
+  (confirmed by reading the current file at `src/FieldAlgebra.jl:1372`, not just the diff hunk).
+- class_surfaces: The finding's own text enumerates the class surfaces and asserts them already
+  clean, naming: `sym!`/`skew!`/`dev!` (same file, said to already read "the second-order tensor
+  field `A`"), `tr!` (said to already name `A`), and `det!` (said to already use `A` in running
+  prose, "the signed factor by which `A` scales volumes"). I independently re-read the current
+  file and confirmed the allocating sibling `transpose(A)` at `src/FieldAlgebra.jl:1371-1378`
+  already reads "the transpose ``A^\top`` of a second-order tensor field" — so `A` was already
+  bound there too, and in any case a thin allocating wrapper is exempt from the binding rule per
+  the rubric. No sibling site in the class the finding names was left unbound by the diff; the
+  finding names no other file or docstring as part of this class, and I found none. The named
+  site is fixed and no unswept instance of the same class survives.
 
 ## Finding 2
 
 - Verdict: HONORED
 - Evidence: `git diff ac1226e4..HEAD -- src/DifferentialOperators.jl` shows the `laplacian!`
-  docstring changed from `"...and it acts on each component of a vector or tensor field alike..."`
-  to `"...and it acts on each component of a vector or tensor field ``u`` alike..."` — `u` is now
-  bound immediately before the display formula referencing `(\Delta u)_j`, exactly the fix
-  proposed.
-- class_surfaces: The finding's own text names the class-check surfaces and asserts they are
-  already clean: `src/DifferentialOperators.jl` — `gradient!`, `divergence!`, `curl!`,
-  `symmetric_gradient!`, `helmholtz_projection!`, `inverse_curl!` are all stated in the finding
-  to already name their field argument (`\varphi`, `u`, `A`, `w`) in prose, with `laplacian!`
-  named as "again the outlier in its own family". I additionally checked the allocating sibling
-  `laplacian(f)` at `src/DifferentialOperators.jl:1352`, a thin "Allocating form of `laplacian!`"
-  wrapper, exempt from the binding rule by the rubric's thin-wrapper exemption. `inverse_laplacian!`
-  (the operator's near-twin, sharing the `-|k|^2`/zero-mode discussion) was spot-checked directly
-  and already names its scalar/vector/tensor argument in prose (not part of this finding, and not
-  disturbed by the diff). No other surface is named or implied by the finding. The single named
-  site is fixed and no unswept sibling instance exists.
+  docstring changed `"...and it acts on each component of a vector or tensor field alike..."` to
+  `"...and it acts on each component of a vector or tensor field ``u`` alike..."`, binding `u`
+  immediately before the display formula `(\Delta u)_j`, matching the finding's proposed fix
+  (confirmed by reading the current file at `src/DifferentialOperators.jl:1315`).
+- class_surfaces: The finding's own text enumerates the class surfaces and asserts them already
+  clean, naming every sibling differential operator in the same file — `gradient!`,
+  `divergence!`, `curl!`, `symmetric_gradient!`, `helmholtz_projection!`, `inverse_curl!` — as
+  already naming their field argument (`\varphi`, `u`, `A`, `w`) in prose. I independently
+  re-read the current file and confirmed: the allocating sibling `laplacian(field)` at
+  `src/DifferentialOperators.jl:1349-1355` is a thin "Allocating form of `laplacian!`" wrapper,
+  exempt from the binding rule; and the near-twin `inverse_laplacian!` at
+  `src/DifferentialOperators.jl:1372-1418` already binds its field argument via the bulleted
+  "The arguments are:" form (it takes three arguments, above the bulleting threshold, so it was
+  never in scope for the prose-binding rule this finding invokes). No sibling site in the named
+  class was left unbound; the finding names no other file or docstring as part of this class, and
+  I found none. The named site is fixed and no unswept instance of the same class survives.

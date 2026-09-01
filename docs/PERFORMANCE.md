@@ -1493,7 +1493,7 @@ history, here selecting between two bands rather than shifting one row.
 
 **CPU ``128^3``/``256^3`` at ``t4`` (five rows).** Back-to-back, the new tree is equal or **faster**:
 `interpolate! Lalescu(3,3)` 88.1 against 95.0 ms, `trilinear` 3.72 against 3.79, `CatmullRom` 14.36
-against 14.55. `convolve! vector ∘ radial` re-measures at 8.195 ms against the archive's 8.277.
+against 14.55. The row `convolve! vector ∘ radial` re-measures at 8.195 ms against the archive's 8.277.
 
 **Device small grids (ten rows, up to ``\times 1.49``).** Two regimes were being compared, not two
 codes: the archive's vintage keeps per-sample GC on **8** device transfer rows where the current
