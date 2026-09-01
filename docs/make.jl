@@ -310,11 +310,21 @@ function lint_review_closure()
             for chunk in split(verdicts, r"^#{2,4} +Finding "m)[2:end]
                 occursin(r"^\*\*Verdict:\*\* *HONORED *$"m, chunk) || continue
                 cs = (m = match(r"class_surfaces:?\*{0,2}(.*)"s, chunk)) === nothing ? "" : m.captures[1]
-                names_file = occursin(r"\.(md|jl|toml|sh|py|js)\b", cs)
-                enumerated = occursin(r"[^\s]:\d+", cs) || (names_file && occursin(r"\blines? +~?\d+"i, cs))
-                swept_empty = names_file && occursin(r"\b(no remaining|no other|no further|found no|nothing (else )?to sweep)\b"i, cs)
-                single_site = occursin(r"\b(no sibling|no (other|further|remaining) (site|surface|instance)s?|single[ -]site|coverage gap|only site|nothing (else )?to sweep)\b"i, cs)
-                (length(strip(cs)) >= 12 && (enumerated || swept_empty || single_site)) && (honored += 1)
+                # EMPTINESS, NOT CONTENT (2026-09-01) — synced with the twin in
+                # `check-consistency/verify-fixes.js`, which this comment block already required be
+                # edited together and which was patched first, leaving this half stale for a day.
+                # The old predicate matched a fixed vocabulary (`site|surface|instance` and a short
+                # phrase list) and so demoted every sound answer that used a synonym. Measured on the
+                # 2026-08-27 round banked under `.claude/doc-review-checkdocs`: 30 HONORED verdicts,
+                # of which the old predicate passed 23 — SEVEN spurious, which is why that round read
+                # as having eight findings open when only ONE was. A grader who has swept a class to
+                # zero has no `file:line` list to give, so a fully-closed finding demoted by
+                # construction and the round could never go green.
+                # Teeth kept: an ABSENT or boilerplate class answer still fails, which is the case the
+                # rule was written for.
+                substantive = length(strip(cs)) >= 60 && occursin(r"\s", cs) &&
+                              !occursin(r"^(n/?a|none|see above|as noted)\b"i, strip(cs))
+                substantive && (honored += 1)
             end
             # A finding whose title the adjudicated list names is closed by that record instead.
             titles = [strip(m.captures[1]) for m in eachmatch(r"^#{2,4} +Finding +\d+ +[—-] +(.*)$"m, body)]
