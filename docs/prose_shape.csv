@@ -208,7 +208,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",39,38,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",34,32,0
-"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",175,168,0
+"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",174,167,0
 "FiberSections.jl :: _fiberwise_slab!(f, targets, arrays, constants, α, β, elemen",38,31,0
 "FiberSections.jl :: _flatten_fiber(value)",22,21,0
 "FiberSections.jl :: _foreach_outer_slab(slab_body!, outer_axis, element_count)",60,57,0
@@ -225,7 +225,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _slice_broadcast_argument(argument, axis::Val, slab)",115,112,0
 "FiberSections.jl :: _sum_terms(terms)",16,15,0
 "FiberSections.jl :: _tensor_component(symbol, kind, i, j)",56,52,0
-"FiberSections.jl :: _tensor_kernel_body(formula; alpha_beta::Bool)",28,26,0
+"FiberSections.jl :: _tensor_kernel_body(formula; alpha_beta::Bool)",36,34,0
 "FiberSections.jl :: _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)",32,28,0
 "FiberSections.jl :: _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)",31,27,0
 "FiberSections.jl :: _to_broadcasted(expr)",60,59,0
@@ -234,7 +234,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _undot(expr)",58,57,0
 "FiberSections.jl :: _use_threads(element_count)",38,37,0
 "FiberSections.jl :: _vector_component(symbol, kind, i)",70,67,0
-"FiberSections.jl :: _vector_kernel_body(formula; alpha_beta::Bool)",74,72,0
+"FiberSections.jl :: _vector_kernel_body(formula; alpha_beta::Bool)",82,80,0
 "FiberSections.jl :: _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)",31,27,0
 "FiberSections.jl :: _write_values!(targets, values, α, n)",41,37,0
 "FiberSections.jl :: fiber_shape(::Val{R}) where {R}",45,33,0

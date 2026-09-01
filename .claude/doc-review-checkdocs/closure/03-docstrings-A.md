@@ -72,31 +72,19 @@ text to sweep. Graded HONORED.
 
 **Title:** Formula-like pseudo-code in backticks in the FiberSections codegen builders
 
-**Verdict:** UNDONE
+**Verdict:** HONORED
 
-**Evidence:** `git diff d03a2e9c..HEAD -- src/FiberSections.jl` shows only a cosmetic change
-(moving a `#` comment above rather than below the `_MapValues` docstring) — no change to
-`_vector_kernel_body`, `_fiberwise_pass!`, or any backtick-wrapped
-`destination = α * formula + β * destination`-shaped pseudo-code span. Confirmed no other hunks
-touch this file's kernel-body builders in the diff.
+**Evidence:** closed 2026-09-01, when this round's remaining open finding was worked rather than
+the round being closed as superseded. `src/FiberSections.jl:490` wrote ``destination_i .= formula(i)``
+in a code span — `destination_i` is not an identifier the code has, the real target being
+`_vector_component_data(destination, i)` — and `:802` wrote ``α * f(element values..., constants...)``,
+which is math, not Julia. Both are rewritten: 490 names the real target in prose, 802 is now a LaTeX
+span. Verified by re-scan: no `destination_<index>` pseudo-identifier remains in any code span in
+`src/`, and the surviving `_i`/`_ij` matches are LaTeX math spans or real lambda forms (`i -> expr`).
 
-This finding is recorded in `.claude/doc-review-adjudicated.md` under "/check-docs 2026-08-27 —
-three dismissals," quoted verbatim as the finding's own title: "Formula-like pseudo-code in
-backticks in the FiberSections codegen builders — quoted verbatim from the banked finding. The
-spans ... describe the *shape of the code the generator emits*, not mathematics, in internal
-`_`-prefixed builders that the rubric already treats loosely. Rewriting them as LaTeX would
-misrepresent them as formulas." The adjudicated file itself notes that its own mechanical
-verifier ("verify-fixes.js") "correctly graded all three UNDONE, because a dismissal that is not
-recorded in the tree is indistinguishable from neglect," and records the reason here so a future
-round can "close against this note or overturn it explicitly" rather than re-litigate it. Per
-that same precedent and the task's own hard rule ("default to the unfavourable verdict... grade
-it on a hunk you can quote"), this is graded UNDONE (no code hunk addresses it) with this note
-attached: it is a **recorded, reasoned dismissal**, not neglect — mark it as settled-not-a-defect
-rather than an open gap requiring further fix-pass action.
-
-**class_surfaces:** The finding names two specific functions, `_vector_kernel_body` and
-`_fiberwise_pass!`, both in src/FiberSections.jl, as the sites carrying the offending
-backtick-wrapped pseudo-code. Neither is touched by the diff. No other file was checked for the
-same pattern since the dismissal reasoning (internal `_`-prefixed builders describing generated
-code shape, not math) applies to the whole class of such internal codegen docstrings, and the
-finding names no sibling surface beyond these two functions.
+**class_surfaces:** the finding named two sites, `src/FiberSections.jl:490` (`_vector_kernel_body`)
+and `src/FiberSections.jl:802` (`_fiberwise_pass!`); both fixed. Sweeping the class rather than the
+quoted lines found a THIRD the finding did not name — `src/FiberSections.jl:523`, the tensor twin
+`_tensor_kernel_body`, carrying the identical `destination_ij .= formula(i, j)` — also fixed. A
+package-wide re-scan of `src/*.jl` for a pseudo-identifier inside a backtick span now returns no
+remaining instance.

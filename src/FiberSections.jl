@@ -487,7 +487,7 @@ _product(x, y) = :($x .* $y)
 """
     _vector_kernel_body(formula; alpha_beta::Bool)
 
-Build the body of a vector-valued kernel, writing `destination_i .= formula(i)` for `i in 1:3`, where `formula(i)` is the per-component expression. With `alpha_beta = true` it emits the five-argument `destination = α * formula + β * destination` form and branches on `iszero(β_value)`, so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function that binds `destination` (and, when `alpha_beta` is set, `α_value` and `β_value`).
+Build the body of a vector-valued kernel, writing the value `formula(i)` builds into component ``i`` of `destination`, for ``i = 1, 2, 3``, where `formula(i)` is the per-component expression. With `alpha_beta = true` it emits the five-argument `destination = α * formula + β * destination` form and branches on `iszero(β_value)`, so the pure-overwrite path stays allocation-free. The body ends in `return destination` and is spliced into a function that binds `destination` (and, when `alpha_beta` is set, `α_value` and `β_value`).
 """
 function _vector_kernel_body(formula; alpha_beta::Bool)
   target(i) = :(_vector_component_data(destination, $i))
@@ -520,7 +520,7 @@ end
 """
     _tensor_kernel_body(formula; alpha_beta::Bool)
 
-Build the body of a second-order tensor-valued kernel, writing `destination_ij .= formula(i, j)` for `i, j in 1:3`, with the same `alpha_beta` five-argument behaviour as `_vector_kernel_body`.
+Build the body of a second-order tensor-valued kernel, writing the value `formula(i, j)` builds into component ``(i,j)`` of `destination`, for ``i, j = 1, 2, 3``, with the same `alpha_beta` five-argument behaviour as `_vector_kernel_body`.
 """
 function _tensor_kernel_body(formula; alpha_beta::Bool)
   target(i, j) = :(_tensor2_component_data(destination, $i, $j))
@@ -799,7 +799,7 @@ end
 """
     _fiberwise_pass!(backend, f, targets, arrays, constants, α, β)
 
-Run one fused fiberwise pass — every target element receives `α * f(element values..., constants...)`, plus `β` times its prior value when the accumulate is requested — over the common
+Run one fused fiberwise pass — every target element receives ``\\alpha\\, f(\\text{element values}, \\text{constants})``, plus `β` times its prior value when the accumulate is requested — over the common
 linear index range of the participating storage. Here `f` is a pure scalar values function: it
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
