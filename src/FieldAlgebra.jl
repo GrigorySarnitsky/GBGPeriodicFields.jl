@@ -43,7 +43,7 @@ The parts are:
   * **Arbitrary fiber map** — [`map!`](@ref) and [`map`](@ref) apply *any* fiber map `φ` you supply at
     every base point — a composition like `exp ∘ det`, a pointwise equation of state, whatever is not one
     of the named operations above. This is the section-valued **escape hatch** for un-named maps (and the
-    sibling of the mapped reductions such as `mean(det, ·)`): `φ` may change the tensor order, and the
+    sibling of mapped reductions such as `mean(det, A)`): `φ` may change the tensor order, and the
     result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical representation, since an arbitrary
     `φ` is nonlinear.
 

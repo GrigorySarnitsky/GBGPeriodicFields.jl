@@ -104,3 +104,26 @@ sampled/read in full where quoted, entries 60–79 read and verified in full aga
   by an earlier `/check-consistency` panel per `CLAUDE.md`, is glossed at first use in this file
   (line ~882–883) with the mode argument `(k)` distinguishing it; not re-flagged here as it is
   already a recorded, adjudicated decision.
+
+---
+
+## Fix-pass addendum (main thread, round 2) — closing Finding 2's LINE-ONLY
+
+The round-2 verifier graded Finding 2 **LINE-ONLY**, correctly. The finding named two sites in
+`ARCHITECTURE.md` but framed them as instances of a CLASS ("precisely the class the rubric singles
+out by name: a lone ≤/·"), and the first pass fixed the two quoted lines without sweeping the class.
+The verifier found a live survivor in a RENDERED docstring: `src/FieldAlgebra.jl:46`,
+`` `mean(det, ·)` ``.
+
+Fixed: the placeholder is replaced by a real call, `` `mean(det, A)` ``, which is what the sibling
+`Reductions` docstrings already use.
+
+Class re-swept across every rendered surface — `src/*.jl`, the four rationale docs, `docs/src/*.md`,
+`docs/src/api/*.md`, and both Literate examples — for a backtick span containing an interpunct,
+excluding `#` comment lines. **Zero remaining.** The two hits at `src/Reductions.jl:631,705` are
+inside `#` comments, which are not rendered and are correctly out of scope, as the verifier itself
+noted.
+
+This is the second time in one battery that a finding naming two sites turned out to name a class;
+it is the exact failure the "fix the class, not the line" rule exists for, and the verifier caught
+both because it reads the finding rather than the diff.
