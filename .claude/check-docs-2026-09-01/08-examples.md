@@ -178,3 +178,26 @@ Positive procedures run:
 - **Demo standards (CLAUDE.md demo & figure standards):** the plotted K41 spectrum guide
   `E(κ) = C_K ε^{2/3} κ^{-5/3}` explicitly carries its constant and states why the bare `κ^{-5/3}`
   slope would be dimensionally wrong (`HIST_CPU.jl:513-517`) — compliant.
+
+---
+
+## Fix-pass addendum (main thread, 2026-09-01) — closing Finding 3's LINE-ONLY
+
+The verifier graded Finding 3 **LINE-ONLY**: its own fix bullet named five sites and the first pass
+changed three. Correct grade. The remaining two are now swept:
+
+- `examples/HIST_CPU.jl:375` and `examples/gpu/rocm/HIST_ROCm.jl:399` — `## integral length L = ∫ρ`
+  → `ℒ = ∫ρ`. These are `##` lines, which Literate keeps as CODE comments rather than rendering as
+  prose, so they were exempt from the *rendering* rules that motivated the finding. They are fixed
+  anyway: the defect is one glyph meaning two things to a reader, and a code comment has readers too.
+  The Unicode `ℒ` is correct here precisely because a `##` line is not rendered (math-glyph exempt),
+  where the rendered prose uses ``\mathcal{L}``.
+
+- The `"L_int"` HDF5 bundle key (`HIST_CPU.jl:439`, `HIST_ROCm.jl:460`) and the `L_int` local are
+  **deliberately unchanged**. The key is a serialized SCHEMA name, not prose: renaming it would break
+  every stored bundle a consumer has written, for a documentation concern. The local matches the key.
+  The finding's "and in the `L_int` HDF5-bundle comment" is answered by this reason rather than by an
+  edit.
+
+Post-sweep check: `grep -n "integral length L\b\|length L ="` over both files returns nothing, so no
+bare `L` denotes the integral length in either file, in prose or in code comments.
