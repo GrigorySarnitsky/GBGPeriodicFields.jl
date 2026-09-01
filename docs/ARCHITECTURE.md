@@ -1029,7 +1029,10 @@ displacement being motion of an existing base. The ``n``-term form runs in one f
 positions read once, each section once, positions written once — which collapses a ``K``-step
 Adams–Bashforth update from ``K`` passes to one.
 
-**References (this section).**
+**References.** The canonical list for the WHOLE document — every section and every docstring cites
+into it, which is why the citation policy and the `check-docs` DOI cross-check both name it
+§References. It sits here because the transfer literature is its largest single block, not because
+its scope is this section.
 
 - C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 - C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
@@ -1298,7 +1301,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - ``\texttt{l2norm}(f) = \sqrt{\texttt{inner}(f,f)}``, generalized as `lpnorm(f, p)` (``p=2`` default; ``p=\infty`` ⇒ sup of the
       fiber magnitude — the CFL case). Chosen over `norm_L2`; **does not** touch the vertical `norm`.
     - `maximum`/`minimum`/`extrema` — extend `Base` for scalar sections; vector/tensor sup of
-      magnitude via `lpnorm(·, Inf)`.
+      magnitude via `lpnorm` at ``p = \infty``.
     - **No LinearAlgebra overloading**: `dot`/`norm` stay the vertical pointwise ops (return sections,
       scalar fields); the global `inner`/`l2norm` are package generics returning numbers.
 
@@ -2695,7 +2698,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 48. **`map!` / `map` — the arbitrary-fiber-map escape hatch, physical-only by construction**
     (2026-07-28). The section-valued sibling of the mapped reductions (decision 30) and decision-35's
     first `map!` instance: `map!(φ, destination, sources...)` applies an arbitrary fiber map φ to every
-    base point and *writes a section*, where `mean(φ, ·)` reduces it. It reuses the `_fiberwise_pass!`
+    base point and *writes a section*, where a mapped `mean` reduces it. It reuses the `_fiberwise_pass!`
     executor unchanged — that executor already takes a runtime values function and keeps its `targets`
     and `arrays` tuples separate, so an *order-changing* map (`exp ∘ det` : tensor → scalar) works with
     no new machinery — so `map!` inherits the fused pass's parallelism (a device kernel on a GPU, a
@@ -3060,7 +3063,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     *different* base indices unsafe — `cross!` on views offset by one along an axis gives the wrong
     answer, serially and threaded. A `mightalias` guard would reject `sym!(A, A)` itself, whose target
     and source component views already have different footprints on one parent, and decision 39 made
-    that case guard-free after measurement. Rather than ship a check that might break a measured,
+    that case guard-free after measurement. **(FALSE, per decision 59: the target ``(i,j)`` and source
+    ``(j,i)`` views select disjoint memory, so `mightalias` is `false` and would not reject the call.
+    No guard is still the right answer, for decision 59's different reason. Marked here because this
+    belief deferred the defect for a day.)** Rather than ship a check that might break a measured,
     load-bearing property, the contract is now stated precisely in the docstring and the failing case
     is recorded here.
 
@@ -4047,7 +4053,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 77. **The inverse curl — `curl` inverted on the solenoidal subspace** (2026-08-28, user-requested).
     `inverse_curl!`/`inverse_curl` recover the divergence-free vector field ``u`` whose curl is a
-    given ``w``, as one coefficientwise pass ``\hat u = \mathrm{i}\,a\times\hat w/\lvert a\rvert^{2}``
+    given ``w``, as one coefficientwise pass ``\hat u = \mathrm{i} a\times\hat w/\lvert a\rvert^{2}``
     with ``a`` the derivative wavenumbers of invariant 5 and the ``k = 0`` mode written zero.
 
     - **Why it is well posed, and what the choice costs.** ``\nabla\times u = w`` fixes ``u`` only up

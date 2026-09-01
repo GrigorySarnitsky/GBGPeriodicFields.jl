@@ -1176,7 +1176,7 @@ divergence-free, the operator is a Laplacian solve composed with a curl, and in 
 representation it is one coefficientwise pass,
 
 ```math
-\\hat u(k) = \\frac{\\mathrm{i}\\,a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
+\\hat u(k) = \\frac{\\mathrm{i} a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
 ```
 
 with ``a`` the derivative wavenumbers of invariant 5 and the ``k = 0`` mode set to zero. Numerator and
@@ -1312,7 +1312,7 @@ end
 
 Compute the Laplacian (`laplacian` ``\\equiv \\Delta``) of a field and write it into `destination`,
 returning `destination`. The Laplacian is a local operator: it sums the second partial derivatives of
-a scalar field ``f`` over the three axes, and it acts on each component of a vector or tensor field
+a scalar field ``f`` over the three axes, and it acts on each component of a vector or tensor field ``u``
 alike, so it preserves the tensor order:
 
 ```math

@@ -1340,7 +1340,8 @@ end
     transpose!(destination::TensorFieldPhysical{2}, A::TensorFieldPhysical{2})
     transpose!(destination::TensorFieldSpectral{2}, A::TensorFieldSpectral{2})
 
-Transpose the fiber indices of a second-order tensor field in place (`transpose` ``\\equiv (\\cdot)^\\top``), and return `destination`.
+Transpose the fiber indices of the second-order tensor field `A` in place (`transpose`
+``\\equiv (\\cdot)^\\top``), writing the result into `destination`, which is returned.
 
 Use this in-place form when `destination` is already allocated; the allocating [`transpose`](@ref)
 returns a fresh result instead.

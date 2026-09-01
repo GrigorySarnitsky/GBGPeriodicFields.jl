@@ -1308,8 +1308,9 @@ end
 
 
 """
-    _exponential_convolution_modes!(backend, destination, source, multipliers, coefficient,
-                                    offset_scale, offset_data, α, β, fibres, mode_size)
+    _exponential_convolution_modes!(backend, destination, source, multipliers,
+                                    coefficient, offset_scale, offset_data,
+                                    α, β, fibres, mode_size)
 
 Run the fiber-hoisted exponential pass over every mode: the factor
 ``\\exp(c |k|^2 [+ s \\hat w])`` computed once per mode and applied to all `fibres` components. The
@@ -1409,8 +1410,9 @@ end
 
 
 """
-    _exponential_combination_modes!(backend, destination, a_data, b_data, multipliers, coefficient,
-                                    offset_scale, offset_data, α, β, fibres, mode_size)
+    _exponential_combination_modes!(backend, destination, a_data, b_data, multipliers,
+                                    coefficient, offset_scale, offset_data,
+                                    α, β, fibres, mode_size)
 
 The combination twin of [`_exponential_convolution_modes!`](@ref):
 ``\\exp(c |k|^2 [+ s \\hat w]) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` with the factor computed once

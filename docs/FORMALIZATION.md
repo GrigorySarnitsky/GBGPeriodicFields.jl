@@ -253,7 +253,7 @@ derivative wavenumber and ``\mathbb S = \{\hat u : a\cdot\hat u = 0,\ \hat u(0) 
 discretely divergence-free, mean-free fields, the operator is
 
 ```math
-(\nabla\times)^{-1}\hat w(k) = \frac{\mathrm{i}\,a\times\hat w}{\lvert a\rvert^{2}},
+(\nabla\times)^{-1}\hat w(k) = \frac{\mathrm{i} a\times\hat w}{\lvert a\rvert^{2}},
 \qquad k \ne 0, \quad\checkmark
 ```
 
@@ -745,7 +745,7 @@ section. A `FieldSpectralMultipliers` and each of the four kernel classes move b
 on the target family as on the source. ``\checkmark``
 
 Precision is deliberately **not** of this kind and is not offered here: changing the element type
-changes the values, and — because ``\texttt{Grid3D}`` stores the domain size, spacing and origin at the
+changes the values, and — because `Grid3D` stores the domain size, spacing and origin at the
 field's own element type — it changes ``\mathcal{C}`` as well, so it is a different statement rather than a
 weaker one.
 

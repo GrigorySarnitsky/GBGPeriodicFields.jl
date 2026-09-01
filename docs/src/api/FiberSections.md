@@ -33,7 +33,10 @@ with_threading
 
 ## Internal API
 
-These symbols are not part of the public interface; they are documented for contributors — the CPU-threading primitives and the fiberwise-algebra code generators, for anyone extending the package's algebra.
+These symbols are not part of the public interface; they are documented for contributors — the
+CPU-threading primitives, the fused fiberwise executor that every stamped operation runs through, the
+fiberwise-algebra code generators, the section-introspection helpers, and the storage-ownership check
+that keeps aliasing safe by construction, for anyone extending the package's algebra.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.FiberSections]

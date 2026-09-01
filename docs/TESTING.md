@@ -582,7 +582,7 @@ given it a CPU loop twin that the `with_threading` toggle does reach, and across
 (`test/reductions.jl`): `integral`/`mean`/`inner`/`l2norm`/`lpnorm`/`std`/`var`/`maximum`/`minimum`/`extrema` on physical
 fields and point-values, against analytic oracles (``\langle \sin\rangle = 0``, ``\langle \sin^2\rangle = \tfrac{1}{2}``) and manual references,
 across `Float64`/`Float32`, with the arithmetic-mean semantics on both bases (``\tfrac{1}{N}\sum`` grid, ``\tfrac{1}{M}\sum``
-points), the extensive/intensive relation between ``\texttt{integral}`` and ``\texttt{mean}`` — the one is the other times the base measure — (incl. an anisotropic box), the
+points), the extensive/intensive relation between `integral` and `mean` — the one is the other times the base measure — (incl. an anisotropic box), the
 energy identity ``\tfrac{1}{2} \texttt{inner}(u,u) = \tfrac{1}{2}\langle |u|^2\rangle``, the **spectral Parseval `inner`/`l2norm`** (equal to the
 physical inner, scalar/vector/tensor, on even- and odd-``N_x`` grids (``N_x`` the first-axis point
 count) to hit both the Nyquist and

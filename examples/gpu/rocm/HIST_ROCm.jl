@@ -9,8 +9,8 @@
 # realistic consumer-GPU precision.
 #
 # Like its CPU sibling this is a DEMONSTRATION, not the production solver: the full pseudospectral
-# DNS built on this package is GBGIsotropicTurbulence.jl, documented at
-# https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl .
+# DNS built on this package is
+# [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl).
 #
 # Read `HIST_CPU.jl` first; this file flags only what CHANGES for the GPU:
 #
@@ -428,7 +428,7 @@ function run_hist(p::Params)
 
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
-  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``L = \int_0^\infty \rho(r)\,\mathrm{d}r``
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
   # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.

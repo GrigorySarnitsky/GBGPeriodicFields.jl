@@ -54,7 +54,8 @@ read_scheme
 
 These symbols are not part of the public interface; they are documented for contributors — the scheme
 supertype `AbstractSplineScheme`, the spline-weight generators (Fornberg finite differences plus a
-small linear solve), the periodic cell-finding, and the in-kernel helpers.
+small linear solve), the periodic cell-finding, and the compatibility checks the transfer verbs route
+through.
 
 ### Types
 

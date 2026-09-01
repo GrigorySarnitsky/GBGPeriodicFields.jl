@@ -1389,7 +1389,7 @@ plan can be applied one component at a time. The fiber-last layout of invariant 
 contiguous, which is what makes the slice a plain strided view.
 
 Indexing the fiber axes DIRECTLY, rather than reshaping the fiber into one trailing component axis
-first, is what keeps the transforms allocation-free. `reshape` on an `Array` returns a new `Array`
+first, is what keeps the transforms allocation-free. A `reshape` of an `Array` returns a new `Array`
 sharing the data, and that wrapper is heap-allocated: two of them per transform, one for the source
 and one for the destination, cost a constant 128 bytes per call whatever the rank or the grid — small
 enough to sit under `test/allocations.jl`'s field-sized threshold, and reported from a consumer whose
