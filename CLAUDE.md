@@ -1107,14 +1107,14 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **7777 tests** across 120 top-level testsets (measured 2026-08-27, decision 76 included — it read 7737/118 before that change added its rank-free-plans lane; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **422** on CUDA (measured 2026-08-27 with decision 76's staged-odd-grid lane; it read 412 on 2026-08-26, green with zero failures — but only
+   `Pkg.test()` green, **7777 tests** across 120 top-level testsets (measured 2026-08-27, decision 76 included — it read 7737/118 before that change added its rank-free-plans lane; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **454** on CUDA (measured 2026-09-01, exit 0 in 4m12s — PARITY with ROCm, which also reads 454; the 422 this line carried was a 2026-08-27 reading taken before decisions 77–79 landed, and the handover that claimed 454 was right; it read 412 on 2026-08-26, green with zero failures — but only
    after the run that took the measurement found six real ones, all in decision 73's `displace!`, three per
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
    interim, so the suite was silently unrunnable rather than merely unrun. **ROCm re-ran 2026-08-31 and reads 454/454, exit 0** — up from the
-   stale 395 of 2026-08-23. Whether that is PARITY with CUDA is UNVERIFIED: the handover note claimed
-   CUDA reads 454, this file's own figure above says 422 at 2026-08-27, and no NVIDIA device exists on
-   `Aiporetne` to settle it — re-measure on `Enteropia` rather than repeating either number. That run is the first to stage
+   stale 395 of 2026-08-23. **PARITY with CUDA is now VERIFIED** (2026-09-01, on `Enteropia`): both
+   backends read 454/454, exit 0. The discrepancy was a stale figure in this file, not a divergence —
+   the handover's 454 was right and the 422 predated decisions 77–79. That run is the first to stage
    decisions 73–79 on AMD at all, so the three ROCm-specific first-runs are covered: the
    `TransferOrder` Int32 atomics with its device `cumsum`, the exponential kernel's device `exp`
    including the complex-ŵ parity case, and decision 76's staged odd-grid lane.) Every one of these three counts has been found stale by the first measurement taken after a gap — the CUDA figure sat at 328 while ten tests were added, and the CPU figure sat at 4745/72 through the exhaustive-survey work that carried it to 6179/92, drifting by 1434 in the same sentence that observed the CUDA drift. A count nothing asserts is not a fact about the suite; it is a fact about when it was last typed, so re-measure rather than cite these). `test/fields.jl`: FFT round-trip, multipliers vs
@@ -1404,10 +1404,11 @@ the stale visit order. Nothing here is actionable again until the next sweep.
   `ef70e913` — the last commit before decision 76 and after the probe repair — with `GPUCompiler`
   pinned to 2.4.1 in both. **Compare per-row `evals`, `samples` and `gcsample` before believing any
   arm**; that is the check that fired.
-- **Still open here, and deliberately NOT run** (consent-gated): the CUDA test count. This file says
-  **422** at 2026-08-27 and the ROCm handover claimed 454 — re-measure rather than repeat either.
-  Decision 76 being confirmed on both vendors, the canary also still needs a device
-  vector-transform mechanism; its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
+- **The CUDA test count is RESOLVED (2026-09-01, user-directed): 454/454, exit 0 in 4m12s, PARITY
+  with ROCm.** The handover's 454 was right and this file's 422 was a stale 2026-08-27 reading taken
+  before decisions 77–79 landed; the two backends never diverged. Both figures are corrected above.
+- **Still open here:** the canary needs a device vector-transform mechanism, decision 76 being
+  confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
 **AIPORETNE — TWO ITEMS OPEN, filed 2026-08-31 from Enteropia** (the sweep queue below that date is
