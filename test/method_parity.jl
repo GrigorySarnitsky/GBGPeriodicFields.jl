@@ -76,7 +76,7 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 110,   # + section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  FiberSections         = 110,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
   # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
   # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
   # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.

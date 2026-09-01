@@ -499,11 +499,11 @@ into `_check_same_domain`. The last of those is what realizes invariant 14: it t
 sections live in different storage families (an `Array` against a `CuArray`), and it sits in the
 domain check rather than below it, so the error does not depend on which operation the user happened
 to call. Tensor order is deliberately **not** among them — `_same_tensor_order` is checked one level
-up, in `check_field_compatibility` only, because the domain check must let order differ for the
+up, in `_check_field_compatibility` only, because the domain check must let order differ for the
 operators that change it (`gradient`, `divergence`). Composed on top are the representation-dispatched
 `_check_field_domain_compatibility` (physical-physical and spectral-spectral
 methods — the dispatch barrier that prevents cross-representation mixing), the
-unexported `check_field_compatibility` (un-prefixed, but documented with the internals), and `_check_field_matches_context` for
+unexported `_check_field_compatibility` (un-prefixed, but documented with the internals), and `_check_field_matches_context` for
 transform plans.
 
 History: `FieldAlgebra` used to carry near-duplicate checkers
@@ -517,7 +517,7 @@ not pre-check, because the broadcast machinery already enforces compatibility
 (shape/grid/style promotion); bodies that bypass broadcasting — copy-then-kernel
 paths, zero-mode updates — check explicitly. This is why, e.g. physical
 scalar±Real methods are bare broadcasts while their spectral counterparts call
-`check_field_compatibility` before `_copy_field_data!`.
+`_check_field_compatibility` before `_copy_field_data!`.
 
 ## 6. The code-generation architecture of `FieldAlgebra`
 
@@ -573,7 +573,7 @@ The same builders are reused verbatim to generate the point-value algebra over t
 unstructured base ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")) — the formulas are base-independent ([§2](@ref "2. The central principle: the architecture follows established mathematics")). They live in the shared
 `FiberSections` module (with the `_assign!` primitive); both `FieldAlgebra` and `Points` source
 them from there, so each fiberwise formula — including the norm/sym/skew/dev ones, via
-`section_scalar_type` — is written exactly once.
+`_section_scalar_type` — is written exactly once.
 
 ### Verifying codegen changes
 
@@ -1226,7 +1226,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 16. Phase A consolidation **done** ([§2](@ref "2. The central principle: the architecture follows established mathematics"), [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")). The foundation module **`FiberSections`** holds the
     base-agnostic supertype `AbstractFiberSection{T,R}` (the field and point-value types subtype
     it), the `_assign!` threading primitive, and the **vertical-algebra code generators** — the
-    single home for every fiberwise formula (norm/sym/skew/dev included, via `section_scalar_type`),
+    single home for every fiberwise formula (norm/sym/skew/dev included, via `_section_scalar_type`),
     reused verbatim by `FieldAlgebra` and `Points`. The former `Interpolation` module is **split**
     into **`Points`** (unstructured-base section objects + their generated algebra — a noun peer of
     `Fields`) and **`Interpolation`** (the transfer maps — an operation peer of

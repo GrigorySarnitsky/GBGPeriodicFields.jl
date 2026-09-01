@@ -111,7 +111,7 @@ using ..Fields:
   field_scalar_type,
   field_tensor_order,
   similar_field,
-  check_field_compatibility,
+  _check_field_compatibility,
   _check_field_domain_compatibility,
   _vector_component_data,
   _tensor2_component_data
@@ -119,7 +119,7 @@ using ..Fields:
 
 using ..FiberSections:
   AbstractFiberSection,
-  section_scalar_type,
+  _section_scalar_type,
   _assign!,
   _to_broadcasted,
   @_assign!,
@@ -404,7 +404,7 @@ add!(destination::ScalarFieldPhysical, scalar::Real, field::ScalarFieldPhysical)
 
 
 function add!(destination::ScalarFieldSpectral, field::ScalarFieldSpectral, scalar::Real)
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _copy_field_data!(destination, field)
   return _add_scalar_constant!(destination, scalar)
 end
@@ -426,14 +426,14 @@ end
 
 
 function subtract!(destination::ScalarFieldSpectral, field::ScalarFieldSpectral, scalar::Real)
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _copy_field_data!(destination, field)
   return _subtract_scalar_constant!(destination, scalar)
 end
 
 
 function subtract!(destination::ScalarFieldSpectral, scalar::Real, field::ScalarFieldSpectral)
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   @_assign! field_data(destination) .= (-).(field_data(field))
   return _add_scalar_constant!(destination, scalar)
 end
@@ -474,7 +474,7 @@ for (FieldType, Constant, add_kernel, subtract_kernel) in (
   )
 
   @eval function add!(destination::$FieldType, field::$FieldType, constant::$Constant) where {T<:AbstractFloat}
-    check_field_compatibility(destination, field)
+    _check_field_compatibility(destination, field)
     _copy_field_data!(destination, field)
     return $add_kernel(destination, constant)
   end
@@ -483,13 +483,13 @@ for (FieldType, Constant, add_kernel, subtract_kernel) in (
     add!(destination, field, constant)
 
   @eval function subtract!(destination::$FieldType, field::$FieldType, constant::$Constant) where {T<:AbstractFloat}
-    check_field_compatibility(destination, field)
+    _check_field_compatibility(destination, field)
     _copy_field_data!(destination, field)
     return $subtract_kernel(destination, constant)
   end
 
   @eval function subtract!(destination::$FieldType, constant::$Constant, field::$FieldType) where {T<:AbstractFloat}
-    check_field_compatibility(destination, field)
+    _check_field_compatibility(destination, field)
     @_assign! field_data(destination) .= (-).(field_data(field))
     return $add_kernel(destination, constant)
   end
@@ -690,13 +690,13 @@ end
 # Pointwise product of a scalar field with a field of any tensor order, acting
 # on all components through a singleton-fiber broadcast view.
 function _multiply_by_scalar_field!(destination::AbstractFieldPhysical, scalar_field::ScalarFieldPhysical, field::AbstractFieldPhysical)
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
   # The fiber cases fuse so the scalar field is read once per element, not once per output
   # component; the scalar-by-scalar case is a single ideal broadcast already.
   order = field_tensor_order(field)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   if order == 1
     _fiberwise_pass!(get_backend(field_data(destination)), _scale_vector_values,
                      ntuple(component -> _vector_component_data(destination, component), Val(3)),
@@ -718,7 +718,7 @@ end
 # is linear in the scalar field and therefore stays coefficient-wise.
 function _multiply_scalar_field_by_fiber_vector!(destination, scalar_field, a::FiberVector)
   _check_field_domain_compatibility(scalar_field, destination)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _scale_fiber_vector_values,
                    ntuple(component -> _vector_component_data(destination, component), Val(3)),
                    (field_data(scalar_field),), (a,), one_value, zero(one_value))
@@ -728,7 +728,7 @@ end
 
 function _multiply_scalar_field_by_fiber_tensor2!(destination, scalar_field, A::FiberTensor2)
   _check_field_domain_compatibility(scalar_field, destination)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _scale_fiber_tensor_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    (field_data(scalar_field),), (A,), one_value, zero(one_value))
@@ -738,7 +738,7 @@ end
 
 function _divide_fiber_vector_by_scalar_field!(destination::VectorFieldPhysical, a::FiberVector, scalar_field::ScalarFieldPhysical)
   _check_field_domain_compatibility(scalar_field, destination)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _divide_fiber_vector_values,
                    ntuple(component -> _vector_component_data(destination, component), Val(3)),
                    (field_data(scalar_field),), (a,), one_value, zero(one_value))
@@ -748,7 +748,7 @@ end
 
 function _divide_fiber_tensor2_by_scalar_field!(destination::TensorFieldPhysical{2}, A::FiberTensor2, scalar_field::ScalarFieldPhysical)
   _check_field_domain_compatibility(scalar_field, destination)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _divide_fiber_tensor_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    (field_data(scalar_field),), (A,), one_value, zero(one_value))
@@ -804,12 +804,12 @@ divide!(destination::TensorFieldPhysical{2, T}, A::FiberTensor2{T}, scalar_field
 
 
 function divide!(destination::AbstractFieldPhysical, field::AbstractFieldPhysical, scalar_field::ScalarFieldPhysical)
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_field_domain_compatibility(scalar_field, field)
 
   # The fiber cases fuse so the divisor is read once per element, not once per output component.
   order = field_tensor_order(field)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   if order == 1
     _fiberwise_pass!(get_backend(field_data(destination)), _divide_vector_values,
                      ntuple(component -> _vector_component_data(destination, component), Val(3)),
@@ -945,13 +945,13 @@ dot
 
 # Field-field inner products (physical-space only).
 function dot!(destination::ScalarFieldPhysical{T}, u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
-  check_field_compatibility(u, v)
+  _check_field_compatibility(u, v)
   _check_field_domain_compatibility(destination, u)
   return _dot_components!(destination, u, v)
 end
 
 function dot!(destination::ScalarFieldPhysical{T}, A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}) where {T<:AbstractFloat}
-  check_field_compatibility(A, B)
+  _check_field_compatibility(A, B)
   _check_field_domain_compatibility(destination, A)
   return _dot_components!(destination, A, B)
 end
@@ -1040,7 +1040,7 @@ cross
 # registers before any output is written, so the pass is alias-safe by construction and the
 # former `_guard_noalias!` wrap is retired.
 function _cross_components!(destination, u::_VectorField, v::_VectorField)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_ff,
                    ntuple(component -> _vector_component_data(destination, component), Val(3)),
                    (ntuple(component -> _vector_component_data(u, component), Val(3))..., ntuple(component -> _vector_component_data(v, component), Val(3))...), (), one_value, zero(one_value))
@@ -1048,7 +1048,7 @@ function _cross_components!(destination, u::_VectorField, v::_VectorField)
 end
 
 function _cross_components!(destination, u::_VectorField, a::FiberVector)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_fc,
                    ntuple(component -> _vector_component_data(destination, component), Val(3)),
                    ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
@@ -1056,7 +1056,7 @@ function _cross_components!(destination, u::_VectorField, a::FiberVector)
 end
 
 function _cross_components!(destination, a::FiberVector, u::_VectorField)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _cross_values_cf,
                    ntuple(component -> _vector_component_data(destination, component), Val(3)),
                    ntuple(component -> _vector_component_data(u, component), Val(3)), (a,), one_value, zero(one_value))
@@ -1065,8 +1065,8 @@ end
 
 
 function cross!(destination::VectorFieldPhysical{T}, u::VectorFieldPhysical{T}, v::VectorFieldPhysical{T}) where {T<:AbstractFloat}
-  check_field_compatibility(u, v)
-  check_field_compatibility(destination, u)
+  _check_field_compatibility(u, v)
+  _check_field_compatibility(destination, u)
   return _cross_components!(destination, u, v)
 end
 
@@ -1078,12 +1078,12 @@ end
 for (VectorField,) in ((:VectorFieldPhysical,), (:VectorFieldSpectral,))
 
   @eval function cross!(destination::$VectorField{T}, u::$VectorField{T}, a::FiberVector{T}) where {T<:AbstractFloat}
-    check_field_compatibility(destination, u)
+    _check_field_compatibility(destination, u)
     return _cross_components!(destination, u, a)
   end
 
   @eval function cross!(destination::$VectorField{T}, a::FiberVector{T}, u::$VectorField{T}) where {T<:AbstractFloat}
-    check_field_compatibility(destination, u)
+    _check_field_compatibility(destination, u)
     return _cross_components!(destination, a, u)
   end
 
@@ -1216,13 +1216,13 @@ end
 
 # Field-field (physical-space only): left action A·u and right action u·A.
 function mul!(destination::VectorFieldPhysical{T}, A::TensorFieldPhysical{2, T}, u::VectorFieldPhysical{T}, α::Real, β::Real) where {T<:AbstractFloat}
-  check_field_compatibility(destination, u)
+  _check_field_compatibility(destination, u)
   _check_field_domain_compatibility(A, u)
   return _tensor_vector_components!(destination, A, u, T(α), T(β))
 end
 
 function mul!(destination::VectorFieldPhysical{T}, u::VectorFieldPhysical{T}, A::TensorFieldPhysical{2, T}, α::Real, β::Real) where {T<:AbstractFloat}
-  check_field_compatibility(destination, u)
+  _check_field_compatibility(destination, u)
   _check_field_domain_compatibility(A, u)
   return _vector_tensor_components!(destination, u, A, T(α), T(β))
 end
@@ -1245,12 +1245,12 @@ for (VectorField, Tensor2Field) in (
   end
 
   @eval function mul!(destination::$VectorField{T}, A::FiberTensor2{T}, u::$VectorField{T}, α::Real, β::Real) where {T<:AbstractFloat}
-    check_field_compatibility(destination, u)
+    _check_field_compatibility(destination, u)
     return _tensor_vector_components!(destination, A, u, T(α), T(β))
   end
 
   @eval function mul!(destination::$VectorField{T}, u::$VectorField{T}, A::FiberTensor2{T}, α::Real, β::Real) where {T<:AbstractFloat}
-    check_field_compatibility(destination, u)
+    _check_field_compatibility(destination, u)
     return _vector_tensor_components!(destination, u, A, T(α), T(β))
   end
 end
@@ -1259,20 +1259,20 @@ end
 # --- Tensor-tensor mul! (five-argument forms) ---
 
 function mul!(destination::TensorFieldPhysical{2, T}, A::TensorFieldPhysical{2, T}, B::TensorFieldPhysical{2, T}, α::Real, β::Real) where {T<:AbstractFloat}
-  check_field_compatibility(destination, A)
-  check_field_compatibility(A, B)
+  _check_field_compatibility(destination, A)
+  _check_field_compatibility(A, B)
   return _tensor_tensor_components!(destination, A, B, T(α), T(β))
 end
 
 for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
 
   @eval function mul!(destination::$Tensor2Field{T}, A::$Tensor2Field{T}, B::FiberTensor2{T}, α::Real, β::Real) where {T<:AbstractFloat}
-    check_field_compatibility(destination, A)
+    _check_field_compatibility(destination, A)
     return _tensor_tensor_components!(destination, A, B, T(α), T(β))
   end
 
   @eval function mul!(destination::$Tensor2Field{T}, A::FiberTensor2{T}, B::$Tensor2Field{T}, α::Real, β::Real) where {T<:AbstractFloat}
-    check_field_compatibility(destination, B)
+    _check_field_compatibility(destination, B)
     return _tensor_tensor_components!(destination, A, B, T(α), T(β))
   end
 end
@@ -1360,7 +1360,7 @@ transpose!
 # Fused: each element's nine components are read into registers before any output is written,
 # so the in-place transpose needs no guard temporary and may alias freely.
 function _transpose_components!(destination, A)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _transpose_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
@@ -1381,7 +1381,7 @@ transpose
 for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
 
   @eval function transpose!(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
-    check_field_compatibility(destination, A)
+    _check_field_compatibility(destination, A)
     return _transpose_components!(destination, A)
   end
 
@@ -1536,7 +1536,7 @@ det
 
 
 function _det_components!(destination, A::TensorFieldPhysical{2})
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _det_values,
                    (field_data(destination),),
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
@@ -1650,7 +1650,7 @@ function dev end
 # components are read into registers before any output is written, so the former guard wrap is
 # retired, and `dev!` no longer materializes its trace field (the trace is computed per element).
 function _sym_components!(destination, A)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _sym_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
@@ -1658,7 +1658,7 @@ function _sym_components!(destination, A)
 end
 
 function _skew_components!(destination, A)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _skew_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
@@ -1666,7 +1666,7 @@ function _skew_components!(destination, A)
 end
 
 function _dev_components!(destination, A)
-  one_value = one(section_scalar_type(destination))
+  one_value = one(_section_scalar_type(destination))
   _fiberwise_pass!(get_backend(field_data(destination)), _dev_values,
                    ntuple(n -> _tensor2_component_data(destination, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)),
                    ntuple(n -> _tensor2_component_data(A, (n - 1) ÷ 3 + 1, (n - 1) % 3 + 1), Val(9)), (), one_value, zero(one_value))
@@ -1683,7 +1683,7 @@ for (kernel, bang, allocating) in (
   for (Tensor2Field,) in ((:(TensorFieldPhysical{2}),), (:(TensorFieldSpectral{2}),))
 
     @eval function $bang(destination::$Tensor2Field{T}, A::$Tensor2Field{T}) where {T<:AbstractFloat}
-      check_field_compatibility(destination, A)
+      _check_field_compatibility(destination, A)
       return $kernel(destination, A)
     end
 
@@ -1751,7 +1751,7 @@ end
 # The shared driver: pack targets/arrays, build the φ adapter, run one fused pass. Generic over the
 # section kind; the public methods validate compatibility before calling it.
 function _map_pass!(φ::F, destination, sources::Tuple, α::Real, β::Real) where {F}
-  scalar = section_scalar_type(destination)
+  scalar = _section_scalar_type(destination)
   orders = Base.map(_section_order, sources)
   targets = _section_components(destination, _section_order(destination))
   arrays = _cat_components(sources)
@@ -1764,7 +1764,7 @@ end
 # The output tensor order φ produces on these inputs, inferred from its return type; `-1` when
 # un-inferrable (an unstable φ), which the allocating `map` turns into a clear error.
 @inline function _map_output_order(φ::F, sources::Tuple) where {F}
-  input_types = Base.map(source -> _fiber_type(section_scalar_type(source), _section_order(source)), sources)
+  input_types = Base.map(source -> _fiber_type(_section_scalar_type(source), _section_order(source)), sources)
   return _fiber_order(Base.promote_op(φ, input_types...))
 end
 

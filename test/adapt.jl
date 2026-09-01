@@ -10,7 +10,7 @@ using Test
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data, field_grid, field_layout, field_tensor_order,
                          spectral_field_shape, physical_field_shape
-using GBGPeriodicFields.Fields: similar_spectral_field, _is_canonical
+using GBGPeriodicFields.Fields: _similar_spectral_field, _is_canonical
 import Adapt
 using FFTW: MEASURE
 

@@ -297,13 +297,13 @@ const MISMATCH_BUILDERS = Dict{Symbol, Any}(
   :_context_layout         => order -> _spectral_at(Float64, CANONICAL_GRID, RealFourierLayout((2, 1, 3)), order),
   # Float32 against a Float64 canonical — on its own grid, since the grid carries the scalar type too.
   :field_scalar_type       => order -> _spectral_at(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT, order),
-  :section_scalar_type     => order -> _spectral_at(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT, order),
+  :_section_scalar_type     => order -> _spectral_at(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT, order),
   :_multipliers_scalar_type => () -> FieldSpectralMultipliers(_scalar_spectral(Float32, CANONICAL_GRID32, CANONICAL_LAYOUT)),
   # THE AXIS THE HAND-WRITTEN LIST MISSED. A vector where a scalar is expected: identical grid,
   # layout and element type, different fiber. Decision 52 found the NUFFT instance of this by
   # mutation, because no product contained the combination.
   :field_tensor_order      => () -> _vector_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT),
-  :section_tensor_order    => () -> _vector_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT),
+  :_section_tensor_order    => () -> _vector_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT),
   :pointvalue_tensor_order => () -> VectorPointValues(zeros(4, 3)),
   # Point-count mismatch: the counting base's version of a shape mismatch.
   :npoints                 => () -> PointSet(zeros(7, 3)),
@@ -450,7 +450,7 @@ function run_mismatch_lane()
   # vector, `laplacian` and `convolve` take any order, a scalar kernel broadcasts over the fiber. This
   # is settled by trying the slot at each order rather than by declaring it: an entry that accepts more
   # than one is generic, and one that accepts exactly one is constrained.
-  order_axes = Set([:field_tensor_order, :section_tensor_order, :pointvalue_tensor_order, :ndims])
+  order_axes = Set([:field_tensor_order, :_section_tensor_order, :pointvalue_tensor_order, :ndims])
   # The probe has to offer a candidate of the slot's OWN kind, at each tensor order. A slot taking point
   # values is not exercised by handing it fields: every call throws, the slot looks as though it accepts
   # nothing, and a correctly fiber-generic slot is reported as a contract breach. The point-value
@@ -481,7 +481,7 @@ function run_mismatch_lane()
       try
         call(candidate)
         push!(taken, candidate)
-        push!(orders, GBG.FiberSections.section_tensor_order(candidate))
+        push!(orders, GBG.FiberSections._section_tensor_order(candidate))
       catch exception
         # An earlier commit added `probe_errors` and the report below but never wrote to it, so the
         # guard could not fire. Scaffolding without the substance reads as fixed and is worse than the

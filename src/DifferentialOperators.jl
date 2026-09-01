@@ -47,7 +47,7 @@ using ..Fields:
   field_data,
   similar_field,
   field_tensor_order,
-  check_field_compatibility,
+  _check_field_compatibility,
   _check_field_domain_compatibility,
   _vector_component_data,
   _tensor2_component_data,
@@ -1339,7 +1339,7 @@ function laplacian! end
 
 
 function laplacian!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
   squared_wavenumber = _squared_wavenumber_broadcast(multipliers)
@@ -1422,7 +1422,7 @@ function inverse_laplacian! end
 
 
 function inverse_laplacian!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
 
   squared_wavenumber = _squared_wavenumber_broadcast(multipliers)

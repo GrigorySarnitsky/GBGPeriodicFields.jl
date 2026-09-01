@@ -1,6 +1,6 @@
 # DEFECT: the point-value scalar action accepted a DESTINATION of the wrong tensor order. It checked
 # only `_check_npoints_match` — the point count — where the field twin has always called
-# `check_field_compatibility`, which is the domain check AND `_same_tensor_order`. So a scalar × scalar
+# `_check_field_compatibility`, which is the domain check AND `_same_tensor_order`. So a scalar × scalar
 # product could be written into a vector destination, where it was broadcast over the fiber, and a
 # VECTOR result into a tensor destination, which Julia's broadcasting expands along the trailing axis
 # and returns as a wrong-shaped answer rather than an error. `Points.jl` documents these four

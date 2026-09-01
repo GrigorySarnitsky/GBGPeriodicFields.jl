@@ -58,7 +58,7 @@ turbulence intensities from these reductions.
 """
 module Reductions
 
-using ..FiberSections: AbstractFiberSection, section_scalar_type, section_tensor_order,
+using ..FiberSections: AbstractFiberSection, _section_scalar_type, _section_tensor_order,
   _assign!, @_assign!, _use_threads
 using ..Fields: _spectral_zero_mode_data, _spectral_zero_mode_component_data,
   _spectral_constant_scale, AbstractFieldPhysical, AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral,
@@ -136,7 +136,7 @@ _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce, ::Val{0}) 
   whole_reduce(field_data(section))
 
 function _fiberwise(section::ReducibleSection, whole_reduce, over_base_reduce, ::Val{R}) where {R}
-  T = section_scalar_type(section)
+  T = _section_scalar_type(section)
   data = field_data(section)
   base = ntuple(identity, ndims(data) - R)
   reduced = Array(dropdims(over_base_reduce(data, base); dims = base))
@@ -431,7 +431,7 @@ allocation-free.
 function _fiber_mapreduce(fiber_map::FiberMap, combine::Combine,
                           section::Union{AbstractFieldPhysical{T, R}, AbstractPointValues{T, R}}
                           ) where {FiberMap, Combine, T, R}
-  # `T` and `R` are matched as static parameters rather than read back with `section_scalar_type` /
+  # `T` and `R` are matched as static parameters rather than read back with `_section_scalar_type` /
   # `_tensor_order`, so the fiber type below is a compile-time type rather than a runtime lookup. This
   # is for clarity, not for allocation: what keeps the family at zero bytes is the forced specialization
   # on `fiber_map` (see the docstring) — matching the parameters here changed nothing on its own.
@@ -708,12 +708,12 @@ cov(u::AbstractPointValues{T, 1}; corrected::Bool = true) where {T} = _covarianc
 _real_zero_mode(field::ScalarFieldSpectral) = real(only(Array(_spectral_zero_mode_data(field))))
 
 function _real_zero_mode(field::VectorFieldSpectral)
-  T = section_scalar_type(field)
+  T = _section_scalar_type(field)
   return FiberVector{T}(ntuple(c -> real(only(Array(_spectral_zero_mode_component_data(field, c)))), Val(3)))
 end
 
 function _real_zero_mode(field::TensorFieldSpectral{2})
-  T = section_scalar_type(field)
+  T = _section_scalar_type(field)
   return FiberTensor2{T}(ntuple(k -> real(only(Array(_spectral_zero_mode_component_data(field,
                                         (k - 1) % 3 + 1, (k - 1) ÷ 3 + 1)))), Val(9)))
 end
@@ -791,12 +791,12 @@ function _check_contractible(f::ReducibleSection, g::ReducibleSection)
   _same_base_kind(f, g) ||
     throw(ArgumentError("a grid field and point values are sections over unrelated bases and " *
                         "cannot be contracted, even when their base counts agree"))
-  section_tensor_order(f) == section_tensor_order(g) ||
+  _section_tensor_order(f) == _section_tensor_order(g) ||
     throw(DimensionMismatch("sections have different tensor orders: " *
-                            "$(section_tensor_order(f)) and $(section_tensor_order(g))"))
-  section_scalar_type(f) === section_scalar_type(g) ||
+                            "$(_section_tensor_order(f)) and $(_section_tensor_order(g))"))
+  _section_scalar_type(f) === _section_scalar_type(g) ||
     throw(ArgumentError("sections have different scalar types: " *
-                        "$(section_scalar_type(f)) and $(section_scalar_type(g))"))
+                        "$(_section_scalar_type(f)) and $(_section_scalar_type(g))"))
   _base_count(f) == _base_count(g) ||
     throw(DimensionMismatch("sections have different base sizes: $(_base_count(f)) and $(_base_count(g))"))
   length(field_data(f)) == length(field_data(g)) ||
@@ -1586,7 +1586,7 @@ function lpnorm(section::ReducibleSection, p::Real = 2)
   # whatever the section holds, and `Float32 ^ Float64` widens — so a `Float32` field returned a
   # `Float64` norm for every `p` except the two that return early, which is both a lost element type and
   # the `Union{Float32, Float64}` inference the survey reports.
-  scalar = section_scalar_type(section)
+  scalar = _section_scalar_type(section)
   exponent = scalar(p)
   return (sum(magnitude .^ exponent) / _base_count(section))^(one(scalar) / exponent)
 end

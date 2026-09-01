@@ -173,9 +173,9 @@ const layout = RealFourierLayout()
     other_grid = Grid3D((8, 7, 6), (2π, 2π, 4π))   # different domain size
     a_other = ScalarFieldPhysical((x, y, z) -> sin(x), other_grid)
 
-    @test F.check_field_compatibility(a, a) === nothing
-    @test_throws ArgumentError F.check_field_compatibility(a, a_other)        # grid mismatch
-    @test_throws ArgumentError F.check_field_compatibility(a, v)              # order mismatch
+    @test F._check_field_compatibility(a, a) === nothing
+    @test_throws ArgumentError F._check_field_compatibility(a, a_other)        # grid mismatch
+    @test_throws ArgumentError F._check_field_compatibility(a, v)              # order mismatch
 
     # domain-compatibility allows differing tensor order (gradient/divergence path)
     @test F._check_field_domain_compatibility(a, v) === nothing

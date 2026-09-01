@@ -95,7 +95,7 @@ using ..Fields:
   field_scalar_type,
   field_tensor_order,
   similar_field,
-  check_field_compatibility,
+  _check_field_compatibility,
   _check_field_domain_compatibility,
   _check_multipliers_compatibility,
   _multipliers_scalar_type,
@@ -1002,7 +1002,7 @@ function convolve! end
 
 function convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
     kernel::SpectralKernel{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_kernel_compatibility(field, kernel)
   kernel isa SeparableKernel &&
     return (_apply_separable_convolution!(field_data(destination), field_data(field), kernel, T(α), T(β));
@@ -1140,8 +1140,8 @@ end
 # invariant 1).
 function combine!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
     β::Real, b::AbstractFieldSpectral{T, R}, kernel::SpectralKernel{T}) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, a)
-  check_field_compatibility(destination, b)
+  _check_field_compatibility(destination, a)
+  _check_field_compatibility(destination, b)
   _check_kernel_compatibility(a, kernel)
   # As in `convolve!`: an axis-factored kernel takes the cartesian route. Handing its lazy per-axis
   # product to the linear-indexed executor below would make every element pay a linear-to-cartesian
@@ -1582,7 +1582,7 @@ function exponential_convolve! end
 
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
     multipliers::FieldSpectralMultipliers, coefficient::Real, α::Real, β::Real) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_multipliers_compatibility(field, multipliers)
   if R == 0
     _apply_exponential_convolution!(field_data(destination), field_data(field),
@@ -1607,7 +1607,7 @@ end
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, field::AbstractFieldSpectral{T, R},
     multipliers::FieldSpectralMultipliers, coefficient::Real, offset_scale::Real,
     offset::ScalarFieldSpectral{T}, α::Real, β::Real) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, field)
+  _check_field_compatibility(destination, field)
   _check_field_domain_compatibility(field, offset)
   _check_multipliers_compatibility(field, multipliers)
   if R == 0
@@ -1633,8 +1633,8 @@ end
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
     β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
     coefficient::Real) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, a)
-  check_field_compatibility(destination, b)
+  _check_field_compatibility(destination, a)
+  _check_field_compatibility(destination, b)
   _check_multipliers_compatibility(a, multipliers)
   if R == 0
     _apply_exponential_combination!(field_data(destination), field_data(a), field_data(b),
@@ -1651,8 +1651,8 @@ end
 function exponential_convolve!(destination::AbstractFieldSpectral{T, R}, α::Real, a::AbstractFieldSpectral{T, R},
     β::Real, b::AbstractFieldSpectral{T, R}, multipliers::FieldSpectralMultipliers,
     coefficient::Real, offset_scale::Real, offset::ScalarFieldSpectral{T}) where {T<:AbstractFloat, R}
-  check_field_compatibility(destination, a)
-  check_field_compatibility(destination, b)
+  _check_field_compatibility(destination, a)
+  _check_field_compatibility(destination, b)
   _check_field_domain_compatibility(a, offset)
   _check_multipliers_compatibility(a, multipliers)
   if R == 0

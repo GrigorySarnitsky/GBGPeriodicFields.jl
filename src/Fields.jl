@@ -103,11 +103,11 @@ export Grid3D,
 #########################################
 
 """
-    validate_fft_dims(d::NTuple{3, Int})
+    _validate_fft_dims(d::NTuple{3, Int})
 
 Check whether `d` is a valid ordering of the three spatial Fourier-transform dimensions. Returns `true` or `false`.
 """
-validate_fft_dims(d::NTuple{3, Int}) = (1 ≤ d[1] ≤ 3) && (1 ≤ d[2] ≤ 3) && (1 ≤ d[3] ≤ 3) && (d[1] != d[2]) && (d[1] != d[3]) && (d[2] != d[3])
+_validate_fft_dims(d::NTuple{3, Int}) = (1 ≤ d[1] ≤ 3) && (1 ≤ d[2] ≤ 3) && (1 ≤ d[3] ≤ 3) && (d[1] != d[2]) && (d[1] != d[3]) && (d[2] != d[3])
 
 
 """
@@ -199,14 +199,14 @@ struct RealFourierLayout
   fft_dims::NTuple{3, Int}
   
   function RealFourierLayout(fft_dims::NTuple{3, Int} = (1, 2, 3))
-    validate_fft_dims(fft_dims) || throw(ArgumentError("fft_dims must be a permutation of (1, 2, 3), got $(fft_dims)"))
+    _validate_fft_dims(fft_dims) || throw(ArgumentError("fft_dims must be a permutation of (1, 2, 3), got $(fft_dims)"))
     return new(fft_dims)
   end
 end
 
 
 """
-    rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int})
+    _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int})
 
 Return the shape of the nonredundant real-to-complex Fourier representation of a three-dimensional real field.
 
@@ -215,7 +215,7 @@ dimension: it is stored with length `grid_size[fft_dims[1]] ÷ 2 + 1`, while the
 
 Returns a three-tuple giving the spectral array size.
 """
-rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int}) = ntuple(d -> d == fft_dims[1] ? (grid_size[d] ÷ 2 + 1) : grid_size[d], 3)
+_rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, Int}) = ntuple(d -> d == fft_dims[1] ? (grid_size[d] ÷ 2 + 1) : grid_size[d], 3)
 
 
 
@@ -334,7 +334,7 @@ The arguments are:
   transform.
 - `R` — the tensor order, whose fiber dimensions are appended after the spatial ones.
 """
-spectral_field_shape(grid::Grid3D, fourier_layout::RealFourierLayout, ::Val{R}) where {R} = (rfft_shape(grid.grid_size, fourier_layout.fft_dims)..., fiber_shape(Val(R))...)
+spectral_field_shape(grid::Grid3D, fourier_layout::RealFourierLayout, ::Val{R}) where {R} = (_rfft_shape(grid.grid_size, fourier_layout.fft_dims)..., fiber_shape(Val(R))...)
 
 
 """
@@ -1033,36 +1033,36 @@ end
 
 
 """
-    similar_physical_field(reference::AbstractFieldSpectral, data)
+    _similar_physical_field(reference::AbstractFieldSpectral, data)
 
 Construct a field represented in physical space with storage array `data` and metadata copied from the spectral-space `reference`.
 """
-function similar_physical_field end
+function _similar_physical_field end
 
-similar_physical_field(reference::ScalarFieldSpectral{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
+_similar_physical_field(reference::ScalarFieldSpectral{T}, data::AbstractArray{T, 3}) where {T<:AbstractFloat} =
   ScalarFieldPhysical(data, field_grid(reference), field_layout(reference))
 
-similar_physical_field(reference::VectorFieldSpectral{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
+_similar_physical_field(reference::VectorFieldSpectral{T}, data::AbstractArray{T, 4}) where {T<:AbstractFloat} =
   VectorFieldPhysical(data, field_grid(reference), field_layout(reference))
 
-similar_physical_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
+_similar_physical_field(reference::TensorFieldSpectral{R, T}, data::AbstractArray{T, N}) where {R, T<:AbstractFloat, N} =
   TensorFieldPhysical{R}(data, field_grid(reference), field_layout(reference))
 
 
 """
-    similar_spectral_field(reference::AbstractFieldPhysical, data)
+    _similar_spectral_field(reference::AbstractFieldPhysical, data)
 
 Construct a field represented in spectral space with storage array `data` and metadata copied from the physical-space `reference`.
 """
-function similar_spectral_field end
+function _similar_spectral_field end
 
-similar_spectral_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
+_similar_spectral_field(reference::ScalarFieldPhysical{T}, data::AbstractArray{Complex{T}, 3}) where {T<:AbstractFloat} =
   ScalarFieldSpectral(data, field_grid(reference), field_layout(reference))
 
-similar_spectral_field(reference::VectorFieldPhysical{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
+_similar_spectral_field(reference::VectorFieldPhysical{T}, data::AbstractArray{Complex{T}, 4}) where {T<:AbstractFloat} =
   VectorFieldSpectral(data, field_grid(reference), field_layout(reference))
 
-similar_spectral_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
+_similar_spectral_field(reference::TensorFieldPhysical{R, T}, data::AbstractArray{Complex{T}, N}) where {R, T<:AbstractFloat, N} =
   TensorFieldSpectral{R}(data, field_grid(reference), field_layout(reference))
 
 
@@ -1125,7 +1125,7 @@ _same_backend(a, b) = _storage_family(a) === _storage_family(b)
     _check_same_domain(a, b)
 
 Throw unless `a` and `b` share scalar type, grid, Fourier layout, and storage family (tensor order
-may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
+may differ). Shared body for the same-representation domain checks; the entry points that call it (`_check_field_domain_compatibility`, `_check_field_compatibility`) are each restricted to a single representation, so a physical/spectral pair has no matching method and is rejected.
 """
 function _check_same_domain(a, b)
   _same_scalar_type(a, b) || throw(ArgumentError("field scalar types must be equal"))
@@ -1159,23 +1159,23 @@ _check_field_domain_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpec
 
 
 """
-    check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
-    check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+    _check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+    _check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
 
 Check that two fields in the same representation share scalar type, tensor order, grid, Fourier
 layout, and storage family.
 
 This is the check for operations that require fully matching operands. Returns `nothing` or throws.
 """
-function check_field_compatibility end
+function _check_field_compatibility end
 
-function check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+function _check_field_compatibility(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
   _check_same_domain(a, b)
   _same_tensor_order(a, b) || throw(ArgumentError("field tensor orders must be equal"))
   return nothing
 end
 
-function check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
+function _check_field_compatibility(a::AbstractFieldSpectral, b::AbstractFieldSpectral)
   _check_same_domain(a, b)
   _same_tensor_order(a, b) || throw(ArgumentError("field tensor orders must be equal"))
   return nothing
@@ -1565,7 +1565,7 @@ that form. A loop that must not allocate gets the same preservation from the fou
 """
 function to_physical(spectral::AbstractFieldSpectral{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   values_at_grid = similar(field_data(spectral), T, physical_field_shape(field_grid(spectral), Val(R)))
-  physical = similar_physical_field(spectral, values_at_grid)
+  physical = _similar_physical_field(spectral, values_at_grid)
   # The inverse transform may overwrite its input (see to_physical!); copy the
   # coefficients so the caller's field is preserved.
   spectral_preserved = similar_field(spectral, copy(field_data(spectral)))
@@ -1588,7 +1588,7 @@ that still needs the values must not rely on the in-place form. Here `physical` 
 """
 function to_spectral(physical::AbstractFieldPhysical{T, R}, transform_plans::FieldTransformPlans{T}) where {T<:AbstractFloat, R}
   fourier_coefficients = similar(field_data(physical), Complex{T}, spectral_field_shape(field_grid(physical), field_layout(physical), Val(R)))
-  spectral = similar_spectral_field(physical, fourier_coefficients)
+  spectral = _similar_spectral_field(physical, fourier_coefficients)
   # The forward transform may overwrite its input on some backends (see to_spectral!);
   # copy the values so the caller's field is preserved.
   physical_preserved = similar_field(physical, copy(field_data(physical)))
@@ -2026,11 +2026,11 @@ end
 """
     _check_broadcast_field_compatibility(destination, argument)
 
-Check, during field broadcasting, that `argument` is compatible with `destination`: same-representation fields must pass `check_field_compatibility`; mixing physical and spectral representations throws; non-field arguments (real numbers, plain arrays) are accepted. Recurses into the operands of a `Broadcasted` argument.
+Check, during field broadcasting, that `argument` is compatible with `destination`: same-representation fields must pass `_check_field_compatibility`; mixing physical and spectral representations throws; non-field arguments (real numbers, plain arrays) are accepted. Recurses into the operands of a `Broadcasted` argument.
 """
-_check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) = check_field_compatibility(destination, field)
+_check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) = _check_field_compatibility(destination, field)
 
-_check_broadcast_field_compatibility(destination::AbstractFieldSpectral, field::AbstractFieldSpectral) = check_field_compatibility(destination, field)
+_check_broadcast_field_compatibility(destination::AbstractFieldSpectral, field::AbstractFieldSpectral) = _check_field_compatibility(destination, field)
 
 _check_broadcast_field_compatibility(::AbstractFieldPhysical, ::AbstractFieldSpectral) = throw(ArgumentError("cannot broadcast fields represented in physical and spectral space together"))
 

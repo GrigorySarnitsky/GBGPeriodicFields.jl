@@ -73,24 +73,24 @@ abstract type AbstractFiberSection{T<:AbstractFloat, R} end
 
 
 """
-    section_scalar_type(section::AbstractFiberSection)
+    _section_scalar_type(section::AbstractFiberSection)
 
 Return the real scalar type `T` of any section. Because it is defined once on
 `AbstractFiberSection{T}`, it yields the real `T` for fields (including those in spectral representation, whose
 data is `Complex{T}`) and for point-values alike, which lets the shared `sym`/`skew`/`dev`
 kernels obtain `T` without dispatching on the concrete base.
 """
-section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
+_section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
 
 
 """
-    section_tensor_order(section)
+    _section_tensor_order(section)
 
 The tensor order ``R`` of a section, read from its type. The peer of
-[`section_scalar_type`](@ref): both are type parameters, so a compatibility check written against
+[`_section_scalar_type`](@ref): both are type parameters, so a compatibility check written against
 them costs nothing at run time.
 """
-section_tensor_order(::AbstractFiberSection{T, R}) where {T<:AbstractFloat, R} = R
+_section_tensor_order(::AbstractFiberSection{T, R}) where {T<:AbstractFloat, R} = R
 
 
 """
@@ -652,7 +652,7 @@ _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_k
 #
 # Per-component formulas for the pointwise norms and the symmetric/skew/deviatoric
 # decompositions, written once and fed to the kernel-body builders. The scalar type
-# comes from `section_scalar_type` so the same body serves fields and point-values.
+# comes from `_section_scalar_type` so the same body serves fields and point-values.
 
 
 """
@@ -877,7 +877,7 @@ end
 # fields, `_fc` field then fiber constant, `_cf` fiber constant then field. Each body is the
 # corresponding formula builder's expression, undotted — the formula is still written only once.
 # The generated methods carry no docstrings, per the codegen rule; `half`/`third` take the real
-# scalar type from the first argument, exactly as the broadcast bodies took `section_scalar_type`.
+# scalar type from the first argument, exactly as the broadcast bodies took `_section_scalar_type`.
 
 @eval @inline _cross_values_ff(u_1, u_2, u_3, v_1, v_2, v_3) =
   ($([_undot(_cross_formula(:u, :scalar, :v, :scalar)(i)) for i in 1:3]...),)
