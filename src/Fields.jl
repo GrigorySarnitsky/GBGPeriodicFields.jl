@@ -133,11 +133,9 @@ The fields are
 
 The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along
 every axis. The two-argument constructor computes it and is the one to prefer; the four-argument form
-checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain, since
-a grid whose stored spacing disagrees with its domain would silently mislocate every interpolated
-point rather than fail. The comparison is a floating-point tolerance, so a spacing computed by a
-different but equivalent route is accepted. Every grid size must be positive, every domain length
-finite and positive, and every origin coordinate finite.
+checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain.
+Every grid size must be positive, every domain length finite and positive, and every origin
+coordinate finite.
 """
 struct Grid3D{T<:AbstractFloat}
   grid_size::NTuple{3, Int}
