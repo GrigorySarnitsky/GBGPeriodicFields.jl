@@ -167,6 +167,36 @@ Note that the adjoint takes the **grid** rather than a field as its first argume
 field it returns, so it needs only the base to build it over, where `interpolate` needs the field it
 samples.
 
+## Running multithreaded
+
+CPU threading is on by default, but only if Julia itself has threads — the package threads nothing in
+a single-threaded session, and nothing in the code you write says so. Start Julia with them:
+
+```sh
+julia -t 4 --project        # four threads
+julia -t auto --project     # one per core
+```
+
+Nothing else is required: the fiberwise algebra, the differential operators and the reductions all
+thread themselves from there, and the FFT plans pick up the same count when the package loads. The
+work is split only above a size threshold, since threading a small field costs more than it saves:
+
+```jldoctest tutorial
+julia> threading_cutoff()
+16384
+```
+
+Results do not depend on how many threads you used. The threaded routes write each output element
+once, from the same fused expression a serial run uses, so they are **bitwise** identical to the
+serial answer — which is what lets you tune the thread count without re-baselining anything you
+compare against. Two operations are the exception, and by nature rather than by oversight:
+[`anterpolate`](@ref) and [`radial_spectrum`](@ref) accumulate with atomics, so the summation order
+varies between runs and the last bits with it.
+
+To compare against a serial run without restarting Julia, scope it with [`with_threading`](@ref);
+[`set_threading_cutoff!`](@ref) moves the threshold, and [`set_fft_threads!`](@ref) sets the FFT thread count
+alone, which is worth separating when the transforms and the pointwise work want different counts.
+
 That is the whole surface in miniature: build a field, move between representations, apply operators /
 convolutions, reduce it, and transfer to and from points. The [API reference](api.md) documents every
 operation (with its computed formula), and the [Architecture](architecture.md) page explains *why* the package is shaped
