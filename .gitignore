@@ -19,4 +19,10 @@ inspiration/
 # do-not-re-flag list .claude/doc-review-adjudicated.md, which panel.js reads.
 .claude/doc-review/
 .claude/doc-review-prev/
+
+# Julia coverage output (`--code-coverage` writes <file>.jl.<pid>.cov beside the source).
+# The per-method ledger in test/exhaustive/ runs the value lane under coverage twice, so a run
+# leaves hundreds of these. They are stale the moment anything is renamed and nothing reads
+# them back. This rule predates the untracking below: it was added while 508 of them were
+# already tracked, and .gitignore does not untrack what git already knows about.
 *.cov
