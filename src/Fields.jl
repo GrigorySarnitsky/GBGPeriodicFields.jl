@@ -22,8 +22,8 @@ The parts are:
   * **Transforms** — [`FieldTransformPlans`](@ref) holds the FFT plans, and [`to_physical`](@ref) and
     [`to_spectral`](@ref) move a field between the two representations. The allocating forms preserve
     their input, and the plain in-place `!` forms may overwrite the source — except the four-argument
-    scratch arity of `to_physical!`, which guarantees preservation by consuming a caller-supplied
-    scratch instead; `set_fft_threads!` sets the thread count `FFTW` bakes into plans built
+    scratch arity of [`to_physical!`](@ref), which guarantees preservation by consuming a caller-supplied
+    scratch instead; [`set_fft_threads!`](@ref) sets the thread count `FFTW` bakes into plans built
     afterwards.
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays the
     differential operators apply as spectral multipliers.
