@@ -2185,7 +2185,7 @@ The arguments are:
 - `name` — the name of the group to create.
 - `field` — the field to write.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function write_field end
 
@@ -2199,12 +2199,12 @@ dispatching on the stored `type` attribute to return the reconstructed field in 
 Fourier layout, the element type, and the tensor order are recovered bit-for-bit.
 
 The reconstructed field is a host (CPU) object regardless of where the written one lived; move it to a
-device afterward if needed.
+device with [`adapt`](@ref) or [`adapt!`](@ref) afterward if needed.
 
 Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path) of
 that field group under `parent`.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_field end
 
@@ -2225,7 +2225,7 @@ when something built on one family has to be used on another. Two fields combine
 when they share a family and an element type, and a mixed pair is **refused** rather than promoted or
 transferred, because a copy across the bus is a cost that belongs at the call site; `adapt` is that
 call site. The argument `storage` is the target array type (`Array`, `CuArray`, `ROCArray`, …) or any
-other `Adapt.jl` adaptor, and `object` is what to move — a field or point-values (the sections), or
+other [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl) adaptor, and `object` is what to move — a field or point-values (the sections), or
 one of the companions a section is useless without: multipliers, a kernel, or transform plans.
 
 The whole surface a solver needs is covered: the six field types, the point-value types, a

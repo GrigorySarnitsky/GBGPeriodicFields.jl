@@ -1116,7 +1116,7 @@ The arguments are:
 - `name` — the name of the group to create.
 - `points`, `values` — the `PointSet` or point-value section to write.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function write_points end
 
@@ -1131,12 +1131,12 @@ dispatching on the stored `type` attribute to return it in the matching type ([`
 bit-for-bit. It is the point-layer twin of `read_field`.
 
 The reconstructed object is a host (CPU) one regardless of where the written one lived; move it to a
-device afterward if needed.
+device with [`adapt`](@ref) or [`adapt!`](@ref) afterward if needed.
 
 Here `parent` is an open HDF5 `File` or `Group` holding the group, and `name` is the name (or path)
 of that group under `parent`.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_points end
 

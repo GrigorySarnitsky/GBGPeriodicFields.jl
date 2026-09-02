@@ -1819,7 +1819,7 @@ The arguments are:
     reference field the consumer restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
     the consumer's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function write_scheme end
 
@@ -1839,7 +1839,7 @@ newer schema version, a group missing a parameter its type needs, an unrecognize
 parameter combination the scheme's own constructor rejects all raise an `ArgumentError` rather than
 producing a scheme that is not what the file claims.
 
-Provided by a package extension, so it is available only when `HDF5` is loaded.
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_scheme end
 
