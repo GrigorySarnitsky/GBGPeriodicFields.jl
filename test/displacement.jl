@@ -37,7 +37,7 @@ end
         result = displace!(points, (coefficients[1], sections[1]))
         @test result === points                     # in-place ops return their destination
         reference = X0 .+ coefficients[1] .* point_values(sections[1])
-        @test point_coordinates(points) == reference
+        @test point_positions(points) == reference
 
         # The n-term form is ONE fused traversal; the reference applies the same weighted sum
         # term-by-term on raw arrays. Identical up to the association order of the sum, which the
@@ -48,33 +48,33 @@ end
         for (c, v) in zip(coefficients, sections)
           reference .+= c .* point_values(v)
         end
-        @test point_coordinates(points) == reference
+        @test point_positions(points) == reference
       end
 
       @testset "destination/source form preserves its source" begin
         source = PointSet(copy(X0))
         destination = PointSet(zeros(T, M, 3))
         displace!(destination, source, (coefficients[1], sections[1]), (coefficients[2], sections[2]))
-        @test point_coordinates(source) == X0
+        @test point_positions(source) == X0
         reference = X0 .+ coefficients[1] .* point_values(sections[1]) .+
                          coefficients[2] .* point_values(sections[2])
-        @test point_coordinates(destination) == reference
+        @test point_positions(destination) == reference
         # The aliased call (destination === source) computes the same values.
         aliased = PointSet(copy(X0))
         displace!(aliased, aliased, (coefficients[1], sections[1]), (coefficients[2], sections[2]))
-        @test point_coordinates(aliased) == point_coordinates(destination)
+        @test point_positions(aliased) == point_positions(destination)
       end
 
       @testset "zero terms copy (and wrap) the source" begin
         source = PointSet(copy(X0))
         destination = PointSet(ones(T, M, 3))
         displace!(destination, source)
-        @test point_coordinates(destination) == X0
+        @test point_positions(destination) == X0
         far = PointSet(X0 .+ T(10) .* reshape(collect(L), 1, 3))
         displace!(far, far, grid)
         # Compare in the metric of the torus: a representative that lands a roundoff below the
         # boundary sits at ~L in coordinates but at ~0 in toroidal distance.
-        @test toroidal_close(point_coordinates(far), X0, T === Float64 ? 1e-12 : 1e-3)
+        @test toroidal_close(point_positions(far), X0, T === Float64 ? 1e-12 : 1e-3)
       end
 
       @testset "torus displacement == cover displacement then wrap!, bitwise" begin
@@ -84,9 +84,9 @@ end
         displace!(fused, grid, terms...)
         displace!(unfused, terms...)
         wrap!(unfused, grid)
-        @test point_coordinates(fused) == point_coordinates(unfused)
+        @test point_positions(fused) == point_positions(unfused)
         for axis in 1:3
-          column = view(point_coordinates(fused), :, axis)
+          column = view(point_positions(fused), :, axis)
           @test all(zero(T) .<= column .< L[axis])
         end
       end
@@ -95,13 +95,13 @@ end
         # Whole-period shifts land back on the starting representative (up to one roundoff-scale
         # difference per mod); in-box coordinates pass through untouched.
         inbox = PointSet(clamp.(copy(X0), T(0.1), T(6)) .* reshape([T(1), T(1), T(1)], 1, 3))
-        before = copy(point_coordinates(inbox))
+        before = copy(point_positions(inbox))
         wrap!(inbox, Grid3D((8, 12, 16), (T(7), T(7), T(7))))
-        @test point_coordinates(inbox) == before
+        @test point_positions(inbox) == before
 
         shifted = PointSet(X0 .+ T(3) .* reshape(collect(L), 1, 3))
         wrap!(shifted, grid)
-        @test toroidal_close(point_coordinates(shifted), X0, T === Float64 ? 1e-12 : 1e-3)
+        @test toroidal_close(point_positions(shifted), X0, T === Float64 ? 1e-12 : 1e-3)
       end
 
       @testset "the excluded endpoint is folded" begin
@@ -112,7 +112,7 @@ end
         points = PointSet(T[tiny tiny tiny])
         wrap!(points, grid)
         for axis in 1:3
-          x = point_coordinates(points)[1, axis]
+          x = point_positions(points)[1, axis]
           @test zero(T) <= x < L[axis]              # never the excluded endpoint itself
         end
       end
@@ -120,10 +120,10 @@ end
       @testset "non-finite coordinates pass through non-finite" begin
         points = PointSet(T[NaN 1 1; Inf 1 1; -Inf 1 1])
         wrap!(points, grid)
-        @test isnan(point_coordinates(points)[1, 1])
-        @test !isfinite(point_coordinates(points)[2, 1])
-        @test !isfinite(point_coordinates(points)[3, 1])
-        @test all(isfinite, point_coordinates(points)[:, 2:3])   # finite columns untouched by the fold
+        @test isnan(point_positions(points)[1, 1])
+        @test !isfinite(point_positions(points)[2, 1])
+        @test !isfinite(point_positions(points)[3, 1])
+        @test all(isfinite, point_positions(points)[:, 2:3])   # finite columns untouched by the fold
       end
 
       @testset "the fundamental domain follows the origin" begin
@@ -132,7 +132,7 @@ end
         points = PointSet(rand(T, M, 3) .* T(40) .- T(20))
         wrap!(points, shifted_grid)
         for axis in 1:3
-          column = view(point_coordinates(points), :, axis)
+          column = view(point_positions(points), :, axis)
           @test all(origin[axis] .<= column .< origin[axis] + L[axis])
         end
       end
@@ -163,7 +163,7 @@ end
         terms = map(tuple, coefficients, Tuple(sections))
         with_threading(() -> displace!(serial, grid, terms...); enabled = false)
         with_threading(() -> displace!(threaded, grid, terms...); enabled = true)
-        @test point_coordinates(serial) == point_coordinates(threaded)   # bitwise (decision 38 discipline)
+        @test point_positions(serial) == point_positions(threaded)   # bitwise (decision 38 discipline)
       end
     end
   end

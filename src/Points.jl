@@ -27,7 +27,7 @@ The parts are:
     back in the periodic box in the same fused pass — and [`wrap!`](@ref) reduces positions to
     their canonical in-box representatives. The one family that couples base and fiber; positions
     deliberately have no `+` with point values.
-  * **Allocation.** [`similar_pointvalues`](@ref) returns uninitialized storage carrying a reference's
+  * **Allocation.** [`similar_point_values`](@ref) returns uninitialized storage carrying a reference's
     tensor order and backend — the point-value twin of `similar_field`, and what the broadcast
     machinery and the allocating algebra wrappers build their results with.
   * **Persistence.** [`write_points`](@ref) and [`read_points`](@ref) map a point set or a point-value
@@ -82,11 +82,11 @@ export Point,
        ScalarPointValues,
        VectorPointValues,
        TensorPointValues,
-       point_coordinates,
+       point_positions,
        point_values,
-       pointvalue_tensor_order,
+       point_value_tensor_order,
        npoints,
-       similar_pointvalues,
+       similar_point_values,
        displace!,
        wrap!,
        write_points,
@@ -123,13 +123,13 @@ The fields are
   axis last — whose second axis must have length `3`.
 """
 struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
-  coordinates::A
+  positions::A
 
-  function PointSet(coordinates::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
-    size(coordinates, 2) == 3 ||
-      throw(DimensionMismatch("PointSet coordinates must have shape (M, 3); got $(size(coordinates))"))
-    _check_owned_storage(coordinates, "a PointSet")
-    return new{T, A}(coordinates)
+  function PointSet(positions::A) where {T<:AbstractFloat, A<:AbstractArray{T, 2}}
+    size(positions, 2) == 3 ||
+      throw(DimensionMismatch("PointSet positions must have shape (M, 3); got $(size(positions))"))
+    _check_owned_storage(positions, "a PointSet")
+    return new{T, A}(positions)
   end
 end
 
@@ -152,7 +152,7 @@ and [`TensorPointValues`](@ref) at order `2` and above.
     Every constructor here — and `PointSet`'s — **rejects borrowed storage**, a `SubArray`
     anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Ownership is what
     makes aliasing safe by construction: two sections can then share memory only by being the same
-    array. Allocate with [`similar_pointvalues`](@ref), or `copy` the slice. Any owning array is fine —
+    array. Allocate with [`similar_point_values`](@ref), or `copy` the slice. Any owning array is fine —
     `Array`, `CuArray`, `ROCArray`, or a `reshape` of one.
 """
 abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
@@ -245,12 +245,12 @@ TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat} = TensorPoint
 ####################################
 
 """
-    point_coordinates(point_set::PointSet)
+    point_positions(point_set::PointSet)
 
 Return the `(M, 3)` array of point coordinates held by `point_set`.
 """
-function point_coordinates end
-point_coordinates(point_set::PointSet) = point_set.coordinates
+function point_positions end
+point_positions(point_set::PointSet) = point_set.positions
 
 
 """
@@ -265,13 +265,13 @@ point_values(sampled_values::AbstractPointValues) = sampled_values.data
 
 
 """
-    pointvalue_tensor_order(sampled_values::AbstractPointValues{T, R}) where
+    point_value_tensor_order(sampled_values::AbstractPointValues{T, R}) where
         {T<:AbstractFloat, R}
 
 Return the tensor order `R` of `sampled_values`.
 """
-function pointvalue_tensor_order end
-pointvalue_tensor_order(::AbstractPointValues{T, R}) where {T<:AbstractFloat, R} = R
+function point_value_tensor_order end
+point_value_tensor_order(::AbstractPointValues{T, R}) where {T<:AbstractFloat, R} = R
 
 
 """
@@ -282,7 +282,7 @@ Return the number `M` of points, the leading-axis length of the coordinate array
 [`PointSet`](@ref) or of the value array of an [`AbstractPointValues`](@ref).
 """
 function npoints end
-npoints(point_set::PointSet) = size(point_set.coordinates, 1)
+npoints(point_set::PointSet) = size(point_set.positions, 1)
 npoints(sampled_values::AbstractPointValues) = size(sampled_values.data, 1)
 
 
@@ -329,17 +329,17 @@ end
 
 
 """
-    _pointvalue_shape(number_of_points, ::Val{R}) where {R}
+    _point_value_shape(number_of_points, ::Val{R}) where {R}
 
 Return the storage shape `(M, fiber_shape(Val(R))...)` of point values of tensor order `R` at
 `M` points, where `M` is `number_of_points`.
 """
-_pointvalue_shape(number_of_points::Integer, ::Val{R}) where {R} = (number_of_points, fiber_shape(Val(R))...)
+_point_value_shape(number_of_points::Integer, ::Val{R}) where {R} = (number_of_points, fiber_shape(Val(R))...)
 
 
 """
-    similar_pointvalues(reference::AbstractPointValues, data)
-    similar_pointvalues(reference::AbstractPointValues, ::Val{R}) where {R}
+    similar_point_values(reference::AbstractPointValues, data)
+    similar_point_values(reference::AbstractPointValues, ::Val{R}) where {R}
 
 Allocate point values shaped like `reference`. The `data` form wraps the supplied array in a
 point-value type of the same tensor order as `reference`. The `Val{R}` form allocates a fresh
@@ -352,18 +352,18 @@ broadcast machinery and the allocating algebra wrappers use it to build their re
     the package never makes implicitly, and the `data` form wraps supplied storage rather than
     allocating.
 """
-function similar_pointvalues end
+function similar_point_values end
 
-similar_pointvalues(::ScalarPointValues, data::AbstractArray) = ScalarPointValues(data)
-similar_pointvalues(::VectorPointValues, data::AbstractArray) = VectorPointValues(data)
-similar_pointvalues(::TensorPointValues{R}, data::AbstractArray) where {R} = TensorPointValues{R}(data)
+similar_point_values(::ScalarPointValues, data::AbstractArray) = ScalarPointValues(data)
+similar_point_values(::VectorPointValues, data::AbstractArray) = VectorPointValues(data)
+similar_point_values(::TensorPointValues{R}, data::AbstractArray) where {R} = TensorPointValues{R}(data)
 
-similar_pointvalues(reference::AbstractPointValues{T}, ::Val{0}) where {T<:AbstractFloat} =
-  ScalarPointValues(similar(field_data(reference), T, _pointvalue_shape(npoints(reference), Val(0))))
-similar_pointvalues(reference::AbstractPointValues{T}, ::Val{1}) where {T<:AbstractFloat} =
-  VectorPointValues(similar(field_data(reference), T, _pointvalue_shape(npoints(reference), Val(1))))
-similar_pointvalues(reference::AbstractPointValues{T}, ::Val{R}) where {T<:AbstractFloat, R} =
-  TensorPointValues{R}(similar(field_data(reference), T, _pointvalue_shape(npoints(reference), Val(R))))
+similar_point_values(reference::AbstractPointValues{T}, ::Val{0}) where {T<:AbstractFloat} =
+  ScalarPointValues(similar(field_data(reference), T, _point_value_shape(npoints(reference), Val(0))))
+similar_point_values(reference::AbstractPointValues{T}, ::Val{1}) where {T<:AbstractFloat} =
+  VectorPointValues(similar(field_data(reference), T, _point_value_shape(npoints(reference), Val(1))))
+similar_point_values(reference::AbstractPointValues{T}, ::Val{R}) where {T<:AbstractFloat, R} =
+  TensorPointValues{R}(similar(field_data(reference), T, _point_value_shape(npoints(reference), Val(R))))
 
 
 
@@ -403,63 +403,63 @@ Base.eltype(values::AbstractPointValues) = eltype(field_data(values))
 
 
 """
-    _first_pointvalues(x)
+    _first_point_values(x)
 
 Return the first [`AbstractPointValues`](@ref) found in `x` — a value, a `Broadcasted` tree, or
 an argument tuple — or `nothing` when there is none. Out-of-place broadcasting uses it to seed
 the allocated result.
 """
-_first_pointvalues(values::AbstractPointValues) = values
-_first_pointvalues(::Any) = nothing
-_first_pointvalues(broadcasted::Base.Broadcast.Broadcasted) = _first_pointvalues(broadcasted.args)
-_first_pointvalues(::Tuple{}) = nothing
-function _first_pointvalues(args::Tuple)
-  found = _first_pointvalues(first(args))
-  return isnothing(found) ? _first_pointvalues(Base.tail(args)) : found
+_first_point_values(values::AbstractPointValues) = values
+_first_point_values(::Any) = nothing
+_first_point_values(broadcasted::Base.Broadcast.Broadcasted) = _first_point_values(broadcasted.args)
+_first_point_values(::Tuple{}) = nothing
+function _first_point_values(args::Tuple)
+  found = _first_point_values(first(args))
+  return isnothing(found) ? _first_point_values(Base.tail(args)) : found
 end
 
 
 """
-    _check_broadcast_pointvalues_compatibility(destination, argument)
+    _check_broadcast_point_values_compatibility(destination, argument)
 
 Check, during broadcasting, that `argument` covers the same number of points as `destination`,
 recursing into a `Broadcasted` argument. Arguments that are not point values — real numbers,
 fibers, or plain arrays — are accepted without a check.
 """
-_check_broadcast_pointvalues_compatibility(destination::AbstractPointValues, values::AbstractPointValues) = _check_npoints_match(destination, values)
-_check_broadcast_pointvalues_compatibility(::AbstractPointValues, ::Any) = nothing
-function _check_broadcast_pointvalues_compatibility(destination::AbstractPointValues, broadcasted::Base.Broadcast.Broadcasted)
-  foreach(argument -> _check_broadcast_pointvalues_compatibility(destination, argument), broadcasted.args)
+_check_broadcast_point_values_compatibility(destination::AbstractPointValues, values::AbstractPointValues) = _check_npoints_match(destination, values)
+_check_broadcast_point_values_compatibility(::AbstractPointValues, ::Any) = nothing
+function _check_broadcast_point_values_compatibility(destination::AbstractPointValues, broadcasted::Base.Broadcast.Broadcasted)
+  foreach(argument -> _check_broadcast_point_values_compatibility(destination, argument), broadcasted.args)
   return nothing
 end
 
 
 """
-    _unwrap_pointvalues_argument(x)
+    _unwrap_point_values_argument(x)
 
 Replace each point-value object in a broadcast expression with its storage array, recursing
 through a `Broadcasted` tree, so that a point-value broadcast lowers to a plain array broadcast
 on the backend.
 """
-_unwrap_pointvalues_argument(values::AbstractPointValues) = field_data(values)
-_unwrap_pointvalues_argument(argument) = argument
-function _unwrap_pointvalues_argument(broadcasted::Base.Broadcast.Broadcasted)
-  return Base.Broadcast.broadcasted(broadcasted.f, map(_unwrap_pointvalues_argument, broadcasted.args)...)
+_unwrap_point_values_argument(values::AbstractPointValues) = field_data(values)
+_unwrap_point_values_argument(argument) = argument
+function _unwrap_point_values_argument(broadcasted::Base.Broadcast.Broadcasted)
+  return Base.Broadcast.broadcasted(broadcasted.f, map(_unwrap_point_values_argument, broadcasted.args)...)
 end
 
 
 function Base.copyto!(destination::AbstractPointValues, broadcasted::Base.Broadcast.Broadcasted)
-  _check_broadcast_pointvalues_compatibility(destination, broadcasted)
-  unwrapped = _unwrap_pointvalues_argument(broadcasted)
+  _check_broadcast_point_values_compatibility(destination, broadcasted)
+  unwrapped = _unwrap_point_values_argument(broadcasted)
   unwrapped_with_destination_axes = Base.Broadcast.Broadcasted(unwrapped.style, unwrapped.f, unwrapped.args, axes(field_data(destination)))
   _assign!(field_data(destination), unwrapped_with_destination_axes)
   return destination
 end
 
 function Base.copy(broadcasted::Base.Broadcast.Broadcasted{<:PointValuesBroadcastStyle})
-  reference = _first_pointvalues(broadcasted)
+  reference = _first_point_values(broadcasted)
   isnothing(reference) && throw(ArgumentError("broadcast expression does not contain point values"))
-  destination = similar_pointvalues(reference, similar(field_data(reference)))
+  destination = similar_point_values(reference, similar(field_data(reference)))
   return copyto!(destination, broadcasted)
 end
 
@@ -493,9 +493,9 @@ function _check_combinable(values::AbstractPointValues...)
   for other in Base.tail(values)
     npoints(other) == npoints(first_values) ||
       throw(DimensionMismatch("point counts differ: $(npoints(first_values)) and $(npoints(other))"))
-    pointvalue_tensor_order(other) == pointvalue_tensor_order(first_values) ||
+    point_value_tensor_order(other) == point_value_tensor_order(first_values) ||
       throw(DimensionMismatch("point-value tensor orders differ: " *
-                              "$(pointvalue_tensor_order(first_values)) and $(pointvalue_tensor_order(other))"))
+                              "$(point_value_tensor_order(first_values)) and $(point_value_tensor_order(other))"))
     eltype(field_data(other)) === eltype(field_data(first_values)) ||
       throw(ArgumentError("point-value scalar types differ: $(eltype(field_data(first_values))) and " *
                           "$(eltype(field_data(other))); a combination does not convert between precisions"))
@@ -619,8 +619,8 @@ function dot!(destination::ScalarPointValues{T}, A::TensorPointValues{2, T}, B::
   return _dot_components_pv!(destination, A, B)
 end
 
-dot(u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat} = dot!(similar_pointvalues(u, Val(0)), u, v)
-dot(A::TensorPointValues{2, T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = dot!(similar_pointvalues(A, Val(0)), A, B)
+dot(u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat} = dot!(similar_point_values(u, Val(0)), u, v)
+dot(A::TensorPointValues{2, T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = dot!(similar_point_values(A, Val(0)), A, B)
 
 for (Operand, Constant) in ((:VectorPointValues, :FiberVector), (:(TensorPointValues{2}), :FiberTensor2))
   @eval function dot!(destination::ScalarPointValues{T}, operand::$Operand{T}, constant::$Constant{T}) where {T<:AbstractFloat}
@@ -630,9 +630,9 @@ for (Operand, Constant) in ((:VectorPointValues, :FiberVector), (:(TensorPointVa
   @eval dot!(destination::ScalarPointValues{T}, constant::$Constant{T}, operand::$Operand{T}) where {T<:AbstractFloat} =
     dot!(destination, operand, constant)
   @eval dot(operand::$Operand{T}, constant::$Constant{T}) where {T<:AbstractFloat} =
-    dot!(similar_pointvalues(operand, Val(0)), operand, constant)
+    dot!(similar_point_values(operand, Val(0)), operand, constant)
   @eval dot(constant::$Constant{T}, operand::$Operand{T}) where {T<:AbstractFloat} =
-    dot!(similar_pointvalues(operand, Val(0)), operand, constant)
+    dot!(similar_point_values(operand, Val(0)), operand, constant)
 end
 
 
@@ -667,7 +667,7 @@ function cross!(destination::VectorPointValues{T}, u::VectorPointValues{T}, v::V
   return _cross_components_pv!(destination, u, v)
 end
 
-cross(u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), u, v)
+cross(u::VectorPointValues{T}, v::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_point_values(u, Val(1)), u, v)
 
 function cross!(destination::VectorPointValues{T}, u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat}
   _check_npoints_match(destination, u)
@@ -679,8 +679,8 @@ function cross!(destination::VectorPointValues{T}, a::FiberVector{T}, u::VectorP
   return _cross_components_pv!(destination, a, u)
 end
 
-cross(u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), u, a)
-cross(a::FiberVector{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_pointvalues(u, Val(1)), a, u)
+cross(u::VectorPointValues{T}, a::FiberVector{T}) where {T<:AbstractFloat} = cross!(similar_point_values(u, Val(1)), u, a)
+cross(a::FiberVector{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = cross!(similar_point_values(u, Val(1)), a, u)
 
 
 # --- Tensor-vector and tensor-tensor products (α/β; destination must not alias, like mul!) ---
@@ -813,15 +813,15 @@ for (Destination, First, Second) in (
 end
 
 # Allocating `*` operators delegate to the three-argument mul!.
-*(A::TensorPointValues{2, T}, a::FiberVector{T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(A, Val(1)), A, a)
-*(a::FiberVector{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(A, Val(1)), a, A)
-*(A::FiberTensor2{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(u, Val(1)), A, u)
-*(u::VectorPointValues{T}, A::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(u, Val(1)), u, A)
-*(A::TensorPointValues{2, T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(u, Val(1)), A, u)
-*(u::VectorPointValues{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(u, Val(1)), u, A)
-*(A::TensorPointValues{2, T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(A, Val(2)), A, B)
-*(A::TensorPointValues{2, T}, B::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(A, Val(2)), A, B)
-*(A::FiberTensor2{T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_pointvalues(B, Val(2)), A, B)
+*(A::TensorPointValues{2, T}, a::FiberVector{T}) where {T<:AbstractFloat} = mul!(similar_point_values(A, Val(1)), A, a)
+*(a::FiberVector{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_point_values(A, Val(1)), a, A)
+*(A::FiberTensor2{T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = mul!(similar_point_values(u, Val(1)), A, u)
+*(u::VectorPointValues{T}, A::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_point_values(u, Val(1)), u, A)
+*(A::TensorPointValues{2, T}, u::VectorPointValues{T}) where {T<:AbstractFloat} = mul!(similar_point_values(u, Val(1)), A, u)
+*(u::VectorPointValues{T}, A::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_point_values(u, Val(1)), u, A)
+*(A::TensorPointValues{2, T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_point_values(A, Val(2)), A, B)
+*(A::TensorPointValues{2, T}, B::FiberTensor2{T}) where {T<:AbstractFloat} = mul!(similar_point_values(A, Val(2)), A, B)
+*(A::FiberTensor2{T}, B::TensorPointValues{2, T}) where {T<:AbstractFloat} = mul!(similar_point_values(B, Val(2)), A, B)
 
 
 # --- Transpose (fused ⇒ alias-safe by construction) ---
@@ -838,7 +838,7 @@ function transpose!(destination::TensorPointValues{2, T}, A::TensorPointValues{2
   return _transpose_components_pv!(destination, A)
 end
 
-transpose(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = transpose!(similar_pointvalues(A, Val(2)), A)
+transpose(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = transpose!(similar_point_values(A, Val(2)), A)
 
 
 # --- Norms (scalar result) ---
@@ -853,7 +853,7 @@ for Operand in (:ScalarPointValues, :VectorPointValues, :(TensorPointValues{2}))
     return _norm_components_pv!(destination, operand)
   end
 
-  @eval norm(operand::$Operand{T}) where {T<:AbstractFloat} = norm!(similar_pointvalues(operand, Val(0)), operand)
+  @eval norm(operand::$Operand{T}) where {T<:AbstractFloat} = norm!(similar_point_values(operand, Val(0)), operand)
 end
 
 
@@ -866,7 +866,7 @@ function tr!(destination::ScalarPointValues{T}, A::TensorPointValues{2, T}) wher
   return _trace_components_pv!(destination, A)
 end
 
-tr(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = tr!(similar_pointvalues(A, Val(0)), A)
+tr(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = tr!(similar_point_values(A, Val(0)), A)
 
 
 # --- Determinant (scalar result) ---
@@ -884,7 +884,7 @@ function det!(destination::ScalarPointValues{T}, A::TensorPointValues{2, T}) whe
   return _det_components_pv!(destination, A)
 end
 
-det(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = det!(similar_pointvalues(A, Val(0)), A)
+det(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = det!(similar_point_values(A, Val(0)), A)
 
 
 # --- Symmetric / skew / deviatoric decompositions (fused; the values functions in FiberSections
@@ -926,7 +926,7 @@ for (kernel, bang, allocating) in (
     return $kernel(destination, A)
   end
 
-  @eval $allocating(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = $bang(similar_pointvalues(A, Val(2)), A)
+  @eval $allocating(A::TensorPointValues{2, T}) where {T<:AbstractFloat} = $bang(similar_point_values(A, Val(2)), A)
 end
 
 
@@ -965,10 +965,10 @@ for (PVType, Constant, order) in (
     return _subtract_from_fiber_pv!(destination, constant, values)
   end
 
-  @eval +(values::$PVType{T}, constant::$Constant{T}) where {T<:AbstractFloat} = add!(similar_pointvalues(values, Val($order)), values, constant)
-  @eval +(constant::$Constant{T}, values::$PVType{T}) where {T<:AbstractFloat} = add!(similar_pointvalues(values, Val($order)), constant, values)
-  @eval -(values::$PVType{T}, constant::$Constant{T}) where {T<:AbstractFloat} = subtract!(similar_pointvalues(values, Val($order)), values, constant)
-  @eval -(constant::$Constant{T}, values::$PVType{T}) where {T<:AbstractFloat} = subtract!(similar_pointvalues(values, Val($order)), constant, values)
+  @eval +(values::$PVType{T}, constant::$Constant{T}) where {T<:AbstractFloat} = add!(similar_point_values(values, Val($order)), values, constant)
+  @eval +(constant::$Constant{T}, values::$PVType{T}) where {T<:AbstractFloat} = add!(similar_point_values(values, Val($order)), constant, values)
+  @eval -(values::$PVType{T}, constant::$Constant{T}) where {T<:AbstractFloat} = subtract!(similar_point_values(values, Val($order)), values, constant)
+  @eval -(constant::$Constant{T}, values::$PVType{T}) where {T<:AbstractFloat} = subtract!(similar_point_values(values, Val($order)), constant, values)
 end
 
 
@@ -996,14 +996,14 @@ for (Result, Constant, order, kernel) in (
   @eval multiply!(destination::$Result{T}, constant::$Constant{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} =
     multiply!(destination, scalar_values, constant)
 
-  @eval *(scalar_values::ScalarPointValues{T}, constant::$Constant{T}) where {T<:AbstractFloat} = multiply!(similar_pointvalues(scalar_values, Val($order)), scalar_values, constant)
-  @eval *(constant::$Constant{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_pointvalues(scalar_values, Val($order)), constant, scalar_values)
+  @eval *(scalar_values::ScalarPointValues{T}, constant::$Constant{T}) where {T<:AbstractFloat} = multiply!(similar_point_values(scalar_values, Val($order)), scalar_values, constant)
+  @eval *(constant::$Constant{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_point_values(scalar_values, Val($order)), constant, scalar_values)
 end
 
 
 # --- Scalar point values × point values (singleton-fiber broadcast over all components) ---
 _scalar_pv_broadcast_data(scalar_values::ScalarPointValues, values::AbstractPointValues) =
-  reshape(field_data(scalar_values), size(field_data(scalar_values))..., ntuple(_ -> 1, pointvalue_tensor_order(values))...)
+  reshape(field_data(scalar_values), size(field_data(scalar_values))..., ntuple(_ -> 1, point_value_tensor_order(values))...)
 
 function _multiply_by_scalar_pv!(destination::AbstractPointValues, scalar_values::ScalarPointValues, values::AbstractPointValues)
   _check_npoints_match(destination, values)
@@ -1016,10 +1016,10 @@ function _multiply_by_scalar_pv!(destination::AbstractPointValues, scalar_values
   # rather than an error. Invariant 14 binds every argument of a multi-argument operation, the
   # destination of an in-place call included, and the field twin has always enforced exactly this
   # through `_check_field_compatibility`; these four signatures are documented as mirroring it.
-  pointvalue_tensor_order(destination) == pointvalue_tensor_order(values) ||
+  point_value_tensor_order(destination) == point_value_tensor_order(values) ||
     throw(ArgumentError("point-value tensor orders must be equal: the destination carries order " *
-                        "$(pointvalue_tensor_order(destination)) and scaling by a scalar section " *
-                        "preserves the order $(pointvalue_tensor_order(values)) of its operand"))
+                        "$(point_value_tensor_order(destination)) and scaling by a scalar section " *
+                        "preserves the order $(point_value_tensor_order(values)) of its operand"))
   @_assign! field_data(destination) .= _scalar_pv_broadcast_data(scalar_values, values) .* field_data(values)
   return destination
 end
@@ -1030,9 +1030,9 @@ multiply!(destination::AbstractPointValues, values::AbstractPointValues, scalar_
 multiply!(destination::ScalarPointValues, a::ScalarPointValues, b::ScalarPointValues) = _multiply_by_scalar_pv!(destination, a, b)
 multiply!(destination::AbstractPointValues, a::ScalarPointValues, b::ScalarPointValues) = _multiply_by_scalar_pv!(destination, a, b)
 
-*(scalar_values::ScalarPointValues{T}, values::AbstractPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_pointvalues(values, similar(field_data(values))), scalar_values, values)
-*(values::AbstractPointValues{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_pointvalues(values, similar(field_data(values))), values, scalar_values)
-*(a::ScalarPointValues{T}, b::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_pointvalues(a, similar(field_data(a))), a, b)
+*(scalar_values::ScalarPointValues{T}, values::AbstractPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_point_values(values, similar(field_data(values))), scalar_values, values)
+*(values::AbstractPointValues{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_point_values(values, similar(field_data(values))), values, scalar_values)
+*(a::ScalarPointValues{T}, b::ScalarPointValues{T}) where {T<:AbstractFloat} = multiply!(similar_point_values(a, similar(field_data(a))), a, b)
 
 
 # --- Division by scalar point values ---
@@ -1061,10 +1061,10 @@ function divide!(destination::AbstractPointValues, values::AbstractPointValues, 
   _check_npoints_match(scalar_values, values)
   # The destination's ORDER, for the same reason `_multiply_by_scalar_pv!` checks it: division by a
   # scalar section preserves the order, and the point count cannot speak for the fiber.
-  pointvalue_tensor_order(destination) == pointvalue_tensor_order(values) ||
+  point_value_tensor_order(destination) == point_value_tensor_order(values) ||
     throw(ArgumentError("point-value tensor orders must be equal: the destination carries order " *
-                        "$(pointvalue_tensor_order(destination)) and division by a scalar section " *
-                        "preserves the order $(pointvalue_tensor_order(values)) of its operand"))
+                        "$(point_value_tensor_order(destination)) and division by a scalar section " *
+                        "preserves the order $(point_value_tensor_order(values)) of its operand"))
   @_assign! field_data(destination) .= field_data(values) ./ _scalar_pv_broadcast_data(scalar_values, values)
   return destination
 end
@@ -1074,10 +1074,10 @@ function divide!(destination::ScalarPointValues, scalar::Real, scalar_values::Sc
   return destination
 end
 
-/(values::AbstractPointValues{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_pointvalues(values, similar(field_data(values))), values, scalar_values)
-/(scalar::Real, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_pointvalues(scalar_values, similar(field_data(scalar_values))), scalar, scalar_values)
-/(a::FiberVector{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_pointvalues(scalar_values, Val(1)), a, scalar_values)
-/(A::FiberTensor2{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_pointvalues(scalar_values, Val(2)), A, scalar_values)
+/(values::AbstractPointValues{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_point_values(values, similar(field_data(values))), values, scalar_values)
+/(scalar::Real, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_point_values(scalar_values, similar(field_data(scalar_values))), scalar, scalar_values)
+/(a::FiberVector{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_point_values(scalar_values, Val(1)), a, scalar_values)
+/(A::FiberTensor2{T}, scalar_values::ScalarPointValues{T}) where {T<:AbstractFloat} = divide!(similar_point_values(scalar_values, Val(2)), A, scalar_values)
 
 
 # The grid↔point transfer (interpolation `f(x)` / `interpolate` and its adjoint `anterpolate`) lives
@@ -1167,7 +1167,7 @@ function map(φ::F, source1::AbstractPointValues, sources::AbstractPointValues..
   order = _map_output_order(φ, all_sources)
   order ≥ 0 ||
     throw(ArgumentError("map: could not infer the output tensor order of `φ`; call `map!` with a preallocated `destination` instead"))
-  destination = similar_pointvalues(source1, Val(order))
+  destination = similar_point_values(source1, Val(order))
   return map!(φ, destination, all_sources...)
 end
 
@@ -1271,18 +1271,18 @@ and a mixed host/device pair must fail identically on every path.
 """
 function _check_displacement_compatibility(destination::PointSet, source::PointSet, sections)
   _check_npoints_match(destination, source)
-  family = _motion_storage_family(point_coordinates(destination))
-  eltype(point_coordinates(source)) === eltype(point_coordinates(destination)) ||
-    throw(ArgumentError("point-set scalar types differ: $(eltype(point_coordinates(destination))) and " *
-                        "$(eltype(point_coordinates(source))); displacement does not convert between precisions"))
-  _motion_storage_family(point_coordinates(source)) === family ||
+  family = _motion_storage_family(point_positions(destination))
+  eltype(point_positions(source)) === eltype(point_positions(destination)) ||
+    throw(ArgumentError("point-set scalar types differ: $(eltype(point_positions(destination))) and " *
+                        "$(eltype(point_positions(source))); displacement does not convert between precisions"))
+  _motion_storage_family(point_positions(source)) === family ||
     throw(ArgumentError("point sets must live in the same storage family; got " *
-                        "$(family) and $(_motion_storage_family(point_coordinates(source)))"))
+                        "$(family) and $(_motion_storage_family(point_positions(source)))"))
   for section in sections
     _check_npoints_match(destination, section)
-    eltype(field_data(section)) === eltype(point_coordinates(destination)) ||
+    eltype(field_data(section)) === eltype(point_positions(destination)) ||
       throw(ArgumentError("a displacement section's scalar type $(eltype(field_data(section))) does not " *
-                          "match the point set's $(eltype(point_coordinates(destination))); displacement " *
+                          "match the point set's $(eltype(point_positions(destination))); displacement " *
                           "does not convert between precisions"))
     _motion_storage_family(field_data(section)) === family ||
       throw(ArgumentError("a displacement section must live in the point set's storage family; got " *
@@ -1300,7 +1300,7 @@ pair rather than promoting (invariant 14 binds the non-section partners too — 
 plays the role `FieldSpectralMultipliers` plays for a spectral field).
 """
 function _check_displacement_domain(points::PointSet, grid::Grid3D)
-  T = eltype(point_coordinates(points))
+  T = eltype(point_positions(points))
   grid isa Grid3D{T} ||
     throw(ArgumentError("the domain's element type $(eltype(grid.domain_size)) does not match the " *
                         "point set's $(T); displacement does not convert between precisions"))
@@ -1366,10 +1366,10 @@ function displace! end
 function displace!(destination::PointSet, source::PointSet,
                    terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
   _check_displacement_compatibility(destination, source, map(last, terms))
-  converted = _convert_terms(eltype(point_coordinates(destination)), terms...)
-  rhs = _displacement_rhs(point_coordinates(source), converted...)
+  converted = _convert_terms(eltype(point_positions(destination)), terms...)
+  rhs = _displacement_rhs(point_positions(source), converted...)
   broadcasted = rhs isa Base.Broadcast.Broadcasted ? rhs : Base.Broadcast.broadcasted(identity, rhs)
-  _assign!(point_coordinates(destination), broadcasted)
+  _assign!(point_positions(destination), broadcasted)
   return destination
 end
 
@@ -1377,9 +1377,9 @@ function displace!(destination::PointSet, source::PointSet, grid::Grid3D,
                    terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
   _check_displacement_compatibility(destination, source, map(last, terms))
   _check_displacement_domain(destination, grid)
-  converted = _convert_terms(eltype(point_coordinates(destination)), terms...)
-  destination_coordinates = point_coordinates(destination)
-  source_coordinates = point_coordinates(source)
+  converted = _convert_terms(eltype(point_positions(destination)), terms...)
+  destination_coordinates = point_positions(destination)
+  source_coordinates = point_positions(source)
   # Column-wise so each axis sees its own extent and origin as plain scalars; the columns are
   # contiguous (SoA, fiber-last), so the three passes together still read and write each element
   # exactly once — one-traversal traffic, with the wrap fused into the displacement.
@@ -1432,7 +1432,7 @@ the `grid` form of [`displace!`](@ref).
 """
 function wrap!(points::PointSet, grid::Grid3D)
   _check_displacement_domain(points, grid)
-  coordinates = point_coordinates(points)
+  coordinates = point_positions(points)
   for axis in 1:3
     column = view(coordinates, :, axis)
     _assign!(column, Base.Broadcast.broadcasted(_wrap_coordinate, column,
@@ -1446,14 +1446,14 @@ end
 #   Moving between storage families (Adapt.jl)    #
 ###################################################
 
-# The point twins of the field methods in `Fields`. `similar_pointvalues` carries whatever the
+# The point twins of the field methods in `Fields`. `similar_point_values` carries whatever the
 # section holds besides its storage, exactly as `similar_field` does; a `PointSet` holds only its
 # coordinates, so it is rebuilt through its own constructor. The documentation for the whole family
 # lives on `adapt` in `Fields`.
 adapt_structure(to, values::AbstractPointValues) =
-  similar_pointvalues(values, adapt(to, point_values(values)))
+  similar_point_values(values, adapt(to, point_values(values)))
 
-adapt_structure(to, point_set::PointSet) = PointSet(adapt(to, point_coordinates(point_set)))
+adapt_structure(to, point_set::PointSet) = PointSet(adapt(to, point_positions(point_set)))
 
 
 # The point twins of `adapt!`, whose documentation lives with the generic in `Fields`. A point section
@@ -1469,12 +1469,12 @@ function adapt!(destination::AbstractPointValues{T, R}, source::AbstractPointVal
 end
 
 function adapt!(destination::PointSet, source::PointSet)
-  point_coordinates(destination) === point_coordinates(source) && return destination
+  point_positions(destination) === point_positions(source) && return destination
   # `DimensionMismatch`, not `ArgumentError`: a point-count mismatch is what this module already
   # throws that for (`_check_npoints_match`), and the two point methods should not disagree.
   npoints(destination) == npoints(source) ||
     throw(DimensionMismatch("point counts differ: $(npoints(destination)) and $(npoints(source))"))
-  copyto!(point_coordinates(destination), point_coordinates(source))
+  copyto!(point_positions(destination), point_positions(source))
   return destination
 end
 

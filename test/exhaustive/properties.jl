@@ -289,8 +289,8 @@ function run_relations_lane(configs)
         begin
           path = joinpath(mktempdir(), "relation_points.h5")
           HDF5.h5open(f -> write_points(f, "p", b.points), path, "w")
-          point_coordinates(HDF5.h5open(f -> read_points(f, "p"), path, "r"))
-        end, point_coordinates(b.points)) :
+          point_positions(HDF5.h5open(f -> read_points(f, "p"), path, "r"))
+        end, point_positions(b.points)) :
        (:skip, nothing, nothing)),
       ("kernel composition is associative",
        field_data(convolve(b.sh, convolve(convolve(spectral_cutoff(m, b.T(3)),

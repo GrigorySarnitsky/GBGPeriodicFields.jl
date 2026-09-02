@@ -17,16 +17,16 @@ const I = GBGPeriodicFields.Points
       coordinates = reshape(collect(T, 1:(3M)), M, 3)
       point_set = PointSet(coordinates)
       @test npoints(point_set) == M
-      @test point_coordinates(point_set) === coordinates
-      @test eltype(point_coordinates(point_set)) == T
+      @test point_positions(point_set) === coordinates
+      @test eltype(point_positions(point_set)) == T
 
       scalar_values = ScalarPointValues(rand(T, M))
       vector_values = VectorPointValues(rand(T, M, 3))
       tensor_values = TensorPointValues(rand(T, M, 3, 3))
 
-      @test pointvalue_tensor_order(scalar_values) == 0
-      @test pointvalue_tensor_order(vector_values) == 1
-      @test pointvalue_tensor_order(tensor_values) == 2
+      @test point_value_tensor_order(scalar_values) == 0
+      @test point_value_tensor_order(vector_values) == 1
+      @test point_value_tensor_order(tensor_values) == 2
       @test tensor_values isa TensorPointValues{2}
       @test TensorPointValues{2}(rand(T, M, 3, 3)) isa TensorPointValues{2}
 

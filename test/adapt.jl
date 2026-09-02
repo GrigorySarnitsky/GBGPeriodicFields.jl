@@ -83,8 +83,8 @@ end
             VectorPointValues(rand(Float64, 6, 3)),
             TensorPointValues{2}(rand(Float64, 6, 3, 3)))
   moved_points = adapt(CopyStorage(), points)
-  @test point_coordinates(moved_points) !== point_coordinates(points)
-  @test point_coordinates(moved_points) == point_coordinates(points)
+  @test point_positions(moved_points) !== point_positions(points)
+  @test point_positions(moved_points) == point_positions(points)
   for v in values
     moved = adapt(CopyStorage(), v)
     @test typeof(moved) === typeof(v)
@@ -242,13 +242,13 @@ end
 
   # The point layer: no grid or layout, so the point count is the whole contract.
   values = VectorPointValues(randn(T, 6, 3))
-  into   = similar_pointvalues(values, Val(1))
+  into   = similar_point_values(values, Val(1))
   @test adapt!(into, values) === into
   @test GBGPeriodicFields.Points.point_values(into) == GBGPeriodicFields.Points.point_values(values)
   @test_throws DimensionMismatch adapt!(VectorPointValues(randn(T, 5, 3)), values)   # the point layer's own convention
   positions = PointSet(rand(T, 6, 3))
   landing   = PointSet(zeros(T, 6, 3))
   @test adapt!(landing, positions) === landing
-  @test GBGPeriodicFields.Points.point_coordinates(landing) == GBGPeriodicFields.Points.point_coordinates(positions)
+  @test GBGPeriodicFields.Points.point_positions(landing) == GBGPeriodicFields.Points.point_positions(positions)
   @test_throws DimensionMismatch adapt!(PointSet(zeros(T, 5, 3)), positions)
 end

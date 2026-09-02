@@ -2603,7 +2603,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     defect (`radial_spectrum`'s non-cubic caveat naming ``\min(N_i)/2``, wrong once lengths and
     sizes decorrelate) was corrected to the per-axis inscribed-sphere form.
 
-44. **The section allocators become public: `similar_field` and `similar_pointvalues`** (decided
+44. **The section allocators become public: `similar_field` and `similar_point_values`** (decided
     2026-07-24; a `/check-consistency` panel finding). Both build a section carrying a reference's
     representation, tensor order, base grid and storage backend — the allocation a consumer needs for
     the scratch an in-place loop writes into — yet both were documented as Internal API, under a
@@ -3519,7 +3519,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     holds.
 
 67. **`Base.similar` is declined for the section allocators** (2026-08-15, user-decided, from the same
-    panel round). A hat observed that `similar_field` and `similar_pointvalues` do what `Base.similar`
+    panel round). A hat observed that `similar_field` and `similar_point_values` do what `Base.similar`
     exists to do for an array-like wrapper — build compatible uninitialized storage from a reference —
     and that no rationale for declining it was recorded anywhere, unlike the explicit "we own the
     types, so extending is not piracy" note that justifies extending `dot`, `cross` and `mean`. The

@@ -246,7 +246,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(vvd + vvd2, vv + vv2)
       @test matches(T(2.5) * vvd, T(2.5) * vv)
       @test matches(vvd / T(4), vv / T(4))
-      device_dest = IP.similar_pointvalues(vvd, Val(1)); host_dest = IP.similar_pointvalues(vv, Val(1))
+      device_dest = IP.similar_point_values(vvd, Val(1)); host_dest = IP.similar_point_values(vv, Val(1))
       @. device_dest = vvd - vvd2
       @. host_dest = vv - vv2
       @test matches(device_dest, host_dest)
@@ -271,8 +271,8 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       host_acc = T(2) * (A * vv); device_acc = on_device_pv(host_acc)
       mul!(host_acc, A, vv, T(3), T(5)); mul!(device_acc, Ad, vvd, T(3), T(5))
       @test matches(device_acc, host_acc)
-      device_ow = IP.similar_pointvalues(vvd, Val(1)); fill!(point_values(device_ow), T(NaN))
-      host_ow = IP.similar_pointvalues(vv, Val(1)); fill!(point_values(host_ow), T(NaN))
+      device_ow = IP.similar_point_values(vvd, Val(1)); fill!(point_values(device_ow), T(NaN))
+      host_ow = IP.similar_point_values(vv, Val(1)); fill!(point_values(host_ow), T(NaN))
       mul!(device_ow, Ad, vvd, T(1), T(0)); mul!(host_ow, A, vv, T(1), T(0))
       @test matches(device_ow, host_ow)
       @test matches(device_ow, A * vv)              # NaNs gone ⇒ overwrite, not accumulate
@@ -306,7 +306,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       device_points = on_device_ps(PointSet(copy(host_start)))
       displace!(host_points, (T(0.3), host_v1), (T(-0.7), host_v2))
       displace!(device_points, (T(0.3), device_v1), (T(-0.7), device_v2))
-      @test isapprox(Array(point_coordinates(device_points)), point_coordinates(host_points);
+      @test isapprox(Array(point_positions(device_points)), point_positions(host_points);
                      rtol = rtol, atol = atol)
 
       # A wrapped coordinate lives on a circle, so the torus form compares the difference
@@ -314,7 +314,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # backends on opposite sides of a boundary and read as a whole box length.
       box = reshape(collect(motion_grid.domain_size), 1, 3)
       wrapped_matches(device_set, host_set) =
-        all(abs.(mod.(Array(point_coordinates(device_set)) .- point_coordinates(host_set) .+ box ./ 2,
+        all(abs.(mod.(Array(point_positions(device_set)) .- point_positions(host_set) .+ box ./ 2,
                       box) .- box ./ 2) .<= atol .+ rtol .* box)
 
       # Torus displacement (the wrap fused in) and the standalone wrap.
@@ -325,12 +325,12 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test wrapped_matches(device_points, host_points)
 
       host_far = PointSet(host_start .+ T(5) .* reshape([T(2π), T(4π), T(6π)], 1, 3))
-      device_far = on_device_ps(PointSet(copy(point_coordinates(host_far))))
+      device_far = on_device_ps(PointSet(copy(point_positions(host_far))))
       wrap!(host_far, motion_grid)
       wrap!(device_far, motion_grid)
       # `wrap!` alone stays bitwise: both sides start from identical host coordinates and the
       # reduction is `mod` plus an equality fold, with no multiply-add for a device to contract.
-      @test Array(point_coordinates(device_far)) == point_coordinates(host_far)
+      @test Array(point_positions(device_far)) == point_positions(host_far)
 
       # The destination/source form, destination on the device.
       host_dest = PointSet(zeros(T, number_of_points, 3))
@@ -339,7 +339,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       device_src = on_device_ps(PointSet(copy(host_start)))
       displace!(host_dest, host_src, (T(1.5), host_v1))
       displace!(device_dest, device_src, (T(1.5), device_v1))
-      @test isapprox(Array(point_coordinates(device_dest)), point_coordinates(host_dest);
+      @test isapprox(Array(point_positions(device_dest)), point_positions(host_dest);
                      rtol = rtol, atol = atol)
 
       # A device point set refuses host sections and a mixed point-set pair — the package's own
@@ -842,7 +842,7 @@ end
       # Point sections cross too, and a mismatched pair is refused on the device exactly as on the host.
       host_q = VectorPointValues(randn(Float64, 6, 3))
       device_q = adapt(AT, host_q)
-      back_q = similar_pointvalues(host_q, Val(1))
+      back_q = similar_point_values(host_q, Val(1))
       @test adapt!(back_q, device_q) === back_q
       @test GBGPeriodicFields.Points.point_values(back_q) == GBGPeriodicFields.Points.point_values(host_q)
       @test_throws ArgumentError adapt!(similar_field(adapt(AT, host_z), Val(0)),
@@ -866,8 +866,8 @@ end
 
       # The point layer mirrors it.
       host_points = PointSet(rand(Float64, 6, 3) .* 2pi)
-      @test point_coordinates(adapt(AT, host_points)) isa AT
-      @test Array(point_coordinates(adapt(AT, host_points))) == point_coordinates(host_points)
+      @test point_positions(adapt(AT, host_points)) isa AT
+      @test Array(point_positions(adapt(AT, host_points))) == point_positions(host_points)
     end
 
     @testset "allocating constructors produce device fields (decision 74)" begin

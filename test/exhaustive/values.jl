@@ -192,7 +192,7 @@ function run_value_lane(configs)
       (:field_scalar_type,   field_scalar_type(u) === T, true),
       (:field_tensor_order,  field_tensor_order(A),  2),
       (:npoints,             npoints(PointSet(rand(T, 9, 3))), 9),
-      (:pointvalue_tensor_order, pointvalue_tensor_order(VectorPointValues(rand(T, 9, 3))), 1),
+      (:point_value_tensor_order, point_value_tensor_order(VectorPointValues(rand(T, 9, 3))), 1),
       (:fiber_shape,         collect(fiber_shape(Val(2))), [3, 3]),
       (:physical_field_shape, collect(physical_field_shape(grid, Val(1))), [grid.grid_size..., 3]),
       (:eltype,              eltype(u) === T,        true),
@@ -341,13 +341,13 @@ function run_value_lane(configs)
       # had no independent value oracle at all before this.
       (:interpolate,     point_values(interpolate(sh, points, DirectDFT())),
                          ref_spectral_interpolate(field_data(sh), grid, layout,
-                                                  point_coordinates(points), 0)),
+                                                  point_positions(points), 0)),
       # ABOVE R = 0. The DFT transfer kernels carry an explicit fiber loop with hand-built linear-index
       # arithmetic that collapses to a no-op when there is one component, so a fiber-stride defect is
       # invisible at R = 0 by construction — which is the only order that was checked.
       (:interpolate,     point_values(interpolate(uh, points, DirectDFT())),
                          ref_spectral_interpolate(field_data(uh), grid, layout,
-                                                  point_coordinates(points), 1)),
+                                                  point_positions(points), 1)),
       # The cross-family `ProductKernel` (radial ∘ separable). Radial ∘ radial collapses back to a
       # radial kernel by decision 51, so composing two radials never builds this type at all; the pool
       # constructs one and nothing compared its coefficients to anything.
@@ -370,30 +370,30 @@ function run_value_lane(configs)
                          ref_spectral_cutoff(grid, layout, shape, cutoff)),
       (:interpolate,     point_values(interpolate(sh, points, NUFFT(sh; tol = 1e-10))),
                          ref_spectral_interpolate(ref_project_out_nyquist(field_data(sh), grid, layout),
-                                                  grid, layout, point_coordinates(points), 0)),
+                                                  grid, layout, point_positions(points), 0)),
       (:radial_spectrum, collect(last(radial_spectrum(sh, multipliers))),
                          ref_radial_spectrum(field_data(sh), grid, layout, 0)),
       (:interpolate,    point_values(interpolate(s, points, CatmullRom)),
-                        ref_interpolate_catmull_rom(ds, grid, point_coordinates(points), 0)),
+                        ref_interpolate_catmull_rom(ds, grid, point_positions(points), 0)),
       (:anterpolate,    field_data(anterpolate(grid, points, q, CatmullRom)),
-                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(points), 0)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(points), 0)),
       (:interpolate!,   point_values(interpolate!(ScalarPointValues(zeros(T, 9)), s, points, CatmullRom)),
-                        ref_interpolate_catmull_rom(ds, grid, point_coordinates(points), 0)),
+                        ref_interpolate_catmull_rom(ds, grid, point_positions(points), 0)),
       (:anterpolate!,   field_data(anterpolate!(similar_field(s, Val(0)), points, q, CatmullRom)),
-                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(points), 0)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(points), 0)),
       # THE GEOMETRIES THE TRANSFER EXISTS TO HANDLE, and a non-scalar fiber. Every point set compared
       # against these references was i.i.d. uniform strictly inside the box, at R = 0 — so an
       # accumulation defect in the scatter where stencils OVERLAP (last-write-wins instead of add), a
       # wrap defect for a point outside the box, and a fiber-component swap during gather were all
       # unobservable. The geometries exist in `pointset_pool` but reached only an `isfinite` check.
       (:interpolate,    point_values(interpolate(u, points, CatmullRom)),
-                        ref_interpolate_catmull_rom(du, grid, point_coordinates(points), 1)),
+                        ref_interpolate_catmull_rom(du, grid, point_positions(points), 1)),
       (:interpolate,    point_values(interpolate(s, clustered, CatmullRom)),
-                        ref_interpolate_catmull_rom(ds, grid, point_coordinates(clustered), 0)),
+                        ref_interpolate_catmull_rom(ds, grid, point_positions(clustered), 0)),
       (:anterpolate,    field_data(anterpolate(grid, clustered, q, CatmullRom)),
-                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(clustered), 0)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(clustered), 0)),
       (:anterpolate,    field_data(anterpolate(grid, outside, q, CatmullRom)),
-                        ref_anterpolate_catmull_rom(point_values(q), grid, point_coordinates(outside), 0)),
+                        ref_anterpolate_catmull_rom(point_values(q), grid, point_positions(outside), 0)),
       # ── the spectral operators and their in-place twins ───────────────────────────────────────
       (:gradient,       field_data(gradient(sh, multipliers)),  ref_gradient(field_data(sh), grid, layout)),
       # The JACOBIAN mode, with its index convention actually pinned. `gradient(vector)` was exercised
@@ -476,8 +476,8 @@ function run_value_lane(configs)
                             ref_radial_correlation(field_data(sh), grid, layout)),
       # ── the remaining accessors ───────────────────────────────────────────────────────────────
       # Against the RAW matrices the objects were constructed from, not against themselves. Comparing
-      # `point_coordinates(points)` with itself passes for a transposed, zeroed or permuted result.
-      (:point_coordinates,   point_coordinates(points),         raw_coordinates),
+      # `point_positions(points)` with itself passes for a transposed, zeroed or permuted result.
+      (:point_positions,   point_positions(points),         raw_coordinates),
       # The COUNTING-MEASURE inner, against a raw sum. Its only anchor was the adjointness relation
       # `M⟨Wf,q⟩ = N⟨f,Wᵀq⟩`, where it appears on one side in company with three other operations — so
       # its own `1/M` normalization was never checked directly against an array.
@@ -509,7 +509,7 @@ function run_value_lane(configs)
                               [ntuple(d -> d == layout.fft_dims[1] ? grid.grid_size[d] ÷ 2 + 1 :
                                            grid.grid_size[d], 3)..., 3]),
       (:similar_field,       collect(size(field_data(similar_field(s, Val(1))))), [grid.grid_size..., 3]),
-      (:similar_pointvalues, npoints(similar_pointvalues(q, Val(0))), 9),
+      (:similar_point_values, npoints(similar_point_values(q, Val(0))), 9),
       (:axes,                collect(first(axes(u))),           collect(1:grid.grid_size[1])),
       # Through the package's own `getindex` on the FIELD; reading the raw array on both sides never
       # called the method under test.
@@ -554,19 +554,19 @@ function run_value_lane(configs)
       # its rows: the derived lanes exercised them, but the independent value oracles are hand-written
       # and nobody wrote one. An operation covered only by universal properties is checked for being
       # finite and type-stable, not for being RIGHT.
-      (:wrap!,      point_coordinates(wrap!(PointSet(copy(raw_coordinates) .+
+      (:wrap!,      point_positions(wrap!(PointSet(copy(raw_coordinates) .+
                                                      3 .* reshape(collect(grid.domain_size), 1, 3)), grid)),
                     ref_wrap(raw_coordinates .+ 3 .* reshape(collect(grid.domain_size), 1, 3), grid)),
       # In the universal cover: winding is PRESERVED, so a displacement that leaves the box stays out.
-      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), (α, qa))),
+      (:displace!,  point_positions(displace!(PointSet(copy(raw_coordinates)), (α, qa))),
                     ref_displace(raw_coordinates, (α, point_values(qa)))),
       # TWO terms, with distinct coefficients and distinct sections. One term cannot see a fused
       # traversal that drops or double-counts a term, and equal coefficients cannot see them swapped.
-      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), (α, qa), (β, qb))),
+      (:displace!,  point_positions(displace!(PointSet(copy(raw_coordinates)), (α, qa), (β, qb))),
                     ref_displace(raw_coordinates, (α, point_values(qa)), (β, point_values(qb)))),
       # On the torus proper: the trailing grid fuses the wrap in, so the result is the canonical
       # representative of the same displacement.
-      (:displace!,  point_coordinates(displace!(PointSet(copy(raw_coordinates)), grid, (α, qa), (β, qb))),
+      (:displace!,  point_positions(displace!(PointSet(copy(raw_coordinates)), grid, (α, qa), (β, qb))),
                     ref_displace_wrapped(raw_coordinates, grid, (α, point_values(qa)), (β, point_values(qb)))),
       # Zero for anything the package produces — a spectrum built by transforming a real field cannot
       # violate the constraint — and exactly twice the imaginary part it is handed otherwise. The
@@ -645,9 +645,9 @@ function run_value_lane(configs)
          read_field(file, "spectral_tensor"), read_points(file, "qv"), read_points(file, "qt"))
       end
       ((:write_field,  vec(stored_field),                 vec(du)),
-       (:write_points, vec(stored_points),                vec(point_coordinates(points))),
+       (:write_points, vec(stored_points),                vec(point_positions(points))),
        (:read_field,   field_data(recovered_field),       du),
-       (:read_points,  point_coordinates(recovered_points), point_coordinates(points)),
+       (:read_points,  point_positions(recovered_points), point_positions(points)),
        # The round trip must return the same VALUES and the same TYPE — a tag-dispatch defect that
        # rebuilt a spectral field as a physical one, or a tensor as a vector, would otherwise survive.
        (:read_field,   field_data(others[1]),             ds),
@@ -751,10 +751,10 @@ function run_value_lane(configs)
     if !LEDGER_FIXTURES_ONLY
       vector_carriers = ((u, du, () -> similar_field(u, Val(1)), () -> similar_field(s, Val(0)), field_data),
                          (uh, field_data(uh), () -> similar_field(uh, Val(1)), () -> similar_field(sh, Val(0)), field_data),
-                         (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qa, Val(0)), point_values))
+                         (qa, point_values(qa), () -> similar_point_values(qa, Val(1)), () -> similar_point_values(qa, Val(0)), point_values))
       tensor_carriers = ((A, dA, () -> similar_field(A, Val(2)), () -> similar_field(u, Val(1)), () -> similar_field(s, Val(0)), field_data),
                          (Ah, field_data(Ah), () -> similar_field(Ah, Val(2)), () -> similar_field(uh, Val(1)), () -> similar_field(sh, Val(0)), field_data),
-                         (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qa, Val(0)), point_values))
+                         (qt, point_values(qt), () -> similar_point_values(qt, Val(2)), () -> similar_point_values(qa, Val(1)), () -> similar_point_values(qa, Val(0)), point_values))
       cv = rand(FiberVector{T})
       ct = rand(FiberTensor2{T})
 
@@ -795,7 +795,7 @@ function run_value_lane(configs)
     # scalar-by-scalar case its own method. The right action `u * A` is also distinct from `A * u`.
     if !LEDGER_FIXTURES_ONLY
       scalar_products = ((s, ds, s2, field_data(s2), () -> similar_field(s, Val(0)), field_data),
-                         (q, point_values(q), q2, point_values(q2), () -> similar_pointvalues(q, Val(0)), point_values))
+                         (q, point_values(q), q2, point_values(q2), () -> similar_point_values(q, Val(0)), point_values))
       for (scalar, sraw, other, oraw, mkscalar, data) in scalar_products
         push!(generated, (:multiply!, data(multiply!(mkscalar(), scalar, other)), sraw .* oraw))
         push!(generated, (:*, data(scalar * other), sraw .* oraw))
@@ -807,8 +807,8 @@ function run_value_lane(configs)
       for (section, raw, mk, data, scalar, sraw) in
           ((u, du, () -> similar_field(u, Val(1)), field_data, s, ds),
            (A, dA, () -> similar_field(A, Val(2)), field_data, s, ds),
-           (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), point_values, q, point_values(q)),
-           (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), point_values, q, point_values(q)))
+           (qa, point_values(qa), () -> similar_point_values(qa, Val(1)), point_values, q, point_values(q)),
+           (qt, point_values(qt), () -> similar_point_values(qt, Val(2)), point_values, q, point_values(q)))
         order = ndims(raw) - ndims(sraw)
         widened = _fiber_broadcast_scalar(sraw, size(raw), order)
         push!(generated, (:multiply!, data(multiply!(mk(), section, scalar)), raw .* widened))
@@ -845,7 +845,7 @@ function run_value_lane(configs)
     if !LEDGER_FIXTURES_ONLY
       scalar_carriers = ((s, ds, () -> similar_field(s, Val(0)), () -> similar_field(u, Val(1)), () -> similar_field(A, Val(2)), field_data),
                          (sh, field_data(sh), () -> similar_field(sh, Val(0)), () -> similar_field(uh, Val(1)), () -> similar_field(Ah, Val(2)), field_data),
-                         (q, point_values(q), () -> similar_pointvalues(q, Val(0)), () -> similar_pointvalues(qa, Val(1)), () -> similar_pointvalues(qt, Val(2)), point_values))
+                         (q, point_values(q), () -> similar_point_values(q, Val(0)), () -> similar_point_values(qa, Val(1)), () -> similar_point_values(qt, Val(2)), point_values))
       for (scalar, sraw, mk0, mk1, mk2, data) in scalar_carriers
         base = size(sraw)
         wide1 = _fiber_broadcast_scalar(sraw, (base..., 3), 1)
@@ -876,9 +876,9 @@ function run_value_lane(configs)
 
       # The point-value real scaling, with the in-place verbs: the field side of this was swept
       # already, the point side reached nothing.
-      for (section, raw, mk, data) in ((q, point_values(q), () -> similar_pointvalues(q, Val(0)), point_values),
-                                       (qa, point_values(qa), () -> similar_pointvalues(qa, Val(1)), point_values),
-                                       (qt, point_values(qt), () -> similar_pointvalues(qt, Val(2)), point_values))
+      for (section, raw, mk, data) in ((q, point_values(q), () -> similar_point_values(q, Val(0)), point_values),
+                                       (qa, point_values(qa), () -> similar_point_values(qa, Val(1)), point_values),
+                                       (qt, point_values(qt), () -> similar_point_values(qt, Val(2)), point_values))
         push!(generated, (:multiply!, data(multiply!(mk(), section, α)), ref_scale(raw, α)))
         push!(generated, (:multiply!, data(multiply!(mk(), α, section)), ref_scale(raw, α)))
         push!(generated, (:divide!, data(divide!(mk(), section, α)), ref_divide(raw, α)))
@@ -914,17 +914,17 @@ function run_value_lane(configs)
       push!(generated, (:extrema, collect(extrema(norm, qa)), collect(extrema(ref_norm_generic(point_values(qa))))))
 
       # `norm!` into a scalar point section, from each tensor order.
-      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_pointvalues(q, Val(0)), qa)),
+      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_point_values(q, Val(0)), qa)),
                         ref_norm_generic(point_values(qa))))
-      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_pointvalues(q, Val(0)), qt)),
+      push!(generated, (:norm!, point_values(GBGPeriodicFields.norm!(similar_point_values(q, Val(0)), qt)),
                         ref_frobenius_generic(point_values(qt))))
 
       # The fiber decompositions on point-values, in place and allocating.
       push!(generated, (:sym, point_values(sym(qt)), ref_sym_generic(point_values(qt))))
       push!(generated, (:skew, point_values(skew(qt)), ref_skew_generic(point_values(qt))))
-      push!(generated, (:sym!, point_values(sym!(similar_pointvalues(qt, Val(2)), qt)), ref_sym_generic(point_values(qt))))
-      push!(generated, (:skew!, point_values(skew!(similar_pointvalues(qt, Val(2)), qt)), ref_skew_generic(point_values(qt))))
-      push!(generated, (:dev!, point_values(dev!(similar_pointvalues(qt, Val(2)), qt)), ref_dev_generic(point_values(qt))))
+      push!(generated, (:sym!, point_values(sym!(similar_point_values(qt, Val(2)), qt)), ref_sym_generic(point_values(qt))))
+      push!(generated, (:skew!, point_values(skew!(similar_point_values(qt, Val(2)), qt)), ref_skew_generic(point_values(qt))))
+      push!(generated, (:dev!, point_values(dev!(similar_point_values(qt, Val(2)), qt)), ref_dev_generic(point_values(qt))))
     end
 
     # ── sweep 6: the storage hook, kernel composition, and the spectral scatter's arities ────────
@@ -934,8 +934,8 @@ function run_value_lane(configs)
       # untouched — which is exactly what a consumer's unconditional `adapt(Array, x)` relies on.
       push!(generated, (:adapt_structure, field_data(Adapt.adapt_structure(Array, sh)), field_data(sh)))
       push!(generated, (:adapt_structure, point_values(Adapt.adapt_structure(Array, qa)), point_values(qa)))
-      push!(generated, (:adapt_structure, point_coordinates(Adapt.adapt_structure(Array, points)),
-                        point_coordinates(points)))
+      push!(generated, (:adapt_structure, point_positions(Adapt.adapt_structure(Array, points)),
+                        point_positions(points)))
       push!(generated, (:adapt_structure, Adapt.adapt_structure(Array, multipliers).wavenumber_1,
                         multipliers.wavenumber_1))
       radial_k = spectral_cutoff(multipliers, cutoff)
@@ -977,12 +977,12 @@ function run_value_lane(configs)
         base = zeros(Complex{T}, size(field_data(sh)))
         push!(generated, (:anterpolate!,
                           band(field_data(anterpolate!(ScalarFieldSpectral(copy(base), grid, layout), points, q, scheme))),
-                          band(ref_spectral_anterpolate(base, point_coordinates(points), point_values(q),
+                          band(ref_spectral_anterpolate(base, point_positions(points), point_values(q),
                                                         grid, layout, 0, one(T), zero(T)))))
         seeded = randn(rng_for_scatter, Complex{T}, size(field_data(sh)))
         push!(generated, (:anterpolate!,
                           band(field_data(anterpolate!(ScalarFieldSpectral(copy(seeded), grid, layout), points, q, scheme, α, β))),
-                          band(ref_spectral_anterpolate(seeded, point_coordinates(points), point_values(q),
+                          band(ref_spectral_anterpolate(seeded, point_positions(points), point_values(q),
                                                         grid, layout, 0, α, β))))
       end
     end
@@ -998,22 +998,22 @@ function run_value_lane(configs)
       # The VARIADIC forms, three distinct operands so a dropped or duplicated argument shows.
       push!(generated, (:+, point_values(qa + qb + qa), point_values(qa) .+ point_values(qb) .+ point_values(qa)))
       push!(generated, (:-, point_values(qa - qb - qa), point_values(qa) .- point_values(qb) .- point_values(qa)))
-      push!(generated, (:add!, point_values(add!(similar_pointvalues(qa, Val(1)), qa, qb, qa)),
+      push!(generated, (:add!, point_values(add!(similar_point_values(qa, Val(1)), qa, qb, qa)),
                         point_values(qa) .+ point_values(qb) .+ point_values(qa)))
-      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(qa, Val(1)), qa, qb, qa)),
+      push!(generated, (:subtract!, point_values(subtract!(similar_point_values(qa, Val(1)), qa, qb, qa)),
                         point_values(qa) .- point_values(qb) .- point_values(qa)))
 
       # A Real against a SCALAR point section, both argument orders.
-      push!(generated, (:add!, point_values(add!(similar_pointvalues(q, Val(0)), q, α)), point_values(q) .+ α))
-      push!(generated, (:add!, point_values(add!(similar_pointvalues(q, Val(0)), α, q)), α .+ point_values(q)))
-      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(q, Val(0)), q, α)), point_values(q) .- α))
-      push!(generated, (:subtract!, point_values(subtract!(similar_pointvalues(q, Val(0)), α, q)), α .- point_values(q)))
+      push!(generated, (:add!, point_values(add!(similar_point_values(q, Val(0)), q, α)), point_values(q) .+ α))
+      push!(generated, (:add!, point_values(add!(similar_point_values(q, Val(0)), α, q)), α .+ point_values(q)))
+      push!(generated, (:subtract!, point_values(subtract!(similar_point_values(q, Val(0)), q, α)), point_values(q) .- α))
+      push!(generated, (:subtract!, point_values(subtract!(similar_point_values(q, Val(0)), α, q)), α .- point_values(q)))
 
       # `adapt!` into a destination of the family it already occupies: the values must arrive intact.
       push!(generated, (:adapt!, field_data(adapt!(similar_field(sh, Val(0)), sh)), field_data(sh)))
-      push!(generated, (:adapt!, point_values(adapt!(similar_pointvalues(qa, Val(1)), qa)), point_values(qa)))
-      push!(generated, (:adapt!, point_coordinates(adapt!(PointSet(similar(point_coordinates(points))), points)),
-                        point_coordinates(points)))
+      push!(generated, (:adapt!, point_values(adapt!(similar_point_values(qa, Val(1)), qa)), point_values(qa)))
+      push!(generated, (:adapt!, point_positions(adapt!(PointSet(similar(point_positions(points))), points)),
+                        point_positions(points)))
 
       # The Frobenius pairing of two TENSOR sections, and its in-place and operator spellings.
       push!(generated, (:dot, field_data(dot(A, B)), ref_tensor_inner_generic(dA, field_data(B))))
@@ -1021,7 +1021,7 @@ function run_value_lane(configs)
       push!(generated, (:dot!, field_data(dot!(similar_field(s, Val(0)), A, B)), ref_tensor_inner_generic(dA, field_data(B))))
       push!(generated, (:dot, point_values(dot(qt, qt)), ref_tensor_inner_generic(point_values(qt), point_values(qt))))
       push!(generated, (:⋅, point_values(qt ⋅ qt), ref_tensor_inner_generic(point_values(qt), point_values(qt))))
-      push!(generated, (:dot!, point_values(dot!(similar_pointvalues(q, Val(0)), qt, qt)),
+      push!(generated, (:dot!, point_values(dot!(similar_point_values(q, Val(0)), qt, qt)),
                         ref_tensor_inner_generic(point_values(qt), point_values(qt))))
 
       # A fiber constant on the LEFT of a section of the complementary order.
@@ -1046,14 +1046,14 @@ function run_value_lane(configs)
       # `map!` with α/β, and its variadic point form.
       push!(generated, (:map!, field_data(map!(x -> 2x, similar_field(s, Val(0)), s, α, zero(T))),
                         α .* (2 .* ds)))
-      push!(generated, (:map!, point_values(map!(x -> 2x, similar_pointvalues(q, Val(0)), q, α, zero(T))),
+      push!(generated, (:map!, point_values(map!(x -> 2x, similar_point_values(q, Val(0)), q, α, zero(T))),
                         α .* (2 .* point_values(q))))
-      push!(generated, (:map!, point_values(map!((x, y) -> x - 2y, similar_pointvalues(qa, Val(1)), qa, qb)),
+      push!(generated, (:map!, point_values(map!((x, y) -> x - 2y, similar_point_values(qa, Val(1)), qa, qb)),
                         point_values(qa) .- 2 .* point_values(qb)))
 
       # A scalar-by-scalar product written into a destination of the general field type.
       push!(generated, (:multiply!, field_data(multiply!(similar_field(s, Val(0)), s, s2)), ds .* field_data(s2)))
-      push!(generated, (:multiply!, point_values(multiply!(similar_pointvalues(q, Val(0)), q, q2)),
+      push!(generated, (:multiply!, point_values(multiply!(similar_point_values(q, Val(0)), q, q2)),
                         point_values(q) .* point_values(q2)))
 
       # Reductions the tail named: the spectral `integral`, the mapped form, and the whole-section

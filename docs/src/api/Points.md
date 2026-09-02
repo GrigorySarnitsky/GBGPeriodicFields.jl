@@ -24,16 +24,16 @@ TensorPointValues
 ## Point accessor functions
 
 ```@docs
-point_coordinates
+point_positions
 point_values
-pointvalue_tensor_order
+point_value_tensor_order
 npoints
 ```
 
 ## Point-value allocation
 
 ```@docs
-similar_pointvalues
+similar_point_values
 ```
 
 ## Point-value algebra

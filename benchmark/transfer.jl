@@ -11,7 +11,7 @@
 function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) where {T}
   field = scalar_phys(AT, T, grid)
   points, q, _ = point_setup(AT, T, grid)
-  registry === nothing || (registry[tag] = (points, copy(point_coordinates(points))))
+  registry === nothing || (registry[tag] = (points, copy(point_positions(points))))
   out = interpolate(field, points, CatmullRom)   # allocate the matching output once, reuse
   for (label, scheme) in (("trilinear", LalescuSpline(0, 0)), ("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(3, 3)))
     group["interpolate! $label | $tag"] = @benchmarkable (interpolate!($out, $field, $points, $scheme); bench_sync(point_values($out)))
@@ -66,14 +66,14 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   # left it a valid permutation with no locality, so every archived ordered row up to 2026-08-31
   # timed a stale order (1.75 ms where a fresh order gives 0.49 ms — PERFORMANCE.md finding (ak)).
   # The unordered rows never noticed: drifted-then-wrapped positions are as uniform as fresh ones.
-  motion_points = PointSet(copy(point_coordinates(points)))
+  motion_points = PointSet(copy(point_positions(points)))
   npart = npoints(motion_points)
   v1 = VectorPointValues(AT(randn(T, npart, 3)))
   v2 = VectorPointValues(AT(randn(T, npart, 3)))
   v3 = VectorPointValues(AT(randn(T, npart, 3)))
   c = T(0.01)
-  group["displace! 1-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1)); bench_sync(point_coordinates($motion_points)))
-  group["displace! 3-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($motion_points)))
-  group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($motion_points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_coordinates($motion_points)))
-  group["wrap! | $tag"] = @benchmarkable (wrap!($motion_points, $grid); bench_sync(point_coordinates($motion_points)))
+  group["displace! 1-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1)); bench_sync(point_positions($motion_points)))
+  group["displace! 3-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_positions($motion_points)))
+  group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($motion_points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_positions($motion_points)))
+  group["wrap! | $tag"] = @benchmarkable (wrap!($motion_points, $grid); bench_sync(point_positions($motion_points)))
 end

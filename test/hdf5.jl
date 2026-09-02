@@ -161,8 +161,8 @@ using Random
       h5open(path, "r") do file
         back_positions = read_points(file, "positions")
         @test back_positions isa PointSet
-        @test point_coordinates(back_positions) == point_coordinates(positions)
-        @test eltype(point_coordinates(back_positions)) === T
+        @test point_positions(back_positions) == point_positions(positions)
+        @test eltype(point_positions(back_positions)) === T
         @test npoints(back_positions) == M
 
         for (name, original, Type_, order) in (("scalars", scalars, ScalarPointValues, 0),
@@ -173,7 +173,7 @@ using Random
           @test back isa Type_
           @test point_values(back) == point_values(original)     # bit-for-bit
           @test eltype(point_values(back)) === T
-          @test pointvalue_tensor_order(back) == order           # recovered from the array's dimensionality
+          @test point_value_tensor_order(back) == order           # recovered from the array's dimensionality
           @test npoints(back) == M
         end
       end

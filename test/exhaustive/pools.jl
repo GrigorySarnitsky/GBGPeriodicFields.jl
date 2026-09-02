@@ -304,7 +304,7 @@ const MISMATCH_BUILDERS = Dict{Symbol, Any}(
   # mutation, because no product contained the combination.
   :field_tensor_order      => () -> _vector_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT),
   :_section_tensor_order    => () -> _vector_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT),
-  :pointvalue_tensor_order => () -> VectorPointValues(zeros(4, 3)),
+  :point_value_tensor_order => () -> VectorPointValues(zeros(4, 3)),
   # Point-count mismatch: the counting base's version of a shape mismatch.
   :npoints                 => () -> PointSet(zeros(7, 3)),
   :_base_count             => () -> ScalarPointValues(zeros(7)),
@@ -450,7 +450,7 @@ function run_mismatch_lane()
   # vector, `laplacian` and `convolve` take any order, a scalar kernel broadcasts over the fiber. This
   # is settled by trying the slot at each order rather than by declaring it: an entry that accepts more
   # than one is generic, and one that accepts exactly one is constrained.
-  order_axes = Set([:field_tensor_order, :_section_tensor_order, :pointvalue_tensor_order, :ndims])
+  order_axes = Set([:field_tensor_order, :_section_tensor_order, :point_value_tensor_order, :ndims])
   # The probe has to offer a candidate of the slot's OWN kind, at each tensor order. A slot taking point
   # values is not exercised by handing it fields: every call throws, the slot looks as though it accepts
   # nothing, and a correctly fiber-generic slot is reported as a contract breach. The point-value

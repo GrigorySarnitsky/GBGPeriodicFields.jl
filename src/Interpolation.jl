@@ -85,7 +85,7 @@ using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical,
                 field_tensor_order, fiber_shape, physical_field_shape, spectral_field_shape,
                 FieldTransformPlans, to_physical, to_spectral, similar_field
 using ..Points: PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
-                point_coordinates, point_values, npoints, pointvalue_tensor_order, _check_npoints_match
+                point_positions, point_values, npoints, point_value_tensor_order, _check_npoints_match
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
@@ -660,7 +660,7 @@ scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
 """
 function transfer_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
   tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
-  coordinates = point_coordinates(points)
+  coordinates = point_positions(points)
   # Invariant 14 binds every argument, not the obvious ones: an order built from points of one
   # precision could never drive a transfer against a grid of another, and refusing here is the
   # package's decision rather than a downstream method table's.
@@ -838,12 +838,12 @@ without this check both surfaced from inside the implementation instead of at th
 function _check_transfer_colocation(field, points, values)
   family(a) = Base.typename(typeof(parent(a))).wrapper
   T = field_scalar_type(field)
-  eltype(point_coordinates(points)) === T ||
-    throw(ArgumentError("point coordinates are $(eltype(point_coordinates(points))) but the field is $T; " *
+  eltype(point_positions(points)) === T ||
+    throw(ArgumentError("point coordinates are $(eltype(point_positions(points))) but the field is $T; " *
                         "a transfer does not convert between precisions"))
   eltype(field_data(values)) === T ||
     throw(ArgumentError("point values are $(eltype(field_data(values))) but the field is $T"))
-  families = (family(field_data(field)), family(point_coordinates(points)), family(field_data(values)))
+  families = (family(field_data(field)), family(point_positions(points)), family(field_data(values)))
   allequal(families) ||
     throw(ArgumentError("a transfer launches one kernel, so its field, points and values must live in " *
                         "the same storage family; got $families"))
@@ -891,8 +891,8 @@ and approximate otherwise; the spectral schemes reconstruct the band-limited fie
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
                       scheme::AbstractSplineScheme = CatmullRom; order = nothing)
-  pointvalue_tensor_order(out) == field_tensor_order(field) ||
-    throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
+  point_value_tensor_order(out) == field_tensor_order(field) ||
+    throw(ArgumentError("output tensor order $(point_value_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
   _check_transfer_colocation(field, points, out)
   grid = field_grid(field)
@@ -901,7 +901,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, po
   number_of_points = npoints(out)
   backend = get_backend(field_data(field))
   _check_transfer_order(order, number_of_points, field_data(field))
-  _interpolate_kernel!(backend)(point_values(out), point_coordinates(points), field_data(field), coefficients,
+  _interpolate_kernel!(backend)(point_values(out), point_positions(points), field_data(field), coefficients,
     T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
     _order_indices(order); ndrange = number_of_points)
   synchronize(backend)
@@ -921,8 +921,8 @@ accuracy.
 function interpolate(field::AbstractFieldPhysical, points::PointSet,
                      scheme::AbstractSplineScheme = CatmullRom; order = nothing)
   T = field_scalar_type(field)
-  data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(field_tensor_order(field)))...))
-  return interpolate!(_wrap_pointvalues(data, Val(field_tensor_order(field))), field, points, scheme; order)
+  data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(field_tensor_order(field)))...))
+  return interpolate!(_wrap_point_values(data, Val(field_tensor_order(field))), field, points, scheme; order)
 end
 
 
@@ -1004,8 +1004,8 @@ equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. 
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false;
                       order = nothing)
-  field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
-    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
+  field_tensor_order(field) == point_value_tensor_order(quantities) ||
+    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
   _check_transfer_colocation(field, points, quantities)
   grid = field_grid(field)
@@ -1020,7 +1020,7 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   number_of_points = npoints(quantities)
   backend = get_backend(data)
   _check_transfer_order(order, number_of_points, data)
-  _anterpolate_kernel!(backend)(data, point_coordinates(points), point_values(quantities), coefficients,
+  _anterpolate_kernel!(backend)(data, point_positions(points), point_values(quantities), coefficients,
     T(α), T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
     _order_indices(order); ndrange = number_of_points)
   synchronize(backend)
@@ -1041,7 +1041,7 @@ the ``\\alpha``/``\\beta`` accumulate form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
                      scheme::AbstractSplineScheme = CatmullRom; order = nothing) where {T<:AbstractFloat}
-  R = pointvalue_tensor_order(quantities)
+  R = point_value_tensor_order(quantities)
   data = similar(point_values(quantities), T, physical_field_shape(grid, Val(R)))
   return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; order)
 end
@@ -1056,9 +1056,9 @@ end
 # transferred, so the kernel runs entirely in `T`.
 _coefficients_as(scheme::AbstractSplineScheme{N2, M2}, ::Type{T}) where {N2, M2, T} = SMatrix{N2, M2, T}(spline_coefficients(scheme))
 
-_wrap_pointvalues(data, ::Val{0}) = ScalarPointValues(data)
-_wrap_pointvalues(data, ::Val{1}) = VectorPointValues(data)
-_wrap_pointvalues(data, ::Val{R}) where {R} = TensorPointValues{R}(data)
+_wrap_point_values(data, ::Val{0}) = ScalarPointValues(data)
+_wrap_point_values(data, ::Val{1}) = VectorPointValues(data)
+_wrap_point_values(data, ::Val{R}) where {R} = TensorPointValues{R}(data)
 
 _wrap_field(data, grid, ::Val{0}) = ScalarFieldPhysical(data, grid)
 _wrap_field(data, grid, ::Val{1}) = VectorFieldPhysical(data, grid)
@@ -1242,8 +1242,8 @@ end
 
 
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
-  pointvalue_tensor_order(out) == field_tensor_order(field) ||
-    throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
+  point_value_tensor_order(out) == field_tensor_order(field) ||
+    throw(ArgumentError("output tensor order $(point_value_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
   _check_transfer_colocation(field, points, out)
   grid = field_grid(field)
@@ -1254,7 +1254,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   modes_per_fibre = n1 * n2 * n3
   number_of_points = npoints(out)
   backend = get_backend(data)
-  _direct_dft_interpolate_kernel!(backend)(point_values(out), point_coordinates(points), data,
+  _direct_dft_interpolate_kernel!(backend)(point_values(out), point_positions(points), data,
     wavenumber_1, wavenumber_2, wavenumber_3, weight_1, weight_2, weight_3,
     T.(grid.origin), one(T) / T(prod(grid.grid_size)), modes_per_fibre, number_of_points, n1, n2, n3;
     ndrange = number_of_points)
@@ -1266,15 +1266,15 @@ end
 function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::DirectDFT)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
-  data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(R))...))
-  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme)
+  data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(R))...))
+  return interpolate!(_wrap_point_values(data, Val(R)), field, points, scheme)
 end
 
 
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                       scheme::DirectDFT, α::Real = true, β::Real = false)
-  field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
-    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
+  field_tensor_order(field) == point_value_tensor_order(quantities) ||
+    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
   _check_transfer_colocation(field, points, quantities)
   grid = field_grid(field)
@@ -1285,7 +1285,7 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   modes_per_fibre = n1 * n2 * n3
   number_of_points = npoints(quantities)
   backend = get_backend(data)
-  _direct_dft_anterpolate_kernel!(backend)(data, point_coordinates(points), point_values(quantities),
+  _direct_dft_anterpolate_kernel!(backend)(data, point_positions(points), point_values(quantities),
     wavenumber_1, wavenumber_2, wavenumber_3, T.(grid.origin), T(α), T(β),
     modes_per_fibre, number_of_points, n1, n2, n3; ndrange = modes_per_fibre)
   synchronize(backend)
@@ -1294,7 +1294,7 @@ end
 
 
 function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues, scheme::DirectDFT)
-  out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
+  out = similar_field(reference, Val(point_value_tensor_order(quantities)))
   return anterpolate!(out, points, quantities, scheme)
 end
 
@@ -1680,8 +1680,8 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
-  pointvalue_tensor_order(out) == field_tensor_order(field) ||
-    throw(ArgumentError("output tensor order $(pointvalue_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
+  point_value_tensor_order(out) == field_tensor_order(field) ||
+    throw(ArgumentError("output tensor order $(point_value_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
   _check_transfer_colocation(field, points, out)
   T = field_scalar_type(field)
@@ -1701,7 +1701,7 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   synchronize(backend)
   oversampled_physical = to_physical(oversampled_spectral, scheme.oversampled_plans)
   over_grid = scheme.oversampled_grid
-  _nufft_gather_kernel!(backend)(point_values(out), point_coordinates(points), field_data(oversampled_physical), scheme.beta,
+  _nufft_gather_kernel!(backend)(point_values(out), point_positions(points), field_data(oversampled_physical), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out),
     Val(scheme.width), _order_indices(order); ndrange = npoints(out))
   synchronize(backend)
@@ -1712,8 +1712,8 @@ end
 function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT; order = nothing)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
-  data = similar(point_coordinates(points), T, (npoints(points), fiber_shape(Val(R))...))
-  return interpolate!(_wrap_pointvalues(data, Val(R)), field, points, scheme; order)
+  data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(R))...))
+  return interpolate!(_wrap_point_values(data, Val(R)), field, points, scheme; order)
 end
 
 
@@ -1723,8 +1723,8 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
-  field_tensor_order(field) == pointvalue_tensor_order(quantities) ||
-    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(pointvalue_tensor_order(quantities))"))
+  field_tensor_order(field) == point_value_tensor_order(quantities) ||
+    throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
   _check_transfer_colocation(field, points, quantities)
   T = field_scalar_type(field)
@@ -1733,7 +1733,7 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   over_phys_data = field_data(oversampled_physical)
   fill!(over_phys_data, zero(T))
   over_grid = scheme.oversampled_grid
-  _nufft_spread_kernel!(backend)(over_phys_data, point_coordinates(points), point_values(quantities), scheme.beta,
+  _nufft_spread_kernel!(backend)(over_phys_data, point_positions(points), point_values(quantities), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities),
     Val(scheme.width), _order_indices(order); ndrange = npoints(quantities))
   synchronize(backend)
@@ -1758,7 +1758,7 @@ end
 
 function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
                      scheme::NUFFT; order = nothing)
-  out = similar_field(reference, Val(pointvalue_tensor_order(quantities)))
+  out = similar_field(reference, Val(point_value_tensor_order(quantities)))
   return anterpolate!(out, points, quantities, scheme; order)
 end
 

@@ -23,7 +23,7 @@ import GBGPeriodicFields.Fields: write_field, read_field
 using GBGPeriodicFields.Points:
   PointSet, AbstractPointValues,
   ScalarPointValues, VectorPointValues, TensorPointValues,
-  point_coordinates, point_values, pointvalue_tensor_order, npoints
+  point_positions, point_values, point_value_tensor_order, npoints
 import GBGPeriodicFields.Points: write_points, read_points
 using GBGPeriodicFields.Interpolation:
   AbstractTransferScheme, LalescuSpline, LagrangeSpline, DirectDFT, NUFFT, spline_coefficients
@@ -50,7 +50,7 @@ _type_tag(::LagrangeSpline)      = "GBGPeriodicFields.LagrangeSpline"
 _type_tag(::DirectDFT)           = "GBGPeriodicFields.DirectDFT"
 
 # A point object carries its own array: a PointSet its (M, 3) coordinates, point values their samples.
-_point_array(points::PointSet) = point_coordinates(points)
+_point_array(points::PointSet) = point_positions(points)
 _point_array(values::AbstractPointValues) = point_values(values)
 
 
@@ -201,7 +201,7 @@ function write_points(parent::HDF5.H5DataStore, name::AbstractString,
   a["version"] = SCHEMA_VERSION
   a["eltype"] = string(eltype(array))        # stored for self-description; reconstruction uses `data`
   a["npoints"] = npoints(points)
-  points isa AbstractPointValues && (a["tensor_order"] = pointvalue_tensor_order(points))
+  points isa AbstractPointValues && (a["tensor_order"] = point_value_tensor_order(points))
   return g
 end
 

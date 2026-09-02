@@ -72,11 +72,11 @@ function _refresh(x)
   end
   if x isa AbstractPointValues
     data = copy(point_values(x))
-    order = pointvalue_tensor_order(x)
+    order = point_value_tensor_order(x)
     return order == 0 ? ScalarPointValues(data) :
            order == 1 ? VectorPointValues(data) : TensorPointValues{2}(data)
   end
-  x isa PointSet && return PointSet(copy(point_coordinates(x)))
+  x isa PointSet && return PointSet(copy(point_positions(x)))
   x isa AbstractArray && return copy(x)
   # Anything else that OWNS arrays — a kernel, a multipliers object — is deep-copied so an in-place
   # operation cannot reach the shared pool through it. Plans are excluded: they wrap FFTW plan objects
@@ -91,7 +91,7 @@ end
 # A snapshot deep enough to detect mutation through any storage a section owns.
 function _snapshot(x)
   x isa GBGI.FiberSections.AbstractFiberSection && return copy(Array(field_data(x)))
-  x isa PointSet && return copy(Array(point_coordinates(x)))
+  x isa PointSet && return copy(Array(point_positions(x)))
   x isa AbstractArray && return copy(Array(x))
   # Everything else by its array leaves, so a kernel's per-axis factors and a multipliers object's
   # wavenumber arrays are watched too.
@@ -158,7 +158,7 @@ end
 # Operations whose contract is UNINITIALIZED storage. Their result is meaningfully garbage — that is
 # what they are for — so finiteness and reproducibility do not apply and are not silently waived: the
 # reason is that `similar_*` promises shape and metadata, never content.
-const UNINITIALIZED_ALLOCATORS = (:similar_field, :similar_pointvalues)
+const UNINITIALIZED_ALLOCATORS = (:similar_field, :similar_point_values)
 _returns_uninitialized(invocation) = nameof(invocation.operation) in UNINITIALIZED_ALLOCATORS
 
 # Operations whose output is NOT bounded by their input, so "finite in, finite out" is not a property

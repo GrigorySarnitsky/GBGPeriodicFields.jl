@@ -154,7 +154,7 @@ julia> npoints(points)
 
 julia> sampled = interpolate(u, points);
 
-julia> pointvalue_tensor_order(sampled)
+julia> point_value_tensor_order(sampled)
 1
 
 julia> scattered = anterpolate(grid, points, sampled);

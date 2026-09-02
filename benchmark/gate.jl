@@ -50,11 +50,11 @@ for (class, group) in suite, (key, benchmark) in group
   end
 end
 
-# The invariant. `point_coordinates` returns the live array, so this compares what the rows left
+# The invariant. `point_positions` returns the live array, so this compares what the rows left
 # behind against the copy taken at build time.
 mutated = String[]
 for (tag, (points, pristine)) in registry
-  Array(point_coordinates(points)) == Array(pristine) || push!(mutated, tag)
+  Array(point_positions(points)) == Array(pristine) || push!(mutated, tag)
 end
 
 println("gate ($(BACKEND)): $(ran) rows ran, $(length(failed)) failed | ",

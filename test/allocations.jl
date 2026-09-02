@@ -560,7 +560,7 @@ end
       # this operation exists to avoid. Preallocated is the only state in which the question means
       # anything.
       into_pv, into_sv = similar_field(pv, Val(1)), similar_field(sv, Val(1))
-      into_q, into_ps  = similar_pointvalues(q, Val(1)), PointSet(rand(T, 12, 3))
+      into_q, into_ps  = similar_point_values(q, Val(1)), PointSet(rand(T, 12, 3))
       @alloc_below 64 adapt!(into_pv, pv)
       @alloc_below 64 adapt!(into_sv, sv)
       @alloc_below 64 adapt!(into_q, q)

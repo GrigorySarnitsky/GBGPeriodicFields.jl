@@ -114,7 +114,7 @@ the property that does exclude it.
 
 The check is on ownership, not on layout: `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them
 all own their memory and are accepted, so the package's backend genericity is untouched. Allocate with
-`similar_field` or `similar_pointvalues` rather than slicing a larger buffer.
+`similar_field` or `similar_point_values` rather than slicing a larger buffer.
 """
 function _check_owned_storage(data, what::AbstractString)
   borrowed(a) = a isa SubArray || (a !== parent(a) && borrowed(parent(a)))
@@ -122,7 +122,7 @@ function _check_owned_storage(data, what::AbstractString)
     throw(ArgumentError("$what must own its storage; got a view into a larger array. Two sections " *
                         "over overlapping views at different base offsets read and write the same " *
                         "memory out of step, which no operation here detects. Allocate with " *
-                        "`similar_field` / `similar_pointvalues`, or `copy` the slice."))
+                        "`similar_field` / `similar_point_values`, or `copy` the slice."))
   return nothing
 end
 

@@ -215,7 +215,7 @@ end
 
   # The point layer agrees with the field layer on where the ceiling falls.
   values = TensorPointValues{3}(rand(6, 3, 3, 3))
-  @test pointvalue_tensor_order(values) == 3
+  @test point_value_tensor_order(values) == 3
   @test inner(values, values) > 0
   @test_throws ArgumentError mean(values)
 end

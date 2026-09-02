@@ -397,18 +397,18 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
     section_b = VectorPointValues(counting(randn(number_of_points, 3)))
     audit(() -> displace!(destination, source, (0.3, section_a), (0.7, section_b)),
           "displace! 2-term cover",
-      Traffic("source", point_coordinates(source), (coordinate_count, 0)),
+      Traffic("source", point_positions(source), (coordinate_count, 0)),
       Traffic("section a", point_values(section_a), (coordinate_count, 0)),
       Traffic("section b", point_values(section_b), (coordinate_count, 0)),
-      Traffic("destination", point_coordinates(destination), (0, coordinate_count)))
+      Traffic("destination", point_positions(destination), (0, coordinate_count)))
     audit(() -> displace!(destination, source, grid, (0.3, section_a), (0.7, section_b)),
           "displace! 2-term torus (wrap fused)",
-      Traffic("source", point_coordinates(source), (coordinate_count, 0)),
+      Traffic("source", point_positions(source), (coordinate_count, 0)),
       Traffic("section a", point_values(section_a), (coordinate_count, 0)),
       Traffic("section b", point_values(section_b), (coordinate_count, 0)),
-      Traffic("destination", point_coordinates(destination), (0, coordinate_count)))
+      Traffic("destination", point_positions(destination), (0, coordinate_count)))
     audit(() -> wrap!(destination, grid), "wrap!",
-      Traffic("coordinates", point_coordinates(destination), (coordinate_count, coordinate_count)))
+      Traffic("coordinates", point_positions(destination), (coordinate_count, coordinate_count)))
   end
 
 end

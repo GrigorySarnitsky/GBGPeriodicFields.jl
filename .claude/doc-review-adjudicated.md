@@ -87,14 +87,19 @@ function must have no zeros on any stored mode") naming `spectral_cutoff` — wh
 close against this note.
 
 ### `Points` accessors use three naming conventions
-**ALREADY DECIDED — do not re-flag.** `point_coordinates` / `point_values` / `pointvalue_tensor_order`
-/ `npoints` against Fields' uniform `field_*` family. This was recorded as breaking and unstarted in
-CLAUDE.md's "Open interface questions" (item 4) on 2026-08-15, and the 2026-09-01 panel re-raised it
-independently — which is the panel working, not a new finding. It waits for the breaking round
-alongside `Grid3D`'s `origin` (item 5), deferred there by the user on 2026-09-01.
+**FIXED 2026-09-02 — the finding was right and is now done, so it is not a dismissal.** Recorded here
+only because this file's earlier entry said "deferred to a breaking round" and would otherwise read as
+still-open. `Points` now uses one prefix, spelled the way the prose spells it:
 
-Settles, verbatim: `Points` accessor names use three different naming conventions where `Fields` uses
-one uniform prefix
+- `point_coordinates` → `point_positions`, and the `PointSet` field `coordinates` → `positions`
+- `pointvalue_tensor_order` → `point_value_tensor_order`
+- `similar_pointvalues` → `similar_point_values`, plus five internals on the same stem
+- `point_values` and `npoints` unchanged — the latter is defined on BOTH types, so no prefix fits
+
+Two things decided the spelling. "pointvalue" unhyphenated appeared in prose **zero** times against 98
+for "point-value", so the identifiers were the outlier, not the docs. And `point_value_*` keeps the
+type distinction — those accessors are on `AbstractPointValues`, not `PointSet` — which a bare
+`point_*` would have thrown away.
 
 ### Consumer-contingent API-symmetry observations
 **SETTLED 2026-09-01 (user): NOT a defect — do not re-flag.** *(software-architect 2, 5, 6, 7, 8.)*
