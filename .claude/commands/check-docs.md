@@ -162,9 +162,10 @@ the source:
   wide signatures) and **triage** heuristics (``\left``/``\right`` and manual ``\;``/``\:`` spacing,
   code-in-math letter-products, split formulas, dead docstring refs, crammed citations, sentence-opening
   lowercase identifiers) whose hits mix real signal with
-  false positives. Two non-grep backstops follow: a **DOI cross-check** (every docstring DOI is in
-  `ARCHITECTURE.md` §References, verbatim) and the deterministic **argument-coverage** sweep (from each
-  signature, positional + keyword; §Style — check 2). Inline-math-on-one-line and canonical notation are
+  false positives. Three non-grep backstops follow: a **DOI cross-check** (every docstring DOI is in
+  `ARCHITECTURE.md` §References, verbatim), the deterministic **argument-coverage** sweep (from each
+  signature, positional + keyword; §Style — check 2), and the **field-list check** (every name bulleted
+  under `The fields are` is a field the struct actually has, and every field is bulleted). Inline-math-on-one-line and canonical notation are
   **build-enforced** — `docs/make.jl`'s `lint_inline_math()` errors on a span split by a list leader and
   `lint_notation_variants()` on a bare-index `\partial_[ijk]` **and an unbraced fraction ``\frac1``** — so
   the rebuild below IS those guards.
@@ -229,12 +230,24 @@ grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed cit
 grep -rnE '\. (`[a-z]|``)' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose SENTENCE opens with a lowercase code identifier OR a math formula → REWORD to lead with a capitalized word (NEVER capitalize the lowercase binding); exempt: bullets / list items (incl. §13 entries, arg-docs), `#` code comments, a CAPITALIZED type/module opener; FPs: e.g./i.e. abbreviations, end-of-line ``\checkmark`` markers
 ```
 
-The two non-grep backstops are scripts too, for the same reason:
+The three non-grep backstops are scripts too, for the same reason:
 
 ```
 python3 .claude/commands/check-docs/doi_crosscheck.py     # exit 1 if a docstring DOI is missing from §References
+python3 .claude/commands/check-docs/field_docs.py         # exit 1 if a `The fields are` bullet names a non-field
 julia --startup-file=no .claude/commands/check-docs/argcov.jl
 ```
+
+`field_docs.py` is called by `guards.sh` as a `hard` scan, and it exists because of a defect no other
+guard could see. `PointSet`'s field was renamed `coordinates` → `positions` in the code on 2026-09-02
+and the docstring kept the old name in its signature line **and** its field bullet, so the rendered
+page told a reader to write `point_set.coordinates`, which throws. The build does not read prose,
+`checkdocs = :exports` only asks whether a docstring exists, and a grep for the old name cannot
+separate a stale identifier from the ordinary English word it also is — which is why that one name
+survived a rename sweep that came back clean on all nine identifiers it did check. It reports a
+finding when it matches **no** types at all, so a parser broken by a refactor fails loudly rather than
+passing vacuously, and it was verified by re-planting the `PointSet` defect and a second one in
+`FieldTransformPlans` and confirming it names both.
 
 `doi_crosscheck.py` checks **both directions** — a docstring DOI absent from §References is a failure;
 a §References DOI cited by no docstring is reported as information, since a design doc may legitimately

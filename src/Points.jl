@@ -110,7 +110,7 @@ const Point{T} = SVector{3, T}
 
 
 """
-    PointSet(coordinates::AbstractArray{T, 2}) where {T<:AbstractFloat}
+    PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractFloat}
 
 A collection of `M` off-grid positions, stored structure-of-arrays so that each coordinate axis is
 contiguous across points, mirroring the fiber-last field layout. Storage is backend-generic: the array
@@ -119,8 +119,8 @@ because a periodic domain wraps any coordinate; a transfer operator takes the gr
 field it acts on.
 
 The fields are
-- `coordinates` — the positions, an `AbstractArray` of shape `(M, 3)` — point index first, coordinate
-  axis last — whose second axis must have length `3`.
+- `positions` — the coordinate triples, an `AbstractArray` of shape `(M, 3)` — point index first,
+  coordinate axis last — whose second axis must have length `3`.
 """
 struct PointSet{T<:AbstractFloat, A<:AbstractArray{T, 2}}
   positions::A
@@ -247,7 +247,7 @@ TensorPointValues(data::AbstractArray{T}) where {T<:AbstractFloat} = TensorPoint
 """
     point_positions(point_set::PointSet)
 
-Return the `(M, 3)` array of point coordinates held by `point_set`.
+Return the `(M, 3)` array of point positions held by `point_set`.
 """
 function point_positions end
 point_positions(point_set::PointSet) = point_set.positions

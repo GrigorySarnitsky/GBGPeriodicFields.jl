@@ -88,6 +88,14 @@ soft "dead §-ref in a docstring"       bash -c "grep -rnE '§[0-9]|docs/(src|AR
 # a ``\checkmark`` end-of-line marker. A math-formula opener (```` `` ````) is kept: it is a real
 # member of the class the rule names.
 soft "sentence opens with code/math"   bash -c "grep -rnE '\. (\`[a-z]|\`\`)' src/*.jl ${DOCS_MD[*]} | grep -vE ':[0-9]+:[[:space:]]*#' | grep -vE ':[0-9]+:[[:space:]]*([-*+>|]|[0-9]+\.)' | grep -vE '(e\.g|i\.e|cf|vs|incl)\. \`' | grep -v 'checkmark'"
+# A documented field name must be a field the struct actually has, and every field must have a
+# bullet. Added 2026-09-02 after `PointSet`'s field was renamed in the code and not in its docstring:
+# the rendered page told a reader to write `point_set.coordinates`, which throws. No other guard can
+# see that class -- the build does not read prose, `checkdocs = :exports` only asks whether a
+# docstring exists, and a grep for the old name cannot separate a stale identifier from the ordinary
+# English word it also is, which is why this one survived an otherwise-clean rename sweep.
+hard "documented fields match struct"  python3 .claude/commands/check-docs/field_docs.py
+
 soft "wide docstring signature (>88)"  awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/GBGPeriodicFields.jl src/Fields.jl src/FieldAlgebra.jl src/FiberSections.jl src/DifferentialOperators.jl src/Convolution.jl src/Points.jl src/Interpolation.jl src/Reductions.jl
 
 echo
