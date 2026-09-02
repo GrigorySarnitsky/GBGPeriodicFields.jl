@@ -1436,6 +1436,7 @@ end
       spectral::AbstractFieldSpectral{T, R},
       transform_plans::FieldTransformPlans{T},
     ) where {T<:AbstractFloat, R}
+
     to_physical!(
       physical::AbstractFieldPhysical{T, R},
       spectral::AbstractFieldSpectral{T, R},
@@ -1716,10 +1717,11 @@ The arrays must live on storage (CPU or GPU) matching the fields the multipliers
 
 The two array families are stored independently rather than squaring one to obtain the other,
 because on even grids they use different conventions for the Nyquist mode (the highest representable frequency).
-The explicit forms take both families from the caller and check only their lengths; the convenience
-form derives them, which is what makes them canonical (see the `Canonical` parameter below).
+The two explicit constructors take both families from the caller and check only their lengths; the
+one-argument constructor derives them, which is what makes them canonical (see the `Canonical`
+parameter below).
 
-In that one-argument form the wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L``
+The wavenumbers it derives are the physical angular wavenumbers ``k = 2\\pi n / L``
 along each axis, with ``L`` the domain length and ``n`` running over the FFT frequency indices. On an
 even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to
 zero, so that derivatives of real fields stay real, while its squared wavenumber keeps the true
@@ -1733,7 +1735,7 @@ operator never rebuilds a `reshape` per call (decision 70). They are internal; r
 `_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast` rather than directly.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
-final `Canonical` parameter: the convenience constructor marks them canonical, the explicit forms do
+final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
 not. It is in the type rather than in a field because it decides, statically, whether two multiplier
 sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
 the same way from the same inputs, so they agree by construction. That is what lets `convolve` collapse
