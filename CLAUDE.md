@@ -2158,12 +2158,20 @@ that would have caught this class, so it earns its place ahead of work that repa
   with every flag: a flagged cell is a HYPOTHESIS until a matched A/B against the commit before the
   step confirms it, because the table mixes hosts, sweep shapes and measurement regimes.
 
-- **Sweep an axis for BOTH verbs, not one — the assessment lesson behind finding (am).** The width-8
-  scatter regressed because finding (ad) swept the scheme axis on the GATHER and left the scatter at
-  `CatmullRom`, so the configuration that broke was never measured at all. Add the verb to the
-  `docs/TESTING.md` §4 coverage-axes list beside scheme and stencil width, and treat "swept the axis"
-  as false until every verb defined on it has been swept. A checklist change, not code, and it
-  generalises past the transfer.
+- **Sweep an axis for BOTH verbs, not one — DONE 2026-09-02.** The width-8 scatter regressed because
+  finding (ad) swept the scheme axis on the GATHER and left the scatter at `CatmullRom`, so the
+  configuration that broke was never measured at all. It is now `docs/TESTING.md` §4's **axis 20**
+  (the adjoint verb) and a paragraph in `docs/PERFORMANCE.md` §5's coverage contract — both places,
+  because the lesson came from a benchmark sweep while the same blind spot would hide a correctness
+  bug equally well. "Swept the axis" is false until every verb defined on it has been swept.
+
+  Two errors in this entry's own earlier wording, worth keeping as a caution about acting on a
+  recorded item without re-reading its target: it said to add the verb "beside scheme and stencil
+  width" in §4, and **neither is an axis there** — the list runs representation, ``R``, element type,
+  layout fold, parity, cubicity, anisotropy, origin, degenerate bases, α/β, aliasing, Nyquist,
+  backend, threads, kernel storage class, multiplier provenance, storage family, component-offset
+  alignment, stencil width parity. And it named §4 alone, though the miss was a **benchmark** sweep
+  and §4 is the test suite's denominator.
 
 *DISMISSALS — checked and closed; do not re-open without new evidence.*
 

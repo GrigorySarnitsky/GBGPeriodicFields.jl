@@ -2265,6 +2265,16 @@ with its reason — the storage class of decision 63 is device-only, because `ad
 already occupies is the identity and a CPU row would time a no-op. New code adds its benchmark to the
 matching per-class file — the performance analogue of the test coverage contract (`TESTING.md` §4).
 
+**An adjoint pair is two configurations, never one.** Where an operation ships as a pair — the
+transfer's `interpolate` and `anterpolate`, the transforms' `to_spectral` and `to_physical` — an
+axis the two verbs share (the scheme, the stencil width, the grid, the element type) counts as
+swept only once it has been swept on **each** verb. This is the twentieth axis of `TESTING.md` §4,
+recorded in both places because a benchmark sweep is what taught it: finding (ad) varied the scheme
+on the gather and left the scatter pinned at `CatmullRom`, so the width-8 scatter was never measured
+at any width, and it is that cell which regressed ``1.45``–``1.48\times`` at ``512^3`` and shipped
+for two days before the history scan found it (finding (am)). A one-verb sweep does not license the
+sentence "the scheme axis is covered".
+
 
 ## 6. Tracking regressions, and per-platform results
 

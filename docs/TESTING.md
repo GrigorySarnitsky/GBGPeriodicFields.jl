@@ -425,6 +425,20 @@ operation's coverage is judged against the full axis list:
     odd branch never numerically exercised — a parameter with two regimes, tested in one.
     `test/regressions/nufft-odd-width-mis-centered.jl` carries the lane.
 
+20. **the adjoint verb**, wherever an operation ships as a pair — the transfer's `interpolate` and
+    `anterpolate`, the transforms' `to_spectral` and `to_physical`, a kernel and its `inv`,
+    `write_*` and `read_*`. An axis the two verbs *share* — the transfer scheme, the stencil width,
+    the grid, the element type — is **not** swept until it has been swept on each of them, and
+    "swept the axis" is false until then.
+
+    This axis is recorded because a **benchmark** sweep taught it, which is why it is also named in
+    the coverage contract of [`PERFORMANCE.md`](performance.md) §5. Finding (ad) varied the scheme on
+    the gather and left the scatter pinned at `CatmullRom`, so the width-8 scatter was never measured
+    at any width — and that is the cell which then regressed ``1.45``–``1.48\times`` at ``512^3`` and
+    shipped for two days (finding (am)). The axis existed in the code with exactly one value ever
+    taken, which is the shape this list exists to catch. It generalises past the transfer: an adjoint
+    pair is two configurations, never one.
+
 `inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
 element types, three grids including an anisotropic mixed-parity one, the aliased in-place call
 asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/device pair — bitwise

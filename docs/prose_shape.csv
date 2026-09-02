@@ -376,7 +376,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Types",11,11,0
 "Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",10,10,0
 "Fields.md § the same `Public = false` mechanism that filed `map` and `tr",9,9,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",1218,539,1
+"GBGPeriodicFields.jl :: GBGPeriodicFields",827,326,1
 "GBGPeriodicFields.md § GBGPeriodicFields.jl",8,8,0
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
@@ -416,7 +416,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 2. The performance model",845,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
-"PERFORMANCE.md § 5. The benchmark suite",1102,637,0
+"PERFORMANCE.md § 5. The benchmark suite",1238,637,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",973,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
@@ -559,13 +559,14 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 16",64,64,0
 "TESTING.md § item 17",188,188,0
 "TESTING.md § item 18",156,156,0
-"TESTING.md § item 19",482,85,0
+"TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
+"TESTING.md § item 20",519,102,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0
 "TESTING.md § item 7",7,7,0
-"api.md § API overview",347,294,0
+"api.md § API overview",70,35,0
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",324,120,0
