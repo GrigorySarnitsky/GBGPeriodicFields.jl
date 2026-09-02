@@ -84,7 +84,7 @@ package's **normalized** reductions (`inner`, `src/Reductions.jl` = `dot(data, d
 
 Design rationale: [Architecture](architecture.md) §4.
 
-``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
+The transform ``\mathcal F`` is **forward unnormalized, inverse carrying ``1/N``** (AbstractFFTs convention,
 `plan_rfft`/`plan_irfft`), with ``k`` ranging over the wavenumbers and ``x`` over the ``N`` grid nodes —
 where ``x`` denotes a node's offset **from the grid origin** ``o``, not its absolute position. A grid
 carries an arbitrary origin, so the absolute node position is ``o + x``; writing the pair in the offset
@@ -165,7 +165,7 @@ the spectral representation of ``\operatorname{tr}A``). The **third** invariant,
 components, hence
 **nonlinear** — physical-space only, like the norm — and multiplicative ``\det(AB)=\det A \det B``; it
 reuses the one shared formula builder, so it mirrors `tr` onto both fields and point-values.
-``\checkmark`` the `mul!` family carries the α/β accumulate ``\texttt{dest}=\alpha(\cdot)+\beta \texttt{dest}``,
+``\checkmark`` The `mul!` family carries the α/β accumulate ``\texttt{dest}=\alpha(\cdot)+\beta \texttt{dest}``,
 and the weighted combination ``\alpha a+\beta b`` (`combine!`) is its linear two-field peer — coefficientwise,
 hence representation-preserving and alias-safe, with ``\alpha=\beta=1`` the plain `add!`.
 

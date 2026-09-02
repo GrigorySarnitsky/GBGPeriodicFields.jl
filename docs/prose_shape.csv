@@ -136,8 +136,8 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Convolution",8,8,0
 "Convolution.md § Convolution operations",61,28,0
 "Convolution.md § Internal API",82,72,0
-"Convolution.md § Kernel builders",94,86,0
-"Convolution.md § Kernel storage classes",338,128,0
+"Convolution.md § Kernel builders",73,65,0
+"Convolution.md § Kernel storage classes",161,84,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
 "DifferentialOperators.jl :: DifferentialOperators",415,239,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -181,7 +181,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",511,107,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",513,107,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
@@ -246,7 +246,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.md § Fiber-section supertype",3,3,0
 "FiberSections.md § FiberSections",8,8,0
 "FiberSections.md § Internal API",65,51,0
-"FiberSections.md § The fiber",47,40,0
+"FiberSections.md § The fiber",7,7,0
 "FiberSections.md § Threading configuration",5,5,0
 "FieldAlgebra.jl :: *(a, b)",83,81,0
 "FieldAlgebra.jl :: +(a, b, fields...)",43,40,0
@@ -281,7 +281,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: tr(A::TensorFieldPhysical{2})",44,42,0
 "FieldAlgebra.jl :: transpose!(destination::TensorFieldPhysical{2}, A::TensorFie",84,31,0
 "FieldAlgebra.jl :: transpose(A)",27,26,0
-"FieldAlgebra.md § Arbitrary fiber map",38,34,0
+"FieldAlgebra.md § Arbitrary fiber map",18,14,0
 "FieldAlgebra.md § Contraction and product operations",45,30,0
 "FieldAlgebra.md § FieldAlgebra",8,8,0
 "FieldAlgebra.md § Internal API",110,51,0
@@ -323,15 +323,15 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _component_view(data, ::Val{R}, component::Int)",156,108,0
 "Fields.jl :: _context_grid(object)",72,71,0
 "Fields.jl :: _context_layout(object)",13,12,0
+"Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",83,58,0
 "Fields.jl :: _first_field(x)",44,43,0
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",87,71,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
-"Fields.jl :: _physical_field_of_order(data, grid, layout, ::Val{R})",83,58,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
-"Fields.jl :: _similar_physical_field(reference::AbstractFieldSpectral, da",20,18,0
-"Fields.jl :: _similar_spectral_field(reference::AbstractFieldPhysical, da",20,18,0
+"Fields.jl :: _similar_field_physical(reference::AbstractFieldSpectral, da",20,18,0
+"Fields.jl :: _similar_field_spectral(reference::AbstractFieldPhysical, da",20,18,0
 "Fields.jl :: _spectral_constant_scale(field::AbstractFieldSpectral)",38,37,0
 "Fields.jl :: _spectral_zero_mode_component_data(field::VectorFieldSpectra",27,22,0
 "Fields.jl :: _spectral_zero_mode_data(field::ScalarFieldSpectral)",25,24,0
@@ -342,19 +342,19 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _validate_fft_dims(d::NTuple{3, Int})",19,17,0
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
-"Fields.jl :: adapt!(destination, source)",304,136,0
+"Fields.jl :: adapt!(destination, source)",302,134,0
 "Fields.jl :: adapt(storage, object)",514,147,2
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
+"Fields.jl :: field_physical_shape(grid::Grid3D, ::Val{R}) where {R}",21,17,0
 "Fields.jl :: field_scalar_type(",24,10,0
+"Fields.jl :: field_spectral_shape(",63,43,0
 "Fields.jl :: field_tensor_order(",22,8,0
-"Fields.jl :: physical_field_shape(grid::Grid3D, ::Val{R}) where {R}",21,17,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",119,55,0
 "Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",375,89,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
-"Fields.jl :: spectral_field_shape(",63,43,0
 "Fields.jl :: to_physical!(",321,106,1
 "Fields.jl :: to_physical(",116,85,0
 "Fields.jl :: to_spectral!(",167,54,1
@@ -367,11 +367,11 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Field types",11,11,0
 "Fields.md § Fields",8,8,0
 "Fields.md § Functions",10,10,0
-"Fields.md § HDF5 persistence",90,86,0
+"Fields.md § HDF5 persistence",4,4,0
 "Fields.md § Internal API",33,33,0
-"Fields.md § Moving between storage families",189,105,0
-"Fields.md § Spectral kernel protocol",81,78,0
-"Fields.md § The real-field reality condition",78,75,0
+"Fields.md § Moving between storage families",90,86,0
+"Fields.md § Spectral kernel protocol",35,32,0
+"Fields.md § The real-field reality condition",3,3,0
 "Fields.md § Transform operations",6,6,0
 "Fields.md § Transform-plan and multiplier types",4,4,0
 "Fields.md § Types",11,11,0
@@ -407,7 +407,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",42,42,0
 "Interpolation.md § Interpolation",8,8,0
-"Interpolation.md § Scheme persistence",103,99,0
+"Interpolation.md § Scheme persistence",4,4,0
 "Interpolation.md § Transfer operations",7,7,0
 "Interpolation.md § Transfer-scheme types",8,8,0
 "Interpolation.md § Types",19,19,0
@@ -431,7 +431,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ag)",381,162,0
 "PERFORMANCE.md § finding (ah)",125,125,0
 "PERFORMANCE.md § finding (ai)",349,111,0
-"PERFORMANCE.md § finding (aj)",1517,102,0
+"PERFORMANCE.md § finding (aj)",1519,102,0
 "PERFORMANCE.md § finding (ak)",1026,92,0
 "PERFORMANCE.md § finding (al)",882,94,0
 "PERFORMANCE.md § finding (am)",822,99,0
@@ -451,7 +451,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (o)",992,224,0
 "PERFORMANCE.md § finding (p)",1299,242,0
 "PERFORMANCE.md § finding (q)",1525,164,0
-"PERFORMANCE.md § finding (r)",942,99,0
+"PERFORMANCE.md § finding (r)",944,99,0
 "PERFORMANCE.md § finding (s)",1709,200,0
 "PERFORMANCE.md § finding (t)",352,119,0
 "PERFORMANCE.md § finding (u)",316,79,0
@@ -469,7 +469,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § item 7",147,147,0
 "PERFORMANCE.md § item 8",211,211,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
-"Points.jl :: PointSet(coordinates::AbstractArray{T, 2}) where {T<:Abstrac",95,62,0
+"Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",96,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
 "Points.jl :: Points",371,170,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
@@ -477,34 +477,34 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",76,35,0
 "Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",45,25,0
 "Points.jl :: _axis_terms(axis, terms...)",41,39,0
-"Points.jl :: _check_broadcast_pointvalues_compatibility(destination, argu",39,37,0
+"Points.jl :: _check_broadcast_point_values_compatibility(destination, arg",39,37,0
 "Points.jl :: _check_combinable(values...)",127,107,0
 "Points.jl :: _check_displacement_compatibility(destination, source, secti",69,66,0
 "Points.jl :: _check_displacement_domain(points, grid)",40,38,0
 "Points.jl :: _check_npoints_match(a, b)",50,48,0
 "Points.jl :: _convert_terms(::Type{T}, terms...)",48,46,0
 "Points.jl :: _displacement_rhs(base, terms...)",111,109,0
-"Points.jl :: _first_pointvalues(x)",34,33,0
+"Points.jl :: _first_point_values(x)",34,33,0
 "Points.jl :: _motion_storage_family(array)",42,41,0
-"Points.jl :: _pointvalue_shape(number_of_points, ::Val{R}) where {R}",24,20,0
-"Points.jl :: _unwrap_pointvalues_argument(x)",32,31,0
+"Points.jl :: _point_value_shape(number_of_points, ::Val{R}) where {R}",24,20,0
+"Points.jl :: _unwrap_point_values_argument(x)",32,31,0
 "Points.jl :: _wrap_coordinate(coordinate, extent, origin)",90,87,0
 "Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",510,152,0
 "Points.jl :: npoints(point_set::PointSet)",26,24,0
-"Points.jl :: point_coordinates(point_set::PointSet)",12,11,0
+"Points.jl :: point_positions(point_set::PointSet)",12,11,0
+"Points.jl :: point_value_tensor_order(sampled_values::AbstractPointValues",12,7,0
 "Points.jl :: point_values(sampled_values::AbstractPointValues)",32,31,0
-"Points.jl :: pointvalue_tensor_order(sampled_values::AbstractPointValues{",12,7,0
 "Points.jl :: read_points(parent::HDF5.H5DataStore, name::AbstractString)",122,59,0
-"Points.jl :: similar_pointvalues(reference::AbstractPointValues, data)",113,58,1
+"Points.jl :: similar_point_values(reference::AbstractPointValues, data)",113,58,1
 "Points.jl :: wrap!(points::PointSet, grid::Grid3D)",274,122,1
 "Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",274,66,0
-"Points.md § Base-space motion",101,97,0
+"Points.md § Base-space motion",24,20,0
 "Points.md § Functions",11,11,0
-"Points.md § HDF5 persistence",105,101,0
+"Points.md § HDF5 persistence",4,4,0
 "Points.md § Internal API",82,82,0
 "Points.md § Point accessor functions",6,6,0
 "Points.md § Point and point-set types",4,4,0
-"Points.md § Point-value algebra",207,207,0
+"Points.md § Point-value algebra",133,95,0
 "Points.md § Point-value allocation",3,3,0
 "Points.md § Point-value types",6,6,0
 "Points.md § Points",8,8,0
@@ -535,13 +535,13 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: radial_correlation(f, plans)",638,181,1
 "Reductions.jl :: radial_spectrum(f, multipliers)",771,262,1
 "Reductions.jl :: std(f; corrected = true)",142,82,0
-"Reductions.jl :: var(f; corrected = true)",343,122,0
+"Reductions.jl :: var(f; corrected = true)",346,122,0
 "Reductions.jl :: weighted_inner(f, w::SpectralKernel)",765,229,2
 "Reductions.md § Inner-product and norm reductions",6,6,0
 "Reductions.md § Integral reductions",3,3,0
 "Reductions.md § Internal API",78,54,0
-"Reductions.md § Moments and order statistics",153,69,0
-"Reductions.md § Radial reductions",91,87,0
+"Reductions.md § Moments and order statistics",138,62,0
+"Reductions.md § Radial reductions",46,42,0
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
@@ -562,7 +562,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 18",156,156,0
 "TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
-"TESTING.md § item 20",519,102,0
+"TESTING.md § item 20",521,102,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0
@@ -581,7 +581,7 @@ unit,words,longest_paragraph,admonitions
 "notation.md § Scalar weights",246,167,0
 "tutorial.md § (preamble)",22,22,1
 "tutorial.md § Convolution (apply a Fourier kernel)",70,58,0
-"tutorial.md § Differential operators",143,60,0
+"tutorial.md § Differential operators",144,60,0
 "tutorial.md § Fiberwise algebra and L²/measure reductions",212,61,0
 "tutorial.md § Getting started",79,45,0
 "tutorial.md § Grids and fields",82,47,0

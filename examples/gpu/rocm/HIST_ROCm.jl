@@ -193,7 +193,8 @@ max_speed(u)      = maximum(abs, field_data(u))
 
 # The spectrum is half the shell-resolved Parseval inner, ``E(\kappa) = \tfrac{1}{2} P(\kappa)``, so the shell sum recovers the
 # turbulent kinetic energy: ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``.
-# `radial_spectrum` bins on-device and returns small host vectors — no host copy of the field.
+# The `radial_spectrum` reduction bins on-device and returns small host vectors — no host copy of
+# the field.
 function energy_spectrum(uh, m)
   shells, spectrum = radial_spectrum(uh, m)                            # device binning (package)
   return shells, 0.5 .* spectrum
@@ -241,8 +242,8 @@ function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   return u_out, ω_out
 end
 
-# ``\hat{N}`` (the buffer `Nh`) = de-aliased Leray projection of ``\widehat{u\times\omega}``, from physical
-# ``u``, ``\omega``.
+# The buffer `Nh` holds ``\hat{N}``, the de-aliased Leray projection of
+# ``\widehat{u\times\omega}`` formed from physical ``u`` and ``\omega``.
 function rhs!(Nh, u, ω, ws, m, plans, dealias)
   cross!(ws.uxω, u, ω)                          # u × ω  (physical)
   to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch

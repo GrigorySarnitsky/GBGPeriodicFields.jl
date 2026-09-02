@@ -53,7 +53,7 @@ Each returns a kernel for a multiplier the package names, in whichever storage c
 admits — and each signature says which class, since that is what determines the cost of applying it:
 `radial_kernel`, `spectral_cutoff` and `spectral_band` give a `RadialKernel` (a closure);
 `translation_kernel` and `assignment_window` give a `SeparableKernel` (three ``O(N)`` factors).
-`radial_kernel` is the escape hatch, taking any other real **function** of ``\lvert k\rvert^2``.
+The escape hatch is `radial_kernel`, taking any other real **function** of ``\lvert k\rvert^2``.
 
 ```@docs
 radial_kernel

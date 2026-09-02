@@ -439,7 +439,7 @@ operation's coverage is judged against the full axis list:
     taken, which is the shape this list exists to catch. It generalises past the transfer: an adjoint
     pair is two configurations, never one.
 
-`inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
+The operator `inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
 element types, three grids including an anisotropic mixed-parity one, the aliased in-place call
 asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/device pair — bitwise
 thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a

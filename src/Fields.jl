@@ -2308,7 +2308,7 @@ Use this in-place form when `destination` is already allocated; the allocating [
 a fresh result instead. There is no target argument here because there is nothing to name: the
 destination already **is** the target family, so the two cannot disagree.
 
-`destination` and `source` are two sections of the same kind — two fields in the same representation,
+Both arguments are sections of the same kind — two fields in the same representation,
 two point-value sections, or two point sets — agreeing in element type, tensor order, grid and Fourier
 layout, and differing at most in the storage family they live in. Everything except the family must
 match, because this moves storage and nothing else: precision is not converted here, exactly as it is

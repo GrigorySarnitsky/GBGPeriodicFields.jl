@@ -227,7 +227,7 @@ grep -rnoP '``[^`]*``' src/*.jl $DOCS_MD | grep -P '(?<![\\A-Za-z])(?<!\{)[a-z]{
 grep -rnP '[^`\s]```[^`]|[^`]```[^`\s]' src/*.jl $DOCS_MD | grep -vP '^\S+:\d+:\s*```'  # split-formula: a ``math`` span abutting a `code` span (3 inline backticks); a documented ```math``` fence-name is a false positive
 grep -rnE '§[0-9]|docs/(src|ARCHITECTURE|FORMALIZATION|TESTING|PERFORMANCE)|ARCHITECTURE\.md|inspiration/' src/*.jl | grep -vE ':[0-9]+:[[:space:]]*#'  # dead ref on a user-facing docstring: a §-number / design-doc path (must read complete at the REPL); drop #-comment hits
 grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed citation block (two citations joined by ';') → one per bullet line
-grep -rnE '\. (`[a-z]|``)' src/*.jl $DOCS_MD | grep -vE ':[0-9]+:[[:space:]]*#'  # prose SENTENCE opens with a lowercase code identifier OR a math formula → REWORD to lead with a capitalized word (NEVER capitalize the lowercase binding); exempt: bullets / list items (incl. §13 entries, arg-docs), `#` code comments, a CAPITALIZED type/module opener; FPs: e.g./i.e. abbreviations, end-of-line ``\checkmark`` markers
+python3 .claude/commands/check-docs/sentence_openers.py  # sentence opens with a lowercase code identifier or a formula → REWORD so an ordinary word leads (never capitalize the identifier). A SCRIPT, not a grep: a sentence start is computed, so it sees the line-initial and paragraph-initial cases a one-line pattern cannot. FPs: bullets and their continuations, `#` comments, abbreviations, the ``\checkmark`` marker — all exempt by rule and applied in the script
 ```
 
 The three non-grep backstops are scripts too, for the same reason:

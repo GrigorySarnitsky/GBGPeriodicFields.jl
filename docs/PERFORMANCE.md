@@ -908,7 +908,7 @@ radial against its own materialized twin:
 | ``R = 1`` | ``1.99`` | ``1.02`` |
 | ``R = 2`` | ``1.52`` | ``1.06`` |
 
-``R = 0`` never pays it, which is the signature; `exponential_convolve!` takes multipliers rather than a
+The case ``R = 0`` never pays it, which is the signature; `exponential_convolve!` takes multipliers rather than a
 kernel object and is untouched, which is the control. The case ``R = 2`` sits *below* ``R = 1`` because nine
 complex components are memory-heavy enough that bandwidth starts dominating even at ``64^3``, which is
 the same effect that removes the penalty entirely at ``128^3``.
@@ -1951,7 +1951,7 @@ The movers each match a recorded mechanism. The `transfer` class median is ``0.9
 four CPU lanes, the decision-78 wrap walk, with `interpolate! CatmullRom` at ``0.35``–``0.49\times``.
 Vector `exponential_convolve!` runs ``3.2``–``3.9\times`` against a scalar twin spanning
 ``0.998``–``1.012\times``, which is decision 79's ``R \ge 1`` scope measured rather than asserted.
-`weighted_inner` gains ``2.5``–``7.3\times`` across every shape (finding (ac)), and the decision-76
+The reduction `weighted_inner` gains ``2.5``–``7.3\times`` across every shape (finding (ac)), and the decision-76
 vector transforms up to ``2.4\times`` at ``512^3`` `Float32`. Canaries are green on all three lanes
 and refrozen.
 

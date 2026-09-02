@@ -548,7 +548,7 @@ the population one) of the squared
 deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's ``N`` cells and
 ``\\tfrac{1}{M-1}\\sum_p`` over a point set's ``M`` points (matching `Statistics.var`'s default correction).
 
-`var`/`std` are **scalar-only**: the sample variance is unambiguous only for a scalar section. A vector
+Both `var` and `std` are **scalar-only**: the sample variance is unambiguous only for a scalar section. A vector
 field's coordinate-free second moment is the covariance tensor [`cov`](@ref); a per-component variance
 would be only its basis-dependent diagonal, so it is not offered — calling `var`/`std` on a vector or
 tensor section raises a clear error pointing to `cov`.

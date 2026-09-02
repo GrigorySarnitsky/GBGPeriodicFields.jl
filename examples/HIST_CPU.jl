@@ -128,7 +128,8 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # arrays, and the initial envelope through `radial_kernel`, which stores a closure. Neither builds a
 # field of coefficients.
 #
-# `make_workspace` preallocates every scratch field the time loop needs, so a step allocates nothing —
+# The `make_workspace` helper preallocates every scratch field the time loop needs, so a step
+# allocates nothing —
 # this is the heart of the performance-first design (and what keeps the GPU pool flat).
 
 
@@ -215,8 +216,8 @@ function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   return u_out, ω_out
 end
 
-# ``\hat{N}`` (the buffer `Nh`) = de-aliased Leray projection of ``\widehat{u\times\omega}``, from physical
-# ``u``, ``\omega``.
+# The buffer `Nh` holds ``\hat{N}``, the de-aliased Leray projection of
+# ``\widehat{u\times\omega}`` formed from physical ``u`` and ``\omega``.
 function rhs!(Nh, u, ω, ws, m, plans, dealias)
   cross!(ws.uxω, u, ω)                          # u × ω  (physical)
   to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch

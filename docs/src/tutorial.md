@@ -83,8 +83,8 @@ julia> field_data(laplacian_φ) ≈ -field_data(φ)
 true
 ```
 
-`gradient`, `divergence`, `curl`, `symmetric_gradient`, `inverse_laplacian`, and
-`helmholtz_projection` work the same way.
+The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient`,
+`inverse_laplacian`, and `helmholtz_projection`.
 
 ## Fiberwise algebra and L²/measure reductions
 

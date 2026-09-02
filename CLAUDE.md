@@ -301,7 +301,11 @@ decision-log entry and an argument-doc bullet; a `#` **code** comment — *but* 
 full-line `# ` line **renders as prose**, so it is **not** exempt; and a **capitalized**
 type/module/file opener (`Point`, `DirectDFT`, `RESULTS.md`), which already begins with a capital. The
 `/check-docs` sentence-opener scan flags this class (it triages out the `e.g.`/`i.e.` abbreviations and
-the end-of-line ``\checkmark`` markers it also catches).
+the ``\checkmark`` markers it also catches). That scan is a **script**, not a grep, since 2026-09-02: a
+sentence start has to be COMPUTED, because the two commonest shapes of the defect — an opener beginning
+a line whose previous line ended the sentence, and an opener beginning a paragraph — have no period on
+their own line and are invisible to any one-line pattern. The grep reported the corpus clean while nine
+were live.
 
 **Correctness is verified, not asserted.** Check every formula, normalization, adjoint relation, and
 especially every **cross-scheme equivalence** by expanding it (degree, reproduction, indices, types)
