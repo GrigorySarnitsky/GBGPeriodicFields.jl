@@ -19,11 +19,11 @@ The parts are:
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
     invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
     carry, together with the arbitrary-fiber-map escape hatch `map!`/`map` — see
-    [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared `FiberSections` formula builders and fused
+    [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared [`FiberSections`](@ref) formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
   * **Base-space motion.** [`displace!`](@ref) moves the points themselves along
-    coefficient-weighted vector sections — in unwrapped coordinates, or, given a `Grid3D`, landing
+    coefficient-weighted vector sections — in unwrapped coordinates, or, given a [`Grid3D`](@ref), landing
     back in the periodic box in the same fused pass — and [`wrap!`](@ref) reduces positions to
     their canonical in-box representatives. The one family that couples base and fiber; positions
     deliberately have no `+` with point values.
@@ -33,8 +33,8 @@ The parts are:
   * **Persistence.** [`write_points`](@ref) and [`read_points`](@ref) map a point set or a point-value
     section to and from one self-describing HDF5 group, positions and values kept separate (methods
     load with the `HDF5` package, as a weak-dependency extension). They are the point-layer twins of
-    `write_field`/`read_field`.
-  * **Moving between storage families.** `adapt` moves a `PointSet` or any point values
+    [`write_field`](@ref GBGPeriodicFields.Fields.write_field)/[`read_field`](@ref GBGPeriodicFields.Fields.read_field).
+  * **Moving between storage families.** [`adapt`](@ref) moves a `PointSet` or any point values
     between host and device memory, exactly as it moves a field; the operation is documented once,
     with its field methods, in [`Fields`](@ref "Fields").
 

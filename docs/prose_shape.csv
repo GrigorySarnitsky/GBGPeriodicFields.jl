@@ -294,7 +294,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",157,94,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",42,41,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
-"Fields.jl :: FieldSpectralMultipliers(",582,147,0
+"Fields.jl :: FieldSpectralMultipliers(",581,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
 "Fields.jl :: Fields",416,365,0
 "Fields.jl :: Grid3D(",174,74,0
@@ -328,6 +328,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",87,71,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
 "Fields.jl :: _physical_field_of_order(data, grid, layout, ::Val{R})",83,58,0
+"Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
 "Fields.jl :: _similar_physical_field(reference::AbstractFieldSpectral, da",20,18,0
 "Fields.jl :: _similar_spectral_field(reference::AbstractFieldPhysical, da",20,18,0
@@ -470,7 +471,7 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
 "Points.jl :: PointSet(coordinates::AbstractArray{T, 2}) where {T<:Abstrac",95,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
-"Points.jl :: Points",369,168,0
+"Points.jl :: Points",371,170,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
 "Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",44,29,0
 "Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",76,35,0
