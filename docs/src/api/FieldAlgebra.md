@@ -64,7 +64,7 @@ norm
 
 ## Arbitrary fiber map
 
-The escape hatch for an arbitrary fiber map that is not one of the named operations above — fields in physical representation here, point-values in [`Points`](@ref); see [`map!`](@ref) for the physical-space-only and aliasing caveats.
+Point-values take the same two verbs, in [`Points`](@ref); see [`map!`](@ref) for the aliasing caveats.
 
 ```@docs
 map!

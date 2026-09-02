@@ -22,11 +22,9 @@ lpnorm
 
 ## Moments and order statistics
 
-These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, and are used exactly as their stdlib counterparts are. All seven are in scope from `using GBGPeriodicFields` alone: the `Statistics` four are re-exported by the umbrella, exactly as `dot` and `norm` are re-exported from `LinearAlgebra`, and the `Base` three are in scope already.
+These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, and are used exactly as their stdlib counterparts are.
 
-The four `Statistics` generics are re-exported by the umbrella, so they are **public** here; the three
-`Base` ones are not re-exported (they need no re-export, `Base` being in scope already), so they are
-collected by the unexported sweep instead. Two blocks, one group.
+All seven are in scope from `using GBGPeriodicFields` alone: the `Statistics` four are re-exported by the umbrella, exactly as `dot` and `norm` are re-exported from `LinearAlgebra`, and the `Base` three are in scope already. That split is also why two blocks follow rather than one — the re-exported four are **public** here, and the `Base` three are collected by the unexported sweep.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Reductions]
@@ -49,8 +47,9 @@ radial_spectrum
 radial_correlation
 ```
 
-Five of the reductions — `integral`, `mean`, `maximum`, `minimum` and `extrema` — also have a
-**mapped** form taking a leading function, applied to the fiber value at every base point — `mean(det, A)`, `maximum(norm, u)` — which reduces a nonlinear invariant in one pass without building it as a section. That form is documented on [`integral`](@ref), including when to prefer it on a CPU; `mean`, `maximum`, `minimum`, and `extrema` take the same leading function. `Statistics` gives `var` and `std` no such spelling, so neither does this package.
+Five of the reductions also have a **mapped** form taking a leading fiber map, as in `mean(det, A)` or
+`maximum(norm, u)`. It is documented on [`integral`](@ref), which names them. `Statistics` gives `var`
+and `std` no such spelling, so neither does this package.
 
 ## Internal API
 

@@ -23,33 +23,20 @@ and is documented with its generic on the [`Fields`](Fields.md) page.
 
 ## Kernel storage classes
 
-A kernel is anything an operation can apply as the coefficientwise product ``\hat f \cdot \hat g``, and the
-package holds one in whichever of four forms is cheapest for its multiplier: a `ScalarFieldSpectral` of
-coefficients wrapped in a `StoredKernel` when the multiplier is arbitrary, the per-axis factors when it
-separates, the **function** computing it when it depends on the wavenumber only through
-``\lvert k\rvert^2``, or **any two kernels** held unmultiplied when a composition cannot be collapsed
-into a single one. All four are *applied* identically and give bitwise-identical results on the host —
-on a device a **complex**-valued kernel is the one exception, the classes agreeing there to rounding —
-so for applying a kernel to a field the choice is one of storage, not of meaning.
+The package holds a kernel in whichever of four forms is cheapest for its multiplier: wrapped in a
+`StoredKernel` when the multiplier is arbitrary, as per-axis factors when it separates, as the
+**function** computing it when it depends on the wavenumber only through ``\lvert k\rvert^2``, or as
+**any two kernels** held unmultiplied when a composition cannot be collapsed into one. All four apply
+identically and agree bitwise on the host; on a device a **complex**-valued kernel is the one
+exception, agreeing there to rounding.
 
-Inverting one is the exception. [`inv`](@ref) is a genuine mathematical partial operation — a kernel
-that annihilates a mode has no inverse there — and the classes report that differently: a
-`StoredKernel` can inspect its coefficients and throws, while a `RadialKernel` evaluates its symbol
-per mode and cannot test the precondition cheaply, so it yields a non-finite multiplier instead. The
-two are the same mathematical object and behave differently, which matters most for a sharp cutoff,
-since [`spectral_cutoff`](@ref) returns the radial class.
+They part company in one place. [`inv`](@ref) is a mathematical partial operation — a kernel that
+annihilates a mode has no inverse there — and a class that cannot afford to test that precondition
+reports a violation differently from one that can. It matters most for a sharp cutoff, since
+[`spectral_cutoff`](@ref) returns the class that cannot.
 
-Every operation taking a kernel dispatches on
-[`SpectralKernel`](@ref), the supertype of the four classes
-below. It is documented with [`Fields`](@ref "Fields"), where the protocol is defined so the
-differential operators and the reductions can name it too (`weighted_inner` narrows it differently —
-any class, but the multiplier must be real).
-
-A field in spectral representation is **not** a kernel. A `StoredKernel` and a `ScalarFieldSpectral`
-hold identical data, so only a type can say which role is meant, and the distinction is load-bearing:
-the coefficientwise reciprocal of a kernel is the kernel that deconvolves by it (`inv`), while the same
-operation on a field is one the package does not define. Wrap the field in a `StoredKernel` to declare
-the role.
+The supertype every kernel-taking operation dispatches on is [`SpectralKernel`](@ref), documented with
+[`Fields`](@ref "Fields").
 
 ```@docs
 StoredKernel
@@ -66,9 +53,7 @@ Each returns a kernel for a multiplier the package names, in whichever storage c
 admits — and each signature says which class, since that is what determines the cost of applying it:
 `radial_kernel`, `spectral_cutoff` and `spectral_band` give a `RadialKernel` (a closure);
 `translation_kernel` and `assignment_window` give a `SeparableKernel` (three ``O(N)`` factors).
-`radial_kernel` is the escape hatch: it builds one from any other real **function** of
-``\lvert k\rvert^2``, which is the route for a filter, a hyperviscosity, or an integrating factor the
-package does not name.
+`radial_kernel` is the escape hatch, taking any other real **function** of ``\lvert k\rvert^2``.
 
 ```@docs
 radial_kernel

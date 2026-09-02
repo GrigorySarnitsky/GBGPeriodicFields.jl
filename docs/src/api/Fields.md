@@ -62,19 +62,13 @@ similar_field
 
 ## Moving between storage families
 
-Host and device are **storage families**, not representations: the same mathematical object, held in
-different memory. Every operation refuses a pair that disagrees, rather than transferring one to meet
-the other, so that the cost of crossing the bus is always visible at the call site — `adapt` is that
-call site. It is [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and plan and re-exported,
-so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it dispatches on a generic
-target, `CUDA` and `AMDGPU` each supply their own storage rule without this package depending on
-either. Element type is never changed by a move.
-
-When the destination already exists, [`adapt!`](@ref) moves into it instead of allocating a fresh
-result — which is most of what the return trip costs, so it is worth reaching for whenever a field
-comes back from a device on any regular basis. It takes no target argument, because the destination
-already is the family. It is offered for sections alone: multipliers, kernels and plans are built
-rather than filled, so there is no storage for a destination to provide.
+Host and device are **storage families**, not representations: a field has both, and they vary
+independently — the representation says whether its values are the field or its Fourier coefficients,
+the family says which memory those values live in. Moving between families is
+[`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and
+plan and re-exported, so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it
+dispatches on a generic target, `CUDA` and `AMDGPU` each supply their own storage rule without this
+package depending on either.
 
 ```@docs
 adapt
@@ -83,24 +77,15 @@ adapt!
 
 ## The real-field reality condition
 
-The real-to-complex layout stores half the spectrum because the other half is the conjugate mirror of
-it. That redundancy is *implied* rather than stored, so it cannot disagree — except on the folded
-axis's self-conjugate planes, where both partners are kept and a hand-written coefficient can break
-the symmetry. [`reality_residual`](@ref) measures how far a field is from being the spectrum of a real
-field, which is worth asking wherever responsibility for the coefficients changes hands.
-
 ```@docs
 reality_residual
 ```
 
 ## Spectral kernel protocol
 
-`SpectralKernel` is the exported supertype the kernel-taking operations dispatch on — `convolve` and the
-kernel-composed differential operators on all four storage classes, `weighted_inner` on every class
-too, subject to the separate requirement that its weight be **real**. It is defined here
-rather than in [`Convolution`](@ref "Convolution") because `DifferentialOperators` also takes kernels
-and is included first, so the protocol has to precede both consumers. The concrete classes that subtype
-it, and the builders returning them, are documented with `Convolution`.
+The kernel-taking operations dispatch on `SpectralKernel`, each accepting all four storage classes:
+`convolve`, the kernel-composed differential operators, and `weighted_inner` — the last subject to the
+separate requirement that its weight be **real**.
 
 ```@docs
 SpectralKernel
@@ -113,13 +98,6 @@ set_fft_threads!
 ```
 
 ## HDF5 persistence
-
-Serialize a field to, and reconstruct it from, an HDF5 file — for checkpoint/restart, or to dump a
-full-resolution snapshot for later analysis. Provided by a **package extension**, so these are available
-only when the `HDF5` package is loaded; the core carries no HDF5 dependency. Each field becomes one
-self-describing HDF5 group, and the consumer owns the file — every method takes an open `File` or `Group`,
-so a whole iteration snapshot (several fields, plus the consumer's own time and iteration attributes) goes
-into one file.
 
 ```@docs
 write_field

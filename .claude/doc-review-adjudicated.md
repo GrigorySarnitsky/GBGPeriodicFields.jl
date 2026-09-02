@@ -111,8 +111,9 @@ The hat read these as tracking one consumer's request history rather than a rule
 and it is stated: **invariant 1** — "The public method set is the spec. Deliberate absences encode
 representation validity … Never add a missing combination *for completeness*" — together with §2's
 no-speculative-structure principle. "No consumer asked" is the operational test of that principle, not
-a substitute for one, and every absence in the list carries its reason at its own site (`Points.jl`
-for `combine!`, ARCHITECTURE §13 for the `curl!` kernel arity, decision 27's entry for the
+a substitute for one, and every absence in the list carries its reason at its own site (the
+`Points` API page for `combine!` — verified 2026-09-02, `Points.jl` itself never mentions it and this
+entry said it did — ARCHITECTURE §13 for the `curl!` kernel arity, decision 27's entry for the
 `weighted_inner` generalization).
 
 The residual point — that a second consumer cannot enumerate the gaps without reading each docstring —

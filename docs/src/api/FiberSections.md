@@ -7,8 +7,6 @@ Order   = [:module]
 
 ## The fiber
 
-The value type at a single base point. The fiber is base-agnostic — the same `FiberVector` serves a field over a grid and a point-value section over a scattered set — so it lives here rather than with either base.
-
 ```@docs
 FiberVector
 FiberTensor2

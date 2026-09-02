@@ -38,13 +38,6 @@ NUFFT
 
 ## Scheme persistence
 
-Serialize a transfer scheme to, and reconstruct it from, an HDF5 group, so a checkpoint restores not
-only where a point set samples but *how*. Provided by a **package extension**, available only when
-the `HDF5` package is loaded; the core carries no HDF5 dependency. A scheme is a parameter record
-rather than a section, so its group holds attributes and no dataset: the weight coefficients are
-derived from the parameters and recomputed on read. `NUFFT` is deliberately excluded — it owns FFT
-plans built against a reference field, so it is rebuilt rather than stored, and passing one throws.
-
 ```@docs
 write_scheme
 read_scheme
