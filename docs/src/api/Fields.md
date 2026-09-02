@@ -65,7 +65,7 @@ similar_field
 Host and device are **storage families**, not representations: the same mathematical object, held in
 different memory. Every operation refuses a pair that disagrees, rather than transferring one to meet
 the other, so that the cost of crossing the bus is always visible at the call site — `adapt` is that
-call site. It is `Adapt.jl`'s verb, extended here for every section, kernel and plan and re-exported,
+call site. It is [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and plan and re-exported,
 so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it dispatches on a generic
 target, `CUDA` and `AMDGPU` each supply their own storage rule without this package depending on
 either. Element type is never changed by a move.

@@ -3342,7 +3342,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     refusal was always half a design: it names what the package will not do implicitly without offering
     the explicit operation that does it. The complement has now shipped, and it is not a new verb.
 
-    **The interface is `Adapt.jl`'s `adapt`.** `Adapt` exists for exactly this — take a struct holding
+    **The interface is [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s `adapt`.** `Adapt` exists for exactly this — take a struct holding
     arrays, return the same struct holding another array type — and CUDA, AMDGPU, oneAPI, Metal,
     GPUArrays and KernelAbstractions all speak it. The package defines `adapt_structure` for the six
     field types, the three point-value types, `PointSet`, `FieldSpectralMultipliers`, the four spectral
