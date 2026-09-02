@@ -162,7 +162,7 @@ abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T
     ScalarPointValues(data::AbstractArray{T, 1}) where {T<:AbstractFloat}
 
 One scalar value per point, sampled at `M` points — the point-set counterpart of a
-`ScalarFieldPhysical`. Point-values carry no second representation, there being no periodic
+[`ScalarFieldPhysical`](@ref GBGPeriodicFields.Fields.ScalarFieldPhysical). Point-values carry no second representation, there being no periodic
 grid to transform over.
 
 The fields are
@@ -186,7 +186,7 @@ end
     VectorPointValues(data::AbstractArray{T, 2}) where {T<:AbstractFloat}
 
 One vector value per point, sampled at `M` points — the point-set counterpart of a
-`VectorFieldPhysical`.
+[`VectorFieldPhysical`](@ref GBGPeriodicFields.Fields.VectorFieldPhysical).
 
 The fields are
 - `data` — the components, structure-of-arrays with shape `(M, 3)`; the second axis must have length `3`, and the constructor checks it.
@@ -209,7 +209,7 @@ end
 
 One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`](@ref) or
 [`VectorPointValues`](@ref) for orders `0` and `1`, which the constructor enforces), sampled at `M` points — the point-set counterpart of a
-`TensorFieldPhysical`.
+[`TensorFieldPhysical`](@ref GBGPeriodicFields.Fields.TensorFieldPhysical).
 
 The fields are
 - `data` — the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
@@ -1343,7 +1343,7 @@ the grid-free form is its lift to the cover, which preserves winding information
 mean-square-displacement diagnostic needs the unwrapped trajectory).
 
 The arguments are:
-- `destination` — the `PointSet` receiving the displaced positions. It may be the `source`
+- `destination` — the [`PointSet`](@ref) receiving the displaced positions. It may be the `source`
   itself (the two-argument convenience forms are exactly that call): the pass reads each
   element's inputs before writing its outputs, so the aliased call is computed directly.
 - `source` — the `PointSet` holding the starting positions. When omitted, `points` is both

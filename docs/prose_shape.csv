@@ -473,9 +473,9 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
 "Points.jl :: Points",371,170,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
-"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",44,29,0
-"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",76,35,0
-"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",45,25,0
+"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",45,30,0
+"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",77,36,0
+"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",46,25,0
 "Points.jl :: _axis_terms(axis, terms...)",41,39,0
 "Points.jl :: _check_broadcast_point_values_compatibility(destination, arg",39,37,0
 "Points.jl :: _check_combinable(values...)",127,107,0
