@@ -184,7 +184,7 @@ This is what lets a mask and a displacement — or any radial symbol and any per
 applied in a single pass instead of two.
 
 The fields are
-- **`first_kernel`**, **`second_kernel`** — the two operands, held unmultiplied and evaluated per mode.
+- `first_kernel`, `second_kernel` — the two operands, held unmultiplied and evaluated per mode.
 """
 struct ProductKernel{T, A, B} <: SpectralKernel{T}
   first_kernel::A
@@ -476,9 +476,9 @@ Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
 ``1/\\prod_a g_a = \\prod_a (1/g_a)`` — the deconvolution an assignment window is built for.
 
 The fields are
-- **`factor_1`, `factor_2`, `factor_3`** — the per-axis factors, each shaped to broadcast along its
+- `factor_1`, `factor_2`, `factor_3` — the per-axis factors, each shaped to broadcast along its
   own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
-- **`grid`**, **`layout`** — the base and Fourier layout the factors were built for, which a call
+- `grid`, `layout` — the base and Fourier layout the factors were built for, which a call
   checks the field against.
 
 !!! note "Separable, not radial"

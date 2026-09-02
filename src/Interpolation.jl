@@ -986,8 +986,8 @@ The arguments are:
   [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) scatter onto a **physical-space** field, while
   [`DirectDFT`](@ref) and [`NUFFT`](@ref) deposit into a field in **spectral representation**; each
   scheme's own docstring gives the weights.
-- **`α`** — scales the deposited contribution.
-- **`β`** — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
+- `α` — scales the deposited contribution.
+- `β` — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
   accumulates onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling
   scatter — a deposit that accumulates onto a field the same points also sample).
 - `order` — an optional visit order from [`transfer_order`](@ref): a permutation of the point indices

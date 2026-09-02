@@ -88,8 +88,38 @@ soft "dead §-ref in a docstring"       bash -c "grep -rnE '§[0-9]|docs/(src|AR
 # abbreviations, the ``\checkmark`` marker) live in the script beside their reasons.
 soft "sentence opens with code/math"   python3 .claude/commands/check-docs/sentence_openers.py
 
+# A documented field name must be a field the struct actually has, and every field must have a bullet.
+# Added 2026-09-02 after `PointSet`'s field was renamed in the code and not in its docstring, so the
+# rendered page told a reader to write `point_set.coordinates`, which throws. No other guard sees that
+# class: the build does not read prose, `checkdocs = :exports` only asks whether a docstring exists,
+# and a grep for the old name cannot separate a stale identifier from the English word it also is.
+hard "documented fields match struct"  python3 .claude/commands/check-docs/field_docs.py
+
+# An argument or field bullet names its argument in a PLAIN code span, never a bold one. Measured
+# 2026-09-02 when the user asked whether the bold in `displace!` was the convention: it is not — 181
+# plain against 9 bold, and the 9 sat in four docstrings. `anterpolate!` had both forms in ONE list,
+# and `RadialKernel`/`SeparableKernel` carry the SAME bullet ("`grid`, `layout` — the base and Fourier
+# layout ...") one plain and one bold, which is what rules out a deliberate sub-convention. A bold
+# PROSE label (`- **Positions.** ...`) is a different device and is not matched: the pattern requires a
+# backtick immediately after the `**`.
+hard "argument bullet is not bolded"   grep -rnE '^[[:space:]]*[-*][[:space:]]+\*\*`' src ext
+
 soft "wide docstring signature (>88)"  awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/GBGPeriodicFields.jl src/Fields.jl src/FieldAlgebra.jl src/FiberSections.jl src/DifferentialOperators.jl src/Convolution.jl src/Points.jl src/Interpolation.jl src/Reductions.jl
 
 echo
+# A scan that VANISHES cannot fail, so its absence has to be checked apart from its result — the
+# missing case is the failing case. This exists because on 2026-09-02 an edit replacing one block of
+# this file silently deleted the `hard` line beside it: the script it called still existed, was still
+# committed, and was called by nothing, while `guards.sh` went on exiting 0 with the check gone.
+# Every backstop script in the directory must be invoked by a `hard`/`soft` line here. The two run as
+# separate documented invocations rather than through this file are named as the exceptions they are.
+for script in .claude/commands/check-docs/*.py; do
+  base=$(basename "$script")
+  case "$base" in doi_crosscheck.py) continue ;; esac
+  if ! grep -qE "^(hard|soft) .*$base" "$0"; then
+    printf '  FAIL  %-34s exists but no hard/soft line calls it\n' "$base"; fail=1
+  fi
+done
+
 if [ "$fail" -eq 0 ]; then echo "GUARDS: every must-be-empty scan clean."; else echo "GUARDS: FAILED — see the FAIL lines above."; fi
 exit $fail

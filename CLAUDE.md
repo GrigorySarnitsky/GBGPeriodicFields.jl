@@ -504,7 +504,7 @@ a time unit) is also fine. The bar is on **docstring prose**.
 
 **Argument coverage (signature-driven) — a sweep separate from the symbol sweep, run *from the signature*.**
 For each docstring, enumerate **every argument in its signature** (positional *and* keyword) and cite where
-the body documents each (a `- **`arg`**` bullet, a binding clause, an `arg = value` mention, or a `::Type`
+the body documents each (a ``- `arg` — …`` bullet, a binding clause, an `arg = value` mention, or a `::Type`
 for a conventional first arg); flag any `UNDOCUMENTED`. The self-contained *symbol* sweep is not enough — an
 argument that surfaces only *inside a formula* reads as "bound by use" and slips through (a tolerance or
 stencil width shown only in a formula never gets its own entry).

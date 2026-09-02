@@ -1343,14 +1343,14 @@ the grid-free form is its lift to the cover, which preserves winding information
 mean-square-displacement diagnostic needs the unwrapped trajectory).
 
 The arguments are:
-- **`destination`** — the `PointSet` receiving the displaced positions. It may be the `source`
+- `destination` — the `PointSet` receiving the displaced positions. It may be the `source`
   itself (the two-argument convenience forms are exactly that call): the pass reads each
   element's inputs before writing its outputs, so the aliased call is computed directly.
-- **`source`** — the `PointSet` holding the starting positions. When omitted, `points` is both
+- `source` — the `PointSet` holding the starting positions. When omitted, `points` is both
   source and destination.
-- **`grid`** — optional; a [`Grid3D`](@ref) supplying the periodic domain. Only its
+- `grid` — optional; a [`Grid3D`](@ref) supplying the periodic domain. Only its
   `domain_size` and `origin` enter: the wrap needs the box, not the mesh.
-- **`terms...`** — zero or more `(coefficient, section)` tuples, each pairing one real number
+- `terms...` — zero or more `(coefficient, section)` tuples, each pairing one real number
   with one section. The coefficients are part of
   what the operation *is* — the displacement ``\\sum_j c_j v_j`` — so they are named
   coefficients rather than the α/β accumulation scalars of invariant 10, and there is no
