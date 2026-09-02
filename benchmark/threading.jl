@@ -16,7 +16,7 @@ const F = GBGPeriodicFields.Fields
 best(f; samples = 5) = (f(); minimum(@elapsed(f()) for _ in 1:samples))
 
 function scalar_plans(grid)
-  shape = F.spectral_field_shape(grid, RealFourierLayout(), Val(0))
+  shape = F.field_spectral_shape(grid, RealFourierLayout(), Val(0))
   return FieldTransformPlans(ScalarFieldPhysical(zeros(grid.grid_size...), grid),
                              ScalarFieldSpectral(zeros(ComplexF64, shape), grid))
 end

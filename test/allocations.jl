@@ -76,9 +76,9 @@ _map_add(a, b) = a + b
       grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
       layout = RealFourierLayout()
 
-      spectral_vector() = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid)
-      spectral_scalar() = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
-      spectral_tensor() = TensorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(2))), grid)
+      spectral_vector() = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid)
+      spectral_scalar() = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid)
+      spectral_tensor() = TensorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(2))), grid)
       physical_vector() = VectorFieldPhysical(zeros(T, N, N, N, 3), grid)
       physical_scalar() = ScalarFieldPhysical(zeros(T, N, N, N), grid)
       physical_tensor() = TensorFieldPhysical(zeros(T, N, N, N, 3, 3), grid)
@@ -332,13 +332,13 @@ end
       pv = VectorFieldPhysical(rand(T, N, N, N, 3), grid)
       pt = TensorFieldPhysical(rand(T, N, N, N, 3, 3), grid)
       scalar_plans = FieldTransformPlans(ScalarFieldPhysical(zeros(T, N, N, N), grid),
-                                         ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid))
+                                         ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid))
       ss = to_spectral(ps, scalar_plans)
       vplans = FieldTransformPlans(VectorFieldPhysical(zeros(T, N, N, N, 3), grid),
-                                   VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid))
+                                   VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid))
       vs = to_spectral(pv, vplans)
       tplans = FieldTransformPlans(TensorFieldPhysical(zeros(T, N, N, N, 3, 3), grid),
-                                   TensorFieldSpectral{2}(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(2))), grid))
+                                   TensorFieldSpectral{2}(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(2))), grid))
       ts = to_spectral(pt, tplans)
       threshold = sizeof(field_data(vs)) ÷ 16
 
@@ -348,7 +348,7 @@ end
       @alloc_below threshold l2norm(pv)                    # = sqrt(inner): physical, dot
       @alloc_below threshold l2norm(vs)                    # = sqrt(inner(f,f)): spectral, allocation-free
       # weighted_inner ⟨f, w·g⟩: fused lazy-broadcast reduction, only `_parseval_weight`'s tiny (Nkx,) vector
-      wfield = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+      wfield = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid)
       field_data(wfield) .= one(Complex{T})
       wkernel = GBGPeriodicFields.Convolution.StoredKernel(wfield)   # a weight is a kernel
       @alloc_below threshold weighted_inner(ss, wkernel)       # scalar self-pairing (g = f)
@@ -423,7 +423,7 @@ end
       grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
       layout = RealFourierLayout()
       vplans = FieldTransformPlans(VectorFieldPhysical(zeros(T, N, N, N, 3), grid),
-                                   VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid))
+                                   VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid))
       vs  = to_spectral(VectorFieldPhysical(rand(T, N, N, N, 3), grid), vplans)
       vs2 = to_spectral(VectorFieldPhysical(rand(T, N, N, N, 3), grid), vplans)
       half_field = sizeof(field_data(vs)) ÷ 2       # > 2 correction planes (≈ field/6), < one full field
@@ -454,8 +454,8 @@ end
       pt = TensorFieldPhysical(rand(T, N, N, N, 3, 3), grid)
       ptd = TensorFieldPhysical(zeros(T, N, N, N, 3, 3), grid)
       vplans = FieldTransformPlans(VectorFieldPhysical(zeros(T, N, N, N, 3), grid),
-                                   VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid))
-      m = FieldSpectralMultipliers(VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid))
+                                   VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid))
+      m = FieldSpectralMultipliers(VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid))
       vs = to_spectral(pv, vplans)
 
       bound = 8 * sizeof(field_data(pv))            # ≤ 8 physical vector fields; an O(shells) regression is ~220
@@ -481,9 +481,9 @@ end
   for T in (Float64, Float32)
     @testset "$T" begin
       grid, layout = Grid3D((16, 16, 16), T.((2pi, 2pi, 2pi))), RealFourierLayout()
-      sv  = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
-      dst = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
-      ss  = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+      sv  = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
+      dst = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
+      ss  = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
       m   = FieldSpectralMultipliers(sv)
       calls = (() -> laplacian!(dst, sv, m),
                () -> inverse_laplacian!(dst, sv, m),
@@ -523,7 +523,7 @@ end
                      VectorFieldPhysical(zeros(T, 8, 8, 8, 3), grid),
                      TensorFieldPhysical{2}(zeros(T, 8, 8, 8, 3, 3), grid))
         for (R, physical) in enumerate(physicals)
-          shape = GBGPeriodicFields.spectral_field_shape(grid, layout, Val(R - 1))
+          shape = GBGPeriodicFields.field_spectral_shape(grid, layout, Val(R - 1))
           spectral = R == 1 ? ScalarFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
                      R == 2 ? VectorFieldSpectral(zeros(Complex{T}, shape...), grid, layout) :
                               TensorFieldSpectral{2}(zeros(Complex{T}, shape...), grid, layout)
@@ -552,7 +552,7 @@ end
       grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
       layout = RealFourierLayout()
       pv = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout)
-      sv = VectorFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+      sv = VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
       q  = VectorPointValues(randn(T, 12, 3))
       ps = PointSet(rand(T, 12, 3))
       # The destinations are built HERE, not inside the measured expression: `similar_field`

@@ -22,7 +22,7 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
 
   function plans_for(physical)
     R = field_tensor_order(physical)
-    shape = F.spectral_field_shape(grid, layout, Val(R))
+    shape = F.field_spectral_shape(grid, layout, Val(R))
     spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)
@@ -97,7 +97,7 @@ function run_eltype_tests(::Type{T}) where {T<:AbstractFloat}
       @test approx(field_data(S), field_data(sym(gradient(us, m))))
 
       w1 = GBGPeriodicFields.Convolution.StoredKernel(
-             ScalarFieldSpectral(fill(one(Complex{T}), F.spectral_field_shape(grid, layout, Val(0))), grid))
+             ScalarFieldSpectral(fill(one(Complex{T}), F.field_spectral_shape(grid, layout, Val(0))), grid))
       @test weighted_inner(us, w1) isa T                    # a Float64 must not leak in
       @test approx(weighted_inner(us, w1), inner(us, us))
     end

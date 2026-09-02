@@ -425,6 +425,25 @@ the args carrying one type across the overloads (`α::Real`) and keeps generic t
 field argument; `constant` = `Real`/`FiberVector`/`FiberTensor2`) — `add!(destination, a, b, fields...)` is
 such a summary, with no variadic method in the code to mirror.
 
+**The representation qualifier TRAILS what it qualifies — in identifiers as well as prose (codified
+2026-09-02).** Invariant 2 bans "spectral field"; the same ban binds an identifier, because a name is
+read as prose. This is why the types are `ScalarFieldPhysical` and `AbstractFieldSpectral` rather than
+`PhysicalScalarField` — the trailing qualifier reads "scalar field, physical representation", which is
+what invariant 2 asks for, and the leading one reads as the phrase it forbids. The rule was implicit in
+the type names and unwritten, so the FUNCTIONS drifted the other way and six of them read as violations
+for months: `physical_field_shape`, `spectral_field_shape`, `_physical_field_of_order`,
+`_spectral_field_of_order`, `_similar_physical_field`, `_similar_spectral_field` — now
+`field_physical_shape`, `field_spectral_shape`, `_field_physical_of_order`, `_field_spectral_of_order`,
+`_similar_field_physical`, `_similar_field_spectral`. Placing the qualifier immediately after `field`
+also makes the name mirror the TYPE it describes, so `AbstractFieldPhysical` ↔ `field_physical_shape`
+is a correspondence a reader can rely on.
+
+**The rule binds only where the adjective modifies the FIELD**, and the exemption already recorded
+below is unchanged: `spectral_cutoff`, `spectral_band`, `radial_kernel` and `FieldSpectralMultipliers`
+are NOT in this class, a kernel being a genuinely spectral object; nor is a local naming a field in one
+representation (`spectral_scratch`, `physical_prototype`) or a property of the storage
+(`spectral_stride`). A sweep that flags those is over-reading the rule — the first one run here did.
+
 **Operators are not "spectral" — the representation adjective stays off the operator (user-decided
 2026-08-14).** Gradient, divergence, curl and their family are ordinary differential operators on the
 real physical object; what is spectral is where the package applies them. Write **"the differential

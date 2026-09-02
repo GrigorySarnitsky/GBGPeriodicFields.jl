@@ -36,7 +36,7 @@ const CONTEXTS = (
 )
 
 scalar_on(ctx) = ScalarFieldSpectral(
-  zeros(ComplexF64, CM.spectral_field_shape(ctx.grid, ctx.layout, Val(0))), ctx.grid, ctx.layout)
+  zeros(ComplexF64, CM.field_spectral_shape(ctx.grid, ctx.layout, Val(0))), ctx.grid, ctx.layout)
 
 # One builder per participant type. Keyed by the type the protocol dispatches on, so the completeness
 # assertion below can compare this table against the protocol's own method list.

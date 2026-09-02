@@ -23,7 +23,7 @@ function _bench(config)
   set_threading_cutoff!(config.threaded ? 1 : typemax(Int))
   Random.seed!(config.seed)          # the configuration's seed, not the global stream's position
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
-  spectral() = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.spectral_field_shape(grid, layout, Val(0))...),
+  spectral() = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...),
                                    grid, layout)
   s = ScalarFieldPhysical(rand(T, P(0)...) .- T(1) / 2, grid, layout)
   u = VectorFieldPhysical(rand(T, P(1)...) .- T(1) / 2, grid, layout)

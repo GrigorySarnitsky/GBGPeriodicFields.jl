@@ -62,8 +62,8 @@ const ALAYOUT = RealFourierLayout()
 agsphys() = ScalarFieldPhysical(rand(8, 6, 4), AGRID, ALAYOUT)
 agvphys() = VectorFieldPhysical(rand(8, 6, 4, 3), AGRID, ALAYOUT)
 agtphys() = TensorFieldPhysical{2}(rand(8, 6, 4, 3, 3), AGRID, ALAYOUT)
-agsspec() = ScalarFieldSpectral(randn(ComplexF64, AG.Fields.spectral_field_shape(AGRID, ALAYOUT, Val(0))), AGRID, ALAYOUT)
-agvspec() = VectorFieldSpectral(randn(ComplexF64, AG.Fields.spectral_field_shape(AGRID, ALAYOUT, Val(1))), AGRID, ALAYOUT)
+agsspec() = ScalarFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(0))), AGRID, ALAYOUT)
+agvspec() = VectorFieldSpectral(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(1))), AGRID, ALAYOUT)
 agmult() = FieldSpectralMultipliers(agsspec())
 agkernel() = spectral_band(agmult(), 1, 3)
 agplans() = FieldTransformPlans(agsphys(), agsspec())
@@ -73,8 +73,8 @@ agpoints() = PointSet(rand(9, 3) .* 2π)
 # ── The registry: each operation called on the side invariant 1 leaves ABSENT ────────────────────
 const ABSENT_CALLS = Dict{Symbol, Function}(
   # Nonlinear-in-the-field, so physical-only — the spectral spelling must refuse.
-  :det      => () -> det(TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.spectral_field_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
-  :det!     => () -> det!(agsspec(), TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.spectral_field_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
+  :det      => () -> det(TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
+  :det!     => () -> det!(agsspec(), TensorFieldSpectral{2}(randn(ComplexF64, AG.Fields.field_spectral_shape(AGRID, ALAYOUT, Val(2))), AGRID, ALAYOUT)),
   :norm     => () -> AG.norm(agvspec()),
   :norm!    => () -> norm!(agsspec(), agvspec()),
   :lpnorm   => () -> lpnorm(agsspec(), 3),

@@ -28,7 +28,7 @@ fact, not a docstring site to sweep, already correctly stated in `docs/ARCHITECT
 A targeted grep (`plans (carry|carries).{0,40}tensor order`) across src/, docs/ARCHITECTURE.md,
 docs/FORMALIZATION.md, docs/TESTING.md, docs/PERFORMANCE.md and docs/src/ found no other stale
 "plans carry tensor order" claim outside the one line fixed. One adjacent internal-helper
-docstring (`_physical_field_of_order`, src/Fields.jl:2243, "it has only the plans' own grid,
+docstring (`_field_physical_of_order`, src/Fields.jl:2243, "it has only the plans' own grid,
 layout, element type and order") uses the bare word "order" ambiguously in the same
 neighborhood, but it is an internal `_`-prefixed helper (exempt from the strict docstring
 rubric) and does not use the phrase "tensor order," so it is not clearly part of the same

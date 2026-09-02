@@ -147,7 +147,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       # even Nₓ = 8 exercises the Nyquist correction; odd Nₓ = 7 the no-Nyquist branch
       for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
-                        shape = spectral_field_shape(gp, layout, Val(R));
+                        shape = field_spectral_shape(gp, layout, Val(R));
                         spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
@@ -177,7 +177,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       # even Nₓ = 8 and odd Nₓ = 7 both place the DC coefficient at index [1,1,1]; check both
       for gp in (Grid3D((8, 8, 8), (T(2π), T(4π), T(6π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
-                        shape = spectral_field_shape(gp, layout, Val(R));
+                        shape = field_spectral_shape(gp, layout, Val(R));
                         spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
@@ -213,12 +213,12 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       rtol = T == Float64 ? 1e-10 : 1.0f-3
       for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
-                        shape = spectral_field_shape(gp, layout, Val(R));
+                        shape = field_spectral_shape(gp, layout, Val(R));
                         spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
-        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
         f = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp)
         u = VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), gp)
         A = TensorFieldPhysical{2}((x, y, z) -> [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)], gp)
@@ -301,15 +301,15 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       rtol = T == Float64 ? 1e-9 : 1.0f-3
       for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
-                        shape = spectral_field_shape(gp, layout, Val(R));
+                        shape = field_spectral_shape(gp, layout, Val(R));
                         spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
-        zero_scalar() = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp)
+        zero_scalar() = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp)
         m = FieldSpectralMultipliers(zero_scalar())
         # A weight is a KERNEL: a bare `ScalarFieldSpectral` is no longer accepted in that role.
-        ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(gp, layout, Val(0))), gp))
+        ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), field_spectral_shape(gp, layout, Val(0))), gp))
         ksq = radial_kernel(identity, m)   # w = |k|², as the radial symbol itself
         band = spectral_cutoff(m, T(2.5))                        # sharp 0/1 mask ⇒ w² = w
 
@@ -391,7 +391,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
                      # a RANDOM field — exercises all modes, checked directly in physical space (circshift)
                      ScalarFieldPhysical(randn(MersenneTwister(11), T, gs...), gp))
           R = field_tensor_order(phys)
-          shape = spectral_field_shape(gp, layout, Val(R))
+          shape = field_spectral_shape(gp, layout, Val(R))
           spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                   R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                            TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp)
@@ -405,7 +405,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
         # analytical oracle: a constant field c is perfectly correlated, C(r) = c² at every separation
         c = T(1.7)
         constant = ScalarFieldPhysical((x, y, z) -> c, gp)
-        plans_c = FieldTransformPlans(constant, ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        plans_c = FieldTransformPlans(constant, ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
         _, constant_corr = radial_correlation(to_spectral(constant, plans_c), plans_c)
         @test isapprox(constant_corr[1], c^2; rtol = rtol, atol = atol)                       # C(0) = c²
         @test all(x -> isapprox(x, c^2; rtol = rtol, atol = atol) || iszero(x), constant_corr)  # c² on every populated shell
@@ -418,12 +418,12 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
       rtol = T == Float64 ? 1e-9 : 1.0f-3
       for gp in (Grid3D((8, 8, 8), (T(2π), T(2π), T(2π))), Grid3D((7, 8, 6), (T(2π), T(2π), T(2π))))
         tospec(phys) = (R = field_tensor_order(phys);
-                        shape = spectral_field_shape(gp, layout, Val(R));
+                        shape = field_spectral_shape(gp, layout, Val(R));
                         spec0 = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                                 R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                                          TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp);
                         to_spectral(phys, FieldTransformPlans(phys, spec0)))
-        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(gp, layout, Val(0))), gp))
+        m = FieldSpectralMultipliers(ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(gp, layout, Val(0))), gp))
         # distinct scalar / vector / tensor pairs so the co-spectrum is non-trivial (g ≠ f)
         pairs = ((ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z), gp),
                   ScalarFieldPhysical((x, y, z) -> cos(x) + sin(2y) + T(2) / 5 * cos(z), gp)),
@@ -478,7 +478,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
           end
           return [iszero(shell_count[i]) ? zero(T) : shell_sum[i] / shell_count[i] for i in 1:nshell]
         end
-        spec0(R) = (shape = spectral_field_shape(gp, layout, Val(R));
+        spec0(R) = (shape = field_spectral_shape(gp, layout, Val(R));
                     R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), gp) :
                     R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), gp) :
                              TensorFieldSpectral{R}(zeros(Complex{T}, shape), gp))
@@ -514,7 +514,7 @@ using Statistics: mean, std, var, cov      # the umbrella re-exports these too; 
     N = 8
     g = Grid3D((N, N, N), (2π, 2π, 2π))
     layout = RealFourierLayout()
-    spec = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(g, layout, Val(0))), g)
+    spec = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(g, layout, Val(0))), g)
     m = FieldSpectralMultipliers(spec)
     @test inner(spec, spec) === 0.0          # Parseval inner defined (zero field ⇒ 0), real scalar
     @test l2norm(spec) === 0.0
@@ -547,7 +547,7 @@ end
     layout = RealFourierLayout(dims)
     phys = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
     phys2 = VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout)
-    scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid, layout)
+    scaffold = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid, layout)
     plans = FieldTransformPlans(phys, scaffold)
     sp = to_spectral(phys, plans)
     sp2 = to_spectral(phys2, plans)
@@ -558,7 +558,7 @@ end
     @test inner(sp, sp2) ≈ inner(phys, phys2) atol = atol
     shells, spectrum = radial_spectrum(sp, m)
     @test sum(spectrum) ≈ inner(sp, sp) atol = atol
-    ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), spectral_field_shape(grid, layout, Val(0))), grid, layout))
+    ones_w = GBGPeriodicFields.Convolution.StoredKernel(ScalarFieldSpectral(fill(one(Complex{T}), field_spectral_shape(grid, layout, Val(0))), grid, layout))
     @test weighted_inner(sp, ones_w) ≈ inner(sp, sp) atol = atol
     separations, correlation = radial_correlation(sp, plans)  # end-to-end under the permuted fold
     @test correlation[1] ≈ inner(sp, sp) atol = atol          # C(0) = ⟨|f|²⟩
@@ -575,7 +575,7 @@ end
   layout_a = RealFourierLayout()
   phys = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid_a)
   phys2 = VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid_a)
-  scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_a, layout_a, Val(1))),
+  scaffold = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid_a, layout_a, Val(1))),
                                  grid_a)
   plans = FieldTransformPlans(phys, scaffold)
   sp = to_spectral(phys, plans)
@@ -591,7 +591,7 @@ end
   # single-mode placement oracles: cos(x) has |k| = 1 ⇒ shell round(1/Δk) = 3 (bin 4);
   # cos(y·2π/L₂) has |k| = 1/2 ⇒ shell round((1/2)/(1/3)) = 2 (bin 3) — mode, fundamental, and
   # shell width all differ, so the placement pins the anisotropic Δk arithmetic exactly
-  sscaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid_a, layout_a, Val(0))),
+  sscaffold = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid_a, layout_a, Val(0))),
                                   grid_a)
   cos_x = ScalarFieldPhysical([cos((i - 1) * T(2π) / 8) for i in 1:8, j in 1:8, l in 1:8], grid_a)
   cos_y = ScalarFieldPhysical([cos(T(1) / 2 * (j - 1) * T(4π) / 8) for i in 1:8, j in 1:8, l in 1:8],
@@ -738,7 +738,7 @@ end
 @testset "spectral inner rejects mismatched tensor order (exhaustive lane, 2026-07-30)" begin
   grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
   layout = RealFourierLayout()
-  shape(R) = GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(R))
+  shape(R) = GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(R))
   scalar = ScalarFieldSpectral(randn(ComplexF64, shape(0)...), grid, layout)
   vector = VectorFieldSpectral(randn(ComplexF64, shape(1)...), grid, layout)
   tensor = TensorFieldSpectral{2}(randn(ComplexF64, shape(2)...), grid, layout)
@@ -774,7 +774,7 @@ end
     physical = R == 0 ? ScalarFieldPhysical(rand(T, 8, 8, 8), grid, layout) :
                R == 1 ? VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) :
                         TensorFieldPhysical{2}(rand(T, 8, 8, 8, 3, 3), grid, layout)
-    scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+    scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
     spectral = similar_field(scalar_spec, Val(R))
     field = to_spectral(physical, FieldTransformPlans(physical, spectral))
     multipliers = FieldSpectralMultipliers(field)
@@ -815,7 +815,7 @@ end
 
   # Every refusal the single-weight form makes, the tuple form makes too — in any position.
   layout = RealFourierLayout()
-  scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+  scalar_spec = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
   multipliers = FieldSpectralMultipliers(scalar_spec)
   good = spectral_cutoff(multipliers, T(2))
   complex_weight = translation_kernel(multipliers, (T(0.1), T(0.2), T(0.3)))     # a phase: not real
@@ -823,7 +823,7 @@ end
   @test_throws ArgumentError weighted_inner(scalar_spec, (good, complex_weight))
   foreign_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
   foreign = spectral_cutoff(FieldSpectralMultipliers(ScalarFieldSpectral(
-    zeros(Complex{T}, spectral_field_shape(foreign_grid, layout, Val(0))...), foreign_grid, layout)), T(2))
+    zeros(Complex{T}, field_spectral_shape(foreign_grid, layout, Val(0))...), foreign_grid, layout)), T(2))
   @test_throws ArgumentError weighted_inner(scalar_spec, (good, foreign))
 
   # Physical representation has no weighted inner, tuple or not (invariant 1).

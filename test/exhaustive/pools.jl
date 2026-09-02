@@ -247,10 +247,10 @@ const CANONICAL_LAYOUT = RealFourierLayout()
 const CANONICAL_GRID32 = Grid3D((8, 6, 4), (2f0 * π, 2f0 * π, 2f0 * π))
 
 _scalar_spectral(T, grid, layout) =
-  ScalarFieldSpectral(zeros(Complex{T}, GBG.Fields.spectral_field_shape(grid, layout, Val(0))...),
+  ScalarFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(0))...),
                       grid, layout)
 _vector_spectral(T, grid, layout) =
-  VectorFieldSpectral(zeros(Complex{T}, GBG.Fields.spectral_field_shape(grid, layout, Val(1))...),
+  VectorFieldSpectral(zeros(Complex{T}, GBG.Fields.field_spectral_shape(grid, layout, Val(1))...),
                       grid, layout)
 
 # A foreign object AT THE TENSOR ORDER THE SLOT TAKES. Every mismatch builder used to return a scalar,
@@ -261,7 +261,7 @@ _spectral_at(T, grid, layout, order::Int) =
   order == 0 ? _scalar_spectral(T, grid, layout) :
   order == 1 ? _vector_spectral(T, grid, layout) :
                TensorFieldSpectral{2}(zeros(Complex{T},
-                                            GBG.Fields.spectral_field_shape(grid, layout, Val(2))...),
+                                            GBG.Fields.field_spectral_shape(grid, layout, Val(2))...),
                                       grid, layout)
 
 canonical_carrier() = _scalar_spectral(Float64, CANONICAL_GRID, CANONICAL_LAYOUT)
@@ -457,7 +457,7 @@ function run_mismatch_lane()
   # candidates carry the same count as `points` so the base check is not what refuses them.
   M = npoints(points)
   canonical_by_order = (scalar, vector,
-                        TensorFieldSpectral{2}(zeros(ComplexF64, GBG.Fields.spectral_field_shape(grid, layout, Val(2))...),
+                        TensorFieldSpectral{2}(zeros(ComplexF64, GBG.Fields.field_spectral_shape(grid, layout, Val(2))...),
                                                grid, layout),
                         physical,
                         VectorFieldPhysical(zeros(grid.grid_size..., 3), grid, layout),

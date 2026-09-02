@@ -102,7 +102,7 @@ const PRCTX = (
 prsphys(c) = ScalarFieldPhysical(rand(c.grid.grid_size...), c.grid, c.layout)
 prvphys(c) = VectorFieldPhysical(rand(c.grid.grid_size..., 3), c.grid, c.layout)
 prtphys(c) = TensorFieldPhysical{2}(rand(c.grid.grid_size..., 3, 3), c.grid, c.layout)
-prsspec(c) = ScalarFieldSpectral(randn(ComplexF64, PF.Fields.spectral_field_shape(c.grid, c.layout, Val(0))), c.grid, c.layout)
+prsspec(c) = ScalarFieldSpectral(randn(ComplexF64, PF.Fields.field_spectral_shape(c.grid, c.layout, Val(0))), c.grid, c.layout)
 
 
 # ── The registry: one invocation per peer operation ──────────────────────────────────────────────

@@ -30,14 +30,14 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
   gs = (8, 8, 8)
   grid = Grid3D(gs, (T(2π), T(2π), T(2π)))
   layout = RealFourierLayout()
-  shape0 = F.spectral_field_shape(grid, layout, Val(0))
+  shape0 = F.field_spectral_shape(grid, layout, Val(0))
   reltol = T === Float32 ? 1.0f-4 : 1e-10
   abstol = T === Float32 ? 1.0f-5 : 1e-12
   approx(a, b) = isapprox(a, b; rtol = reltol, atol = abstol)
 
   function plans_for(physical)
     R = field_tensor_order(physical)
-    shape = F.spectral_field_shape(grid, layout, Val(R))
+    shape = F.field_spectral_shape(grid, layout, Val(R))
     spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
                R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                         TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)
@@ -263,7 +263,7 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       @test approx(field_data(dest), alpha .* (kernel_array(g) .* field_data(phi_s)) .+ beta .* dest0)
 
       # the R=2 in-place α/β path (scalar kernel broadcasts over the 2-index fiber)
-      Adest0 = randn(Complex{T}, F.spectral_field_shape(grid, layout, Val(2)))
+      Adest0 = randn(Complex{T}, F.field_spectral_shape(grid, layout, Val(2)))
       Adest = TensorFieldSpectral{2}(copy(Adest0), grid)
       convolve!(Adest, A_s, g, alpha, beta)
       @test approx(field_data(Adest), alpha .* (kernel_array(g) .* field_data(A_s)) .+ beta .* Adest0)
@@ -346,11 +346,11 @@ function run_convolution_tests(::Type{T}) where {T<:AbstractFloat}
       # the scalar kernel broadcasts over the fiber: the R=1 path
       u_s = to_spectral(VectorFieldPhysical((x, y, z) -> (sin(x), cos(y), sin(2z)), grid),
                         plans_for(VectorFieldPhysical((x, y, z) -> (T(0), T(0), T(0)), grid)))
-      v_s = VectorFieldSpectral(randn(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
-      vseq = VectorFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
+      v_s = VectorFieldSpectral(randn(Complex{T}, F.field_spectral_shape(grid, layout, Val(1))), grid)
+      vseq = VectorFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(1))), grid)
       combine!(vseq, T(0.3), u_s, T(0.7), v_s)
       convolve!(vseq, vseq, g)
-      vfused = VectorFieldSpectral(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(1))), grid)
+      vfused = VectorFieldSpectral(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(1))), grid)
       combine!(vfused, T(0.3), u_s, T(0.7), v_s, g)
       @test field_data(vfused) == field_data(vseq)
 
@@ -377,7 +377,7 @@ end
   @testset "physical-space convolve is intentionally absent" begin
     grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
     layout = RealFourierLayout()
-    shape0 = F.spectral_field_shape(grid, layout, Val(0))
+    shape0 = F.field_spectral_shape(grid, layout, Val(0))
     phi = ScalarFieldPhysical((x, y, z) -> sin(x), grid)
     phi_s = to_spectral(phi, FieldTransformPlans(phi, ScalarFieldSpectral(zeros(ComplexF64, shape0), grid)))
     ones_kernel = ScalarFieldSpectral(ones(ComplexF64, shape0), grid)
@@ -399,7 +399,7 @@ end
     T = Float64
     grid = Grid3D((8, 7, 6), (T(2π), T(2π), T(2π)))        # x even, y odd, z even — exercises rfft on an odd axis
     layout = RealFourierLayout()
-    shape0 = F.spectral_field_shape(grid, layout, Val(0))
+    shape0 = F.field_spectral_shape(grid, layout, Val(0))
     plans = FieldTransformPlans(ScalarFieldPhysical(zeros(T, 8, 7, 6), grid),
                                 ScalarFieldSpectral(zeros(Complex{T}, shape0), grid))
     phi = ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) + sin(z), grid)
@@ -442,7 +442,7 @@ end
   grid_p = Grid3D((8, 6, 4), (TP(2π), TP(2π), TP(2π)))
   layout_p = RealFourierLayout((2, 1, 3))         # fold on spatial axis 2 (even ⇒ a live Nyquist factor)
   f = ScalarFieldPhysical(rand(TP, 8, 6, 4), grid_p, layout_p)
-  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(0))),
+  scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))),
                                  grid_p, layout_p)
   plans = FieldTransformPlans(f, scaffold)
   fh = to_spectral(f, plans)
@@ -467,7 +467,7 @@ end
   grid_c = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))
   layout_c = RealFourierLayout((3, 2, 1))                   # fold on spatial axis 3 (even)
   f = ScalarFieldPhysical(rand(TP, 8, 7, 6), grid_c, layout_c)
-  scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_c, layout_c, Val(0))),
+  scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_c, layout_c, Val(0))),
                               grid_c, layout_c)
   plans = FieldTransformPlans(f, scaff)
   fs = to_spectral(f, plans)
@@ -550,7 +550,7 @@ end
     gs = (8, 7, 6)                                   # mixed parity: even, odd, even
     g = Grid3D(gs, (TP(2π), TP(2π), TP(2π)))
     layout = RealFourierLayout()
-    spec_shape = spectral_field_shape(g, layout, Val(0))
+    spec_shape = field_spectral_shape(g, layout, Val(0))
     s0 = ScalarFieldSpectral(zeros(Complex{TP}, spec_shape), g, layout)
     mult = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(50)
@@ -607,7 +607,7 @@ end
 
     # the domain check catches a kernel built for another grid
     other_grid = Grid3D((8, 7, 4), (TP(2π), TP(2π), TP(2π)))
-    other_spec = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other_grid, layout, Val(0))),
+    other_spec = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other_grid, layout, Val(0))),
                                      other_grid, layout)
     foreign = translation_kernel(FieldSpectralMultipliers(other_spec), h)
     @test_throws ArgumentError convolve(fs, foreign)
@@ -621,7 +621,7 @@ end
   for TP in (Float64, Float32)
     g = Grid3D((8, 7, 6), (TP(2π), TP(4π), TP(6π)))          # mixed parity + anisotropic
     layout = RealFourierLayout()
-    shape = spectral_field_shape(g, layout, Val(0))
+    shape = field_spectral_shape(g, layout, Val(0))
     s0 = ScalarFieldSpectral(zeros(Complex{TP}, shape), g, layout)
     m = FieldSpectralMultipliers(s0)
     rng = MersenneTwister(51)
@@ -637,7 +637,7 @@ end
     # while the property itself never moved.
     big = Grid3D((64, 64, 64), (TP(2π), TP(4π), TP(6π)))
     big_multipliers = FieldSpectralMultipliers(
-      ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(big, layout, Val(0))...), big, layout))
+      ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(big, layout, Val(0))...), big, layout))
     big_cutoff = spectral_cutoff(big_multipliers, TP(3))
     @test cutoff.multipliers === m                            # references, never a copy
     @test big_cutoff.multipliers === big_multipliers
@@ -697,7 +697,7 @@ end
 
     # a kernel built for another base is rejected
     other = Grid3D((8, 7, 4), (TP(2π), TP(4π), TP(6π)))
-    o0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(other, layout, Val(0))), other, layout)
+    o0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(other, layout, Val(0))), other, layout)
     @test_throws ArgumentError convolve(u, spectral_cutoff(FieldSpectralMultipliers(o0), TP(3)))
   end
 end
@@ -713,7 +713,7 @@ end
 
   grid = Grid3D((8, 6, 4), (2π, 2π, 2π))
   layout = RealFourierLayout()
-  reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))),
+  reference = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))),
                                   grid, layout)
   multipliers = FieldSpectralMultipliers(reference)
   radial = spectral_band(multipliers, 1, 3)
@@ -735,7 +735,7 @@ end
   end
   @test isempty(setdiff(declared, Set(keys(specimens))))
 
-  field = VectorFieldSpectral(randn(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(1))),
+  field = VectorFieldSpectral(randn(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))),
                               grid, layout)
   for (class, kernel) in specimens
     # Every class materializes, onto the right base, agreeing with its own lazy data.

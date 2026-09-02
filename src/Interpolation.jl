@@ -82,7 +82,7 @@ using ..Fields: _check_matching_context
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
-                field_tensor_order, fiber_shape, physical_field_shape, spectral_field_shape,
+                field_tensor_order, fiber_shape, field_physical_shape, field_spectral_shape,
                 FieldTransformPlans, to_physical, to_spectral, similar_field
 using ..Points: PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
                 point_positions, point_values, npoints, point_value_tensor_order, _check_npoints_match
@@ -1042,7 +1042,7 @@ the ``\\alpha``/``\\beta`` accumulate form.
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
                      scheme::AbstractSplineScheme = CatmullRom; order = nothing) where {T<:AbstractFloat}
   R = point_value_tensor_order(quantities)
-  data = similar(point_values(quantities), T, physical_field_shape(grid, Val(R)))
+  data = similar(point_values(quantities), T, field_physical_shape(grid, Val(R)))
   return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; order)
 end
 
@@ -1499,8 +1499,8 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversa
   data = field_data(reference)
   oversampled_size = ntuple(d -> σ * grid.grid_size[d], 3)
   oversampled_grid = Grid3D(oversampled_size, grid.domain_size; origin = grid.origin)
-  physical_template = _wrap_field(similar(data, T, physical_field_shape(oversampled_grid, Val(R))), oversampled_grid, layout, Val(R))
-  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, spectral_field_shape(oversampled_grid, layout, Val(R))), oversampled_grid, layout, Val(R))
+  physical_template = _wrap_field(similar(data, T, field_physical_shape(oversampled_grid, Val(R))), oversampled_grid, layout, Val(R))
+  spectral_template = _wrap_field_spectral(similar(data, Complex{T}, field_spectral_shape(oversampled_grid, layout, Val(R))), oversampled_grid, layout, Val(R))
   plans = FieldTransformPlans(physical_template, spectral_template)
   deconvolution = _nufft_deconvolution(reference, σ, w, β)
   total_oversampling = T(prod(oversampled_size) / prod(grid.grid_size))

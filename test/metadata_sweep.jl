@@ -32,11 +32,11 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
       g = Grid3D(gs, (TP(2π), TP(4π), TP(6π)); origin = (TP(0.3), TP(-0.7), TP(1.1)))
       layout = RealFourierLayout(fold)
       rng = MersenneTwister(53)
-      spec(R) = (shape = spectral_field_shape(g, layout, Val(R));
+      spec(R) = (shape = field_spectral_shape(g, layout, Val(R));
                  data = rand(rng, Complex{TP}, shape...);
                  R == 0 ? ScalarFieldSpectral(data, g, layout) :
                  R == 1 ? VectorFieldSpectral(data, g, layout) : TensorFieldSpectral(data, g, layout))
-      phys(R) = (shape = physical_field_shape(g, Val(R));
+      phys(R) = (shape = field_physical_shape(g, Val(R));
                  data = rand(rng, TP, shape...);
                  R == 0 ? ScalarFieldPhysical(data, g, layout) :
                  R == 1 ? VectorFieldPhysical(data, g, layout) : TensorFieldPhysical(data, g, layout))

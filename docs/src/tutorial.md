@@ -40,7 +40,7 @@ Two pieces of scaffolding appear below and are worth a sentence each, since the 
 one place the storage is not simply "the values". A [`RealFourierLayout`](@ref) records **how** the
 real-to-complex transform is laid out: a real field's coefficients satisfy ``\hat f(-k) =
 \overline{\hat f(k)}``, so only half the spectrum is stored, and the layout says which axis is the
-halved one (the first, by default). [`spectral_field_shape`](@ref) then gives the array size that
+halved one (the first, by default). [`field_spectral_shape`](@ref) then gives the array size that
 half-spectrum needs, and its `Val(R)` argument names the **tensor order** — `Val(0)` for a scalar
 field, `Val(1)` for a vector one — passed as a `Val` so the shape is known to the compiler rather than
 computed at run time.
@@ -48,7 +48,7 @@ computed at run time.
 ```jldoctest tutorial
 julia> layout = RealFourierLayout();
 
-julia> spectral = VectorFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(1))), grid);
+julia> spectral = VectorFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(1))), grid);
 
 julia> plans = FieldTransformPlans(u, spectral);
 
@@ -73,7 +73,7 @@ representation through a [`FieldSpectralMultipliers`](@ref)
 ```jldoctest tutorial
 julia> φ = ScalarFieldPhysical((x, y, z) -> sin(x), grid);
 
-julia> scalar_spectral = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid);
+julia> scalar_spectral = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))), grid);
 
 julia> multipliers = FieldSpectralMultipliers(scalar_spectral);
 

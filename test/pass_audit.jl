@@ -128,9 +128,9 @@ end
 const grid = Grid3D((8, 6, 4), (2π, 4π, 6π))
 const layout = RealFourierLayout()
 const F = GBGPeriodicFields.Fields
-const shape0 = F.spectral_field_shape(grid, layout, Val(0))
-const shape1 = F.spectral_field_shape(grid, layout, Val(1))
-const shape2 = F.spectral_field_shape(grid, layout, Val(2))
+const shape0 = F.field_spectral_shape(grid, layout, Val(0))
+const shape1 = F.field_spectral_shape(grid, layout, Val(1))
+const shape2 = F.field_spectral_shape(grid, layout, Val(2))
 const M = prod(shape0[1:3])                   # spectral modes per component
 const P = prod(grid.grid_size)                # physical points per component
 

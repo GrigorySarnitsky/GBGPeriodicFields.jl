@@ -2610,7 +2610,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     heading stating they are not public. The evidence that this was a gap rather than a boundary is
     the flagship example: `examples/HIST_CPU.jl`, which exists to show how a real consumer writes
     against the package, hand-rolled the equivalent thirteen times in `make_workspace`, spelling out
-    `spectral_field_shape`, `zeros`, an element type and a concrete field constructor for each scratch
+    `field_spectral_shape`, `zeros`, an element type and a concrete field constructor for each scratch
     field. Two facts settle the direction. A consumer cannot reach the idiom without them, since the
     concrete constructors demand exactly the shape and element-type knowledge the allocator exists to
     encapsulate; and the GPU twin needed a parallel hand-rolled copy differing only in a `dev(...)`

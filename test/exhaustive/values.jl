@@ -194,7 +194,7 @@ function run_value_lane(configs)
       (:npoints,             npoints(PointSet(rand(T, 9, 3))), 9),
       (:point_value_tensor_order, point_value_tensor_order(VectorPointValues(rand(T, 9, 3))), 1),
       (:fiber_shape,         collect(fiber_shape(Val(2))), [3, 3]),
-      (:physical_field_shape, collect(physical_field_shape(grid, Val(1))), [grid.grid_size..., 3]),
+      (:field_physical_shape, collect(field_physical_shape(grid, Val(1))), [grid.grid_size..., 3]),
       (:eltype,              eltype(u) === T,        true),
       # Against the shape the grid DECLARES, not against the stored array's own shape — `Base.size(field)
       # = size(field_data(field))`, so comparing the two was `size(du) == size(du)`.
@@ -209,7 +209,7 @@ function run_value_lane(configs)
     # Built here rather than above because they need the transform plans and multipliers, and because
     # the spectral references cost a full O(N²) DFT — cheap on these grids, and the price of an oracle
     # that calls no FFT of its own.
-    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.spectral_field_shape(grid, layout, Val(0))...),
+    spectral_zero = ScalarFieldSpectral(zeros(Complex{T}, GBGI.Fields.field_spectral_shape(grid, layout, Val(0))...),
                                         grid, layout)
     plans = FieldTransformPlans(s, spectral_zero)
     multipliers = FieldSpectralMultipliers(spectral_zero)
@@ -505,7 +505,7 @@ function run_value_lane(configs)
       # Derived independently, the way `ref_dft_forward` derives it: the folded axis keeps its
       # non-negative frequencies, every other axis its full extent. Comparing `Val(1)` against the
       # `Val(0)` shape the fixture was built from made both sides move together.
-      (:spectral_field_shape, collect(GBGI.Fields.spectral_field_shape(grid, layout, Val(1))),
+      (:field_spectral_shape, collect(GBGI.Fields.field_spectral_shape(grid, layout, Val(1))),
                               [ntuple(d -> d == layout.fft_dims[1] ? grid.grid_size[d] ÷ 2 + 1 :
                                            grid.grid_size[d], 3)..., 3]),
       (:similar_field,       collect(size(field_data(similar_field(s, Val(1))))), [grid.grid_size..., 3]),

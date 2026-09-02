@@ -114,7 +114,7 @@ Checks run, as positive procedures:
   (`src/Convolution.jl:544-574`), and the mapped-reduction family membership (five reductions
   confirmed to have `(fiber_map, section)` methods, `lpnorm`/`std`/`var` confirmed not to).
 - **SELF-CONTAINED (check 2):** `notation.md` is the dedicated glossary and binds every symbol it
-  introduces; `tutorial.md` introduces each new term (`RealFourierLayout`, `spectral_field_shape`,
+  introduces; `tutorial.md` introduces each new term (`RealFourierLayout`, `field_spectral_shape`,
   `FieldTransformPlans`, "layout", "fold") in plain language at first use, consistent with a cold
   read. No unbound symbol or term of art found.
 - **NOTATION (check 3):** the deliberate symbol reuses on this page (`g`/`ĝ` for a convolution kernel,

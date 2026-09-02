@@ -149,7 +149,7 @@ function canonical_pool(config; device = identity)
   Random.seed!(config.seed)
   rand(args...) = device(Base.rand(args...))
   P(R) = (grid.grid_size..., ntuple(_ -> 3, R)...)
-  S(R) = GBGI.Fields.spectral_field_shape(grid, layout, Val(R))
+  S(R) = GBGI.Fields.field_spectral_shape(grid, layout, Val(R))
   physical = (ScalarFieldPhysical(rand(T, P(0)...), grid, layout),
               VectorFieldPhysical(rand(T, P(1)...), grid, layout),
               TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout))
@@ -270,7 +270,7 @@ function canonical_pool(config; device = identity)
   # exactly this reason; the sibling entry here was not updated to match.
   push("map: binary", (x, y) -> x - 2y)
   # The shape queries dispatch on `Val(R)`, and indexing takes indices. Without these the engine
-  # reported `fiber_shape`, `physical_field_shape`, `spectral_field_shape`, `getindex` and `setindex!`
+  # reported `fiber_shape`, `field_physical_shape`, `field_spectral_shape`, `getindex` and `setindex!`
   # as unbuildable, which reads as "needs no test" rather than "the pool lacks an argument".
   for R in 0:2; push("Val($R)", Val(R)); end
   # NOT (1, 1, 1). That triple is a FIXED POINT of every permutation of the three axes, so an

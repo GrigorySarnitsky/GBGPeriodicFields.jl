@@ -32,9 +32,9 @@ const ECONTEXTS = (
   layout = (grid = Grid3D((8, 6, 4), (2π, 2π, 2π)),  layout = RealFourierLayout((2, 1, 3))),
 )
 
-sspec(c) = ScalarFieldSpectral(zeros(ComplexF64, EF.spectral_field_shape(c.grid, c.layout, Val(0))), c.grid, c.layout)
-vspec(c) = VectorFieldSpectral(randn(ComplexF64, EF.spectral_field_shape(c.grid, c.layout, Val(1))), c.grid, c.layout)
-tspec(c) = TensorFieldSpectral{2}(randn(ComplexF64, EF.spectral_field_shape(c.grid, c.layout, Val(2))), c.grid, c.layout)
+sspec(c) = ScalarFieldSpectral(zeros(ComplexF64, EF.field_spectral_shape(c.grid, c.layout, Val(0))), c.grid, c.layout)
+vspec(c) = VectorFieldSpectral(randn(ComplexF64, EF.field_spectral_shape(c.grid, c.layout, Val(1))), c.grid, c.layout)
+tspec(c) = TensorFieldSpectral{2}(randn(ComplexF64, EF.field_spectral_shape(c.grid, c.layout, Val(2))), c.grid, c.layout)
 sphys(c) = ScalarFieldPhysical(rand(c.grid.grid_size...), c.grid, c.layout)
 vphys(c) = VectorFieldPhysical(rand(c.grid.grid_size..., 3), c.grid, c.layout)
 epoints(c) = PointSet(rand(12, 3) .* 2π)

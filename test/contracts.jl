@@ -16,7 +16,7 @@ using Statistics: mean
 
 const CONTRACT_LAYOUT = RealFourierLayout()
 spectral_scalar(grid) = ScalarFieldSpectral(
-  zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, CONTRACT_LAYOUT, Val(0))),
+  zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, CONTRACT_LAYOUT, Val(0))),
   grid, CONTRACT_LAYOUT)
 
 
@@ -57,7 +57,7 @@ spectral_scalar(grid) = ScalarFieldSpectral(
   @test isconcretetype(only(Base.return_types(convolve, (typeof(band_a), typeof(band_b)))))
   # ... and the collapsed kernel agrees with applying the two operands in sequence.
   u = VectorFieldSpectral(randn(ComplexF64,
-        GBGPeriodicFields.Fields.spectral_field_shape(near, CONTRACT_LAYOUT, Val(1))), near, CONTRACT_LAYOUT)
+        GBGPeriodicFields.Fields.field_spectral_shape(near, CONTRACT_LAYOUT, Val(1))), near, CONTRACT_LAYOUT)
   @test field_data(convolve(u, convolve(band_a, band_b))) ==
         field_data(convolve(convolve(u, band_a), band_b))
   @test_throws ArgumentError convolve(band_a, spectral_band(m_far, 0, 2))
@@ -171,7 +171,7 @@ end
 
   # The reciprocal really deconvolves.
   u = VectorFieldSpectral(randn(ComplexF64,
-        GBGPeriodicFields.Fields.spectral_field_shape(field_grid(s), CONTRACT_LAYOUT, Val(1))),
+        GBGPeriodicFields.Fields.field_spectral_shape(field_grid(s), CONTRACT_LAYOUT, Val(1))),
         field_grid(s), CONTRACT_LAYOUT)
   @test isapprox(field_data(convolve(convolve(u, separable), inv(separable))), field_data(u); rtol = 1e-12)
 
@@ -251,7 +251,7 @@ end
   # A tolerance finer than the element type can resolve is a TARGET that saturates, not an error: the
   # default tol on a Float32 field is ordinary usage, and the width formula simply stops improving.
   float32_reference = ScalarFieldSpectral(
-    zeros(ComplexF32, GBGPeriodicFields.Fields.spectral_field_shape(
+    zeros(ComplexF32, GBGPeriodicFields.Fields.field_spectral_shape(
       Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)), CONTRACT_LAYOUT, Val(0))),
     Grid3D((8, 8, 8), (2.0f0π, 2.0f0π, 2.0f0π)), CONTRACT_LAYOUT)
   @test NUFFT(float32_reference; tol = 1e-10) isa NUFFT

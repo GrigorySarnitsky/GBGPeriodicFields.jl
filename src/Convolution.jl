@@ -84,7 +84,7 @@ import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the
   _context_grid, _context_layout
 using ..Fields:
   _check_matching_context,
-  spectral_field_shape,
+  field_spectral_shape,
   SpectralKernel,
   AbstractFieldSpectral,
   ScalarFieldSpectral,
@@ -500,7 +500,7 @@ function SeparableKernel{T}(factor_1::V, factor_2::V, factor_3::V, grid::G, layo
   # could hold factors for one base while its own `grid`/`layout` named another, and the disagreement
   # surfaced only when the kernel was applied — as a shape error far from the construction that caused
   # it, or, at matching lengths, not at all.
-  expected = spectral_field_shape(grid, layout, Val(0))
+  expected = field_spectral_shape(grid, layout, Val(0))
   lengths = (length(factor_1), length(factor_2), length(factor_3))
   lengths == expected ||
     throw(DimensionMismatch("axis factors of lengths $lengths do not match the spectral shape " *

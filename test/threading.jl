@@ -47,7 +47,7 @@ const KA_POINTS = 4_000
 const KA_SETUP_SOURCE = """
 const T = Float64
 ka_grid = Grid3D((32, 32, 32), (2π, 2π, 2π))
-ka_shape = spectral_field_shape(ka_grid, RealFourierLayout(), Val(1))
+ka_shape = field_spectral_shape(ka_grid, RealFourierLayout(), Val(1))
 Random.seed!($(KA_SEED))
 ka_us = VectorFieldSpectral(rand(Complex{T}, ka_shape), ka_grid)
 ka_m = FieldSpectralMultipliers(ka_us)
@@ -160,7 +160,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     layout = RealFourierLayout()
     function plans_for(physical)
       R = field_tensor_order(physical)
-      shape = F.spectral_field_shape(og, layout, Val(R))
+      shape = F.field_spectral_shape(og, layout, Val(R))
       spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), og) :
                  R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), og) :
                           TensorFieldSpectral{R}(zeros(Complex{T}, shape), og)
@@ -357,7 +357,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     red_phi = ScalarFieldPhysical(rand(T, 24, 24, 24), red_grid)
     red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
     red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
-    red_us = VectorFieldSpectral(rand(Complex{T}, F.spectral_field_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
+    red_us = VectorFieldSpectral(rand(Complex{T}, F.field_spectral_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
     # The weighted family joined the fixed tree on 2026-08-30 (it had been Base's serial fold, so its
     # invariance was vacuous); both forms are asserted, single and tuple, on both weight classes.
     red_mult = FieldSpectralMultipliers(red_us)
@@ -382,7 +382,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     red_phi = ScalarFieldPhysical(rand(T, 24, 24, 24), red_grid)
     red_u = VectorFieldPhysical(rand(T, 24, 24, 24, 3), red_grid)
     red_A = TensorFieldPhysical(rand(T, 24, 24, 24, 3, 3), red_grid)
-    red_us = VectorFieldSpectral(rand(Complex{T}, GBGPeriodicFields.Fields.spectral_field_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
+    red_us = VectorFieldSpectral(rand(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(red_grid, RealFourierLayout(), Val(1))), red_grid)
     red_band = spectral_band(FieldSpectralMultipliers(red_us), T(1), T(6))
     values = Float64[inner(red_u, red_u), integral(red_u)..., Statistics.mean(det, red_A),
                      Statistics.std(red_phi), maximum(red_phi),

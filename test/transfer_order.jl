@@ -116,7 +116,7 @@ end
     Random.seed!(99); M = 300
     points = PointSet(T(2π) .* rand(T, M, 3))
     order = transfer_order(grid, points)
-    spectral = ScalarFieldSpectral(randn(Complex{T}, GBGPeriodicFields.spectral_field_shape(grid, layout, Val(0))...),
+    spectral = ScalarFieldSpectral(randn(Complex{T}, GBGPeriodicFields.field_spectral_shape(grid, layout, Val(0))...),
                                    grid, layout)
     reference = ScalarFieldSpectral(zeros(Complex{T}, size(field_data(spectral))...), grid, layout)
     scheme = NUFFT(reference; tol = T === Float64 ? 1e-10 : 1e-5)

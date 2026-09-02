@@ -343,7 +343,7 @@ function run_hist(p::Params)
   grid   = Grid3D((p.N, p.N, p.N), (FT(p.L), FT(p.L), FT(p.L)))
   layout = RealFourierLayout()
   uphys0 = VectorFieldPhysical(dev(zeros(FT, p.N, p.N, p.N, 3)), grid)
-  uspec0 = VectorFieldSpectral(dev(zeros(Complex{FT}, spectral_field_shape(grid, layout, Val(1)))), grid)
+  uspec0 = VectorFieldSpectral(dev(zeros(Complex{FT}, field_spectral_shape(grid, layout, Val(1)))), grid)
   # One plan pair serves every tensor order (a transform is a property of the box), so the scalar
   # divergence diagnostic below reuses these plans instead of planning a second pair.
   vplans = FieldTransformPlans(uphys0, uspec0)            # physical ↔ spectral, any rank (device plans)

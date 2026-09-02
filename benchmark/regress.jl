@@ -53,8 +53,8 @@ const M_POINTS = 100_000
 Random.seed!(2026)
 grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
 layout = RealFourierLayout()
-sshape = spectral_field_shape(grid, layout, Val(0))
-vshape = spectral_field_shape(grid, layout, Val(1))
+sshape = field_spectral_shape(grid, layout, Val(0))
+vshape = field_spectral_shape(grid, layout, Val(1))
 
 physical_scalar = ScalarFieldPhysical(device_array(rand(T, N, N, N)), grid)
 physical_u = VectorFieldPhysical(device_array(rand(T, N, N, N, 3)), grid)

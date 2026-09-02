@@ -115,8 +115,8 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   # ---- structural: metadata, storage and configuration, with no value to have an oracle for ----
   (op => (:structural, "returns metadata or storage, not a computed value") for op in
    (:field_data, :field_grid, :field_layout, :field_scalar_type, :field_tensor_order, :fiber_shape,
-    :npoints, :point_positions, :point_values, :point_value_tensor_order, :physical_field_shape,
-    :spectral_field_shape, :similar_field, :similar_point_values, :threading_cutoff, :with_threading))...,
+    :npoints, :point_positions, :point_values, :point_value_tensor_order, :field_physical_shape,
+    :field_spectral_shape, :similar_field, :similar_point_values, :threading_cutoff, :with_threading))...,
   (op => (:structural, "HDF5 persistence, covered by round-trip equality in hdf5.jl") for op in
    (:read_field, :read_points, :write_field, :write_points, :read_scheme, :write_scheme))...,
 

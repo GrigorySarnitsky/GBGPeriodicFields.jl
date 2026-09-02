@@ -50,8 +50,8 @@ field_grid
 field_layout
 field_scalar_type
 field_tensor_order
-physical_field_shape
-spectral_field_shape
+field_physical_shape
+field_spectral_shape
 ```
 
 ## Field allocation

@@ -9,8 +9,8 @@
 using Test
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data, field_grid, field_layout, field_tensor_order,
-                         spectral_field_shape, physical_field_shape
-using GBGPeriodicFields.Fields: _similar_spectral_field, _is_canonical
+                         field_spectral_shape, field_physical_shape
+using GBGPeriodicFields.Fields: _similar_field_spectral, _is_canonical
 import Adapt
 using FFTW: MEASURE
 
@@ -33,12 +33,12 @@ grid_of(::Type{T}) where {T} = Grid3D((8, 8, 8), T.((2pi, 4pi, 6pi)); origin = T
 @testset "adapt: sections move and carry their metadata" begin
   for layout in FOLDS, T in (Float64, Float32)
     grid = grid_of(T)
-    physical = (ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, layout),
-                VectorFieldPhysical(rand(T, physical_field_shape(grid, Val(1))...), grid, layout),
-                TensorFieldPhysical{2}(rand(T, physical_field_shape(grid, Val(2))...), grid, layout))
-    spectral = (ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout),
-                VectorFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout),
-                TensorFieldSpectral{2}(rand(Complex{T}, spectral_field_shape(grid, layout, Val(2))...), grid, layout))
+    physical = (ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid, layout),
+                VectorFieldPhysical(rand(T, field_physical_shape(grid, Val(1))...), grid, layout),
+                TensorFieldPhysical{2}(rand(T, field_physical_shape(grid, Val(2))...), grid, layout))
+    spectral = (ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout),
+                VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout),
+                TensorFieldSpectral{2}(rand(Complex{T}, field_spectral_shape(grid, layout, Val(2))...), grid, layout))
 
     for field in (physical..., spectral...)
       moved = adapt(CopyStorage(), field)
@@ -96,7 +96,7 @@ end
 
 @testset "adapt: multipliers move, and the Canonical parameter survives" begin
   layout = RealFourierLayout()
-  z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(GRID, layout, Val(0))...), GRID, layout)
+  z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(GRID, layout, Val(0))...), GRID, layout)
   # The convenience constructor derives the wavenumbers from the grid and so marks them canonical;
   # the explicit six-array form does not. Both must come back as they went in, because that parameter
   # is what lets `convolve` collapse two radial kernels statically (decision 61). A rebuild that
@@ -122,9 +122,9 @@ end
 
 @testset "adapt: every kernel storage class moves and still applies" begin
   layout = RealFourierLayout()
-  z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(GRID, layout, Val(0))...), GRID, layout)
+  z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(GRID, layout, Val(0))...), GRID, layout)
   m = FieldSpectralMultipliers(z)
-  u = ScalarFieldPhysical(rand(Float64, physical_field_shape(GRID, Val(0))...), GRID, layout)
+  u = ScalarFieldPhysical(rand(Float64, field_physical_shape(GRID, Val(0))...), GRID, layout)
   plans = FieldTransformPlans(u, z)
   uh = to_spectral(u, plans)
 
@@ -143,8 +143,8 @@ end
 
 @testset "adapt: transform plans are rebuilt unaided, and keep their planner request" begin
   layout = RealFourierLayout()
-  z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(GRID, layout, Val(0))...), GRID, layout)
-  u = ScalarFieldPhysical(rand(Float64, physical_field_shape(GRID, Val(0))...), GRID, layout)
+  z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(GRID, layout, Val(0))...), GRID, layout)
+  u = ScalarFieldPhysical(rand(Float64, field_physical_shape(GRID, Val(0))...), GRID, layout)
 
   plans = FieldTransformPlans(u, z)
   # Nothing is supplied but the plans themselves: they carry their own grid, layout, element type and
@@ -185,7 +185,7 @@ end
 @testset "adapt preserves the canonical flag in the TYPE (decision 61)" begin
   grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
   layout = RealFourierLayout()
-  spectral = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))), grid)
+  spectral = ScalarFieldSpectral(zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid)
   canonical = FieldSpectralMultipliers(spectral)
   supplied = FieldSpectralMultipliers(grid, layout,
                                       copy(canonical.wavenumber_1), copy(canonical.wavenumber_2), copy(canonical.wavenumber_3),
@@ -212,11 +212,11 @@ end
 @testset "adapt!: the in-place storage move ($T, $(nameof(typeof(layout))))" for T in (Float64, Float32),
                                                                                  layout in FOLDS
   grid = grid_of(T)
-  for (source, order) in ((ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, layout), 0),
-                          (VectorFieldPhysical(rand(T, physical_field_shape(grid, Val(1))...), grid, layout), 1),
-                          (TensorFieldPhysical{2}(rand(T, physical_field_shape(grid, Val(2))...), grid, layout), 2),
-                          (ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout), 0),
-                          (VectorFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout), 1))
+  for (source, order) in ((ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid, layout), 0),
+                          (VectorFieldPhysical(rand(T, field_physical_shape(grid, Val(1))...), grid, layout), 1),
+                          (TensorFieldPhysical{2}(rand(T, field_physical_shape(grid, Val(2))...), grid, layout), 2),
+                          (ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), 0),
+                          (VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout), 1))
     destination = similar_field(source, Val(order))
     fill!(field_data(destination), 0)
     @test adapt!(destination, source) === destination            # the destination is returned
@@ -229,16 +229,16 @@ end
 
   # Everything except the storage family must match. A representation mismatch has NO METHOD rather
   # than an error message, since a physical field and a spectral one are not the same section.
-  source = ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, layout)
+  source = ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid, layout)
   other_grid = Grid3D((8, 8, 8), T.((2pi, 2pi, 2pi)))
-  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, physical_field_shape(other_grid, Val(0))...), other_grid, layout), source)
-  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, physical_field_shape(grid, Val(0))...), grid, RealFourierLayout((3, 1, 2)) === layout ? RealFourierLayout() : RealFourierLayout((3, 1, 2))), source)
-  @test_throws MethodError adapt!(ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, layout, Val(0))...), grid, layout), source)
+  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, field_physical_shape(other_grid, Val(0))...), other_grid, layout), source)
+  @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid, RealFourierLayout((3, 1, 2)) === layout ? RealFourierLayout() : RealFourierLayout((3, 1, 2))), source)
+  @test_throws MethodError adapt!(ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), source)
 
   # Precision is not converted here, exactly as `adapt` does not convert it (invariant 14).
   S = T === Float64 ? Float32 : Float64
   other = grid_of(S)
-  @test_throws MethodError adapt!(ScalarFieldPhysical(rand(S, physical_field_shape(other, Val(0))...), other, layout), source)
+  @test_throws MethodError adapt!(ScalarFieldPhysical(rand(S, field_physical_shape(other, Val(0))...), other, layout), source)
 
   # The point layer: no grid or layout, so the point count is the whole contract.
   values = VectorPointValues(randn(T, 6, 3))

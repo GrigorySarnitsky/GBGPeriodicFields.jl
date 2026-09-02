@@ -65,7 +65,7 @@ function configurations(; seeds = (20260731, 815))
 end
 
 xshape(c::Config, R, cplx) =
-  cplx ? GBGPeriodicFields.Fields.spectral_field_shape(c.grid, c.layout, Val(R)) :
+  cplx ? GBGPeriodicFields.Fields.field_spectral_shape(c.grid, c.layout, Val(R)) :
          (c.grid.grid_size..., (R == 0 ? () : ntuple(_ -> 3, R))...)
 
 # The pool. Since decision 59 a section must OWN its storage, so the view entries are no longer fields

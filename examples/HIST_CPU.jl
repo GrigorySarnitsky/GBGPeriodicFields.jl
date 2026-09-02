@@ -315,7 +315,7 @@ function run_hist(p::Params)
   grid   = Grid3D((p.N, p.N, p.N), (p.L, p.L, p.L))
   layout = RealFourierLayout()
   uphys0 = VectorFieldPhysical(zeros(p.N, p.N, p.N, 3), grid)
-  uspec0 = VectorFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(1))), grid)
+  uspec0 = VectorFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(1))), grid)
   # Plan the transforms with FFTW's `MEASURE` planner instead of the default `ESTIMATE`: over a long run
   # the one-time planning cost amortizes over thousands of transforms. (The sharper case for `MEASURE`
   # is single precision, where `ESTIMATE` can mis-plan badly on some CPUs — up to ``\sim\!5\times`` slower

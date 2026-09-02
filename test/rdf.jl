@@ -20,7 +20,7 @@ euclidean(v) = sqrt(sum(abs2, v))      # avoid a LinearAlgebra test-env dependen
     layout = RealFourierLayout()
     for gs in ((8, 8, 8), (7, 8, 6))                       # even / mixed parity
       grid = Grid3D(gs, (T(2π), T(2π), T(2π)))
-      spec0 = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+      spec0 = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid)
       mult = FieldSpectralMultipliers(spec0)
       window = kernel_array(assignment_window(mult))
       @test window[1, 1, 1] ≈ one(Complex{T})              # Ŵ(0) = 1
@@ -41,7 +41,7 @@ euclidean(v) = sqrt(sum(abs2, v))      # avoid a LinearAlgebra test-env dependen
   @testset "g(r): FFT estimator vs direct O(M²) pair counting" begin
     N = 24; L = 2π; grid = Grid3D((N, N, N), (L, L, L)); layout = RealFourierLayout()
     Δ = L / N; V = L^3; cell_volume = Δ^3
-    spectral_zero() = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))), grid)
+    spectral_zero() = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))), grid)
     plans = FieldTransformPlans(ScalarFieldPhysical(zeros(N, N, N), grid), spectral_zero())
     multipliers = FieldSpectralMultipliers(spectral_zero())
     linear = LalescuSpline(0, 0)                            # the positive (CIC) assignment for the density

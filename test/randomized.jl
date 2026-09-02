@@ -84,7 +84,7 @@ using Statistics: mean
 
   @testset "spectral: convolution bilinearity + operator identities (random band-limited)" begin
     tospec(phys) = (R = field_tensor_order(phys);
-                    shape = spectral_field_shape(grid, layout, Val(R));
+                    shape = field_spectral_shape(grid, layout, Val(R));
                     spec0 = R == 0 ? ScalarFieldSpectral(zeros(ComplexF64, shape), grid) :
                             R == 1 ? VectorFieldSpectral(zeros(ComplexF64, shape), grid) :
                                      TensorFieldSpectral{R}(zeros(ComplexF64, shape), grid);

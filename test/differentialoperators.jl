@@ -19,7 +19,7 @@ scalar_field(f) = ScalarFieldPhysical(f, grid)
 # Forward+inverse plans matching the tensor order of `physical`.
 function plans_for(physical)
   R = field_tensor_order(physical)
-  shape = F.spectral_field_shape(grid, layout, Val(R))
+  shape = F.field_spectral_shape(grid, layout, Val(R))
   spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
              R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                       TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)
@@ -121,7 +121,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     @test tcomp(field_data(Sp), 1, 2) ≈ field_data(scalar_field((x, y, z) -> -sin(2y)))
     @test tcomp(field_data(Sp), 2, 1) ≈ tcomp(field_data(Sp), 1, 2)     # symmetry in physical space too
 
-    dest = TensorFieldSpectral{2}(zeros(Complex{T}, F.spectral_field_shape(grid, layout, Val(2))), grid)
+    dest = TensorFieldSpectral{2}(zeros(Complex{T}, F.field_spectral_shape(grid, layout, Val(2))), grid)
     symmetric_gradient!(dest, us, m)                                    # in-place matches allocating
     @test field_data(dest) ≈ field_data(S)
   end
@@ -193,7 +193,7 @@ zero_tensor() = TensorFieldPhysical{2}(zeros(T, gs..., 3, 3), grid)
     aniso = Grid3D(gs, (2π, 4π, 6π))
     function aplans(physical)
       R = field_tensor_order(physical)
-      data = zeros(Complex{T}, F.spectral_field_shape(aniso, layout, Val(R)))
+      data = zeros(Complex{T}, F.field_spectral_shape(aniso, layout, Val(R)))
       spectral = R == 0 ? ScalarFieldSpectral(data, aniso) :
                  R == 1 ? VectorFieldSpectral(data, aniso) :
                           TensorFieldSpectral{R}(data, aniso)
@@ -309,7 +309,7 @@ end
   grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
   layout = RealFourierLayout()
   phys = VectorFieldPhysical(rand(T, N, N, N, 3), grid)
-  scaffold = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))), grid)
+  scaffold = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid)
   plans = FieldTransformPlans(phys, scaffold)
   uh = to_spectral(phys, plans)          # a full spectrum: the Nyquist planes carry content
   m = FieldSpectralMultipliers(uh)
@@ -330,7 +330,7 @@ end
   grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))
   layout = RealFourierLayout()
   phys = ScalarFieldPhysical(rand(T, N, N, N) .+ T(3), grid)     # mean far from zero
-  scaffold = ScalarFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(0))), grid)
+  scaffold = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))), grid)
   plans = FieldTransformPlans(phys, scaffold)
   fh = to_spectral(phys, plans)
   m = FieldSpectralMultipliers(fh)
@@ -362,16 +362,16 @@ end
 
   s = ScalarFieldPhysical(
     [sin(kf[1] * xs[i]) * cos(kf[2] * ys[j]) for i in 1:8, j in 1:6, l in 1:4], grid_p, layout_p)
-  s_scaffold = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(0))),
+  s_scaffold = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(0))),
                                    grid_p, layout_p)
   plans_s = FieldTransformPlans(s, s_scaffold)
   v_scaffold_p = VectorFieldPhysical(zeros(TP, 8, 6, 4, 3), grid_p, layout_p)
-  v_scaffold_s = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(1))),
+  v_scaffold_s = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(1))),
                                      grid_p, layout_p)
   plans_v = FieldTransformPlans(v_scaffold_p, v_scaffold_s)
   t_scaffold_p = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), grid_p, layout_p)
   t_scaffold_s = TensorFieldSpectral{2}(
-    zeros(Complex{TP}, spectral_field_shape(grid_p, layout_p, Val(2))), grid_p, layout_p)
+    zeros(Complex{TP}, field_spectral_shape(grid_p, layout_p, Val(2))), grid_p, layout_p)
   plans_t = FieldTransformPlans(t_scaffold_p, t_scaffold_s)
   sh = to_spectral(s, plans_s)
   m = FieldSpectralMultipliers(sh)
@@ -480,7 +480,7 @@ end
   for TP in (Float64, Float32)
     gk = Grid3D((8, 6, 4), (TP(2π), TP(4π), TP(6π)))
     lk = RealFourierLayout()
-    s0 = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(gk, lk, Val(0))), gk, lk)
+    s0 = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(gk, lk, Val(0))), gk, lk)
     mk = FieldSpectralMultipliers(s0)
     compressed = translation_kernel(mk, (TP(0.3), TP(-0.7), TP(1.1)))
     stored = materialize_kernel(compressed)
@@ -562,7 +562,7 @@ end
     u_phys = VectorFieldPhysical(u_exact, grid)
     w_phys = VectorFieldPhysical(w_exact, grid)
     spec(f) = to_spectral(f, FieldTransformPlans(f, VectorFieldSpectral(
-      zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)))
+      zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)))
     w_hat = spec(w_phys)
     multipliers = FieldSpectralMultipliers(w_hat)
     recovered = to_physical(inverse_curl(w_hat, multipliers),
@@ -578,7 +578,7 @@ end
   layout = RealFourierLayout()
   rng = MersenneTwister(4242)
   raw = VectorFieldPhysical(rand(rng, T, 16, 12, 10, 3), grid, layout)
-  scratch = VectorFieldSpectral(zeros(Complex{T}, spectral_field_shape(grid, layout, Val(1))...), grid, layout)
+  scratch = VectorFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(1))...), grid, layout)
   plans = FieldTransformPlans(raw, scratch)
   field = to_spectral(raw, plans)
   multipliers = FieldSpectralMultipliers(field)

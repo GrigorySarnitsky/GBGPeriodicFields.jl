@@ -21,7 +21,7 @@ phys_scalar_zero() = ScalarFieldPhysical(zeros(T, gs...), grid)
 # Forward+inverse plans matching the tensor order of `physical`.
 function plans_for(physical)
   R = field_tensor_order(physical)
-  shape = F.spectral_field_shape(grid, layout, Val(R))
+  shape = F.field_spectral_shape(grid, layout, Val(R))
   spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
              R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                       TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)
@@ -493,7 +493,7 @@ end
 
   # spectral in-place aliasing for the fused unary quartet — physical aliasing is tested, but
   # every spectral exercise used a fresh destination; decision 39 claims bitwise equality
-  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(2))), g8)
+  t_scaff = TensorFieldSpectral{2}(zeros(Complex{TP}, field_spectral_shape(g8, layout_d, Val(2))), g8)
   plans_t = FieldTransformPlans(A2, t_scaff)
   As2 = to_spectral(A2, plans_t)
   for (op!, op) in ((transpose!, transpose), (sym!, sym), (skew!, skew), (dev!, dev))
@@ -515,19 +515,19 @@ end
   destT = TensorFieldPhysical{2}(zeros(TP, 8, 6, 4, 3, 3), g8)
   mul!(destT, A2, C); @test field_data(destT) ≈ ref_AC
   mul!(destT, C, A2); @test field_data(destT) ≈ ref_CA
-  destTs = TensorFieldSpectral{2}(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(2))), g8)
+  destTs = TensorFieldSpectral{2}(zeros(Complex{TP}, field_spectral_shape(g8, layout_d, Val(2))), g8)
   mul!(destTs, As2, C); @test field_data(to_physical(destTs, plans_t)) ≈ ref_AC
   mul!(destTs, C, As2); @test field_data(to_physical(destTs, plans_t)) ≈ ref_CA
 
   # the spectral constant family — reversed-order and subtract directions were value-uncovered
   # (allocation-only); round-trip oracles, plus the physical tensor family full-array
-  s_scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(0))), g8)
+  s_scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_d, Val(0))), g8)
   plans_s = FieldTransformPlans(sm, s_scaff)
   ss = to_spectral(sm, plans_s)
   c = TP(0.7)
   @test field_data(to_physical(ss - c, plans_s)) ≈ field_data(sm) .- c
   @test field_data(to_physical(c - ss, plans_s)) ≈ c .- field_data(sm)
-  v_scaff = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_d, Val(1))), g8)
+  v_scaff = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_d, Val(1))), g8)
   plans_v = FieldTransformPlans(x, v_scaff)
   us = to_spectral(x, plans_v)
   kv_shape = reshape(collect(kv), 1, 1, 1, 3)
@@ -552,14 +552,14 @@ end
   # permuted-fold representatives, one per executor family (broadcast M2, fiberwise-executor
   # M3, the zero-mode constant path): the algebra is coefficientwise, so these pin that no
   # code path silently assumes the fold sits on array dimension 1
-  p_scaff = VectorFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_p, Val(1))), g8, layout_p)
+  p_scaff = VectorFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(1))), g8, layout_p)
   p1 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
   p2 = VectorFieldPhysical(rand(TP, 8, 6, 4, 3), g8, layout_p)
   plans_p = FieldTransformPlans(p1, p_scaff)
   p1s = to_spectral(p1, plans_p); p2s = to_spectral(p2, plans_p)
   @test field_data(to_physical(p1s + p2s, plans_p)) ≈ field_data(p1) .+ field_data(p2)
   @test field_data(to_physical(p1s + kv, plans_p)) ≈ field_data(p1) .+ kv_shape   # zero-mode path
-  ps_scaff = ScalarFieldSpectral(zeros(Complex{TP}, spectral_field_shape(g8, layout_p, Val(0))), g8, layout_p)
+  ps_scaff = ScalarFieldSpectral(zeros(Complex{TP}, field_spectral_shape(g8, layout_p, Val(0))), g8, layout_p)
   ps_phys = ScalarFieldPhysical(zeros(TP, 8, 6, 4), g8, layout_p)
   plans_ps = FieldTransformPlans(ps_phys, ps_scaff)
   @test field_data(to_physical(dot(p1s, kv), plans_ps)) ≈
@@ -680,10 +680,10 @@ end
   # The spectral kernel alias, on the representation where convolution is defined.
   layout = RealFourierLayout()
   spectral = ScalarFieldSpectral(
-    zeros(ComplexF64, GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(0))), grid, layout)
+    zeros(ComplexF64, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))), grid, layout)
   multipliers = FieldSpectralMultipliers(spectral)
   us = VectorFieldSpectral(randn(ComplexF64,
-    GBGPeriodicFields.Fields.spectral_field_shape(grid, layout, Val(1))), grid, layout)
+    GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(1))), grid, layout)
   kernel = spectral_band(multipliers, 0, 2)
   @test field_data(us ⋆ kernel) == field_data(convolve(us, kernel))
 end

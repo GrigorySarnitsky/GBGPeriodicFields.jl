@@ -32,7 +32,7 @@ Random.seed!(555)
 @testset "NUFFT: tighter tol must not achieve worse accuracy (odd-width regression)" begin
   grid = Grid3D((16, 14, 12), (2π, 2π, 2π))
   layout = RealFourierLayout()
-  shp = GBGPeriodicFields.spectral_field_shape(grid, layout, Val(0))
+  shp = GBGPeriodicFields.field_spectral_shape(grid, layout, Val(0))
   n1, n2, n3 = shp
 
   # Fill only strictly-sub-Nyquist modes on every axis, so the field carries NO Nyquist content at

@@ -83,7 +83,7 @@ const MODULE_BASELINE = (
   # 103 → 115: moving sections between storage families. Four are the `adapt_structure` methods
   # themselves (physical fields, spectral fields, `FieldSpectralMultipliers`, `FieldTransformPlans`);
   # the other eight are the internals they need — `_storage_prototype`, the two three-method families
-  # `_physical_field_of_order`/`_spectral_field_of_order` that construct a field of a given tensor
+  # `_field_physical_of_order`/`_field_spectral_of_order` that construct a field of a given tensor
   # order without a reference to copy metadata from, and `_is_canonical`, which reads back the
   # parameter that lets `convolve` collapse two radial kernels statically. Refrozen deliberately, with
   # the reason, per decision 53's protocol.

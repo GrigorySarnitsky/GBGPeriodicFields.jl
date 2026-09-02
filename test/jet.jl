@@ -22,7 +22,7 @@ const layout = RealFourierLayout()
 
 function plans_for(physical)
   R = field_tensor_order(physical)
-  shape = M.Fields.spectral_field_shape(grid, layout, Val(R))
+  shape = M.Fields.field_spectral_shape(grid, layout, Val(R))
   spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
              R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                       TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)

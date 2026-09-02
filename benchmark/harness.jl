@@ -16,7 +16,7 @@ scalar_phys(AT, ::Type{T}, grid) where {T} = ScalarFieldPhysical(AT(rand(T, grid
 vector_phys(AT, ::Type{T}, grid) where {T} = VectorFieldPhysical(AT(rand(T, grid.grid_size..., 3)), grid)
 tensor_phys(AT, ::Type{T}, grid) where {T} = TensorFieldPhysical{2}(AT(rand(T, grid.grid_size..., 3, 3)), grid)
 
-specshape(grid, R) = spectral_field_shape(grid, LAYOUT, Val(R))
+specshape(grid, R) = field_spectral_shape(grid, LAYOUT, Val(R))
 scalar_spec(AT, ::Type{T}, grid) where {T} = ScalarFieldSpectral(AT(rand(Complex{T}, specshape(grid, 0)...)), grid)
 vector_spec(AT, ::Type{T}, grid) where {T} = VectorFieldSpectral(AT(rand(Complex{T}, specshape(grid, 1)...)), grid)
 tensor_spec(AT, ::Type{T}, grid) where {T} = TensorFieldSpectral{2}(AT(rand(Complex{T}, specshape(grid, 2)...)), grid)

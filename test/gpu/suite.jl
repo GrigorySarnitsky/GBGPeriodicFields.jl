@@ -65,7 +65,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
   # on whatever backend `physical` lives on.
   function plans_for(physical)
     R = field_tensor_order(physical)
-    shape = F.spectral_field_shape(grid, layout, Val(R))
+    shape = F.field_spectral_shape(grid, layout, Val(R))
     zero_spectral = similar(field_data(physical), Complex{T}, shape)
     fill!(zero_spectral, 0)
     spectral = R == 0 ? ScalarFieldSpectral(zero_spectral, grid) :
@@ -697,7 +697,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       # Permuted rfft layout: the Parseval fold follows fft_dims on the device too — the spectral
       # inner's correction planes and the shell kernel's weight axis are selected by the layout.
       permuted_layout = RealFourierLayout((2, 1, 3))
-      permuted_h = ScalarFieldSpectral(rand(Complex{T}, spectral_field_shape(grid, permuted_layout, Val(0))),
+      permuted_h = ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, permuted_layout, Val(0))),
                                        grid, permuted_layout)
       permuted_d = on_device(permuted_h)
       pmult_h = FieldSpectralMultipliers(permuted_h); pmult_d = FieldSpectralMultipliers(permuted_d)
@@ -786,7 +786,7 @@ end
       grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
       layout = RealFourierLayout()
       host_spectral = ScalarFieldSpectral(
-          randn(ComplexF64, F.spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+          randn(ComplexF64, F.field_spectral_shape(grid, layout, Val(0))...), grid, layout)
       device_spectral = on_device(host_spectral)
       host_multipliers = FieldSpectralMultipliers(host_spectral)
       device_multipliers = FieldSpectralMultipliers(device_spectral)
@@ -805,7 +805,7 @@ end
     @testset "moving a whole workspace between storage families" begin
       grid, layout = Grid3D((8, 8, 8), (2pi, 4pi, 6pi)), RealFourierLayout()
       host_u = VectorFieldPhysical(rand(Float64, 8, 8, 8, 3), grid, layout)
-      host_z = ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(grid, layout, Val(0))...), grid, layout)
+      host_z = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
       host_plans = FieldTransformPlans(host_u, similar_field(host_z, Val(1)))
       host_multipliers = FieldSpectralMultipliers(similar_field(host_z, Val(1)))
       host_kernel = spectral_cutoff(host_multipliers, 3.0)
@@ -846,7 +846,7 @@ end
       @test adapt!(back_q, device_q) === back_q
       @test GBGPeriodicFields.Points.point_values(back_q) == GBGPeriodicFields.Points.point_values(host_q)
       @test_throws ArgumentError adapt!(similar_field(adapt(AT, host_z), Val(0)),
-                                        ScalarFieldSpectral(zeros(ComplexF64, spectral_field_shape(
+                                        ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(
                                             Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout, Val(0))...),
                                             Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout))
       # A round trip must return the values unchanged, and the metadata with them.
@@ -877,7 +877,7 @@ end
       # Allocate directly on the device family — no host array, no reference field — and use it.
       device_u = VectorFieldSpectral(AT, grid, layout)
       @test field_data(device_u) isa AT
-      @test size(field_data(device_u)) == spectral_field_shape(grid, layout, Val(1))
+      @test size(field_data(device_u)) == field_spectral_shape(grid, layout, Val(1))
       device_s = ScalarFieldPhysical(AT, grid)
       field_data(device_s) .= 1.0
       @test integral(device_s) ≈ prod(grid.domain_size)

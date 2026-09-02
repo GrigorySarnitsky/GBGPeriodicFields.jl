@@ -39,10 +39,10 @@ const layout = RealFourierLayout()
 
 # Forward+inverse plans, one set per tensor order, reused across the suite.
 function plans_of_order(R)
-  shape = F.spectral_field_shape(grid, layout, Val(R))
-  physical = R == 0 ? ScalarFieldPhysical(zeros(T, F.physical_field_shape(grid, Val(0))), grid) :
-             R == 1 ? VectorFieldPhysical(zeros(T, F.physical_field_shape(grid, Val(1))), grid) :
-                      TensorFieldPhysical{R}(zeros(T, F.physical_field_shape(grid, Val(R))), grid)
+  shape = F.field_spectral_shape(grid, layout, Val(R))
+  physical = R == 0 ? ScalarFieldPhysical(zeros(T, F.field_physical_shape(grid, Val(0))), grid) :
+             R == 1 ? VectorFieldPhysical(zeros(T, F.field_physical_shape(grid, Val(1))), grid) :
+                      TensorFieldPhysical{R}(zeros(T, F.field_physical_shape(grid, Val(R))), grid)
   spectral = R == 0 ? ScalarFieldSpectral(zeros(Complex{T}, shape), grid) :
              R == 1 ? VectorFieldSpectral(zeros(Complex{T}, shape), grid) :
                       TensorFieldSpectral{R}(zeros(Complex{T}, shape), grid)

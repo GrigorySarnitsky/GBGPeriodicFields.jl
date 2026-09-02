@@ -71,7 +71,7 @@ tensor_divergence(i) = (x, y, z) -> sum((n = tslot(i, j, j); amplitude(n) * freq
     plans(R) = FieldTransformPlans(
       R == 0 ? ScalarFieldPhysical(zeros(TP, N, N, N), g) :
       R == 1 ? VectorFieldPhysical(zeros(TP, N, N, N, 3), g) : TensorFieldPhysical(zeros(TP, N, N, N, 3, 3), g),
-      (shape = spectral_field_shape(g, layout, Val(R));
+      (shape = field_spectral_shape(g, layout, Val(R));
        R == 0 ? ScalarFieldSpectral(zeros(Complex{TP}, shape), g) :
        R == 1 ? VectorFieldSpectral(zeros(Complex{TP}, shape), g) : TensorFieldSpectral(zeros(Complex{TP}, shape), g)))
     scalar_of(f) = ScalarFieldPhysical(f, g)
