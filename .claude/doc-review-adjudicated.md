@@ -27,6 +27,30 @@ dismissed in a verdict file. A future panel re-raising it should close against t
 
 Settles, verbatim: `N_B` introduced in the notation glossary but never exercised in any docstring
 
+## 2026-09-02 — settled by measurement
+
+### `AbstractField` is a `Union` rather than an abstract type
+**SETTLED 2026-09-02 (user): NOT a defect — leave it as is, do not re-flag.** The alias stays a
+`Union{AbstractFieldPhysical, AbstractFieldSpectral}`.
+
+The finding is usually raised by analogy with decision 60, which replaced a `Union` with an abstract
+hierarchy — but that decision was about **naming and dispatch semantics** (the abstract type read
+broader than the union while being narrower, and `convolve` was asymmetric because argument position
+was the only thing carrying the role), not about speed. What decision 60 *measured* was its
+replacement being free, not the union being slow.
+
+The cost question here was then settled by measurement rather than argument. The same body under
+`::AbstractField`, under `::AbstractFieldPhysical` and untyped runs at 15.92 / 15.99 / 16.15 µs on a
+``64^3`` scalar field — identical within noise — and inference returns a concrete `Float64` through
+the Union. Julia specialises on the concrete argument type at each call site, so the annotation never
+reaches the compiled code. A `Union` costs where it is a **struct field type** or an **array element
+type**; this one is neither, appearing in 31 method signatures and nowhere else.
+
+Converting the package's most foundational alias would be a breaking type-hierarchy change buying a
+naming preference and no measured cost. A future panel re-raising it should close against this note.
+
+Settles, verbatim: `AbstractField` is a documented `Union`
+
 ## 2026-09-01 — the panel's escalated findings, walked one by one with the owner
 
 ### `Grid3D`'s two-argument constructor takes `origin` as a keyword

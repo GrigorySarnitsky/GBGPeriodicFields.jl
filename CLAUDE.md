@@ -2403,6 +2403,7 @@ that would have caught this class, so it earns its place ahead of work that repa
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round
+  — the bundle is now **(2), (4) and (5)**, item (1) closed 2026-08-15 and item (3) 2026-09-02
   rather than being taken piecemeal. They are recorded **here** because the panel's own findings pile
   (`.claude/doc-review/`) is gitignored and is deleted by the second-next run. **(1)** *(CLOSED 2026-08-15, decision 67 — `Base.similar`
   declined for the section allocators; the reasoning is on both docstrings and the item is in the
@@ -2423,9 +2424,16 @@ that would have caught this class, so it earns its place ahead of work that repa
   and it keeps `f(x)` — so this item could have shipped alone; it is bundled by choice. What it costs:
   a refusing method on `map!` and on the allocating `map`, fields only (point-values are not callable),
   a regression witness asserting the refusal, and a **`test/method_parity.jl` refreeze in the same
-  commit** — the 206-method baseline moves, and an unexplained parity move is treated as a defect. **(3)** `AbstractField` is a documented `Union`, honestly labelled as one —
-  the decision-60 analogy (a union that reads broader than it is) is fair, but converting the
-  package's most foundational alias is a breaking type-hierarchy change with no consumer pressure.
+  commit** — the 206-method baseline moves, and an unexplained parity move is treated as a defect. **(3)** *(CLOSED 2026-09-02 (user): `AbstractField` stays a `Union` — leave it as is, do
+  nothing, and do not re-raise.* The decision-60 analogy that motivated the item is about NAMING, not
+  cost, and the cost question was settled by measurement rather than argument: the same body under
+  `::AbstractField`, under `::AbstractFieldPhysical` and untyped runs at 15.92 / 15.99 / 16.15 µs on a
+  ``64^3`` scalar field, identical within noise, with inference returning a concrete `Float64` through
+  the Union. Julia specialises on the concrete argument type, so the annotation never reaches the
+  compiled code. A `Union` costs where it is a **struct field type** or an **array element type**, and
+  this one is neither — it appears in 31 method signatures and nowhere else. Note also what decision
+  60 actually measured: its *replacement* being free (the `StoredKernel` wrapper, 144 bytes at
+  construction and zero per call), not the old union being slow.)
   **(5)** `Grid3D`'s two-argument constructor takes `origin` as a KEYWORD while the four-argument
   form takes it positionally, and the positional-vs-keyword policy makes a result-affecting
   argument positional — `origin` shifts every node. Raised by the 2026-09-01 panel, **deferred to
