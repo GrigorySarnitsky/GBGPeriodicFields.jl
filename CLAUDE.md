@@ -2408,8 +2408,22 @@ that would have caught this class, so it earns its place ahead of work that repa
   declined for the section allocators; the reasoning is on both docstrings and the item is in the
   do-not-re-flag list.)* **(2)** A field is callable, `f(x)`, which collides with
   `map!`'s φ slot: `map!(f, dest, g)` with a *field* `f` is accepted and means something the caller
-  probably did not intend. Documented as the caller's responsibility in `map!`'s warning; removing the
-  callable is breaking. **(3)** `AbstractField` is a documented `Union`, honestly labelled as one —
+  probably did not intend. **DECIDED 2026-09-02 (user): `map!`/`map` will THROW on a field in the φ
+  slot; the callable stays.** Postponed and bundled with the rest of this round, by the same ruling —
+  do not land it early.
+
+  The decision rests on measurement, not on the reading. Today both branches are bad and one is
+  dangerous: with a **vector** source there is no error at all — `map!` interpolates the field at
+  positions taken from the source's fiber values and returned `0.9999999999999998` in the probe, a
+  plausible number from a computation nobody asked for; with a **scalar** source it throws
+  `BoundsError: attempt to access Float64 at index [2]`, which names nothing. There is no valid use to
+  protect, φ being a fiber → fiber map while a field is a section.
+
+  Note that throwing is **not itself breaking** — it turns a silent wrong answer into a named error,
+  and it keeps `f(x)` — so this item could have shipped alone; it is bundled by choice. What it costs:
+  a refusing method on `map!` and on the allocating `map`, fields only (point-values are not callable),
+  a regression witness asserting the refusal, and a **`test/method_parity.jl` refreeze in the same
+  commit** — the 206-method baseline moves, and an unexplained parity move is treated as a defect. **(3)** `AbstractField` is a documented `Union`, honestly labelled as one —
   the decision-60 analogy (a union that reads broader than it is) is fair, but converting the
   package's most foundational alias is a breaking type-hierarchy change with no consumer pressure.
   **(5)** `Grid3D`'s two-argument constructor takes `origin` as a KEYWORD while the four-argument
