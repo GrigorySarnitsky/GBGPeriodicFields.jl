@@ -54,13 +54,21 @@ Settles, verbatim: `AbstractField` is a documented `Union`
 ## 2026-09-01 — the panel's escalated findings, walked one by one with the owner
 
 ### `Grid3D`'s two-argument constructor takes `origin` as a keyword
-**DECIDED 2026-09-01 (user): deferred to a breaking round — do not re-flag.** The rule makes a
-result-affecting argument positional and `origin` shifts every node, so the finding is correct and the
-two constructors do disagree. The user declined all three non-deferral options — a recorded exception,
-a second positional method, and the breaking rename — and parked it in CLAUDE.md's "Open interface
-questions" as item 5, to be decided with the other breaking naming items rather than piecemeal.
-Blast radius measured at the time: 15 in-repo call sites, none in `examples/` or `benchmark/`, and no
-`origin =` call in `GBGIsotropicTurbulence`.
+**SETTLED 2026-09-02 (user): the keyword STAYS — leave it as is, do not re-flag.** Superseding the
+2026-09-01 deferral: this is no longer waiting for a breaking round, it is closed.
+
+The finding is correct and is not disputed — the four-argument form takes `origin` positionally, and
+the policy makes a result-affecting argument positional, `origin` shifting every node. It is now a
+**recorded exception in the policy itself** (`CLAUDE.md`, positional-vs-keyword), which is where a
+re-raise should close.
+
+Two facts narrowed it before the ruling. `Grid3D` is the **only public entry point that takes an
+origin at all** — `PointSet` takes coordinates, and every transfer path reads `grid.origin` — so the
+disagreement is confined to one type's own constructor pair rather than being a convention spread
+across the surface. And every *internal* taker (`_locate`, `_wrap_coordinate`, the tile-key kernel)
+already has it positional, so the keyword is the lone outlier rather than the prevailing style.
+Blast radius at the ruling: 24 in-repo `origin =` call sites, up from 15 on 2026-08-15, plus unknown
+use in `GBGIsotropicTurbulence`.
 
 Settles, verbatim: `Grid3D`'s convenience constructor puts `origin` in a keyword, contradicting the
 package's own positional-vs-keyword rule (and its own other constructor)

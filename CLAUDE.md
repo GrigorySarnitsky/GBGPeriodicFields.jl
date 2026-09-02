@@ -443,7 +443,12 @@ implicit in the surface and one panel ruling).** In an OPERATION, every argument
 result is positional, defaults included (`scheme = CatmullRom`, the invariant-10 α/β); an argument
 that cannot change the result — a performance hint like the transfer `order` — or a builder's
 cost/accuracy tunable (`tol`, `tile_size`, `fft_flags`, the constructors' `T = Float64`) is a
-keyword. The callable field's `scheme` keyword is the recorded settled exception (2026-08-05). And
+keyword. Two recorded settled exceptions, and only these: the callable field's `scheme` keyword
+(2026-08-05), and **`Grid3D`'s two-argument constructor taking `origin` as a keyword**
+(2026-09-02) — `origin` does shift every node, so the rule genuinely points the other way, and
+the user weighed that against the churn and left it. `Grid3D` is the only PUBLIC entry point
+that takes an origin at all, so the disagreement is confined to one type's own constructor
+pair rather than spread across the surface. And
 `transfer_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
 transfer verbs' order (`anterpolate(grid, points, …)`), not the motion verbs' trailing-grid one
 (`wrap!(points, grid)`); the two families are deliberate and a new function joins the family whose
@@ -2403,7 +2408,8 @@ that would have caught this class, so it earns its place ahead of work that repa
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round
-  — the bundle is now **(2), (4) and (5)**, item (1) closed 2026-08-15 and item (3) 2026-09-02
+  — the bundle is now **(2) and (4)** alone: item (1) closed 2026-08-15, items (3) and (5)
+  2026-09-02
   rather than being taken piecemeal. They are recorded **here** because the panel's own findings pile
   (`.claude/doc-review/`) is gitignored and is deleted by the second-next run. **(1)** *(CLOSED 2026-08-15, decision 67 — `Base.similar`
   declined for the section allocators; the reasoning is on both docstrings and the item is in the
@@ -2434,13 +2440,16 @@ that would have caught this class, so it earns its place ahead of work that repa
   this one is neither — it appears in 31 method signatures and nowhere else. Note also what decision
   60 actually measured: its *replacement* being free (the `StoredKernel` wrapper, 144 bytes at
   construction and zero per call), not the old union being slow.)
-  **(5)** `Grid3D`'s two-argument constructor takes `origin` as a KEYWORD while the four-argument
-  form takes it positionally, and the positional-vs-keyword policy makes a result-affecting
-  argument positional — `origin` shifts every node. Raised by the 2026-09-01 panel, **deferred to
-  a breaking round by the user the same day** rather than fixed, exempted, or duplicated with a
-  second positional method. Blast radius measured then: 15 in-repo call sites (13 `test/`, one
-  `src/Interpolation.jl` NUFFT oversampled grid, one HDF5 extension), none in `examples/` or
-  `benchmark/`, plus unknown `origin =` use in `GBGIsotropicTurbulence`. **(4)** The `Points` accessors are named three ways — `point_values`, `pointvalue_tensor_order`,
+  **(5)** *(CLOSED 2026-09-02 (user): `Grid3D`'s two-argument constructor keeps `origin` as a
+  KEYWORD — leave it as is, do nothing.* The finding is correct: the four-argument form takes it
+  positionally, and the policy makes a result-affecting argument positional, `origin` shifting every
+  node. It is now a **recorded exception to that policy** rather than an open item, so the rule above
+  lists it and a re-raise closes against it. Facts in front of the decision: `Grid3D` is the only
+  PUBLIC entry point taking an origin at all, while every INTERNAL taker — `_locate`,
+  `_wrap_coordinate`, the tile-key kernel — already has it positional, so the keyword is the lone
+  outlier and the disagreement is confined to one type's own constructor pair; blast radius 24 in-repo
+  `origin =` call sites, up from the 15 recorded on 2026-08-15, plus unknown use in
+  `GBGIsotropicTurbulence`.) **(4)** The `Points` accessors are named three ways — `point_values`, `pointvalue_tensor_order`,
   `npoints` — and renames are breaking.
 
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
