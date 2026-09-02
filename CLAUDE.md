@@ -873,7 +873,13 @@ the encouraged way to point across the docs (a mistyped `@ref` fails the build, 
 one clear destination**: (1) link a target **at most once per docstring** (its first genuine mention); (2)
 **never** link the docstring's own binding, its argument names, `Symbol`/option tokens, struct fields, or
 `Base` names; (3) a **family** of built-ins (the spline schemes, the reductions) is **one** catalogue
-destination, not five — name each member in plain backticks and `@ref` the default; (4) **at-home test** —
+destination, not five — name each member in plain backticks and `@ref` the default — **unless the
+members are distinct types a reader must CHOOSE between**, as the four `SpectralKernel` storage classes
+are, where each is linked (user-directed 2026-09-02); **(3a) an enumeration is uniform** — sibling names
+in one list or one sentence are all linked or all plain, never a mix, since an odd one out reads as a
+broken link rather than as a rule. Both halves come from the same report: `SpectralKernel` named
+`Convolution` bare beside a linked `DifferentialOperators` and `Reductions`, and listed its four storage
+classes bare under a linked catalogue; (4) **at-home test** —
 if a sentence would sit equally well in the *target's* own docstring, cut it and link (the function's own
 defining formula and its validity/absence clauses always stay — physical-meaning-first outranks DRY). **No
 dead references on the user-facing surface:** a rendered docstring or a thrown error must not cite a

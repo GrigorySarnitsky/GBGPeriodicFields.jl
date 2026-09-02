@@ -1669,18 +1669,19 @@ _spectral_zero_mode_component_data(field::TensorFieldSpectral{2}, first_index, s
     SpectralKernel{T}
 
 Supertype of every spectral kernel: a coefficientwise multiplier applied as the product ``\\hat f \\hat g`` of a field's coefficients ``\\hat f`` and the kernel's own multiplier ``\\hat g``, in whichever storage its symbol admits. [`Convolution`](@ref "Convolution")
-defines the concrete classes under [Kernel storage classes](@ref) — `StoredKernel` holding one
-coefficient per mode, `SeparableKernel` holding per-axis factors, `RadialKernel` holding the symbol
-itself, and `ProductKernel` holding two factors unmultiplied — and they differ only in cost, never in
+defines the concrete classes under [Kernel storage classes](@ref) — [`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel) holding one
+coefficient per mode, [`SeparableKernel`](@ref GBGPeriodicFields.Convolution.SeparableKernel) holding per-axis factors,
+[`RadialKernel`](@ref GBGPeriodicFields.Convolution.RadialKernel) holding the symbol itself, and
+[`ProductKernel`](@ref GBGPeriodicFields.Convolution.ProductKernel) holding two factors unmultiplied — and they differ only in cost, never in
 meaning. This supertype and the two generics below live here so that every module which applies a
-kernel — `Convolution`, [`DifferentialOperators`](@ref "DifferentialOperators"),
+kernel — [`Convolution`](@ref "Convolution"), [`DifferentialOperators`](@ref "DifferentialOperators"),
 [`Reductions`](@ref "Reductions") — can name one type, whichever of them is included first.
 
 A field in spectral representation is **not** a kernel. The two hold identical data, so nothing but a
 type can say which role is meant, and the distinction is load-bearing: the coefficientwise reciprocal
 of a kernel is the kernel that deconvolves by it, while the same operation on a field is one the
-package does not define. Wrap a field of coefficients in `StoredKernel` to declare the role, which is
-what `materialize_kernel` returns.
+package does not define. Wrap a field of coefficients in [`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel) to declare the role, which
+is what [`materialize_kernel`](@ref GBGPeriodicFields.Convolution.materialize_kernel) returns.
 
 A concrete kernel implements two methods: [`_kernel_data`](@ref), returning the multiplier it
 contributes to a fused pass, and [`_check_kernel_compatibility`](@ref), checking it against the field

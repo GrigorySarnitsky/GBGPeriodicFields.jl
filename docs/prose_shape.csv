@@ -301,7 +301,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: RealFourierLayout()",76,33,0
 "Fields.jl :: ScalarFieldPhysical(",328,108,0
 "Fields.jl :: ScalarFieldSpectral(",267,113,0
-"Fields.jl :: SpectralKernel{T}",212,111,0
+"Fields.jl :: SpectralKernel{T}",219,116,0
 "Fields.jl :: TensorFieldPhysical{R}(",407,108,0
 "Fields.jl :: TensorFieldSpectral{R}(",321,113,0
 "Fields.jl :: VectorFieldPhysical(",345,108,0
