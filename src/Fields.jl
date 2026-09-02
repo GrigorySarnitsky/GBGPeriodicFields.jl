@@ -1719,18 +1719,18 @@ because on even grids they use different conventions for the Nyquist mode (the h
 The explicit forms take both families from the caller and check only their lengths; the convenience
 form derives them, which is what makes them canonical (see the `Canonical` parameter below).
 
+In that one-argument form the wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L``
+along each axis, with ``L`` the domain length and ``n`` running over the FFT frequency indices. On an
+even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to
+zero, so that derivatives of real fields stay real, while its squared wavenumber keeps the true
+``k^2``, so that the Laplacian and Poisson-type solves stay correct. On an odd-length axis there is no
+exact Nyquist mode and no special treatment is applied.
+
 Every argument above is stored under its own name. Six further fields — `wavenumber_view_1..3` and
 `squared_wavenumber_view_1..3` — are derived rather than passed: each is one of the six vectors
 pre-oriented as a 3-D view along its own axis, holding no data of its own, so that a broadcast-route
 operator never rebuilds a `reshape` per call (decision 70). They are internal; read them through
 `_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast` rather than directly.
-
-In the convenience form the wavenumbers are the physical angular wavenumbers ``k = 2\\pi n / L`` along
-each axis, with ``L`` the domain length and ``n`` running over the FFT frequency indices. On an
-even-length axis the highest stored mode is the Nyquist mode: its first-derivative wavenumber is set to
-zero, so that derivatives of real fields stay real, while its squared wavenumber keeps the true
-``k^2``, so that the Laplacian and Poisson-type solves stay correct. On an odd-length axis there is no
-exact Nyquist mode and no special treatment is applied.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
 final `Canonical` parameter: the convenience constructor marks them canonical, the explicit forms do
