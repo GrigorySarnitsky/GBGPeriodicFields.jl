@@ -274,6 +274,36 @@ const AbstractField = Union{AbstractFieldPhysical, AbstractFieldSpectral}
 
 
 """
+    _refuse_field_as_fiber_map(φ)
+
+Refuse a field handed to a fiber-map slot, and do nothing for anything else.
+
+A field in physical representation is **callable** — `f(x)` samples it at a position — so passing one
+where `map!`/`map` expect the fiber map `φ` type-checks and runs. What it then computes is nonsense of
+the worst kind: for a **vector** source the fiber is an `SVector{3}`, which the callable happily reads
+as a *position*, so the call silently interpolates the field at its own source's values and returns a
+plausible number. For a scalar source it fails, but as `BoundsError: attempt to access Float64 at
+index [2]`, which names neither the argument nor the mistake.
+
+There is nothing to protect: `φ` maps a fiber to a fiber, while a field is a section. Both field and
+point-value `map!` are covered, the point-value fiber being an `SVector{3}` at ``R = 1`` exactly as a
+field's is.
+
+Dispatch does the work, so the non-field path is a no-op the compiler removes; the refusal costs
+nothing in the fused pass.
+"""
+@inline _refuse_field_as_fiber_map(φ) = nothing
+@inline function _refuse_field_as_fiber_map(φ::AbstractField)
+  throw(ArgumentError(
+    "the fiber map φ of `map!`/`map` must map one fiber value to another, but a FIELD was passed. " *
+    "A field in physical representation is callable — `f(x)` samples it — so this call would " *
+    "type-check and, for a vector source, silently interpolate the field at its source's fiber " *
+    "values read as positions. To sample a field at points use `interpolate(field, points)`; to " *
+    "apply a function per base point pass that function, e.g. `map!(x -> 2x, destination, source)`."))
+end
+
+
+"""
     field_scalar_type(
       field::AbstractFieldPhysical{T, R},
     ) where {T<:AbstractFloat, R}

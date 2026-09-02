@@ -2408,29 +2408,23 @@ that would have caught this class, so it earns its place ahead of work that repa
 
 - **Open interface questions from the doc panels (recorded 2026-08-15, none started).** Each is a real
   observation that survived verification, and each is breaking, so they wait for a breaking round
-  — the bundle is now **(2) and (4)** alone: item (1) closed 2026-08-15, items (3) and (5)
+  — the bundle is now **(4) alone**: item (1) closed 2026-08-15, items (3) and (5)
   2026-09-02
   rather than being taken piecemeal. They are recorded **here** because the panel's own findings pile
   (`.claude/doc-review/`) is gitignored and is deleted by the second-next run. **(1)** *(CLOSED 2026-08-15, decision 67 — `Base.similar`
   declined for the section allocators; the reasoning is on both docstrings and the item is in the
-  do-not-re-flag list.)* **(2)** A field is callable, `f(x)`, which collides with
-  `map!`'s φ slot: `map!(f, dest, g)` with a *field* `f` is accepted and means something the caller
-  probably did not intend. **DECIDED 2026-09-02 (user): `map!`/`map` will THROW on a field in the φ
-  slot; the callable stays.** Postponed and bundled with the rest of this round, by the same ruling —
-  do not land it early.
-
-  The decision rests on measurement, not on the reading. Today both branches are bad and one is
-  dangerous: with a **vector** source there is no error at all — `map!` interpolates the field at
-  positions taken from the source's fiber values and returned `0.9999999999999998` in the probe, a
-  plausible number from a computation nobody asked for; with a **scalar** source it throws
-  `BoundsError: attempt to access Float64 at index [2]`, which names nothing. There is no valid use to
-  protect, φ being a fiber → fiber map while a field is a section.
-
-  Note that throwing is **not itself breaking** — it turns a silent wrong answer into a named error,
-  and it keeps `f(x)` — so this item could have shipped alone; it is bundled by choice. What it costs:
-  a refusing method on `map!` and on the allocating `map`, fields only (point-values are not callable),
-  a regression witness asserting the refusal, and a **`test/method_parity.jl` refreeze in the same
-  commit** — the 206-method baseline moves, and an unexplained parity move is treated as a defect. **(3)** *(CLOSED 2026-09-02 (user): `AbstractField` stays a `Union` — leave it as is, do
+  do-not-re-flag list.)* **(2)** *(DONE 2026-09-02 — `map!`/`map` refuse a field in the φ slot; the
+  callable `f(x)` stays.* A field in physical representation is callable, so passing one as φ
+  type-checked and RAN: with a vector source it silently interpolated the field at its own source's
+  fiber values read as positions and returned a plausible number, and with a scalar source it threw a
+  `BoundsError` naming nothing. Both families carried it — a point-value fiber at ``R = 1`` is an
+  `SVector{3}` exactly as a field's is — so `Fields` owns the two-method guard
+  `_refuse_field_as_fiber_map` and `FieldAlgebra` and `Points` each call it from their three
+  `map!`/`map` methods. Measured free: the non-field path is a no-op the compiler removes, and vector
+  `map!` allocates the same 144 B before and after. `Fields` refrozen 128 → 130 with the reason;
+  witness in `test/regressions/callable-field-as-fiber-map.jl`, confirmed to FAIL on the pre-fix tree
+  before being kept. Removing the callable — the framing this item shipped with — was never needed.)
+  **(3)** *(CLOSED 2026-09-02 (user): `AbstractField` stays a `Union` — leave it as is, do
   nothing, and do not re-raise.* The decision-60 analogy that motivated the item is about NAMING, not
   cost, and the cost question was settled by measurement rather than argument: the same body under
   `::AbstractField`, under `::AbstractFieldPhysical` and untyped runs at 15.92 / 15.99 / 16.15 µs on a

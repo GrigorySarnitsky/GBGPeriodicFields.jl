@@ -109,7 +109,15 @@ const MODULE_BASELINE = (
   # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
   # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
   # deliberately, with the reason, per decision 53's protocol.
-  Fields                = 128,
+  Fields                = 130,
+  # 128 → 130: `_refuse_field_as_fiber_map`, the two-method guard that refuses a FIELD handed to
+  # the fiber-map slot of `map!`/`map` (open interface question (2), decided 2026-09-02). A field
+  # in physical representation is callable, so passing one as φ type-checked and RAN: with a
+  # vector source it silently interpolated the field at its own source's fiber values read as
+  # positions and returned a plausible number; with a scalar source it threw a `BoundsError`
+  # naming nothing. One method is the no-op the compiler removes, the other throws. It lives in
+  # `Fields` because both `FieldAlgebra` and `Points` need it and `Fields` owns the field types.
+  # Refrozen deliberately, with the reason, per decision 53's protocol.
   # 127 → 128: `_reality_residual_plane`, the folded-plane pass with its axis as a `Val` type
   # parameter. The exhaustive survey's type-stability check reported `reality_residual` inferring
   # `Any` on every configuration (576 cells, one operation); reaching the plane through a runtime

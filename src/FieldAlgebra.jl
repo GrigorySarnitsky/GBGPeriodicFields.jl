@@ -91,6 +91,7 @@ module FieldAlgebra
 
 
 using ..Fields:
+  _refuse_field_as_fiber_map,
   _spectral_constant_scale,
   _spectral_zero_mode_data,
   _spectral_zero_mode_component_data,
@@ -1863,6 +1864,7 @@ The arguments are:
     docstring). Point-value sections are representation-free and carry no such restriction.
 """
 function map!(φ::F, destination::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+  _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   for source in sources
     _check_field_domain_compatibility(destination, source)
@@ -1872,6 +1874,7 @@ end
 
 function map!(φ::F, destination::AbstractFieldPhysical, source::AbstractFieldPhysical,
               α::Real, β::Real) where {F}
+  _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   _check_field_domain_compatibility(destination, source)
   return _map_pass!(φ, destination, (source,), α, β)
@@ -1887,6 +1890,7 @@ when it cannot be inferred, call `map!` with a preallocated `destination`. See `
 arguments and the physical-representation-only / aliasing caveats.
 """
 function map(φ::F, source1::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+  _refuse_field_as_fiber_map(φ)
   all_sources = (source1, sources...)
   order = _map_output_order(φ, all_sources)
   order ≥ 0 ||

@@ -68,6 +68,7 @@ using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
+using ..Fields: _refuse_field_as_fiber_map   # the callable-field guard shared with `FieldAlgebra`
 import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
@@ -1144,6 +1145,7 @@ function read_points end
 # `_map_pass!` driver over the same fused executor; point-values are representation-free, so no
 # physical-only restriction applies. The one docstring lives on the FieldAlgebra binding. ---
 function map!(φ::F, destination::AbstractPointValues, sources::AbstractPointValues...) where {F}
+  _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   for source in sources
     _check_npoints_match(destination, source)
@@ -1153,12 +1155,14 @@ end
 
 function map!(φ::F, destination::AbstractPointValues, source::AbstractPointValues,
               α::Real, β::Real) where {F}
+  _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   _check_npoints_match(destination, source)
   return _map_pass!(φ, destination, (source,), α, β)
 end
 
 function map(φ::F, source1::AbstractPointValues, sources::AbstractPointValues...) where {F}
+  _refuse_field_as_fiber_map(φ)
   all_sources = (source1, sources...)
   order = _map_output_order(φ, all_sources)
   order ≥ 0 ||
