@@ -34,6 +34,12 @@ These words recur in every operation's documentation:
   so the finite trigonometric series those coefficients define represents it exactly. A product of two
   such fields is not band-limited, which is why the operations that form one are offered in physical
   representation only.
+- a section's **scalar type** is its real precision — the `T <: AbstractFloat` every field and
+  point-value type is parameterized on, `Float64` or `Float32`, read back by
+  [`field_scalar_type`](@ref). Its **element type** is what the storage array actually holds, and the
+  two part company in spectral representation: physical storage holds `T`, spectral storage holds
+  `Complex{T}` at the same scalar type. Precision is the scalar type; the complex storage is
+  representation detail, so a field in spectral representation is no less a `Float64` field.
 - a section's **storage family** is the kind of array its data lives in — `Array` on the host,
   `CuArray` or `ROCArray` on a device — taken as the array's underlying type rather than its wrapping,
   so a `reshape` of an `Array` is still the `Array` family. Two sections combine only within one

@@ -296,8 +296,8 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
 "Fields.jl :: FieldSpectralMultipliers(",582,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
-"Fields.jl :: Fields",452,401,0
-"Fields.jl :: Grid3D(",211,103,0
+"Fields.jl :: Fields",416,365,0
+"Fields.jl :: Grid3D(",174,74,0
 "Fields.jl :: RealFourierLayout()",76,33,0
 "Fields.jl :: ScalarFieldPhysical(",328,108,0
 "Fields.jl :: ScalarFieldSpectral(",267,113,0
@@ -376,7 +376,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Types",11,11,0
 "Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",10,10,0
 "Fields.md § the same `Public = false` mechanism that filed `map` and `tr",9,9,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",827,326,1
+"GBGPeriodicFields.jl :: GBGPeriodicFields",910,409,1
 "GBGPeriodicFields.md § GBGPeriodicFields.jl",8,8,0
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
@@ -584,5 +584,6 @@ unit,words,longest_paragraph,admonitions
 "tutorial.md § Fiberwise algebra and L²/measure reductions",212,61,0
 "tutorial.md § Getting started",79,45,0
 "tutorial.md § Grids and fields",82,47,0
-"tutorial.md § Points: interpolation and anterpolation",143,47,0
+"tutorial.md § Points: interpolation and anterpolation",96,38,0
 "tutorial.md § Representations: physical ↔ spectral",176,115,0
+"tutorial.md § Running multithreaded",277,83,0
