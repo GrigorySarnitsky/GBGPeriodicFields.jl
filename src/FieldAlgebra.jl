@@ -5,27 +5,24 @@ Fiberwise and pointwise algebra for the scalar, vector, and second-order tensor 
 [`Fields`](@ref). Each operation comes as an allocating form — a `Base` or `LinearAlgebra` operator where
 one exists — and an in-place `!` form.
 
-Every operation here acts **pointwise over the base** — the set of locations the field attaches a value
-to, which for a field is the grid's nodes — applying the same formula to the value at each one and
-touching no neighbours. That is what the formulas below mean by "pointwise over the base".
+Field-field and field-constant operations preserve the representation of their arguments: they act
+pointwise on fields in physical representation and coefficient-wise on fields in spectral
+representation. An operation that is not linear in a field argument — multiplying two fields together,
+or contracting two fields — is defined only in physical representation, since only a linear map
+commutes with the rfft isomorphism; the exception is a factor held **fiber-constant**, which leaves the
+operation linear in its field and so available in both. The missing combinations are deliberate.
 
-Acting pointwise is *not* what makes an operation available in both representations, and the two must
-not be confused: `det` and `norm` are as pointwise as any operation here and are physical-representation only.
-What carries an operation across the transform is **linearity in the field argument, its partners
-held fiber-constant** — a product of two *fields* is linear in each factor separately yet not in the
-pair, and it stays physical-only — since only a linear map commutes with the rfft isomorphism — which is why the linear operations below (the sums,
-the fiber-constant contractions, the transposes, `sym`/`skew`/`dev`) exist in both representations
-while every operation nonlinear in a field is defined in physical representation alone.
-
-Two words recur below. A **fiber** is the value at one base point — a scalar, a `FiberVector` or a
-`FiberTensor2` — and a **section** is one fiber at every point of a base, which is what a field and a
-set of point-values each are. That shared shape is why one set of formulas serves both.
+Three words recur below. The **base** is the set of locations a section attaches a value to — the
+grid's nodes for a field — so a formula that is "pointwise over the base" applies at each of them
+independently and touches no neighbours. A **fiber** is the value at one base point, a scalar, a
+`FiberVector` or a `FiberTensor2`. A **section** is one fiber at every point of a base, which is what a
+field and a set of point-values each are, and that shared shape is why one set of formulas serves both.
 
 The parts are:
 
-  * **Vector-space and scalar-field-scaling operations** — [`add!`](@ref) and `subtract!` (`+`, `-`), the weighted
+  * **Vector-space and scalar-field-scaling operations** — [`add!`](@ref) and [`subtract!`](@ref) (`+`, `-`), the weighted
     combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
-    multiplication and division ([`multiply!`](@ref), `divide!`, `*`, `/`). Addition, weighted combination,
+    multiplication and division ([`multiply!`](@ref), [`divide!`](@ref), `*`, `/`). Addition, weighted combination,
     and real scaling are the vector-space structure; scalar-field multiplication is the action that makes
     fields a *module* over the ring of scalar fields — the algebraic sense of the word, not a Julia
     module: scaling a field by another field rather than by a number.
@@ -46,13 +43,6 @@ The parts are:
     sibling of mapped reductions such as `mean(det, A)`): `φ` may change the tensor order, and the
     result's order is `φ`'s (`map(det, A)` gives a scalar field). A field must be in physical representation, since an arbitrary
     `φ` is nonlinear.
-
-Field-field and field-constant operations preserve the representation of their arguments: they act
-pointwise on fields in physical representation and coefficient-wise on fields in spectral
-representation. An operation that is not linear in a field argument — multiplying two fields together, or
-contracting two fields — is defined only in physical representation, except where one factor is a
-compile-time constant fiber, which keeps the operation coefficient-wise; the missing combinations are
-deliberate.
 
 !!! warning "Nonlinear results are spectrally aliased"
     (*Spectral* aliasing here — content folding back onto resolved modes — not the storage aliasing of

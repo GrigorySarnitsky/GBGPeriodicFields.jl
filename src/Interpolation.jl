@@ -1786,7 +1786,7 @@ _wrap_field_spectral(data, grid, layout, ::Val{R}) where {R} = TensorFieldSpectr
                  scheme::AbstractTransferScheme)
 
 Persist a grid↔point transfer scheme — the choice of kernel and representation that fixes how
-[`interpolate`](@ref) and `anterpolate` are realized — as a **new HDF5 group** `name` under
+[`interpolate`](@ref) and [`anterpolate`](@ref) are realized — as a **new HDF5 group** `name` under
 `parent`, returning the group it created. Use it when a checkpoint must restore not only the
 positions and values of a point set but also *how* that set samples a field, so a restarted run
 transfers identically rather than falling back to a default. Reload with [`read_scheme`](@ref).

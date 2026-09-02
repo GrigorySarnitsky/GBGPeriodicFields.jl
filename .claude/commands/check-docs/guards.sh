@@ -102,6 +102,14 @@ hard "documented fields match struct"  python3 .claude/commands/check-docs/field
 # layout ...") one plain and one bold, which is what rules out a deliberate sub-convention. A bold
 # PROSE label (`- **Positions.** ...`) is a different device and is not matched: the pattern requires a
 # backtick immediately after the `**`.
+# Sibling names in one list are all linked or all plain — clause (3a). Reported twice on 2026-09-02
+# (`SpectralKernel` naming `Convolution` bare beside a linked `DifferentialOperators`/`Reductions`, and
+# `FieldAlgebra` writing "[`add!`](@ref) and `subtract!`"), so it is checked rather than re-reported.
+# Both instances were the at-most-once rule firing CORRECTLY; what is wrong is the rendered shape, so
+# the check looks at adjacency rather than at the rule. Operators and a docstring's own binding are
+# bare by rule and excluded — without those two the check would demand what the rules forbid.
+hard "sibling links are uniform"       python3 .claude/commands/check-docs/link_uniformity.py
+
 hard "argument bullet is not bolded"   grep -rnE '^[[:space:]]*[-*][[:space:]]+\*\*`' src ext
 
 soft "wide docstring signature (>88)"  awk '/^"""/{d=!d;s=d;next} s&&/^[^ ]/{s=0} s&&/^    [A-Za-z_].*\(/&&length>88{print FILENAME":"FNR}' src/GBGPeriodicFields.jl src/Fields.jl src/FieldAlgebra.jl src/FiberSections.jl src/DifferentialOperators.jl src/Convolution.jl src/Points.jl src/Interpolation.jl src/Reductions.jl

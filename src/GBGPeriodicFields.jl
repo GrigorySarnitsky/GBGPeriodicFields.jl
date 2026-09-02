@@ -74,7 +74,7 @@ the map of what it provides — `?Fields`, `?Convolution`, and so on — so this
 for rather than repeating its contents:
 
 - [`FiberSections`](@ref) — the base-agnostic foundation both layers share: the fiber types
-  [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/`FiberTensor3`/`FiberTensor4`, which name the value
+  [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/[`FiberTensor3`](@ref)/[`FiberTensor4`](@ref), which name the value
   at one base point and so belong to neither base in particular.
 - [`Fields`](@ref) — the field and grid types, the two representations and the transforms between
   them, allocation, broadcasting, HDF5 persistence, and the storage-family move [`adapt`](@ref).
@@ -85,7 +85,7 @@ for rather than repeating its contents:
   its own kind of object rather than a field.
 - [`Points`](@ref) — the unstructured base: point-data types, their fiberwise algebra mirroring the
   field surface, spatial motion, and HDF5 persistence.
-- [`Interpolation`](@ref) — the grid↔point transfer, [`interpolate`](@ref) and `anterpolate` as an
+- [`Interpolation`](@ref) — the grid↔point transfer, [`interpolate`](@ref) and [`anterpolate`](@ref) as an
   adjoint pair, under a choice of scheme.
 - [`Reductions`](@ref) — the L²/measure reductions over fields and point-values, against the base's
   own measure.

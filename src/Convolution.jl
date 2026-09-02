@@ -1000,7 +1000,7 @@ accumulate:
     returns a field that is still real exactly when its own transfer function carries that
     symmetry, ``\\hat g(-k) = \\overline{\\hat g(k)}`` — equivalently, when the physical-space
     kernel ``g`` is real. Every kernel the package builds satisfies it: the real, even ones
-    ([`spectral_cutoff`](@ref), `spectral_band`, `assignment_window`) trivially, and the complex
+    ([`spectral_cutoff`](@ref), [`spectral_band`](@ref), [`assignment_window`](@ref)) trivially, and the complex
     [`translation_kernel`](@ref) by construction. A `radial_kernel` — and so the exponential
     kernel `exponential_convolve!` applies — satisfies it too, and for the strongest reason: a
     real symbol of ``\\lvert k\\rvert^2`` is real, and ``\\lvert k\\rvert^2`` is even in ``k``, so
@@ -1874,14 +1874,14 @@ with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto 
 
 Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the
 relocation of a probe, or the displaced evaluation of a phase-shift de-aliasing scheme. Apply it with
-[`convolve`](@ref) / `convolve!`, which is allocation-free in place; because a scalar kernel
+[`convolve`](@ref) / [`convolve!`](@ref), which is allocation-free in place; because a scalar kernel
 multiplies every fiber component, one call translates a whole vector or tensor field, and because the
 kernel depends on nothing but the displacement, one kernel serves every field it is applied to (and
 it is separable, so building it costs three ``O(N)`` axis passes, not a field). To *sample* the field at the displaced positions
 ``x + h`` instead, pass the negated offset — the two are inverse translations. This is the package's
 one complex kernel: on every **sub-Nyquist** mode it is a pure phase of unit modulus, so it moves the
 field without touching any amplitude, unlike the real and even [`spectral_cutoff`](@ref) or
-`assignment_window`. At the **Nyquist frequency** — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
+[`assignment_window`](@ref). At the **Nyquist frequency** — the highest wavenumber a grid stores, ``\\pi/\\Delta x_a``, which an
 even-length axis stores as a single self-conjugate mode — the factor is instead the real
 number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translates and vanishes at a
 half-cell shift — the reality condition demands it, and the warning below gives the detail.

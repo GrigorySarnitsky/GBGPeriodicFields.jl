@@ -230,11 +230,12 @@ grep -rnzoE 'Reference[s]?:[^"]*;' src/*.jl                        # crammed cit
 python3 .claude/commands/check-docs/sentence_openers.py  # sentence opens with a lowercase code identifier or a formula → REWORD so an ordinary word leads (never capitalize the identifier). A SCRIPT, not a grep: a sentence start is computed, so it sees the line-initial and paragraph-initial cases a one-line pattern cannot. FPs: bullets and their continuations, `#` comments, abbreviations, the ``\checkmark`` marker — all exempt by rule and applied in the script
 ```
 
-The three non-grep backstops are scripts too, for the same reason:
+The four non-grep backstops are scripts too, for the same reason:
 
 ```
 python3 .claude/commands/check-docs/doi_crosscheck.py     # exit 1 if a docstring DOI is missing from §References
 python3 .claude/commands/check-docs/field_docs.py         # exit 1 if a `The fields are` bullet names a non-field
+python3 .claude/commands/check-docs/link_uniformity.py    # exit 1 if sibling names in one list mix linked and bare
 julia --startup-file=no .claude/commands/check-docs/argcov.jl
 ```
 

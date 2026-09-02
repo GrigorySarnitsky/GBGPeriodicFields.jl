@@ -464,7 +464,7 @@ end
 
 The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section (`integral` ``\\equiv \\int\\,\\mathrm{d}\\mu``) — the
 measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
-scales with the base measure; reach for [`inner`](@ref) or `mean` when you want an intensive,
+scales with the base measure; reach for [`inner`](@ref) or [`mean`](@ref) when you want an intensive,
 size-independent average instead. On a `Grid3D` the sum uses the uniform cell-volume quadrature, and on
 a `PointSet` it uses the unit-weight counting measure:
 
@@ -1018,7 +1018,7 @@ the cost is a single weighted pass over the coefficients — the same traffic as
 both reducing on the threaded fixed tree since the 2026-08-30 fix, so they agree as
 threads are added — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
-than the radial reductions [`radial_spectrum`](@ref) / `radial_correlation`, which sweep every mode with
+than the radial reductions [`radial_spectrum`](@ref) / [`radial_correlation`](@ref), which sweep every mode with
 a scatter-add binning pass (and, for the correlation, an inverse transform).
 """
 function weighted_inner end
