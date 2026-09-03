@@ -1517,20 +1517,21 @@ Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field 
 convention), so the kernel is real, even, and positive — a valid kernel for every real field. The
 optional term ``s \\hat w`` generalizes the exponent by whatever per-mode field the consumer supplies.
 
-Choose between this and a stored kernel by reuse. When the exponent changes between applications —
-so a stored kernel would be rebuilt each time — the lazy form wins: it removes the kernel's build
-pass, its residency, and its per-application field read, reading three one-dimensional wavenumber
-arrays instead (measured ``\\approx 1.4\\times`` over rebuild-then-[`convolve!`](@ref) on a GPU at
-``256^3``). For one **fixed** kernel reused across many calls, a stored kernel with `convolve!` has
-been the faster route, the per-mode exponential costing more than the field read it saves — measured at
-``\\approx 1.1\\times`` on a GPU and ``\\approx 1.7\\times`` on a CPU. Both figures predate decision 79,
-which made the ``R \\ge 1`` forms evaluate the exponential **once per mode** rather than once per fiber
-component and cut the CPU cost by ``2.4``–``3.9\\times`` serially, so the remaining margin is narrower
-than those numbers and has not been re-measured; treat them as an upper bound on what a stored kernel
-now buys. The two-operand forms win on both backends —
-``\\approx 1.5\\times`` over the sequential `combine!`-then-`convolve!` pair, except the CPU
-two-operand exponential at ``\\approx 1.1\\times`` — fusing away the combination's destination write
-and re-read as well.
+Choose between this and a stored kernel by reuse and by rank. When the exponent changes between
+applications — so a stored kernel would be rebuilt each time — the lazy form wins outright: a rebuild
+writes a whole field of coefficients that this form never writes, let alone reads, and it reads three
+one-dimensional wavenumber arrays instead.
+
+For one **fixed** kernel reused across many calls the two are close, and rank decides, because this
+form's cost is the exponential it evaluates per mode while a stored kernel's is the coefficient field
+it streams. On a **vector** field one exponential serves all three components, so the lazy form runs
+at ``0.88``–``1.03`` of a stored kernel's time at ``256^3``–``512^3``, on a GPU and on a threaded CPU
+alike. On a **scalar** field it pays one exponential per element and the stored kernel leads —
+``0.73``–``3.09`` over those sizes, and on a CPU by as much as ``20\times`` at ``64^3``–``128^3``,
+where there is too little memory traffic to hide the exponential. Serially the stored kernel leads
+throughout, and `Float32` shifts the balance further toward it, halving its traffic while leaving the
+exponential unchanged. The two-operand forms fuse the combination into this same pass, removing the
+combination's destination write and re-read.
 
 On a CPU a deeply damped kernel has one further `Float32` cost cliff: modes whose factor lands in the
 subnormal range — exponent arguments ``c \\lvert k\\rvert^2 + s \\hat w`` between about ``-103`` and

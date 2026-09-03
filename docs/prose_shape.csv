@@ -101,7 +101,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 9",26,26,0
-"Convolution.jl :: Convolution",788,206,0
+"Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",649,162,2
 "Convolution.jl :: SeparableKernel",391,99,1
@@ -117,7 +117,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",422,115,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",970,232,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",983,232,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",65,33,1
@@ -252,7 +252,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: +(a, b, fields...)",43,40,0
 "FieldAlgebra.jl :: -(a, b)",29,27,0
 "FieldAlgebra.jl :: /(a, b)",37,35,0
-"FieldAlgebra.jl :: FieldAlgebra",1015,283,2
+"FieldAlgebra.jl :: FieldAlgebra",900,283,2
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
 "FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
@@ -266,7 +266,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",172,91,0
 "FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",196,53,0
 "FieldAlgebra.jl :: dot(u::VectorFieldPhysical, v::VectorFieldPhysical)",69,65,0
-"FieldAlgebra.jl :: map!(φ, destination, sources...)",592,151,2
+"FieldAlgebra.jl :: map!(φ, destination, sources...)",509,151,2
 "FieldAlgebra.jl :: map(φ, sources...)",59,57,0
 "FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",334,161,0
 "FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",228,100,0
