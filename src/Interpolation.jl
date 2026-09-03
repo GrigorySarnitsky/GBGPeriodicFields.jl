@@ -447,17 +447,6 @@ A validated **traversal order**: a permutation of `1:M` saying which point each 
 handles. Build one with [`point_traversal_order`](@ref), or wrap your own permutation by calling this
 constructor, which checks it.
 
-The type exists because the guarantee has to be carried rather than asserted. An order that is the
-right length but not a permutation is not a detectable mistake at the point of use: it silently leaves
-some points unvisited and others visited twice, so a gather returns whatever was in the unwritten slots
-and a scatter quietly loses part of the total, while an out-of-range entry indexes past the end of an
-array inside `@inbounds`.
-
-Checking that on every transfer would cost a pass and an allocation on the hot path. Checking it
-**once, here**, costs the same work where the order is built and leaves the transfers nothing to do
-but read a field they can trust — validity as a property of the type, in the way that a section owning
-its storage is what makes aliasing safe by construction.
-
 The constructor throws an `ArgumentError` unless `indices` names every point in `1:M` exactly once.
 It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
 is given — build a device order from device points, since a transfer will not mix families.
