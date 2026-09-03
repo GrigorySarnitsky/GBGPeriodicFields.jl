@@ -1527,7 +1527,7 @@ form's cost is the exponential it evaluates per mode while a stored kernel's is 
 it streams. On a **vector** field one exponential serves all three components, so the lazy form runs
 at ``0.88``–``1.03`` of a stored kernel's time at ``256^3``–``512^3``, on a GPU and on a threaded CPU
 alike. On a **scalar** field it pays one exponential per element and the stored kernel leads —
-``0.73``–``3.09`` over those sizes, and on a CPU by as much as ``20\times`` at ``64^3``–``128^3``,
+``0.73``–``3.09`` over those sizes, and on a CPU by as much as ``20\\times`` at ``64^3``–``128^3``,
 where there is too little memory traffic to hide the exponential. Serially the stored kernel leads
 throughout, and `Float32` shifts the balance further toward it, halving its traffic while leaving the
 exponential unchanged. The two-operand forms fuse the combination into this same pass, removing the

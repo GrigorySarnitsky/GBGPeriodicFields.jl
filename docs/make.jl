@@ -123,6 +123,47 @@ function lint_notation_variants()
 end
 
 """
+    lint_swallowed_escapes()
+
+Fail the build on a LaTeX command a Julia docstring will silently EAT.
+
+Inside a triple-quoted docstring the Julia parser resolves escapes before Documenter sees the text,
+so LaTeX must carry a doubled backslash. Get it wrong and `\t` becomes a TAB, leaving the docstring
+holding "20<TAB>imes" — which is what shipped on 2026-09-03 and rendered as `20imes` on the API page.
+
+Nothing else could see it. The build succeeded, every other lint passed, `guards.sh` passed, and the
+source line still LOOKS like LaTeX; only the rendered page shows the damage, and only to someone
+reading that paragraph. The escapes Julia consumes silently are `a b e f n r t v`, the octal digits,
+and `x`/`u`/`U`, which between them swallow the openings of `alpha`, `beta`, `epsilon`, `frac`,
+`nabla`, `rangle`, `times` and `varepsilon`. Every OTHER single-backslash command is an invalid
+escape sequence that fails to parse, so it cannot ship — this lint covers the whole silent half.
+
+Scoped to `.jl` docstrings: a `.md` page is not Julia source and takes single backslashes correctly,
+and a single-backslash escape in Julia CODE (a newline in an error message) is ordinary.
+"""
+function lint_swallowed_escapes()
+  swallowed = r"(?<!\\)\\[abefnrtv0-7xuU]"
+  fence = "\"\"\""
+  problems = String[]
+  for file in _doc_lint_sources()
+    endswith(file, ".jl") || continue
+    in_docstring = false
+    for (n, line) in enumerate(eachline(file))
+      if startswith(strip(line), fence)
+        in_docstring = !in_docstring
+        continue
+      end
+      in_docstring && occursin(swallowed, line) &&
+        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n,
+                               "  a single-backslash escape Julia swallows before Documenter sees it — double it"))
+    end
+  end
+  isempty(problems) ||
+    error("doc lint failed — swallowed docstring escape:\n  " * join(problems, "\n  "))
+  @info "doc lint: no swallowed docstring escapes"
+end
+
+"""
     lint_retired_claims()
 
 Fail the build on a claim the package has retired, matched **across line breaks**.
@@ -532,6 +573,7 @@ copy_rationale_pages()
 build_examples()
 lint_inline_math()
 lint_notation_variants()
+lint_swallowed_escapes()
 lint_retired_claims()
 lint_api_page_structure()
 lint_prose_shape()
