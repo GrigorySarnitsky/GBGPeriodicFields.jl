@@ -103,7 +103,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
-"Convolution.jl :: RadialKernel",649,162,2
+"Convolution.jl :: RadialKernel",674,139,2
 "Convolution.jl :: SeparableKernel",391,99,1
 "Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",205,110,0
 "Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",98,93,0

@@ -300,16 +300,21 @@ The fields are
 - `grid`, `layout` — the base and Fourier layout the kernel was built for, which a call checks
   the field against.
 
-!!! note "Storing no coefficients is not the same as costing nothing on a small CPU grid"
+!!! note "Storing no coefficients is not the same as costing nothing"
     The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` the trailing
-    singleton is extruded over the fiber, so it is evaluated **once per component** rather than once per
-    mode. On a CPU at a small grid that recompute outweighs the kernel-array traffic the class saves:
-    measured at ``64^3``, applying one of these costs ``\\approx 2\\times`` a materialized
-    [`StoredKernel`](@ref) at ``R = 1`` and ``\\approx 1.5\\times`` at ``R = 2``, against ``1.02\\times``
-    at ``R = 0``. The sign reverses as the grid grows — by ``256^3`` the radial route is ``\\approx 7\\%``
-    **faster**, the saved traffic having overtaken the recompute — and a device never pays it. Hoisting
-    the evaluation was prototyped and measured, and was declined because it lost at the sizes that
-    matter; [`materialize_kernel`](@ref) is the escape where a small CPU grid and ``R \\ge 1`` meet.
+    singleton is extruded over the fiber, so it is evaluated **once per component** rather than once
+    per mode; at ``R = 0`` there is no fiber to extrude over and nothing extra to pay. Whether that
+    recompute or the kernel-array traffic it saves dominates depends on the base and on the element
+    type.
+
+    At ``64^3`` and ``R = 1`` the radial route costs ``1.1``–``2.1\\times`` a materialized
+    [`StoredKernel`](@ref) across the CPU lanes; by ``256^3``–``512^3`` the saved traffic has overtaken
+    the recompute on most of them, at ``0.70``–``0.97``. A device is **not** exempt: in `Float64` it
+    runs at ``0.85``–``1.10``, but in `Float32`, where halving the stored kernel's traffic leaves the
+    symbol's cost untouched, the radial route is slower at every size measured on one card and by as
+    much as ``2.6\\times`` at ``128^3``. Hoisting the evaluation was prototyped and measured, and was
+    declined because it lost at the sizes that matter; [`materialize_kernel`](@ref) is the escape
+    wherever the recompute wins.
 
 !!! note "Radial, not separable"
     ``|k|^2 = k_1^2 + k_2^2 + k_3^2`` is a function of the **sum**, so a *general* real symbol of it
