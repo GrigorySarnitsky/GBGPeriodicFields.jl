@@ -2482,6 +2482,30 @@ that would have caught this class, so it earns its place ahead of work that repa
   accessors are on `AbstractPointValues`, not `PointSet`. Breaking, as recorded; the consumer
   `GBGIsotropicTurbulence` needs the same rename.)
 
+- **`transfer_order` has no in-place form, and its own docstring says so — RECORD ONLY, not started
+  (raised 2026-09-03).** The warning on `transfer_order` ends "There is no in-place form yet", and
+  nothing tracked that "yet" until this entry; the gap was documented where a caller meets it and
+  queued nowhere. It is a real cost rather than a tidiness point: every call allocates roughly 15 MiB
+  at ``256^3`` with ``10^6`` points — the `Int32` result, the counting sort's `Int64` keys, the bucket
+  counts and their `cumsum` — and on a device those are freed by a collector that runs on host
+  pressure and cannot see them, so a consumer rebuilding as its points move leaves about 1.5 GiB
+  resident after a hundred rebuilds. `test/allocations.jl` already treats it as a documented allocator
+  with a bounded guard (`< 64M + 200_000`) rather than a zero one, which is the honest present state.
+
+  **The precedent is `translation_kernel!`**, and it is the same class exactly: a builder whose input
+  moves, given an in-place form so a consumer rebuilding per call pays no allocation. What makes this
+  one harder is scratch. `TransferOrder` holds only its `indices`, while the build needs keys, counts
+  and offsets besides — so an in-place form either carries a scratch arity, as decision 64's
+  four-argument `to_physical!` does, or `TransferOrder` grows to own its scratch and stops being a
+  thin wrapper. Two constraints come with it: the bucket count depends on `grid` and `tile_size`, so a
+  refill is valid only for the same pair and must say so; and the constructor validates the
+  permutation, which a refill has to redo or deliberately skip.
+
+  **Definition of done** as usual, plus a `test/allocations.jl` row asserting the in-place form is
+  zero where the allocating one is bounded, and a `test/pass_audit.jl` row — the traffic is the point
+  of the exercise. No benchmark sweep is needed to justify it (the allocation is the defect, not the
+  time), but the `transfer` class should be re-run if the build path changes.
+
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).
