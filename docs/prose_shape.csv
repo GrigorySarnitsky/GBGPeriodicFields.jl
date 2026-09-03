@@ -105,7 +105,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",649,162,2
 "Convolution.jl :: SeparableKernel",391,99,1
-"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",202,110,0
+"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",205,110,0
 "Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",98,93,0
 "Convolution.jl :: _apply_convolution_combination!(destination_data, a_data, b_",59,53,0
 "Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",72,56,0
@@ -137,7 +137,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Convolution operations",73,66,0
 "Convolution.md § Internal API",82,72,0
 "Convolution.md § Kernel builders",73,65,0
-"Convolution.md § Kernel storage classes",161,84,0
+"Convolution.md § Kernel storage classes",170,84,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
 "DifferentialOperators.jl :: DifferentialOperators",415,239,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -193,7 +193,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: FiberVector{T}",22,11,0
 "FiberSections.jl :: _MapValues(φ, orders)",99,55,0
 "FiberSections.jl :: _SERIAL_CUTOFF",41,40,0
-"FiberSections.jl :: _THREADING_OVERRIDE",30,29,0
+"FiberSections.jl :: _THREADING_OVERRIDE",32,31,0
 "FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",32,27,0
 "FiberSections.jl :: _assemble_fiber(::Val{R}, scalars, offset)",53,50,0
 "FiberSections.jl :: _assemble_inputs(orders, scalars, offset)",48,45,0
@@ -323,10 +323,10 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _component_view(data, ::Val{R}, component::Int)",156,108,0
 "Fields.jl :: _context_grid(object)",72,71,0
 "Fields.jl :: _context_layout(object)",13,12,0
-"Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",83,58,0
+"Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",85,60,0
 "Fields.jl :: _first_field(x)",44,43,0
 "Fields.jl :: _init_fft_threads()",36,35,0
-"Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",87,71,0
+"Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",90,74,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
@@ -585,6 +585,6 @@ unit,words,longest_paragraph,admonitions
 "tutorial.md § Fiberwise algebra and L²/measure reductions",212,61,0
 "tutorial.md § Getting started",79,45,0
 "tutorial.md § Grids and fields",82,47,0
-"tutorial.md § Points: interpolation and anterpolation",96,38,0
-"tutorial.md § Representations: physical ↔ spectral",176,115,0
+"tutorial.md § Points: interpolation and anterpolation",97,38,0
+"tutorial.md § Representations: physical ↔ spectral",178,117,0
 "tutorial.md § Running multithreaded",277,83,0

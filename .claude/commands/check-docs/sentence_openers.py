@@ -42,7 +42,11 @@ from pathlib import Path
 LEADER = re.compile(r'^\s*([-*+>|]|\d+[.)])\s')       # bullet / list / quote / table row
 FENCE = re.compile(r'^\s*```')
 HEADING = re.compile(r'^\s*#')
-OPENER = re.compile(r'(`[a-z_][\w!]*`|``[^`])')       # lowercase code span, or a math span
+# A lowercase code span, a math span, or EITHER WRAPPED IN A LINK. The link form was missing
+# until 2026-09-03, and the scan reported 0 while `[`inv`](@ref) is a mathematical partial
+# operation` was live on a rendered page. Linking a name does not stop it being a lowercase
+# identifier at a sentence start, and this rule is about what the reader sees.
+OPENER = re.compile(r'(\[?`[a-z_][\w!]*`|``[^`])')
 ENDS_SENTENCE = re.compile(r'[.!?]\*{0,2}["\')]?$')
 ABBREV = re.compile(r'(e\.g|i\.e|cf|vs|incl)\.\s*$', re.I)
 CHECKMARK = re.compile(r'^``\\checkmark``')
@@ -109,7 +113,7 @@ def hits_in(path):
                 found.append((number, stripped[:100]))
                 continue
         # (2) opener AFTER a period within the line — the case the old grep covered.
-        for match in re.finditer(r'(?<!\.)\.\s+(`[a-z_][\w!]*`|``[^`])', line):
+        for match in re.finditer(r'(?<!\.)\.\s+(\[?`[a-z_][\w!]*`|``[^`])', line):
             before = line[:match.start() + 1].rstrip()
             if ABBREV.search(before) or "checkmark" in line:
                 continue

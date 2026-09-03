@@ -145,7 +145,7 @@ end
 
 Task-local override for the threading decision. A value of `nothing` follows
 `Threads.nthreads()`, while `true` or `false` forces the threaded or serial path.
-[`with_threading`](@ref) sets it within a dynamic scope.
+The setter [`with_threading`](@ref) assigns it within a dynamic scope.
 """
 const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
 

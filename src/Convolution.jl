@@ -133,8 +133,8 @@ inferred from the call site.
 Wrapping costs nothing per application: the struct holds a reference, and the fused passes reach the
 coefficients through it without an extra read. Wrap once, where the kernel is built.
 
-[`materialize_kernel`](@ref) returns this class, so a compressed kernel expanded into its coefficients
-arrives already in the kernel role.
+The expansion [`materialize_kernel`](@ref) returns is this class, so a compressed kernel expanded
+into its coefficients arrives already in the kernel role.
 
 The fields are
 - `field` — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.

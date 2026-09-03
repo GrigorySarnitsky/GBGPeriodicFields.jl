@@ -30,9 +30,10 @@ The package holds a kernel in whichever of four forms is cheapest for its multip
 identically and agree bitwise on the host; on a device a **complex**-valued kernel is the one
 exception, agreeing there to rounding.
 
-They part company in one place. [`inv`](@ref) is a mathematical partial operation — a kernel that
+They part company in one place. Inversion is a mathematical partial operation — a kernel that
 annihilates a mode has no inverse there — and a class that cannot afford to test that precondition
-reports a violation differently from one that can. It matters most for a sharp cutoff, since
+reports a violation differently from one that can, so [`inv`](@ref) is where the choice of class
+shows. It matters most for a sharp cutoff, since
 [`spectral_cutoff`](@ref) returns the class that cannot.
 
 The supertype every kernel-taking operation dispatches on is [`SpectralKernel`](@ref), documented with

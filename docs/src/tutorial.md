@@ -40,8 +40,8 @@ Two pieces of scaffolding appear below and are worth a sentence each, since the 
 one place the storage is not simply "the values". A [`RealFourierLayout`](@ref) records **how** the
 real-to-complex transform is laid out: a real field's coefficients satisfy ``\hat f(-k) =
 \overline{\hat f(k)}``, so only half the spectrum is stored, and the layout says which axis is the
-halved one (the first, by default). [`field_spectral_shape`](@ref) then gives the array size that
-half-spectrum needs, and its `Val(R)` argument names the **tensor order** — `Val(0)` for a scalar
+halved one (the first, by default). The helper [`field_spectral_shape`](@ref) then gives the array
+size that half-spectrum needs, and its `Val(R)` argument names the **tensor order** — `Val(0)` for a scalar
 field, `Val(1)` for a vector one — passed as a `Val` so the shape is known to the compiler rather than
 computed at run time.
 
@@ -143,8 +143,8 @@ julia> field_tensor_order(convolve(uh, cutoff))
 
 ## Points: interpolation and anterpolation
 
-A [`PointSet`](@ref) holds off-grid positions. [`interpolate`](@ref) gathers a field to the points;
-[`anterpolate`](@ref) is its adjoint, scattering per-point quantities back onto the grid.
+A [`PointSet`](@ref) holds off-grid positions. The gather [`interpolate`](@ref) samples a field at
+those points; its adjoint [`anterpolate`](@ref) scatters per-point quantities back onto the grid.
 
 ```jldoctest tutorial
 julia> points = PointSet([0.5 1.0 1.5; 2.0 3.0 4.0]);

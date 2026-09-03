@@ -2286,8 +2286,8 @@ _storage_prototype(to, ::Type{S}) where {S} = adapt(to, Array{S}(undef, 0))
 Wrap `data` as the physical (or spectral) field type of tensor order `R` on `grid` and `layout`.
 
 These pick the concrete type from the order alone, which `similar_field` cannot do because it copies
-its metadata from a reference field. [`adapt`](@ref) rebuilding a `FieldTransformPlans` has no such
-reference — it has only the plans' own grid, layout and element type, decision 76 having removed the
+its metadata from a reference field. When [`adapt`](@ref) rebuilds a `FieldTransformPlans` there is
+no such reference — it has only the plans' own grid, layout and element type, decision 76 having removed the
 tensor order from `FieldTransformPlans` entirely — so it needs this form.
 """
 _field_physical_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
@@ -2377,7 +2377,7 @@ Read back whether a multiplier set's wavenumbers were derived from its grid, rat
 
 The answer is a type parameter, not a field, because it decides statically whether two multiplier sets
 provably hold the same coordinates — which is what lets `convolve` collapse two radial kernels without
-a runtime test. [`adapt`](@ref) has to carry it across a move deliberately: rebuilding through the
+a runtime test. The flag has to be carried across a move deliberately by [`adapt`](@ref): rebuilding through the
 public six-array constructor would mark the result non-canonical and silently disable that collapse,
 costing performance with no wrong answer to show for it.
 """
