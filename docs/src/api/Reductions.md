@@ -7,6 +7,11 @@ Order   = [:module]
 
 ## Integral reductions
 
+Five of the reductions on this page also take a leading fiber map — the **mapped** form, as in
+`mean(det, A)` or `maximum(norm, u)`, which reduces a nonlinear invariant without building it as a
+section. It is documented on [`integral`](@ref), which names the five. `Statistics` gives `var` and
+`std` no such spelling, so neither does this package.
+
 ```@docs
 integral
 ```
@@ -46,10 +51,6 @@ Filter  = f -> nameof(f) in (:maximum, :minimum, :extrema)
 radial_spectrum
 radial_correlation
 ```
-
-Five of the reductions also have a **mapped** form taking a leading fiber map, as in `mean(det, A)` or
-`maximum(norm, u)`. It is documented on [`integral`](@ref), which names them. `Statistics` gives `var`
-and `std` no such spelling, so neither does this package.
 
 ## Internal API
 

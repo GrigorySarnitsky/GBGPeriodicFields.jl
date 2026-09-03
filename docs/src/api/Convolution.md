@@ -7,6 +7,12 @@ Order   = [:module]
 
 ## Convolution operations
 
+The verbs below are this module's own. Two further operations reach a kernel through a generic
+another module owns, and are documented there: [`combine!`](@ref) has a kernel-composed method — a
+weighted combination convolved with a kernel in one fused pass — on the
+[`FieldAlgebra`](FieldAlgebra.md) page, and [`adapt`](@ref) moves a kernel of any class between
+storage families exactly as it moves a field, on the [`Fields`](Fields.md) page.
+
 ```@docs
 convolve!
 convolve
@@ -14,12 +20,6 @@ convolve
 exponential_convolve!
 exponential_convolve
 ```
-
-The kernel-composed method of `combine!` — the weighted combination convolved with a kernel in the
-same fused pass — is documented with its generic on the [`FieldAlgebra`](FieldAlgebra.md) page.
-
-Every kernel class moves between storage families with its field: `adapt` is extended for all four,
-and is documented with its generic on the [`Fields`](Fields.md) page.
 
 ## Kernel storage classes
 

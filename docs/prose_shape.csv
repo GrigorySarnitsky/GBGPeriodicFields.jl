@@ -134,7 +134,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",735,210,1
 "Convolution.md § Convolution",8,8,0
-"Convolution.md § Convolution operations",61,28,0
+"Convolution.md § Convolution operations",73,66,0
 "Convolution.md § Internal API",82,72,0
 "Convolution.md § Kernel builders",73,65,0
 "Convolution.md § Kernel storage classes",161,84,0
@@ -538,10 +538,10 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: var(f; corrected = true)",346,122,0
 "Reductions.jl :: weighted_inner(f, w::SpectralKernel)",765,229,2
 "Reductions.md § Inner-product and norm reductions",6,6,0
-"Reductions.md § Integral reductions",3,3,0
+"Reductions.md § Integral reductions",60,57,0
 "Reductions.md § Internal API",78,54,0
 "Reductions.md § Moments and order statistics",138,62,0
-"Reductions.md § Radial reductions",46,42,0
+"Reductions.md § Radial reductions",4,4,0
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
