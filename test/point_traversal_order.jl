@@ -18,6 +18,14 @@ using Test
 using GBGPeriodicFields
 using Random
 
+import Adapt
+
+# An adaptor that genuinely moves storage. `adapt(Array, x)` on a host object is the identity by
+# contract, so it cannot tell a working `adapt_structure` from a missing one.
+struct _TraversalProbe end
+Adapt.adapt_storage(::_TraversalProbe, x::AbstractArray) = reshape(collect(x), size(x))
+
+
 @testset "point_traversal_order: the order itself" begin
   for T in (Float64, Float32)
     # An anisotropic box with a non-zero origin, so an order that ignored either would be caught.
@@ -331,4 +339,33 @@ end
     @test point_traversal_order!(empty_order, grid, empty_points,
                           PointTraversalOrderScratch(grid, empty_points)) === empty_order
   end
+end
+
+
+# Two holes an adversarial review of 2026-09-03 opened by probing rather than reading. Both were
+# defects in which the DOCSTRING claimed more than the code enforced, so the regression is the claim.
+@testset "point_traversal_order: the scratch is bound to its grid, and an order can be moved" begin
+  T = Float64
+  small = Grid3D((16, 16, 16), (T(2π), T(2π), T(2π)))
+  large = Grid3D((32, 32, 32), (T(2π), T(2π), T(2π)))
+  stretched = Grid3D((16, 16, 16), (T(2π), T(2π), T(4π)))
+  points = PointSet(T(2π) .* rand(T, 300, 3))
+  scratch = PointTraversalOrderScratch(small, points)
+  traversal = point_traversal_order(small, points)
+
+  @test point_traversal_order!(traversal, small, points, scratch) === traversal
+  # A "does the layout fit inside this grid" test accepted BOTH of these, the first silently
+  # doubling the block edge, while the docstring said the layout was checked against the grid.
+  @test_throws ArgumentError point_traversal_order!(traversal, large, points, scratch)
+  @test_throws ArgumentError point_traversal_order!(traversal, stretched, points, scratch)
+  @test scratch.tile_size == 4 && scratch.grid == small
+
+  # `_check_point_traversal_order`'s refusal tells a caller to move a foreign-family order with
+  # `adapt`. There was no method, so Adapt's identity default returned the same order and the advice
+  # did nothing. Adapting to the family an order is already in IS the identity by contract, so the
+  # check needs an adaptor that actually moves — the reason `test/adapt.jl` uses one too.
+  moved = adapt(_TraversalProbe(), traversal)
+  @test moved !== traversal
+  @test sort(collect(moved.indices)) == sort(collect(traversal.indices))
+  @test moved isa PointTraversalOrder
 end

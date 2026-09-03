@@ -165,7 +165,16 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 176,
+  Interpolation         = 177,
+  # 176 → 177, ONE method: `adapt_structure` for `PointTraversalOrder`, from an adversarial review of
+  # the traversal order (2026-09-03). `_check_point_traversal_order`'s refusal told a caller to "move
+  # it with `adapt`" while no such method existed, so Adapt's identity default handed the same host
+  # order straight back and the caller hit the identical error — advice that did nothing. The same
+  # review closed a second hole in the same feature WITHOUT adding a method, which is why this moves
+  # by one rather than two: `PointTraversalOrderScratch` gained a `grid` FIELD, so a refill compares
+  # grids instead of testing that the block layout merely fits inside one. A scratch built on a 16³
+  # grid had been accepted for a rebuild on a 32³ grid, silently doubling the block edge, while the
+  # docstring claimed the layout was checked against the grid.
   # 170 → 176: the non-allocating rebuild (2026-09-03). Its own docstring had promised one — "There
   # is no in-place form yet" — while a consumer whose points move allocated a result, the counting
   # sort's working arrays and the validation marks on every rebuild, about 15 MiB at 256³ with 10⁶

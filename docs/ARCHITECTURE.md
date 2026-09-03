@@ -4316,6 +4316,27 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `traversal`, since leaving it would have preserved the exact ambiguity the rename removes. The
       prose moved too: "visit order" is retired so the concept keeps one name.
 
+    - **An adversarial review (2026-09-03) found two claims the code did not keep, and both are now
+      enforced rather than reworded.** `_check_point_traversal_order` refused a foreign-family order
+      and told the caller to "move it with `adapt`", while no `adapt_structure` method existed — so
+      Adapt's identity default handed the same order back and the caller met the identical refusal.
+      And the refill's grid check tested that the scratch's block layout FITS inside the grid rather
+      than agreeing with it, so a scratch built on a ``16^3`` grid was accepted for a rebuild on a
+      ``32^3`` one, silently doubling the block edge while the docstring claimed the layout was
+      checked. The scratch now stores its grid and the refill compares it, which also catches an
+      extent or origin change that a size test never could. Both are pinned in
+      `test/point_traversal_order.jl`, the `adapt` one through a probe adaptor, since adapting to the
+      family an object is already in is the identity by contract and cannot distinguish a working
+      method from a missing one.
+
+    - **The memory figures moved when this decision landed, and the docstring had kept the old ones.**
+      `cumsum` on an `Int32` count array widens to `Int64`, so the pre-decision path held the running
+      total at twice the counts' width; the scratch allocates it with `similar`, at the same width.
+      The grid-scaled storage is therefore 2 MiB rather than 3 at the default `tile_size` on a
+      ``256^3`` grid, and 128 MiB rather than 192 at `tile_size = 1`. The narrowing is safe for the
+      same reason the order itself is `Int32`: the running total's largest value is the point count,
+      which must already fit an `Int32` index.
+
     - **Both forms share one build.** `_fill_traversal!` and `_traversal_tiles` are called by the allocating
       builder and the in-place one alike, so the two cannot drift into computing different orders —
       the failure decision 47 records for a device kernel and its gated CPU twin, in a different

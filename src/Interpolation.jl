@@ -91,6 +91,7 @@ using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical,
                 FieldTransformPlans, to_physical, to_spectral, similar_field
 using ..Points: PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
                 point_positions, point_values, npoints, point_value_tensor_order, _check_npoints_match
+import Adapt: adapt, adapt_structure
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
@@ -420,6 +421,8 @@ stencil is applied later via `mod`. Pure scalar arithmetic, kernel-safe.
 end
 
 
+
+
 #####################################################
 #        Traversal order (spatial locality)             #
 #####################################################
@@ -450,16 +453,27 @@ end
 """
     PointTraversalOrder(indices)
 
-A validated **traversal order**: a permutation of `1:M` saying which point each work item of a transfer
-handles. Build one with [`point_traversal_order`](@ref), or wrap your own permutation by calling this
-constructor, which checks it.
+A validated **traversal order**: a permutation of `1:M`, for a set of `M` points, saying which point
+each unit of a transfer's work handles. Build one with [`point_traversal_order`](@ref), or wrap your
+own permutation by calling this constructor, which checks it.
+
+An order changes only the sequence in which points are handled, never the result, and it moves no
+data. Entry `i` names the point that the `i`-th unit of work takes, so the point set and any
+point-values indexed alongside it keep their own indexing, and every result lands in the slot it
+would have landed in anyway.
 
 The constructor throws an `ArgumentError` unless `indices` names every point in `1:M` exactly once.
 It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
-is given — build a device order from device points, since a transfer will not mix families.
+is given, since a transfer will not mix families. Use `adapt` to move one between families.
+
+!!! warning "The guarantee is made once, at construction"
+    Writing through `indices` afterwards can leave a duplicate or an out-of-range entry that no later
+    call re-checks, and a transfer will then leave some points unhandled and others handled twice.
+    Treat the field as read-only, and rebuild with [`point_traversal_order!`](@ref) rather than
+    editing in place.
 
 The fields are
-- `indices` — the permutation itself, one point index per work item, in the storage family the
+- `indices` — the permutation itself, one point index per unit of work, in the storage family the
   constructor was given.
 """
 struct PointTraversalOrder{V <: AbstractVector}
@@ -475,6 +489,14 @@ PointTraversalOrder(indices::V) where {V <: AbstractVector} = PointTraversalOrde
 # A range is a lawful spelling of an order (`1:M` is the identity, `M:-1:1` the reversal) but carries
 # no storage family a kernel can index, so it is materialized into an ordinary vector.
 PointTraversalOrder(indices::AbstractRange) = PointTraversalOrder(collect(Int32, indices))
+
+# A traversal order is a validated permutation of point indices; moving it between storage families
+# preserves that, so the moved order is marked validated rather than re-checked on the far side. This
+# method exists because `_check_point_traversal_order`'s refusal tells a caller to use `adapt`, and
+# without it that advice was Adapt's identity default — the same host order handed straight back.
+adapt_structure(to, traversal::PointTraversalOrder) =
+  PointTraversalOrder{typeof(adapt(to, traversal.indices))}(adapt(to, traversal.indices);
+                                                            _validated = true)
 
 Base.length(traversal::PointTraversalOrder) = length(traversal.indices)
 Base.eltype(traversal::PointTraversalOrder) = eltype(traversal.indices)
@@ -665,64 +687,40 @@ end
 """
     point_traversal_order(grid::Grid3D, points::PointSet; tile_size = 4)
 
-Build a **traversal order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
-the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
+Build a [`PointTraversalOrder`](@ref) for `points` on `grid`: a permutation of `1:M`, for a set of
+`M` points, that groups points lying in the same **block** of grid cells.
 
-Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their allocating
-siblings. It is an option — the same call without it is unchanged — and moves no data: `traversal[i]` names the
-point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
-own indexing, and every result lands in the slot it would have anyway.
+Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their
+allocating siblings. A transfer's cost is dominated by where its points read and write rather than by
+the arithmetic on them, and points usually arrive in an order unrelated to the grid — the order they
+were seeded in, say — so consecutive units of work touch unrelated memory. Following a traversal
+order makes them touch neighbouring memory instead. The result is unchanged either way.
 
-Use it when the points are in an order unrelated to the grid — a set that has been advected long
-enough to decorrelate index from position is the case it is for. **It is not free, and it is not
-always a gain.** Points still in a lattice or sweep order are already local, and ordering them costs a
-few percent on top of a build that never repays; the measured span across seedings runs from
-``0.93\\times`` to ``12\\times``, so what the option repairs is a BAD order rather than improving a good
-one. Measure your own case if the points are not well mixed.
-
-The gather is bitwise unchanged by the order; the scatter's atomic summation order changes, as it
-already does between runs.
+**It is not always a gain.** Points already in a lattice or a sweep order are local already, and
+ordering them adds a build for no benefit. Measure the pair on your own point set before adopting it.
 
 The arguments are:
+- `grid` — the grid whose cells the blocks are cut from, and whose origin the points are measured
+  from. Points lying outside it are clamped into the edge blocks rather than refused, since an order
+  is a hint and cannot change a result.
+- `points` — the point set to order. Its storage family decides where the order is built and used.
+- `tile_size` — the block edge in grid cells (default `4`), so each axis is divided into
+  ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks for a grid of ``N`` cells along it. Smaller
+  blocks group points more tightly and cost more: the number of blocks grows as the cube of the
+  reciprocal edge, and with it both the build time and the working memory — 2 MiB of counters at the
+  default on a ``256^3`` grid against 128 MiB at `tile_size = 1`. The best value follows the backend
+  rather than the transfer scheme: a device is insensitive to it, while a CPU prefers coarser blocks,
+  up to roughly 16.
 
-- `grid`: the grid whose cells define the blocks, and whose origin the points are measured from. It
-  leads, as it does in [`anterpolate`](@ref): `point_traversal_order` is transfer infrastructure, so it
-  follows the transfer verbs' argument order, not the motion verbs' trailing-grid one.
-- `points`: the point set to order. Its storage family decides where the ordering is built and
-  returned — a device point set gives a device vector, built by device kernels.
-- `tile_size`: the target block edge in grid cells (default `4`). Each axis is divided into
-  ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks, so the block is exactly `tile_size` cells wide
-  only when it divides the grid, and slightly narrower otherwise. The bucket count falls as the cube
-  of the edge, and with it both the build time and the working memory: at ``256^3`` the default builds
-  in ``\\approx 0.27`` ms (post-validation, the figure that ships) against 3 MiB of scratch, while `tile_size = 1` — one bucket per cell — takes
-  ``14\\times`` the time and **192 MiB**, for no better locality. The optimum tracks the BACKEND, not the
-  interpolation scheme — measured across stencil widths 4 and 8, a device is flat in the tile while a
-  CPU gathers faster with coarser blocks (up to about 16) — which is why this option is a block size
-  and not a scheme: one order serves any scheme and both transfer directions, and the scheme does not
-  determine the best tile.
-
-Points outside the grid are clamped into the edge blocks rather than refused, since an order is a hint
-and never changes a result.
-
-!!! note "An order goes stale as points move"
-    The order describes where the points were when it was built. A consumer whose points move must
-    decide how often to rebuild it — this package holds no notion of time (see the manual), so the
-    cadence is the consumer's. A stale order is never wrong, only progressively less useful.
-
-Cost is one pass over the points, a cumulative sum over the buckets, and the validation above —
-``\\approx 0.27`` ms against an ordered gather of 0.71 at ``256^3`` with ``10^6`` points, so roughly a
-third of one transfer, and well inside what a single ordered transfer saves. It allocates its result and three
-working arrays, and **two of those scale with the GRID rather than the points** — the bucket histogram
-and its cumulative sum, the latter at twice the width. That is what `tile_size` prices: 3 MiB of
-scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
+Building costs one pass over the points, a running total over the blocks, and the permutation check —
+``\\approx 0.27`` ms **on a device** at ``256^3`` with ``10^6`` points, against ``0.71`` ms for one
+ordered gather there, so about a third of a single transfer. On a CPU the same build is
+``\\approx 9`` ms, so it pays back over more transfers.
 
 !!! warning "Rebuild with the in-place form, not this one"
-    Every call here allocates about 15 MiB at ``256^3`` with ``10^6`` points, and on a device those
-    allocations are freed by Julia's collector, which runs on host pressure and cannot see them — a
-    hundred rebuilds leave roughly 1.5 GiB resident. Use this form to build the FIRST order, and
-    [`point_traversal_order!`](@ref) for every rebuild after it: that one writes into storage the caller
-    already holds and allocates nothing that scales with the point count. A stale order also stays
-    valid, so rebuilding rarely remains a legitimate answer.
+    Each call here allocates about 15 MiB at ``256^3`` with ``10^6`` points. Use this form for the
+    first order and [`point_traversal_order!`](@ref) for every rebuild after it, which writes into
+    storage you already hold.
 """
 function point_traversal_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
   coordinates = point_positions(points)
@@ -745,38 +743,46 @@ end
 
 
 """
-    PointTraversalOrderScratch(grid::Grid3D, points::PointSet; tile_size::Integer = 4)
+    PointTraversalOrderScratch(grid::Grid3D, points::PointSet; tile_size = 4)
 
-Working storage for [`point_traversal_order!`](@ref), so that rebuilding a traversal order allocates nothing.
+Working storage for [`point_traversal_order!`](@ref), so that rebuilding a traversal order allocates
+nothing that grows with the point count.
 
 Build one alongside the order it will refill, and hold both for as long as the point set lives. It is
-storage and nothing else: it carries no order, is never read by a transfer, and two orders over the
-same grid and point count can share one.
+storage and nothing else: it holds no order, no transfer ever reads it, and two orders over the same
+grid and point count can share one — though not at the same time, since a refill overwrites it.
 
 The arguments are:
-- `grid` — the [`Grid3D`](@ref) the order will be built against. Only its size and the `tile_size`
-  enter, through the block count they imply.
+- `grid` — the [`Grid3D`](@ref) the order will be built against. It is stored, and a refill against a
+  different grid is refused.
 - `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Its positions
   are not read; only its point count, element type and backend are.
-- `tile_size` — the block edge in grid cells, which must match the `tile_size` the order is refilled
-  with, since it fixes how many buckets the histogram has.
-
-The fields are
-- `keys` — one bucket index per point.
-- `counts`, `offsets` — the bucket histogram and its exclusive prefix sum.
-- `seen` — one mark per point for the permutation check.
-- `tiles` — the block counts per axis, checked against the grid on every refill.
+- `tile_size` — the block edge in grid cells, which fixes how many blocks the grid divides into and
+  therefore how large the counters below are. A refill uses this value rather than taking one of its
+  own.
 
 !!! warning "It is sized for one point count and one block layout"
-    A refill checks the point count and the block counts and refuses a mismatch rather than reading
+    A refill checks the point count and the block layout and refuses a mismatch rather than reading
     past an array. A point set that grows, or a different `tile_size`, needs a new scratch.
+
+The fields are
+- `keys` — the block each point falls in, one entry per point.
+- `counts` — how many points fall in each block.
+- `offsets` — the running total of `counts`, giving each block its starting slot.
+- `seen` — one mark per point, for the permutation check.
+- `tiles` — the number of blocks along each axis.
+- `tile_size` — the block edge the scratch was built with.
+- `grid` — the grid it was built for, compared against the rebuild's on every refill.
 """
-struct PointTraversalOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: AbstractVector}
+struct PointTraversalOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: AbstractVector,
+                                  G <: Grid3D}
   keys::K
   counts::C
   offsets::C
   seen::S
   tiles::NTuple{3, Int64}
+  tile_size::Int
+  grid::G
 end
 
 
@@ -788,37 +794,40 @@ function PointTraversalOrderScratch(grid::Grid3D{T}, points::PointSet;
   tiles = _traversal_tiles(grid, tile_size)
   counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
   return PointTraversalOrderScratch(similar(coordinates, Int64, number_of_points),
-                              counts, similar(counts),
-                              similar(coordinates, Bool, number_of_points), tiles)
+                                    counts, similar(counts),
+                                    similar(coordinates, Bool, number_of_points), tiles,
+                                    Int(tile_size), grid)
 end
 
 
 """
-    point_traversal_order!(order::PointTraversalOrder, grid::Grid3D, points::PointSet,
-                    scratch::PointTraversalOrderScratch)
+    point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D, points::PointSet,
+                           scratch::PointTraversalOrderScratch)
 
 Rebuild `traversal` in place for the current positions of `points`, and return it.
 
-Use this in-place form when `traversal` is already allocated; the allocating [`point_traversal_order`](@ref)
-returns a fresh order instead. The result is the one that form would have produced, up to the order
-of points within a block, which the scatter's atomics leave unspecified in both.
+Use this in-place form when `traversal` is already allocated; the allocating
+[`point_traversal_order`](@ref) returns a fresh order instead. The result is the one that form would
+have produced, up to the sequence of points within a block, which neither form fixes.
 
-Reach for it when points move. An order goes stale as they do, and a consumer that rebuilds is
-otherwise allocating its result, the counting sort's working arrays and the validation marks on every
-rebuild — about 15 MiB at ``256^3`` with ``10^6`` points, which on a device a collector running on
-host pressure cannot see. Here every one of those is the caller's: the result is `traversal`'s own storage
-and the rest is `scratch`, so **nothing allocated per rebuild scales with the point count**. What
-remains is about 1.2 KiB of `KernelAbstractions` launch bookkeeping on the host, measured constant
-from ``10^3`` to ``10^6`` points where the allocating form grows to 13 MB — a ratio of roughly
-``10^4`` at the larger count.
+Reach for it when the points move. An order describes where they were when it was built, so it goes
+stale as they move — never wrong, only progressively less useful — and a consumer that rebuilds it
+periodically would otherwise allocate about 15 MiB at ``256^3`` with ``10^6`` points on every rebuild.
+On a device that memory is freed by a collector which runs on host pressure and cannot see it, so it
+accumulates. Here the result is `traversal`'s own storage and everything else is `scratch`, so
+**nothing allocated per rebuild grows with the point count**: about 1.2 KiB of `KernelAbstractions`
+launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``. The rebuild itself costs what
+a build costs, ``\\approx 0.27`` ms on a device at ``256^3`` with ``10^6`` points and ``\\approx 9`` ms
+on a CPU, which is what sets how often it is worth doing.
 
 The arguments are:
 - `traversal` — the [`PointTraversalOrder`](@ref) to overwrite, whose length fixes the point count.
-- `grid` — the [`Grid3D`](@ref) whose cells the blocks are cut from.
-- `points` — the [`PointSet`](@ref) whose current positions decide the order.
-- `scratch` — a [`PointTraversalOrderScratch`](@ref) built for this grid, point count and `tile_size`. The
-  block layout is taken from it rather than from a keyword, so an order and its scratch cannot
-  disagree about how many buckets there are.
+- `grid` — the grid whose cells the blocks are cut from, which must be the grid the `scratch` was
+  built for.
+- `points` — the point set whose current positions decide the order.
+- `scratch` — a [`PointTraversalOrderScratch`](@ref) built for this grid, point count and
+  `tile_size`. The block edge comes from it rather than from a keyword here, so there is one source
+  of truth for it.
 
 All four must agree in point count, element type and storage family, and a mismatch is refused rather
 than converted.
@@ -834,9 +843,13 @@ function point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D{T},
   length(scratch.keys) == number_of_points ||
     throw(ArgumentError("the scratch is sized for $(length(scratch.keys)) points but the set holds " *
                         "$(number_of_points)"))
-  all(d -> 1 ≤ scratch.tiles[d] ≤ grid.grid_size[d], 1:3) ||
-    throw(ArgumentError("the scratch carries a block layout of $(scratch.tiles), which does not fit " *
-                        "a grid of $(grid.grid_size); a scratch is built for one grid and tile size"))
+  # AGREEMENT, not fit. A "does the layout fit inside this grid" test accepted a scratch built on a
+  # 16^3 grid for a rebuild on a 32^3 one, silently delivering blocks twice the requested edge. The
+  # grid itself is compared, so an extent or origin change is caught too, not only a size change.
+  scratch.grid == grid ||
+    throw(ArgumentError("the scratch was built for a different grid than this rebuild is using; a " *
+                        "scratch fixes the block layout, so it is built for one grid and one " *
+                        "tile_size (here $(scratch.tile_size), giving $(scratch.tiles) blocks per axis)"))
   length(scratch.counts) == prod(Int.(scratch.tiles)) + 2 ||
     throw(ArgumentError("the scratch's histogram holds $(length(scratch.counts)) buckets but its " *
                         "block layout $(scratch.tiles) needs $(prod(Int.(scratch.tiles)) + 2)"))
