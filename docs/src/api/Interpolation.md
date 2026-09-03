@@ -21,8 +21,8 @@ An order is an option on the transfer operations above, not an operation on the 
 it changes the sequence in which the points are visited and never the result.
 
 ```@docs
-transfer_order
 TransferOrder
+transfer_order
 ```
 
 ## Transfer-scheme types
