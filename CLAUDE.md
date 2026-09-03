@@ -1157,13 +1157,19 @@ those are the usual rot. Then the mechanical bar:
    tested by fused == sequential equalities, the α = −1 sign fold, kernel aliasing, allocation pins,
    and GPU parity.
 4. **Tests** — `test/` suite (`runtests.jl` + per-module files + `test/Project.toml`;
-   `Pkg.test()` green, **7777 tests** across 120 top-level testsets (measured 2026-08-27, decision 76 included — it read 7737/118 before that change added its rank-free-plans lane; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **454** on CUDA (measured 2026-09-01, exit 0 in 4m12s — PARITY with ROCm, which also reads 454; the 422 this line carried was a 2026-08-27 reading taken before decisions 77–79 landed, and the handover that claimed 454 was right; it read 412 on 2026-08-26, green with zero failures — but only
+   `Pkg.test()` green, **9145 tests** across 139 top-level testsets (measured 2026-09-03 with decision 80;
+   it read 7777/120 on 2026-08-27, decision 76 included — it read 7737/118 before that change added its rank-free-plans lane; it read 6519 on 2026-08-10, after decision 63 added `test/adapt.jl`; it read 6182/92 the day before and 6179 four days earlier), identical at `-t1`, `-t4` and `-t8`; threaded lane `JULIA_NUM_THREADS=4`; the opt-in GPU parity suite is **454** on CUDA (measured 2026-09-01, exit 0 in 4m12s — PARITY with ROCm, which also reads 454; the 422 this line carried was a 2026-08-27 reading taken before decisions 77–79 landed, and the handover that claimed 454 was right; it read 412 on 2026-08-26, green with zero failures — but only
    after the run that took the measurement found six real ones, all in decision 73's `displace!`, three per
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
    interim, so the suite was silently unrunnable rather than merely unrun. **ROCm re-ran 2026-08-31 and reads 454/454, exit 0** — up from the
    stale 395 of 2026-08-23. **PARITY with CUDA is now VERIFIED** (2026-09-01, on `Enteropia`): both
-   backends read 454/454, exit 0. The discrepancy was a stale figure in this file, not a divergence —
+   backends read 454/454, exit 0. **CUDA re-ran 2026-09-03 with decision 80 and reads 466/466, exit 0 in
+   4m16s** — the twelve new cells are that decision's device lane, which is where its claim actually
+   bites, every array `transfer_order!` avoids allocating being a device array. ROCm has NOT been
+   re-run since and still reads 454, so the two backends are apart by exactly this change until
+   `Aiporetne` runs it; that is a known lag, not a divergence. The earlier discrepancy was a stale
+   figure in this file, not a divergence —
    the handover's 454 was right and the 422 predated decisions 77–79. That run is the first to stage
    decisions 73–79 on AMD at all, so the three ROCm-specific first-runs are covered: the
    `TransferOrder` Int32 atomics with its device `cumsum`, the exponential kernel's device `exp`
@@ -2490,8 +2496,10 @@ that would have caught this class, so it earns its place ahead of work that repa
   the allocating form grows 18.9 KB → 13.0 MB. The permutation check survives the move (it takes the
   caller's marks now), both forms share one build so they cannot drift, and the block layout travels
   with the scratch rather than as a keyword so an order and its histogram cannot disagree. Rejected
-  alternatives and their reasons are in the decision entry. **GPU parity is NOT yet run** — the
-  device lane of the definition of done is outstanding and needs the opt-in suite.
+  alternatives and their reasons are in the decision entry. **GPU parity RAN 2026-09-03 on `Enteropia`:
+  466/466, exit 0 in 4m16s**, up from 454 — the twelve new cells are this decision's device lane, and
+  they are the ones that matter, every array the form avoids allocating being a device array. ROCm is
+  a lag, not a gap: `Aiporetne` still reads 454 and picks this up on its next run.
 - **van Hinsberg global B-spline — still needs a design discussion before coding** (`docs/ARCHITECTURE.md`
   §10, decision 17): a coefficient pre-transform + compact stencil (higher accuracy, but a global solve
   that breaks "single representation", so it needs a coefficient-field type + transform step).
