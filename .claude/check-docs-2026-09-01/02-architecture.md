@@ -3,7 +3,7 @@
 Full read of the file (4239 lines): sections 1–12 read in full, decision-log entries 1–59
 sampled/read in full where quoted, entries 60–79 read and verified in full against `src/`
 (struct definitions for `FieldSpectralMultipliers`, `FieldTransformPlans`, `Grid3D`;
-`transfer_order` signature; the 206/122 method-parity baseline in
+`point_traversal_order` signature; the 206/122 method-parity baseline in
 `test/method_parity.jl`). Cross-checked several formulas and counts against source and against
 `CLAUDE.md`'s own record of the same numbers.
 
@@ -90,7 +90,7 @@ sampled/read in full where quoted, entries 60–79 read and verified in full aga
   six places").
 - `FieldTransformPlans{T, PF, PI, G, L, S}` in `src/Fields.jl` carries six type parameters and no
   tensor-order parameter, matching decision 76's claim that "`R` … no longer" appears.
-- `transfer_order(grid::Grid3D, points::PointSet; tile_size = 4)` in `src/Interpolation.jl`
+- `point_traversal_order(grid::Grid3D, points::PointSet; tile_size = 4)` in `src/Interpolation.jl`
   matches decision 78's claim that the signature "leads with the grid."
 - `Grid3D`'s inner constructor validates spacing against `domain_size ./ grid_size` as decision 45
   claims.

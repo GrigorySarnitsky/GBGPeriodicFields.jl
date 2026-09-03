@@ -62,9 +62,9 @@ results are never compared cross-host, so this is not a same-platform contradict
   `×+/=-`) — none found.
 - No `\left`/`\right`, no manual `\;`/`\:` spacing around relations, no `\mathbb{}` on anything but
   `A`–`Z`/`k` — none found in this range.
-- Code identifiers inside apparent bare mentions (spot-checked `transfer_order`, `visit_order`,
+- Code identifiers inside apparent bare mentions (spot-checked `point_traversal_order`, `visit_order`,
   `displace!`, `wrap!`, `PointSet`) are each inside a backtick span; the one apparent hit from an
-  automated grep (`visit_order = transfer_order(grid, points)`) turned out to be a single multi-word
+  automated grep (`visit_order = point_traversal_order(grid, points)`) turned out to be a single multi-word
   backtick span, a false positive of the search pattern, not a bare identifier.
 - Tables are all top-level (not indented inside a list item); no literal `|` inside a math span in
   this range.
@@ -80,7 +80,7 @@ results are never compared cross-host, so this is not a same-platform contradict
   different lane's remit.
 
 **6. Self-containedness spot-check of (ak)/(al)/(am).** Terms of art used (`gcsample`, canary,
-`transfer_order`, visit order, `_wrap_step`, the decision-76/78/79 shorthand, `weighted_inner`) are
+`point_traversal_order`, visit order, `_wrap_step`, the decision-76/78/79 shorthand, `weighted_inner`) are
 all introduced earlier in the document (§4(s), §4(ad), the decision cross-references) before their
 use in these three findings, consistent with reading the document top-to-bottom. No unbound term
 found in this range.

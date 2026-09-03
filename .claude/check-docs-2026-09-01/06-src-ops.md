@@ -65,11 +65,11 @@ as the periodic box, the hat convention for spectral representation). No unbound
 
 Ran the argument-coverage sweep from each docstring's *signature* (not the union across overloads)
 against its body for every operation in the five files, including the freshest additions (decision 78's
-`TransferOrder`/`transfer_order`, decision 79's `exponential_convolve!` fiber-hoist doc, decision 73's
+`PointTraversalOrder`/`point_traversal_order`, decision 79's `exponential_convolve!` fiber-hoist doc, decision 73's
 `displace!`/`wrap!`). Every positional and keyword argument is documented. Checked in particular:
 
 - The bulleted-vs-prose threshold (CLAUDE.md rubric shape rule 1): confirmed every ≥3-argument or
-  any-keyword signature uses the bulleted form (`convolve!`, `spectral_band`, `transfer_order`,
+  any-keyword signature uses the bulleted form (`convolve!`, `spectral_band`, `point_traversal_order`,
   `interpolate!`/`anterpolate!`, `NUFFT`, `displace!`, `weighted_inner`) and every ≤2-positional,
   no-keyword signature uses prose (`radial_kernel`, `spectral_cutoff`, `assignment_window`,
   `translation_kernel`, `wrap!`, `lpnorm`).
@@ -127,7 +127,7 @@ notation (`A_{ij}`, `(Au)_i = A_{ij}u_j`) is the sanctioned carve-out and is use
 - The umbrella `GBGPeriodicFields.jl` module docstring's per-submodule bullet list was checked against
   each submodule's actual export list (`Convolution`, `Points`, `Interpolation`, `Reductions`): every
   exported public binding is named somewhere in the umbrella docstring's description of that module,
-  including the newest additions (`transfer_order`/`TransferOrder`, `write_scheme`/`read_scheme`,
+  including the newest additions (`point_traversal_order`/`PointTraversalOrder`, `write_scheme`/`read_scheme`,
   `displace!`/`wrap!`, `cov`, the mapped-reduction family). No stale "future/deferred/none-exist"
   claim found in these five files beyond the one accurate, current statement of the `R ≤ 2` ceiling
   (`GBGPeriodicFields.jl:41-52`), which matches the code's actual `throw` behavior above that order and

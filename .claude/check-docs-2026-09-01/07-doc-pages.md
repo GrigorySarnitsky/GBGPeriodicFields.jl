@@ -81,9 +81,9 @@ Checks run, as positive procedures:
   exact spectral `DirectDFT`, and the fast spectral `NUFFT`, together with scheme persistence
   (`write_scheme`/`read_scheme`)."
 - **Why it violates the rule:** Both bullets summarize the `Interpolation` module's public surface but
-  omit `transfer_order`/`TransferOrder` (decision 78, 2026-08-30) entirely — a headline, exported
+  omit `point_traversal_order`/`PointTraversalOrder` (decision 78, 2026-08-30) entirely — a headline, exported
   addition (`src/Interpolation.jl:88`: `export interpolate, interpolate!, anterpolate, anterpolate!,
-  transfer_order, TransferOrder, …`) that the module's own API page documents in a dedicated
+  point_traversal_order, PointTraversalOrder, …`) that the module's own API page documents in a dedicated
   hand-written section (`docs/src/api/Interpolation.md:18-26`, "## Visit order": "An order is an
   option on the transfer operations above … it changes the sequence in which the points are visited
   and never the result"). `CLAUDE.md`'s roadmap records this as a major, separately-measured feature
@@ -95,9 +95,9 @@ Checks run, as positive procedures:
   to mention the new public entry point, even though every other decision-73-through-77 addition
   (`displace!`/`wrap!`, the family-taking constructors, `write_scheme`/`read_scheme`, `inverse_curl`)
   *is* named in these same bullets.
-- **Proposed fix:** Add a clause to both bullets naming `transfer_order`/`TransferOrder` as the
+- **Proposed fix:** Add a clause to both bullets naming `point_traversal_order`/`PointTraversalOrder` as the
   point-visit-order option the four transfer verbs take (e.g., after the `NUFFT`/portability
-  clause: "…; an optional `transfer_order` groups the points by grid block for a device- and
+  clause: "…; an optional `point_traversal_order` groups the points by grid block for a device- and
   cache-friendly visit order, without changing the transferred result."). Keep it to one clause per
   bullet, consistent with the terseness of the other additions already listed there.
 - **Confidence:** high

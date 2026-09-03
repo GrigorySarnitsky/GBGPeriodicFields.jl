@@ -100,7 +100,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 78",1453,212,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
-"ARCHITECTURE.md § item 80",539,141,0
+"ARCHITECTURE.md § item 80",736,197,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -390,8 +390,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",537,216,1
-"Interpolation.jl :: TransferOrder(indices)",226,76,0
-"Interpolation.jl :: TransferOrderScratch(grid::Grid3D, points::PointSet; tile_si",244,84,1
+"Interpolation.jl :: PointTraversalOrder(indices)",226,76,0
+"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",244,84,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
@@ -403,9 +403,9 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",77,63,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
+"Interpolation.jl :: point_traversal_order!(order::PointTraversalOrder, grid::Gri",282,123,0
+"Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",756,242,2
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: transfer_order!(order::TransferOrder, grid::Grid3D, points::",282,123,0
-"Interpolation.jl :: transfer_order(grid::Grid3D, points::PointSet; tile_size = 4",756,242,2
 "Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",42,42,0
@@ -413,8 +413,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Scheme persistence",4,4,0
 "Interpolation.md § Transfer operations",7,7,0
 "Interpolation.md § Transfer-scheme types",8,8,0
+"Interpolation.md § Traversal order",37,31,0
 "Interpolation.md § Types",19,19,0
-"Interpolation.md § Visit order",37,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
 "PERFORMANCE.md § 1. Philosophy",829,521,0
 "PERFORMANCE.md § 2. The performance model",845,415,0

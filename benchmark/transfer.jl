@@ -17,29 +17,29 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
     group["interpolate! $label | $tag"] = @benchmarkable (interpolate!($out, $field, $points, $scheme); bench_sync(point_values($out)))
     group["anterpolate! $label | $tag"] = @benchmarkable (anterpolate!($field, $points, $q, $scheme, $(T(1)), $(T(0))); bench_sync(field_data($field)))
   end
-  # The visit order (decision 78): building one, and the same two verbs following it. The ordered rows
-  # are the ones a consumer sees when it reuses positions across transfers, and the `transfer_order`
+  # The traversal order (decision 78): building one, and the same two verbs following it. The ordered rows
+  # are the ones a consumer sees when it reuses positions across transfers, and the `point_traversal_order`
   # row is what that costs — the three belong together, because the option only pays when the build is
   # amortized over at least one transfer.
-  visit_order = transfer_order(grid, points)
-  # `.indices`: the builder returns the validated `TransferOrder`, and `bench_sync` synchronizes on
+  visit_order = point_traversal_order(grid, points)
+  # `.indices`: the builder returns the validated `PointTraversalOrder`, and `bench_sync` synchronizes on
   # an array. This row broke silently when the wrapper landed and the tiny-grid gate was not re-run —
   # the decision-60 class, caught by the next gate run.
-  group["transfer_order | $tag"] = @benchmarkable (bench_sync(transfer_order($grid, $points).indices))
+  group["point_traversal_order | $tag"] = @benchmarkable (bench_sync(point_traversal_order($grid, $points).indices))
   # The in-place rebuild against the allocating build. The point of the row is not that it is faster
   # — it runs the same three kernels over the same points — but that a regression which reintroduced
   # a per-rebuild allocation would show here as a divergence between the two, on a device most of all.
-  rebuild_scratch = TransferOrderScratch(grid, points)
-  group["transfer_order! | $tag"] =
-    @benchmarkable (transfer_order!($visit_order, $grid, $points, $rebuild_scratch);
+  rebuild_scratch = PointTraversalOrderScratch(grid, points)
+  group["point_traversal_order! | $tag"] =
+    @benchmarkable (point_traversal_order!($visit_order, $grid, $points, $rebuild_scratch);
                     bench_sync(($visit_order).indices))
   group["interpolate! CatmullRom ordered | $tag"] =
-    @benchmarkable (interpolate!($out, $field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($out)))
+    @benchmarkable (interpolate!($out, $field, $points, CatmullRom; traversal = $visit_order); bench_sync(point_values($out)))
   group["anterpolate! CatmullRom ordered | $tag"] =
-    @benchmarkable (anterpolate!($field, $points, $q, CatmullRom, $(T(1)), $(T(0)); order = $visit_order); bench_sync(field_data($field)))
+    @benchmarkable (anterpolate!($field, $points, $q, CatmullRom, $(T(1)), $(T(0)); traversal = $visit_order); bench_sync(field_data($field)))
   # A VECTOR field, which is what a particle-tracking consumer actually gathers — every transfer row
   # above is scalar, so the case that matters most to the consumer had never been measured (noted by
-  # the 2026-08-30 technique survey). It is also where the visit order pays most, the field traffic
+  # the 2026-08-30 technique survey). It is also where the traversal order pays most, the field traffic
   # being three components against one coordinate triple, so the ordered pair is measured beside it.
   vector_field = vector_phys(AT, T, grid)
   vector_out = interpolate(vector_field, points, CatmullRom)
@@ -47,11 +47,11 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   group["interpolate! CatmullRom vector | $tag"] =
     @benchmarkable (interpolate!($vector_out, $vector_field, $points, CatmullRom); bench_sync(point_values($vector_out)))
   group["interpolate! CatmullRom vector ordered | $tag"] =
-    @benchmarkable (interpolate!($vector_out, $vector_field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($vector_out)))
+    @benchmarkable (interpolate!($vector_out, $vector_field, $points, CatmullRom; traversal = $visit_order); bench_sync(point_values($vector_out)))
   group["anterpolate! CatmullRom vector | $tag"] =
     @benchmarkable (anterpolate!($vector_field, $points, $vector_q, CatmullRom, $(T(1)), $(T(0))); bench_sync(field_data($vector_field)))
   group["anterpolate! CatmullRom vector ordered | $tag"] =
-    @benchmarkable (anterpolate!($vector_field, $points, $vector_q, CatmullRom, $(T(1)), $(T(0)); order = $visit_order); bench_sync(field_data($vector_field)))
+    @benchmarkable (anterpolate!($vector_field, $points, $vector_q, CatmullRom, $(T(1)), $(T(0)); traversal = $visit_order); bench_sync(field_data($vector_field)))
 
   # Spectral-domain transfer: the fast windowed NUFFT (one plan built once). DirectDFT is the exact
   # O(N·M) oracle — its cost is quadratic in the work and not a regression target, so it is not swept.

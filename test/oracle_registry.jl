@@ -82,7 +82,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   # An order is checked against what a permutation IS, not against another package operation: it must
   # be a bijection of 1:M, and the tile keys along it must be nondecreasing — the keys recomputed on
   # the host from the coordinates, so nothing in the chain runs the kernel that built them.
-  :transfer_order     => (:analytic, "transfer_order.jl — a bijection, and nondecreasing against host-recomputed tile keys"),
+  :point_traversal_order     => (:analytic, "point_traversal_order.jl — a bijection, and nondecreasing against host-recomputed tile keys"),
 
   # ---- extensions of Base and Statistics generics ----
   # These are public operations that `names(GBGPeriodicFields)` cannot see, because the package

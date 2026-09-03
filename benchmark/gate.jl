@@ -12,7 +12,7 @@
 #
 # WHY IT ALSO CHECKS THE POINT SET. Running each row once proves rows work in isolation; it cannot
 # prove they leave each other alone. The transfer class shared ONE `PointSet` between its `displace!`
-# and `wrap!` rows, which mutate positions in place, and the `ordered` rows, whose visit order was
+# and `wrap!` rows, which mutate positions in place, and the `ordered` rows, whose traversal order was
 # built from those positions — so every archived `ordered` row up to 2026-08-31 timed a stale order
 # and reported decision 78's feature as a loss (PERFORMANCE.md finding (ak)). The invariant is that a
 # row must not mutate state another row's SETUP captured, and one `displace!` call already breaks it,

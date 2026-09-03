@@ -4089,7 +4089,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `helmholtz_projection!`: there is no consumer for either, and invariant 1 says a combination is
       added when something needs it, not for symmetry with a neighbour.
 
-78. **The transfer visit order — locality as an option, and the wrap as a walk** (2026-08-30,
+78. **The transfer traversal order — locality as an option, and the wrap as a walk** (2026-08-30,
     user-directed). The grid↔point transfer is dominated by *where* its points read and write, not by
     the arithmetic on them, and two separate things were costing it.
 
@@ -4102,7 +4102,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       `Float32` twin at ``256^3`` but only ``1.26\times`` at ``128^3``, which is a field outgrowing
       cache rather than arithmetic getting harder.
 
-    - **An order is a VISIT ORDER, not a reordering, and that is the whole design.** `order[i]` names
+    - **An order is a TRAVERSAL ORDER, not a reordering, and that is the whole design.** `order[i]` names
       the point work-item ``i`` handles. Nothing is moved, and each point's result still lands in its
       own slot. The alternative — permuting the `PointSet` — was rejected because a consumer holds
       `PointValues` indexed alongside its points, and a permutation behind its back desynchronises
@@ -4123,7 +4123,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       point values; a scatter lost part of the deposited total; an out-of-range entry read and wrote
       past the end of an array inside `@inbounds`, segfaulting on CPU and corrupting quietly on
       device. The check's own error message already claimed the bijection was enforced.
-      `TransferOrder` now validates once, where the order is built — two reductions and a marking
+      `PointTraversalOrder` now validates once, where the order is built — two reductions and a marking
       pass, the same work a per-transfer check would do but paid once — so the transfers read a field
       they can trust. Same shape as decision 59: make the property structural rather than guarded.
 
@@ -4192,7 +4192,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       repairs a bad order rather than improving a good one, which is the honest statement of when a
       consumer should reach for it.
 
-    - **The signature leads with the grid** (`transfer_order(grid, points)`), corrected 2026-08-30
+    - **The signature leads with the grid** (`point_traversal_order(grid, points)`), corrected 2026-08-30
       from a points-first first version: the function is TRANSFER infrastructure, so it takes the
       transfer verbs' argument order (`anterpolate(grid, points, …)`), not the motion verbs'
       trailing-grid one (`wrap!(points, grid)`) it briefly borrowed. The `tile_size` option was
@@ -4261,8 +4261,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       field's traffic drop 3M → M on the vector fixture, which is the entire fix the holder had
       priced; `test/pass_audit.jl` freezes the new ideal with the history in place.
 
-80. **A visit order is rebuilt in place, so a moving point set stops growing the device pool**
-    (2026-09-03, user-directed). Decision 78 shipped `transfer_order` as an allocating builder, and
+80. **A traversal order is rebuilt in place, so a moving point set stops growing the device pool**
+    (2026-09-03, user-directed). Decision 78 shipped `point_traversal_order` as an allocating builder, and
     its own docstring closed with the sentence "There is no in-place form yet". Nothing tracked that
     "yet": a consumer whose points move rebuilds, and each rebuild allocated four arrays — the
     `Int32` result, the counting sort's `Int64` bucket keys, the histogram with its exclusive prefix
@@ -4271,19 +4271,19 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     them, which is the failure mode invariant 13 exists to prevent, reached through a builder rather
     than through an operator.
 
-    - **The scratch is the caller's, not the order's.** `transfer_order!(order, grid, points,
-      scratch)` takes a `TransferOrderScratch`, built once for a grid, a point count and a
+    - **The scratch is the caller's, not the order's.** `point_traversal_order!(order, grid, points,
+      scratch)` takes a `PointTraversalOrderScratch`, built once for a grid, a point count and a
       `tile_size`. Two other shapes were considered and rejected. Letting the allocating builder
       RETAIN the arrays it already allocates would have given the simpler call
-      `transfer_order!(order, grid, points)` at no extra peak memory — but it triples what a
+      `point_traversal_order!(order, grid, points)` at no extra peak memory — but it triples what a
       build-once consumer holds, and it makes an operation's allocation depend on how its argument
-      was constructed, since `TransferOrder(indices)` accepts a user-supplied permutation and has no
+      was constructed, since `PointTraversalOrder(indices)` accepts a user-supplied permutation and has no
       scratch to carry. Sizing the scratch inside the call would have defeated the purpose. The
       explicit argument follows decision 64's four-argument `to_physical!`, which is this package's
       recorded answer to the same question: when an in-place form needs working storage, the caller
       supplies it and the cost stays visible at the call site.
 
-    - **The block layout travels with the scratch, not as a keyword.** `transfer_order!` takes no
+    - **The block layout travels with the scratch, not as a keyword.** `point_traversal_order!` takes no
       `tile_size`; it reads the block counts from the scratch it was given. A keyword would have let
       an order and its histogram disagree about how many buckets exist, which is an out-of-range
       atomic write rather than a wrong answer — the same class as the `Int32` key overflow decision
@@ -4291,7 +4291,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     - **The validation survived the move.** The allocating form validates the permutation rather than
       trusting it, and the `Bool` marks it writes are one of the four arrays that accumulated. The
-      check is not traded away for the allocation contract: `_validate_order` gained a method taking
+      check is not traded away for the allocation contract: `_validate_traversal` gained a method taking
       the caller's marks, so the in-place path runs the identical check against scratch storage.
 
     - **It is not zero, and the docstring does not claim zero.** Three `KernelAbstractions` launches
@@ -4301,9 +4301,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       grows from 18.9 KB to 13.0 MB. Nothing per-rebuild scales, and nothing per-rebuild is on a
       device.
 
-    - **Both forms share one build.** `_fill_order!` and `_order_tiles` are called by the allocating
+    - **Renamed to `PointTraversalOrder` in the same round** (user-directed). `TransferOrder` was
+      the minority spelling of its own concept: the prose said "visit order" 28 times and "transfer
+      order" 7, and the API page section was already titled for the former, so the code name and the
+      documentation disagreed 4:1. Worse, `order` means **tensor order** 249 times in this package,
+      and the same source tree held both `order = field_tensor_order(...)` and `order =
+      transfer_order(...)` — the keyword read, at the call site, as if it took a rank. And in plain
+      English "transfer order" parses as an instruction to transfer, which is the wrong first reading
+      for this package's audience. `Point` matches the layer's own prefix family (`PointSet`,
+      `point_positions`, `point_value_tensor_order`), and "traversal" already carries the sense "one
+      pass over the points" here — `displace!` documents "one fused traversal" — and is the word the
+      cited reference uses, Domínguez et al. (2011) being described in §References as a cell
+      **traversal order** for neighbour search. The keyword moved with the type, `order` to
+      `traversal`, since leaving it would have preserved the exact ambiguity the rename removes. The
+      prose moved too: "visit order" is retired so the concept keeps one name.
+
+    - **Both forms share one build.** `_fill_traversal!` and `_traversal_tiles` are called by the allocating
       builder and the in-place one alike, so the two cannot drift into computing different orders —
       the failure decision 47 records for a device kernel and its gated CPU twin, in a different
-      place. `test/transfer_order.jl` asserts the agreement **block-wise** rather than index-wise,
+      place. `test/point_traversal_order.jl` asserts the agreement **block-wise** rather than index-wise,
       because the scatter's atomics leave the order within a block unspecified in both forms; an
       index-wise comparison would be testing the atomics, not the operation.

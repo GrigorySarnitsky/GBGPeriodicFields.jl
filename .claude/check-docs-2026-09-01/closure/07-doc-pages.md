@@ -31,11 +31,11 @@ RANGE: ac1226e4..HEAD
 - **Verdict:** HONORED
 - **Evidence:** `git diff ac1226e4..HEAD -- docs/src/index.md docs/src/api.md` shows both cited bullets
   edited to name the new entry point. `api.md:14`: "...the fast spectral `NUFFT`, **an optional visit
-  order (`transfer_order`, `TransferOrder`)**, together with scheme persistence...". `index.md:48`:
-  "...the fast spectral `NUFFT`, **with an optional visit order (`transfer_order`, `TransferOrder`)
+  order (`point_traversal_order`, `PointTraversalOrder`)**, together with scheme persistence...". `index.md:48`:
+  "...the fast spectral `NUFFT`, **with an optional visit order (`point_traversal_order`, `PointTraversalOrder`)
   that changes only which point each work-item handles**; all three schemes' kernels are portable...".
   Both are exactly the two locations the finding quoted (`index.md:48` and `api.md:14`), both now name
-  both `transfer_order` and `TransferOrder`, and each addition is scoped to one clause as the finding's
+  both `point_traversal_order` and `PointTraversalOrder`, and each addition is scoped to one clause as the finding's
   proposed fix requested, without disturbing the rest of the bullet.
 - **class_surfaces:** The finding names exactly two surfaces as the complete set to fix — the
   `index.md:48` "Main components" bullet and the `api.md:14` "API overview" bullet — and states

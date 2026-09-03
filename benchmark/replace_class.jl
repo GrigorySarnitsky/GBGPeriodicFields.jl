@@ -5,7 +5,7 @@
 # round of run-to-run noise to every other column of RESULTS.md. Re-measuring the one class and
 # splicing it changes exactly the rows that were wrong and leaves the rest BIT-IDENTICAL, which this
 # tool verifies rather than asserts. The motivating incident is PERFORMANCE.md finding (ak): the
-# transfer class's `ordered` rows had been timing a stale visit order since decision 78 shipped.
+# transfer class's `ordered` rows had been timing a stale traversal order since decision 78 shipped.
 #
 # A splice is only honest while the PACKAGE is identical across the two measurements — the archive's
 # `commit=` tag exists to stop a column silently claiming HEAD's feature state, so check `git diff

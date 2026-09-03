@@ -170,26 +170,26 @@ const MODULE_BASELINE = (
   # is no in-place form yet" — while a consumer whose points move allocated a result, the counting
   # sort's working arrays and the validation marks on every rebuild, about 15 MiB at 256³ with 10⁶
   # points, on a device where the collector runs on host pressure and cannot see them. The six are
-  # `transfer_order!`, `TransferOrderScratch` (its struct constructor and the outer one that sizes
-  # the arrays), `_validate_order`'s second method taking the caller's marks, and the two helpers
-  # `transfer_order` and `transfer_order!` now share so the two forms cannot compute different
-  # orders — `_order_tiles` and `_fill_order!`, with `_check_order_precision` extracted alongside.
+  # `point_traversal_order!`, `PointTraversalOrderScratch` (its struct constructor and the outer one that sizes
+  # the arrays), `_validate_traversal`'s second method taking the caller's marks, and the two helpers
+  # `point_traversal_order` and `point_traversal_order!` now share so the two forms cannot compute different
+  # orders — `_traversal_tiles` and `_fill_traversal!`, with `_check_order_precision` extracted alongside.
   # The public 206/122 baselines are untouched: this adds a verb and a companion type to the point
   # transfer surface, neither of which is a field or point-value operation.
-  # 120 → 151: the transfer visit order (decision 78). The public surface is UNCHANGED — the four
+  # 120 → 151: the transfer traversal order (decision 78). The public surface is UNCHANGED — the four
   # transfer verbs gained a keyword argument, not a positional method, which is what keeps the 206/122
   # baselines above intact — so every one of the 31 is new machinery or a keyword sorter: three
   # KernelAbstractions kernels for the counting sort at four methods each plus their CPU and GPU twins
-  # (18), `_visit` ×2 and `_wrap_step` for the index walk, `_check_transfer_order` ×2, `transfer_order`
+  # (18), `_visit` ×2 and `_wrap_step` for the index walk, `_check_point_traversal_order` ×2, `point_traversal_order`
   # itself, and the keyword sorters the four verbs now carry. Then 151 → 156: the four ALLOCATING
   # wrappers took the same keyword, so a consumer that never writes the in-place spelling can use the
   # option — one keyword sorter each, plus the spline `interpolate`'s.  The public 206/122 baselines
   # are untouched throughout: these are keyword arguments, not new positional methods. Then 156 → 168
   # when the adversarial review of 2026-08-30 turned the order's bijection from a claim into a type:
-  # `TransferOrder`'s constructors and its `length`/`eltype`, `_validate_order`, `_tile_index`, the
-  # marking kernel with its CPU and GPU twins, and `_check_transfer_order`'s third method — the one
+  # `PointTraversalOrder`'s constructors and its `length`/`eltype`, `_validate_traversal`, `_tile_index`, the
+  # marking kernel with its CPU and GPU twins, and `_check_point_traversal_order`'s third method — the one
   # that refuses a bare vector, which is where the old silent-wrong-answer entered. The last two are
-  # `_order_indices`, which unwraps the guarantee at the launch site because a struct holding a device
+  # `_traversal_indices`, which unwraps the guarantee at the launch site because a struct holding a device
   # array is not a bitstype and cannot cross into a kernel — a defect only the GPU suite could show.
   # 119 → 120: `_stencil_half`, the NUFFT window stencil's per-axis node offset (/bug-hunt
   # 2026-08-27). An odd width had held `half = W ÷ 2` like an even one, putting the stencil a full

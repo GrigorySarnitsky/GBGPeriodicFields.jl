@@ -445,13 +445,13 @@ asserted bitwise, the zero mode, the gauge, and — because it is a gated CPU/de
 thread-count invariance and the decision-47 reachability probe in `test/threading.jl`. Its oracle is a
 closed-form pair differentiated by hand rather than the package's own `curl`, per decision 55.
 
-**A transfer's VISIT ORDER is a coverage axis** (decision 78): the four point-indexed verbs each have
-two routes through one kernel. The file `test/transfer_order.jl` covers it by the property rather than by a
+**A transfer's TRAVERSAL ORDER is a coverage axis** (decision 78): the four point-indexed verbs each have
+two routes through one kernel. The file `test/point_traversal_order.jl` covers it by the property rather than by a
 sample — the gather is BITWISE equal with and without an order, and again under a reversed one, so the
 invariance belongs to the order rather than to the one the builder happens to produce.
 
-The in-place rebuild (decision 80) is checked the same way, and the choice matters: `transfer_order!`
-is compared to `transfer_order` **block-wise**, not index-wise. Both forms place points within a block
+The in-place rebuild (decision 80) is checked the same way, and the choice matters: `point_traversal_order!`
+is compared to `point_traversal_order` **block-wise**, not index-wise. Both forms place points within a block
 through atomics, which fix no order inside it, so an index-wise comparison would assert a property
 neither form has and would fail intermittently — it would be testing the atomics rather than the
 operation. What the transfer actually sees is the sequence of blocks, and that is deterministic. The

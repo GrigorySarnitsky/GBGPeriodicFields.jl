@@ -60,11 +60,11 @@ The parts are:
     and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
     (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the
     common case for the scatter).
-  * **Visit order.** [`transfer_order`](@ref) builds a [`TransferOrder`](@ref), a permutation saying
+  * **Traversal order.** [`point_traversal_order`](@ref) builds a [`PointTraversalOrder`](@ref), a permutation saying
     which point each work item of a transfer handles, so that neighbouring work touches neighbouring
     memory. It is an option on the four verbs above and never changes their result. Points move, and
-    an order goes stale as they do, so [`transfer_order!`](@ref) rebuilds one in place against a
-    [`TransferOrderScratch`](@ref), allocating nothing that scales with the point count.
+    an order goes stale as they do, so [`point_traversal_order!`](@ref) rebuilds one in place against a
+    [`PointTraversalOrderScratch`](@ref), allocating nothing that scales with the point count.
   * **Scheme persistence.** [`write_scheme`](@ref) and [`read_scheme`](@ref) map a scheme to and from
     one self-describing HDF5 group, so a checkpoint restores not only where a point set samples but
     how (methods load with the `HDF5` package, as a weak-dependency extension). A scheme is a
@@ -95,8 +95,8 @@ using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
 
-export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order, transfer_order!,
-  TransferOrderScratch, TransferOrder,
+export interpolate, interpolate!, anterpolate, anterpolate!, point_traversal_order, point_traversal_order!,
+  PointTraversalOrderScratch, PointTraversalOrder,
   LalescuSpline, LagrangeSpline, CatmullRom,
        AbstractTransferScheme, DirectDFT, NUFFT, write_scheme, read_scheme
 
@@ -402,7 +402,7 @@ end
 
 
 #####################################################
-#        Visit order (spatial locality)             #
+#        Traversal order (spatial locality)             #
 #####################################################
 
 
@@ -412,10 +412,10 @@ end
 # field and every stencil is a fresh set of cache misses. Visiting them in an order that follows the
 # grid makes consecutive work-items share cache lines instead.
 #
-# THE ORDER IS A VISIT ORDER, NOT A REORDERING. `order[i]` is the point that work-item `i` handles;
+# THE ORDER IS A TRAVERSAL ORDER, NOT A REORDERING. `traversal[i]` is the point that work-item `i` handles;
 # nothing is moved, and each point's result still lands in its own slot. That distinction is what
 # makes the option safe to add to a package whose consumer holds `PointValues` indexed alongside its
-# `PointSet`: a permuted `PointSet` would desynchronise from them silently, while a visit order
+# `PointSet`: a permuted `PointSet` would desynchronise from them silently, while a traversal order
 # cannot, because the arrays it indexes never change. It also makes the gather BITWISE INVARIANT
 # under the order — each output element is an independent sum — which is the property the tests
 # assert, and the scatter's atomic summation order changes as it already does between runs.
@@ -429,10 +429,10 @@ end
 # The point handled by work-item `i`. `Nothing` is the unordered case and compiles the indirection
 # away, the same dispatch-on-Nothing the optional operator kernels use.
 """
-    TransferOrder(indices)
+    PointTraversalOrder(indices)
 
-A validated **visit order**: a permutation of `1:M` saying which point each work item of a transfer
-handles. Build one with [`transfer_order`](@ref), or wrap your own permutation by calling this
+A validated **traversal order**: a permutation of `1:M` saying which point each work item of a transfer
+handles. Build one with [`point_traversal_order`](@ref), or wrap your own permutation by calling this
 constructor, which checks it.
 
 The type exists because the guarantee has to be carried rather than asserted. An order that is the
@@ -450,22 +450,22 @@ The constructor throws an `ArgumentError` unless `indices` names every point in 
 It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
 is given — build a device order from device points, since a transfer will not mix families.
 """
-struct TransferOrder{V <: AbstractVector}
+struct PointTraversalOrder{V <: AbstractVector}
   indices::V
 
-  function TransferOrder{V}(indices::V; _validated::Bool = false) where {V <: AbstractVector}
-    _validated || _validate_order(indices)
+  function PointTraversalOrder{V}(indices::V; _validated::Bool = false) where {V <: AbstractVector}
+    _validated || _validate_traversal(indices)
     return new{V}(indices)
   end
 end
 
-TransferOrder(indices::V) where {V <: AbstractVector} = TransferOrder{V}(indices)
+PointTraversalOrder(indices::V) where {V <: AbstractVector} = PointTraversalOrder{V}(indices)
 # A range is a lawful spelling of an order (`1:M` is the identity, `M:-1:1` the reversal) but carries
 # no storage family a kernel can index, so it is materialized into an ordinary vector.
-TransferOrder(indices::AbstractRange) = TransferOrder(collect(Int32, indices))
+PointTraversalOrder(indices::AbstractRange) = PointTraversalOrder(collect(Int32, indices))
 
-Base.length(order::TransferOrder) = length(order.indices)
-Base.eltype(order::TransferOrder) = eltype(order.indices)
+Base.length(traversal::PointTraversalOrder) = length(traversal.indices)
+Base.eltype(traversal::PointTraversalOrder) = eltype(traversal.indices)
 
 
 @kernel function _mark_visited_kernel!(seen, @Const(indices), number_of_points)
@@ -483,32 +483,32 @@ end
 # Every index in `1:M`, and every one of them reached. The two together are a bijection: `M` entries
 # drawn from `1:M` with all `M` targets marked leaves no room for a repeat. Both passes are reductions
 # over the device's own arrays, so this never indexes an order elementwise from the host.
-_validate_order(indices::AbstractVector) =
-  _validate_order(indices, similar(indices, Bool, length(indices)))
+_validate_traversal(indices::AbstractVector) =
+  _validate_traversal(indices, similar(indices, Bool, length(indices)))
 
 
-function _validate_order(indices::AbstractVector, seen)
+function _validate_traversal(indices::AbstractVector, seen)
   number_of_points = length(indices)
   number_of_points == 0 && return nothing
   eltype(indices) <: Integer ||
-    throw(ArgumentError("a transfer order must hold integer indices, got $(eltype(indices))"))
+    throw(ArgumentError("a point traversal order must hold integer indices, got $(eltype(indices))"))
   low, high = extrema(indices)
   (low ≥ 1 && high ≤ number_of_points) ||
-    throw(ArgumentError("a transfer order must name points in 1:$(number_of_points), but it spans " *
+    throw(ArgumentError("a point traversal order must name points in 1:$(number_of_points), but it spans " *
                         "$(low):$(high); an out-of-range index would read past the end of the point arrays"))
   backend = get_backend(indices)
   # `Bool`, not an integer width: the marks are one bit of information each. This is the array that
   # used to accumulate on a device when a consumer rebuilt the order as its points moved, which is
-  # why the caller can now supply it — see `TransferOrderScratch`.
+  # why the caller can now supply it — see `PointTraversalOrderScratch`.
   length(seen) == number_of_points ||
-    throw(ArgumentError("the validation scratch holds $(length(seen)) marks but the order names " *
+    throw(ArgumentError("the validation scratch holds $(length(seen)) marks but the traversal names " *
                         "$(number_of_points) points"))
   fill!(seen, false)
   _mark_visited_kernel!(backend)(seen, indices, number_of_points; ndrange = number_of_points)
   synchronize(backend)
   visited = Int(count(seen))
   visited == number_of_points ||
-    throw(ArgumentError("a transfer order must name every point exactly once, but it names " *
+    throw(ArgumentError("a point traversal order must name every point exactly once, but it names " *
                         "$(visited) of $(number_of_points) — $(number_of_points - visited) are " *
                         "repeated and as many never visited, which would leave their results unwritten"))
   return nothing
@@ -516,28 +516,28 @@ end
 
 
 # An order is an option, but a WRONG order is a silent wrong answer. Being a permutation is settled by
-# `TransferOrder`'s constructor, so what is left here is what only the CALL can know: that the order
+# `PointTraversalOrder`'s constructor, so what is left here is what only the CALL can know: that the order
 # covers this transfer's points, and that it lives where the kernel can index it (invariant 14 binds
 # every argument, the non-section ones included).
-function _check_transfer_order(::Nothing, number_of_points, reference)
+function _check_point_traversal_order(::Nothing, number_of_points, reference)
   return nothing
 end
 
-function _check_transfer_order(order::TransferOrder, number_of_points, reference)
-  length(order) == number_of_points ||
-    throw(ArgumentError("the transfer order has $(length(order)) entries but there are " *
+function _check_point_traversal_order(traversal::PointTraversalOrder, number_of_points, reference)
+  length(traversal) == number_of_points ||
+    throw(ArgumentError("the point traversal order has $(length(traversal)) entries but there are " *
                         "$(number_of_points) points; it must name every point exactly once"))
-  get_backend(order.indices) === get_backend(reference) ||
-    throw(ArgumentError("the transfer order is on a different storage family than the field; " *
-                        "build it from the same point set with `transfer_order`, or move it with `adapt`"))
+  get_backend(traversal.indices) === get_backend(reference) ||
+    throw(ArgumentError("the point traversal order is on a different storage family than the field; " *
+                        "build it from the same point set with `point_traversal_order`, or move it with `adapt`"))
   return nothing
 end
 
-function _check_transfer_order(order, number_of_points, reference)
-  throw(ArgumentError("a transfer order must be a `TransferOrder`, got $(typeof(order)). Build one " *
-                      "with `transfer_order(grid, points)`, or wrap your own permutation as " *
-                      "`TransferOrder(indices)`, which checks that it names every point exactly once " *
-                      "— an unchecked order silently leaves points unvisited."))
+function _check_point_traversal_order(traversal, number_of_points, reference)
+  throw(ArgumentError("a point traversal order must be a `PointTraversalOrder`, got $(typeof(traversal)). Build one " *
+                      "with `point_traversal_order(grid, points)`, or wrap your own permutation as " *
+                      "`PointTraversalOrder(indices)`, which checks that it names every point exactly once " *
+                      "— an unchecked traversal silently leaves points unvisited."))
 end
 
 
@@ -545,12 +545,12 @@ end
 @inline _visit(indices, i) = @inbounds Int(indices[i])
 
 
-# The kernel takes the INDEX ARRAY, never the wrapper. `TransferOrder` is a validity guarantee for
+# The kernel takes the INDEX ARRAY, never the wrapper. `PointTraversalOrder` is a validity guarantee for
 # the API boundary, and a struct holding a device array is not a bitstype, so a launch cannot carry
 # it — which the GPU suite says out loud rather than silently. Unwrapping here keeps the guarantee
 # where it is checked and gives the kernel the plain array it can index.
-@inline _order_indices(::Nothing) = nothing
-@inline _order_indices(order::TransferOrder) = order.indices
+@inline _traversal_indices(::Nothing) = nothing
+@inline _traversal_indices(traversal::PointTraversalOrder) = traversal.indices
 
 
 # The block a coordinate falls in, SATURATING. `unsafe_trunc` wraps — it returns `typemin` for
@@ -595,7 +595,7 @@ end
 end
 
 
-@kernel function _place_kernel!(order, offsets, @Const(keys), number_of_points)
+@kernel function _place_kernel!(traversal, offsets, @Const(keys), number_of_points)
   point = @index(Global, Linear)
   if point ≤ number_of_points
     @inbounds begin
@@ -604,7 +604,7 @@ end
       # whatever order the atomics resolve, which is why this is an ORDER and not a sort: the
       # buckets are ordered, their contents are not, and nothing downstream needs them to be.
       slot = Atomix.@atomic offsets[keys[point] - Int64(1)] += Int32(1)
-      order[slot] = Int32(point)
+      traversal[slot] = Int32(point)
     end
   end
 end
@@ -612,15 +612,15 @@ end
 
 # The block counts a grid and a tile size imply. Shared so that an order and the scratch that refills
 # it can never disagree about the bucket layout: a mismatch would index the histogram out of range.
-function _order_tiles(grid::Grid3D, tile_size::Integer)
+function _traversal_tiles(grid::Grid3D, tile_size::Integer)
   tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
   return ntuple(d -> Int64(max(cld(grid.grid_size[d], tile_size), 1)), 3)
 end
 
 
-# The counting pass itself, over storage the caller owns. Both `transfer_order` and
-# `transfer_order!` route through this, so the two cannot drift into computing different orders.
-function _fill_order!(indices, grid::Grid3D{T}, points::PointSet, keys, counts, offsets,
+# The counting pass itself, over storage the caller owns. Both `point_traversal_order` and
+# `point_traversal_order!` route through this, so the two cannot drift into computing different orders.
+function _fill_traversal!(indices, grid::Grid3D{T}, points::PointSet, keys, counts, offsets,
                       tiles::NTuple{3, Int64}) where {T<:AbstractFloat}
   coordinates = point_positions(points)
   number_of_points = npoints(points)
@@ -645,19 +645,19 @@ end
 function _check_order_precision(coordinates, ::Type{T}) where {T}
   eltype(coordinates) === T ||
     throw(ArgumentError("the points hold $(eltype(coordinates)) coordinates but the grid is " *
-                        "$(T); a transfer order is built for one precision and does not convert"))
+                        "$(T); a point traversal order is built for one precision and does not convert"))
   return nothing
 end
 
 
 """
-    transfer_order(grid::Grid3D, points::PointSet; tile_size = 4)
+    point_traversal_order(grid::Grid3D, points::PointSet; tile_size = 4)
 
-Build a **visit order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
+Build a **traversal order** for `points` on `grid`: a permutation of `1:M` that groups points falling in
 the same block of grid cells, so a transfer that follows it reads and writes with spatial locality.
 
-Pass it as the `order` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their allocating
-siblings. It is an option — the same call without it is unchanged — and moves no data: `order[i]` names the
+Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their allocating
+siblings. It is an option — the same call without it is unchanged — and moves no data: `traversal[i]` names the
 point that work-item `i` handles, so `points` and any `PointValues` indexed alongside them keep their
 own indexing, and every result lands in the slot it would have anyway.
 
@@ -674,7 +674,7 @@ already does between runs.
 The arguments are:
 
 - `grid`: the grid whose cells define the blocks, and whose origin the points are measured from. It
-  leads, as it does in [`anterpolate`](@ref): `transfer_order` is transfer infrastructure, so it
+  leads, as it does in [`anterpolate`](@ref): `point_traversal_order` is transfer infrastructure, so it
   follows the transfer verbs' argument order, not the motion verbs' trailing-grid one.
 - `points`: the point set to order. Its storage family decides where the ordering is built and
   returned — a device point set gives a device vector, built by device kernels.
@@ -708,34 +708,34 @@ scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
     Every call here allocates about 15 MiB at ``256^3`` with ``10^6`` points, and on a device those
     allocations are freed by Julia's collector, which runs on host pressure and cannot see them — a
     hundred rebuilds leave roughly 1.5 GiB resident. Use this form to build the FIRST order, and
-    [`transfer_order!`](@ref) for every rebuild after it: that one writes into storage the caller
+    [`point_traversal_order!`](@ref) for every rebuild after it: that one writes into storage the caller
     already holds and allocates nothing that scales with the point count. A stale order also stays
     valid, so rebuilding rarely remains a legitimate answer.
 """
-function transfer_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
+function point_traversal_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
   coordinates = point_positions(points)
   _check_order_precision(coordinates, T)
   number_of_points = npoints(points)
-  tiles = _order_tiles(grid, tile_size)
-  order = similar(coordinates, Int32, number_of_points)
-  number_of_points == 0 && return TransferOrder{typeof(order)}(order; _validated = true)
+  tiles = _traversal_tiles(grid, tile_size)
+  traversal = similar(coordinates, Int32, number_of_points)
+  number_of_points == 0 && return PointTraversalOrder{typeof(traversal)}(traversal; _validated = true)
   keys = similar(coordinates, Int64, number_of_points)
   # One head slot so the cumulative sum below is the exclusive prefix, and one tail slot so a point
   # in the last bucket has somewhere to count.
   counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
-  _fill_order!(order, grid, points, keys, counts, similar(counts), tiles)
+  _fill_traversal!(traversal, grid, points, keys, counts, similar(counts), tiles)
   # Validated rather than trusted. These are the package's own kernels, but an atomic placement over
   # a prefix sum is exactly the shape where an arithmetic slip yields a plausible-looking array —
   # the Int32 key overflow that used to live in `_tile_key_kernel!` produced a *negative* index — and
   # the check costs two reductions against a pass that already touched every point.
-  return TransferOrder(order)
+  return PointTraversalOrder(traversal)
 end
 
 
 """
-    TransferOrderScratch(grid::Grid3D, points::PointSet; tile_size::Integer = 4)
+    PointTraversalOrderScratch(grid::Grid3D, points::PointSet; tile_size::Integer = 4)
 
-Working storage for [`transfer_order!`](@ref), so that rebuilding a visit order allocates nothing.
+Working storage for [`point_traversal_order!`](@ref), so that rebuilding a traversal order allocates nothing.
 
 Build one alongside the order it will refill, and hold both for as long as the point set lives. It is
 storage and nothing else: it carries no order, is never read by a transfer, and two orders over the
@@ -759,7 +759,7 @@ The fields are
     A refill checks the point count and the block counts and refuses a mismatch rather than reading
     past an array. A point set that grows, or a different `tile_size`, needs a new scratch.
 """
-struct TransferOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: AbstractVector}
+struct PointTraversalOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: AbstractVector}
   keys::K
   counts::C
   offsets::C
@@ -768,57 +768,57 @@ struct TransferOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: Abstr
 end
 
 
-function TransferOrderScratch(grid::Grid3D{T}, points::PointSet;
+function PointTraversalOrderScratch(grid::Grid3D{T}, points::PointSet;
                               tile_size::Integer = 4) where {T<:AbstractFloat}
   coordinates = point_positions(points)
   _check_order_precision(coordinates, T)
   number_of_points = npoints(points)
-  tiles = _order_tiles(grid, tile_size)
+  tiles = _traversal_tiles(grid, tile_size)
   counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
-  return TransferOrderScratch(similar(coordinates, Int64, number_of_points),
+  return PointTraversalOrderScratch(similar(coordinates, Int64, number_of_points),
                               counts, similar(counts),
                               similar(coordinates, Bool, number_of_points), tiles)
 end
 
 
 """
-    transfer_order!(order::TransferOrder, grid::Grid3D, points::PointSet,
-                    scratch::TransferOrderScratch)
+    point_traversal_order!(order::PointTraversalOrder, grid::Grid3D, points::PointSet,
+                    scratch::PointTraversalOrderScratch)
 
-Rebuild `order` in place for the current positions of `points`, and return it.
+Rebuild `traversal` in place for the current positions of `points`, and return it.
 
-Use this in-place form when `order` is already allocated; the allocating [`transfer_order`](@ref)
+Use this in-place form when `traversal` is already allocated; the allocating [`point_traversal_order`](@ref)
 returns a fresh order instead. The result is the one that form would have produced, up to the order
 of points within a block, which the scatter's atomics leave unspecified in both.
 
 Reach for it when points move. An order goes stale as they do, and a consumer that rebuilds is
 otherwise allocating its result, the counting sort's working arrays and the validation marks on every
 rebuild — about 15 MiB at ``256^3`` with ``10^6`` points, which on a device a collector running on
-host pressure cannot see. Here every one of those is the caller's: the result is `order`'s own storage
+host pressure cannot see. Here every one of those is the caller's: the result is `traversal`'s own storage
 and the rest is `scratch`, so **nothing allocated per rebuild scales with the point count**. What
 remains is about 1.2 KiB of `KernelAbstractions` launch bookkeeping on the host, measured constant
 from ``10^3`` to ``10^6`` points where the allocating form grows to 13 MB — a ratio of roughly
 ``10^4`` at the larger count.
 
 The arguments are:
-- `order` — the [`TransferOrder`](@ref) to overwrite, whose length fixes the point count.
+- `traversal` — the [`PointTraversalOrder`](@ref) to overwrite, whose length fixes the point count.
 - `grid` — the [`Grid3D`](@ref) whose cells the blocks are cut from.
 - `points` — the [`PointSet`](@ref) whose current positions decide the order.
-- `scratch` — a [`TransferOrderScratch`](@ref) built for this grid, point count and `tile_size`. The
+- `scratch` — a [`PointTraversalOrderScratch`](@ref) built for this grid, point count and `tile_size`. The
   block layout is taken from it rather than from a keyword, so an order and its scratch cannot
   disagree about how many buckets there are.
 
 All four must agree in point count, element type and storage family, and a mismatch is refused rather
 than converted.
 """
-function transfer_order!(order::TransferOrder, grid::Grid3D{T}, points::PointSet,
-                         scratch::TransferOrderScratch) where {T<:AbstractFloat}
+function point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D{T}, points::PointSet,
+                         scratch::PointTraversalOrderScratch) where {T<:AbstractFloat}
   coordinates = point_positions(points)
   _check_order_precision(coordinates, T)
   number_of_points = npoints(points)
-  length(order.indices) == number_of_points ||
-    throw(ArgumentError("the order names $(length(order.indices)) points but the set holds " *
-                        "$(number_of_points); an order is rebuilt for the set it was sized for"))
+  length(traversal.indices) == number_of_points ||
+    throw(ArgumentError("the traversal names $(length(traversal.indices)) points but the set holds " *
+                        "$(number_of_points); a traversal is rebuilt for the set it was sized for"))
   length(scratch.keys) == number_of_points ||
     throw(ArgumentError("the scratch is sized for $(length(scratch.keys)) points but the set holds " *
                         "$(number_of_points)"))
@@ -828,12 +828,12 @@ function transfer_order!(order::TransferOrder, grid::Grid3D{T}, points::PointSet
   length(scratch.counts) == prod(Int.(scratch.tiles)) + 2 ||
     throw(ArgumentError("the scratch's histogram holds $(length(scratch.counts)) buckets but its " *
                         "block layout $(scratch.tiles) needs $(prod(Int.(scratch.tiles)) + 2)"))
-  _fill_order!(order.indices, grid, points, scratch.keys, scratch.counts, scratch.offsets,
+  _fill_traversal!(traversal.indices, grid, points, scratch.keys, scratch.counts, scratch.offsets,
                scratch.tiles)
   # The same check the allocating form runs, against the caller's marks rather than a fresh array —
   # so the safety survives the move to a non-allocating path instead of being traded away for it.
-  _validate_order(order.indices, scratch.seen)
-  return order
+  _validate_traversal(traversal.indices, scratch.seen)
+  return traversal
 end
 
 
@@ -863,10 +863,10 @@ end
 # vector, and tensor orders.
 @kernel function _interpolate_kernel!(output, @Const(coordinates), @Const(field_values), coefficients,
                                       origin, spacing, grid_size, points_per_fibre, number_of_points,
-                                      order)
+                                      traversal)
   work_item = @index(Global, Linear)
   if work_item ≤ number_of_points
-    point = _visit(order, work_item)
+    point = _visit(traversal, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -919,10 +919,10 @@ end
 # node. `factor` is the α scale; the β prescale is applied to the field before launch.
 @kernel function _anterpolate_kernel!(field_values, @Const(coordinates), @Const(point_quantities), coefficients,
                                       factor, origin, spacing, grid_size, points_per_fibre, number_of_points,
-                                      order)
+                                      traversal)
   work_item = @index(Global, Linear)
   if work_item ≤ number_of_points
-    point = _visit(order, work_item)
+    point = _visit(traversal, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -1022,7 +1022,7 @@ The arguments are:
   [`LalescuSpline`](@ref) / [`LagrangeSpline`](@ref)) gather the nodal values of a **physical-space**
   field over a compact stencil, while [`DirectDFT`](@ref) and [`NUFFT`](@ref) evaluate a field in
   **spectral representation** in the Fourier basis; each scheme's own docstring gives its weights.
-- `order` — an optional visit order from [`transfer_order`](@ref): a permutation of the point indices
+- `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are
   visited, never the result — the gather is bitwise unchanged — and is worth several times the
   throughput when the points are in an order unrelated to the grid. It must name every point exactly
@@ -1034,7 +1034,7 @@ and approximate otherwise; the spectral schemes reconstruct the band-limited fie
 (`DirectDFT`) or to a set tolerance (`NUFFT`).
 """
 function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, points::PointSet,
-                      scheme::AbstractSplineScheme = CatmullRom; order = nothing)
+                      scheme::AbstractSplineScheme = CatmullRom; traversal = nothing)
   point_value_tensor_order(out) == field_tensor_order(field) ||
     throw(ArgumentError("output tensor order $(point_value_tensor_order(out)) must equal field tensor order $(field_tensor_order(field))"))
   _check_npoints_match(out, points)
@@ -1044,10 +1044,10 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical, po
   coefficients = _coefficients_as(scheme, T)
   number_of_points = npoints(out)
   backend = get_backend(field_data(field))
-  _check_transfer_order(order, number_of_points, field_data(field))
+  _check_point_traversal_order(traversal, number_of_points, field_data(field))
   _interpolate_kernel!(backend)(point_values(out), point_positions(points), field_data(field), coefficients,
     T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
-    _order_indices(order); ndrange = number_of_points)
+    _traversal_indices(traversal); ndrange = number_of_points)
   synchronize(backend)
   return out
 end
@@ -1063,10 +1063,10 @@ tensor order and return `field` sampled at `points`. See `interpolate!` for the 
 accuracy.
 """
 function interpolate(field::AbstractFieldPhysical, points::PointSet,
-                     scheme::AbstractSplineScheme = CatmullRom; order = nothing)
+                     scheme::AbstractSplineScheme = CatmullRom; traversal = nothing)
   T = field_scalar_type(field)
   data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(field_tensor_order(field)))...))
-  return interpolate!(_wrap_point_values(data, Val(field_tensor_order(field))), field, points, scheme; order)
+  return interpolate!(_wrap_point_values(data, Val(field_tensor_order(field))), field, points, scheme; traversal)
 end
 
 
@@ -1134,7 +1134,7 @@ The arguments are:
 - `β` — sets the accumulation: ``\\beta = 0`` (default) overwrites `field`, ``\\beta \\ne 0``
   accumulates onto it (the `mul!` convention; accumulation is the common case for a two-way-coupling
   scatter — a deposit that accumulates onto a field the same points also sample).
-- `order` — an optional visit order from [`transfer_order`](@ref): a permutation of the point indices
+- `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are
   deposited, and since the accumulation is atomic its summation order was never fixed to begin with,
   so the result moves by no more than it already does between runs. It must name every point exactly
@@ -1147,7 +1147,7 @@ equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. 
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false;
-                      order = nothing)
+                      traversal = nothing)
   field_tensor_order(field) == point_value_tensor_order(quantities) ||
     throw(ArgumentError("field tensor order $(field_tensor_order(field)) must equal quantities tensor order $(point_value_tensor_order(quantities))"))
   _check_npoints_match(points, quantities)
@@ -1163,10 +1163,10 @@ function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities
   coefficients = _coefficients_as(scheme, T)
   number_of_points = npoints(quantities)
   backend = get_backend(data)
-  _check_transfer_order(order, number_of_points, data)
+  _check_point_traversal_order(traversal, number_of_points, data)
   _anterpolate_kernel!(backend)(data, point_positions(points), point_values(quantities), coefficients,
     T(α), T.(grid.origin), T.(grid.grid_spacing), grid.grid_size, prod(grid.grid_size), number_of_points,
-    _order_indices(order); ndrange = number_of_points)
+    _traversal_indices(traversal); ndrange = number_of_points)
   synchronize(backend)
   return field
 end
@@ -1184,10 +1184,10 @@ spectral representation like `reference` (same grid and layout). See `anterpolat
 the ``\\alpha``/``\\beta`` accumulate form.
 """
 function anterpolate(grid::Grid3D{T}, points::PointSet, quantities::AbstractPointValues,
-                     scheme::AbstractSplineScheme = CatmullRom; order = nothing) where {T<:AbstractFloat}
+                     scheme::AbstractSplineScheme = CatmullRom; traversal = nothing) where {T<:AbstractFloat}
   R = point_value_tensor_order(quantities)
   data = similar(point_values(quantities), T, field_physical_shape(grid, Val(R)))
-  return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; order)
+  return anterpolate!(_wrap_field(data, grid, Val(R)), points, quantities, scheme; traversal)
 end
 
 
@@ -1660,10 +1660,10 @@ end
 # field with the ES window weights (no atomics). Mirrors `_interpolate_kernel!`.
 @kernel function _nufft_gather_kernel!(output, @Const(coordinates), @Const(field_values), beta,
                                        origin, spacing, grid_size, points_per_fibre, number_of_points,
-                                       ::Val{W}, order) where {W}
+                                       ::Val{W}, traversal) where {W}
   work_item = @index(Global, Linear)
   if work_item ≤ number_of_points
-    point = _visit(order, work_item)
+    point = _visit(traversal, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -1703,10 +1703,10 @@ end
 # over the W³ stencil, atomically. Mirrors `_anterpolate_kernel!`.
 @kernel function _nufft_spread_kernel!(field_values, @Const(coordinates), @Const(point_quantities), beta,
                                        origin, spacing, grid_size, points_per_fibre, number_of_points,
-                                       ::Val{W}, order) where {W}
+                                       ::Val{W}, traversal) where {W}
   work_item = @index(Global, Linear)
   if work_item ≤ number_of_points
-    point = _visit(order, work_item)
+    point = _visit(traversal, work_item)
     @inbounds begin
       base_1, t_1 = _locate(coordinates[point, 1], origin[1], spacing[1], grid_size[1])
       base_2, t_2 = _locate(coordinates[point, 2], origin[2], spacing[2], grid_size[2])
@@ -1819,8 +1819,8 @@ end
 
 
 function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, points::PointSet,
-                      scheme::NUFFT; order = nothing)
-  _check_transfer_order(order, npoints(out), field_data(field))
+                      scheme::NUFFT; traversal = nothing)
+  _check_point_traversal_order(traversal, npoints(out), field_data(field))
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
@@ -1847,23 +1847,23 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   over_grid = scheme.oversampled_grid
   _nufft_gather_kernel!(backend)(point_values(out), point_positions(points), field_data(oversampled_physical), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(out),
-    Val(scheme.width), _order_indices(order); ndrange = npoints(out))
+    Val(scheme.width), _traversal_indices(traversal); ndrange = npoints(out))
   synchronize(backend)
   return out
 end
 
 
-function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT; order = nothing)
+function interpolate(field::AbstractFieldSpectral, points::PointSet, scheme::NUFFT; traversal = nothing)
   T = field_scalar_type(field)
   R = field_tensor_order(field)
   data = similar(point_positions(points), T, (npoints(points), fiber_shape(Val(R))...))
-  return interpolate!(_wrap_point_values(data, Val(R)), field, points, scheme; order)
+  return interpolate!(_wrap_point_values(data, Val(R)), field, points, scheme; traversal)
 end
 
 
 function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                      scheme::NUFFT, α::Real = true, β::Real = false; order = nothing)
-  _check_transfer_order(order, npoints(quantities), field_data(field))
+                      scheme::NUFFT, α::Real = true, β::Real = false; traversal = nothing)
+  _check_point_traversal_order(traversal, npoints(quantities), field_data(field))
   # Decision 52 checked the plan's tensor order here, because a lower-order plan let the extract read
   # uninitialized scratch. That was one component of the plan's context; all of it is checked now.
   _check_nufft_compatibility(scheme, field)
@@ -1879,7 +1879,7 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
   over_grid = scheme.oversampled_grid
   _nufft_spread_kernel!(backend)(over_phys_data, point_positions(points), point_values(quantities), scheme.beta,
     T.(over_grid.origin), T.(over_grid.grid_spacing), over_grid.grid_size, prod(over_grid.grid_size), npoints(quantities),
-    Val(scheme.width), _order_indices(order); ndrange = npoints(quantities))
+    Val(scheme.width), _traversal_indices(traversal); ndrange = npoints(quantities))
   synchronize(backend)
   oversampled_spectral = to_spectral(oversampled_physical, scheme.oversampled_plans)
   over_data = field_data(oversampled_spectral)
@@ -1901,9 +1901,9 @@ end
 
 
 function anterpolate(reference::AbstractFieldSpectral, points::PointSet, quantities::AbstractPointValues,
-                     scheme::NUFFT; order = nothing)
+                     scheme::NUFFT; traversal = nothing)
   out = similar_field(reference, Val(point_value_tensor_order(quantities)))
-  return anterpolate!(out, points, quantities, scheme; order)
+  return anterpolate!(out, points, quantities, scheme; traversal)
 end
 
 

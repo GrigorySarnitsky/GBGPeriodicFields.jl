@@ -87,7 +87,7 @@ Everything opt-in behind options — techniques help or hurt by setup, so measur
 - [x] RESEARCH: three lanes (ordering/sort, GPU kernel+memory, CPU) — findings acted on or recorded
       blocking, memory layout, scatter strategy, batching, precision, occupancy)
 - [x] BASELINE measured both backends, both element types, R=0/1, four grid/point combinations
-- [x] Shipped: transfer_order + `order` on all EIGHT entry points (opt-in), and the wrap walk (bit-identical)
+- [x] Shipped: point_traversal_order + `order` on all EIGHT entry points (opt-in), and the wrap walk (bit-identical)
 - [x] MEASURED across the full product; three candidates measured and REJECTED (Morton, bucket stability, static unroll)
 - [x] Bitwise gather invariance (and under a reversed order), GPU parity 448, Pkg.test 134, allocation pins
 - [x] Docs: decision 78, findings (ad)/(ae)/(af), TESTING axis, CLAUDE.md, API page — two roadmap items closed
@@ -107,13 +107,13 @@ Stencil width spans 2..8 nodes/axis across the schemes = 8..512 nodes/point.
 
 ## Open (2026-08-30: adversarial review of decision 78 found REAL defects — fix them)
 
-- [x] FIXED: TransferOrder carries the bijection, validated once at construction; bare vectors refused
+- [x] FIXED: PointTraversalOrder carries the bijection, validated once at construction; bare vectors refused
 - [x] FIXED: Int64 keys throughout
 - [x] FIXED: _tile_index compares in floating point before converting
 - [x] FIXED: element-type refusal (invariant 14)
 - [x] FIXED: both corrected, and the grid-scaling scratch priced
 - [x] FIXED: ranges accepted and materialised
-- [x] Witnesses promoted into test/transfer_order.jl, plus the index-equivalence proof the suite lacked
+- [x] Witnesses promoted into test/point_traversal_order.jl, plus the index-equivalence proof the suite lacked
 - [x] Pkg.test 137, CUDA 454, docs green; committed and pushed (097c3c23, 04923f79)
 
 ## Open (2026-08-30, user-directed: the born-slow triage, wired into the post-benchmark analyzer)
@@ -147,13 +147,13 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] Measured t1/t4/t8 x 128/256/512 x F64/F32 with GB/s: t1 wins 1.16-3.58x; t4/t8 out-of-cache AT THE ROOF (43-47 GB/s both arms)
 - [x] Verdict: option 2 DEAD (simd==plain everywhere); option 1 regime-bound here, trigger = the 12700K measurement; recorded in CLAUDE.md
 
-## Open (2026-08-30, user-directed: transfer_order argument order + the tile_size question)
+## Open (2026-08-30, user-directed: point_traversal_order argument order + the tile_size question)
 
-- [x] Swapped to transfer_order(grid, points; ...) — the transfer-family order
-- [x] All call sites updated (a regex over-match into _check_transfer_order caught and repaired; the parenthesised sites hand-fixed)
+- [x] Swapped to point_traversal_order(grid, points; ...) — the transfer-family order
+- [x] All call sites updated (a regex over-match into _check_point_traversal_order caught and repaired; the parenthesised sites hand-fixed)
 - [x] Measured both backends x widths 4/8: the optimum tracks the BACKEND, not the scheme
 - [x] tile_size KEPT on the data; keyword/positional policy codified in CLAUDE.md §Style
-- [x] 137 + 454 + docs green; the gate caught a benchmark row broken since TransferOrder landed (fixed)
+- [x] 137 + 454 + docs green; the gate caught a benchmark row broken since PointTraversalOrder landed (fixed)
 
 ## Open (2026-08-31, user-granted: THE BENCHMARK SESSION — the box is mine, run to completion)
 

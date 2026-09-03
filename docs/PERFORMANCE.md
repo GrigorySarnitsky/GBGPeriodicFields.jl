@@ -1617,7 +1617,7 @@ corner is a wide stencil on a vector field on CPU.
 
 *Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so
 consecutive work-items touched unrelated parts of the field and every stencil was a fresh set of
-misses. The `transfer_order` builder groups them by block of cells and the transfer verbs take it as an `order`
+misses. The `point_traversal_order` builder groups them by block of cells and the transfer verbs take it as an `order`
 option (decision 78). At ``256^3`` with ``10^6`` points:
 
 | ``256^3``, ``10^6`` points | GPU gather | GPU scatter | CPU gather | CPU scatter |
@@ -1675,12 +1675,12 @@ re-measurement produced, since every figure above was taken with uniformly rando
 which is the worst possible order. Re-seeding the same count four ways (`Float32` vector gather,
 ``256^3``, ``10^6`` points): uniformly random ``12.28\times``, a lattice in sweep order
 ``0.93\times``, a lattice jittered by one cell ``0.98\times``, and a lattice advected far enough to
-decorrelate ``5.09\times``. The ORDERED arm barely moves across all four (0.313–0.433 ms) — the visit
+decorrelate ``5.09\times``. The ORDERED arm barely moves across all four (0.313–0.433 ms) — the traversal
 order normalises the access pattern — while the baseline varies eighteenfold. So the honest span for a
 consumer is ``0.93``–``12\times``, and what the option repairs is a bad order rather than improving a
 good one: a lattice-seeded set runs the UNORDERED kernel faster than any ordered configuration. The
 docstring's original justification — that a solver's seeding order is usually unrelated to the grid —
-was backwards for a sweep-seeded set and has been corrected. The visit order gives
+was backwards for a sweep-seeded set and has been corrected. The traversal order gives
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
@@ -1842,12 +1842,12 @@ needs the card, so it is Aiporetne's; the candidates are the AMDGPU backend's ha
 serialised address chain and the occupancy that chain costs, and neither is testable from this host.
 Decision 78 stands unqualified on CUDA.
 
-**(ak) The benchmark's `ordered` transfer rows had been timing a STALE visit order since decision 78
+**(ak) The benchmark's `ordered` transfer rows had been timing a STALE traversal order since decision 78
 shipped, so `RESULTS.md` reported that feature as a LOSS while this file reported it as a
 ``3.4\times`` win** (found 2026-08-31 on `Enteropia` while reading the transfer class for finding
 (al)'s A/B; it is a harness defect, and the package is not implicated).
 
-The class built `visit_order = transfer_order(grid, points)` and then handed the SAME `PointSet` to
+The class built `visit_order = point_traversal_order(grid, points)` and then handed the SAME `PointSet` to
 its `displace!` and `wrap!` rows, which move points in place. Every row in a group is executed many
 times before its own trial — by `tune!`, by the device `gcsample` probe, and by `run` — so the points
 had moved long before the ordered rows were timed.
@@ -1888,7 +1888,7 @@ copy of the positions, medians of fresh over archived:
 
 A second device confirmation came free: two transfer-only processes, one on the old harness and one
 on the new, reproduce every UNORDERED row to ``0.99``–``1.001`` while the ordered rows move
-``0.099``–``0.319``. The `transfer_order` build row also improves ``0.78``–``0.80\times`` on device,
+``0.099``–``0.319``. The `point_traversal_order` build row also improves ``0.78``–``0.80\times`` on device,
 the same root cause — drifted coordinates saturate the tile index, so the counting histogram collides
 on a few boundary counters.
 
@@ -1905,7 +1905,7 @@ for the vector gather, the residual being density — 621 thousand points agains
 | RX 7900 XTX (still stale) | 1.54 ms | 1.81 ms | ``0.85\times`` |
 
 **The lesson is the contradiction, not the bug.** Two committed artefacts described one operation and
-disagreed by a factor of four for a day — `RESULTS.md` had the visit order costing 10–25%, finding
+disagreed by a factor of four for a day — `RESULTS.md` had the traversal order costing 10–25%, finding
 (ad) had it saving ``3.4\times`` — and neither was read against the other, because a bespoke study
 and the standing harness are consulted at different moments and for different questions. Where both
 exist for one operation, the disagreement is itself a measurement: reconcile them, or one of them is
@@ -2140,7 +2140,7 @@ born-slow candidate for the same treatment as finding (ac). 91 peer violations, 
 
 **(af) The transfer benchmark class had only ever measured SCALAR fields** (2026-08-30, found by the
 technique survey). Every row in the class built `scalar_phys`, so the vector gather — what a
-particle-tracking consumer actually calls, and the case where the visit order pays most, the field
+particle-tracking consumer actually calls, and the case where the traversal order pays most, the field
 traffic being three components against one coordinate triple — had never been benchmarked at all. Four
 rows were added: the vector gather and scatter, each with and without an order. This is the same class
 of gap as decision 60's two dead classes, found the same way: by asking what the rows actually build
@@ -2527,14 +2527,14 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    canonical tempting example — and when it does land, the first step on an Arrhenius node is the
    test matrix, then this benchmark suite.
 
-**(an) The visit order's rebuild is allocation-free where it was 15 MiB a call** (2026-09-03,
-decision 80). `transfer_order` allocates four arrays per build — the `Int32` result, the counting
+**(an) The traversal order's rebuild is allocation-free where it was 15 MiB a call** (2026-09-03,
+decision 80). `point_traversal_order` allocates four arrays per build — the `Int32` result, the counting
 sort's `Int64` keys, the histogram with its prefix sum, and the `Bool` marks of the permutation check
 — and a consumer whose points move pays that on every rebuild. Measured on the host at ``32^3``:
 
-- allocating `transfer_order`: 18.9 KB at ``10^3`` points, 135.9 KB at ``10^4``, 1.31 MB at ``10^5``,
+- allocating `point_traversal_order`: 18.9 KB at ``10^3`` points, 135.9 KB at ``10^4``, 1.31 MB at ``10^5``,
   13.0 MB at ``10^6`` — linear in the point count, as its four arrays are.
-- in-place `transfer_order!`: **1248 bytes at ``10^3`` and 1312 at ``10^6``** — constant, a ratio of
+- in-place `point_traversal_order!`: **1248 bytes at ``10^3`` and 1312 at ``10^6``** — constant, a ratio of
   roughly ``10^4`` at the larger count.
 
 The residue is not the package's: three `KernelAbstractions` launches plus the validation's own leave

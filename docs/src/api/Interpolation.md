@@ -15,16 +15,16 @@ anterpolate!
 anterpolate
 ```
 
-## Visit order
+## Traversal order
 
 An order is an option on the transfer operations above, not an operation on the sections themselves:
 it changes the sequence in which the points are visited and never the result.
 
 ```@docs
-TransferOrder
-TransferOrderScratch
-transfer_order
-transfer_order!
+PointTraversalOrder
+PointTraversalOrderScratch
+point_traversal_order
+point_traversal_order!
 ```
 
 ## Transfer-scheme types

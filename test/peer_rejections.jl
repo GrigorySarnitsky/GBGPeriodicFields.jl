@@ -161,11 +161,11 @@ const PEER_EXEMPT = Dict{Symbol, String}(
   :tr     => "unary allocating form; the peer check is `tr!`'s, invoked here",
   :transpose => "unary allocating form; the peer check is `transpose!`'s, invoked here",
   :cov    => "unary (one vector section in, one fiber tensor out); no peer",
-  # A point set carries no grid affiliation, so `transfer_order(grid, points)` has no context pair
+  # A point set carries no grid affiliation, so `point_traversal_order(grid, points)` has no context pair
   # that COULD disagree — and a point outside the grid is deliberately clamped into an edge bucket
   # rather than refused, because an order is a hint that never changes a result (decision 78). Its
-  # own refusals are of a malformed `tile_size`, asserted in test/transfer_order.jl.
-  :transfer_order => "no context pair: points carry no grid, and out-of-grid points are clamped by design (decision 78); its tile_size refusals are asserted in test/transfer_order.jl",
+  # own refusals are of a malformed `tile_size`, asserted in test/point_traversal_order.jl.
+  :point_traversal_order => "no context pair: points carry no grid, and out-of-grid points are clamped by design (decision 78); its tile_size refusals are asserted in test/point_traversal_order.jl",
   :ndims  => "an accessor; reads one object, validates nothing a peer could contradict",
   :setindex! => "a single-element write through the AbstractArray interface; its bounds check is Julia's, not a context check",
   :reality_residual => "unary; reads one spectral section's self-conjugate planes",
@@ -189,7 +189,7 @@ const PEER_EXEMPT = Dict{Symbol, String}(
 
 # The point layer's operations, invoked in their own testset below: their peer axes are the point
 # COUNT and the PRECISION of points against a grid, not the grid contexts the sweep above varies.
-const POINT_COVERED = Set([:displace!, :wrap!, :transfer_order!])
+const POINT_COVERED = Set([:displace!, :wrap!, :point_traversal_order!])
 
 
 @testset "peer rejections: every validating operation outside the carrier gate refuses a foreign peer" begin
@@ -248,16 +248,16 @@ end
   @test wrap!(PointSet(rand(12, 3) .* 2π), grid64) !== nothing
   @test_throws Exception wrap!(points32, grid64)
 
-  # `transfer_order!` has THREE peers that can disagree — the order, the point set and the scratch —
-  # where the allocating `transfer_order` has none (a point set carries no grid affiliation, which
+  # `point_traversal_order!` has THREE peers that can disagree — the order, the point set and the scratch —
+  # where the allocating `point_traversal_order` has none (a point set carries no grid affiliation, which
   # is why that one is exempted above). Each mismatch is refused rather than reading past an array.
-  order12 = transfer_order(grid64, points12)
-  scratch12 = TransferOrderScratch(grid64, points12)
-  @test transfer_order!(order12, grid64, points12, scratch12) === order12
-  @test_throws Exception transfer_order!(order12, grid64, PointSet(rand(9, 3) .* 2π), scratch12)
-  @test_throws Exception transfer_order!(transfer_order(grid64, PointSet(rand(9, 3) .* 2π)),
+  order12 = point_traversal_order(grid64, points12)
+  scratch12 = PointTraversalOrderScratch(grid64, points12)
+  @test point_traversal_order!(order12, grid64, points12, scratch12) === order12
+  @test_throws Exception point_traversal_order!(order12, grid64, PointSet(rand(9, 3) .* 2π), scratch12)
+  @test_throws Exception point_traversal_order!(point_traversal_order(grid64, PointSet(rand(9, 3) .* 2π)),
                                          grid64, points12, scratch12)
-  @test_throws Exception transfer_order!(order12, grid64, points12,
-                                         TransferOrderScratch(grid64, PointSet(rand(9, 3) .* 2π)))
-  @test_throws Exception TransferOrderScratch(grid64, points32)
+  @test_throws Exception point_traversal_order!(order12, grid64, points12,
+                                         PointTraversalOrderScratch(grid64, PointSet(rand(9, 3) .* 2π)))
+  @test_throws Exception PointTraversalOrderScratch(grid64, points32)
 end

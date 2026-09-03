@@ -85,7 +85,7 @@ correctly self-contained for a cold reader, across every exported binding in the
   distinction before using either.
 - **Type docstrings.** `Grid3D`, `RealFourierLayout`, `FieldSpectralMultipliers`,
   `FieldTransformPlans`, all six field types, `Point`, `PointSet`, the three point-value types,
-  `TransferOrder`, `AbstractTransferScheme`, `SpectralKernel` and its four concrete classes
+  `PointTraversalOrder`, `AbstractTransferScheme`, `SpectralKernel` and its four concrete classes
   (`StoredKernel`, `SeparableKernel`, `RadialKernel`, `ProductKernel`) — every constructor
   argument and struct field is bound in a `The fields are` / `The arguments are` list, and every
   cross-referenced concept (`canonical`, `Nyquist-zeroed`, `resolved band`, `visit order`) is
@@ -96,7 +96,7 @@ correctly self-contained for a cold reader, across every exported binding in the
   `helmholtz_projection!`), the convolution family (`convolve!`, `exponential_convolve!`, the
   four kernel builders, `translation_kernel!`), the point-layer motion pair
   (`displace!`/`wrap!`), the transfer verbs (`interpolate!`/`anterpolate!`,
-  `transfer_order`/`TransferOrder`), and the reduction family (`integral`, `mean`, `inner`,
+  `point_traversal_order`/`PointTraversalOrder`), and the reduction family (`integral`, `mean`, `inner`,
   `weighted_inner`, `l2norm`/`lpnorm`, `var`/`std`/`cov`, `maximum`/`minimum`/`extrema`,
   `radial_spectrum`/`radial_correlation`) — each states its formula, its argument roles, and its
   representation validity in terms defined on the page, with no unglossed jargon noun found.
