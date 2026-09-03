@@ -1617,8 +1617,8 @@ corner is a wide stencil on a vector field on CPU.
 
 *Points arrived in an order unrelated to the grid.* A solver seeds points in its own order, so
 consecutive work-items touched unrelated parts of the field and every stencil was a fresh set of
-misses. The `point_traversal_order` builder groups them by block of cells and the transfer verbs take it as an `order`
-option (decision 78). At ``256^3`` with ``10^6`` points:
+misses. The `point_traversal_order` builder groups them by block of cells and the transfer verbs take it as a
+`traversal` option (decisions 78, 80). At ``256^3`` with ``10^6`` points:
 
 | ``256^3``, ``10^6`` points | GPU gather | GPU scatter | CPU gather | CPU scatter |
 |---|---|---|---|---|

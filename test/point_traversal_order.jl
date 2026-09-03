@@ -1,5 +1,5 @@
-# The transfer TRAVERSAL ORDER (decision 78) — `point_traversal_order` and the `order` option on the four
-# point-indexed transfer verbs.
+# The transfer TRAVERSAL ORDER (decision 78) — `point_traversal_order` and the `traversal` option on
+# the four point-indexed transfer verbs.
 #
 # THE ORACLE IS WHAT A PERMUTATION IS, not another package operation (decision 55): the order must be
 # a bijection of `1:M`, and the tile keys read along it must be nondecreasing — with those keys
