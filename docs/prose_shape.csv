@@ -124,9 +124,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: inv(kernel::RadialKernel)",62,40,1
 "Convolution.jl :: inv(kernel::SeparableKernel)",120,77,1
 "Convolution.jl :: inv(kernel::StoredKernel)",77,58,0
-"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",45,44,0
-"Convolution.jl :: materialize_kernel(kernel::RadialKernel)",45,44,0
-"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",282,189,1
+"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",59,58,0
+"Convolution.jl :: materialize_kernel(kernel::RadialKernel)",72,71,0
+"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",280,187,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",16,15,0
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",250,117,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0

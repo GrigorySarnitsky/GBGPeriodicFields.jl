@@ -224,9 +224,10 @@ _context_layout(kernel::ProductKernel) = _context_layout(kernel.first_kernel)
 """
     materialize_kernel(kernel::ProductKernel)
 
-Evaluate a product kernel into a kernel held as a field. See [`materialize_kernel`](@ref)'s separable method for
-when the trade is worth making; the same crossover governs, and the same warning applies — the result
-costs the full ``O(N^3)`` the compressed forms exist to avoid.
+Evaluate a product kernel into a kernel held as a field, which costs the full ``O(N^3)`` the
+compressed forms exist to avoid. A composite evaluates both factors per mode, so its cost against a
+stored kernel follows from theirs — and the classes differ, so read the crossover for whichever they
+are. The warning below applies here too.
 """
 function materialize_kernel(kernel::ProductKernel{T}) where {T}
   # A product stores no base of its own: its factors carry the grid and layout, and a call has
@@ -428,9 +429,11 @@ end
 """
     materialize_kernel(kernel::RadialKernel)
 
-Evaluate a radial kernel into a kernel held as a field. See [`materialize_kernel`](@ref)'s separable method for
-when the trade is worth making; the same crossover governs, and the same warning applies — the result
-costs the full ``O(N^3)`` the closure form exists to avoid.
+Evaluate a radial kernel into a kernel held as a field, which costs the full ``O(N^3)`` the closure
+form exists to avoid. When that trade is worth making is specific to this class: the compressed
+classes are measured separately and disagree, one card having the radial form overtake a stored kernel
+by ``128^3`` where the axis-factored form never overtakes. [`RadialKernel`](@ref) carries the measured
+crossover, and the warning below applies here too.
 """
 function materialize_kernel(kernel::RadialKernel{T}) where {T}
   data = similar(kernel.multipliers.squared_wavenumber_1, Complex{T},
@@ -612,15 +615,16 @@ agree bitwise on the host and to rounding on a device.
 
 Use this to trade memory back for speed on a **small base**. Applying an axis-factored kernel moves two
 field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
-depends on whether the base outgrows cache. Measured against a stored kernel on a vector field, the
-axis-factored form trails it below cache and overtakes it above: **threaded on a CPU** it runs at
-roughly ``0.5``–``0.6`` of its speed at ``64^3`` and is faster from ``128^3`` up, settling at
-``1.1``–``1.2`` times by ``256^3``–``512^3``; in `Float32` the crossing comes later, past ``128^3``. Single-threaded the crossing never arrives in
-this range, and on a GPU the ratio sits near parity at ``64^3`` and drifts slightly down — a device
-being bandwidth-bound at every size here rather than growing out of cache. So a run whose grids are
-small, or which applies one fixed kernel very many times
-with memory to spare, can materialize once and keep the field; a run at production resolution should
-not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about 10 KiB
+depends on the base, and on a device on the card. Measured against a stored kernel on a vector field:
+threaded on a CPU the axis-factored form costs ``1.75``–``2.45\\times`` a stored kernel at ``64^3``, is
+mixed at ``128^3`` (``0.83``–``2.11``, the `Float32` lanes still behind), and overtakes by
+``256^3``–``512^3`` at ``0.72``–``0.95``. Single-threaded it never overtakes in this range. On a device
+the answer is per-card rather than per-size: one crosses (``1.37`` at ``64^3`` falling to ``0.88`` at
+``256^3`` in `Float64`) while the other does not, staying ``1.20``–``2.53\\times`` at every size and
+element type measured. So a run whose grids are small, or which applies one fixed kernel very many times
+with memory to spare, can materialize once and keep the field; a threaded run at production resolution
+should not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about
+10 KiB for the factors).
 for the factors).
 
 !!! warning "This gives up the memory saving entirely"
