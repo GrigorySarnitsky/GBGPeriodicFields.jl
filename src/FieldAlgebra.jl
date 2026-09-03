@@ -1835,17 +1835,9 @@ The arguments are:
     The pass writes each base point independently and in an unspecified order, so `φ` may read only the
     fiber handed to it. A `φ` that reads elsewhere in the destination sees storage another thread may
     already have overwritten, and the result depends on the schedule — it will differ between runs, and
-    between a threaded and a serial one.
-
-    The trap is that **a field is callable**: `f(x)` interpolates, so passing a section as `φ` makes it a
-    gather over a neighbourhood rather than an element-local map. That is why the usual aliasing freedom
-    does not apply here. A destination may normally alias an input precisely because a fused pass
-    reads element ``n`` to write element ``n``; a gathering `φ` breaks that premise.
-
-    A **section** `φ` that is the destination is rejected — sections own their storage, so
-    identity is a complete test for that case. A **closure that captures** the destination cannot be
-    detected, and is the caller's responsibility. Aliasing between `destination` and the `sources`
-    remains safe and is unaffected.
+    between a threaded and a serial one. A closure that captures the destination cannot be detected, so
+    that much is the caller's responsibility; aliasing between `destination` and the `sources` is a
+    different matter and remains safe.
 
 !!! warning "Physical-space only, and the result is aliased in spectral representation"
     An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
