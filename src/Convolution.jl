@@ -4,7 +4,7 @@
 Periodic (circular) convolution of a field with a kernel. On the torus the only convolution
 is the periodic one, and by the convolution theorem it is exactly a coefficientwise product of the
 transforms, so the operation lives in spectral representation. A scalar kernel multiplies every fiber
-component, so one operation serves scalar, vector, and tensor fields. The operation is named `convolve`
+component, so one operation serves scalar, vector, and tensor fields. The operation is named [`convolve`](@ref)
 (allocating infix `⋆`) rather than `*`, because the coefficientwise product would read as a pointwise
 multiplication, which it is not.
 
@@ -17,8 +17,9 @@ serves as a reduction weight in [`weighted_inner`](@ref GBGPeriodicFields.Reduct
 respect: it requires a **real** multiplier.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
-multiplier the consumer supplies — through `radial_kernel` when it depends on the mode only through
-``|k|^2``, or as coefficients built from `FieldSpectralMultipliers` and wrapped in `StoredKernel`. The
+multiplier the consumer supplies — through [`radial_kernel`](@ref) when it depends on the mode only through
+``|k|^2``, or as coefficients built from [`FieldSpectralMultipliers`](@ref) and wrapped in
+[`StoredKernel`](@ref). The
 package supplies the operation, not the physical meaning.
 
 The parts are, in three groups — what the module does, how a kernel is stored, and which kernels it
@@ -37,7 +38,7 @@ Convolution operations:
 Kernel storage classes:
 
 - [`StoredKernel`](@ref) — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
-  avoid. It wraps a `ScalarFieldSpectral` to put those coefficients in the kernel role.
+  avoid. It wraps a [`ScalarFieldSpectral`](@ref) to put those coefficients in the kernel role.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
   return.
