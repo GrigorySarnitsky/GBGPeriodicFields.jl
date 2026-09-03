@@ -126,6 +126,13 @@ spectral representation, their destination needing that representation's layout,
 type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
+
+Schemes divide the same way over **storage families**. The spline schemes and [`DirectDFT`](@ref) are
+plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
+value: one built on the host drives a transfer over device points with nothing copied, which is why
+`adapt` (documented with [`Fields`](@ref "Fields")) does not list them. [`NUFFT`](@ref) is the exception,
+and for the reason [`write_scheme`](@ref) also refuses it: it owns plans and buffers built from its
+`reference` field, so it already lives in that field's family.
 """
 abstract type AbstractTransferScheme end
 
