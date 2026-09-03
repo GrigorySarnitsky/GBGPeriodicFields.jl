@@ -263,3 +263,72 @@ end
     end
   end
 end
+
+
+# The in-place rebuild: it exists so that a consumer whose points move does not allocate a result,
+# the counting sort's working arrays and the validation marks on every rebuild. What it must prove is
+# that it produces the SAME order as the allocating form and that the storage is the caller's.
+@testset "transfer_order! rebuilds in place" begin
+  for T in (Float64, Float32)
+    grid = Grid3D((16, 12, 8), (T(2π), T(4π), T(6π)); origin = (T(-1), T(0), T(0.5)))
+    M = 4000
+    coordinates = hcat(T(-1) .+ T(2π) .* rand(T, M), T(4π) .* rand(T, M),
+                       T(0.5) .+ T(6π) .* rand(T, M))
+    points = PointSet(copy(coordinates))
+
+    reference = transfer_order(grid, points)
+    rebuilt = transfer_order(grid, points)
+    scratch = TransferOrderScratch(grid, points)
+    @test transfer_order!(rebuilt, grid, points, scratch) === rebuilt
+
+    # Still a permutation — the property the transfer verbs rely on, and the one the allocating form
+    # validates on every build.
+    @test sort(collect(rebuilt.indices)) == collect(1:M)
+
+    # Agreement with the allocating form is BLOCK-WISE, not index-wise: the scatter's atomics leave
+    # the order within a block unspecified in both forms, so comparing raw index vectors would be
+    # testing the atomics rather than the operation. The block sequence is what a transfer sees.
+    tiles = ntuple(d -> max(cld(grid.grid_size[d], 4), 1), 3)
+    edge = ntuple(d -> grid.domain_size[d] / tiles[d], 3)
+    block(p) = begin
+      i = ntuple(d -> clamp(floor(Int, (coordinates[p, d] - grid.origin[d]) / edge[d]),
+                            0, tiles[d] - 1), 3)
+      i[1] + tiles[1] * (i[2] + tiles[2] * i[3])
+    end
+    @test [block(p) for p in rebuilt.indices] == [block(p) for p in reference.indices]
+
+    # And the transfer it drives is the same one, which is the claim a consumer actually cares about.
+    layout = RealFourierLayout()
+    u = VectorFieldPhysical(Array, grid, layout)
+    field_data(u) .= rand(T, size(field_data(u)))
+    @test point_values(interpolate(u, points, CatmullRom; order = rebuilt)) ==
+          point_values(interpolate(u, points, CatmullRom))
+
+    # After the points MOVE the rebuild follows them: the order is for the new positions, not the old.
+    displace!(points, grid, (T(0.61), VectorPointValues(ones(T, M, 3))))
+    transfer_order!(rebuilt, grid, points, scratch)
+    moved = transfer_order(grid, points)
+    @test sort(collect(rebuilt.indices)) == collect(1:M)
+    moved_coordinates = point_positions(points)
+    block_moved(p) = begin
+      i = ntuple(d -> clamp(floor(Int, (moved_coordinates[p, d] - grid.origin[d]) / edge[d]),
+                            0, tiles[d] - 1), 3)
+      i[1] + tiles[1] * (i[2] + tiles[2] * i[3])
+    end
+    @test [block_moved(p) for p in rebuilt.indices] == [block_moved(p) for p in moved.indices]
+
+    # Invariant 14 binds every argument of a multi-argument operation, the scratch included.
+    @test_throws ArgumentError transfer_order!(rebuilt, grid, PointSet(rand(T, M ÷ 2, 3)), scratch)
+    @test_throws ArgumentError transfer_order!(transfer_order(grid, PointSet(rand(T, M ÷ 2, 3))),
+                                               grid, points, scratch)
+    @test_throws ArgumentError TransferOrderScratch(grid, points; tile_size = 0)
+    other = T === Float64 ? Float32 : Float64
+    @test_throws ArgumentError TransferOrderScratch(grid, PointSet(rand(other, M, 3)))
+
+    # An empty set is lawful for both forms and must stay so.
+    empty_points = PointSet(zeros(T, 0, 3))
+    empty_order = transfer_order(grid, empty_points)
+    @test transfer_order!(empty_order, grid, empty_points,
+                          TransferOrderScratch(grid, empty_points)) === empty_order
+  end
+end

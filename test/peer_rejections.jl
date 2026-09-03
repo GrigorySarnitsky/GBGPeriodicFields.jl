@@ -189,7 +189,7 @@ const PEER_EXEMPT = Dict{Symbol, String}(
 
 # The point layer's operations, invoked in their own testset below: their peer axes are the point
 # COUNT and the PRECISION of points against a grid, not the grid contexts the sweep above varies.
-const POINT_COVERED = Set([:displace!, :wrap!])
+const POINT_COVERED = Set([:displace!, :wrap!, :transfer_order!])
 
 
 @testset "peer rejections: every validating operation outside the carrier gate refuses a foreign peer" begin
@@ -247,4 +247,17 @@ end
   points32 = PointSet(rand(Float32, 12, 3) .* 2.0f0)
   @test wrap!(PointSet(rand(12, 3) .* 2π), grid64) !== nothing
   @test_throws Exception wrap!(points32, grid64)
+
+  # `transfer_order!` has THREE peers that can disagree — the order, the point set and the scratch —
+  # where the allocating `transfer_order` has none (a point set carries no grid affiliation, which
+  # is why that one is exempted above). Each mismatch is refused rather than reading past an array.
+  order12 = transfer_order(grid64, points12)
+  scratch12 = TransferOrderScratch(grid64, points12)
+  @test transfer_order!(order12, grid64, points12, scratch12) === order12
+  @test_throws Exception transfer_order!(order12, grid64, PointSet(rand(9, 3) .* 2π), scratch12)
+  @test_throws Exception transfer_order!(transfer_order(grid64, PointSet(rand(9, 3) .* 2π)),
+                                         grid64, points12, scratch12)
+  @test_throws Exception transfer_order!(order12, grid64, points12,
+                                         TransferOrderScratch(grid64, PointSet(rand(9, 3) .* 2π)))
+  @test_throws Exception TransferOrderScratch(grid64, points32)
 end

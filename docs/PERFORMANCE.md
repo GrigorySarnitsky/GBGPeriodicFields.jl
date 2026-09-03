@@ -2526,3 +2526,19 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    dependency or recommendation** — the MKL FFTW provider, which has no `aarch64` build, is the
    canonical tempting example — and when it does land, the first step on an Arrhenius node is the
    test matrix, then this benchmark suite.
+
+**(an) The visit order's rebuild is allocation-free where it was 15 MiB a call** (2026-09-03,
+decision 80). `transfer_order` allocates four arrays per build — the `Int32` result, the counting
+sort's `Int64` keys, the histogram with its prefix sum, and the `Bool` marks of the permutation check
+— and a consumer whose points move pays that on every rebuild. Measured on the host at ``32^3``:
+
+- allocating `transfer_order`: 18.9 KB at ``10^3`` points, 135.9 KB at ``10^4``, 1.31 MB at ``10^5``,
+  13.0 MB at ``10^6`` — linear in the point count, as its four arrays are.
+- in-place `transfer_order!`: **1248 bytes at ``10^3`` and 1312 at ``10^6``** — constant, a ratio of
+  roughly ``10^4`` at the larger count.
+
+The residue is not the package's: three `KernelAbstractions` launches plus the validation's own leave
+about 1.2 KiB of host-side launch bookkeeping, the same class as the FFTW callback of §4(t), and it is
+why `test/allocations.jl` guards this row with a bound rather than a zero. The bound is far below one
+point-sized array, so a regression that began allocating per point could not hide under it. What the
+device pool cares about is the part that scales, and that is now the caller's storage entirely.

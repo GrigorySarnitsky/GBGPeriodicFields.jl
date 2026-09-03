@@ -22,7 +22,9 @@ it changes the sequence in which the points are visited and never the result.
 
 ```@docs
 TransferOrder
+TransferOrderScratch
 transfer_order
+transfer_order!
 ```
 
 ## Transfer-scheme types

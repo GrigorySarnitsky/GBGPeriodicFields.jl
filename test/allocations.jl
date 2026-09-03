@@ -302,6 +302,14 @@ _map_add(a, b) = a + b
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom; order = visit_order)
       @alloc_below threshold anterpolate!(pvd, points, qv, CatmullRom, T(0.5), T(1); order = visit_order)
       @test (@allocated transfer_order(grid, points)) < 64 * M + 200_000
+      # The in-place rebuild is why that bound is tolerable: a consumer whose points move stops
+      # paying it per rebuild. It is NOT zero — three `KernelAbstractions` launches and the
+      # validation's own leave about 1.2 KiB of host-side launch bookkeeping, the same class as the
+      # FFTW callback of §4(t) — but nothing it allocates SCALES with the point count, which is the
+      # property a device pool cares about. The bound is far below one point-sized array, so a
+      # regression that started allocating per point could not hide under it.
+      rebuild_scratch = TransferOrderScratch(grid, points)
+      @alloc_below 8192 transfer_order!(visit_order, grid, points, rebuild_scratch)
 
       # ----- base-space motion (decision 73: displace! in the cover and on the torus, wrap!) -----
       motion_points = PointSet(T(2π) .* rand(T, M, 3))

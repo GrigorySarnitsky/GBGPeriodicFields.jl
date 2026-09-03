@@ -165,7 +165,17 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 170,
+  Interpolation         = 176,
+  # 170 → 176: the non-allocating rebuild (2026-09-03). Its own docstring had promised one — "There
+  # is no in-place form yet" — while a consumer whose points move allocated a result, the counting
+  # sort's working arrays and the validation marks on every rebuild, about 15 MiB at 256³ with 10⁶
+  # points, on a device where the collector runs on host pressure and cannot see them. The six are
+  # `transfer_order!`, `TransferOrderScratch` (its struct constructor and the outer one that sizes
+  # the arrays), `_validate_order`'s second method taking the caller's marks, and the two helpers
+  # `transfer_order` and `transfer_order!` now share so the two forms cannot compute different
+  # orders — `_order_tiles` and `_fill_order!`, with `_check_order_precision` extracted alongside.
+  # The public 206/122 baselines are untouched: this adds a verb and a companion type to the point
+  # transfer surface, neither of which is a field or point-value operation.
   # 120 → 151: the transfer visit order (decision 78). The public surface is UNCHANGED — the four
   # transfer verbs gained a keyword argument, not a positional method, which is what keeps the 206/122
   # baselines above intact — so every one of the 31 is new machinery or a keyword sorter: three

@@ -561,6 +561,29 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test_throws ArgumentError TransferOrder(on_device_raw(fill(Int32(1), number_of_points)))
       @test_throws ArgumentError TransferOrder(on_device_raw(collect(Int32, 2:(number_of_points + 1))))
       @test TransferOrder(on_device_raw(collect(Int32, number_of_points:-1:1))) !== nothing
+      # The in-place rebuild (decision 80) is why the device half of this lane matters most: it
+      # exists so a consumer whose points move stops growing a pool the host collector cannot see,
+      # and every array it would otherwise allocate — the keys, the histogram, its prefix sum and the
+      # validation marks — is a DEVICE array. The rebuild must land in the given order's own storage
+      # and stay a permutation there, and it must still refuse the three peers that can disagree.
+      device_scratch = TransferOrderScratch(grid, device_points)
+      rebuilt = transfer_order(grid, device_points)
+      rebuilt_storage = rebuilt.indices
+      @test transfer_order!(rebuilt, grid, device_points, device_scratch) === rebuilt
+      @test rebuilt.indices === rebuilt_storage      # written into, not replaced
+      @test sort(Array(rebuilt.indices)) == collect(Int32(1):Int32(number_of_points))
+      # A rebuilt order drives the same transfer as any other order of the same points, which is the
+      # same property the built order is asserted on above.
+      let field = first(cases)[1], probe = interpolate(on_device(field), device_points)
+        reference = copy(point_values(probe))
+        interpolate!(probe, on_device(field), device_points, CatmullRom; order = rebuilt)
+        @test point_values(probe) == reference
+      end
+      let half = on_device_ps(PointSet(point_positions(host_points)[1:(number_of_points ÷ 2), :]))
+        @test_throws ArgumentError transfer_order!(rebuilt, grid, device_points,
+                                                   TransferOrderScratch(grid, half))
+        @test_throws ArgumentError transfer_order!(rebuilt, grid, half, device_scratch)
+      end
       for (host_field, host_quantities) in cases
         device_field = on_device(host_field)
         device_quantities = on_device_pv(host_quantities)

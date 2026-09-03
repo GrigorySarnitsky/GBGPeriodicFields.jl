@@ -450,6 +450,15 @@ two routes through one kernel. The file `test/transfer_order.jl` covers it by th
 sample — the gather is BITWISE equal with and without an order, and again under a reversed one, so the
 invariance belongs to the order rather than to the one the builder happens to produce.
 
+The in-place rebuild (decision 80) is checked the same way, and the choice matters: `transfer_order!`
+is compared to `transfer_order` **block-wise**, not index-wise. Both forms place points within a block
+through atomics, which fix no order inside it, so an index-wise comparison would assert a property
+neither form has and would fail intermittently — it would be testing the atomics rather than the
+operation. What the transfer actually sees is the sequence of blocks, and that is deterministic. The
+lane also moves the points with `displace!` and rebuilds, since following the points is the whole
+reason the form exists, and asserts the refusals for each of the three peers that can disagree — the
+order, the point set and the scratch.
+
 **Two promise kinds are gate-enforced with derived denominators.** `test/peer_rejections.jl` requires
 every operation with a reachable `_check_*` predicate, minus the carrier gate's registry, to refuse a
 peer on a foreign context; `test/absence_gate.jl` calls every representation-asymmetric operation on

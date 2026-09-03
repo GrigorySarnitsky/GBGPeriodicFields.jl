@@ -423,6 +423,7 @@ end
     :to_spectral!          => "same — the transform interior is out of scope (see the header)",
     :anterpolate!          => "the scatter accumulates through Atomix, which a wrapper array cannot provide (header)",
     :translation_kernel!   => "an O(N) per-axis rebuild, not field-shaped traffic",
+    :transfer_order!       => "the counting sort histograms and places through Atomix, which a wrapper array cannot provide — the same reason `anterpolate!` is here; its allocation contract is guarded in test/allocations.jl and its result in test/transfer_order.jl",
     :copyto!               => "the broadcast interface: the field `copyto!` IS the `_assign!` route every audited operation writes through, measured through them rather than as a case of its own",
     :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
     :set_fft_threads!      => "a configuration setter, not a field operation",

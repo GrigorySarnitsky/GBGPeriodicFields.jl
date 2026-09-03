@@ -4260,3 +4260,50 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **The ŵ-extrusion holder is retired at the fused ideal.** The pass audit measured the offset
       field's traffic drop 3M → M on the vector fixture, which is the entire fix the holder had
       priced; `test/pass_audit.jl` freezes the new ideal with the history in place.
+
+80. **A visit order is rebuilt in place, so a moving point set stops growing the device pool**
+    (2026-09-03, user-directed). Decision 78 shipped `transfer_order` as an allocating builder, and
+    its own docstring closed with the sentence "There is no in-place form yet". Nothing tracked that
+    "yet": a consumer whose points move rebuilds, and each rebuild allocated four arrays — the
+    `Int32` result, the counting sort's `Int64` bucket keys, the histogram with its exclusive prefix
+    sum, and the `Bool` marks the permutation check writes — about 15 MiB at ``256^3`` with ``10^6``
+    points. On a device those are freed by a collector that runs on **host** pressure and cannot see
+    them, which is the failure mode invariant 13 exists to prevent, reached through a builder rather
+    than through an operator.
+
+    - **The scratch is the caller's, not the order's.** `transfer_order!(order, grid, points,
+      scratch)` takes a `TransferOrderScratch`, built once for a grid, a point count and a
+      `tile_size`. Two other shapes were considered and rejected. Letting the allocating builder
+      RETAIN the arrays it already allocates would have given the simpler call
+      `transfer_order!(order, grid, points)` at no extra peak memory — but it triples what a
+      build-once consumer holds, and it makes an operation's allocation depend on how its argument
+      was constructed, since `TransferOrder(indices)` accepts a user-supplied permutation and has no
+      scratch to carry. Sizing the scratch inside the call would have defeated the purpose. The
+      explicit argument follows decision 64's four-argument `to_physical!`, which is this package's
+      recorded answer to the same question: when an in-place form needs working storage, the caller
+      supplies it and the cost stays visible at the call site.
+
+    - **The block layout travels with the scratch, not as a keyword.** `transfer_order!` takes no
+      `tile_size`; it reads the block counts from the scratch it was given. A keyword would have let
+      an order and its histogram disagree about how many buckets exist, which is an out-of-range
+      atomic write rather than a wrong answer — the same class as the `Int32` key overflow decision
+      78 records fixing.
+
+    - **The validation survived the move.** The allocating form validates the permutation rather than
+      trusting it, and the `Bool` marks it writes are one of the four arrays that accumulated. The
+      check is not traded away for the allocation contract: `_validate_order` gained a method taking
+      the caller's marks, so the in-place path runs the identical check against scratch storage.
+
+    - **It is not zero, and the docstring does not claim zero.** Three `KernelAbstractions` launches
+      and the validation's own leave about 1.2 KiB of host-side launch bookkeeping — the same class as
+      the FFTW callback of `PERFORMANCE.md` §4(t). What matters is that it is **constant in the point
+      count**: measured 1248 bytes at ``10^3`` points and 1312 at ``10^6``, where the allocating form
+      grows from 18.9 KB to 13.0 MB. Nothing per-rebuild scales, and nothing per-rebuild is on a
+      device.
+
+    - **Both forms share one build.** `_fill_order!` and `_order_tiles` are called by the allocating
+      builder and the in-place one alike, so the two cannot drift into computing different orders —
+      the failure decision 47 records for a device kernel and its gated CPU twin, in a different
+      place. `test/transfer_order.jl` asserts the agreement **block-wise** rather than index-wise,
+      because the scatter's atomics leave the order within a block unspecified in both forms; an
+      index-wise comparison would be testing the atomics, not the operation.

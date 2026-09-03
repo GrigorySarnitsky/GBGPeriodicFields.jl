@@ -26,6 +26,13 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   # an array. This row broke silently when the wrapper landed and the tiny-grid gate was not re-run —
   # the decision-60 class, caught by the next gate run.
   group["transfer_order | $tag"] = @benchmarkable (bench_sync(transfer_order($grid, $points).indices))
+  # The in-place rebuild against the allocating build. The point of the row is not that it is faster
+  # — it runs the same three kernels over the same points — but that a regression which reintroduced
+  # a per-rebuild allocation would show here as a divergence between the two, on a device most of all.
+  rebuild_scratch = TransferOrderScratch(grid, points)
+  group["transfer_order! | $tag"] =
+    @benchmarkable (transfer_order!($visit_order, $grid, $points, $rebuild_scratch);
+                    bench_sync(($visit_order).indices))
   group["interpolate! CatmullRom ordered | $tag"] =
     @benchmarkable (interpolate!($out, $field, $points, CatmullRom; order = $visit_order); bench_sync(point_values($out)))
   group["anterpolate! CatmullRom ordered | $tag"] =

@@ -100,6 +100,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 78",1453,212,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
+"ARCHITECTURE.md § item 80",539,141,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -385,11 +386,12 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: AbstractTransferScheme",189,107,0
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",470,177,1
-"Interpolation.jl :: Interpolation",793,242,0
+"Interpolation.jl :: Interpolation",860,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",537,216,1
 "Interpolation.jl :: TransferOrder(indices)",226,76,0
+"Interpolation.jl :: TransferOrderScratch(grid::Grid3D, points::PointSet; tile_si",244,84,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
@@ -402,7 +404,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: transfer_order(grid::Grid3D, points::PointSet; tile_size = 4",739,242,2
+"Interpolation.jl :: transfer_order!(order::TransferOrder, grid::Grid3D, points::",282,123,0
+"Interpolation.jl :: transfer_order(grid::Grid3D, points::PointSet; tile_size = 4",756,242,2
 "Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
 "Interpolation.md § Functions",18,18,0
 "Interpolation.md § Internal API",42,42,0
@@ -411,7 +414,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.md § Transfer operations",7,7,0
 "Interpolation.md § Transfer-scheme types",8,8,0
 "Interpolation.md § Types",19,19,0
-"Interpolation.md § Visit order",35,31,0
+"Interpolation.md § Visit order",37,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
 "PERFORMANCE.md § 1. Philosophy",829,521,0
 "PERFORMANCE.md § 2. The performance model",845,415,0
@@ -435,6 +438,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ak)",1026,92,0
 "PERFORMANCE.md § finding (al)",882,94,0
 "PERFORMANCE.md § finding (am)",822,99,0
+"PERFORMANCE.md § finding (an)",202,85,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -562,7 +566,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 18",156,156,0
 "TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
-"TESTING.md § item 20",521,102,0
+"TESTING.md § item 20",641,120,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0

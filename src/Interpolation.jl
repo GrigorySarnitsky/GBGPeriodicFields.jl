@@ -60,6 +60,11 @@ The parts are:
     and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
     (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the
     common case for the scatter).
+  * **Visit order.** [`transfer_order`](@ref) builds a [`TransferOrder`](@ref), a permutation saying
+    which point each work item of a transfer handles, so that neighbouring work touches neighbouring
+    memory. It is an option on the four verbs above and never changes their result. Points move, and
+    an order goes stale as they do, so [`transfer_order!`](@ref) rebuilds one in place against a
+    [`TransferOrderScratch`](@ref), allocating nothing that scales with the point count.
   * **Scheme persistence.** [`write_scheme`](@ref) and [`read_scheme`](@ref) map a scheme to and from
     one self-describing HDF5 group, so a checkpoint restores not only where a point set samples but
     how (methods load with the `HDF5` package, as a weak-dependency extension). A scheme is a
@@ -90,7 +95,8 @@ using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
 import KernelAbstractions
 import Atomix
 
-export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order, TransferOrder,
+export interpolate, interpolate!, anterpolate, anterpolate!, transfer_order, transfer_order!,
+  TransferOrderScratch, TransferOrder,
   LalescuSpline, LagrangeSpline, CatmullRom,
        AbstractTransferScheme, DirectDFT, NUFFT, write_scheme, read_scheme
 
@@ -477,7 +483,11 @@ end
 # Every index in `1:M`, and every one of them reached. The two together are a bijection: `M` entries
 # drawn from `1:M` with all `M` targets marked leaves no room for a repeat. Both passes are reductions
 # over the device's own arrays, so this never indexes an order elementwise from the host.
-function _validate_order(indices::AbstractVector)
+_validate_order(indices::AbstractVector) =
+  _validate_order(indices, similar(indices, Bool, length(indices)))
+
+
+function _validate_order(indices::AbstractVector, seen)
   number_of_points = length(indices)
   number_of_points == 0 && return nothing
   eltype(indices) <: Integer ||
@@ -487,9 +497,12 @@ function _validate_order(indices::AbstractVector)
     throw(ArgumentError("a transfer order must name points in 1:$(number_of_points), but it spans " *
                         "$(low):$(high); an out-of-range index would read past the end of the point arrays"))
   backend = get_backend(indices)
-  # `Bool`, not an integer width: the marks are one bit of information each, and this array is the
-  # one that accumulates on a device when a consumer rebuilds the order as its points move.
-  seen = similar(indices, Bool, number_of_points)
+  # `Bool`, not an integer width: the marks are one bit of information each. This is the array that
+  # used to accumulate on a device when a consumer rebuilt the order as its points moved, which is
+  # why the caller can now supply it — see `TransferOrderScratch`.
+  length(seen) == number_of_points ||
+    throw(ArgumentError("the validation scratch holds $(length(seen)) marks but the order names " *
+                        "$(number_of_points) points"))
   fill!(seen, false)
   _mark_visited_kernel!(backend)(seen, indices, number_of_points; ndrange = number_of_points)
   synchronize(backend)
@@ -597,6 +610,46 @@ end
 end
 
 
+# The block counts a grid and a tile size imply. Shared so that an order and the scratch that refills
+# it can never disagree about the bucket layout: a mismatch would index the histogram out of range.
+function _order_tiles(grid::Grid3D, tile_size::Integer)
+  tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
+  return ntuple(d -> Int64(max(cld(grid.grid_size[d], tile_size), 1)), 3)
+end
+
+
+# The counting pass itself, over storage the caller owns. Both `transfer_order` and
+# `transfer_order!` route through this, so the two cannot drift into computing different orders.
+function _fill_order!(indices, grid::Grid3D{T}, points::PointSet, keys, counts, offsets,
+                      tiles::NTuple{3, Int64}) where {T<:AbstractFloat}
+  coordinates = point_positions(points)
+  number_of_points = npoints(points)
+  number_of_points == 0 && return indices
+  inverse_tile = ntuple(d -> T(tiles[d]) / T(grid.domain_size[d]), 3)
+  origin = ntuple(d -> T(grid.origin[d]), 3)
+  backend = get_backend(coordinates)
+  fill!(counts, Int32(0))
+  _tile_key_kernel!(backend)(keys, coordinates, origin, inverse_tile, tiles, number_of_points;
+                             ndrange = number_of_points)
+  _tile_count_kernel!(backend)(counts, keys, number_of_points; ndrange = number_of_points)
+  cumsum!(offsets, counts)
+  _place_kernel!(backend)(indices, offsets, keys, number_of_points; ndrange = number_of_points)
+  synchronize(backend)
+  return indices
+end
+
+
+# Invariant 14 binds every argument, not the obvious ones: an order built from points of one
+# precision could never drive a transfer against a grid of another, and refusing here is the
+# package's decision rather than a downstream method table's.
+function _check_order_precision(coordinates, ::Type{T}) where {T}
+  eltype(coordinates) === T ||
+    throw(ArgumentError("the points hold $(eltype(coordinates)) coordinates but the grid is " *
+                        "$(T); a transfer order is built for one precision and does not convert"))
+  return nothing
+end
+
+
 """
     transfer_order(grid::Grid3D, points::PointSet; tile_size = 4)
 
@@ -651,45 +704,136 @@ working arrays, and **two of those scale with the GRID rather than the points** 
 and its cumulative sum, the latter at twice the width. That is what `tile_size` prices: 3 MiB of
 scratch at the default on a ``256^3`` grid, 192 MiB at `tile_size = 1`.
 
-!!! warning "Rebuilding this on a device grows the pool"
-    Every call allocates about 15 MiB at ``256^3`` with ``10^6`` points, and on a device those
+!!! warning "Rebuild with the in-place form, not this one"
+    Every call here allocates about 15 MiB at ``256^3`` with ``10^6`` points, and on a device those
     allocations are freed by Julia's collector, which runs on host pressure and cannot see them — a
-    hundred rebuilds leave roughly 1.5 GiB resident. A consumer rebuilding the order as its points
-    move should either rebuild it rarely, since a stale order stays valid, or reclaim between
-    rebuilds. There is no in-place form yet.
+    hundred rebuilds leave roughly 1.5 GiB resident. Use this form to build the FIRST order, and
+    [`transfer_order!`](@ref) for every rebuild after it: that one writes into storage the caller
+    already holds and allocates nothing that scales with the point count. A stale order also stays
+    valid, so rebuilding rarely remains a legitimate answer.
 """
 function transfer_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
-  tile_size ≥ 1 || throw(ArgumentError("tile_size must be at least 1, got $(tile_size)"))
   coordinates = point_positions(points)
-  # Invariant 14 binds every argument, not the obvious ones: an order built from points of one
-  # precision could never drive a transfer against a grid of another, and refusing here is the
-  # package's decision rather than a downstream method table's.
-  eltype(coordinates) === T ||
-    throw(ArgumentError("the points hold $(eltype(coordinates)) coordinates but the grid is " *
-                        "$(T); a transfer order is built for one precision and does not convert"))
+  _check_order_precision(coordinates, T)
   number_of_points = npoints(points)
-  tiles = ntuple(d -> Int64(max(cld(grid.grid_size[d], tile_size), 1)), 3)
-  inverse_tile = ntuple(d -> T(tiles[d]) / T(grid.domain_size[d]), 3)
-  origin = ntuple(d -> T(grid.origin[d]), 3)
+  tiles = _order_tiles(grid, tile_size)
   order = similar(coordinates, Int32, number_of_points)
   number_of_points == 0 && return TransferOrder{typeof(order)}(order; _validated = true)
-  backend = get_backend(coordinates)
   keys = similar(coordinates, Int64, number_of_points)
   # One head slot so the cumulative sum below is the exclusive prefix, and one tail slot so a point
   # in the last bucket has somewhere to count.
   counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
-  fill!(counts, Int32(0))
-  _tile_key_kernel!(backend)(keys, coordinates, origin, inverse_tile, tiles, number_of_points;
-                             ndrange = number_of_points)
-  _tile_count_kernel!(backend)(counts, keys, number_of_points; ndrange = number_of_points)
-  offsets = cumsum(counts)
-  _place_kernel!(backend)(order, offsets, keys, number_of_points; ndrange = number_of_points)
-  synchronize(backend)
+  _fill_order!(order, grid, points, keys, counts, similar(counts), tiles)
   # Validated rather than trusted. These are the package's own kernels, but an atomic placement over
   # a prefix sum is exactly the shape where an arithmetic slip yields a plausible-looking array —
   # the Int32 key overflow that used to live in `_tile_key_kernel!` produced a *negative* index — and
   # the check costs two reductions against a pass that already touched every point.
   return TransferOrder(order)
+end
+
+
+"""
+    TransferOrderScratch(grid::Grid3D, points::PointSet; tile_size::Integer = 4)
+
+Working storage for [`transfer_order!`](@ref), so that rebuilding a visit order allocates nothing.
+
+Build one alongside the order it will refill, and hold both for as long as the point set lives. It is
+storage and nothing else: it carries no order, is never read by a transfer, and two orders over the
+same grid and point count can share one.
+
+The arguments are:
+- `grid` — the [`Grid3D`](@ref) the order will be built against. Only its size and the `tile_size`
+  enter, through the block count they imply.
+- `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Its positions
+  are not read; only its point count, element type and backend are.
+- `tile_size` — the block edge in grid cells, which must match the `tile_size` the order is refilled
+  with, since it fixes how many buckets the histogram has.
+
+The fields are
+- `keys` — one bucket index per point.
+- `counts`, `offsets` — the bucket histogram and its exclusive prefix sum.
+- `seen` — one mark per point for the permutation check.
+- `tiles` — the block counts per axis, checked against the grid on every refill.
+
+!!! warning "It is sized for one point count and one block layout"
+    A refill checks the point count and the block counts and refuses a mismatch rather than reading
+    past an array. A point set that grows, or a different `tile_size`, needs a new scratch.
+"""
+struct TransferOrderScratch{K <: AbstractVector, C <: AbstractVector, S <: AbstractVector}
+  keys::K
+  counts::C
+  offsets::C
+  seen::S
+  tiles::NTuple{3, Int64}
+end
+
+
+function TransferOrderScratch(grid::Grid3D{T}, points::PointSet;
+                              tile_size::Integer = 4) where {T<:AbstractFloat}
+  coordinates = point_positions(points)
+  _check_order_precision(coordinates, T)
+  number_of_points = npoints(points)
+  tiles = _order_tiles(grid, tile_size)
+  counts = similar(coordinates, Int32, prod(Int.(tiles)) + 2)
+  return TransferOrderScratch(similar(coordinates, Int64, number_of_points),
+                              counts, similar(counts),
+                              similar(coordinates, Bool, number_of_points), tiles)
+end
+
+
+"""
+    transfer_order!(order::TransferOrder, grid::Grid3D, points::PointSet,
+                    scratch::TransferOrderScratch)
+
+Rebuild `order` in place for the current positions of `points`, and return it.
+
+Use this in-place form when `order` is already allocated; the allocating [`transfer_order`](@ref)
+returns a fresh order instead. The result is the one that form would have produced, up to the order
+of points within a block, which the scatter's atomics leave unspecified in both.
+
+Reach for it when points move. An order goes stale as they do, and a consumer that rebuilds is
+otherwise allocating its result, the counting sort's working arrays and the validation marks on every
+rebuild — about 15 MiB at ``256^3`` with ``10^6`` points, which on a device a collector running on
+host pressure cannot see. Here every one of those is the caller's: the result is `order`'s own storage
+and the rest is `scratch`, so **nothing allocated per rebuild scales with the point count**. What
+remains is about 1.2 KiB of `KernelAbstractions` launch bookkeeping on the host, measured constant
+from ``10^3`` to ``10^6`` points where the allocating form grows to 13 MB — a ratio of roughly
+``10^4`` at the larger count.
+
+The arguments are:
+- `order` — the [`TransferOrder`](@ref) to overwrite, whose length fixes the point count.
+- `grid` — the [`Grid3D`](@ref) whose cells the blocks are cut from.
+- `points` — the [`PointSet`](@ref) whose current positions decide the order.
+- `scratch` — a [`TransferOrderScratch`](@ref) built for this grid, point count and `tile_size`. The
+  block layout is taken from it rather than from a keyword, so an order and its scratch cannot
+  disagree about how many buckets there are.
+
+All four must agree in point count, element type and storage family, and a mismatch is refused rather
+than converted.
+"""
+function transfer_order!(order::TransferOrder, grid::Grid3D{T}, points::PointSet,
+                         scratch::TransferOrderScratch) where {T<:AbstractFloat}
+  coordinates = point_positions(points)
+  _check_order_precision(coordinates, T)
+  number_of_points = npoints(points)
+  length(order.indices) == number_of_points ||
+    throw(ArgumentError("the order names $(length(order.indices)) points but the set holds " *
+                        "$(number_of_points); an order is rebuilt for the set it was sized for"))
+  length(scratch.keys) == number_of_points ||
+    throw(ArgumentError("the scratch is sized for $(length(scratch.keys)) points but the set holds " *
+                        "$(number_of_points)"))
+  all(d -> 1 ≤ scratch.tiles[d] ≤ grid.grid_size[d], 1:3) ||
+    throw(ArgumentError("the scratch carries a block layout of $(scratch.tiles), which does not fit " *
+                        "a grid of $(grid.grid_size); a scratch is built for one grid and tile size"))
+  length(scratch.counts) == prod(Int.(scratch.tiles)) + 2 ||
+    throw(ArgumentError("the scratch's histogram holds $(length(scratch.counts)) buckets but its " *
+                        "block layout $(scratch.tiles) needs $(prod(Int.(scratch.tiles)) + 2)"))
+  _fill_order!(order.indices, grid, points, scratch.keys, scratch.counts, scratch.offsets,
+               scratch.tiles)
+  # The same check the allocating form runs, against the caller's marks rather than a fresh array —
+  # so the safety survives the move to a non-allocating path instead of being traded away for it.
+  _validate_order(order.indices, scratch.seen)
+  return order
 end
 
 
