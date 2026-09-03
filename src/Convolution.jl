@@ -1,13 +1,7 @@
 """
     Convolution
 
-Periodic (circular) convolution of a field with a kernel, computed in spectral representation. This
-is the **kernel-multiplier role** of the package's *integration structure* — a grid→grid multiplier
-that filters a field against a fixed kernel — the spectral sibling of the differential operators and
-the same-base counterpart of [`Interpolation`](@ref "Interpolation"). The reductions, this module, and
-the grid↔point transfer realize that one **integration structure** in three roles; the reduction pages
-call it the L²/measure structure, named there for the measure it integrates against and here for what
-that integration does to a field. On the torus the only convolution
+Periodic (circular) convolution of a field with a kernel. On the torus the only convolution
 is the periodic one, and by the convolution theorem it is exactly a coefficientwise product of the
 transforms, so the operation lives in spectral representation. A scalar kernel multiplies every fiber
 component, so one operation serves scalar, vector, and tensor fields. The operation is named `convolve`
@@ -16,17 +10,11 @@ multiplication, which it is not.
 
 A kernel is **not** a field. The two hold identical coefficients, so nothing but a type can say which
 role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
-deconvolves by it (`inv`, defined for all four classes), while the same operation on a field is one the
-package does not define. Every kernel
-subtypes [`SpectralKernel`](@ref), and the four classes reach every entry point that **applies** a
-kernel to a field interchangeably — `StoredKernel` holds one coefficient per mode, and the three
-compressed classes hold the parameters of a closed-form multiplier and evaluate it per mode. All four
-agree bit for bit on the host, so for applying a kernel the choice is one of memory and speed rather
-than of result. On a **device** a *complex*-valued kernel is the one exception, the classes agreeing
-to rounding rather than bitwise there; the choice of class is still one of memory and speed. Two entry points are narrower, and neither applies a kernel: `weighted_inner` takes one as a
-reduction *weight* and requires it to be **real**, refusing a complex multiplier wherever the type
-settles the question, and [`inv`](@ref) is a genuine partial operation whose classes report an
-annihilated mode differently.
+deconvolves by it ([`inv`](@ref)), while the same operation on a field is one the package does not
+define. Every kernel subtypes [`SpectralKernel`](@ref), and the four classes below are interchangeable
+wherever a kernel is **applied** to a field, differing in cost rather than in meaning. A kernel also
+serves as a reduction weight in [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner), which is narrower in one
+respect: it requires a **real** multiplier.
 
 Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
 multiplier the consumer supplies — through `radial_kernel` when it depends on the mode only through
@@ -62,6 +50,8 @@ Kernel storage classes:
   factor alone.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
   wants to inspect or modify the coefficients.
+- [`inv`](@ref) — the reciprocal kernel, which deconvolves by the original. Each class returns its own
+  kind and states the precondition it can afford to check, an annihilated mode having no inverse.
 
 Kernel builders:
 
