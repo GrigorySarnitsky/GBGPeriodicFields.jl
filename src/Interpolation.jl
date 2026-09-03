@@ -181,6 +181,12 @@ are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 
 The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
 
+The fields are
+- `neighbours` — the stencil half-width ``n``, as passed.
+- `smoothness` — the continuity order ``m``, as passed.
+- `coefficients` — the weight polynomial's coefficients, derived from ``(n, m)`` rather than stored
+  independently, which is why [`write_scheme`](@ref) persists the two parameters and no dataset.
+
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) wherever the whole
 stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
 the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
@@ -228,6 +234,12 @@ interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@r
 linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of TurTLE, the reference
 pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
 type the weight coefficients are stored in (`Float64` by default).
+
+
+The fields are
+- `neighbours` — the stencil half-width ``n``, as passed.
+- `coefficients` — the cardinal-basis weights, derived from ``n`` rather than stored
+  independently, which is why [`write_scheme`](@ref) persists the parameter and no dataset.
 
 # References
 
@@ -449,6 +461,10 @@ its storage is what makes aliasing safe by construction.
 The constructor throws an `ArgumentError` unless `indices` names every point in `1:M` exactly once.
 It accepts any integer vector, including a `UnitRange` such as `1:M`, and keeps the storage family it
 is given — build a device order from device points, since a transfer will not mix families.
+
+The fields are
+- `indices` — the permutation itself, one point index per work item, in the storage family the
+  constructor was given.
 """
 struct PointTraversalOrder{V <: AbstractVector}
   indices::V

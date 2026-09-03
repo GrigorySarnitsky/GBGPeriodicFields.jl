@@ -387,10 +387,10 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",470,177,1
 "Interpolation.jl :: Interpolation",860,242,0
-"Interpolation.jl :: LagrangeSpline(n; T = Float64)",238,173,0
-"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",401,199,0
+"Interpolation.jl :: LagrangeSpline(n; T = Float64)",273,173,0
+"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",448,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",537,216,1
-"Interpolation.jl :: PointTraversalOrder(indices)",226,76,0
+"Interpolation.jl :: PointTraversalOrder(indices)",249,76,0
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",244,84,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0

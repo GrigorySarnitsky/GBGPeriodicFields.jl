@@ -70,6 +70,25 @@ def real_fields(body):
     return out
 
 
+# A documented type whose fields are deliberately NOT listed under `The fields are`, with the reason.
+# Shape rule 2 asks for the bulleted form for "named, user-readable fields"; these three are not that,
+# and forcing a list on them would make the docs worse rather than better.
+NO_FIELD_LIST = {
+    "FieldSpectralMultipliers":
+        "its fields ARE documented, in prose: the eight arrays are the constructor arguments, already "
+        "bulleted above as arguments (\"every argument above is stored under its own name\"), and the "
+        "six decision-70 broadcast views are described as one internal group. Fourteen bullets would "
+        "duplicate the argument list and promote six internals to a public-looking surface.",
+    "NUFFT":
+        "a plan, not a record: its thirteen fields are oversampled grids, FFT plans, a deconvolution "
+        "window and embedding maps, none of which a caller may touch. Its user-facing surface is its "
+        "constructor arguments, which the docstring documents as arguments.",
+    "_FiberGather":
+        "an internal `_`-prefixed helper, which the rubric already exempts from the argument-shape "
+        "rules for the same reason.",
+}
+
+
 def main(verbose=False):
     findings, checked = [], 0
     for path in sorted(glob.glob("src/*.jl")) + sorted(glob.glob("ext/*.jl")):
@@ -78,6 +97,15 @@ def main(verbose=False):
             doc, name = match.group(1), match.group(2)
             documented = documented_fields(doc)
             if documented is None:
+                # A type with fields and NO list at all. The original check skipped these entirely,
+                # which is how `PointTraversalOrder` shipped without documenting `indices` — a field
+                # the tests, the benchmarks and the docstring's own prose all read. A check that
+                # validates a list only when the list exists cannot see a missing list.
+                body = source[match.end():]
+                body = body[:body.find("\nend")]
+                if real_fields(body) and name not in NO_FIELD_LIST:
+                    findings.append(f"NOLIST {name} ({path}): stores {real_fields(body)} but has no "
+                                    f"`The fields are` list — add one, or record why not")
                 continue
             checked += 1
             body = source[match.end():]
@@ -94,6 +122,14 @@ def main(verbose=False):
     if checked == 0:
         findings.append("DEAD LANE: no documented struct type matched the parser at all — the check "
                         "is not measuring anything. Fix it rather than reading this as clean.")
+
+    # An exemption naming a type that no longer exists is stale, and a stale exemption silently
+    # widens the check's blind spot. Every other derived gate in this package checks this; so does
+    # this one.
+    seen = {m.group(2) for path in sorted(glob.glob("src/*.jl")) + sorted(glob.glob("ext/*.jl"))
+            for m in DOC_THEN_STRUCT.finditer(Path(path).read_text())}
+    for stale in sorted(set(NO_FIELD_LIST) - seen):
+        findings.append(f"STALE  the `{stale}` exemption names no documented struct — drop it")
 
     for finding in findings:
         print(finding)
