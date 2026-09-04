@@ -4161,11 +4161,10 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       thread the walk is 17–22% FASTER. The mechanism recorded here was backwards: `mod` is the form
       that VECTORIZES (983–1588 vector instructions against the walk's 133–138) and neither variant
       spills on the host, so the CPU loss is the walk forfeiting the memory-level parallelism that
-      independent indices keep — the only story consistent with a sign that flips on thread count.
-      On gfx1100 the walk DOES spill for `CatmullRom` (192 VGPRs, occupancy halved 16 → 8), which is
-      the device regression's mechanism — finding (aq). The corner is stated rather than fixed, since
-      a scheme/rank/thread-conditional kernel is the second body decision 47 records going silently
-      dead; finding (ad) carries the tables.
+      independent indices keep. On gfx1100 the walk DOES spill for `CatmullRom` (192 VGPRs,
+      occupancy halved 16 → 8), the device regression's mechanism — finding (aq). The corner is
+      stated rather than fixed, decision 47 forbidding the conditional second body; finding (ad)
+      carries the tables.
 
     - **What the two wrong versions had in common** is worth more than either correction: each was
       measured at one point of a space and written as though it held across it — first at one scheme,
