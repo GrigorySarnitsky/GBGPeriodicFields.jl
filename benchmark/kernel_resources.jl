@@ -12,13 +12,12 @@
 # registers from the compiled kernel object (`CUDA.registers`) or from `cuobjdump
 # --dump-resource-usage` on the cubin; the point of running it there is the falsification test in
 # finding (aq): the sm_120 walk kernel should NOT cross a register tier for `CatmullRom`.
-using GBGPeriodicFields
-const USECUDA = Base.find_package("CUDA") !== nothing && !(Base.find_package("AMDGPU") !== nothing && get(ENV, "KR_BACKEND", "") == "rocm") && get(ENV, "KR_BACKEND", "cuda") == "cuda"
-if USECUDA
-  using CUDA; const AT = CuArray
-else
-  using AMDGPU; const AT = ROCArray
-end
+using GBGPeriodicFields, Pkg
+# One file per backend, `include`d at run time: a macro from a module that is not loaded fails at
+# EXPANSION, and a top-level `if` is lowered as one expression, so a branch cannot hide the other
+# backend's macro — only a separate file can. The backend is the one the ACTIVE project declares.
+const BACKEND = haskey(Pkg.project().dependencies, "CUDA") ? "cuda" : "rocm"
+include(joinpath(@__DIR__, "kernel_resources_$(BACKEND).jl"))   # defines AT and dump_resources
 const N = 16
 for (label, scheme) in (("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpline(3, 3)))
   grid = Grid3D((N, N, N), (2π, 2π, 2π))
@@ -26,18 +25,5 @@ for (label, scheme) in (("CatmullRom", CatmullRom), ("Lalescu(3,3)", LalescuSpli
   pts = PointSet(AT(2π .* rand(Float64, 300, 3)))
   out = interpolate(f, pts, scheme)
   interpolate!(out, f, pts, scheme)
-  buf = IOBuffer()
-  if USECUDA
-    CUDA.@device_code_ptx io=buf interpolate!(out, f, pts, scheme)
-    txt = String(take!(buf))
-    println(rpad(label, 14), " PTX dumped (", count(==('\n'), txt), " lines); read registers with CUDA.registers / cuobjdump --dump-resource-usage")
-  else
-    AMDGPU.GPUCompiler.@device_code_native io=buf interpolate!(out, f, pts, scheme)
-    asm = String(take!(buf))
-    pick(re) = (m = match(re, asm); m === nothing ? "?" : m.captures[1])
-    cnt(re) = length(collect(eachmatch(re, asm)))
-    println(rpad(label, 14), " NumVgprs=", pick(r"NumVgprs:\s*(\d+)"), " NumSgprs=", pick(r"NumSgprs:\s*(\d+)"),
-            " ScratchSize=", pick(r"ScratchSize:\s*(\d+)"), " Occupancy=", pick(r"Occupancy:\s*(\d+)"),
-            " scratch_ops=", cnt(r"scratch_(load|store)"), " instr≈", cnt(r"\n\s+[sv]_"))
-  end
+  dump_resources(label, () -> interpolate!(out, f, pts, scheme))
 end
