@@ -2543,6 +2543,17 @@ why `test/allocations.jl` guards this row with a bound rather than a zero. The b
 point-sized array, so a regression that began allocating per point could not hide under it. What the
 device pool cares about is the part that scales, and that is now the caller's storage entirely.
 
+**A correction to (t), found 2026-09-04.** The callback state is per PLAN EXECUTION, and decision 76
+changed how many executions a transform makes: a rank-`R` field was one batched execution and is now
+one per contiguous component. Measured at ``24^3`` on four threads, `to_physical!` allocates exactly
+4032 B per component — 4032 scalar, 12096 vector, 36288 tensor — and 0 B at one thread, where the
+callback is absent. `test/allocations.jl`'s `field_threshold` carries slack for ONE execution
+(``4096 \times`` the thread count), so the scalar and vector rows kept passing while the
+nine-component tensor rows failed at four threads and above; the threaded CI lane had been red on
+those three rows since decision 76, and the bound now scales with the component count too. The
+size-independence recorded above still holds: what multiplies is the number of executions, not the
+cost of one.
+
 **(ao) The traversal build's running total was the one unthreaded stage, and its share is set by the
 GRID** (2026-09-04, decision 81). Three of the four stages of `point_traversal_order` are
 `KernelAbstractions` kernels and thread by KA's own partitioning; the running total over the block

@@ -101,6 +101,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 80",1011,197,0
+"ARCHITECTURE.md § item 81",440,111,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -399,6 +400,8 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _hermite_weight_matrix(n, m)",89,87,0
 "Interpolation.jl :: _lagrange_weight_matrix(n)",59,58,0
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",47,43,0
+"Interpolation.jl :: _scan_offsets!(offsets, counts)",98,84,0
+"Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",177,87,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",425,228,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",77,63,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
@@ -438,7 +441,8 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ak)",1026,92,0
 "PERFORMANCE.md § finding (al)",882,94,0
 "PERFORMANCE.md § finding (am)",822,99,0
-"PERFORMANCE.md § finding (an)",202,85,0
+"PERFORMANCE.md § finding (an)",344,142,0
+"PERFORMANCE.md § finding (ao)",312,100,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0

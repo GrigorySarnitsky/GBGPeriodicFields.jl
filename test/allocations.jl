@@ -105,6 +105,14 @@ _map_add(a, b) = a + b
       # array, ~16 KB `Float32`) must remain above the bound, and they never take the threaded path
       # at this M.
       field_threshold = threshold + 4096 * Threads.nthreads()
+      # Decision 76 made a rank-R transform issue one plan execution PER CONTIGUOUS COMPONENT where
+      # it had been one batched execution, and FFTW's worker callback allocates task state per
+      # execution — measured at exactly 4032 B each on four threads, and 0 B on one, where the
+      # callback is absent. So the §4(t) slack has to scale with the component count as well as the
+      # thread count: `field_threshold` covers one execution, which is why the scalar and vector rows
+      # still pass and the nine-component tensor rows did not. This was decision 76's to re-derive
+      # and was missed; the threaded CI lane has been failing these three rows since.
+      transform_threshold(components) = threshold + 4096 * Threads.nthreads() * components
 
       # constants for the linear-in-field variants
       const_real = T(2)
@@ -152,17 +160,17 @@ _map_add(a, b) = a + b
 
       # ----- transforms, all tensor orders (plans reuse their own work buffers; invariant 11) -----
       @alloc_below field_threshold to_physical!(psd, ss, scalar_plans)
-      @alloc_below field_threshold to_physical!(pvd, sv, vector_plans)
-      @alloc_below field_threshold to_physical!(ptd, st, tensor_plans)
+      @alloc_below transform_threshold(3) to_physical!(pvd, sv, vector_plans)
+      @alloc_below transform_threshold(9) to_physical!(ptd, st, tensor_plans)
       # The preserving scratch arity (decision 64): allocation-free is its entire reason to exist, so
       # this pin IS the feature. The destination fields double as scratch here — they are spectral
       # fields of the right context whose contents this audit does not reuse.
       @alloc_below field_threshold to_physical!(psd, ss, scalar_plans, ssd)
-      @alloc_below field_threshold to_physical!(pvd, sv, vector_plans, svd)
-      @alloc_below field_threshold to_physical!(ptd, st, tensor_plans, std_)
+      @alloc_below transform_threshold(3) to_physical!(pvd, sv, vector_plans, svd)
+      @alloc_below transform_threshold(9) to_physical!(ptd, st, tensor_plans, std_)
       @alloc_below field_threshold to_spectral!(ssd, ps, scalar_plans)
-      @alloc_below field_threshold to_spectral!(svd, pu, vector_plans)
-      @alloc_below field_threshold to_spectral!(std_, pt, tensor_plans)
+      @alloc_below transform_threshold(3) to_spectral!(svd, pu, vector_plans)
+      @alloc_below transform_threshold(9) to_spectral!(std_, pt, tensor_plans)
 
       # ----- convolution: scalar / vector / tensor fiber broadcast, three- and five-argument -----
       @alloc_below field_threshold convolve!(ssd, ss, kernel)
