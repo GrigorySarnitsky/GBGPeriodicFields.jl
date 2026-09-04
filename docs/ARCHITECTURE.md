@@ -4156,15 +4156,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       CUDA (24 of 24 cells at or below ``1.002\times``) while LOSING ``1.74\times`` on the RX 7900
       XTX `CatmullRom` gather at ``256^3`` `Float64` — the "1.03–1.28x on the device throughout"
       this entry used to carry is RETRACTED by PERFORMANCE.md findings (aj) and (al). At eight
-      nodes per axis it can also lose on CPU: **4–14% depending on the
-      scheme, only from about four threads, and at ``R = 1`` rather than at every rank** — ``R = 2``
-      is less affected, and at one thread the walk is 17–22% FASTER. The mechanism recorded here was
-      backwards: `mod` is the form that VECTORIZES (983–1588 vector instructions against the walk's
-      133–138) and neither variant spills on the host, so the CPU loss is the walk saturating bandwidth sooner and
-      forfeiting the memory-level parallelism independent indices keep — which is also the only story
-      consistent with a sign that flips on thread count. On gfx1100 the walk DOES spill for `CatmullRom` — 192 VGPRs, 292 bytes of scratch and occupancy halved 16 → 8, the flat `Lalescu(3,3)` untouched — which is the AMD-only device regression's mechanism, measured from the compiled code object on 2026-09-04 (PERFORMANCE.md finding (aq). The corner is stated rather than fixed,
-      since a scheme/rank/thread-conditional kernel is the second body decision 47 records going
-      silently dead. The record in `docs/PERFORMANCE.md` finding (ad) carries the tables.
+      nodes per axis it can also lose on CPU: **4–14% depending on the scheme, only from about four
+      threads, and at ``R = 1`` rather than at every rank** — ``R = 2`` is less affected, and at one
+      thread the walk is 17–22% FASTER. The mechanism recorded here was backwards: `mod` is the form
+      that VECTORIZES (983–1588 vector instructions against the walk's 133–138) and neither variant
+      spills on the host, so the CPU loss is the walk forfeiting the memory-level parallelism that
+      independent indices keep — the only story consistent with a sign that flips on thread count.
+      On gfx1100 the walk DOES spill for `CatmullRom` (192 VGPRs, occupancy halved 16 → 8), which is
+      the device regression's mechanism — finding (aq). The corner is stated rather than fixed, since
+      a scheme/rank/thread-conditional kernel is the second body decision 47 records going silently
+      dead; finding (ad) carries the tables.
 
     - **What the two wrong versions had in common** is worth more than either correction: each was
       measured at one point of a space and written as though it held across it — first at one scheme,
