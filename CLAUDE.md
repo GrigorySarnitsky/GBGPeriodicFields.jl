@@ -1168,9 +1168,8 @@ those are the usual rot. Then the mechanical bar:
    4m17s** — 454 → 466 was decision 80's device lane, which is where its claim actually bites, every
    array `point_traversal_order!` avoids allocating being a device array; 466 → 491 is decision 82's,
    and both of ITS properties need a device to check at all, since a host run can neither trip
-   `allowscalar(false)` nor construct a section whose family the display could name wrongly. ROCm has
-   NOT been re-run since either and still reads 454, so the two backends are apart by exactly those two
-   changes until `Aiporetne` runs it; that is a known lag, not a divergence. The earlier discrepancy was a stale
+   `allowscalar(false)` nor construct a section whose family the display could name wrongly. ROCm re-ran
+   2026-09-04 on `Aiporetne` and reads **491/491**, exit 0 in 5m16s — parity again, the lag closed. The earlier discrepancy was a stale
    figure in this file, not a divergence —
    the handover's 454 was right and the 422 predated decisions 77–79. That run is the first to stage
    decisions 73–79 on AMD at all, so the three ROCm-specific first-runs are covered: the
@@ -1469,14 +1468,13 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-**AIPORETNE — THREE ITEMS OPEN; (1) is filed 2026-09-04, (2) and (3) 2026-08-31, all from
-Enteropia** (the sweep queue below those dates is closed and stays closed; these are new). Check
-`hostname`; on `Enteropia` none is actionable. Item (1) is the cheap one and comes first: it is a
-suite run, needs no idle machine, and it is the only one of the three that is a GAP rather than a
-question.
+**AIPORETNE — ONE ITEM OPEN, (3); items (1) and (2) CLOSED 2026-09-04 on this host** (all three
+were filed from Enteropia; check `hostname`, on `Enteropia` nothing here is actionable). The record of
+(1) and (2) is `docs/PERFORMANCE.md` finding (ap); the two closed entries are kept below for what they
+taught, and (3) is unchanged.
 
-**(1) The ROCm suite is TWO CHANGES BEHIND CUDA and only this host can close the gap.** It reads
-**454**, last run 2026-08-31; CUDA reads **491** as of 2026-09-04. The 37 cells between them are
+**(1) CLOSED 2026-09-04 — the ROCm suite reads 491/491, exit 0 in 5m16s, PARITY with CUDA.** It had
+read 454 since 2026-08-31 against CUDA's 491. The 37 cells between them are
 decision 80's device lane (454 → 466) and decision 82's (466 → 491), and in both cases the device
 lane is where the claim actually bites — every array `point_traversal_order!` avoids allocating is a
 device array, and neither of decision 82's display properties can be checked on a host at all, since
@@ -1490,8 +1488,12 @@ suite, so this run is the ROCm evidence for it. Note the suite is the ONLY thing
 that decision: `Pkg.test()` (9346/142), the docs build and the CUDA suite are all green at
 `b1c0b973`.
 
-**(2) Five of this host's archives report a benchmark defect rather than a measurement, and only
-this host can repair them.** The `ordered` transfer rows timed a STALE traversal order — the class shared
+**(2) CLOSED 2026-09-04 by a FULL re-sweep, not the splice this entry prescribes** — `src/` had moved
+by nine files since the archives' commit, which is the case the splice tool refuses; finding (ap)
+has the numbers (five lanes flat to four decimals, the `ordered` rows repaired to ``0.22``–``0.87\times``),
+and the regeneration found that `d828f406` had renamed a row in `RESULTS.md` by hand, now fixed by a
+row-alias map in `report.jl`. The original entry follows. Five of this host's archives reported a
+benchmark defect rather than a measurement, and only this host could repair them. The `ordered` transfer rows timed a STALE traversal order — the class shared
 one `PointSet` between its `displace!`/`wrap!` rows, which mutate positions in place, and the
 `ordered` rows, whose order was built from those positions (`PERFORMANCE.md` finding (ak)). The
 harness is fixed and Enteropia's five archives are repaired; `cpu-12700k-t{1,2,4,8}` and

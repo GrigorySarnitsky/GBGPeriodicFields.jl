@@ -1684,6 +1684,38 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ap) The 2026-09-04 Aiporetne re-sweep: five lanes flat to four decimals, the stale `ordered` rows
+repaired, and a report defect a hand edit had been hiding** (the handover asked for a transfer-only
+splice; `src/` had moved by nine files since these archives' `b452fb17`, so the splice tool's own rule
+applied and the lanes were re-swept whole). Medians against the 2026-08-31 archives: CPU t1/t2/t4/t8
+``0.9991``/``0.9999``/``1.0001``/``1.0000`` over 752 rows, GPU ``1.0005`` over 663 — the harness
+reproduces itself, and a replication scan across the four thread lanes finds **zero** rows slower in
+all four at any threshold. Canaries green on all three lanes and refrozen.
+
+The movers are finding (ak)'s repair and nothing else. Every `ordered` transfer row runs faster —
+``0.56``–``0.87\times`` on the CPU lanes and down to ``0.22\times`` on the device, so
+`interpolate! CatmullRom ordered` at ``256^3`` `Float64` on the 7900 XTX falls 1811.7 → 713.1 us,
+against 1545 us unordered — the ``3``–``4\times`` win this file recorded while `RESULTS.md` reported
+a loss. The `transfer` class medians sit at ``0.989``–``0.994``, the `ordered` rows being the only
+ones that moved.
+
+**The regeneration then exposed a defect in the REPORT, and it is worth the record because a hand edit
+had made it invisible.** Decision 80 renamed the row `transfer_order` to `point_traversal_order`, and
+`d828f406` renamed it in `RESULTS.md` by editing the table — eighteen lines — rather than in the tool
+that generates it. Every Enteropia archive still carries the old key, so the first regeneration after
+the rename split the row in two: this host's cells under the new name, Enteropia's under the old, and
+`—` opposite each.
+
+`report.jl` now carries a row-alias map applied as an archive is READ, so a column keeps its honest
+`commit=` vintage and no archive is rewritten. The check that caught it is the one to run after any
+future rename: every Enteropia cell must be bit-identical after a regeneration that did not touch its
+archives, and it read eight differing until the alias landed.
+
+The ROCm suite was run first, as the handover ordered: **491/491, exit 0 in 5m16s**, the predicted
+count exactly, so decisions 80 and 82 are staged on AMD and `_same_backend`, invariant 14's predicate,
+has been exercised on every device row. Both benchmark gates report every transfer point set
+unmutated (CPU 192 rows, ROCm 206, 0 failed).
+
 **(am) A SHIPPED REGRESSION nobody had found: decision 78's walk costs ``1.45``–``1.48\times`` on the
 width-8 CPU scatter at ``512^3`` `Float64`, and the corner (ad) documents is not that corner**
 (2026-09-01, from a regression hunt over the committed history of `RESULTS.md` rather than over
