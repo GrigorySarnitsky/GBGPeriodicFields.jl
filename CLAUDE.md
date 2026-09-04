@@ -1469,10 +1469,28 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-**AIPORETNE — TWO ITEMS OPEN, filed 2026-08-31 from Enteropia** (the sweep queue below that date is
-closed and stays closed; these are new). Check `hostname`; on `Enteropia` neither is actionable.
+**AIPORETNE — THREE ITEMS OPEN; (1) is filed 2026-09-04, (2) and (3) 2026-08-31, all from
+Enteropia** (the sweep queue below those dates is closed and stays closed; these are new). Check
+`hostname`; on `Enteropia` none is actionable. Item (1) is the cheap one and comes first: it is a
+suite run, needs no idle machine, and it is the only one of the three that is a GAP rather than a
+question.
 
-**(1) Five of this host's archives report a benchmark defect rather than a measurement, and only
+**(1) The ROCm suite is TWO CHANGES BEHIND CUDA and only this host can close the gap.** It reads
+**454**, last run 2026-08-31; CUDA reads **491** as of 2026-09-04. The 37 cells between them are
+decision 80's device lane (454 → 466) and decision 82's (466 → 491), and in both cases the device
+lane is where the claim actually bites — every array `point_traversal_order!` avoids allocating is a
+device array, and neither of decision 82's display properties can be checked on a host at all, since
+a host run can neither trip `allowscalar(false)` nor construct a section whose storage family the
+display could name wrongly. Run `julia --project=test/gpu/rocm test/gpu/rocm/runtests.jl` and expect
+**491/491**; a different number is a finding, not a rounding difference.
+
+Decision 82 also unified three spellings of the storage family into one recursing predicate, and
+that predicate is `_same_backend` — invariant 14's. It is exercised on every device row in the
+suite, so this run is the ROCm evidence for it. Note the suite is the ONLY thing outstanding for
+that decision: `Pkg.test()` (9346/142), the docs build and the CUDA suite are all green at
+`b1c0b973`.
+
+**(2) Five of this host's archives report a benchmark defect rather than a measurement, and only
 this host can repair them.** The `ordered` transfer rows timed a STALE traversal order — the class shared
 one `PointSet` between its `displace!`/`wrap!` rows, which mutate positions in place, and the
 `ordered` rows, whose order was built from those positions (`PERFORMANCE.md` finding (ak)). The
@@ -1493,7 +1511,7 @@ those five columns where it is a ``3``–``4\times`` win. Steps:
 4. Regenerate `RESULTS.md` over all ten archives, and delete the stale-`ordered` caveat paragraph
    from `report.jl`'s header prose once no column carries one.
 
-**(2) Why is decision 78's device gather regression AMD-only?** Enteropia measured 24 of 24
+**(3) Why is decision 78's device gather regression AMD-only?** Enteropia measured 24 of 24
 gather/scatter cells at or below ``1.002\times`` on the 5070 Ti, so the cache-boundary explanation
 finding (aj) offered is dead — it predicted a regression on that card at ``256^3`` `Float32` and got
 a ``0.90\times`` win, and the two schemes move in opposite directions across the same boundary. The
