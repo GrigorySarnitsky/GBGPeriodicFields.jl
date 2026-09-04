@@ -4160,9 +4160,9 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       scheme, only from about four threads, and at ``R = 1`` rather than at every rank** — ``R = 2``
       is less affected, and at one thread the walk is 17–22% FASTER. The mechanism recorded here was
       backwards: `mod` is the form that VECTORIZES (983–1588 vector instructions against the walk's
-      133–138) and neither variant spills, so the loss is the walk saturating bandwidth sooner and
+      133–138) and neither variant spills on the host, so the CPU loss is the walk saturating bandwidth sooner and
       forfeiting the memory-level parallelism independent indices keep — which is also the only story
-      consistent with a sign that flips on thread count. The corner is stated rather than fixed,
+      consistent with a sign that flips on thread count. On gfx1100 the walk DOES spill for `CatmullRom` — 192 VGPRs, 292 bytes of scratch and occupancy halved 16 → 8, the flat `Lalescu(3,3)` untouched — which is the AMD-only device regression's mechanism, measured from the compiled code object on 2026-09-04 (PERFORMANCE.md finding (aq). The corner is stated rather than fixed,
       since a scheme/rank/thread-conditional kernel is the second body decision 47 records going
       silently dead. The record in `docs/PERFORMANCE.md` finding (ad) carries the tables.
 

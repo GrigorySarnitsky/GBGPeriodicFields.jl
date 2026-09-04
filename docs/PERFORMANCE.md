@@ -1684,6 +1684,47 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(aq) The AMD-only gather regression has its mechanism: on gfx1100 the walk kernel spills, and
+`CatmullRom` runs at HALF the occupancy it had** (2026-09-04, closing the question Enteropia's CUDA
+A/B left open in finding (al)). The evidence is the compiled kernel, read from the code object rather
+than inferred from timings: `_interpolate_kernel!` at ``256^3`` `Float64`, dumped through the
+compiler for the pre-decision-78 commit `7bbbc75a` and for HEAD, for the regressed scheme and for
+the flat one.
+
+- `CatmullRom`, the ``1.74\times`` regression: 91 VGPRs, no scratch and **16 waves per EU** under
+  `mod`; **192 VGPRs, 292 bytes of scratch and 8 waves per EU** under the walk, with 72 scratch loads
+  and stores in the emitted code against 14.
+- `Lalescu(3,3)`, flat at ``0.98``–``1.05\times``: 104 → 107 VGPRs, occupancy 12 → 12, scratch traffic
+  14 → 5. Nothing moved.
+
+So the register allocator, given the walk's chained indices for the 4-node stencil, keeps roughly
+twice as many values live, crosses the RDNA3 allocation tier that halves the resident wavefronts,
+and spills the remainder into the hot loop; the 8-node stencil hands it a loop it treats differently
+and loses nothing. Decision 78's own record that "neither variant spills" was a HOST measurement and
+is false on this card for this scheme.
+
+**Both signs are now measured rather than argued.** The walk executes about ``2.5\times`` fewer
+instructions (2150 against 5261 for `CatmullRom`, the per-node `mod` lowering to long integer-division
+sequences), which is the win wherever the resident waves already hide the latency — every ``128^3``
+cell, both `Lalescu` grids, the whole CUDA table. The loss appears exactly where latency hiding is
+what the kernel needs and occupancy is what was halved: `CatmullRom` at ``256^3`` `Float64`, the one
+measured cell whose field exceeds the Infinity Cache. Finding (aj)'s cache boundary was therefore the
+place the mechanism becomes VISIBLE, not the mechanism, which is why the same boundary predicted
+nothing on the other vendor.
+
+**A prediction the other host can falsify at no cost.** If this is right, the walk kernel compiled for
+sm_120 does NOT cross a register tier: its register count and occupancy for `CatmullRom` should sit
+where the `mod` kernel's did, which one `@device_code_ptx`/`sass` dump would show. If the CUDA kernel
+also spilled and also halved its occupancy, this account is wrong and the vendor split has another
+cause.
+
+**What to do about it, if anything, is a design question and is not taken here.** The lever is
+register pressure at one scheme, not the walk's arithmetic — a kernel that kept the walk's instruction
+count and gave the allocator fewer simultaneously live indices for the 4-node stencil would keep the
+win everywhere, and decision 47 forbids a second body conditioned on scheme. The roadmap's route,
+advancing a small block of stencil indices independently, is also the shape that lowers live-range
+length, so the two goals point the same way. The corner stays documented, as decision 78 records.
+
 **(ap) The 2026-09-04 Aiporetne re-sweep: five lanes flat to four decimals, the stale `ordered` rows
 repaired, and a report defect a hand edit had been hiding** (the handover asked for a transfer-only
 splice; `src/` had moved by nine files since these archives' `b452fb17`, so the splice tool's own rule

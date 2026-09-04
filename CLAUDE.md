@@ -1451,8 +1451,8 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   ``\approx 48`` MB L2 than on the 7900 XTX's 96 MB Infinity Cache, and it WINS at ``0.90\times``.
   The weaker monotone claim fails too, `CatmullRom`'s win growing with the working set while
   `Lalescu(3,3)`'s shrinks. Finding (aj)'s cache-boundary account is corrected in place: it describes
-  the ROCm measurements and is not a property of the walk. **The AMD regression is vendor-specific
-  and now has no mechanism** — that question is Aiporetne's, below.
+  the ROCm measurements and is not a property of the walk. **The AMD regression is vendor-specific,
+  and its mechanism is now measured** — register pressure halving occupancy on gfx1100, finding (aq).
 - **The old arm this queue named was the WRONG COMMIT, and the queue's own caveat caught it.**
   `93d9d8da` predates `d5f6814a`, which repaired the CUDA `gcsample` probe (§4(w)), so every row
   measured there ran on the per-sample collector: three samples with `gcsample = true` against 668
@@ -1468,10 +1468,10 @@ the stale traversal order. Nothing here is actionable again until the next sweep
   confirmed on both vendors. Its `fft` mechanism is `to_physical!` SCALAR at ``128^3``, exactly the
   configuration that decision leaves alone, so the next regression on that axis is equally invisible.
 
-**AIPORETNE — ONE ITEM OPEN, (3); items (1) and (2) CLOSED 2026-09-04 on this host** (all three
-were filed from Enteropia; check `hostname`, on `Enteropia` nothing here is actionable). The record of
-(1) and (2) is `docs/PERFORMANCE.md` finding (ap); the two closed entries are kept below for what they
-taught, and (3) is unchanged.
+**AIPORETNE — ALL THREE ITEMS CLOSED 2026-09-04 on this host** (all three were filed from Enteropia;
+check `hostname`). The record of (1) and (2) is `docs/PERFORMANCE.md` finding (ap), of (3) finding
+(aq); the entries are kept below for what they taught. Nothing here is actionable until the next
+handover.
 
 **(1) CLOSED 2026-09-04 — the ROCm suite reads 491/491, exit 0 in 5m16s, PARITY with CUDA.** It had
 read 454 since 2026-08-31 against CUDA's 491. The 37 cells between them are
@@ -1513,7 +1513,11 @@ those five columns where it is a ``3``–``4\times`` win. Steps:
 4. Regenerate `RESULTS.md` over all ten archives, and delete the stale-`ordered` caveat paragraph
    from `report.jl`'s header prose once no column carries one.
 
-**(3) Why is decision 78's device gather regression AMD-only?** Enteropia measured 24 of 24
+**(3) CLOSED 2026-09-04 — it is register pressure: on gfx1100 the walk compiles `CatmullRom` to 192
+VGPRs with 292 bytes of scratch at 8 waves per EU, where `mod` gave 91 VGPRs, no scratch and 16; the
+flat `Lalescu(3,3)` is unchanged on every line (104 → 107 VGPRs, occupancy 12 → 12). Read from the
+compiled code object at both commits, finding (aq), with the CUDA falsification test stated there.
+The original question follows.** Why is decision 78's device gather regression AMD-only? Enteropia measured 24 of 24
 gather/scatter cells at or below ``1.002\times`` on the 5070 Ti, so the cache-boundary explanation
 finding (aj) offered is dead — it predicted a regression on that card at ``256^3`` `Float32` and got
 a ``0.90\times`` win, and the two schemes move in opposite directions across the same boundary. The
@@ -2448,9 +2452,11 @@ that would have caught this class, so it earns its place ahead of work that repa
   applies on the device too, and the original device sweep simply never crossed the cache boundary.
   `CatmullRom` is the scheme it bites because it reads 64 nodes per point, the family's lowest
   arithmetic intensity; `Lalescu(3,3)` reads 512 and stays flat. See PERFORMANCE.md finding (aj). **The mechanism first recorded was backwards**: `mod` is the form that
-  vectorizes and neither variant spills, so the loss is the walk saturating bandwidth sooner and
-  forfeiting the memory-level parallelism independent indices keep, which is also the only story
-  consistent with a sign that flips on thread count. Kept with the corner documented. Finding (ad) carries the swept table.
+  vectorizes and neither variant spills ON THE HOST, so the CPU loss is the walk saturating bandwidth
+  sooner and forfeiting the memory-level parallelism independent indices keep, which is also the only
+  story consistent with a sign that flips on thread count. **On gfx1100 the walk DOES spill** for
+  `CatmullRom` — 192 VGPRs, 292 bytes of scratch, occupancy halved 16 → 8, the flat `Lalescu(3,3)`
+  untouched — which is the AMD-only device regression's mechanism, finding (aq). Kept with the corner documented. Finding (ad) carries the swept table.
 
   **THE CORNER IS BIGGER THAN THIS ENTRY SAYS, found 2026-09-01 (finding (am)).** Every figure above
   is the GATHER; the width-8 **scatter** was never swept, and it costs **``1.45``–``1.48\times`` at
