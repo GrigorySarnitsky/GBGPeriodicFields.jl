@@ -165,7 +165,12 @@ const MODULE_BASELINE = (
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
   Points                = 226,
-  Interpolation         = 177,
+  Interpolation         = 179,
+  # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
+  # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
+  # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build
+  # that `KernelAbstractions` did not parallelise, and its cost follows the BLOCK count, so it does
+  # not shrink as the rest is threaded: a quarter of the build at 512³ on eight threads.
   # 176 → 177, ONE method: `adapt_structure` for `PointTraversalOrder`, from an adversarial review of
   # the traversal order (2026-09-03). `_check_point_traversal_order`'s refusal told a caller to "move
   # it with `adapt`" while no such method existed, so Adapt's identity default handed the same host

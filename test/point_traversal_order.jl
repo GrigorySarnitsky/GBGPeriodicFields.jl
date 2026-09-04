@@ -369,3 +369,47 @@ end
   @test sort(collect(moved.indices)) == sort(collect(traversal.indices))
   @test moved isa PointTraversalOrder
 end
+
+
+# The threaded running total (decision 81). On a CPU this is the one stage of the build that
+# `KernelAbstractions` does not parallelise, and its cost is set by the block count — the grid —
+# rather than by the point count, so at ``512^3`` and the default tile size it was a quarter of the
+# build at eight threads. The property that makes threading it safe is that integer addition is
+# exact and associative: regrouping the sums cannot change them, so the result is BITWISE equal to
+# `cumsum!` with no fixed-tree machinery of the kind decision 40 needed for floats.
+@testset "point_traversal_order: the threaded running total is bitwise cumsum!" begin
+  I = GBGPeriodicFields.Interpolation
+  Random.seed!(31)
+  # Sizes bracket the chunk cutoff (4096) in both directions, and include the empty and unit cases.
+  for n in (0, 1, 2, 4095, 4096, 4097, 8192, 262_146, 2_097_154)
+    for counts in (rand(Int32(0):Int32(9), n), zeros(Int32, n), ones(Int32, n),
+                   rand(Int32(0):Int32(3), n))
+      expected = similar(counts); measured = similar(counts)
+      cumsum!(expected, counts)
+      @test I._scan_offsets!(measured, counts) === measured
+      @test measured == expected          # bitwise, not approximate
+    end
+  end
+
+  # `cumsum!` into a narrow integer RAISES on overflow rather than wrapping. A threaded scan that
+  # accumulated in the same width would wrap to a negative total, and a negative offset is an index
+  # the placement kernel would use inside `@inbounds` — the class decision 78 records fixing. The
+  # contract is therefore part of the replacement, not an accident of it.
+  overflowing = fill(Int32(1000), 3_000_000)     # sums past typemax(Int32)
+  destination = similar(overflowing)
+  @test_throws Exception cumsum!(destination, overflowing)
+  @test_throws Exception I._scan_offsets!(destination, overflowing)
+
+  # And the built order is unchanged by the threading, which is what the suite must actually protect.
+  T = Float64
+  grid = Grid3D((64, 64, 64), (T(2π), T(2π), T(2π)))
+  points = PointSet(T(2π) .* rand(T, 5000, 3))
+  serial = with_threading(; enabled = false) do
+    collect(point_traversal_order(grid, points).indices)
+  end
+  threaded = with_threading(; enabled = true) do
+    collect(point_traversal_order(grid, points).indices)
+  end
+  @test sort(serial) == collect(Int32(1):Int32(5000))
+  @test sort(threaded) == collect(Int32(1):Int32(5000))
+end

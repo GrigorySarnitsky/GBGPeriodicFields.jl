@@ -81,7 +81,7 @@ module Interpolation
 
 using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
-using ..FiberSections: _assign!, @_assign!
+using ..FiberSections: _assign!, @_assign!, _use_threads
 import ..Fields: _context_grid, _context_layout      # extended for the NUFFT plan below
 using ..Fields: _check_matching_context
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
@@ -652,6 +652,78 @@ function _traversal_tiles(grid::Grid3D, tile_size::Integer)
 end
 
 
+
+
+# Minimum blocks per chunk for the threaded scan. Below it the two-pass form's extra read of `counts`
+# costs more than the parallelism buys — measured at parity on 4096 blocks and 2.6–7.3× above 262144.
+const _SCAN_CHUNK = 4096
+
+"""
+    _scan_offsets!(offsets, counts)
+
+Write the inclusive running total of `counts` into `offsets`, and return `offsets`.
+
+The generic method is `cumsum!`, which is a parallel scan on a device and a serial loop on the host.
+The host method below threads it, because on a CPU this is the one stage of building a traversal
+order that `KernelAbstractions` does not parallelise, and its cost is set by the number of blocks —
+that is, by the grid — rather than by the point count. At ``512^3`` and the default `tile_size` it
+was a quarter of the build at eight threads.
+"""
+_scan_offsets!(offsets, counts) = cumsum!(offsets, counts)
+
+
+"""
+    _scan_offsets!(offsets::Vector, counts::Vector)
+
+Threaded inclusive running total on the host: each chunk sums its own slice, the chunk totals are
+scanned serially (there are only as many as there are chunks), and each chunk then writes its slice
+offset by the total of everything before it.
+
+The result is **bitwise identical** to `cumsum!`, and for integers that is a property rather than a
+tolerance: addition is exact and associative, so regrouping the sums cannot change them. A threaded
+float reduction would need the fixed tree of decision 40; this needs nothing.
+
+Two details are load-bearing. The chunk accumulator is declared `local`, because a name already
+bound in the enclosing scope would be SHARED by every task rather than shadowed — a data race that
+produced wrong answers and ran 50× slower when this was first written. And the grand total is
+accumulated wide and checked against `typemax`, because `cumsum!` into a narrow integer is
+overflow-checked while a plain accumulation wraps: a wrapped total becomes a negative offset, which
+the placement kernel would use as an index inside `@inbounds`.
+"""
+function _scan_offsets!(offsets::Vector{T}, counts::Vector{T}) where {T<:Integer}
+  number_of_blocks = length(counts)
+  chunks = min(Threads.nthreads(), number_of_blocks ÷ _SCAN_CHUNK)
+  (chunks < 2 || !_use_threads(number_of_blocks)) && return cumsum!(offsets, counts)
+  edges = [1 + (c - 1) * number_of_blocks ÷ chunks for c in 1:(chunks + 1)]
+  edges[end] = number_of_blocks + 1
+  totals = zeros(widen(T), chunks)
+  Threads.@threads for c in 1:chunks
+    local run = zero(widen(T))
+    @inbounds for i in edges[c]:(edges[c + 1] - 1)
+      run += counts[i]
+    end
+    totals[c] = run
+  end
+  carry = zeros(widen(T), chunks)
+  running = zero(widen(T))
+  for c in 1:chunks
+    carry[c] = running
+    running += totals[c]
+  end
+  # `cumsum!` into a narrow integer raises on overflow; match that rather than wrapping silently.
+  running ≤ typemax(T) ||
+    throw(InexactError(:_scan_offsets!, T, running))
+  Threads.@threads for c in 1:chunks
+    local run = carry[c]
+    @inbounds for i in edges[c]:(edges[c + 1] - 1)
+      run += counts[i]
+      offsets[i] = run % T
+    end
+  end
+  return offsets
+end
+
+
 # The counting pass itself, over storage the caller owns. Both `point_traversal_order` and
 # `point_traversal_order!` route through this, so the two cannot drift into computing different orders.
 function _fill_traversal!(indices, grid::Grid3D{T}, points::PointSet, keys, counts, offsets,
@@ -666,7 +738,7 @@ function _fill_traversal!(indices, grid::Grid3D{T}, points::PointSet, keys, coun
   _tile_key_kernel!(backend)(keys, coordinates, origin, inverse_tile, tiles, number_of_points;
                              ndrange = number_of_points)
   _tile_count_kernel!(backend)(counts, keys, number_of_points; ndrange = number_of_points)
-  cumsum!(offsets, counts)
+  _scan_offsets!(offsets, counts)
   _place_kernel!(backend)(indices, offsets, keys, number_of_points; ndrange = number_of_points)
   synchronize(backend)
   return indices

@@ -2542,3 +2542,27 @@ about 1.2 KiB of host-side launch bookkeeping, the same class as the FFTW callba
 why `test/allocations.jl` guards this row with a bound rather than a zero. The bound is far below one
 point-sized array, so a regression that began allocating per point could not hide under it. What the
 device pool cares about is the part that scales, and that is now the caller's storage entirely.
+
+**(ao) The traversal build's running total was the one unthreaded stage, and its share is set by the
+GRID** (2026-09-04, decision 81). Three of the four stages of `point_traversal_order` are
+`KernelAbstractions` kernels and thread by KA's own partitioning; the running total over the block
+counts was `cumsum!`, serial on a host array. Because the block count follows the grid and
+`tile_size` rather than the point count, the serial stage does not shrink as the rest speeds up:
+
+- 9800X3D, ``10^6`` points, default `tile_size`, ``256^3``: build 9.24 ms at one thread and 1.87 at
+  eight (4.9×), with the scan flat at 0.08 ms — 1% of the build serially, 4% at eight threads.
+- Same at ``512^3`` (2.1M blocks): build 3.41 ms at four threads and 2.85 at eight, with the scan at
+  0.69–0.70 ms — **20% and 25%** of the build. This is the default tile size at the grid decision 37
+  names for the CPU, not a corner.
+- At `tile_size = 1` on ``256^3`` (16.8M blocks) it reached 55% of the build at eight threads.
+
+Threaded (`_scan_offsets!`), the scan runs ``2.6``–``7.3\times`` faster and the build gains
+``1.17\times`` at four threads and ``1.26\times`` at eight at ``512^3``. The scan's own speedup peaks
+around 2.1M blocks and falls off at 16.8M, where the two-pass form's extra read of the counts
+saturates bandwidth.
+
+Two other observations from the same sweep. The build is SLOWER at `tile_size = 16` than at 4 on eight
+threads (4.79 against 1.89 ms), which is atomic contention on only 4096 counters — the same mechanism
+as the radial shell binning of the triage section. So the build has a sweet spot near the default,
+with contention above it and the scan below it, and that is the opposite of the gather's preference
+for coarser blocks; the two pull against each other and only the gather's direction was documented.

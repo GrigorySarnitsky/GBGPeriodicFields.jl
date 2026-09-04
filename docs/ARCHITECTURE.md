@@ -4343,3 +4343,38 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       place. `test/point_traversal_order.jl` asserts the agreement **block-wise** rather than index-wise,
       because the scatter's atomics leave the order within a block unspecified in both forms; an
       index-wise comparison would be testing the atomics, not the operation.
+
+81. **The traversal order's running total is threaded on the host** (2026-09-04, user-directed).
+    Building a traversal order runs three `KernelAbstractions` kernels, which thread by KA's own
+    partitioning, and one running total over the block counts, which did not thread at all: it was
+    `cumsum!`, a serial loop on a host array. Its cost is set by the number of BLOCKS — that is, by
+    the grid and `tile_size` — and not by the point count, so it does not shrink as the rest of the
+    build is parallelised. Measured on a 9800X3D at ``10^6`` points with the default `tile_size`: at
+    ``256^3`` it was 4% of the build at eight threads, and at ``512^3``, the grid decision 37 names as
+    the CPU tuning target, **25%**.
+
+    - **`_scan_offsets!` replaces the call, and only the host method threads.** The generic method is
+      `cumsum!`, which is already a parallel scan on a device; the host method is a two-pass form —
+      each chunk sums its own slice, the chunk totals are scanned serially, each chunk then writes its
+      slice offset by the total before it. Below a chunk of 4096 blocks, or with threading turned off,
+      it falls back to `cumsum!`. Measured end-to-end at ``512^3``: the build goes 3.41 → 2.91 ms at
+      four threads and 2.85 → 2.26 ms at eight, so ``1.17``–``1.26\times``; the scan alone is
+      ``2.6``–``7.3\times``.
+
+    - **Bitwise equality is a property here, not a tolerance.** Integer addition is exact and
+      associative, so regrouping the sums cannot change them and the threaded result equals `cumsum!`
+      bit for bit — no fixed reduction tree of the kind decision 40 needed for floats. Pinned over
+      sizes bracketing the cutoff and four distributions.
+
+    - **The overflow contract had to be carried across deliberately.** `cumsum!` into a narrow integer
+      RAISES on overflow; a scan accumulating in that same width wraps silently, and a wrapped total
+      is a negative offset that the placement kernel would use as an index inside `@inbounds` — the
+      class decision 78 records fixing. The chunk totals are therefore accumulated wide and the grand
+      total is checked against `typemax` before the second pass. Both forms are asserted to throw.
+
+    - **A data race in the first draft is worth recording, because reading did not catch it.** Pass
+      two wrote `acc = carry[c]` where `acc` was already bound in the enclosing function scope, so
+      the assignment targeted the OUTER local and every task shared one accumulator. It produced
+      wrong answers and ran 50× slower than the serial loop. It surfaced only because the correctness
+      harness crashed on its first mismatch; the fix is `local run = …`, and the hazard is that a name
+      reused from an enclosing scope inside `Threads.@threads` is shared rather than shadowed.

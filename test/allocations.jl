@@ -309,7 +309,13 @@ _map_add(a, b) = a + b
       # property a device pool cares about. The bound is far below one point-sized array, so a
       # regression that started allocating per point could not hide under it.
       rebuild_scratch = PointTraversalOrderScratch(grid, points)
-      @alloc_below 8192 point_traversal_order!(visit_order, grid, points, rebuild_scratch)
+      # The bound scales with the thread count because what is left is KA launch bookkeeping, which
+      # spawns per thread — a FIXED bound here was wrong the moment the suite ran threaded, and the
+      # threaded CI lane would have failed it (9472 against 8192 at four threads). The same idiom as
+      # the storage-family rows below. At ONE thread the spawning is absent and the true value is
+      # 1248 B, which this pins tightly; above it the slack covers someone else's nondeterminism.
+      rebuild_bound = Threads.nthreads() == 1 ? 4096 : 4096 * Threads.nthreads()
+      @alloc_below rebuild_bound point_traversal_order!(visit_order, grid, points, rebuild_scratch)
 
       # ----- base-space motion (decision 73: displace! in the cover and on the torus, wrap!) -----
       motion_points = PointSet(T(2π) .* rand(T, M, 3))
