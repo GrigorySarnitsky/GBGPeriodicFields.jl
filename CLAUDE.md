@@ -2614,8 +2614,11 @@ that would have caught this class, so it earns its place ahead of work that repa
 - **Commit ⇒ push, on `master`.** This is a *private* repo synced across machines through
   GitHub, so work is committed **directly on `master`** (the default branch — do not branch)
   and **pushed in the same step**; GitHub is the cross-machine sync path and the docs site
-  deploys on push. End every commit message with `Co-Authored-By: Claude Opus 4.8
-  <noreply@anthropic.com>`; never use `[skip ci]`.
+  deploys on push. End every commit message with `Co-Authored-By: Anthropic Claude
+  <noreply@anthropic.com>`; never use `[skip ci]`. The trailer names no model VERSION on purpose
+  (user-decided 2026-09-04): the model in use changes often and the versions supersede each other, so
+  a version in the trailer is a fact about the day rather than about the work, and it goes stale in
+  the one place git will never let anyone correct it. History keeps whatever it was written with.
 - **CI is manual-only — run the matrix LOCALLY pre-commit.** Push-triggered CI burned the
   free tier, so the workflow runs only on manual dispatch / tags, **not on push**. Before
   committing a code change, run `Pkg.test()` (plus the GPU suite where a device change
