@@ -1142,7 +1142,15 @@ _same_layout(a, b) = field_layout(a) == field_layout(b)
 # and `Fields` needs no launch-layer dependency to express it. `Array` and `CuArray` differ; a plain
 # array and a view of one do not, which is intended — a view shares the host's storage family and is
 # a legitimate operand.
-_storage_family(a) = Base.typename(typeof(parent(field_data(a)))).wrapper
+#
+# It RECURSES through `parent`, and the recursion is load-bearing rather than tidy. The constructors
+# reject only a `SubArray`, so a `reshape` of a `PermutedDimsArray` of a device array is
+# constructible; one `parent` call answers `ReshapedArray` for it, which is not a storage family at
+# all, and two sections wrapped to different depths around the same device array would then be
+# refused as if they lived in different memories.
+_storage_family(array::AbstractArray) =
+  parent(array) === array ? Base.typename(typeof(array)).wrapper : _storage_family(parent(array))
+_storage_family(section) = _storage_family(field_data(section))
 _same_backend(a, b) = _storage_family(a) === _storage_family(b)
 
 
@@ -2208,6 +2216,185 @@ that field group under `parent`.
 Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_field end
+
+
+# ---------------------------------------------------------------------------------------------
+# Display
+#
+# A section wraps a field-sized array, and the default struct display prints that array in full: a
+# vector field on a 64^3 grid renders as 3.1 million characters, a `PointSet` of 100000 points as
+# 5.6 million, a `NUFFT` as 2.5 million. That floods a REPL, and — the half that bites harder — it
+# is what an exception interpolating one of these would carry, so the package's error messages are
+# readable today only because every author remembered to interpolate `size(...)` and not the object.
+#
+# TWO FORMS, because Julia uses them in different places. The two-argument `show` is what appears
+# inside a container, inside `$(...)` interpolation and inside an exception, so it is one line and
+# **self-delimiting**: `Type{T}(body)`, parenthesised the way `Diagonal([1.0, 2.0])` and
+# `CartesianIndex(1, 2, 3)` are, because a bare `Type: a, b` cannot be told apart from its
+# neighbours once a container puts commas between elements. The three-argument `MIME"text/plain"`
+# form is the REPL's, and may spend more lines.
+#
+# WHAT THE BODY CARRIES is chosen by what the package REFUSES on, not by what is interesting. A
+# display that omitted those printed two byte-identical strings for the two operands of the very
+# error it was meant to explain — measured on four mutually incompatible fields, which rendered as
+# one string. `_check_same_domain` refuses on six things, and the display shows all six: the scalar
+# type and the storage family, always; the grid, which decision 45 fixes as size and extent (the
+# spacing being derived from them, so it cannot differ on its own) and the origin; and the Fourier
+# layout. Grid size, scalar type and family are shown unconditionally, and the other three only when
+# they leave the ordinary isotropic 2π box at the origin in axis order — which keeps the common line
+# near fifty characters. Two refused fields therefore cannot render alike, and that is a consequence
+# of the enumeration above rather than a claim: `test/display.jl` asserts it over every pair of a
+# family of refused fields.
+#
+# ONE VOCABULARY, and `name = value` means one thing. A property is printed as `name value` —
+# `extent (…)`, `origin (…)`, `fft_dims (…)`, `tile_size 4` — and the `=` form is reserved for a
+# display that IS a valid constructor call, which is the transfer schemes' (`LalescuSpline(3, 2;
+# T = Float32)`) and nothing else's. Without the rule the same quantity acquired two spellings: the
+# compact field line said `L = (…)` where the REPL form and `Grid3D`'s own display said `extent (…)`.
+#
+# NOTHING HERE MAY READ AN ELEMENT. Every quantity is host-side metadata, so these are safe on a
+# device under `allowscalar(false)` and force no synchronisation. A future addition that prints a
+# norm, a range or a sample value would break that, and is prohibited rather than merely discouraged.
+
+"""
+    _show_extent(io, sizes)
+
+Print a size tuple in the `64×64×64` form every display in the package uses for a grid or an array
+shape, so that one shape is spelled one way across the modules.
+"""
+_show_extent(io::IO, sizes) = join(io, sizes, "×")
+
+
+"""
+    _approx(x)
+
+Round a number to four significant digits, for display.
+
+Reserved for a RATIO — the `NUFFT` oversampling is the only current caller — and never for a
+coordinate. No compatibility check turns on a ratio, so rounding one cannot make two refused objects
+print the same string; a coordinate is the opposite case, which is why
+[`_show_domain`](@ref) prints those at full precision.
+"""
+_approx(x) = round(Float64(x); sigdigits = 4)
+
+
+"""
+    _show_domain(io, grid)
+    _show_domain(io, grid, layout)
+
+Print the parts of a grid and layout that differ from the ordinary box, and nothing when they do not.
+
+The grid-only arity is for an object that carries a grid and no layout — a traversal scratch, which
+is bound to the grid its keys were computed for and has no Fourier structure at all.
+
+The ordinary box is ``[0, 2\\pi)`` on every axis with the fold on the first, which is what the tests,
+the examples and the benchmarks all use. Anything else is what makes two same-sized fields refuse to
+combine, so it is exactly what a display has to carry.
+
+Coordinates print at **full precision**, not rounded. A first draft rounded them to four significant
+digits, which reintroduced one axis-scale down the very defect this display exists to remove: the
+grid check is exact equality, so two boxes differing in the sixth digit are refused and would have
+rendered as the same string. Length is spent only where it buys that, since the ordinary box prints
+nothing at all here.
+"""
+function _show_domain(io::IO, grid::Grid3D, layout::RealFourierLayout)
+  _show_domain(io, grid)
+  layout.fft_dims == (1, 2, 3) ||
+    print(io, ", fft_dims ", layout.fft_dims)
+  return nothing
+end
+
+function _show_domain(io::IO, grid::Grid3D)
+  # EXACTLY the ordinary extent, not approximately it. A first draft asked `≈(2π)`, and a box of
+  # `2π + 1e-9` sits inside the default tolerance: the extent was therefore suppressed, the two
+  # fields printed the same string, and the grid check — which is exact equality — refused them
+  # anyway. Printing coordinates at full precision cannot help when the predicate deciding whether
+  # to print them at all is the loose one. Compared at the grid's own element type, so a `Float32`
+  # box still recognises its own 2π.
+  all(x -> x == oftype(x, 2π), grid.domain_size) ||
+    print(io, ", extent ", grid.domain_size)
+  all(iszero, grid.origin) ||
+    print(io, ", origin ", grid.origin)
+  return nothing
+end
+
+
+# The grid holds no array, so the default display is not a flood — but it prints nine floats
+# including the three `grid_spacing` entries, which the four-argument constructor REFUSES to accept
+# as anything other than `domain_size ./ grid_size` (decision 45). Printing a derived quantity beside
+# the two it is derived from is noise, and labelling the two that remain is what makes the line
+# readable.
+function Base.show(io::IO, grid::Grid3D)
+  print(io, "Grid3D{", eltype(grid.domain_size), "}(")
+  _show_extent(io, grid.grid_size)
+  print(io, " cells, extent ", grid.domain_size)
+  all(iszero, grid.origin) || print(io, ", origin ", grid.origin)
+  print(io, ")")
+end
+
+
+"""
+    _show_field_head(io, field)
+
+Print a field's type head, `ScalarFieldPhysical{Float64}` or `TensorFieldSpectral{2, Float64}`.
+
+The head is an abbreviation of `typeof`, not a copy of it — a valid partial application with the
+storage, grid and layout parameters dropped. The tensor types carry the order `R` as their first
+parameter and the scalar and vector names already imply theirs, so only the tensor head shows it.
+Shared by both display forms, which is the point: written twice, the REPL form dropped the order and
+two tensor fields of different rank showed the same head.
+"""
+function _show_field_head(io::IO, field::AbstractField)
+  order = field_tensor_order(field)
+  print(io, nameof(typeof(field)), "{")
+  order ≥ 2 && print(io, order, ", ")
+  print(io, field_scalar_type(field), "}")
+end
+
+
+function Base.show(io::IO, field::AbstractField)
+  _show_field_head(io, field)
+  print(io, "(")
+  _show_extent(io, field_grid(field).grid_size)
+  print(io, " grid")
+  _show_domain(io, field_grid(field), field_layout(field))
+  print(io, ", ", nameof(_storage_family(field)), ")")
+end
+
+
+function Base.show(io::IO, ::MIME"text/plain", field::AbstractField)
+  grid = field_grid(field)
+  _show_field_head(io, field)
+  print(io, "\n  grid:    ")
+  _show_extent(io, grid.grid_size)
+  print(io, " cells, origin ", grid.origin, ", extent ", grid.domain_size)
+  # The stored shape is NOT the grid for a field in spectral representation — it is the rfft half
+  # spectrum, in a complex element type — so it is printed rather than left to be inferred.
+  print(io, "\n  stored:  ")
+  _show_extent(io, size(field_data(field)))
+  print(io, " ", eltype(field_data(field)), " in ", nameof(_storage_family(field)))
+  print(io, "\n  layout:  fft_dims ", field_layout(field).fft_dims,
+        ", folded on axis ", field_layout(field).fft_dims[1])
+end
+
+
+function Base.show(io::IO, multipliers::FieldSpectralMultipliers)
+  print(io, "FieldSpectralMultipliers{", eltype(multipliers.wavenumber_1), "}(")
+  _show_extent(io, multipliers.grid.grid_size)
+  print(io, " grid")
+  _show_domain(io, multipliers.grid, multipliers.fourier_layout)
+  print(io, ", ", nameof(_storage_family(multipliers.wavenumber_1)), ")")
+end
+
+
+function Base.show(io::IO, plans::FieldTransformPlans)
+  print(io, "FieldTransformPlans(")
+  _show_extent(io, plans.grid.grid_size)
+  print(io, " grid")
+  _show_domain(io, plans.grid, plans.fourier_layout)
+  plans.component_scratch === nothing || print(io, ", component buffer")
+  print(io, ")")
+end
 
 
 ###################################################

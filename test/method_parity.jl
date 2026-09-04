@@ -109,7 +109,17 @@ const MODULE_BASELINE = (
   # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
   # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
   # deliberately, with the reason, per decision 53's protocol.
-  Fields                = 130,
+  # 130 → 141: the display layer (decision 82). Ten are it — `_show_extent`, `_approx`,
+  # `_show_field_head`, the two `_show_domain` arities (grid-and-layout, and grid alone for an object
+  # such as a traversal scratch that has no Fourier structure), and a `show` each for `Grid3D`, a
+  # field (compact), a field (`text/plain`), `FieldSpectralMultipliers` and `FieldTransformPlans`.
+  # The eleventh is a SPLIT rather than an addition: `_storage_family` had one untyped method taking
+  # a section and calling `parent` once; it is now the recursing array method plus a section method
+  # delegating to it, because the constructors reject only a `SubArray` and a `reshape` of a
+  # `PermutedDimsArray` of a device array therefore exists — one `parent` call answers
+  # `ReshapedArray` for it, and `_same_backend` would refuse two differently-wrapped views of the
+  # same device memory as different families.
+  Fields                = 141,
   # 128 → 130: `_refuse_field_as_fiber_map`, the two-method guard that refuses a FIELD handed to
   # the fiber-map slot of `map!`/`map` (open interface question (2), decided 2026-09-02). A field
   # in physical representation is callable, so passing one as φ type-checked and RAN: with a
@@ -146,7 +156,13 @@ const MODULE_BASELINE = (
   # 79 → 83: one `adapt_structure` per kernel storage class, so a kernel moves between storage
   # families with its field, and a `ProductKernel` moves both factors rather than being assembled
   # across families by accident.
-  Convolution           = 105,
+  # 105 → 114: the display layer. Four `_kernel_storage` methods (one per storage class, the
+  # product delegating to its first factor), the shared `_show_kernel`, and a `show` per class —
+  # three delegating and the product's own, which prints its two factors in full so the form nests.
+  # The default flooded: a `SeparableKernel` on a 512^3 grid printed 56742 characters and a
+  # `ProductKernel` 58090, while a `RadialKernel`, which holds no array at all, still printed 815,
+  # its symbol being an anonymous closure whose generated type name was most of the line.
+  Convolution           = 114,
   # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
   # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
   # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with
@@ -164,8 +180,18 @@ const MODULE_BASELINE = (
   # ten internal ones: the recursive broadcast builders (`_displacement_rhs`, `_convert_terms`,
   # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
   # compatibility checks.
-  Points                = 226,
-  Interpolation         = 179,
+  # 226 → 228: the display layer adds three — `_show_count` (which is where the singular `1 point`
+  # lives) and a `show` each for `PointSet` and `AbstractPointValues` — and the unification of the
+  # storage-family notion removes one. `_motion_storage_family` was a third spelling of `Fields`'
+  # `_storage_family`, with the same non-recursing body, used by `displace!`'s family refusal; with
+  # the `Fields` version now taking an array it is the same function and the duplicate is gone.
+  Points                = 228,
+  # 179 → 185: the display layer. A `show` each for `PointTraversalOrder`,
+  # `PointTraversalOrderScratch`, `NUFFT`, `LalescuSpline` and `LagrangeSpline`, plus
+  # `_show_spline_eltype`. A spline scheme's weight matrix is DERIVED from `(n, m)` — the property
+  # decision 75 persists it by — so the default showed the derived quantity at 747 characters and
+  # the two numbers it came from not at all; the constructor call is the honest form and round-trips.
+  Interpolation         = 185,
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build

@@ -4378,3 +4378,85 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       wrong answers and ran 50× slower than the serial loop. It surfaced only because the correctness
       harness crashed on its first mismatch; the fix is `local run = …`, and the hazard is that a name
       reused from an enclosing scope inside `Threads.@threads` is shared rather than shadowed.
+
+82. **A section owns a field-sized array, so it needs a display** (2026-09-04, user-directed). Julia's
+    default struct display prints every field, and a section's largest field is the data. A `PointSet`
+    of ``10^5`` points therefore rendered as 5.6 million characters, a `NUFFT` as 2.5 million, and a
+    `SeparableKernel` on a ``512^3`` grid as 56742. The REPL flood is the visible half. The half that
+    bites harder is that this is what an exception carries: every error message in the package reads
+    well today only because each author remembered to interpolate `size(field_data(f))` rather than
+    `f`, and nothing enforced that.
+
+    - **Two forms, because Julia uses them in different places.** The two-argument `show` is what
+      appears inside a container, inside `$(...)` interpolation and inside an exception, so it is one
+      line and **self-delimiting** — `Type{T}(body)`, parenthesised the way `Diagonal([1.0, 2.0])` and
+      `CartesianIndex(1, 2, 3)` are. A bare `Type: a, b` cannot be told from its neighbours once a
+      container puts commas between elements, and a display that is ambiguous in a container is
+      ambiguous in the error message that motivated it. The three-argument `MIME"text/plain"` form is
+      the REPL's and may spend lines; it carries the stored shape and element type, which for a field
+      in spectral representation are the rfft half spectrum in a complex type rather than the grid.
+
+    - **What the body carries is decided by what the package REFUSES on, not by what is interesting.**
+      `_check_field_domain_compatibility` rejects a pair differing in scalar type, grid size, extent,
+      origin, layout or storage family. A display omitting those printed two byte-identical strings
+      for the two operands of the very error it existed to explain — measured on four mutually
+      incompatible fields, which rendered as one string. Extent, origin and the fold are therefore
+      shown whenever they differ from the ordinary isotropic ``2\pi`` box at the origin in axis order,
+      which keeps the common line near fifty characters while making that collision impossible.
+      The property is asserted directly, over every pair of a family of refused fields.
+
+      The rule binds **every base-bound object, not only the fields**: an object shows what the check
+      that refuses it compares. A `NUFFT` keeps its reference grid and layout precisely because a plan
+      handed a same-order field on another domain returns a silently wrong answer; a traversal scratch
+      is refused a rebuild against another grid; a kernel reaches the same domain check through
+      `_check_kernel_compatibility`.
+
+      All three showed their grid *size* and nothing else, so all three collided on exactly the pairs
+      they are refused on — found by re-reading rather than by the testset, which covered fields alone
+      when it was written.
+
+    - **Coordinates print at full precision, and the predicate that suppresses them is EXACT.** Both
+      halves were wrong in a first draft and the second is the instructive one. Rounding to four
+      significant digits reintroduced the collision one axis-scale down, since the grid check is exact
+      equality and boxes differing in the sixth digit are refused. Fixing that alone was not enough:
+      the test asking whether the box was ordinary was `≈(2π)`, so a box of ``2\pi + 10^{-9}`` fell
+      inside the default tolerance and its extent was suppressed before precision could matter. A
+      loose predicate deciding *whether* to print defeats any precision in the printing. The regression
+      test carries that case.
+
+    - **Nothing may read an element.** Every quantity is host-side metadata, so a display is safe under
+      `allowscalar(false)` and forces no synchronisation. A future addition printing a norm, a range or
+      a sample value would break that on the backend where it matters most, so it is prohibited rather
+      than discouraged.
+
+    - **A derived quantity is not shown in place of what it derives from.** A spline scheme's weight
+      matrix comes from ``(n, m)`` — the property decision 75 persists it by — and the default printed
+      747 characters of matrix and neither number. The constructor call is the honest form and it
+      round-trips, with Julia's parser as an independent oracle. `Grid3D` was the same case, printing
+      the `grid_spacing` that decision 45 requires to equal `domain_size ./ grid_size`.
+
+      The element type appears as the keyword the constructor takes, and only when it is not the
+      default, so both forms round-trip while a `Float32` and a `Float64` scheme — which invariant 14
+      refuses against each other — cannot print alike.
+
+    - **The gate is DERIVED, in the allocation-audit shape.** `test/display.jl` enumerates every
+      concrete struct type the package defines and requires each to carry a package-owned `show` or a
+      cited exemption, with completeness checked both ways so a stale exemption fails too. A listed set
+      of types would go stale exactly when a type is added, which is when the check has something to
+      say. Falsified by perturbation before being kept: a planted struct fails it, and so does an
+      exemption naming a type that does not exist.
+
+      Six types are exempt — `RealFourierLayout`, whose default is already short, unambiguous and
+      round-tripping, and five pass-local callable adapters that are never returned, never stored on a
+      user-visible object, and never interpolated into an error.
+
+    - **The work surfaced a defect it was not looking for: three spellings of the storage family.**
+      `Fields._storage_family` took a section and called `parent` once, `Points._motion_storage_family`
+      duplicated it for `displace!`'s refusal, and the display added a third that recursed.
+
+      Two of the three were wrong. The constructors reject only a `SubArray`, so a `reshape` of a
+      `PermutedDimsArray` of a device array is constructible, and one `parent` call answers
+      `ReshapedArray` for it — not a storage family at all. So `_same_backend` could refuse two
+      differently-wrapped views of the *same* device memory. That is invariant 14's predicate, so
+      unifying them on the recursing form makes a check stricter as well as removing a divergence
+      between a refusal and the display beside it.

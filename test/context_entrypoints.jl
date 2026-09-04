@@ -116,6 +116,15 @@ const EXEMPT = Dict{Tuple{Symbol, Symbol}, String}(
   (:interpolate!, :scheme)       => "same: a spline scheme has no grid or layout to disagree with",
   (:anterpolate, :scheme)        => "same: a spline scheme has no grid or layout to disagree with",
   (:anterpolate!, :scheme)       => "same: a spline scheme has no grid or layout to disagree with",
+  # Display takes an `IO` and ONE object. There is no second context in the signature, so there is
+  # nothing for the carrier's to disagree with — the same shape as `inv` and `materialize_kernel`
+  # above. It is exempted rather than filtered because `show` really is a public operation reachable
+  # by a user, and a denominator that quietly drops a class is what this file exists to prevent.
+  (:show, :plans)       => "single-carrier operation: a display takes one object and an `IO`",
+  (:show, :scheme)      => "single-carrier operation: a display takes one object and an `IO`",
+  (:show, :nufft)       => "single-carrier operation: a display takes one object and an `IO`",
+  (:show, :kernel)      => "single-carrier operation: a display takes one object and an `IO`",
+  (:show, :multipliers) => "single-carrier operation: a display takes one object and an `IO`",
 )
 
 

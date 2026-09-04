@@ -75,6 +75,9 @@ import ..Fields: _kernel_data, _check_kernel_compatibility,   # extended for the
   _context_grid, _context_layout
 using ..Fields:
   _check_matching_context,
+  _show_domain,
+  _show_extent,
+  _storage_family,
   field_spectral_shape,
   SpectralKernel,
   AbstractFieldSpectral,
@@ -2003,6 +2006,86 @@ adapt_structure(to, kernel::RadialKernel{T}) where {T} =
 
 adapt_structure(to, kernel::ProductKernel{T}) where {T} =
   ProductKernel{T}(adapt(to, kernel.first_kernel), adapt(to, kernel.second_kernel))
+
+
+# ---------------------------------------------------------------------------------------------
+# Display. See the note on the field methods in `Fields` for why the compact form is parenthesised,
+# what its body may carry and why nothing may read an element; the same rules bind here and the flood
+# is worse. A `SeparableKernel` on a 512^3 grid prints 56742 characters by default and a
+# `ProductKernel` 58090, because both hold or wrap coefficient arrays; a `RadialKernel` holds none
+# and still printed 815, its symbol being an anonymous closure whose generated type name is most of
+# the line. There is one form and no `MIME"text/plain"` sibling, for the same reason as the point
+# sections: the class, element type, base and storage family are the whole of a kernel's metadata,
+# and they fit on the compact line.
+#
+# A kernel is shown as its class, element type, base and storage family. The base and family are what
+# `_check_kernel_compatibility` refuses on, by way of the same domain check the fields use; the class
+# and element type are what distinguishes two kernels the check would accept. The SYMBOL is
+# deliberately absent: a closure has no readable form, and printing
+# `#spectral_band##0#spectral_band##1` names an implementation detail rather than the mathematics.
+#
+# THREE EXPLICIT METHODS, not one on the abstract `SpectralKernel`. A fallback there would give a
+# fifth class a correct display for free, and `test/display.jl` would then pass without anyone having
+# thought about it — but `SpectralKernel` is EXPORTED, so a consumer may subtype it, and a fallback
+# would call `_kernel_storage` on a type that never defined it. A `show` that throws is worse than
+# one that floods, because it breaks the REPL and every error message carrying the object. So the
+# package's own classes are enumerated, a new one is caught by the derived gate rather than by a
+# fallback, and a third-party subtype gets Julia's default, which is what it would get anyway.
+
+"""
+    _kernel_storage(kernel)
+
+An array representative of the kernel's storage family, one method per storage class.
+
+A kernel is not a section and has no `field_data`, and the four classes hold their memory in four
+different shapes: a stored kernel wraps a field, a separable one holds three per-axis factors, a
+radial one holds no coefficients at all and borrows its family from the multipliers it evaluates
+against, and a product borrows from its first factor, the two being required to agree. Used only for
+display, to name the family a kernel would combine within.
+"""
+function _kernel_storage(kernel::StoredKernel)
+  return field_data(kernel.field)
+end
+
+_kernel_storage(kernel::RadialKernel) = kernel.multipliers.wavenumber_1
+_kernel_storage(kernel::SeparableKernel) = kernel.factor_1
+_kernel_storage(kernel::ProductKernel) = _kernel_storage(kernel.first_kernel)
+
+
+"""
+    _show_kernel(io, kernel)
+
+Print a kernel as its class, element type, base and storage family.
+
+The base and the family are what `_check_kernel_compatibility` refuses on; the class and the element
+type are what separates two kernels it would accept. Shared by the three classes whose display is
+this and nothing more — `ProductKernel` has its own, because it nests its factors.
+"""
+function _show_kernel(io::IO, kernel::SpectralKernel{T}) where {T}
+  print(io, nameof(typeof(kernel)), "{", T, "}(")
+  _show_extent(io, _context_grid(kernel).grid_size)
+  print(io, " grid")
+  _show_domain(io, _context_grid(kernel), _context_layout(kernel))
+  print(io, ", ", nameof(_storage_family(_kernel_storage(kernel))), ")")
+end
+
+
+Base.show(io::IO, kernel::StoredKernel) = _show_kernel(io, kernel)
+Base.show(io::IO, kernel::RadialKernel) = _show_kernel(io, kernel)
+Base.show(io::IO, kernel::SeparableKernel) = _show_kernel(io, kernel)
+
+
+# The product prints its two factors in full rather than naming their types, so the form NESTS: a
+# product of products renders correctly at any depth, where a "factors A and B" summary would lose
+# every level below the first. The base is repeated in each factor, which is redundant but true —
+# the constructor requires the two to agree on it.
+function Base.show(io::IO, kernel::ProductKernel{T}) where {T}
+  print(io, "ProductKernel{", T, "}(")
+  show(io, kernel.first_kernel)
+  print(io, ", ")
+  show(io, kernel.second_kernel)
+  print(io, ")")
+end
 
 
 end # module Convolution

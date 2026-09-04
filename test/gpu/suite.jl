@@ -868,6 +868,28 @@ end
       back_q = similar_point_values(host_q, Val(1))
       @test adapt!(back_q, device_q) === back_q
       @test GBGPeriodicFields.Points.point_values(back_q) == GBGPeriodicFields.Points.point_values(host_q)
+
+      # Display (decision 82). Two properties, and only a device can check either. The first is that
+      # every quantity is host-side metadata, so a display neither trips `allowscalar(false)` nor
+      # forces a synchronisation — a future addition printing a norm, a range or a sample value would
+      # break exactly here. The second is that it names the DEVICE family: `_storage_family` is the
+      # predicate invariant 14 refuses on, so a display that said `Array` for a device section would
+      # contradict the refusal it exists to explain, on the one pair a host run cannot construct.
+      device_points = adapt(AT, PointSet(2pi .* rand(Float64, 40, 3)))
+      for object in (device_u, device_multipliers, device_kernel, device_points,
+                     adapt(AT, host_q), device_plans,
+                     point_traversal_order(grid, device_points))
+        text = repr(object)
+        @test length(text) ≤ 200
+        @test !occursin("\n", text)
+      end
+      # `FieldTransformPlans` holds no array of its own unless a grid forces a component buffer, so
+      # it is the one object above with no family to name and is excluded from this check.
+      for object in (device_u, device_multipliers, device_kernel, device_points, adapt(AT, host_q))
+        @test occursin(string(nameof(AT)), repr(object))
+        @test !occursin("Array{", repr(object))
+      end
+      @test repr(device_u) != repr(host_u)      # the two are refused against each other
       @test_throws ArgumentError adapt!(similar_field(adapt(AT, host_z), Val(0)),
                                         ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(
                                             Grid3D((8, 8, 8), (2pi, 2pi, 2pi)), layout, Val(0))...),

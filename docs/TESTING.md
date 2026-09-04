@@ -163,7 +163,9 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   from one to five over a heterogeneous tuple holding one weight of each storage class, the order
   property that reversing the weights reverses the results and nothing else, `@inferred` for the
   concrete `NTuple`, both refusals in any position, and the empty tuple — + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values; and — decision 49 — the scalar-only `std`/`var` with their spectral Parseval form, the scalar-only errors, and the covariance tensor `cov` vs a per-point covariance with its symmetry and per-component diagonal),
-  `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting), plus
+  `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting),
+  `display.jl` (decision 82 — the display layer by properties, the sharpest being **discrimination**:
+  two objects a check refuses must render differently), plus
   `eltype_genericity.jl` (Float64/Float32),
   the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in
   `fields.jl` (a transform round-trip + both multiplier families vs `rfftfreq`/`fftfreq`, odd and
@@ -438,6 +440,19 @@ operation's coverage is judged against the full axis list:
     shipped for two days (finding (am)). The axis existed in the code with exactly one value ever
     taken, which is the shape this list exists to catch. It generalises past the transfer: an adjoint
     pair is two configurations, never one.
+
+21. **the object's own display**, for every type that stores a field-sized array. A section's largest
+    field is its data, so the default struct display prints it — not a cosmetic problem but a
+    correctness one, since the same string is what an exception interpolating the object carries.
+
+    The axis has two values, both to be swept: the compact two-argument `show`, which a container, a
+    `$(...)` interpolation and an error message use, and the three-argument `MIME"text/plain"` form
+    the REPL uses.
+
+    Its acceptance test is **discrimination** — any two objects a compatibility check refuses must
+    render differently, a display that collides on exactly the pairs it exists to explain being worse
+    than none. Decision 82 measured four mutually incompatible fields rendering as one string. A
+    derived gate enforces the axis rather than a list of types, so a new type ships covered or fails.
 
 The operator `inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
 element types, three grids including an anisotropic mixed-parity one, the aliased in-place call

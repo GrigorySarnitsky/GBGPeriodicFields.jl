@@ -68,7 +68,7 @@ using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
 import Base: +, -, *, /, map, map!
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
-using ..Fields: _refuse_field_as_fiber_map   # the callable-field guard shared with `FieldAlgebra`
+using ..Fields: _refuse_field_as_fiber_map, _storage_family   # the callable-field guard shared with `FieldAlgebra`
 import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
 import ..FieldAlgebra: add!, subtract!, multiply!, divide!, dot!, cross!,       # extended on PointValues
                        norm!, sym, sym!, skew, skew!, dev, dev!, tr!, det!
@@ -1251,16 +1251,6 @@ _axis_terms(axis::Int, term, rest...) =
 
 
 """
-    _motion_storage_family(array)
-
-Identify the array's storage family by the unparameterized name of its parent's type — `Array`,
-`CuArray`, `ROCArray` — the same compile-time comparison `Fields` uses, restated here on a raw
-array because a `PointSet` is not a section and carries no `field_data`.
-"""
-_motion_storage_family(array) = Base.typename(typeof(parent(array))).wrapper
-
-
-"""
     _check_displacement_compatibility(destination, source, sections)
 
 Require the point count, scalar type and storage family of `source` and of every displacement
@@ -1271,22 +1261,22 @@ and a mixed host/device pair must fail identically on every path.
 """
 function _check_displacement_compatibility(destination::PointSet, source::PointSet, sections)
   _check_npoints_match(destination, source)
-  family = _motion_storage_family(point_positions(destination))
+  family = _storage_family(point_positions(destination))
   eltype(point_positions(source)) === eltype(point_positions(destination)) ||
     throw(ArgumentError("point-set scalar types differ: $(eltype(point_positions(destination))) and " *
                         "$(eltype(point_positions(source))); displacement does not convert between precisions"))
-  _motion_storage_family(point_positions(source)) === family ||
+  _storage_family(point_positions(source)) === family ||
     throw(ArgumentError("point sets must live in the same storage family; got " *
-                        "$(family) and $(_motion_storage_family(point_positions(source)))"))
+                        "$(family) and $(_storage_family(point_positions(source)))"))
   for section in sections
     _check_npoints_match(destination, section)
     eltype(field_data(section)) === eltype(point_positions(destination)) ||
       throw(ArgumentError("a displacement section's scalar type $(eltype(field_data(section))) does not " *
                           "match the point set's $(eltype(point_positions(destination))); displacement " *
                           "does not convert between precisions"))
-    _motion_storage_family(field_data(section)) === family ||
+    _storage_family(field_data(section)) === family ||
       throw(ArgumentError("a displacement section must live in the point set's storage family; got " *
-                          "$(_motion_storage_family(field_data(section))) against $(family)"))
+                          "$(_storage_family(field_data(section))) against $(family)"))
   end
   return nothing
 end
@@ -1476,6 +1466,44 @@ function adapt!(destination::PointSet, source::PointSet)
     throw(DimensionMismatch("point counts differ: $(npoints(destination)) and $(npoints(source))"))
   copyto!(point_positions(destination), point_positions(source))
   return destination
+end
+
+
+# Display. See the note on the field methods in `Fields` for why the compact form is parenthesised
+# and what its body may carry; the default here would print every coordinate — 5.6 million
+# characters for 100000 points.
+#
+# ONE form, not two. A field's `MIME"text/plain"` method exists because a field's stored shape and
+# element type differ from its grid in spectral representation, so there is something a longer form
+# can add. A point section has no such gap: the count, the element type and the storage family are
+# the whole of its metadata, and they already fit on the compact line. The things a reader might
+# want beyond them — a bounding box, whether the positions are wrapped — are functions of the
+# COORDINATES, and the no-element rule the field block states forbids reading those.
+"""
+    _show_count(io, n)
+
+Print a point count with its noun, singular at one — `1 point`, `500 points`.
+
+Both point types carry a count and both display it, so the agreement is written once here rather
+than twice at the call sites.
+"""
+_show_count(io::IO, n) = print(io, n, n == 1 ? " point" : " points")
+
+
+function Base.show(io::IO, points::PointSet)
+  print(io, "PointSet{", eltype(point_positions(points)), "}(")
+  _show_count(io, npoints(points))
+  print(io, ", ", nameof(_storage_family(point_positions(points))), ")")
+end
+
+
+function Base.show(io::IO, values::AbstractPointValues)
+  order = point_value_tensor_order(values)
+  print(io, nameof(typeof(values)), "{")
+  order ≥ 2 && print(io, order, ", ")
+  print(io, eltype(point_values(values)), "}(")
+  _show_count(io, npoints(values))
+  print(io, ", ", nameof(_storage_family(point_values(values))), ")")
 end
 
 

@@ -102,6 +102,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 80",1011,197,0
 "ARCHITECTURE.md § item 81",440,111,0
+"ARCHITECTURE.md § item 82",943,120,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -116,6 +117,8 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",245,113,0
 "Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",61,49,0
 "Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",64,53,0
+"Convolution.jl :: _kernel_storage(kernel)",93,79,0
+"Convolution.jl :: _show_kernel(io, kernel)",60,46,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",422,115,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",731,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
@@ -309,6 +312,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: VectorFieldPhysical(",345,108,0
 "Fields.jl :: VectorFieldSpectral(",276,113,0
 "Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",52,49,0
+"Fields.jl :: _approx(x)",63,53,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
 "Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",66,63,0
 "Fields.jl :: _check_adapt_target(destination, source)",73,36,0
@@ -332,6 +336,9 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _kernel_data(kernel)",43,42,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
+"Fields.jl :: _show_domain(io, grid)",179,70,0
+"Fields.jl :: _show_extent(io, sizes)",34,32,0
+"Fields.jl :: _show_field_head(io, field)",91,80,0
 "Fields.jl :: _similar_field_physical(reference::AbstractFieldSpectral, da",20,18,0
 "Fields.jl :: _similar_field_spectral(reference::AbstractFieldPhysical, da",20,18,0
 "Fields.jl :: _spectral_constant_scale(field::AbstractFieldSpectral)",38,37,0
@@ -402,6 +409,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",47,43,0
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",98,84,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",177,87,0
+"Interpolation.jl :: _show_spline_eltype(io, scheme)",86,62,0
 "Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",425,228,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",77,63,0
 "Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",326,227,0
@@ -493,8 +501,8 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: _convert_terms(::Type{T}, terms...)",48,46,0
 "Points.jl :: _displacement_rhs(base, terms...)",111,109,0
 "Points.jl :: _first_point_values(x)",34,33,0
-"Points.jl :: _motion_storage_family(array)",42,41,0
 "Points.jl :: _point_value_shape(number_of_points, ::Val{R}) where {R}",24,20,0
+"Points.jl :: _show_count(io, n)",41,24,0
 "Points.jl :: _unwrap_point_values_argument(x)",32,31,0
 "Points.jl :: _wrap_coordinate(coordinate, extent, origin)",90,87,0
 "Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",510,152,0
@@ -553,7 +561,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",1827,1827,0
+"TESTING.md § 2. Layout",1848,1848,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 5. GPU testing",234,141,0
@@ -570,7 +578,8 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 18",156,156,0
 "TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
-"TESTING.md § item 20",641,120,0
+"TESTING.md § item 20",155,102,0
+"TESTING.md § item 21",613,120,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0

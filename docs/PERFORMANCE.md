@@ -2528,7 +2528,7 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    test matrix, then this benchmark suite.
 
 **(an) The traversal order's rebuild is allocation-free where it was 15 MiB a call** (2026-09-03,
-decision 80). `point_traversal_order` allocates four arrays per build — the `Int32` result, the counting
+decision 80). A `point_traversal_order` build allocates four arrays — the `Int32` result, the counting
 sort's `Int64` keys, the histogram with its prefix sum, and the `Bool` marks of the permutation check
 — and a consumer whose points move pays that on every rebuild. Measured on the host at ``32^3``:
 

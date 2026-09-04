@@ -83,13 +83,13 @@ using StaticArrays: SVector, SMatrix
 using LinearAlgebra: \, I
 using ..FiberSections: _assign!, @_assign!, _use_threads
 import ..Fields: _context_grid, _context_layout      # extended for the NUFFT plan below
-using ..Fields: _check_matching_context
+using ..Fields: _check_matching_context, _storage_family, _approx, _show_domain, _show_extent
 using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical, TensorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
                 field_tensor_order, fiber_shape, field_physical_shape, field_spectral_shape,
                 FieldTransformPlans, to_physical, to_spectral, similar_field
-using ..Points: PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
+using ..Points: _show_count, PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
                 point_positions, point_values, npoints, point_value_tensor_order, _check_npoints_match
 import Adapt: adapt, adapt_structure
 using KernelAbstractions: @kernel, @index, @Const, get_backend, synchronize
@@ -873,8 +873,8 @@ end
 
 
 """
-    point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D, points::PointSet,
-                           scratch::PointTraversalOrderScratch)
+    point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D,
+                           points::PointSet, scratch::PointTraversalOrderScratch)
 
 Rebuild `traversal` in place for the current positions of `points`, and return it.
 
@@ -2083,6 +2083,85 @@ producing a scheme that is not what the file claims.
 Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function read_scheme end
+
+
+# Display. See the note on the field methods in `Fields` for the conventions — the parenthesised
+# compact form, the `name value` vocabulary, and the rule that nothing may read an element. The
+# default prints every index: an order over 100000 points renders as 689000 characters, and a
+# `NUFFT` as 2.5 million, since it owns a coarse-grid deconvolution array. One form throughout, as
+# in `Points` and `Convolution`: none of these types has a stored shape that differs from the
+# metadata already on the compact line.
+function Base.show(io::IO, traversal::PointTraversalOrder)
+  print(io, "PointTraversalOrder{", eltype(traversal.indices), "}(")
+  _show_count(io, length(traversal.indices))
+  print(io, ", ", nameof(_storage_family(traversal.indices)), ")")
+end
+
+
+function Base.show(io::IO, scratch::PointTraversalOrderScratch)
+  print(io, "PointTraversalOrderScratch(")
+  _show_count(io, length(scratch.keys))
+  print(io, ", ")
+  _show_extent(io, scratch.grid.grid_size)
+  print(io, " grid")
+  # The scratch is bound to the grid its keys were computed for and a rebuild against another one is
+  # refused, so it shows what that comparison turns on, exactly as a field does.
+  _show_domain(io, scratch.grid)
+  # `tiles` is derivable from the grid and `tile_size`, and naming only the parameter avoids the
+  # ambiguity of "16×16×16 blocks", which reads equally as an arrangement or as a block size.
+  print(io, ", tile_size ", scratch.tile_size, ", ", nameof(_storage_family(scratch.keys)), ")")
+end
+
+
+# A spline scheme is a parameter record whose weight matrix is DERIVED from `(n, m)` — which is what
+# decision 75 rests on when it persists one as attributes and no dataset. The default display prints
+# that matrix (747 characters for `LalescuSpline(3, 2)`), so it shows the derived quantity at length
+# and the two numbers it was derived from not at all. The constructor call is the honest form, and it
+# round-trips.
+"""
+    _show_spline_eltype(io, scheme)
+
+Print a spline scheme's element type as the `T` keyword its constructor takes, and only when it is
+not the default `Float64`.
+
+Both halves are deliberate. Printing it keeps two schemes that differ only in precision — which
+invariant 14 refuses against each other — from rendering as one string. Omitting it at the default
+keeps the ordinary display a bare constructor call, and writing it as the keyword rather than as a
+type parameter keeps both forms valid Julia that reconstructs the scheme.
+"""
+function _show_spline_eltype(io::IO, scheme::AbstractSplineScheme)
+  T = eltype(scheme.coefficients)
+  T === Float64 || print(io, "; T = ", T)
+  return nothing
+end
+
+
+function Base.show(io::IO, scheme::LalescuSpline)
+  print(io, "LalescuSpline(", scheme.neighbours, ", ", scheme.smoothness)
+  _show_spline_eltype(io, scheme)
+  print(io, ")")
+end
+
+
+function Base.show(io::IO, scheme::LagrangeSpline)
+  print(io, "LagrangeSpline(", scheme.neighbours)
+  _show_spline_eltype(io, scheme)
+  print(io, ")")
+end
+
+
+# The reference grid and layout are shown for the reason the struct keeps them: a plan handed a
+# same-order field on another domain applies this one's index maps and deconvolution and comes back
+# silently wrong, so `_check_matching_context` refuses that pair — and two plans it refuses against
+# each other must not print alike.
+function Base.show(io::IO, scheme::NUFFT)
+  print(io, "NUFFT{", eltype(scheme.deconvolution), "}(")
+  _show_extent(io, scheme.reference_grid.grid_size)
+  print(io, " grid")
+  _show_domain(io, scheme.reference_grid, scheme.reference_layout)
+  print(io, ", width ", scheme.width, ", oversampling ", _approx(scheme.total_oversampling),
+        ", ", nameof(_storage_family(scheme.deconvolution)), ")")
+end
 
 
 end # module Interpolation

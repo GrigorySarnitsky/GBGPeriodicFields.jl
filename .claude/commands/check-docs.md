@@ -120,9 +120,13 @@ the source:
    is the same defect one step earlier.
 3. **Nothing public is missing.** Diff the derived public surface (`test/public_surface.jl`'s
    `package_operations()`) against every non-Internal section. Expect only the unexported Base
-   extensions (`size`, `eltype`, `axes`, `copy`, `copyto!`, `getindex`, `setindex!`, `ndims`, `in`),
-   whose omission is deliberate — `checkdocs = :exports` does not require them. Anything else is a
-   public operation with no home, which is how `transpose` came to be documented as an internal.
+   extensions (`size`, `eltype`, `axes`, `copy`, `copyto!`, `getindex`, `setindex!`, `ndims`, `in`,
+   and `show`), whose omission is deliberate — `checkdocs = :exports` does not require them. Anything
+   else is a public operation with no home, which is how `transpose` came to be documented as an
+   internal. The `show` entry joined the list with decision 82: the display methods carry no
+   docstrings, because documenting them would be documenting `Base.show`, and a display is not an
+   operation a user calls by name. Its own internal helpers ARE documented and reach the Internal API
+   blocks in the ordinary way, and `test/display.jl` is what holds the display to its contract.
 4. **Each Internal API blurb matches what its block collected.** The prose is hand-written and the
    list is derived, so they drift apart silently whenever code moves between modules or a `Filter`
    changes. Read the blurb against the rendered entries and check every clause names something

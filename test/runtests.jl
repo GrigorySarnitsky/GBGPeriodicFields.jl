@@ -6,6 +6,7 @@
 #   julia --project=. test/<module>.jl
 
 module FieldsTests;                include("fields.jl");                end
+module DisplayTests;               include("display.jl");               end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
 module MetadataSweepTests;         include("metadata_sweep.jl");        end
 module AdaptTests;                 include("adapt.jl");                 end

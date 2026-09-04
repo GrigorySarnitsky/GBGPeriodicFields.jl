@@ -130,6 +130,16 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   (op => (:property, "adapt.jl — storage family changes, everything else is preserved; driven on CPU " *
                      "by a custom adaptor, since adapting to the family one is already in is the identity")
      for op in (:adapt, :adapt_structure))...,
+
+  # Display. There is no "correct" string to compare against — a wording is a choice — so the oracle
+  # is the set of properties the display must have, each asserted without reference to another
+  # package operation: it prints no array (a length bound at a grid size where the default floods),
+  # it is self-delimiting inside a container, and — the one that gives it teeth — any two objects the
+  # domain check REFUSES must render differently, which is asserted against that check directly. The
+  # parameter records get a genuinely independent oracle on top: `eval(Meta.parse(repr(scheme)))`
+  # returns the scheme, with Julia's own parser as the reference.
+  :show => (:property, "display.jl — no flood, self-delimiting, refused pairs render differently, " *
+                       "and the parameter records round-trip through Julia's parser"),
 )
 
 @testset "oracle provenance is classified for every public operation" begin
