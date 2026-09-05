@@ -4551,6 +4551,22 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     CUDA parity is the office host's to run; its count moves too.
 
+    **Measured (2026-09-05, idle box; the other 80 `operators` rows reproduced the day-old archives
+    at medians ``0.998``–``1.001``).** Scalar `Float64` at one thread: 20, 102, 449 and 3140 us
+    across ``64^3``–``512^3``, against `reality_residual`'s 80, 362, 1586 and 13258 on the same host
+    — ``4.2\times`` faster at ``512^3`` while also writing, the fused traversal having no
+    `reverse`/`circshift` temporaries. Eight threads bring ``512^3`` to 331 us, ``9.5\times``. The
+    vector rows run three times the scalar ones at small grids and 14.7 ms at ``512^3`` `Float64`
+    one-threaded, 4.5 ms at eight. On the RX 7900 XTX every ``64^3``–``256^3`` cell sits at 27–48 us,
+    launch-bound, where the residual sits at 238–244; ``512^3`` `Float32` vector reads 302 us.
+
+    **The pass is strided by the layout's nature.** The folded axis is the contiguous one, so its
+    zero plane is one element per cache line: ``512^3`` scalar moves 16.8 MB in 3.1 ms at one thread,
+    about 5 GB/s, and threading is what recovers it. One observation recorded without a cause: at
+    ``512^3`` the `Float32` scalar row is ``1.04``–``1.29\times`` SLOWER than `Float64` on every CPU
+    lane. The archives were not spliced — `src/` moved with this decision, which is the case the
+    splice tool refuses — so the rows enter `RESULTS.md` at the next sweep.
+
     **What decision 71 keeps.** The check reports; the projection is an explicit verb the caller
     invokes; no transform enforces the symmetry — per-operation enforcement would tax every transform
     for a problem only a multiplicative forcing creates, and a decaying run never needs it. What 71

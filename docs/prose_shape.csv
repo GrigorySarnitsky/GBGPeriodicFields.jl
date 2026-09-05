@@ -103,7 +103,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 80",1011,197,0
 "ARCHITECTURE.md § item 81",440,111,0
 "ARCHITECTURE.md § item 82",943,120,0
-"ARCHITECTURE.md § item 83",1121,117,0
+"ARCHITECTURE.md § item 83",1327,117,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -456,7 +456,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ao)",312,100,0
 "PERFORMANCE.md § finding (ap)",386,103,0
 "PERFORMANCE.md § finding (aq)",487,110,0
-"PERFORMANCE.md § finding (ar)",165,89,0
+"PERFORMANCE.md § finding (ar)",242,115,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0

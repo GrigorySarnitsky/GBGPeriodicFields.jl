@@ -1695,9 +1695,16 @@ units, `Float32` / `Float64`: FFTW reads exactly ``0`` at ``32^3``, ``64^3`` and
 
 So decision 71's "satisfies the constraint by construction" was a fact about FFTW's power-of-two
 codelets, and a forced solver turns that floor into the whole field at a rate of ``A - \nu\kappa^2``
-per time unit (decision 83). The `reality_projection!` rows entered the `operators` class with this
-change and are measured at the next sweep; the box was not idle when the change landed, and a number
-measured into a busy box is not a number.
+per time unit (decision 83).
+
+**The projector's rows, measured once the box was idle** (the same day; the other 80 `operators`
+rows reproduced the day-old archives at medians ``0.998``–``1.001``, every cell within 15%, which is
+the evidence of idleness). Scalar `Float64` at one thread runs 20, 102, 449 and 3140 us across
+``64^3``–``512^3`` against the residual's 80, 362, 1586 and 13258 — ``4.2\times`` faster at
+``512^3`` while also writing, since the fused traversal allocates no plane temporaries; eight threads
+give ``9.5\times`` at ``512^3``. On the RX 7900 XTX the cells sit at 27–48 us, launch-bound, where the
+residual reads 238–244. The rows enter `RESULTS.md` at the next sweep; `src/` moved with the decision,
+so a class splice is not licensed.
 
 **(aq) The AMD-only gather regression has its mechanism: on gfx1100 the walk kernel spills, and
 `CatmullRom` runs at HALF the occupancy it had** (2026-09-04, closing the question Enteropia's CUDA
