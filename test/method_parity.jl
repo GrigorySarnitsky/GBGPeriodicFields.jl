@@ -119,7 +119,14 @@ const MODULE_BASELINE = (
   # `PermutedDimsArray` of a device array therefore exists — one `parent` call answers
   # `ReshapedArray` for it, and `_same_backend` would refuse two differently-wrapped views of the
   # same device memory as different families.
-  Fields                = 141,
+  # 141 → 157: `reality_projection!` (decision 83, 2026-09-05). Nine are hand-written — the two
+  # public arities, the two `_reality_projection_planes!` backend arms (the gated CPU loop and the
+  # device launch), `_project_pair!`, `_owns_pair`, and the three `_plane_linear` layout dispatches —
+  # and seven are what `@kernel` generates for `_reality_projection_kernel!`: four on the kernel
+  # constructor plus `__reality_projection_kernel!`, `cpu__reality_projection_kernel!` and
+  # `gpu__reality_projection_kernel!`, one each. Counted per function from the module's own method
+  # table before refreezing, so the sixteen are named rather than assumed.
+  Fields                = 157,
   # 128 → 130: `_refuse_field_as_fiber_map`, the two-method guard that refuses a FIELD handed to
   # the fiber-map slot of `map!`/`map` (open interface question (2), decided 2026-09-02). A field
   # in physical representation is callable, so passing one as φ type-checked and RAN: with a

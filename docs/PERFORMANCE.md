@@ -1684,6 +1684,21 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(ar) A fresh real-to-complex transform satisfies the reality condition only to round-off, and
+which sizes are exact is the library's business, not the package's** (2026-09-05, measured while
+deciding decision 83). `reality_residual` of `to_spectral` of a random real field, in coefficient
+units, `Float32` / `Float64`: FFTW reads exactly ``0`` at ``32^3``, ``64^3`` and ``128^3`` and
+``1.3\times10^{-4}`` / ``2.5\times10^{-13}`` at ``96^3``, ``7.4\times10^{-4}`` /
+``1.6\times10^{-12}`` at ``256^3``; rocFFT reads nonzero at every size, ``2.0\times10^{-5}`` /
+``4.8\times10^{-14}`` at ``32^3`` rising to ``8.2\times10^{-4}`` / ``3.6\times10^{-12}`` at
+``256^3``. The consumer measured cuFFT behaving like rocFFT.
+
+So decision 71's "satisfies the constraint by construction" was a fact about FFTW's power-of-two
+codelets, and a forced solver turns that floor into the whole field at a rate of ``A - \nu\kappa^2``
+per time unit (decision 83). The `reality_projection!` rows entered the `operators` class with this
+change and are measured at the next sweep; the box was not idle when the change landed, and a number
+measured into a busy box is not a number.
+
 **(aq) The AMD-only gather regression has its mechanism: on gfx1100 the walk kernel spills, and
 `CatmullRom` runs at HALF the occupancy it had** (2026-09-04, closing the question Enteropia's CUDA
 A/B left open in finding (al)). The evidence is the compiled kernel, read from the code object rather
@@ -2267,7 +2282,9 @@ planner flag; plus, per scalar/vector, the decision-64 pair — the preserving s
 cost of preservation), **field algebra** (M2 + M3, representative — including the weighted
 combination `combine!` and the determinant `det!`), **differential operators** (including the fused
 `symmetric_gradient!` and the kernel-composed `helmholtz_projection!`/`divergence!` forms of
-decision 32, whose baseline is the sequential operator + `convolve!` pair they replace), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
+decision 32, whose baseline is the sequential operator + `convolve!` pair they replace, and the
+reality projector `reality_projection!` of decision 83, scalar and vector — an ``O(N^2)`` row beside
+the ``O(N^3)`` ones, priced in place), **convolution** (`convolve!` scalar/vector, the lazy `exponential_convolve!` — its exponent scale-aware, so every
 size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /

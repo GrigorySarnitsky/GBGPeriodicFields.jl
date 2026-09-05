@@ -32,6 +32,9 @@ The parts are:
   * **Allocation** — [`similar_field`](@ref) returns uninitialized storage carrying a reference field's
     representation, tensor order, grid and backend, which is how an operation builds scratch or a
     result without naming a concrete field type.
+  * **The reality condition** — [`reality_residual`](@ref) measures how far a spectrum is from a
+    real field's, and [`reality_projection!`](@ref) projects it onto one, on the two stored
+    self-conjugate planes where the half-spectrum can disagree with itself.
   * **Moving between storage families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
     or its transform plans between host and device memory (or any other `Adapt.jl` storage family),
     preserving the element type and everything else the object carries. Operations refuse a pair that
@@ -51,8 +54,10 @@ import FFTW
 # holding arrays between storage families, and extending `adapt_structure` is its sanctioned hook.
 import Adapt: adapt, adapt_structure
 using Base.ScopedValues: ScopedValue
+import KernelAbstractions
+using KernelAbstractions: @kernel, @index, get_backend, synchronize
 using ..FiberSections:
-  _check_owned_storage, AbstractFiberSection, _assign!, _THREADING_OVERRIDE,
+  _check_owned_storage, AbstractFiberSection, _assign!, _THREADING_OVERRIDE, _foreach_outer_slab,
   FiberVector, FiberTensor2, FiberTensor3, FiberTensor4, fiber_shape
 
 export Grid3D,
@@ -73,6 +78,7 @@ export Grid3D,
        to_spectral!,
        to_physical,
        to_spectral,
+       reality_projection!,
        field_data,
        field_grid,
        field_layout,
@@ -2669,14 +2675,18 @@ fewer when an axis is odd and so has no Nyquist plane — must be real, and this
 being the same discrepancy applied to a self-paired entry.
 
 Reach for it where responsibility for the coefficients changes hands: after writing them directly, or
-on accepting them from outside. Everything the package itself produces satisfies the constraint by
-construction, because a spectrum built by transforming a real field cannot violate it. The cost is one
+on accepting them from outside — and after any step that scales the coefficients in place, because
+a spectrum built by transforming a real field satisfies the constraint only to round-off (FFTW is
+exact at some power-of-two sizes and ulp-level elsewhere; rocFFT and cuFFT are ulp-level at every
+size), and a forcing proportional to the field amplifies that residual where viscosity does not damp
+it. [`reality_projection!`](@ref) removes it exactly. The cost is one
 or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
 
-It **reports** rather than repairs, so the caller decides. The repair is already available and is
-exactly a physical round trip — [`to_physical`](@ref) followed by [`to_spectral`](@ref) — since the
-inverse real transform projects onto the coefficients of a real field; that costs two transforms and
-silently rewrites the data, which is why it is not offered under a name of its own.
+It **reports** rather than repairs, so the caller decides; the repair is
+[`reality_projection!`](@ref), an explicit verb costing the same one or two planes. A physical round
+trip — [`to_physical`](@ref) followed by [`to_spectral`](@ref) — also projects, since the inverse real
+transform discards what no real field has, but it costs two transforms, perturbs every mode by
+round-off, and resets this residual only to the transform's own floor, the forward pass reseeding it.
 
 !!! note "The Nyquist plane is reported, never zeroed"
     Some codes symmetrize by zeroing the Nyquist planes outright. This does not: the package keeps
@@ -2694,6 +2704,163 @@ function reality_residual(field::AbstractFieldSpectral{T}) where {T<:AbstractFlo
          folded_axis == 2 ? _reality_residual_plane(data, Val(2), (1, 3), stored_planes, zero(T)) :
                             _reality_residual_plane(data, Val(3), (1, 2), stored_planes, zero(T))
 end
+
+
+# The two members of a self-conjugate pair, as linear indices into the field's storage, with the
+# folded axis placed by the layout: `D` names the axis the real transform halved, `p` the stored
+# plane on it, and `(j, l)` the position within the plane along the two full axes.
+@inline _plane_linear(::Val{1}, p, j, l, n1, n2) = p + n1 * (j - 1) + n1 * n2 * (l - 1)
+@inline _plane_linear(::Val{2}, p, j, l, n1, n2) = j + n1 * (p - 1) + n1 * n2 * (l - 1)
+@inline _plane_linear(::Val{3}, p, j, l, n1, n2) = j + n1 * (l - 1) + n1 * n2 * (p - 1)
+
+
+# One pair, projected: both members replaced by the mean of the first and the conjugate of the
+# second, which is the orthogonal projection of the pair onto ``\hat f(-k) = \overline{\hat f(k)}``.
+# A self-paired corner (`ix == iy`) gets the same formula against itself, i.e. its real part, and is
+# read and written ONCE — the pass audit counts every plane element exactly once each way. All reads
+# precede all writes, so the in-place call is exact; the kernel and the gated CPU loop both call this
+# so they agree bitwise, which is what the GPU parity suite and the threading lane compare.
+@inline function _project_pair!(data, ix, iy)
+  @inbounds begin
+    x = data[ix]
+    y = ix == iy ? x : data[iy]
+    m = (x + conj(y)) / 2
+    data[ix] = m
+    ix == iy || (data[iy] = conj(m))
+  end
+  return nothing
+end
+
+
+# Each pair is owned by its lexicographically smaller member, so it is touched by exactly one work
+# item and no two items write the same element — the other member's item does nothing. The partner
+# of index `j` on an axis of full length `n` is `mod(-(j - 1), n) + 1`.
+@inline function _owns_pair(j, l, jp, lp)
+  return j < jp || (j == jp && l <= lp)
+end
+
+
+@kernel function _reality_projection_kernel!(data, ::Val{D}, planes, na, nb, ncomp, P, n1, n2) where {D}
+  work_item = @index(Global, Linear)
+  @inbounds begin
+    rest = work_item - 1
+    j = rest % na + 1; rest ÷= na
+    l = rest % nb + 1; rest ÷= nb
+    c = rest % ncomp + 1; rest ÷= ncomp
+    p = planes[rest + 1]
+    jp = mod(-(j - 1), na) + 1
+    lp = mod(-(l - 1), nb) + 1
+    if _owns_pair(j, l, jp, lp)
+      offset = P * (c - 1)
+      _project_pair!(data, _plane_linear(Val(D), p, j, l, n1, n2) + offset,
+                           _plane_linear(Val(D), p, jp, lp, n1, n2) + offset)
+    end
+  end
+end
+
+
+"""
+    _reality_projection_planes!(backend, data, ::Val{D}, planes, sizes, others, ncomp, P)
+
+Project every stored self-conjugate plane of `data` onto the reality condition, dispatching on
+`backend`: a `KernelAbstractions` launch of `_reality_projection_kernel!` on a device, and the gated
+slab-threaded loop below on a CPU. `D` is the folded axis, `planes` the plane indices stored on it
+(the zero plane, and the Nyquist plane when the full axis is even), `sizes` the three stored extents,
+`others` the two full axes, `ncomp` the fiber component count and `P` the elements per component.
+Both arms call [`_project_pair!`](@ref) per pair, so they agree bitwise.
+"""
+function _reality_projection_planes!(::KernelAbstractions.CPU, data, ::Val{D}, planes, sizes, others, ncomp, P) where {D}
+  n1, n2 = sizes[1], sizes[2]
+  na, nb = sizes[others[1]], sizes[others[2]]
+  _foreach_outer_slab(1:nb, length(planes) * na * nb * ncomp) do rows
+    @inbounds for p in planes, c in 1:ncomp, l in rows
+      lp = mod(-(l - 1), nb) + 1
+      offset = P * (c - 1)
+      for j in 1:na
+        jp = mod(-(j - 1), na) + 1
+        _owns_pair(j, l, jp, lp) || continue
+        _project_pair!(data, _plane_linear(Val(D), p, j, l, n1, n2) + offset,
+                             _plane_linear(Val(D), p, jp, lp, n1, n2) + offset)
+      end
+    end
+  end
+  return nothing
+end
+
+function _reality_projection_planes!(backend, data, ::Val{D}, planes, sizes, others, ncomp, P) where {D}
+  n1, n2 = sizes[1], sizes[2]
+  na, nb = sizes[others[1]], sizes[others[2]]
+  _reality_projection_kernel!(backend)(data, Val(D), planes, na, nb, ncomp, P, n1, n2;
+                                       ndrange = length(planes) * na * nb * ncomp)
+  synchronize(backend)
+  return nothing
+end
+
+
+"""
+    reality_projection!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral) -> destination
+    reality_projection!(field::AbstractFieldSpectral) -> field
+
+Project a field's coefficients onto the spectrum of a real field, so that
+[`reality_residual`](@ref) of the result is exactly zero — the reality-condition twin of
+[`helmholtz_projection!`](@ref).
+
+In physical space nothing visible changes: the inverse real transform already discards the part of
+the coefficients that no real field has, so the image of `field` is the same before and after. What
+changes is the stored spectrum. The real-to-complex layout stores both members of a conjugate pair
+only on the folded axis's zero plane and, for an even-length axis, its Nyquist plane; there the
+condition ``\\hat f(-k) = \\overline{\\hat f(k)}`` is a relation a caller — or a library's round-off
+— can break, and this replaces each stored pair by its projection,
+
+```math
+\\hat f(k), \\hat f(-k) \\leftarrow \\tfrac{1}{2} \\bigl( \\hat f(k) + \\overline{\\hat f(-k)} \\bigr),
+\\overline{\\tfrac{1}{2} \\bigl( \\hat f(k) + \\overline{\\hat f(-k)} \\bigr)},
+```
+
+with a self-paired corner mode reduced to its real part by the same formula. Every other coefficient
+is untouched. This is the orthogonal projector onto real-field spectra in the Parseval inner product:
+linear, exactly idempotent, and it commutes with every per-mode multiplier ``m`` satisfying
+``m(-k) = \\overline{m(k)}`` — the differential operators, the exponential and radial kernels, the
+translation phases.
+
+Reach for it where round-off on those planes is amplified rather than damped. A spectrum freshly
+transformed from real data satisfies the condition only to round-off, and a solver whose forcing is
+proportional to the field grows that round-off exponentially; projecting once per step where the
+state is deposited removes it exactly, which a physical round trip does not, since the forward
+transform reseeds it. The physical representation has no method: there the projection is the identity.
+
+The `destination` may be the `source`, and the one-argument form projects in place; the cost is then
+one or two planes, ``O(N^2)``. With a distinct `destination` the whole source is copied first, so
+that form costs a field copy, ``O(N^3)``, before the projection — the same shape as the two-argument
+`helmholtz_projection!`, kept so the twins read alike, but not the cheap one. The two fields must
+share a grid, layout, tensor order, element type and storage family, and a mismatch is refused
+rather than converted.
+"""
+function reality_projection!(destination::AbstractFieldSpectral{T, R}, source::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
+  if destination !== source
+    _check_field_domain_compatibility(destination, source)
+    copyto!(field_data(destination), field_data(source))
+  end
+  data = field_data(destination)
+  folded_axis = field_layout(destination).fft_dims[1]
+  # The zero plane always; the Nyquist plane only when the FULL axis is even — the same test
+  # `reality_residual` and invariant 5 turn on.
+  planes = iseven(field_grid(destination).grid_size[folded_axis]) ? (1, size(data, folded_axis)) : (1,)
+  sizes = (size(data, 1), size(data, 2), size(data, 3))
+  elements_per_component = prod(sizes)
+  components = length(data) ÷ elements_per_component
+  backend = get_backend(data)
+  if folded_axis == 1
+    _reality_projection_planes!(backend, data, Val(1), planes, sizes, (2, 3), components, elements_per_component)
+  elseif folded_axis == 2
+    _reality_projection_planes!(backend, data, Val(2), planes, sizes, (1, 3), components, elements_per_component)
+  else
+    _reality_projection_planes!(backend, data, Val(3), planes, sizes, (1, 2), components, elements_per_component)
+  end
+  return destination
+end
+
+reality_projection!(field::AbstractFieldSpectral) = reality_projection!(field, field)
 
 
 end # module Fields

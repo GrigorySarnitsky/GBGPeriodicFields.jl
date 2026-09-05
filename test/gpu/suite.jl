@@ -849,6 +849,15 @@ end
       field_data(host_corrupt)[1, 3, 2] += 0.6 + 0.25im
       @test reality_residual(adapt(AT, host_corrupt)) ≈ reality_residual(host_corrupt)
       @test reality_residual(adapt(AT, host_corrupt)) ≈ abs(0.6 + 0.25im)
+      # The projector (decision 83): the device kernel and the host's gated loop agree, and the device
+      # result satisfies the condition EXACTLY — a kernel over the planes, never a scalar index.
+      device_corrupt = adapt(AT, host_corrupt)
+      reality_projection!(device_corrupt)
+      host_projected = reality_projection!(ScalarFieldSpectral(copy(field_data(host_corrupt)), grid, layout))
+      @test reality_residual(device_corrupt) == 0
+      @test Array(field_data(device_corrupt)) == field_data(host_projected)
+      device_two = reality_projection!(adapt(AT, similar_field(host_corrupt, Val(0))), adapt(AT, host_corrupt))
+      @test Array(field_data(device_two)) == field_data(host_projected)
 
       # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
       # cross. The gate proves everything about `adapt!` except the crossing itself.

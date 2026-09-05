@@ -79,6 +79,7 @@ adapt!
 
 ```@docs
 reality_residual
+reality_projection!
 ```
 
 ## Spectral kernel protocol
@@ -138,5 +139,5 @@ Order   = [:function]
 # under "The reality constraint" above and once here. Found by the built-HTML pass, which is the only
 # surface that can see it: the duplicate is invisible in this file, where each block looks correct
 # alone. Whenever a Fields-owned binding is added to the umbrella's export list, it must be added here.
-Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual))
+Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual, :reality_projection!))
 ```

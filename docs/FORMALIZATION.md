@@ -127,10 +127,43 @@ measures the departure,
                                       \bigl\lvert \hat f(k) - \overline{\hat f(-k)} \bigr\rvert ,
 ```
 
-which is zero for anything the package produces — only a hand-written coefficient can break it. It
-**reports and never repairs**: the repair is a physical round trip, which is the inverse transform's
-Hermitian projection. Cost is ``O(N^2)`` — one or two planes — against the ``O(N^3 \log N)`` of that
-round trip, which is what makes it usable as a check rather than a fix.
+which is zero when the coefficients are a real field's. A spectrum the package itself transforms from
+real data satisfies the condition only to round-off — FFTW is exact at some power-of-two sizes and
+ulp-level elsewhere, rocFFT and cuFFT ulp-level at every size (measured 2026-09-05) — so "zero for
+anything the package produces" holds to the ulp and no further. It **reports and never repairs**; the
+repair is the projector below. Cost is ``O(N^2)`` — one or two planes — against the ``O(N^3 \log N)``
+of a physical round trip, which is what makes it usable as a check.
+
+**The reality projection (decision 83).** Let ``\mathcal H`` be the real-linear subspace of stored
+half-spectra satisfying the condition on the self-conjugate planes. `reality_projection!` is the map
+that, on every stored plane and for every pair ``k, -k`` within it, sets
+
+```math
+\hat f(k), \hat f(-k) \leftarrow \tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr),
+\overline{\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr)},
+```
+
+a self-paired corner reducing to ``\operatorname{Re} \hat f(k)`` by the same formula, and leaves every
+other coefficient unchanged. Writing the pair as a point of ``\mathbb C^2 \cong \mathbb R^4``, the
+condition is the two-dimensional real subspace ``\{(a, \bar a)\}`` and the map is its orthogonal
+projection in the Euclidean inner product — which is the Parseval inner product restricted to the
+plane, each stored coefficient counted once — so ``P`` is ``\mathbb R``-linear, ``P^2 = P`` exactly in
+floating point (a projected pair is bit-identical under a second application), and
+``\texttt{reality\_residual}(P \hat f) = 0`` exactly, since both members are written from one value
+``m`` as ``m`` and ``\bar m``. For a per-mode multiplier ``m`` with ``m(-k) = \overline{m(k)}`` —
+every differential operator's symbol, the exponential and radial kernels, the translation phases —
+``P(m \hat f) = m\,P \hat f``, because the multiplier maps ``\mathcal H`` to itself. The physical
+round trip ``\mathcal F \mathcal F^{-1}`` is the same projector up to the transform's round-off; the
+inverse real transform discards the anti-Hermitian part, and the forward transform reseeds it at the
+ulp. ``\checkmark``
+
+**Backs** [Architecture](architecture.md) §13 decision 83 and the `reality_projection!` docstring.
+**Checked by** `test/fields.jl` (`reality_projection!`) — the identity on an exact spectrum, agreement
+with an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients bitwise
+untouched, exact idempotence, round-trip agreement to ``64\,\varepsilon``, linearity, commutation with
+the Laplacian symbol, the two-argument form, the domain refusal and the physical absence — over both
+element types, tensor orders 0/1/2, permuted folds and an odd folded axis; and `test/gpu/suite.jl`
+(device against host, the device result exactly Hermitian).
 
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist

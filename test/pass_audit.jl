@@ -284,6 +284,20 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("kernel", carr(g), (M, 0)))                   # the KA kernel reads ĝ once, not per component
   end
 
+  # ---------------------------------------------------------- the reality projector (decision 83)
+  @testset "reality_projection! (the self-conjugate planes, each element once each way)" begin
+    # The ideal is the plane area: every stored element of the zero plane and, the folded axis being
+    # even here, of the Nyquist plane is read exactly once and written exactly once — a pair from its
+    # owning side, a corner against itself — and nothing off those planes is touched.
+    s1, v1 = sspec(), vspec()
+    planes = iseven(field_grid(s1).grid_size[1]) ? 2 : 1
+    plane = shape0[2] * shape0[3]
+    audit(() -> reality_projection!(s1), "reality_projection! scalar",
+      Traffic("field", carr(s1), (planes * plane, planes * plane)))
+    audit(() -> reality_projection!(v1), "reality_projection! vector",
+      Traffic("field", carr(v1), (3 * planes * plane, 3 * planes * plane)))
+  end
+
   # ---------------------------------------------------------------- convolution family
   @testset "convolution family" begin
     f, a, b, d = vspec(), vspec(), vspec(), vspec()

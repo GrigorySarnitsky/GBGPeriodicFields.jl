@@ -386,6 +386,112 @@ end
 end
 
 
+@testset "reality_projection!: the projector onto real-field spectra ($T)" for T in (Float64, Float32)
+  # The independent oracle, written from the definition over the ORIGINAL coefficients: every mode on
+  # a self-conjugate plane becomes the mean of itself and its partner's conjugate. It shares no code
+  # with the implementation, which owns each pair from one side and writes both.
+  function projection_oracle(field)
+    d = copy(field_data(field)); fold = field_layout(field).fft_dims[1]
+    N = field_grid(field).grid_size; others = Tuple(a for a in 1:3 if a != fold)
+    planes = iseven(N[fold]) ? (1, size(d, fold)) : (1,)
+    out = copy(d)
+    for p in planes, idx in CartesianIndices(d)
+      idx[fold] == p || continue
+      t = collect(Tuple(idx))
+      for a in others; t[a] = mod(-(idx[a] - 1), N[a]) + 1 end
+      out[idx] = (d[idx] + conj(d[CartesianIndex(t...)])) / 2
+    end
+    return out
+  end
+  offplane(field) = let d = field_data(field), fold = field_layout(field).fft_dims[1],
+                        planes = iseven(field_grid(field).grid_size[fold]) ? (1, size(d, fold)) : (1,)
+    [idx for idx in CartesianIndices(d) if !(idx[fold] in planes)]
+  end
+
+  for (sizes, layout) in (((8, 8, 8), RealFourierLayout()),
+                          ((8, 8, 8), RealFourierLayout((2, 1, 3))),
+                          ((8, 7, 6), RealFourierLayout()),
+                          ((7, 8, 8), RealFourierLayout()))          # ODD folded axis: no Nyquist plane
+    grid = Grid3D(sizes, T.((2pi, 2pi, 2pi)))
+    for R in (0, 1, 2)
+      physical = R == 0 ? ScalarFieldPhysical(rand(T, sizes...), grid, layout) :
+                 R == 1 ? VectorFieldPhysical(rand(T, sizes..., 3), grid, layout) :
+                          TensorFieldPhysical{2}(rand(T, sizes..., 3, 3), grid, layout)
+      spectral = similar_field(ScalarFieldSpectral(
+        zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      plans = FieldTransformPlans(physical, spectral)
+      transformed = to_spectral(physical, plans)
+
+      # On a spectrum that already satisfies the condition the projector is the identity.
+      untouched = copy(field_data(transformed))
+      @test field_data(reality_projection!(transformed)) == untouched
+
+      # Break one member of a pair, a corner, and — the consumer's case — a pair by 2e-6: the
+      # projection zeroes the residual EXACTLY, agrees with the oracle, and touches nothing off-plane.
+      data = field_data(transformed)
+      fold = layout.fft_dims[1]
+      plane_index = ntuple(a -> a == fold ? 1 : 3, 3)
+      data[plane_index..., ntuple(_ -> 1, R)...] += Complex{T}(0.6, 0.25)
+      data[ntuple(_ -> 1, 3)..., ntuple(_ -> 1, R)...] += Complex{T}(0, 0.3)
+      tiny = ntuple(a -> a == fold ? 1 : 2, 3)
+      data[tiny..., ntuple(_ -> 1, R)...] += Complex{T}(2e-6, -2e-6)
+      @test reality_residual(transformed) > 0
+      before = copy(data); expected = projection_oracle(transformed); off = offplane(transformed)
+      projected = reality_projection!(transformed)
+      @test projected === transformed
+      @test reality_residual(transformed) == 0
+      @test field_data(transformed) ≈ expected
+      @test all(idx -> field_data(transformed)[idx] === before[idx], off)
+      @test iszero(imag(field_data(transformed)[ntuple(_ -> 1, 3)..., ntuple(_ -> 1, R)...]))
+
+      # Exactly idempotent: a second application changes no bit.
+      once = copy(field_data(transformed))
+      @test field_data(reality_projection!(transformed)) == once
+      @test all(idx -> field_data(transformed)[idx] === once[idx], CartesianIndices(once))
+
+      # The physical round trip is the same projector up to the transform's own round-off.
+      roundtrip = to_spectral(to_physical(transformed, plans), plans)
+      @test field_data(roundtrip) ≈ field_data(transformed) rtol = 64 * eps(T)
+
+      # Linear: the projection of a combination is the combination of the projections.
+      g = similar_field(transformed, Val(R)); field_data(g) .= rand(Complex{T}, size(data)...)
+      combo = similar_field(transformed, Val(R))
+      combine!(combo, T(2), transformed, T(-3), g)
+      pg = reality_projection!(similar_field(g, Val(R)), g)
+      pc = reality_projection!(combo)
+      lhs = field_data(pc)
+      rhs = 2 .* field_data(transformed) .- 3 .* field_data(pg)
+      @test lhs ≈ rhs
+
+      # Commutes with a multiplier m(−k) = conj m(k): the Laplacian symbol is real and even.
+      if R == 0
+        multipliers = FieldSpectralMultipliers(transformed)
+        h = similar_field(g, Val(0)); field_data(h) .= rand(Complex{T}, size(data)...)
+        left = reality_projection!(laplacian(h, multipliers))
+        right = laplacian(reality_projection!(similar_field(h, Val(0)), h), multipliers)
+        @test field_data(left) ≈ field_data(right)
+      end
+
+      # The two-argument form: the destination gets the projection, the source is untouched, and a
+      # peer on another domain is refused rather than copied.
+      source = similar_field(g, Val(R)); field_data(source) .= rand(Complex{T}, size(data)...)
+      source_before = copy(field_data(source))
+      dest = reality_projection!(similar_field(source, Val(R)), source)
+      @test field_data(dest) ≈ projection_oracle(source)
+      @test field_data(source) == source_before
+      @test reality_residual(dest) == 0
+      other_grid = Grid3D(sizes, T.((2pi, 4pi, 2pi)))
+      foreign = similar_field(ScalarFieldSpectral(
+        zeros(Complex{T}, field_spectral_shape(other_grid, layout, Val(0))...), other_grid, layout), Val(R))
+      @test_throws ArgumentError reality_projection!(foreign, source)
+
+      # No physical-representation method: there the projection is the identity (invariant 1).
+      @test_throws MethodError reality_projection!(physical)
+    end
+  end
+end
+
+
 @testset "allocating constructors (family, grid[, layout]) — decision 74" begin
   for T in (Float64, Float32)
     grid = Grid3D((8, 6, 4), (T(2π), T(4π), T(6π)))          # anisotropic, mixed parity

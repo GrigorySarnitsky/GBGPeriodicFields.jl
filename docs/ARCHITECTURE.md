@@ -4460,3 +4460,101 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       differently-wrapped views of the *same* device memory. That is invariant 14's predicate, so
       unifying them on the recursing form makes a check stricter as well as removing a divergence
       between a refusal and the display beside it.
+
+83. **`reality_projection!` — the projector onto real-field spectra, because decision 71's premise
+    holds only to the ulp** (2026-09-05, requested by the consuming solver with a measured failure;
+    owner-decided). Decision 71 declined a repairing verb on three grounds: everything the package
+    produces satisfies the reality condition by construction; the repair already exists as a physical
+    round trip; and a repairing verb would silently rewrite a caller's data. The first two are now
+    measured false, and the third is honoured by the design rather than overturned.
+
+    **The premise, measured on this fleet's AMD host.** The `reality_residual` of a fresh `to_spectral`
+    of a random real field is exactly zero for FFTW at ``32^3``, ``64^3`` and ``128^3`` and nonzero at
+    ``96^3`` and ``256^3`` (``1.3\times10^{-4}`` and ``7.4\times10^{-4}`` in `Float32` coefficient
+    units), and nonzero for rocFFT at every size (``2\times10^{-5}`` to ``8\times10^{-4}``); cuFFT
+    behaves like rocFFT on the consumer's host. So "by construction" is true only for FFTW at some
+    power-of-two sizes, and elsewhere a spectrum leaves the transform carrying an anti-Hermitian part
+    at the round-off floor.
+
+    **Why a floor becomes a field.** On the folded axis's zero plane both members of a conjugate
+    pair are stored, and their anti-Hermitian combination is invisible to the inverse real transform
+    — so the nonlinear term, formed from physical fields, neither sees it nor feeds it — and is
+    damped only by ``\nu\kappa^2`` at ``\kappa \approx 1``. Any forcing proportional to the field,
+    ``\hat N \mathrel{+}= A\,\mathbf 1_{\text{band}}\,\hat u``, amplifies it with the same
+    coefficient ``A`` as the physical modes, which ``A`` must hold positive on average to balance
+    the dissipation.
+
+    The consumer measured the net growth at ``A - \nu\kappa^2 \approx 0.26`` per time unit: from the
+    `Float32` floor the parasitic mode reaches order one at ``t \approx 60``, and six seeds died at
+    ``t = 66``–``71`` for RK3 and RK4 alike and for both dealiasing rules, `Float64` at ``t = 142``
+    — ``\ln(10^9)/0.26 \approx 80`` time units later, as the rate predicts. Spectral energy held its
+    target throughout while the physical field's energy, dissipation and maximum speed collapsed;
+    the residual went ``4\times10^{-2} \to 1.3\times10^{6}``. Same shape as Wang & Rosa (2009) on
+    the divergence-free constraint: a linear constraint the discretisation does not enforce, a
+    round-off seed, a linear amplifier, and re-projection per step as the remedy.
+
+    **What ships.** `reality_projection!(destination, source)` and the in-place
+    `reality_projection!(field)`: on the stored self-conjugate planes — the folded axis's zero
+    plane, and its Nyquist plane when the full axis is even — each pair is replaced by
+    ``\tfrac{1}{2}(\hat f(k) + \overline{\hat f(-k)})`` and its conjugate, a self-paired corner by its
+    real part from the same formula, and nothing else is touched. This is the orthogonal projector
+    onto real-field spectra in the Parseval inner product: ``\mathbb R``-linear, idempotent — a
+    projected pair is bit-identical under a second application — and commuting with every per-mode
+    multiplier ``m`` with ``m(-k) = \overline{m(k)}``. FORMALIZATION carries the typed statement.
+
+    Semantics decided with the request: projection only — no Nyquist zeroing, which is a dealiasing
+    policy and the consumer's truncation keeps those planes empty anyway; a mutator returning its
+    argument, no residual returned, so `reality_residual` stays the checker and the report/repair
+    split of decision 71 stands; and nothing folded into `to_spectral!`, since a fresh transform of
+    real data satisfies the condition to round-off and the defect lives in state accumulated in
+    place. The two-argument form exists so the twins read alike and costs a field copy before the
+    ``O(N^2)`` projection; the in-place form is the cheap one and the one the consumer calls, once
+    per step beside `helmholtz_projection!` at the step's closing deposit.
+
+    **Why the round trip is not the same repair.** It costs ``O(N^3 \log N)`` — six transforms per
+    step on a vector field — and, measured by the consumer, it resets the residual only to the
+    transform's floor, since the forward transform reseeds it; the projection zeroes it exactly and
+    perturbs no other mode, where the round trip perturbs every mode by round-off. Decision 71's
+    "the repair already exists" named a worse operation for this purpose, not the same one.
+
+    **Naming.** `reality_projection!`, pairing with `reality_residual`: the two verbs act on one
+    condition and share its stem, and "the reality condition" is the term decision 28 and `convolve!`
+    already use. Declined: `real_projection!` — the request's word — because it is accurate only at
+    the four self-paired corners, where the result is literally ``\operatorname{Re}\hat f``, and reads
+    as `real(z)` everywhere else; `hermitian_projection!`, because `LinearAlgebra.hermitianpart` is
+    the same projection on MATRICES and the package's fibers are matrices, so the name would read as a
+    fiber operation — the collision decision 71 recorded for `symmetrize!`, TurTLE's word; and
+    `real_field_projection!`, precise but a rename of the shipped verb for precision it already has.
+
+    **Implementation.** A decision-38 kernel pair in `Fields`, beside the residual (one concept, one
+    home): a `KernelAbstractions` kernel on a device and a gated slab-threaded loop on the CPU, both
+    calling one inlined `_project_pair!` so they agree bitwise. Each pair is owned by its
+    lexicographically smaller member, so it is touched by exactly one work item and no two items
+    write one element — the pass audit's ideal, every stored plane element read once and written
+    once, holds exactly.
+
+    Indices are mirrored modularly and placed by the layout's folded axis through a `Val` dispatch,
+    so a permuted fold projects whichever axis is folded and there are no `reverse`/`circshift`
+    temporaries — the traversal the roadmap prescribes for fusing `reality_residual`, now written.
+    `Fields` joined the decision-47 dispatch guard's scanned modules with its first kernel pair (17
+    → 18), and its method count refroze 141 → 157 with all sixteen named (nine hand-written, seven
+    generated by `@kernel`).
+
+    **Verification.** `test/fields.jl`: 196 cells per element type — the identity on an exact
+    spectrum, an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients
+    bitwise untouched, exact idempotence, agreement with the round trip to ``64\varepsilon``,
+    linearity, commutation with the Laplacian symbol, the two-argument form, the domain refusal and
+    the physical absence, over tensor orders 0/1/2, permuted folds and an odd folded axis. GPU
+    parity on ROCm: 491 → 494, the device result exactly Hermitian and bit-equal to the host's. The
+    allocation audit pins both arities, the pass audit both rows at the ideal, and the benchmark
+    gates run the four new rows (192 → 196 CPU, 206 → 210 ROCm).
+
+    CUDA parity is the office host's to run; its count moves too.
+
+    **What decision 71 keeps.** The check reports; the projection is an explicit verb the caller
+    invokes; no transform enforces the symmetry — per-operation enforcement would tax every transform
+    for a problem only a multiplicative forcing creates, and a decaying run never needs it. What 71
+    loses is one sentence, "everything the package produces satisfies the constraint by
+    construction", which was a claim about FFTW at power-of-two sizes and is now stated as such
+    wherever it appeared.
+

@@ -97,12 +97,13 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 75",716,716,0
 "ARCHITECTURE.md § item 76",885,207,0
 "ARCHITECTURE.md § item 77",302,262,0
-"ARCHITECTURE.md § item 78",1453,212,0
+"ARCHITECTURE.md § item 78",1449,208,0
 "ARCHITECTURE.md § item 79",652,147,0
 "ARCHITECTURE.md § item 8",38,38,0
 "ARCHITECTURE.md § item 80",1011,197,0
 "ARCHITECTURE.md § item 81",440,111,0
 "ARCHITECTURE.md § item 82",943,120,0
+"ARCHITECTURE.md § item 83",1121,117,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -186,7 +187,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",513,107,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",874,184,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
@@ -301,7 +302,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
 "Fields.jl :: FieldSpectralMultipliers(",581,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
-"Fields.jl :: Fields",416,365,0
+"Fields.jl :: Fields",451,400,0
 "Fields.jl :: Grid3D(",174,74,0
 "Fields.jl :: RealFourierLayout()",76,33,0
 "Fields.jl :: ScalarFieldPhysical(",328,108,0
@@ -334,6 +335,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",90,74,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
+"Fields.jl :: _reality_projection_planes!(backend, data, ::Val{D}, planes,",95,87,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
 "Fields.jl :: _show_domain(io, grid)",179,70,0
@@ -361,7 +363,8 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_spectral_shape(",63,43,0
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",123,55,0
-"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",375,89,1
+"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral, sour",371,94,0
+"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",426,102,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
 "Fields.jl :: to_physical!(",321,106,1
@@ -380,11 +383,11 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Internal API",33,33,0
 "Fields.md § Moving between storage families",90,86,0
 "Fields.md § Spectral kernel protocol",35,32,0
-"Fields.md § The real-field reality condition",3,3,0
+"Fields.md § The real-field reality condition",4,4,0
 "Fields.md § Transform operations",6,6,0
 "Fields.md § Transform-plan and multiplier types",4,4,0
 "Fields.md § Types",11,11,0
-"Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",10,10,0
+"Fields.md § alone. Whenever a Fields-owned binding is added to the umbre",11,11,0
 "Fields.md § the same `Public = false` mechanism that filed `map` and `tr",9,9,0
 "GBGPeriodicFields.jl :: GBGPeriodicFields",910,409,1
 "GBGPeriodicFields.md § GBGPeriodicFields.jl",8,8,0
@@ -431,7 +434,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 2. The performance model",845,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
-"PERFORMANCE.md § 5. The benchmark suite",1238,637,0
+"PERFORMANCE.md § 5. The benchmark suite",1260,659,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",973,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
@@ -451,6 +454,9 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (am)",822,99,0
 "PERFORMANCE.md § finding (an)",344,142,0
 "PERFORMANCE.md § finding (ao)",312,100,0
+"PERFORMANCE.md § finding (ap)",386,103,0
+"PERFORMANCE.md § finding (aq)",487,110,0
+"PERFORMANCE.md § finding (ar)",165,89,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -561,7 +567,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",1848,1848,0
+"TESTING.md § 2. Layout",1890,1890,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 5. GPU testing",234,141,0
@@ -589,7 +595,7 @@ unit,words,longest_paragraph,admonitions
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",324,120,0
 "index.md § Installation",88,48,0
-"index.md § Main components",360,360,0
+"index.md § Main components",369,369,0
 "index.md § Start here",39,39,0
 "notation.md § Base and fiber",631,581,0
 "notation.md § Conventions",316,316,0

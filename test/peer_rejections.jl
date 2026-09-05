@@ -120,6 +120,7 @@ const PEER_INVOCATIONS = Dict{Symbol, Function}(
   :multiply!  => (b, f) -> multiply!(prsphys(b), prsphys(b), prsphys(f)),
   :divide!    => (b, f) -> divide!(prsphys(b), prsphys(b), prsphys(f)),
   :combine!   => (b, f) -> combine!(prsphys(b), 0.5, prsphys(b), 0.5, prsphys(f)),
+  :reality_projection! => (b, f) -> reality_projection!(prsspec(b), prsspec(f)),   # decision 83: the two-argument form copies, and must refuse first
   :cross      => (b, f) -> cross(prvphys(b), prvphys(f)),
   :cross!     => (b, f) -> cross!(prvphys(b), prvphys(b), prvphys(f)),
   :×          => (b, f) -> prvphys(b) × prvphys(f),

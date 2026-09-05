@@ -146,6 +146,10 @@ _map_add(a, b) = a + b
       @alloc_below field_threshold helmholtz_projection!(svd, svd, multipliers)                       # aliased in place — the one-pass kernel needs no guard temporary (decision 32)
       @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel)                # kernel-composed ℙ
       @alloc_below field_threshold helmholtz_projection!(svd, sv, multipliers, kernel, T(0.5), T(1))
+      # the reality projector (decision 83): in place on the planes, and the copying two-argument form
+      @alloc_below field_threshold reality_projection!(ssd)
+      @alloc_below field_threshold reality_projection!(svd)
+      @alloc_below field_threshold reality_projection!(svd, sv)
       @alloc_below field_threshold curl!(svd, sv, multipliers)
       @alloc_below field_threshold inverse_curl!(svd, sv, multipliers)
       @alloc_below field_threshold divergence!(ssd, sv, multipliers)            # vector → scalar

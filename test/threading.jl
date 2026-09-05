@@ -280,7 +280,7 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # first kernel pairs — and the scan NOT having covered it is exactly how a new pair in an
     # unscanned module would have gone unguarded: this list must name every module that owns one.
     for mod in (GBGPeriodicFields.DifferentialOperators, FS, GBGPeriodicFields.Reductions,
-                GBGPeriodicFields.Convolution)
+                GBGPeriodicFields.Convolution, GBGPeriodicFields.Fields)
       for name in names(mod; all = true)
         isdefined(mod, name) || continue
         f = getfield(mod, name)
@@ -305,7 +305,10 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # decision-50/51 era with nothing checking its arity stayed a dispatch candidate. The guard's
     # own blind spot was module-shaped, which is worth remembering: a frozen count only defends the
     # modules the scan names.
-    @test dispatch_pairs == 17
+    # 17 → 18: `_reality_projection_planes!` (decision 83, 2026-09-05), and Fields joined the scanned
+    # set with it — its first kernel pair, and the module-shaped blind spot above would have hidden
+    # it exactly as it hid Convolution's.
+    @test dispatch_pairs == 18
   end
 
   @testset "kernel sites reproducible across thread counts" begin
@@ -423,6 +426,7 @@ end
   const C = M.Convolution
   const D = M.DifferentialOperators
   const FS = M.FiberSections
+  const FI = M.Fields
 
   # A distinct sentinel per twin, so one subprocess can probe them all without interference.
   struct Reached <: Exception; which::String; end
@@ -432,6 +436,7 @@ end
   C._radial_convolution_pass!(::KA.CPU, d, s, sym, q1, q2, q3, a, b) = throw(Reached("radial_convolution"))
   D._helmholtz_projection_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, k, a, b) = throw(Reached("helmholtz"))
   D._inverse_curl_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, iu) = throw(Reached("inverse_curl"))
+  FI._reality_projection_planes!(::KA.CPU, data, v, planes, sizes, others, ncomp, P) = throw(Reached("reality_projection"))
   # NOTE the exact signature: an override must be at least as specific as the method it replaces, or
   # Julia keeps the real one and the probe reports "NOTHING" — indistinguishable from dead code. The
   # assertion below that every override lives in Main is what tells the two apart.
@@ -456,6 +461,7 @@ end
                   (C._radial_convolution_pass!, "radial_convolution"),
                   (D._helmholtz_projection_modes!, "helmholtz"),
                   (D._inverse_curl_modes!, "inverse_curl"),
+                  (FI._reality_projection_planes!, "reality_projection"),
                   (FS._fiberwise_pass!, "fiberwise_pass"))
     any(m -> m.module === Main, methods(f)) || println(nm, "=STALE-PROBE")
   end
@@ -467,6 +473,7 @@ end
     (() -> convolve!(d, u, rad),                     "radial_convolution"),
     (() -> helmholtz_projection!(d, u, m),           "helmholtz"),
     (() -> inverse_curl!(d, u, m),                   "inverse_curl"),
+    (() -> reality_projection!(u),                   "reality_projection"),
     (() -> cross(up, vp),                            "fiberwise_pass"),
   ]
   for (call, expected) in probes
@@ -482,7 +489,7 @@ end
   results = Dict(split(line, "=")[1] => split(line, "=")[2]
                  for line in split(output, '\n') if occursin('=', line))
   for twin in ("separable_convolution", "separable_combination", "radial_convolution",
-               "helmholtz", "inverse_curl", "fiberwise_pass")
+               "helmholtz", "inverse_curl", "reality_projection", "fiberwise_pass")
     haskey(results, twin) || error("probe produced no line for $twin; output was:\n$output")
     results[twin] == twin ||
       @error "a gated CPU twin is NOT reached from its public entry point — it is dead code" twin reached = results[twin]
