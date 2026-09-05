@@ -568,13 +568,19 @@ function run_value_lane(configs)
       # representative of the same displacement.
       (:displace!,  point_positions(displace!(PointSet(copy(raw_coordinates)), grid, (α, qa), (β, qb))),
                     ref_displace_wrapped(raw_coordinates, grid, (α, point_values(qa)), (β, point_values(qb)))),
-      # Zero for anything the package produces — a spectrum built by transforming a real field cannot
-      # violate the constraint — and exactly twice the imaginary part it is handed otherwise. The
-      # second row is what makes the first non-vacuous: a residual that always returned zero would
-      # pass the first and fail this one.
+      # Zero here, where FFTW is exact at this power-of-two size — elsewhere a fresh transform satisfies
+      # the condition only to round-off (PERFORMANCE finding (ar)) — and exactly twice the imaginary
+      # part it is handed otherwise. The second row is what makes the first non-vacuous: a residual
+      # that always returned zero would pass the first and fail this one.
       (:reality_residual, reality_residual(sh), ref_reality_residual(field_data(sh), grid, layout)),
       (:reality_residual, reality_residual(broken_reality),
                           ref_reality_residual(field_data(broken_reality), grid, layout)),
+      # The projector (decision 83), through its two-argument form so the fixtures stay intact: the
+      # identity on the exact spectrum, and the pair mean on the broken one.
+      (:reality_projection!, field_data(reality_projection!(similar_field(sh, similar(field_data(sh))), sh)),
+                             ref_reality_projection!(field_data(sh), grid, layout)),
+      (:reality_projection!, field_data(reality_projection!(similar_field(sh, similar(field_data(sh))), broken_reality)),
+                             ref_reality_projection!(field_data(broken_reality), grid, layout)),
       # The in-place family move (decision 69): into a destination that already exists, within one
       # family, which must leave the destination holding exactly the source's values.
       (:adapt!,     field_data(adapt!(similar_field(u, Val(1)), u)), du),

@@ -731,6 +731,31 @@ function ref_reality_residual(data, grid, layout)
 end
 
 
+# The projection onto real-field spectra (decision 83), written from its definition over the ORIGINAL
+# coefficients: every mode on a stored self-conjugate plane becomes the mean of itself and its
+# partner's conjugate, which makes the partner's new value that mean's conjugate and a self-paired
+# corner its own real part. Reading only the original array keeps it order-independent, where the
+# implementation owns each pair from one side and writes both.
+function ref_reality_projection!(data, grid, layout)
+  folded = layout.fft_dims[1]
+  others = Tuple(d for d in 1:3 if d != folded)
+  a, b = others
+  na, nb = size(data, a), size(data, b)
+  planes = iseven(grid.grid_size[folded]) ? (1, size(data, folded)) : (1,)
+  fiber_shape = ntuple(i -> size(data, 3 + i), max(0, ndims(data) - 3))
+  out = copy(data)
+  index, mirror = Vector{Int}(undef, 3), Vector{Int}(undef, 3)
+  for plane in planes, component in CartesianIndices(fiber_shape), i in 1:na, j in 1:nb
+    index[folded] = plane;  index[a] = i;  index[b] = j
+    mirror[folded] = plane; mirror[a] = mod(-(i - 1), na) + 1; mirror[b] = mod(-(j - 1), nb) + 1
+    here    = data[index[1], index[2], index[3], Tuple(component)...]
+    partner = data[mirror[1], mirror[2], mirror[3], Tuple(component)...]
+    out[index[1], index[2], index[3], Tuple(component)...] = (here + conj(partner)) / 2
+  end
+  return out
+end
+
+
 # `û = i a × ŵ / |a|²`, the divergence-free preimage of a curl, with the k = 0 mode zero. Written from
 # the docstring over raw arrays: the wavenumbers are rebuilt from the grid by `mode_wavenumbers`, and
 # the cross product is expanded by hand rather than taken from the package's own `curl`.
