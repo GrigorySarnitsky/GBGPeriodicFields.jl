@@ -436,7 +436,7 @@ end
   C._radial_convolution_pass!(::KA.CPU, d, s, sym, q1, q2, q3, a, b) = throw(Reached("radial_convolution"))
   D._helmholtz_projection_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, k, a, b) = throw(Reached("helmholtz"))
   D._inverse_curl_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, iu) = throw(Reached("inverse_curl"))
-  FI._reality_projection_planes!(::KA.CPU, data, v, planes, sizes, others, ncomp, P) = throw(Reached("reality_projection"))
+  FI._reality_projection_planes!(::KA.CPU, data, ::Val{D}, planes, sizes, others, ncomp, P) where {D} = throw(Reached("reality_projection"))
   # NOTE the exact signature: an override must be at least as specific as the method it replaces, or
   # Julia keeps the real one and the probe reports "NOTHING" — indistinguishable from dead code. The
   # assertion below that every override lives in Main is what tells the two apart.
