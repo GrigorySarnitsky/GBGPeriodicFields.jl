@@ -798,7 +798,11 @@ code yet names nothing in the code. Convert BOTH kinds to LaTeX; keep backticks 
 **underscored identifier in prose must be backticked** (`` `n_spinup` ``), or Markdown parses `n_spinup … n_stats`
 as an *italic* span across the underscores.
 
-**Verify a doc edit by BUILDING the page, not by eyeballing the diff.** After editing a Literate example,
+**Verify a doc edit by BUILDING the page, not by eyeballing the diff — and "building" means the full
+`julia --project=docs docs/make.jl` EXITING 0, gated on that exit status.** The six lint functions run
+standalone are a subset of it and cannot see a dangling `@ref`; grepping a build log for error text
+passes a build that died at load. Six `Docs` deploys failed unnoticed for two days after decision 83
+(2026-09-04 → 06) on exactly that gap, and the repair shipped unbuilt once more through a grep-gate. After editing a Literate example,
 regenerate it (`Literate.markdown(src, out; documenter=false)`) and grep the OUTPUT prose for Unicode-math
 glyphs and backtick-wrapped formulas until the count is **zero** — the built page is the source of truth for
 what renders. The example page is a "check the docs" surface: the battery above (and `/check-docs`) must build
