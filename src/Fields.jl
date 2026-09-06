@@ -2714,12 +2714,17 @@ end
 @inline _plane_linear(::Val{3}, p, j, l, n1, n2) = j + n1 * (l - 1) + n1 * n2 * (p - 1)
 
 
-# One pair, projected: both members replaced by the mean of the first and the conjugate of the
-# second, which is the orthogonal projection of the pair onto ``\hat f(-k) = \overline{\hat f(k)}``.
-# A self-paired corner (`ix == iy`) gets the same formula against itself, i.e. its real part, and is
-# read and written ONCE — the pass audit counts every plane element exactly once each way. All reads
-# precede all writes, so the in-place call is exact; the kernel and the gated CPU loop both call this
-# so they agree bitwise, which is what the GPU parity suite and the threading lane compare.
+"""
+    _project_pair!(data, ix, iy)
+
+Project one conjugate pair of `data`, at linear indices `ix` and `iy`, onto the reality condition:
+both members are replaced by the mean of the first and the conjugate of the second, which is the
+orthogonal projection of the pair onto ``\\hat f(-k) = \\overline{\\hat f(k)}``. A self-paired corner
+(`ix == iy`) gets the same formula against itself, i.e. its real part, and is read and written ONCE —
+the pass audit counts every plane element exactly once each way. All reads precede all writes, so the
+in-place call is exact; the kernel and the gated CPU loop both call this, so they agree bitwise,
+which is what the GPU parity suite and the threading lane compare.
+"""
 @inline function _project_pair!(data, ix, iy)
   @inbounds begin
     x = data[ix]
@@ -2803,7 +2808,7 @@ end
 
 Project a field's coefficients onto the spectrum of a real field, so that
 [`reality_residual`](@ref) of the result is exactly zero — the reality-condition twin of
-[`helmholtz_projection!`](@ref).
+[`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!).
 
 In physical space nothing visible changes: the inverse real transform already discards the part of
 the coefficients that no real field has, so the image of `field` is the same before and after. What
