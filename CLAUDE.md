@@ -1092,10 +1092,14 @@ those are the usual rot. Then the mechanical bar:
   Its lanes, and the property each rests on:
   - `invocations.jl` — the operation domain is **derived from the method table**, not listed: every
     package-owned method's parameter slots are filled from a canonical pool and `applicable` settles
-    which combinations are real calls. All **112 public operations** are reached.
+    which combinations are real calls. **123 of the 126 public operations** are reached (re-measured
+    2026-09-06); the three with no buildable call are `length`, `point_traversal_order!` and `show` —
+    decisions 78, 80 and 82 — because no pool object fills a `PointTraversalOrder` or scratch slot.
   - `checks.jl` — five universal properties over every invocation (preservation, structural, metadata,
     determinism, type-stability), the ones whose oracle does not depend on what the operation computes.
-  - `values.jl` + `references.jl` — an **independent value oracle for all 112 operations**, each written
+  - `values.jl` + `references.jl` — an **independent value oracle for 122 of 126 operations** (2026-09-06;
+    the four without one are `length`, `point_traversal_order`, `point_traversal_order!` and `show`, from
+    decisions 78, 80 and 82, never surveyed since they shipped), each written
     from the operation's *documented* definition over raw arrays, so a disagreement indicts either the
     code or the docstring. The transforms use a literal DFT sum; persistence is read back with the raw
     HDF5 API, because `read_field` as an oracle for `write_field` only checks the pair against itself.
@@ -1704,7 +1708,10 @@ silently drop Enteropia's two columns and both retired cards from `RESULTS.md`.
 
 **The per-method coverage ledger is BUILT and reads ZERO uncovered (2026-08-28).** The resumption
 point recorded here since 2026-08-02 is closed; `test/exhaustive/method_ledger.jl` implements it and
-`test/exhaustive/DESIGN.md` carries the full account. **575 cells over 114 operations: 572 covered by
+`test/exhaustive/DESIGN.md` carries the full account. **598 cells over 119 operations as of 2026-09-06: 575 covered by an assertion, 4 closed by a
+recorded reason, 19 UNCOVERED** — `adapt_structure` and `length` on the traversal order,
+`point_traversal_order`, fifteen `show` methods (decision 82), and decision 83's one-argument
+`reality_projection!`, whose value row was added right after the run. The 2026-08-29 figure was 575 cells over 114 operations: 572 covered by
 an assertion, 3 closed by a recorded reason, 0 uncovered**, with the value lane at 516 comparisons
 against 169 rows before. The gap it existed to close was per-symbol bookkeeping — one checked method
 marked a whole generic done, so `mul!` reported covered on one row out of dozens.
@@ -1762,10 +1769,14 @@ against a quantity that varies 7× run to run. **(2) The value lane has now exec
 CLOSED (2026-08-15)** — it had thrown from 2026-08-03 until a fix on 2026-08-04, leaving its
 independent oracles unverified against the present code. The survey was run in full after decision 66, again on
 2026-08-28, and again on **2026-08-29** after the per-method ledger landed (`-t4`, from `test` so the
-HDF5 pair is reachable, ~85 minutes). The current figures are the last run's: **3,416,256 invocations**
-over 96 configurations, **49,632 value comparisons with 121 of 121 operations carrying an independent
-oracle** (111 of 113 before this work), **0 correctness findings and 0 type-stability findings**, the
-per-method ledger at **0 uncovered of 575 cells**, and 0 failures in the declared relations (2,496),
+HDF5 pair is reachable, ~85 minutes). The current figures are the **2026-09-06** run's, taken after
+decision 83 on an idle `Aiporetne` (86 minutes): **3,419,040 invocations** over 96 configurations,
+**49,728 value comparisons with 122 of 126 operations carrying an independent oracle** — the four
+without one are `length`, `point_traversal_order`, `point_traversal_order!` and `show`, decisions 78,
+80 and 82's, which had never been surveyed; the 2026-08-29 run read 121 of 121 — **0 correctness
+findings and 0 type-stability findings**, the per-method ledger at **19 uncovered of 598 cells**
+(0 of 575 before those decisions; the cells are named above), 296 applicable-but-unasserted cells
+(283 before), 63 context-mismatch findings over 133 cells, and 0 failures in the declared relations (2,496),
 representation/invariance/allocation/ordering (4,992) and sequences (1,632) lanes, 0 disagreeing
 assignments in the storage-aliasing lane, and *every* mismatched argument refused in the context lane.
 **Re-measure rather than cite these** — every one of them has been found stale by the first

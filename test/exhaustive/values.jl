@@ -581,6 +581,11 @@ function run_value_lane(configs)
                              ref_reality_projection!(field_data(sh), grid, layout)),
       (:reality_projection!, field_data(reality_projection!(similar_field(sh, similar(field_data(sh))), broken_reality)),
                              ref_reality_projection!(field_data(broken_reality), grid, layout)),
+      # The one-argument in-place form is its own method and needs its own value row, or the ledger
+      # reports it uncovered (it did, 2026-09-06): a copy of the broken spectrum, projected in place.
+      (:reality_projection!, field_data(reality_projection!(let f = similar_field(sh, similar(field_data(sh)))
+                                                              copyto!(field_data(f), field_data(broken_reality)); f end)),
+                             ref_reality_projection!(field_data(broken_reality), grid, layout)),
       # The in-place family move (decision 69): into a destination that already exists, within one
       # family, which must leave the destination holding exactly the source's values.
       (:adapt!,     field_data(adapt!(similar_field(u, Val(1)), u)), du),
