@@ -308,6 +308,10 @@ function check_invocation!(invocation, record!, count!; bitwise_determinism::Boo
        # r2c consumes its input as a package defect. An earlier edit intended this and did not land.
        (occursin("to_physical", invocation.label) ||
         occursin("to_spectral", invocation.label)) && continue
+       # `point_traversal_order!(traversal, grid, points, scratch)` writes its histogram into the
+       # scratch by contract (decision 80: the scratch is the workspace the allocating form would have
+       # allocated), so slot 4 changing is the operation, not a corruption. Only that slot, only there.
+       (occursin("point_traversal_order!", invocation.label) && index == 4) && continue
        record!(:preservation, "$(invocation.label) modified argument $index, which is not its destination")
        break
      end

@@ -568,6 +568,25 @@ function run_value_lane(configs)
       # representative of the same displacement.
       (:displace!,  point_positions(displace!(PointSet(copy(raw_coordinates)), grid, (α, qa), (β, qb))),
                     ref_displace_wrapped(raw_coordinates, grid, (α, point_values(qa)), (β, point_values(qb)))),
+      # The traversal order (decisions 78, 80), surveyed for the first time on 2026-09-06. Its promise
+      # is a PERMUTATION grouped by block: row one checks the permutation, row two reads the
+      # independently recomputed block keys along the order and requires them non-decreasing. The
+      # in-place form rebuilds into an identity order against a scratch built for this point set, and
+      # must satisfy both; `length` is the point count, and the order's `adapt_structure` hook
+      # (host-to-host, the identity) must return the same indices.
+      (:point_traversal_order,  sort(Array(point_traversal_order(grid, points).indices)),
+                                collect(Int32(1):Int32(npoints(points)))),
+      (:point_traversal_order,  ref_traversal_keys(raw_coordinates, grid, 4)[Array(point_traversal_order(grid, points).indices)],
+                                sort(ref_traversal_keys(raw_coordinates, grid, 4))),
+      (:point_traversal_order!, sort(Array(point_traversal_order!(PointTraversalOrder(1:npoints(points)), grid, points,
+                                                                  PointTraversalOrderScratch(grid, points)).indices)),
+                                collect(Int32(1):Int32(npoints(points)))),
+      (:point_traversal_order!, ref_traversal_keys(raw_coordinates, grid, 4)[Array(point_traversal_order!(PointTraversalOrder(1:npoints(points)), grid, points,
+                                                                  PointTraversalOrderScratch(grid, points)).indices)],
+                                sort(ref_traversal_keys(raw_coordinates, grid, 4))),
+      (:length,                 length(point_traversal_order(grid, points)), npoints(points)),
+      (:adapt_structure,        Array(Adapt.adapt_structure(Array, point_traversal_order(grid, points)).indices),
+                                Array(point_traversal_order(grid, points).indices)),
       # Zero here, where FFTW is exact at this power-of-two size — elsewhere a fresh transform satisfies
       # the condition only to round-off (PERFORMANCE finding (ar)) — and exactly twice the imaginary
       # part it is handed otherwise. The second row is what makes the first non-vacuous: a residual

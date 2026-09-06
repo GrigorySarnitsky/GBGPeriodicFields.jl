@@ -736,6 +736,24 @@ end
 # partner's conjugate, which makes the partner's new value that mean's conjugate and a self-paired
 # corner its own real part. Reading only the original array keeps it order-independent, where the
 # implementation owns each pair from one side and writes both.
+# The traversal order's block key per point (decisions 78, 80), recomputed from the coordinates, the
+# origin and the tile count exactly as the gate test does and independently of the builder's counting
+# pass. The docstring promises a PERMUTATION whose visits are grouped by block, so a value row compares
+# the keys read along the order against the same keys sorted — equal iff the order visits blocks in
+# ascending sequence — and a second row compares the sorted indices against `1:M`.
+function ref_traversal_keys(coordinates, grid, tile_size)
+  T = eltype(coordinates)
+  tiles = ntuple(d -> max(cld(grid.grid_size[d], tile_size), 1), 3)
+  edge = ntuple(d -> T(grid.domain_size[d]) / T(tiles[d]), 3)
+  keys = Vector{Int}(undef, size(coordinates, 1))
+  for p in axes(coordinates, 1)
+    i = ntuple(d -> clamp(floor(Int, (coordinates[p, d] - grid.origin[d]) / edge[d]), 0, tiles[d] - 1), 3)
+    keys[p] = 1 + i[1] + tiles[1] * (i[2] + tiles[2] * i[3])
+  end
+  return keys
+end
+
+
 function ref_reality_projection!(data, grid, layout)
   folded = layout.fft_dims[1]
   others = Tuple(d for d in 1:3 if d != folded)

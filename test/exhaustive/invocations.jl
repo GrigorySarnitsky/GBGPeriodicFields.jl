@@ -196,6 +196,15 @@ function canonical_pool(config; device = identity)
   # its type, put it out of reach. One entry restores it; the engine's own Vararg expansion then builds
   # both the one-term and two-term forms, and the value lane drives the coefficients.
   push("displacement term (coefficient, vector point values)", (T(3) / 10, values[2]))
+  # THE TRAVERSAL ORDER AND ITS SCRATCH (decisions 78, 80). Three public operations were reported
+  # unbuildable on 2026-09-06 because no pool object filled a `PointTraversalOrder` or a
+  # `PointTraversalOrderScratch` slot: `length` of an order, `point_traversal_order!`, and the order's
+  # `adapt_structure` hook. Both are built from the pool's OWN point set and grid, so the in-place
+  # form's precondition — an order of this point count, a scratch built for this grid and count —
+  # holds by construction — `points` is the pool's own point set, pushed below; `_refresh` deep-copies
+  # both before every call, since each owns arrays.
+  push("traversal order", point_traversal_order(grid, points))
+  push("traversal scratch", PointTraversalOrderScratch(grid, points))
   # A SECOND, INDEPENDENTLY DRAWN instance of each. With one object per (representation, order), every
   # same-order slot the engine fills draws the SAME object, so it could only ever build `add!(v, v, v)`,
   # `cross!(v, v, v)`, `dot!(s, v, v)`, `mul!(C, A, A)`. That is not merely thin coverage: the
