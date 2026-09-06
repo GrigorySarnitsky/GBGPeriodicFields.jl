@@ -2828,7 +2828,7 @@ linear, exactly idempotent, and it commutes with every per-mode multiplier ``m``
 ``m(-k) = \\overline{m(k)}`` — the differential operators, the exponential and radial kernels, the
 translation phases.
 
-Reach for it where round-off on those planes is amplified rather than damped. A spectrum freshly
+Reach for it where round-off on those planes is amplified, not damped. A spectrum freshly
 transformed from real data satisfies the condition only to round-off, and a solver whose forcing is
 proportional to the field grows that round-off exponentially; projecting once per step where the
 state is deposited removes it exactly, which a physical round trip does not, since the forward
