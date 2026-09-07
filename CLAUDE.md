@@ -2006,6 +2006,18 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 ## Planned directions (recorded — not started)
 
+- **The shared tooling package is DESIGNED, not built (2026-09-07) — implement it from the seed
+  directory, never from here.** Its name is `GBGCodingTools` (CLI `gbg`, consumer state in `.gbg/`), and
+  the brief for the implementing session is `~/Dropbox/Research and Teach/AI Helpers/GBGCodingTools/`:
+  `IMPLEMENTATION.md` (the owner's questions with defaults, then Phases 0–8 each with a definition of
+  done and its verification commands), `docs/ARCHITECTURE.md` (every decision with evidence and the
+  alternatives it dominates) and `docs/design-record/` (the surveys of all four packages, three
+  architect proposals, three critiques, the decision record, the red-team reviews). The freeze below
+  stays in force until Phase 4 migrates this package onto the pinned tool — that phase deletes
+  `.claude/commands/**`, the `make.jl` lint bodies, the copied test harnesses and ≈ 700 policy lines
+  of this file, replacing them with `.gbg/config.toml`, a ledger, tracked rounds, hash-managed stubs
+  and one `@`-import. Nothing in PF changes before that; the survey below is now history the brief
+  already consumed.
 - **The instruments are FROZEN in-tree, and a shared instrument package is DEFERRED (user-decided
   2026-08-27).** Two rulings, and the first binds now. **(1) Stop changing the instruments.** They were
   edited all week while grading the very work they measure — four defects fixed in PF's graders
