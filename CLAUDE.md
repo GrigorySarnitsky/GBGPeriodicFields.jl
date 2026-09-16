@@ -2021,7 +2021,11 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   (`Interpolation.jl:1145-1147` → `:974`); the two function-initialized field constructors
   (`Fields.jl:467-479`, `:612-627`) allocate one shape and loop another; and three one-level `parent`
   spellings still diverge from `_same_backend` (`Fields.jl:1966-1970`, `Interpolation.jl:1080`, `:1907-1908`).
-  Only the last three are inert today — the first three are live the moment a base is ever decomposed.
+  They fall in three classes, and the first is the one that matters now: **`_allocated_field_storage`
+  is live TODAY on a single GPU** — it is what blocks spilling; the zero mode, the Parseval weight, the
+  transfer stride and the two function-initialized constructors go live the moment a base is decomposed;
+  the three `parent` spellings go live the moment any wrapper array type appears (a halo or distributed
+  array being the first).
   **(2) The architecture predicts the cost and the prediction holds**: 59 of ~93 public operations in the
   field half are unchanged by a decomposed base, because fiberwise algebra is vertical and the operators
   are pointwise in mode space — verified site by site, and it survives only because the operators
