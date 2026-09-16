@@ -2006,6 +2006,34 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 ## Planned directions (recorded — not started)
 
+- **Multi-GPU and memory spill — a PROPOSAL awaiting a ruling (2026-09-16), not started.**
+  Arrhenius' GPU nodes carry **four GH200** each (96 GiB HBM + 128 GB LPDDR + 72 Grace cores per
+  superchip; NVLink all-to-all inside the node, ~9× slower access to the host memory a GPU can spill
+  into). The full proposal, its fact base, three adversarial reviews and the rulings that resolved them
+  are in `.claude/mgpu-proposal/` — read `DESIGN.md` §0 first, which lists the eleven decisions the
+  adversarial pass reversed. **It overturns §1's single-node scope and demotes decision 37, so nothing
+  moves without the owner's word.** Three things are worth knowing without reading it.
+  **(1) Six live defects it uncovered, worth fixing whatever is decided about multi-GPU**, all verified
+  in the tree: the decision-74 family constructors destroy a requested memory kind
+  (`_allocated_field_storage`, `Fields.jl:893-896`); `_spectral_zero_mode_data` (`:1663`) hardcodes the
+  DC mode at local `(1,1,1)`; `_parseval_weight` (`Reductions.jl:946-953`) reads the self-conjugate plane
+  indices from the LOCAL extent; the transfer kernels take `prod(grid.grid_size)` as the component stride
+  (`Interpolation.jl:1145-1147` → `:974`); the two function-initialized field constructors
+  (`Fields.jl:467-479`, `:612-627`) allocate one shape and loop another; and three one-level `parent`
+  spellings still diverge from `_same_backend` (`Fields.jl:1966-1970`, `Interpolation.jl:1080`, `:1907-1908`).
+  Only the last three are inert today — the first three are live the moment a base is ever decomposed.
+  **(2) The architecture predicts the cost and the prediction holds**: 59 of ~93 public operations in the
+  field half are unchanged by a decomposed base, because fiberwise algebra is vertical and the operators
+  are pointwise in mode space — verified site by site, and it survives only because the operators
+  special-case the zero mode and Nyquist **by value** (`ifelse(iszero(squared), …)`,
+  `DifferentialOperators.jl:215,274,595,645`), never by index. 20 operations communicate; 14 need a ruling.
+  **(3) The threshold question is the owner's, and it is a science question.** This package's consumer
+  records 128³ (×18), 256³ (×16) and 384³ (×2) and nothing above; 512³ `Float64` is ~27 GiB against one
+  GH200's 96 GiB, so it needs neither feature. Spill alone is small and CUDA-only (AMDGPU has no unified
+  memory at all, and gfx1100 could not validate it); four GPUs is a programme of the order of 17–25
+  sessions plus consumer work, and its zero-cost competitor — four independent runs on one node — is the
+  baseline it has to beat.
+
 - **The shared tooling package is DESIGNED, not built (2026-09-07) — implement it from the seed
   directory, never from here.** Its name is `GBGCodingTools` (CLI `gbg`, consumer state in `.gbg/`), and
   the brief for the implementing session is `~/Dropbox/Research and Teach/AI Helpers/GBGCodingTools/`:
