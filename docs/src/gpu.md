@@ -33,7 +33,7 @@ Four habits make the difference on either vendor:
   field-sized scratch, so a loop that calls only them needs no manual garbage collection. Allocating
   calls — `to_spectral`, `lpnorm`, `radial_correlation` — create a new device array each time.
 
-- **Prefer `Float32`.** It halves the memory of every field, which is usually what limits the grid on a
+- **Consider `Float32`.** It halves the memory of every field, which is usually what limits the grid on a
   GPU; `Float64` works on both vendors.
 
 - **Use a GPU for large grids.** Each GPU operation has a fixed start-up cost, so small grids gain
