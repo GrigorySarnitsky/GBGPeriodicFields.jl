@@ -596,11 +596,11 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 7",7,7,0
 "api.md § API overview",70,35,0
 "gpu.md § (preamble)",22,22,1
-"gpu.md § Fields larger than GPU memory (CUDA only)",92,71,0
-"gpu.md § Fields on a device",277,69,0
-"gpu.md § Running on a GPU",56,56,0
-"gpu.md § Turning it on",205,71,1
-"gpu.md § What to expect",301,73,1
+"gpu.md § Both vendors",345,63,0
+"gpu.md § CUDA (NVIDIA)",48,32,0
+"gpu.md § Fields larger than GPU memory",264,63,1
+"gpu.md § ROCm (AMD)",198,74,1
+"gpu.md § Running on a GPU",30,30,0
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",324,120,0
