@@ -599,7 +599,7 @@ unit,words,longest_paragraph,admonitions
 "gpu.md § A first run on CUDA",152,49,0
 "gpu.md § A first run on ROCm",143,47,0
 "gpu.md § A turbulence simulation on ROCm",45,33,0
-"gpu.md § Fields larger than GPU memory",275,74,1
+"gpu.md § Fields larger than GPU memory",328,78,1
 "gpu.md § Fields on a device",119,80,0
 "gpu.md § Known pitfalls on ROCm",118,74,1
 "gpu.md § Running on a GPU",52,52,0

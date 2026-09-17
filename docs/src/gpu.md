@@ -78,15 +78,24 @@ The turbulence simulation in the ROCm section has no CUDA version; its CPU versi
 
 CUDA.jl can allocate every `CuArray` in unified memory, which the driver pages between the GPU and host
 RAM, so the package runs unchanged on fields that exceed the card, as long as the excess fits in host
-RAM. It takes two entries in the Julia project the job runs in. The first goes in `LocalPreferences.toml`
-beside its `Project.toml`:
+RAM. Turn it on once, from Julia started in the project the job runs in, then restart Julia:
+
+```julia
+using CUDA
+CUDA.CUDACore.Preferences.set_preferences!(CUDA.CUDACore,
+                                           "default_memory" => "unified"; force = true)
+```
+
+The call writes two entries, which can also be added by hand. The first goes in `LocalPreferences.toml`
+beside the project's `Project.toml`:
 
 ```toml
 [CUDACore]
 default_memory = "unified"
 ```
 
-The second goes under the `[extras]` table of that `Project.toml`, created if it is absent:
+The second goes under the `[extras]` table of that `Project.toml`, created if it is absent. The call
+rewrites `Project.toml` to add it and drops any comments there, so add it by hand to keep them:
 
 ```toml
 [extras]
@@ -98,8 +107,8 @@ CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
     when the project names it. A `[CUDA]` section, as CUDA.jl's own template shows, or a missing
     `[extras]` entry leaves every array in device memory without a warning.
 
-The setting takes effect in a new Julia session, which recompiles CUDA.jl, and `"device"` restores the
-default. The printed field says `CuArray` either way, so confirm by running the first example again and
+The setting takes effect in a new Julia session, which recompiles CUDA.jl, and the same call with
+`"device"` restores the default. The printed field says `CuArray` either way, so confirm by running the first example again and
 then `CUDA.is_unified(field_data(u))`, which returns `true`. The setting covers every array the process
 allocates, so keep it out of a shared environment such as `@v1.12`,
 where it would apply to every project. Unified arrays also ignore `allowscalar(false)`, so develop with
