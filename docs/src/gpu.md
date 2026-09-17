@@ -3,64 +3,76 @@
 
 # Running on a GPU
 
-The same code runs on NVIDIA GPUs through `CUDA` and on AMD GPUs through `AMDGPU`. This package
-depends on neither; add the one for your card to your own environment.
+The package runs on NVIDIA GPUs through `CUDA` and on AMD GPUs through `AMDGPU`, and depends on neither:
+add the one for your card to your own environment. The first section describes what holds on both
+vendors; each vendor section then starts with a complete example you can run as it stands.
 
 ## Both vendors
 
-The kind of array holding a field's values is its **storage family**: `Array` on the host, or a
-vendor's device array. Every field constructor accepts a family in place of an array and allocates
-uninitialized storage in it, and [`adapt`](@ref) moves an existing object to another family. Run your
-vendor's setup block below first: it defines `DeviceArray` as that vendor's device array type.
+### Fields on a device
 
-```julia
-L = Float32(2π)
-grid = Grid3D((256, 256, 256), (L, L, L))         # the element type comes from the grid
-u = VectorFieldPhysical(DeviceArray, grid)        # uninitialized, on the device
-û = VectorFieldSpectral(DeviceArray, grid)
-plans = FieldTransformPlans(u, û)                 # built from device fields, so on the device
-multipliers = FieldSpectralMultipliers(û)
+The kind of array holding a field's values is its **storage family**: `Array` on the host, `CuArray` on
+an NVIDIA GPU, `ROCArray` on an AMD GPU. Every field constructor accepts a family in place of an array
+and allocates uninitialized storage in it. [`adapt`](@ref) moves a field, its multipliers, kernels, point
+sets or transform plans to another family, and [`adapt!`](@ref) copies into a field that already exists.
+Transform plans and multipliers built from device fields are on the device too.
 
-θ = adapt(DeviceArray, ScalarFieldPhysical((x, y, z) -> sin(x), grid))   # host to device
-θ_host = adapt(Array, θ)                                                 # device to host
-```
+The fields, multipliers and kernels one operation combines must share a storage family and an element
+type. Anything else throws an `ArgumentError` rather than being copied, so such an error usually means
+one object was left on the host.
 
-The same `adapt` moves multipliers, kernels, point sets and transform plans, and [`adapt!`](@ref)
-copies into a field that already exists.
+### Writing efficient device code
 
-- **Mixed arguments are refused.** The fields, multipliers and kernels one operation combines must share
-  a storage family and an element type; anything else throws an `ArgumentError` rather than being
-  copied. Such an error usually means one object was left on the host.
+Four habits make the difference on either vendor:
 
-- **Element-by-element access is slow.** Reading or writing one device element is a transfer. The
-  package never does it, and the setup blocks call `allowscalar(false)`, which makes your own code throw
-  where it would otherwise crawl.
+- **Never touch single elements.** Reading or writing one element of a device array is a transfer
+  between host and GPU. The package never does it, and `CUDA.allowscalar(false)` or
+  `AMDGPU.allowscalar(false)` makes your own code throw where it would otherwise crawl.
 
-- **Preallocated loops create no garbage.** In-place `!` operators other than `norm!` allocate no
-  field-sized scratch, so a loop over preallocated fields needs no manual garbage collection.
+- **Preallocate, and call in-place operators.** In-place `!` operators other than `norm!` allocate no
+  field-sized scratch, so a loop that calls only them needs no manual garbage collection. Allocating
+  calls — `to_spectral`, `lpnorm`, `radial_correlation` — create a new device array each time.
 
-- **Precision.** `Float32` halves the memory of every field, which is usually what limits the grid on a
+- **Prefer `Float32`.** It halves the memory of every field, which is usually what limits the grid on a
   GPU; `Float64` works on both vendors.
 
-- **Grid size.** Starting each GPU operation has a fixed cost, so small grids gain little. Timings for
-  both vendors are on [Performance](performance.md).
+- **Use a GPU for large grids.** Each GPU operation has a fixed start-up cost, so small grids gain
+  little. [Performance](performance.md) has timings for both vendors.
 
-- **Transforms may overwrite their input.** Whether `to_spectral!` or `to_physical!` overwrites its
-  input differs between transform libraries, so never rely on it surviving. Use the allocating
-  `to_spectral` or `to_physical`, or `to_physical!(physical, spectral, plans, spectral_scratch)`, which
-  consumes `spectral_scratch` instead.
+### Transforms may overwrite their input
+
+Whether `to_spectral!` or `to_physical!` overwrites its input differs between transform libraries, so
+never rely on the input surviving. Use the allocating `to_spectral` or `to_physical`, or
+`to_physical!(physical, spectral, plans, spectral_scratch)`, where `spectral_scratch` is a second field
+shaped like `spectral` and is overwritten instead.
 
 ## CUDA (NVIDIA)
+
+### A first run on CUDA
 
 ```julia
 using CUDA, GBGPeriodicFields
 CUDA.functional() || error("no usable CUDA device")
 CUDA.allowscalar(false)
-const DeviceArray = CuArray
+
+L = Float32(2π)
+grid = Grid3D((256, 256, 256), (L, L, L))       # Float32 fields, set by the grid
+u = VectorFieldPhysical(CuArray, grid)          # uninitialized, on the GPU
+û = VectorFieldSpectral(CuArray, grid)
+plans = FieldTransformPlans(u, û)               # built from GPU fields, so on the GPU
+multipliers = FieldSpectralMultipliers(û)
+
+θ = adapt(CuArray, ScalarFieldPhysical((x, y, z) -> sin(x), grid))  # host to GPU
+θ̂ = ScalarFieldSpectral(CuArray, grid)
+to_spectral!(θ̂, θ, plans)                       # a transform on the GPU
+∇θ̂ = gradient(θ̂, multipliers)                   # an operator on the GPU
+θ_host = adapt(Array, θ)                        # GPU to host
 ```
 
-The package is tested on an RTX 5070 Ti. Transforms need the default `RealFourierLayout`, because cuFFT
-cannot plan a layout with its axes reordered; operations that build no plan accept any layout.
+The package is tested on an RTX 5070 Ti. Transforms need the default [`RealFourierLayout`](@ref), which
+the constructors above use when no layout is passed: cuFFT cannot plan one with its axes reordered.
+The turbulence simulation in the ROCm section has no CUDA version; its CPU version is in
+[Examples](examples/hist_cpu.md).
 
 ### Fields larger than GPU memory
 
@@ -87,8 +99,9 @@ CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
     `[extras]` entry leaves every array in device memory without a warning.
 
 The setting takes effect in a new Julia session, which recompiles CUDA.jl, and `"device"` restores the
-default. The printed field says `CuArray` either way, so confirm with `CUDA.is_unified(field_data(u))`.
-It covers every array the process allocates, so keep it out of a shared environment such as `@v1.12`,
+default. The printed field says `CuArray` either way, so confirm by running the first example again and
+then `CUDA.is_unified(field_data(u))`, which returns `true`. The setting covers every array the process
+allocates, so keep it out of a shared environment such as `@v1.12`,
 where it would apply to every project. Unified arrays also ignore `allowscalar(false)`, so develop with
 device memory.
 
@@ -99,15 +112,32 @@ Hopper included, are unmeasured; see [Performance](performance.md).
 
 ## ROCm (AMD)
 
+### A first run on ROCm
+
 ```julia
 using AMDGPU, GBGPeriodicFields
 AMDGPU.functional() || error("no usable ROCm device")
 AMDGPU.allowscalar(false)
-const DeviceArray = ROCArray
+
+L = Float32(2π)
+grid = Grid3D((256, 256, 256), (L, L, L))       # Float32 fields, set by the grid
+u = VectorFieldPhysical(ROCArray, grid)         # uninitialized, on the GPU
+û = VectorFieldSpectral(ROCArray, grid)
+plans = FieldTransformPlans(u, û)               # built from GPU fields, so on the GPU
+multipliers = FieldSpectralMultipliers(û)
+
+θ = adapt(ROCArray, ScalarFieldPhysical((x, y, z) -> sin(x), grid))  # host to GPU
+θ̂ = ScalarFieldSpectral(ROCArray, grid)
+to_spectral!(θ̂, θ, plans)                       # a transform on the GPU
+∇θ̂ = gradient(θ̂, multipliers)                   # an operator on the GPU
+θ_host = adapt(Array, θ)                        # GPU to host
 ```
 
 The package is tested on an RX 7900 XTX. Transforms on a layout with its axes reordered are untested on
-ROCm. AMDGPU.jl has no unified memory, so fields must fit on the card.
+ROCm, so use the default layout there too. AMDGPU.jl has no unified memory, so fields must fit on the
+card.
+
+### Known pitfalls on ROCm
 
 !!! warning "The first run after a reboot looks like a hang"
     The first GPU use after a reboot compiles kernels on the host for minutes, with no output, the GPU
@@ -115,11 +145,14 @@ ROCm. AMDGPU.jl has no unified memory, so fields must fit on the card.
     again. rocFFT also recompiles its own kernels in each new process unless `ROCFFT_RTC_CACHE_PATH`
     names a writable file for it to keep them in.
 
-On that card the `Float64` forms of `radial_spectrum` and its co-spectrum are exceptionally slow, about
-48 times slower than an RTX 5070 Ti at ``256^3`` where `Float32` is within about 10%, so a run that
+On the tested card the `Float64` forms of `radial_spectrum` and its co-spectrum are exceptionally slow,
+about 48 times slower than an RTX 5070 Ti at ``256^3`` where `Float32` is within about 10%, so a run that
 needs them is best done in `Float32` throughout.
 
-A forced isotropic-turbulence simulation runs on an AMD GPU in `Float32`. From the root of a clone of the
+### A turbulence simulation on ROCm
+
+A forced isotropic-turbulence simulation runs on an AMD GPU in `Float32`, writing its results and figures
+to `examples/gpu/rocm/output`; the figures need a LaTeX installation. From the root of a clone of the
 repository:
 
 ```sh
