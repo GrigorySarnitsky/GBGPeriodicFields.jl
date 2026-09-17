@@ -135,7 +135,7 @@ repair is the projector below. Cost is ``O(N^2)`` — one or two planes — agai
 of a physical round trip, which is what makes it usable as a check.
 
 **The reality projection (decision 83).** Let ``\mathcal H`` be the real-linear subspace of stored
-half-spectra satisfying the condition on the self-conjugate planes. `reality_projection!` is the map
+half-spectra satisfying the condition on the self-conjugate planes. The operation `reality_projection!` is the map
 that, on every stored plane and for every pair ``k, -k`` within it, sets
 
 ```math
@@ -152,7 +152,7 @@ floating point (a projected pair is bit-identical under a second application), a
 ``\texttt{reality\_residual}(P \hat f) = 0`` exactly, since both members are written from one value
 ``m`` as ``m`` and ``\bar m``. For a per-mode multiplier ``m`` with ``m(-k) = \overline{m(k)}`` —
 every differential operator's symbol, the exponential and radial kernels, the translation phases —
-``P(m \hat f) = m\,P \hat f``, because the multiplier maps ``\mathcal H`` to itself. The physical
+``P(m \hat f) = m P \hat f``, because the multiplier maps ``\mathcal H`` to itself. The physical
 round trip ``\mathcal F \mathcal F^{-1}`` is the same projector up to the transform's round-off; the
 inverse real transform discards the anti-Hermitian part, and the forward transform reseeds it at the
 ulp. ``\checkmark``
@@ -160,7 +160,7 @@ ulp. ``\checkmark``
 **Backs** [Architecture](architecture.md) §13 decision 83 and the `reality_projection!` docstring.
 **Checked by** `test/fields.jl` (`reality_projection!`) — the identity on an exact spectrum, agreement
 with an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients bitwise
-untouched, exact idempotence, round-trip agreement to ``64\,\varepsilon``, linearity, commutation with
+untouched, exact idempotence, round-trip agreement to ``64 \varepsilon``, linearity, commutation with
 the Laplacian symbol, the two-argument form, the domain refusal and the physical absence — over both
 element types, tensor orders 0/1/2, permuted folds and an odd folded axis; and `test/gpu/suite.jl`
 (device against host, the device result exactly Hermitian).
@@ -776,7 +776,7 @@ reconstruction, the adjoint relation (``R = 0, 1, 2``), and `NUFFT` vs `DirectDF
 
 Design rationale: [Architecture](architecture.md) §13, decision 63.
 
-A **storage family** is where a section's array lives — host memory, or one vendor's device memory. It
+A **storage family** is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
 is not part of the mathematical object: a section is a map from the base to the fiber, and which
 allocator holds its samples is no more intrinsic than which page of RAM they occupy. Writing
 ``\mathcal{S}`` for a section and ``\mathcal{A}`` for a family, the move is therefore stated as an

@@ -421,6 +421,13 @@ threading ([§9](@ref "9. Performance model and CPU threading")). Component acce
 (`_vector_component_data`, `_tensor2_component_data`); views are lazy, so
 splicing them into generated formulas costs nothing.
 
+Storage is any `AbstractArray`, and the package names no vendor type and no memory kind. A field's
+**storage family** is the kind of array holding its values — `Array`, `CuArray`, `ROCArray` — and on
+CUDA the same `CuArray` may sit in device memory or in **unified memory** paged between the GPU and host
+RAM. Which of the two is CUDA.jl's configuration rather than the package's, and every allocating route
+follows it, so a CUDA run can hold fields larger than the card with no change to the code (decision 84,
+[Running on a GPU](gpu.md)).
+
 ## 4. Spectral machinery
 
 `FieldTransformPlans` owns the FFT plans (per backend). Forward transforms are
@@ -4480,7 +4487,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     pair are stored, and their anti-Hermitian combination is invisible to the inverse real transform
     — so the nonlinear term, formed from physical fields, neither sees it nor feeds it — and is
     damped only by ``\nu\kappa^2`` at ``\kappa \approx 1``. Any forcing proportional to the field,
-    ``\hat N \mathrel{+}= A\,\mathbf 1_{\text{band}}\,\hat u``, amplifies it with the same
+    ``\hat N \mathrel{+}= A \mathbf{1}_{\text{band}} \hat u``, amplifies it with the same
     coefficient ``A`` as the physical modes, which ``A`` must hold positive on average to balance
     the dissipation.
 
@@ -4574,3 +4581,43 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     construction", which was a claim about FFTW at power-of-two sizes and is now stated as such
     wherever it appeared.
 
+
+84. **CUDA unified memory is a supported configuration, chosen by CUDA.jl's preference and not by the
+    package** (2026-09-17, owner-decided). A consumer runs out of memory on a 96 GiB GH200 at ``768^3``
+    by a few GiB, and CUDA.jl can place every array in unified memory, which the driver pages between
+    the GPU and host RAM. The package needs no code for it: it never names a memory kind, and a
+    `CuArray` allocated without one takes CUDA.jl's `default_memory` preference.
+
+    So every allocating route — the family constructors, `adapt`, `similar_field`, the multipliers, the
+    kernel builders, the traversal order, the allocating operations — follows the setting, while cuFFT's
+    own workspace, which it allocates itself, stays in device memory. The how-to is one page,
+    [Running on a GPU](gpu.md), which covers ROCm too, where `AMDGPU` has no unified memory at all.
+
+    - **Invariant 14 is unchanged.** A unified `CuArray` and a device `CuArray` are one storage family,
+      because the family is the kind of array and not the memory holding it, and they combine rather
+      than being refused. The definitions that said "host memory, or one vendor's device memory" were
+      wrong under this configuration and now say "the kind of array".
+
+    - **The whole process, not per field.** Unified memory for some fields and device memory for
+      others is not offered. The family constructors read only a family's element type, so
+      `CuArray{Float64,3,UnifiedMemory}` yields device memory, and their docstrings now say so; and in a
+      mixed pair the field broadcast takes the result's memory from its first operand, where CUDA.jl's
+      own array broadcast promotes to unified either way. Per-field placement would need both settled,
+      and it is deferred until a measurement on GH200 shows all-unified is too slow to use.
+
+    - **What the configuration cannot check.** CUDA.jl serves element-by-element access to a unified
+      array through the host and does not honour `allowscalar(false)` for it, so a unified run is blind
+      to invariant 6. The unified test lane, `test/gpu/cuda-unified`, therefore adds to the device lane
+      rather than replacing it; it refuses to run when the preference has not taken effect, asserts that
+      every allocating route is unified, and runs a working set larger than the card.
+
+    - **What it cannot measure.** The benchmark harness decides its per-row GC from
+      `CUDA.used_memory()`, which does not count unified allocations, so it refuses the configuration
+      outright rather than report timings of the wrong thing. The one measurement taken is a bespoke
+      script on an x86 card (Performance finding (as)); GH200 is unmeasured (Performance §7 gap 9).
+
+    - **The preference itself is the fragile part.** CUDA.jl 6 reads it inside its `CUDACore`
+      subpackage, which the running project must name in `[extras]`, and CUDA.jl's own template still
+      shows the section as `[CUDA]` — silently ignored. The documentation build rejects that spelling,
+      and the test lane's first act is a residency check, because the failure mode is a green run that
+      proves nothing.

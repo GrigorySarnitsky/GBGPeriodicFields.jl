@@ -39,7 +39,7 @@ that matters.
   Counting one scalar field in either representation as 8 bytes per grid point in `Float64` and a solver's
   live set at order 25 such fields, a single GH200 runs out near ``768^3`` while a thin CPU node
   reaches roughly ``1536^3`` and a fat node beyond it. The CPU therefore owns a band of resolutions
-  no single GPU can reach, and inside that band it is the production platform, not a fallback. CPU
+  no GPU's memory can hold, and inside that band it is the production platform, not a fallback. CPU
   multithreading (`docs/ARCHITECTURE.md` §9) is the mechanism that band rests on.
 - **Measure before you optimize, and measure on the production platform.** No optimization is kept
   without a same-session side-by-side comparison showing it helps the GPU. This session's record is instructive: of the
@@ -1684,9 +1684,35 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(as) CUDA unified memory runs the package unchanged, at about 8% when everything fits, and the
+benchmark harness cannot measure it** (2026-09-16/17, `Enteropia`: RTX 5070 Ti 16 GB on an x86 PCIe
+host, CUDA.jl 6.3.0; decision 84). With CUDA.jl's `default_memory` preference set as
+[Running on a GPU](gpu.md) describes, every allocating route of the package lands in unified memory
+and the GPU suite passes there (494 of 494, with 44 further checks of the unified lane itself). The first attempt used the section name CUDA.jl's own
+template shows, `[CUDA]`, and changed nothing: every array stayed in device memory, which only a
+residency check reveals.
+
+**The cost when everything fits**, a ``512^3`` `Float64` scalar transform round trip with five field
+pairs (10 GiB) resident: 54.3 ms on device memory, 58.4–59.0 ms on unified memory, reproduced — about
+8%. The likely cause, not isolated, is CUDA.jl prefetching each unified array to the GPU at every
+kernel launch, a driver call that costs something even when the pages are already there.
+
+**The cost when the fields exceed the card**, ten pairs (20 GiB) on the 15.5 GiB card, each round
+trip touching one pair in turn: 155–161 ms, ``2.7\times`` the unified run that fits and ``2.9\times``
+device memory. No out-of-memory error, no hang, values intact. Pages migrate over PCIe here, so the
+figure describes this host's link and this one streaming pattern; it is not a prediction for another
+host, and for Grace Hopper in particular see gap 9.
+
+**Why the harness refuses the configuration.** The per-row GC policy (§4(s)) reads
+`CUDA.used_memory()`, which does not count unified allocations: it reported 0.0 GiB with 10–20 GiB of
+unified fields live, against 13.03 GiB for the same fields in device memory. Every row would read as
+non-allocating and run GC-free, so `characterize.jl`, `regress.jl` and the CUDA `runbenchmarks.jl` now
+stop with an error when CUDA arrays are unified. Unified memory also serves element-by-element access
+through the host without honouring `allowscalar(false)`, so a unified run cannot re-check invariant 6.
+
 **(ar) A fresh real-to-complex transform satisfies the reality condition only to round-off, and
 which sizes are exact is the library's business, not the package's** (2026-09-05, measured while
-deciding decision 83). `reality_residual` of `to_spectral` of a random real field, in coefficient
+deciding decision 83). The `reality_residual` of `to_spectral` of a random real field, in coefficient
 units, `Float32` / `Float64`: FFTW reads exactly ``0`` at ``32^3``, ``64^3`` and ``128^3`` and
 ``1.3\times10^{-4}`` / ``2.5\times10^{-13}`` at ``96^3``, ``7.4\times10^{-4}`` /
 ``1.6\times10^{-12}`` at ``256^3``; rocFFT reads nonzero at every size, ``2.0\times10^{-5}`` /
@@ -2623,6 +2649,23 @@ scatter-add (its staging planes are gone, so the atomics are the whole story).
    dependency or recommendation** — the MKL FFTW provider, which has no `aarch64` build, is the
    canonical tempting example — and when it does land, the first step on an Arrhenius node is the
    test matrix, then this benchmark suite.
+
+9. **CUDA unified memory is unmeasured on Grace Hopper, the host it matters on.** Finding (as) measured
+   one x86 card, where pages migrate over PCIe. A GH200 reaches its Grace memory over NVLink-C2C, a far
+   faster link, and also supports a mechanism the preference does not select: the GPU addressing
+   ordinary system memory directly through its page tables, with no migration. CUDA.jl's `"unified"`
+   is managed memory, which migrates, so which of the two suits a streaming pseudospectral pass is open.
+
+   Three things make that measurement easy to get wrong. The preference is read at compile time, so
+   device and unified memory cannot be compared in one Julia session; the comparison needs two
+   environments run back to back. CUDA.jl prefetches a unified array before every launch only when the
+   process sees exactly one GPU, so a job restricted to its own device and one seeing all four measure
+   different regimes. And the benchmark harness refuses unified memory by design, so the measurement is
+   a bespoke script, not a `characterize.jl` sweep.
+
+   The design that separates the two costs: at a size that fits in GPU memory, device against unified,
+   which prices the overhead alone; then a size exceeding GPU memory by a few percent, on unified memory,
+   which adds the cost of oversubscription. Record the visible-device count with both.
 
 **(an) The traversal order's rebuild is allocation-free where it was 15 MiB a call** (2026-09-03,
 decision 80). A `point_traversal_order` build allocates four arrays — the `Int32` result, the counting

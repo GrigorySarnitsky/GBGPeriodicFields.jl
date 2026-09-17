@@ -36,7 +36,7 @@ The parts are:
     real field's, and [`reality_projection!`](@ref) projects it onto one, on the two stored
     self-conjugate planes where the half-spectrum can disagree with itself.
   * **Moving between storage families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
-    or its transform plans between host and device memory (or any other `Adapt.jl` storage family),
+    or its transform plans between host and device arrays (or any other `Adapt.jl` storage family),
     preserving the element type and everything else the object carries. Operations refuse a pair that
     disagrees rather than transferring one to meet the other, so that the cost of crossing the bus is
     always visible at the call site.
@@ -442,7 +442,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
@@ -509,7 +509,7 @@ The fields are
 The coefficient array has shape `field_spectral_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `ScalarFieldSpectral`.
@@ -586,7 +586,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
@@ -654,7 +654,7 @@ The fields are
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
@@ -745,7 +745,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -834,7 +834,7 @@ The fields are
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
@@ -2414,7 +2414,7 @@ Move a section — a field or point-values — or its multipliers, its kernels, 
 transform plans to another **storage family**, host to device or device to host, returning an object
 of the same kind whose arrays live in the requested family. The element type is preserved exactly.
 
-A **storage family** is where an array lives — host memory, or one vendor's device memory. Use this
+A **storage family** is the kind of array holding the values — `Array` on the host, or one vendor's device array. Use this
 when something built on one family has to be used on another. Two fields combine arithmetically only
 when they share a family and an element type, and a mixed pair is **refused** rather than promoted or
 transferred, because a copy across the bus is a cost that belongs at the call site; `adapt` is that
@@ -2679,7 +2679,7 @@ on accepting them from outside — and after any step that scales the coefficien
 a spectrum built by transforming a real field satisfies the constraint only to round-off (FFTW is
 exact at some power-of-two sizes and ulp-level elsewhere; rocFFT and cuFFT are ulp-level at every
 size), and a forcing proportional to the field amplifies that residual where viscosity does not damp
-it. [`reality_projection!`](@ref) removes it exactly. The cost is one
+it. The projection [`reality_projection!`](@ref) removes it exactly. The cost is one
 or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
 
 It **reports** rather than repairs, so the caller decides; the repair is

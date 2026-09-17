@@ -64,11 +64,12 @@ similar_field
 
 Host and device are **storage families**, not representations: a field has both, and they vary
 independently — the representation says whether its values are the field or its Fourier coefficients,
-the family says which memory those values live in. Moving between families is
+the family says which kind of array holds them. Moving between families is
 [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl)'s verb, extended here for every section, kernel and
 plan and re-exported, so a consumer needs nothing beyond `using GBGPeriodicFields`; and because it
 dispatches on a generic target, `CUDA` and `AMDGPU` each supply their own storage rule without this
-package depending on either.
+package depending on either. Whether a CUDA array sits in device or unified memory is a CUDA.jl setting
+rather than a different family; [Running on a GPU](../gpu.md) explains it.
 
 ```@docs
 adapt

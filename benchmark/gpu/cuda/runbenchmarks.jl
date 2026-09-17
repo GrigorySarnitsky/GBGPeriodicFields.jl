@@ -9,6 +9,15 @@
 
 using CUDA
 CUDA.allowscalar(false)
+# Refuse to measure on UNIFIED memory. The per-row GC policy reads `CUDA.used_memory()`, which does not
+# count unified allocations, so every row would read as non-allocating and run GC-free; the timings
+# would describe host-device paging rather than the package; and `allowscalar(false)` is not enforced
+# for unified arrays. The setting comes from a `LocalPreferences.toml` ([CUDACore] default_memory),
+# possibly inherited from a stacked environment, so it is checked here rather than assumed absent.
+CUDA.is_unified(CuArray{Float64}(undef, 1)) && error(
+  "benchmark harness: CUDA arrays are being allocated in UNIFIED memory (CUDA.jl's `default_memory` " *
+  "preference). The harness cannot measure that configuration honestly — run it from an environment " *
+  "without the preference. See docs/PERFORMANCE.md finding (as) and §7 gap 9.")
 using BenchmarkTools
 
 CUDA.functional() || error("no functional CUDA device")

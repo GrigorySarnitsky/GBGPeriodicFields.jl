@@ -55,6 +55,7 @@ on the package — the performance-first, allocation-free pattern, with results.
 ### Start here
 
 - [Getting started](tutorial.md): the guided tour, from a `Grid3D` to a transform, an operator and a reduction.
+- [Running on a GPU](gpu.md): fields on an NVIDIA or AMD device, and CUDA fields larger than GPU memory.
 - [Examples](examples/hist_cpu.md): a complete forced-HIT pseudospectral DNS built on the package.
 - [Notation](notation.md): the single reference for every symbol the docstrings use.
 

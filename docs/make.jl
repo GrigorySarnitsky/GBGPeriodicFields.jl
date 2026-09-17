@@ -196,6 +196,10 @@ function lint_retired_claims()
      "decision 60 — the type is exactly what distinguishes the kernel role from the field role"),
     (r"squared_wavenumber_field",
      "removed by decision 60 — use `radial_kernel(identity, multipliers)`"),
+    # CUDA.jl's own LocalPreferences template still shows this section, and since CUDA.jl 6 it is
+    # silently ignored — the preference is read by CUDACore. A copy on our pages would switch nothing on.
+    (r"\[CUDA\]\s+default_memory",
+     "CUDA.jl 6 reads `default_memory` under [CUDACore], not [CUDA]; see docs/src/gpu.md"),
   ]
   problems = String[]
   for file in _doc_lint_sources()
@@ -550,6 +554,7 @@ function lint_ai_banner()
   markdown = [joinpath(@__DIR__, f) for f in
               ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")]
   push!(markdown, joinpath(@__DIR__, "src", "tutorial.md"))
+  push!(markdown, joinpath(@__DIR__, "src", "gpu.md"))
   literate = joinpath(root, "examples", "HIST_CPU.jl")
   missing_banner = String[]
   for path in markdown
@@ -612,6 +617,7 @@ makedocs(
   pages     = [
     "Home" => "index.md",
     "Getting started" => "tutorial.md",
+    "Running on a GPU" => "gpu.md",
     "Examples" => "examples/hist_cpu.md",
     "Notation" => "notation.md",
     "API"  => Any[

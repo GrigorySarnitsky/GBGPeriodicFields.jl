@@ -6,7 +6,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 12. Reductions",311,311,0
 "ARCHITECTURE.md § 13. Decision log",22,22,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
-"ARCHITECTURE.md § 3. Types and memory layout",197,115,0
+"ARCHITECTURE.md § 3. Types and memory layout",291,115,0
 "ARCHITECTURE.md § 4. Spectral machinery",663,161,0
 "ARCHITECTURE.md § 5. Validation design",216,131,0
 "ARCHITECTURE.md § 7. Aliasing policy",216,77,0
@@ -103,7 +103,8 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 80",1011,197,0
 "ARCHITECTURE.md § item 81",440,111,0
 "ARCHITECTURE.md § item 82",943,120,0
-"ARCHITECTURE.md § item 83",1327,117,0
+"ARCHITECTURE.md § item 83",1328,117,0
+"ARCHITECTURE.md § item 84",463,88,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -187,9 +188,9 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",874,184,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",878,185,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
-"FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",519,125,0
+"FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",524,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
 "FiberSections.jl :: AbstractFiberSection{T, R}",89,58,0
 "FiberSections.jl :: FiberSections",280,174,0
@@ -305,13 +306,13 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: Fields",451,400,0
 "Fields.jl :: Grid3D(",174,74,0
 "Fields.jl :: RealFourierLayout()",76,33,0
-"Fields.jl :: ScalarFieldPhysical(",328,108,0
-"Fields.jl :: ScalarFieldSpectral(",267,113,0
+"Fields.jl :: ScalarFieldPhysical(",338,118,0
+"Fields.jl :: ScalarFieldSpectral(",277,123,0
 "Fields.jl :: SpectralKernel{T}",219,116,0
-"Fields.jl :: TensorFieldPhysical{R}(",407,108,0
-"Fields.jl :: TensorFieldSpectral{R}(",321,113,0
-"Fields.jl :: VectorFieldPhysical(",345,108,0
-"Fields.jl :: VectorFieldSpectral(",276,113,0
+"Fields.jl :: TensorFieldPhysical{R}(",417,118,0
+"Fields.jl :: TensorFieldSpectral{R}(",331,123,0
+"Fields.jl :: VectorFieldPhysical(",355,118,0
+"Fields.jl :: VectorFieldSpectral(",286,123,0
 "Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",52,49,0
 "Fields.jl :: _approx(x)",63,53,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
@@ -335,6 +336,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",90,74,0
 "Fields.jl :: _kernel_data(kernel)",43,42,0
+"Fields.jl :: _project_pair!(data, ix, iy)",120,117,0
 "Fields.jl :: _reality_projection_planes!(backend, data, ::Val{D}, planes,",95,87,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
@@ -354,7 +356,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
 "Fields.jl :: adapt!(destination, source)",302,134,0
-"Fields.jl :: adapt(storage, object)",514,147,2
+"Fields.jl :: adapt(storage, object)",519,147,2
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
@@ -364,7 +366,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",123,55,0
 "Fields.jl :: reality_projection!(destination::AbstractFieldSpectral, sour",371,94,0
-"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",426,102,1
+"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",428,104,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
 "Fields.jl :: to_physical!(",321,106,1
@@ -381,7 +383,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Functions",10,10,0
 "Fields.md § HDF5 persistence",4,4,0
 "Fields.md § Internal API",33,33,0
-"Fields.md § Moving between storage families",90,86,0
+"Fields.md § Moving between storage families",115,111,0
 "Fields.md § Spectral kernel protocol",35,32,0
 "Fields.md § The real-field reality condition",4,4,0
 "Fields.md § Transform operations",6,6,0
@@ -456,7 +458,8 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (ao)",312,100,0
 "PERFORMANCE.md § finding (ap)",386,103,0
 "PERFORMANCE.md § finding (aq)",487,110,0
-"PERFORMANCE.md § finding (ar)",242,115,0
+"PERFORMANCE.md § finding (ar)",243,115,0
+"PERFORMANCE.md § finding (as)",331,103,0
 "PERFORMANCE.md § finding (b)",211,150,0
 "PERFORMANCE.md § finding (c)",979,669,0
 "PERFORMANCE.md § finding (d)",46,46,0
@@ -490,6 +493,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § item 6",710,493,0
 "PERFORMANCE.md § item 7",147,147,0
 "PERFORMANCE.md § item 8",211,211,0
+"PERFORMANCE.md § item 9",200,89,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
 "Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",96,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
@@ -567,7 +571,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",1890,1890,0
+"TESTING.md § 2. Layout",1919,1919,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 5. GPU testing",234,141,0
@@ -580,7 +584,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 13",8,8,0
 "TESTING.md § item 15",57,57,0
 "TESTING.md § item 16",64,64,0
-"TESTING.md § item 17",188,188,0
+"TESTING.md § item 17",305,188,0
 "TESTING.md § item 18",156,156,0
 "TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
@@ -591,12 +595,18 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 6",2,2,0
 "TESTING.md § item 7",7,7,0
 "api.md § API overview",70,35,0
+"gpu.md § (preamble)",22,22,1
+"gpu.md § Fields larger than GPU memory (CUDA only)",92,71,0
+"gpu.md § Fields on a device",277,69,0
+"gpu.md § Running on a GPU",56,56,0
+"gpu.md § Turning it on",205,71,1
+"gpu.md § What to expect",301,73,1
 "index.md § API reference",16,16,0
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",324,120,0
 "index.md § Installation",88,48,0
 "index.md § Main components",369,369,0
-"index.md § Start here",39,39,0
+"index.md § Start here",58,58,0
 "notation.md § Base and fiber",631,581,0
 "notation.md § Conventions",316,316,0
 "notation.md § Notation",56,56,0

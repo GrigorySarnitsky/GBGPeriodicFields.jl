@@ -248,7 +248,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   quartet exists precisely to keep that ambiguity set empty.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
   **backend-free** (see §5).
-- **`test/gpu/`** — the opt-in GPU suite (see §5).
+- **`test/gpu/`** — the opt-in GPU suite (see §5): one shared `suite.jl` and a thin entry per lane — `rocm/`, `cuda/`, and `cuda-unified/`, which runs the same suite with every CUDA array in unified memory (§4, axis 17).
 - **Doctests** — the Getting-started tutorial (`docs/src/tutorial.md`) is written as `jldoctest`
   blocks, run and verified by `doctest = true` in `docs/make.jl` (outside `Pkg.test()`): a third
   layer of checked examples that cannot drift from the code (a wrong expected output fails the build).
@@ -406,6 +406,15 @@ operation's coverage is judged against the full axis list:
     region, so a device test that transforms on a folded layout must use the default one. Operations
     that build no plan are unrestricted, and the GPU suite does cross the two axes there. That is a vendor limit
     rather than a package one, and it makes the permuted folds of decision 41 a CPU-side generality.
+
+    On CUDA the axis has a second value inside one family: device against **unified memory**
+    (decision 84), selected by a CUDA.jl preference rather than by any argument. The lane
+    `test/gpu/cuda-unified` refuses to run unless the preference took effect, asserts that every
+    allocating route lands in unified memory, runs a working set of 1.25 times the card, and then the
+    whole GPU suite — 494 of 494 and 44 of 44 on 2026-09-17. It cannot re-check invariant 6, because
+    CUDA.jl does not honour `allowscalar(false)` for unified arrays, so it adds to the device lane and
+    never replaces it. Per-field placement is not an admissible input: the family constructors read only
+    an element type, and their docstrings say so.
 
 18. **component-offset alignment**, per FFT backend (decision 76). A rank-``R`` field's component `c`
     begins at element offset ``(c-1)\prod_a N_a``, and a transform library may refuse a pointer whose

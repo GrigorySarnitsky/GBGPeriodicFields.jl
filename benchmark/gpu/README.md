@@ -20,3 +20,10 @@ julia --project=benchmark/gpu/cuda benchmark/gpu/cuda/runbenchmarks.jl
 
 GPU results are recorded by platform in `docs/PERFORMANCE.md` §6 (CI runners have no GPU, so GPU
 tracking is manual).
+
+**Not under CUDA unified memory.** The CUDA entry points (`runbenchmarks.jl` here, and
+`characterize.jl` and `regress.jl` with the `cuda` backend) stop with an error when CUDA.jl's
+`default_memory` preference places arrays in unified memory: the per-row GC policy reads
+`CUDA.used_memory()`, which does not count unified allocations, and `allowscalar(false)` is not
+enforced for them. The one unified-memory measurement is `docs/PERFORMANCE.md` finding (as); what is
+still unmeasured, and how to measure it, is §7 gap 9.

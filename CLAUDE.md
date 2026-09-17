@@ -1172,7 +1172,7 @@ those are the usual rot. Then the mechanical bar:
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
    interim, so the suite was silently unrunnable rather than merely unrun. **ROCm reads 494/494 as of 2026-09-05** (exit 0 in 5m30s — 491 plus decision 83's three
-   device cells; CUDA is at 491 until `Enteropia` re-runs it, a known lag). Before that it re-ran
+   device cells; the CUDA DEVICE lane is at 491 until `Enteropia` re-runs it, a known lag — the unified lane ran the 494-cell suite green on 2026-09-17, which is a different lane). Before that it re-ran
    2026-08-31 at 454/454, up from the stale 395 of 2026-08-23. **PARITY with CUDA is now VERIFIED** (2026-09-01, on `Enteropia`): both
    backends read 454/454, exit 0. **CUDA re-ran 2026-09-04 with decision 82 and reads 491/491, exit 0 in
    4m17s** — 454 → 466 was decision 80's device lane, which is where its claim actually bites, every
@@ -2006,6 +2006,18 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 ## Planned directions (recorded — not started)
 
+- **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
+  fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
+  under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in
+  CUDA.jl's own template is a SILENT NO-OP since CUDA.jl 6, and `docs/make.jl` rejects it. The one home
+  for the how-to is `docs/src/gpu.md` ("Running on a GPU", both vendors; ROCm has no counterpart).
+  Measured on `Enteropia`: ~8% slower when it fits, ``2.9\times`` device memory when oversubscribed over
+  PCIe (Performance finding (as)); GH200 UNMEASURED (§7 gap 9). The lane `test/gpu/cuda-unified`
+  (494/494 + 44/44 on 2026-09-17) refuses to run unless the preference took effect; it CANNOT check
+  invariant 6, because CUDA.jl does not honour `allowscalar(false)` for unified arrays, so it adds to
+  the device lane and never replaces it. The benchmark harness REFUSES unified memory
+  (`CUDA.used_memory()` does not count it). **Re-verify the page on ANY CUDA.jl minor bump** — the
+  preference's home moved once already and nothing but the lane's residency check would notice.
 - **Multi-GPU and memory spill — a PROPOSAL awaiting a ruling (2026-09-16), not started.**
   Arrhenius' GPU nodes carry **four GH200** each (96 GiB HBM + 128 GB LPDDR + 72 Grace cores per
   superchip; NVLink all-to-all inside the node, ~9× slower access to the host memory a GPU can spill
@@ -2022,7 +2034,8 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   (`Fields.jl:467-479`, `:612-627`) allocate one shape and loop another; and three one-level `parent`
   spellings still diverge from `_same_backend` (`Fields.jl:1966-1970`, `Interpolation.jl:1080`, `:1907-1908`).
   They fall in three classes, and the first is the one that matters now: **`_allocated_field_storage`
-  is live TODAY on a single GPU** — it is what blocks spilling; the zero mode, the Parseval weight, the
+  is live TODAY on a single GPU** — it blocks PER-FIELD placement only, since whole-process unified
+  memory through CUDA.jl's preference already works and is documented (decision 84, below); the zero mode, the Parseval weight, the
   transfer stride and the two function-initialized constructors go live the moment a base is decomposed;
   the three `parent` spellings go live the moment any wrapper array type appears (a halo or distributed
   array being the first).

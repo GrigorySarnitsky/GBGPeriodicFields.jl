@@ -49,6 +49,21 @@ RTX 5070 Ti (Blackwell, `sm_120`) and, earlier, a GTX 1070 (Pascal). (On an olde
 such as the GTX 1070, CUDA.jl may warn that the compute capability is "not fully supported" by
 the auto-selected toolkit — harmless, the suite passes regardless; Blackwell needs no such caveat.)
 
+## Run on NVIDIA / CUDA with unified memory
+
+```sh
+julia --project=test/gpu/cuda-unified -e 'using Pkg; Pkg.instantiate()'   # one-time
+julia --project=test/gpu/cuda-unified test/gpu/cuda-unified/runtests.jl
+```
+
+The same suite with every CUDA array allocated in unified memory, which the driver pages between GPU
+and host RAM. The lane is chosen by the tracked `LocalPreferences.toml` in that directory, not by code;
+`docs/src/gpu.md` explains the setting. Before the suite it refuses to run if the setting did not take
+effect, checks that every allocating route is unified, and runs a working set larger than the card
+(skipped, with a message, when host RAM cannot hold it). **Run it in addition to the device lane, never
+instead:** CUDA.jl does not honour `allowscalar(false)` for unified arrays, so this lane cannot catch
+scalar indexing. Never put that preference into `test/gpu/cuda/` itself.
+
 ## Adding another backend
 
 Mirror `rocm/` (or `cuda/`): a `Project.toml` with the same `[deps]` and `[sources]` path

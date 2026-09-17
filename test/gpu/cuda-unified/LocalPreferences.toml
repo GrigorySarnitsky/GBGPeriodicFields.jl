@@ -1,0 +1,5 @@
+# Deliberately TRACKED: this lane exists to run the GPU suite with every CUDA array allocated in
+# unified (managed) memory. The section is [CUDACore], not [CUDA] — CUDA.jl's own template still says
+# [CUDA], which CUDA.jl 6 silently ignores. `runtests.jl` refuses to run if the setting did not take.
+[CUDACore]
+default_memory = "unified"
