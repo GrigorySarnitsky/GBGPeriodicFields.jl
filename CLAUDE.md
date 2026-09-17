@@ -1172,7 +1172,7 @@ those are the usual rot. Then the mechanical bar:
    element type. It had read 373 on 2026-08-15 and 361 on 2026-08-10, and no GPU run on **either** backend
    had included decisions 73–75 until this one; the CUDA environment had also stopped resolving in the
    interim, so the suite was silently unrunnable rather than merely unrun. **ROCm reads 494/494 as of 2026-09-05** (exit 0 in 5m30s — 491 plus decision 83's three
-   device cells; the CUDA DEVICE lane is at 491 until `Enteropia` re-runs it, a known lag — the unified lane ran the 494-cell suite green on 2026-09-17, which is a different lane). Before that it re-ran
+   device cells). **CUDA re-ran 2026-09-17 on `Enteropia` and reads 494/494**, exit 0 in 4m16s — the device lane, asserted not unified before it started, so PARITY across ROCm, CUDA device and CUDA unified (the unified lane, `test/gpu/cuda-unified`, also 494/494 plus 44/44 of its own). Before that it re-ran
    2026-08-31 at 454/454, up from the stale 395 of 2026-08-23. **PARITY with CUDA is now VERIFIED** (2026-09-01, on `Enteropia`): both
    backends read 454/454, exit 0. **CUDA re-ran 2026-09-04 with decision 82 and reads 491/491, exit 0 in
    4m17s** — 454 → 466 was decision 80's device lane, which is where its claim actually bites, every
