@@ -11,7 +11,7 @@ codomain — and checks each claim by expansion, with the definitions **taken fr
 
 It exists as a precision check, not as a page a user reads. Writing a statement formally forces every
 type and normalization into the open, which is exactly where imprecision in the prose becomes visible:
-the all-ones ``\mathbf 1`` that was secretly two different vectors, or a section space written
+the all-ones ``\mathbf{1}`` that was secretly two different vectors, or a section space written
 ``\mathbb R^N`` that had quietly flattened the fiber away. These are **hand-verified notes, not
 machine-checked proofs** — the deterministic check is the linked test (the test suite plays the role of
 the compiler), so a statement here with no test is a coverage gap to close.
@@ -19,7 +19,7 @@ the compiler), so a statement here with no test is a coverage gap to close.
 !!! note "Coordinate forms live here"
     The coordinate-free preference (`CLAUDE.md`) governs the *user-facing* prose. This page is the
     sanctioned home for the coordinate/matrix/component expansions — a basis, the matrix entries
-    ``W_{pn}``, the all-ones ``\mathbf 1_N`` / ``\mathbf 1_M`` — because *checking* precision requires
+    ``W_{pn}``, the all-ones ``\mathbf{1}_N`` / ``\mathbf{1}_M`` — because *checking* precision requires
     expanding into components. The statements here must still be **correct**; they need not be
     coordinate-free.
 
@@ -677,8 +677,8 @@ Design rationale: [Architecture](architecture.md) §10.
 
 The base gather ``W_b : \mathbb R^N \to \mathbb R^M`` has entries ``(W_b)_{pn} = w_n(x_p)`` (the local
 stencil weights, `src/Interpolation.jl`), a **partition of unity** — for each point the row sums to one,
-``\sum_n (W_b)_{pn} = 1``, i.e. ``W_b \mathbf 1_N = \mathbf 1_M`` with ``\mathbf 1_N \in \mathbb R^N`` and
-``\mathbf 1_M \in \mathbb R^M`` (two **distinct** all-ones vectors). Both transfer maps are
+``\sum_n (W_b)_{pn} = 1``, i.e. ``W_b \mathbf{1}_N = \mathbf{1}_M`` with ``\mathbf{1}_N \in \mathbb R^N`` and
+``\mathbf{1}_M \in \mathbb R^M`` (two **distinct** all-ones vectors). Both transfer maps are
 **fiber-preserving** (the trivial bundle leaves the fiber by the identity):
 
 ```math

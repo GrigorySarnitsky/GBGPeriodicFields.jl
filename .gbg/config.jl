@@ -18,15 +18,12 @@ Config(
         FileSet.RATIONALE => ["docs/ARCHITECTURE.md", "docs/FORMALIZATION.md",
                               "docs/TESTING.md", "docs/PERFORMANCE.md"],
     ),
-    switches = [
-        Switch(target = Symbol("RULE.TEX.MATHBF"),
-               reason = "Deferred, not declined. The one bold string here is the wavenumber vector \
-                         in the worked turbulence example, where italic k is the turbulent kinetic \
-                         energy and the two would otherwise collide; the notation page states that \
-                         and scopes it to the example. Declaring it is one line, and the owner is \
-                         holding that line until the bold set can be settled together with \
-                         GBGIsotropicTurbulence, whose notation this example follows. Declaring a \
-                         set here first would make the fleet agree by coincidence rather than by \
-                         decision."),
+    # The one bold string this package writes. It is the wavenumber vector in the worked turbulence
+    # example, where italic k is the turbulent kinetic energy and the two would otherwise collide; the
+    # notation page states that and scopes it to the example. Declared rather than switched off, so
+    # the rule keeps running: a second bold string cannot arrive unnoticed. `\mathbf{1}` needs no
+    # entry — every package is granted the identity.
+    settings = [
+        Setting(rule = Symbol("RULE.TEX.MATHBF"), name = :mathbf_allowed, value = ["\\mathbf{k}"]),
     ],
 )
