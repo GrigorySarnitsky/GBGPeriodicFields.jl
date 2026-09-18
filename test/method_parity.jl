@@ -206,7 +206,14 @@ const MODULE_BASELINE = (
   # `_show_spline_eltype`. A spline scheme's weight matrix is DERIVED from `(n, m)` — the property
   # decision 75 persists it by — so the default showed the derived quantity at 747 characters and
   # the two numbers it came from not at all; the constructor call is the honest form and round-trips.
-  Interpolation         = 185,
+  # 185 → 170: the NUFFT stopped carrying its own copy of the coarse↔oversampled index map and now
+  # calls decision 85's `embed_modes!`/`extract_modes!`. Gone are `_nufft_index_map`, the two
+  # `@kernel` definitions `_nufft_embed_kernel!`/`_nufft_extract_kernel!` with their macro expansions,
+  # and the three `embed_map_*` struct fields with the `MP` type parameter — the oversampled grid
+  # covers the same box as the reference, so its modes are a superset and the public verb IS this
+  # step. The refactor is also the strongest available test of those verbs: the NUFFT is verified
+  # exact against `DirectDFT`, and that equality still holds.
+  Interpolation         = 170,
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build

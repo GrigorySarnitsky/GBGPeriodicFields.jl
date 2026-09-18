@@ -4669,6 +4669,24 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       contents — the modes outside the shared set survive — so an allocating form would have to invent
       them. The same reasoning as `combine!` and `displace!`.
 
+    - **The NUFFT was refactored onto these verbs, as the strongest available test of them.** Its
+      oversampled work grid covers the same box as the reference with more points, so the reference's
+      modes are a subset of it and the scheme's own `_nufft_embed_kernel!`/`_nufft_extract_kernel!`
+      were this operation in private form. They are gone, with `_nufft_index_map` and the three
+      `embed_map_*` fields and their type parameter: 57 lines, three device arrays per plan, and a
+      piece of index arithmetic that had to be kept in step with the layout by hand. The scheme is
+      verified exact against `DirectDFT`, and that equality still holds — which is a test no fixture
+      of this operation's own could give it.
+
+      Two differences had to be paid rather than assumed. The old map carried the reference's Nyquist
+      shell to `-N/2` of the oversampled grid where the shared set excludes it, which is consistent
+      with the scheme's documented band but means its scratch must now be ZEROED, since the
+      operation writes only shared modes and `similar` returns whatever was in memory — the first run
+      after the refactor produced `NaN` for exactly that reason. And the scale factor moved: the
+      embed site dropped its hand-applied `total_oversampling` because the operation carries that
+      ratio, while the extract site multiplies by it, the operation dividing where the old kernel did
+      nothing. The NUFFT had been applying the same physical-amplitude convention all along.
+
     - **The names were chosen adversarially**, against the alternatives `truncate`, `project`,
       `inject`, `restrict`, `prolong`, `pad` and a single `copy_shared_modes!`. `truncate` and `chop`
       are exported by `Base` and `truncate` already means de-aliasing in the consuming solver;

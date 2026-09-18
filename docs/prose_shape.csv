@@ -105,7 +105,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 82",943,120,0
 "ARCHITECTURE.md § item 83",1328,117,0
 "ARCHITECTURE.md § item 84",463,88,0
-"ARCHITECTURE.md § item 85",662,117,0
+"ARCHITECTURE.md § item 85",893,117,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -418,7 +418,7 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: PointTraversalOrder(indices)",223,58,1
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",309,93,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
-"Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",80,57,0
+"Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",84,61,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
 "Interpolation.jl :: _fornberg(evaluation_point, nodes, max_order)",58,38,0
 "Interpolation.jl :: _hermite_weight_matrix(n, m)",89,87,0

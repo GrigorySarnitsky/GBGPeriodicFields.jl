@@ -88,7 +88,8 @@ using ..Fields: AbstractFieldPhysical, ScalarFieldPhysical, VectorFieldPhysical,
                 AbstractFieldSpectral, ScalarFieldSpectral, VectorFieldSpectral, TensorFieldSpectral,
                 Grid3D, RealFourierLayout, field_data, field_grid, field_layout, field_scalar_type,
                 field_tensor_order, fiber_shape, field_physical_shape, field_spectral_shape,
-                FieldTransformPlans, to_physical, to_spectral, similar_field
+                FieldTransformPlans, to_physical, to_spectral, similar_field,
+                embed_modes!, extract_modes!
 using ..Points: _show_count, PointSet, AbstractPointValues, ScalarPointValues, VectorPointValues, TensorPointValues,
                 point_positions, point_values, npoints, point_value_tensor_order, _check_npoints_match
 import Adapt: adapt, adapt_structure
@@ -1605,20 +1606,6 @@ _nufft_width(tol::Real) = max(4, ceil(Int, -log10(tol)) + 2)
 _nufft_beta(width::Integer, ::Type{T}) where {T} = T(23) / 10 * width
 
 
-# Per-axis N→σN frequency index map: stored coarse index → stored oversampled index of the same
-# Fourier frequency. On the rfft half axis the low frequencies 0…N/2 keep their index; on a full axis
-# the negative frequencies fold to the high end of the oversampled axis. Host build → backend copy.
-function _nufft_index_map(reference::AbstractArray, number_of_points::Int, oversampled_points::Int, stored_length::Int, is_half::Bool)
-  host = Vector{Int}(undef, stored_length)
-  for i in 1:stored_length
-    zero_based = i - 1
-    frequency = (is_half || zero_based < (number_of_points + 1) ÷ 2) ? zero_based : zero_based - number_of_points
-    host[i] = frequency ≥ 0 ? frequency + 1 : oversampled_points + frequency + 1
-  end
-  device = similar(reference, Int, stored_length)
-  copyto!(device, host)
-  return device
-end
 
 
 # The coefficientwise deconvolution ∏_a 1/ψ̂_a(ω) on the coarse (N) spectral grid, a real (Nkx,Ny,Nz)
@@ -1701,14 +1688,14 @@ Nyquist content is not pointwise divergence-free in the continuum).
 
 Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
-struct NUFFT{T, PL, DC, PP, SP, MP, LO} <: AbstractTransferScheme
+struct NUFFT{T, PL, DC, PP, SP, LO} <: AbstractTransferScheme
   width::Int
   beta::T
   total_oversampling::T
   # The context the plan was BUILT for, kept explicitly. Only the oversampled grid used to be stored,
   # and the reference grid cannot be recovered from it, so a plan could not be checked against the
-  # field it was handed — a same-order field on another domain received this plan's index maps and
-  # deconvolution and came back silently wrong.
+  # field it was handed — a same-order field on another domain received this plan's deconvolution and
+  # oversampled plans and came back silently wrong.
   reference_grid::Grid3D{T}
   reference_layout::LO
   oversampled_grid::Grid3D{T}
@@ -1716,9 +1703,6 @@ struct NUFFT{T, PL, DC, PP, SP, MP, LO} <: AbstractTransferScheme
   deconvolution::DC
   oversampled_physical::PP    # template (its data is copied, never mutated, per call)
   oversampled_spectral::SP
-  embed_map_1::MP
-  embed_map_2::MP
-  embed_map_3::MP
 end
 
 
@@ -1745,11 +1729,8 @@ function NUFFT(reference::AbstractFieldSpectral{T, R}; tol::Real = 1e-10, oversa
   plans = FieldTransformPlans(physical_template, spectral_template)
   deconvolution = _nufft_deconvolution(reference, σ, w, β)
   total_oversampling = T(prod(oversampled_size) / prod(grid.grid_size))
-  map_1 = _nufft_index_map(data, grid.grid_size[1], oversampled_size[1], size(data, 1), 1 == layout.fft_dims[1])
-  map_2 = _nufft_index_map(data, grid.grid_size[2], oversampled_size[2], size(data, 2), 2 == layout.fft_dims[1])
-  map_3 = _nufft_index_map(data, grid.grid_size[3], oversampled_size[3], size(data, 3), 3 == layout.fft_dims[1])
   return NUFFT(w, β, total_oversampling, grid, layout, oversampled_grid, plans, deconvolution,
-               physical_template, spectral_template, map_1, map_2, map_3)
+               physical_template, spectral_template)
 end
 
 
@@ -1838,44 +1819,6 @@ end
 end
 
 
-# Copy the coarse (N) spectral coefficients into the zero-padded oversampled (σN) array by the
-# per-axis frequency maps (one work-item per coarse mode; the oversampled array is zeroed first).
-@kernel function _nufft_embed_kernel!(oversampled, @Const(coarse), @Const(map_1), @Const(map_2), @Const(map_3),
-                                      coarse_modes, oversampled_modes, n1, n2, over_n1, over_n2)
-  mode = @index(Global, Linear)
-  if mode ≤ coarse_modes
-    @inbounds begin
-      i1 = mod(mode - 1, n1) + 1
-      i2 = mod((mode - 1) ÷ n1, n2) + 1
-      i3 = (mode - 1) ÷ (n1 * n2) + 1
-      over_base = map_1[i1] + over_n1 * (map_2[i2] - 1) + over_n1 * over_n2 * (map_3[i3] - 1)
-      number_of_fibres = length(coarse) ÷ coarse_modes
-      for fibre in 1:number_of_fibres
-        oversampled[over_base + oversampled_modes * (fibre - 1)] = coarse[mode + coarse_modes * (fibre - 1)]
-      end
-    end
-  end
-end
-
-
-# The transpose of embed: read the oversampled coefficients at the mapped positions into the coarse
-# array (one work-item per coarse mode).
-@kernel function _nufft_extract_kernel!(coarse, @Const(oversampled), @Const(map_1), @Const(map_2), @Const(map_3),
-                                        coarse_modes, oversampled_modes, n1, n2, over_n1, over_n2)
-  mode = @index(Global, Linear)
-  if mode ≤ coarse_modes
-    @inbounds begin
-      i1 = mod(mode - 1, n1) + 1
-      i2 = mod((mode - 1) ÷ n1, n2) + 1
-      i3 = (mode - 1) ÷ (n1 * n2) + 1
-      over_base = map_1[i1] + over_n1 * (map_2[i2] - 1) + over_n1 * over_n2 * (map_3[i3] - 1)
-      number_of_fibres = length(coarse) ÷ coarse_modes
-      for fibre in 1:number_of_fibres
-        coarse[mode + coarse_modes * (fibre - 1)] = oversampled[over_base + oversampled_modes * (fibre - 1)]
-      end
-    end
-  end
-end
 
 
 # A fresh oversampled work field (physical or spectral) from a stored template (never mutates it).
@@ -1894,10 +1837,10 @@ _context_layout(scheme::NUFFT) = scheme.reference_layout
 Check that a `NUFFT` plan may be used on `field`: same base, Fourier layout, scalar type, storage
 family and tensor order.
 
-The plan precomputes index maps, an oversampled work grid and a deconvolution for one specific
-context. Applying it to a field from another context is not a shape error that surfaces on its own —
-a same-order field on a different domain has identical storage, so it silently receives the wrong
-deconvolution and the wrong index maps.
+The plan precomputes an oversampled work grid, its transform plans and a deconvolution for one
+specific context. Applying it to a field from another context is not a shape error that surfaces on
+its own — a same-order field on a different domain has identical storage, so it silently receives the
+wrong deconvolution and a work grid that resolves different wavenumbers.
 """
 function _check_nufft_compatibility(scheme::NUFFT{T}, field::AbstractFieldSpectral) where {T}
   _check_matching_context(scheme, field)
@@ -1930,16 +1873,13 @@ function interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral, po
   oversampled_spectral = _fresh(scheme.oversampled_spectral)
   over_data = field_data(oversampled_spectral)
   fill!(over_data, zero(Complex{T}))
-  # deconvolve + scale the coarse coefficients, then embed into the zero-padded oversampled grid
-  coarse = similar(field_data(field))
-  @_assign! coarse .= field_data(field) .* scheme.deconvolution .* scheme.total_oversampling
-  data = field_data(field)
-  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
-  coarse_modes = n1 * n2 * n3
-  oversampled_modes = size(over_data, 1) * size(over_data, 2) * size(over_data, 3)
-  _nufft_embed_kernel!(backend)(over_data, coarse, scheme.embed_map_1, scheme.embed_map_2, scheme.embed_map_3,
-    coarse_modes, oversampled_modes, n1, n2, size(over_data, 1), size(over_data, 2); ndrange = coarse_modes)
-  synchronize(backend)
+  # Deconvolve, then write the reference field's modes into the zero-padded oversampled grid. The
+  # oversampled grid covers the same box with more points, so its modes are a superset of the
+  # reference's and `embed_modes!` is exactly this step (decision 85). It carries the ratio of the two
+  # point counts itself, which is the `total_oversampling` factor this line used to apply by hand.
+  coarse = similar_field(field, similar(field_data(field)))
+  @_assign! field_data(coarse) .= field_data(field) .* scheme.deconvolution
+  embed_modes!(oversampled_spectral, coarse)
   oversampled_physical = to_physical(oversampled_spectral, scheme.oversampled_plans)
   over_grid = scheme.oversampled_grid
   _nufft_gather_kernel!(backend)(point_values(out), point_positions(points), field_data(oversampled_physical), scheme.beta,
@@ -1979,19 +1919,22 @@ function anterpolate!(field::AbstractFieldSpectral, points::PointSet, quantities
     Val(scheme.width), _traversal_indices(traversal); ndrange = npoints(quantities))
   synchronize(backend)
   oversampled_spectral = to_spectral(oversampled_physical, scheme.oversampled_plans)
-  over_data = field_data(oversampled_spectral)
-  coarse = similar(field_data(field))
+  # The transpose of the embed above, and the same operation read the other way: take the modes the
+  # reference grid shares with the oversampled one. `extract_modes!` divides by the ratio of point
+  # counts where `embed_modes!` multiplied by it, so the deposit is scaled back by
+  # `total_oversampling` here to keep this pair the exact adjoint of the gather.
+  # Zeroed first: `extract_modes!` writes only the shared modes, and the reference grid's own Nyquist
+  # shell is not among them, so those entries would otherwise carry whatever `similar` returned. Zero
+  # is also the value the scheme's contract asks for there — the Nyquist plane is outside the band the
+  # NUFFT represents, and the deposit into it is what the docstring's warning above is about.
+  coarse = similar_field(field, similar(field_data(field)))
+  fill!(field_data(coarse), zero(Complex{T}))
+  extract_modes!(coarse, oversampled_spectral)
   data = field_data(field)
-  n1, n2, n3 = size(data, 1), size(data, 2), size(data, 3)
-  coarse_modes = n1 * n2 * n3
-  oversampled_modes = size(over_data, 1) * size(over_data, 2) * size(over_data, 3)
-  _nufft_extract_kernel!(backend)(coarse, over_data, scheme.embed_map_1, scheme.embed_map_2, scheme.embed_map_3,
-    coarse_modes, oversampled_modes, n1, n2, size(over_data, 1), size(over_data, 2); ndrange = coarse_modes)
-  synchronize(backend)
   if iszero(β)
-    @_assign! data .= T(α) .* coarse .* scheme.deconvolution
+    @_assign! data .= T(α) .* field_data(coarse) .* scheme.total_oversampling .* scheme.deconvolution
   else
-    @_assign! data .= T(α) .* coarse .* scheme.deconvolution .+ T(β) .* data
+    @_assign! data .= T(α) .* field_data(coarse) .* scheme.total_oversampling .* scheme.deconvolution .+ T(β) .* data
   end
   return field
 end
@@ -2151,7 +2094,7 @@ end
 
 
 # The reference grid and layout are shown for the reason the struct keeps them: a plan handed a
-# same-order field on another domain applies this one's index maps and deconvolution and comes back
+# same-order field on another domain applies this one's deconvolution and work grid and comes back
 # silently wrong, so `_check_matching_context` refuses that pair — and two plans it refuses against
 # each other must not print alike.
 function Base.show(io::IO, scheme::NUFFT)
