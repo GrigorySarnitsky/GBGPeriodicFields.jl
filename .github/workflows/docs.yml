@@ -25,6 +25,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - uses: ./.github/actions/gbg-auth
+        with:
+          token: ${{ secrets.GBG_DEPS_TOKEN }}
+
       - uses: julia-actions/setup-julia@v3
         with:
           version: '1'

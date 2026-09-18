@@ -1,4 +1,4 @@
-<!-- gbg:managed begin vdev — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.4 — rewritten by `gbg sync`; do not edit -->
 # Instruments — `RULE.INST.*`
 
 How a review runs: consent, witnesses, closure, cost, and the limits it must state. 13 rules, written from the rule values themselves,

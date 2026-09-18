@@ -14,9 +14,10 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
-GBGCodingTools = {path = "/home/grigory/Dropbox/Research and Teach/AI Helpers/GBGCodingTools"}
+GBGCodingTools = {rev = "v2.0.0-rc.4", url = "https://github.com/GrigorySarnitsky/GBGCodingTools.jl.git"}
 
 [compat]
 Aqua = "0.8"
+GBGCodingTools = "=2.0.0"
 HDF5 = "0.17"
 LoweredCodeUtils = "3 - 3.5"
