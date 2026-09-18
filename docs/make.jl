@@ -255,32 +255,6 @@ function lint_api_page_structure()
 end
 
 # ---------------------------------------------------------------------------------------------
-# PROSE SHAPE — a RATCHET against accretion. Ported from GBGIsotropicTurbulence 2026-08-27, and
-# EXTENDED from its docstrings-only scope to the pages and rationale docs, which is where PF measured
-# its own accretion (+34 lines of clause-appending in one fix pass, against -5 in the one file that
-# was rewritten rather than appended to).
-#
-# THE DEFECT IT CATCHES is invisible to every per-finding check, because each edit is locally correct:
-# across successive fix passes a docstring or section GROWS, each fix appending a clause to an existing
-# sentence instead of rewriting the passage. The docs get longer and worse while no individual change
-# is wrong.
-#
-# WHY A RATCHET AND NOT A THRESHOLD. A hard cap either fires on everything that predates the rule or is
-# set so high it never fires — and a check that cries wolf is one the operator learns to wave through,
-# which is worse than no check. A ratchet has NOTHING TO TUNE: a unit may not grow past what it already
-# is, whatever that is. Its false-positive rate on prose that did not grow is structurally zero, and a
-# rewrite BANKS the improvement, because shrinking rewrites the baseline down.
-#
-# THREE NUMBERS, not one. Total words alone misses a unit that stays the same length while one
-# paragraph swells and something else is cut. `longest_paragraph` is the number the append-a-clause
-# defect actually moves. `admonitions` catches the other accretion shape — a caveat added per finding
-# until the docstring is a list of warnings.
-#
-# THE UNIT MATTERS FOR PAGES, and this is the extension. `ARCHITECTURE.md`'s decision log is
-# append-only BY DESIGN, so ratcheting a whole file would fire on every new decision. The unit is
-# therefore a SECTION (a heading) for markdown and a DOCSTRING for source: a new section is allowed
-# and gets the newcomer caps, while growth of an EXISTING section is exactly what is caught.
-# ---------------------------------------------------------------------------------------------
 # REVIEW CLOSURE — the verifier is a BUILD REQUIREMENT, not an instruction.
 #
 # WHY THIS IS A LINT AND NOT A SENTENCE IN A COMMAND FILE. Both /check-docs and /check-consistency

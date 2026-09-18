@@ -12,7 +12,7 @@
 # and what lets the GPU twin run hassle-free (no manual garbage collection).
 #
 # **This is a demonstration, not the production solver.** The full pseudospectral DNS built on this
-# package is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl) — that is where the
+# package is [`GBGHomogeneousTurbulence.jl`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl) — that is where the
 # complete physics, the tested solver machinery, and the real runs live. This page exists to show how
 # the field layer is driven end to end, small enough to read in one sitting.
 #

@@ -10,7 +10,7 @@
 #
 # Like its CPU sibling this is a DEMONSTRATION, not the production solver: the full pseudospectral
 # DNS built on this package is
-# [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl).
+# [`GBGHomogeneousTurbulence.jl`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl).
 #
 # Read `HIST_CPU.jl` first; this file flags only what CHANGES for the GPU:
 #
