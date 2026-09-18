@@ -24,9 +24,10 @@ include(joinpath(@__DIR__, "convolution.jl"))
 include(joinpath(@__DIR__, "transfer.jl"))
 include(joinpath(@__DIR__, "reductions.jl"))
 include(joinpath(@__DIR__, "storage.jl"))
+include(joinpath(@__DIR__, "resolution.jl"))
 
 # `storage` is device-only and contributes no rows on a CPU lane — see benchmark/storage.jl.
-const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage")
+const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage", "resolution")
 
 # `skip` drops whole classes before any of their fields/plans are built — required for the GPU
 # sweep, where merely *building* the fft class creates rocFFT plans (the gfx103x stall point); see
@@ -48,6 +49,7 @@ function build_suite(; array_type = Array, types = TYPES, sizes = SIZES, skip = 
     want("transfer")   && add_transfer!(suite["transfer"], array_type, T, grid, tag; registry)
     want("reductions") && add_reductions!(suite["reductions"], array_type, T, grid, tag)
     want("storage")    && add_storage!(suite["storage"], array_type, T, grid, tag)
+    want("resolution") && add_resolution!(suite["resolution"], array_type, T, grid, tag)
   end
   return suite
 end

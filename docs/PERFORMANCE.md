@@ -2307,6 +2307,14 @@ writes to a device buffer synchronizes it, including the transfer rows: relying 
 synchronization is what left `NUFFT` anterpolation's final assignment outside its own measurement, and
 a benchmark should assume nothing about where a driver happens to block.
 
+**The `resolution` class** (decision 85) measures what no other class does: an operation whose cost is
+set by a field the caller does not pass as its destination. Both `embed_modes!` and `extract_modes!` walk
+the COARSE field, so their rows should follow the coarse grid and barely move as the swept grid grows;
+a row that tracks the sweep instead is the regression the class exists to catch, a pass over the fine
+field. Two ratios are swept per lane, a fixed small block and a half-sized coarse grid, because an
+index map can be right at one ratio and wrong at another. The rows enter `RESULTS.md` at the next
+sweep, `src/` having moved with the decision.
+
 Classes covered: **FFT** transforms (each CPU row with a `measure` twin planned via `FFTW.MEASURE`, so
 the default-`ESTIMATE` experience and the tuned production path sit side by side and finding (h) is
 re-measured per host/size/type on every sweep; GPU rows have no twin, the device FFT libraries taking no

@@ -298,6 +298,44 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("field", carr(v1), (3 * planes * plane, 3 * planes * plane)))
   end
 
+  # ------------------------------------------------- moving modes between resolutions (decision 85)
+  @testset "embed_modes! / extract_modes! (the shared modes, and nothing of the fine field besides)" begin
+    # The ideal is hand-counted from the geometry, which is the whole value of this row: the fine
+    # field must show traffic proportional to the COARSE grid, so a regression that walked the fine
+    # field — the failure this operation exists to avoid — would show up here as `M` rather than 6.
+    #
+    # Coarse grid (4, 3, 2) under the same box, stored shape (3, 3, 2). Per axis, the shared indices:
+    #   folded axis: stores 0 … 2, and 2 is its Nyquist (the axis is even) → 2 of 3 shared
+    #   axis 2 (N = 3, odd): no Nyquist mode exists → 3 of 3 shared
+    #   axis 3 (N = 2, even): stores 0 and the Nyquist → 1 of 2 shared
+    # so 2 × 3 × 1 = 6 shared modes per component.
+    shared = 6
+    coarse_grid = Grid3D((4, 3, 2), grid.domain_size)
+    coarse_shape0 = F.field_spectral_shape(coarse_grid, layout, Val(0))
+    coarse_shape1 = F.field_spectral_shape(coarse_grid, layout, Val(1))
+    cs() = ScalarFieldSpectral(counting(randn(ComplexF64, coarse_shape0)), coarse_grid)
+    cv() = VectorFieldSpectral(counting(randn(ComplexF64, coarse_shape1)), coarse_grid)
+
+    fine_s, coarse_s = sspec(), cs()
+    audit(() -> embed_modes!(fine_s, coarse_s), "embed_modes! scalar",
+      Traffic("coarse", carr(coarse_s), (shared, 0)), Traffic("fine", carr(fine_s), (0, shared)))
+    fine_v, coarse_v = vspec(), cv()
+    audit(() -> embed_modes!(fine_v, coarse_v), "embed_modes! vector",
+      Traffic("coarse", carr(coarse_v), (3shared, 0)), Traffic("fine", carr(fine_v), (0, 3shared)))
+
+    fine_s2, coarse_s2 = sspec(), cs()
+    audit(() -> extract_modes!(coarse_s2, fine_s2), "extract_modes! scalar",
+      Traffic("fine", carr(fine_s2), (shared, 0)), Traffic("coarse", carr(coarse_s2), (0, shared)))
+    fine_v2, coarse_v2 = vspec(), cv()
+    audit(() -> extract_modes!(coarse_v2, fine_v2), "extract_modes! vector",
+      Traffic("fine", carr(fine_v2), (3shared, 0)), Traffic("coarse", carr(coarse_v2), (0, 3shared)))
+
+    # Accumulating reads the destination's shared modes as well, and still nothing else.
+    fine_s3, coarse_s3 = sspec(), cs()
+    audit(() -> embed_modes!(fine_s3, coarse_s3, 0.5, 1.0), "embed_modes! accumulate",
+      Traffic("coarse", carr(coarse_s3), (shared, 0)), Traffic("fine", carr(fine_s3), (shared, shared)))
+  end
+
   # ---------------------------------------------------------------- convolution family
   @testset "convolution family" begin
     f, a, b, d = vspec(), vspec(), vspec(), vspec()

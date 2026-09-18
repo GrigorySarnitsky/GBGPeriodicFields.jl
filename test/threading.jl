@@ -54,6 +54,9 @@ ka_m = FieldSpectralMultipliers(ka_us)
 ka_points = PointSet(T(2π) .* rand(T, $(KA_POINTS), 3))
 ka_field = ScalarFieldPhysical(rand(T, 32, 32, 32), ka_grid)
 ka_values = ScalarPointValues(rand(T, $(KA_POINTS)))
+ka_coarse_grid = Grid3D((8, 8, 8), (2π, 2π, 2π))
+ka_coarse = VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(ka_coarse_grid, RealFourierLayout(), Val(1))), ka_coarse_grid)
+ka_embedded = VectorFieldSpectral(zeros(Complex{T}, ka_shape), ka_grid)
 """
 
 const KA_PROBE_SOURCE = """
@@ -62,6 +65,7 @@ $(KA_DIGEST_SOURCE)
 $(KA_SETUP_SOURCE)
 println(ka_digest(field_data(helmholtz_projection(ka_us, ka_m))))
 println(ka_digest(point_values(interpolate(ka_field, ka_points))))
+println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
 """
 
 
@@ -308,7 +312,10 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # 17 → 18: `_reality_projection_planes!` (decision 83, 2026-09-05), and Fields joined the scanned
     # set with it — its first kernel pair, and the module-shaped blind spot above would have hidden
     # it exactly as it hid Convolution's.
-    @test dispatch_pairs == 18
+    # 18 → 19: `_shared_modes_pass!` (decision 85, 2026-09-18), the resolution verbs' kernel and its
+    # gated CPU twin. The guard announced it on the first run after the operation landed, which is
+    # what it is for.
+    @test dispatch_pairs == 19
   end
 
   @testset "kernel sites reproducible across thread counts" begin
@@ -346,9 +353,15 @@ println(ka_digest(point_values(interpolate(ka_field, ka_points))))
     # deterministic kernels in a subprocess launched at a different thread count and compare digests
     other_threads = Threads.nthreads() == 1 ? 4 : 1
     probe_output = readchomp(`$(Base.julia_cmd()) --project=$(Base.active_project()) -t$other_threads -e $KA_PROBE_SOURCE`)
-    probe_projection, probe_gather = split(probe_output)
+    probe_projection, probe_gather, probe_embed = split(probe_output)
     @test probe_projection == string(ka_digest(projections[1]))
     @test probe_gather == string(ka_digest(gathers[1]))
+    # The resolution verbs' gated CPU loop (decision 85): every work item owns one coarse mode and
+    # writes one destination element, so the split into slabs cannot change a value — and this is the
+    # assertion that would catch it if a future rewrite made the partition matter.
+    local_embedded = VectorFieldSpectral(zeros(Complex{T}, ka_shape), ka_grid)
+    embed_modes!(local_embedded, ka_coarse)
+    @test probe_embed == string(ka_digest(field_data(local_embedded)))
   end
 
   @testset "reductions: fixed-tree, thread-count-invariant (bitwise)" begin
@@ -437,6 +450,7 @@ end
   D._helmholtz_projection_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, k, a, b) = throw(Reached("helmholtz"))
   D._inverse_curl_modes!(::KA.CPU, d1, d2, d3, s1, s2, s3, w1, w2, w3, iu) = throw(Reached("inverse_curl"))
   FI._reality_projection_planes!(::KA.CPU, data, ::Val{D}, planes, sizes, others, ncomp, P) where {D} = throw(Reached("reality_projection"))
+  FI._shared_modes_pass!(::KA.CPU, dest, src, ::Val{TF}, ax, cs, fs, nc, ce, fe, a, b) where {TF} = throw(Reached("shared_modes"))
   # NOTE the exact signature: an override must be at least as specific as the method it replaces, or
   # Julia keeps the real one and the probe reports "NOTHING" — indistinguishable from dead code. The
   # assertion below that every override lives in Main is what tells the two apart.
@@ -451,6 +465,7 @@ end
   d = M.Fields.similar_field(u, Val(1))
   sep = translation_kernel(m, (0.3, -0.7, 1.1))
   rad = spectral_cutoff(m, 3.0)
+  coarse = VectorFieldSpectral(zeros(ComplexF64, 3, 3, 2, 3), Grid3D((4, 3, 2), (2π, 2π, 2π)), l)
   up = VectorFieldPhysical(rand(8, 6, 4, 3), g)
   vp = VectorFieldPhysical(rand(8, 6, 4, 3), g)
 
@@ -462,6 +477,7 @@ end
                   (D._helmholtz_projection_modes!, "helmholtz"),
                   (D._inverse_curl_modes!, "inverse_curl"),
                   (FI._reality_projection_planes!, "reality_projection"),
+                  (FI._shared_modes_pass!, "shared_modes"),
                   (FS._fiberwise_pass!, "fiberwise_pass"))
     any(m -> m.module === Main, methods(f)) || println(nm, "=STALE-PROBE")
   end
@@ -474,6 +490,7 @@ end
     (() -> helmholtz_projection!(d, u, m),           "helmholtz"),
     (() -> inverse_curl!(d, u, m),                   "inverse_curl"),
     (() -> reality_projection!(u),                   "reality_projection"),
+    (() -> embed_modes!(u, coarse),                  "shared_modes"),
     (() -> cross(up, vp),                            "fiberwise_pass"),
   ]
   for (call, expected) in probes
@@ -489,7 +506,7 @@ end
   results = Dict(split(line, "=")[1] => split(line, "=")[2]
                  for line in split(output, '\n') if occursin('=', line))
   for twin in ("separable_convolution", "separable_combination", "radial_convolution",
-               "helmholtz", "inverse_curl", "reality_projection", "fiberwise_pass")
+               "helmholtz", "inverse_curl", "reality_projection", "shared_modes", "fiberwise_pass")
     haskey(results, twin) || error("probe produced no line for $twin; output was:\n$output")
     results[twin] == twin ||
       @error "a gated CPU twin is NOT reached from its public entry point — it is dead code" twin reached = results[twin]

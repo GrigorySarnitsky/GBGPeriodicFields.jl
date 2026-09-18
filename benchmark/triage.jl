@@ -76,7 +76,7 @@ The born-slow scan over assembled benchmark lanes, as a Markdown section. The ar
 - `outlier_ratio`: retained for call compatibility; the declared-peer table carries its own caps.
 """
 function triage_section(groups; flat_ratio = 1.1, floor_ns = 1.0e6, outlier_ratio = 8.0)
-  classes = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage")
+  classes = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage", "resolution")
   io = IOBuffer()
   println(io, "## Triage — the born-slow scan\n")
   println(io, "Two questions no per-row history can answer (finding (ag)): does a threaded operation ",

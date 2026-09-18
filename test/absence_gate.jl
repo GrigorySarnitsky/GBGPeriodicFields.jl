@@ -116,6 +116,10 @@ const ABSENT_CALLS = Dict{Symbol, Function}(
   :to_spectral          => () -> to_spectral(agsspec(), agplans()),
   # The spectral transfer's scatter takes the deposit target in spectral representation.
   :anterpolate          => () -> anterpolate(agsphys(), agpoints(), ScalarPointValues(rand(9)), DirectDFT()),
+  # Moving modes between grid resolutions is spectral by definition: a mode is what the operation
+  # names, and two physical fields of different sizes share no sample points to copy (decision 85).
+  :embed_modes!         => () -> embed_modes!(agsphys(), ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)), ALAYOUT)),
+  :extract_modes!       => () -> extract_modes!(ScalarFieldPhysical(rand(4, 4, 2), Grid3D((4, 4, 2), (2π, 2π, 2π)), ALAYOUT), agsphys()),
 )
 
 

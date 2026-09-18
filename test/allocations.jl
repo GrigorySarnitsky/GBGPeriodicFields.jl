@@ -138,6 +138,10 @@ _map_add(a, b) = a + b
       qs, qv, qt = randomize_points!(scalar_points()), randomize_points!(vector_points()), randomize_points!(tensor_points())
       qsd, qvd, qtd = scalar_points(), vector_points(), tensor_points()
       qs_pos = scalar_points(); point_values(qs_pos) .= rand(T, M) .+ one(T)     # nonzero divisor
+      # A coarser field over the same box, for the resolution verbs below.
+      coarse_grid = Grid3D(grid.grid_size .÷ 2, grid.domain_size)
+      coarse_spectral = VectorFieldSpectral(Array, coarse_grid, layout)
+      field_data(coarse_spectral) .= 0
 
       # ----- spectral differential operators (lazy |k|² + fused kernels; decision 24) -----
       @alloc_below field_threshold laplacian!(svd, sv, multipliers)
@@ -150,6 +154,12 @@ _map_add(a, b) = a + b
       @alloc_below field_threshold reality_projection!(ssd)
       @alloc_below field_threshold reality_projection!(svd)
       @alloc_below field_threshold reality_projection!(svd, sv)
+      # Moving modes between grid resolutions (decision 85): the pass walks the COARSE field, so its
+      # cost and its allocation are set by the small grid whatever the fine one is.
+      @alloc_below field_threshold embed_modes!(sv, coarse_spectral)
+      @alloc_below field_threshold embed_modes!(sv, coarse_spectral, T(0.5), T(1))
+      @alloc_below field_threshold extract_modes!(coarse_spectral, sv)
+      @alloc_below field_threshold extract_modes!(coarse_spectral, sv, T(0.5), T(1))
       @alloc_below field_threshold curl!(svd, sv, multipliers)
       @alloc_below field_threshold inverse_curl!(svd, sv, multipliers)
       @alloc_below field_threshold divergence!(ssd, sv, multipliers)            # vector → scalar

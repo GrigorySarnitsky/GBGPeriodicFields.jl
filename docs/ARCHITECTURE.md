@@ -4621,3 +4621,61 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       shows the section as `[CUDA]` — silently ignored. The documentation build rejects that spelling,
       and the test lane's first act is a residency check, because the failure mode is a green run that
       proves nothing.
+
+85. **Two grids over one box share their low modes, and two verbs move them** (2026-09-18,
+    user-directed, after an adversarial naming panel). A consumer forcing a turbulent flow needs
+    content computed on a small grid — a stochastic process on a few dozen modes, or the nonlinear
+    term of a low-wavenumber block obeying its own equations — to reach a large field every stage, and
+    the reverse for the block's input. Nothing in the method set did that: the algebra needs operands
+    of one shape, a kernel multiplies rather than adds, and the point transfer would sum over points at
+    every mode.
+
+    A grid of ``N`` points over a domain of length ``L`` resolves the wavenumbers ``2\pi/L`` times the
+    integers it stores, so two grids over the SAME box name the same physical modes where they
+    overlap, whatever their counts. The verb [`embed_modes!`](@ref) writes a coarser field's modes into a finer
+    one and [`extract_modes!`](@ref) reads them back, each leaving every other mode of its destination
+    untouched, at a cost set by the coarse field.
+
+    - **Why two verbs for one index map.** The directions are different operations: embedding is
+      injective and lossless, extraction discards everything the coarse grid cannot hold, and their
+      scale factors are reciprocal. The deciding argument is a failure mode rather than taxonomy. The
+      motivating consumer calls both directions on the same pair of fields a few lines apart, so under
+      a single verb taking its direction from which argument is coarser, a transposed call would be
+      legal by definition — no assertion could be written against it — and would leave a run silently
+      unforced. With two verbs each wrong argument order is refused from grid metadata before a
+      coefficient is read.
+
+    - **Amplitudes are physical.** The stored coefficient of a mode is `prod(grid_size)` times its
+      amplitude (invariant 4), so a transfer between resolutions carries the ratio of the two counts,
+      and the operations apply it. That is what makes the round trip an identity on the shared modes,
+      keeps a grid-size ratio out of the middle of a consumer's equation of motion, and makes the two
+      verbs **exact adjoints under `inner`, with no measure factor** — unlike the point transfer's
+      `W`/`Wᵀ`, which carries `N/M`. Raw coefficient copying would be adjoint only up to
+      ``(N_c/N_f)^2``.
+
+    - **The coarse grid's Nyquist shell is excluded, and that exclusion is what makes the shared set a
+      subspace.** A coarse mode at ``|k| = N_c/2`` on an even axis describes one sampled wave that the
+      fine grid splits into two modes, so the single coarse coefficient does not determine them.
+      Transferring it would have to choose, and either choice breaks the reality condition or the
+      adjointness. Excluding it costs nothing a de-aliased solver relies on.
+
+    - **Refusals are structural, never data-dependent**: same domain size, origin, Fourier layout,
+      scalar type, tensor order and storage family, and a coarse grid no larger on any axis and
+      smaller on at least one. **Equal grids are refused**, because the Nyquist exclusion would make
+      such a call a copy that silently leaves those planes stale, and two fields on one grid combine
+      with `add!` or `combine!`.
+
+    - **Neither verb has an allocating sibling.** The result depends on the destination's prior
+      contents — the modes outside the shared set survive — so an allocating form would have to invent
+      them. The same reasoning as `combine!` and `displace!`.
+
+    - **The names were chosen adversarially**, against the alternatives `truncate`, `project`,
+      `inject`, `restrict`, `prolong`, `pad` and a single `copy_shared_modes!`. `truncate` and `chop`
+      are exported by `Base` and `truncate` already means de-aliasing in the consuming solver;
+      `project` is spent here on two genuine idempotent projections; `inject` reverses direction
+      between audiences and means energy injection in the calling module; `restrict` reads as this
+      package's word for an invariant-1 absence; `prolong`/`restrict` are multigrid's PHYSICAL-space
+      transfer operators and would become a lie the day a physical analogue arrives. The `_modes`
+      suffix is earned by the same rule as the package's other verb-plus-object names: the bare verb
+      is ambiguous, this package embedding points into cells and coarse spectra into oversampled ones
+      elsewhere.

@@ -126,7 +126,15 @@ const MODULE_BASELINE = (
   # constructor plus `__reality_projection_kernel!`, `cpu__reality_projection_kernel!` and
   # `gpu__reality_projection_kernel!`, one each. Counted per function from the module's own method
   # table before refreezing, so the sixteen are named rather than assumed.
-  Fields                = 157,
+  # 157 → 176: moving Fourier modes between grid resolutions (decision 85). Thirteen are the two
+  # verbs and their machinery — `embed_modes!` and `extract_modes!` with two arities each, their
+  # shared body `_shared_modes!`, the structural check `_check_shared_mode_compatibility`, the
+  # per-axis geometry `_shared_mode_axis`, the index map `_shared_mode_index`, the work-item
+  # decomposition `_shared_mode_pair`, the single assignment `_write_shared_mode!` both arms call,
+  # and the two `_shared_modes_pass!` arms (device launch, gated CPU loop). The remaining six are the
+  # `@kernel` macro's own expansion of `_shared_modes_kernel!`, the same shape decision 83's
+  # projector kernel contributed.
+  Fields                = 176,
   # 128 → 130: `_refuse_field_as_fiber_map`, the two-method guard that refuses a FIELD handed to
   # the fiber-map slot of `map!`/`map` (open interface question (2), decided 2026-09-02). A field
   # in physical representation is callable, so passing one as φ type-checked and RAN: with a

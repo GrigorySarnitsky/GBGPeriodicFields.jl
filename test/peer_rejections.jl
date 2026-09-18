@@ -185,6 +185,14 @@ const PEER_EXEMPT = Dict{Symbol, String}(
   :read_points => "rejects corrupted/wrong-version input — asserted by test/hdf5.jl's corrupted-group testsets",
   :read_scheme => "rejects a malformed scheme group — asserted by test/hdf5.jl (decision 75's lanes)",
   :⋆ => "operator alias of `convolve`; the binding is the one swept as (:convolve, :kernel) in context_entrypoints.jl",
+  # The resolution verbs validate against a peer, but NOT on the axis this sweep varies: a different
+  # grid SHAPE is what they exist to cross, so the sweep's `shape` arm would demand a refusal of the
+  # very call they are for, and their own `base`-against-`base` call is refused as equal grids. The
+  # axes they do refuse — domain size, origin, Fourier layout, scalar type, tensor order, the
+  # direction itself, and equal grids — are each asserted in test/shared_modes.jl's "refusals are
+  # structural" testset, which is this entry's citation.
+  :embed_modes! => "grid shape is the axis it crosses, not a foreign context; its domain/origin/layout/type/direction/equal-grid refusals are asserted in test/shared_modes.jl",
+  :extract_modes! => "as `embed_modes!`; the same refusals, the same assertions in test/shared_modes.jl",
 )
 
 

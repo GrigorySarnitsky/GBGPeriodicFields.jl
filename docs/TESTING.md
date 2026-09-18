@@ -168,7 +168,14 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   concrete `NTuple`, both refusals in any position, and the empty tuple — + the radial reductions `radial_spectrum` / `radial_correlation`, incl. the two-field co-spectra, on fields and point-values; and — decision 49 — the scalar-only `std`/`var` with their spectral Parseval form, the scalar-only errors, and the covariance tensor `cov` vs a per-point covariance with its symmetry and per-component diagonal),
   `rdf.jl` (the Phase-2 point pair-correlation: `assignment_window` + the FFT g(r) recipe vs direct counting),
   `display.jl` (decision 82 — the display layer by properties, the sharpest being **discrimination**:
-  two objects a check refuses must render differently), plus
+  two objects a check refuses must render differently),
+  `shared_modes.jl` (decision 85 — the resolution verbs, against three independent oracles: an
+  ANALYTIC one, where a field of named modes embedded into a finer grid is compared with the same
+  function sampled there, through the transforms rather than through the index map; ADJOINTNESS,
+  ``\langle Eu, w\rangle = \langle u, Rw\rangle``, which no single-direction bug satisfies and which
+  pins the physical-amplitude scaling; and the amplitude of a single cosine measured in physical space
+  across resolutions — plus the excluded Nyquist shell, the untouched non-shared modes, and every
+  structural refusal including the transposed argument order), plus
   `eltype_genericity.jl` (Float64/Float32),
   the cross-file **permuted-layout lane** (decision 41) — a `permuted rfft layout` testset in
   `fields.jl` (a transform round-trip + both multiplier families vs `rfftfreq`/`fftfreq`, odd and
@@ -465,6 +472,15 @@ operation's coverage is judged against the full axis list:
     render differently, a display that collides on exactly the pairs it exists to explain being worse
     than none. Decision 82 measured four mutually incompatible fields rendering as one string. A
     derived gate enforces the axis rather than a list of types, so a new type ships covered or fails.
+
+22. **the grid-size ratio**, for any operation relating two grids over one box (decision 85). One
+    ratio is not a sweep: a coarse grid half the fine one shares almost every mode, while a block a
+    tenth its size shares almost none, and an index map can be right for one and wrong for the other.
+
+    The axis carries three values that are not interchangeable — a ratio near one, a ratio of several,
+    and a coarse grid whose axes are of mixed parity against a fine grid of different parity — because
+    what the map must get right is where each frequency lands when the two grids disagree about which
+    index holds it. Each value is swept for BOTH verbs, by axis 20's rule.
 
 The operator `inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
 element types, three grids including an anisotropic mixed-parity one, the aliased in-place call

@@ -348,6 +348,32 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test_throws ArgumentError displace!(device_dest, host_src, (T(1), device_v1))
     end
 
+    @testset "moving modes between grid resolutions (decision 85)" begin
+      # The device arm of the resolution verbs. The comparison is against the CPU result of the same
+      # call, so a device index map that disagreed with the host one — the plausible failure, since
+      # the map is arithmetic on a work-item index — shows up as a mismatch rather than as plausible
+      # numbers. The coarse grid is deliberately mixed-parity, like the suite's own grid.
+      coarse_grid = Grid3D((4, 3, 2), (T(2π), T(2π), T(2π)))
+      host_coarse = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(coarse_grid, layout, Val(1))),
+                                        coarse_grid, layout)
+      host_fine = VectorFieldSpectral(randn(Complex{T}, field_spectral_shape(grid, layout, Val(1))), grid, layout)
+      device_coarse, device_fine = on_device(host_coarse), on_device(host_fine)
+
+      embed_modes!(host_fine, host_coarse)
+      embed_modes!(device_fine, device_coarse)
+      @test matches(device_fine, host_fine)
+
+      extract_modes!(host_coarse, host_fine, T(0.5), one(T))
+      extract_modes!(device_coarse, device_fine, T(0.5), one(T))
+      @test matches(device_coarse, host_coarse)
+
+      # The refusals are the package's, so they must fire on a device exactly as on a host.
+      @test_throws ArgumentError embed_modes!(device_coarse, device_fine)
+      @test_throws ArgumentError extract_modes!(device_fine, device_coarse)
+      # And a mixed storage family is refused rather than transferred (invariant 14).
+      @test_throws ArgumentError embed_modes!(device_fine, host_coarse)
+    end
+
     @testset "spectral linear ops + differential operators" begin
       phi = ScalarFieldPhysical((x, y, z) -> sin(x) * cos(y), grid)
       # Components depend on more than one coordinate so curl and the Helmholtz

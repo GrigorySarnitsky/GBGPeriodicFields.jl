@@ -105,6 +105,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § item 82",943,120,0
 "ARCHITECTURE.md § item 83",1328,117,0
 "ARCHITECTURE.md § item 84",463,88,0
+"ARCHITECTURE.md § item 85",662,117,0
 "ARCHITECTURE.md § item 9",26,26,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
@@ -187,6 +188,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",481,158,0
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
+"FORMALIZATION.md § Moving between grid resolutions (`Fields`, decision 85)",417,112,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",878,185,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
@@ -303,7 +305,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
 "Fields.jl :: FieldSpectralMultipliers(",581,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
-"Fields.jl :: Fields",451,400,0
+"Fields.jl :: Fields",506,455,0
 "Fields.jl :: Grid3D(",174,74,0
 "Fields.jl :: RealFourierLayout()",76,33,0
 "Fields.jl :: ScalarFieldPhysical(",338,118,0
@@ -327,6 +329,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _check_matching_context(a, b)",54,52,0
 "Fields.jl :: _check_multipliers_compatibility(field::AbstractFieldSpectra",22,20,0
 "Fields.jl :: _check_same_domain(a, b)",53,51,0
+"Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",155,63,0
 "Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",157,102,0
 "Fields.jl :: _component_view(data, ::Val{R}, component::Int)",156,108,0
 "Fields.jl :: _context_grid(object)",72,71,0
@@ -340,6 +343,11 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _reality_projection_planes!(backend, data, ::Val{D}, planes,",95,87,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
+"Fields.jl :: _shared_mode_axis(coarse_size, fine_size, is_folded)",34,31,0
+"Fields.jl :: _shared_mode_index(stored_index, axis)",77,46,0
+"Fields.jl :: _shared_mode_pair(work_item, axes, coarse_strides, fine_stri",58,31,0
+"Fields.jl :: _shared_modes!(destination, source, ::Val{ToFine}, α, β)",50,45,0
+"Fields.jl :: _shared_modes_pass!(backend, destination, source, ::Val{ToFi",71,59,0
 "Fields.jl :: _show_domain(io, grid)",179,70,0
 "Fields.jl :: _show_extent(io, sizes)",34,32,0
 "Fields.jl :: _show_field_head(io, field)",91,80,0
@@ -355,8 +363,11 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _validate_fft_dims(d::NTuple{3, Int})",19,17,0
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
+"Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
 "Fields.jl :: adapt!(destination, source)",302,134,0
 "Fields.jl :: adapt(storage, object)",519,147,2
+"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",373,82,1
+"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",244,59,1
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
@@ -365,7 +376,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_spectral_shape(",63,43,0
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",123,55,0
-"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral, sour",371,94,0
+"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",371,94,0
 "Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",428,104,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
@@ -383,6 +394,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Functions",10,10,0
 "Fields.md § HDF5 persistence",4,4,0
 "Fields.md § Internal API",33,33,0
+"Fields.md § Moving between grid resolutions",116,112,0
 "Fields.md § Moving between storage families",115,111,0
 "Fields.md § Spectral kernel protocol",35,32,0
 "Fields.md § The real-field reality condition",4,4,0
@@ -436,7 +448,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 2. The performance model",845,415,0
 "PERFORMANCE.md § 3. Best practices",384,125,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
-"PERFORMANCE.md § 5. The benchmark suite",1260,659,0
+"PERFORMANCE.md § 5. The benchmark suite",1376,659,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",973,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
@@ -571,7 +583,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Reductions",8,8,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",1919,1919,0
+"TESTING.md § 2. Layout",2012,2012,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 5. GPU testing",234,141,0
@@ -589,7 +601,8 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § item 19",118,65,0
 "TESTING.md § item 2",27,27,0
 "TESTING.md § item 20",155,102,0
-"TESTING.md § item 21",613,120,0
+"TESTING.md § item 21",127,63,0
+"TESTING.md § item 22",595,120,0
 "TESTING.md § item 3",6,6,0
 "TESTING.md § item 4",207,80,0
 "TESTING.md § item 6",2,2,0

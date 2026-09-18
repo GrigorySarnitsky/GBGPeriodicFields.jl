@@ -7,6 +7,7 @@
 
 module FieldsTests;                include("fields.jl");                end
 module DisplayTests;               include("display.jl");               end
+module SharedModesTests;           include("shared_modes.jl");          end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
 module MetadataSweepTests;         include("metadata_sweep.jl");        end
 module AdaptTests;                 include("adapt.jl");                 end

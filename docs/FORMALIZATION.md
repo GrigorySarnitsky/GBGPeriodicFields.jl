@@ -772,6 +772,56 @@ on those modes, and holds mode for mode. The pair satisfies the same measure-wei
 reconstruction, the adjoint relation (``R = 0, 1, 2``), and `NUFFT` vs `DirectDFT` to ``\varepsilon``.
 
 
+## Moving between grid resolutions (`Fields`, decision 85)
+
+Design rationale: [Architecture](architecture.md) §13, decision 85.
+
+Let one box carry two grids, ``N_c`` points per axis and ``N_f \ge N_c``, over the same domain of
+length ``L`` and the same origin. Both resolve wavenumbers on the lattice ``2\pi/L`` times the
+integers, so the coarse grid's frequencies are a subset of the fine grid's, naming the same physical
+modes. Write ``T(N)`` for the space of fields the grid of ``N`` points represents, and ``S`` for the
+shared frequencies: every coarse frequency EXCEPT the Nyquist shell ``|k_a| = N_c/2`` of an even
+axis, which is excluded because the coarse grid identifies ``+N_c/2`` with ``-N_c/2`` while the fine
+grid stores them apart, leaving the fine pair undetermined by the coarse datum.
+
+With that exclusion ``T_S`` is a genuine subspace of ``T(N_f)``, and the two verbs are the inclusion
+and its adjoint:
+
+```math
+\begin{aligned}
+E &: T_S \to T(N_f), &\quad (E u)(k) &= u(k) \text{ for } k \in S, \quad 0 \text{ otherwise},\\
+R &: T(N_f) \to T_S, &\quad (R w)(k) &= w(k) \text{ for } k \in S.
+\end{aligned}
+```
+
+Both are stated on **physical amplitudes**: a stored coefficient is ``\prod N`` times the amplitude of
+its mode (invariant 4), so the implementations carry the ratio of the two point counts, and the
+statements below are false for raw coefficient copying by a factor of ``(N_c/N_f)^2``.
+
+**Statement 1 (retraction).** ``R E = \mathrm{id}_{T_S}``, so the round trip returns the coarse field
+on the shared modes. Verified in `test/shared_modes.jl`, "the round trip is the identity on the
+coarse field".
+
+**Statement 2 (adjointness, exactly).** For ``u \in T_S`` and ``w \in T(N_f)``,
+
+```math
+\langle E u, w\rangle_{T(N_f)} = \langle u, R w\rangle_{T_S},
+```
+
+with **no measure factor** — unlike the grid↔point transfer, whose ``W``/``W^\top`` pair carries
+``N/M``. The half-spectrum multiplicity ``\alpha(k)`` appears on both sides at the same modes and
+cancels. Verified in `test/shared_modes.jl`, "the two verbs are exact adjoints", bitwise in
+``\mathbb{F}_{64}`` on a cubic grid and to rounding otherwise.
+
+**Statement 3 (``E R`` is the orthogonal projector onto ``T_S``).** ``E R`` is idempotent and
+self-adjoint on ``T(N_f)``; it is the same operator `spectral_cutoff` applies through `convolve` when
+its band is ``S``, which is why the package offers no third verb for it.
+
+**Statement 4 (reality is preserved).** ``S`` is symmetric under ``k \mapsto -k``, and the folded
+axis's stored self-conjugate plane maps onto its counterpart index for index, so ``E`` and ``R`` carry
+a real field's spectrum to a real field's spectrum. Verified by `reality_residual` in
+`test/shared_modes.jl`'s analytic testset.
+
 ## Storage families (`Fields`, `Points`, `Convolution`)
 
 Design rationale: [Architecture](architecture.md) §13, decision 63.

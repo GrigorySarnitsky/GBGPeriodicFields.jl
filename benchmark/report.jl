@@ -13,7 +13,7 @@ include("triage.jl")   # the born-slow scan rides every regeneration — finding
 
 # `storage` (decision 63) is device-only: `adapt` to the family one already occupies is the
 # identity, so a CPU lane contributes no rows and those cells read as not-measured.
-const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage")
+const CLASSES = ("fft", "algebra", "operators", "convolution", "transfer", "reductions", "storage", "resolution")
 
 # cpu-t1.json → "CPU t1"; cpu-9800x3d-t4.json → "CPU 9800X3D t4"; gpu-rx7900xtx.json → "GPU 7900XTX";
 # gpu-rtx5070ti.json → "GPU 5070TI"; a bare gpu.json / cuda.json → "GPU".

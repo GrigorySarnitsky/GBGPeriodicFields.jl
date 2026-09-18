@@ -76,6 +76,21 @@ adapt
 adapt!
 ```
 
+## Moving between grid resolutions
+
+Two spectral fields over the same box whose grids differ in size name the same Fourier modes where
+they overlap, because a grid of `N` points over a domain of length `L` resolves `2π/L` times the
+integers it stores. These two verbs move exactly those shared modes, leaving the rest of the
+destination untouched, at a cost set by the coarser field — the mode-space counterpart of the
+storage-family crossing above, and the route by which content computed on a small grid reaches a large
+one without a transform. Amplitudes are physical: the ratio of the two grids' point counts is applied
+inside, so the two are exact adjoints of each other.
+
+```@docs
+embed_modes!
+extract_modes!
+```
+
 ## The real-field reality condition
 
 ```@docs

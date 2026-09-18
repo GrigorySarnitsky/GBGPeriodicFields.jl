@@ -35,6 +35,10 @@ The parts are:
   * **The reality condition** — [`reality_residual`](@ref) measures how far a spectrum is from a
     real field's, and [`reality_projection!`](@ref) projects it onto one, on the two stored
     self-conjugate planes where the half-spectrum can disagree with itself.
+  * **Moving between grid resolutions** — [`embed_modes!`](@ref) writes a coarser field's Fourier
+    modes into a finer field over the same box and [`extract_modes!`](@ref) reads them back, each
+    leaving the destination's other modes untouched and costing the coarse field rather than the fine
+    one. Amplitudes are physical, so the pair are exact adjoints of each other.
   * **Moving between storage families** — [`adapt`](@ref) moves a field, its multipliers, its kernels
     or its transform plans between host and device arrays (or any other `Adapt.jl` storage family),
     preserving the element type and everything else the object carries. Operations refuse a pair that
@@ -79,6 +83,8 @@ export Grid3D,
        to_physical,
        to_spectral,
        reality_projection!,
+       embed_modes!,
+       extract_modes!,
        field_data,
        field_grid,
        field_layout,
@@ -2765,7 +2771,8 @@ end
 
 
 """
-    _reality_projection_planes!(backend, data, ::Val{D}, planes, sizes, others, ncomp, P)
+    _reality_projection_planes!(backend, data, ::Val{D}, planes, sizes, others,
+                                ncomp, P)
 
 Project every stored self-conjugate plane of `data` onto the reality condition, dispatching on
 `backend`: a `KernelAbstractions` launch of `_reality_projection_kernel!` on a device, and the gated
@@ -2803,7 +2810,8 @@ end
 
 
 """
-    reality_projection!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral) -> destination
+    reality_projection!(destination::AbstractFieldSpectral,
+                        source::AbstractFieldSpectral) -> destination
     reality_projection!(field::AbstractFieldSpectral) -> field
 
 Project a field's coefficients onto the spectrum of a real field, so that
@@ -2866,6 +2874,321 @@ function reality_projection!(destination::AbstractFieldSpectral{T, R}, source::A
 end
 
 reality_projection!(field::AbstractFieldSpectral) = reality_projection!(field, field)
+
+
+###################################################
+#   Moving between grid resolutions               #
+###################################################
+#
+# Two spectral fields over the SAME box whose grids differ in size share their low modes exactly: a
+# grid of `N` points over a domain of length `L` resolves the wavenumbers `2π/L` times the integers
+# it stores, so the coarser field's wavenumbers are a subset of the finer field's, naming the same
+# physical Fourier modes. `embed_modes!` writes the coarse field's modes into the fine one and
+# `extract_modes!` reads them back; everything else in the destination is left untouched, and the
+# cost is the COARSE field's size, never the fine one's.
+#
+# WHY TWO VERBS for one index map. The two directions are not one operation: embedding is injective
+# and loses nothing, extraction is a projection that discards every mode the coarse grid cannot hold,
+# and their scale factors are reciprocal. They are also called on the SAME pair of fields a few lines
+# apart by a consumer that restricts a field, computes on the coarse grid and writes the result back,
+# and there a single verb taking its direction from which argument is coarser would make a
+# transposed call legal and silently wrong. With two verbs each argument order is refused from grid
+# metadata before a coefficient is read.
+#
+# THE COARSE NYQUIST SHELL IS EXCLUDED, and that exclusion is what makes the shared set a subspace.
+# A coarse mode at `|k| = N_c/2` on an even axis has no unambiguous image: the coarse grid cannot
+# tell `+N_c/2` from `−N_c/2` (they are the same sampled wave), while the fine grid stores them
+# separately, so the one coarse datum would have to be split between two fine modes to describe the
+# same real field. Excluding it costs nothing a caller should rely on and keeps both directions exact.
+
+"""
+    _shared_mode_axis(coarse_size, fine_size, is_folded)
+
+The per-axis geometry the two resolution verbs walk: the coarse stored extent, the two grid sizes and
+whether this is the folded axis, as one `isbits` tuple a kernel can carry.
+"""
+@inline _shared_mode_axis(coarse_size::Int, fine_size::Int, is_folded::Bool) =
+  (is_folded ? coarse_size ÷ 2 + 1 : coarse_size, coarse_size, fine_size, is_folded)
+
+
+"""
+    _shared_mode_index(stored_index, axis)
+
+Map a coarse stored index on one axis to the fine stored index of the SAME Fourier frequency, or
+return `0` for a coarse mode that is not shared.
+
+The returned `0` is the coarse Nyquist of an even axis, which the module comment above excludes. On a
+full axis the stored index runs over nonnegative frequencies and then wraps to negative ones, exactly
+as `AbstractFFTs.fftfreq` orders them; the folded axis stores nonnegative frequencies only.
+"""
+@inline function _shared_mode_index(stored_index::Int, axis::NTuple{4, Any})
+  _, coarse_size, fine_size, is_folded = axis
+  zero_based = stored_index - 1
+  if is_folded
+    # The folded axis stores 0 … N÷2; its top entry is the Nyquist frequency when the axis is even.
+    (iseven(coarse_size) && zero_based == coarse_size ÷ 2) && return 0
+    return zero_based + 1
+  end
+  frequency = zero_based < (coarse_size + 1) ÷ 2 ? zero_based : zero_based - coarse_size
+  (iseven(coarse_size) && zero_based == coarse_size ÷ 2) && return 0
+  return frequency ≥ 0 ? frequency + 1 : fine_size + frequency + 1
+end
+
+
+"""
+    _shared_mode_pair(work_item, axes, coarse_strides, fine_strides, components,
+                      coarse_elements, fine_elements)
+
+The linear index pair `(coarse, fine)` a work item acts on, or `(0, 0)` when its mode is not shared.
+
+One work item owns one coarse stored mode of one fiber component, so the walk costs the coarse
+field's size and the fine field is touched only where it is written.
+"""
+@inline function _shared_mode_pair(work_item::Int, axes, coarse_strides, fine_strides,
+                                   components::Int, coarse_elements::Int, fine_elements::Int)
+  rest = work_item - 1
+  i1 = rest % axes[1][1] + 1; rest ÷= axes[1][1]
+  i2 = rest % axes[2][1] + 1; rest ÷= axes[2][1]
+  i3 = rest % axes[3][1] + 1; rest ÷= axes[3][1]
+  component = rest + 1
+  j1 = _shared_mode_index(i1, axes[1])
+  j2 = _shared_mode_index(i2, axes[2])
+  j3 = _shared_mode_index(i3, axes[3])
+  (j1 == 0 || j2 == 0 || j3 == 0) && return (0, 0)
+  coarse = i1 + coarse_strides[1] * (i2 - 1) + coarse_strides[2] * (i3 - 1) + coarse_elements * (component - 1)
+  fine = j1 + fine_strides[1] * (j2 - 1) + fine_strides[2] * (j3 - 1) + fine_elements * (component - 1)
+  return (coarse, fine)
+end
+
+
+"""
+    _write_shared_mode!(destination, source, destination_index, source_index, α, β)
+
+The one assignment both resolution verbs perform, so the two directions and the two backends cannot
+drift: overwrite when `β` is zero, accumulate otherwise.
+"""
+@inline function _write_shared_mode!(destination, source, destination_index::Int, source_index::Int, α, β)
+  @inbounds destination[destination_index] = iszero(β) ? α * source[source_index] :
+                                             β * destination[destination_index] + α * source[source_index]
+  return nothing
+end
+
+
+@kernel function _shared_modes_kernel!(destination, @Const(source), ::Val{ToFine}, axes, coarse_strides,
+                                       fine_strides, components, coarse_elements, fine_elements, α, β) where {ToFine}
+  work_item = @index(Global, Linear)
+  coarse, fine = _shared_mode_pair(work_item, axes, coarse_strides, fine_strides,
+                                   components, coarse_elements, fine_elements)
+  if coarse != 0
+    if ToFine
+      _write_shared_mode!(destination, source, fine, coarse, α, β)
+    else
+      _write_shared_mode!(destination, source, coarse, fine, α, β)
+    end
+  end
+end
+
+
+"""
+    _shared_modes_pass!(backend, destination, source, ::Val{ToFine}, axes,
+                        coarse_strides, fine_strides, components, coarse_elements,
+                        fine_elements, α, β)
+
+Walk the shared modes, dispatching on `backend`: a `KernelAbstractions` launch on a device, and the
+gated slab-threaded loop below on a CPU. `ToFine` is `true` for `embed_modes!` and `false` for
+`extract_modes!`; both arms call [`_write_shared_mode!`](@ref) per mode, so they agree bitwise, and
+the work item count is the coarse field's stored size times the fiber component count either way.
+"""
+function _shared_modes_pass!(::KernelAbstractions.CPU, destination, source, ::Val{ToFine}, axes,
+                             coarse_strides, fine_strides, components, coarse_elements,
+                             fine_elements, α, β) where {ToFine}
+  work_items = axes[1][1] * axes[2][1] * axes[3][1] * components
+  _foreach_outer_slab(1:work_items, work_items) do items
+    @inbounds for work_item in items
+      coarse, fine = _shared_mode_pair(work_item, axes, coarse_strides, fine_strides,
+                                       components, coarse_elements, fine_elements)
+      coarse == 0 && continue
+      if ToFine
+        _write_shared_mode!(destination, source, fine, coarse, α, β)
+      else
+        _write_shared_mode!(destination, source, coarse, fine, α, β)
+      end
+    end
+  end
+  return nothing
+end
+
+function _shared_modes_pass!(backend, destination, source, ::Val{ToFine}, axes, coarse_strides,
+                             fine_strides, components, coarse_elements, fine_elements, α, β) where {ToFine}
+  work_items = axes[1][1] * axes[2][1] * axes[3][1] * components
+  _shared_modes_kernel!(backend)(destination, source, Val(ToFine), axes, coarse_strides, fine_strides,
+                                 components, coarse_elements, fine_elements, α, β; ndrange = work_items)
+  synchronize(backend)
+  return nothing
+end
+
+
+"""
+    _check_shared_mode_compatibility(coarse, fine)
+
+Check that two fields in spectral representation name the same Fourier modes where their grids
+overlap, and that `coarse` is the coarser of the two. Returns `nothing` or throws.
+
+Every refusal reads metadata only, never a coefficient. The two fields must agree in scalar type,
+tensor order, storage family, domain size, origin and Fourier layout — a differing domain or origin
+means the two grids' modes are different physical waves whatever their counts, and a differing fold
+means the stored index of a mode is not the same function of its frequency.
+
+The grid sizes must then satisfy `coarse ≤ fine` on every axis and differ on at least one. Equal grids
+are refused because their shared set would omit only the excluded Nyquist shell, which makes such a
+call a copy that silently leaves those planes stale; [`add!`](@ref GBGPeriodicFields.FieldAlgebra.add!)
+or [`combine!`](@ref GBGPeriodicFields.FieldAlgebra.combine!) is the operation meant for two fields on
+one grid.
+"""
+function _check_shared_mode_compatibility(coarse::AbstractFieldSpectral, fine::AbstractFieldSpectral)
+  _same_scalar_type(coarse, fine) || throw(ArgumentError("field scalar types must be equal"))
+  _same_tensor_order(coarse, fine) || throw(ArgumentError("field tensor orders must be equal"))
+  _same_backend(coarse, fine) ||
+    throw(ArgumentError("fields must live in the same storage family; got " *
+                        "$(_storage_family(coarse)) and $(_storage_family(fine))"))
+  coarse_grid, fine_grid = field_grid(coarse), field_grid(fine)
+  coarse_grid.domain_size == fine_grid.domain_size && coarse_grid.origin == fine_grid.origin ||
+    throw(ArgumentError("fields must cover the same box; got domain size $(coarse_grid.domain_size) " *
+                        "at origin $(coarse_grid.origin) and $(fine_grid.domain_size) at $(fine_grid.origin)"))
+  _same_layout(coarse, fine) || throw(ArgumentError("field Fourier layouts must be equal"))
+  all(coarse_grid.grid_size .<= fine_grid.grid_size) ||
+    throw(ArgumentError("the coarse grid $(coarse_grid.grid_size) must be no larger than the fine " *
+                        "grid $(fine_grid.grid_size) on any axis"))
+  coarse_grid.grid_size == fine_grid.grid_size &&
+    throw(ArgumentError("the two grids are equal ($(coarse_grid.grid_size)); moving between grid " *
+                        "resolutions needs a coarser and a finer field, and two fields on one grid " *
+                        "combine with `add!` or `combine!`"))
+  return nothing
+end
+
+
+"""
+    _shared_modes!(destination, source, ::Val{ToFine}, α, β)
+
+The shared body of [`embed_modes!`](@ref) and [`extract_modes!`](@ref): check the pair, build the
+per-axis geometry, and run the pass. `ToFine` says which of the two fields is the destination, which
+is the only thing the two verbs do differently besides their refusals and their scale factor.
+"""
+function _shared_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral,
+                        ::Val{ToFine}, α, β) where {ToFine}
+  coarse, fine = ToFine ? (source, destination) : (destination, source)
+  # Deliberately NOT pinned by the signature: a mismatched scalar type or tensor order is refused by the
+  # check below, with a message naming what disagrees, rather than by dispatch with a `MethodError`.
+  # Invariant 14 asks that the refusal be the package's decision, and `add!` sets that precedent.
+  _check_shared_mode_compatibility(coarse, fine)
+  T = field_scalar_type(destination)
+  coarse_data, fine_data = field_data(coarse), field_data(fine)
+  folded = field_layout(coarse).fft_dims[1]
+  coarse_size, fine_size = field_grid(coarse).grid_size, field_grid(fine).grid_size
+  axes = ntuple(a -> _shared_mode_axis(coarse_size[a], fine_size[a], a == folded), 3)
+  coarse_strides = (size(coarse_data, 1), size(coarse_data, 1) * size(coarse_data, 2))
+  fine_strides = (size(fine_data, 1), size(fine_data, 1) * size(fine_data, 2))
+  coarse_elements = coarse_strides[2] * size(coarse_data, 3)
+  fine_elements = fine_strides[2] * size(fine_data, 3)
+  components = length(coarse_data) ÷ coarse_elements
+  # The stored coefficient of a mode is `prod(grid_size)` times its physical amplitude (the forward
+  # transform is unnormalized, invariant 4), so a transfer between resolutions carries the ratio of
+  # the two counts. Applying it here is what makes the operation preserve the field the coefficients
+  # describe rather than the numbers that describe it — and what makes the two verbs exact adjoints
+  # of each other, with no measure factor left over.
+  scale = T(α) * T(prod(field_grid(destination).grid_size) / prod(field_grid(source).grid_size))
+  _shared_modes_pass!(get_backend(field_data(destination)), field_data(destination), field_data(source),
+                      Val(ToFine), axes, coarse_strides, fine_strides, components,
+                      coarse_elements, fine_elements, scale, T(β))
+  return destination
+end
+
+
+"""
+    embed_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral)
+    embed_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral,
+                 α::Real, β::Real)
+
+Add a coarser field's Fourier modes into a finer field over the same box, leaving every other mode of
+`destination` untouched, and return `destination`.
+
+Two grids of different sizes over one box resolve the same physical wavenumbers where they overlap,
+so a field on the coarser grid names a subset of the finer grid's modes. This writes exactly those,
+which is how content computed cheaply on a small grid — a forcing, a prescribed initial condition —
+reaches a large one without a transform and without touching the large field anywhere else. The cost
+is the coarse field's size. Use [`extract_modes!`](@ref) for the other direction.
+
+The arguments are:
+
+- `destination` — the **finer** field, written on the shared modes only. Passing the coarser field
+  here is refused, which is what keeps the two directions from being confused at a call site.
+
+- `source` — the **coarser** field. It must match `destination` in scalar type, tensor order, storage
+  family, domain size, origin and Fourier layout, and its grid must be no larger on any axis and
+  smaller on at least one; every one of those is refused rather than converted.
+
+- `α` — scales the source, `1` by default.
+
+- `β` — scales the destination on the shared modes before the source is added, `0` by default, which
+  overwrites them. Modes outside the shared set are never read or written, whatever `β` is.
+
+Amplitudes are physical, not stored coefficients: the operation carries the ratio of the two grids'
+point counts, so the modes written describe the same waves they described on the coarse grid. Reading
+them back with `extract_modes!` returns what was written, and the two verbs are exact adjoints of each
+other under [`inner`](@ref GBGPeriodicFields.Reductions.inner).
+
+!!! warning "The coarse grid's Nyquist modes are not transferred"
+    A mode at the coarse grid's Nyquist frequency on an even axis describes one sampled wave that the
+    finer grid splits into two distinct modes, so the single coarse coefficient does not determine
+    them. Those modes are left out of the transfer, and a caller that needs them must resolve the
+    ambiguity itself. Content strictly below the coarse Nyquist frequency — which de-aliasing already
+    guarantees in a pseudospectral solver — is unaffected.
+"""
+function embed_modes! end
+
+embed_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral) =
+  _shared_modes!(destination, source, Val(true), 1, 0)
+
+embed_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral, α::Real, β::Real) =
+  _shared_modes!(destination, source, Val(true), α, β)
+
+
+"""
+    extract_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral)
+    extract_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral,
+                   α::Real, β::Real)
+
+Read a finer field's Fourier modes into a coarser field over the same box, leaving every other mode
+of `destination` untouched, and return `destination`.
+
+This is the reverse of [`embed_modes!`](@ref): it keeps the modes the coarse grid can hold and
+discards the rest, which is how the large scales of a field reach a small grid that something else
+computes on. The cost is the coarse field's size, so the fine field is never traversed.
+
+The arguments are:
+
+- `destination` — the **coarser** field, written on the shared modes only. Passing the finer field
+  here is refused.
+- `source` — the **finer** field, matched to `destination` exactly as `embed_modes!` requires.
+- `α` — scales the source, `1` by default.
+- `β` — scales the destination on the shared modes before the source is added, `0` by default.
+
+Amplitudes are physical, as for `embed_modes!`. The result is the coarse field's own modes, not a
+band-limited copy of the fine field: to zero what the coarse grid cannot hold, build the destination
+with the modes already zero, or apply [`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff) to the fine field first.
+
+!!! warning "The coarse grid's Nyquist modes are not transferred"
+    The destination's Nyquist modes on an even axis are left exactly as they were, for the reason
+    `embed_modes!` gives: the fine grid stores two modes there where the coarse grid stores one, and
+    which of them the coarse coefficient should carry is not determined.
+"""
+function extract_modes! end
+
+extract_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral) =
+  _shared_modes!(destination, source, Val(false), 1, 0)
+
+extract_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral, α::Real, β::Real) =
+  _shared_modes!(destination, source, Val(false), α, β)
 
 
 end # module Fields
