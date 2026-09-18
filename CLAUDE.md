@@ -2133,7 +2133,7 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
 - **IT's 2026-08-29 codegen report — item 2 DONE, item 3 CLOSED as measured-and-declined (2026-08-31)** (the synced request is
-  `GBGIsotropicTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
+  `GBGHomogeneousTurbulence/.claude/pf-request-2026-08-29-cpu-kernel-performance.md`; item 1, the
   serial `weighted_inner`, is FIXED — `PERFORMANCE.md` finding (ac)). **(2) is DONE (2026-08-30, decision 79):** the
   exponential family's ``R \ge 1`` forms run a decision-38 kernel pair evaluating `exp` ONCE per
   mode — bitwise identical to the broadcast (126-cell A/B), zero bytes on the serial lane, the
@@ -2600,7 +2600,7 @@ that would have caught this class, so it earns its place ahead of work that repa
   `_wrap_coordinate`, the tile-key kernel — already has it positional, so the keyword is the lone
   outlier and the disagreement is confined to one type's own constructor pair; blast radius 24 in-repo
   `origin =` call sites, up from the 15 recorded on 2026-08-15, plus unknown use in
-  `GBGIsotropicTurbulence`.) **(4)** *(DONE 2026-09-02 — `Points` now uses one prefix, spelled as the prose spells it:*
+  `GBGHomogeneousTurbulence`.) **(4)** *(DONE 2026-09-02 — `Points` now uses one prefix, spelled as the prose spells it:*
   `point_positions` (and the `PointSet` field `coordinates` → `positions`),
   `point_value_tensor_order`, `similar_point_values` and five internals off the same stem;
   `point_values` and `npoints` are unchanged, the latter being defined on BOTH types so no prefix
@@ -2608,7 +2608,7 @@ that would have caught this class, so it earns its place ahead of work that repa
   times against 98 for "point-value", so the identifiers were the outlier rather than the docs.
   `point_value_*` was chosen over a uniform `point_*` because it keeps the type distinction — those
   accessors are on `AbstractPointValues`, not `PointSet`. Breaking, as recorded; the consumer
-  `GBGIsotropicTurbulence` needs the same rename.)
+  `GBGHomogeneousTurbulence` needs the same rename.)
 
 - **`point_traversal_order`'s in-place form — DONE (2026-09-03, decision 80).** The docstring's promise
   ("There is no in-place form yet") is kept: `point_traversal_order!(traversal, grid, points, scratch)` rebuilds
@@ -2750,4 +2750,4 @@ that would have caught this class, so it earns its place ahead of work that repa
   *ran* faster on it (every op, 1.11 vs 1.12 steady-state), but compiling cost several times more
   (`_assign!` 4.5×, the `KernelAbstractions` path 1.4×), so `Pkg.test()` took 31 min against 5.4 —
   a pure compile-time tax, unfixable from our side, for a Julia nothing in the fleet runs. Sibling
-  packages (`GBGIsotropicTurbulence` declares `julia = "1.11"`) are being bumped separately.
+  packages (`GBGHomogeneousTurbulence` declares `julia = "1.11"`) are being bumped separately.
