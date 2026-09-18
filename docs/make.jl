@@ -11,7 +11,7 @@ end
 # TESTING.md, and PERFORMANCE.md stay the single sources (referenced by CLAUDE.md), copied
 # into src/ at build time. The copies (src/architecture.md, …) are gitignored.
 function copy_rationale_pages()
-  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
+  for name in ("ARCHITECTURE.md", "DECISIONS.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
     cp(joinpath(@__DIR__, name), joinpath(@__DIR__, "src", lowercase(name)); force = true)
   end
 end
@@ -39,25 +39,7 @@ function build_examples()
                     codefence = "```julia" => "```")
 end
 
-# The rendered-doc source set both lints scan: every `src/*.jl` docstring, the four rationale docs, and
 # every `docs/src` page except the gitignored rationale COPIES (which are linted from their sources).
-function _doc_lint_sources()
-  sources = String[]
-  for f in readdir(joinpath(@__DIR__, "..", "src"); join = true)
-    endswith(f, ".jl") && push!(sources, f)
-  end
-  for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
-    push!(sources, joinpath(@__DIR__, name))
-  end
-  # `gbg-rules.md` joins them: GBGCodingTools writes it during the build, and a page that STATES the
-  # rules must quote every banned spelling in order to ban it, so no lint may read it.
-  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md",
-                   "gbg-rules.md"])
-  for (root, _, files) in walkdir(joinpath(@__DIR__, "src")), f in files
-    endswith(f, ".md") && !(f in generated) && push!(sources, joinpath(root, f))
-  end
-  return sources
-end
 
 # Doc lint: an inline ``…`` math span must not be split across a source line by a CommonMark
 # list/blockquote leader. A wrapped continuation beginning with "- "/"* "/"+ "/"> "/"1." (≤ 3 leading
@@ -109,47 +91,6 @@ whole file first, so a wrap cannot hide a phrase.
 `ARCHITECTURE.md`'s §13 decision log is exempt below its heading: it is append-only history by policy,
 and its record of what was once true must survive the thing ceasing to be true.
 """
-function lint_retired_claims()
-  banned = [
-    (r"kernel\s+is\s+itself\s+a\s+scalar\s+field",
-     "decision 60 — a field in spectral representation is not a kernel"),
-    (r"kernel\s+is\s+held\s+either\s+as\s+a\s+scalar\s+field",
-     "decision 60 — a kernel is a `SpectralKernel`, not one of two storage roles of a field"),
-    (r"field\s+passed\s+as\s+a\s+kernel",
-     "decision 60 — a bare field does not dispatch as a kernel; it is wrapped in `StoredKernel`"),
-    (r"(?:kernel|window)\s+as\s+a\s+scalar\s+field\s+in\s+spectral\s+representation",
-     "decision 60 — name the kernel class returned (`StoredKernel`, `SeparableKernel`, `RadialKernel`)"),
-    (r"expand\s+it\s+into\s+a\s+scalar\s+field\s+in\s+spectral\s+representation",
-     "decision 60 — `materialize_kernel` returns a `StoredKernel`"),
-    (r"accepted\s+directly\s+wherever\s+a\s+kernel\s+is\s+taken",
-     "decision 60 — a bare `ScalarFieldSpectral` does not dispatch as a kernel"),
-    (r"type\s+cannot\s+tell\s+those\s+apart",
-     "decision 60 — the type is exactly what distinguishes the kernel role from the field role"),
-    (r"squared_wavenumber_field",
-     "removed by decision 60 — use `radial_kernel(identity, multipliers)`"),
-    # CUDA.jl's own LocalPreferences template still shows this section, and since CUDA.jl 6 it is
-    # silently ignored — the preference is read by CUDACore. A copy on our pages would switch nothing on.
-    (r"\[CUDA\]\s+default_memory",
-     "CUDA.jl 6 reads `default_memory` under [CUDACore], not [CUDA]; see docs/src/gpu.md"),
-  ]
-  problems = String[]
-  for file in _doc_lint_sources()
-    text = read(file, String)
-    # §13 is append-only history: lint only what precedes it.
-    if endswith(file, "ARCHITECTURE.md")
-      cut = findfirst("## 13. Decision log", text)
-      cut === nothing || (text = text[1:first(cut)-1])
-    end
-    flat = replace(text, r"\s+" => " ")
-    for (re, msg) in banned
-      occursin(re, flat) &&
-        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), "  ", msg))
-    end
-  end
-  isempty(problems) ||
-    error("doc lint failed — retired claims still asserted:\n  " * join(problems, "\n  "))
-  @info "doc lint: no retired claims"
-end
 
 """
     lint_api_page_structure()
@@ -185,6 +126,11 @@ and left behind an empty `@docs` block in `Fields.md`, rendering as a heading wi
 #
 # NO PILE MEANS NO OPEN ROUND, so a tree that has never run an instrument builds normally. The escape
 # is to CLOSE the round, not to argue with it.
+# The doc rules live in GBGCodingTools now. What remains here is the review-closure gate and the
+# post-build markup check, neither of which has been shown equivalent to a rule yet: the first is
+# coupled to the instruments under `.claude/`, which a later phase replaces, and every perturbation
+# that would test the second was caught by a source rule before the site was built.
+
 function lint_review_closure()
     claude = joinpath(@__DIR__, "..", ".claude")
     isdir(claude) || return
@@ -323,7 +269,6 @@ end
 remove_jupyter_files()
 copy_rationale_pages()
 build_examples()
-lint_retired_claims()
 lint_review_closure()
 
 using Documenter
@@ -361,7 +306,7 @@ GBGCodingTools.makedocs(ROOT;
     # reason rather than through padding, and splitting either would break the numbering that the
     # rest of the corpus cites by (decision 78, finding (ae)). Exempt those two; every other page
     # keeps the guard, which is what catches a page that grew by accident.
-    size_threshold_ignore = ["architecture.md", "performance.md"],
+    size_threshold_ignore = ["decisions.md", "performance.md"],
   ),
   checkdocs = :exports,
   doctest   = true,
@@ -386,6 +331,7 @@ GBGCodingTools.makedocs(ROOT;
     ],
     "Design & Internals" => Any[
       "Architecture"  => "architecture.md",
+      "Decision log"  => "decisions.md",
       "Formalization" => "formalization.md",
       "Testing"       => "testing.md",
       "Performance"   => "performance.md",

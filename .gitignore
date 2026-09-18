@@ -16,6 +16,7 @@ examples/gpu/rocm/output/
 docs/build/
 docs/site/
 docs/src/architecture.md
+docs/src/decisions.md
 docs/src/formalization.md
 docs/src/testing.md
 docs/src/performance.md
