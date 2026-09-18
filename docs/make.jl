@@ -425,133 +425,11 @@ function lint_review_closure()
     @info "doc lint: review closure OK (no open rounds)"
 end
 
-const PROSE_BASELINE = joinpath(@__DIR__, "prose_shape.csv")
-const NEW_UNIT_PARAGRAPH_CAP = 120
-const NEW_UNIT_ADMONITION_CAP = 3
-
-function _prose_metrics(text)
-    paragraphs = split(text, r"\n\s*\n")
-    longest = isempty(paragraphs) ? 0 : maximum(length(split(p)) for p in paragraphs)
-    (words = length(split(text)), longest = longest, admonitions = count(!isnothing, eachmatch(r"!!! ", text)))
-end
-
-function _prose_units()
-    units = Dict{String, NamedTuple}()
-    for file in filter(f -> endswith(f, ".jl"), readdir(joinpath(@__DIR__, "..", "src"); join = true))
-        source = read(file, String)
-        for m in eachmatch(r"\"\"\"\n(.*?)\n\"\"\""s, source)
-            body = m.captures[1]
-            signature = strip(first(split(body, "\n")))
-            isempty(signature) && continue
-            units["$(basename(file)) :: $(first(signature, 60))"] = _prose_metrics(body)
-        end
-    end
-    pages = String[]
-    for d in (joinpath(@__DIR__), joinpath(@__DIR__, "src"), joinpath(@__DIR__, "src", "api"))
-        isdir(d) || continue
-        append!(pages, filter(f -> endswith(f, ".md"), readdir(d; join = true)))
-    end
-    for file in pages
-        # The generated copies of the rationale docs are regenerated from their sources; ratchet the
-        # source, never the copy, or every build would report the copy as new.
-        occursin(joinpath("docs", "src"), file) && basename(file) in
-            ("architecture.md", "formalization.md", "testing.md", "performance.md",
-             "gbg-rules.md") && continue
-        # `heading` is carried so a numbered item can be keyed under the section it sits in. Without
-        # it every `1.` in a file keyed the same unit: `ARCHITECTURE.md` has one at lines 216, 703 and
-        # 926, all three writing `ARCHITECTURE.md § item 1`, so 144 numbered items across the four
-        # documents produced 110 rows and 34 entries were never tracked on their own (2026-09-18).
-        section, heading, buffer = "(preamble)", "(preamble)", IOBuffer()
-        function flush_section!()
-            body = String(take!(buffer))
-            isempty(strip(body)) && return
-            units["$(basename(file)) § $(first(section, 60))"] = _prose_metrics(body)
-        end
-        for line in eachline(file)
-            # A heading opens a new unit — and so does a TOP-LEVEL NUMBERED ITEM, which is what makes
-            # this work on an append-only log. `ARCHITECTURE.md` §13 writes each decision as `NN. **…**`
-            # rather than as a heading, so ratcheting the section as a whole would fire on every NEW
-            # decision, which is the one growth that is correct by design. Splitting per entry makes a
-            # new decision a NEW unit (allowed, newcomer-capped) while editing an existing one grows
-            # that entry and is caught — which is the actual defect.
-            if startswith(line, "#")
-                flush_section!()
-                section = heading = strip(replace(line, r"^#+" => ""))
-            elseif (m = match(r"^(\d+)\. ", line)) !== nothing
-                flush_section!()
-                # The item number leads, because the key is truncated to 60 characters from the FRONT
-                # and a trailing number would be the part cut off.
-                section = "item " * m.captures[1] * " of " * first(heading, 40)
-                # The item's own line belongs to the item. It used to be pushed into no buffer at all
-                # — this branch named the new unit and fell through without printing, where its
-                # `**(x)**` sibling below always printed — so the first line of every numbered entry,
-                # bolded lede included, was counted by neither the unit before nor the unit after.
-                println(buffer, line)
-            # The same argument, one file over. `PERFORMANCE.md` §4 is an append-only FINDINGS log
-            # whose entries open `**(x) …**` rather than with a number or a heading, so the whole
-            # section was one unit and every new finding grew it — the growth that is correct by
-            # design. Splitting per finding makes a new one a NEW unit under the newcomer caps, while
-            # editing an existing finding grows that entry and is still caught.
-            elseif (m = match(r"^\*\*\(([a-z]{1,2})\) ", line)) !== nothing
-                flush_section!()
-                section = "finding (" * m.captures[1] * ")"
-                println(buffer, line)
-            else
-                println(buffer, line)
-            end
-        end
-        flush_section!()
-    end
-    return units
-end
-
-function lint_prose_shape()
-    units = _prose_units()
-    if get(ENV, "PROSE_SHAPE_BASELINE", "0") == "1" || !isfile(PROSE_BASELINE)
-        open(PROSE_BASELINE, "w") do io
-            println(io, "unit,words,longest_paragraph,admonitions")
-            for k in sort(collect(keys(units)))
-                u = units[k]
-                println(io, "\"", replace(k, "\"" => "'"), "\",", u.words, ",", u.longest, ",", u.admonitions)
-            end
-        end
-        @info "doc lint: prose-shape baseline WRITTEN ($(length(units)) units) — this is deliberate and shows in the diff"
-        return
-    end
-    baseline = Dict{String, NTuple{3, Int}}()
-    for (i, line) in enumerate(eachline(PROSE_BASELINE))
-        i == 1 && continue
-        m = match(r"^\"(.*)\",(\d+),(\d+),(\d+)$", line)
-        m === nothing && continue
-        baseline[m.captures[1]] = (parse(Int, m.captures[2]), parse(Int, m.captures[3]), parse(Int, m.captures[4]))
-    end
-    grown, capped, shrunk = String[], String[], 0
-    for k in sort(collect(keys(units)))
-        u = units[k]
-        key = replace(k, "\"" => "'")
-        if haskey(baseline, key)
-            w, l, a = baseline[key]
-            if u.words > w || u.longest > l || u.admonitions > a
-                push!(grown, "$key: words $w->$(u.words), longest paragraph $l->$(u.longest), admonitions $a->$(u.admonitions)")
-            elseif u.words < w || u.longest < l || u.admonitions < a
-                shrunk += 1
-            end
-        else
-            u.longest > NEW_UNIT_PARAGRAPH_CAP && push!(capped, "$key: new unit, longest paragraph $(u.longest) > $NEW_UNIT_PARAGRAPH_CAP words")
-            u.admonitions > NEW_UNIT_ADMONITION_CAP && push!(capped, "$key: new unit, $(u.admonitions) admonitions > $NEW_UNIT_ADMONITION_CAP")
-        end
-    end
-    if !isempty(grown) || !isempty(capped)
-        for g in grown;  println("  GREW:   ", g); end
-        for c in capped; println("  CAPPED: ", c); end
-        error("doc lint failed: prose shape. A unit grew past what it already was, or a new one exceeded " *
-              "the newcomer caps. Rewrite the passage rather than appending to it — a rewrite that comes " *
-              "out shorter banks the improvement automatically. If the growth is genuinely new content, " *
-              "re-baseline deliberately with PROSE_SHAPE_BASELINE=1, which shows in the diff.")
-    end
-    @info "doc lint: prose shape OK ($(length(units)) units, $shrunk improved)"
-end
-
+# `lint_prose_shape` lived here and is RETIRED (2026-09-18): `RULE.DOC.SHAPE` in GBGCodingTools does
+# the same job over a superset of the files — it also reads `ext/`, which this lint never did — and
+# `gbg check --rebaseline` replaces `PROSE_SHAPE_BASELINE=1`. `docs/prose_shape.csv` stays: the rule
+# reads and writes that same file. Keeping both was impossible rather than merely redundant, since
+# whichever re-baselined last left the other reading its numbers wrongly.
 
 # Every page a human did not write carries the same provenance banner, and "the same" is checked
 # rather than trusted: six copies maintained by hand drift, and a banner that says something slightly
@@ -596,7 +474,6 @@ lint_notation_variants()
 lint_swallowed_escapes()
 lint_retired_claims()
 lint_api_page_structure()
-lint_prose_shape()
 lint_review_closure()
 
 using Documenter
