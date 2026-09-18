@@ -90,7 +90,7 @@ The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient
 
 The *fiberwise* (pointwise, within-fiber) algebra — `dot`, `cross`, `norm`, … — preserves the base. The
 *global* reductions in [`Reductions`](@ref GBGPeriodicFields.Reductions) integrate the base away against
-its measure: `inner` ``\equiv \langle\cdot,\cdot\rangle`` is the normalized L² product, so `inner(u, u)`
+its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product, so `inner(u, u)`
 is ``\langle |u|^2\rangle``, the domain average of ``|u|^2`` — single-argument angle brackets denote
 that average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
 

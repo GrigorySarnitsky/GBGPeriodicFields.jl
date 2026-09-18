@@ -51,3 +51,9 @@ for regression_file in sort(filter(name -> endswith(name, ".jl"),
     include(joinpath(@__DIR__, "regressions", $regression_file))
   end
 end
+
+# The GBGCodingTools rulebook, run as part of the suite (decision pending: wired 2026-09-18). Every
+# rule that can be decided from the source runs here; `Render.wiring` additionally reports a generated
+# file that has drifted from what `gbg sync` writes, so a hand edit to one cannot pass unnoticed.
+using GBGCodingTools
+GBGCodingTools.Engine.Harness.test(dirname(@__DIR__); checks = (GBGCodingTools.Render.wiring,))

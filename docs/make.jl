@@ -49,7 +49,10 @@ function _doc_lint_sources()
   for name in ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")
     push!(sources, joinpath(@__DIR__, name))
   end
-  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md"])
+  # `gbg-rules.md` joins them: GBGCodingTools writes it during the build, and a page that STATES the
+  # rules must quote every banned spelling in order to ban it, so no lint may read it.
+  generated = Set(["architecture.md", "formalization.md", "testing.md", "performance.md",
+                   "gbg-rules.md"])
   for (root, _, files) in walkdir(joinpath(@__DIR__, "src")), f in files
     endswith(f, ".md") && !(f in generated) && push!(sources, joinpath(root, f))
   end
@@ -452,8 +455,13 @@ function _prose_units()
         # The generated copies of the rationale docs are regenerated from their sources; ratchet the
         # source, never the copy, or every build would report the copy as new.
         occursin(joinpath("docs", "src"), file) && basename(file) in
-            ("architecture.md", "formalization.md", "testing.md", "performance.md") && continue
-        section, buffer = "(preamble)", IOBuffer()
+            ("architecture.md", "formalization.md", "testing.md", "performance.md",
+             "gbg-rules.md") && continue
+        # `heading` is carried so a numbered item can be keyed under the section it sits in. Without
+        # it every `1.` in a file keyed the same unit: `ARCHITECTURE.md` has one at lines 216, 703 and
+        # 926, all three writing `ARCHITECTURE.md § item 1`, so 144 numbered items across the four
+        # documents produced 110 rows and 34 entries were never tracked on their own (2026-09-18).
+        section, heading, buffer = "(preamble)", "(preamble)", IOBuffer()
         function flush_section!()
             body = String(take!(buffer))
             isempty(strip(body)) && return
@@ -468,10 +476,17 @@ function _prose_units()
             # that entry and is caught — which is the actual defect.
             if startswith(line, "#")
                 flush_section!()
-                section = strip(replace(line, r"^#+" => ""))
+                section = heading = strip(replace(line, r"^#+" => ""))
             elseif (m = match(r"^(\d+)\. ", line)) !== nothing
                 flush_section!()
-                section = "item " * m.captures[1]
+                # The item number leads, because the key is truncated to 60 characters from the FRONT
+                # and a trailing number would be the part cut off.
+                section = "item " * m.captures[1] * " of " * first(heading, 40)
+                # The item's own line belongs to the item. It used to be pushed into no buffer at all
+                # — this branch named the new unit and fell through without printing, where its
+                # `**(x)**` sibling below always printed — so the first line of every numbered entry,
+                # bolded lede included, was counted by neither the unit before nor the unit after.
+                println(buffer, line)
             # The same argument, one file over. `PERFORMANCE.md` §4 is an append-only FINDINGS log
             # whose entries open `**(x) …**` rather than with a number or a heading, so the whole
             # section was one unit and every new finding grew it — the growth that is correct by
@@ -585,7 +600,16 @@ lint_prose_shape()
 lint_review_closure()
 
 using Documenter
+using GBGCodingTools
 using GBGPeriodicFields
+
+const ROOT = normpath(joinpath(@__DIR__, ".."))
+
+# The rules page — what the rulebook holds and what this package has switched off, rendered for a
+# reader of the site. It is written AFTER the lints above on purpose: those eight walk `docs/src` from
+# disk and know nothing of `generated`, so a rules page written earlier becomes their input, and a page
+# that states the rules necessarily quotes every banned spelling in order to ban it.
+GBGCodingTools.Render.pages(GBGCodingTools.ConfigIO.read_config(ROOT), ROOT)
 
 # Make `using GBGPeriodicFields` available to the `jldoctest` examples (the Getting-started
 # tutorial; recursive covers the submodules). `doctest = true` runs and verifies them on every
@@ -593,7 +617,7 @@ using GBGPeriodicFields
 DocMeta.setdocmeta!(GBGPeriodicFields, :DocTestSetup, :(using GBGPeriodicFields); recursive = true)
 
 
-makedocs(
+GBGCodingTools.makedocs(ROOT;
   sitename  = "GBGPeriodicFields.jl",
   modules   = [GBGPeriodicFields, GBGPeriodicFields.FiberSections, GBGPeriodicFields.Fields, GBGPeriodicFields.FieldAlgebra, GBGPeriodicFields.DifferentialOperators, GBGPeriodicFields.Convolution, GBGPeriodicFields.Points, GBGPeriodicFields.Interpolation, GBGPeriodicFields.Reductions],
   format    = Documenter.HTML(
@@ -620,6 +644,7 @@ makedocs(
     "Running on a GPU" => "gpu.md",
     "Examples" => "examples/hist_cpu.md",
     "Notation" => "notation.md",
+    "Rules" => "gbg-rules.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",

@@ -515,8 +515,8 @@ together with the composition cases that pin which class each pairing lands in.
 Design rationale: [Architecture](architecture.md) §12.
 
 The L²/measure structure (`src/Reductions.jl`). The `integral` is **extensive** (against the base measure —
-grid cell volume, point counting); `inner` is the **normalized** L² product (declared above); `l2norm`
-``=\sqrt{\langle f,f\rangle}``:
+grid cell volume, point counting); `inner` is the **normalized** L² product (declared above);
+``\texttt{l2norm} = \sqrt{\langle f,f\rangle}``:
 
 ```math
 \begin{gathered}
@@ -660,7 +660,7 @@ there the real part is taken, as documented.
 **`lpnorm`** is the ``p``-family around that ``L^2`` pair: on a grid
 ``\lVert f\rVert_p = \bigl(\tfrac{1}{N}\sum_n \lvert f_n\rvert^p\bigr)^{1/p}`` and on a point-set the
 ``M``-normalized analogue, with ``\lvert f_n\rvert`` the fiber Euclidean magnitude; ``p = 2``
-delegates to `l2norm` ``= \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
+delegates to ``\texttt{l2norm} = \sqrt{\langle f,f\rangle}`` and ``p = \infty`` is
 ``\max_n \lvert f_n\rvert`` (`src/Reductions.jl`). Physical fields and point-values only.
 ``\checkmark`` **Checked by** `test/reductions.jl` (the ``p = 2`` delegation to `l2norm` and the
 ``p = \infty`` coincidence with `maximum(norm, u)`).
@@ -910,7 +910,7 @@ the unique representative of ``x_{p,a} + L_a\mathbb Z`` in the fundamental domai
 arithmetic. In floating point, `mod` may return exactly ``L_a`` (measured: `mod(-1e-20, 2π) === 2π`),
 and that value is folded to ``0`` before the origin is restored, so membership in the half-open
 interval holds for every **finite** input; a non-finite coordinate maps to a non-finite coordinate
-(`NaN` fixed, ``\pm\infty \mapsto`` `NaN`), never into ``D``.
+(`NaN` fixed, ``\pm\infty \mapsto \texttt{NaN}``), never into ``D``.
 
 **Statement 3 (the fused torus arity).** `displace!` with a grid computes Statement 2 applied to
 the result of Statement 1, in one pass, and is **bitwise equal** to the sequential pair: the fused

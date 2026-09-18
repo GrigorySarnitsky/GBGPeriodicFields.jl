@@ -1694,13 +1694,13 @@ coefficient per mode, [`SeparableKernel`](@ref GBGPeriodicFields.Convolution.Sep
 [`RadialKernel`](@ref GBGPeriodicFields.Convolution.RadialKernel) holding the symbol itself, and
 [`ProductKernel`](@ref GBGPeriodicFields.Convolution.ProductKernel) holding two factors unmultiplied — and they differ only in cost, never in
 meaning. This supertype and the two generics below live here so that every module which applies a
-kernel — [`Convolution`](@ref "Convolution"), [`DifferentialOperators`](@ref "DifferentialOperators"),
+kernel — `Convolution`, [`DifferentialOperators`](@ref "DifferentialOperators"),
 [`Reductions`](@ref "Reductions") — can name one type, whichever of them is included first.
 
 A field in spectral representation is **not** a kernel. The two hold identical data, so nothing but a
 type can say which role is meant, and the distinction is load-bearing: the coefficientwise reciprocal
 of a kernel is the kernel that deconvolves by it, while the same operation on a field is one the
-package does not define. Wrap a field of coefficients in [`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel) to declare the role, which
+package does not define. Wrap a field of coefficients in `StoredKernel` to declare the role, which
 is what [`materialize_kernel`](@ref GBGPeriodicFields.Convolution.materialize_kernel) returns.
 
 A concrete kernel implements two methods: [`_kernel_data`](@ref), returning the multiplier it
@@ -1779,11 +1779,17 @@ zero, so that derivatives of real fields stay real, while its squared wavenumber
 ``k^2``, so that the Laplacian and Poisson-type solves stay correct. On an odd-length axis there is no
 exact Nyquist mode and no special treatment is applied.
 
-Every argument above is stored under its own name. Six further fields — `wavenumber_view_1..3` and
-`squared_wavenumber_view_1..3` — are derived rather than passed: each is one of the six vectors
-pre-oriented as a 3-D view along its own axis, holding no data of its own, so that a broadcast-route
-operator never rebuilds a `reshape` per call (decision 70). They are internal; read them through
-`_wavenumber_broadcast_view` and `_squared_wavenumber_broadcast` rather than directly.
+The fields are:
+
+- `grid`, `fourier_layout` — the base and Fourier layout above, stored as passed.
+- `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the derivative wavenumbers above.
+- `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the squared ones.
+- `wavenumber_view_1`, `wavenumber_view_2`, `wavenumber_view_3` — derived rather than passed: each is
+  one of the three vectors above pre-oriented as a 3-D view along its own axis, holding no data of its
+  own, so that a broadcast-route operator never rebuilds a `reshape` per call (decision 70). Internal;
+  reach them through `_wavenumber_broadcast_view`, never directly.
+- `squared_wavenumber_view_1`, `squared_wavenumber_view_2`, `squared_wavenumber_view_3` — the same for
+  the squared family, reached through `_squared_wavenumber_broadcast`.
 
 Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
 final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
@@ -2689,7 +2695,7 @@ it. The projection [`reality_projection!`](@ref) removes it exactly. The cost is
 or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
 
 It **reports** rather than repairs, so the caller decides; the repair is
-[`reality_projection!`](@ref), an explicit verb costing the same one or two planes. A physical round
+`reality_projection!`, an explicit verb costing the same one or two planes. A physical round
 trip — [`to_physical`](@ref) followed by [`to_spectral`](@ref) — also projects, since the inverse real
 transform discards what no real field has, but it costs two transforms, perturbs every mode by
 round-off, and resets this residual only to the transform's own floor, the forward pass reseeding it.
@@ -3039,7 +3045,7 @@ tensor order, storage family, domain size, origin and Fourier layout — a diffe
 means the two grids' modes are different physical waves whatever their counts, and a differing fold
 means the stored index of a mode is not the same function of its frequency.
 
-The grid sizes must then satisfy `coarse ≤ fine` on every axis and differ on at least one. Equal grids
+The coarse grid must be no larger than the fine on every axis, and smaller on one. Equal grids
 are refused because their shared set would omit only the excluded Nyquist shell, which makes such a
 call a copy that silently leaves those planes stale; [`add!`](@ref GBGPeriodicFields.FieldAlgebra.add!)
 or [`combine!`](@ref GBGPeriodicFields.FieldAlgebra.combine!) is the operation meant for two fields on

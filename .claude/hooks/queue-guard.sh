@@ -1,20 +1,23 @@
 #!/usr/bin/env bash
 # STOP HOOK — refuses to let the session end while committed work is open.
-#
-# WHY THIS EXISTS. Told "continue with everything, don't stop in the middle", the session finished
-# three of five queued items and then reported status with the remaining two labelled "remaining
-# queue, in order". Stopping to narrate IS stopping. Every previous defence against this was a
-# sentence in CLAUDE.md, and this session has now measured, repeatedly, that a rule written down
-# reads as compliance while nothing checks it. So the check is not a rule: the environment refuses
-# the stop.
+# Written by GBGCodingTools vdev; do not edit.
 #
 # CONTRACT. `.claude/WORK_QUEUE.md` holds one line per item, `- [ ]` open, `- [x]` done. While any
 # item is open this exits 2, which Claude Code treats as "do not stop", feeding stderr back as the
 # reason. Closing an item is an edit that shows in the diff, so the queue cannot be silently emptied.
 #
+# WHY IT IS A HOOK AND NOT A RULE. Told "continue with everything, don't stop in the middle", a
+# session finished three of five queued items and reported status with the other two labelled
+# "remaining queue". Stopping to narrate IS stopping. Every earlier defence was a sentence in
+# CLAUDE.md, and a rule written down reads as compliance while nothing checks it.
+#
 # THE LOOP GUARD IS LOAD-BEARING. `stop_hook_active` is true when the session is already being held
-# open by this hook; blocking again there would trap the session forever with no way out. It is the
-# difference between a harness and a cage.
+# open by this hook; blocking again there would trap it forever. It is the difference between a
+# harness and a cage.
+#
+# THE UNCOUNTED HEADING. Lines under "## From the last review" are NOT counted: a run's leftovers are
+# the owner's list to act on when he chooses, and holding a session to them would be a review setting
+# a session to work nobody asked for.
 set -uo pipefail
 payload=$(cat)
 if grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true' <<<"$payload"; then
@@ -24,7 +27,8 @@ fi
 queue="${CLAUDE_PROJECT_DIR:-.}/.claude/WORK_QUEUE.md"
 [[ -f "$queue" ]] || exit 0
 
-open_items=$(grep -nE '^[[:space:]]*- \[ \]' "$queue" || true)
+counted=$(sed '/^## From the last review/,$d' "$queue")
+open_items=$(grep -nE '^[[:space:]]*- \[ \]' <<<"$counted" || true)
 [[ -z "$open_items" ]] && exit 0
 
 {

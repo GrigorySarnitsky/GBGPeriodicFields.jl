@@ -36,7 +36,7 @@ The parts are:
     [`write_field`](@ref GBGPeriodicFields.Fields.write_field)/[`read_field`](@ref GBGPeriodicFields.Fields.read_field).
   * **Moving between storage families.** [`adapt`](@ref) moves a `PointSet` or any point values
     between host and device arrays, exactly as it moves a field; the operation is documented once,
-    with its field methods, in [`Fields`](@ref "Fields").
+    with its field methods, in `Fields`.
 
 The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
 [`Interpolation`](@ref "Interpolation") module.

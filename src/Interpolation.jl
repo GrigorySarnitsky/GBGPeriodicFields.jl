@@ -52,11 +52,11 @@ live in the `Points` module.
 
 The parts are:
 
-  * **Interpolation** (grid → point, *gather*; `interpolate` ``\\equiv W``): [`interpolate`](@ref) and
+  * **Interpolation** (grid → point, *gather*; `interpolate`, ``W``): [`interpolate`](@ref) and
     the in-place [`interpolate!`](@ref), plus the callable `f(x)` (and its broadcast `f.(xs)`) as the
     ergonomic face of a single-point gather, which the physical-domain spline schemes carry and the
     spectral ones do not.
-  * **Anterpolation** (point → grid, *scatter*; `anterpolate` ``\\equiv W^\\top``): [`anterpolate`](@ref)
+  * **Anterpolation** (point → grid, *scatter*; `anterpolate`, ``W^\\top``): [`anterpolate`](@ref)
     and the in-place [`anterpolate!`](@ref), the latter with an ``\\alpha``/``\\beta`` accumulate form
     (``\\beta = 0`` overwrite, ``\\beta \\ne 0`` accumulate, the `mul!` convention; accumulation is the
     common case for the scatter).
@@ -112,8 +112,8 @@ export interpolate, interpolate!, anterpolate, anterpolate!, point_traversal_ord
     AbstractTransferScheme
 
 Supertype of **all** grid↔point transfer schemes — the parameter that fixes how the adjoint pair
-`interpolate` ``= W`` (the gather that evaluates a field at each point) / `anterpolate` ``= W^\\top``
-(its transpose, the scatter that deposits per-point values onto the grid) is realized. A scheme is a
+`interpolate` (``W``, the gather that evaluates a field at each point) / `anterpolate` (``W^\\top``,
+its transpose, the scatter that deposits per-point values onto the grid) is realized. A scheme is a
 choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
@@ -129,10 +129,10 @@ type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 
-Schemes divide the same way over **storage families**. The spline schemes and [`DirectDFT`](@ref) are
+Schemes divide the same way over **storage families**. The spline schemes and `DirectDFT` are
 plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
 value: one built on the host drives a transfer over device points with nothing copied, which is why
-`adapt` (documented with [`Fields`](@ref "Fields")) does not list them. [`NUFFT`](@ref) is the exception,
+`adapt` (documented with [`Fields`](@ref "Fields")) does not list them. `NUFFT` is the exception,
 and for the reason [`write_scheme`](@ref) also refuses it: it owns plans and buffers built from its
 `reference` field, so it already lives in that field's family.
 """
@@ -162,8 +162,8 @@ position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, 
 once into an `SMatrix`, so it passes into the gather/scatter kernels by value (no device array). One of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
 [`NUFFT`](@ref) are the other. Only the spline family has a shared supertype: its members differ in
-their weights alone and so share a parametric interface, while a stateless [`DirectDFT`](@ref) and a
-plan-carrying [`NUFFT`](@ref) share no structure a supertype could hold.
+their weights alone and so share a parametric interface, while a stateless `DirectDFT` and a
+plan-carrying `NUFFT` share no structure a supertype could hold.
 
 Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 """
@@ -1686,6 +1686,19 @@ Nyquist content is not pointwise divergence-free in the continuum).
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.
 
+The fields are:
+
+- `width` — the gridding stencil width in nodes, as resolved from `tol`.
+- `beta` — the window shape parameter, as resolved from `tol` and `width`.
+- `total_oversampling` — the ratio of the oversampled point count to the reference grid's, which
+  carries the transforms' normalization between the two grids.
+- `reference_grid`, `reference_layout` — the base and Fourier layout the plan was built for, kept so
+  a field handed to it can be checked rather than assumed compatible.
+- `oversampled_grid`, `oversampled_plans` — the work grid and its transform plans.
+- `deconvolution` — the per-mode reciprocal of the window's transform, dividing out the gridding.
+- `oversampled_physical`, `oversampled_spectral` — the work buffers, whose contents are scratch: the
+  physical one is a template copied per call and never mutated in place.
+
 Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
 struct NUFFT{T, PL, DC, PP, SP, LO} <: AbstractTransferScheme
@@ -1991,8 +2004,8 @@ attributes.
 The arguments are:
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
-- `scheme` — the scheme to write: a [`LalescuSpline`](@ref), a [`LagrangeSpline`](@ref), or
-  [`DirectDFT`](@ref).
+- `scheme` — the scheme to write: a `LalescuSpline`, a `LagrangeSpline`, or
+  `DirectDFT`.
 
 !!! warning "`NUFFT` is deliberately not persistable"
     Every other scheme *is* its parameters, which is what makes a few attributes a faithful record.

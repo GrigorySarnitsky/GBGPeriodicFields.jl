@@ -33,7 +33,7 @@ The parts are, each linking to the home where its formula lives.
   by default). The `std` and `var` reductions are **scalar-only**: the sample standard deviation and variance
   are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
-  tensor `cov` ``\\equiv R`` with entries ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
+  tensor `cov` (``R``) with entries ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
@@ -154,6 +154,10 @@ it. It exists as a struct rather than a closure so the component count is a **ty
 an anonymous `(values...) -> fiber_map(V(values))` leaves the tuple length uninferrable, `V(values)`
 then cannot be built in registers, and the reduction allocates per base point — measured at about four
 and a half times the tensor section's own size. The `Vararg{Any, N}` signature restores that inference.
+
+The fields are:
+
+- `fiber_map` — the map applied to the assembled fiber value.
 """
 struct _FiberGather{V, F} <: Function
   fiber_map::F
@@ -462,7 +466,7 @@ end
     integral(f)
     integral(fiber_map, f)
 
-The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section (`integral` ``\\equiv \\int\\,\\mathrm{d}\\mu``) — the
+The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section (`integral`, ``\\int\\,\\mathrm{d}\\mu``) — the
 measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
 scales with the base measure; reach for [`inner`](@ref) or [`mean`](@ref) when you want an intensive,
 size-independent average instead. On a `Grid3D` the sum uses the uniform cell-volume quadrature, and on
@@ -678,7 +682,7 @@ The arguments are:
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
 Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
-pass as ``\\texttt{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as [`var`](@ref) is), over the grid
+pass as ``\\texttt{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as `var` is), over the grid
 cell-average measure and the point counting measure alike.
 """
 function cov end
@@ -739,7 +743,7 @@ std(field::ScalarFieldSpectral; corrected::Bool = true) = sqrt(var(field; correc
     inner(f, g)
 
 The **normalized L² inner product** ``\\langle f, g\\rangle`` of two compatible sections
-(`inner` ``\\equiv \\langle\\cdot,\\cdot\\rangle``) — the fiber contraction ``f \\cdot g`` averaged over the
+(`inner`, ``\\langle\\cdot,\\cdot\\rangle``) — the fiber contraction ``f \\cdot g`` averaged over the
 base, returning a scalar. It is intensive (it matches `mean`), which makes it the natural pairing for
 homogeneous turbulence, where kinetic energy is ``\\tfrac{1}{2}\\langle u, u\\rangle``. For the norms derived
 from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a wavenumber or separation
@@ -918,7 +922,7 @@ end
 """
     l2norm(f)
 
-The **normalized L² norm** ``\\lVert f\\rVert_2`` of a section (`l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``)
+The **normalized L² norm** ``\\lVert f\\rVert_2`` of a section (`l2norm`, ``\\lVert\\cdot\\rVert_2``)
 — the root-mean-square of the fiber magnitude ``|f|`` over the base, and the ``p = 2`` case of
 [`lpnorm`](@ref). It is ``\\sqrt{\\langle f, f\\rangle}`` built on [`inner`](@ref), so it inherits both
 bases: the grid cell-volume average and the point-set counting average.
@@ -961,7 +965,7 @@ end
 
 The **multiplier-weighted L² inner product** ``\\langle f, w g\\rangle`` of two fields in spectral
 representation against a real Fourier multiplier `w`
-(`weighted_inner` ``\\equiv \\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
+(`weighted_inner`, ``\\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
 and reduces against `f` in a single fused pass, materializing no weighted field — the reduction-dual of
 `convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
@@ -981,7 +985,7 @@ The arguments are:
 
 !!! note "The unit weight and `inner` agree numerically, not bitwise"
     ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
-    [`inner`](@ref) — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
+    `inner` — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
     same threaded fixed tree, so the residue is the weighted pass carrying a multiplication by one
     through each mode rather than a different summation order. Worth knowing when replacing one with
     the other in code that compares against a stored number.
@@ -995,7 +999,7 @@ The arguments are:
     number rather than raising. It is the one route by which a phase kernel can serve as a weight and
     answer a question you did not ask.
 
-Spectral representation only, being a Parseval reduction like the spectral [`inner`](@ref).
+Spectral representation only, being a Parseval reduction like the spectral `inner`.
 
 Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
@@ -1543,7 +1547,7 @@ end
 """
     lpnorm(f, p = 2)
 
-The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm` ``\\equiv \\lVert\\cdot\\rVert_p``),
+The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm`, ``\\lVert\\cdot\\rVert_p``),
 where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
 the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
 `p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed entering a CFL
@@ -1560,7 +1564,7 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 ```
 
 It is physical-space only at every exponent, `p = 2` included; for a field in spectral representation use
-[`l2norm`](@ref), which reads the same value off the coefficients through Parseval.
+`l2norm`, which reads the same value off the coefficients through Parseval.
 
 The exponent `p` must satisfy ``1 \\le p \\le \\infty``; outside that range the expression is not a norm
 and the call raises rather than returning a plausible number. The result carries the section's own

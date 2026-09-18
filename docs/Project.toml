@@ -1,4 +1,8 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GBGCodingTools = "3aee1de0-bb62-4679-b1c5-a861fbcaaa51"
 GBGPeriodicFields = "f1da9c2b-0ac1-4736-96f9-af1c25aedab1"
 Literate = "98b081ad-f1c9-55d3-8b20-4c87d4299306"
+
+[sources]
+GBGCodingTools = {path = "/home/grigory/Dropbox/Research and Teach/AI Helpers/GBGCodingTools"}

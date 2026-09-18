@@ -15,18 +15,18 @@ physical-space meaning and the spectral symbol it applies.
 
 The parts are:
 
-- [`gradient`](@ref) ``\\equiv \\nabla`` raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
-- [`divergence`](@ref) ``\\equiv \\nabla\\cdot`` lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
-- [`curl`](@ref) ``\\equiv \\nabla\\times`` returns the curl of a vector field, which measures its local
+- [`gradient`](@ref) (``\\nabla``) raises the tensor order: a scalar field becomes a vector field, and a vector field becomes a second-order tensor field.
+- [`divergence`](@ref) (``\\nabla\\cdot``) lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
+- [`curl`](@ref) (``\\nabla\\times``) returns the curl of a vector field, which measures its local
   rotation at **twice** the angular rate — the rate itself is ``\\tfrac{1}{2}\\nabla\\times u`` — and preserves
   the tensor order. (A fluid-dynamics consumer calls ``\\nabla\\times u`` the vorticity; the package keeps
   the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
-- [`inverse_curl`](@ref) ``\\equiv (\\nabla\\times)^{-1}`` returns the solenoidal preimage of a curl —
+- [`inverse_curl`](@ref) (``(\\nabla\\times)^{-1}``) returns the solenoidal preimage of a curl —
   the divergence-free field whose curl is the given one — and preserves the tensor order.
-- [`symmetric_gradient`](@ref) ``\\equiv \\operatorname{sym}\\nabla`` returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
-- [`laplacian`](@ref) ``\\equiv \\Delta`` applies the second-derivative operator to every component and preserves the tensor order.
-- [`inverse_laplacian`](@ref) ``\\equiv \\Delta^{-1}`` returns the zero-mean solution of Poisson's equation and preserves the tensor order.
-- [`helmholtz_projection`](@ref) ``\\equiv \\mathbb P`` projects a vector field onto its divergence-free part, in one pass whose destination may alias its source; an optional kernel argument composes a convolution into the same pass.
+- [`symmetric_gradient`](@ref) (``\\operatorname{sym}\\nabla``) returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
+- [`laplacian`](@ref) (``\\Delta``) applies the second-derivative operator to every component and preserves the tensor order.
+- [`inverse_laplacian`](@ref) (``\\Delta^{-1}``) returns the zero-mean solution of Poisson's equation and preserves the tensor order.
+- [`helmholtz_projection`](@ref) (``\\mathbb P``) projects a vector field onto its divergence-free part, in one pass whose destination may alias its source; an optional kernel argument composes a convolution into the same pass.
 
 The Nyquist frequency is treated differently by symbol: first-derivative wavenumbers are zeroed at the
 Nyquist frequency on even-length axes, while squared wavenumbers keep the true squared wavenumber
@@ -240,7 +240,8 @@ end
 """
     _helmholtz_projection_modes!(backend, destination_1, destination_2, destination_3,
                                  source_1, source_2, source_3,
-                                 wavenumber_1, wavenumber_2, wavenumber_3, kernel_data, α, β)
+                                 wavenumber_1, wavenumber_2, wavenumber_3,
+                                 kernel_data, α, β)
 
 Apply the projector to every mode, dispatching on `backend`: a `KernelAbstractions` launch of
 `_helmholtz_projection_kernel!` on a device, and the gated slab-threaded loop below on a CPU. The two
@@ -783,7 +784,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the gradient (`gradient` ``\\equiv \\nabla``) of a field and write it into `destination`,
+Compute the gradient (`gradient`, ``\\nabla``) of a field and write it into `destination`,
 returning `destination`. Differentiating raises the tensor order by one: a scalar field ``\\varphi``
 gives the vector field with components ``(\\nabla\\varphi)_i = \\partial_{x_i}\\varphi``, and a vector
 field ``u`` gives the second-order tensor field with components ``(\\nabla u)_{ij} = \\partial_{x_j} u_i``.
@@ -884,7 +885,7 @@ end
     divergence!(destination, field, multipliers, kernel::SpectralKernel)
     divergence!(destination, field, multipliers, kernel::SpectralKernel, α, β)
 
-Compute the divergence (`divergence` ``\\equiv \\nabla\\cdot``) of a field and write it into
+Compute the divergence (`divergence`, ``\\nabla\\cdot``) of a field and write it into
 `destination`, returning `destination`. Differentiating lowers the tensor order by one: a vector field
 ``u`` gives the scalar field ``\\nabla\\cdot u = \\partial_{x_i} u_i``, and a second-order tensor field
 ``A`` gives the vector field with components ``(\\nabla\\cdot A)_i = \\partial_{x_j} A_{ij}``.
@@ -1082,7 +1083,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the curl (`curl` ``\\equiv \\nabla\\times``) of a vector field ``u`` and write it into `destination`,
+Compute the curl (`curl`, ``\\nabla\\times``) of a vector field ``u`` and write it into `destination`,
 returning `destination`. The curl is the vector field whose components are, with ``\\varepsilon_{ijk}``
 the Levi-Civita symbol, ``(\\nabla\\times u)_i = \\varepsilon_{ijk}  \\partial_{x_j} u_k``; written out
 cyclically,
@@ -1157,7 +1158,7 @@ end
                   multipliers::FieldSpectralMultipliers)
 
 Recover the divergence-free vector field whose curl is `field`, writing it into `destination` —
-the inverse of [`curl!`](@ref) ``\\equiv \\nabla\\times`` on the fields where that inverse exists.
+the inverse of [`curl!`](@ref) (``\\nabla\\times``) on the fields where that inverse exists.
 
 Use this in-place form when `destination` is already allocated; the allocating
 [`inverse_curl`](@ref) returns a fresh result instead.
@@ -1243,7 +1244,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the symmetric gradient (`symmetric_gradient` ``\\equiv \\operatorname{sym}\\nabla``) of a vector
+Compute the symmetric gradient (`symmetric_gradient`, ``\\operatorname{sym}\\nabla``) of a vector
 field ``u`` and write it into `destination`, returning `destination`. It is the symmetric part of the gradient
 ``\\nabla u``, the second-order tensor field
 
@@ -1323,7 +1324,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the Laplacian (`laplacian` ``\\equiv \\Delta``) of a field and write it into `destination`,
+Compute the Laplacian (`laplacian`, ``\\Delta``) of a field and write it into `destination`,
 returning `destination`. The Laplacian is a local operator: it sums the second partial derivatives of
 a scalar field ``f`` over the three axes, and it acts on each component of a vector or tensor field ``u``
 alike, so it preserves the tensor order:
@@ -1393,7 +1394,7 @@ end
       multipliers::FieldSpectralMultipliers,
     )
 
-Compute the zero-mean inverse Laplacian (`inverse_laplacian` ``\\equiv \\Delta^{-1}``) of a field ``f`` and
+Compute the zero-mean inverse Laplacian (`inverse_laplacian`, ``\\Delta^{-1}``) of a field ``f`` and
 write it into `destination`, returning `destination`. For a mean-free right-hand side the result is
 the zero-mean field ``\\psi`` solving Poisson's equation — on a periodic box the system is solvable
 only when ``\\int_\\Omega f\\,\\mathrm{d}x = 0``, since any periodic ``\\psi`` has
@@ -1485,7 +1486,7 @@ end
     helmholtz_projection!(destination, field, multipliers,
                           kernel::SpectralKernel, α, β)
 
-Compute the Helmholtz (Leray) projection (`helmholtz_projection` ``\\equiv \\mathbb P``) of a vector
+Compute the Helmholtz (Leray) projection (`helmholtz_projection`, ``\\mathbb P``) of a vector
 field ``u`` and write it into `destination`, returning `destination`. The projection removes the
 longitudinal (curl-free) part of the field and keeps the divergence-free part, subtracting the
 gradient of the pressure-like potential that solves the divergence:

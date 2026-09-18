@@ -1,3 +1,14 @@
+<!-- gbg:managed begin vdev — rewritten by `gbg sync`; do not edit -->
+@.gbg/policy/00-index.md
+
+The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
+switched off with its reason. Nothing restates a rule outside it — a rule quoted in two files is a
+rule that will be reworded in one.
+
+Unasked, run `Pkg.test()` and nothing else. What a rule finds is reported, never fixed silently:
+documentation may be fixed without asking, and anything else waits for an answer.
+<!-- gbg:managed end -->
+
 # CLAUDE.md — GBGPeriodicFields
 
 Julia package: real-valued scalar/vector/second-order-tensor fields on 3D rectangular
@@ -355,12 +366,12 @@ KaTeX), never Unicode-glyph approximations: inline as ``` ``\\langle f,g\\rangle
 backticks; in a `"""` docstring the LaTeX backslashes are escaped `\\`, e.g. ``` ``\\Delta f`` ```;
 in a `.md` page raw `` `` ``), display as a ```` ```math ```` block. Use **standard mathematical
 notation** (∇, Δ, ⟨·,·⟩, ‖·‖, ∫, 𝔽, etc.). **Every code object is explicitly bound to its math
-symbol on first mention** — `laplacian` ``\\equiv \\Delta``, `gradient` ``\\equiv \\nabla``,
-`divergence` ``\\equiv \\nabla\\cdot``, `curl` ``\\equiv \\nabla\\times``, `inner`
-``\\equiv \\langle\\cdot,\\cdot\\rangle``, `l2norm` ``\\equiv \\lVert\\cdot\\rVert_2``, `convolve`
-``\\equiv \\star``, `helmholtz_projection` ``\\equiv \\mathbb{P}``, `to_spectral`/`to_physical`
-``\\equiv \\mathcal F``/``\\mathcal F^{-1}``, the spectral representation written ``\\hat f`` — so the
-reader always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
+symbol on first mention** — `laplacian` (``\\Delta``), `gradient` (``\\nabla``), `inner`
+(``\\langle\\cdot,\\cdot\\rangle``), the spectral representation written ``\\hat f`` — so the reader
+always knows which symbol *is* which function. **How that binding is written is
+`RULE.TEX.ONE_SPAN`'s, not this file's** (apposition: the two spans held apart by a connective, the
+``\\equiv`` spelling retired 2026-09-18); read the rule, which states the cases and is maintained
+against every package in the fleet. Plain `#` code comments stay Unicode (they are
 not rendered). `Reductions` is the reference implementation of this convention.
 
 **Silent-rendering-failure micro-rules — markup KaTeX/Documenter render *wrong without failing the build*.**
@@ -369,8 +380,8 @@ four are *silent* — the source looks right, the page renders broken, and a rea
 never catches it. **(a) A code identifier never sits inside a math span.** KaTeX renders a name inside a
 ``` ``…`` ``` / ```` ```math ```` span as the product of italic single letters (`gradient` → eight italics,
 not the word). Backtick it in prose; a code name that must appear *inside* a formula is wrapped
-``` ``\\texttt{gradient}`` ```. The `code` ``\\equiv \\Delta`` binding (code **adjacent** to math) is
-correct — the token **inside** the span is the defect. **(b) A formula is one LaTeX span** — never split it
+``` ``\\texttt{gradient}`` ```. The `code` (``\\Delta``) binding (code **beside** math) is correct —
+the token **inside** the span is the defect. **(b) A formula is one LaTeX span** — never split it
 across a ``` ``…`` ``` span and an adjacent `` `code` `` span (``` ``0 \\le m \\le`` ``` `2n` renders
 broken); keep it one span, a trailing code name in ``\\texttt{}``. **(c) Inline math stays on ONE source
 line.** A wrapped continuation of an inline ``` ``…`` ``` span that begins with a CommonMark list/blockquote

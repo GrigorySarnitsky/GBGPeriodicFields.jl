@@ -77,7 +77,7 @@ for rather than repeating its contents:
   [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/[`FiberTensor3`](@ref)/[`FiberTensor4`](@ref), which name the value
   at one base point and so belong to neither base in particular.
 - [`Fields`](@ref) — the field and grid types, the two representations and the transforms between
-  them, allocation, broadcasting, HDF5 persistence, and the storage-family move [`adapt`](@ref).
+  them, allocation, broadcasting, HDF5 persistence, and the storage-family move `adapt`.
 - [`FieldAlgebra`](@ref) — the fiberwise algebra on fields, including [`map!`](@ref)/[`map`](@ref)
   for any fiber map it does not name.
 - [`DifferentialOperators`](@ref) — the differential operators, applied as spectral multipliers.

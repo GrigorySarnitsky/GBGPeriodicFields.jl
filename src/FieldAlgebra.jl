@@ -996,7 +996,7 @@ end
     cross!(destination::VectorFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
     cross!(destination::VectorFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
 
-Compute a fiberwise cross product (`cross` ``\\equiv \\times``) in place, and return `destination`.
+Compute a fiberwise cross product (`cross`, ``\\times``) in place, and return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`cross`](@ref)
 returns a fresh result instead.
@@ -1398,7 +1398,7 @@ end
     norm!(destination::ScalarFieldPhysical, u::VectorFieldPhysical)
     norm!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
 
-Compute the fiberwise norm of a field in physical representation (`norm` ``\\equiv |\\cdot|``) in place, and return `destination`.
+Compute the fiberwise norm of a field in physical representation (`norm`, ``|\\cdot|``) in place, and return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`norm`](@ref)
 returns a fresh result instead.
@@ -1458,7 +1458,7 @@ end
     tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
     tr!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2})
 
-Compute the fiberwise trace (`tr` ``\\equiv \\operatorname{tr}``) of the second-order tensor field `A`
+Compute the fiberwise trace (`tr`, ``\\operatorname{tr}``) of the second-order tensor field `A`
 in place, writing it into `destination`, which is returned. The trace is linear and representation-preserving, so it is defined for both representations.
 
 Use this in-place form when `destination` is already allocated; the allocating [`tr`](@ref)
@@ -1507,7 +1507,7 @@ end
 """
     det!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
 
-Compute the fiberwise determinant (`det` ``\\equiv \\det``) of a second-order tensor field in place, and
+Compute the fiberwise determinant (`det`, ``\\det``) of a second-order tensor field in place, and
 return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`det`](@ref)

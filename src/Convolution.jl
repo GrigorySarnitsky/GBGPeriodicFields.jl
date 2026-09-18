@@ -27,7 +27,7 @@ builds:
 
 Convolution operations:
 
-- [`convolve`](@ref) / [`convolve!`](@ref) — convolve a field with a kernel; the in-place form adds
+- `convolve` / `convolve!` — convolve a field with a kernel; the in-place form adds
   ``\\alpha``/``\\beta`` accumulation, and `convolve(g₁, g₂)` composes two kernels into one.
 - [`exponential_convolve!`](@ref) / [`exponential_convolve`](@ref) — convolve with the exponential
   radial kernel, computed from the wavenumber arrays on the fly instead of stored as a field; the
@@ -37,7 +37,7 @@ Convolution operations:
 
 Kernel storage classes:
 
-- [`StoredKernel`](@ref) — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
+- `StoredKernel` — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
   avoid. It wraps a [`ScalarFieldSpectral`](@ref) to put those coefficients in the kernel role.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
@@ -51,12 +51,12 @@ Kernel storage classes:
   factor alone.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
   wants to inspect or modify the coefficients.
-- [`inv`](@ref) — the reciprocal kernel, which deconvolves by the original. Each class returns its own
+- `inv` — the reciprocal kernel, which deconvolves by the original. Each class returns its own
   kind and states the precondition it can afford to check, an annihilated mode having no inverse.
 
 Kernel builders:
 
-- [`radial_kernel`](@ref) — build a `RadialKernel` from any real **function** ``\\sigma`` of the squared
+- `radial_kernel` — build a `RadialKernel` from any real **function** ``\\sigma`` of the squared
   wavenumber, which is the route for a multiplier this module does not name (a smooth filter, a
   hyperviscosity, an integrating factor).
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
@@ -357,7 +357,7 @@ layout, element type and array backend the kernel takes as its own.
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
-rebuild — where a stored kernel would pay a full field write each time. That evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component; [`RadialKernel`](@ref) carries the measured trade-off against a materialized kernel.
+rebuild — where a stored kernel would pay a full field write each time. That evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component; `RadialKernel` carries the measured trade-off against a materialized kernel.
 """
 function radial_kernel(sigma::F, multipliers::FieldSpectralMultipliers) where {F}
   T = _multipliers_scalar_type(multipliers)
@@ -1725,7 +1725,7 @@ end
                   wavenumber_low::Real, wavenumber_high::Real) -> RadialKernel
 
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
-itself rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see [`RadialKernel`](@ref) for the measured trade-off against a materialized kernel. Use
+itself rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use
 [`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
 the multipliers' grid and array backend: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
@@ -1774,7 +1774,7 @@ end
                     wavenumber_cutoff::Real) -> RadialKernel
 
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
-rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see [`RadialKernel`](@ref) for the measured trade-off against a materialized kernel. Use [`materialize_kernel`](@ref) to
+rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use [`materialize_kernel`](@ref) to
 expand it into a `StoredKernel`. It is built on
 the multipliers' grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.

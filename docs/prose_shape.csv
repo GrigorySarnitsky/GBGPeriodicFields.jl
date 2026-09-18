@@ -7,106 +7,128 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 13. Decision log",22,22,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
 "ARCHITECTURE.md § 3. Types and memory layout",291,115,0
-"ARCHITECTURE.md § 4. Spectral machinery",663,161,0
+"ARCHITECTURE.md § 4. Spectral machinery",659,161,0
 "ARCHITECTURE.md § 5. Validation design",216,131,0
 "ARCHITECTURE.md § 7. Aliasing policy",216,77,0
 "ARCHITECTURE.md § 8. Broadcasting",158,99,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading",700,219,0
 "ARCHITECTURE.md § Architecture — GBGPeriodicFields",152,82,0
-"ARCHITECTURE.md § Documentation policy",239,154,0
+"ARCHITECTURE.md § Documentation policy",227,142,0
 "ARCHITECTURE.md § Layers",383,309,0
 "ARCHITECTURE.md § Naming conventions",298,237,0
-"ARCHITECTURE.md § Representation validity lives in the method set",591,198,0
+"ARCHITECTURE.md § Representation validity lives in the method set",590,198,0
 "ARCHITECTURE.md § The architecture map",387,262,0
 "ARCHITECTURE.md § The fiber-bundle model",1390,583,0
 "ARCHITECTURE.md § The invariants",45,45,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",99,99,0
-"ARCHITECTURE.md § item 1",4,4,0
-"ARCHITECTURE.md § item 10",97,97,0
-"ARCHITECTURE.md § item 11",153,153,0
-"ARCHITECTURE.md § item 12",93,93,0
-"ARCHITECTURE.md § item 13",181,181,0
-"ARCHITECTURE.md § item 14",106,106,0
-"ARCHITECTURE.md § item 15",82,82,0
-"ARCHITECTURE.md § item 16",113,113,0
-"ARCHITECTURE.md § item 17",381,381,0
-"ARCHITECTURE.md § item 18",783,312,0
-"ARCHITECTURE.md § item 19",1077,280,0
-"ARCHITECTURE.md § item 2",26,26,0
-"ARCHITECTURE.md § item 20",388,177,0
-"ARCHITECTURE.md § item 21",543,305,0
-"ARCHITECTURE.md § item 22",1440,332,0
-"ARCHITECTURE.md § item 23",666,221,0
-"ARCHITECTURE.md § item 24",375,375,0
-"ARCHITECTURE.md § item 25",492,206,0
-"ARCHITECTURE.md § item 26",631,254,0
-"ARCHITECTURE.md § item 27",965,538,0
-"ARCHITECTURE.md § item 28",1020,269,0
-"ARCHITECTURE.md § item 29",620,168,0
-"ARCHITECTURE.md § item 3",30,30,0
-"ARCHITECTURE.md § item 30",926,220,0
-"ARCHITECTURE.md § item 31",396,154,0
-"ARCHITECTURE.md § item 32",756,431,0
-"ARCHITECTURE.md § item 33",888,289,0
-"ARCHITECTURE.md § item 34",367,226,0
-"ARCHITECTURE.md § item 35",862,423,0
-"ARCHITECTURE.md § item 36",663,324,0
-"ARCHITECTURE.md § item 37",644,238,0
-"ARCHITECTURE.md § item 38",297,297,0
-"ARCHITECTURE.md § item 39",327,327,0
-"ARCHITECTURE.md § item 4",8,8,0
-"ARCHITECTURE.md § item 40",406,406,0
-"ARCHITECTURE.md § item 41",297,297,0
-"ARCHITECTURE.md § item 42",203,203,0
-"ARCHITECTURE.md § item 43",591,591,0
-"ARCHITECTURE.md § item 44",215,215,0
-"ARCHITECTURE.md § item 45",217,217,0
-"ARCHITECTURE.md § item 46",444,105,0
-"ARCHITECTURE.md § item 47",372,135,0
-"ARCHITECTURE.md § item 48",377,161,0
-"ARCHITECTURE.md § item 49",439,269,0
-"ARCHITECTURE.md § item 5",7,7,0
-"ARCHITECTURE.md § item 50",803,270,0
-"ARCHITECTURE.md § item 51",685,283,0
-"ARCHITECTURE.md § item 52",450,148,0
-"ARCHITECTURE.md § item 53",281,98,0
-"ARCHITECTURE.md § item 54",443,129,0
-"ARCHITECTURE.md § item 55",571,148,0
-"ARCHITECTURE.md § item 56",768,156,0
-"ARCHITECTURE.md § item 57",506,146,0
-"ARCHITECTURE.md § item 58",466,150,0
-"ARCHITECTURE.md § item 59",500,101,0
-"ARCHITECTURE.md § item 6",22,22,0
-"ARCHITECTURE.md § item 60",348,99,0
-"ARCHITECTURE.md § item 61",389,120,0
-"ARCHITECTURE.md § item 62",660,166,0
-"ARCHITECTURE.md § item 63",818,223,0
-"ARCHITECTURE.md § item 64",481,139,0
-"ARCHITECTURE.md § item 65",346,212,0
-"ARCHITECTURE.md § item 66",473,118,0
-"ARCHITECTURE.md § item 67",398,118,0
-"ARCHITECTURE.md § item 68",327,127,0
-"ARCHITECTURE.md § item 69",683,143,0
-"ARCHITECTURE.md § item 7",51,51,0
-"ARCHITECTURE.md § item 70",469,107,0
-"ARCHITECTURE.md § item 71",935,232,0
-"ARCHITECTURE.md § item 72",990,128,0
-"ARCHITECTURE.md § item 73",861,861,0
-"ARCHITECTURE.md § item 74",611,611,0
-"ARCHITECTURE.md § item 75",716,716,0
-"ARCHITECTURE.md § item 76",885,207,0
-"ARCHITECTURE.md § item 77",302,262,0
-"ARCHITECTURE.md § item 78",1449,208,0
-"ARCHITECTURE.md § item 79",652,147,0
-"ARCHITECTURE.md § item 8",38,38,0
-"ARCHITECTURE.md § item 80",1011,197,0
-"ARCHITECTURE.md § item 81",440,111,0
-"ARCHITECTURE.md § item 82",943,120,0
-"ARCHITECTURE.md § item 83",1328,117,0
-"ARCHITECTURE.md § item 84",463,88,0
-"ARCHITECTURE.md § item 85",893,117,0
-"ARCHITECTURE.md § item 9",26,26,0
+"ARCHITECTURE.md § item 1 of 10. Interpolation and anterpolation (the",189,189,0
+"ARCHITECTURE.md § item 1 of 13. Decision log",11,11,0
+"ARCHITECTURE.md § item 1 of 9. Performance model and CPU threading",39,39,0
+"ARCHITECTURE.md § item 1 of The invariants",74,74,0
+"ARCHITECTURE.md § item 10 of 13. Decision log",111,111,0
+"ARCHITECTURE.md § item 10 of The invariants",132,132,0
+"ARCHITECTURE.md § item 11 of 13. Decision log",165,165,0
+"ARCHITECTURE.md § item 11 of The invariants",71,71,0
+"ARCHITECTURE.md § item 12 of 13. Decision log",113,113,0
+"ARCHITECTURE.md § item 12 of The invariants",48,48,0
+"ARCHITECTURE.md § item 13 of 13. Decision log",194,194,0
+"ARCHITECTURE.md § item 13 of The invariants",72,72,0
+"ARCHITECTURE.md § item 14 of 13. Decision log",127,127,0
+"ARCHITECTURE.md § item 14 of The invariants",140,140,0
+"ARCHITECTURE.md § item 15 of 13. Decision log",100,100,0
+"ARCHITECTURE.md § item 16 of 13. Decision log",143,143,0
+"ARCHITECTURE.md § item 17 of 13. Decision log",402,402,0
+"ARCHITECTURE.md § item 18 of 13. Decision log",798,312,0
+"ARCHITECTURE.md § item 19 of 13. Decision log",1091,280,0
+"ARCHITECTURE.md § item 2 of 10. Interpolation and anterpolation (the",42,42,0
+"ARCHITECTURE.md § item 2 of 13. Decision log",33,33,0
+"ARCHITECTURE.md § item 2 of 9. Performance model and CPU threading",56,56,0
+"ARCHITECTURE.md § item 2 of The invariants",35,35,0
+"ARCHITECTURE.md § item 20 of 13. Decision log",409,198,0
+"ARCHITECTURE.md § item 21 of 13. Decision log",556,305,0
+"ARCHITECTURE.md § item 22 of 13. Decision log",1453,332,0
+"ARCHITECTURE.md § item 23 of 13. Decision log",679,221,0
+"ARCHITECTURE.md § item 24 of 13. Decision log",388,388,0
+"ARCHITECTURE.md § item 25 of 13. Decision log",506,217,0
+"ARCHITECTURE.md § item 26 of 13. Decision log",642,254,0
+"ARCHITECTURE.md § item 27 of 13. Decision log",976,538,0
+"ARCHITECTURE.md § item 28 of 13. Decision log",1034,269,0
+"ARCHITECTURE.md § item 29 of 13. Decision log",633,168,0
+"ARCHITECTURE.md § item 3 of 10. Interpolation and anterpolation (the",1752,498,0
+"ARCHITECTURE.md § item 3 of 13. Decision log",41,41,0
+"ARCHITECTURE.md § item 3 of 9. Performance model and CPU threading",110,110,0
+"ARCHITECTURE.md § item 3 of The invariants",31,31,0
+"ARCHITECTURE.md § item 30 of 13. Decision log",941,220,0
+"ARCHITECTURE.md § item 31 of 13. Decision log",414,154,0
+"ARCHITECTURE.md § item 32 of 13. Decision log",771,431,0
+"ARCHITECTURE.md § item 33 of 13. Decision log",901,289,0
+"ARCHITECTURE.md § item 34 of 13. Decision log",383,242,0
+"ARCHITECTURE.md § item 35 of 13. Decision log",876,423,0
+"ARCHITECTURE.md § item 36 of 13. Decision log",678,324,0
+"ARCHITECTURE.md § item 37 of 13. Decision log",662,256,0
+"ARCHITECTURE.md § item 38 of 13. Decision log",313,313,0
+"ARCHITECTURE.md § item 39 of 13. Decision log",341,341,0
+"ARCHITECTURE.md § item 4 of 13. Decision log",20,20,0
+"ARCHITECTURE.md § item 4 of 9. Performance model and CPU threading",32,32,0
+"ARCHITECTURE.md § item 4 of The invariants",37,37,0
+"ARCHITECTURE.md § item 40 of 13. Decision log",419,419,0
+"ARCHITECTURE.md § item 41 of 13. Decision log",310,310,0
+"ARCHITECTURE.md § item 42 of 13. Decision log",217,217,0
+"ARCHITECTURE.md § item 43 of 13. Decision log",607,607,0
+"ARCHITECTURE.md § item 44 of 13. Decision log",225,225,0
+"ARCHITECTURE.md § item 45 of 13. Decision log",228,228,0
+"ARCHITECTURE.md § item 46 of 13. Decision log",457,118,0
+"ARCHITECTURE.md § item 47 of 13. Decision log",387,150,0
+"ARCHITECTURE.md § item 48 of 13. Decision log",389,161,0
+"ARCHITECTURE.md § item 49 of 13. Decision log",456,286,0
+"ARCHITECTURE.md § item 5 of 13. Decision log",18,18,0
+"ARCHITECTURE.md § item 5 of 9. Performance model and CPU threading",780,319,0
+"ARCHITECTURE.md § item 5 of The invariants",52,52,0
+"ARCHITECTURE.md § item 50 of 13. Decision log",817,270,0
+"ARCHITECTURE.md § item 51 of 13. Decision log",699,283,0
+"ARCHITECTURE.md § item 52 of 13. Decision log",467,148,0
+"ARCHITECTURE.md § item 53 of 13. Decision log",294,111,0
+"ARCHITECTURE.md § item 54 of 13. Decision log",456,129,0
+"ARCHITECTURE.md § item 55 of 13. Decision log",584,148,0
+"ARCHITECTURE.md § item 56 of 13. Decision log",783,156,0
+"ARCHITECTURE.md § item 57 of 13. Decision log",519,146,0
+"ARCHITECTURE.md § item 58 of 13. Decision log",479,150,0
+"ARCHITECTURE.md § item 59 of 13. Decision log",515,101,0
+"ARCHITECTURE.md § item 6 of 13. Decision log",16,16,0
+"ARCHITECTURE.md § item 6 of The invariants",36,36,0
+"ARCHITECTURE.md § item 60 of 13. Decision log",361,112,0
+"ARCHITECTURE.md § item 61 of 13. Decision log",404,120,0
+"ARCHITECTURE.md § item 62 of 13. Decision log",675,166,0
+"ARCHITECTURE.md § item 63 of 13. Decision log",834,223,0
+"ARCHITECTURE.md § item 64 of 13. Decision log",494,139,0
+"ARCHITECTURE.md § item 65 of 13. Decision log",358,212,0
+"ARCHITECTURE.md § item 66 of 13. Decision log",488,118,0
+"ARCHITECTURE.md § item 67 of 13. Decision log",411,118,0
+"ARCHITECTURE.md § item 68 of 13. Decision log",344,127,0
+"ARCHITECTURE.md § item 69 of 13. Decision log",697,143,0
+"ARCHITECTURE.md § item 7 of 13. Decision log",63,63,0
+"ARCHITECTURE.md § item 7 of The invariants",15,15,0
+"ARCHITECTURE.md § item 70 of 13. Decision log",482,107,0
+"ARCHITECTURE.md § item 71 of 13. Decision log",947,232,0
+"ARCHITECTURE.md § item 72 of 13. Decision log",1001,128,0
+"ARCHITECTURE.md § item 73 of 13. Decision log",877,877,0
+"ARCHITECTURE.md § item 74 of 13. Decision log",624,624,0
+"ARCHITECTURE.md § item 75 of 13. Decision log",730,730,0
+"ARCHITECTURE.md § item 76 of 13. Decision log",900,207,0
+"ARCHITECTURE.md § item 77 of 13. Decision log",315,262,0
+"ARCHITECTURE.md § item 78 of 13. Decision log",1466,208,0
+"ARCHITECTURE.md § item 79 of 13. Decision log",668,147,0
+"ARCHITECTURE.md § item 8 of 13. Decision log",49,49,0
+"ARCHITECTURE.md § item 8 of The invariants",23,23,0
+"ARCHITECTURE.md § item 80 of 13. Decision log",1029,197,0
+"ARCHITECTURE.md § item 81 of 13. Decision log",453,124,0
+"ARCHITECTURE.md § item 82 of 13. Decision log",958,120,0
+"ARCHITECTURE.md § item 83 of 13. Decision log",1340,117,0
+"ARCHITECTURE.md § item 84 of 13. Decision log",479,88,0
+"ARCHITECTURE.md § item 85 of 13. Decision log",909,117,0
+"ARCHITECTURE.md § item 9 of 13. Decision log",32,32,0
+"ARCHITECTURE.md § item 9 of The invariants",142,142,0
 "Convolution.jl :: Convolution",633,198,0
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",674,139,2
@@ -147,7 +169,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Kernel builders",73,65,0
 "Convolution.md § Kernel storage classes",170,84,0
 "Convolution.md § method-specific docstrings were appearing here as well. Same",8,8,0
-"DifferentialOperators.jl :: DifferentialOperators",415,239,0
+"DifferentialOperators.jl :: DifferentialOperators",407,231,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",134,64,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
@@ -159,21 +181,21 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",52,43,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
-"DifferentialOperators.jl :: curl!(",268,78,0
+"DifferentialOperators.jl :: curl!(",267,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",442,110,0
+"DifferentialOperators.jl :: divergence!(",441,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
-"DifferentialOperators.jl :: gradient!(",194,53,0
+"DifferentialOperators.jl :: gradient!(",193,53,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
-"DifferentialOperators.jl :: helmholtz_projection!(",578,108,1
+"DifferentialOperators.jl :: helmholtz_projection!(",577,108,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
-"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",340,86,1
+"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",339,86,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
-"DifferentialOperators.jl :: inverse_laplacian!(",299,76,1
+"DifferentialOperators.jl :: inverse_laplacian!(",298,75,1
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
-"DifferentialOperators.jl :: laplacian!(",164,57,0
+"DifferentialOperators.jl :: laplacian!(",163,56,0
 "DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",34,32,0
-"DifferentialOperators.jl :: symmetric_gradient!(",215,49,0
+"DifferentialOperators.jl :: symmetric_gradient!(",214,49,0
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
 "DifferentialOperators.md § DifferentialOperators",8,8,0
 "DifferentialOperators.md § First-order differential operators",10,10,0
@@ -189,7 +211,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Formalization — GBGPeriodicFields",222,96,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",312,74,0
 "FORMALIZATION.md § Moving between grid resolutions (`Fields`, decision 85)",417,112,0
-"FORMALIZATION.md § Reductions (`Reductions`)",1194,155,0
+"FORMALIZATION.md § Reductions (`Reductions`)",1195,155,0
 "FORMALIZATION.md § Representations and transforms (`Fields`)",878,185,0
 "FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",253,139,0
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",524,125,0
@@ -266,9 +288,9 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
 "FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
 "FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",509,98,1
-"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",206,57,0
+"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",205,57,0
 "FieldAlgebra.jl :: cross(u::VectorFieldPhysical, v::VectorFieldPhysical)",53,51,0
-"FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",125,66,0
+"FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",124,66,0
 "FieldAlgebra.jl :: det(A::TensorFieldPhysical{2})",42,41,0
 "FieldAlgebra.jl :: dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",72,33,0
 "FieldAlgebra.jl :: dev(A::TensorFieldPhysical{2})",41,38,0
@@ -279,14 +301,14 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: map(φ, sources...)",59,57,0
 "FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",334,161,0
 "FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",228,100,0
-"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, scalar_field::Scalar",119,32,0
+"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, scalar_field::Scalar",118,32,0
 "FieldAlgebra.jl :: norm(scalar_field::ScalarFieldPhysical)",36,33,0
 "FieldAlgebra.jl :: skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhy",65,32,0
 "FieldAlgebra.jl :: skew(A::TensorFieldPhysical{2})",41,38,0
 "FieldAlgebra.jl :: subtract!(destination, a, b, fields...)",130,46,0
 "FieldAlgebra.jl :: sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",65,32,0
 "FieldAlgebra.jl :: sym(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical",85,35,0
+"FieldAlgebra.jl :: tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical",84,34,0
 "FieldAlgebra.jl :: tr(A::TensorFieldPhysical{2})",44,42,0
 "FieldAlgebra.jl :: transpose!(destination::TensorFieldPhysical{2}, A::TensorFie",84,31,0
 "FieldAlgebra.jl :: transpose(A)",27,26,0
@@ -303,14 +325,14 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",157,94,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",42,41,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
-"Fields.jl :: FieldSpectralMultipliers(",581,147,0
+"Fields.jl :: FieldSpectralMultipliers(",611,147,0
 "Fields.jl :: FieldTransformPlans(",480,171,1
 "Fields.jl :: Fields",506,455,0
 "Fields.jl :: Grid3D(",174,74,0
 "Fields.jl :: RealFourierLayout()",76,33,0
 "Fields.jl :: ScalarFieldPhysical(",338,118,0
 "Fields.jl :: ScalarFieldSpectral(",277,123,0
-"Fields.jl :: SpectralKernel{T}",219,116,0
+"Fields.jl :: SpectralKernel{T}",217,115,0
 "Fields.jl :: TensorFieldPhysical{R}(",417,118,0
 "Fields.jl :: TensorFieldSpectral{R}(",331,123,0
 "Fields.jl :: VectorFieldPhysical(",355,118,0
@@ -329,7 +351,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _check_matching_context(a, b)",54,52,0
 "Fields.jl :: _check_multipliers_compatibility(field::AbstractFieldSpectra",22,20,0
 "Fields.jl :: _check_same_domain(a, b)",53,51,0
-"Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",155,63,0
+"Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",154,63,0
 "Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",157,102,0
 "Fields.jl :: _component_view(data, ::Val{R}, component::Int)",156,108,0
 "Fields.jl :: _context_grid(object)",72,71,0
@@ -408,13 +430,13 @@ unit,words,longest_paragraph,admonitions
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
 "Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",264,133,0
-"Interpolation.jl :: AbstractTransferScheme",279,107,0
+"Interpolation.jl :: AbstractTransferScheme",277,105,0
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",470,177,1
-"Interpolation.jl :: Interpolation",860,242,0
+"Interpolation.jl :: Interpolation",858,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",273,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",448,199,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",537,216,1
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",667,216,1
 "Interpolation.jl :: PointTraversalOrder(indices)",223,58,1
 "Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",309,93,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
@@ -497,19 +519,19 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § finding (x)",782,176,0
 "PERFORMANCE.md § finding (y)",924,167,0
 "PERFORMANCE.md § finding (z)",512,279,0
-"PERFORMANCE.md § item 1",94,94,0
-"PERFORMANCE.md § item 2",98,98,0
-"PERFORMANCE.md § item 3",277,277,0
-"PERFORMANCE.md § item 4",143,143,0
-"PERFORMANCE.md § item 5",155,155,0
-"PERFORMANCE.md § item 6",710,493,0
-"PERFORMANCE.md § item 7",147,147,0
-"PERFORMANCE.md § item 8",211,211,0
-"PERFORMANCE.md § item 9",200,89,0
+"PERFORMANCE.md § item 1 of 7. Current coverage and known gaps",113,113,0
+"PERFORMANCE.md § item 2 of 7. Current coverage and known gaps",113,113,0
+"PERFORMANCE.md § item 3 of 7. Current coverage and known gaps",286,286,0
+"PERFORMANCE.md § item 4 of 7. Current coverage and known gaps",160,160,0
+"PERFORMANCE.md § item 5 of 7. Current coverage and known gaps",169,169,0
+"PERFORMANCE.md § item 6 of 7. Current coverage and known gaps",729,512,0
+"PERFORMANCE.md § item 7 of 7. Current coverage and known gaps",162,162,0
+"PERFORMANCE.md § item 8 of 7. Current coverage and known gaps",224,224,0
+"PERFORMANCE.md § item 9 of 7. Current coverage and known gaps",217,89,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",151,75,1
 "Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",96,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
-"Points.jl :: Points",371,170,0
+"Points.jl :: Points",370,169,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
 "Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",45,30,0
 "Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",77,36,0
@@ -547,8 +569,8 @@ unit,words,longest_paragraph,admonitions
 "Points.md § Point-value types",6,6,0
 "Points.md § Points",8,8,0
 "Points.md § Types",12,12,0
-"Reductions.jl :: Reductions",623,351,1
-"Reductions.jl :: _FiberGather{V}(fiber_map)",81,80,0
+"Reductions.jl :: Reductions",622,350,1
+"Reductions.jl :: _FiberGather{V}(fiber_map)",95,80,0
 "Reductions.jl :: _fiber_at(components, index, ::Val{NC})",36,33,0
 "Reductions.jl :: _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{",94,50,0
 "Reductions.jl :: _fiber_mapreduce(fiber_map, combine, section)",244,79,0
@@ -563,10 +585,10 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: _tree_var(data; corrected)",22,20,0
 "Reductions.jl :: cov(u; corrected = true)",245,81,0
 "Reductions.jl :: extrema(f)",45,42,0
-"Reductions.jl :: inner(f, g)",356,106,1
-"Reductions.jl :: integral(f)",540,121,1
-"Reductions.jl :: l2norm(f)",97,53,0
-"Reductions.jl :: lpnorm(f, p = 2)",202,90,0
+"Reductions.jl :: inner(f, g)",355,106,1
+"Reductions.jl :: integral(f)",539,121,1
+"Reductions.jl :: l2norm(f)",96,52,0
+"Reductions.jl :: lpnorm(f, p = 2)",201,89,0
 "Reductions.jl :: maximum(f)",127,124,0
 "Reductions.jl :: mean(f)",125,122,0
 "Reductions.jl :: minimum(f)",30,27,0
@@ -574,7 +596,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: radial_spectrum(f, multipliers)",771,262,1
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",346,122,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",765,229,2
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",764,229,2
 "Reductions.md § Inner-product and norm reductions",6,6,0
 "Reductions.md § Integral reductions",60,57,0
 "Reductions.md § Internal API",78,54,0
@@ -591,29 +613,41 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 7. Current coverage and known gaps",1689,1674,0
 "TESTING.md § A GATE and a SURVEY, and how to tell which a test is",139,114,0
 "TESTING.md § Testing — GBGPeriodicFields",80,80,0
-"TESTING.md § item 1",15,15,0
-"TESTING.md § item 12",20,20,0
-"TESTING.md § item 13",8,8,0
-"TESTING.md § item 15",57,57,0
-"TESTING.md § item 16",64,64,0
-"TESTING.md § item 17",305,188,0
-"TESTING.md § item 18",156,156,0
-"TESTING.md § item 19",118,65,0
-"TESTING.md § item 2",27,27,0
-"TESTING.md § item 20",155,102,0
-"TESTING.md § item 21",127,63,0
-"TESTING.md § item 22",595,120,0
-"TESTING.md § item 3",6,6,0
-"TESTING.md § item 4",207,80,0
-"TESTING.md § item 6",2,2,0
-"TESTING.md § item 7",7,7,0
+"TESTING.md § item 1 of 4. The coverage contract",8,8,0
+"TESTING.md § item 1 of 7. Current coverage and known gaps",28,28,0
+"TESTING.md § item 1 of A GATE and a SURVEY, and how to tell whi",32,32,0
+"TESTING.md § item 10 of 4. The coverage contract",14,14,0
+"TESTING.md § item 11 of 4. The coverage contract",15,15,0
+"TESTING.md § item 12 of 4. The coverage contract",36,36,0
+"TESTING.md § item 13 of 4. The coverage contract",23,23,0
+"TESTING.md § item 14 of 4. The coverage contract",14,14,0
+"TESTING.md § item 15 of 4. The coverage contract",71,71,0
+"TESTING.md § item 16 of 4. The coverage contract",78,78,0
+"TESTING.md § item 17 of 4. The coverage contract",321,204,0
+"TESTING.md § item 18 of 4. The coverage contract",169,169,0
+"TESTING.md § item 19 of 4. The coverage contract",134,69,0
+"TESTING.md § item 2 of 4. The coverage contract",4,4,0
+"TESTING.md § item 2 of 7. Current coverage and known gaps",39,39,0
+"TESTING.md § item 2 of A GATE and a SURVEY, and how to tell whi",46,46,0
+"TESTING.md § item 20 of 4. The coverage contract",171,102,0
+"TESTING.md § item 21 of 4. The coverage contract",143,63,0
+"TESTING.md § item 22 of 4. The coverage contract",611,120,0
+"TESTING.md § item 3 of 4. The coverage contract",21,21,0
+"TESTING.md § item 3 of A GATE and a SURVEY, and how to tell whi",42,42,0
+"TESTING.md § item 4 of 4. The coverage contract",15,15,0
+"TESTING.md § item 4 of A GATE and a SURVEY, and how to tell whi",224,80,0
+"TESTING.md § item 5 of 4. The coverage contract",9,9,0
+"TESTING.md § item 6 of 4. The coverage contract",18,18,0
+"TESTING.md § item 7 of 4. The coverage contract",19,19,0
+"TESTING.md § item 8 of 4. The coverage contract",12,12,0
+"TESTING.md § item 9 of 4. The coverage contract",17,17,0
 "api.md § API overview",70,35,0
 "gpu.md § (preamble)",22,22,1
 "gpu.md § A first run on CUDA",152,49,0
 "gpu.md § A first run on ROCm",143,47,0
 "gpu.md § A turbulence simulation on ROCm",45,33,0
 "gpu.md § Fields larger than GPU memory",328,78,1
-"gpu.md § Fields on a device",119,80,0
+"gpu.md § Fields on a device",118,79,0
 "gpu.md § Known pitfalls on ROCm",118,74,1
 "gpu.md § Running on a GPU",52,52,0
 "gpu.md § Transforms may overwrite their input",42,42,0
@@ -632,7 +666,7 @@ unit,words,longest_paragraph,admonitions
 "tutorial.md § (preamble)",22,22,1
 "tutorial.md § Convolution (apply a Fourier kernel)",70,58,0
 "tutorial.md § Differential operators",144,60,0
-"tutorial.md § Fiberwise algebra and L²/measure reductions",212,61,0
+"tutorial.md § Fiberwise algebra and L²/measure reductions",211,60,0
 "tutorial.md § Getting started",79,45,0
 "tutorial.md § Grids and fields",82,47,0
 "tutorial.md § Points: interpolation and anterpolation",97,38,0

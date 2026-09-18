@@ -316,7 +316,7 @@ The pointwise product is *not* preserved by ``\mathcal F`` — the **convolution
 \qquad\qquad \mathcal F(f \star g) = \hat f \cdot \hat g .
 ```
 
-The coefficientwise product *downstairs* is **convolution** upstairs (offered as `convolve` ``\equiv \star``,
+The coefficientwise product *downstairs* is **convolution** upstairs (offered as `convolve` (``\star``),
 [§11](@ref "11. Convolution")); the pointwise product ``f \cdot g`` transforms to a convolution with **no** coefficientwise spectral
 form — exactly why those nonlinear operations are physical-space only.
 
@@ -387,12 +387,12 @@ in these doc pages is written as Documenter LaTeX (KaTeX) in **standard notation
 ``\langle f, g\rangle``, display ```math``` blocks — never Unicode-glyph approximations (`⟨f,g⟩`,
 `Σ`, `∫`). Because the package is *grounded in mathematics* (the principle of this section), each
 code object is **explicitly identified with its mathematical symbol on first mention** so the
-correspondence is never left implicit: `gradient` ``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl`
-``\equiv \nabla\times``, `laplacian` ``\equiv \Delta``, `inverse_laplacian`
-``\equiv \Delta^{-1}``, `helmholtz_projection` ``\equiv \mathbb{P}``, `inner`
-``\equiv \langle\cdot,\cdot\rangle``, `l2norm` ``\equiv \lVert\cdot\rVert_2``, `integral`
-``\equiv \int\,\mathrm{d}\mu``, `convolve` ``\equiv \star``, `interpolate`/`anterpolate`
-``\equiv W``/``W^\top``, `to_spectral`/`to_physical` ``\equiv \mathcal F``/``\mathcal F^{-1}``,
+correspondence is never left implicit: `gradient` (``\nabla``), `divergence` (``\nabla\cdot``),
+`curl` (``\nabla\times``), `laplacian` (``\Delta``), `inverse_laplacian` (``\Delta^{-1}``),
+`helmholtz_projection` (``\mathbb{P}``), `inner` (``\langle\cdot,\cdot\rangle``),
+`l2norm` (``\lVert\cdot\rVert_2``), `integral` (``\int\,\mathrm{d}\mu``), `convolve` (``\star``),
+`interpolate`/`anterpolate` (``W``/``W^\top``),
+`to_spectral`/`to_physical` (``\mathcal F``/``\mathcal F^{-1}``),
 a field in spectral representation written ``\hat f``. (In a `"""` docstring the LaTeX backslashes
 are escaped `\\`; in a `.md` page they are raw. Plain `#` comments stay Unicode — they are not
 rendered.) `Reductions` is the reference implementation.
@@ -486,8 +486,8 @@ vs the squared wavenumber kept) — see `docs/TESTING.md`.
 
 **Operators are multipliers — the intertwiner square.** ``\mathcal F`` (`to_spectral`, with inverse
 `to_physical`) is a linear isomorphism, and every translation-invariant operator ``L`` — `gradient`
-``\equiv \nabla``, `divergence` ``\equiv \nabla\cdot``, `curl` ``\equiv \nabla\times``, `laplacian`
-``\equiv \Delta`` — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k) \cdot`` (``\mathrm{i}a``,
+(``\nabla``), `divergence` (``\nabla\cdot``), `curl` (``\nabla\times``),
+`laplacian` (``\Delta``) — is *diagonalized* by it into a pointwise multiplier ``\hat L = m(k) \cdot`` (``\mathrm{i}a``,
 ``\mathrm{i}a\cdot``, ``\mathrm{i}a\times``, ``-|k|^2``, writing ``a`` for the derivative wavenumber and ``k`` for
 the true one — the Nyquist split just above):
 
@@ -1951,7 +1951,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `convolve` itself, this is a new generic in `Convolution`.
 
 29. **HDF5 field persistence — `write_field` / `read_field`, a weak-dependency extension.** The sibling
-    consumer `GBGStreamingStatistics` ships `write_histogram` / `read_histogram` to persist its durable
+    consumer [`GBGStreamingStatistics`](https://grigorysarnitsky.github.io/GBGStreamingStatistics.jl) ships `write_histogram` / `read_histogram` to persist its durable
     summaries to HDF5; the request was the field analogue, so a solver can **checkpoint a field for
     restart**, dump a **full-resolution snapshot** for later analysis, or hand a field to another tool as
     easily as it dumps statistics. The demos already hand-rolled HDF5 for their plotted curves; this makes
@@ -3373,7 +3373,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     prudential half is `cu`, which silently demotes `Float64` to `Float32`: a transfer that changes what
     a solver computes is the anti-pattern invariant 14 was written against. The structural half is that
     precision is not the same kind of operation at all — `Grid3D{T}` stores the domain size, spacing and
-    origin as ``NTuple{3, T}`` and a field demands its grid share its element type, so changing
+    origin as `NTuple{3, T}` and a field demands its grid share its element type, so changing
     precision must rebuild the grid, where changing storage touches only the array. It remains recorded
     future work.
 
