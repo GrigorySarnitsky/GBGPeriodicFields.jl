@@ -6,7 +6,7 @@ The package is aimed primarily at fluid-dynamics and turbulence simulations. Fie
 
 This package is not intended to be a ready-to-use DNS solver; rather, it is a toolkit for building fluid-dynamics and general field solvers.
 
-[`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl) is such a solver, and the package's primary consumer: a pseudospectral direct numerical simulation of homogeneous isotropic turbulence built on these periodic fields. Its documentation shows this package in earnest — driving a complete solver, not a worked example.
+[`GBGHomogeneousTurbulence.jl`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl) is such a solver, and the package's primary consumer: a pseudospectral direct numerical simulation of homogeneous isotropic turbulence built on these periodic fields. Its documentation shows this package in earnest — driving a complete solver, not a worked example.
 
 The `GBG` part in the name `GBGPeriodicFields.jl` comes from the city of Göteborg (Gothenburg, Sweden), where the primary development took place.
 

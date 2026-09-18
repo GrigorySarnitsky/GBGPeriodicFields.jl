@@ -19,7 +19,7 @@ its own, without opening the source or another document. (Universally standard m
 
 The package is the field layer for pseudospectral simulation of incompressible
 fluid dynamics and turbulence on three-dimensional rectangular periodic domains. Its
-primary consumer is [`GBGIsotropicTurbulence.jl`](https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl), a direct numerical simulation of
+primary consumer is [`GBGHomogeneousTurbulence.jl`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl), a direct numerical simulation of
 homogeneous isotropic turbulence built on it; the operation families below were shaped by
 what that solver needs, which is why a proposed addition without a consumer is deferred
 rather than built. It
@@ -1801,7 +1801,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
 27. **Consumer-driven fused and missing field-math operations — `combine!`, `det`, `symmetric_gradient`,
     `weighted_inner` (done); a quadratic-form reduction deferred.** The sibling consumer
-    `GBGIsotropicTurbulence` (a thin physics solver built on this field layer) asked the package to absorb
+    `GBGHomogeneousTurbulence` (a thin physics solver built on this field layer) asked the package to absorb
     the field-math it hand-rolls hottest, on the principle that a field library should serve its consumer the
     way **numpy/BLAS serve scientific Python** — not only composable primitives, but *fused* kernels for the
     recurring composites. The reason is concrete: Julia fuses within a single broadcast or `mapreduce` but
@@ -1876,7 +1876,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     not symmetry, decides where an operation lives.**
 
 28. **Spectral translation — `translation_kernel`, and the reality condition a complex kernel must meet.**
-    The sibling consumer `GBGIsotropicTurbulence` asked for a fifth kernel builder: the multiplier that
+    The sibling consumer `GBGHomogeneousTurbulence` asked for a fifth kernel builder: the multiplier that
     **translates** a field by a physical displacement ``h = (h_1, h_2, h_3)`` (a length
     per axis, in the box's units), carrying a field ``f`` at position ``x`` to the displaced field
     ``f(x - h)``. Its consumer is phase-shift de-aliasing, where the nonlinear product is evaluated a
@@ -1999,7 +1999,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     their methods exist only under the extension.
 
 30. **Mapped reductions — a leading function on five of the measure reductions.** The consumer
-    `GBGIsotropicTurbulence` audited its memory and found a recurring shape: to average a nonlinear
+    `GBGHomogeneousTurbulence` audited its memory and found a recurring shape: to average a nonlinear
     invariant of a tensor field — the determinant of a strain tensor, the magnitude of a velocity — it had
     to build that invariant as a **whole section** first and then reduce it, paying one field of scratch
     for a single number. Here a *section* is a field or a set of point-values, and its **fiber value** at a
@@ -2096,11 +2096,11 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     and restoring it — a footgun that bit twice while gathering the numbers above), and the wide lower
     bound on the `LoweredCodeUtils` test pin, which existed only to admit the older `JET` that 1.11
     resolved to. The cost is that the floor now tracks current stable closely, and that sibling packages
-    declaring `julia = "1.11"` — `GBGIsotropicTurbulence` does — must be bumped in step, or they claim
+    declaring `julia = "1.11"` — `GBGHomogeneousTurbulence` does — must be bumped in step, or they claim
     support for a Julia their dependency no longer builds on.
 
 32. **The one-pass Helmholtz kernel, and a convolution fused into the projection and the divergence
-    (the operator ∘ kernel family).** Two requests from the consumer package `GBGIsotropicTurbulence`
+    (the operator ∘ kernel family).** Two requests from the consumer package `GBGHomogeneousTurbulence`
     ("IT") — items 1 and 6 of its 2026-07 memory and compute audits — triaged adversarially and landed
     as one kernel rewrite, because they touch the same code.
 
@@ -2161,7 +2161,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     `test/gpu/suite.jl`; the fused-vs-sequential benchmark rows in the `operators` class.
 
 33. **The exponential radial kernel and the kernel-composed combination (the lazy-kernel pair).** Two
-    requests from `GBGIsotropicTurbulence`'s audits — items 2 and 7 — landed as one broadcast-builder
+    requests from `GBGHomogeneousTurbulence`'s audits — items 2 and 7 — landed as one broadcast-builder
     family in `Convolution`, because the second is the first with a two-field prologue.
 
     *The exponential family.* `exponential_convolve!` (allocating `exponential_convolve`) applies the
@@ -2236,7 +2236,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 34. **The radial diagnostics fuse their staging into the binning kernels.** The audits' item 5: each
     `radial_spectrum` call staged three full spectral planes — a fiber-contracted magnitude array, an
     integer shell-index array, and a Parseval-weighted array — before the decision-25 scatter-add pass
-    consumed them (measured 1.6 of the consuming solver `GBGIsotropicTurbulence`'s units at ``256^3``, reproduced here; the cross-power form
+    consumed them (measured 1.6 of the consuming solver `GBGHomogeneousTurbulence`'s units at ``256^3``, reproduced here; the cross-power form
     staged a fourth, fiber-shaped, plane), and `radial_correlation` staged a separation-magnitude and
     a shell-index array of its own. All of it is now derived **per element inside the kernels**: the
     spectral kernel computes a mode's ``|k|`` from the three one-dimensional squared-wavenumber arrays
@@ -2265,7 +2265,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     bit-identical to the single-field forms) held through the rewrite unchanged.
 
 35. **The audit-response declines, recorded: no general fusion API, two memory items deferred, and
-    the counterparty's standing reservation.** The 2026-07 audit exchange with `GBGIsotropicTurbulence`
+    the counterparty's standing reservation.** The 2026-07 audit exchange with `GBGHomogeneousTurbulence`
     ("IT") shipped five items (decisions 32–34). This entry records what was *declined or deferred*,
     because a decline is a decision, not a gap.
 
@@ -2342,7 +2342,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     bandwidth-bound streaming ([`PERFORMANCE.md`](performance.md) §2), their element traffic *is*
     their cost — so `test/pass_audit.jl` now measures it and pins it exactly.
 
-    *Method — measured, not transcribed.* the consuming solver `GBGIsotropicTurbulence`'s compute audit (its decision 34) freezes an
+    *Method — measured, not transcribed.* the consuming solver `GBGHomogeneousTurbulence`'s compute audit (its decision 34) freezes an
     analytically transcribed per-step pass ledger with a fused-ideal bound (live-ins read once,
     live-outs written once, intermediates free) and a named-holder gap register; that is the honest
     form for a *schedule* its author owns. The package has no schedule (invariant 12), so its unit is
@@ -2839,7 +2839,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     ``\sigma(|k|^2)`` is a separate closure-shaped escalation and is not this decision.
 
 51. **The radial kernel: a symbol of ``|k|^2``, evaluated per mode** (2026-07-29). The escalation
-    decision 35 recorded and the consuming solver `GBGIsotropicTurbulence`'s `lazy-per-mode-symbols.md` requested. The builders `spectral_cutoff` and
+    decision 35 recorded and the consuming solver `GBGHomogeneousTurbulence`'s `lazy-per-mode-symbols.md` requested. The builders `spectral_cutoff` and
     `spectral_band` no longer build a field; they return a `RadialKernel` holding the symbol
     ``\sigma`` itself, and `radial_kernel(σ, multipliers)` builds one for any other symbol
     — a smooth filter envelope, a hyperviscous ``\exp(-\nu(|k|^2)^p\tau)``, an integrating factor.
@@ -3411,7 +3411,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     CPU-side generality.
 
 64. **The preserving scratch arity of `to_physical!`** (2026-08-13, requested by the consuming solver
-    `GBGIsotropicTurbulence` ("IT") in its third request round). The
+    `GBGHomogeneousTurbulence` ("IT") in its third request round). The
     inverse real transform may consume its input as scratch (the transform input contract above:
     `FFTW` destroys it, some device backends happen not to), so the package offered two contracts —
     the destructive in-place `to_physical!(physical, spectral, plans)` and the preserving-but-
@@ -4003,7 +4003,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       it), so a future scheme family cannot ship silently unpersistable.
 
 76. **The transform plans carry no tensor order** (2026-08-26, prompted by a residency request from
-    the consuming solver `GBGIsotropicTurbulence` ("IT")). `FieldTransformPlans` was parameterized on
+    the consuming solver `GBGHomogeneousTurbulence` ("IT")). `FieldTransformPlans` was parameterized on
     the tensor order ``R``, and built one plan pair per rank: a scalar field, a vector field and a
     second-order tensor field each needed their own. That was never a recorded decision — it was the
     shape the original construction happened to take — and it is a **category error** in the terms
@@ -4114,7 +4114,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       own slot. The alternative — permuting the `PointSet` — was rejected because a consumer holds
       `PointValues` indexed alongside its points, and a permutation behind its back desynchronises
       them silently. It also makes the option **purely additive**: a keyword on the four point-indexed
-      verbs, no signature changed, and a consumer that ignores it sees nothing. `GBGIsotropicTurbulence`
+      verbs, no signature changed, and a consumer that ignores it sees nothing. `GBGHomogeneousTurbulence`
       is in final development, which made that a requirement rather than a preference.
 
     - **The gather is bitwise invariant under any order**, because each output element is an
