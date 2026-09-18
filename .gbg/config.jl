@@ -5,7 +5,7 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.4",
+    tool = v"2.0.0-rc.5",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # The rules page is written by `Render.pages` during the docs build. No rule reads a generated
@@ -25,5 +25,12 @@ Config(
     # entry — every package is granted the identity.
     settings = [
         Setting(rule = Symbol("RULE.TEX.MATHBF"), name = :mathbf_allowed, value = ["\\mathbf{k}"]),
+        # The seven pages a human did not write, which is the set the in-tree lint carried: the four
+        # rationale documents, the two hand-written guides, and the Literate example (whose banner is
+        # the same text with each line prefixed `# `, since that is what renders as prose).
+        Setting(rule = Symbol("RULE.DOC.AI_BANNER"), name = :banner_pages, value = [
+            "docs/ARCHITECTURE.md", "docs/FORMALIZATION.md", "docs/TESTING.md", "docs/PERFORMANCE.md",
+            "docs/src/tutorial.md", "docs/src/gpu.md", "examples/HIST_CPU.jl",
+        ]),
     ],
 )

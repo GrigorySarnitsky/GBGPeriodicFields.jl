@@ -67,63 +67,12 @@ end
 # convolution formula `dst .= α ĝ·f̂ + β dst` wrapping onto a "+ …" line was exactly this bug. Must run
 # after `build_examples()` so the generated `examples/hist_cpu.md` (the Literate example's rendered prose)
 # exists to be linted.
-function lint_inline_math()
-  leader = r"^\s{0,3}([-*+>]|\d+[.)])\s"
-  twobacktick = r"(?<!`)``(?!`)"
-  sources = _doc_lint_sources()
-  problems = String[]
-  for file in sources
-    isjl = endswith(file, ".jl")
-    indoc = !isjl                 # .md renders entirely; .jl renders only inside """ … """ docstrings
-    infence = false
-    inspan = false                # inside an unclosed inline ``…`` span
-    for (n, line) in enumerate(eachline(file))
-      # This package writes every docstring delimiter as a lone `"""` on its own line, so toggle on that —
-      # robust against a triple-quoted string *literal* in code (whose opening `x = """` is never lone).
-      if isjl && strip(line) == "\"\"\""
-        indoc = !indoc; inspan = false; continue
-      end
-      indoc || continue
-      if startswith(strip(line), "```")
-        infence = !infence; inspan = false; continue
-      end
-      infence && continue
-      if inspan && occursin(leader, line)
-        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n,
-                               "  inline ``math`` broken across a line by a list/blockquote leader"))
-      end
-      isodd(count(twobacktick, line)) && (inspan = !inspan)
-    end
-  end
-  isempty(problems) || error("doc lint failed — keep inline math on one line:\n  " * join(problems, "\n  "))
-  @info "doc lint: inline math OK across $(length(sources)) source files"
-end
 
 # Doc lint: canonical notation. A rendered-math token with a single house spelling must never appear in a
 # banned variant — a silent drift (the source parses, the page renders, yet the notation disagrees with its
 # sibling docstring). The allocating `divergence` once wrote its partial as `\partial_i` where `divergence!`
 # wrote `\partial_{x_i}`: one operation, one home, one notation (CLAUDE.md §Style, "the review unit is the
 # operation family and the cold read"). Extend `banned` as new canonical spellings are fixed.
-function lint_notation_variants()
-  banned = [
-    (r"\\partial_[ijk]",
-     "bare-index partial — write \\partial_{x_i} (subscript the coordinate, not the fiber index)"),
-    # An unbraced fraction numerator (\frac1{N}, \tfrac12) renders correctly but leaves an argument
-    # boundary implicit; the house rule braces every macro argument (notation.md). A braced numerator
-    # (\frac{1}{N}) puts a "{" — not a digit — right after frac, so it never trips this. Works on both
-    # .md (\frac) and .jl (\\frac) since the match is "…frac<digit>" regardless of the leading escape.
-    (r"\\[dt]?frac[0-9]",
-     "unbraced fraction argument — brace it: \\tfrac{1}{2}, \\frac{1}{N} (not \\tfrac12 / \\frac1{N})"),
-  ]
-  srcs = _doc_lint_sources()
-  problems = String[]
-  for file in srcs, (n, line) in enumerate(eachline(file)), (re, msg) in banned
-    occursin(re, line) &&
-      push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n, "  ", msg))
-  end
-  isempty(problems) || error("doc lint failed — non-canonical notation:\n  " * join(problems, "\n  "))
-  @info "doc lint: notation OK across $(length(srcs)) source files"
-end
 
 """
     lint_swallowed_escapes()
@@ -144,27 +93,6 @@ escape sequence that fails to parse, so it cannot ship — this lint covers the 
 Scoped to `.jl` docstrings: a `.md` page is not Julia source and takes single backslashes correctly,
 and a single-backslash escape in Julia CODE (a newline in an error message) is ordinary.
 """
-function lint_swallowed_escapes()
-  swallowed = r"(?<!\\)\\[abefnrtv0-7xuU]"
-  fence = "\"\"\""
-  problems = String[]
-  for file in _doc_lint_sources()
-    endswith(file, ".jl") || continue
-    in_docstring = false
-    for (n, line) in enumerate(eachline(file))
-      if startswith(strip(line), fence)
-        in_docstring = !in_docstring
-        continue
-      end
-      in_docstring && occursin(swallowed, line) &&
-        push!(problems, string(relpath(file, joinpath(@__DIR__, "..")), ":", n,
-                               "  a single-backslash escape Julia swallows before Documenter sees it — double it"))
-    end
-  end
-  isempty(problems) ||
-    error("doc lint failed — swallowed docstring escape:\n  " * join(problems, "\n  "))
-  @info "doc lint: no swallowed docstring escapes"
-end
 
 """
     lint_retired_claims()
@@ -235,24 +163,6 @@ Both failed silently and were only visible in the rendered sidebar. Moving the f
 section's `@autodocs` block under the wrong heading, so the rendered Internal API listed the fiber —
 and left behind an empty `@docs` block in `Fields.md`, rendering as a heading with nothing under it.
 """
-function lint_api_page_structure()
-  problems = String[]
-  for file in sort(readdir(joinpath(@__DIR__, "src", "api"); join = true))
-    endswith(file, ".md") || continue
-    text = read(file, String)
-    name = relpath(file, joinpath(@__DIR__, ".."))
-    sections = [m.captures[1] for m in eachmatch(r"^## (.+)$"m, text)]
-    internal = findfirst(==("Internal API"), sections)
-    internal === nothing || internal == length(sections) ||
-      push!(problems, "$name  `## Internal API` is section $internal of $(length(sections)) — it must come last")
-    for m in eachmatch(r"```@docs\n(.*?)```"s, text)
-      isempty(strip(m.captures[1])) &&
-        push!(problems, "$name  an empty `@docs` block renders as a heading with no content")
-    end
-  end
-  isempty(problems) || error("doc lint failed — API page structure:\n  " * join(problems, "\n  "))
-  @info "doc lint: API page structure OK"
-end
 
 # ---------------------------------------------------------------------------------------------
 # REVIEW CLOSURE — the verifier is a BUILD REQUIREMENT, not an instruction.
@@ -405,49 +315,15 @@ end
 # reads and writes that same file. Keeping both was impossible rather than merely redundant, since
 # whichever re-baselined last left the other reading its numbers wrongly.
 
-# Every page a human did not write carries the same provenance banner, and "the same" is checked
-# rather than trusted: six copies maintained by hand drift, and a banner that says something slightly
-# different on each page reads as six different claims. The four rationale docs and the tutorial carry
-# it as markdown; `examples/HIST_CPU.jl` carries the identical text as full-line Literate comments,
-# which render as prose on the built page. It lives in the sources rather than being injected at build
-# time so that a reader of the raw file on GitHub sees it too.
-const AI_BANNER = [
-  "!!! info \"Written by AI, not regularly reviewed\"",
-  "    This page is written by AI and is not reviewed regularly by a human.",
-]
+# The AI-provenance banner is `RULE.DOC.AI_BANNER`'s now, and the pages it covers are declared as
+# `banner_pages` in `.gbg/config.jl`. The rule compares the text VERBATIM and strips the `# `
+# prefix a Literate file carries, which is what the constant that stood here existed to express.
 
-function lint_ai_banner()
-  root = joinpath(@__DIR__, "..")
-  markdown = [joinpath(@__DIR__, f) for f in
-              ("ARCHITECTURE.md", "FORMALIZATION.md", "TESTING.md", "PERFORMANCE.md")]
-  push!(markdown, joinpath(@__DIR__, "src", "tutorial.md"))
-  push!(markdown, joinpath(@__DIR__, "src", "gpu.md"))
-  literate = joinpath(root, "examples", "HIST_CPU.jl")
-  missing_banner = String[]
-  for path in markdown
-    occursin(join(AI_BANNER, "\n"), read(path, String)) || push!(missing_banner, relpath(path, root))
-  end
-  commented = join(["# " * line for line in AI_BANNER], "\n")
-  occursin(commented, read(literate, String)) || push!(missing_banner, relpath(literate, root))
-  if !isempty(missing_banner)
-    for m in missing_banner; println("  NO AI BANNER: ", m); end
-    error("doc lint failed: a page that should carry the AI-provenance banner does not, or carries " *
-          "text that differs from the others. The banner is one string, `AI_BANNER` in docs/make.jl; " *
-          "every listed page must contain it verbatim (the Literate example with each line prefixed " *
-          "`# `). Edit all of them together, or edit the constant and then all of them.")
-  end
-  @info "doc lint: AI-provenance banner present and identical on $(length(markdown) + 1) pages"
-end
 
 remove_jupyter_files()
-lint_ai_banner()
 copy_rationale_pages()
 build_examples()
-lint_inline_math()
-lint_notation_variants()
-lint_swallowed_escapes()
 lint_retired_claims()
-lint_api_page_structure()
 lint_review_closure()
 
 using Documenter

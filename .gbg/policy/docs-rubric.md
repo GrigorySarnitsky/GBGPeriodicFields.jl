@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.4 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.5 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
-What a docstring and an API page contain, in what order and in what shape. 42 rules, written from the rule values themselves,
+What a docstring and an API page contain, in what order and in what shape. 43 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
@@ -24,6 +24,7 @@ A rationale page and a rendered Literate example carry the provenance banner, ve
 A banner reworded in one package is a banner a reader learns to skim past in all of them.
 
 Decided by a program.
+This package may set `banner_pages`; unset, it is `String[]`.
 
 ### RULE.DOC.ALIASING_BULLET
 An operation-specific aliasing statement lives in the destination bullet; the package-wide guarantee lives in the module docstring.
@@ -200,6 +201,14 @@ The house register is plain and exact; `knob` is neither, and reads as though th
 
 Decided by a program.
 
+### RULE.DOC.RETIRED_CLAIMS
+A phrase a package has retired does not reappear in its documentation.
+
+A claim retired once is retired because it was wrong, and the way a wrong claim comes back is that somebody copies the sentence that carried it. The check is only as good as the list, and the list is kept by the party being checked: nothing in a repository knows that a claim was retired, so a claim dropped from the list is invisible here, and a ban whose reason was itself later overturned stays in force until someone notices.
+
+Decided by a program.
+This package may set `retired_claims`; unset, it is `GBGCodingTools.Model.RetiredClaim[]`.
+
 ### RULE.DOC.RETURNS
 A type docstring leads with its constructor; a '-> Type' arrow or a 'Returns x.' sentence states the result where the identity sentence does not.
 
@@ -234,7 +243,7 @@ The first mention of a sibling package links to that package's site; later menti
 A reader meeting the name for the first time must be able to reach it, and a fourth link teaches nothing.
 
 Decided by a program.
-This package may set `sibling_sites`; unset, it is `["GBGPeriodicFields" => "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/", "GBGIsotropicTurbulence" => "https://grigorysarnitsky.github.io/GBGIsotropicTurbulence.jl/", "GBGStreamingStatistics" => "https://grigorysarnitsky.github.io/GBGStreamingStatistics.jl/", "GBGCloudPhysics" => "https://grigorysarnitsky.github.io/GBGCloudPhysics.jl/", "GBGCodingTools" => "https://grigorysarnitsky.github.io/GBGCodingTools.jl/"]`.
+This package may set `sibling_sites`; unset, it is `["GBGCodingTools" => "https://grigorysarnitsky.github.io/GBGCodingTools.jl/", "GBGPeriodicFields" => "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/", "GBGHomogeneousTurbulence" => "https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl/", "GBGStreamingStatistics" => "https://grigorysarnitsky.github.io/GBGStreamingStatistics.jl/", "GBGCloudPhysics" => "https://grigorysarnitsky.github.io/GBGCloudPhysics.jl/"]`.
 
 ### RULE.DOC.SIGNATURE_FIDELITY
 The signature a docstring displays and the methods the module defines agree, argument for argument.
