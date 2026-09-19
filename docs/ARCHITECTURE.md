@@ -1070,7 +1070,8 @@ its scope is this section.
 ## 11. Convolution
 
 !!! note "The current shape of the kernel protocol is here, not in the decision log"
-    §13 records how the kernel design *arrived* — decisions 19, 20, 21, 50, 51, 56, 60, 61 and 62 each
+    The [decision log](@ref "Decision log — GBGPeriodicFields") records how the kernel design
+    *arrived* — decisions 19, 20, 21, 50, 51, 56, 60, 61 and 62 each
     changed part of it, and several supersede earlier ones. Reconstructing the present state from that
     chain is not the intended reading. This section is the current state: **a kernel is its own kind of
     object, never a field**; `SpectralKernel` is the abstract supertype of four storage classes —

@@ -307,7 +307,7 @@ compact prose that still reads as sentences aloud; restore the grammar without a
 formula.** A lowercase start is the defect, so **reword** so an ordinary word leads — never capitalize
 the identifier, whose binding is lowercase by nature (`` `divergence` uses this kernel`` → "The
 `divergence` operator uses this kernel"; a formula opener `` ``n = 0`` is linear`` → "The case ``n = 0``
-is linear"). **Exempt** (a fragment, or not rendered): a **bullet / list item** — including a §13
+is linear"). **Exempt** (a fragment, or not rendered): a **bullet / list item** — including a
 decision-log entry and an argument-doc bullet; a `#` **code** comment — *but* a Literate example's
 full-line `# ` line **renders as prose**, so it is **not** exempt; and a **capitalized**
 type/module/file opener (`Point`, `DirectDFT`, `RESULTS.md`), which already begins with a capital. The
@@ -386,7 +386,7 @@ across a ``` ``…`` ``` span and an adjacent `` `code` `` span (``` ``0 \\le m 
 broken); keep it one span, a trailing code name in ``\\texttt{}``. **(c) Inline math stays on ONE source
 line.** A wrapped continuation of an inline ``` ``…`` ``` span that begins with a CommonMark list/blockquote
 leader (`- `/`* `/`+ `/`> `/`1.`, ≤ 3 leading spaces) is parsed as a **new list item** and silently drops
-the span out of math mode — the §13 decision log (a list) and any bulleted math are the high-risk spots, and
+the span out of math mode — the decision log (a list) and any bulleted math are the high-risk spots, and
 the α/β `convolve` formula wrapping onto a `+ …` line was exactly this. Break the *prose* around the span,
 not the span; **`docs/make.jl`'s `lint_inline_math()` fails the build on it** (scanning `src/` docstrings +
 the four rationale docs + every `docs/src` page incl. the generated example), so even a docstring-only
@@ -466,7 +466,7 @@ operators"** bare (the module name carries no adjective), and where the represen
 **"applied as spectral multipliers"** — the same rule as invariant 2's "field in spectral
 representation, never spectral field", one type up. "Spectral kernels", `FieldSpectralMultipliers`
 and the `spectral_*` API names are NOT in this class (kernels genuinely are spectral objects; API
-renames are breaking), and §13 decision-log history keeps its original wording.
+renames are breaking), and the decision log keeps its original wording.
 
 **Neutral reference register — never "knob".** A tunable argument is an **option** (or *keyword argument*,
 *setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
@@ -508,7 +508,7 @@ allocating, single pass vs. several, ``O(1)``/``O(N)``/``O(N\log N)``, "one wave
 "comparable to one `inner`", "far cheaper than …". The reader decides the cadence from the cost. (`weighted_inner`
 was reworded from "suits a per-step call, unlike the occasional shell diagnostics" to "a single weighted pass,
 comparable to one spectral `inner` … far cheaper than the radial reductions, which build an ``O(N)`` shell-index
-pass"; `radial_spectrum` likewise.) The **rationale docs** — `ARCHITECTURE.md` (esp. the decision-24/26
+pass"; `radial_spectrum` likewise.) The **rationale docs** — `DECISIONS.md` (esp. the decision-24/26
 allocation contract), `PERFORMANCE.md` — *may* reference the consumer's per-step solver loop, since explaining
 *why* allocation-free matters requires it; a bare function/`#`-comment mention of "each call" (an invocation, not
 a time unit) is also fine. The bar is on **docstring prose**.
@@ -521,7 +521,7 @@ argument that surfaces only *inside a formula* reads as "bound by use" and slips
 stencil width shown only in a formula never gets its own entry).
 
 **`docs/ARCHITECTURE.md` is self-contained — introduce notation in plain text before it is used.** As
-the top-level design document it must read top-to-bottom (and, since the §13 decision log is browsed
+the top-level design document it must read top-to-bottom (and, since the decision log is browsed
 entry-by-entry, each entry on its own) **without** opening the source or another doc. So **every piece
 of notation — a math symbol in LaTeX or a `code` identifier — is introduced in plain language at its
 first use**, the meaning stated *before or in the same sentence as* the symbol; later uses may then be
@@ -595,7 +595,7 @@ ones. Changing either is breaking. A later review that re-raises them should clo
 **The `/check-docs` battery is CLOSED (2026-08-04).** Eleven economy lanes (nine surface lanes + the
 family and cold-reader lanes) plus the deterministic guards and the built-HTML pass; every finding
 verified in the main thread and closed as fixed or dismissed-with-reason. **Three were mine, from the
-decision-60 work three days earlier:** `ARCHITECTURE.md` had **no §13 entry for decision 60** while
+decision-60 work three days earlier:** `ARCHITECTURE.md` had **no decision-log entry for decision 60** while
 citing it four times (definition-of-done item 3, skipped), the invariant list said "Thirteen rules"
 after invariant 14 was added, and three `Fields` compatibility docstrings never mentioned the
 storage-family check that invariant 14 had put in their code. **Two were real defects rather than
@@ -633,7 +633,7 @@ representation* package-wide and cannot move); the Parseval multiplicity ``\alph
 glyph against invariant 10's accumulation ``\alpha``, resolved by a Notation-page gloss rather than a
 rename, because the two are distinguished by the mode argument and every site already glosses it; the
 example's bold ``\mathbf{k}`` **stays**, now declared as a local override (italic ``k`` is the
-turbulent kinetic energy there); and §13 decision-log mentions of the retired `_guard_noalias!` stay
+turbulent kinetic energy there); and decision-log mentions of the retired `_guard_noalias!` stay
 as history, only current-state surfaces being reworded. One finding was a coverage gap rather than a
 docs defect and is fixed in the suite: decision 40 gave `helmholtz_projection!` a gated CPU loop, so
 the `with_threading` toggle reaches it and `test/threading.jl` now asserts it bitwise there (the
@@ -840,7 +840,7 @@ kept distinct (the integrating factor is `ℰ`, the RK stages `N̂₁`/`N̂₂`)
 
 **Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
 not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
-render verbatim, rows mashed). Inside a list (e.g. an `ARCHITECTURE.md` §13 decision entry) use a **nested
+render verbatim, rows mashed). Inside a list (e.g. a `DECISIONS.md` entry) use a **nested
 bullet list** instead, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
 bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
 `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
@@ -879,8 +879,11 @@ exempt from correctness.)
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram
 lives with its topic, not in a group-by-form bin. In `ARCHITECTURE.md`, §2 is the overview/**map** (the
 bundle foundation + a linked one-liner per part); §§3–12 own the details (each part of the map has a body
-section); §13 is the append-only decision log, self-contained by design (its overlap with the body is
-intentional — do **not** dedupe it against the body).
+section). The append-only decision log is its own document, `docs/DECISIONS.md`, self-contained by
+design — its overlap with the architecture's body is intentional, so do **not** dedupe it against the
+body. It lived as §13 of `ARCHITECTURE.md` until 2026-09-19, where it was three quarters of that file;
+it was split so `RULE.DOC.RETIRED_CLAIMS` could be switched off for the log alone, a decision log
+necessarily quoting a retired claim in order to record that it was retired.
 
 **Cross-referencing — discriminating-minimalist; a link earns its place.** Live Documenter `@ref` links are
 the encouraged way to point across the docs (a mistyped `@ref` fails the build, so it cannot rot), but
@@ -1042,8 +1045,8 @@ explicitly checked (not "should work", *done and verified*):
    overhead rather than arithmetic, and a real regression shows up on **both** backends over the same
    commit range, not one. An unexplained uniform shift is a measurement artefact until proven
    otherwise — usually contention, and on this project it has never once been the driver.
-3. **The four guiding docs** — `docs/ARCHITECTURE.md` (a decision-log entry **and** the relevant
-   section), `docs/FORMALIZATION.md` (a typed entry for any nontrivial new/changed statement — re-verify
+3. **The guiding docs** — `docs/DECISIONS.md` (the decision-log entry) and `docs/ARCHITECTURE.md`
+   (the relevant section), `docs/FORMALIZATION.md` (a typed entry for any nontrivial new/changed statement — re-verify
    the expansion against the new code, link its test), `docs/TESTING.md` (§2 layout + §7 coverage), and
    `docs/PERFORMANCE.md` (model + coverage/gaps), as applicable. They are the spec, not an afterthought.
 4. **The rest of the docs + this file** — the API page (`docs/src/api/…` and `make.jl`

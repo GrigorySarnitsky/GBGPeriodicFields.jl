@@ -157,7 +157,7 @@ round trip ``\mathcal F \mathcal F^{-1}`` is the same projector up to the transf
 inverse real transform discards the anti-Hermitian part, and the forward transform reseeds it at the
 ulp. ``\checkmark``
 
-**Backs** [Architecture](architecture.md) §13 decision 83 and the `reality_projection!` docstring.
+**Backs** [the decision log](decisions.md), decision 83 and the `reality_projection!` docstring.
 **Checked by** `test/fields.jl` (`reality_projection!`) — the identity on an exact spectrum, agreement
 with an elementwise pair-mean oracle over the ORIGINAL coefficients, off-plane coefficients bitwise
 untouched, exact idempotence, round-trip agreement to ``64 \varepsilon``, linearity, commutation with
@@ -774,7 +774,7 @@ reconstruction, the adjoint relation (``R = 0, 1, 2``), and `NUFFT` vs `DirectDF
 
 ## Moving between grid resolutions (`Fields`, decision 85)
 
-Design rationale: [Architecture](architecture.md) §13, decision 85.
+Design rationale: [the decision log](decisions.md), decision 85.
 
 Let one box carry two grids, ``N_c`` points per axis and ``N_f \ge N_c``, over the same domain of
 length ``L`` and the same origin. Both resolve wavenumbers on the lattice ``2\pi/L`` times the
@@ -824,7 +824,7 @@ a real field's spectrum to a real field's spectrum. Verified by `reality_residua
 
 ## Storage families (`Fields`, `Points`, `Convolution`)
 
-Design rationale: [Architecture](architecture.md) §13, decision 63.
+Design rationale: [the decision log](decisions.md), decision 63.
 
 A **storage family** is the kind of array holding a section's values — `Array` on the host, or one vendor's device array. It
 is not part of the mathematical object: a section is a map from the base to the fiber, and which
@@ -867,7 +867,7 @@ data it already carries — the grid, the layout and its element type — so the
 needs no argument, and a plan is independent of the arrays it was planned against, which is what lets
 the witnesses be released immediately.
 
-**Backs** [Architecture](architecture.md) §13, decision 63.
+**Backs** [the decision log](decisions.md), decision 63.
 **Checked by** `test/adapt.jl` — value and context preservation across three layout folds, a non-zero
 origin, both element types, both representations and ``R = 0, 1, 2``; the identity case; the point layer
 (`PointSet` and all three point-value types); each of the four kernel classes, asserted through the
@@ -925,7 +925,7 @@ computation, so the test asserts closeness, not equality; and the statement does
 coordinates of arbitrary magnitude, where cell-index arithmetic leaves its exact range. This bounded
 form is the honest version of "positions need no wrap".
 
-**Backs** [Architecture](architecture.md) §10 and §13, decision 73.
+**Backs** [Architecture](architecture.md) §10 and [the decision log](decisions.md), decision 73.
 **Checked by** `test/displacement.jl` — the raw-array oracle for Statement 1 (single- and
 three-term, both element types), the endpoint/non-finite/origin pins for Statement 2, the bitwise
 equality of Statement 3, and the tolerance form of Statement 4; GPU parity in `test/gpu/suite.jl`.
