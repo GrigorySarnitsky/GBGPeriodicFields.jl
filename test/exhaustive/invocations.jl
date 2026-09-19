@@ -165,6 +165,19 @@ function canonical_pool(config; device = identity)
   spectral2 = (ScalarFieldSpectral(randn(Complex{T}, S(0)...), grid, layout),
                VectorFieldSpectral(randn(Complex{T}, S(1)...), grid, layout),
                TensorFieldSpectral{2}(randn(Complex{T}, S(2)...), grid, layout))
+  # THE COARSE SIDE OF THE RESOLUTION VERBS (decision 85). `embed_modes!` and `extract_modes!` take two
+  # spectral fields on the SAME box at DIFFERENT resolutions, and REFUSE equal grids. Every field above
+  # is on `config.grid`, so both of their slots were filled from it, every built call refused, and the
+  # two operations were surveyed by nothing while appearing to be reached — worse than an absence,
+  # because the count said they were covered. The coarse grid is derived per configuration rather than
+  # fixed: same box, same origin, same layout, half the points on each axis and never fewer than two,
+  # which is coarser on at least one axis for all four grid shapes the survey enumerates.
+  coarse_size = map(n -> max(2, n ÷ 2), grid.grid_size)
+  coarse_grid = Grid3D(coarse_size, grid.domain_size, grid.domain_size ./ coarse_size, grid.origin)
+  CS(R) = GBGI.Fields.field_spectral_shape(coarse_grid, layout, Val(R))
+  coarse = (ScalarFieldSpectral(randn(Complex{T}, CS(0)...), coarse_grid, layout),
+            VectorFieldSpectral(randn(Complex{T}, CS(1)...), coarse_grid, layout),
+            TensorFieldSpectral{2}(randn(Complex{T}, CS(2)...), coarse_grid, layout))
   multipliers = FieldSpectralMultipliers(spectral[1])
   M = 12
   # Scaled on the HOST and moved afterwards. Broadcasting a device array against a host matrix is a
@@ -189,6 +202,7 @@ function canonical_pool(config; device = identity)
   push = (label, object) -> Base.push!(entries, PoolEntry(label, object))
   for (R, f) in enumerate(physical); push("physical R=$(R-1)", f); end
   for (R, f) in enumerate(spectral); push("spectral R=$(R-1)", f); end
+  for (R, f) in enumerate(coarse);   push("coarse spectral R=$(R-1)", f); end
   for (R, q) in enumerate(values);   push("pointvalues R=$(R-1)", q); end
   # A DISPLACEMENT TERM. `displace!` takes its terms as `(coefficient, section)` TUPLES, and no pool
   # object was a tuple, so the variadic expansion above found the slot unfillable and the operation was
@@ -350,9 +364,24 @@ _adaptor_slots(operation) = nameof(operation) === :adapt_structure ? (1,) : ()
 # type when the suite runs from `test/gpu/*`, which is where the cross-family move is worth checking.
 _adaptor_pool() = PoolEntry[PoolEntry("adaptor: Array", Array)]
 
+# WHICH SLOT TAKES THE COARSER FIELD (decision 85). Both verbs take two spectral fields and the
+# direction is the verb's, not the caller's: `embed_modes!` writes the FINER destination from a coarser
+# source, `extract_modes!` the reverse. So the coarse slot is named per operation, as `adapt_structure`'s
+# adaptor slot is — derivation's honest limit, declared rather than hidden. Passing them the other way
+# round is a refusal the context lane owns, not something the canonical pool should build.
+_coarse_mode_slots(operation) = nameof(operation) === :embed_modes!   ? (2,) :
+                                nameof(operation) === :extract_modes! ? (1,) : ()
+
+# The coarse entries are in the ordinary pool so that `_refresh` and the class audit see them, and are
+# kept OUT of every other slot: a coarse field offered to any other operation is a domain mismatch, which
+# is the context lane's subject and would be noise here.
+_is_coarse(entry::PoolEntry) = startswith(entry.label, "coarse ")
+
 _slot_candidates(operation, index, parameter, pool) =
   index in _adaptor_slots(operation) ? _adaptor_pool() :
-                                       [e for e in pool if _slot_admits(parameter, e.object)]
+  index in _coarse_mode_slots(operation) ?
+      [e for e in pool if _is_coarse(e) && _slot_admits(parameter, e.object)] :
+      [e for e in pool if !_is_coarse(e) && _slot_admits(parameter, e.object)]
 
 
 function _slot_admits(parameter, object)

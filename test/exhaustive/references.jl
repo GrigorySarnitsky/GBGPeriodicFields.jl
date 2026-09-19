@@ -1001,3 +1001,44 @@ function ref_spectral_anterpolate(destination, coordinates, values, grid, layout
   end
   return reshape(α .* out .+ β .* flat_destination, size(destination))
 end
+
+
+# --- moving the modes two grids share (decision 85) ---------------------------------------------------
+# Written against the DOCUMENTED definition and deliberately NOT against the package's index map: the
+# operation IS an index map, and a re-implementation of one agrees with itself while both are wrong.
+# This matches on FREQUENCY instead. Every stored slot of either field is given its true wavenumber by
+# `reference_wavenumbers` — rebuilt from the grid alone — and a mode is shared when the same three
+# frequencies are stored by both. Nothing here knows how the package folds or orders an axis.
+#
+# The coarse Nyquist shell is excluded: the coarse grid identifies +n/2 with −n/2 where the fine grid
+# stores them apart, so that datum does not determine the pair. Amplitudes are PHYSICAL, so the transfer
+# carries `N_dest / N_source` (invariant 4's unnormalized forward transform).
+function ref_shared_modes(dest, source, dest_grid, source_grid, layout, α, β)
+  out = copy(dest)
+  raws(g, arr) = ntuple(a -> reference_wavenumbers(g, layout, a, size(arr, a))[2], 3)
+  dk, sk = raws(dest_grid, dest), raws(source_grid, source)
+  coarse_grid = prod(source_grid.grid_size) < prod(dest_grid.grid_size) ? source_grid : dest_grid
+
+  # Half the fundamental on each axis: stored frequencies are integer multiples of `2π/L`, so this
+  # separates neighbours and tolerates Float32 rounding without ever matching the wrong mode.
+  tol = ntuple(a -> π / dest_grid.domain_size[a], 3)
+  # A coarse axis of even length stores its Nyquist; that frequency is the excluded shell.
+  is_nyquist(a, f) = iseven(coarse_grid.grid_size[a]) &&
+                     abs(abs(f) - 2π * (coarse_grid.grid_size[a] ÷ 2) / coarse_grid.domain_size[a]) < tol[a]
+
+  fiber = CartesianIndices(size(dest)[4:end])
+  scale = α * (prod(dest_grid.grid_size) / prod(source_grid.grid_size))
+  for k in axes(dest, 3), j in axes(dest, 2), i in axes(dest, 1)
+    f = (dk[1][i], dk[2][j], dk[3][k])
+    any(a -> is_nyquist(a, f[a]), 1:3) && continue
+    si = findfirst(x -> abs(x - f[1]) < tol[1], sk[1])
+    sj = findfirst(x -> abs(x - f[2]) < tol[2], sk[2])
+    sl = findfirst(x -> abs(x - f[3]) < tol[3], sk[3])
+    (si === nothing || sj === nothing || sl === nothing) && continue
+    for c in fiber
+      out[i, j, k, Tuple(c)...] = β * dest[i, j, k, Tuple(c)...] +
+                                  scale * source[si, sj, sl, Tuple(c)...]
+    end
+  end
+  return out
+end

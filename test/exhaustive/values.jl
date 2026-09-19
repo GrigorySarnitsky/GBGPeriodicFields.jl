@@ -215,6 +215,14 @@ function run_value_lane(configs)
     multipliers = FieldSpectralMultipliers(spectral_zero)
     shape = size(field_data(spectral_zero))
     kernel_data(k) = Array(GBGI.Convolution._kernel_data(materialize_kernel(k)))
+    # The coarse side of the resolution verbs (decision 85): same box, same origin, same layout, half
+    # the points on each axis and never fewer than two — coarser on at least one axis for every grid
+    # shape the survey enumerates, which is what the operation requires and equal grids are refused.
+    coarse_size = map(n -> max(2, n ÷ 2), grid.grid_size)
+    coarse_grid = Grid3D(coarse_size, grid.domain_size, grid.domain_size ./ coarse_size, grid.origin)
+    coarse_shape(R) = GBGI.Fields.field_spectral_shape(coarse_grid, layout, Val(R))
+    ch = ScalarFieldSpectral(randn(Complex{T}, coarse_shape(0)...), coarse_grid, layout)
+    coarse_zero = ScalarFieldSpectral(zeros(Complex{T}, coarse_shape(0)...), coarse_grid, layout)
     sh = to_spectral(s, plans)
     uh = to_spectral(u, FieldTransformPlans(u, similar_field(spectral_zero, Val(1))))
     Ah = to_spectral(A, FieldTransformPlans(A, similar_field(spectral_zero, Val(2))))
@@ -428,6 +436,23 @@ function run_value_lane(configs)
                                                                 ref_helmholtz(field_data(uh), grid, layout)),
       (:helmholtz_projection!, field_data(helmholtz_projection!(similar_field(spectral_zero, Val(1)), uh, multipliers)),
                                                                 ref_helmholtz(field_data(uh), grid, layout)),
+      # ── moving the modes two grids share (decision 85) ──────────────────────────────────
+      # The oracle matches on FREQUENCY, never on the package's index arithmetic: the operation IS an
+      # index map, and a re-implemented one agrees with itself while both are wrong.
+      (:embed_modes!,   field_data(embed_modes!(similar_field(sh, copy(field_data(sh))), ch)),
+                        ref_shared_modes(field_data(sh), field_data(ch), grid, coarse_grid, layout,
+                                         one(T), zero(T))),
+      (:embed_modes!,   field_data(embed_modes!(similar_field(sh, copy(field_data(sh))), ch,
+                                                T(2), one(T))),
+                        ref_shared_modes(field_data(sh), field_data(ch), grid, coarse_grid, layout,
+                                         T(2), one(T))),
+      (:extract_modes!, field_data(extract_modes!(similar_field(ch, copy(field_data(coarse_zero))), sh)),
+                        ref_shared_modes(field_data(coarse_zero), field_data(sh), coarse_grid, grid,
+                                         layout, one(T), zero(T))),
+      (:extract_modes!, field_data(extract_modes!(similar_field(ch, copy(field_data(ch))), sh,
+                                                  T(-1), one(T))),
+                        ref_shared_modes(field_data(ch), field_data(sh), coarse_grid, grid, layout,
+                                         T(-1), one(T))),
       # ── convolution: the coefficientwise product of Fourier symbols ───────────────────────────
       (:convolve,       field_data(convolve(sh, spectral_cutoff(multipliers, cutoff))),
                         ref_convolve(field_data(sh), complex.(ref_spectral_cutoff(grid, layout, shape, cutoff)))),
