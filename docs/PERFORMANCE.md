@@ -1361,16 +1361,16 @@ nothing (300.2 → 296.2 ms). A bimodal distribution was excluded by sampling 93
 the minimum is still 300.4 ms. **The mechanism is therefore not identified** — what is established is
 that the effect is real, reproducible, confined to ``t1``, and confined to the two allocating rows.
 
-*The follow-up sweep (2026-08-24) generalized the finding and drew its boundary by measurement.* Every
-suite row that allocates a field-sized result per call was measured standalone at ``t1``,
-``512^3`` `Float64`, against its archived cell. **Clean: all eight allocating `fft` rows** — standalone
-agrees with the archive within 3%, so per-call allocation is *not* the discriminator, and finding (h)'s
-`ESTIMATE`/`MEASURE` ratios rest on uncontaminated cells. **Affected: exactly five rows** — the two
-`materialize_kernel` rows (``2.8``–``3.2\times``), `lpnorm vec Inf` (``1.63\times``), and
-`radial_correlation`/`cross-correlation` (``1.2``–``1.7\times``, at ``t1`` *and* ``t2``, worst in
-`Float32` at ``512^3``). The five are the rows that allocate their result *inside the operation*
-(via `similar`/broadcast) rather than through a transform plan; whether that distinction is the
-mechanism or merely coextensive with it is not established.
+*The follow-up sweep (2026-08-24) drew the boundary by measurement.* Every suite row allocating a
+field-sized result per call was measured standalone at ``t1``, ``512^3`` `Float64` against its archived
+cell. **Clean in that cell: all eight allocating `fft` rows** — standalone agrees with the archive
+within 3%, so per-call allocation is *not* the discriminator, and finding (h)'s `ESTIMATE`/`MEASURE`
+ratios rest on uncontaminated cells. Finding (at) breaks that verdict at ``256^3`` `Float32`.
+**Affected: exactly five rows** — the two `materialize_kernel` rows (``2.8``–``3.2\times``),
+`lpnorm vec Inf` (``1.63\times``), and `radial_correlation`/`cross-correlation`
+(``1.2``–``1.7\times``, at ``t1`` *and* ``t2``, worst in `Float32` at ``512^3``). The five allocate
+their result *inside the operation* (via `similar`/broadcast) rather than through a transform plan;
+whether that is the mechanism or merely coextensive with it is unestablished.
 
 *The archive is internally consistent, and needs no re-measurement.* Re-running the archive's exact
 process shape — all classes, one process, ``512^3`` `Float64` — reproduces the archived cell for every
@@ -1683,6 +1683,54 @@ docstring's original justification — that a solver's seeding order is usually 
 was backwards for a sweep-seeded set and has been corrected. The traversal order gives
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
+
+**(at) The 2026-09-20 `Enteropia` five-lane re-sweep: flat against 55 commits, and one apparent
+``1.75\times`` win that belongs to the sweep rather than to the package** (2026-09-20/21; the archives
+it replaces were stamped `6581b433 @ 2026-08-31`). Five lanes ran green — CPU ``t1``/``t2``/``t4``/``t8``
+at 57, 49, 41 and 41 minutes, the ``t8`` lane split one grid per process per §4(q) and needing no
+retry, and the CUDA lane at 57 minutes.
+
+Against the archives the medians are 0.9974, 0.9985, 0.9988 and 0.9989 over the 752 rows each CPU lane
+shares with its predecessor, and **1.0000** over 606 device rows. Asking which rows are slower than
+``1.10\times`` on at least three of the four CPU lanes returns **nothing**, bar two kernel builders
+whose absolute times are 1.0 ns and 1.3 ns — one clock tick, and they move both ways. The canary is
+green on all three baselined lanes, with 36 mechanism rows judged invariant.
+
+Every row the diff calls added or dropped reconciles, which is the check that would catch a class
+quietly emptying itself. The projector `reality_projection!` contributes 16 rows (decision 83),
+`point_traversal_order!` eight (decision 80), the eight `transfer_order` rows are those same rows
+renamed and `report.jl`'s alias map already carries them, and decision 85's resolution verbs are
+measured for the first time — 72 rows on a CPU lane and 54 on the device.
+
+**The finding is that the `Float32` ``256^3`` vector transform depends on what ran before it in the
+process, and the dependence is worth ``1.75\times``.** The row reads 72.33 ms in the archive and
+40.07 ms in the new sweep, which looks like a large win and is not one. Four measurements place it:
+
+| measurement of `to_spectral vector`, `Float32` ``256^3``, ``t4`` | minimum time |
+|:--|:--|
+| archive full sweep, 2026-08-31 | 72.33 ms |
+| new full sweep, then a repeat of the whole lane | 40.07 ms, 41.29 ms |
+| the `fft` class alone, all four grids | 72.17 ms |
+| the `fft` class alone at this one grid and element type, twice | 70.69 ms, 68.55 ms |
+
+Two candidate causes are excluded by evidence rather than by argument. The transform machinery is
+byte-identical across the two commits apart from identifier renames, so no package change can produce
+the movement; and `FFTW_jll` did not move, the benchmark manifest predating the archive it is compared
+against.
+
+**The FFTW-wisdom hypothesis was put as a falsifiable prediction, and it failed.** Were planner state
+accumulated by the `measure` rows at the other grids the cause, running the `fft` class alone across
+all four grids would reproduce the fast number; it returns the slow one. The cause therefore lies
+outside that class, in what a full sweep runs before it, and it is **unattributed**. The kernel moved
+from `7.0.0-30-generic` to `-31` between the two sweeps and the older kernel is gone, so that candidate
+can no longer be tested — the terminal state of §4(p).
+
+One reading of the table follows: this cell is comparable only against a same-shaped sweep. Every CPU
+column in `RESULTS.md` is a full sweep, so the table stays self-consistent.
+
+A claim worth not making is that a vector row reading below its scalar sibling is by itself
+impossible — the archived ``512^3`` `Float32` cell shows that ratio below one too. What carries the
+finding is the disagreement between regimes, not the ratio.
 
 **(as) CUDA unified memory runs the package unchanged, at about 8% when everything fits, and the
 benchmark harness cannot measure it** (2026-09-16/17, `Enteropia`: RTX 5070 Ti 16 GB on an x86 PCIe
