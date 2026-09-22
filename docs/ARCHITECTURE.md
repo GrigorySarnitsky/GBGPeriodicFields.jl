@@ -79,12 +79,14 @@ derivative and the measure, the discrete set carries the data. The fiber is a te
 and higher (`FiberTensor3/4`).
 
 That single global frame is what lets a derivative index be stored as a fiber index: ``\nabla`` maps a
-section of ``E`` to a section of ``T^{*}\Omega \otimes E``, and the frame identifies ``T\Omega`` —
+section of ``E`` to a section of ``E \otimes T^{*}\Omega``, and the frame identifies ``T\Omega`` —
 and, being orthonormal, ``T^{*}\Omega`` with it — with the GENERATING space ``\mathbb R^3``, the
 ``R = 1`` fiber. It is not identified with ``V``, which has rank ``3^R`` and matches ``T\Omega``
-only at ``R = 1``. So ``T^{*}\Omega \otimes E`` has fiber ``\mathbb R^3 \otimes V =
+only at ``R = 1``. So ``E \otimes T^{*}\Omega`` has fiber ``V \otimes \mathbb R^3 =
 (\mathbb R^3)^{\otimes (R+1)}`` and the package can type ``\nabla u`` as a fiber tensor of one
-order higher with no raising or lowering to track. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
+order higher with no raising or lowering to track. The derivative factor is written LAST because that
+is the slot it occupies: the components are ``(\nabla u)_{ij} = \partial_{x_j} u_i``, and the
+divergence contracts that last index. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
 structure: components are referred to one fixed rectangular frame, indices are neither raised nor
 lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
 trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
