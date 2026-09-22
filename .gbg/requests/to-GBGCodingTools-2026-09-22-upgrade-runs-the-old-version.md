@@ -182,3 +182,38 @@ a third blocker is waiting behind this one.
 
 **Not worked around here, on the owner's word**, as in §4: PF runs the pinned driver or it does not
 run. Run `2026-09-22-documentation-review-02` stays open at `find` with nothing launched.
+
+## 6. An abandoned run reports a clean result it has no evidence for, and the policy behind it is GBGCodingTools'
+
+Both runs abandoned here wrote a `report.md` containing this, verbatim:
+
+    **The owner stopped it.** It launched 0 agent(s), with the bound readers, and made 0 of 4 fix pass(es).
+
+    ## Nothing was found
+
+    Every reader wrote its file and none of them reported a defect.
+
+The last sentence is false and contradicts the one three lines above it. Nothing ran: `run.json`
+records `agent_launches` 0, `findings` 0 and `passes` 0 for both, and a search of the scratch results
+directories finds zero files ever written. No reader wrote anything because no reader was launched —
+the driver could not start in one case and could not write its results in the other.
+
+This is the dead-lane-read-as-a-clean-hat failure, in the output of the instrument built to prevent
+it. The driver holds that discipline one level down and states it: *a crashed agent and a careful one
+that found nothing are the same empty set to whoever reads the report, and the run refuses to treat
+silence as a clean result*. The close does not apply that rule where the silence is total. A run that
+launched nothing has no evidence about the corpus, and should say **nothing was read** rather than
+nothing was found. It compounds with the report carrying the AI-written banner and being a
+publishable page: a document asserting a package's documentation was read and found clean, when it
+was never read, is worse than no document at all.
+
+**The policy is not PF's to set** (owner's ruling, 2026-09-22). This package now holds two
+`.gbg/runs/<id>/` directories, untracked, 36 KB for the pair. The protocol says to commit a run's
+record and report at close and is silent on a run that was abandoned, so PF has no rule to follow and
+holds them pending the decision. PF's input, offered as input: commit them once the text is truthful,
+because whether a package was ever reviewed should be answerable from the repository and an attempt
+that leaves no trace reads as one that never happened — the same shape as the `CLOSED.md` escape,
+where the mechanism that survives is the one whose escape leaves a committed artifact. Accumulation is
+the real argument against, and the better answer to it is for `abandon` to prune its own scratch than
+for the repository to forget the attempt. Either way, the text fix should land first or in the same
+tag: committing the current wording would put a false clean bill of health into a tracked file.
