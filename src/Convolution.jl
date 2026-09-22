@@ -227,7 +227,7 @@ _context_layout(kernel::ProductKernel) = _context_layout(kernel.first_kernel)
 """
     materialize_kernel(kernel::ProductKernel)
 
-Evaluate a product kernel into a kernel held as a field, which costs the full ``O(N^3)`` the
+Evaluate a product kernel into a [`StoredKernel`](@ref), which costs the full ``O(N^3)`` the
 compressed forms exist to avoid. A composite evaluates both factors per mode, so its cost against a
 stored kernel follows from theirs — and the classes differ, so read the crossover for whichever they
 are. The warning below applies here too.
@@ -432,7 +432,7 @@ end
 """
     materialize_kernel(kernel::RadialKernel)
 
-Evaluate a radial kernel into a kernel held as a field, which costs the full ``O(N^3)`` the closure
+Evaluate a radial kernel into a [`StoredKernel`](@ref), which costs the full ``O(N^3)`` the closure
 form exists to avoid. When that trade is worth making is specific to this class: the compressed
 classes are measured separately and disagree, one card having the radial form overtake a stored kernel
 by ``128^3`` where the axis-factored form never overtakes. [`RadialKernel`](@ref) carries the measured
@@ -1954,7 +1954,8 @@ end
     translation_kernel!(kernel::SeparableKernel, multipliers::FieldSpectralMultipliers,
                         offset::NTuple{3, Real})
 
-Rebuild `kernel` in place for a new displacement `offset`, overwriting its per-axis factors. Use this
+Rebuild `kernel` in place for a new displacement `offset`, overwriting its per-axis factors, and
+return `kernel`. Use this
 in-place form when a displacement changes and the kernel is already allocated; the allocating
 [`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
 not a field, so rebuilding per call is cheap.
