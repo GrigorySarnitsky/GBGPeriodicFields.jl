@@ -9,9 +9,9 @@
 """
     GBGPeriodicFields
 
-Real-valued scalar, vector, and second-order-tensor fields on three-dimensional
-rectangular periodic domains, carried in physical-space and real-to-complex spectral
-representations, on both CPU and GPU array backends, with HDF5 field persistence.
+GBGPeriodicFields carries real-valued scalar, vector and second-order-tensor fields on
+three-dimensional rectangular periodic domains, in physical-space and real-to-complex spectral
+representations, on both CPU and GPU array backends, and persists them to HDF5.
 
 The tensors are **Cartesian** — components on one fixed orthonormal frame, with no
 curvilinear coordinates and no metric machinery — so this is an applied field toolkit
