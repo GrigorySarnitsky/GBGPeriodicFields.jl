@@ -1037,7 +1037,8 @@ fiber_shape(::Val{R}) where {R} = ntuple(_ -> 3, Val(R))
 """
     _section_order(section)
 
-The tensor order of a section as a `Val`, read from its `AbstractFiberSection{T, R}` type parameter —
+Return the tensor order of a section as a `Val`, read from its `AbstractFiberSection{T, R}` type
+parameter —
 the compile-time quantity the `map!` adapter unrolls over.
 """
 @inline _section_order(::AbstractFiberSection{T, R}) where {T, R} = Val(R)
@@ -1046,7 +1047,7 @@ the compile-time quantity the `map!` adapter unrolls over.
 """
     _fiber_component_count(::Val{R})
 
-Number of stored scalar components of a fiber of tensor order `R` (`1`, `3`, `9`).
+Return the number of stored scalar components of a fiber of tensor order `R` (`1`, `3`, `9`).
 """
 @inline _fiber_component_count(::Val{0}) = 1
 @inline _fiber_component_count(::Val{1}) = 3
@@ -1120,7 +1121,8 @@ end
 """
     _fiber_type(::Type{T}, ::Val{R})
 
-The concrete fiber type of order `R` over scalar `T` — `T`, `SVector{3, T}`, or `SMatrix{3, 3, T, 9}`
+Return the concrete fiber type of order `R` over scalar `T` — `T`, `SVector{3, T}`, or
+`SMatrix{3, 3, T, 9}`
 — used to infer the output order of `φ` for the allocating `map`.
 """
 @inline _fiber_type(::Type{T}, ::Val{0}) where {T} = T
@@ -1131,7 +1133,8 @@ The concrete fiber type of order `R` over scalar `T` — `T`, `SVector{3, T}`, o
 """
     _fiber_order(fiber_type)
 
-The tensor order (`0`, `1`, `2`) of a concrete fiber type, or `-1` when the type is not a recognized
+Return the tensor order (`0`, `1`, `2`) of a concrete fiber type, or `-1` when the type is not a
+recognized
 fiber (an un-inferrable `φ` return) — the allocating `map` uses `-1` to fall back to a clear error.
 """
 @inline _fiber_order(::Type{<:Number}) = 0
