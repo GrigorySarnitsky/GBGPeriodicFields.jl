@@ -628,7 +628,6 @@ element type measured. So a run whose grids are small, or which applies one fixe
 with memory to spare, can materialize once and keep the field; a threaded run at production resolution
 should not, and pays a field of residency for nothing if it does (129 MiB at ``256^3``, against about
 10 KiB for the factors).
-for the factors).
 
 !!! warning "This gives up the memory saving entirely"
     The returned field costs the full ``O(N^3)`` the axis-factored form exists to avoid. Materialize
@@ -2035,7 +2034,7 @@ adapt_structure(to, kernel::ProductKernel{T}) where {T} =
 """
     _kernel_storage(kernel)
 
-An array representative of the kernel's storage family, one method per storage class.
+Return an array representative of the kernel's storage family; there is one method per storage class.
 
 A kernel is not a section and has no `field_data`, and the four classes hold their memory in four
 different shapes: a stored kernel wraps a field, a separable one holds three per-axis factors, a
