@@ -920,8 +920,7 @@ arguments are:
 
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
-  separable, or their product), which costs ``O(N)`` in the grid size ``N`` per axis, or a closure,
-  rather than the ``O(N^3)`` coefficients of a stored kernel,
+  separable, or their product) costing ``O(N)`` for ``N`` points per axis, not ``O(N^3)``,
   exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; it may
   alias `destination`, since the product is coefficientwise.
@@ -1535,8 +1534,7 @@ projection symbol. The additional arguments are:
 
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
-  separable, or their product), which costs ``O(N)`` in the grid size ``N`` per axis, or a closure,
-  rather than the ``O(N^3)`` coefficients of a stored kernel,
+  separable, or their product) costing ``O(N)`` for ``N`` points per axis, not ``O(N^3)``,
   exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; one
   scalar kernel weights all three components.
