@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.8 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.9 — rewritten by `gbg sync`; do not edit -->
 # /change-audit
 
 A code change is no wider than the defect and the owner's direction and still accepts input that worked before; it grades the fix and changes nothing.

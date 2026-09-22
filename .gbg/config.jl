@@ -5,7 +5,7 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.8",
+    tool = v"2.0.0-rc.9",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # The rules page is written by `Render.pages` during the docs build. No rule reads a generated
