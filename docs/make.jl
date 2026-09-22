@@ -317,6 +317,8 @@ GBGCodingTools.makedocs(ROOT;
     "Examples" => "examples/hist_cpu.md",
     "Notation" => "notation.md",
     "Rules" => "gbg-rules.md",
+    "Readers" => "gbg-readers.md",
+    "Instruments" => "gbg-instruments.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",

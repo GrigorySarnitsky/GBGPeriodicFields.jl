@@ -5,20 +5,43 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.5",
+    tool = v"2.0.0-rc.7",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
     # The rules page is written by `Render.pages` during the docs build. No rule reads a generated
     # page, which matters here more than usual: a page that states the rules quotes every banned
     # spelling in order to ban it.
-    generated = ["docs/src/gbg-rules.md"],
+    generated = ["docs/src/gbg-rules.md", "docs/src/gbg-readers.md",
+                 "docs/src/gbg-instruments.md"],
     # The four rationale documents are where this package's mathematics lives, so they are in scope
     # deliberately rather than by the default, which reads none of them.
     filesets = Dict(
         FileSet.RATIONALE => ["docs/ARCHITECTURE.md", "docs/DECISIONS.md",
                               "docs/FORMALIZATION.md", "docs/TESTING.md",
                               "docs/PERFORMANCE.md"],
+        # The default set is four files: the two examples and the two scripts the CPU example calls.
+        # The scripts are not Literate surfaces and are dropped; BOTH examples stay. This package has
+        # treated the ROCm example as a rendered surface since it was written — its full-line comments
+        # carry the same mathematics under the same rules, and the site not rendering it does not make
+        # it private — so losing it to a narrowing aimed at the scripts would be an accident.
+        FileSet.LITERATE => ["examples/HIST_CPU.jl", "examples/gpu/rocm/HIST_ROCm.jl"],
     ),
+    # The fields whose experts read this package's documentation. Differential geometry carries
+    # `RULE.DOC.COORD_FREE` and is the bundle-and-section framing the architecture rests on; the other
+    # two are open readers, reporting what is wrong in their field that no rule names. Turbulence
+    # theory is deliberately absent: invariant 12 keeps physics in the consumer, so a turbulence expert
+    # would be reading for a science this package does not contain.
+    disciplines = [:differential_geometry, :spectral_numerics, :software_architecture],
+    # The docs build copies each rationale document into `docs/src/` as a lowercase sibling, and the
+    # copy is what the site renders. A fix belongs in the source; the change guard refuses one landing
+    # in a copy, which the next build would overwrite.
+    copies = [
+        "docs/src/architecture.md" => "docs/ARCHITECTURE.md",
+        "docs/src/decisions.md" => "docs/DECISIONS.md",
+        "docs/src/formalization.md" => "docs/FORMALIZATION.md",
+        "docs/src/testing.md" => "docs/TESTING.md",
+        "docs/src/performance.md" => "docs/PERFORMANCE.md",
+    ],
     # The one bold string this package writes. It is the wavenumber vector in the worked turbulence
     # example, where italic k is the turbulent kinetic energy and the two would otherwise collide; the
     # notation page states that and scopes it to the example. Declared rather than switched off, so
@@ -37,6 +60,11 @@ Config(
     ],
     settings = [
         Setting(rule = Symbol("RULE.TEX.MATHBF"), name = :mathbf_allowed, value = ["\\mathbf{k}"]),
+        # The one document where matrix and flattening machinery belongs. Unset, the rule reads as
+        # "and nowhere", which is the wrong statement for a package that keeps its component
+        # expansions in exactly one place.
+        Setting(rule = Symbol("RULE.DOC.COORD_FREE"), name = :formalization,
+                value = "docs/FORMALIZATION.md"),
         # The seven pages a human did not write, which is the set the in-tree lint carried: the four
         # rationale documents, the two hand-written guides, and the Literate example (whose banner is
         # the same text with each line prefixed `# `, since that is what renders as prose).

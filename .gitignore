@@ -1,4 +1,4 @@
-# gbg:managed begin v2.0.0-rc.5 — rewritten by `gbg sync`; do not edit
+# gbg:managed begin v2.0.0-rc.7 — rewritten by `gbg sync`; do not edit
 .gbg/scratch/
 docs/build/
 docs/Manifest.toml
@@ -21,6 +21,8 @@ docs/src/formalization.md
 docs/src/testing.md
 docs/src/performance.md
 docs/src/gbg-rules.md
+docs/src/gbg-readers.md
+docs/src/gbg-instruments.md
 docs/src/examples/
 
 # Local-only reference material (theses, papers, notes) — never committed

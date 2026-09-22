@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.5 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.7 — rewritten by `gbg sync`; do not edit -->
 @.gbg/policy/00-index.md
 
 The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
@@ -7,6 +7,14 @@ rule that will be reworded in one.
 
 Unasked, run `Pkg.test()` and nothing else. What a rule finds is reported, never fixed silently:
 documentation may be fixed without asking, and anything else waits for an answer.
+
+The readers of a review are derived from the rules and the tool's catalogue of disciplines. A
+reader or a discipline this package needs and the tool lacks is requested from the tool's own
+session, never written here.
+
+A run an earlier session left open is continued before anything else, and the chat says so:
+`gbg run next` says what to launch or that the stage is ready to collect, and the run goes on to
+its close. It waits for the owner only when `gbg run next` says the tree moved since the launch.
 <!-- gbg:managed end -->
 
 # CLAUDE.md — GBGPeriodicFields
