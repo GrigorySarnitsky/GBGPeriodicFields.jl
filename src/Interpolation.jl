@@ -325,7 +325,7 @@ is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}
 the ``t^r`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
 (offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
-``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned to 1e-12 against TurTLE's ``n``, ``m`` weights.
+``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned to 1e-12 against TurTLE's weights.
 """
 function _hermite_weight_matrix(n::Int, m::Int)
   offsets = collect(-n:n+1)
