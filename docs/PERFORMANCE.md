@@ -1822,7 +1822,7 @@ advancing a small block of stencil indices independently, is also the shape that
 length, so the two goals point the same way. The corner stays documented, as decision 78 records.
 
 **(ap) The 2026-09-04 Aiporetne re-sweep: five lanes flat to four decimals, the stale `ordered` rows
-repaired, and a report defect a hand edit had been hiding** (the handover asked for a transfer-only
+repaired, and a report defect a hand edit had been hiding** (the queued item asked for a transfer-only
 splice; `src/` had moved by nine files since these archives' `b452fb17`, so the splice tool's own rule
 applied and the lanes were re-swept whole). Medians against the 2026-08-31 archives: CPU t1/t2/t4/t8
 ``0.9991``/``0.9999``/``1.0001``/``1.0000`` over 752 rows, GPU ``1.0005`` over 663 — the harness
@@ -1848,7 +1848,7 @@ the rename split the row in two: this host's cells under the new name, Enteropia
 future rename: every Enteropia cell must be bit-identical after a regeneration that did not touch its
 archives, and it read eight differing until the alias landed.
 
-The ROCm suite was run first, as the handover ordered: **491/491, exit 0 in 5m16s**, the predicted
+The ROCm suite was run first, as the queued item ordered: **491/491, exit 0 in 5m16s**, the predicted
 count exactly, so decisions 80 and 82 are staged on AMD and `_same_backend`, invariant 14's predicate,
 has been exercised on every device row. Both benchmark gates report every transfer point set
 unmutated (CPU 192 rows, ROCm 206, 0 failed).
@@ -1931,7 +1931,7 @@ decision 78's device gather regression is AMD-only** (2026-08-31 on `Enteropia`;
 `CHAR_SIZES`/`CHAR_TYPES`/`CHAR_SKIP`, so process history matches, and with the two dependency
 stacks pinned identical).
 
-**The old arm the handover named was the wrong commit, and the handover's own caveat is what caught
+**The old arm the queued item named was the wrong commit, and that item's own caveat is what caught
 it.** `93d9d8da` predates `d5f6814a`, which repaired the `gcsample` probe on CUDA (§4(w):
 `CUDA.available_memory` is not a binding there, so every row fell back to the per-sample collector).
 Measured from that commit the transfer rows run at three samples with `gcsample = true` against 668

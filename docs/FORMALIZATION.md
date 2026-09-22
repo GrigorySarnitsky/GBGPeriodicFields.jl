@@ -17,7 +17,7 @@ machine-checked proofs** — the deterministic check is the linked test (the tes
 the compiler), so a statement here with no test is a coverage gap to close.
 
 !!! note "Coordinate forms live here"
-    The coordinate-free preference (`CLAUDE.md`) governs the *user-facing* prose. This page is the
+    The coordinate-free preference governs the *user-facing* prose. This page is the
     sanctioned home for the coordinate/matrix/component expansions — a basis, the matrix entries
     ``W_{pn}``, the all-ones ``\mathbf{1}_N`` / ``\mathbf{1}_M`` — because *checking* precision requires
     expanding into components. The statements here must still be **correct**; they need not be
