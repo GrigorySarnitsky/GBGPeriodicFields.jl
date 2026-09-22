@@ -1954,8 +1954,8 @@ end
     translation_kernel!(kernel::SeparableKernel, multipliers::FieldSpectralMultipliers,
                         offset::NTuple{3, Real})
 
-Rebuild `kernel` in place for a new displacement `offset`, overwriting its per-axis factors, and
-return `kernel`. Use this
+Rebuild `kernel` for a new displacement `offset`, overwriting its per-axis factors, and return it.
+Use this
 in-place form when a displacement changes and the kernel is already allocated; the allocating
 [`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
 not a field, so rebuilding per call is cheap.
