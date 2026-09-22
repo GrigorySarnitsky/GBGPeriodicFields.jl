@@ -1107,7 +1107,7 @@ The arguments are:
 
 The spectral symbol is a coefficientwise multiply by ``\\mathrm{i}`` times the cross product with the
 derivative wavenumber vector, ``\\widehat{\\nabla\\times u}(k) = \\mathrm{i}  a \\times \\hat u(k)``, where
-``k`` labels the mode and ``a`` is the **derivative** wavenumber family of invariant 5 — zeroed at an
+``k`` labels the mode and ``a`` is the **derivative** wavenumber family — zeroed at an
 even axis's Nyquist frequency, unlike the true squared wavenumber the Laplacian uses. Componentwise:
 
 ```math
