@@ -381,7 +381,7 @@ end
 """
     CatmullRom
 
-`CatmullRom` is the default interpolation scheme: the cubic ``n = 1, m = 1``
+`CatmullRom` is the default: the cubic ``n = 1, m = 1``
 [`LalescuSpline`](@ref), a four-point
 ``C^1`` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
 """
@@ -456,7 +456,7 @@ end
 """
     PointTraversalOrder(indices)
 
-A `PointTraversalOrder` is a validated **traversal order**: a permutation of `1:M`, for a set of `M`
+A `PointTraversalOrder` validates a **traversal order**: a permutation of `1:M`, for `M`
 points, saying which point each unit of a transfer's work handles. Build one with [`point_traversal_order`](@ref), or wrap your
 own permutation by calling this constructor, which checks it.
 
@@ -820,8 +820,8 @@ end
 """
     PointTraversalOrderScratch(grid::Grid3D, points::PointSet; tile_size = 4)
 
-A `PointTraversalOrderScratch` holds the working storage for [`point_traversal_order!`](@ref), so
-that rebuilding a traversal order allocates nothing that grows with the point count.
+A `PointTraversalOrderScratch` holds storage for [`point_traversal_order!`](@ref), so a rebuild
+allocates nothing that grows with the point count.
 
 Build one alongside the order it will refill, and hold both for as long as the point set lives. It is
 storage and nothing else: it holds no order, no transfer ever reads it, and two orders over the same
