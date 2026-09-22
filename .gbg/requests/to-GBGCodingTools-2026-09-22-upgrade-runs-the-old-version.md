@@ -57,3 +57,37 @@ caught both. Worth keeping, and worth saying that it is load-bearing rather than
 Both manifests are gitignored, so the pin travels through git and the resolved content does not.
 Every machine and every sibling package repeats this, and the failure is silent on each. Whatever
 fix is chosen should assume the manifest is stale rather than that someone read the instruction.
+
+## 3. `RULE.CIT.RESOLVES` reads a `[` inside a math span as a markdown link
+
+Added after the upgrade, running `gbg check --network` as the document directs. It reports one
+finding against PF and the finding is wrong; PF has not been changed to satisfy it.
+
+    RULE.CIT.RESOLVES  docs/ARCHITECTURE.md:1035  https://doi.org/10.1016/j.jcp.2009.10.046
+    resolves to "Implementation of high order spline interpolations for tracking test particles
+    in discretized fields", not to "<eighteen lines of unrelated prose>"
+
+The DOI is correct: it resolves to exactly the work the reference names. The reference itself is at
+line **1053**, is well-formed, and its link text is that same title character for character:
+
+    - C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for
+      tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046),
+      J. Comput. Phys. **229**(17) (2010) 5862–5869.
+
+What the rule anchored on is line 1035, which reads
+
+    ``[o_a, o_a + L_a)`` per axis — origin-aware, …
+
+a half-open interval inside a LaTeX math span. The `[` is unmatched, because a half-open interval
+has no closing bracket. The link parser takes it as a link opening, scans forward for the next
+`](`, finds the DOI eighteen lines later, and calls everything in between the title.
+
+Two things follow. The parser should not look for links inside a ``…`` math span or a `…` code
+span — PF's own style rule requires interval notation to be LaTeX rather than code, so this
+spelling is mandatory here and will recur in any package that writes intervals. And a title
+captured across a blank line is never a title: a length or newline bound would have turned this
+into no finding rather than a confusing one.
+
+Worth saying plainly, since the network rule is new and this was its first real run: its one
+finding on this package is a false positive, and the honest reading of `gbg check --network` on PF
+today is that all fifteen DOIs resolve to the works their titles name.
