@@ -83,9 +83,8 @@ section of ``E`` to a section of ``E \otimes T^{*}\Omega``, and the frame identi
 and, being orthonormal, ``T^{*}\Omega`` with it — with the GENERATING space ``\mathbb R^3``, the
 ``R = 1`` fiber. It is not identified with ``V``, which has rank ``3^R`` and matches ``T\Omega``
 only at ``R = 1``. So ``E \otimes T^{*}\Omega`` has fiber ``V \otimes \mathbb R^3 =
-(\mathbb R^3)^{\otimes (R+1)}``, the derivative index LAST — ``(\nabla u)_{ij} = \partial_{x_j} u_i``,
-the slot the divergence contracts — and ``\nabla u`` is a fiber tensor one order higher with nothing
-to raise or lower. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
+(\mathbb R^3)^{\otimes (R+1)}``, derivative index LAST: ``(\nabla u)_{ij} = \partial_{x_j} u_i``, the
+slot the divergence contracts. So ``\nabla u`` is a fiber tensor one order higher, nothing to raise. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
 structure: components are referred to one fixed rectangular frame, indices are neither raised nor
 lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
 trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
