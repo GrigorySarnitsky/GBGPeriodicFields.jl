@@ -800,7 +800,7 @@ The arguments are:
 Each output component is the source component multiplied coefficientwise by ``\\mathrm{i}`` times the
 derivative wavenumber of the differentiation axis. Below, ``k`` labels the mode and ``a`` is the
 **derivative** wavenumber family — the one zeroed at an even axis's Nyquist frequency, kept apart from
-the true squared wavenumber the Laplacian uses (invariant 5):
+the true squared wavenumber the Laplacian uses:
 
 ```math
 \\begin{gathered}
@@ -900,7 +900,7 @@ The arguments are:
 
 The result is the coefficientwise contraction of the source with ``\\mathrm{i}`` times the derivative
 wavenumber vector, summed over the three axes. Below, ``k`` labels the mode and ``a`` is the
-**derivative** wavenumber family of invariant 5 — zeroed at an even axis's Nyquist frequency, unlike
+**derivative** wavenumber family — zeroed at an even axis's Nyquist frequency, unlike
 the true squared wavenumber the Laplacian uses:
 
 ```math
@@ -1192,7 +1192,8 @@ representation it is one coefficientwise pass,
 \\hat u(k) = \\frac{\\mathrm{i} a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
 ```
 
-with ``a`` the derivative wavenumbers of invariant 5 and the ``k = 0`` mode set to zero. Numerator and
+with ``a`` the derivative wavenumbers — zeroed at an even axis's Nyquist frequency — and the ``k = 0``
+mode set to zero. Numerator and
 denominator are built from the SAME wavenumber family, which is what makes
 ``\\nabla\\times(\\nabla\\times)^{-1}`` reproduce a divergence-free field exactly at every mode rather
 than only on the resolved band.
@@ -1266,7 +1267,7 @@ The arguments are:
 - `multipliers` — the wavenumber symbols for the field's grid.
 
 The spectral symbol symmetrizes ``\\mathrm{i} a_j \\hat u_i`` in its two indices, with ``k`` labelling the
-mode and ``a`` the **derivative** wavenumber family of invariant 5 — zeroed at an even axis's Nyquist
+mode and ``a`` the **derivative** wavenumber family — zeroed at an even axis's Nyquist
 frequency, unlike the true squared wavenumber the Laplacian uses:
 
 ```math
