@@ -1429,8 +1429,8 @@ end
 """
     _component_view(data, ::Val{R}, component::Int)
 
-Return one component of a section's storage as a three-dimensional array over the base, so that a
-rank-agnostic plan can be applied one component at a time. The fiber-last layout of invariant 3 makes each component
+Slice one component of a section's storage, a three-dimensional array over the base, so a
+rank-agnostic plan applies one component at a time. The fiber-last layout of invariant 3 makes each component
 contiguous, which is what makes the slice a plain strided view.
 
 Indexing the fiber axes DIRECTLY, rather than reshaping the fiber into one trailing component axis
