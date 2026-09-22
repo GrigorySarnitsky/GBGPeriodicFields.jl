@@ -18,10 +18,9 @@ design that does not depend on which base is used. The parts are:
   written once here so that one set of generated kernels serves both field and point-value
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
-  slab-threaded CPU loop, meaning a loop split into contiguous slabs of the linear index range,
-  one per thread. Between them they run every stamped **values function**: a pure scalar function
-  that takes one element from each input and returns the tuple of outputs for that element. This
-  is the execution route for multi-output fiberwise operations;
+  slab-threaded CPU loop running every stamped **values function**, a pure scalar function taking
+  one element per input and returning that element's outputs, the execution route
+  for multi-output fiberwise operations;
 - the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
   components into a fiber, applies the caller's function, and flattens the result back, so an
   arbitrary fiber map rides the same executor as the generated algebra.
@@ -806,9 +805,7 @@ linear index range of the participating storage. Here `f` is a pure scalar value
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
 Every array element is read once and every output written once, and all of an element's reads
-happen before its writes, so a target may alias a source array — the guard temporary that an
-index-shuffling operation would otherwise need, to keep a half-written result from being read back,
-is unnecessary on this path. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
+happen before its writes, so a target may alias a source array with no guard temporary. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
 backend; the `KernelAbstractions.CPU` method runs a slab-threaded `@simd` loop over the linear
 range (component views are contiguous, so linear indexing is stride-1) through the same
 [`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
