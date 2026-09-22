@@ -84,9 +84,8 @@ and, being orthonormal, ``T^{*}\Omega`` with it — with the GENERATING space ``
 ``R = 1`` fiber. It is not identified with ``V``, which has rank ``3^R`` and matches ``T\Omega``
 only at ``R = 1``. So ``E \otimes T^{*}\Omega`` has fiber ``V \otimes \mathbb R^3 =
 (\mathbb R^3)^{\otimes (R+1)}`` and the package can type ``\nabla u`` as a fiber tensor of one
-order higher with no raising or lowering to track. The derivative factor is written LAST because that
-is the slot it occupies: the components are ``(\nabla u)_{ij} = \partial_{x_j} u_i``, and the
-divergence contracts that last index. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
+order higher with no raising or lowering to track. The derivative factor comes LAST because that is
+its slot: ``(\nabla u)_{ij} = \partial_{x_j} u_i``, and the divergence contracts it. That single global frame is **orthonormal**, so the fiber carries the ordinary Cartesian Euclidean
 structure: components are referred to one fixed rectangular frame, indices are neither raised nor
 lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
 trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
