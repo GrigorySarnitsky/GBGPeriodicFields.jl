@@ -174,7 +174,7 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
     LalescuSpline(n, m = 1; T = Float64)
 
 Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned to 1e-12 against
-the `beta_n{n}_m{m}` weights of TurTLE, the reference pseudospectral turbulence solver with Lagrangian
+the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, named for the two parameters,, the reference pseudospectral turbulence solver with Lagrangian
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the
 finite-difference half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
@@ -324,7 +324,7 @@ is the weight polynomial for stencil offset ``q - 1 - n \\in \\{-n, \\dots, n{+}
 the ``t^r`` coefficient). Each weight has degree ``2m{+}1``; together they form the two-point Hermite
 interpolant reproducing the value and the order-``1, \\dots, m`` derivatives at the two bracketing nodes
 (offsets ``0`` and ``1``), the derivatives taken from centred finite differences over a
-``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned against TurTLE's `beta_n{n}_m{m}` to 1e-12.
+``2n{+}1``-node stencil about each bracketing node. See [`LalescuSpline`](@ref); pinned to 1e-12 against the TurTLE weights named for ``n`` and ``m``.
 """
 function _hermite_weight_matrix(n::Int, m::Int)
   offsets = collect(-n:n+1)
