@@ -190,7 +190,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   difference matters: most rows are pinned **below a field**, which is what catches a materialized
   temporary, while the four radial-symbol operators are pinned at **literally zero** on the serial
   lane since decision 70 — the generous bar is what let 144 B a call hide under it, visible only to
-  a consumer counting bytes per step. The audit covers the *entire* in-place `!` surface — the differential operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register, and `std`/`var` left it when decision 49 rewrote them as two fused passes — measured at 16 bytes, not a field; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s O(N²) Parseval-correction planes, rocBLAS offering no `dotc` over a strided `ROCArray` view; guards the GPU hot-loop discipline, decisions 24/25/34),
+  a consumer counting bytes per step. The audit covers the *entire* in-place `!` surface — the differential operators (incl. `symmetric_gradient!`), transforms, `convolve!`, the M2+M3 algebra `add!`/`combine!`/`mul!`/`multiply!`/`divide!`/`dot!`/`cross!`/`transpose!`/`sym!`/`skew!`/`tr!`/`det!` over physical+spectral, all tensor orders, the constant/α/β/reversed variants, the point-value algebra (incl. `det!`), and the spline `interpolate!`/`anterpolate!` — allocates ``\sim 0`` bytes; the hot-loop reductions (physical `inner`, the fused `weighted_inner`, `maximum`, `integral`/`mean`, and the spectral zero-mode `integral`/`mean`) do not materialize a field; and the documented allocators are bounded — `norm!`/`lpnorm`/`radial_correlation` (its power field + the allocating transform; `dev!` left the list when decision 39 fused its trace into a register, and `std`/`var` left it when decision 49 rewrote them as two fused passes — measured at 16 bytes, not a field; `radial_spectrum` is pinned tight, its staging fused into the binning kernel by decision 34), and the spectral vector `inner`'s ``O(N^2)`` Parseval-correction planes, rocBLAS offering no `dotc` over a strided `ROCArray` view; guards the GPU hot-loop discipline, decisions 24/25/34),
   `pass_audit.jl` (the element-traffic ledger, decision 36: a `CountingArray` harness measures every
   audited operation's exact per-array read/write counts against a frozen fused-ideal table — an
   above-ideal count must carry a named holder — catching the unfused-recompute class no other layer
@@ -272,7 +272,7 @@ the field's backend. Compare with `field_data(result) ≈ expected`.
 **Tolerances — the part that bites.** `≈` (`isapprox`) uses a *relative* tolerance with
 `atol = 0` by default:
 
-- For an O(1) result, bare `≈` is correct.
+- For an ``O(1)`` result, bare `≈` is correct.
 - For a result that is **mathematically ~zero**, bare `≈` degenerates to an almost-exact
   comparison and will fail on nothing but rounding. Either assert
   `maximum(abs, data) < 1e-12`, or pass an explicit `atol`. **Also choose inputs so the
@@ -331,7 +331,7 @@ For each public operation, a test must establish:
       is backend-symmetric — though a device run also carries small, size-independent launch bookkeeping
       the CPU audit cannot see, absorbed by the fraction-of-a-field threshold because it does not scale
       with the grid). A deliberate materializer (`norm!`/`lpnorm`, `radial_correlation`, the
-      mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an O(N)/O(shells) regression.
+      mixed spectral `inner(f, g)`) instead gets a *bounded* guard that catches an ``O(N)``/``O(\text{shells})`` regression.
 - [ ] **Both α/β branches** for the five-argument kernels — overwrite (``\beta = 0``, which must
       ignore the destination's prior contents, NaN included) and accumulate (``\beta \ne 0``).
 - [ ] **GPU parity** — the result matches the CPU path on a device array, under
