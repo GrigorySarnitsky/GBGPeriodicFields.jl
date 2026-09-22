@@ -1,0 +1,28 @@
+{
+    "tool_version": "dev",
+    "sequential": false,
+    "stop": "OWNER_STOPPED",
+    "passes": 1,
+    "driver": "0e427054fd83732afe7d6b536bf6bda095025272552914c907172941c0b8206c",
+    "scope": "full",
+    "model": "session",
+    "questions": [
+    ],
+    "stage": "close",
+    "budget": {
+        "fix_passes": 4
+    },
+    "findings": [
+    ],
+    "already_failing": [
+    ],
+    "first_commit": "c6bd26953e718a735700f26eff0f7c41f0bc3582",
+    "fixes": [
+    ],
+    "base": "",
+    "instrument": "documentation_review",
+    "tokens": null,
+    "id": "2026-09-22-documentation-review-01",
+    "readers": "bound",
+    "agent_launches": 26
+}
