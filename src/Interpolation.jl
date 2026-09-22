@@ -174,7 +174,7 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
     LalescuSpline(n, m = 1; T = Float64)
 
 Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned to 1e-12 against
-the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, named for the two parameters,, the reference pseudospectral turbulence solver with Lagrangian
+the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, named for the two parameters — TurTLE being the reference pseudospectral turbulence solver with Lagrangian
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the
 finite-difference half-width), the per-axis weights ``w_q(t)`` for fractional cell position ``t \\in [0, 1)`` are the
