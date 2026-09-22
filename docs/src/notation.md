@@ -17,7 +17,7 @@ and need not repeat the convention.
 | Summations | ``\sum_x``, ``\sum_p``, ``\sum_k`` | Over the ``N`` grid points, over the ``M`` points, and over the Fourier modes. |
 | Fractions | ``\tfrac{1}{2}``, ``\frac{1}{N}`` | Every macro argument is braced, both numerator and denominator, so no argument boundary is ever ambiguous. |
 | Spacing | juxtaposition | Adjacent factors sit side by side (``C_K \varepsilon^{2/3} \kappa^{-5/3}``), never separated by a thin space; a thin space appears only before the differential above. |
-| Delimiters | ``\Bigl( \dots \Bigr)`` | Size delimiters by hand with the fixed-size `\bigl`/`\Bigl` … `\bigr`/`\Bigr` commands; the auto-sizing `\left`/`\right` pair is not used — it is an Inner atom that inserts a spurious gap where the fixed-size forms are Open/Close. The sole exception is a system, set as ``\left\{ \dots \right.``. |
+| Delimiters | ``\Bigl( \dots \Bigr)`` | Size delimiters by hand with the fixed-size ``\bigl``/``\Bigl`` … ``\bigr``/``\Bigr`` commands; the auto-sizing ``\left``/``\right`` pair is not used — it is an Inner atom that inserts a spurious gap where the fixed-size forms are Open/Close. The sole exception is a system, set as ``\left\{ \dots \right.``. |
 
 ## Base and fiber
 
