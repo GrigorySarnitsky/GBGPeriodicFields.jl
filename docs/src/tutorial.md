@@ -14,9 +14,7 @@ object; the complex coefficient arrays are storage detail, never the object itse
 
 A field is built from a [`Grid3D`](@ref) (the periodic box) and a function sampled on it. The
 constructor sets the tensor order, and with it the fiber — the value space sitting over each point:
-[`ScalarFieldPhysical`](@ref), [`VectorFieldPhysical`](@ref), [`TensorFieldPhysical`](@ref). Data is stored fiber-last: the three grid axes come first, then one axis of length 3 for each
-tensor order, so a scalar field is `(Nx, Ny, Nz)`, a vector field `(Nx, Ny, Nz, 3)` and a
-second-order tensor field `(Nx, Ny, Nz, 3, 3)`.
+[`ScalarFieldPhysical`](@ref), [`VectorFieldPhysical`](@ref), [`TensorFieldPhysical`](@ref). Data is stored fiber-last, `(Nx, Ny, Nz[, 3[, 3]])`.
 
 ```jldoctest tutorial
 julia> using GBGPeriodicFields
