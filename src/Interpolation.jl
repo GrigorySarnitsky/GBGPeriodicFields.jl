@@ -2007,7 +2007,7 @@ The arguments are:
 - `scheme` — the scheme to write: a `LalescuSpline`, a `LagrangeSpline`, or
   `DirectDFT`.
 
-!!! warning "`NUFFT` is deliberately not persistable"
+!!! warning "NUFFT is deliberately not persistable"
     Every other scheme *is* its parameters, which is what makes a few attributes a faithful record.
     A [`NUFFT`](@ref) is not: it owns oversampled FFT plans and a deconvolution window built against
     a particular reference field, so a stored copy would be either a large duplicate of derived data
