@@ -2035,7 +2035,7 @@ adapt_structure(to, kernel::ProductKernel{T}) where {T} =
 """
     _kernel_storage(kernel)
 
-Return an array representative of the kernel's storage family; there is one method per storage class.
+Represent the kernel's storage family as an array, one method per storage class.
 
 A kernel is not a section and has no `field_data`, and the four classes hold their memory in four
 different shapes: a stored kernel wraps a field, a separable one holds three per-axis factors, a
