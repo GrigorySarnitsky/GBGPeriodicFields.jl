@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.9 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.10 — rewritten by `gbg sync`; do not edit -->
 # /documentation-review
 
 Documentation is true to the code, correct, consistent and self-contained; the change guard, the checks and a verifier agent check each fix.
@@ -28,7 +28,10 @@ that stopped in the middle has spent its agents for nothing.
    change what is inside a math span: a finding that needs either becomes a question for the owner,
    put with `gbg ask "<decision>" --options "<one> | <another>"`.
 6. `gbg run close` — writes the record and the report, and puts what is still open on the owner's
-   work queue.
+   work queue. COMMIT `.gbg/runs/<id>/` yourself: `gbg docfix commit` leaves it out on purpose, and
+   nothing else commits it. A run ENDED EARLY with `gbg run abandon` keeps its
+   record only if it LAUNCHED something, and is committed the same way; one that launched nothing AND
+   carried nothing is deleted by the verb, id and all, because there is nothing to keep.
 ## What it may not do
 
 - It never starts another run, never raises the budget, and never edits the instrument.
