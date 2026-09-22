@@ -1191,8 +1191,7 @@ representation it is one coefficientwise pass,
 \\hat u(k) = \\frac{\\mathrm{i} a(k) \\times \\hat w(k)}{\\lvert a(k)\\rvert^{2}} ,
 ```
 
-with ``a`` the derivative wavenumbers — zeroed at an even axis's Nyquist frequency — and the ``k = 0``
-mode set to zero. Numerator and
+with ``a`` the Nyquist-zeroed derivative wavenumbers and the ``k = 0`` mode set to zero. Numerator and
 denominator are built from the SAME wavenumber family, which is what makes
 ``\\nabla\\times(\\nabla\\times)^{-1}`` reproduce a divergence-free field exactly at every mode rather
 than only on the resolved band.
