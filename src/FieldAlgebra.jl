@@ -519,15 +519,6 @@ end
 Overwrite `destination` with the real-weighted linear combination ``\\alpha a + \\beta b`` of two
 compatible fields, and return `destination`.
 
-!!! note "Here α and β weight the two inputs, not the destination"
-    Almost every in-place operation in the package uses trailing `α`, `β` that
-    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
-    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
-    forms, which carry this same combination into a fused convolution — and it is the exception the
-    name announces: it *is* the weighted combination, so its `α`
-    and `β` sit between the operands they weight and there is no accumulate form — pass
-    `b === destination` when you want one.
-
 Reach for `combine!` with a preallocated destination when you need a real-weighted combination of two
 fields in a single allocation-free pass. It fills the gap between [`add!`](@ref), which is unit-weight
 (``a + b``), and [`multiply!`](@ref), which scales a single field; the allocating equivalent is the
@@ -547,6 +538,15 @@ in place.
 ```math
 \\texttt{destination} = \\alpha  a + \\beta  b.
 ```
+
+!!! note "Here α and β weight the two inputs, not the destination"
+    Almost every in-place operation in the package uses trailing `α`, `β` that
+    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
+    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
+    forms, which carry this same combination into a fused convolution — and it is the exception the
+    name announces: it *is* the weighted combination, so its `α`
+    and `β` sit between the operands they weight and there is no accumulate form — pass
+    `b === destination` when you want one.
 
 # The kernel-composed form
 

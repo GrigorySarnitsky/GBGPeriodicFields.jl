@@ -944,20 +944,6 @@ representation.
 Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
 returns a fresh result instead.
 
-!!! note "Two kernels compose through the allocating form, which allocates nothing"
-    This operation applies a kernel to a field. Composing two kernels into one is `convolve(g₁, g₂)`,
-    and there is deliberately no in-place spelling, because there is nothing for one to save:
-    composition never builds a field of coefficients in any storage class. Two separable kernels compose
-    into their per-axis products, and two radial ones into a single closure when both are built over
-    *canonical* multipliers — the grid's own wavenumbers, built by the convenience constructor rather than
-    supplied by the caller — of the same concrete type ([`RadialKernel`](@ref) gives the condition); every
-    other pair — two stored kernels, a cross-family pair, or radial operands failing that test —
-    becomes a [`ProductKernel`](@ref) holding both factors unmultiplied and evaluating them in a
-    single pass. Composing two stored kernels allocates zero bytes, against
-    the ``O(N^3)`` a materialized product would cost, and applying the composite is bitwise-identical
-    to applying the two in sequence. Use [`materialize_kernel`](@ref) if the coefficients themselves
-    are wanted.
-
 The arguments are:
 - `field` — the field to filter, in spectral representation.
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a
@@ -1010,6 +996,20 @@ accumulate:
     the multiplier is real and even whatever the consumer's closure computes. A consumer-built
     kernel that breaks the symmetry yields coefficients that are those of no real field, and the
     inverse transform then silently keeps only their Hermitian part.
+
+!!! note "Two kernels compose through the allocating form, which allocates nothing"
+    This operation applies a kernel to a field. Composing two kernels into one is `convolve(g₁, g₂)`,
+    and there is deliberately no in-place spelling, because there is nothing for one to save:
+    composition never builds a field of coefficients in any storage class. Two separable kernels compose
+    into their per-axis products, and two radial ones into a single closure when both are built over
+    *canonical* multipliers — the grid's own wavenumbers, built by the convenience constructor rather than
+    supplied by the caller — of the same concrete type ([`RadialKernel`](@ref) gives the condition); every
+    other pair — two stored kernels, a cross-family pair, or radial operands failing that test —
+    becomes a [`ProductKernel`](@ref) holding both factors unmultiplied and evaluating them in a
+    single pass. Composing two stored kernels allocates zero bytes, against
+    the ``O(N^3)`` a materialized product would cost, and applying the composite is bitwise-identical
+    to applying the two in sequence. Use [`materialize_kernel`](@ref) if the coefficients themselves
+    are wanted.
 """
 function convolve! end
 
