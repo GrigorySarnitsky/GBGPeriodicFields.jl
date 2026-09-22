@@ -91,3 +91,46 @@ into no finding rather than a confusing one.
 Worth saying plainly, since the network rule is new and this was its first real run: its one
 finding on this package is a false positive, and the honest reading of `gbg check --network` on PF
 today is that all fifteen DOIs resolve to the works their titles name.
+
+## 4. BLOCKER — `drivers/run.js` does not parse at rc.7, so no instrument can launch
+
+The owner asked for the first documentation review. `gbg run documentation-review` opened
+`2026-09-22-documentation-review-01` correctly — 23 built pages, 26 roles, arguments written. The
+launch then failed, and it fails for every instrument and every stage, because the ONE driver is not
+valid JavaScript. Line 72:
+
+    .map((l) => `- ${l.file}${l.node ? ` (${l.node})` : ''}: "${l.text}"${l.found === 'OUTDATED' ? '  [not found again — read the file's changed regions]' : ''}`)
+
+The single-quoted string `'  [not found again — read the file's changed regions]'` contains an
+unescaped apostrophe in `file's`. The literal ends at `file'`, and what follows is not an expression.
+The harness rejects the script before any agent starts:
+
+    Script parse error: Unexpected token (72:135)
+
+It is the only instance of its class in the file: one grep for a single-quoted string containing an
+apostrophe returns this line and nothing else. The fix is one character — escape it, or use a
+template or double quotes. **Not applied here**, on the owner's word: PF runs the pinned driver or it
+does not run, and a driver patched in one consumer is the drift this package exists to end.
+
+Two things this says about the apparatus rather than about the line.
+
+**The defect is in the branch that reports a stale quote** — `l.found === 'OUTDATED'`, the path taken
+when a finding's anchor is no longer where it was. A fixture run whose quotes all resolve never
+renders that string, and the file parses only when nothing has moved. That is why it survived to a
+tag: the whole file fails to parse regardless of which branch runs, but only a real run with a stale
+anchor would have made anyone look.
+
+**Nothing on the Julia side can see it.** `test/driver.jl` is described as reading this file and
+requiring it to read every key Julia writes; whatever it does, it does not check that the file is
+parseable JavaScript. A syntax check would have caught this in a second, needs no agent and no
+network, and is the cheapest possible gate on the one file every instrument depends on.
+
+### One integration defect met on the way, minor beside the above
+
+The `Workflow` tool refuses a `scriptPath` outside the working directory, so
+`~/.julia/packages/GBGCodingTools/<slug>/drivers/run.js` cannot be named directly. PF copied it
+byte for byte into `.gbg/scratch/`, which is gitignored, and launched from there; the copy was
+verified identical by hash. It works, but the instruction "run `drivers/run.js` of the pinned
+GBGCodingTools through the `Workflow` tool" cannot be followed literally, and every consumer will
+hit it. Worth either saying so in `PF-WIRING.md` or having `gbg run` place the copy itself, where it
+can also record which driver a run actually used.
