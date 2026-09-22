@@ -9,7 +9,7 @@ and need not repeat the convention.
 
 | Concept | Symbol | Convention |
 |:---|:---|:---|
-| Imaginary unit | ``\mathrm{i}`` | Upright, always — never bare italic `i`, never `\imath`. Writing it upright frees `i` for use as an index. |
+| Imaginary unit | ``\mathrm{i}`` | Upright, always — never bare italic ``i``, never ``\imath``. Writing it upright frees ``i`` for use as an index. |
 | Indices | ``i, j, k, \dots`` | Italic, taken in order; used freely alongside ``\mathrm{i}`` (upright versus italic tells them apart). As an index, ``k`` occurs only in component subscripts (Einstein-summed); the standalone ``k`` of the table below is always the wavenumber, so the two roles never meet. |
 | Repeated index | ``a_i b_i`` | An index repeated within a term is summed over the three components ``1, 2, 3`` (Einstein convention); an explicit ``\sum`` is reserved for the grid, point, and mode sums below. |
 | Partial derivative | ``\partial_{x_i}``, ``\partial^2_{x_i x_i}`` | The coordinate is subscripted, not the fiber index; a second derivative repeats the coordinate, so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f`` (with the repeated ``i`` summed). |
