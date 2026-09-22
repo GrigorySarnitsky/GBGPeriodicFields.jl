@@ -533,7 +533,7 @@ end
                  wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
 
 Run the fused curl pass over every mode: read the three source coefficients once, write the three
-components of ``\\mathrm{i} (a \\times \\hat u)``, with ``a`` the derivative wavenumber. Alias-safe by construction — all of a mode's
+components of ``\\mathrm{i} (a \\times \\hat u)``, with ``a`` the derivative wavenumber. The pass is alias-safe by construction — all of a mode's
 reads precede its writes — so the destination may alias the source with no guard temporary.
 """
 function _curl_modes!(backend, destination_1, destination_2, destination_3,
@@ -1368,8 +1368,8 @@ end
     laplacian(field::AbstractFieldSpectral, multipliers::FieldSpectralMultipliers)
 
 Allocating form of [`laplacian!`](@ref): allocate the result and return it, the Laplacian ``\\Delta f``.
-Representation-preserving (scalar, vector, or tensor field of the same tensor order). See `laplacian!` for
-the spectral form ``-|k|^2``.
+The operator preserves the tensor order: a scalar, vector or tensor field gives a result of the
+same order. See `laplacian!` for the spectral form ``-|k|^2``.
 """
 function laplacian end
 
@@ -1456,8 +1456,8 @@ end
                       multipliers::FieldSpectralMultipliers)
 
 Allocating form of [`inverse_laplacian!`](@ref): allocate the result and return it, the zero-mean inverse
-Laplacian ``\\Delta^{-1} f`` (the zero Fourier mode is set to zero). Representation-preserving (scalar,
-vector, or tensor field of the same tensor order). See `inverse_laplacian!` for the spectral form.
+Laplacian ``\\Delta^{-1} f`` (the zero Fourier mode is set to zero). The operator preserves the tensor order: a scalar,
+vector or tensor field gives a result of the same order. See `inverse_laplacian!` for the spectral form.
 """
 function inverse_laplacian end
 
