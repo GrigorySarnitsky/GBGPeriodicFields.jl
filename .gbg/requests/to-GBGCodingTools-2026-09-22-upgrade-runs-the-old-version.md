@@ -134,3 +134,51 @@ verified identical by hash. It works, but the instruction "run `drivers/run.js` 
 GBGCodingTools through the `Workflow` tool" cannot be followed literally, and every consumer will
 hit it. Worth either saying so in `PF-WIRING.md` or having `gbg run` place the copy itself, where it
 can also record which driver a run actually used.
+
+## 5. BLOCKER — the driver cannot write its result files, because workflow scripts have no filesystem
+
+rc.8 fixed the parse error of §4 and the driver now parses. The launch fails at the next step, and
+this one is architectural rather than a typo. `writeResult`, the single path by which every agent's
+findings reach disk:
+
+    async function writeResult(path, value) {
+      const fs = await import('node:fs/promises');
+      await fs.mkdir(path.replace(/\/[^/]+$/, ''), { recursive: true });
+      await fs.writeFile(path, JSON.stringify(value, null, 2));
+    }
+
+The harness refuses it before any agent starts:
+
+    SyntaxError: import() is not available in workflow scripts.
+
+And the restriction is wider than the syntax. The workflow-authoring reference states, of the script
+sandbox: **"No filesystem or Node.js API access."** So the call fails twice over — `import()` is
+rejected outright, and a static import would find no `fs` to bind. There is no spelling of that
+function that works. It is the only filesystem use in the file, and it is the load-bearing one.
+
+The comment directly above it records the reasoning, which is sound and is exactly what cannot be had
+here:
+
+    // The result files are what `gbg run collect` reads. Written here rather than returned, because
+    // the return value of a workflow is read by a session and the collector is a separate program
+    // minutes later.
+
+So `gbg run collect` reads files the driver is structurally unable to write, and no stage of any
+instrument can complete, whatever arguments it is handed.
+
+**A fix that keeps the property the comment wants.** The agents have file tools; the driver already
+hands each role its `result_file` path and already builds each brief. Have each reader WRITE its own
+result file as the last step of its brief, and let the driver collect only the names of those that
+wrote. The collector stays a separate program reading files minutes later, the return value stays
+small, and nothing needs a filesystem in the script. Returning the results through the workflow's
+value instead would also work, but it is the option that gives up the property the comment was
+protecting, and it makes the session the courier for every finding.
+
+**Worth checking the rest of the driver against that sandbox before the next tag**, since this is the
+second launch-blocking defect in two candidates and neither could be found by reading Julia. The same
+reference also rules out `Date.now()`, `Math.random()` and argless `new Date()` — they throw, because
+they would break resume. A grep for those three across `drivers/` costs nothing and would say whether
+a third blocker is waiting behind this one.
+
+**Not worked around here, on the owner's word**, as in §4: PF runs the pinned driver or it does not
+run. Run `2026-09-22-documentation-review-02` stays open at `find` with nothing launched.
