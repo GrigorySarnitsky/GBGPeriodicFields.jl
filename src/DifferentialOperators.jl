@@ -1157,8 +1157,9 @@ end
     inverse_curl!(destination::VectorFieldSpectral, field::VectorFieldSpectral,
                   multipliers::FieldSpectralMultipliers)
 
-Recover the divergence-free vector field whose curl is `field`, writing it into `destination` —
-the inverse of [`curl!`](@ref) (``\\nabla\\times``) on the fields where that inverse exists.
+Recover the divergence-free vector field whose curl is `field`, writing it into `destination` and
+returning `destination` — the inverse of [`curl!`](@ref) (``\\nabla\\times``) on the fields where that
+inverse exists.
 
 Use this in-place form when `destination` is already allocated; the allocating
 [`inverse_curl`](@ref) returns a fresh result instead.
