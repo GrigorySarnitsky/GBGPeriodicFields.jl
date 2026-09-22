@@ -174,7 +174,8 @@ abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTrans
 """
     LalescuSpline(n, m = 1; T = Float64)
 
-Smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati (2010), pinned to 1e-12 against
+A `LalescuSpline` is the smooth (``C^m``) local spline interpolation of Lalescu, Teaca & Carati
+(2010), pinned to 1e-12 against
 the ``\\texttt{beta\\_n}n\\texttt{\\_m}m`` weights of TurTLE, named for the two parameters — TurTLE being the reference pseudospectral turbulence solver with Lagrangian
 particle tracking (its `interp_neighbours = n`, `smoothness = m`). Over a compact stencil
 of ``2n{+}2`` nodes at offsets ``\\{-n, \\dots, n{+}1\\}`` (``n \\ge 0``, the first argument — the
@@ -381,7 +382,8 @@ end
 """
     CatmullRom
 
-The default interpolation scheme: the cubic ``n = 1, m = 1`` [`LalescuSpline`](@ref), a four-point
+`CatmullRom` is the default interpolation scheme: the cubic ``n = 1, m = 1``
+[`LalescuSpline`](@ref), a four-point
 ``C^1`` stencil that reproduces the Catmull–Rom spline (and quadratic polynomials exactly).
 """
 const CatmullRom = LalescuSpline(1, 1)
@@ -455,8 +457,8 @@ end
 """
     PointTraversalOrder(indices)
 
-A validated **traversal order**: a permutation of `1:M`, for a set of `M` points, saying which point
-each unit of a transfer's work handles. Build one with [`point_traversal_order`](@ref), or wrap your
+A `PointTraversalOrder` is a validated **traversal order**: a permutation of `1:M`, for a set of `M`
+points, saying which point each unit of a transfer's work handles. Build one with [`point_traversal_order`](@ref), or wrap your
 own permutation by calling this constructor, which checks it.
 
 An order changes only the sequence in which points are handled, never the result, and it moves no
@@ -819,8 +821,8 @@ end
 """
     PointTraversalOrderScratch(grid::Grid3D, points::PointSet; tile_size = 4)
 
-Working storage for [`point_traversal_order!`](@ref), so that rebuilding a traversal order allocates
-nothing that grows with the point count.
+A `PointTraversalOrderScratch` holds the working storage for [`point_traversal_order!`](@ref), so
+that rebuilding a traversal order allocates nothing that grows with the point count.
 
 Build one alongside the order it will refill, and hold both for as long as the point set lives. It is
 storage and nothing else: it holds no order, no transfer ever reads it, and two orders over the same
