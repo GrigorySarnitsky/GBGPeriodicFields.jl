@@ -118,8 +118,7 @@ choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
 transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
-acting on a field in spectral representation). The two families take the same verbs and honour one adjointness contract, with the one
-non-uniformity documented below; the schemes
+acting on a field in spectral representation). Same verbs, one adjointness contract, the one non-uniformity documented below; the schemes
 differ only in (kernel, representation).
 
 One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
@@ -283,7 +282,7 @@ spline_coefficients(scheme::LagrangeSpline) = scheme.coefficients
 
 Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `nodes[i]` in the
 order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
-evaluated at `evaluation_point`. This is a host-side helper for the spline-weight construction.
+evaluated at `evaluation_point`. A host-side helper for spline weights.
 
 Reference: B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 """
@@ -416,7 +415,7 @@ end
 
 Return `(base_cell, t)` for one axis: the zero-based index `base_cell` of the left node of the cell
 containing `coordinate`, and the fractional position ``t \\in [0, 1)`` within it. Periodic wrapping of the
-stencil is applied later via `mod`. The arithmetic is pure and scalar, so the function is kernel-safe.
+stencil is applied later via `mod`. Pure scalar arithmetic, kernel-safe.
 """
 @inline function _locate(coordinate::T, origin::T, spacing::T, number_of_grid_points::Int) where {T}
   continuous_index = (coordinate - origin) / spacing
