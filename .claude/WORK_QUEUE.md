@@ -166,3 +166,30 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] RESULTS.md over all ten; triage A 46->23 (only the radial-binning discovery unexplained, CONFIRMED on fresh lanes), B 91->33 all known/stale-host; the scalar exponential peer pair corrected to a non-declaration
 - [x] Finding (ai); committed and pushed
 
+
+## Open (2026-09-22: HT asks for a width-parameterized top-hat window; owner deferred it behind the CT work)
+
+- [x] DEFERRED by the owner — evaluated, not built. HT wants the generalization of `assignment_window`
+      from the grid spacing to an arbitrary width, for a k(l)/ε(l) sub-box diagnostic. VERDICT: the
+      request is sound and the object belongs here. `assignment_window` IS W(Δ)² — `src/Convolution.jl:1856`
+      computes sinc²(|k_a|Δ_a/2) per axis — so the generalization is that body with `spacing[a]` replaced
+      by a width. `SeparableKernel` has no public constructor (`:280`, `:466`), so HT genuinely cannot
+      build it and the raise is correct. Both their assumptions hold: the tuple form takes
+      `Tuple{Vararg{SpectralKernel}}` so a `ProductKernel` type-checks, and `test/reductions.jl:347,787`
+      already exercise `convolve(radial, separable)` as a weight, both factors real so the real-weight
+      check passes. SHAPE: return W, not W² — W is the primitive that acts on the field, W² is its
+      autoconvolution and separable kernels already compose for free (decision 50), so shipping both
+      would be invariant 1's "for completeness"; HT squares it themselves. Then `assignment_window`
+      becomes `convolve(w, w)`, which is DRY and gives a bitwise consistency oracle. Name: NOT
+      `box_window` (this package says "the box" for the domain throughout) — `tophat_window(multipliers,
+      width)`, width positional since it changes the result, accepting a scalar or a per-axis triple as
+      `translation_kernel` takes its offset. FLAGS FOR HT: their b ≈ 16 batch model omits register
+      pressure, which finding (aq) measured halving occupancy on gfx1100, and a 16-wide tuple
+      accumulator over 16 nested `ProductKernel` broadcasts is that shape — no ceiling is documented, so
+      sweep b rather than assume, and expect the device optimum below their 12–16; nested `Broadcasted`
+      is also the known-fragile spot on AMDGPU (the reason `_kernel_data` calls `instantiate`), so check
+      ROCm before committing to a batch size. The cubic case cannot collapse like the spherical one —
+      W² is not a function of |κ| — so their batching is the right structure and there is no cheaper
+      route. Pin l = L (W picks out the mean alone, k(L) = k for a zero-mean field) and l → 0 (W ≡ 1,
+      k(0) = 0) as tests; Nyquist is already right, the window using the TRUE |k| so it stays real and
+      even. Full definition of done applies if it is built.
