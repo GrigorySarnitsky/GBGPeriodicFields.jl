@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.10 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
 # /change-audit
 
 A code change is no wider than the defect and the owner's direction and still accepts input that worked before; it grades the fix and changes nothing.
@@ -15,9 +15,10 @@ that stopped in the middle has spent its agents for nothing.
 1. `gbg run change-audit` — opens the run and writes the first stage's arguments. Add `--readers open` or
    `--readers both` for the open readers, `--model <name>` to name the careful model, `--sequential`
    to launch one agent at a time. It refuses a tree with uncommitted changes to tracked files.
-2. Launch the agents: run the ONE driver, `drivers/run.js` of the pinned GBGCodingTools, through the
-   `Workflow` tool, with the arguments file the verb just named. Julia cannot launch an agent and
-   only this session can, which is why the verb stopped here.
+2. Launch the agents with the `Workflow` call the verb just printed: the driver at the path it names,
+   copied into the run's own scratch, with the arguments file beside it. Never the pinned package's
+   own `drivers/run.js`, which `Workflow` refuses because it lies outside the working directory. Julia
+   cannot launch an agent and only this session can, which is why the verb stopped here.
 3. `gbg run collect` — reads what the agents wrote. Exit 2 means a role wrote nothing, or the tree
    moved under them; the first is relaunched once, the second is the owner's to answer.
 4. `gbg run next` — moves to the next stage and says what it wants. Repeat 2 to 4 until it says the

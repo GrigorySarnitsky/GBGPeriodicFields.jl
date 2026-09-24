@@ -5,20 +5,13 @@
 # default is wrong for this package.
 Config(
     package = "GBGPeriodicFields",
-    tool = v"2.0.0-rc.10",
+    tool = v"2.0.0-rc.23",
     docs_build = ["julia", "--project=docs", "docs/make.jl"],
     test = ["julia", "--project", "-e", "using Pkg; Pkg.test()"],
-    # The rules page is written by `Render.pages` during the docs build. No rule reads a generated
-    # page, which matters here more than usual: a page that states the rules quotes every banned
-    # spelling in order to ban it.
-    generated = ["docs/src/gbg-rules.md", "docs/src/gbg-readers.md",
-                 "docs/src/gbg-instruments.md"],
-    # The four rationale documents are where this package's mathematics lives, so they are in scope
-    # deliberately rather than by the default, which reads none of them.
+    # The one tooling page, written by `Render.pages` during the docs build: what the documentation
+    # is held to, a link to the rulebook, and this package's switches. No rule reads a generated page.
+    generated = ["docs/src/gbg.md"],
     filesets = Dict(
-        FileSet.RATIONALE => ["docs/ARCHITECTURE.md", "docs/DECISIONS.md",
-                              "docs/FORMALIZATION.md", "docs/TESTING.md",
-                              "docs/PERFORMANCE.md"],
         # The default set is four files: the two examples and the two scripts the CPU example calls.
         # The scripts are not Literate surfaces and are dropped; BOTH examples stay. This package has
         # treated the ROCm example as a rendered surface since it was written — its full-line comments

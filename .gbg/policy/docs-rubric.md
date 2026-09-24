@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.10 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
 What a docstring and an API page contain, in what order and in what shape. 44 rules, written from the rule values themselves,
@@ -228,11 +228,12 @@ A mutator whose signature carries no arrow says what it returns in a sentence be
 Covered by a reader given nothing.
 
 ### RULE.DOC.SELF_CONTAINED
-A rationale doc reads top to bottom without another file: every symbol is bound in plain language at first use.
+A docstring, a page, and the one rationale document this rule's `architecture_doc` names read top to bottom without another file: every symbol is bound in plain language at first use. Every other rationale document is exempt, since it explains one architecture and may assume the rest of itself.
 
-Later uses may be bare; universally standard mathematics may stand unglossed. A decision-log entry browsed on its own meets the same bar.
+Later uses may be bare; universally standard mathematics may stand unglossed. The exemption is not indulgence: holding a design document to a cold read means re-binding the same vocabulary on every page, which is what the one-home rule forbids.
 
 Covered by a reader given nothing, because this needs reading order.
+This package may set `architecture_doc`; unset, it is `docs/ARCHITECTURE.md`.
 
 ### RULE.DOC.SENTENCE_OPENER
 A sentence opens with a capitalised ordinary word, never a lowercase identifier or a formula; bullets, comments, headings and fenced code are exempt.
@@ -285,11 +286,12 @@ Markdown reads an indented block as code, so an indented table renders as the pi
 Covered by a program.
 
 ### RULE.DOC.TERMS_DEFINED
-A term of art is defined in a clause, or @ref-linked to its definition, before its first use on the same page. The test is a cold read of that page alone.
+A term of art is defined in a clause, or @ref-linked to its definition, before its first use on the same page. The test is a cold read of that page alone, and it is asked of docstrings, of pages, and of the one rationale document this rule's `architecture_doc` names; every other rationale document is exempt.
 
-A docstring can bind every symbol and still be unreadable to someone who has not read the module, because its terms of art are nouns, not symbols; parse it with the module's context withheld, and a noun that silently assumes the package's context is the defect.
+A docstring can bind every symbol and still be unreadable to someone who has not read the module, because its terms of art are nouns, not symbols; parse it with the module's context withheld, and a noun that silently assumes the package's context is the defect. A design document is read the other way round, by someone who has the architecture in hand, and holding it to a cold read means defining the same nouns on every page.
 
 Covered by a reader given nothing, because this needs meaning.
+This package may set `architecture_doc`; unset, it is `docs/ARCHITECTURE.md`.
 
 ### RULE.DOC.TWO_TIER
 A module docstring is a map: one linked one-line entry per operation family, and no formula. A function docstring is a home: the one place where that operation's identity, arguments and defining formula are stated in full.

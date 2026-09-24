@@ -277,10 +277,10 @@ using GBGPeriodicFields
 
 const ROOT = normpath(joinpath(@__DIR__, ".."))
 
-# The rules page — what the rulebook holds and what this package has switched off, rendered for a
-# reader of the site. It is written AFTER the lints above on purpose: those eight walk `docs/src` from
-# disk and know nothing of `generated`, so a rules page written earlier becomes their input, and a page
-# that states the rules necessarily quotes every banned spelling in order to ban it.
+# The one tooling page — what the documentation is held to, a link to the rulebook on GBGCodingTools'
+# site, and this package's switches with their reasons. It is written AFTER the lints above: those
+# eight walk `docs/src` from disk and know nothing of `generated`, so a page written earlier would
+# become their input.
 GBGCodingTools.Render.pages(GBGCodingTools.ConfigIO.read_config(ROOT), ROOT)
 
 # Make `using GBGPeriodicFields` available to the `jldoctest` examples (the Getting-started
@@ -316,9 +316,6 @@ GBGCodingTools.makedocs(ROOT;
     "Running on a GPU" => "gpu.md",
     "Examples" => "examples/hist_cpu.md",
     "Notation" => "notation.md",
-    "Rules" => "gbg-rules.md",
-    "Readers" => "gbg-readers.md",
-    "Instruments" => "gbg-instruments.md",
     "API"  => Any[
       "Overview"              => "api.md",
       "GBGPeriodicFields"     => "api/GBGPeriodicFields.md",
@@ -337,6 +334,7 @@ GBGCodingTools.makedocs(ROOT;
       "Formalization" => "formalization.md",
       "Testing"       => "testing.md",
       "Performance"   => "performance.md",
+      "Documentation tooling" => "gbg.md",
     ],
   ]
 )
