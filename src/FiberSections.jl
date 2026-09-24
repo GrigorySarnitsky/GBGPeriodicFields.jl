@@ -18,9 +18,9 @@ design that does not depend on which base is used. The parts are:
   written once here so that one set of generated kernels serves both field and point-value
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
-  slab-threaded CPU loop running every stamped **values function**, a pure scalar function taking
-  one element per input and returning that element's outputs, the execution route
-  for multi-output fiberwise operations;
+  CPU loop threaded over slabs, running every stamped **values function**, a pure scalar function taking
+  one element per input and returning its outputs, the route for multi-output fiberwise
+  operations;
 - the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
   components into a fiber, applies the caller's function, and flattens the result back, so an
   arbitrary fiber map rides the same executor as the generated algebra.
@@ -155,8 +155,8 @@ const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
     _SERIAL_CUTOFF
 
 Below this element count an assignment runs serially regardless of thread count. Threading
-overhead is not worth it for small arrays, and this cutoff also exempts the one-element
-zero-mode views. The assignment hot path reads it, and [`set_threading_cutoff!`](@ref) sets it.
+does not pay on small arrays, and the cutoff also exempts one-element
+views of the zero Fourier mode. The assignment path reads it, and [`set_threading_cutoff!`](@ref) sets it.
 """
 const _SERIAL_CUTOFF = Ref(1 << 14)
 
@@ -222,7 +222,7 @@ end
 
 Return the element count at or above which a CPU field assignment is split across `Base.Threads`
 workers rather than run serially. Here an assignment is a fused elementwise write into field
-storage — the [`_assign!`](@ref) primitive behind the broadcast route, and the same gate guards the
+storage — the [`_assign!`](@ref) primitive behind broadcasts, and the same gate guards the
 fused CPU loops behind the algebra and the differential operators, and the fixed-tree reductions
 (a reduction whose summation tree depends on the array length alone, so its value is the same at
 every thread count). Two
@@ -278,7 +278,7 @@ end
 
 Materialize the lazy `broadcasted` expression into `destination` and return it, threading over
 chunks on the CPU when [`_use_threads`](@ref) allows. The generic method is plain
-`Broadcast.materialize!`, the safe polarity that keeps GPU arrays and unknown array wrappers on
+`Broadcast.materialize!`, the safe default that keeps GPU arrays and unknown array wrappers on
 their broadcast path with no scalar indexing. Only dense `Array`s and `Array`-backed
 `SubArray`s take the threaded path.
 """
@@ -806,9 +806,9 @@ takes one scalar per entry of `arrays` (that array's element at the running inde
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
 Every array element is read once and every output written once, and all of an element's reads
 happen before its writes, so a target may alias a source array. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
-backend; the `KernelAbstractions.CPU` method runs a slab-threaded `@simd` loop over the linear
+backend; the `KernelAbstractions.CPU` method runs a `@simd` loop, threaded over slabs, over the linear
 range (component views are contiguous, so linear indexing is stride-1) through the same
-[`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
+[`_use_threads`](@ref) gate as broadcasts, bitwise-identical to serial because each
 element is written once from the same expression. Returns `nothing`.
 """
 function _fiberwise_pass!(backend, f::F, targets, arrays, constants, α, β) where {F}
@@ -1101,7 +1101,7 @@ one-tuple, a `StaticArray` its `Tuple`.
 The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`: it takes the flat input
 component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), applies `φ`, and flattens
 the result. A struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
-signature), exactly the reasoning behind `_FiberGather` for the mapped reductions.
+signature).
 
 The fields are
 - `φ` — the caller's fiber map, applied to the assembled fiber at each base point.
