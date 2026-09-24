@@ -761,39 +761,17 @@ end
 """
     point_traversal_order(grid::Grid3D, points::PointSet; tile_size = 4)
 
-Build a [`PointTraversalOrder`](@ref) for `points` on `grid`: a permutation of `1:M`, for a set of
-`M` points, that groups points lying in the same **block** of grid cells.
-
-Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their
-allocating siblings. A transfer's cost is dominated by where its points read and write rather than by
-the arithmetic on them, and points usually arrive in an order unrelated to the grid — the order they
-were seeded in, say — so consecutive units of work touch unrelated memory. Following a traversal
-order makes them touch neighbouring memory instead. The result is unchanged either way.
-
-**It is not always a gain.** Points already in a lattice or a sweep order are local already, and
-ordering them adds a build for no benefit. Measure the pair on your own point set before adopting it.
+Build and return a fresh [`PointTraversalOrder`](@ref) for `points` on `grid` — the allocating form of
+[`point_traversal_order!`](@ref), which says what an order is, when it pays, what `tile_size` trades
+and what a build costs.
 
 The arguments are:
-- `grid` — the grid whose cells the blocks are cut from, and whose origin the points are measured
-  from. Points lying outside it are clamped into the edge blocks rather than refused, since an order
-  is a hint and cannot change a result.
-- `points` — the point set to order. Its storage family decides where the order is built and used.
-- `tile_size` — the block edge in grid cells (default `4`), so each axis is divided into
-  ``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks for a grid of ``N`` cells along it. Smaller
-  blocks group points more tightly and cost more: the number of blocks grows as the cube of the
-  reciprocal edge, and with it both the build time and the working memory — 2 MiB of counters at the
-  default on a ``256^3`` grid against 128 MiB at `tile_size = 1`. The best value follows the backend
-  rather than the transfer scheme: a device is insensitive to it, while a CPU prefers coarser blocks,
-  up to roughly 16.
-
-Building costs one pass over the points, a running total over the blocks, and the permutation check —
-``\\approx 0.27`` ms **on a device** at ``256^3`` with ``10^6`` points, against ``0.71`` ms for one
-ordered gather there, so about a third of a single transfer. On a CPU the same build is
-``\\approx 9`` ms, so it pays back over more transfers.
+- `grid`, `points` — as for the in-place form.
+- `tile_size` — the block edge in grid cells (default `4`), whose trade-off the in-place form describes.
 
 !!! warning "Rebuild with the in-place form, not this one"
     Each call here allocates about 15 MiB at ``256^3`` with ``10^6`` points. Use this form for the
-    first order and [`point_traversal_order!`](@ref) for every rebuild after it, which writes into
+    first order and `point_traversal_order!` for every rebuild after it, which writes into
     storage you already hold.
 """
 function point_traversal_order(grid::Grid3D{T}, points::PointSet; tile_size::Integer = 4) where {T<:AbstractFloat}
@@ -878,7 +856,17 @@ end
     point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D,
                            points::PointSet, scratch::PointTraversalOrderScratch)
 
-Rebuild `traversal` in place for the current positions of `points`, and return it.
+Rebuild `traversal` in place for the current positions of `points`, and return it: a permutation of
+`1:M`, for a set of `M` points, that groups points lying in the same **block** of grid cells.
+
+Pass it as the `traversal` keyword of [`interpolate!`](@ref), [`anterpolate!`](@ref) or their
+allocating siblings. A transfer's cost is dominated by where its points read and write rather than by
+the arithmetic on them, and points usually arrive in an order unrelated to the grid — the order they
+were seeded in, say — so consecutive units of work touch unrelated memory. Following a traversal
+order makes them touch neighbouring memory instead. The result is unchanged either way.
+
+**It is not always a gain.** Points already in a lattice or a sweep order are local already, and
+ordering them adds a build for no benefit. Measure the pair on your own point set before adopting it.
 
 Use this in-place form when `traversal` is already allocated; the allocating
 [`point_traversal_order`](@ref) returns a fresh result instead. The result is the one that form would
@@ -890,21 +878,35 @@ periodically would otherwise allocate about 15 MiB at ``256^3`` with ``10^6`` po
 On a device that memory is freed by a collector which runs on host pressure and cannot see it, so it
 accumulates. Here the result is `traversal`'s own storage and everything else is `scratch`, so
 **nothing allocated per rebuild grows with the point count**: about 1.2 KiB of `KernelAbstractions`
-launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``. The rebuild itself costs what
-a build costs, ``\\approx 0.27`` ms on a device at ``256^3`` with ``10^6`` points and ``\\approx 9`` ms
-on a CPU, which is what sets how often it is worth doing.
+launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``.
 
 The arguments are:
 - `traversal` — the [`PointTraversalOrder`](@ref) to overwrite, whose length fixes the point count.
-- `grid` — the grid whose cells the blocks are cut from, which must be the grid the `scratch` was
-  built for.
-- `points` — the point set whose current positions decide the order.
+- `grid` — the grid whose cells the blocks are cut from, and whose origin the points are measured
+  from, which must be the grid the `scratch` was built for. Points lying outside it are clamped into
+  the edge blocks rather than refused, since an order is a hint and cannot change a result.
+- `points` — the point set whose current positions decide the order. Its storage family decides where
+  the order is built and used.
 - `scratch` — a [`PointTraversalOrderScratch`](@ref) built for this grid, point count and
   `tile_size`. The block edge comes from it rather than from a keyword here, so there is one source
   of truth for it.
 
 All four must agree in point count, element type and storage family, and a mismatch is refused rather
 than converted.
+
+The block edge `tile_size` (default `4`), fixed when the scratch is built or passed to the allocating
+form as a keyword, is in grid cells, so each axis is divided into
+``\\lceil N / \\texttt{tile\\_size} \\rceil`` blocks for a grid of ``N`` cells along it. Smaller blocks
+group points more tightly and cost more: the number of blocks grows as the cube of the reciprocal edge,
+and with it both the build time and the working memory — 2 MiB of counters at the default on a
+``256^3`` grid against 128 MiB at `tile_size = 1`. The best value follows the backend rather than the
+transfer scheme: a device is insensitive to it, while a CPU prefers coarser blocks, up to roughly 16.
+
+A build or rebuild costs one pass over the points, a running total over the blocks, and the
+permutation check — ``\\approx 0.27`` ms **on a device** at ``256^3`` with ``10^6`` points, against
+``0.71`` ms for one ordered gather there, so about a third of a single transfer. On a CPU the same
+build is ``\\approx 9`` ms, so it pays back over more transfers; either figure is what sets how often
+a rebuild is worth doing.
 """
 function point_traversal_order!(traversal::PointTraversalOrder, grid::Grid3D{T}, points::PointSet,
                          scratch::PointTraversalOrderScratch) where {T<:AbstractFloat}

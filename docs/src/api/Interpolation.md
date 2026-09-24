@@ -23,8 +23,8 @@ it changes the sequence in which the points are visited and never the result.
 ```@docs
 PointTraversalOrder
 PointTraversalOrderScratch
-point_traversal_order
 point_traversal_order!
+point_traversal_order
 ```
 
 ## Transfer-scheme types
