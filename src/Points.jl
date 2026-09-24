@@ -10,7 +10,8 @@ The parts are:
 
   * **Positions.** [`Point`](@ref) is a single coordinate triple, and [`PointSet`](@ref) holds
     `M` positions in a structure-of-arrays layout. A point set carries no grid; a periodic
-    domain wraps any coordinate, so the grid comes at use time, from interpolation and its adjoint.
+    domain wraps any coordinate, so the grid comes at use time, from the grid-to-point transfer
+    (interpolation, and its adjoint anterpolation) in the [`Interpolation`](@ref "Interpolation") module.
   * **Point-value sections.** [`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), and
     [`TensorPointValues`](@ref), gathered under [`AbstractPointValues`](@ref), mirror the field
     tensor orders. They have no spectral form, a sampled value being always a
@@ -37,9 +38,6 @@ The parts are:
   * **Moving between storage families.** [`adapt`](@ref) moves a `PointSet` or any point values
     between host and device arrays, exactly as it moves a field; the operation is documented once,
     with its field methods, in `Fields`.
-
-The grid-to-point transfer (interpolation) and its adjoint (anterpolation) live in the
-[`Interpolation`](@ref "Interpolation") module.
 """
 module Points
 
@@ -1399,8 +1397,8 @@ x_{p,a} \\leftarrow \\operatorname{mod}(x_{p,a} - o_a,\\ L_a) + o_a ,
 
 which lands each coordinate in the half-open fundamental domain ``[o_a, o_a + L_a)``, where
 ``L_a`` is the domain extent along axis ``a`` and ``o_a`` the domain origin — both read from
-`grid`, whose mesh plays no role. Wrapping is never required for sampling — the transfer kernels
-wrap their stencil indices, so interpolation is invariant under shifting any coordinate by whole
+`grid`, whose mesh plays no role. Wrapping is never required for sampling — interpolation wraps the
+grid nodes it samples, so it is invariant under shifting any coordinate by whole
 periods — but it is the operation that keeps coordinates bounded over a long run (absolute
 floating-point resolution degrades as a coordinate grows, single precision especially) and that
 presents in-box positions to a consumer bucketing by cell index. It discards winding: a
