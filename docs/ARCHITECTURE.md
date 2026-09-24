@@ -715,9 +715,9 @@ rule, so a future operation is placed by its *structure*, not by precedent-minin
    `symmetric_gradient!`, `helmholtz_projection!`, and the compressed kernels' application —
    decision 50's axis-factored class and decision 51's radial one, which take the same route for the
    same reason: a *broadcast* device route paired with a gated CPU loop, rather than a hand-written
-   kernel with one, for the measurement in `PERFORMANCE.md` finding (o). The
-   exponential family currently broadcasts over the lazy ``|k|^2`` and is the recorded candidate for
-   this shape — the finding-(k) hoist.)
+   kernel with one, as `PERFORMANCE.md` finding (o) measures. The
+   exponential family's vector and tensor forms took this shape in decision 79, evaluating ``|k|^2``
+   once per mode.)
 4. **Reductions** take the **backend split of decisions 30/40**: the fixed midpoint tree on CPU —
    gated, spawned at its top levels, bitwise thread-count-invariant — and the device's own
    parallel reduce elsewhere.
@@ -729,7 +729,7 @@ rule, so a future operation is placed by its *structure*, not by precedent-minin
 
 Whatever the route, three obligations are constant: a migration is verified **bitwise against the
 implementation it replaces** (or against an oracle when the arithmetic legitimately changes), the
-pass-audit row lands at its fused ideal or carries a named holder, and alias safety is either by
+element-traffic test counts no reads or writes beyond the fused minimum or names why, and alias safety is either by
 construction (an element's reads precede its writes) or a documented contract (`mul!`).
 
 **The kernel sites split into two classes for the threading policy — and two kernels are not
@@ -755,8 +755,8 @@ kernel with a gated CPU loop (decisions 38, 40); the axis-factored kernel of dec
 *broadcast* with one. The reason is measured rather than aesthetic — a broadcast whose operands carry
 singleton axes indexes cartesian and launches flat, which is what a device wants, but does not vectorize
 on a CPU, where it ran at a fixed element rate independent of precision (`PERFORMANCE.md` finding (o)).
-Either way the pair is backend-dispatched and carries decision 47's dispatch-target guard, without which
-the CPU half is dead code the tests cannot see.
+Either way the pair is backend-dispatched, and a test checks both halves are reached, lest the CPU half
+be dead code.
 
 Two groups of operations, however,
 are KA kernels **on every backend** — the gather/scatter transfer kernels
