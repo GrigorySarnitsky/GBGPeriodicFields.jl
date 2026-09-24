@@ -769,10 +769,10 @@ exactly); under aliasing — both fields carrying Nyquist content, say — the d
 
 !!! note "The mixed spectral pair allocates one or two correction planes"
     In spectral representation `inner(f, f)` and `l2norm` run allocation-free, but the *mixed*
-    `inner(f, g)` materializes ``O(N^2)`` correction planes — the zero plane of the folded axis, the one the real transform halves, and its
-    Nyquist plane too when that axis is even, so an odd folded axis pays one plane and an even one two. That is small beside the ``O(N^3)`` field, paid per call, where `inner(f, f)` pays
-    nothing. The fused alternative, a `dot` over a strided view, has no
-    method on the AMD path (rocBLAS `dotc`), so one route serves every backend.
+    `inner(f, g)` materializes ``O(N^2)`` correction planes, per-axis count squared — the zero plane of the folded axis, the one the real transform halves, and its
+    Nyquist plane too when that axis is even, so an odd axis pays one plane and an even one two. That is small beside the ``O(N^3)`` field, paid per call, where `inner(f, f)` pays
+    nothing. The fused alternative, a strided-view `dot`, has no AMD
+    method (rocBLAS `dotc`), so one route serves every backend.
 """
 function inner end
 # Two sections may be contracted only when they are the same kind of section over the same base,
