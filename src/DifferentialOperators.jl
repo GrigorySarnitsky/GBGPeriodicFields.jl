@@ -1338,11 +1338,11 @@ Use this in-place form when `destination` is already allocated; the allocating [
 returns a fresh result instead.
 
 The arguments are:
-- `destination` — the field that receives the result; it matches the domain and tensor order of `field`.
+- `destination` — the field receiving the result, on `field`'s domain and tensor order.
 - `field` — the field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol is a coefficientwise multiply by ``-|k|^2``:
+The spectral symbol multiplies each mode's coefficient by ``-|k|^2``, its true wavevector squared:
 
 ```math
 \\begin{gathered}
@@ -1423,7 +1423,7 @@ The arguments are:
 - `field` — the field to invert, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
-The spectral symbol divides by ``-|k|^2`` away from the origin and sets the zero Fourier mode to zero:
+The spectral symbol divides by ``-|k|^2``, each mode's true wavevector squared, and zeroes the zero mode:
 
 ```math
 \\widehat{\\Delta^{-1} f}(k) =
@@ -1495,8 +1495,8 @@ gradient of the pressure-like potential that solves the divergence:
 ```
 
 an identity exact on the resolved band — the wavenumbers the grid resolves, excluding each even axis's
-Nyquist plane (the inverse Laplacian keeps the true ``k^2`` while the
-projector is built from the derivative family — the two coincide off the Nyquist planes). The
+Nyquist plane (the inverse Laplacian keeps the true squared wavevector ``k^2`` while
+the projector uses the derivative family — the two coincide off the Nyquist planes). The
 implemented operator is the **exact orthogonal projector onto the kernel of the discrete
 divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every
 mode — the Nyquist planes included.
