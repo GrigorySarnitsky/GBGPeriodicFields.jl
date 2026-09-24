@@ -26,9 +26,9 @@ These words recur in every operation's documentation:
 - a **section** puts the two together: it assigns one fiber to every point of a base, which is what a
   field and a set of point-values each are, and why one set of formulas serves both.
 - the **resolved band** is the set of wavenumbers a grid's resolution actually represents, *excluding*
-  the Nyquist frequency of each even-length axis. Those planes are excluded because the package's two
-  wavenumber families disagree exactly there — the derivative family is zeroed while the squared
-  family keeps the true value — so every identity scoped "on the resolved band" holds off them and may
+  the Nyquist frequency of each even-length axis. Those planes are excluded because there the wavenumbers
+  used for first derivatives are zeroed while the squared ones used for the Laplacian keep the true
+  value — so every identity scoped "on the resolved band" holds off them and may
   fail on them. An odd-length axis has no exact Nyquist mode and so loses nothing.
 - a field is **band-limited** when its Fourier content vanishes above the wavenumbers the grid stores,
   so the finite trigonometric series those coefficients define represents it exactly. A product of two
