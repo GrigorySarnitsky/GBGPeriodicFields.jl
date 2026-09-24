@@ -527,13 +527,11 @@ linear and representation-preserving, so it is defined for both physical and spe
 representation.
 
 The arguments are:
-- `destination` — the field that receives the result; either input may alias it — the write is
-  coefficientwise, so `a`, `b`, or both may be `destination` itself, with no guard temporary.
+- `destination` — the field that receives the result. The write is coefficientwise, so `a`, `b`, or
+  both may be `destination` itself, and so may a trailing `kernel`; the aliased call
+  `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b`` in place.
 - `α`, `a` — the real weight and the first field.
 - `β`, `b` — the real weight and the second field.
-
-The aliased call `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b``
-in place.
 
 ```math
 \\texttt{destination} = \\alpha  a + \\beta  b.
@@ -569,7 +567,7 @@ method serves every tensor order, and the write stays coefficientwise.
 
 The additional argument is:
 - `kernel` — the transfer function ``\\hat g``, in any of its storage classes, exactly as `convolve!`
-  takes it. It may alias `destination`, as may `a` and `b`, the write being coefficientwise.
+  takes it.
 """
 function combine! end
 
@@ -1825,10 +1823,9 @@ The arguments are:
   a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
   order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).
   It must also read **only the fiber it is given** — see the warning below.
-- `destination` — the field in physical representation (or point-value section) that receives the result; its tensor order
-  must match `φ`'s output.
-- `sources` — one or more compatible fields in physical representation (or point-value sections) sharing `destination`'s
-  base; `φ` receives their fiber values in argument order.
+- `destination` — the field (or point-value section) receiving the result; its tensor order must
+  match `φ`'s output, and it may alias any of the `sources`.
+- `sources` — one or more compatible fields (or point-value sections) on `destination`'s base; `φ` takes their fibers in argument order.
 - `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = \\alpha \\varphi(\\texttt{source}) + \\beta \\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
 
 !!! warning "A fiber map must not read the destination"
@@ -1836,8 +1833,7 @@ The arguments are:
     fiber handed to it. A `φ` that reads elsewhere in the destination sees storage another thread may
     already have overwritten, and the result depends on the schedule — it will differ between runs, and
     between a threaded and a serial one. A closure that captures the destination cannot be detected, so
-    that much is the caller's responsibility; aliasing between `destination` and the `sources` is a
-    different matter and remains safe.
+    that much is the caller's responsibility.
 
 !!! warning "Physical-space only, and the result is aliased in spectral representation"
     An arbitrary `φ` is nonlinear, so — like the other nonlinear operations of this module — `map!` is
