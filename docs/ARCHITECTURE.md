@@ -716,8 +716,8 @@ rule, so a future operation is placed by its *structure*, not by precedent-minin
    decision 50's axis-factored class and decision 51's radial one, which take the same route for the
    same reason: a *broadcast* device route paired with a gated CPU loop, rather than a hand-written
    kernel with one, as `PERFORMANCE.md` finding (o) measures. The
-   exponential family's vector and tensor forms took this shape in decision 79, evaluating ``|k|^2``
-   once per mode.)
+   exponential family's vector and tensor forms took this shape in decision 79: one exponential of ``|k|^2``
+   per mode.)
 4. **Reductions** take the **backend split of decisions 30/40**: the fixed midpoint tree on CPU —
    gated, spawned at its top levels, bitwise thread-count-invariant — and the device's own
    parallel reduce elsewhere.
