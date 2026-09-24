@@ -132,10 +132,10 @@ julia> round(sum(spectrum); digits = 4)   # Σ P(κ) = inner(u, u): the power sp
 
 ## Convolution (apply a Fourier kernel)
 
-The `convolve` operation applies a kernel as the coefficientwise product. A kernel is its own kind of
-object rather than a field of coefficients, and a builder returns whichever storage class its symbol
-admits: `spectral_cutoff` builds an isotropic sharp low-pass as a `RadialKernel`, evaluated per mode and
-storing no coefficients at all — here keeping ``|k| \le 4``:
+The `convolve` operation applies a kernel as the coefficientwise product. A kernel is not a field, and
+is held per mode, as per-axis factors, or as a function of the wavenumber magnitude: `spectral_cutoff`
+builds an isotropic sharp low-pass as the last, a `RadialKernel` storing no coefficients — here keeping
+``|k| \le 4``:
 
 ```jldoctest tutorial
 julia> cutoff = spectral_cutoff(multipliers, 4.0);
