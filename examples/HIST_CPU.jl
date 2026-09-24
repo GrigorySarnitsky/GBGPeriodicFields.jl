@@ -122,7 +122,7 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # ## Spectral utilities and the preallocated workspace
 #
 # The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``,
-# the IC envelope — are applied with the package's `convolve` (periodic convolution = a coefficientwise
+# the IC envelope — are applied with the package's `convolve` (periodic convolution being a coefficientwise
 # multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
 # physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are radial symbols of
 # ``\lvert\mathbf{k}\rvert^{2}``: the viscous integrating factor goes through `exponential_convolve!`,
@@ -339,7 +339,7 @@ function run_hist(p::Params)
   ## physical ↔ spectral, any rank
   vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)
   m    = FieldSpectralMultipliers(uspec0)
-  # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
+  # The two-thirds-rule de-alias filter and the forcing band are both package shell-mask kernels.
   dealias = spectral_cutoff(m, (2 / 3) * (p.N / 2) * (2π / p.L))
   band    = spectral_band(m, 0.5 * (2π / p.L), (p.k_force + 0.5) * (2π / p.L))
   ws   = make_workspace(uphys0, uspec0)  # preallocated scratch (a step allocates nothing)
