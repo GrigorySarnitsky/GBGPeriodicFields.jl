@@ -15,8 +15,8 @@ Worth knowing without reading the list:
   name on the strength of Wikipedia; he had made no such ruling.
 - `014` — over-wide code lines. `examples/HIST_CPU.jl` is wrapped (2f225a9c, granted by the owner as a
   code change on 2026-09-24); three lines in `docs/src/tutorial.md` remain.
-- The two withdrawn fixes — the tutorial's fiber-last shapes and the `FiberSections` module-map
-  bindings — wait for a deliberate re-baseline of `docs/prose_shape.csv`.
+- The two withdrawn fixes — the tutorial's fiber-last shapes (`142`) and the `FiberSections` module-map
+  binding (`027`) — are re-applied (c3ac1199, e4d5bff7) after the re-baseline 14f17511.
 
 The triage as it stood, unchanged:
 
@@ -1123,7 +1123,7 @@ Restored on 2026-09-24 from the run's `4-fix/findings.json`, which the owner rec
 
 #### 027 — RULE.DOC.TERMS_DEFINED
 
-*Status:* withdrawn: additive, waits for a re-baseline of docs/prose_shape.csv (e6e60d39).
+*Status:* fixed: re-applied in e4d5bff7 after the re-baseline 14f17511.
 
 *Claim.* A class of the package's own nouns is used before anything on this page defines it: a "values function", the "index-shuffle guard", the "safe polarity", "slab-threaded", and the "zero-mode views".
 
@@ -1143,7 +1143,7 @@ Restored on 2026-09-24 from the run's `4-fix/findings.json`, which the owner rec
 
 #### 142 — RULE.TEX.CODE_SPAN_JULIA
 
-*Status:* withdrawn: additive, waits for a re-baseline of docs/prose_shape.csv (bd3f6267).
+*Status:* fixed: re-applied in c3ac1199 after the re-baseline 14f17511.
 
 *Claim.* The layout is given as a monospace span that is not Julia: the optional-argument brackets are notation, so the span reads as code that could be typed and cannot be.
 
