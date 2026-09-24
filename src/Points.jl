@@ -10,7 +10,7 @@ The parts are:
 
   * **Positions.** [`Point`](@ref) is a single coordinate triple, and [`PointSet`](@ref) holds
     `M` positions in a structure-of-arrays layout. A point set carries no grid; a periodic
-    domain wraps any coordinate, so the grid is supplied by the transfer operator at use time.
+    domain wraps any coordinate, so the grid comes at use time, from interpolation and its adjoint.
   * **Point-value sections.** [`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), and
     [`TensorPointValues`](@ref), gathered under [`AbstractPointValues`](@ref), mirror the field
     tensor orders. They have no spectral form, a sampled value being always a
@@ -1322,8 +1322,8 @@ carries one global frame.
 
 Without a `grid` the sum is taken literally, in the universal cover — the unwrapped picture of the
 torus, in which a coordinate keeps growing instead of folding back: coordinates may leave the
-box, and sampling such positions remains correct because the transfer kernels wrap their stencil
-indices periodically. With a `grid` the displaced coordinates are additionally reduced,
+box, and sampling such positions remains correct because interpolation wraps the grid nodes it
+samples periodically. With a `grid` the displaced coordinates are additionally reduced,
 componentwise and in the same fused pass, to the canonical representative in the fundamental
 domain — the same reduction [`wrap!`](@ref) applies on its own, whose docstring states the
 endpoint and non-finite contract. Displacement on the periodic domain proper is the `grid` form;
