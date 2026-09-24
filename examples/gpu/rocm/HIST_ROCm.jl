@@ -1,4 +1,4 @@
-# =============================================================================
+## =============================================================================
 # HIST_ROCm.jl — forced Homogeneous Isotropic Stationary Turbulence, on an AMD GPU.
 #
 # The device twin of `examples/HIST_CPU.jl`: the SAME pseudospectral DNS and the same
@@ -43,7 +43,7 @@
 # julia --project=examples/gpu/rocm examples/gpu/rocm/HIST_ROCm.jl --smoke    # quick check
 # julia --project=examples examples/plot_hist.jl examples/gpu/rocm/output/HIST_ROCm.h5   # re-plot, no re-run
 # ```
-# =============================================================================
+## =============================================================================
 
 using AMDGPU
 AMDGPU.allowscalar(false)                  # invariant 6, mechanically enforced
@@ -58,9 +58,9 @@ dev(host_array) = ROCArray(host_array)     # move a host array onto the device
 include(joinpath(@__DIR__, "..", "..", "hist_postprocess.jl"))   # statistics, HDF5 I/O, plots (shared)
 
 
-# =============================================================================
+## =============================================================================
 # Parameters
-# =============================================================================
+## =============================================================================
 
 Base.@kwdef struct Params
   N::Int          = 32          # grid points per side
@@ -134,7 +134,7 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
                  rec_stride = 4, snap_stride = 100)
 
 
-# =============================================================================
+## =============================================================================
 # Spectral utilities (device). The diagonal-in-Fourier operators — de-aliasing,
 # the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``, the IC envelope — are
 # applied with the package's `convolve` (periodic convolution = a coefficientwise
@@ -143,7 +143,7 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
 # envelope width) are radial functions of ``\lvert\mathbf{k}\rvert^{2}`` the consumer
 # supplies — the package carries no physics. All of these operate on whatever backend the reference field lives
 # on, so on the GPU they stay entirely on-device.
-# =============================================================================
+## =============================================================================
 
 # A kernel is its own kind of object rather than a field of coefficients, and the physics kernels here
 # — the viscous integrating factor and the initial envelope — are radial symbols of
@@ -172,14 +172,14 @@ function make_workspace(physical_reference, spectral_reference)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Diagnostics — every one is a package reduction, running on-device unchanged
 # (`sum`/`dot`/`maximum` are GPU-portable): the kinetic energy
 # ``\tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle``, the dissipation
 # ``\nu\langle\lvert\omega\rvert^{2}\rangle``, the CFL speed, and — now also
 # on-device — the energy spectrum via `radial_spectrum` (a single scatter-add
 # shell-binning pass, no host copy, no scalar indexing).
-# =============================================================================
+## =============================================================================
 
 kinetic_energy(u) = 0.5 * inner(u, u)                                 # ½⟨|u|²⟩   (Reductions.inner)
 dissipation(ω, p) = p.ν * inner(ω, ω)                                 # ν⟨|ω|²⟩   (homogeneous)
@@ -201,7 +201,7 @@ function energy_spectrum(uh, m)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Forcing — hold the kinetic energy in the shells from ``\lvert\mathbf{k}\rvert = 1``
 # up to `k_force` at `E_force`, now pure package ops (identical to `HIST_CPU.jl`):
 # `band` is a `spectral_band` mask kernel; the band energy is
@@ -210,7 +210,7 @@ end
 # allocation-free); rescaling the in-band modes is one more `convolve` (scaling
 # preserves ``\nabla\cdot u = 0``). No precomputed mask / weight, no sum-reduction
 # by hand — all on-device.
-# =============================================================================
+## =============================================================================
 
 function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)                             # band-pass copy into scratch (no allocation)
@@ -222,7 +222,7 @@ function force!(uh, band, ws, p)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Right-hand side and time integration — IN-PLACE, no per-step allocation
 # (identical structure to `HIST_CPU.jl`). The work fields live in the preallocated
 # device `ws`; the package's in-place operators (`curl!`, `to_physical!`, `cross!`,
@@ -230,7 +230,7 @@ end
 # and the linear combinations are in-place device broadcasts. Nothing allocates, so
 # the `AMDGPU` pool stays flat — no wedge, no manual `reclaim` (that was the
 # allocating style; see `examples/README.md`).
-# =============================================================================
+## =============================================================================
 
 # Physical velocity & vorticity of a field in spectral representation, into the given buffers. The `uh` buffer is preserved by
 # transforming a COPY of it — `to_physical!` may overwrite its spectral source as scratch.
@@ -286,11 +286,11 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Particles — RK2 in space on the frozen start-of-step velocity field (the
 # ``O(\Delta t^{2})`` field-staleness is fine for a demo), via the package's
 # `interpolate` (gather). All device arrays; positions wrap into ``[0, L)``.
-# =============================================================================
+## =============================================================================
 
 function advect!(X, u, dt, p)
   v1 = point_values(interpolate(u, PointSet(X)))          # CatmullRom gather (package, device kernel)
@@ -301,10 +301,10 @@ function advect!(X, u, dt, p)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Initial condition — random field (built on the host, moved to the device),
 # large-scale envelope, projected solenoidal, band-energy normalized.
-# =============================================================================
+## =============================================================================
 
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
@@ -317,7 +317,7 @@ function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Structure functions, autocorrelations and integral scales — the per-component
 # ``S_2``'s, the Lagrangian velocity autocorrelation, and the integral-scale
 # reduction all live in `examples/hist_postprocess.jl` (shared with the CPU twin).
@@ -325,12 +325,12 @@ end
 # `radial_correlation`, so only the scalar reductions land on the host. The
 # Eulerian integral length comes from
 # `radial_correlation` (below); the Lagrangian integral time from `lagrangian_stats`.
-# =============================================================================
+## =============================================================================
 
 
-# =============================================================================
+## =============================================================================
 # Driver
-# =============================================================================
+## =============================================================================
 
 function run_hist(p::Params)
   AMDGPU.functional() || error("no functional AMD GPU / ROCm — this is the GPU example (see HIST_CPU.jl for CPU)")
@@ -472,9 +472,9 @@ function run_hist(p::Params)
 end
 
 
-# =============================================================================
+## =============================================================================
 # Entry point
-# =============================================================================
+## =============================================================================
 
 function main()
   p = ("--smoke" in ARGS) ? smoke() :
