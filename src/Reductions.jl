@@ -313,7 +313,7 @@ _tree_sum(::Any, data) = sum(data)                      # a device runs its own 
 
 Apply `scalar_reduce` (a whole-array tree reduction) to each fiber component of `data` — the
 component slices over the leading `base_count` base axes are contiguous, so each reduces linearly —
-returning the array of per-component results the `dims`-style Base call used to produce.
+returning the array of per-component results a `dims`-style Base call gives.
 """
 _tree_dims_reduce(scalar_reduce::F, data, base::NTuple{B, Any}) where {F, B} =
   _tree_dims_reduce(KernelAbstractions.get_backend(data), scalar_reduce, data, Val(B))
@@ -1017,7 +1017,7 @@ symmetric in `f`, `g` and may be negative.
 
 It is fused:
 the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner`,
-both reducing on the threaded fixed tree since the 2026-08-30 fix, so they agree as
+both reducing on the same threaded fixed tree, so they agree as
 threads are added — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
 than the radial reductions [`radial_spectrum`](@ref) / [`radial_correlation`](@ref), which sweep every mode with
@@ -1514,7 +1514,7 @@ transform plus a single binning pass.
     Its route builds a full power field and takes an allocating inverse transform, so it costs a
     field's worth of memory per call — a deliberate exception to the package's allocation-free
     default, guarded by a bounded rather than a zero assertion; `radial_spectrum` has no such
-    cost, its staging having been fused into the binning kernel, leaving only the shell accumulators.
+    cost, its binning kernel allocating only the shell accumulators.
 """
 function radial_correlation end
 
