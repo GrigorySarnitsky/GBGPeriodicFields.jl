@@ -62,16 +62,15 @@ These words recur in every operation's documentation:
 
     General `R` was deferred rather than declined, to ship a usable field layer for the second-order
     surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
-    raises — none returns a wrong answer — and a test lane pins that.
+    raises — none returns a wrong answer — and the test suite checks that.
 
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
 methods. A field is one real physical object; the physical and spectral forms are two
 representations of that same object.
 
-The umbrella assembles its public surface from the submodules below. Each module's own docstring is
-the map of what it provides — `?Fields`, `?Convolution`, and so on — so this list says what each is
-for rather than repeating its contents:
+This top-level module assembles its public interface from the submodules below. Each module's own
+docstring maps what it provides, so this list says what each is for rather than repeating it:
 
 - [`FiberSections`](@ref) — the base-agnostic foundation both layers share: the fiber types
   [`FiberVector`](@ref) and [`FiberTensor2`](@ref)/[`FiberTensor3`](@ref)/[`FiberTensor4`](@ref), which name the value
