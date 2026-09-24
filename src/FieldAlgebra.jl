@@ -9,8 +9,8 @@ Field-field and field-constant operations preserve the representation of their a
 pointwise on fields in physical representation and coefficient-wise on fields in spectral
 representation. An operation that is not linear in a field argument — multiplying two fields together,
 or contracting two fields — is defined only in physical representation, since only a linear map
-commutes with the rfft isomorphism; the exception is a factor held **fiber-constant**, which leaves the
-operation linear in its field and so available in both. The missing combinations are deliberate.
+commutes with the rfft isomorphism; the exception is a **fiber-constant** factor, the same at every point,
+which keeps the operation linear and available in both. The missing combinations are deliberate.
 
 Three words recur below. The **base** is the set of locations a section attaches a value to — the
 grid's nodes for a field — so a formula that is "pointwise over the base" applies at each of them
