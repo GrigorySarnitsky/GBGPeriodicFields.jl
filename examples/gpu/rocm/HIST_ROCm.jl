@@ -429,10 +429,10 @@ function run_hist(p::Params)
 
   # The length and time scales come from the velocity autocorrelations.
   # On the Eulerian side the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
-  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the integral length, over separations of its normalized form, ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. On the Lagrangian side
-  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`) gives the integral time
-  # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
+  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`) gives the integral time over
+  # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
   S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian per-component structure function (homogeneous identity)
