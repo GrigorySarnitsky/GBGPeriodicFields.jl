@@ -63,11 +63,6 @@ true
 
 ## Differential operators
 
-Note that the `plans` built above for the *vector* field `u` transform this *scalar* field too. A real
-Fourier transform is defined on the box, and a rank-``R`` field is that transform applied along a
-fiber, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every rank —
-build one per backend and element type, not per rank.
-
 The differential operators are applied as spectral multipliers, acting on a field in spectral
 representation through a [`FieldSpectralMultipliers`](@ref)
 (the wavenumber arrays). They are *exact* on the band-limited field — e.g. the Laplacian of `sin(x)` is
@@ -85,6 +80,11 @@ julia> laplacian_φ = to_physical(laplacian(to_spectral(φ, plans), multipliers)
 julia> field_data(laplacian_φ) ≈ -field_data(φ)
 true
 ```
+
+The `plans` built above for the *vector* field `u` transformed this *scalar* field `φ` too. A real
+Fourier transform is defined on the box, and a rank-``R`` field is that transform applied along a
+fiber, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every rank —
+build one per backend and element type, not per rank.
 
 The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient`,
 `inverse_laplacian`, and `helmholtz_projection`.
