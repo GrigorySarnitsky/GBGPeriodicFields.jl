@@ -110,7 +110,7 @@ What it *did* have was a silent wrong answer. A fused pass reads element ``n`` a
 ``n``, which is safe when the destination IS an input and unsafe when one section's element ``n`` is
 another's element ``n + m``. Two overlapping views at different base offsets produced exactly that, in
 fourteen operations across three execution routes, with no error — and no contiguity test excludes it,
-since `reshape(view(flat, 2:end), …)` is densely strided and still overlaps at an offset. Ownership is
+since `reshape(view(flat, 2:end), dims)` is densely strided and still overlaps at an offset. Ownership is
 the property that does exclude it.
 
 The check is on ownership, not on layout: `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them
@@ -404,7 +404,7 @@ _assign!(destination, source) = _assign!(destination, Base.Broadcast.broadcasted
     _to_broadcasted(expr)
 
 Rewrite a dotted expression — an infix dotted operator such as `a .* b .+ c`, or a broadcast call
-such as `f.(x)` — into the equivalent lazy `Base.Broadcast.broadcasted(...)` tree, recursing into
+such as `f.(x)` — into the lazy `Base.Broadcast.broadcasted(f, args...)` tree, recursing into
 operands and leaving non-broadcast subexpressions untouched. This codegen helper lets generated
 and hand-written kernels route a fused assignment through [`_assign!`](@ref) without materializing
 intermediates, so fusion is preserved.
@@ -472,7 +472,7 @@ _tensor_component(symbol, kind, i, j) = kind === :field  ? :(_tensor2_component_
 """
     _sum_terms(terms)
 
-Combine a non-empty collection of expressions into a broadcasted sum `term_1 .+ term_2 .+ …`.
+Combine a non-empty collection of expressions into a broadcasted sum `term_1 .+ term_2 .+ term_3`.
 """
 _sum_terms(terms) = reduce((accumulated, term) -> :($accumulated .+ $term), terms)
 
