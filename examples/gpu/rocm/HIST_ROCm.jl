@@ -1,5 +1,5 @@
 ## =============================================================================
-# HIST_ROCm.jl — forced Homogeneous Isotropic Stationary Turbulence, on an AMD GPU.
+# `HIST_ROCm.jl` runs forced Homogeneous Isotropic Stationary Turbulence on an AMD GPU.
 #
 # The device twin of `examples/HIST_CPU.jl`: the SAME pseudospectral DNS and the same
 # plots, but every array lives in GPU memory (`ROCArray`) and scalar indexing of
