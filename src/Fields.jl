@@ -1710,8 +1710,8 @@ abstract type SpectralKernel{T} end
     _kernel_data(kernel)
 
 The coefficientwise multiplier a kernel contributes to a fused pass. A kernel held as a field yields
-its stored array; a compressed kernel yields whatever its own pass consumes — typically a lazy
-expression over the wavenumber arrays, never a materialized field.
+its stored array; a separable, radial or product kernel yields what its pass consumes — typically a lazy
+expression over the wavenumber arrays.
 """
 function _kernel_data end
 
@@ -1777,7 +1777,7 @@ exact Nyquist mode and no special treatment is applied.
 
 The fields are:
 
-- `grid`, `fourier_layout` — the base and Fourier layout above, stored as passed.
+- `grid`, `fourier_layout` — the grid and Fourier layout above, stored as passed.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the derivative wavenumbers above.
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the squared ones.
 - `wavenumber_view_1`, `wavenumber_view_2`, `wavenumber_view_3` — derived rather than passed: each is
@@ -2727,8 +2727,7 @@ end
 Project one conjugate pair of `data`, at linear indices `ix` and `iy`, onto the reality condition:
 both members are replaced by the mean of the first and the conjugate of the second, which is the
 orthogonal projection of the pair onto ``\\hat f(-k) = \\overline{\\hat f(k)}``. A self-paired corner
-(`ix == iy`) gets the same formula against itself, i.e. its real part, and is read and written ONCE —
-the pass audit counts every plane element exactly once each way. All reads precede all writes, so the
+(`ix == iy`) gets the same formula against itself, i.e. its real part, and is read and written ONCE. All reads precede all writes, so the
 in-place call is exact; the kernel and the gated CPU loop both call this, so they agree bitwise,
 which is what the GPU parity suite and the threading lane compare.
 """
