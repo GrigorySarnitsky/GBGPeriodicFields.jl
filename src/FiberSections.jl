@@ -1,7 +1,7 @@
 """
     FiberSections
 
-Base-agnostic core of the package's fiber-bundle model.
+It is the fiber-bundle model's base-agnostic core.
 
 A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
 `PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
@@ -87,7 +87,7 @@ _section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
 """
     _section_tensor_order(section)
 
-The tensor order ``R`` of a section, read from its type. The peer of
+Return a section's tensor order ``R``, read from its type. The peer of
 [`_section_scalar_type`](@ref): both are type parameters, so a compatibility check written against
 them costs nothing at run time.
 """
@@ -144,9 +144,9 @@ end
 """
     _THREADING_OVERRIDE
 
-Task-local override for the threading decision. A value of `nothing` follows
-`Threads.nthreads()`, while `true` or `false` forces the threaded or serial path.
-The setter [`with_threading`](@ref) assigns it within a dynamic scope.
+This task-local value overrides the threading decision. A value of `nothing` follows
+`Threads.nthreads()`, while `true` or `false` forces threaded or serial.
+The setter [`with_threading`](@ref) sets it in a dynamic scope.
 """
 const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
 
@@ -154,7 +154,7 @@ const _THREADING_OVERRIDE = ScopedValue{Union{Nothing, Bool}}(nothing)
 """
     _SERIAL_CUTOFF
 
-Element count below which an assignment runs serially regardless of thread count. Threading
+Below this element count an assignment runs serially regardless of thread count. Threading
 overhead is not worth it for small arrays, and this cutoff also exempts the one-element
 zero-mode views. The assignment hot path reads it, and [`set_threading_cutoff!`](@ref) sets it.
 """
@@ -974,7 +974,7 @@ end
 """
     FiberVector{T}
 
-Static three-component Cartesian vector type used for individual vector values.
+A `FiberVector{T}` is one static three-component Cartesian vector value.
 
 This is an alias for `SVector{3, T}`, with scalar type `T`.
 """
@@ -984,7 +984,7 @@ const FiberVector{T} = SVector{3, T}
 """
     FiberTensor2{T}
 
-Static second-order Cartesian tensor type used for individual tensor values.
+A `FiberTensor2{T}` is one static second-order Cartesian tensor value.
 
 This is an alias for `SMatrix{3, 3, T, 9}`, with scalar type `T`.
 """
@@ -994,7 +994,7 @@ const FiberTensor2{T} = SMatrix{3, 3, T, 9}
 """
     FiberTensor3{T}
 
-Static third-order Cartesian tensor type used for individual tensor values.
+A `FiberTensor3{T}` is one static third-order Cartesian tensor value.
 
 This is an alias for `SArray{Tuple{3, 3, 3}, T, 3, 27}`, with scalar type `T`.
 """
@@ -1004,7 +1004,7 @@ const FiberTensor3{T} = SArray{Tuple{3, 3, 3}, T, 3, 27}
 """
     FiberTensor4{T}
 
-Static fourth-order Cartesian tensor type used for individual tensor values.
+A `FiberTensor4{T}` is one static fourth-order Cartesian tensor value.
 
 This is an alias for `SArray{Tuple{3, 3, 3, 3}, T, 4, 81}`, with scalar type `T`.
 """
