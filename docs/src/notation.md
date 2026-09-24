@@ -53,13 +53,13 @@ of the table above.
 | ``\mathbb{P}`` | the Helmholtz (Leray) projection | [`helmholtz_projection`](@ref) |
 | ``\mathcal{F}``, ``\mathcal{F}^{-1}`` | the forward and inverse transforms | [`to_spectral`](@ref), [`to_physical`](@ref) |
 | ``\cdot``, ``\times`` | the fiber dot and cross products | [`dot`](@ref) (`⋅`), [`cross`](@ref) (`×`) |
-| ``\langle\cdot,\cdot\rangle`` | the normalized ``L^2`` inner product | [`inner`](@ref) |
-| ``\langle\cdot\rangle`` | the base average of a single argument (the same measure, one slot) | [`mean`](@ref) |
+| ``\langle\cdot,\cdot\rangle`` | the ``L^2`` inner product over the base's total measure | [`inner`](@ref) |
+| ``\langle\cdot\rangle`` | the base average of one argument, against the same measure | [`mean`](@ref) |
 | ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside a table the same symbol is written with plain single bars, which cannot be shown in this cell because the literal pipe would split it — note that `\|` is NOT that spelling, being LaTeX's DOUBLE bar and so the ``\lVert\cdot\rVert`` of the next row | [`norm`](@ref) |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | [`l2norm`](@ref) |
-| ``\int f\,\mathrm{d}\mu`` | the integral against the base measure | [`integral`](@ref) |
+| ``\int f\,\mathrm{d}\mu`` | the integral against the base measure: cell volume on a grid, unit mass per point | [`integral`](@ref) |
 | ``\star`` | periodic convolution | [`convolve`](@ref) |
-| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** `assignment_window` writes ``W`` for the linear (CIC) "tent" cloud a point deposits and ``\hat W`` for its transfer function — a real-valued function, not the gather operator. The two are related in spirit (that cloud *is* the `LalescuSpline(0, 0)` weight) but are different objects between different spaces | [`interpolate`](@ref), [`anterpolate`](@ref) |
+| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** `assignment_window` writes ``W`` for the linear (CIC) "tent" cloud a point deposits and ``\hat W`` for its transfer function, not the gather operator; that cloud *is* the `LalescuSpline(0, 0)` weight, but the two are different objects | [`interpolate`](@ref), [`anterpolate`](@ref) |
 
 ## Scalar weights
 
