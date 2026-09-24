@@ -39,9 +39,9 @@ A field goes to its spectral representation with [`to_spectral`](@ref) and back 
 [`to_physical`](@ref), through a reusable [`FieldTransformPlans`](@ref). The allocating forms preserve
 their input, so the round trip recovers the field.
 
-Two pieces of scaffolding appear below and are worth a sentence each, since the spectral side is the
-one place the storage is not simply "the values". A [`RealFourierLayout`](@ref) records **how** the
-real-to-complex transform is laid out: a real field's coefficients satisfy ``\hat f(-k) =
+Two pieces of scaffolding appear below, the spectral side being the one place
+storage is not simply "the values". A [`RealFourierLayout`](@ref) records **how** the
+real-to-complex transform is laid out: a real field's Fourier coefficients, by wavenumber vector, satisfy ``\hat f(-k) =
 \overline{\hat f(k)}``, so only half the spectrum is stored, and the layout says which axis is the
 halved one (the first, by default). The helper [`field_spectral_shape`](@ref) then gives the array
 size that half-spectrum needs, and its `Val(R)` argument names the **tensor order** — `Val(0)` for a scalar
@@ -94,7 +94,7 @@ The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient
 The *fiberwise* (pointwise) algebra — `dot`, `cross`, `norm`, … — preserves the [base](@ref GBGPeriodicFields). The
 reductions of the [`Reductions`](@ref GBGPeriodicFields.Reductions) module integrate the base out by
 its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product; `inner(u, u)`
-is ``\langle |u|^2\rangle``, the domain average of ``|u|^2`` — single angle brackets mean that
+is ``\langle |u|^2\rangle``, the average of ``|u|^2`` — single angle brackets mean that
 average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
 
 ```jldoctest tutorial
@@ -120,8 +120,8 @@ julia> round(inner(tr(A), divergence(uh, multipliers)); digits = 8) ==
 true
 ```
 
-The same energy, resolved over wavenumber shells, is the radial power spectrum — and by Parseval's theorem its
-total equals `inner`:
+The same quantity, twice the kinetic energy, resolved over wavenumber shells, is the radial power spectrum; its
+total equals `inner` by Parseval:
 
 ```jldoctest tutorial
 julia> shells, spectrum = radial_spectrum(uh, multipliers);
@@ -134,7 +134,7 @@ julia> round(sum(spectrum); digits = 4)   # Σ P(κ) = inner(u, u): the power sp
 
 The `convolve` operation applies a kernel as the coefficientwise product. A kernel is not a field, and
 is held per mode, as per-axis factors, or as a function of the wavenumber magnitude: `spectral_cutoff`
-builds an isotropic sharp low-pass as the last, a `RadialKernel` storing no coefficients — here keeping
+builds an isotropic sharp low-pass as the last, a `RadialKernel` storing no coefficients — here keeping wavenumbers
 ``|k| \le 4``:
 
 ```jldoctest tutorial
