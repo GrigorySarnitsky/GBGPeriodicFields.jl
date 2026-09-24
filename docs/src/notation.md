@@ -9,15 +9,15 @@ and need not repeat the convention.
 
 | Concept | Symbol | Convention |
 |:---|:---|:---|
-| Imaginary unit | ``\mathrm{i}`` | Upright, always — never bare italic ``i``, never ``\imath``. Writing it upright frees ``i`` for use as an index. |
-| Indices | ``i, j, k, \dots`` | Italic, taken in order; used freely alongside ``\mathrm{i}`` (upright versus italic tells them apart). As an index, ``k`` occurs only in component subscripts (Einstein-summed); the standalone ``k`` of the table below is always the wavenumber, so the two roles never meet. |
+| Imaginary unit | ``\mathrm{i}`` | It is always upright — never bare italic ``i``, never ``\imath``. Writing it upright frees ``i`` for use as an index. |
+| Indices | ``i, j, k, \dots`` | They are italic, taken in order, and used freely alongside ``\mathrm{i}`` (upright versus italic tells them apart). As an index, ``k`` occurs only in component subscripts (Einstein-summed); the standalone ``k`` of the table below is always the wavenumber, so the two roles never meet. |
 | Repeated index | ``a_i b_i`` | An index repeated within a term is summed over the three components ``1, 2, 3`` (Einstein convention); an explicit ``\sum`` is reserved for the grid, point, and mode sums below. |
 | Partial derivative | ``\partial_{x_i}``, ``\partial^2_{x_i x_i}`` | The coordinate is subscripted, not the fiber index; a second derivative repeats the coordinate, so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f`` (with the repeated ``i`` summed). |
 | Differential | ``\mathrm{d}x``, ``\mathrm{d}\mu`` | Upright ``\mathrm{d}`` (matching the imaginary unit), with a thin space before it: ``\int_\Omega f \,\mathrm{d}\mu``. Never a bare italic ``d``. |
-| Summations | ``\sum_x``, ``\sum_p``, ``\sum_k`` | Over the ``N`` grid points, over the ``M`` points, and over the Fourier modes. |
+| Summations | ``\sum_x``, ``\sum_p``, ``\sum_k`` | They run over the ``N`` grid points, the ``M`` points, and the Fourier modes. |
 | Fractions | ``\tfrac{1}{2}``, ``\frac{1}{N}`` | Every macro argument is braced, both numerator and denominator, so no argument boundary is ever ambiguous. |
 | Spacing | juxtaposition | Adjacent factors sit side by side (``C_K \varepsilon^{2/3} \kappa^{-5/3}``), never separated by a thin space; a thin space appears only before the differential above. |
-| Delimiters | ``\Bigl( \dots \Bigr)`` | Size delimiters by hand with the fixed-size `\bigl`/`\Bigl` … `\bigr`/`\Bigr` commands; the auto-sizing `\left`/`\right` pair is not used — it is an Inner atom that inserts a spurious gap where the fixed-size forms are Open/Close. The sole exception is a system, set as ``\left\{ \dots \right.``. |
+| Delimiters | ``\Bigl( \dots \Bigr)`` | Size delimiters by hand with the fixed-size `\bigl`/`\Bigl` … `\bigr`/`\Bigr` commands; the auto-sizing `\left`/`\right` pair is not used — it inserts a spurious gap the fixed-size forms do not. The sole exception is a system, set as ``\left\{ \dots \right.``. |
 
 ## Base and fiber
 
