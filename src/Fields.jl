@@ -905,7 +905,7 @@ Refuse a storage family whose declared element type disagrees with the grid's �
 refused, never converted — or is complex, because a field's element type is its
 real scalar type and complex storage is representation detail the spectral constructors allocate
 themselves. A bare family (`Array`, `ROCArray`) declares nothing and passes, the
-element type coming from the grid.
+element type coming from the grid. Returns `nothing` or throws.
 """
 function _check_family_element_type(family::Type{<:AbstractArray}, ::Grid3D{T}) where {T<:AbstractFloat}
   declared = eltype(family)
@@ -2087,7 +2087,7 @@ end
 """
     _check_broadcast_field_compatibility(destination, argument)
 
-Check, during field broadcasting, that `argument` is compatible with `destination`: same-representation fields must pass `_check_field_compatibility`; mixing physical and spectral representations throws; non-field arguments (real numbers, plain arrays) are accepted. Recurses into the operands of a `Broadcasted` argument.
+Check, during field broadcasting, that `argument` is compatible with `destination`: same-representation fields must pass `_check_field_compatibility`; mixing representations throws; non-field arguments (numbers, plain arrays) pass. It recurses into a `Broadcasted` argument's operands, returning `nothing` or throwing.
 """
 _check_broadcast_field_compatibility(destination::AbstractFieldPhysical, field::AbstractFieldPhysical) = _check_field_compatibility(destination, field)
 
@@ -2538,9 +2538,9 @@ Check that two sections agree in everything a storage move must preserve — sca
 Fourier layout — and deliberately **not** in storage family, which is the one thing the move exists to
 change.
 
-This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that check here would refuse
-precisely the pair `adapt!` is for, and dropping the check entirely would let a move rewrite a
-destination built for another grid.
+This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that check would refuse the pair
+`adapt!` is for, and dropping it would let a move rewrite a destination built for another grid.
+Returns `nothing` or throws.
 """
 function _check_adapt_target(destination, source)
   _same_scalar_type(destination, source) ||
@@ -2778,7 +2778,7 @@ Project every stored self-conjugate plane of `data` onto the reality condition, 
 loop over slabs on a CPU. `D` is the folded axis, `planes` the plane indices stored on it
 (the zero plane, and the Nyquist plane when the full axis is even), `sizes` the three stored extents,
 `others` the two full axes, `ncomp` the fiber component count and `P` the elements per component.
-Both arms call [`_project_pair!`](@ref) per pair, so they agree bitwise.
+Both arms call [`_project_pair!`](@ref) per pair, agreeing bitwise; returns `nothing`.
 """
 function _reality_projection_planes!(::KernelAbstractions.CPU, data, ::Val{D}, planes, sizes, others, ncomp, P) where {D}
   n1, n2 = sizes[1], sizes[2]
@@ -2995,8 +2995,8 @@ end
 
 Walk the shared modes, dispatching on `backend`: a `KernelAbstractions` launch on a device, and a
 gated loop over slabs on a CPU. `ToFine` is `true` for `embed_modes!` and `false` for
-`extract_modes!`; both arms call [`_write_shared_mode!`](@ref) per mode, so they agree bitwise, and
-the work item count is the coarse field's stored size times the fiber component count either way.
+`extract_modes!`; both arms call [`_write_shared_mode!`](@ref) per mode, agreeing bitwise, and the
+work item count is the coarse field's stored size times its component count. Returns `nothing`.
 """
 function _shared_modes_pass!(::KernelAbstractions.CPU, destination, source, ::Val{ToFine}, axes,
                              coarse_strides, fine_strides, components, coarse_elements,
