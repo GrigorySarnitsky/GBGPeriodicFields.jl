@@ -882,7 +882,7 @@ end
 Rebuild `traversal` in place for the current positions of `points`, and return it.
 
 Use this in-place form when `traversal` is already allocated; the allocating
-[`point_traversal_order`](@ref) returns a fresh order instead. The result is the one that form would
+[`point_traversal_order`](@ref) returns a fresh result instead. The result is the one that form would
 have produced, up to the sequence of points within a block, which neither form fixes.
 
 Reach for it when the points move. An order describes where they were when it was built, so it goes
