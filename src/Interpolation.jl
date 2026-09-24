@@ -146,7 +146,7 @@ It is the supertype of the physical-domain local schemes over one shared stencil
 [`LalescuSpline`](@ref) of Lalescu, Teaca & Carati (2010) and the ``C^0`` [`LagrangeSpline`](@ref), the
 classical Lagrange interpolant of the same nodes, matched to TurTLE's `Lagrange_polys`. Each acts on
 a field in physical representation, gathering and scattering its nodal values over a compact
-``(2n{+}2)^3`` stencil around the cell ``c`` that contains a point ``x_p``. With ``t_a`` the point's
+``(2n{+}2)^3`` stencil, `n` being the constructor's half-width argument, around the cell ``c`` that contains a point ``x_p``. With ``t_a`` the point's
 fractional position along axis ``a`` and ``w`` the scheme's per-axis weight polynomials, interpolation is
 the tensor-product gather
 
@@ -156,13 +156,13 @@ f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
 ```
 
 and anterpolation is its transpose, adding ``w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)  q_p`` (with
-``q_p`` the value carried at ``x_p``) onto each of those same nodes. Concretely a scheme is a tensor product of 1D weight polynomials: a compact
+``q_p`` the value carried at ``x_p``) onto each of those same nodes. A scheme is a tensor product of 1D weight polynomials: a compact
 stencil of ``N_2 = 2n{+}2`` nodes, each weight a degree-``(M_2-1)`` polynomial in the fractional cell
 position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, power]`) is precomputed
-once into an `SMatrix` that the kernels take by value. One of
+once into an `SMatrix` that the kernels take by value. It is one of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
 [`NUFFT`](@ref) are the other. Only the spline family has a shared supertype, its members differing in
-their weights alone. The constructor argument `n` is the stencil's half-width; in the signature `T`
+their weights alone. In the signature `T`
 is the coefficient type and `L` the matrix length `N2 * M2`.
 
 Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
