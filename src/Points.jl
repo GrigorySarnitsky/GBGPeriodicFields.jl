@@ -1253,7 +1253,7 @@ _axis_terms(axis::Int, term, rest...) =
 
 Require the point count, scalar type and storage family of `source` and of every displacement
 section to match `destination`'s, refusing with a clear `ArgumentError` rather than promoting or
-transferring (invariant 14). The refusal is the package's decision, not the launch layer's: the
+transferring. The refusal is the package's decision, not the launch layer's: the
 torus path assembles per-axis views and so bypasses the broadcast machinery's own enforcement,
 and a mixed host/device pair must fail identically on every path.
 """
@@ -1284,7 +1284,7 @@ end
     _check_displacement_domain(points, grid)
 
 Require the periodic domain's element type to match the point set's, refusing a mixed-precision
-pair rather than promoting (invariant 14 binds the non-section partners too — a `Grid3D` here
+pair rather than promoting (the rule binds non-section partners too — a `Grid3D` here
 plays the role `FieldSpectralMultipliers` plays for a spectral field).
 """
 function _check_displacement_domain(points::PointSet, grid::Grid3D)
@@ -1341,8 +1341,8 @@ The arguments are:
 - `terms...` — zero or more `(coefficient, section)` tuples, each pairing one real number
   with one section. The coefficients are part of
   what the operation *is* — the displacement ``\\sum_j c_j v_j`` — so they are named
-  coefficients rather than the α/β accumulation scalars of invariant 10, and there is no
-  trailing α/β pair. With no terms the call copies (and, with a `grid`, wraps) the source
+  coefficients rather than the α/β accumulation scalars the in-place operations take, and there is no
+  trailing α/β pair. With no terms the call copies (and, with a `grid`, wraps) the
   positions.
 
 There is deliberately no allocating sibling: displacement is motion of an existing base, and a
