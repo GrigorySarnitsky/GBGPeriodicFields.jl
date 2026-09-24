@@ -886,7 +886,7 @@ Use this in-place form when `traversal` is already allocated; the allocating
 have produced, up to the sequence of points within a block, which neither form fixes.
 
 Reach for it when the points move. An order describes where they were when it was built, so it goes
-stale as they move — never wrong, only progressively less useful — and a consumer that rebuilds it
+stale as they move — never wrong, only progressively less useful — and a caller that rebuilds it
 periodically would otherwise allocate about 15 MiB at ``256^3`` with ``10^6`` points on every rebuild.
 On a device that memory is freed by a collector which runs on host pressure and cannot see it, so it
 accumulates. Here the result is `traversal`'s own storage and everything else is `scratch`, so
@@ -1999,7 +1999,7 @@ impossible combination is refused rather than producing a malformed scheme. The 
 `LalescuSpline(1, 1)` and round-trips as one, comparing equal to the alias.
 
 Because `parent` is a handle you opened and own, this never opens or closes a file, and the package
-attaches no notion of time — the consumer bundles a snapshot and owns any `time` / `iteration`
+attaches no notion of time — the caller bundles a snapshot and owns any `time` / `iteration`
 attributes.
 
 The arguments are:
@@ -2014,8 +2014,8 @@ The arguments are:
     a particular reference field, so a stored copy would be either a large duplicate of derived data
     or a set of parameters pretending to be the object. It is the same class as `FieldTransformPlans`,
     which is likewise rebuilt rather than moved when storage families change. Rebuild it from the
-    reference field the consumer restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
-    the consumer's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
+    reference field the caller restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
+    the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
 
 Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """

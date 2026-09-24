@@ -1502,7 +1502,7 @@ odd one; ``\\sqrt{3} L/2`` for an even cubic box) at the finest spacing ``\\min_
 physical-space mirror of the spectrum's corner caveat: only ``|r| \\le \\min_a r_a`` — the sphere
 inscribed in the min-image box — is sampled in *all*
 directions; shells from there out to the corner keep only the box-diagonal directions. And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
-the field correlating with its own periodic image — so a consumer
+the field correlating with its own periodic image — so a caller
 extracts an integral scale (the area under the normalized correlation curve) only out to where ``C``
 has decayed (e.g. the first zero crossing), not the full
 curve. As with the spectrum the *total* is unaffected: ``C(0) = \\texttt{inner}(f, f)`` exactly.

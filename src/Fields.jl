@@ -1435,7 +1435,7 @@ Indexing the fiber axes DIRECTLY, rather than reshaping the fiber into one trail
 first, is what keeps the transforms allocation-free. A `reshape` of an `Array` returns a new `Array`
 sharing the data, and that wrapper is heap-allocated: two of them per transform, one for the source
 and one for the destination, cost a constant 128 bytes per call whatever the rank or the grid — small
-enough to sit under `test/allocations.jl`'s field-sized threshold, and reported from a consumer whose
+enough to sit under `test/allocations.jl`'s field-sized threshold, and reported from a caller whose
 own contract asserts literal zero. A rank-0 section is its own component and is returned untouched,
 which is also what it was before the plans became rank-agnostic.
 """
@@ -2200,9 +2200,9 @@ HDF5 tool can read it. A **physical** field stores a real array; a field in **sp
 stores its complex half-spectrum. A device (GPU) array is copied to the host on write. The sugar
 `parent[name] = field` is equivalent.
 
-Because `parent` is a handle you opened and own, this never opens or closes a file: a consumer bundles a
+Because `parent` is a handle you opened and own, this never opens or closes a file: a caller bundles a
 whole snapshot (velocity, vorticity, …) into one file under separate names and attaches its own `time` /
-`iteration` attributes — the package serializes the fields, and the consumer owns the bundling and any
+`iteration` attributes — the package serializes the fields, and the caller owns the bundling and any
 notion of time.
 
 The arguments are:

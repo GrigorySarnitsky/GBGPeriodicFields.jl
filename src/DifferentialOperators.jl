@@ -19,7 +19,7 @@ The parts are:
 - [`divergence`](@ref) (``\\nabla\\cdot``) lowers the tensor order: a vector field becomes a scalar field, and a second-order tensor field becomes a vector field; an optional kernel argument composes a convolution into the same pass.
 - [`curl`](@ref) (``\\nabla\\times``) returns the curl of a vector field, which measures its local
   rotation at **twice** the angular rate — the rate itself is ``\\tfrac{1}{2}\\nabla\\times u`` — and preserves
-  the tensor order. (A fluid-dynamics consumer calls ``\\nabla\\times u`` the vorticity; the package keeps
+  the tensor order. (A fluid-dynamics user calls ``\\nabla\\times u`` the vorticity; the package keeps
   the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
 - [`inverse_curl`](@ref) (``(\\nabla\\times)^{-1}``) returns the solenoidal preimage of a curl —
   the divergence-free field whose curl is the given one — and preserves the tensor order.

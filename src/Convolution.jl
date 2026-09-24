@@ -46,7 +46,7 @@ Kernel storage classes:
 - [`ProductKernel`](@ref) — **any two** kernels held unmultiplied, which is what a composition that
   cannot be collapsed into a single kernel gives: a cross-family pair, two stored kernels, or two
   radial kernels whose coordinates cannot be shown to agree. It applies in one pass.
-- [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
+- [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a caller that
   wants to inspect or modify the coefficients.
 - `inv` — the reciprocal kernel, which deconvolves by the original. Each class returns its own
   kind and states the precondition it can afford to check, an annihilated mode having no inverse.
@@ -350,7 +350,7 @@ substep, is free to vary per call, because building a kernel allocates nothing o
 `multipliers` are the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid, Fourier
 layout, element type and storage family the kernel takes as its own.
 
-The physics stays with the consumer: an integrating factor is
+The physics stays with the caller: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
 rebuild, where a stored kernel pays a full field write. That evaluation is per mode, so on a CPU at a small grid a field of order ``R \\ge 1`` pays it once per fiber component; `RadialKernel` carries the measured trade-off against a materialized kernel.
@@ -985,7 +985,7 @@ accumulate:
     [`translation_kernel`](@ref) by construction. A `radial_kernel` — and so the exponential
     kernel `exponential_convolve!` applies — satisfies it too, and for the strongest reason: a
     real symbol of ``\\lvert k\\rvert^2`` is real, and ``\\lvert k\\rvert^2`` is even in ``k``, so
-    the multiplier is real and even whatever the consumer's closure computes. A consumer-built
+    the multiplier is real and even whatever the caller's closure computes. A caller-built
     kernel that breaks the symmetry yields coefficients that are those of no real field, and the
     inverse transform then silently keeps only their Hermitian part.
 
@@ -1505,7 +1505,7 @@ end
 Smooth a field with the periodic heat kernel: convolve it with the exponential radial kernel, optionally times a per-mode exponent field —
 ``\\exp(c |k|^2 + s \\hat w)``, radial in the ``c |k|^2`` part alone — where ``c`` is a real
 coefficient on the squared wavenumber ``|k|^2``, and the optional term adds a per-mode real field
-``\\hat w`` supplied by the consumer under a real scale ``s``. The kernel is evaluated on the fly,
+``\\hat w`` supplied by the caller under a real scale ``s``. The kernel is evaluated on the fly,
 never stored as a field, and the result is written into
 `destination` in place, which is returned.
 
@@ -1519,7 +1519,7 @@ Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field 
 ``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
 ``\\exp(c |k|^2)``, the true squared wavenumber kept at the Nyquist frequency (the Laplacian
 convention), so the kernel is real, even, and positive — a valid kernel for every real field. The
-optional term ``s \\hat w`` generalizes the exponent by whatever per-mode field the consumer supplies.
+optional term ``s \\hat w`` generalizes the exponent by whatever per-mode field the caller supplies.
 
 Choose between this and a stored kernel by reuse and by rank. When the exponent changes between
 applications — so a stored kernel would be rebuilt each time — the lazy form wins outright: a rebuild
@@ -1557,7 +1557,7 @@ The arguments are:
 - `multipliers` — the wavenumber arrays for the field's grid; the kernel is evaluated from their
   squared-wavenumber family.
 - `coefficient` — the real factor ``c`` on ``|k|^2`` in the exponent, dimensionless as received (the
-  consumer folds its own physical factors before the call).
+  caller folds its own physical factors before the call).
 - `offset_scale`, `offset` — the real scale ``s`` and the per-mode field ``\\hat w`` of the optional
   exponent term ``s \\hat w``; `offset` is a scalar field in spectral representation holding real
   values (as a materialized radial kernel would). The pair enters as scale times field so a
@@ -1568,7 +1568,7 @@ The arguments are:
     hypothesis are the caller's to meet. A complex-valued `offset` breaks the Hermitian symmetry — and
     so does a real-valued one that is not even in ``k`` on the self-conjugate planes, where both
     members of a ``\\pm k`` pair are stored and nothing forces them equal. Either way the inverse
-    transform then silently keeps only the Hermitian part, exactly as a consumer-built kernel can
+    transform then silently keeps only the Hermitian part, exactly as a caller-built kernel can
     under `convolve!`. There is deliberately no *scalar* exponent
     offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
 
@@ -1738,7 +1738,7 @@ The arguments are:
 ```
 
 with ``|k|^2`` keeping the true value at the Nyquist frequency (the Laplacian convention). The band
-edges are the consumer's choice.
+edges are the caller's choice.
 """
 function spectral_band(multipliers::FieldSpectralMultipliers,
                        wavenumber_low::Real, wavenumber_high::Real)
@@ -1783,7 +1783,7 @@ and storage family the kernel takes as its own, and `wavenumber_cutoff` is the c
 \\hat g(k) = \\mathbf{1}\\bigl[ |k| \\le k_c \\bigr].
 ```
 
-The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the consumer's.
+The choice of cutoff, such as a ``2/3`` de-aliasing rule or an LES filter scale, is the caller's.
 The squared wavenumber ``|k|^2`` keeps the true value at the Nyquist frequency (the Laplacian
 convention).
 """
@@ -1835,11 +1835,11 @@ transfer function ``\\hat W(k)``, the squared sinc
 
 computed from the per-axis wavenumber ``k_a`` (kept at the Nyquist frequency) and the grid spacing
 ``\\Delta x_a``, so ``\\hat W(0) = 1`` and it decays toward the grid scale. Because the squared sinc
-does not vanish at any wavenumber the grid resolves, dividing by it is stable. Stable is not the same as
+does not vanish at any wavenumber the grid resolves, dividing by it is stable. Stable is not
 exact: ``\\hat W`` is the transform of the continuum tent, while a grid deposit applies that transform plus
 the aliasing sum over the periodic images of ``k``, so the division undoes the smearing only up to that
-aliasing — trust the lower band, well below the Nyquist frequency. The package supplies the
-window; the density estimate and the correlation normalization stay consumer-side.
+aliasing — trust the band well below the Nyquist frequency. The package supplies the
+window; the density estimate and the correlation normalization stay with the caller.
 
 Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
 Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition /

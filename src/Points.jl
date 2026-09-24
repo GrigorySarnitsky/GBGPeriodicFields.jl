@@ -1100,11 +1100,11 @@ the tensor order — so any HDF5 tool can read it. A device (GPU) array is copie
 The sugar `parent[name] = points` is equivalent.
 
 Positions and values are written **separately**, one group each, because they are separate objects: a
-`PointSet` is the base, and point values are sections over it. A consumer that wants them together writes
+`PointSet` is the base, and point values are sections over it. A caller that wants them together writes
 both under one parent group, which also lets several value sets share one stored set of positions.
 
 Because `parent` is a handle you opened and own, this never opens or closes a file, and the package
-attaches no notion of time — the consumer bundles a snapshot and owns any `time` / `iteration`
+attaches no notion of time — the caller bundles a snapshot and owns any `time` / `iteration`
 attributes.
 
 The arguments are:
@@ -1345,7 +1345,7 @@ The arguments are:
   positions.
 
 There is deliberately no allocating sibling: displacement is motion of an existing base, and a
-freshly allocated destination would have no consumer. Sections and point sets must agree in
+freshly allocated destination would have no user. Sections and point sets must agree in
 point count, scalar type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields); mixed pairs are refused.
 """
 function displace! end
@@ -1401,7 +1401,7 @@ which lands each coordinate in the half-open fundamental domain ``[o_a, o_a + L_
 grid nodes it samples, so it is invariant under shifting any coordinate by whole
 periods — but it is the operation that keeps coordinates bounded over a long run (absolute
 floating-point resolution degrades as a coordinate grows, single precision especially) and that
-presents in-box positions to a consumer bucketing by cell index. It discards winding: a
+presents in-box positions to a caller bucketing by cell index. It discards winding: a
 mean-square-displacement diagnostic must run on unwrapped positions, which is why displacement
 and wrapping are separate operations rather than one.
 
