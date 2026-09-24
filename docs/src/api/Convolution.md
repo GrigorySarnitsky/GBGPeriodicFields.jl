@@ -11,7 +11,7 @@ The verbs below are this module's own. Two further operations reach a kernel thr
 another module owns, and are documented there: [`combine!`](@ref) has a kernel-composed method — a
 weighted combination convolved with a kernel in one fused pass — on the
 [`FieldAlgebra`](FieldAlgebra.md) page, and [`adapt`](@ref) moves a kernel of any class between
-storage families exactly as it moves a field, on the [`Fields`](Fields.md) page.
+[storage families](@ref GBGPeriodicFields) as it moves a field, on the [`Fields`](Fields.md) page.
 
 ```@docs
 convolve!

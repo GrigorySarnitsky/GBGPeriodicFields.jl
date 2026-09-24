@@ -349,7 +349,7 @@ holding a `Type` is not a bitstype and a device rejects it at launch, and it may
 and do no scalar indexing of device arrays. Anything it does capture by value, such as a viscosity or a
 substep, is free to vary per call, because building a kernel allocates nothing of field size. The
 `multipliers` are the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, and whose grid, Fourier
-layout, element type and array backend the kernel takes as its own.
+layout, element type and storage family the kernel takes as its own.
 
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
@@ -1722,7 +1722,7 @@ end
 Build an isotropic sharp spectral band-pass kernel, returned as a [`RadialKernel`](@ref) — the function
 itself rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use
 [`materialize_kernel`](@ref) to expand it into a `StoredKernel`. It is built on
-the multipliers' grid and array backend: the transfer function is ``1`` on the wavenumber shell and
+the multipliers' grid and storage family: the transfer function is ``1`` on the wavenumber shell and
 ``0`` outside it.
 
 Convolve a field with it to keep an isotropic shell of wavenumbers — a de-aliasing band, a forcing
@@ -1732,7 +1732,7 @@ the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass c
 
 The arguments are:
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-  and array backend the kernel takes as its own.
+  and storage family the kernel takes as its own.
 - `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
   ``k_\\mathrm{hi}`` of the retained shell.
 
@@ -1771,7 +1771,7 @@ end
 Build an isotropic sharp low-pass kernel, returned as a [`RadialKernel`](@ref) — the function itself
 rather than its coefficients, so it costs no field of storage. The evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component — see `RadialKernel` for the measured trade-off against a materialized kernel. Use [`materialize_kernel`](@ref) to
 expand it into a `StoredKernel`. It is built on
-the multipliers' grid and array backend: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
+the multipliers' grid and storage family: the transfer function is ``1`` for ``|k| \\le k_c`` and ``0``
 above it.
 
 Convolve a field with it for the ideal low-pass projection, the basis of spectral truncation and
@@ -1779,7 +1779,7 @@ de-aliasing. It is idempotent (``\\hat g^2 = \\hat g``), hence a projection, and
 special case of [`spectral_band`](@ref) with ``k_\\mathrm{lo} = 0``.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and array backend the kernel takes as its own, and `wavenumber_cutoff` is the cutoff wavenumber
+and storage family the kernel takes as its own, and `wavenumber_cutoff` is the cutoff wavenumber
 ``k_c`` — a mode is kept when ``|k| \\le k_c``.
 
 ```math
@@ -1802,7 +1802,7 @@ end
 Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
 of depositing a point's mass onto the grid cells around it, not the sense of writing a value into an
 array — as a [`SeparableKernel`](@ref) — its three
-per-axis factors rather than a field of coefficients — on the multipliers' grid and array backend, for
+per-axis factors rather than a field of coefficients — on the multipliers' grid and storage family, for
 deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
@@ -1815,7 +1815,7 @@ mass over a tent, so the gridded density is the true density ``\\rho`` convolved
 (the pair density at separation ``r`` relative to an uncorrelated uniform gas).
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and array backend the window takes as its own.
+and storage family the window takes as its own.
 
 As a real physical object ``W`` is the linear B-spline ("tent") cloud, the tensor product of per-axis
 tents:
@@ -1868,7 +1868,7 @@ end
                        offset::NTuple{3, Real}) -> SeparableKernel
 
 Build the kernel that translates a field by the physical displacement ``h`` = `offset`, returned as a
-[`SeparableKernel`](@ref) on the multipliers' grid and array backend: convolving a field ``f``
+[`SeparableKernel`](@ref) on the multipliers' grid and storage family: convolving a field ``f``
 with it gives the displaced field ``f(x - h)``, the position ``x`` reduced onto the periodic box.
 
 Use it to move a field onto a displaced grid without re-gridding — a shift-and-average filter, the
@@ -1886,7 +1886,7 @@ number ``\\cos(\\pi h_a / \\Delta x_a)``, which attenuates rather than translate
 half-cell shift — the reality condition demands it, and the warning below gives the detail.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
-and array backend the kernel takes as its own, and `offset` is the displacement
+and storage family the kernel takes as its own, and `offset` is the displacement
 ``h = (h_1, h_2, h_3)`` — a physical length per axis in the units of the box rather than a count of
 cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the `Grid3D` the field lives on.
 
