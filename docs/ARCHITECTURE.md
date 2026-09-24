@@ -712,8 +712,8 @@ rule, so a future operation is placed by its *structure*, not by precedent-minin
 3. **Elementwise work whose coefficient depends on the mode's cartesian index** (wavenumbers)
    takes a **decision-38-shape pair**: a hand-written KA kernel for devices and a gated cartesian
    `@simd` loop for CPU, both from one set of per-mode expressions. (`gradient!`, `curl!`,
-   `symmetric_gradient!`, `helmholtz_projection!`, and the compressed kernels' application —
-   decision 50's axis-factored class and decision 51's radial one, which take the same route for the
+   `symmetric_gradient!`, `helmholtz_projection!`, and applying a kernel not held as one
+   coefficient per mode — decision 50's axis-factored class and decision 51's radial one, which take it for the
    same reason: a *broadcast* device route paired with a gated CPU loop, rather than a hand-written
    kernel with one, as `PERFORMANCE.md` finding (o) measures. The
    exponential family's vector and tensor forms took this shape in decision 79: one exponential of ``|k|^2``
@@ -1076,9 +1076,9 @@ its scope is this section.
     object, never a field**; `SpectralKernel` is the abstract supertype of four storage classes —
     `StoredKernel` (one coefficient per mode), `SeparableKernel` (per-axis factors), `RadialKernel` (a
     symbol of ``\lvert k\rvert^2``) and `ProductKernel` (any two held unmultiplied); all four are
-    interchangeable wherever a kernel is *applied* and agree bit for bit on the host (on a device a
-    *complex*-valued kernel is the one exception, the classes agreeing there to rounding), `materialize_kernel` expands a
-    compressed one, and `inv` and `weighted_inner` are the two entry points with narrower contracts.
+    interchangeable wherever a kernel is *applied* and agree bitwise on the host (on a device a
+    *complex*-valued kernel agrees only to rounding), `materialize_kernel` expands any
+    other class into the stored one, and `inv` and `weighted_inner` are the two entry points with narrower contracts.
 
 `Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise
