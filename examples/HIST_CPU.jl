@@ -156,7 +156,7 @@ end
 # ## Diagnostics
 #
 # Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
-# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum` of the spectral velocity `uh` with the multipliers `m` the inner resolved over wavenumber shells, so the shell
+# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum` of the spectral velocity `uh` with the multipliers `m` (the wavenumber arrays the derivatives use) the inner resolved over wavenumber shells, so the shell
 # sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
 # kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
 # allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but allocates a whole

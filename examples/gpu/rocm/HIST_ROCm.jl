@@ -15,7 +15,7 @@
 # Read `HIST_CPU.jl` first; this file flags only what CHANGES for the GPU:
 #
 # - All field storage is built from device arrays (`dev(...)`); the FFT plans,
-#   multipliers and the shell-mask kernels land on-device automatically.
+#   spectral multipliers (the wavenumber arrays the derivatives use) and the shell-mask kernels land on-device automatically.
 # - The package operations are backend-agnostic and run unchanged: `curl`, `cross`,
 #   `helmholtz_projection`, the transforms, the ``L^{2}``/measure reductions
 #   (`inner`/`l2norm`/`lpnorm`, `radial_spectrum`, and `radial_correlation`),
