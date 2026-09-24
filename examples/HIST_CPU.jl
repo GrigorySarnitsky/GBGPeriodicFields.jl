@@ -333,7 +333,7 @@ function run_hist(p::Params)
   # `MEASURE` overwrites its input arrays while
   # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
   # condition below.
-  # One plan pair serves every tensor order: a transform is a property of the box, and a field whose
+  # One plan pair serves scalars, vectors and tensors alike: a transform is a property of the box, and a field whose
   # value has ``R`` indices is that transform per component, so the scalar divergence diagnostic reuses these
   # vector plans rather than planning a second pair of its own.
   ## physical ↔ spectral, any rank
