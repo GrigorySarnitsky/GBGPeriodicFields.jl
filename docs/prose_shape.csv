@@ -26,7 +26,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Naming conventions",298,237,0
 "ARCHITECTURE.md § Representation validity lives in the method set",554,198,0
 "ARCHITECTURE.md § The architecture map",370,262,0
-"ARCHITECTURE.md § The fiber-bundle model",1390,583,0
+"ARCHITECTURE.md § The fiber-bundle model",1387,583,0
 "ARCHITECTURE.md § The invariants",45,45,0
 "ARCHITECTURE.md § The invariants / item 1",74,74,0
 "ARCHITECTURE.md § The invariants / item 10",132,132,0
@@ -69,9 +69,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: inv(kernel::RadialKernel)",62,40,1
 "Convolution.jl :: inv(kernel::SeparableKernel)",120,77,1
 "Convolution.jl :: inv(kernel::StoredKernel)",77,58,0
-"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",59,58,0
-"Convolution.jl :: materialize_kernel(kernel::RadialKernel)",72,71,0
-"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",280,187,1
+"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",55,54,0
+"Convolution.jl :: materialize_kernel(kernel::RadialKernel)",68,67,0
+"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",277,184,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",16,15,0
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",250,117,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
@@ -168,6 +168,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 83",1340,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 84",479,88,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",407,231,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -181,21 +182,21 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",52,43,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
-"DifferentialOperators.jl :: curl!(",267,78,0
+"DifferentialOperators.jl :: curl!(",264,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",441,110,0
+"DifferentialOperators.jl :: divergence!(",438,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
-"DifferentialOperators.jl :: gradient!(",193,53,0
+"DifferentialOperators.jl :: gradient!(",191,52,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
 "DifferentialOperators.jl :: helmholtz_projection!(",577,108,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
-"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",339,86,1
+"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",334,86,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
 "DifferentialOperators.jl :: inverse_laplacian!(",298,75,1
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
 "DifferentialOperators.jl :: laplacian!(",163,56,0
 "DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",34,32,0
-"DifferentialOperators.jl :: symmetric_gradient!(",214,49,0
+"DifferentialOperators.jl :: symmetric_gradient!(",211,49,0
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
 "DifferentialOperators.md § Internal API",58,58,0
 "FORMALIZATION.md § (preamble)",22,22,1
@@ -204,7 +205,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Declarations",591,376,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",884,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",435,158,0
-"FORMALIZATION.md § Formalization — GBGPeriodicFields",219,95,1
+"FORMALIZATION.md § Formalization — GBGPeriodicFields",218,95,1
 "FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",194,70,0
 "FORMALIZATION.md § Moving between grid resolutions (`Fields`, decision 85)",367,112,0
 "FORMALIZATION.md § Reductions (`Reductions`)",1019,155,0
@@ -213,7 +214,7 @@ unit,words,longest_paragraph,admonitions
 "FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",505,125,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
 "FiberSections.jl :: AbstractFiberSection{T, R}",89,58,0
-"FiberSections.jl :: FiberSections",280,174,0
+"FiberSections.jl :: FiberSections",292,186,0
 "FiberSections.jl :: FiberTensor2{T}",24,13,0
 "FiberSections.jl :: FiberTensor3{T}",26,15,0
 "FiberSections.jl :: FiberTensor4{T}",27,16,0
@@ -237,7 +238,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",39,38,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",34,32,0
-"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",174,167,0
+"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",169,162,0
 "FiberSections.jl :: _fiberwise_slab!(f, targets, arrays, constants, α, β, elemen",38,31,0
 "FiberSections.jl :: _flatten_fiber(value)",22,21,0
 "FiberSections.jl :: _foreach_outer_slab(slab_body!, outer_axis, element_count)",60,57,0
@@ -247,7 +248,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _norm_vector_rhs(symbol, kind)",16,14,0
 "FiberSections.jl :: _product(x, y)",10,8,0
 "FiberSections.jl :: _scalar_kernel_body(rhs)",23,22,0
-"FiberSections.jl :: _section_order(section)",26,25,0
+"FiberSections.jl :: _section_order(section)",24,23,0
 "FiberSections.jl :: _section_scalar_type(section::AbstractFiberSection)",51,50,0
 "FiberSections.jl :: _section_tensor_order(section)",32,31,0
 "FiberSections.jl :: _slab_axis(dimensions)",50,49,0
@@ -340,7 +341,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _check_same_domain(a, b)",53,51,0
 "Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",154,63,0
 "Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",157,102,0
-"Fields.jl :: _component_view(data, ::Val{R}, component::Int)",156,108,0
+"Fields.jl :: _component_view(data, ::Val{R}, component::Int)",154,108,0
 "Fields.jl :: _context_grid(object)",72,71,0
 "Fields.jl :: _context_layout(object)",13,12,0
 "Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",85,60,0
@@ -398,19 +399,19 @@ unit,words,longest_paragraph,admonitions
 "Fields.md § Moving between grid resolutions",112,112,0
 "Fields.md § Moving between storage families",111,111,0
 "Fields.md § Spectral kernel protocol",32,32,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",910,409,1
+"GBGPeriodicFields.jl :: GBGPeriodicFields",909,409,1
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
 "Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",264,133,0
-"Interpolation.jl :: AbstractTransferScheme",277,105,0
+"Interpolation.jl :: AbstractTransferScheme",276,104,0
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",470,177,1
 "Interpolation.jl :: Interpolation",858,242,0
 "Interpolation.jl :: LagrangeSpline(n; T = Float64)",273,173,0
 "Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",448,199,0
 "Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",667,216,1
-"Interpolation.jl :: PointTraversalOrder(indices)",223,58,1
-"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",309,93,1
+"Interpolation.jl :: PointTraversalOrder(indices)",222,58,1
+"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",308,93,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",84,61,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
@@ -448,12 +449,13 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (ai)",349,111,0
 "PERFORMANCE.md § 4. What we have found / finding (aj)",1519,102,0
 "PERFORMANCE.md § 4. What we have found / finding (ak)",1026,92,0
-"PERFORMANCE.md § 4. What we have found / finding (al)",882,94,0
+"PERFORMANCE.md § 4. What we have found / finding (al)",881,93,0
 "PERFORMANCE.md § 4. What we have found / finding (am)",822,99,0
 "PERFORMANCE.md § 4. What we have found / finding (ap)",386,103,0
 "PERFORMANCE.md § 4. What we have found / finding (aq)",487,110,0
 "PERFORMANCE.md § 4. What we have found / finding (ar)",243,115,0
 "PERFORMANCE.md § 4. What we have found / finding (as)",331,103,0
+"PERFORMANCE.md § 4. What we have found / finding (at)",562,95,0
 "PERFORMANCE.md § 4. What we have found / finding (b)",211,150,0
 "PERFORMANCE.md § 4. What we have found / finding (c)",979,669,0
 "PERFORMANCE.md § 4. What we have found / finding (d)",46,46,0
@@ -622,7 +624,7 @@ unit,words,longest_paragraph,admonitions
 "tutorial.md § Differential operators",108,60,0
 "tutorial.md § Fiberwise algebra and L²/measure reductions",122,60,0
 "tutorial.md § Getting started",79,45,0
-"tutorial.md § Grids and fields",47,47,0
+"tutorial.md § Grids and fields",83,83,0
 "tutorial.md § Points: interpolation and anterpolation",62,38,0
 "tutorial.md § Representations: physical ↔ spectral",147,117,0
 "tutorial.md § Running multithreaded",254,83,0
