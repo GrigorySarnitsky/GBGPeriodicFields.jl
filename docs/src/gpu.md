@@ -107,11 +107,11 @@ CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
     when the project names it. A `[CUDA]` section, as CUDA.jl's own template shows, or a missing
     `[extras]` entry leaves every array in device memory without a warning.
 
-The setting takes effect in a new Julia session, which recompiles CUDA.jl, and the same call with
-`"device"` restores the default. The printed field says `CuArray` either way, so confirm by running the first example again and
-then `CUDA.is_unified(field_data(u))`, which returns `true`. The setting covers every array the process
+The setting takes effect in a new Julia session, which recompiles CUDA.jl; the same call with
+`"device"` restores the default. The printed field says `CuArray` either way, so rerun the first example and check
+`CUDA.is_unified(field_data(u))` on the array holding `u`'s values: it returns `true`. The setting covers every array the process
 allocates, so keep it out of a shared environment such as `@v1.12`,
-where it would apply to every project. Unified arrays also ignore `allowscalar(false)`, so develop with
+which every project uses. Unified arrays also ignore `allowscalar(false)`, so develop with
 device memory.
 
 On a PCIe host with an RTX 5070 Ti, a ``512^3`` `Float64` scalar transform round trip took about 8%
