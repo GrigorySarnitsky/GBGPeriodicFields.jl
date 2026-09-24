@@ -902,7 +902,7 @@ For two vector fields this is the Euclidean scalar product; for two second-order
 
 Contraction of two fields is nonlinear and is defined only in physical representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Pointwise over the base, with summation over the repeated fiber indices:
+Each base point gives, summing over the repeated fiber indices:
 
 ```math
 \\begin{gathered}
@@ -1128,7 +1128,7 @@ The arguments are:
 
 A product of two fields is nonlinear and is defined only in physical representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Pointwise over the base, with summation over the repeated fiber indices:
+Each base point gives, summing over the repeated fiber indices:
 
 ```math
 \\begin{gathered}
@@ -1345,7 +1345,7 @@ returns a fresh result instead.
 
 The operation is linear and representation-preserving, so it is defined for both physical and spectral representations. Unlike Julia's matrix `transpose`, it writes a materialized tensor field rather than a lazy wrapper.
 
-Pointwise over the base:
+Each base point gives:
 
 ```math
 \\texttt{destination}_{ij} = A_{ji}.
@@ -1403,7 +1403,7 @@ returns a fresh result instead.
 
 The norm is nonlinear, so it is defined only in physical representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Pointwise over the base — the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
+Each base point gives the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
 
 ```math
 \\begin{gathered}
@@ -1421,7 +1421,7 @@ function norm! end
     norm(u::VectorFieldPhysical)
     norm(A::TensorFieldPhysical{2})
 
-Allocating form of [`norm!`](@ref): allocate the scalar-field result and return it — the pointwise fiber magnitude of a scalar, vector, or second-order tensor field. Physical representation only. See `norm!` for the componentwise formula.
+Allocating form of [`norm!`](@ref): allocate the scalar-field result and return it — the pointwise magnitude of a scalar, vector or tensor field. It exists in physical representation only; `norm!` gives the formula.
 """
 norm
 
@@ -1515,7 +1515,7 @@ The determinant is cubic in the tensor's components — the third principal inva
 factor by which ``A`` scales volumes as a linear map. Unlike the linear trace [`tr!`](@ref), it is
 nonlinear, so it is defined in physical representation only; there is no spectral form. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
+Each base point gives, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
 fiber indices):
 
 ```math
@@ -1529,8 +1529,8 @@ function det! end
     det(A::TensorFieldPhysical{2})
 
 Allocating form of [`det!`](@ref): allocate the scalar-field result and return the fiberwise determinant
-— the third principal invariant ``I_3`` — of a second-order tensor field. Physical-space representation
-only. See `det!` for the componentwise formula. (A single `FiberTensor2` value already has
+— the third principal invariant ``I_3`` — of a second-order tensor field. It exists in physical representation
+only; `det!` gives the formula. (A single `FiberTensor2` has
 `LinearAlgebra.det`.)
 """
 det
@@ -1569,7 +1569,7 @@ Compute the symmetric part of the second-order tensor field `A` in place, writin
 Use this in-place form when `destination` is already allocated; the allocating [`sym`](@ref)
 returns a fresh result instead.
 
-Pointwise over the base:
+Each base point gives:
 
 ```math
 \\operatorname{sym}(A) = \\tfrac{1}{2} (A + A^\\top).
@@ -1598,7 +1598,7 @@ Compute the skew-symmetric part of the second-order tensor field `A` in place, w
 Use this in-place form when `destination` is already allocated; the allocating [`skew`](@ref)
 returns a fresh result instead.
 
-Pointwise over the base:
+Each base point gives:
 
 ```math
 \\operatorname{skew}(A) = \\tfrac{1}{2} (A - A^\\top).
@@ -1627,7 +1627,7 @@ into `destination`, which is returned. The operation is linear and representatio
 Use this in-place form when `destination` is already allocated; the allocating [`dev`](@ref)
 returns a fresh result instead.
 
-Pointwise over the base, with ``I`` the identity tensor:
+Each base point gives, with ``I`` the identity tensor:
 
 ```math
 \\operatorname{dev}(A) = A - \\tfrac{1}{3} \\operatorname{tr}(A) I.
