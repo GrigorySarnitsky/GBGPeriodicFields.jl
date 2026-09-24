@@ -1214,7 +1214,7 @@ a fresh result instead.
 
 Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose. For
 a **local-spline** scheme the weights are also a partition of unity — at any position they sum to exactly
-one — and then the total deposited quantity is conserved. Other communities name
+one — and the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
 (particle-in-cell), *projection* (PSI-Cell, particle-source-in-cell), or *gridding* (nonuniform FFTs);
 *anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990).
@@ -1235,7 +1235,7 @@ The arguments are:
   scatter — a deposit that accumulates onto a field the same points also sample).
 - `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are
-  deposited, and since the accumulation is atomic its summation order was never fixed to begin with,
+  deposited, and since the accumulation is atomic its summation order was never fixed,
   so the result moves by no more than it already does between runs. It must name every point exactly
   once and live in the same storage family as the field; `nothing`, the default, visits them in
   index order.
