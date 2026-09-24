@@ -476,11 +476,11 @@ end
     _check_combinable(values...)
 
 Check that point-value operands may be added or subtracted: equal point count, tensor order and scalar
-type, throwing otherwise.
+type, returning `nothing` or throwing.
 
 A vector-space combination is only defined between sections of the same bundle, and the broadcast that
-implements it is not fussy enough to say so. Two failures followed, both order-dependent, which is the
-tell that no operation was being expressed. Mixed precision NARROWED toward the first operand, so
+implements it is not fussy enough to say so. Two failures followed, both order-dependent, the tell that
+no operation was being expressed. Mixed precision NARROWED toward the first operand, so
 `a32 + a64` silently truncated a `Float64` operand while `a64 + a32` did not. Mixed tensor order was
 accepted in one order — a scalar broadcast across a vector's fiber — and rejected in the other, so `+`
 was not commutative; and adding a scalar section to a vector one is not in the method set for fields
@@ -1301,7 +1301,8 @@ end
     displace!(destination::PointSet, source::PointSet, grid::Grid3D, terms...)
     displace!(points::PointSet, [grid::Grid3D,] terms...)
 
-Move each point of a point set along the weighted sum of vector values over it: writing ``x_p``
+Move each point of a point set along the weighted sum of vector values over it, returning it:
+writing ``x_p``
 for the position of point ``p`` and ``v_j(p)`` for the value the ``j``-th section holds at that
 point,
 
@@ -1313,7 +1314,7 @@ Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term s
 host scalar ``c_j`` — a single number, applied to every point, not a per-point array — and one
 [`VectorPointValues`](@ref) section ``v_j``, which does hold one vector per point. The subscript
 ``j`` counts the terms of the call, so a two-term call has ``c_1, c_2`` and ``v_1, v_2``. All
-terms are applied in **one fused traversal**: the
+terms apply in **one fused traversal**: the
 positions are read once, each section once, and the positions written once, on CPU and GPU alike.
 This is the one operation that crosses the position-versus-value role split, and it is a named
 operation rather than a `+` method because positions are points of the periodic domain, not
