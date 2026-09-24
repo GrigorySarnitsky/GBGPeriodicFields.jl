@@ -333,8 +333,8 @@ function run_hist(p::Params)
   # `MEASURE` overwrites its input arrays while
   # planning, so we plan on the zero-filled `uphys0` / `uspec0` scaffolds before seeding the initial
   # condition below.
-  # One plan pair serves every tensor order: a transform is a property of the box, and a rank-`R`
-  # field is that transform along a fiber, so the scalar divergence diagnostic below reuses these
+  # One plan pair serves every tensor order: a transform is a property of the box, and a field whose
+  # value has ``R`` indices is that transform per component, so the scalar divergence diagnostic reuses these
   # vector plans rather than planning a second pair of its own.
   ## physical ↔ spectral, any rank
   vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)
@@ -427,7 +427,7 @@ function run_hist(p::Params)
   # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length, over
   # separations of the normalized correlation, ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r`` — written ``\mathcal{L}`` because ``L`` is
   # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
-  # the literature usually plots, since ``C`` contracts the fiber
+  # the literature usually plots, since ``C`` dots the velocity at the two points
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
   # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
   # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
