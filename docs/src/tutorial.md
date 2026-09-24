@@ -82,20 +82,20 @@ true
 ```
 
 The `plans` built above for the *vector* field `u` transformed this *scalar* field `φ` too. A real
-Fourier transform is defined on the box, and a rank-``R`` field is that transform applied along a
-fiber, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every rank —
-build one per backend and element type, not per rank.
+Fourier transform is defined on the box, and a field of tensor order ``R`` is that transform applied per
+component, so a [`FieldTransformPlans`](@ref) carries no tensor order and one pair serves every order:
+build one per storage family and element type.
 
 The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient`,
 `inverse_laplacian`, and `helmholtz_projection`.
 
 ## Fiberwise algebra and L²/measure reductions
 
-The *fiberwise* (pointwise, within-fiber) algebra — `dot`, `cross`, `norm`, … — preserves the base. The
-*global* reductions in [`Reductions`](@ref GBGPeriodicFields.Reductions) integrate the base away against
-its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product, so `inner(u, u)`
-is ``\langle |u|^2\rangle``, the domain average of ``|u|^2`` — single-argument angle brackets denote
-that average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
+The *fiberwise* (pointwise) algebra — `dot`, `cross`, `norm`, … — preserves the [base](@ref GBGPeriodicFields). The
+reductions of the [`Reductions`](@ref GBGPeriodicFields.Reductions) module integrate the base out by
+its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product; `inner(u, u)`
+is ``\langle |u|^2\rangle``, the domain average of ``|u|^2`` — single angle brackets mean that
+average (here ``\langle\sin^2\rangle + \langle\cos^2\rangle + \langle\sin^2\rangle = \tfrac{3}{2}``).
 
 ```jldoctest tutorial
 julia> field_tensor_order(cross(u, u))    # u × u
