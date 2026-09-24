@@ -23,7 +23,7 @@ and need not repeat the convention.
 
 | Symbol | Meaning | Code |
 |:---|:---|:---|
-| ``f``, ``g`` | a field: one value attached to every point of the base, the value being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use). **One deliberate reuse:** in `Convolution`, ``g`` and its transform ``\hat g`` denote the **kernel** rather than a field — the standard symbol for a convolution kernel, kept because every formula there reads as the textbook one. A kernel is a distinct kind of object, not a field, so read ``g`` as the kernel on that page and as a field everywhere else | — |
+| ``f``, ``g`` | a field: one value attached to every point of the base, that value — the **fiber** value — being a scalar, a vector, or a second-order tensor (a *section of the tensor bundle*, in the language the design docs use). **One deliberate reuse:** in `Convolution`, ``g`` and its transform ``\hat g`` denote the **kernel** rather than a field — the standard symbol for a convolution kernel. A kernel is a distinct kind of object, not a field, so read ``g`` as the kernel on that page and as a field everywhere else | — |
 | ``x`` | a position in the periodic box ``\Omega`` (``x_p`` is the ``p``-th point) | — |
 | ``q`` | the value a point carries (``q_p`` sits at ``x_p``) — sampled from a field, or a quantity of the point's own that anterpolation deposits onto the grid | [`AbstractPointValues`](@ref) |
 | ``B`` | the **base** of the bundle picture — the set a section attaches values to: a `Grid3D`'s nodes, or a `PointSet`'s points. A subscripted ``N_B`` is its point count (``N`` or ``M``); the bare glyph is never a scalar | [`Grid3D`](@ref) / [`PointSet`](@ref) |
