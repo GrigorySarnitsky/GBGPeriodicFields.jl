@@ -9,12 +9,12 @@
 # alongside the energy spectrum, the stationarity history, and the velocity
 # autocorrelations. The goal is a readable, **performance-first** end-to-end workflow: the time loop is
 # fully in-place over a preallocated workspace (no per-step allocation) — both how a real DNS is written
-# and what lets the GPU twin run hassle-free (no manual garbage collection).
+# and what lets the GPU twin, a device copy of this script, run with no manual garbage collection.
 #
 # **This is a demonstration, not the production solver.** The full pseudospectral DNS built on this
 # package is [`GBGHomogeneousTurbulence.jl`](https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl) — that is where the
 # complete physics, the tested solver machinery, and the real runs live. This page exists to show how
-# the field layer is driven end to end, small enough to read in one sitting.
+# the package, the field layer a solver builds on, is driven end to end, small enough to read in one sitting.
 #
 # **Method.** The demo uses the rotational form. We write ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
 # the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
@@ -124,15 +124,15 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``,
 # the IC envelope — are applied with the package's `convolve` (periodic convolution being a coefficientwise
 # multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
-# physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are radial symbols of
-# ``\lvert\mathbf{k}\rvert^{2}``: the viscous integrating factor goes through `exponential_convolve!`,
+# physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are radial symbols, functions of
+# ``\lvert\mathbf{k}\rvert^{2}`` alone: the viscous integrating factor goes through `exponential_convolve!`,
 # which evaluates ``\exp(-\nu\lvert\mathbf{k}\rvert^{2}\Delta t)`` per mode from the wavenumber
 # arrays, and the initial envelope through `radial_kernel`, which stores a closure. Neither builds a
 # field of coefficients.
 #
 # The `make_workspace` helper preallocates every scratch field the time loop needs, so a step
 # allocates nothing —
-# this is the heart of the performance-first design (and what keeps the GPU pool flat).
+# this is the heart of the performance-first design (and what keeps the GPU's memory pool from growing).
 
 
 # The workspace preallocates scratch fields for the in-place hot loop, so a step allocates nothing (this
@@ -156,17 +156,17 @@ end
 # ## Diagnostics
 #
 # Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
-# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum(uh, m)` the shell-resolved inner, so the shell
+# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum(uh, m)` the inner resolved over wavenumber shells, so the shell
 # sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
 # kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
-# allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but materializes a
+# allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but allocates a whole
 # magnitude field, so we avoid it in the hot loop.
 
 kinetic_energy(u) = 0.5 * inner(u, u)  # ½⟨|u|²⟩   (Reductions.inner)
 dissipation(ω, p) = p.ν * inner(ω, ω)  # ν⟨|ω|²⟩   (homogeneous)
 # The CFL speed is ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
 # allocation-free reduction over the raw array. (`lpnorm(u, Inf)` is the true ``\sup\lvert u\rvert`` but
-# materializes a magnitude field every call — avoided so the hot loop allocates nothing; the max component
+# allocates a whole magnitude field every call — avoided so the hot loop allocates nothing; the max component
 # under-estimates the magnitude by at most ``\sqrt{3}``, so the effective CFL number is at most that
 # much larger than the nominal one — absorbed by the conservative `cfl` the long runs use.)
 max_speed(u)      = maximum(abs, field_data(u))
@@ -206,7 +206,7 @@ end
 # The heart of the performance-first design: **no per-step allocation**. The work fields all live in the
 # preallocated `ws`; the package's in-place operators write into them (`curl!`, `to_physical!`, `cross!`,
 # `to_spectral!`, `helmholtz_projection!`, `convolve!`), and the linear combinations are in-place
-# broadcasts on the raw arrays. Nothing here allocates, so there is no GC / `reclaim` pressure — which is
+# broadcasts on the raw arrays. Nothing here allocates, so there is no garbage-collection pressure — which is
 # exactly what lets the GPU twin run unattended (an allocating style would grow the device memory pool
 # every step until it wedges).
 
@@ -270,7 +270,7 @@ end
 # ## Particles
 #
 # RK2 in space on the frozen start-of-step velocity field (the ``O(\Delta t^{2})`` field-staleness is fine
-# for a demo), using the package's `interpolate` (gather). Positions wrap into ``[0, L)``; the per-tracer
+# for a demo), using the package's `interpolate`, the grid-to-point gather. Positions wrap into ``[0, L)``; the per-tracer
 # velocity is recorded for the Lagrangian statistics.
 
 function advect!(X, u, dt, p)
