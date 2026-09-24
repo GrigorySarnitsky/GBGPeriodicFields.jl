@@ -18,9 +18,9 @@ The parts are:
   * **A full fiberwise algebra on the point values.** Addition, real scaling, scalar
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
     invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
-    carry, together with the arbitrary-fiber-map escape hatch `map!`/`map` — each
-    documented once, in [`FieldAlgebra`](@ref). The algebra reuses the shared [`FiberSections`](@ref) formula builders and fused
-    values functions over the point-value section interface, so no per-component formula is written twice.
+    carry, together with `map!`/`map`, which apply any fiber function — each
+    documented once, in [`FieldAlgebra`](@ref). It reuses the [`FiberSections`](@ref) code that generates the field algebra, so no
+    per-component formula is written twice.
 
   * **Base-space motion.** [`displace!`](@ref) moves the points themselves along
     coefficient-weighted vector sections — in unwrapped coordinates, or, given a [`Grid3D`](@ref), landing
@@ -1347,7 +1347,7 @@ The arguments are:
 
 There is deliberately no allocating sibling: displacement is motion of an existing base, and a
 freshly allocated destination would have no consumer. Sections and point sets must agree in
-point count, scalar type and storage family; a mixed pair is refused, never converted.
+point count, scalar type and [storage family](@ref GBGPeriodicFields); mixed pairs are refused.
 """
 function displace! end
 

@@ -42,12 +42,11 @@ The point values carry the same fiberwise algebra as fields in physical represen
 very same generics extended to accept `AbstractPointValues`. There is no second set of docstrings:
 each operation is documented once, on the [`FieldAlgebra`](FieldAlgebra.md) page.
 
-The weighted combination `combine!` is the one deliberate absence, and for the **no-consumer** reason
-rather than a mathematical one: it is linear and coefficientwise, so it would be perfectly well defined
-on point values. It exists on fields because a solver's stage updates are the one place the fused axpby
-saves a whole pass over a field; nothing asks it of the point layer, so it is unbuilt rather than
-invalid — the package declines speculative structure, and this absence is that rule at work rather
-than a mathematical restriction a user could rely on.
+The weighted combination `combine!` is the one deliberate absence, and not for a mathematical reason:
+it is linear and coefficientwise, so it would be perfectly well defined on point values. It exists on
+fields because a solver's stage updates are the one place the fused axpby saves a whole pass over a
+field; nothing needs it on points, so it has not been built, and a user should not read its absence as
+a mathematical restriction.
 
 ## Base-space motion
 
