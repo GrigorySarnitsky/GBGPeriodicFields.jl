@@ -1226,7 +1226,7 @@ end
 """
     _context_grid(object)
 
-The base an object was built for. Every object that participates in a spectral operation — a field, a
+Return an object's grid. Every object that participates in a spectral operation — a field, a
 multiplier set, a compressed kernel — answers this and its peer [`_context_layout`](@ref), so one
 predicate ([`_check_matching_context`](@ref)) can compare any two of them. `Convolution` extends both
 for the kernel classes, which is what lets a kernel be checked against a field or a multiplier set
@@ -1238,7 +1238,7 @@ function _context_grid end
 """
     _context_layout(object)
 
-The Fourier layout an object was built for, the peer of [`_context_grid`](@ref).
+Return an object's Fourier layout, the peer of [`_context_grid`](@ref).
 """
 function _context_layout end
 
@@ -1709,7 +1709,7 @@ abstract type SpectralKernel{T} end
 """
     _kernel_data(kernel)
 
-The coefficientwise multiplier a kernel contributes to a fused pass. A kernel held as a field yields
+Return the coefficientwise multiplier a kernel contributes to a pass. A kernel held as a field yields
 its stored array; a separable, radial or product kernel yields what its pass consumes — typically a lazy
 expression over the wavenumber arrays.
 """
@@ -2903,7 +2903,7 @@ reality_projection!(field::AbstractFieldSpectral) = reality_projection!(field, f
 """
     _shared_mode_axis(coarse_size, fine_size, is_folded)
 
-The per-axis geometry the two resolution verbs walk: the coarse stored extent, the two grid sizes and
+Return the per-axis geometry the resolution verbs walk: the coarse stored extent, the two grid sizes and
 whether this is the folded axis, as one `isbits` tuple a kernel can carry.
 """
 @inline _shared_mode_axis(coarse_size::Int, fine_size::Int, is_folded::Bool) =
@@ -2938,7 +2938,7 @@ end
     _shared_mode_pair(work_item, axes, coarse_strides, fine_strides, components,
                       coarse_elements, fine_elements)
 
-The linear index pair `(coarse, fine)` a work item acts on, or `(0, 0)` when its mode is not shared.
+Return the index pair `(coarse, fine)` a work item acts on, or `(0, 0)` when its mode is not shared.
 
 One work item owns one coarse stored mode of one fiber component, so the walk costs the coarse
 field's size and the fine field is touched only where it is written.
@@ -2963,7 +2963,7 @@ end
 """
     _write_shared_mode!(destination, source, destination_index, source_index, α, β)
 
-The one assignment both resolution verbs perform, so the two directions and the two backends cannot
+Perform the assignment both resolution verbs share, so the two directions and the two backends cannot
 drift: overwrite when `β` is zero, accumulate otherwise.
 """
 @inline function _write_shared_mode!(destination, source, destination_index::Int, source_index::Int, α, β)
@@ -3069,8 +3069,8 @@ end
 """
     _shared_modes!(destination, source, ::Val{ToFine}, α, β)
 
-The shared body of [`embed_modes!`](@ref) and [`extract_modes!`](@ref): check the pair, build the
-per-axis geometry, and run the pass. `ToFine` says which of the two fields is the destination, which
+Run the shared body of [`embed_modes!`](@ref) and [`extract_modes!`](@ref): check the pair, build the
+per-axis geometry, run the pass. `ToFine` says which of the two fields is the destination, which
 is the only thing the two verbs do differently besides their refusals and their scale factor.
 """
 function _shared_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral,
