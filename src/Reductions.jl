@@ -1337,9 +1337,9 @@ fundamental). Each form **refines** [`inner`](@ref):
 — the L² (co-)energy split across isotropic ``|k|``-shells one fundamental wavenumber wide (the box's smallest nonzero wavenumber, ``\\Delta k = 2\\pi / \\max_a L_a``). The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
 is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
-spectrum, **may be negative** in a shell (anticorrelated modes). The consumer's physics kinetic-energy
-spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (it integrates to the turbulent kinetic energy, half
-the L² energy); the package keeps the neutral power-spectrum name, physics stays consumer-side.
+spectrum, **may be negative** in a shell (anticorrelated modes). In physical terms the kinetic-energy
+spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (integrating to the turbulent kinetic energy, half
+the L² energy); the package keeps the neutral name, the physics the caller's.
 
 The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
 ``\\lvert k\\rvert`` within ``\\pm\\Delta k/2`` of ``m\\Delta k`` — which is what makes
