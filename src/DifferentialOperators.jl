@@ -144,7 +144,7 @@ end
 """
     _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
 
-Apply the coefficientwise Laplacian symbol ``-|k|^2`` to each component, computing `destination_data .= (-).(squared_wavenumber) .* source_data`, where `squared_wavenumber` is the lazy `_squared_wavenumber_broadcast`. The kernel preserves the tensor order because it acts on every component alike.
+Apply the coefficientwise Laplacian symbol ``-|k|^2`` to each component, computing `destination_data .= (-).(squared_wavenumber) .* source_data`, where `squared_wavenumber` is the lazy `_squared_wavenumber_broadcast`. It returns `destination_data`, preserving the tensor order by acting on every component alike.
 """
 function _apply_spectral_laplacian!(destination_data, source_data, squared_wavenumber)
   @_assign! destination_data .= (-).(squared_wavenumber) .* source_data   # broadcast unary minus: composes with the lazy |k|²
@@ -314,10 +314,8 @@ end
 Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
 on the backend of `destination`'s storage: a `KernelAbstractions` launch of
 `_helmholtz_projection_kernel!` on a device, or a gated loop over contiguous slabs on a CPU. It passes the
-**three** derivative-wavenumber arrays and the already-converted `α`/`β` — the projector's denominator
-is formed in the pass by squaring those values, so no second multiplier family is
-read. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
-plain projection. Shared by every `helmholtz_projection!` method.
+**three** derivative-wavenumber arrays and the converted `α`/`β` — the projector's denominator
+is formed in the pass by squaring those values, so no second family is read. The `kernel_data` is a kernel's storage, or `nothing` for the plain projection. Every `helmholtz_projection!` method calls it; it returns `destination`.
 """
 function _apply_helmholtz_projection!(destination::VectorFieldSpectral{T}, field::VectorFieldSpectral{T},
     multipliers::FieldSpectralMultipliers, kernel_data, α::T, β::T) where {T<:AbstractFloat}
@@ -534,7 +532,7 @@ end
 
 Run the fused curl pass over every mode: read the three source coefficients once, write the three
 components of ``\\mathrm{i} (a \\times \\hat u)``, with ``a`` the derivative wavenumber. The pass is alias-safe — a mode's
-reads all precede its writes — so the destination may alias the source with no guard temporary.
+reads precede its writes — so the destination may alias the source. Returns `nothing`.
 """
 function _curl_modes!(backend, destination_1, destination_2, destination_3,
     source_1, source_2, source_3, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
