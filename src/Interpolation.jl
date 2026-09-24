@@ -1329,10 +1329,10 @@ _single_point_value(values::TensorPointValues{2}) = SMatrix{3, 3}(Array(point_va
 The **exact** spectral-domain transfer scheme: it interpolates and anterpolates by the literal ``O(NM)``
 discrete Fourier sum over the field's stored Fourier modes ``k`` and the ``M`` points (``x_p`` the
 ``p``-th point position, ``q_p`` the value carried there), with ``N = N_x N_y N_z`` the grid-point
-count — none of the fast scheme's apparatus (no spreading window, no oversampled grid, no FFT — the
-machinery of [`NUFFT`](@ref), which it validates as the oracle). It is the *definition* of the
-spectral-domain adjoint pair and the transparent exact baseline; for many points or modes, prefer
-`NUFFT`. It acts on a field in **spectral representation**:
+count — none of the fast scheme's apparatus (no spreading window, oversampled grid or FFT — the
+machinery of [`NUFFT`](@ref), which it validates as the oracle). It *defines* the
+spectral-domain adjoint pair and is the transparent exact baseline; for many points or modes, prefer
+`NUFFT`. It acts on a field's Fourier coefficients, in **spectral representation**:
 
 ```math
 \\begin{aligned}
@@ -1359,12 +1359,12 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
 !!! warning "Anterpolating off-node points does not give a real field's spectrum at an even axis's Nyquist"
     The deposit ``(W^\\top q)(k)`` is evaluated at every stored mode, the Nyquist planes included, and
     it is the exact adjoint of the gather there. But an even-length axis identifies its Nyquist mode
-    with its own negative, so a *real* field's coefficients must satisfy
+    with its own negative, so a *real* field's deposited coefficients must satisfy
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` **within** that plane, and the sum above meets that condition
-    only when every point sits on a grid node of that axis: off-node, the two sides differ by
+    only when every point sits on a grid node of that axis: off-node along it, the two sides differ by
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
     field, and `to_physical` — which is the Hermitian projector — silently keeps only its
-    Hermitian part, so a transform round trip does not return it unchanged. The same hazard
+    Hermitian part, so a transform round trip changes it. The same hazard
     `translation_kernel` documents for its Nyquist factor is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
     The **resolved band is unaffected**, which is the band a de-aliased spectral
