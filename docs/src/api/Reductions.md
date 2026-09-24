@@ -29,7 +29,7 @@ lpnorm
 
 These extend the standard-library generics — `mean`, `std`, `var`, and `cov` from `Statistics`, and `maximum`, `minimum`, and `extrema` from `Base` — rather than introducing package names, and are used exactly as their stdlib counterparts are.
 
-All seven are in scope from `using GBGPeriodicFields` alone: the `Statistics` four are re-exported by the umbrella, exactly as `dot` and `norm` are re-exported from `LinearAlgebra`, and the `Base` three are in scope already. That split is also why two blocks follow rather than one — the re-exported four are **public** here, and the `Base` three are collected by the unexported sweep.
+All seven are in scope from `using GBGPeriodicFields` alone: the `Statistics` four are re-exported by the top-level module, as `dot` and `norm` are from `LinearAlgebra`, and the `Base` three are in scope already. That split is why two blocks follow rather than one.
 
 ```@autodocs
 Modules = [GBGPeriodicFields.Reductions]

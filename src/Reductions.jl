@@ -4,7 +4,7 @@
 This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields), the third operation family beside the
 fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
-its **base** against the measure the base carries — the extensive one for `integral`, its
+its **base** against the base's measure — the extensive one for `integral`, its
 unit-mass normalization for the intensive reductions: a `Grid3D` uses its uniform quadrature (the cell
 volume), and a `PointSet` uses its **counting** measure (unit weight per point,
 as a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
@@ -22,7 +22,7 @@ The parts follow, each linking to where its formula lives.
     `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
     `maximum`, `minimum` and `extrema` extend `Base`. Either way they are used exactly as their
     standard-library counterparts are, and `using GBGPeriodicFields` alone puts all of them in scope:
-    the umbrella re-exports the four `Statistics` generics, as it does `dot` and `norm` from
+    the top-level module re-exports the four `Statistics` generics, as it does `dot` and `norm` from
     `LinearAlgebra`, so a caller need not know which standard library a reduction's verb lives in.
 
 
@@ -981,7 +981,7 @@ The arguments are:
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
-  right — see the warning below. Build it with the neutral builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+  right — see the warning below. Build it with the kernel builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 !!! note "The unit weight and `inner` agree numerically, not bitwise"
     ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
