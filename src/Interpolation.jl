@@ -1,7 +1,7 @@
 """
     Interpolation
 
-Transfer between the grid sections of [`Fields`](@ref "Fields") and the point sections of
+Transfer between the grid [sections](@ref GBGPeriodicFields) of [`Fields`](@ref "Fields") and the point sections of
 [`Points`](@ref "Points"): **interpolation**
 evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
 back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
