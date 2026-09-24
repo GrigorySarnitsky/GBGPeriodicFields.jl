@@ -1395,10 +1395,10 @@ end
 
 Compute the zero-mean inverse Laplacian (`inverse_laplacian`, ``\\Delta^{-1}``) of a field ``f`` and
 write it into `destination`, returning `destination`. For a mean-free right-hand side the result is
-the zero-mean field ``\\psi`` solving Poisson's equation — on a periodic box the system is solvable
+the zero-mean field ``\\psi`` solving Poisson's equation — on the periodic box, the integration domain, it is solvable
 only when ``\\int_\\Omega f\\,\\mathrm{d}x = 0``, since any periodic ``\\psi`` has
 ``\\int_\\Omega \\Delta\\psi\\,\\mathrm{d}x = 0`` — and because the Laplacian annihilates constants,
-the solution is fixed uniquely by requiring its mean to vanish:
+a vanishing mean fixes the solution uniquely:
 
 ```math
 \\begin{gathered}
