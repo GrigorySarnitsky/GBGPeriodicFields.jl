@@ -5,8 +5,7 @@ Periodic (circular) convolution of a field with a kernel. On the torus the only 
 is the periodic one, and by the convolution theorem it is exactly a coefficientwise product of the
 transforms, so the operation lives in spectral representation. A scalar kernel multiplies every fiber
 component, so one operation serves scalar, vector, and tensor fields. The operation is named [`convolve`](@ref)
-(allocating infix `⋆`) rather than `*`, because the coefficientwise product would read as a pointwise
-multiplication, which it is not.
+(allocating infix `⋆`) rather than `*`, which would read as a pointwise multiplication.
 
 A kernel is **not** a field. The two hold identical coefficients, so nothing but a type can say which
 role is meant, and the roles differ: the coefficientwise reciprocal of a kernel is the kernel that
@@ -37,8 +36,8 @@ Convolution operations:
 
 Kernel storage classes:
 
-- `StoredKernel` — one coefficient per mode, the ``O(N^3)`` storage every other class exists to
-  avoid. It wraps a [`ScalarFieldSpectral`](@ref) to put those coefficients in the kernel role.
+- `StoredKernel` — one coefficient per mode, the ``O(N^3)`` storage, cubic in the points per
+  axis, every other class exists to avoid. It wraps a [`ScalarFieldSpectral`](@ref) in the kernel role.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
   so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
   return.
@@ -47,8 +46,7 @@ Kernel storage classes:
   `spectral_cutoff`, `spectral_band` and `radial_kernel` return.
 - [`ProductKernel`](@ref) — **any two** kernels held unmultiplied, which is what a composition that
   cannot be collapsed into a single kernel gives: a cross-family pair, two stored kernels, or two
-  radial kernels whose coordinates cannot be shown to agree. It applies in a single pass like either
-  factor alone.
+  radial kernels whose coordinates cannot be shown to agree. It applies in one pass.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a consumer that
   wants to inspect or modify the coefficients.
 - `inv` — the reciprocal kernel, which deconvolves by the original. Each class returns its own
@@ -778,8 +776,8 @@ and one expression serves scalar, vector, and tensor fields exactly as the store
 The shape is chosen for two measured reasons. Broadcasting indexes the factors **cartesian**, so no
 element pays a linear-to-cartesian conversion — an integer division, emulated on a GPU. And the launch
 stays **flat**, which keeps it *coalesced* — neighbouring threads reading neighbouring addresses, which
-a GPU services as one wide memory transaction rather than many narrow ones. The folded axis is
-``N/2 + 1`` modes long (129 at ``256^3``), so a three-dimensional launch would cut each row against a
+a GPU serves as one wide transaction. The folded axis is
+``N/2 + 1`` modes long, half its point count plus one (129 at ``256^3``), so a three-dimensional launch would cut each row against a
 length that is not a multiple of the *warp* — the group of threads a GPU issues in lockstep, 32 on
 NVIDIA and 64 on AMD — leaving every row's last transaction partly idle.
 
@@ -959,7 +957,7 @@ The arguments are:
 
 Spectral representation only: on the torus convolution is the coefficientwise spectral product.
 
-As a real physical object the periodic convolution is the kernel-weighted local average of the field
+Physically the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
 ```math
@@ -968,11 +966,11 @@ As a real physical object the periodic convolution is the kernel-weighted local 
 
 with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus. On the grid
 the operation computes the **circular sum** ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
-modulo the grid size) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, the
+modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, box volume over point count, the
 dimensionless convention that makes a kernel act as a per-mode transfer function (``\\hat g \\equiv 1``
 is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/N``
 times it. By the convolution theorem (the forward transform unnormalized) the circular sum is exactly
-the coefficientwise product of the transforms, which is what this operation computes — ``\\hat g`` =
+the coefficientwise product of the transforms, which this operation computes — ``\\hat g`` =
 `kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``
 accumulate:
 
