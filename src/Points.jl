@@ -4,7 +4,7 @@
 The unstructured base of the package's fiber-bundle model: off-grid sample positions and the
 field values sampled at them. A point set plays the role the grid plays in
 [`Fields`](@ref "Fields"), and point
-values are [sections](@ref GBGPeriodicFields) over it.
+values are [sections](@ref GBGPeriodicFields.GBGPeriodicFields) over it.
 
 The parts are:
 
@@ -1348,7 +1348,7 @@ The arguments are:
 
 There is deliberately no allocating sibling: displacement is motion of an existing base, and a
 freshly allocated destination would have no consumer. Sections and point sets must agree in
-point count, scalar type and [storage family](@ref GBGPeriodicFields); mixed pairs are refused.
+point count, scalar type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields); mixed pairs are refused.
 """
 function displace! end
 

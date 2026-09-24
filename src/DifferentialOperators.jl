@@ -1174,7 +1174,7 @@ The arguments are:
   source coefficients are read before any of its components are written.
 - `field` — the vector field to invert, in spectral representation.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying the derivative wavenumbers, which
-  must match the field's grid, layout, element type and [storage family](@ref GBGPeriodicFields).
+  must match the field's grid, layout, element type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields).
 
 !!! warning "The zero mode has no preimage and is returned as zero"
     A constant field is the curl of nothing, so the ``k = 0`` coefficient is written zero, as is each

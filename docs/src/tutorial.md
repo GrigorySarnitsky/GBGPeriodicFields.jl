@@ -91,7 +91,7 @@ The same pattern works for `gradient`, `divergence`, `curl`, `symmetric_gradient
 
 ## Fiberwise algebra and L²/measure reductions
 
-The *fiberwise* (pointwise) algebra — `dot`, `cross`, `norm`, … — preserves the [base](@ref GBGPeriodicFields). The
+The *fiberwise* (pointwise) algebra — `dot`, `cross`, `norm`, … — preserves the [base](@ref GBGPeriodicFields.GBGPeriodicFields). The
 reductions of the [`Reductions`](@ref GBGPeriodicFields.Reductions) module integrate the base out by
 its measure: `inner` (``\langle\cdot,\cdot\rangle``) is the normalized L² product; `inner(u, u)`
 is ``\langle |u|^2\rangle``, the average of ``|u|^2`` — single angle brackets mean that

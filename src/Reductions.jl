@@ -1,7 +1,7 @@
 """
     Reductions
 
-This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields), the third kind of operation beside the
+This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields.GBGPeriodicFields), the third kind of operation beside the
 fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
 its **base** against the base's measure — the extensive one for `integral`, its

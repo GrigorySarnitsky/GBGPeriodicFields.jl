@@ -1,7 +1,7 @@
 """
     Interpolation
 
-Transfer between the grid [sections](@ref GBGPeriodicFields) of [`Fields`](@ref "Fields") and the point sections of
+Transfer between the grid [sections](@ref GBGPeriodicFields.GBGPeriodicFields) of [`Fields`](@ref "Fields") and the point sections of
 [`Points`](@ref "Points"): **interpolation**
 evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
 back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
@@ -129,7 +129,7 @@ type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 
-Schemes divide the same way over [**storage families**](@ref GBGPeriodicFields). The splines and `DirectDFT` are
+Schemes divide the same way over [**storage families**](@ref GBGPeriodicFields.GBGPeriodicFields). The splines and `DirectDFT` are
 plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
 value: one built on the host drives a transfer over device points with nothing copied, which is why
 `adapt` (documented with [`Fields`](@ref "Fields")) does not list them. `NUFFT` is the exception,
