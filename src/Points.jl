@@ -1252,10 +1252,10 @@ _axis_terms(axis::Int, term, rest...) =
     _check_displacement_compatibility(destination, source, sections)
 
 Require the point count, scalar type and storage family of `source` and of every displacement
-section to match `destination`'s, refusing with a clear `ArgumentError` rather than promoting or
-transferring. The refusal is the package's decision, not the launch layer's: the
+section to match `destination`'s, returning `nothing` or throwing an `ArgumentError` rather than
+promoting or transferring. The refusal is the package's decision, not the launch layer's: the
 torus path assembles per-axis views and so bypasses the broadcast machinery's own enforcement,
-and a mixed host/device pair must fail identically on every path.
+and a mixed host/device pair must fail alike on every path.
 """
 function _check_displacement_compatibility(destination::PointSet, source::PointSet, sections)
   _check_npoints_match(destination, source)
