@@ -673,8 +673,8 @@ whole-field dotted ops and the field-level algebra), and the kernel assignments 
 codegen body builders emit `_assign!(target, …)` (via `_to_broadcasted`, which rewrites a
 dotted formula into a lazy `broadcasted` tree at codegen time), and the hand-written
 `FieldAlgebra` / `DifferentialOperators` kernels use the `@_assign!` macro in place of `.=`. (The
-decision-39 fused executor is the third route: its stamped per-element values functions run inside
-`_fiberwise_pass!`'s own kernel and slab loop, governed by the same gate — the route policy below.) No
+decision-39 fused executor is the third route: its values functions, each reading one element's inputs
+and returning its outputs, run inside `_fiberwise_pass!`'s kernel and slab loop under the same gate.) No
 types, signatures, or method tables change — the 206-method surface and the zero-ambiguity
 property are preserved. **Discipline:** a raw elementwise write must go through
 `_assign!`/`@_assign!`, never a bare `.=`, or it silently runs single-threaded.
