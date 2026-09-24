@@ -55,7 +55,7 @@ of the table above.
 | ``\cdot``, ``\times`` | the fiber dot and cross products | [`dot`](@ref) (`⋅`), [`cross`](@ref) (`×`) |
 | ``\langle\cdot,\cdot\rangle`` | the ``L^2`` inner product over the base's total measure | [`inner`](@ref) |
 | ``\langle\cdot\rangle`` | the base average of one argument, against the same measure | [`mean`](@ref) |
-| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside a table the same symbol is written with plain single bars, which cannot be shown in this cell because the literal pipe would split it — note that `\|` is NOT that spelling, being LaTeX's DOUBLE bar and so the ``\lVert\cdot\rVert`` of the next row | [`norm`](@ref) |
+| ``\lvert\cdot\rvert`` | the pointwise (fiberwise) magnitude. In this table the bars are written `\lvert…\rvert` because a literal pipe inside a cell is eaten as a column delimiter; in running math outside a table the same symbol is written with plain single bars, which cannot be shown in this cell because the literal pipe would split it — note that LaTeX's backslash-bar is NOT that spelling, being the DOUBLE bar, the ``\lVert\cdot\rVert`` of the next row | [`norm`](@ref) |
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | [`l2norm`](@ref) |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure: cell volume on a grid, unit mass per point | [`integral`](@ref) |
 | ``\star`` | periodic convolution | [`convolve`](@ref) |
