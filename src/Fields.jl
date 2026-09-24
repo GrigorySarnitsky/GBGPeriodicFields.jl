@@ -731,7 +731,7 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
 Tensor field of order ``R \\ge 2`` in physical representation, stored as its components on a three-dimensional physical grid.
 
 The fields are
-- `values_at_grid` — the real tensor components, stored `values_at_grid[i, j, k, α₁, ..., αᵣ]` with each tensor index of length `3`.
+- `values_at_grid` — the real tensor components, stored `values_at_grid[i, j, k, αs...]` with each tensor index of length `3`.
 - `grid` — the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
 
@@ -832,7 +832,7 @@ end
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
 The fields are
-- `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, α₁, ..., αᵣ]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
+- `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, αs...]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 
@@ -1366,7 +1366,7 @@ end
 """
     _component_offsets_align(grid, layout, ::Type{T}) -> (host_aligned, device_aligned)
 
-Report whether the component views of a rank-`R > 0` field begin at offsets a transform library will
+Report whether the component views of a rank-``R > 0`` field begin at offsets a transform library will
 accept, given a plan built for one component. Component `c` starts `(c-1)` whole components into the
 storage, so the question is entirely a property of the base and the element type.
 
