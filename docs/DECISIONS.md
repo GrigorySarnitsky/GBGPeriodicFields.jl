@@ -3576,3 +3576,21 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       suffix is earned by the same rule as the package's other verb-plus-object names: the bare verb
       is ambiguous, this package embedding points into cells and coarse spectra into oversampled ones
       elsewhere.
+
+86. **The Lamb vector is ``\omega \times u``** (2026-09-24, owner-decided). For a velocity field ``u``
+    with vorticity ``\omega = \nabla \times u``, the rotational form of the Navier–Stokes nonlinearity
+    is ``u \cdot \nabla u = \omega \times u + \nabla(\tfrac{1}{2}\lvert u\rvert^{2})``, and the package's
+    documentation calls ``\omega \times u`` the Lamb vector. That is the literature's convention:
+    Sagaut & Cambon (2018) name "the Lamb vector ``\omega \times u``" (their Eq. 12.2 and the text after
+    it), and Pope (2000) writes the opposite product ``U \times \omega`` in the same identity but never
+    uses the name. The opposite sign, ``u \times \omega``, is in circulation too, as Wikipedia's article
+    shows, so the name without its sign is ambiguous.
+
+    - **What it changed.** The CPU example advances the Leray projection ``\mathbb{P}`` of the transform
+      of ``u \times \omega``, and called ``u \times \omega`` the Lamb vector. The equation was right and the name was off by a sign; the
+      prose now says the term is minus the Lamb vector. The code is unchanged, since it computes
+      ``u \times \omega``, which enters with the sign the equation needs.
+
+    - **How it surfaced.** The first documentation review's differential-geometry reader flagged it
+      (finding `004` of 2026-09-22), and the wording changed only after the sign was checked in Pope
+      (2000) and Sagaut & Cambon (2018).

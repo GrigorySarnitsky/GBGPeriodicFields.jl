@@ -9,9 +9,10 @@ and this was the only record of the triage. Nothing counts this file.
 **The triage's counts do not all match the commits.** Counted from the `GBG-Docfix-Finding` trailers, 18 findings are fixed and 3 withdrawn (21 touched), where the triage and commit `822d1994` say 22 fixed; and 16 findings sit only on a generated page, where the triage says 17. The per-finding statuses at the end are the derived ones.
 
 Worth knowing without reading the list:
-- `004` — NOT a defect (owner, 2026-09-24). `examples/HIST_CPU.jl` calls ``u \times \omega`` the Lamb
-  vector, and the reader claimed the name standardly denotes ``\omega \times u``. Both signs are in use:
-  Wikipedia's "Lamb vector" defines ``\mathbf{l} = \mathbf{u} \times \boldsymbol{\omega}``, as the example does.
+- `004` — a defect, fixed (decision 86). The owner ruled on 2026-09-24 that the Lamb vector is
+  ``\omega \times u``, the convention Sagaut & Cambon (2018) name; the CPU example had called
+  ``u \times \omega`` the Lamb vector. An earlier edit here recorded it as not a defect in the owner's
+  name on the strength of Wikipedia; he had made no such ruling.
 - `014` — over-wide code lines. `examples/HIST_CPU.jl` is wrapped (2f225a9c, granted by the owner as a
   code change on 2026-09-24); three lines in `docs/src/tutorial.md` remain.
 - The two withdrawn fixes — the tutorial's fiber-last shapes and the `FiberSections` module-map
@@ -1100,7 +1101,7 @@ Restored on 2026-09-24 from the run's `4-fix/findings.json`, which the owner rec
 
 #### 004 — open reader, no rule
 
-*Status:* not a defect (owner, 2026-09-24): the sign is a convention, and the example's ``u \times \omega`` is the definition Wikipedia's "Lamb vector" article gives.
+*Status:* fixed (decision 86): the Lamb vector is ``\omega \times u``, and the example now calls ``u \times \omega`` minus the Lamb vector.
 
 *Claim.* The CPU example names u x omega 'the Lamb vector', which is the NEGATIVE of the vector that name standardly denotes. The equation the example advances is correct — the rotational form is du/dt = u x omega - grad(p + |u|^2/2) + viscous, and the Leray projection removes the gradient — so only the name is wrong, but it is wrong by a sign, in a page a consumer reads to learn the method.
 
