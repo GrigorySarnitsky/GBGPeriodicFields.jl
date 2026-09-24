@@ -365,11 +365,11 @@ function run_hist(p::Params)
     t += dt
   end
 
-  # Freeze ``\Delta t`` for the statistics window so the Lagrangian ``\tau``-axis is uniform.
+  # Freeze ``\Delta t`` for the statistics window so the axis of Lagrangian time lags ``\tau`` is uniform.
   to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)
   dt = p.cfl * Δx / max(max_speed(ws.u), 1e-6)
 
-  # Statistics window (``\Delta t`` frozen so the Lagrangian ``\tau``-axis is uniform): advance the field,
+  # Statistics window (``\Delta t`` frozen so the time-lag axis ``\tau`` is uniform): advance the field,
   # advect the tracers on the start-of-step velocity, record their velocities, and accumulate the
   # autocorrelation.
   X = p.L .* rand(MersenneTwister(p.seed + 1), p.n_particles, 3)   # seed tracers
@@ -416,7 +416,7 @@ function run_hist(p::Params)
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η  # the 2π/L makes the wavenumber physical
-  # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
+  # The divergence check, at round-off, is ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)`` with the energy-weighted rms wavenumber, via `l2norm`.
   divp = to_physical(divergence(uh, m), vplans)
   κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
@@ -424,13 +424,13 @@ function run_hist(p::Params)
 
   # Length / time scales from the velocity autocorrelations.
   # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
-  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length
-  # ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r`` — written ``\mathcal{L}`` because ``L`` is
+  # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length, over
+  # separations of the normalized correlation, ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r`` — written ``\mathcal{L}`` because ``L`` is
   # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
   # the literature usually plots, since ``C`` contracts the fiber
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
-  # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), integral time
-  # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
+  # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
+  # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
   ## Eulerian per-component structure function (homogeneous identity)
