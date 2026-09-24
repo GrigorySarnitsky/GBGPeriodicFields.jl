@@ -2684,10 +2684,9 @@ being the same discrepancy applied to a self-paired entry.
 Reach for it where responsibility for the coefficients changes hands: after writing them directly, or
 on accepting them from outside — and after any step that scales the coefficients in place, because
 a spectrum built by transforming a real field satisfies the constraint only to round-off (FFTW is
-exact at some power-of-two sizes and ulp-level elsewhere; rocFFT and cuFFT are ulp-level at every
-size), and a forcing proportional to the field amplifies that residual where viscosity does not damp
-it. The projection [`reality_projection!`](@ref) removes it exactly. The cost is one
-or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
+exact at some power-of-two sizes and ulp-level elsewhere; rocFFT and cuFFT everywhere), and a forcing proportional to the field amplifies that residual where viscosity does not damp
+it. Applying [`reality_projection!`](@ref) removes it exactly, at a cost of one or
+two planes, ``O(N^2)`` in the points per axis, not a round trip's ``O(N^3 \\log N)``.
 
 It **reports** rather than repairs, so the caller decides; the repair is
 `reality_projection!`, an explicit verb costing the same one or two planes. A physical round
@@ -2843,9 +2842,9 @@ state is deposited removes it exactly, which a physical round trip does not, sin
 transform reseeds it. The physical representation has no method: there the projection is the identity.
 
 The `destination` may be the `source`, and the one-argument form projects in place; the cost is then
-one or two planes, ``O(N^2)``. With a distinct `destination` the whole source is copied first, so
+one or two planes, ``O(N^2)`` in the points per axis. With a distinct `destination` the whole source is copied first, so
 that form costs a field copy, ``O(N^3)``, before the projection — the same shape as the two-argument
-`helmholtz_projection!`, kept so the twins read alike, but not the cheap one. The two fields must
+`helmholtz_projection!`, kept so the twins read alike. The two fields must
 share a grid, layout, tensor order, element type and storage family, and a mismatch is refused
 rather than converted.
 """
