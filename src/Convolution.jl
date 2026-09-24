@@ -1509,11 +1509,11 @@ end
                           coefficient::Real, offset_scale::Real,
                           offset::ScalarFieldSpectral)
 
-Convolve a field with the exponential radial kernel, optionally times a per-mode exponent field —
+Smooth a field with the periodic heat kernel: convolve it with the exponential radial kernel, optionally times a per-mode exponent field —
 ``\\exp(c |k|^2 + s \\hat w)``, radial in the ``c |k|^2`` part alone — where ``c`` is a real
 coefficient on the squared wavenumber ``|k|^2``, and the optional term adds a per-mode real field
-``\\hat w`` supplied by the consumer under a real scale ``s``. The kernel is evaluated from the
-wavenumber arrays on the fly — never built or stored as a field — and the result is written into
+``\\hat w`` supplied by the consumer under a real scale ``s``. The kernel is evaluated on the fly,
+never stored as a field, and the result is written into
 `destination` in place, which is returned.
 
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)

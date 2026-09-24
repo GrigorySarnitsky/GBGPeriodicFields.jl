@@ -963,10 +963,10 @@ end
     weighted_inner(f, g, w::SpectralKernel)
     weighted_inner(f, weights::Tuple{Vararg{SpectralKernel}})
 
-The **multiplier-weighted L² inner product** ``\\langle f, w g\\rangle`` of two fields in spectral
-representation against a real Fourier multiplier `w`
+The **L² pairing** ``\\langle f, w g\\rangle`` of a field `f` with a field `g` filtered by a real
+Fourier multiplier `w`, both in spectral representation
 (`weighted_inner`, ``\\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
-and reduces against `f` in a single fused pass, materializing no weighted field — the reduction-dual of
+and reduces against `f` in one fused pass, materializing no weighted field — the reduction-dual of
 `convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
 
@@ -1001,7 +1001,7 @@ The arguments are:
 
 Spectral representation only, being a Parseval reduction like the spectral `inner`.
 
-Physically it is the L² pairing of `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
+Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
 even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
 `fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
