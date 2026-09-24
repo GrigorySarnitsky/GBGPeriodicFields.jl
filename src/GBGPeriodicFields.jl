@@ -13,8 +13,8 @@ GBGPeriodicFields carries real-valued scalar, vector and second-order-tensor fie
 three-dimensional rectangular periodic domains, in physical-space and real-to-complex spectral
 representations, on CPU and GPU backends, with HDF5 field persistence.
 
-The tensors are **Cartesian** — components on one fixed orthonormal frame, with no
-curvilinear coordinates and no metric machinery — so this is an applied field toolkit
+The tensors are **Cartesian** — components on one fixed right-handed orthonormal frame, with no
+curvilinear coordinates or metric machinery — so this is an applied field toolkit
 rather than a general differential-geometry package.
 
 These words recur in every operation's documentation:
