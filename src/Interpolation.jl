@@ -682,9 +682,9 @@ Threaded inclusive running total on the host: each chunk sums its own slice, the
 scanned serially (there are only as many as there are chunks), and each chunk then writes its slice
 offset by the total of everything before it.
 
-The result is **bitwise identical** to `cumsum!`, and for integers that is a property rather than a
+The result is **bitwise identical** to `cumsum!`, and for integers a property, not a
 tolerance: addition is exact and associative, so regrouping the sums cannot change them. A threaded
-float reduction would need the fixed tree of decision 40; this needs nothing.
+float reduction would need a fixed summation tree for thread-count invariance; this needs none.
 
 Two details are load-bearing. The chunk accumulator is declared `local`, because a name already
 bound in the enclosing scope would be SHARED by every task rather than shadowed — a data race that
@@ -2082,7 +2082,7 @@ Print a spline scheme's element type as the `T` keyword its constructor takes, a
 not the default `Float64`.
 
 Both halves are deliberate. Printing it keeps two schemes that differ only in precision — which
-invariant 14 refuses against each other — from rendering as one string. Omitting it at the default
+are refused against each other — from rendering as one string. Omitting it at the default
 keeps the ordinary display a bare constructor call, and writing it as the keyword rather than as a
 type parameter keeps both forms valid Julia that reconstructs the scheme.
 """
