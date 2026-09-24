@@ -136,7 +136,7 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
 
 ## =============================================================================
 # Spectral utilities (device). The diagonal-in-Fourier operators — de-aliasing,
-# the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``, the IC envelope — are
+# the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``, the initial-condition envelope — are
 # applied with the package's `convolve` (periodic convolution = a coefficientwise
 # multiply by a transfer function ``\hat{g}``); the de-alias filter is
 # `spectral_cutoff`, and the physics kernels (carrying ``\nu``, ``\Delta t``, the
@@ -215,7 +215,7 @@ end
 function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)                             # band-pass copy into scratch (no allocation)
   band_kinetic = FT(0.5) * inner(ws.tmp, ws.tmp)         # ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
-  band_kinetic < FT(1e-12) && return uh                   # guard (IC seeds the band)
+  band_kinetic < FT(1e-12) && return uh                   # guard (the initial condition seeds the band)
   scale = sqrt(FT(p.E_force) / band_kinetic)
   convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)
   return uh

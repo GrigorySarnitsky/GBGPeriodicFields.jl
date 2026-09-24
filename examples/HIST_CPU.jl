@@ -122,7 +122,7 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # ## Spectral utilities and the preallocated workspace
 #
 # The diagonal-in-Fourier operators — de-aliasing, the integrating factor ``\exp(-\nu \kappa^{2}\Delta t)``,
-# the IC envelope — are applied with the package's `convolve` (periodic convolution being a coefficientwise
+# the initial-condition envelope — are applied with the package's `convolve` (periodic convolution being a coefficientwise
 # multiply by a transfer function ``\hat{g}``). The de-alias filter is the package's `spectral_cutoff`; the
 # physics kernels (carrying ``\nu``, ``\Delta t``, the envelope width) are radial symbols, functions of
 # ``\lvert\mathbf{k}\rvert^{2}`` alone: the viscous integrating factor goes through `exponential_convolve!`,
@@ -156,7 +156,7 @@ end
 # ## Diagnostics
 #
 # Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
-# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum(uh, m)` the inner resolved over wavenumber shells, so the shell
+# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum` of the spectral velocity `uh` with the multipliers `m` the inner resolved over wavenumber shells, so the shell
 # sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
 # kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
 # allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but allocates a whole
@@ -184,7 +184,7 @@ end
 #
 # Hold the kinetic energy in the shells from ``\lvert\mathbf{k}\rvert = 1`` up to `k_force` at `E_force`, built
 # entirely from package ops: `band` is a `spectral_band` mask kernel; the band energy is
-# ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)`
+# ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as `0.5 * inner(ws.tmp, ws.tmp)` on the workspace's scratch field `ws.tmp`
 # (Parseval; the same-argument `inner(f, f)` is allocation-free); rescaling the in-band modes is one more
 # `convolve` (scaling preserves ``\nabla\cdot u = 0``). Applying `convolve!` into the scratch `ws.tmp` keeps it
 # allocation-free, no scalar indexing.
@@ -193,7 +193,7 @@ function force!(uh, band, ws, p)
   convolve!(ws.tmp, uh, band)  # band-pass copy into scratch (no allocation)
   ## ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
   band_kinetic = 0.5 * inner(ws.tmp, ws.tmp)
-  band_kinetic < 1e-12 && return uh                     # guard (IC seeds the band)
+  band_kinetic < 1e-12 && return uh                     # guard (the initial condition seeds the band)
   scale = sqrt(p.E_force / band_kinetic)
   ## rescale in-band modes: one convolve (α/β, alloc-free)
   convolve!(uh, uh, band, scale - 1, 1)
