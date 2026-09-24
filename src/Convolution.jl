@@ -952,8 +952,6 @@ The arguments are:
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
-It acts in spectral representation only, where convolution is the coefficientwise product.
-
 Physically the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
 
@@ -963,7 +961,7 @@ Physically the periodic convolution is the kernel-weighted local average of the 
 
 with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus. On the grid
 the operation computes the **circular sum** ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
-modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, box volume over point count, the
+modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, box volume over the total point count (not the per-axis count of the cost figures), the
 dimensionless convention that makes a kernel act as a per-mode transfer function (``\\hat g \\equiv 1``
 is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/N``
 times it. By the convolution theorem (the forward transform unnormalized) the circular sum is exactly
