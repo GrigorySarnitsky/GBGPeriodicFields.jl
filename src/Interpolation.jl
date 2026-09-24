@@ -1343,8 +1343,8 @@ f(x_p) &= \\frac{1}{N} \\sum_{k} \\hat f(k)  e^{\\mathrm{i} k\\cdot (x_p - o)}
 ```
 
 The second form reconstructs the real field (``o`` the grid origin) from the stored rfft half-spectrum with the
-Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded rfft
-axis and, on an even-length folded axis, its Nyquist plane — and ``2`` elsewhere. The first equality
+Parseval weight ``\\alpha(k) = 1`` on the self-conjugate planes — the zero plane of the folded axis,
+the one the real transform halves, and on an even-length one its Nyquist plane — and ``2`` elsewhere. The first equality
 reads an even axis's Nyquist amplitude split across ``\\pm k`` — its band-limited cosine form, which is
 what the stored-``k`` sum with the weight ``\\alpha(k)`` implements; sub-Nyquist, and at the grid nodes,
 the two sides agree with no convention needed.
@@ -1353,8 +1353,8 @@ Interpolation reproduces the band-limited field **exactly**, so it is
 pointwise divergence-free on the **resolved band** — the frequencies this grid
 represents, each even axis's Nyquist plane excluded — where the local splines are not, and
 matches [`to_physical`](@ref) at the grid nodes;
-anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless — build it as
-`DirectDFT()` and pass it as the `scheme`.
+anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is stateless: pass
+`DirectDFT()` as the `scheme`.
 
 !!! warning "Anterpolating off-node points does not give a real field's spectrum at an even axis's Nyquist"
     The deposit ``(W^\\top q)(k)`` is evaluated at every stored mode, the Nyquist planes included, and
@@ -1364,8 +1364,8 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     only when every point sits on a grid node of that axis: off-node, the two sides differ by
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
     field, and `to_physical` — which is the Hermitian projector — silently keeps only its
-    Hermitian part, so a transform round trip does not return it unchanged. This is the same hazard
-    `translation_kernel` documents for its Nyquist factor, and it is why `NUFFT`
+    Hermitian part, so a transform round trip does not return it unchanged. The same hazard
+    `translation_kernel` documents for its Nyquist factor is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
     The **resolved band is unaffected**, which is the band a de-aliased spectral
     computation uses.
