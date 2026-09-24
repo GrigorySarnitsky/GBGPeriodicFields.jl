@@ -63,7 +63,7 @@ may be called with the destination aliasing an input.
 
 !!! note "Why an aliased in-place call is safe"
     `destination` may **be** an input — `sym!(A, A)` is computed directly and is bitwise-identical to
-    the non-aliased call — because a fused pass reads all of an element's sources into registers before
+    the non-aliased call — because each pass reads all of an element's sources into registers before
     writing any of that element's outputs. That argument needs one section's element ``n`` to be the
     other's element ``n``, and it is the **ownership** rule that supplies it: a section's constructor
     refuses borrowed storage, so two sections can share memory only by being backed by the same array.
@@ -260,7 +260,7 @@ The arguments are:
 - `a`, `b`, `fields...` — the fields to subtract in order.
 - `field`, `constant` — the field-and-constant variants, with the constant typed as in [`add!`](@ref); the reversed order computes `constant - field`.
 
-Field-field subtraction subtracts `b`, then each of `fields` in turn, from `a`; it is storage-wise and representation-preserving. In physical representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
+Field-field subtraction subtracts `b`, then each of `fields` in turn, from `a`; it is elementwise and representation-preserving. In physical representation the constant is subtracted at every grid point; in spectral representation it changes only the zero Fourier coefficient. The reversed argument order computes `constant - field`.
 """
 function subtract! end
 
@@ -550,7 +550,7 @@ The arguments are:
 
 Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, held either as one coefficient
 per mode or in a compressed class evaluated per mode, exactly as `convolve!` takes it — convolves the
-combination with the kernel in the same fused pass. As there, ``\\hat g`` must be Hermitian between opposite modes,
+combination with the kernel in the same pass. As there, ``\\hat g`` must be Hermitian between opposite modes,
 ``\\hat g(-k) = \\overline{\\hat g(k)}``, or the result is the spectrum of no real field. Physically the
 result is the combination's periodic convolution with the physical kernel, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,
