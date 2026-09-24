@@ -3,8 +3,8 @@
 #
 # # Forced HIT — building a pseudospectral DNS on GBGPeriodicFields
 #
-# A *small, demonstration* pseudospectral DNS of forced homogeneous-isotropic turbulence, written the
-# way a real consumer would use `GBGPeriodicFields`. It plots the Eulerian and Lagrangian second-order
+# This is a *small, demonstration* pseudospectral DNS of forced homogeneous-isotropic turbulence, written
+# the way a real consumer would use `GBGPeriodicFields`. It plots the Eulerian and Lagrangian second-order
 # velocity structure functions — each compensated by its Kolmogorov (K41) inertial scaling, side by side —
 # alongside the energy spectrum, the stationarity history, and the velocity
 # autocorrelations. The goal is a readable, **performance-first** end-to-end workflow: the time loop is
@@ -91,7 +91,7 @@ smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300,
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000,
                 rec_stride = 2, snap_stride = 40)
 
-# A high-Reynolds configuration (`--huge`) — ``192^{3}`` at a lower viscosity, so the Reynolds number
+# The high-Reynolds configuration `--huge` runs ``192^{3}`` at a lower viscosity, so the Reynolds number
 # (``\mathrm{Re}_\lambda \approx 93``, built on the Taylor microscale ``\lambda``) and the scale
 # separation ``\lambda \ll L``, ``\tau_\eta \ll \tau_u`` (the box size ``L``; the Kolmogorov time
 # ``\tau_\eta`` against the integral time ``\tau_u``) are large enough to read off the plots; the grid
@@ -107,7 +107,7 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000,
 huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700,
                 n_particles = 8000, rec_stride = 4, snap_stride = 60)
 
-# The largest CPU-practical configuration (`--mega`) — ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
+# The largest CPU-practical configuration, `--mega`, runs ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
 # ``\mathrm{Re}_\lambda \approx 109`` with ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower
 # ``\nu`` would raise ``\mathrm{Re}_\lambda`` but drop ``\kappa_{\max}\eta`` below ``1.1``, where the
 # marginally-resolved flow blows up over a long run). Same recipe as `--huge`, one grid level up. On the CPU
@@ -284,8 +284,8 @@ end
 
 # ## Initial condition
 #
-# A random field, concentrated at large scales by an envelope, projected solenoidal, then band-energy
-# normalized. (The package deliberately ships no random-field generator; the example builds its own.)
+# The initial condition is a random field, concentrated at large scales by an envelope, projected
+# solenoidal, then band-energy normalized. (The package deliberately ships no random-field generator; the example builds its own.)
 
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
