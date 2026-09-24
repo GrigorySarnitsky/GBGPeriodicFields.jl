@@ -44,8 +44,8 @@ These words recur in every operation's documentation:
   `CuArray` or `ROCArray` on a device — taken as the array's underlying type rather than its wrapping,
   so a `reshape` of an `Array` is still the `Array` family. Two sections combine only within one
   storage family and one element type; a mixed pair is refused rather than converted, and
-  [`adapt`](@ref) is the explicit operation that moves one — a field, its multipliers, its kernels,
-  its transform plans, a point set or point values — into another family. It never changes the
+  [`adapt`](@ref) moves one explicitly — a field, the wavenumber multipliers and convolution kernels
+  built for it, its transform plans, a point set or point values — into another family, never changing the
   element type.
 
 !!! note "Scalar, vector and second-order tensors only"
