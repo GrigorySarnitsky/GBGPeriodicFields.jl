@@ -111,9 +111,9 @@ export interpolate, interpolate!, anterpolate, anterpolate!, point_traversal_ord
 """
     AbstractTransferScheme
 
-Supertype of **all** grid↔point transfer schemes — the parameter that fixes how the adjoint pair
+It is the supertype of **all** grid↔point transfer schemes, the parameter that fixes how the adjoint pair
 `interpolate` (``W``, the gather that evaluates a field at each point) / `anterpolate` (``W^\\top``,
-its transpose, the scatter that deposits per-point values onto the grid) is realized. A scheme is a
+its transpose, the scatter depositing per-point values onto the grid) is realized. A scheme is a
 choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
@@ -142,7 +142,7 @@ abstract type AbstractTransferScheme end
 """
     AbstractSplineScheme{N2, M2, T, L}
 
-Supertype of the physical-domain local interpolation schemes over one shared stencil: the smooth
+It is the supertype of the physical-domain local schemes over one shared stencil: the smooth
 [`LalescuSpline`](@ref) of Lalescu, Teaca & Carati (2010) and the ``C^0`` [`LagrangeSpline`](@ref), the
 classical Lagrange interpolant of the same nodes, matched to TurTLE's `Lagrange_polys`. Each acts on
 a field in physical representation, gathering and scattering its nodal values over a compact
@@ -232,12 +232,12 @@ end
 """
     LagrangeSpline(n; T = Float64)
 
-Local, ``C^0``, Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
+This is local, ``C^0`` Lagrange interpolation: the unique degree-``2n{+}1`` polynomial through the ``2n{+}2``
 nearest grid nodes (the stencil offsets ``\\{-n, \\dots, n{+}1\\}``, ``n \\ge 0``). The per-axis weights
 are the Lagrange cardinal polynomials, stored in the ``(2n{+}2) \\times (2n{+}2)`` `SMatrix`
 `coefficients`. The `n` argument is the stencil half-width: it fixes both the stencil, which reaches
-`n` nodes below a point and `n + 1` above it, and the degree, so a larger `n` buys reproduction of a
-higher-degree polynomial at the cost of a wider gather. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
+`n` nodes below a point and `n + 1` above it, and the degree, so a larger `n` reproduces a
+higher degree at the cost of a wider gather. It reproduces polynomials up to degree ``2n{+}1`` exactly wherever the whole stencil
 samples one branch of that polynomial (a wrapped stencil draws from the opposite edge, which no
 non-periodic polynomial continues), but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
@@ -678,8 +678,8 @@ _scan_offsets!(offsets, counts) = cumsum!(offsets, counts)
 """
     _scan_offsets!(offsets::Vector, counts::Vector)
 
-Threaded inclusive running total on the host: each chunk sums its own slice, the chunk totals are
-scanned serially (there are only as many as there are chunks), and each chunk then writes its slice
+It computes a threaded inclusive running total on the host: each chunk sums its slice, the chunk totals are
+scanned serially (there are as many as chunks), and each chunk then writes its slice
 offset by the total of everything before it.
 
 The result is **bitwise identical** to `cumsum!`, and for integers a property, not a
