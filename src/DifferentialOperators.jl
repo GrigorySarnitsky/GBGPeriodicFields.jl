@@ -1493,7 +1493,7 @@ gradient of the pressure-like potential that solves the divergence:
 ```
 
 an identity exact on the resolved band — the wavenumbers the grid resolves, excluding each even axis's
-Nyquist plane (the inverse Laplacian keeps the true squared wavevector ``k^2`` while
+Nyquist plane (the inverse Laplacian keeps the true squared wavevector ``|k|^2`` while
 the projector uses the derivative family — the two coincide off the Nyquist planes). The
 implemented operator is the **exact orthogonal projector onto the kernel of the discrete
 divergence**: ``\\mathbb P^2 = \\mathbb P``, and the divergence of the result vanishes, at every

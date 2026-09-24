@@ -968,6 +968,17 @@ and reduces against `f` in one fused pass, materializing no weighted field — t
 `convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
 
+Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
+half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
+even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
+`fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
+(not the exponent coefficient ``c`` of `exponential_convolve!`),
+
+```math
+\\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
+  = \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
+```
+
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (``g = f`` in the two-argument form).
 - `weights` — in the tuple form, a tuple of such kernels: every one is answered in a single traversal
@@ -979,20 +990,9 @@ The arguments are:
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
-  right — see the warning below. Build it with the kernel builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+  right — see the warning below. Build it with the kernel builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``|k|^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 It is spectral-only, a Parseval reduction like the spectral `inner`.
-
-Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
-half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
-even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
-`fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
-(not the exponent coefficient ``c`` of `exponential_convolve!`),
-
-```math
-\\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
-  = \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
-```
 
 It equals the naive ``\\texttt{inner}(w \\star f, w \\star g)`` **only** when ``w`` is an idempotent
 projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the single-weight pairing
