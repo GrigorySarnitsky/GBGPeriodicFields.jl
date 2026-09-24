@@ -454,12 +454,12 @@ while `!` calls stay allocation-light and document that the source may be consum
 wavenumbers `wavenumber_1`–`wavenumber_3` and `squared_wavenumber_1`–`squared_wavenumber_3`, plus the grid and
 layout. It lives in **`Fields`**, as a sibling of `FieldTransformPlans`, because it
 is representation infrastructure (what the spectral axes *mean*), not a
-differential operator; it moved out of `DifferentialOperators` during the refactor.
+differential operator.
 Two constructors by design:
 
 - An explicit constructor taking all six arrays (lengths validated), testable in
   isolation and letting callers control the backend.
-- A convenience constructor from a field: wavenumbers, integer multiples ``2\pi n/L`` of the box's fundamental, are built on the
+- A convenience constructor from a field: wavenumbers ``2\pi n/L``, with ``n`` the integer mode index and ``L`` the box length, are built on the
   host and copied to the field's backend (no scalar GPU writes).
 
 The two differ in the type they produce, not only in convenience: a final `Canonical` type parameter

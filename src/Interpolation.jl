@@ -1361,7 +1361,7 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     it is the exact adjoint of the gather there. But an even-length axis identifies its Nyquist mode
     with its own negative, so a *real* field's deposited coefficients must satisfy
     ``\\hat g(-k) = \\overline{\\hat g(k)}`` **within** that plane, and the sum above meets that condition
-    only when every point sits on a grid node of that axis: off-node along it, the two sides differ by
+    only when every point sits on a grid node of that axis, ``a``: off-node along it, the two sides differ by
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
     field, and `to_physical` — which is the Hermitian projector — silently keeps only its
     Hermitian part, so a transform round trip changes it. The same hazard

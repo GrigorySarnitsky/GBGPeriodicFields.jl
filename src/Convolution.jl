@@ -961,9 +961,9 @@ Physically the periodic convolution is the kernel-weighted local average of the 
 
 with ``\\Omega`` the periodic box and the displacement ``x - y`` reduced onto the torus. On the grid
 the operation computes the **circular sum** ``(f \\star g)[n] = \\sum_m f[m]  g[n - m]`` (indices
-modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/N``, box volume over the total point count (not the per-axis count of the cost figures), the
+modulo the grid) — the integral's Riemann sum *without* the cell volume ``|\\Omega|/\\prod_i N_i``, box volume over the product of the point counts ``N_i`` along the axes, the
 dimensionless convention that makes a kernel act as a per-mode transfer function (``\\hat g \\equiv 1``
-is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/N``
+is the identity; a sharp cutoff is a projection); the continuum integral above is ``|\\Omega|/\\prod_i N_i``
 times it. By the convolution theorem (the forward transform unnormalized) the circular sum is exactly
 the coefficientwise product of the transforms, which this operation computes — ``\\hat g`` =
 `kernel`, broadcast over every fiber component of ``\\hat f``, with the ``\\alpha``/``\\beta``

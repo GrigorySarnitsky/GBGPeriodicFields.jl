@@ -1403,7 +1403,7 @@ returns a fresh result instead.
 
 The norm is nonlinear, so it is defined only in physical representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Each base point gives the absolute value for a scalar field, the Euclidean norm for a vector field, and the Frobenius norm (not the operator norm) for a second-order tensor field:
+Each base point gives the absolute value of a scalar ``\\varphi``, the Euclidean norm of a vector ``u``, and the Frobenius norm (not the operator norm) of a second-order tensor ``A``:
 
 ```math
 \\begin{gathered}
