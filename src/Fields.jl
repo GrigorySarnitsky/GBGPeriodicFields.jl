@@ -242,9 +242,10 @@ and [`field_tensor_order`](@ref), and obtains the stored data through [`field_da
 
 !!! note "A field in physical representation owns its storage"
     A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
-    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Allocate with
-    [`similar_field`](@ref), or `copy` the slice. Storage stays otherwise free: `Array`, `CuArray`,
-    `ROCArray` and a `reshape` of any of them all own their memory and are accepted.
+    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
+    makes an aliased in-place call safe ([`FieldAlgebra`](@ref "FieldAlgebra")). Allocate with
+    [`similar_field`](@ref), or `copy` the slice. Any owning array is accepted: `Array`, `CuArray`,
+    `ROCArray`, or a `reshape` of one.
 """
 abstract type AbstractFieldPhysical{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 
@@ -260,9 +261,10 @@ and [`field_tensor_order`](@ref), and obtains the stored data through [`field_da
 
 !!! note "A field in spectral representation owns its storage"
     A concrete subtype's constructor **rejects borrowed storage** — a `SubArray` anywhere in the parent
-    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Allocate with
-    [`similar_field`](@ref), or `copy` the slice. Storage stays otherwise free: `Array`, `CuArray`,
-    `ROCArray` and a `reshape` of any of them all own their memory and are accepted.
+    chain — so slicing a larger preallocated buffer and wrapping the view will throw. Ownership is what
+    makes an aliased in-place call safe ([`FieldAlgebra`](@ref "FieldAlgebra")). Allocate with
+    [`similar_field`](@ref), or `copy` the slice. Any owning array is accepted: `Array`, `CuArray`,
+    `ROCArray`, or a `reshape` of one.
 """
 abstract type AbstractFieldSpectral{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
 

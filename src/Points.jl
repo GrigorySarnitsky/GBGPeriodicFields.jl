@@ -148,7 +148,7 @@ and [`TensorPointValues`](@ref) at order `2` and above.
 
 !!! note "A section owns its storage"
     Every constructor here — and `PointSet`'s — **rejects borrowed storage**, a `SubArray`
-    anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Allocate with [`similar_point_values`](@ref), or `copy` the slice. Any owning array is fine —
+    anywhere in the parent chain, so wrapping a view into a larger buffer will throw. Ownership is what makes an aliased in-place call safe ([`FieldAlgebra`](@ref "FieldAlgebra")). Allocate with [`similar_point_values`](@ref), or `copy` the slice. Any owning array is fine —
     `Array`, `CuArray`, `ROCArray`, or a `reshape` of one.
 """
 abstract type AbstractPointValues{T<:AbstractFloat, R} <: AbstractFiberSection{T, R} end
