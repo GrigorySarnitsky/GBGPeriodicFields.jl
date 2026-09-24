@@ -26,8 +26,8 @@ builds:
 
 Convolution operations:
 
-- `convolve` / `convolve!` — convolve a field with a kernel; the in-place form adds
-  ``\\alpha``/``\\beta`` accumulation, and `convolve(g₁, g₂)` composes two kernels into one.
+- `convolve` / `convolve!` — convolve a field with a kernel; the in-place form adds the
+  ``\\alpha``/``\\beta`` weights on result and destination, and `convolve(g₁, g₂)` composes two kernels into one.
 - [`exponential_convolve!`](@ref) / [`exponential_convolve`](@ref) — convolve with the exponential
   radial kernel, computed from the wavenumber arrays on the fly instead of stored as a field; the
   two-operand form filters a weighted combination in the same pass.
@@ -278,10 +278,9 @@ rather than the 129 MiB a ``256^3`` kernel would take.
 There is no public constructor, which is why no signature is shown above: a kernel of this class is
 always obtained from a builder, so that the multipliers it evaluates against are the ones its grid
 owns. Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
-[`radial_kernel`](@ref) for any other such function — a smooth filter envelope, a hyperviscous
-``\\exp(-\\nu (|k|^2)^p \\tau)``, an integrating factor. Apply it exactly like a kernel held as a
-field: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel argument, or to
-`weighted_inner` as a reduction weight.
+[`radial_kernel`](@ref) for any other such function — a smooth envelope, a hyperviscous
+``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel
+argument, or to `weighted_inner` as a reduction weight.
 
 Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
 real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
@@ -355,7 +354,7 @@ layout, element type and array backend the kernel takes as its own.
 The physics stays with the consumer: an integrating factor is
 `radial_kernel(k2 -> exp(-ν * k2 * Δt), …)`, a smooth filter its own envelope. Because the function is
 evaluated per mode rather than stored, a kernel whose parameters change every call costs nothing to
-rebuild — where a stored kernel would pay a full field write each time. That evaluation is per mode, so on a CPU at a small grid an ``R \\ge 1`` field pays it once per fiber component; `RadialKernel` carries the measured trade-off against a materialized kernel.
+rebuild, where a stored kernel pays a full field write. That evaluation is per mode, so on a CPU at a small grid a field of order ``R \\ge 1`` pays it once per fiber component; `RadialKernel` carries the measured trade-off against a materialized kernel.
 """
 function radial_kernel(sigma::F, multipliers::FieldSpectralMultipliers) where {F}
   T = _multipliers_scalar_type(multipliers)
@@ -781,10 +780,9 @@ a GPU serves as one wide transaction. The folded axis is
 length that is not a multiple of the *warp* — the group of threads a GPU issues in lockstep, 32 on
 NVIDIA and 64 on AMD — leaving every row's last transaction partly idle.
 
-The kernel value is associated as the stored path associates it,
+The kernel value, the axis factors in order, is associated as the stored path does,
 ``\\alpha((\\sigma_1\\sigma_2)\\sigma_3)\\hat f``, so a **real**-factored kernel and its materialized
-product agree bit for bit. A **complex**-factored one can differ by an ulp on a device whatever the
-association: the compiler contracts the ``ac - bd`` of a complex multiply into a fused multiply-add,
+product agree bitwise. A **complex**-factored one can differ by an ulp on a device: the compiler contracts the ``ac - bd`` of a complex multiply into a fused multiply-add,
 differently when the product is inlined here than when a stored kernel rounds it to memory first.
 """
 function _apply_separable_convolution!(destination_data, source_data, kernel::SeparableKernel, α, β)
@@ -1809,8 +1807,8 @@ deconvolving a gridded point density.
 
 Use it when a pair correlation is estimated from points deposited on a grid rather than counted
 directly. Depositing ``M`` points on the grid with the positive linear
-assignment (`LalescuSpline(0, 0)` — the two-point linear "tent" transfer kernel, the ``m = 0`` member
-of the spline family documented with `Interpolation`) spreads each point's
+assignment (`LalescuSpline(0, 0)` — the two-point linear "tent" transfer kernel, the smoothness ``m = 0``
+member of the `Interpolation` spline family) spreads each point's
 mass over a tent, so the gridded density is the true density ``\\rho`` convolved with this window,
 ``\\rho_g = \\rho \\star W``. Dividing the transform by ``\\hat W`` — a [`convolve`](@ref) by
 ``1/\\hat W`` — undoes that smearing before you estimate the radial distribution function ``g(r)``
