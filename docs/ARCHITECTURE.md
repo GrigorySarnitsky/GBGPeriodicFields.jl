@@ -836,7 +836,7 @@ precisely that normalization the ``N/M`` factor further down is accounting for:
 ```
 
 summed over the ``M`` points and over the box ``|\Omega|`` cut into ``N`` cells, as `inner` computes
-them; the integral equals the grid sum for a resolved product, otherwise the sum defines it. Writing
+them; the integral equals the grid sum for a resolved product; otherwise the sum defines it. Writing
 ``\operatorname{sample}_{\mathrm{grid}}`` for sampling a function at the grid nodes,
 ``\operatorname{eval}_{\mathrm{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
 ``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
