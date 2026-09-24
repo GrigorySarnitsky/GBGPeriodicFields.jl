@@ -824,8 +824,7 @@ The two inner products are concrete pairings against the measure each base carri
 points, while on fields ``f, g`` the **cell-volume measure** makes
 ``\langle\cdot,\cdot\rangle_{\mathrm{grid}}`` a volume integral over the box ``\Omega`` (with ``\cdot`` the
 fiber contraction — the ordinary product for scalars, the dot product for vectors). Both are
-**normalized by the total measure** — divided by ``M`` and by ``|\Omega|`` respectively, as the displays
-below carry — which is what makes them intensive averages rather than extensive totals, and it is
+**normalized by the total measure** — divided by ``M`` and by ``|\Omega|`` respectively — which is what makes them intensive averages rather than extensive totals, and it is
 precisely that normalization the ``N/M`` factor further down is accounting for:
 
 ```math
@@ -836,8 +835,8 @@ precisely that normalization the ``N/M`` factor further down is accounting for:
 \end{gathered}
 ```
 
-each normalized by its total measure — the ``M`` points, and the box volume ``|\Omega|`` (equivalently
-the ``N`` grid cells) — exactly as the package's `inner` computes them. Writing
+the sums over the ``M`` points and, over ``|\Omega|``, the ``N`` cells, as `inner` computes them; the
+integral equals the grid sum only for a resolved product, the sum otherwise defining it. Writing
 ``\operatorname{sample}_{\mathrm{grid}}`` for sampling a function at the grid nodes,
 ``\operatorname{eval}_{\mathrm{pts}}`` for evaluating it at the points, and ``\phi`` for any polynomial in
 ``\Pi_d`` (the polynomials up to the scheme's reproduction degree ``d``), the adjointness and the polynomial reproduction read
