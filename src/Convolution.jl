@@ -466,9 +466,9 @@ Build one with [`translation_kernel`](@ref) (the displacement phase, complex fac
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
 kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of a fused operator.
 
-Whether that is also *faster* depends on the base. Applying it moves two field-sized streams where a
-stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a base
-small enough to sit in cache and overtakes it once the base is bound by memory. On a small base where
+Whether that is also *faster* depends on the grid. Applying it moves two field-sized streams where a
+stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a grid
+small enough to sit in cache and overtakes it once the pass is bound by memory. On a small grid where
 the difference matters, [`materialize_kernel`](@ref) trades the memory back, and its docstring carries
 the measured crossover.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
@@ -613,9 +613,9 @@ whose coefficients are the product of the per-axis factors. The result applies i
 real factors, gives bit-identical results — the two differ only in what they cost. Complex factors
 agree bitwise on the host and to rounding on a device.
 
-Use this to trade memory back for speed on a **small base**. Applying an axis-factored kernel moves two
+Use this to trade memory back for speed on a **small grid**. Applying an axis-factored kernel moves two
 field-sized streams where a stored kernel moves three, but evaluates the product per mode; which wins
-depends on the base, and on a device on the card. Measured against a stored kernel on a vector field:
+depends on the grid, and on a device on the card. Measured against a stored kernel on a vector field:
 threaded on a CPU the axis-factored form costs ``1.75``–``2.45\\times`` a stored kernel at ``64^3``, is
 mixed at ``128^3`` (``0.83``–``2.11``, the `Float32` lanes still behind), and overtakes by
 ``256^3``–``512^3`` at ``0.72``–``0.95``. Single-threaded it never overtakes in this range. On a device
