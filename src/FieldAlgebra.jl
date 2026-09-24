@@ -550,7 +550,7 @@ The arguments are:
 
 Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, held either as one coefficient
 per mode or in a compressed class evaluated per mode, exactly as `convolve!` takes it — convolves the
-combination with the kernel in the same pass. As there, ``\\hat g`` must be Hermitian between opposite modes,
+combination with the kernel in the same pass. As there, ``\\hat g`` must be Hermitian between opposite modes ``k`` and ``-k``,
 ``\\hat g(-k) = \\overline{\\hat g(k)}``, or the result is the spectrum of no real field. Physically the
 result is the combination's periodic convolution with the physical kernel, ``g \\star (\\alpha a + \\beta b)``;
 in spectral representation it is one coefficientwise product,
@@ -902,7 +902,7 @@ For two vector fields this is the Euclidean scalar product; for two second-order
 
 Contraction of two fields is nonlinear and is defined only in physical representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
 
-Each base point gives, summing over the repeated fiber indices:
+Each base point ``x`` gives, summing over the repeated fiber indices:
 
 ```math
 \\begin{gathered}
