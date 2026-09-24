@@ -448,8 +448,8 @@ end
                             wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
 
 Run the fused vector-gradient pass over every mode: read the three source coefficients once,
-write the nine components of ``\\mathrm{i} a_j \\hat u_i``, with ``a`` the derivative wavenumber. Destinations are ordered row-major —
-`(1,1), (1,2), (1,3), (2,1), …` — matching `_tensor2_component_data`.
+write the nine components of ``\\mathrm{i} a_j \\hat u_i``, with ``a`` the derivative wavenumber. Destinations are ordered row-major,
+the first row's three before the second's, matching `_tensor2_component_data`.
 """
 function _vector_gradient_modes!(backend, destinations::NTuple{9, AbstractArray},
     sources::NTuple{3, AbstractArray}, wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
