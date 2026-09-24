@@ -57,10 +57,10 @@
 using GBGPeriodicFields
 using GBGPeriodicFields: field_data, field_grid          # raw-array / grid accessors
 using Random, Statistics, Printf, LinearAlgebra
-import FFTW                                               # for the `MEASURE` planner flag (see the plan setup)
+import FFTW  # for the `MEASURE` planner flag (see the plan setup)
 
 const OUTDIR = joinpath(@__DIR__, "output")
-include(joinpath(@__DIR__, "hist_postprocess.jl"))       # statistics, HDF5 I/O, plots (shared)
+include(joinpath(@__DIR__, "hist_postprocess.jl"))  # statistics, HDF5 I/O, plots (shared)
 
 
 # ## Parameters
@@ -84,10 +84,12 @@ Base.@kwdef struct Params
 end
 
 # A tiny configuration for a quick end-to-end check (`--smoke`).
-smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300, rec_stride = 1, snap_stride = 10)
+smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300,
+                 rec_stride = 1, snap_stride = 10)
 
 # A larger, still-quick configuration for nicer statistics (`--fast`) — ``64^{3}``, more tracers.
-fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_stride = 2, snap_stride = 40)
+fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000,
+                rec_stride = 2, snap_stride = 40)
 
 # A high-Reynolds configuration (`--huge`) — ``192^{3}`` at a lower viscosity, so the Reynolds number
 # (``\mathrm{Re}_\lambda \approx 93``, built on the Taylor microscale ``\lambda``) and the scale
@@ -102,8 +104,8 @@ fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000, rec_s
 # up. The `n_spinup` steps clear the initial energy overshoot; `n_stats` time-averages over a few of the forcing's
 # energy-oscillation periods (the band-rescaling forcing makes the turbulent kinetic energy ``k(t)``
 # oscillate about its mean rather than settle flat). Heavy: minutes on a GPU, much longer on the CPU.
-huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700, n_particles = 8000,
-                rec_stride = 4, snap_stride = 60)
+huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700,
+                n_particles = 8000, rec_stride = 4, snap_stride = 60)
 
 # The largest CPU-practical configuration (`--mega`) — ``256^{3}`` at ``\nu = 2.5\times10^{-3}``,
 # ``\mathrm{Re}_\lambda \approx 109`` with ``\kappa_{\max}\eta \approx 1.3`` (comfortably resolved — a lower
@@ -113,8 +115,8 @@ huge() = Params(N = 192, ν = 3.2e-3, cfl = 0.3, n_spinup = 3300, n_stats = 4700
 # the GPU twin's footprint). The **documented figures go one level further still** — the GPU twin's `--giant`
 # at ``320^{3}`` (``\mathrm{Re}_\lambda \approx 130``), which a 24 GB card's headroom unlocks; ``256^{3}`` was
 # the ceiling of the 12 GB card this scheme was first characterized on.
-mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500, n_particles = 8000,
-                rec_stride = 4, snap_stride = 100)
+mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500,
+                n_particles = 8000, rec_stride = 4, snap_stride = 100)
 
 
 # ## Spectral utilities and the preallocated workspace
@@ -145,7 +147,7 @@ function make_workspace(physical_reference, spectral_reference)
   physical_vector() = scratch(physical_reference, Val(1))
   return (ωh = spectral_vector(), k1 = spectral_vector(), k2 = spectral_vector(),
           ustar = spectral_vector(), uhc = spectral_vector(), tmp = spectral_vector(),
-          Nt = spectral_vector(),                          # (u×ω)^ scratch (distinct helmholtz source)
+          Nt = spectral_vector(),  # (u×ω)^ scratch (distinct helmholtz source)
           u = physical_vector(), ω0 = physical_vector(), ω = physical_vector(),
           uω = physical_vector(), uxω = physical_vector())
 end
@@ -160,8 +162,8 @@ end
 # allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but materializes a
 # magnitude field, so we avoid it in the hot loop.
 
-kinetic_energy(u) = 0.5 * inner(u, u)                                  # ½⟨|u|²⟩   (Reductions.inner)
-dissipation(ω, p) = p.ν * inner(ω, ω)                                  # ν⟨|ω|²⟩   (homogeneous)
+kinetic_energy(u) = 0.5 * inner(u, u)  # ½⟨|u|²⟩   (Reductions.inner)
+dissipation(ω, p) = p.ν * inner(ω, ω)  # ν⟨|ω|²⟩   (homogeneous)
 # CFL speed: ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
 # allocation-free reduction over the raw array. (`lpnorm(u, Inf)` is the true ``\sup\lvert u\rvert`` but
 # materializes a magnitude field every call — avoided so the hot loop allocates nothing; the max component
@@ -173,8 +175,8 @@ max_speed(u)      = maximum(abs, field_data(u))
 # that its shells sum to the kinetic energy:
 # ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``.
 function energy_spectrum(uh, m)
-  shells, spectrum = radial_spectrum(uh, m)                             # (|k| bins, Σ_{shell} |û|²)  (package)
-  return shells, 0.5 .* spectrum                                       # E(κ): physics ½ stays consumer-side
+  shells, spectrum = radial_spectrum(uh, m)  # (|k| bins, Σ_{shell} |û|²)  (package)
+  return shells, 0.5 .* spectrum  # E(κ): physics ½ stays consumer-side
 end
 
 
@@ -188,11 +190,13 @@ end
 # allocation-free, no scalar indexing.
 
 function force!(uh, band, ws, p)
-  convolve!(ws.tmp, uh, band)                           # band-pass copy into scratch (no allocation)
-  band_kinetic = 0.5 * inner(ws.tmp, ws.tmp)           # ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
+  convolve!(ws.tmp, uh, band)  # band-pass copy into scratch (no allocation)
+  ## ½⟨|u_band|²⟩ = ½ inner(u_band,u_band): f===f ⇒ allocation-free
+  band_kinetic = 0.5 * inner(ws.tmp, ws.tmp)
   band_kinetic < 1e-12 && return uh                     # guard (IC seeds the band)
   scale = sqrt(p.E_force / band_kinetic)
-  convolve!(uh, uh, band, scale - 1, 1)                 # rescale in-band modes: one convolve (α/β, alloc-free)
+  ## rescale in-band modes: one convolve (α/β, alloc-free)
+  convolve!(uh, uh, band, scale - 1, 1)
   return uh
 end
 
@@ -219,10 +223,11 @@ end
 # The buffer `Nh` holds ``\hat{N}``, the de-aliased Leray projection of
 # ``\widehat{u\times\omega}`` formed from physical ``u`` and ``\omega``.
 function rhs!(Nh, u, ω, ws, m, plans, dealias)
-  cross!(ws.uxω, u, ω)                          # u × ω  (physical)
-  to_spectral!(ws.Nt, ws.uxω, plans)            # (u×ω)^ into scratch
-  helmholtz_projection!(Nh, ws.Nt, m)           # Leray projection (alias-safe and allocation-free either way)
-  convolve!(Nh, Nh, dealias)                    # 2/3 de-alias (coefficientwise multiply)
+  cross!(ws.uxω, u, ω)                # u × ω  (physical)
+  to_spectral!(ws.Nt, ws.uxω, plans)  # (u×ω)^ into scratch
+  ## Leray projection (alias-safe and allocation-free either way)
+  helmholtz_projection!(Nh, ws.Nt, m)
+  convolve!(Nh, Nh, dealias)          # 2/3 de-alias (coefficientwise multiply)
   return Nh
 end
 
@@ -245,15 +250,17 @@ end
 #
 # then force.
 function step!(uh, ws, m, plans, dealias, band, p, dt)
-  rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)                # k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
+  ## k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
+  rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)
   field_data(ws.ustar) .= field_data(uh) .+ dt .* field_data(ws.k1)
   ## the display-math form of this stage is in the block above; this factor is evaluated per mode
   ## from the wavenumber arrays, so no kernel field is built, stored, or read.
   exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
-  to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)    # û*'s velocity & vorticity (scratch)
-  rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                # k₂ = N̂(û*)
-  exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)              # ℰ·k₁, the same lazy factor
-  exponential_convolve!(uh, uh, m, -p.ν * dt)                    # ℰ·ûₙ
+  ## û*'s velocity & vorticity (scratch)
+  to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)
+  rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)    # k₂ = N̂(û*)
+  exponential_convolve!(ws.k1, ws.k1, m, -p.ν * dt)  # ℰ·k₁, the same lazy factor
+  exponential_convolve!(uh, uh, m, -p.ν * dt)        # ℰ·ûₙ
   field_data(uh) .+= (dt / 2) .* (field_data(ws.k1) .+ field_data(ws.k2))   # ûₙ₊₁
   force!(uh, band, ws, p)
   return uh
@@ -283,10 +290,11 @@ end
 function random_solenoidal(grid, m, plans, ws, band, p; kp = 2.0)
   rng = MersenneTwister(p.seed)
   uh = to_spectral(VectorFieldPhysical(randn(rng, p.N, p.N, p.N, 3), grid), plans)
-  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), m)  # concentrate at large scales (a closure)
-  convolve!(uh, uh, envelope)                             # apply it (alias-safe, coefficientwise)
-  helmholtz_projection!(uh, uh, m)                        # make solenoidal (alias-safe, one pass)
-  force!(uh, band, ws, p)                                 # set the forced-band energy
+  ## concentrate at large scales (a closure)
+  envelope = radial_kernel(k2 -> exp(-k2 / kp^2), m)
+  convolve!(uh, uh, envelope)       # apply it (alias-safe, coefficientwise)
+  helmholtz_projection!(uh, uh, m)  # make solenoidal (alias-safe, one pass)
+  force!(uh, band, ws, p)           # set the forced-band energy
   return uh
 end
 
@@ -316,7 +324,8 @@ function run_hist(p::Params)
   grid   = Grid3D((p.N, p.N, p.N), (p.L, p.L, p.L))
   layout = RealFourierLayout()
   uphys0 = VectorFieldPhysical(zeros(p.N, p.N, p.N, 3), grid)
-  uspec0 = VectorFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(1))), grid)
+  spectral_shape = field_spectral_shape(grid, layout, Val(1))
+  uspec0 = VectorFieldSpectral(zeros(ComplexF64, spectral_shape), grid)
   # Plan the transforms with FFTW's `MEASURE` planner instead of the default `ESTIMATE`: over a long run
   # the one-time planning cost amortizes over thousands of transforms. (The sharper case for `MEASURE`
   # is single precision, where `ESTIMATE` can mis-plan badly on some CPUs — up to ``\sim\!5\times`` slower
@@ -327,12 +336,13 @@ function run_hist(p::Params)
   # One plan pair serves every tensor order: a transform is a property of the box, and a rank-`R`
   # field is that transform along a fiber, so the scalar divergence diagnostic below reuses these
   # vector plans rather than planning a second pair of its own.
-  vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)   # physical ↔ spectral, any rank
+  ## physical ↔ spectral, any rank
+  vplans = FieldTransformPlans(uphys0, uspec0; fft_flags = FFTW.MEASURE)
   m    = FieldSpectralMultipliers(uspec0)
   # 2/3-rule de-alias filter and the forcing band, both as package shell-mask kernels.
   dealias = spectral_cutoff(m, (2 / 3) * (p.N / 2) * (2π / p.L))
   band    = spectral_band(m, 0.5 * (2π / p.L), (p.k_force + 0.5) * (2π / p.L))
-  ws   = make_workspace(uphys0, uspec0)                 # preallocated scratch (a step allocates nothing)
+  ws   = make_workspace(uphys0, uspec0)  # preallocated scratch (a step allocates nothing)
   Δx   = p.L / p.N
 
   # Initial condition, then de-alias it.
@@ -344,11 +354,13 @@ function run_hist(p::Params)
   # ``\varepsilon(t)``, then advances `uh`.
   t_hist = Float64[]; E_hist = Float64[]; ε_hist = Float64[]
   t = 0.0
-  sim_start = time()                                          # wall-clock of the simulation (the time loops)
+  sim_start = time()  # wall-clock of the simulation (the time loops)
   for n in 1:p.n_spinup
-    to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)       # start-of-step velocity & vorticity
+    ## start-of-step velocity & vorticity
+    to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)
     dt = p.cfl * Δx / max(max_speed(ws.u), 1e-6)
-    push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u)); push!(ε_hist, dissipation(ws.ω0, p))
+    push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u))
+    push!(ε_hist, dissipation(ws.ω0, p))
     step!(uh, ws, m, vplans, dealias, band, p, dt)
     t += dt
   end
@@ -363,13 +375,17 @@ function run_hist(p::Params)
   X = p.L .* rand(MersenneTwister(p.seed + 1), p.n_particles, 3)   # seed tracers
   n_rec = p.n_stats ÷ p.rec_stride
   V = zeros(p.n_particles, 3, n_rec)                              # recorded velocities
-  Cacc = Float64[]; sep = Float64[]; n_snap = 0   # time-averaged velocity autocorrelation C(r)
+  ## time-averaged velocity autocorrelation C(r)
+  Cacc = Float64[]; sep = Float64[]; n_snap = 0
   rec = 0
   for n in 1:p.n_stats
-    to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)       # start-of-step velocity & vorticity
-    push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u)); push!(ε_hist, dissipation(ws.ω0, p))
-    step!(uh, ws, m, vplans, dealias, band, p, dt)          # advances ûₙ (reuses ws.u, ws.ω0 for k₁)
-    v = advect!(X, ws.u, dt, p)                                  # advect on the start-of-step velocity
+    ## start-of-step velocity & vorticity
+    to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)
+    push!(t_hist, t); push!(E_hist, kinetic_energy(ws.u))
+    push!(ε_hist, dissipation(ws.ω0, p))
+    ## advances ûₙ (reuses ws.u, ws.ω0 for k₁)
+    step!(uh, ws, m, vplans, dealias, band, p, dt)
+    v = advect!(X, ws.u, dt, p)  # advect on the start-of-step velocity
     if n % p.rec_stride == 0 && rec < n_rec
       rec += 1
       V[:, :, rec] .= v
@@ -384,11 +400,11 @@ function run_hist(p::Params)
     end
     t += dt
   end
-  if n_snap == 0                                  # ensure ≥1 sample (if snap_stride > n_stats)
+  if n_snap == 0  # ensure ≥1 sample (if snap_stride > n_stats)
     sep, Cacc = radial_correlation(uh, vplans); n_snap = 1
   end
-  C = Cacc ./ n_snap                              # time-averaged autocorrelation
-  sim_seconds = time() - sim_start                # full simulation wall-clock (spin-up + statistics)
+  C = Cacc ./ n_snap                # time-averaged autocorrelation
+  sim_seconds = time() - sim_start  # full simulation wall-clock (spin-up + statistics)
 
   # Final diagnostics: the energetics, the Kolmogorov/Taylor scales, the divergence check, the spectrum.
   u  = to_physical(uh, vplans)
@@ -399,7 +415,7 @@ function run_hist(p::Params)
   η   = (p.ν^3 / ε)^(1 / 4)                 # Kolmogorov length
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
-  kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
+  kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η  # the 2π/L makes the wavenumber physical
   # divergence check (should be ~roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
   divp = to_physical(divergence(uh, m), vplans)
   κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
@@ -417,7 +433,8 @@ function run_hist(p::Params)
   # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
-  S2_E  = (2 / 3) .* (C[1] .- C)             # Eulerian per-component structure function (homogeneous identity)
+  ## Eulerian per-component structure function (homogeneous identity)
+  S2_E  = (2 / 3) .* (C[1] .- C)
   τ_l, R_l, S2l = lagrangian_stats(V, p.rec_stride * dt)
   rho_L = R_l ./ R_l[1]
   τ_u   = integral_scale(τ_l, R_l)
@@ -425,7 +442,8 @@ function run_hist(p::Params)
   @printf("  K=%.4g  ε=%.4g  u'=%.4g  Re_λ=%.1f  η=%.3g  k_max·η=%.2f  ‖∇·u‖_rel=%.1e\n",
           K, ε, uprime, Reλ, η, kmaxη, divrel)
   @printf("  simulation: %.1f s wall-clock for %d steps at %d³  (%.1f ms/step)\n",
-          sim_seconds, p.n_spinup + p.n_stats, p.N, 1e3 * sim_seconds / (p.n_spinup + p.n_stats))
+          sim_seconds, p.n_spinup + p.n_stats, p.N,
+          1e3 * sim_seconds / (p.n_spinup + p.n_stats))
   @printf("  scales: λ/η=%.2f  L/η=%.2f  |  τ_u/τ_η=%.2f  √(τ_η·τ_u)/τ_η=%.2f\n",
           λ / η, L_int / η, τ_u / τ_η, sqrt(τ_η * τ_u) / τ_η)
   # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces
@@ -441,12 +459,13 @@ function run_hist(p::Params)
     "N" => p.N, "L_box" => p.L, "nu" => p.ν, "dt" => dt, "n_spinup" => p.n_spinup,
     "K" => K, "epsilon" => ε, "uprime" => uprime, "Re_lambda" => Reλ,
     "eta" => η, "tau_eta" => τ_η, "lambda" => λ, "L_int" => L_int, "tau_u" => τ_u,
-    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "CK" => 1.6, "sim_seconds" => sim_seconds,
+    "kmax_eta" => kmaxη, "div_rel" => divrel, "C2" => 2.1, "C0" => 6.0, "CK" => 1.6,
+    "sim_seconds" => sim_seconds,
     "t" => t_hist, "E" => E_hist, "eps_t" => ε_hist,
     "ek_k" => collect(ek_k), "ek_E" => collect(ek_E),
-    "r" => sep[2:end], "S2_E" => S2_E[2:end],          # structure-function panel (excludes r = 0)
+    "r" => sep[2:end], "S2_E" => S2_E[2:end],  # structure-function panel (excludes r = 0)
     "tau" => τ_l, "S2_L" => S2l, "rho_L" => rho_L,
-    "sep" => collect(sep), "rho_E" => rho_E,           # autocorrelation panel (includes r = 0)
+    "sep" => collect(sep), "rho_E" => rho_E,  # autocorrelation panel (includes r = 0)
   )
   save_hist(joinpath(OUTDIR, "HIST_CPU.h5"), bundle)
   make_hist_plots(bundle; outdir = OUTDIR, prefix = "HIST_CPU")
