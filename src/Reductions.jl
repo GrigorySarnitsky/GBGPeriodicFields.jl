@@ -969,7 +969,7 @@ and reduces against `f` in one fused pass, materializing no weighted field — t
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
 
 The arguments are:
-- `f`, `g` — two compatible, equal-order fields in spectral representation (`g = f` in the two-argument form).
+- `f`, `g` — two compatible, equal-order fields in spectral representation (``g = f`` in the two-argument form).
 - `weights` — in the tuple form, a tuple of such kernels: every one is answered in a single traversal
   and one device readback, bitwise-equal to calling the operation once per weight, and the results are
   returned in the order given. An empty tuple answers `()` without reading the field, and every refusal
