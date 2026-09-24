@@ -164,8 +164,8 @@ Transfer between sections over *different* bases is the interpolation/anterpolat
 pair: pulling a grid section back to points (evaluation — pairing with a Dirac mass ``\delta_x`` — ``f(x) = \delta_x(f)``) and the
 adjoint pushforward of point masses onto the grid. The full function–measure duality
 is given in [§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)"); the `Interpolation` module docstring carries its concrete face (the
-shared-weight adjoint identity with the ``M``/``N`` measure factors); the interpolation weights are
-themselves a unit-mass kernel **measure** (signed for the higher-order schemes), the
+adjoint identity with the point and grid counts ``M``/``N``); the interpolation weights are
+themselves a unit-mass kernel **measure** (signed for higher-order schemes), the
 base-changing sibling of the convolution multiplier — see the measure taxonomy
 (decision 19).
 
@@ -457,11 +457,10 @@ is representation infrastructure (what the spectral axes *mean*), not a
 differential operator; it moved out of `DifferentialOperators` during the refactor.
 Two constructors by design:
 
-- An explicit constructor taking all six arrays (lengths validated). This makes
-  the type testable in isolation and lets callers control the backend.
-- A convenience constructor from a field: wavenumbers ``2\pi n/L`` are built on the
-  host and copied to the field's backend via `similar` + `copyto!` (no scalar
-  GPU writes).
+- An explicit constructor taking all six arrays (lengths validated), testable in
+  isolation and letting callers control the backend.
+- A convenience constructor from a field: wavenumbers, integer multiples ``2\pi n/L`` of the box's fundamental, are built on the
+  host and copied to the field's backend (no scalar GPU writes).
 
 The two differ in the type they produce, not only in convenience: a final `Canonical` type parameter
 records whether the arrays were **derived from the grid** (the convenience constructor) or **supplied
@@ -1030,10 +1029,10 @@ and is displacement in the universal cover ``\mathbb R^3`` — the unwrapped tor
       coordinate keeps growing instead of folding back (winding preserved — a mean-square
 displacement needs it), while `displace!` **with** a trailing `Grid3D` is displacement on the torus
 proper, the wrap fused into the same pass. The call `wrap!(points, grid)` is the zero-term case kept as its
-own named verb: reduction to the canonical representative in the half-open fundamental domain
-``[o_a, o_a + L_a)`` per axis — origin-aware, with the floating-point endpoint folded (`mod` can
-return the period itself for a coordinate a hair below the origin) and non-finite coordinates passed
-through non-finite, so a diverged trajectory is never silently rewritten into a tidy in-box
+own named verb: reduction to the canonical representative in the half-open domain
+``[o_a, o_a + L_a)`` from each axis's origin over its length — with the floating-point endpoint folded (`mod` can
+return the period for a coordinate just below the origin) and non-finite coordinates passed
+through non-finite, so a diverged trajectory is never silently rewritten into an in-box
 position. Sampling never requires the wrap — the transfer kernels wrap their stencil indices, so
 interpolation is invariant under shifting a coordinate by whole periods — but canonicalization is
 load-bearing for precision on long runs (absolute floating-point resolution degrades as a coordinate
@@ -1099,12 +1098,11 @@ the one **complex** kernel, and the reality condition a complex kernel must meet
 value at the Nyquist frequency to be a real attenuation rather than a phase (decision 28). Two fused
 forms extend the family without a stored kernel or an extra pass (decision 33):
 `exponential_convolve!`/`exponential_convolve` apply the exponential radial kernel
-``\exp(c |k|^2 + s \hat w)`` evaluated lazily from the wavenumber arrays (for ``c \le 0`` the periodic
+``\exp(c |k|^2 + s \hat w)`` evaluated lazily from the wavenumber arrays (for a real coefficient ``c \le 0`` the periodic
 Gaussian ``e^{-c\Delta}``; ``\hat w`` an optional real per-mode exponent field entered as scale times
 field, ``s`` its scale), in single-field and weighted-two-field forms; and the kernel-composed
 `combine!` method convolves a weighted combination ``\hat g \cdot (\alpha \hat a + \beta \hat b)`` in
-the same fused pass — the decision-32 composition idiom (the operation's own verb, a trailing kernel
-argument) applied to the combination. See decisions 20, 21, 22, 28, 33.
+the same fused pass — the decision-32 composition idiom applied to the combination. See decisions 20, 21, 22, 28, 33.
 
 ## 12. Reductions
 
