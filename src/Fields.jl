@@ -2460,7 +2460,7 @@ precision would change what a solver computes. No operation in this package conv
 ```julia
 u_device      = adapt(CuArray, u)                 # host  -> device
 u_host        = adapt(Array, u_device)            # device -> host
-mult_device   = adapt(CuArray, multipliers)       # a field's multipliers must share its family
+mult_device   = adapt(CuArray, multipliers)       # must share the field's family
 plans_device  = adapt(CuArray, plans)             # rebuilt on the device
 ```
 """

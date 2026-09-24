@@ -1355,8 +1355,10 @@ co-spectrum (which may be negative) is handled by the same rule.
     [`weighted_inner`](@ref) against a radial symbol is exact and involves no binning at all:
 
     ```julia
-    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), multipliers))   # ⟨f, |k| f⟩, exactly
-    weighted_inner(f, radial_kernel(identity, multipliers))         # ⟨f, −Δf⟩, the Dirichlet energy
+    # ⟨f, |k| f⟩, exactly
+    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), multipliers))
+    # ⟨f, −Δf⟩, the Dirichlet energy
+    weighted_inner(f, radial_kernel(identity, multipliers))
     ```
 
 Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
