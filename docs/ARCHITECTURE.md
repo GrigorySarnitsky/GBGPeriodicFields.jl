@@ -119,7 +119,7 @@ worlds. Two of them are *parameters* of a section — what a section is built fr
   precisely, since a `Grid3D` is a finite set and has no tangent bundle of its own: the
   derivative lives on the **continuum** torus, and a grid section reaches it by standing
   for the trigonometric polynomial its coefficients define, of which each operator is the
-  exact term-by-term derivative on the resolved band (the even-axis Nyquist term is zeroed, invariant 5).
+  exact term-by-term derivative on the resolved band, the modes short of each even axis's Nyquist.
 What distinguishes the two bases is therefore whether
   such an identification exists — a uniform periodic grid determines that polynomial, so
   it inherits the derivative; a `PointSet` of scattered points determines no such
@@ -898,8 +898,8 @@ families share the same `interpolate`/`anterpolate` verbs and the same adjointne
   stands for a conjugate pair the half-spectrum dropped) and a real part, which is what the code
   evaluates — is written out where `DirectDFT` is detailed
   below, and is worth reading before anyone reproduces the compact form against a half-spectrum array. `DirectDFT` is the exact ``O(NM)`` form — the
-  *definition* of the spectral-domain pair, hence a transparent baseline, the divergence-free
-  reference (it reproduces the band-limited field exactly, matching `to_physical` at the nodes), and
+  *definition* of the spectral-domain pair, a transparent baseline, the reference for divergence-free
+  interpolation (it reproduces the band-limited field exactly, matching `to_physical` on nodes), and
   the oracle for the fast `NUFFT` (the ``O(N\log N + M)`` windowed gridding version, owned natively —
   spread → FFT → deconvolve, reusing the spline kernels with a window, an oversampled
   `FieldTransformPlans`, and an `assignment_window`-style deconvolution; exact to a requested tolerance
