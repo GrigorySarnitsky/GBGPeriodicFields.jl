@@ -18,7 +18,7 @@ design that does not depend on which base is used. The parts are:
   written once here so that one set of generated kernels serves both field and point-value
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
-  CPU loop threaded over slabs, running every stamped **values function**, a pure scalar function taking
+  threaded CPU loop, running every stamped **values function**, a pure scalar function taking
   one element per input and returning its outputs, the route for multi-output fiberwise
   operations;
 - the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
@@ -313,7 +313,7 @@ end
 Return whether every leaf of a broadcast argument tree is a type [`_slice_broadcast_argument`](@ref)
 knows how to slice or pass through — arrays, numbers, `Ref`s, and nested `Broadcasted` trees over
 them. Anything else makes the threaded path bail out to the serial `materialize!` (the safe
-polarity; the field kernels only ever build trees of these types).
+default; the field kernels only ever build trees of these types).
 """
 _broadcast_sliceable(argument::Base.Broadcast.Broadcasted) = all(_broadcast_sliceable, argument.args)
 _broadcast_sliceable(::AbstractArray) = true
