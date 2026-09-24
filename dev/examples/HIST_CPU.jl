@@ -29,8 +29,8 @@
 #   = \mathbb{P} \widehat{u\times\omega} - \nu \kappa^{2} \hat{u} + \hat{f},
 # ```
 #
-# where ``\widehat{u\times\omega}`` is the transform of the Lamb vector (the rotational form of the
-# nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
+# where ``\widehat{u\times\omega}`` is the transform of minus the Lamb vector ``\omega \times u`` (the
+# rotational form of the nonlinearity) and ``\hat{f}`` is a deterministic large-scale forcing. The viscous term is integrated
 # *exactly* through the integrating factor ``\exp(-\nu \kappa^{2} \Delta t)`` and the nonlinear term explicitly
 # (RK2); the ``2/3`` rule de-aliases the product, and the forcing holds the lowest shells' band energy fixed
 # (statistical stationarity, no tuning). The time loop is the consumer's — the package has no concept of
