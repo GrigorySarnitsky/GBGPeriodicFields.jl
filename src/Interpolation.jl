@@ -1204,8 +1204,8 @@ end
                  quantities::AbstractPointValues, scheme::NUFFT,
                  α::Real = true, β::Real = false)
 
-Deposit (scatter) the per-point `quantities` onto `field` in place — the adjoint (transpose) of
-[`interpolate!`](@ref) under the same `scheme` — computing
+Deposit (scatter) the per-point `quantities` onto `field` in place — the transpose of
+[`interpolate!`](@ref) under the same `scheme`, conjugated for a spectral one — computing
 ``\\texttt{field} = \\alpha (W^\\top q) + \\beta \\texttt{field}``; returns `field`. This is the
 in-place home of the scatter ``W^\\top``.
 
