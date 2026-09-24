@@ -295,12 +295,12 @@ as a *position*, so the call silently interpolates the field at its own source's
 plausible number. For a scalar source it fails, but as `BoundsError: attempt to access Float64 at
 index [2]`, which names neither the argument nor the mistake.
 
-There is nothing to protect: `φ` maps a fiber to a fiber, while a field is a section. Both field and
+There is nothing to protect: `φ` maps a fiber to a fiber, while a field is a [section](@ref GBGPeriodicFields.GBGPeriodicFields). Both field and
 point-value `map!` are covered, the point-value fiber being an `SVector{3}` at ``R = 1`` exactly as a
 field's is.
 
 Dispatch does the work, so the non-field path is a no-op the compiler removes; the refusal costs
-nothing in the fused pass.
+nothing in the pass.
 """
 @inline _refuse_field_as_fiber_map(φ) = nothing
 @inline function _refuse_field_as_fiber_map(φ::AbstractField)
@@ -1229,7 +1229,7 @@ end
     _context_grid(object)
 
 Return an object's grid. Every object that participates in a spectral operation — a field, a
-multiplier set, a compressed kernel — answers this and its peer [`_context_layout`](@ref), so one
+multiplier set, a kernel of any storage class — answers this and its peer [`_context_layout`](@ref), so one
 predicate ([`_check_matching_context`](@ref)) can compare any two of them. `Convolution` extends both
 for the kernel classes, which is what lets a kernel be checked against a field or a multiplier set
 without either side knowing the other's field names.
@@ -1251,7 +1251,7 @@ _context_layout(field::AbstractField) = field_layout(field)
 """
     _check_matching_context(a, b)
 
-Check that two participants in a spectral operation were built for the same base and Fourier layout,
+Check that two participants in a spectral operation were built for the same grid and Fourier layout,
 throwing otherwise. This is the package's one context predicate: an operation that mixes objects from
 different domains is rejected at the entry point rather than producing a wrong answer or failing later
 inside a kernel.
@@ -1370,7 +1370,7 @@ end
 
 Report whether the component views of a rank-``R > 0`` field begin at offsets a transform library will
 accept, given a plan built for one component. Component `c` starts `(c-1)` whole components into the
-storage, so the question is entirely a property of the base and the element type.
+storage, so the question is entirely a property of the grid and the element type.
 
 The two answers differ because the two backends ask different questions. A **host** (`FFTW`) plan
 records the alignment *class* of the pointer it was planned for and refuses a different one, for the
@@ -1427,7 +1427,7 @@ end
 """
     _component_view(data, ::Val{R}, component::Int)
 
-Slice one component of a section's storage, a three-dimensional array over the base, so a
+Slice one component of a section's storage, a three-dimensional array over the grid, so a
 rank-agnostic plan applies one component at a time. The fiber-last layout makes each component
 contiguous, which is what makes the slice a plain strided view.
 
@@ -1702,7 +1702,7 @@ package does not define. Wrap a field of coefficients in `StoredKernel` to decla
 is what [`materialize_kernel`](@ref GBGPeriodicFields.Convolution.materialize_kernel) returns.
 
 A concrete kernel implements two methods: [`_kernel_data`](@ref), returning the multiplier it
-contributes to a fused pass, and [`_check_kernel_compatibility`](@ref), checking it against the field
+contributes per mode, and [`_check_kernel_compatibility`](@ref), checking it against the field
 it is applied to.
 """
 abstract type SpectralKernel{T} end
@@ -1721,7 +1721,7 @@ function _kernel_data end
 """
     _check_kernel_compatibility(field, kernel)
 
-Check that `kernel` was built for `field`'s base and Fourier layout, throwing if not. Each storage
+Check that `kernel` was built for `field`'s grid and Fourier layout, throwing if not. Each storage
 class checks whatever it stored.
 """
 function _check_kernel_compatibility end
