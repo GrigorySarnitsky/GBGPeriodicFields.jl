@@ -129,7 +129,7 @@ type too. Code
 polymorphic over the allocating form therefore has to branch; the in-place `anterpolate!` forms,
 where the caller owns the destination, are uniform.
 
-Schemes divide the same way over **storage families**. The spline schemes and `DirectDFT` are
+Schemes divide the same way over [**storage families**](@ref GBGPeriodicFields). The splines and `DirectDFT` are
 plain values — weight coefficients in an `SMatrix`, or none at all — so a kernel captures them by
 value: one built on the host drives a transfer over device points with nothing copied, which is why
 `adapt` (documented with [`Fields`](@ref "Fields")) does not list them. `NUFFT` is the exception,
@@ -830,8 +830,8 @@ grid and point count can share one — though not at the same time, since a refi
 The arguments are:
 - `grid` — the [`Grid3D`](@ref) the order will be built against. It is stored, and a refill against a
   different grid is refused.
-- `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Its positions
-  are not read; only its point count, element type and backend are.
+- `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Only its point
+  count, element type and storage family are read.
 - `tile_size` — the block edge in grid cells, which fixes how many blocks the grid divides into and
   therefore how large the counters below are. A refill uses this value rather than taking one of its
   own.
