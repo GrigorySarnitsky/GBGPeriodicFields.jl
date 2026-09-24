@@ -1100,7 +1100,7 @@ one-tuple, a `StaticArray` its `Tuple`.
 
 The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`: it takes the flat input
 component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), applies `φ`, and flattens
-the result. A struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
+the result. It is a struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
 signature).
 
 The fields are
