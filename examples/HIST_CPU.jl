@@ -523,9 +523,9 @@ main()
 #md # with ``\varepsilon`` the mean dissipation rate, ``\eta`` the Kolmogorov length,
 #md # ``\tau_\eta = \sqrt{\nu/\varepsilon}`` the Kolmogorov time, and ``C_2 \approx 2.1``, ``C_0 \approx 6``
 #md # the (adjustable, plot-time) Kolmogorov constants. The Taylor microscale ``\lambda`` and the integral
-#md # scales are marked: the trace-correlation integral length ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
+#md # scales are marked, each the area under a normalized autocorrelation: the trace-correlation integral length ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r``
 #md # (``= \tfrac{2}{3}L_{11}``) and time
-#md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau`` are the areas under the normalized autocorrelations
+#md # ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``, with
 #md # ``\rho = C/C(0)`` and ``\rho_L = R/R(0)`` (taken to the first zero crossing).
 #md #
 #md # ![Eulerian and Lagrangian structure functions, normalized by their Kolmogorov scalings](structure_functions.png)
