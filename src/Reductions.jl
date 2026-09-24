@@ -1359,9 +1359,9 @@ co-spectrum (which may be negative) is handled by the same rule.
     ```
 
 Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
-refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box shells
+refinement); on a de-aliased field high-``|k|`` shells are empty. On a non-cubic box shells
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
-with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` each axis's Nyquist wavenumber, from its point count and length, are
+with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` each axis's Nyquist wavenumber from its point count and length — are
 sampled by corner modes only; the total
 still equals `inner`. The shell **width** carries a second anisotropy artefact worth knowing: ``\\Delta k``
 is taken from the box's largest side, so on a strongly anisotropic box it is finer than the mode spacing
