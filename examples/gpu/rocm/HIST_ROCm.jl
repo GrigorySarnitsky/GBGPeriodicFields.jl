@@ -158,9 +158,9 @@ giant() = Params(N = 320, ν = 1.85e-3, cfl = 0.3, n_spinup = 7000, n_stats = 16
 # pile up device temporaries faster than Julia's host-triggered GC frees them; preallocation is the
 # fix (see `examples/README.md`). This is how a real GPU DNS is written: performance first.
 function make_workspace(physical_reference, spectral_reference)
-  ## `similar_field` copies the reference's representation, grid AND storage backend, so on this
-  ## device twin the scratch lands in GPU memory without a `dev(...)` in sight — the same source as
-  ## `HIST_CPU.jl`. Its storage is uninitialized, hence the zeroing.
+  ## `similar_field` copies the reference's representation, grid AND storage backend, so on
+  ## this device twin the scratch lands in GPU memory without a `dev(...)` in sight — the
+  ## same source as `HIST_CPU.jl`. Its storage is uninitialized, hence the zeroing.
   scratch(reference, order) = (field = similar_field(reference, order); field .= 0; field)
   spectral_vector() = scratch(spectral_reference, Val(1))
   physical_vector() = scratch(physical_reference, Val(1))
@@ -273,8 +273,8 @@ end
 function step!(uh, ws, m, plans, dealias, band, p, dt)
   rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)                       # k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
   field_data(ws.ustar) .= field_data(uh) .+ FT(dt) .* field_data(ws.k1)
-  ## the display-math form of this stage is in the block above; this factor is evaluated per mode
-  ## from the wavenumber arrays, so no kernel field is built — one fewer device array kept resident.
+  ## the stage's display math is in the block above; this factor is evaluated per mode from
+  ## the wavenumber arrays, so no kernel field is built, one fewer device array resident.
   exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)           # û*'s velocity & vorticity (scratch)
   rhs!(ws.k2, ws.uω, ws.ω, ws, m, plans, dealias)                       # k₂ = N̂(û*)
@@ -395,10 +395,10 @@ function run_hist(p::Params)
       V[:, :, rec] .= Array(v)                                    # copy this step's velocities to the host
     end
     if n % p.snap_stride == 0
-      ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, device-clean —
-      ## on-device binning, host result): the per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the
-      ## integral length ℒ = ∫ρ follow from it — no hand-rolled spatial shift. Accumulate C over
-      ## snapshots for a time average.
+      ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, device-
+      ## clean — on-device binning, host result): the per-component S⁽ᴱ⁾(r) =
+      ## (2/3)(C(0)−C(r)) and the integral length ℒ = ∫ρ follow from it — no hand-rolled
+      ## spatial shift. Accumulate C over snapshots for a time average.
       s, Csnap = radial_correlation(uh, vplans)
       isempty(Cacc) ? (sep = s; Cacc = copy(Csnap)) : (Cacc .+= Csnap)
       n_snap += 1

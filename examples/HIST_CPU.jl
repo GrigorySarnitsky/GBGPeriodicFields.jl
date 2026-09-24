@@ -47,8 +47,8 @@
 # julia --project=examples examples/HIST_CPU.jl --smoke    # tiny end-to-end check
 # julia --project=examples examples/HIST_CPU.jl --fast     # 64³, nicer statistics
 # julia --project=examples examples/HIST_CPU.jl --huge     # 192³, Re_λ≈93 (heavy)
-# julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (heaviest CPU config; very heavy on CPU)
-# julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5   # re-plot, no re-run
+# julia --project=examples examples/HIST_CPU.jl --mega     # 256³, Re_λ≈109 (very heavy)
+# julia --project=examples examples/plot_hist.jl examples/output/HIST_CPU.h5  # re-plot only
 # ```
 #
 # The analysis, the HDF5 dump, and the plotting live in the shared `hist_postprocess.jl`; this script
@@ -139,9 +139,9 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # real DNS is written — performance first). Holds the RK stages and the
 # velocity/vorticity work fields; the loop and `step!` write into these instead of allocating.
 function make_workspace(physical_reference, spectral_reference)
-  ## `similar_field` copies a reference field's representation, grid and storage backend, and takes
-  ## the tensor order it should carry — so the scratch cannot disagree with the fields it works on,
-  ## and the GPU twin needs no change. The storage it hands back is uninitialized, hence the zeroing.
+  ## `similar_field` copies a reference field's representation, grid and storage backend and
+  ## takes the tensor order to carry, so the scratch matches the fields it works on and the
+  ## GPU twin needs no change. Its storage is uninitialized, hence the zeroing.
   scratch(reference, order) = (field = similar_field(reference, order); field .= 0; field)
   spectral_vector() = scratch(spectral_reference, Val(1))
   physical_vector() = scratch(physical_reference, Val(1))
@@ -253,8 +253,8 @@ function step!(uh, ws, m, plans, dealias, band, p, dt)
   ## k₁ = N̂(ûₙ)  (cached start-of-step u, ω)
   rhs!(ws.k1, ws.u, ws.ω0, ws, m, plans, dealias)
   field_data(ws.ustar) .= field_data(uh) .+ dt .* field_data(ws.k1)
-  ## the display-math form of this stage is in the block above; this factor is evaluated per mode
-  ## from the wavenumber arrays, so no kernel field is built, stored, or read.
+  ## the display-math form of this stage is in the block above; this factor is evaluated per
+  ## mode from the wavenumber arrays, so no kernel field is built, stored, or read.
   exponential_convolve!(ws.ustar, ws.ustar, m, -p.ν * dt)
   ## û*'s velocity & vorticity (scratch)
   to_velocity_vorticity!(ws.uω, ws.ω, ws.ustar, ws, m, plans)
@@ -391,9 +391,9 @@ function run_hist(p::Params)
       V[:, :, rec] .= v
     end
     if n % p.snap_stride == 0
-      ## Eulerian statistics from the FFT velocity autocorrelation C(r) (package, shell-averaged): the
-      ## per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length ℒ = ∫ρ follow from it — no hand-rolled
-      ## spatial shift. Accumulate C over snapshots for a time average.
+      ## Eulerian statistics from the package's shell-averaged FFT autocorrelation C(r): the
+      ## per-component S⁽ᴱ⁾(r) = (2/3)(C(0)−C(r)) and the integral length ℒ = ∫ρ follow from
+      ## it, with no hand-rolled shift. C is accumulated over snapshots.
       s, Csnap = radial_correlation(uh, vplans)
       isempty(Cacc) ? (sep = s; Cacc = copy(Csnap)) : (Cacc .+= Csnap)
       n_snap += 1
