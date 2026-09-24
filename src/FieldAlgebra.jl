@@ -58,7 +58,7 @@ The parts are:
     nonlinearity has no finite-band spectral form.
 
 The `mul!` product follows the `LinearAlgebra` convention that the destination must not share storage with an input,
-while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each fused pass reads an element's sources before writing any output) and
+while the index-shuffling operations (`cross`, `transpose`, `sym`, `skew`, `dev`) are alias-safe by construction (each pass reads an element's sources before writing any output) and
 may be called with the destination aliasing an input.
 
 !!! note "Why an aliased in-place call is safe"
@@ -238,7 +238,7 @@ The arguments are:
 - `a`, `b`, `fields...` — two or more fields to add.
 - `field`, `constant` — the field-and-constant variants, in either argument order: a `Real` with a scalar field, a `FiberVector` with a vector field, a `FiberTensor2` with a second-order tensor field.
 
-Field-field addition is storage-wise and representation-preserving: it acts pointwise on fields in physical representation and coefficient-wise on fields in spectral representation.
+Field-field addition is elementwise and representation-preserving: it acts pointwise on fields in physical representation and coefficient-wise on fields in spectral representation.
 
 In physical representation the constant is added at every grid point. In spectral representation only the zero Fourier coefficient changes, scaled by the number of grid points `prod(grid_size)`, so that the physical values shift by exactly the constant.
 """
@@ -1803,9 +1803,8 @@ end
 
 Apply an arbitrary fiber map `φ` at every base point, writing the result into `destination` — the
 section-valued companion of the mapped reductions (`mean(det, A)`, `maximum(norm, u)`): where those reduce
-`φ` of the fiber over the base, this writes it as a field. It fuses in one pass, building no intermediate
-section, and inherits the executor's parallelism (a device kernel on a GPU, a slab-threaded loop on a
-CPU); being a per-point transform with disjoint writes, it is bitwise thread-count-invariant.
+`φ` of the fiber over the base, this writes it as a field. It runs in one pass, building no intermediate
+section, in parallel (a device kernel on a GPU, a loop threaded over slabs on a CPU); being a per-point transform with disjoint writes, it is bitwise thread-count-invariant.
 
 Use this when the operation is not one of the named fiberwise operations ([`det`](@ref), [`norm`](@ref),
 the algebra) — an arbitrary pointwise function of the fiber, a composition such as `exp ∘ det` included.
