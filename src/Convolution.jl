@@ -15,11 +15,10 @@ wherever a kernel is **applied** to a field, differing in cost rather than in me
 serves as a reduction weight in [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner), which is narrower in one
 respect: it requires a **real** multiplier.
 
-Physics stays consumer-side: an LES filter, a viscous integrating factor, or a de-aliasing mask is a
-multiplier the consumer supplies — through [`radial_kernel`](@ref) when it depends on the mode only through
+Physics stays with the calling code: an LES filter, a viscous integrating factor, or a de-aliasing mask
+is a multiplier the caller supplies — through [`radial_kernel`](@ref) when it depends on the mode only through
 ``|k|^2``, or as coefficients built from [`FieldSpectralMultipliers`](@ref) and wrapped in
-[`StoredKernel`](@ref). The
-package supplies the operation, not the physical meaning.
+[`StoredKernel`](@ref).
 
 The parts are, in three groups — what the module does, how a kernel is stored, and which kernels it
 builds:
