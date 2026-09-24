@@ -244,7 +244,7 @@ end
 """
     materialize_kernel(kernel::StoredKernel)
 
-Copy a kernel already held coefficientwise, so the result owns storage no other kernel shares.
+Return a copy of a coefficientwise kernel, a `StoredKernel` owning storage no other shares.
 """
 materialize_kernel(kernel::StoredKernel) =
   StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)),
