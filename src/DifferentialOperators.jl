@@ -9,7 +9,7 @@ even-length axis — realized as a coefficientwise multiply by a wavenumber symb
 finite-difference truncation. The two symbol families treat that Nyquist term differently and
 deliberately so (see the Nyquist split below), so it is not simply zeroed everywhere. The wavenumber
 symbols are held in a [`FieldSpectralMultipliers`](@ref), built from a field with
-`FieldSpectralMultipliers(field)` or from the explicit six-array constructor. Every operator provides
+`FieldSpectralMultipliers(field)` or from its six wavenumber arrays. Every operator provides
 an allocating form and an in-place `!` form, and each per-operator docstring gives both the
 physical-space meaning and the spectral symbol it applies.
 
@@ -23,7 +23,7 @@ The parts are:
   the neutral mathematical name, as it does for `symmetric_gradient` against "strain rate".)
 - [`inverse_curl`](@ref) (``(\\nabla\\times)^{-1}``) returns the solenoidal preimage of a curl —
   the divergence-free field whose curl is the given one — and preserves the tensor order.
-- [`symmetric_gradient`](@ref) (``\\operatorname{sym}\\nabla``) returns the symmetric part of a vector field's gradient as a second-order tensor field, formed directly without the full gradient — the fused symmetric peer of `curl`.
+- [`symmetric_gradient`](@ref) (``\\operatorname{sym}\\nabla``) returns the symmetric part of a vector field's gradient as a second-order tensor field, formed in one pass without the full gradient.
 - [`laplacian`](@ref) (``\\Delta``) applies the second-derivative operator to every component and preserves the tensor order.
 - [`inverse_laplacian`](@ref) (``\\Delta^{-1}``) returns the zero-mean solution of Poisson's equation and preserves the tensor order.
 - [`helmholtz_projection`](@ref) (``\\mathbb P``) projects a vector field onto its divergence-free part in one pass; an optional kernel argument composes a convolution into the same pass.
@@ -313,9 +313,9 @@ end
 
 Run the projection over every spectral mode through `_helmholtz_projection_modes!`, which dispatches
 on the backend of `destination`'s storage: a `KernelAbstractions` launch of
-`_helmholtz_projection_kernel!` on a device, or the gated slab-threaded loop on a CPU. It passes the
+`_helmholtz_projection_kernel!` on a device, or a gated loop over contiguous slabs on a CPU. It passes the
 **three** derivative-wavenumber arrays and the already-converted `α`/`β` — the projector's denominator
-is formed inside the pass by squaring those same three values, so no second multiplier family is
+is formed in the pass by squaring those values, so no second multiplier family is
 read. The `kernel_data` is either a coefficientwise kernel's storage or `nothing` for the
 plain projection. Shared by every `helmholtz_projection!` method.
 """
@@ -1101,7 +1101,7 @@ fresh result instead.
 
 The arguments are:
 - `destination` — the vector field that receives the result; it shares the domain of `field`, and
-  it may alias `field` freely: the fused pass reads all three source coefficients of a mode before writing any component of it, so the aliased call needs no guard temporary and is bitwise-identical to the non-aliased one.
+  it may alias `field` freely: the single pass reads all three source coefficients of a mode before writing any component of it, so the aliased call needs no temporary copy and is bitwise-identical to the non-aliased one.
 - `field` — the vector field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
 
@@ -1176,7 +1176,7 @@ The arguments are:
   source coefficients are read before any of its components are written.
 - `field` — the vector field to invert, in spectral representation.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying the derivative wavenumbers, which
-  must match the field's grid, layout, element type and storage family.
+  must match the field's grid, layout, element type and [storage family](@ref GBGPeriodicFields).
 
 !!! warning "The zero mode has no preimage and is returned as zero"
     A constant field is the curl of nothing, so the ``k = 0`` coefficient is written zero, as is each
