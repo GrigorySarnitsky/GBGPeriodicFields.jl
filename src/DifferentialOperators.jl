@@ -244,7 +244,7 @@ end
                                  kernel_data, α, β)
 
 Apply the projector to every mode, dispatching on `backend`: a `KernelAbstractions` launch of
-`_helmholtz_projection_kernel!` on a device, and the gated slab-threaded loop below on a CPU. The two
+`_helmholtz_projection_kernel!` on a device, and a gated loop over slabs on a CPU. The two
 arms carry the same per-mode arithmetic expression for expression, so a threaded run agrees with a
 device one bitwise — which is what the GPU parity suite compares. The `kernel_data` is a
 coefficientwise kernel's storage or `nothing`, and `α`/`β` arrive already converted.
@@ -613,7 +613,7 @@ end
                          wavenumber_1, wavenumber_2, wavenumber_3, imaginary_unit)
 
 Apply the inverse curl to every mode, dispatching on `backend`: a `KernelAbstractions` launch of
-`_inverse_curl_kernel!` on a device, and the gated slab-threaded loop below on a CPU. The two arms
+`_inverse_curl_kernel!` on a device, and a gated loop over slabs on a CPU. The two arms
 carry the same per-mode arithmetic expression for expression, so a threaded run agrees with a device
 one bitwise, which is what the GPU parity suite compares.
 """

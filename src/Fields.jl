@@ -902,9 +902,9 @@ end
     _check_family_element_type(family, grid)
 
 Refuse a storage family whose declared element type disagrees with the grid's — a mixed pair is
-refused, never converted (invariant 14) — or is complex, because a field's element type is its
+refused, never converted — or is complex, because a field's element type is its
 real scalar type and complex storage is representation detail the spectral constructors allocate
-themselves (invariant 2). A bare family (`Array`, `ROCArray`) declares nothing and passes, the
+themselves. A bare family (`Array`, `ROCArray`) declares nothing and passes, the
 element type coming from the grid.
 """
 function _check_family_element_type(family::Type{<:AbstractArray}, ::Grid3D{T}) where {T<:AbstractFloat}
@@ -1426,7 +1426,7 @@ end
     _component_view(data, ::Val{R}, component::Int)
 
 Slice one component of a section's storage, a three-dimensional array over the base, so a
-rank-agnostic plan applies one component at a time. The fiber-last layout of invariant 3 makes each component
+rank-agnostic plan applies one component at a time. The fiber-last layout makes each component
 contiguous, which is what makes the slice a plain strided view.
 
 Indexing the fiber axes DIRECTLY, rather than reshaping the fiber into one trailing component axis
@@ -1749,8 +1749,8 @@ The arguments are:
   built for. The two-argument forms take them from `field` instead.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the per-axis **derivative** wavenumbers, written
   ``a`` where the operators' formulas need to name them apart from the true wavenumber ``k``. They are
-  the physical (angular) wavenumbers used for first derivatives, through multiplication by
-  ``\\mathrm{i} a``, and they carry invariant 5's Nyquist zeroing.
+  the angular wavenumbers of first derivatives, through multiplication by
+  ``\\mathrm{i} a``, and are zeroed at an even axis's Nyquist frequency.
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the per-axis squared
   wavenumbers, used for the Laplacian through multiplication by ``-k^2``. These keep the **true**
   ``k^2`` at the Nyquist frequency, which is why the two families are stored rather than derived from
@@ -1782,7 +1782,7 @@ The fields are:
 - `squared_wavenumber_1`, `squared_wavenumber_2`, `squared_wavenumber_3` — the squared ones.
 - `wavenumber_view_1`, `wavenumber_view_2`, `wavenumber_view_3` — derived rather than passed: each is
   one of the three vectors above pre-oriented as a 3-D view along its own axis, holding no data of its
-  own, so that a broadcast-route operator never rebuilds a `reshape` per call (decision 70). Internal;
+  own, so that a broadcast-route operator never rebuilds a `reshape` per call. Internal;
   reach them through `_wavenumber_broadcast_view`, never directly.
 - `squared_wavenumber_view_1`, `squared_wavenumber_view_2`, `squared_wavenumber_view_3` — the same for
   the squared family, reached through `_squared_wavenumber_broadcast`.
@@ -2445,8 +2445,7 @@ same allocator the package uses everywhere else.
 !!! warning "Transform plans are rebuilt, not moved, and that costs a planning pass"
     An FFT plan is a compiled schedule tied to one storage family and cannot be transferred, so
     adapting a `FieldTransformPlans` **constructs new plans** on the target. It needs nothing from the
-    caller: the plans carry their own grid, layout and element type — and no tensor order, since
-    decision 76 — so the two arrays
+    caller: the plans carry their own grid, layout and element type — and no tensor order — so the two arrays
     the planner needs as witnesses are allocated internally and released immediately. The planner
     request the plans were built with is replayed, with one exception. Planner flags are an `FFTW`
     concept — `cuFFT` rejects them outright — so a move to any non-host family does **not apply** them
@@ -2488,8 +2487,8 @@ Wrap `data` as the physical (or spectral) field type of tensor order `R` on `gri
 
 These pick the concrete type from the order alone, which `similar_field` cannot do because it copies
 its metadata from a reference field. When [`adapt`](@ref) rebuilds a `FieldTransformPlans` there is
-no such reference — it has only the plans' own grid, layout and element type, decision 76 having removed the
-tensor order from `FieldTransformPlans` entirely — so it needs this form.
+no such reference — it has only the plans' own grid, layout and element type, the plans carrying
+no tensor order — so it needs this form.
 """
 _field_physical_of_order(data, grid, layout, ::Val{0}) = ScalarFieldPhysical(data, grid, layout)
 _field_physical_of_order(data, grid, layout, ::Val{1}) = VectorFieldPhysical(data, grid, layout)
@@ -2777,8 +2776,8 @@ end
                                 ncomp, P)
 
 Project every stored self-conjugate plane of `data` onto the reality condition, dispatching on
-`backend`: a `KernelAbstractions` launch of `_reality_projection_kernel!` on a device, and the gated
-slab-threaded loop below on a CPU. `D` is the folded axis, `planes` the plane indices stored on it
+`backend`: a `KernelAbstractions` launch of `_reality_projection_kernel!` on a device, and a gated
+loop over slabs on a CPU. `D` is the folded axis, `planes` the plane indices stored on it
 (the zero plane, and the Nyquist plane when the full axis is even), `sizes` the three stored extents,
 `others` the two full axes, `ncomp` the fiber component count and `P` the elements per component.
 Both arms call [`_project_pair!`](@ref) per pair, so they agree bitwise.
@@ -2919,7 +2918,7 @@ whether this is the folded axis, as one `isbits` tuple a kernel can carry.
 Map a coarse stored index on one axis to the fine stored index of the SAME Fourier frequency, or
 return `0` for a coarse mode that is not shared.
 
-The returned `0` is the coarse Nyquist of an even axis, which the module comment above excludes. On a
+The returned `0` is the coarse Nyquist of an even axis, which the shared set excludes. On a
 full axis the stored index runs over nonnegative frequencies and then wraps to negative ones, exactly
 as `AbstractFFTs.fftfreq` orders them; the folded axis stores nonnegative frequencies only.
 """
@@ -2996,8 +2995,8 @@ end
                         coarse_strides, fine_strides, components, coarse_elements,
                         fine_elements, α, β)
 
-Walk the shared modes, dispatching on `backend`: a `KernelAbstractions` launch on a device, and the
-gated slab-threaded loop below on a CPU. `ToFine` is `true` for `embed_modes!` and `false` for
+Walk the shared modes, dispatching on `backend`: a `KernelAbstractions` launch on a device, and a
+gated loop over slabs on a CPU. `ToFine` is `true` for `embed_modes!` and `false` for
 `extract_modes!`; both arms call [`_write_shared_mode!`](@ref) per mode, so they agree bitwise, and
 the work item count is the coarse field's stored size times the fiber component count either way.
 """
