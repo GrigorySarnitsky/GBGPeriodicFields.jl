@@ -2681,13 +2681,13 @@ sits at zero or, on an even-length axis, at Nyquist; eight of them when all thre
 fewer when an axis is odd and so has no Nyquist plane — must be real, and this reports twice its imaginary part, that
 being the same discrepancy applied to a self-paired entry.
 
-Reach for it where responsibility for the coefficients changes hands: after writing them directly, or
-on accepting them from outside — and after any step that scales the coefficients in place, because
+Reach for it where responsibility for the coefficients changes hands: after writing or accepting them —
+and after any step that scales the coefficients in place, because
 a spectrum built by transforming a real field satisfies the constraint only to round-off (FFTW is
 exact at some power-of-two sizes and ulp-level elsewhere; rocFFT and cuFFT are ulp-level at every
 size), and a forcing proportional to the field amplifies that residual where viscosity does not damp
 it. The projection [`reality_projection!`](@ref) removes it exactly. The cost is one
-or two planes, ``O(N^2)``, not the ``O(N^3 \\log N)`` of the round trip below.
+or two planes, ``O(N^2)``, per-axis count squared, not the ``O(N^3 \\log N)`` of the round trip below.
 
 It **reports** rather than repairs, so the caller decides; the repair is
 `reality_projection!`, an explicit verb costing the same one or two planes. A physical round
@@ -2819,7 +2819,7 @@ Project a field's coefficients onto the spectrum of a real field, so that
 [`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!).
 
 In physical space nothing visible changes: the inverse real transform already discards the part of
-the coefficients that no real field has, so the image of `field` is the same before and after. What
+the coefficients that no real field has, so the image of `field` is unchanged. What
 changes is the stored spectrum. The real-to-complex layout stores both members of a conjugate pair
 only on the folded axis's zero plane and, for an even-length axis, its Nyquist plane; there the
 condition ``\\hat f(-k) = \\overline{\\hat f(k)}`` is a relation a caller — or a library's round-off
@@ -2843,7 +2843,7 @@ state is deposited removes it exactly, which a physical round trip does not, sin
 transform reseeds it. The physical representation has no method: there the projection is the identity.
 
 The `destination` may be the `source`, and the one-argument form projects in place; the cost is then
-one or two planes, ``O(N^2)``. With a distinct `destination` the whole source is copied first, so
+one or two planes, ``O(N^2)``, per-axis count squared. With a distinct `destination` the whole source is copied first, so
 that form costs a field copy, ``O(N^3)``, before the projection — the same shape as the two-argument
 `helmholtz_projection!`, kept so the twins read alike, but not the cheap one. The two fields must
 share a grid, layout, tensor order, element type and storage family, and a mismatch is refused
