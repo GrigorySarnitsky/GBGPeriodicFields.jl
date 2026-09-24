@@ -189,12 +189,12 @@ here rather than repeated:
 - **Vertical — fiberwise algebra** ([`FieldAlgebra`](@ref GBGPeriodicFields.FieldAlgebra) on fields, [`Points`](@ref GBGPeriodicFields.Points) on point-values): add/scale,
   the weighted combination `combine!`, contract (`dot`/`cross`), transpose, sym/skew/dev, the `tr`/`det`
   invariants, pointwise norms — generated once ([§6](@ref "6. The code-generation architecture of `FieldAlgebra`")) — plus
-  [`map!`](@ref GBGPeriodicFields.FieldAlgebra.map!), the arbitrary-`φ` **escape hatch** (any un-named
-  pointwise fiber map, over the same fused executor; decision 48).
+  [`map!`](@ref GBGPeriodicFields.FieldAlgebra.map!), the arbitrary-`φ` **escape hatch** (any unnamed
+  pointwise fiber map; decision 48).
 - **Horizontal — differential operators** ([`DifferentialOperators`](@ref GBGPeriodicFields.DifferentialOperators)): `gradient`, `divergence`, `curl`,
   `symmetric_gradient`, `laplacian`, …, applied as spectral multipliers ([§4](@ref "4. Spectral machinery")).
-- **Convolution** ([`Convolution`](@ref GBGPeriodicFields.Convolution)): the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
-- **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)): `integral`, `inner`, `weighted_inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
+- **Convolution** ([`Convolution`](@ref GBGPeriodicFields.Convolution)) applies the kernel multiply ``\hat f \cdot \hat g`` in spectral representation ([§11](@ref "11. Convolution")).
+- **Measure / L²** ([`Reductions`](@ref GBGPeriodicFields.Reductions)) provides `integral`, `inner`, `weighted_inner`, `l2norm`, `mean`, the radial spectra ([§12](@ref "12. Reductions")).
 - **The grid↔point transfer** ([`Interpolation`](@ref GBGPeriodicFields.Interpolation)): interpolation ``W`` and its adjoint anterpolation
   ``W^{\top}`` ([§10](@ref "10. Interpolation and anterpolation (the grid↔point transfer layer)")).
 - **Moving between storage families** ([`adapt`](@ref), decision 63): host and device are two families of
@@ -287,8 +287,8 @@ representation only when it is *the same operation on the underlying section the
 equivalently, only when it commutes with the rfft isomorphism.
 
 - **Linear in the field** — addition/subtraction of fields, scaling by real
-  numbers, contractions with *constant* fibers, transpose, sym/skew/dev: valid in
-  both representations, because the Fourier transform commutes with them.
+  numbers, contractions with *constant* fibers, transpose, sym/skew/dev are valid in
+  both representations, the Fourier transform commuting with them.
 - **Adding constants** — in physical space, every grid value shifts; in spectral
   space, ``\mathcal F(f + c) = \mathcal F(f) + c N \delta_{k,0}`` under the unnormalized-forward convention,
   with ``N`` the total grid-point count (`prod(grid_size)`) and ``k`` the wavenumber — so only the zero
@@ -887,9 +887,9 @@ reconstruction — the spline or band-limited spectral interpolant lifting grid 
 (the commutative-diagram view above: a scheme is how the Dirac ``\delta_{x_p}`` is realized). Two
 families share the same `interpolate`/`anterpolate` verbs and the same adjointness contract:
 
-- **Physical-domain splines** (`AbstractSplineScheme`) — local kernels on the **physical** nodal
+- **Physical-domain splines** (`AbstractSplineScheme`) are local kernels on the **physical** nodal
   values (the gather/scatter kernels below); approximate, conserving, the production default.
-- **Spectral-domain exact transfer** — acting on a field in **spectral** representation, the literal
+- **Spectral-domain exact transfer** acts on a field in **spectral** representation by the literal
   inverse/forward DFT ``f(x_p) = \tfrac{1}{N}\sum_k \hat f(k) e^{\mathrm{i} k\cdot(x_p-o)}`` and its adjoint
   ``(W^\top q)(k) = \sum_p q_p e^{-\mathrm{i} k\cdot(x_p-o)}`` (here ``N`` is the grid-point count, ``o`` the
   grid origin, and ``x_p`` the ``p``-th sample point). The gather's ``\sum_k`` runs over the **full**
@@ -967,24 +967,24 @@ and its section, reusing the *same* fibers; the maps between sections over the t
 interpolation ``W`` and its adjoint anterpolation ``W^\top`` (the same
 ``W``/``W^\top`` used above).
 
-- **`Point{T} = SVector{3,T}`** — a single position; a base-space *alias* of `FiberVector`
-  (same representation, different role). An alias, not a wrapper, so consumer arithmetic
+- **`Point{T} = SVector{3,T}`** is a single position; a base-space *alias* of `FiberVector`
+  (same representation, different role). It is an alias, not a wrapper, so arithmetic
   stays StaticArrays-native (invariant 8); position vs. value is a distinction of role, not
   dispatch.
-- **`PointSet`** — `M` positions in **structure-of-arrays** layout `(M, 3)` (point index
+- **`PointSet`** holds `M` positions in **structure-of-arrays** layout `(M, 3)` (point index
   first, coordinate last — each coordinate axis contiguous across points, mirroring the
-  field's fiber-last `(Nx,Ny,Nz,3)` for coalesced GPU gather). Grid-free: periodicity wraps
-  any coordinate, so positions are untethered from a grid; the field supplies the grid at
+  field's fiber-last `(Nx,Ny,Nz,3)` for coalesced GPU gather). It is grid-free: periodicity wraps
+  any coordinate, so positions are untethered from a grid, the field supplying it at
   transfer time.
-- **`PointValues`** — the section over a `PointSet`, as **three concrete types mirroring the
+- **`PointValues`** is the section over a `PointSet`, as **three concrete types mirroring the
   field zoo** — `ScalarPointValues` / `VectorPointValues` / `TensorPointValues{R}` under an
   abstract `AbstractPointValues`, SoA layout `(M,)` / `(M,3)` / `(M,3,3)`. They are
   **representation-free**: a point value is always a physical-space quantity (even exact
-  spectral interpolation *produces* physical values), so there is no physical/spectral split
-  here, unlike the field types.
+  spectral interpolation *produces* physical values), so, unlike the field types, they have no
+  physical/spectral split.
 
 All wrap a generic `AbstractArray` and allocate via `similar`, so they are backend-generic
-(CPU / CUDA / AMDGPU) for free; compatibility reduces to `M`-matching and matching tensor
+(CPU, CUDA, AMDGPU); compatibility reduces to `M`-matching and matching tensor
 order (a `_check_…` predicate in the `Fields` style). The types live in the `Points`
 module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 
