@@ -16,7 +16,7 @@
 # complete physics, the tested solver machinery, and the real runs live. This page exists to show how
 # the field layer is driven end to end, small enough to read in one sitting.
 #
-# **Method** (rotational form). Writing ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
+# **Method.** The demo uses the rotational form. We write ``\hat{\cdot}`` for the spectral (`rfft`) representation, ``u`` for
 # the velocity, ``\omega = \nabla\times u`` for the vorticity, ``\mathbf{k}`` for the wavenumber vector and
 # ``\kappa = \lvert\mathbf{k}\rvert`` for its magnitude, ``\nu`` for the kinematic viscosity, and
 # ``\mathbb{P}`` for the Helmholtz (Leray) projection onto divergence-free fields. The wavenumber vector
@@ -65,7 +65,7 @@ include(joinpath(@__DIR__, "hist_postprocess.jl"))  # statistics, HDF5 I/O, plot
 
 # ## Parameters
 #
-# The options of the run. The `smoke()` / `fast()` / `huge()` / `mega()` configurations select ``32^{3}`` / ``64^{3}`` /
+# These are the options of the run. The `smoke()` / `fast()` / `huge()` / `mega()` configurations select ``32^{3}`` / ``64^{3}`` /
 # ``192^{3}`` / ``256^{3}``.
 
 Base.@kwdef struct Params
@@ -83,11 +83,11 @@ Base.@kwdef struct Params
   seed::Int       = 42
 end
 
-# A tiny configuration for a quick end-to-end check (`--smoke`).
+# The tiny configuration `--smoke` gives a quick end-to-end check.
 smoke() = Params(n_spinup = 15, n_stats = 40, n_particles = 300,
                  rec_stride = 1, snap_stride = 10)
 
-# A larger, still-quick configuration for nicer statistics (`--fast`) — ``64^{3}``, more tracers.
+# The larger, still quick `--fast` gives nicer statistics: ``64^{3}`` and more tracers.
 fast() = Params(N = 64, n_spinup = 400, n_stats = 800, n_particles = 4000,
                 rec_stride = 2, snap_stride = 40)
 
@@ -135,8 +135,8 @@ mega() = Params(N = 256, ν = 2.5e-3, cfl = 0.3, n_spinup = 4500, n_stats = 4500
 # this is the heart of the performance-first design (and what keeps the GPU pool flat).
 
 
-# Preallocated scratch fields for the in-place hot loop, so a step allocates nothing (this is how a
-# real DNS is written — performance first). Holds the RK stages and the
+# The workspace preallocates scratch fields for the in-place hot loop, so a step allocates nothing (this
+# is how a real DNS is written — performance first). It holds the RK stages and the
 # velocity/vorticity work fields; the loop and `step!` write into these instead of allocating.
 function make_workspace(physical_reference, spectral_reference)
   ## `similar_field` copies a reference field's representation, grid and storage backend and
@@ -164,7 +164,7 @@ end
 
 kinetic_energy(u) = 0.5 * inner(u, u)  # ½⟨|u|²⟩   (Reductions.inner)
 dissipation(ω, p) = p.ν * inner(ω, ω)  # ν⟨|ω|²⟩   (homogeneous)
-# CFL speed: ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
+# The CFL speed is ``\max_i \lvert u_i\rvert``, the largest velocity component in absolute value — an
 # allocation-free reduction over the raw array. (`lpnorm(u, Inf)` is the true ``\sup\lvert u\rvert`` but
 # materializes a magnitude field every call — avoided so the hot loop allocates nothing; the max component
 # under-estimates the magnitude by at most ``\sqrt{3}``, so the effective CFL number is at most that
@@ -210,7 +210,7 @@ end
 # exactly what lets the GPU twin run unattended (an allocating style would grow the device memory pool
 # every step until it wedges).
 
-# Physical velocity & vorticity of a field in spectral representation, into the given buffers. The `uh` buffer is preserved by
+# This helper writes the physical velocity and vorticity of a field in spectral representation into the given buffers. The `uh` buffer is preserved by
 # transforming a COPY of it — `to_physical!` may overwrite its spectral source as scratch.
 function to_velocity_vorticity!(u_out, ω_out, uh, ws, m, plans)
   curl!(ws.ωh, uh, m)                          # ω̂ = ∇×û  (û preserved)
