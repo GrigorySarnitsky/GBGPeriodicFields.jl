@@ -164,16 +164,16 @@ const _SERIAL_CUTOFF = Ref(1 << 14)
 """
     with_threading(f; enabled::Union{Nothing, Bool} = true)
 
-Run `f()` with the CPU-threading decision forced to `enabled`, then restore the previous setting. The
-override is dynamically scoped and task-local, so it affects only `f()` and is restored afterwards,
-including on exceptions.
+Run `f()` with the CPU-threading decision forced to `enabled`, restore the previous setting, and return
+`f()`'s value. The override is dynamically scoped and task-local, affecting only `f()`, and is restored
+even on an exception.
 
 The arguments are:
 
 - `f` — the zero-argument function to run under the override.
 - `enabled` — `true` or `false` to force the threaded or serial path, or `nothing` to follow the
-  automatic `nthreads()`-based policy. Pass `false` around a region that already parallelizes at a
-  higher level, to avoid oversubscription.
+  automatic `nthreads()`-based policy. Pass `false` around a region already parallel at a higher
+  level, avoiding oversubscription.
 
 !!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
@@ -276,10 +276,10 @@ end
 """
     _assign!(destination, broadcasted)
 
-Materialize the lazy `broadcasted` expression into `destination`, threading over chunks on the
-CPU when [`_use_threads`](@ref) allows. The generic method is the standard fused
+Materialize the lazy `broadcasted` expression into `destination` and return it, threading over
+chunks on the CPU when [`_use_threads`](@ref) allows. The generic method is plain
 `Broadcast.materialize!`, the safe polarity that keeps GPU arrays and unknown array wrappers on
-their normal broadcast path with no scalar indexing. Only dense `Array`s and `Array`-backed
+their broadcast path with no scalar indexing. Only dense `Array`s and `Array`-backed
 `SubArray`s take the threaded path.
 """
 _assign!(destination, broadcasted::Base.Broadcast.Broadcasted) =
@@ -758,8 +758,8 @@ end
     _write_values!(targets, values, α, n)
 
 Write `α * values[i]` into `targets[i][n]` for every output, unrolled over the (static)
-output count. The real `α` keeps the multiply exact for ``\\alpha = 1``, so the plain
-(non-``\\alpha``/``\\beta``) forms stay bitwise-identical to their broadcast predecessors.
+output count, returning `nothing`. The real `α` keeps the multiply exact for ``\\alpha = 1``, so the plain
+(non-``\\alpha``/``\\beta``) forms stay bitwise-identical to broadcasting.
 """
 @inline function _write_values!(targets::NTuple{N, Any}, values::NTuple{N, Any}, α, n) where {N}
   ntuple(i -> (@inbounds targets[i][n] = α * values[i]; nothing), Val(N))
@@ -805,11 +805,11 @@ linear index range of the participating storage. Here `f` is a pure scalar value
 takes one scalar per entry of `arrays` (that array's element at the running index) followed by
 the fiber `constants` verbatim, and returns the tuple of output values written to `targets`.
 Every array element is read once and every output written once, and all of an element's reads
-happen before its writes, so a target may alias a source array with no guard temporary. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
+happen before its writes, so a target may alias a source array. The generic method launches the `_fiberwise_values_kernel!` device kernel on the
 backend; the `KernelAbstractions.CPU` method runs a slab-threaded `@simd` loop over the linear
 range (component views are contiguous, so linear indexing is stride-1) through the same
 [`_use_threads`](@ref) gate as the broadcast route, bitwise-identical to serial because each
-element is written once from the same expression.
+element is written once from the same expression. Returns `nothing`.
 """
 function _fiberwise_pass!(backend, f::F, targets, arrays, constants, α, β) where {F}
   _fiberwise_values_kernel!(backend)(f, targets, arrays, constants, α, β;
@@ -1120,9 +1120,8 @@ end
 """
     _fiber_type(::Type{T}, ::Val{R})
 
-The concrete fiber type of order `R` over scalar `T` is `T`, `SVector{3, T}`, or
-`SMatrix{3, 3, T, 9}`
-— used to infer the output order of `φ` for the allocating `map`.
+Return the concrete fiber type of order `R` over scalar `T`: `T`, `SVector{3, T}`, or
+`SMatrix{3, 3, T, 9}`, for inferring `φ`'s output order in the allocating `map`.
 """
 @inline _fiber_type(::Type{T}, ::Val{0}) where {T} = T
 @inline _fiber_type(::Type{T}, ::Val{1}) where {T} = FiberVector{T}
@@ -1132,9 +1131,8 @@ The concrete fiber type of order `R` over scalar `T` is `T`, `SVector{3, T}`, or
 """
     _fiber_order(fiber_type)
 
-A concrete fiber type has tensor order `0`, `1` or `2`, or `-1` when the type is not a
-recognized
-fiber (an un-inferrable `φ` return) — the allocating `map` uses `-1` to fall back to a clear error.
+Return a concrete fiber type's tensor order, `0`, `1` or `2`, or `-1` when the type is not a
+recognized fiber (an un-inferrable `φ` return), on which the allocating `map` raises a clear error.
 """
 @inline _fiber_order(::Type{<:Number}) = 0
 @inline _fiber_order(::Type{<:SVector{3}}) = 1
