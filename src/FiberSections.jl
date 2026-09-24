@@ -659,7 +659,7 @@ _transpose_formula(A_symbol, A_kind) = (i, j) -> _tensor_component(A_symbol, A_k
 """
     _norm_scalar_rhs(symbol)
 
-Build the right-hand side for the scalar norm, the pointwise absolute value ``|\\varphi|``. It feeds `_scalar_kernel_body`.
+Build, for `_scalar_kernel_body`, the scalar `symbol`'s pointwise norm ``|\\varphi|``.
 """
 _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 
@@ -667,7 +667,7 @@ _norm_scalar_rhs(symbol) = :(abs.(field_data($symbol)))
 """
     _norm_vector_rhs(symbol, kind)
 
-Build the right-hand side for the vector Euclidean norm ``\\sqrt{\\sum_i u_i^2}``. It feeds `_scalar_kernel_body`.
+Build, for `_scalar_kernel_body`, the vector `symbol`'s Euclidean norm ``\\sqrt{\\sum_i u_i^2}``.
 """
 _norm_vector_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_vector_component(symbol, kind, i)))) for i in 1:3]))))
@@ -676,7 +676,7 @@ _norm_vector_rhs(symbol, kind) =
 """
     _norm_tensor_rhs(symbol, kind)
 
-Build the right-hand side for the tensor Frobenius norm ``\\sqrt{\\sum_{ij} A_{ij}^2}``. It feeds `_scalar_kernel_body`.
+Build, for `_scalar_kernel_body`, the tensor `symbol`'s Frobenius norm ``\\sqrt{\\sum_{ij} A_{ij}^2}``.
 """
 _norm_tensor_rhs(symbol, kind) =
   :(sqrt.($(_sum_terms([:(abs2.($(_tensor_component(symbol, kind, i, j)))) for i in 1:3 for j in 1:3]))))
