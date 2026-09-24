@@ -974,8 +974,8 @@ The arguments are:
   and one device readback, bitwise-equal to calling the operation once per weight, and the results are
   returned in the order given. An empty tuple answers `()` without reading the field, and every refusal
   the single-weight form makes is made here in any position.
-- `w` — the weight: a spectral kernel in **any** of its storage classes, holding a **real** multiplier
-  ``w(k)``. All four classes give bitwise-identical results, so the choice is one of storage only. The
+- `w` — the weight: a kernel in **any** of the four storage classes of a [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), holding a **real** multiplier
+  ``w(k)``. All four give bitwise-identical results. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
   whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
@@ -1003,7 +1003,7 @@ Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, wit
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
 even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
 `fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
-(unrelated to the exponent coefficient `Convolution` writes ``c``),
+(not the exponent coefficient ``c`` of `exponential_convolve!`),
 
 ```math
 \\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
