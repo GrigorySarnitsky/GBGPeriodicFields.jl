@@ -8,8 +8,8 @@ back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues
 
 Interpolation (`interpolate`) is the **gather** ``W``, the linear map that evaluates a field ``f`` at
 the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that point's position
-``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the adjoint (transpose)
-of ``W`` and likewise linear: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
+``x_p``. Anterpolation (`anterpolate`) is the **scatter** ``W^\\top``, the transpose of ``W``,
+its adjoint for the unnormalized sums: it spreads per-point quantities ``q`` (with ``q_p`` the value carried at
 ``x_p``) back onto the surrounding grid nodes with stencil weights, returning a whole field whose value
 ``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two are exact transposes — pairing
 the gathered values against ``q`` over the ``M`` points equals pairing ``f`` against the scattered
@@ -24,9 +24,9 @@ M \\langle Wf, q \\rangle_{\\mathrm{pts}} &= \\sum_p (Wf)_p \\cdot q_p \\\\
 \\end{aligned}
 ```
 
-The middle sum is written over the ``N`` grid nodes, which is the physical-representation form. For
-the spectral schemes the same identity holds with the mode-wise pairing instead, and the two are the
-same number by Parseval — which is why `inner` on a field in spectral representation returns the
+The middle sum, over the ``N`` grid nodes, is the physical-representation form. For the spectral
+schemes, whose scatter is the conjugate transpose, the same identity holds with the mode-wise
+pairing, one number by Parseval — which is why `inner` on a field in spectral representation returns the
 physical value.
 
 Here the subscripts name the two mean-normalized inner products — over the ``M`` sample points and over the ``N`` grid nodes. This holds because each scheme's scatter applies its own gather's transpose — the same stencil weights for the local splines, the conjugate Fourier sum for the spectral pair. Because those weights sum to one
