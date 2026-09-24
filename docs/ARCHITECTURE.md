@@ -6,8 +6,8 @@
 This document records the architecture of the package and, more importantly, *why*
 it is the way it is. It exists so that future work (human or AI) extends the design
 instead of accidentally reverting it. `CLAUDE.md` carries the operational summary;
-this file carries the reasoning — and, since the umbrella module's AI-tips block was merged in, the
-conceptual model (§2) and the writing/docstring conventions (the §2 documentation policy) as well.
+this file carries the reasoning, the conceptual model (§2) and the writing and docstring conventions
+(the §2 documentation policy).
 
 This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
 `code` identifier — is introduced in plain language at its first use, the meaning stated before or in
@@ -359,8 +359,8 @@ Operation names follow *what the operation is* — the same mathematics-first pr
   (`dot`, `cross`, `mul!`, `transpose`, `norm`, `map`, `map!`, `mean`, `std`, `var`, `cov`,
   `maximum`, `minimum`, `extrema`); the continuum-mechanics decomposition abbreviations `sym` / `skew` / `dev` are likewise
   conventional. An extended generic is **re-exported when its source is not already in scope**, so that a
-  caller never has to know which standard library a verb happens to live in: the `LinearAlgebra` and
-  `Statistics` names are re-exported by the umbrella, while the `Base` ones need no such treatment.
+  caller need not know which standard library a verb lives in: the `LinearAlgebra` and
+  `Statistics` names are re-exported by the top-level `GBGPeriodicFields` module, while the `Base` ones need no such treatment.
   Re-exporting a binding the package only extends is safe — two packages re-exporting the *same*
   binding do not collide, only two exporting *different* bindings of one name do.
 - **Modules** carry the family **noun** (`Fields`, `DifferentialOperators`, `Reductions`,
