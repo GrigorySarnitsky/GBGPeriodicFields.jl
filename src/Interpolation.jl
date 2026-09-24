@@ -118,8 +118,8 @@ choice of *kernel* and
 *representation*: the **physical-domain** local splines
 ([`AbstractSplineScheme`](@ref) — gather/scatter on the nodal values) and the **spectral-domain**
 transfers (the exact [`DirectDFT`](@ref) and the fast, approximate [`NUFFT`](@ref) — evaluate/deposit in the Fourier basis,
-acting on a field in spectral representation). Same verbs, one adjointness contract, the one non-uniformity documented below; the schemes
-differ only in (kernel, representation).
+acting on a field in spectral representation). They share the verbs, one adjointness contract and one documented non-uniformity, differing
+only in (kernel, representation).
 
 One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
 which names what the fresh destination is built from: a `Grid3D` suffices for the spline schemes,
@@ -280,9 +280,9 @@ spline_coefficients(scheme::LagrangeSpline) = scheme.coefficients
 """
     _fornberg(evaluation_point, nodes, max_order)
 
-Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `nodes[i]` in the
+Return Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weight of `nodes[i]` in the
 order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
-evaluated at `evaluation_point`. A host-side helper for spline weights.
+evaluated at `evaluation_point`, a host-side spline-weight helper.
 
 Reference: B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 """
@@ -397,9 +397,9 @@ const CatmullRom = LalescuSpline(1, 1)
     _axis_weights(coefficients, t)
 
 Evaluate the per-axis spline weights ``w_q(t)`` for all `N2` stencil nodes at fractional position
-``t``, returning an `SVector{N2}`. Horner over the `M2` polynomial-coefficient columns of
-`coefficients` (``M_2 = \\deg + 1``); pure and allocation-free, so it runs inside the gather/scatter
-kernels on CPU and GPU.
+``t``, as an `SVector{N2}`, by Horner over the `M2` polynomial-coefficient columns of
+`coefficients` (``M_2 = \\deg + 1``); pure, allocation-free, so it runs in the transfer kernels
+on CPU and GPU.
 """
 @inline function _axis_weights(coefficients::SMatrix{N2, M2, T}, t::T) where {N2, M2, T}
   weights = coefficients[:, M2]
@@ -415,7 +415,7 @@ end
 
 Return `(base_cell, t)` for one axis: the zero-based index `base_cell` of the left node of the cell
 containing `coordinate`, and the fractional position ``t \\in [0, 1)`` within it. Periodic wrapping of the
-stencil is applied later via `mod`. Pure scalar arithmetic, kernel-safe.
+stencil comes later. It is pure, kernel-safe arithmetic.
 """
 @inline function _locate(coordinate::T, origin::T, spacing::T, number_of_grid_points::Int) where {T}
   continuous_index = (coordinate - origin) / spacing
