@@ -23,10 +23,10 @@ The parts are:
     per-component formula is written twice.
 
   * **Base-space motion.** [`displace!`](@ref) moves the points themselves along
-    coefficient-weighted vector sections — in unwrapped coordinates, or, given a [`Grid3D`](@ref), landing
-    back in the periodic box in the same fused pass — and [`wrap!`](@ref) reduces positions to
-    their canonical in-box representatives. The one family that couples base and fiber; positions
-    deliberately have no `+` with point values.
+    coefficient-weighted vector sections — in unwrapped coordinates or, given a [`Grid3D`](@ref), back in
+    the periodic box in the same pass — and [`wrap!`](@ref) reduces positions to
+    their canonical in-box representatives. It is the one family coupling base and fiber, and
+    positions deliberately have no `+` with point values.
   * **Allocation.** [`similar_point_values`](@ref) returns uninitialized storage carrying a reference's
     tensor order and backend — the point-value twin of `similar_field`, and what the broadcast
     machinery and the allocating algebra wrappers build their results with.
