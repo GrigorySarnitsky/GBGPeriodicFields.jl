@@ -737,7 +737,7 @@ The fields are
 - `grid` — the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
 
-The array has shape `field_physical_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R = N - 3` from the array dimension `N`.
+The array has shape `field_physical_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R` as the array's dimension count minus three.
 
 The function constructor constructs a tensor field of order ``R \\ge 2`` in physical representation by sampling a real tensor-valued function on a three-dimensional physical grid.
 The arguments are:
