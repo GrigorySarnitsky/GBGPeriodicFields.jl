@@ -1327,14 +1327,13 @@ P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\
 \\end{gathered}
 ```
 
-with ``c`` indexing the fiber components, ``\\alpha(k)`` the rfft half-spectrum Parseval weight (``1`` on
-the folded axis's zero and even-length Nyquist planes, ``2`` otherwise — the folded rfft axis is the
-layout's `fft_dims[1]`), and shell width ``\\Delta k`` (the box
-fundamental). Each form **refines** [`inner`](@ref):
+with ``c`` indexing the fiber components, ``\\alpha(k)`` the Parseval weight (``1`` on
+the folded axis's zero and even-length Nyquist planes, ``2`` otherwise), shell width ``\\Delta k`` (the box
+fundamental), and the prefactor the inverse square of the total point count. Each form **refines** [`inner`](@ref):
 ``\\sum_\\kappa P(\\kappa) = \\langle f, f\\rangle`` and ``\\sum_\\kappa P_{fg}(\\kappa) = \\langle f, g\\rangle``
 — the L² (co-)energy split across isotropic ``|k|``-shells one fundamental wavenumber wide (the box's smallest nonzero wavenumber, ``\\Delta k = 2\\pi / \\max_a L_a``). The one-argument
 form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat f|^2``); the co-spectrum
-is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the power
+is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the
 spectrum, **may be negative** in a shell (anticorrelated modes). In physical terms the kinetic-energy
 spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (integrating to the turbulent kinetic energy, half
 the L² energy); the package keeps the neutral name, the physics the caller's.
@@ -1360,10 +1359,10 @@ co-spectrum (which may be negative) is handled by the same rule.
     ```
 
 Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
-refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box the shells
+refinement); on a de-aliased field the high-``|k|`` shells are empty. On a non-cubic box shells
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
-with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` the per-axis Nyquist wavenumber — are
-incompletely sampled (only corner modes contribute), the standard isotropic-spectrum caveat; the total
+with ``k_a^{\\mathrm{Nyq}} = \\lfloor N_a/2 \\rfloor 2\\pi/L_a`` each axis's Nyquist wavenumber, from its point count and length, are
+sampled by corner modes only; the total
 still equals `inner`. The shell **width** carries a second anisotropy artefact worth knowing: ``\\Delta k``
 is taken from the box's largest side, so on a strongly anisotropic box it is finer than the mode spacing
 ``2\\pi/L_a`` along every shorter axis, and a systematic fraction of shells is then empty — the profile
@@ -1496,15 +1495,14 @@ radial binning **symmetrizes** the cross-correlation — the ``\\pm r`` folding 
 averages ``C_{fg}(r)`` with ``C_{fg}(-r) = C_{gf}(r)``, so the result equals ``\\tfrac{1}{2}(C_{fg} + C_{gf})``
 and is symmetric in ``f, g``.
 
-Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a r_a^2}``, with the per-axis
-reach ``r_a = \\lfloor N_a/2\\rfloor \\Delta x_a`` (``= L_a/2`` on an even axis, half a cell less on an
+Separations run from ``0`` to the minimum-image **corner** ``\\sqrt{\\sum_a r_a^2}``, with each axis's
+reach, from its point count and spacing, ``r_a = \\lfloor N_a/2\\rfloor \\Delta x_a`` (``= L_a/2`` on an even axis, half a cell less on an
 odd one; ``\\sqrt{3} L/2`` for an even cubic box) at the finest spacing ``\\min_a \\Delta x_a``, the
 ``\\min(i, N_a - i)`` fold making ``C`` periodic and even (``C(r) = C(L - r)``). This is the
 physical-space mirror of the spectrum's corner caveat: only ``|r| \\le \\min_a r_a`` — the sphere
 inscribed in the min-image box — is sampled in *all*
-directions; shells from there out to the corner keep only the box-diagonal directions (incompletely
-sampled). And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
-the field correlating with its own periodic image, not a true infinite-domain correlation — so a consumer
+directions; shells from there out to the corner keep only the box-diagonal directions. And in a finite periodic box the large-``r`` tail is itself an artifact — there ``C`` reflects
+the field correlating with its own periodic image — so a consumer
 extracts an integral scale (the area under the normalized correlation curve) only out to where ``C``
 has decayed (e.g. the first zero crossing), not the full
 curve. As with the spectrum the *total* is unaffected: ``C(0) = \\texttt{inner}(f, f)`` exactly.
