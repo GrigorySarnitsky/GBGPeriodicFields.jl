@@ -1336,7 +1336,7 @@ form is the ``g = f`` case (``\\mathrm{Re}(\\hat f \\overline{\\hat f}) = |\\hat
 is **symmetric** (``P_{fg} = P_{gf}``, ``\\mathrm{Re}`` being conjugation-symmetric) and, unlike the
 spectrum, **may be negative** in a shell (anticorrelated modes). In physical terms the kinetic-energy
 spectrum is ``E(\\kappa) = \\tfrac{1}{2} P(\\kappa)`` (integrating to the turbulent kinetic energy, half
-the L² energy); the package keeps the neutral name, the physics the caller's.
+the L² energy); the package keeps the neutral name and leaves the physics to the caller.
 
 The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
 ``\\lvert k\\rvert`` within ``\\pm\\Delta k/2`` of ``m\\Delta k`` — which is what makes
