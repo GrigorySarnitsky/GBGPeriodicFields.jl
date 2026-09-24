@@ -1179,8 +1179,8 @@ The arguments are:
   must match the field's grid, layout, element type and storage family.
 
 !!! warning "The zero mode has no preimage and is returned as zero"
-    A constant field is the curl of nothing, so the ``k = 0`` coefficient carries no information and
-    is written zero. The recovered field therefore has zero mean, which is the same convention
+    A constant field is the curl of nothing, so the ``k = 0`` coefficient is written zero, as is each
+    Nyquist corner where every derivative wavenumber vanishes. The recovered field has zero mean, the convention
     [`inverse_laplacian!`](@ref) uses for the same reason.
 
 Because ``\\nabla\\times(\\nabla\\times u) = \\nabla(\\nabla\\cdot u) - \\Delta u`` and the result is
@@ -1192,9 +1192,8 @@ representation it is one coefficientwise pass,
 ```
 
 with ``a`` the Nyquist-zeroed derivative wavenumbers and the ``k = 0`` mode set to zero. Numerator and
-denominator are built from the SAME wavenumber family, which is what makes
-``\\nabla\\times(\\nabla\\times)^{-1}`` reproduce a divergence-free field exactly at every mode rather
-than only on the resolved band.
+denominator share one family, so ``\\nabla\\times(\\nabla\\times)^{-1}`` reproduces a divergence-free
+field exactly at every mode the warning does not zero, not only on the resolved band.
 """
 function inverse_curl! end
 
