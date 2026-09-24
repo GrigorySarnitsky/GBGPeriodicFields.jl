@@ -231,12 +231,12 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
   return Nh
 end
 
-# One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
+# This function takes one integrating-factor RK2 (Heun) step, fully in place. The integrating factor
 # ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (``\nu``, ``\Delta t`` are physics the package never
 # sees) is applied with `exponential_convolve!`, which evaluates it per mode from the wavenumber arrays,
-# so no kernel field is built, stored, or read. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
-# physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
-# stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
+# so no kernel field is built, stored, or read. It assumes `ws.u`, `ws.ω0` already hold the START-of-step
+# physical velocity & vorticity (the loop fills them and uses them for the diagnostics), so the first
+# stage reuses them. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
 # `ws.k1`, `ws.k2` hold ``\hat{N}_1``, ``\hat{N}_2``):
 #
 # ```math
