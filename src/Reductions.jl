@@ -1,8 +1,8 @@
 """
     Reductions
 
-The **L² / measure structure** on sections — the third operation family, alongside the fiberwise algebra
-and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
+This module holds the **L² / measure structure** on sections, the third operation family beside the
+fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
 its **base** against the measure the base carries — the extensive one for `integral`, its
 total-mass-one normalization for the intensive reductions: a `Grid3D` uses its uniform quadrature (the cell
@@ -16,7 +16,7 @@ value with no inverse transform: `inner`/`l2norm` by Parseval's theorem, `integr
 zero (DC) Fourier mode, and the scalar-only `std`/`var` from Parseval. The remaining reductions (`lpnorm`, `cov`, `maximum`/`minimum`/`extrema`)
 stay physical-only.
 
-The parts are, each linking to the home where its formula lives.
+The parts follow, each linking to where its formula lives.
 
 !!! note "The moments extend `Statistics`; the order statistics extend `Base`"
     `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
@@ -605,10 +605,10 @@ The largest value of a scalar section over its base — a grid's cells or a poin
 bare form exists only at tensor order zero: the maximum of a vector or tensor section is ill posed
 (which component?), and naming a fiber map in the mapped form `maximum(fiber_map, f)` is what makes it well
 posed — `maximum(norm, u)` takes the largest fiber magnitude in one fused pass with no intermediate
-section. Physical fields and point-values only. The materializing route to the same supremum is
+section. It takes physical fields and point-values only. The materializing route to the same supremum is
 [`lpnorm(f, Inf)`](@ref lpnorm). An order statistic has no neutral element, so reducing an empty section
-(a zero-point set) throws an `ArgumentError` — the same contract as reducing an empty collection in
-`Base` — rather than fabricating a value.
+(a zero-point set) throws an `ArgumentError`, as for an empty collection in
+`Base`, rather than fabricating a value.
 """
 maximum
 
@@ -681,9 +681,9 @@ The arguments are:
 - `corrected` — divide by the base count minus one (the sample convention, the default, matching
   `Statistics.cov`); `false` divides by the count (the population covariance).
 
-Physical-space only, since the outer product ``u \\otimes u`` is nonlinear. Computed in one fused mapped
-pass as ``\\texttt{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled — divided by the base count minus one, as `var` is), over the grid
-cell-average measure and the point counting measure alike.
+It is physical-space only, since the outer product ``u \\otimes u`` is nonlinear. It is computed in one mapped
+pass as ``\\texttt{mean}(u \\otimes u) - \\bar u \\otimes \\bar u`` (Bessel-scaled by the base count minus one, as `var` is), over either base's
+measure.
 """
 function cov end
 
@@ -987,8 +987,8 @@ The arguments are:
     ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
     `inner` — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
     same threaded fixed tree, so the residue is the weighted pass carrying a multiplication by one
-    through each mode rather than a different summation order. Worth knowing when replacing one with
-    the other in code that compares against a stored number.
+    through each mode rather than a different summation order. That matters where code comparing
+    against a stored number swaps one for the other.
 
 !!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
     Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
@@ -999,7 +999,7 @@ The arguments are:
     number rather than raising. It is the one route by which a phase kernel can serve as a weight and
     answer a question you did not ask.
 
-Spectral representation only, being a Parseval reduction like the spectral `inner`.
+It is spectral-only, a Parseval reduction like the spectral `inner`.
 
 Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
