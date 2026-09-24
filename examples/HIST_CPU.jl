@@ -319,7 +319,7 @@ function run_hist(p::Params)
   @printf("  threads: Julia=%d  (package CPU threading %s — launch with `-tN` to use more cores)\n",
           Threads.nthreads(), Threads.nthreads() > 1 ? "ON" : "off")
 
-  # Setup: the grid, transform plans, spectral multipliers, the de-alias filter and forcing band, and
+  # The setup builds the grid, transform plans, spectral multipliers, the de-alias filter and forcing band, and
   # the preallocated workspace.
   grid   = Grid3D((p.N, p.N, p.N), (p.L, p.L, p.L))
   layout = RealFourierLayout()
@@ -345,11 +345,11 @@ function run_hist(p::Params)
   ws   = make_workspace(uphys0, uspec0)  # preallocated scratch (a step allocates nothing)
   Δx   = p.L / p.N
 
-  # Initial condition, then de-alias it.
+  # Build the initial condition, then de-alias it.
   uh = random_solenoidal(grid, m, vplans, ws, band, p)
   convolve!(uh, uh, dealias)
 
-  # Spin-up to stationarity (adaptive ``\Delta t``; these statistics are discarded). Each step fills the
+  # Spin up to stationarity (adaptive ``\Delta t``; these statistics are discarded). Each step fills the
   # cached start-of-step velocity/vorticity (`to_velocity_vorticity!`), records ``k(t)`` and
   # ``\varepsilon(t)``, then advances `uh`.
   t_hist = Float64[]; E_hist = Float64[]; ε_hist = Float64[]
@@ -369,7 +369,7 @@ function run_hist(p::Params)
   to_velocity_vorticity!(ws.u, ws.ω0, uh, ws, m, vplans)
   dt = p.cfl * Δx / max(max_speed(ws.u), 1e-6)
 
-  # Statistics window (``\Delta t`` frozen so the time-lag axis ``\tau`` is uniform): advance the field,
+  # In the statistics window (``\Delta t`` frozen so the time-lag axis ``\tau`` is uniform), advance the field,
   # advect the tracers on the start-of-step velocity, record their velocities, and accumulate the
   # autocorrelation.
   X = p.L .* rand(MersenneTwister(p.seed + 1), p.n_particles, 3)   # seed tracers
@@ -406,7 +406,7 @@ function run_hist(p::Params)
   C = Cacc ./ n_snap                # time-averaged autocorrelation
   sim_seconds = time() - sim_start  # full simulation wall-clock (spin-up + statistics)
 
-  # Final diagnostics: the energetics, the Kolmogorov/Taylor scales, the divergence check, the spectrum.
+  # The final diagnostics are the energetics, the Kolmogorov/Taylor scales, the divergence check, the spectrum.
   u  = to_physical(uh, vplans)
   K  = kinetic_energy(u)
   ε  = dissipation(to_physical(curl(uh, m), vplans), p)
@@ -422,14 +422,14 @@ function run_hist(p::Params)
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
   ek_k, ek_E = energy_spectrum(uh, m)
 
-  # Length / time scales from the velocity autocorrelations.
-  # Eulerian: the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
+  # The length and time scales come from the velocity autocorrelations.
+  # On the Eulerian side the time-averaged ``C(r) = \langle u(x)\cdot u(x+r)\rangle`` (with
   # ``C(0) = \langle\lvert u\rvert^{2}\rangle``) gives the trace-correlation integral length, over
   # separations of the normalized correlation, ``\mathcal{L} = \int_0^\infty \rho(r)\,\mathrm{d}r`` — written ``\mathcal{L}`` because ``L`` is
   # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
   # the literature usually plots, since ``C`` dots the velocity at the two points
-  # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. Lagrangian: the
-  # particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
+  # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. On the Lagrangian side
+  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
   # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
@@ -446,7 +446,7 @@ function run_hist(p::Params)
           1e3 * sim_seconds / (p.n_spinup + p.n_stats))
   @printf("  scales: λ/η=%.2f  L/η=%.2f  |  τ_u/τ_η=%.2f  √(τ_η·τ_u)/τ_η=%.2f\n",
           λ / η, L_int / η, τ_u / τ_η, sqrt(τ_η * τ_u) / τ_η)
-  # Parseval: the package's spectral `inner` (rfft half-spectrum weighting) reproduces
+  # By Parseval, the package's spectral `inner` (rfft half-spectrum weighting) reproduces
   # the physical ``\tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle`` exactly — same energy, computed in spectral
   # representation.
   @printf("  ½⟨|u|²⟩: physical=%.6g  spectral inner(û,û)=%.6g  |  Σ E(k)=%.4g  (Parseval)\n",
