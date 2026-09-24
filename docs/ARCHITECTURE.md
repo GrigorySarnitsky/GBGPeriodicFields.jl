@@ -65,15 +65,15 @@ statement.
 
 A field, and a collection of values sampled at scattered locations, are both
 **sections of a tensor bundle over a base**. The domain is a flat periodic box (a
-3-torus) with a single global frame, so the bundle is trivial — just the product ``E = B \times V``
-of a base ``B`` and a fiber ``V``. **The word "base" carries two related meanings here, and they are
-worth separating once.** The *continuum* base is the torus ``\Omega`` itself. The bundle is
+3-torus) with a single global frame, so the bundle is trivial — the product ``E = B \times V``
+of a base ``B`` and a fiber ``V``. **The word "base" carries two related
+meanings.** The *continuum* base is the torus ``\Omega`` itself. The bundle is
 drawn over **both**: the trivial product exists over ``\Omega`` and over each discrete base alike, and
-§10's pullback ``\iota`` is exactly what relates them. The *discrete* base is the finite set a section is
+§10's pullback ``\iota`` is what relates them. The *discrete* base is the finite set a section is
 actually stored on — a `Grid3D` of nodes or a `PointSet` of scattered locations, each a finite subset
 of ``\Omega`` — and it is the one meant wherever the docs say a section is "over a base" or a
 reduction "integrates the base away". Neither reading is dispensable: the continuum carries the
-derivative and the measure, the discrete set carries the data. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
+derivative and measure, the discrete set carries the data. The fiber is a tensor power of ``\mathbb R^3``, fixed by the
 **tensor order** ``R``: ``V = \mathbb R`` (``R = 0``, scalar), ``\mathbb R^3`` (``R = 1``, vector, `FiberVector`),
 ``\mathbb R^3 \otimes \mathbb R^3 = \mathbb R^{3\times 3}`` (``R = 2``, second-order tensor, `FiberTensor2`),
 and higher (`FiberTensor3/4`).
@@ -89,7 +89,7 @@ structure: components refer to one fixed rectangular frame, indices are neither 
 lowered, and there is no metric to carry because it is the identity. This is what makes the bundle
 trivial and flat rather than merely *modelled* as such, and it is why the bundle vocabulary here
 organizes the code without promising machinery on manifolds — the tensors are Cartesian tensors in the
-classical continuum-mechanics sense. **Do not introduce curvilinear-coordinate machinery, explicit
+classical continuum-mechanics sense, save that cross products and curls flip sign under reflection. **Do not introduce curvilinear-coordinate machinery, explicit
 metric tensors, or a vector/covector distinction** unless the package design changes to need them: each
 would make the frame a variable the whole operation set has to carry, and none has a consumer. A
 section
