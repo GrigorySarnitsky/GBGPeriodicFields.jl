@@ -18,7 +18,8 @@ design that does not depend on which base is used. The parts are:
   written once here so that one set of generated kernels serves both field and point-value
   sections;
 - the fused fiberwise executor [`_fiberwise_pass!`](@ref) — one portable kernel and one
-  slab-threaded CPU loop that run every stamped per-element values function, the execution route
+  slab-threaded CPU loop running every stamped **values function**, a pure scalar function taking
+  one element per input and returning that element's outputs, the execution route
   for multi-output fiberwise operations;
 - the **fiber adapter** behind `map!`/`map` — the pure-fiber wrapper that assembles a base point's
   components into a fiber, applies the caller's function, and flattens the result back, so an
