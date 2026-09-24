@@ -156,7 +156,7 @@ end
 # ## Diagnostics
 #
 # Kinetic energy, dissipation and the energy spectrum are all package reductions: `inner(f,g)`
-# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum` of the spectral velocity `uh` with the multipliers `m` the inner resolved over wavenumber shells, so the shell
+# ``\equiv \langle f\cdot g\rangle`` and `radial_spectrum` of the spectral velocity `uh` with the multipliers `m` (the wavenumber arrays the derivatives use) the inner resolved over wavenumber shells, so the shell
 # sum recovers it — ``\sum_\kappa E(\kappa) = \tfrac{1}{2}\langle\lvert u\rvert^{2}\rangle = k``, the turbulent
 # kinetic energy. No `field_data` loops. The CFL speed uses `maximum(abs, field_data(u))` — an
 # allocation-free reduction; `lpnorm(u, Inf)` would be the true ``\sup\lvert u\rvert`` but allocates a whole
@@ -231,12 +231,12 @@ function rhs!(Nh, u, ω, ws, m, plans, dealias)
   return Nh
 end
 
-# One integrating-factor RK2 (Heun) step, fully in place. The integrating factor
+# This function takes one integrating-factor RK2 (Heun) step, fully in place. The integrating factor
 # ``\mathcal{E} = \exp(-\nu \kappa^{2}\Delta t)`` (``\nu``, ``\Delta t`` are physics the package never
 # sees) is applied with `exponential_convolve!`, which evaluates it per mode from the wavenumber arrays,
-# so no kernel field is built, stored, or read. Assumes `ws.u`, `ws.ω0` already hold the START-of-step
-# physical velocity & vorticity (the loop fills them, and also uses them for the diagnostics), so the first
-# stage reuses them — no recomputation. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
+# so no kernel field is built, stored, or read. It assumes `ws.u`, `ws.ω0` already hold the START-of-step
+# physical velocity & vorticity (the loop fills them and uses them for the diagnostics), so the first
+# stage reuses them. With ``\hat{N}`` the de-aliased projected nonlinearity (the buffers
 # `ws.k1`, `ws.k2` hold ``\hat{N}_1``, ``\hat{N}_2``):
 #
 # ```math
@@ -429,7 +429,7 @@ function run_hist(p::Params)
   # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
   # the literature usually plots, since ``C`` dots the velocity at the two points
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. On the Lagrangian side
-  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
+  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`) gives the integral time over
   # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
