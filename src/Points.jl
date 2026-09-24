@@ -207,10 +207,10 @@ One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`]
 [`VectorPointValues`](@ref) for orders `0` and `1`, which the constructor enforces), sampled at `M` points — the point-set counterpart of a
 [`TensorFieldPhysical`](@ref GBGPeriodicFields.Fields.TensorFieldPhysical).
 
+The constructor written without an explicit `TensorPointValues{R}` infers the order as `ndims(data) - 1`.
+
 The fields are
 - `data` — the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
-
-The constructor written without an explicit `TensorPointValues{R}` infers the order as `ndims(data) - 1`.
 """
 struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPointValues{T, R}
   data::A
@@ -1405,6 +1405,10 @@ presents in-box positions to a caller bucketing by cell index. It discards windi
 mean-square-displacement diagnostic must run on unwrapped positions, which is why displacement
 and wrapping are separate operations rather than one.
 
+The reduction runs in place and returns `points`. The domain's element type must match the point
+set's; a mixed pair is refused, never converted. To wrap in the same pass as a displacement, use
+the `grid` form of [`displace!`](@ref).
+
 !!! warning "The endpoint is folded, and non-finite coordinates pass through non-finite"
     Floating-point `mod` can return exactly ``L_a`` for a coordinate a hair below the origin
     (measured: `mod(-1e-20, 2π) === 2π`), so the excluded endpoint is folded back to ``o_a``
@@ -1412,10 +1416,6 @@ and wrapping are separate operations rather than one.
     `NaN` and `Inf` and would silently rewrite a diverged trajectory into a tidy in-box
     position — a non-finite coordinate comes out non-finite (an infinity as `NaN`, `mod`'s own
     image of it), never boxed.
-
-The reduction runs in place and returns `points`. The domain's element type must match the point
-set's; a mixed pair is refused, never converted. To wrap in the same pass as a displacement, use
-the `grid` form of [`displace!`](@ref).
 """
 function wrap!(points::PointSet, grid::Grid3D)
   _check_displacement_domain(points, grid)

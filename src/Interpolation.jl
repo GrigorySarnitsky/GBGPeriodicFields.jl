@@ -191,12 +191,6 @@ are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 
 The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
 
-The fields are
-- `neighbours` — the stencil half-width ``n``, as passed.
-- `smoothness` — the continuity order ``m``, as passed.
-- `coefficients` — the weight polynomial's coefficients, derived from ``(n, m)`` rather than stored
-  independently, which is why [`write_scheme`](@ref) persists the two parameters and no dataset.
-
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) wherever the whole
 stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
 the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
@@ -210,6 +204,12 @@ Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point 
   * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
   * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
+
+The fields are
+- `neighbours` — the stencil half-width ``n``, as passed.
+- `smoothness` — the continuity order ``m``, as passed.
+- `coefficients` — the weight polynomial's coefficients, derived from ``(n, m)`` rather than stored
+  independently, which is why [`write_scheme`](@ref) persists the two parameters and no dataset.
 """
 struct LalescuSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -245,16 +245,15 @@ linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of 
 pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
 type the weight coefficients are stored in (`Float64` by default).
 
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 
 The fields are
 - `neighbours` — the stencil half-width ``n``, as passed.
 - `coefficients` — the cardinal-basis weights, derived from ``n`` rather than stored
   independently, which is why [`write_scheme`](@ref) persists the parameter and no dataset.
-
-# References
-
-  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
-  * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 """
 struct LagrangeSpline{N2, M2, T<:AbstractFloat, L} <: AbstractSplineScheme{N2, M2, T, L}
   neighbours::Int
@@ -1687,6 +1686,8 @@ Nyquist content is not pointwise divergence-free in the continuum).
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.
 
+Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+
 The fields are:
 
 - `width` — the gridding stencil width in nodes, as resolved from `tol`.
@@ -1699,8 +1700,6 @@ The fields are:
 - `deconvolution` — the per-mode reciprocal of the window's transform, dividing out the gridding.
 - `oversampled_physical`, `oversampled_spectral` — the work buffers, whose contents are scratch: the
   physical one is a template copied per call and never mutated in place.
-
-Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 """
 struct NUFFT{T, PL, DC, PP, SP, LO} <: AbstractTransferScheme
   width::Int
@@ -2008,6 +2007,8 @@ The arguments are:
 - `scheme` — the scheme to write: a `LalescuSpline`, a `LagrangeSpline`, or
   `DirectDFT`.
 
+Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
+
 !!! warning "NUFFT is deliberately not persistable"
     Every other scheme *is* its parameters, which is what makes a few attributes a faithful record.
     A [`NUFFT`](@ref) is not: it owns oversampled FFT plans and a deconvolution window built against
@@ -2016,8 +2017,6 @@ The arguments are:
     which is likewise rebuilt rather than moved when storage families change. Rebuild it from the
     reference field the caller restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
     the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.
-
-Provided by a package extension, so it is available only when [`HDF5.jl`](https://github.com/JuliaIO/HDF5.jl) is loaded.
 """
 function write_scheme end
 

@@ -981,22 +981,6 @@ The arguments are:
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
   right — see the warning below. Build it with the kernel builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``k^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
-!!! note "The unit weight and `inner` agree numerically, not bitwise"
-    ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
-    `inner` — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
-    same threaded fixed tree, so the residue is the weighted pass carrying a multiplication by one
-    through each mode rather than a different summation order. That matters where code comparing
-    against a stored number swaps one for the other.
-
-!!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
-    Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
-    for free. A `StoredKernel` cannot: its storage is `Complex{T}` by construction, so a materialized
-    `spectral_cutoff` and a materialized `translation_kernel` have the same type. Telling them
-    apart needs a full extra pass over the coefficients, which this reduction's single pass does not
-    permit — so that class keeps the real-part behaviour, and a complex weight reaching it returns a
-    number rather than raising. It is the one route by which a phase kernel can serve as a weight and
-    answer a question you did not ask.
-
 It is spectral-only, a Parseval reduction like the spectral `inner`.
 
 Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
@@ -1022,6 +1006,22 @@ threads are added — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
 than the radial reductions [`radial_spectrum`](@ref) / [`radial_correlation`](@ref), which sweep every mode with
 a scatter-add binning pass (and, for the correlation, an inverse transform).
+
+!!! note "The unit weight and `inner` agree numerically, not bitwise"
+    ``\\langle f, 1 \\cdot f\\rangle`` is ``\\langle f, f\\rangle``, so a unit weight reproduces
+    `inner` — measured to within ``10^{-15}`` relative, not to the last bit. Both reduce on the
+    same threaded fixed tree, so the residue is the weighted pass carrying a multiplication by one
+    through each mode rather than a different summation order. That matters where code comparing
+    against a stored number swaps one for the other.
+
+!!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
+    Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
+    for free. A `StoredKernel` cannot: its storage is `Complex{T}` by construction, so a materialized
+    `spectral_cutoff` and a materialized `translation_kernel` have the same type. Telling them
+    apart needs a full extra pass over the coefficients, which this reduction's single pass does not
+    permit — so that class keeps the real-part behaviour, and a complex weight reaching it returns a
+    number rather than raising. It is the one route by which a phase kernel can serve as a weight and
+    answer a question you did not ask.
 """
 function weighted_inner end
 
@@ -1344,20 +1344,6 @@ The shells are CENTRED on their nominal wavenumber — shell ``m`` collects
 property of the grid alone, identical for every field on it, so two spectra are directly comparable and a
 co-spectrum (which may be negative) is handled by the same rule.
 
-!!! note "For an exact spectral moment, do not weight the abscissa"
-    Reporting each shell's energy-weighted mean wavenumber would make the first moment
-    ``\\sum_m \\kappa_m E(\\kappa_m)`` exact, but it is the wrong tool: the abscissa would then depend on
-    the field, so two spectra on one grid would arrive on different ``\\kappa`` grids, and a co-spectrum
-    would divide by a weight that can vanish or change sign. Take the moment directly instead —
-    [`weighted_inner`](@ref) against a radial symbol is exact and involves no binning at all:
-
-    ```julia
-    # ⟨f, |k| f⟩, exactly
-    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), multipliers))
-    # ⟨f, −Δf⟩, the Dirichlet energy
-    weighted_inner(f, radial_kernel(identity, multipliers))
-    ```
-
 Shells run from ``0`` to the corner wavenumber, so the sum covers *all* modes (an exact `inner`
 refinement); on a de-aliased field high-``|k|`` shells are empty. On a non-cubic box shells
 beyond the inscribed sphere of the sampled band — shell index ``\\min_a k_a^{\\mathrm{Nyq}} / \\Delta k``,
@@ -1371,6 +1357,20 @@ scatter-add binning pass over the modes that derives each mode's shell, fiber co
 Parseval weight from its index — no full-grid staging array is built — costing more than a plain
 reduction like `inner` only by the binning — whose accumulators take atomic (concurrency-safe) updates,
 since several modes land in one shell — and a square root per mode.
+
+!!! note "For an exact spectral moment, do not weight the abscissa"
+    Reporting each shell's energy-weighted mean wavenumber would make the first moment
+    ``\\sum_m \\kappa_m E(\\kappa_m)`` exact, but it is the wrong tool: the abscissa would then depend on
+    the field, so two spectra on one grid would arrive on different ``\\kappa`` grids, and a co-spectrum
+    would divide by a weight that can vanish or change sign. Take the moment directly instead —
+    [`weighted_inner`](@ref) against a radial symbol is exact and involves no binning at all:
+
+    ```julia
+    # ⟨f, |k| f⟩, exactly
+    weighted_inner(f, radial_kernel(k2 -> sqrt(k2), multipliers))
+    # ⟨f, −Δf⟩, the Dirichlet energy
+    weighted_inner(f, radial_kernel(identity, multipliers))
+    ```
 """
 function radial_spectrum end
 

@@ -537,15 +537,6 @@ The arguments are:
 \\texttt{destination} = \\alpha  a + \\beta  b.
 ```
 
-!!! note "Here α and β weight the two inputs, not the destination"
-    Almost every in-place operation in the package uses trailing `α`, `β` that
-    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
-    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
-    forms, which carry this same combination into a fused convolution — and it is the exception the
-    name announces: it *is* the weighted combination, so its `α`
-    and `β` sit between the operands they weight and there is no accumulate form — pass
-    `b === destination` when you want one.
-
 # The kernel-composed form
 
 Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, held either as one coefficient
@@ -568,6 +559,15 @@ method serves every tensor order, and the write stays coefficientwise.
 The additional argument is:
 - `kernel` — the transfer function ``\\hat g``, in any of its storage classes, exactly as `convolve!`
   takes it.
+
+!!! note "Here α and β weight the two inputs, not the destination"
+    Almost every in-place operation in the package uses trailing `α`, `β` that
+    accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
+    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
+    forms, which carry this same combination into a fused convolution — and it is the exception the
+    name announces: it *is* the weighted combination, so its `α`
+    and `β` sit between the operands they weight and there is no accumulate form — pass
+    `b === destination` when you want one.
 """
 function combine! end
 

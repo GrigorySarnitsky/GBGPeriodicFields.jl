@@ -135,6 +135,12 @@ _validate_fft_dims(d::NTuple{3, Int}) = (1 ≤ d[1] ≤ 3) && (1 ≤ d[2] ≤ 3)
 
 Uniform three-dimensional grid for a periodic rectangular domain.
 
+The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along
+every axis. The two-argument constructor computes it and is the one to prefer; the four-argument form
+checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain.
+Every grid size must be positive, every domain length finite and positive, and every origin
+coordinate finite.
+
 The fields are
 - `grid_size::NTuple{3, Int}` — the number of grid points in each spatial direction.
 - `domain_size::NTuple{3, T}` — the length of the domain in each spatial direction.
@@ -142,12 +148,6 @@ The fields are
   Stored rather than recomputed, but **not independent** — it must equal `domain_size ./ grid_size`,
   which the four-argument constructor enforces.
 - `origin::NTuple{3, T}` — the physical coordinates of the first grid point.
-
-The grid is uniform, so the spacing is not independent: it must equal `domain_size ./ grid_size` along
-every axis. The two-argument constructor computes it and is the one to prefer; the four-argument form
-checks what it is handed and throws an `ArgumentError` on a spacing that contradicts the domain.
-Every grid size must be positive, every domain length finite and positive, and every origin
-coordinate finite.
 """
 struct Grid3D{T<:AbstractFloat}
   grid_size::NTuple{3, Int}
@@ -432,11 +432,6 @@ function field_data end
 
 Scalar field in physical representation, stored as its values on a three-dimensional physical grid.
 
-The fields are
-- `values_at_grid` — the real scalar values, one per grid point.
-- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
-
 The function constructor constructs a scalar field in physical representation by sampling a real-valued function on a three-dimensional physical grid.
 The arguments are:
 
@@ -452,6 +447,11 @@ Broadcasting over scalar fields in physical representation is lifted to `values_
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `values_at_grid` — the real scalar values, one per grid point.
+- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
 """
 struct ScalarFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 3}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldPhysical{T, 0}
   values_at_grid::A
@@ -505,11 +505,6 @@ end
 
 Scalar field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The fields are
-- `fourier_coefficients` — the complex Fourier coefficients, in real-FFT storage.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) giving the transformed dimensions and the real-FFT half dimension.
-
 The coefficient array has shape `field_spectral_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
@@ -520,6 +515,11 @@ write into `destination.fourier_coefficients`, while field-valued out-of-place d
 All such operations are coefficientwise; for example, `.*` does not represent a pseudospectral product of scalar fields.
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `fourier_coefficients` — the complex Fourier coefficients, in real-FFT storage.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) giving the transformed dimensions and the real-FFT half dimension.
 """
 struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, 0}
   fourier_coefficients::Â
@@ -575,11 +575,6 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
 
 Vector field in physical representation, stored as its components on a three-dimensional physical grid.
 
-The fields are
-- `values_at_grid` — the real vector components, stored `values_at_grid[i, j, k, α]` with ``\\alpha = 1, 2, 3``.
-- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
-
 The function constructor constructs a vector field in physical representation by sampling a real vector-valued function on a three-dimensional physical grid.
 The arguments are:
 
@@ -597,6 +592,11 @@ write into `destination.values_at_grid`, while field-valued out-of-place dotted 
 These operations are storage-wise and componentwise.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `values_at_grid` — the real vector components, stored `values_at_grid[i, j, k, α]` with ``\\alpha = 1, 2, 3``.
+- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
 """
 struct VectorFieldPhysical{T<:AbstractFloat, A<:AbstractArray{T, 4}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldPhysical{T, 1}
   values_at_grid::A
@@ -653,11 +653,6 @@ end
 
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The fields are
-- `fourier_coefficients` — the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with ``\\alpha = 1, 2, 3``; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(1))`.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
-
 The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
@@ -665,6 +660,11 @@ write into `destination.fourier_coefficients`, while field-valued out-of-place d
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `fourier_coefficients` — the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with ``\\alpha = 1, 2, 3``; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(1))`.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
 """
 struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, 1}
   fourier_coefficients::Â
@@ -732,11 +732,6 @@ field_data(field::VectorFieldSpectral) = field.fourier_coefficients
 
 Tensor field of order ``R \\ge 2`` in physical representation, stored as its components on a three-dimensional physical grid.
 
-The fields are
-- `values_at_grid` — the real tensor components, stored `values_at_grid[i, j, k, αs...]` with each tensor index of length `3`.
-- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
-
 The array has shape `field_physical_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R` as the array's dimension count minus three.
 
 The function constructor constructs a tensor field of order ``R \\ge 2`` in physical representation by sampling a real tensor-valued function on a three-dimensional physical grid.
@@ -756,6 +751,11 @@ write into `destination.values_at_grid`, while field-valued out-of-place dotted 
 These operations are storage-wise and componentwise. They do not represent tensor contractions.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `values_at_grid` — the real tensor components, stored `values_at_grid[i, j, k, αs...]` with each tensor index of length `3`.
+- `grid` — the [`Grid3D`](@ref) on which the values are sampled.
+- `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
 """
 struct TensorFieldPhysical{R, T<:AbstractFloat, A<:AbstractArray{T}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldPhysical{T, R}
   values_at_grid::A
@@ -833,11 +833,6 @@ end
 
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The fields are
-- `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, αs...]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
-
 The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
@@ -845,6 +840,11 @@ write into `destination.fourier_coefficients`, while field-valued out-of-place d
 These operations are storage-wise and componentwise. They do not represent pseudospectral products or tensor contractions.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
+
+The fields are
+- `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, αs...]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 """
 struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, R}
   fourier_coefficients::Â
@@ -1302,6 +1302,12 @@ The arguments are:
 - `fft_timelimit` — the planner time limit, used when `fft_flags` is given.
 Only the spatial dimensions `field_layout(physical).fft_dims` are transformed; tensor-fiber dimensions are left untransformed.
 
+The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
+Fourier transform on a periodic box is defined on the box, and a rank-``R`` field is that transform
+applied along a fiber, so one pair of plans serves scalar, vector and tensor fields alike. Construct a
+separate `FieldTransformPlans` object for each CPU/GPU backend and element type, but not for each
+tensor order.
+
 !!! warning "The default `ESTIMATE` planner can badly mis-plan single-precision CPU transforms"
     On the CPU the plans are `FFTW` plans, and with `fft_flags` unset `FFTW` picks the algorithm by its
     built-in `ESTIMATE` heuristic — instant, but a guess. On some CPUs that guess is far off: measured
@@ -1331,12 +1337,6 @@ The fields are
 - `component_scratch::S` — a component-sized buffer, or `nothing`. It exists only where a device
   backend would refuse a component's starting address, and is `nothing` for every grid whose
   component offsets align — which includes every grid a solver is likely to run.
-
-The plans are backend-, array-type- and scalar-type-specific, and **carry no tensor order**: a real
-Fourier transform on a periodic box is defined on the box, and a rank-``R`` field is that transform
-applied along a fiber, so one pair of plans serves scalar, vector and tensor fields alike. Construct a
-separate `FieldTransformPlans` object for each CPU/GPU backend and element type, but not for each
-tensor order.
 """
 struct FieldTransformPlans{T<:AbstractFloat, PF, PI, G<:Grid3D{T}, L<:RealFourierLayout, S}
   grid::G
@@ -1777,6 +1777,15 @@ zero, so that derivatives of real fields stay real, while its squared wavenumber
 ``k^2``, so that the Laplacian and Poisson-type solves stay correct. On an odd-length axis there is no
 exact Nyquist mode and no special treatment is applied.
 
+Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
+final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
+not. It is in the type rather than in a field because it decides, statically, whether two multiplier
+sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
+the same way from the same inputs, so they agree by construction. That is what lets `convolve` collapse
+two radial kernels into one without testing anything at run time, and it is why a caller supplying its
+own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
+grid's own wavenumbers.
+
 The fields are:
 
 - `grid`, `fourier_layout` — the grid and Fourier layout above, stored as passed.
@@ -1788,15 +1797,6 @@ The fields are:
   reach them through `_wavenumber_broadcast_view`, never directly.
 - `squared_wavenumber_view_1`, `squared_wavenumber_view_2`, `squared_wavenumber_view_3` — the same for
   the squared family, reached through `_squared_wavenumber_broadcast`.
-
-Whether the arrays were derived from the grid or supplied by the caller is recorded in the type, as a
-final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
-not. It is in the type rather than in a field because it decides, statically, whether two multiplier
-sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
-the same way from the same inputs, so they agree by construction. That is what lets `convolve` collapse
-two radial kernels into one without testing anything at run time, and it is why a caller supplying its
-own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
-grid's own wavenumbers.
 """
 struct FieldSpectralMultipliers{T<:AbstractFloat, K1<:AbstractArray{T, 1}, K2<:AbstractArray{T, 1}, K3<:AbstractArray{T, 1}, S1<:AbstractArray{T, 1}, S2<:AbstractArray{T, 1}, S3<:AbstractArray{T, 1}, V1<:AbstractArray{T, 3}, V2<:AbstractArray{T, 3}, V3<:AbstractArray{T, 3}, W1<:AbstractArray{T, 3}, W2<:AbstractArray{T, 3}, W3<:AbstractArray{T, 3}, Canonical} 
   grid::Grid3D{T}
@@ -2439,6 +2439,18 @@ The whole surface a solver needs is covered: the six field types, the point-valu
 layout, the origin, the tensor order — is preserved by construction, since it is rebuilt through the
 same allocator the package uses everywhere else.
 
+Element-type conversion is deliberately **not** part of this: a transfer that silently changed
+precision would change what a solver computes. No operation in this package converts precision today.
+
+# Examples
+
+```julia
+u_device      = adapt(CuArray, u)                 # host  -> device
+u_host        = adapt(Array, u_device)            # device -> host
+mult_device   = adapt(CuArray, multipliers)       # must share the field's family
+plans_device  = adapt(CuArray, plans)             # rebuilt on the device
+```
+
 !!! warning "Moving to the family an object is already in returns it unchanged"
     Following `Adapt.jl` and `convert`, adapting to the family an object already belongs to is the
     identity: it returns the very same object, sharing storage, rather than a copy. Write `copy` when
@@ -2453,17 +2465,6 @@ same allocator the package uses everywhere else.
     concept — `cuFFT` rejects them outright — so a move to any non-host family does **not apply** them
     when building the new plan, but the returned plans still **record** the original flags, so a later
     move back to the host rebuilds them with the intent they were created with.
-
-Element-type conversion is deliberately **not** part of this: a transfer that silently changed
-precision would change what a solver computes. No operation in this package converts precision today.
-
-# Examples
-```julia
-u_device      = adapt(CuArray, u)                 # host  -> device
-u_host        = adapt(Array, u_device)            # device -> host
-mult_device   = adapt(CuArray, multipliers)       # must share the field's family
-plans_device  = adapt(CuArray, plans)             # rebuilt on the device
-```
 """
 adapt
 

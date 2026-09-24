@@ -287,19 +287,6 @@ are always some real field's. It also carries the true squared wavenumber at an 
 the value a magnitude-dependent multiplier wants there, unlike the derivative wavenumbers, which are
 zeroed at that mode — so no case analysis is needed anywhere in the family.
 
-The fields are
-- `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
-- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
-  Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
-  the grid) or a caller's own (supplied through the explicit constructor, which validates lengths and
-  not values) is part of their type, and it decides
-  whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
-  the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
-  coordinates keeps both operands as a [`ProductKernel`](@ref), since one composite can carry only one
-  set of coordinates.
-- `grid`, `layout` — the base and Fourier layout the kernel was built for, which a call checks
-  the field against.
-
 !!! note "Storing no coefficients is not the same as costing nothing"
     The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` it is
     broadcast over the field's components, so it is evaluated **once per component** rather than once
@@ -323,6 +310,19 @@ The fields are
     both, since ``\\exp(c|k|^2) = \\prod_a \\exp(ck_a^2)``, which is why `exponential_convolve!` exists as
     its own fused operation. What this class buys is the general case, where no such factorization is
     available.
+
+The fields are
+- `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
+- `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
+  Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
+  the grid) or a caller's own (supplied through the explicit constructor, which validates lengths and
+  not values) is part of their type, and it decides
+  whether composing two of these kernels collapses into one: two kernels over canonical multipliers of
+  the same type hold the same coordinates by construction and merge, while a kernel over a caller's own
+  coordinates keeps both operands as a [`ProductKernel`](@ref), since one composite can carry only one
+  set of coordinates.
+- `grid`, `layout` — the base and Fourier layout the kernel was built for, which a call checks
+  the field against.
 """
 struct RadialKernel{T, F, M, G, L} <: SpectralKernel{T}
   sigma::F
@@ -473,17 +473,17 @@ the measured crossover.
 Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
 ``1/\\prod_a g_a = \\prod_a (1/g_a)`` — the deconvolution an assignment window is built for.
 
-The fields are
-- `factor_1`, `factor_2`, `factor_3` — the per-axis factors, each shaped to broadcast along its
-  own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
-- `grid`, `layout` — the base and Fourier layout the factors were built for, which a call
-  checks the field against.
-
 !!! note "Separable, not radial"
     A kernel that depends only on the wavenumber magnitude is usually *radial*, not separable — a
     general function of ``k_1^2 + k_2^2 + k_3^2`` does not factor into per-axis terms, the exponential
     being the notable exception (``\\exp(c|k|^2)`` factors, and has its own operation). This type is for
     kernels that genuinely do factor, the typical case being a per-axis phase.
+
+The fields are
+- `factor_1`, `factor_2`, `factor_3` — the per-axis factors, each shaped to broadcast along its
+  own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
+- `grid`, `layout` — the base and Fourier layout the factors were built for, which a call
+  checks the field against.
 """
 struct SeparableKernel{T, V, G, L} <: SpectralKernel{T}
   factor_1::V
@@ -1563,15 +1563,6 @@ The arguments are:
   values (as a materialized radial kernel would). The pair enters as scale times field so a
   changed scale costs nothing — the resident ``\\hat w`` is built once.
 
-!!! warning "The offset must be real-valued and even"
-    The exponential of a real, even multiplier keeps a real field real, and **both** halves of that
-    hypothesis are the caller's to meet. A complex-valued `offset` breaks the Hermitian symmetry — and
-    so does a real-valued one that is not even in ``k`` on the self-conjugate planes, where both
-    members of a ``\\pm k`` pair are stored and nothing forces them equal. Either way the inverse
-    transform then silently keeps only the Hermitian part, exactly as a caller-built kernel can
-    under `convolve!`. There is deliberately no *scalar* exponent
-    offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
-
 The single-operand accumulate form computes
 
 ```math
@@ -1586,6 +1577,15 @@ Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a wei
 twin of the kernel-composed `combine!` method, and the fusion `divergence!` and
 `helmholtz_projection!` perform when given a trailing kernel. With `b === destination` it is the
 filtered accumulate, computed in place.
+
+!!! warning "The offset must be real-valued and even"
+    The exponential of a real, even multiplier keeps a real field real, and **both** halves of that
+    hypothesis are the caller's to meet. A complex-valued `offset` breaks the Hermitian symmetry — and
+    so does a real-valued one that is not even in ``k`` on the self-conjugate planes, where both
+    members of a ``\\pm k`` pair are stored and nothing forces them equal. Either way the inverse
+    transform then silently keeps only the Hermitian part, exactly as a caller-built kernel can
+    under `convolve!`. There is deliberately no *scalar* exponent
+    offset: a constant ``s_0`` in the exponent is ``e^{s_0}`` times the kernel and belongs in ``α``.
 """
 function exponential_convolve! end
 

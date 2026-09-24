@@ -1176,11 +1176,6 @@ The arguments are:
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying the derivative wavenumbers, which
   must match the field's grid, layout, element type and [storage family](@ref GBGPeriodicFields.GBGPeriodicFields).
 
-!!! warning "The zero mode has no preimage and is returned as zero"
-    A constant field is the curl of nothing, so the ``k = 0`` coefficient is written zero, as is each
-    Nyquist corner where every derivative wavenumber vanishes. The recovered field has zero mean, the convention
-    [`inverse_laplacian!`](@ref) uses for the same reason.
-
 Because ``\\nabla\\times(\\nabla\\times u) = \\nabla(\\nabla\\cdot u) - \\Delta u`` and the result is
 divergence-free, the operator is a Laplacian solve composed with a curl, and in spectral
 representation it is one coefficientwise pass,
@@ -1192,6 +1187,11 @@ representation it is one coefficientwise pass,
 with ``a`` the Nyquist-zeroed derivative wavenumbers and the ``k = 0`` mode set to zero. Numerator and
 denominator share one family, so ``\\nabla\\times(\\nabla\\times)^{-1}`` reproduces a divergence-free
 field exactly at every mode the warning does not zero, not only on the resolved band.
+
+!!! warning "The zero mode has no preimage and is returned as zero"
+    A constant field is the curl of nothing, so the ``k = 0`` coefficient is written zero, as is each
+    Nyquist corner where every derivative wavenumber vanishes. The recovered field has zero mean, the convention
+    [`inverse_laplacian!`](@ref) uses for the same reason.
 """
 function inverse_curl! end
 
