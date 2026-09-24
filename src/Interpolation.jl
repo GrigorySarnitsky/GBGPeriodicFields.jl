@@ -1112,9 +1112,8 @@ fresh result instead.
 
 The arguments are:
 - `out` — the point-value section written with the gathered values. It must match `field` in tensor
-  order and cover the same number of points as `points`. The local-spline transfer is one of the few
-  layers that serves tensor orders above the usual ceiling: it carries any order the field types can
-  hold, third-order tensors included.
+  order and cover the same number of points as `points`. Where most operations stop at order 2, the
+  local-spline transfer serves any tensor order the field types can hold, order 3 included.
 - `field` — the field to sample, in the representation the `scheme` acts on.
 - `points` — the [`PointSet`](@ref) of positions to evaluate at.
 - `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
