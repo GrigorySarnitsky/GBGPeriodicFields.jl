@@ -1801,7 +1801,7 @@ end
     map!(φ, destination, sources...)
     map!(φ, destination, source, α, β)
 
-Apply an arbitrary fiber map `φ` at every base point, writing the result into `destination` — the
+Apply an arbitrary fiber map `φ` at every base point, writing into and returning `destination` — the
 section-valued companion of the mapped reductions (`mean(det, A)`, `maximum(norm, u)`): where those reduce
 `φ` of the fiber over the base, this writes it as a field. It runs in one pass, building no intermediate
 section, in parallel (a device kernel on a GPU, a loop threaded over slabs on a CPU); being a per-point transform with disjoint writes, it is bitwise thread-count-invariant.
