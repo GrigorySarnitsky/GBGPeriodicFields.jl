@@ -55,14 +55,14 @@ These words recur in every operation's documentation:
     `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
     docstring. The field and point-value types are
     parameterized on `R`, so higher orders can be constructed and several layers serve them
-    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and the local-spline
-    transfer). Others do not: the fiber-preserving and mapped reductions, `map`, and the
-    decomposition family are defined for ``R \\le 2`` and **throw** above it.
+    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and spline
+    interpolation between grid and points). Others do not: the reductions returning a fiber or taking
+    a fiber map (`mean(det, A)`), `map`, and `sym`/`skew`/`dev` are defined for ``R \\le 2`` and
+    **throw** above it.
 
     General `R` was deferred rather than declined, to ship a usable field layer for the second-order
     surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
-    raises — none returns a wrong answer — and a test lane pins that, so the boundary is visible
-    rather than a surprise.
+    raises — none returns a wrong answer — and a test lane pins that.
 
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
