@@ -11,8 +11,8 @@ this file carries the reasoning, the conceptual model (§2) and the writing and 
 
 This file is **self-contained**: every piece of notation — a mathematical symbol (in LaTeX) or a
 `code` identifier — is introduced in plain language at its first use, the meaning stated before or in
-the same sentence as the symbol. So it reads top-to-bottom, and each entry of the [decision log](@ref "Decision log — GBGPeriodicFields") reads on
-its own, without opening the source or another document. (Universally standard math — ``\nabla``,
+the same sentence as the symbol. So it reads top-to-bottom without opening the source or another document, as each entry of the separate
+[decision log](@ref "Decision log — GBGPeriodicFields") does. (Universally standard math — ``\nabla``,
 ``\Delta``, ``\int``, ``\mathbb R`` — may stand unglossed.) Keep it that way when editing.
 
 ## 1. Purpose and scope
@@ -934,7 +934,7 @@ separate field. Three properties make it the right fit:
    changes the data flow (a global precompute), so it is a recorded *future direction*, not a drop-in
    scheme. (The other once-planned alternative — exact spectral transfer — is **done**: the
    ``O(NM)`` `DirectDFT` oracle and the fast `NUFFT`, owned natively with no `NonuniformFFTs.jl`
-   dependency, under `AbstractTransferScheme`; decision 23.) See item 17 and the references below.
+   dependency, under `AbstractTransferScheme`; decision 23.) See decision 17 and the references below.
 2. **GPU-friendly** (the GPU-first invariant, [§1](@ref "1. Purpose and scope")): per-point interpolation is a gather
    of ``(2n{+}2)^3`` neighbours plus a fused multiply–add — embarrassingly parallel, no FFT, no
    global solve, no communication beyond the periodic stencil wrap. Anterpolation is the
