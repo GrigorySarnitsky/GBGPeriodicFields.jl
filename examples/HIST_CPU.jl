@@ -429,7 +429,7 @@ function run_hist(p::Params)
   # already the box size on this page — which is ``\tfrac{2}{3}L_{11}`` of the longitudinal scale
   # the literature usually plots, since ``C`` dots the velocity at the two points
   # and the per-component structure function ``S^{(E)}(r) = \tfrac{2}{3} (C(0) - C(r))``. On the Lagrangian side
-  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`), and the integral time, over
+  # the particle-velocity autocorrelation ``R(\tau)`` (from the recorded `V`) gives the integral time over
   # time lags of its normalized form, ``\tau_u = \int_0^\infty \rho_L(\tau)\,\mathrm{d}\tau``.
   rho_E = C ./ C[1]
   L_int = integral_scale(sep, C)
