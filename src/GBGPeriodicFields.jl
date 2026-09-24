@@ -49,8 +49,8 @@ These words recur in every operation's documentation:
   element type.
 
 !!! note "Scalar, vector and second-order tensors only"
-    Scalar, vector and second-order tensor sections — ``R = 0, 1, 2`` — are the supported
-    surface: no operation below reaches past it, though not every operation spans all three. Some are
+    Sections of tensor order ``R = 0, 1, 2`` — scalar, vector and second-order tensor — are the
+    supported surface: no operation reaches past it, though not all span all three. Some are
     defined at one order by their own mathematics — `det` and `tr` need a matrix, `cov` a vector,
     `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
     docstring. The field and point-value types are
