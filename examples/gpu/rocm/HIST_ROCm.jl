@@ -421,7 +421,7 @@ function run_hist(p::Params)
   τ_η = sqrt(p.ν / ε)                        # Kolmogorov time
   λ   = uprime * sqrt(15 * p.ν / ε)          # Taylor microscale (length), λ = u'√(15ν/ε)
   kmaxη = (2 / 3) * (p.N / 2) * (2π / p.L) * η        # the 2π/L makes the wavenumber physical
-  # divergence check (should be ~`Float32` roundoff): ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)``, via the package `l2norm`.
+  # The divergence check, at `Float32` round-off, is ``\lVert\nabla\cdot u\rVert / (\kappa_{\mathrm{rms}} \lVert u\rVert)`` with the energy-weighted rms wavenumber, via `l2norm`.
   divp = to_physical(divergence(uh, m), vplans)
   κ_rms = sqrt(weighted_inner(uh, radial_kernel(identity, m)) / max(inner(uh, uh), 1e-300))
   divrel = l2norm(divp) / (κ_rms * l2norm(u) + 1e-30)
