@@ -28,14 +28,14 @@ and need not repeat the convention.
 | ``q`` | the value a point carries (``q_p`` sits at ``x_p``) — sampled from a field, or a quantity of the point's own that anterpolation, interpolation's adjoint, deposits onto the grid | [`AbstractPointValues`](@ref) |
 | ``B`` | the **base** of the bundle picture — the set a section attaches values to: a `Grid3D`'s nodes, or a `PointSet`'s points. A subscripted ``N_B`` is its point count (``N`` or ``M``); the bare glyph is never a scalar | [`Grid3D`](@ref) / [`PointSet`](@ref) |
 | ``\Omega``, ``\lvert\Omega\rvert`` | the periodic box and its volume | [`Grid3D`](@ref) |
-| ``N`` | the grid-point count ``\prod_i N_i``, the product of the counts along the axes; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N``. A complexity expression may use either reading, and which one is always fixed by the shape it describes: the **storage** claims of the kernel and reduction families — ``O(N^3)`` for a full field, ``O(N)`` for a per-axis array, ``O(N^2)`` for a plane — count **per axis** on the cubic grids they describe, while the **transfer** costs ``O(NM)`` and ``O(N \log N + M)`` count the **total**. The two never mix inside one formula | [`prod(grid_size)`](@ref Grid3D) |
+| ``N`` | the grid-point count ``\prod_i N_i``, the product of the counts along the axes; on a uniform periodic grid this is equally the **cell** count, each node carrying the volume of one cell, which is why the docs use "grid points" and "grid cells" for the same ``N``. A complexity expression may use either reading, and which one is always fixed by the shape it describes: the **storage** claims of the kernels and reductions — ``O(N^3)`` for a full field, ``O(N)`` for a per-axis array, ``O(N^2)`` for a plane — count **per axis** on the cubic grids they describe, while the **transfer** costs ``O(NM)`` and ``O(N \log N + M)`` count the **total**. The two never mix inside one formula | [`prod(grid_size)`](@ref Grid3D) |
 | ``M`` | the number of points | [`npoints`](@ref) |
 | ``k`` | a wavenumber vector (``k_a`` is its ``a``-th component, ``\lvert k\rvert`` its magnitude) | [`FieldSpectralMultipliers`](@ref) |
 | ``a`` | the **derivative** wavenumber vector (``a_1, a_2, a_3`` its components) — the family the first-derivative operators multiply by, equal to ``k`` except that it is zeroed at an even-length axis's Nyquist frequency, which keeps derivatives of real fields real. The Laplacian instead uses the true ``\lvert k\rvert^2``, and the two families are stored separately for that reason. Standing alone or with a numeric subscript the glyph is this vector; *sitting in* a subscript (``k_a``, ``\Delta x_a``) it is an ordinary per-axis index | [`FieldSpectralMultipliers`](@ref) |
 | ``\kappa`` | a wavenumber-shell magnitude, ``\kappa = \lvert k\rvert`` — the radial coordinate a spectrum is resolved over | [`radial_spectrum`](@ref) |
 | ``h`` | a physical displacement (``h_a`` is its component along axis ``a``) | [`translation_kernel`](@ref) |
 | ``\Delta`` | before a field it is the Laplacian; before a coordinate or parameter it reads as "an increment of": ``\Delta x_a`` the grid spacing on axis ``a``, ``\Delta k`` the wavenumber-shell width (the box fundamental, in `radial_spectrum`), and ``\Delta t`` a timestep — which appears only in the examples, the package itself carrying no notion of time | [`laplacian`](@ref), [`radial_spectrum`](@ref) |
-| ``\hat f`` | the field ``f`` in spectral representation | [`to_spectral(f)`](@ref to_spectral) |
+| ``\hat f`` | the field ``f`` in spectral representation: its Fourier coefficients as the forward transform stores them | [`to_spectral(f)`](@ref to_spectral) |
 
 The worked turbulence example sets the wavenumber vector bold, as ``\mathbf{k}``, because it follows
 the turbulence convention in which italic ``k`` is the turbulent kinetic energy. That override is
@@ -59,7 +59,7 @@ of the table above.
 | ``\lVert\cdot\rVert`` | the ``L^2`` norm | [`l2norm`](@ref) |
 | ``\int f\,\mathrm{d}\mu`` | the integral against the base measure: cell volume on a grid, unit mass per point | [`integral`](@ref) |
 | ``\star`` | periodic convolution | [`convolve`](@ref) |
-| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** `assignment_window` writes ``W`` for the linear (CIC) "tent" cloud a point deposits and ``\hat W`` for its transfer function, not the gather operator; that cloud *is* the `LalescuSpline(0, 0)` weight, but the two are different objects | [`interpolate`](@ref), [`anterpolate`](@ref) |
+| ``W``, ``W^{\top}`` | interpolation (gather) and its adjoint anterpolation (scatter). **One deliberate reuse:** `assignment_window` writes ``W`` for the linear cloud-in-cell "tent" a point deposits and ``\hat W`` for its transfer function, not the gather operator; that cloud *is* the `LalescuSpline(0, 0)` weight, but the two are different objects | [`interpolate`](@ref), [`anterpolate`](@ref) |
 
 ## Scalar weights
 
