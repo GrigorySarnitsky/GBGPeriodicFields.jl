@@ -192,8 +192,8 @@ julia> threading_cutoff()
 Results do not depend on how many threads you used. The threaded routes write each output element
 once, from the same fused expression a serial run uses, so they are **bitwise** identical to the
 serial answer — which is what lets you tune the thread count without re-baselining anything you
-compare against. Two operations are the exception, and by nature rather than by oversight:
-[`anterpolate`](@ref) and [`radial_spectrum`](@ref) accumulate with atomics, so the summation order
+compare against. The exceptions are by nature rather than oversight: [`anterpolate`](@ref),
+[`radial_spectrum`](@ref) and [`radial_correlation`](@ref) accumulate with atomics, so the summation order
 varies between runs and the last bits with it.
 
 To compare against a serial run without restarting Julia, scope it with [`with_threading`](@ref);

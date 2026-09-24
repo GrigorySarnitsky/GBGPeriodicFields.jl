@@ -3111,13 +3111,13 @@ end
     embed_modes!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral,
                  α::Real, β::Real)
 
-Add a coarser field's Fourier modes into a finer field over the same box, leaving every other mode of
-`destination` untouched, and return `destination`.
+Write a coarser field's Fourier modes into a finer one over the same box, adding if `β` is nonzero,
+leave its other modes untouched, and return `destination`.
 
 Two grids of different sizes over one box resolve the same physical wavenumbers where they overlap,
 so a field on the coarser grid names a subset of the finer grid's modes. This writes exactly those,
 which is how content computed cheaply on a small grid — a forcing, a prescribed initial condition —
-reaches a large one without a transform and without touching the large field anywhere else. The cost
+reaches a large one without a transform. The cost
 is the coarse field's size. Use [`extract_modes!`](@ref) for the other direction.
 
 The arguments are:
