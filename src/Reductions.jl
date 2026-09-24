@@ -750,9 +750,8 @@ from it use [`l2norm`](@ref) or [`lpnorm`](@ref); to resolve the pairing over a 
 shell use [`radial_spectrum`](@ref) or [`radial_correlation`](@ref).
 
 For two fields in **spectral representation** `inner` returns the same value by Parseval's theorem with
-no inverse transform, applying the rfft half-spectrum weighting internally. This ``p = 2`` inner and
-`l2norm` are representation-invariant by Parseval, and `integral`/`mean` by the zero Fourier mode;
-`lpnorm` and `maximum`/`minimum`/`extrema` remain physical-only; `std`/`var` gained a scalar Parseval form.
+no inverse transform, counting twice each stored mode whose conjugate the real transform omits. This ``p = 2`` inner and
+`l2norm` are representation-invariant by Parseval, while `lpnorm` is physical-only.
 
 The arguments `f` and `g` are two compatible sections of equal tensor order. On a grid the pairing is the
 equal-weight average over the ``N`` cells (``\\Omega`` is the periodic box, ``|\\Omega|`` its volume); on a
@@ -770,9 +769,8 @@ exactly); under aliasing — both fields carrying Nyquist content, say — the d
 
 !!! note "The mixed spectral pair allocates one or two correction planes"
     In spectral representation `inner(f, f)` and `l2norm` run allocation-free, but the *mixed*
-    `inner(f, g)` materializes ``O(N^2)`` correction planes — the folded axis's zero plane always, and
-    its Nyquist plane as well when that axis has even length, so an odd folded axis pays for one plane
-    and an even one for two. That is small beside the ``O(N^3)`` field, and it is paid per call, where `inner(f, f)` pays
+    `inner(f, g)` materializes ``O(N^2)`` correction planes — the zero plane of the folded axis, the one the real transform halves, and its
+    Nyquist plane too when that axis is even, so an odd folded axis pays one plane and an even one two. That is small beside the ``O(N^3)`` field, paid per call, where `inner(f, f)` pays
     nothing. The fused alternative, a `dot` over a strided view, has no
     method on the AMD path (rocBLAS `dotc`), so one route serves every backend.
 """
