@@ -206,7 +206,7 @@ end
 # up to `k_force` at `E_force`, now pure package ops (identical to `HIST_CPU.jl`):
 # `band` is a `spectral_band` mask kernel; the band energy is
 # ``\tfrac{1}{2}\langle\lvert u_{\mathrm{band}}\rvert^{2}\rangle``, computed as
-# `FT(0.5) * inner(ws.tmp, ws.tmp)` (Parseval; the same-argument `inner(f, f)` is
+# `FT(0.5) * inner(ws.tmp, ws.tmp)` on the workspace's scratch field `ws.tmp` (Parseval; the same-argument `inner(f, f)` is
 # allocation-free); rescaling the in-band modes is one more `convolve` (scaling
 # preserves ``\nabla\cdot u = 0``). No precomputed mask / weight, no sum-reduction
 # by hand — all on-device.
