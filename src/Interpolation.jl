@@ -159,11 +159,11 @@ and anterpolation is its transpose, adding ``w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}
 ``q_p`` the value carried at ``x_p``) onto each of those same nodes. Concretely a scheme is a tensor product of 1D weight polynomials: a compact
 stencil of ``N_2 = 2n{+}2`` nodes, each weight a degree-``(M_2-1)`` polynomial in the fractional cell
 position ``t \\in [0, 1)``. The ``N_2 \\times M_2`` coefficient matrix (`[node, power]`) is precomputed
-once into an `SMatrix`, so it passes into the gather/scatter kernels by value (no device array). One of
+once into an `SMatrix` that the kernels take by value. One of
 the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`DirectDFT`](@ref) /
-[`NUFFT`](@ref) are the other. Only the spline family has a shared supertype: its members differ in
-their weights alone and so share a parametric interface, while a stateless `DirectDFT` and a
-plan-carrying `NUFFT` share no structure a supertype could hold.
+[`NUFFT`](@ref) are the other. Only the spline family has a shared supertype, its members differing in
+their weights alone. The constructor argument `n` is the stencil's half-width; in the signature `T`
+is the coefficient type and `L` the matrix length `N2 * M2`.
 
 Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 """
