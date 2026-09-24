@@ -4,7 +4,7 @@
 The unstructured base of the package's fiber-bundle model: off-grid sample positions and the
 field values sampled at them. A point set plays the role the grid plays in
 [`Fields`](@ref "Fields"), and point
-values are sections over it.
+values are [sections](@ref GBGPeriodicFields) over it.
 
 The parts are:
 
@@ -13,13 +13,13 @@ The parts are:
     domain wraps any coordinate, so the grid is supplied by the transfer operator at use time.
   * **Point-value sections.** [`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), and
     [`TensorPointValues`](@ref), gathered under [`AbstractPointValues`](@ref), mirror the field
-    tensor orders. They are representation-free, because a sampled value is always a
+    tensor orders. They have no spectral form, a sampled value being always a
     physical-space quantity.
   * **A full fiberwise algebra on the point values.** Addition, real scaling, scalar
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
     invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
-    carry, together with the arbitrary-fiber-map escape hatch `map!`/`map` — see
-    [`FieldAlgebra`](@ref) for each operation, documented once there. The algebra reuses the shared [`FiberSections`](@ref) formula builders and fused
+    carry, together with the arbitrary-fiber-map escape hatch `map!`/`map` — each
+    documented once, in [`FieldAlgebra`](@ref). The algebra reuses the shared [`FiberSections`](@ref) formula builders and fused
     values functions over the point-value section interface, so no per-component formula is written twice.
 
   * **Base-space motion.** [`displace!`](@ref) moves the points themselves along
