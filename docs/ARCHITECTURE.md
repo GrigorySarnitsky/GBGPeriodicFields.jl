@@ -401,20 +401,20 @@ rendered.) `Reductions` is the reference implementation.
 
 `Grid3D{T}` holds domain geometry; `RealFourierLayout` records the rfft layout.
 Field types are parameterized by scalar type `T<:AbstractFloat`:
-`ScalarFieldPhysical/Spectral`, `VectorFieldPhysical/Spectral`,
-`TensorFieldPhysical{2}/TensorFieldSpectral{2}`. Constant fiber values are
+`ScalarFieldPhysical`/`ScalarFieldSpectral`, `VectorFieldPhysical`/`VectorFieldSpectral`,
+`TensorFieldPhysical{2}`/`TensorFieldSpectral{2}`. Constant fiber values are
 StaticArrays aliases — `FiberVector{T} = SVector{3,T}`,
 `FiberTensor2{T} = SMatrix{3,3,T,9}` (plus `FiberTensor3/4`) — so fiber-fiber
-algebra comes from `StaticArrays`/`LinearAlgebra` and the package never defines it.
+algebra comes from `StaticArrays` and `LinearAlgebra`.
 **StaticArrays is a direct dependency**, not just the type-only `StaticArraysCore`:
 the package indexes fibers (`a[i]`, `A[i, j]`) and uses their algebra inside the
 generated kernels, so the core-types package alone leaves those operations undefined.
 
 Data layout is **fiber-last**: `(Nx, Ny, Nz)` for scalars, `(Nx, Ny, Nz, 3)` for
 vectors, `(Nx, Ny, Nz, 3, 3)` for tensors; spectral arrays are `Complex{T}` with
-the axis carrying the real transform halved per rfft — the first axis under the default
-`RealFourierLayout`, which may assign any of the three. Rationale: with column-major storage, each
-component slice `data[:, :, :, i(, j)]` is one contiguous block. That gives
+the axis the real transform halves being the first under the default
+`RealFourierLayout`, which may assign any of the three. With column-major storage, each
+component slice `data[:, :, :, i]` (or `data[:, :, :, i, j]`) is one contiguous block. That gives
 batched per-component FFTs, coalesced GPU access, pure streaming writes for
 elementwise kernels, and trivially chunkable index ranges for the CPU
 threading ([§9](@ref "9. Performance model and CPU threading")). Component access goes through views
@@ -451,7 +451,7 @@ transforming, so non-`!` calls never mutate their argument (the Julia convention
 while `!` calls stay allocation-light and document that the source may be consumed.
 
 `FieldSpectralMultipliers` holds six one-dimensional arrays: derivative
-wavenumbers `wavenumber_1..3` and `squared_wavenumber_1..3`, plus the grid and
+wavenumbers `wavenumber_1`–`wavenumber_3` and `squared_wavenumber_1`–`squared_wavenumber_3`, plus the grid and
 layout. It lives in **`Fields`**, as a sibling of `FieldTransformPlans`, because it
 is representation infrastructure (what the spectral axes *mean*), not a
 differential operator; it moved out of `DifferentialOperators` during the refactor.
@@ -653,10 +653,10 @@ should build plans under `set_fft_threads!(1)`. The common case (one field, tran
 serial in a time loop) wants `nthreads()` FFTW threads, the default.
 
 **Elementwise/fiberwise ops.** One internal primitive `_assign!(destination, bc)` in
-`FiberSections`. The generic method is `Broadcast.materialize!` — the safe polarity: GPU and unknown
+`FiberSections`. The generic method is `Broadcast.materialize!`, the safe default: GPU and unknown
 array wrappers keep the standard fused broadcast, so **invariant 6 holds by dispatch**, not
-discipline. The `Union{Array, SubArray{…,<:Array}}` specialization threads a single
-instantiated `Broadcasted` over contiguous chunks (fusion preserved — one `Broadcasted`
+discipline. The `Union{Array, SubArray{<:Any, <:Any, <:Array}}` specialization threads a single
+instantiated `Broadcasted` over contiguous chunks (one `Broadcasted`
 tree, no temporaries, one memory pass), **bitwise-identical to serial** because each output index is
 written once. The threaded path splits the destination's slab axis — the last among the largest,
 so a whole-vector-field write splits a grid axis, never the length-3 fiber — and runs the standard
@@ -949,7 +949,7 @@ tracking). The transfer kernels are implemented as portable KernelAbstractions g
 kernels (the scatter accumulates atomically); the smooth per-axis weights are generated for any
 `(n, m)` by a small linear solve — match the value and the order-`1…m` centred-finite-difference
 (Fornberg 1988) derivatives at the two bracketing nodes — and **pinned to 1e-12 against TurTLE's
-`beta_n{n}_m{m}`** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
+`beta_n1_m1`-style weights** (`n` ↔ `interp_neighbours`, `m` ↔ `smoothness`), with the closed-form Catmull–Rom
 (`n = 1, m = 1`) as an independent anchor. The smooth scheme reproduces polynomials to degree
 ``\min(2m+1, 2n)`` for ``n \ge 1``; the Lagrange scheme to degree ``2n+1``. The bound needs that scope because
 the two-point `n = 0` stencil is linear and reproduces degree 1, where the formula would read 0.
@@ -984,7 +984,7 @@ interpolation ``W`` and its adjoint anterpolation ``W^\top`` (the same
 
 All wrap a generic `AbstractArray` and allocate via `similar`, so they are backend-generic
 (CPU, CUDA, AMDGPU); compatibility reduces to `M`-matching and matching tensor
-order (a `_check_…` predicate in the `Fields` style). The types live in the `Points`
+order (a check predicate in the `Fields` style). The types live in the `Points`
 module, importing `Fields` helpers via an explicit `using ..Fields: …`.
 
 **Implemented and tested.** The point types, their full fiberwise algebra (M2 + M3, generated by reusing `FieldAlgebra`'s per-component builders over an extended section interface — [§6](@ref "6. The code-generation architecture of `FieldAlgebra`") — and locked by a separate 122-method parity baseline, the 206-method field surface byte-unchanged), and all transfer schemes (the local splines plus the spectral `DirectDFT`/`NUFFT`, decision 23) are implemented and covered on CPU (Float64/Float32) and the GPU (ROCm, `allowscalar(false)`).
