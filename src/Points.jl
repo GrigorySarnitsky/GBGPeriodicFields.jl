@@ -212,7 +212,7 @@ One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`]
 The fields are
 - `data` — the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
 
-The constructor written without an explicit `{R}` infers the order as `ndims(data) - 1`.
+The constructor written without an explicit `TensorPointValues{R}` infers the order as `ndims(data) - 1`.
 """
 struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPointValues{T, R}
   data::A
@@ -1481,7 +1481,7 @@ end
 """
     _show_count(io, n)
 
-Print a point count with its noun, singular at one — `1 point`, `500 points`.
+Print a point count with its noun, singular at one — `"1 point"`, `"500 points"`.
 
 Both point types carry a count and both display it, so the agreement is written once here rather
 than twice at the call sites.
