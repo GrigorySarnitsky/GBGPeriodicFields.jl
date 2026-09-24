@@ -3,7 +3,7 @@
 
 Periodic (circular) convolution of a field with a kernel. On the torus the only convolution
 is the periodic one, and by the convolution theorem it is exactly a coefficientwise product of the
-transforms, so the operation lives in spectral representation. A scalar kernel multiplies every fiber
+transforms, so the operation lives in spectral representation. A scalar kernel multiplies every [fiber](@ref GBGPeriodicFields)
 component, so one operation serves scalar, vector, and tensor fields. The operation is named [`convolve`](@ref)
 (allocating infix `⋆`) rather than `*`, which would read as a pointwise multiplication.
 
@@ -302,8 +302,8 @@ The fields are
   the field against.
 
 !!! note "Storing no coefficients is not the same as costing nothing"
-    The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` the trailing
-    singleton is extruded over the fiber, so it is evaluated **once per component** rather than once
+    The symbol is evaluated per mode, and against a field of tensor order ``R \\ge 1`` it is
+    broadcast over the field's components, so it is evaluated **once per component** rather than once
     per mode; at ``R = 0`` there is no fiber to extrude over and nothing extra to pay. Whether that
     recompute or the kernel-array traffic it saves dominates depends on the base and on the element
     type.
