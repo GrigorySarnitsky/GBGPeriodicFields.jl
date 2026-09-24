@@ -278,8 +278,8 @@ There is no public constructor, which is why no signature is shown above: a kern
 always obtained from a builder, so that the multipliers it evaluates against are the ones its grid
 owns. Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
 [`radial_kernel`](@ref) for any other such function — a smooth envelope, a hyperviscous
-``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), to a fused operator's trailing kernel
-argument, or to `weighted_inner` as a reduction weight.
+``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), as the trailing kernel of `divergence!` or
+`helmholtz_projection!`, or to `weighted_inner` as a reduction weight.
 
 Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
 real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
@@ -463,7 +463,7 @@ There is no public constructor, which is why no signature is shown above: a kern
 always obtained from a builder, so that its per-axis factors match the grid they will be applied on.
 Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
-kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of a fused operator.
+kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of `divergence!` or `helmholtz_projection!`.
 
 Whether that is also *faster* depends on the grid. Applying it moves two field-sized streams where a
 stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a grid
@@ -1585,8 +1585,8 @@ The single-operand accumulate form computes
 
 Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a weighted combination,
 ``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the lazy-kernel
-twin of the kernel-composed `combine!` method, and the same fusion the kernel-composed
-`divergence!` and `helmholtz_projection!` arities perform. With `b === destination` it is the
+twin of the kernel-composed `combine!` method, and the fusion `divergence!` and
+`helmholtz_projection!` perform when given a trailing kernel. With `b === destination` it is the
 filtered accumulate, computed in place.
 """
 function exponential_convolve! end
