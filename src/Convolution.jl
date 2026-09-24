@@ -952,7 +952,7 @@ The arguments are:
   overwrites (``\\alpha = 1``, ``\\beta = 0``), the five-argument form computes
   ``\\alpha (f \\star g) + \\beta \\texttt{destination}``.
 
-Spectral representation only: on the torus convolution is the coefficientwise spectral product.
+It acts in spectral representation only, where convolution is the coefficientwise product.
 
 Physically the periodic convolution is the kernel-weighted local average of the field
 ``f`` about each point ``x`` — a low-pass filter when the kernel ``g`` is a smoothing bump:
@@ -1514,9 +1514,9 @@ never stored as a field, and the result is written into
 Use this in-place form when `destination` is already allocated; the allocating [`exponential_convolve`](@ref)
 returns a fresh result instead.
 
-Spectral representation only.
+It acts in spectral representation only.
 
-For a coefficient ``c \\le 0`` this is, as a real physical object, convolution with the periodic
+For a coefficient ``c \\le 0`` this is, physically, convolution with the periodic
 Gaussian (heat) kernel: the operator ``e^{-c\\Delta}``, which smooths the field at the length scale
 ``\\sqrt{-2c}``. In spectral representation it is the coefficientwise product with
 ``\\exp(c |k|^2)``, the true squared wavenumber kept at the Nyquist frequency (the Laplacian
