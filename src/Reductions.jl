@@ -1,7 +1,7 @@
 """
     Reductions
 
-This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields), the third operation family beside the
+This module holds the **L² / measure structure** on [sections](@ref GBGPeriodicFields), the third kind of operation beside the
 fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
 its **base** against the base's measure — the extensive one for `integral`, its
@@ -53,8 +53,8 @@ The parts follow, each linking to where its formula lives.
   that resolves `inner` over a radial coordinate, the shell-binned power spectrum over ``|k|`` and its
   physical-space two-point correlation over ``|r|``, each also in a two-field co-spectrum form.
 
-Physics stays consumer-side: the consumer builds kinetic energy, enstrophy, dissipation, rms, and
-turbulence intensities from these reductions.
+Physics stays with the caller, who builds kinetic energy, enstrophy, dissipation, rms and
+turbulence intensity from these.
 """
 module Reductions
 
