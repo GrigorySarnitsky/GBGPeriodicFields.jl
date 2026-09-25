@@ -931,8 +931,8 @@ bases: the grid cell-volume average and the point-set counting average.
 \\end{aligned}
 ```
 
-It is defined for fields in physical representation and point-values, and — through the Parseval `inner` — for a
-field in spectral representation.
+It is defined on fields in either representation and on point-values (the spectral case through the
+Parseval `inner`).
 """
 l2norm(section::ReducibleSection) = sqrt(inner(section, section))
 l2norm(f::AbstractFieldSpectral) = sqrt(inner(f, f))
