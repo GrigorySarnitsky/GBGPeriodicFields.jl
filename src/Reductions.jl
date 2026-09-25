@@ -925,10 +925,10 @@ The **normalized L² norm** ``\\lVert f\\rVert_2`` of a section (`l2norm`, ``\\l
 bases: the grid cell-volume average and the point-set counting average.
 
 ```math
-\\lVert f\\rVert_2 = \\sqrt{\\langle f, f\\rangle}
-  = \\sqrt{\\frac{1}{N} \\sum_x |f(x)|^2} \\quad (\\texttt{Grid3D}),
-\\qquad
-\\sqrt{\\frac{1}{M} \\sum_p |f_p|^2} \\quad (\\texttt{PointSet}).
+\\begin{aligned}
+\\lVert f\\rVert_2 &= \\sqrt{\\langle f, f\\rangle} = \\sqrt{\\frac{1}{N} \\sum_x |f(x)|^2} && (\\texttt{Grid3D}), \\\\
+\\lVert f\\rVert_2 &= \\sqrt{\\frac{1}{M} \\sum_p |f_p|^2} && (\\texttt{PointSet}).
+\\end{aligned}
 ```
 
 It is defined for fields in physical representation and point-values, and — through the Parseval `inner` — for a

@@ -1012,8 +1012,8 @@ Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (sum
 ```math
 \\begin{gathered}
 (u \\times v)_i = \\varepsilon_{ijk}  u_j v_k, \\\\
-(u \\times v)_1 = u_2 v_3 - u_3 v_2, \\quad
-(u \\times v)_2 = u_3 v_1 - u_1 v_3, \\quad
+(u \\times v)_1 = u_2 v_3 - u_3 v_2, \\\\
+(u \\times v)_2 = u_3 v_1 - u_1 v_3, \\\\
 (u \\times v)_3 = u_1 v_2 - u_2 v_1.
 \\end{gathered}
 ```
