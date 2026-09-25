@@ -62,7 +62,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",419,113,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",727,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",982,232,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",986,232,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",65,33,1
@@ -77,7 +77,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
 "Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",215,91,0
 "Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
-"Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",735,210,1
+"Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",733,210,1
 "Convolution.md § Convolution operations",66,66,0
 "Convolution.md § Internal API",72,72,0
 "Convolution.md § Kernel builders",65,65,0
@@ -184,11 +184,11 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
 "DifferentialOperators.jl :: curl!(",305,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",438,110,0
+"DifferentialOperators.jl :: divergence!(",442,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
 "DifferentialOperators.jl :: gradient!(",191,52,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
-"DifferentialOperators.jl :: helmholtz_projection!(",577,108,1
+"DifferentialOperators.jl :: helmholtz_projection!(",586,108,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
 "DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",334,86,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
@@ -201,7 +201,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Internal API",58,58,0
 "FORMALIZATION.md § (preamble)",22,22,1
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",518,129,0
-"FORMALIZATION.md § Convolution (`Convolution`)",1385,248,0
+"FORMALIZATION.md § Convolution (`Convolution`)",1383,248,0
 "FORMALIZATION.md § Declarations",591,376,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",884,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",435,158,0
@@ -386,7 +386,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: field_spectral_shape(",63,43,0
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",123,55,0
-"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",370,90,0
+"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",373,90,0
 "Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",426,102,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
@@ -402,7 +402,7 @@ unit,words,longest_paragraph,admonitions
 "GBGPeriodicFields.jl :: GBGPeriodicFields",898,408,1
 "GBGPeriodicFields.md § Re-exported modules",26,16,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
-"Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",262,123,0
+"Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",266,123,0
 "Interpolation.jl :: AbstractTransferScheme",276,104,0
 "Interpolation.jl :: CatmullRom",27,26,0
 "Interpolation.jl :: DirectDFT()",464,174,1
@@ -553,7 +553,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: mean(f)",125,122,0
 "Reductions.jl :: minimum(f)",30,27,0
 "Reductions.jl :: radial_correlation(f, plans)",631,180,1
-"Reductions.jl :: radial_spectrum(f, multipliers)",771,261,1
+"Reductions.jl :: radial_spectrum(f, multipliers)",768,261,1
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",346,122,0
 "Reductions.jl :: weighted_inner(f, w::SpectralKernel)",752,224,2
