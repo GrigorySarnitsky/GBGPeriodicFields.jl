@@ -619,14 +619,14 @@ inverse):
 
 ```math
 \begin{gathered}
-P(\kappa_i) = \frac{1}{N^2}\sum_{\mathrm{round}(|k|/\Delta k)=i}\alpha(k)\sum_c |\hat f_c(k)|^2, \\
+P(\kappa_m) = \frac{1}{N^2}\sum_{\mathrm{round}(|k|/\Delta k)=m}\alpha(k)\sum_c |\hat f_c(k)|^2, \\
 C(r) = \frac{1}{N} \mathcal F^{-1}\Bigl(\textstyle\sum_c|\hat f_c|^2\Bigr)(r),
 \end{gathered}
 ```
 
 with ``P(\kappa)`` the shell **power spectrum** (the consumer's physics energy spectrum is
 ``E(\kappa)=\tfrac{1}{2}P(\kappa)``), each refining `inner` exactly:
-``\sum_i P(\kappa_i) = \langle f,f\rangle`` and ``C(0) = \langle f,f\rangle``.
+``\sum_m P(\kappa_m) = \langle f,f\rangle`` and ``C(0) = \langle f,f\rangle``.
 ``\checkmark`` The two-field forms (cross-power ``\sum_c\mathrm{Re}(\hat f_c\overline{\hat g_c})``,
 cross-correlation ``C_{fg}(r)=\tfrac{1}{N}\mathcal F^{-1}(\overline{\hat f} \hat g)(r)``) refine the mixed
 ``\langle f,g\rangle`` (``\sum P_{fg}=C_{fg}(0)=\langle f,g\rangle``), are symmetric in ``f,g``, and may be

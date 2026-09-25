@@ -1309,19 +1309,19 @@ The arguments are:
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `multipliers` — the per-axis wavenumbers ``k`` for the field's grid ([`FieldSpectralMultipliers`](@ref)).
 
-This reduction acts on the spectral representation only, being a Parseval reduction like the spectral
+It is spectral-only, a Parseval reduction like the spectral
 `inner`.
 
 It returns `(shells, spectrum)`, a pair of `Vector{T}` in the section's own scalar type and on the
-**host** whatever backend the field lives on (the shell accumulators are small and are brought back).
+**host** whatever backend the field lives on.
 Here `shells` are the bin-center
-wavenumber magnitudes ``\\kappa`` and `spectrum[i]` sums the Parseval-weighted fiber (co-)energy over the
-modes whose rounded magnitude falls in shell ``i``:
+wavenumber magnitudes ``\\kappa``, and `spectrum[m + 1]` sums the Parseval-weighted fiber (co-)energy over the
+modes in shell ``m``, whose centre ``\\kappa_m`` is `shells[m + 1]` (vectors count from 1, shells from 0):
 
 ```math
 \\begin{gathered}
-P(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
-P_{fg}(\\kappa_i) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = i}} \\alpha(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
+P(\\kappa_m) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = m}} \\alpha(k) \\sum_c |\\hat f_c(k)|^2, \\\\
+P_{fg}(\\kappa_m) = \\frac{1}{N^2} \\sum_{\\substack{k  :  \\mathrm{round}(|k|/\\Delta k) = m}} \\alpha(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr),
 \\end{gathered}
 ```
 
