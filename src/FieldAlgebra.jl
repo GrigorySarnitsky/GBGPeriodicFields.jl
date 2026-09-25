@@ -21,7 +21,7 @@ field and a set of point-values each are, and that shared shape is why one set o
 The parts are:
 
   * **Vector-space and scalar-field-scaling operations** — [`add!`](@ref) and [`subtract!`](@ref) (`+`, `-`), the weighted
-    combination [`combine!`](@ref) (``\\alpha a + \\beta b``), real scaling, and scalar-field
+    combination [`combine!`](@ref) of two fields, real scaling, and scalar-field
     multiplication and division ([`multiply!`](@ref), [`divide!`](@ref), `*`, `/`). Addition, weighted combination,
     and real scaling are the vector-space structure; scalar-field multiplication is the action that makes
     fields a *module* over the ring of scalar fields — the algebraic sense of the word, not a Julia

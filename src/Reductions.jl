@@ -18,14 +18,6 @@ stay physical-only.
 
 The parts follow, each linking to where its formula lives.
 
-!!! note "The moments extend `Statistics`; the order statistics extend `Base`"
-    `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
-    `maximum`, `minimum` and `extrema` extend `Base`. Either way they are used exactly as their
-    standard-library counterparts are, and `using GBGPeriodicFields` alone puts all of them in scope:
-    the top-level module re-exports the four `Statistics` generics, as it does `dot` and `norm` from
-    `LinearAlgebra`, so a caller need not know which standard library a reduction's verb lives in.
-
-
 - [`integral`](@ref) — the **extensive** integral, the one quantity that scales with the base measure.
 - [`mean`](@ref) — the **intensive**, **fiber-preserving** arithmetic average over the ``N`` grid cells or
   the ``M`` points (it extends `Statistics`; the `mean` of a vector field is a `FiberVector`).
@@ -33,7 +25,7 @@ The parts follow, each linking to where its formula lives.
   by default). The `std` and `var` reductions are **scalar-only**: the sample standard deviation and variance
   are unambiguous
   only for a scalar section. The coordinate-free second moment of a **vector** field is the covariance
-  tensor `cov` (``R``) with entries ``R_{ij} = \\langle u'_i u'_j\\rangle`` (a symmetric `FiberTensor2`), of which a
+  tensor `cov` (``R``, a symmetric `FiberTensor2`), of which a
   per-component variance would be only the basis-dependent diagonal.
 - [`inner`](@ref) — the **normalized** L² inner product ``\\langle\\cdot,\\cdot\\rangle``, a scalar that
   averages the fiber contraction over the ``N`` grid cells or the ``M`` points. [`l2norm`](@ref) and
@@ -52,6 +44,13 @@ The parts follow, each linking to where its formula lives.
 - [`radial_spectrum`](@ref) and [`radial_correlation`](@ref) — a Fourier-dual pair (Wiener–Khinchin)
   that resolves `inner` over a radial coordinate, the shell-binned power spectrum over ``|k|`` and its
   physical-space two-point correlation over ``|r|``, each also in a two-field co-spectrum form.
+
+!!! note "The moments extend `Statistics`; the order statistics extend `Base`"
+    `mean`, `std`, `var` and `cov` **extend** `Statistics` rather than being owned here, and
+    `maximum`, `minimum` and `extrema` extend `Base`. Either way they are used exactly as their
+    standard-library counterparts are, and `using GBGPeriodicFields` alone puts all of them in scope:
+    the top-level module re-exports the four `Statistics` generics, as it does `dot` and `norm` from
+    `LinearAlgebra`, so a caller need not know which standard library a reduction's verb lives in.
 
 Physics stays with the caller, who builds kinetic energy, enstrophy, dissipation, rms and
 turbulence intensity from these.

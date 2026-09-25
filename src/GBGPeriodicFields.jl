@@ -48,22 +48,6 @@ These words recur in every operation's documentation:
   built for it, its transform plans, a point set or point values — into another family, never changing the
   element type.
 
-!!! note "Scalar, vector and second-order tensors only"
-    Sections of tensor order ``R = 0, 1, 2`` — scalar, vector and second-order tensor — are the
-    supported surface: no operation reaches past it, though not all span all three. Some are
-    defined at one order by their own mathematics — `det` and `tr` need a matrix, `cov` a vector,
-    `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
-    docstring. The field and point-value types are
-    parameterized on `R`, so higher orders can be constructed and several layers serve them
-    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and spline
-    interpolation between grid and points). Others do not: the reductions returning a fiber or taking
-    a fiber map (`mean(det, A)`), `map`, and `sym`/`skew`/`dev` are defined for ``R \\le 2`` and
-    **throw** above it.
-
-    General `R` was deferred rather than declined, to ship a usable field layer for the second-order
-    surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
-    raises — none returns a wrong answer — and the test suite checks that.
-
 The package is the field layer for pseudospectral fluid and turbulence solvers, and it
 carries a point layer that evaluates fields between grid nodes for Lagrangian-particle
 methods. A field is one real physical object; the physical and spectral forms are two
@@ -89,6 +73,21 @@ docstring maps what it provides, so this list says what each is for rather than 
 - [`Reductions`](@ref) — the L²/measure reductions over fields and point-values, against the base's
   own measure.
 
+!!! note "Scalar, vector and second-order tensors only"
+    Sections of tensor order ``R = 0, 1, 2`` — scalar, vector and second-order tensor — are the
+    supported surface: no operation reaches past it, though not all span all three. Some are
+    defined at one order by their own mathematics — `det` and `tr` need a matrix, `cov` a vector,
+    `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
+    docstring. The field and point-value types are
+    parameterized on `R`, so higher orders can be constructed and several layers serve them
+    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and spline
+    interpolation between grid and points). Others do not: the reductions returning a fiber or taking
+    a fiber map (`mean(det, A)`), `map`, and `sym`/`skew`/`dev` are defined for ``R \\le 2`` and
+    **throw** above it.
+
+    General `R` was deferred rather than declined, to ship a usable field layer for the second-order
+    surface a pseudospectral solver actually needs. Above the ceiling an operation either works or
+    raises — none returns a wrong answer — and the test suite checks that.
 """
 module GBGPeriodicFields
 
