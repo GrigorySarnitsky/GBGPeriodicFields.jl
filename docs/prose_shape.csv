@@ -170,7 +170,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
-"DifferentialOperators.jl :: DifferentialOperators",396,220,0
+"DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",134,64,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
@@ -182,7 +182,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",52,43,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
-"DifferentialOperators.jl :: curl!(",264,78,0
+"DifferentialOperators.jl :: curl!(",305,78,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
 "DifferentialOperators.jl :: divergence!(",438,110,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
@@ -276,7 +276,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: +(a, b, fields...)",43,40,0
 "FieldAlgebra.jl :: -(a, b)",29,27,0
 "FieldAlgebra.jl :: /(a, b)",37,35,0
-"FieldAlgebra.jl :: FieldAlgebra",898,283,2
+"FieldAlgebra.jl :: FieldAlgebra",896,281,2
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
 "FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
@@ -422,9 +422,9 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",98,84,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",174,87,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",85,61,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",425,225,0
+"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",423,225,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",77,63,0
-"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",319,220,0
+"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",316,209,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
 "Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",650,127,0
 "Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",110,43,1
@@ -529,7 +529,7 @@ unit,words,longest_paragraph,admonitions
 "Points.md § Base-space motion",20,20,0
 "Points.md § Internal API",79,79,0
 "Points.md § Point-value algebra",114,76,0
-"Reductions.jl :: Reductions",622,350,1
+"Reductions.jl :: Reductions",615,343,1
 "Reductions.jl :: _FiberGather{V}(fiber_map)",95,80,0
 "Reductions.jl :: _fiber_at(components, index, ::Val{NC})",36,33,0
 "Reductions.jl :: _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{",94,50,0
