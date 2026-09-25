@@ -975,8 +975,10 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
 (not the exponent coefficient ``c`` of `exponential_convolve!`),
 
 ```math
-\\langle f, w g\\rangle = \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x)
-  = \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
+\\begin{aligned}
+\\langle f, w g\\rangle &= \\frac{1}{N} \\sum_x f(x) \\cdot (w \\star g)(x) \\\\
+&= \\frac{1}{N^2} \\sum_{\\text{stored } k} \\alpha(k)  w(k) \\sum_c \\mathrm{Re}\\bigl(\\hat f_c(k) \\overline{\\hat g_c(k)}\\bigr).
+\\end{aligned}
 ```
 
 The arguments are:
