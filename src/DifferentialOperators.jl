@@ -924,8 +924,10 @@ arguments are:
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
-\\widehat{\\texttt{destination}}(k) = \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k)
-                                    + \\beta  \\widehat{\\texttt{destination}}(k),
+\\begin{aligned}
+\\widehat{\\texttt{destination}}(k) &= \\alpha  \\hat g(k)  \\widehat{\\nabla\\cdot u}(k) \\\\
+&\\quad + \\beta  \\widehat{\\texttt{destination}}(k),
+\\end{aligned}
 ```
 
 and likewise per component for a second-order tensor `field`. The composed form replaces a
@@ -1517,8 +1519,10 @@ unchanged (the zero mode, and the pure-Nyquist corners where the whole derivativ
 vanishes):
 
 ```math
-\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{a \\cdot a}\\Bigr)  \\hat u_j(k),
-\\qquad \\delta_{ij} \\text{ the Kronecker delta}, \\qquad a \\ne 0.
+\\begin{gathered}
+\\widehat{(\\mathbb P u)}_i(k) = \\Bigl(\\delta_{ij} - \\frac{a_i a_j}{a \\cdot a}\\Bigr)  \\hat u_j(k), \\\\
+\\text{with } \\delta_{ij} \\text{ the Kronecker delta and } a \\ne 0.
+\\end{gathered}
 ```
 
 # The kernel-composed form
@@ -1539,8 +1543,10 @@ projection symbol. The additional arguments are:
   (``\\alpha = 1``, ``\\beta = 0``), and the six-argument form computes
 
 ```math
-\\widehat{\\texttt{destination}}_i(k) = \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k)
-                                      + \\beta  \\widehat{\\texttt{destination}}_i(k).
+\\begin{aligned}
+\\widehat{\\texttt{destination}}_i(k) &= \\alpha  \\hat g(k)  \\widehat{(\\mathbb P u)}_i(k) \\\\
+&\\quad + \\beta  \\widehat{\\texttt{destination}}_i(k).
+\\end{aligned}
 ```
 
 The composed form replaces a `helmholtz_projection!` followed by a `convolve!` — one fused pass

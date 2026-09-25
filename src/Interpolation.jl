@@ -151,8 +151,10 @@ fractional position along axis ``a`` and ``w`` the scheme's per-axis weight poly
 the tensor-product gather
 
 ```math
-f(x_p) = \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)
-f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
+\\begin{aligned}
+f(x_p) &= \\sum_{i_1, i_2, i_3} w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3) \\\\
+&\\qquad f\\bigl(x_{c + (i_1, i_2, i_3)}\\bigr),
+\\end{aligned}
 ```
 
 and anterpolation is its transpose, adding ``w_{i_1}(t_1)  w_{i_2}(t_2)  w_{i_3}(t_3)  q_p`` (with

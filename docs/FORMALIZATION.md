@@ -123,8 +123,10 @@ even-length axis the Nyquist plane — where a mode's partner lies in the same p
 measures the departure,
 
 ```math
-\texttt{reality\_residual}(\hat f) = \max_{k \in \text{self-conjugate planes}}
-                                      \bigl\lvert \hat f(k) - \overline{\hat f(-k)} \bigr\rvert ,
+\begin{aligned}
+\texttt{reality\_residual}(\hat f) &= \max_{k \in \text{self-conjugate planes}} \\
+&\qquad \bigl\lvert \hat f(k) - \overline{\hat f(-k)} \bigr\rvert ,
+\end{aligned}
 ```
 
 which is zero when the coefficients are a real field's. A spectrum the package itself transforms from
@@ -139,8 +141,10 @@ half-spectra satisfying the condition on the self-conjugate planes. The operatio
 that, on every stored plane and for every pair ``k, -k`` within it, sets
 
 ```math
-\hat f(k), \hat f(-k) \leftarrow \tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr),
-\overline{\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr)},
+\begin{aligned}
+\hat f(k), \hat f(-k) \leftarrow{} &\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr), \\
+&\overline{\tfrac{1}{2} \bigl( \hat f(k) + \overline{\hat f(-k)} \bigr)},
+\end{aligned}
 ```
 
 a self-paired corner reducing to ``\operatorname{Re} \hat f(k)`` by the same formula, and leaves every
@@ -405,20 +409,20 @@ undone by dividing (deconvolution).
 The fifth builder, `translation_kernel`, is the shift theorem's multiplier: for a physical displacement
 ``h = (h_1, h_2, h_3)`` it is the transform of the Dirac delta displaced to ``h``,
 so convolving carries the field ``f`` at position ``x`` to ``f(x - h)``. Write ``k_a`` for the
-true signed wavenumber of axis ``a``, ``\tilde k_a`` for the derivative wavenumber (equal to
+true signed wavenumber of axis ``a``, ``a_a`` for the derivative wavenumber (equal to
 ``k_a`` except at the Nyquist frequency of an even-length axis, where it is zeroed — invariant 5),
 ``N_a`` for the number of points on that axis and ``\Delta x_a`` for its grid spacing. The implemented
 multiplier is the separable product
 
 ```math
 \hat g_h(k) = \prod_{a=1}^{3}
-  \bigl[  \cos(k_a h_a) - \mathrm{i} \sin(\tilde k_a h_a)  \bigr].
+  \bigl[  \cos(k_a h_a) - \mathrm{i} \sin(a_a h_a)  \bigr].
 ```
 
 Three statements, each expanded against the code and tested:
 
 - **A pure phase away from Nyquist.** Where no component of ``k`` sits at a Nyquist frequency we have
-  ``\tilde k_a = k_a``, and ``\cos`` is even, so each factor collapses to
+  ``a_a = k_a``, and ``\cos`` is even, so each factor collapses to
   ``\cos(k_a h_a) - \mathrm{i} \sin(k_a h_a) = e^{-\mathrm{i} k_a h_a}``, whence
   ``\hat g_h(k) = e^{-\mathrm{i} k \cdot h}``, of unit modulus. ``\checkmark``
 - **Reality: the kernel is Hermitian.** ``\hat g_h(-k) = \overline{\hat g_h(k)}`` on the discrete
@@ -543,8 +547,10 @@ are **scalar-only**. The *population* second central moment is what Parseval giv
 fluctuation energy carried by every mode but the mean:
 
 ```math
-\operatorname{var}(f)\bigm|_{\texttt{corrected=false}} = \langle f, f\rangle - \langle f\rangle^2
-  = \frac{1}{N^2}\sum_{\text{stored }k\ne 0} \alpha(k) |\hat f(k)|^2, \quad\checkmark
+\begin{aligned}
+\operatorname{var}(f)\bigm|_{\texttt{corrected=false}} &= \langle f, f\rangle - \langle f\rangle^2 \\
+&= \frac{1}{N^2}\sum_{\text{stored }k\ne 0} \alpha(k) |\hat f(k)|^2, \quad\checkmark
+\end{aligned}
 ```
 
 with ``\alpha(k)`` the rfft half-spectrum multiplicity of mode ``k`` and the ``1/N^2`` the
@@ -562,8 +568,10 @@ second central moment is the **covariance tensor** ``R = \operatorname{cov}(u) \
 \operatorname{Sym}^2(\mathbb R^3)``,
 
 ```math
-R_{ij} = \frac{N_B}{N_B-1}\Bigl(\texttt{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij}
-       = \frac{1}{N_B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
+\begin{aligned}
+R_{ij} &= \frac{N_B}{N_B-1}\Bigl(\texttt{mean}(u \otimes u) - \bar u \otimes \bar u\Bigr)_{ij} \\
+&= \frac{1}{N_B-1}\sum_n (u_{n,i} - \bar u_i)(u_{n,j} - \bar u_j), \quad\checkmark
+\end{aligned}
 ```
 
 where ``N_B`` is again that count — ``N`` cells for a grid, ``M`` points for
@@ -608,8 +616,10 @@ the rfft half-spectrum (each ``k_x>0`` mode stands for its conjugate partner, so
 self-conjugate ``k_x=0`` and even-Nyquist planes count once) gives
 
 ```math
-\langle f, g\rangle = \frac{1}{N^2} \mathrm{Re}\Bigl(2\sum_{k_x\ge0}\hat f \overline{\hat g}
--\sum_{\text{zero plane}}\hat f \overline{\hat g}-\sum_{\text{Nyquist plane}}\hat f \overline{\hat g}\Bigr) \quad\checkmark
+\begin{aligned}
+\langle f, g\rangle = \frac{1}{N^2} \mathrm{Re}\Bigl(&2\sum_{k_x\ge0}\hat f \overline{\hat g} \\
+&-\sum_{\text{zero plane}}\hat f \overline{\hat g}-\sum_{\text{Nyquist plane}}\hat f \overline{\hat g}\Bigr) \quad\checkmark
+\end{aligned}
 ```
 
 (the Nyquist sum only for even ``N_x``). **`radial_spectrum`** bins this with the half-spectrum weight

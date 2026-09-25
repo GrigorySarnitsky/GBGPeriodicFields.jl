@@ -1566,8 +1566,10 @@ The arguments are:
 The single-operand accumulate form computes
 
 ```math
-\\widehat{\\texttt{destination}}(k) = \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k)
-                                    + \\beta  \\widehat{\\texttt{destination}}(k),
+\\begin{aligned}
+\\widehat{\\texttt{destination}}(k) &= \\alpha  \\exp\\bigl(c |k|^2 + s \\hat w(k)\\bigr)  \\hat f(k) \\\\
+&\\quad + \\beta  \\widehat{\\texttt{destination}}(k),
+\\end{aligned}
 ```
 
 # The two-operand form
