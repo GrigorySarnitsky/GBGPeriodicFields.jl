@@ -59,6 +59,16 @@ Config(
                          brackets and bars, and the reader loses the spelling the row is there to \
                          give. Owner-decided 2026-09-24 (finding 2026-09-24-documentation-review-01-107). \
                          Every other rule still reads this page."),
+        Switch(target = Symbol("RULE.TEX.CODE_SPAN_JULIA"),
+               files = ["examples/HIST_CPU.jl", "examples/gpu/rocm/HIST_ROCm.jl", "docs/PERFORMANCE.md"],
+               reason = "ONLY for command-line flags and shell input, such as `--smoke`, `--giant` \
+                         and `--freeze`: text typed at a shell is conventionally code-formatted and \
+                         is not Julia. A formula or other mathematics in a code span is still a \
+                         defect in these files, which is the rule's real purpose. A stopgap: the \
+                         owner asked GBGCodingTools to reword the rule as 'a code span holds literal \
+                         code or input in some language, never mathematics'; remove this switch \
+                         when it does. Owner-decided 2026-09-26 (finding \
+                         2026-09-24-documentation-review-01-095)."),
         Switch(target = Symbol("RULE.API.POSITIONAL"),
                files = ["src/Fields.jl"],
                reason = "ONLY `Grid3D`'s two-argument constructor's `origin` keyword. It shifts every \
