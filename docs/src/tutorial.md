@@ -51,7 +51,9 @@ computed at run time.
 ```jldoctest tutorial
 julia> layout = RealFourierLayout();
 
-julia> spectral = VectorFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(1))), grid);
+julia> vector_shape = field_spectral_shape(grid, layout, Val(1));
+
+julia> spectral = VectorFieldSpectral(zeros(ComplexF64, vector_shape), grid);
 
 julia> plans = FieldTransformPlans(u, spectral);
 
@@ -71,7 +73,9 @@ representation through a [`FieldSpectralMultipliers`](@ref)
 ```jldoctest tutorial
 julia> φ = ScalarFieldPhysical((x, y, z) -> sin(x), grid);
 
-julia> scalar_spectral = ScalarFieldSpectral(zeros(ComplexF64, field_spectral_shape(grid, layout, Val(0))), grid);
+julia> scalar_shape = field_spectral_shape(grid, layout, Val(0));
+
+julia> scalar_spectral = ScalarFieldSpectral(zeros(ComplexF64, scalar_shape), grid);
 
 julia> multipliers = FieldSpectralMultipliers(scalar_spectral);
 
@@ -126,7 +130,7 @@ total equals `inner` by Parseval:
 ```jldoctest tutorial
 julia> shells, spectrum = radial_spectrum(uh, multipliers);
 
-julia> round(sum(spectrum); digits = 4)   # Σ P(κ) = inner(u, u): the power spectrum's shells sum to inner
+julia> round(sum(spectrum); digits = 4)   # the shells sum to inner(u, u)
 1.5
 ```
 
