@@ -1892,16 +1892,16 @@ periodized on the box, ``g = \\delta(x - h)``, whose sifting property (integrati
 evaluates the integrand at the delta's location) gives
 ``(f \\star g)(x) = f(x - h)`` exactly. On the grid that ``g`` is the band-limited (periodic-sinc)
 interpolation stencil centred at ``h``, so the convolution re-samples the trigonometric interpolant of
-``f`` at the displaced nodes ``x_n - h``, and collapses to a plain index shift when ``h`` is a whole
+``f`` at the displaced nodes ``x - h``, and collapses to a plain index shift when ``h`` is a whole
 number of cells. Its transfer function ``\\hat g`` at wavenumber ``k`` is the shift theorem's phase,
 assembled per axis from that wavenumber's component ``k_a`` and the displacement ``h_a`` along the
 axis:
 
 ```math
-\\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(\\tilde k_a h_a) \\bigr],
+\\hat g(k) = \\prod_{a=1}^{3} \\bigl[ \\cos(k_a h_a) - \\mathrm{i} \\sin(a_a h_a) \\bigr],
 ```
 
-where ``k_a`` is the **true** wavenumber and ``\\tilde k_a`` the **Nyquist-zeroed derivative**
+where ``k_a`` is the **true** wavenumber and ``a_a`` the **Nyquist-zeroed derivative**
 one — the package's two families, and the reason this is written with two symbols rather than as the
 bare phase ``e^{-\\mathrm{i} k \\cdot h}``. The two coincide on every resolved mode — so the factor there
 **is** that pure phase — and part only at an even axis's Nyquist frequency, where the warning below

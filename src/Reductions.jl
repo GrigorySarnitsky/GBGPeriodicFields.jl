@@ -531,10 +531,10 @@ integral(fiber_map::FiberMap, section::ReducibleSection) where {FiberMap} =
     mean(fiber_map, f)
 
 The arithmetic average of a section over its base, fiber-preserving: on a grid the equal-weight
-cell average ``\\tfrac{1}{N}\\sum_n f_n`` over the ``N`` cells, on a point-set the sample mean
+cell average ``\\tfrac{1}{N}\\sum_x f(x)`` over the ``N`` cells, on a point-set the sample mean
 ``\\tfrac{1}{M}\\sum_p f_p`` over the ``M`` points — a vector field's mean is one `FiberVector`, a
 second-order tensor field's one `FiberTensor2`. The mapped form `mean(fiber_map, f)` averages
-``(\\texttt{fiber\\_map} \\circ f)(x_n)`` (for example `mean(det, A)`) in one fused pass with no
+``(\\texttt{fiber\\_map} \\circ f)(x)`` (for example `mean(det, A)`) in one fused pass with no
 intermediate section; the map is nonlinear in general, so the mapped forms exist on fields in physical representation
 and point-values only. On a field in spectral representation the mean is read from the zero (DC)
 Fourier mode in ``O(1)``, equal to the physical value with no transform. See [`integral`](@ref) for
@@ -548,7 +548,7 @@ mean
 The sample **variance** of a **scalar** section over its base: the Bessel-corrected mean (dividing by
 one less than the count, the standard correction that makes the sample variance an unbiased estimate of
 the population one) of the squared
-deviation from the average, ``\\tfrac{1}{N-1}\\sum_n (f_n - \\bar f)^2`` over a grid's ``N`` cells and
+deviation from the average, ``\\tfrac{1}{N-1}\\sum_x (f(x) - \\langle f\\rangle)^2`` over a grid's ``N`` cells and
 ``\\tfrac{1}{M-1}\\sum_p`` over a point set's ``M`` points (matching `Statistics.var`'s default correction).
 
 Both `var` and `std` are **scalar-only**: the sample variance is unambiguous only for a scalar section. A vector
@@ -964,7 +964,8 @@ The **L² pairing** ``\\langle f, w g\\rangle`` of a field `f` with a field `g` 
 Fourier multiplier `w`, both in spectral representation
 (`weighted_inner`, ``\\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
 and reduces against `f` in one fused pass, materializing no weighted field — the reduction-dual of
-`convolve`, which instead forms ``w \\star g`` as a field. It generalizes [`inner`](@ref) (the
+`convolve`, which instead forms ``w \\star g`` as a field, `w` there also naming the physical-space kernel
+whose transfer function it is. It generalizes [`inner`](@ref) (the
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
 
 Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, with the rfft
@@ -999,9 +1000,7 @@ projection (a sharp band mask, ``w^2 = w``); for a general ``w`` it is the singl
 symmetric in `f`, `g` and may be negative.
 
 It is fused:
-the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner`,
-both reducing on the same threaded fixed tree, so they agree as
-threads are added — and its
+the cost is a single weighted pass over the coefficients — the same traffic as one spectral `inner` — and its
 only allocation is a small per-axis weight vector (one wavenumber row, not a field). It is thus far cheaper
 than the radial reductions [`radial_spectrum`](@ref) / [`radial_correlation`](@ref), which sweep every mode with
 a scatter-add binning pass (and, for the correlation, an inverse transform).
@@ -1555,7 +1554,7 @@ On a grid the average is the equal-weight sum over the ``N`` cells; on a point-s
 ```math
 \\begin{aligned}
 \\lVert f\\rVert_p &= \\Bigl(\\frac{1}{N} \\sum_x |f(x)|^p\\Bigr)^{1/p} && (\\texttt{Grid3D}), \\\\
-\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_i |f_i|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
+\\lVert f\\rVert_p &= \\Bigl(\\frac{1}{M} \\sum_{\\text{points}} |f|^p\\Bigr)^{1/p} && (\\texttt{PointSet}), \\\\
 \\lVert f\\rVert_\\infty &= \\sup_{x} |f(x)| = \\max_x |f(x)|, &&
 \\end{aligned}
 ```

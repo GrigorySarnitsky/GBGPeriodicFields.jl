@@ -171,15 +171,15 @@ base-changing sibling of the convolution multiplier — see the measure taxonomy
 
 ### The architecture map
 
-A field — or values sampled at scattered points — is a **section** ``s``, a right inverse of the bundle
+A field — or values sampled at scattered points — is a **section** ``f``, a right inverse of the bundle
 projection ``\pi``:
 
 ```math
-B \xrightarrow{ s } E \xrightarrow{ \pi } B, \qquad \pi \circ s = \mathrm{id}_B,
+B \xrightarrow{ f } E \xrightarrow{ \pi } B, \qquad \pi \circ f = \mathrm{id}_B,
 ```
 
 with base ``B`` (the structured `Grid3D` or the unstructured `PointSet`), ``E = B \times V`` the trivial
-tensor bundle, and ``s`` the field (`AbstractFiberSection`): one fiber value per base point. Everything
+tensor bundle, and ``f`` the field (`AbstractFiberSection`): one fiber value per base point. Everything
 below operates on sections, plus the support mechanics — each explained in its own section, referenced
 here rather than repeated:
 

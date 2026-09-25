@@ -1409,8 +1409,8 @@ a vanishing mean fixes the solution uniquely:
 ```
 
 A general input is projected onto that compatible part: the result's zero Fourier mode is set to
-zero unconditionally, so the operator returns the zero-mean solution of ``\\Delta\\psi = f - \\bar f``
-(``\\bar f`` the input's mean); the per-mode form below is the unconditional statement.
+zero unconditionally, so the operator returns the zero-mean solution of ``\\Delta\\psi = f - \\langle f\\rangle``
+(``\\langle f\\rangle`` the input's mean); the per-mode form below is the unconditional statement.
 
 For a vector or tensor field the same solve is applied to each component, so the tensor order is
 preserved.
