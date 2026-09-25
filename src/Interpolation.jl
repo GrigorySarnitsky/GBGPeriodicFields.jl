@@ -1107,14 +1107,15 @@ end
 
 Interpolate `field` to the off-grid `points`, writing the gathered values into `out`; returns `out`. This
 is the in-place home of the gather ``W``, and for a single position there is the callable `field(x)`.
+The [`Interpolation`](@ref "Interpolation") module docstring explains the pair.
 
 Use this in-place form when `out` is already allocated; the allocating [`interpolate`](@ref) returns a
 fresh result instead.
 
 The arguments are:
 - `out` — the point-value section written with the gathered values. It must match `field` in tensor
-  order and cover the same number of points as `points`. Where most operations stop at order 2, the
-  local-spline transfer serves any tensor order the field types can hold, order 3 included.
+  order and cover the same number of points as `points`. The local-spline transfer serves any tensor
+  order the field types hold, order 3 included.
 - `field` — the field to sample, in the representation the `scheme` acts on.
 - `points` — the [`PointSet`](@ref) of positions to evaluate at.
 - `scheme` — an [`AbstractTransferScheme`](@ref), selecting the transfer kernel and the
@@ -1124,7 +1125,7 @@ The arguments are:
   **spectral representation** in the Fourier basis; each scheme's own docstring gives its weights.
 - `traversal` — an optional traversal order from [`point_traversal_order`](@ref): a permutation of the point indices
   saying which point each work item handles. It changes only the sequence in which points are
-  visited, never the result — the gather is bitwise unchanged — and is worth several times the
+  visited — the gather is bitwise unchanged — and is worth several times the
   throughput when the points are in an order unrelated to the grid. It must name every point exactly
   once and live in the same storage family as the field; `nothing`, the default, visits them in
   index order.
@@ -1213,12 +1214,13 @@ in-place home of the scatter ``W^\\top``.
 Use this in-place form when `field` is already allocated; the allocating [`anterpolate`](@ref) returns
 a fresh result instead.
 
-Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose. For
-a **local-spline** scheme the weights are also a partition of unity — at any position they sum to exactly
-one — and the total deposited quantity is conserved. Other communities name
+Because it applies the **same** weights as the matching gather, anterpolation is the exact transpose; the [`Interpolation`](@ref "Interpolation") module docstring
+explains the pair. For
+a **local-spline** scheme the weights also sum to exactly one at any position (a partition of unity),
+so the total deposited quantity is conserved. Other communities name
 this operation *spreading* (immersed-boundary methods), *deposition* or *charge assignment*
 (particle-in-cell), *projection* (PSI-Cell, particle-source-in-cell), or *gridding* (nonuniform FFTs);
-*anterpolation* — the adjoint of interpolation — follows Brandt & Lubrecht (1990).
+*anterpolation* follows Brandt & Lubrecht (1990).
 
 The arguments are:
 - `field` — the field deposited onto, in the representation the `scheme` acts on. It shares its
