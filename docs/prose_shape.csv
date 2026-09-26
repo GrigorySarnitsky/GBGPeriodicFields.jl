@@ -171,7 +171,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 87",513,99,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",835,108,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",932,108,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -238,7 +238,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _det_tensor_rhs(symbol, kind)",92,36,0
 "FiberSections.jl :: _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)",25,21,0
 "FiberSections.jl :: _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)",34,30,0
-"FiberSections.jl :: _element_values(arrays, n)",109,107,0
+"FiberSections.jl :: _element_values(arrays, n)",154,107,0
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",35,34,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",30,28,0
