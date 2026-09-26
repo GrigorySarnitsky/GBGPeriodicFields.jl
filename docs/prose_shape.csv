@@ -5,7 +5,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (2)",189,189,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (3)",42,42,0
 "ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (4)",1750,498,0
-"ARCHITECTURE.md § 11. Convolution",526,370,1
+"ARCHITECTURE.md § 11. Convolution",549,393,1
 "ARCHITECTURE.md § 12. Reductions",311,311,0
 "ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
 "ARCHITECTURE.md § 3. Types and memory layout",287,115,0
@@ -44,7 +44,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § The invariants / item 9",142,142,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",99,99,0
-"Convolution.jl :: Convolution",623,195,0
+"Convolution.jl :: Convolution",637,196,0
 "Convolution.jl :: ProductKernel",234,116,0
 "Convolution.jl :: RadialKernel",674,139,2
 "Convolution.jl :: SeparableKernel",391,99,1
@@ -76,11 +76,12 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",248,117,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
 "Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",215,91,0
+"Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",417,101,1
 "Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",733,210,1
 "Convolution.md § Convolution operations",66,66,0
 "Convolution.md § Internal API",72,72,0
-"Convolution.md § Kernel builders",65,65,0
+"Convolution.md § Kernel builders",66,66,0
 "Convolution.md § Kernel storage classes",162,84,0
 "DECISIONS.md § (preamble)",22,22,1
 "DECISIONS.md § Decision log — GBGPeriodicFields",112,45,0
@@ -169,6 +170,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 84",479,88,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",519,99,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -201,7 +203,7 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.md § Internal API",58,58,0
 "FORMALIZATION.md § (preamble)",22,22,1
 "FORMALIZATION.md § Base-space motion: displacement and the canonical representa",518,129,0
-"FORMALIZATION.md § Convolution (`Convolution`)",1383,248,0
+"FORMALIZATION.md § Convolution (`Convolution`)",1582,248,0
 "FORMALIZATION.md § Declarations",591,376,0
 "FORMALIZATION.md § Differential operators (`DifferentialOperators`)",884,114,0
 "FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",435,158,0
@@ -481,7 +483,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (x)",782,176,0
 "PERFORMANCE.md § 4. What we have found / finding (y)",924,167,0
 "PERFORMANCE.md § 4. What we have found / finding (z)",512,279,0
-"PERFORMANCE.md § 5. The benchmark suite",1345,659,0
+"PERFORMANCE.md § 5. The benchmark suite",1347,661,0
 "PERFORMANCE.md § 6. Tracking regressions, and per-platform results",955,390,0
 "PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
 "PERFORMANCE.md § 7. Current coverage and known gaps / finding (an)",344,142,0
@@ -589,7 +591,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 4. The coverage contract / item 9",17,17,0
 "TESTING.md § 5. GPU testing",221,141,0
 "TESTING.md § 6. Maintenance",294,294,0
-"TESTING.md § 7. Current coverage and known gaps",1689,1674,0
+"TESTING.md § 7. Current coverage and known gaps",1765,1750,0
 "TESTING.md § 7. Current coverage and known gaps / item 1",28,28,0
 "TESTING.md § 7. Current coverage and known gaps / item 2",39,39,0
 "TESTING.md § A GATE and a SURVEY, and how to tell which a test is",139,114,0
@@ -612,7 +614,7 @@ unit,words,longest_paragraph,admonitions
 "index.md § Design & internals",90,90,0
 "index.md § GBGPeriodicFields.jl",324,120,0
 "index.md § Installation",75,48,0
-"index.md § Main components",365,365,0
+"index.md § Main components",366,366,0
 "index.md § Start here",58,58,0
 "notation.md § Base and fiber",629,579,0
 "notation.md § Conventions",315,315,0
