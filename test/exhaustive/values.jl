@@ -298,6 +298,10 @@ function run_value_lane(configs)
                                                              complex.(ref_assignment_window(grid, layout, shape))),
       (:tophat_window,   kernel_data(tophat_window(multipliers, (T(0.7), T(1.3), T(2.1)))),
                                                              complex.(ref_tophat_window(grid, layout, shape, (T(0.7), T(1.3), T(2.1))))),
+      # The one-number method (a cube), which the triple row above never reaches; the reference takes
+      # the edge on every axis, so a method mixing up its delegation disagrees.
+      (:tophat_window,   kernel_data(tophat_window(multipliers, T(0.9))),
+                                                             complex.(ref_tophat_window(grid, layout, shape, (T(0.9), T(0.9), T(0.9))))),
       (:translation_kernel, kernel_data(translation_kernel(multipliers, offset)),
                                                              ref_translation_kernel(grid, layout, shape, offset)),
       # A SEPARABLE kernel, not the radial one the row above already materializes. `kernel_data` calls
