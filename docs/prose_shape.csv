@@ -59,7 +59,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",64,53,0
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
 "Convolution.jl :: _show_kernel(io, kernel)",60,46,0
-"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",419,113,0
+"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",417,113,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",727,174,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
 "Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",986,232,1
@@ -76,7 +76,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",248,117,0
 "Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
 "Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",215,91,0
-"Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",417,101,1
+"Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",416,96,1
 "Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",733,210,1
 "Convolution.md § Convolution operations",66,66,0
@@ -170,7 +170,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 84",479,88,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",519,99,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",513,99,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -619,7 +619,7 @@ unit,words,longest_paragraph,admonitions
 "notation.md § Base and fiber",629,579,0
 "notation.md § Conventions",315,315,0
 "notation.md § Notation",56,56,0
-"notation.md § Operators",283,283,0
+"notation.md § Operators",296,296,0
 "notation.md § Scalar weights",246,167,0
 "tutorial.md § (preamble)",22,22,1
 "tutorial.md § Convolution (apply a Fourier kernel)",53,53,0
