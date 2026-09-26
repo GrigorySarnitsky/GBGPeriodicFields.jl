@@ -76,7 +76,11 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 117,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  FiberSections         = 118,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  # 117 → 118: `_element_values` became a `@generated` function, whose generator body Julia compiles
+  # as a hidden function of its own (`#62#63` at the time of writing), counted here like any other.
+  # The `ntuple` closure it replaced indexed a mixed operand tuple at run time on the CPU and did not
+  # compile on a device (decision 88, found by the CUDA suite).
   # 110 → 117: caller-controlled counts (decision 88). An operation taking as many operands as its
   # caller passes now works through them in fixed-size groups, and every per-element step is an
   # `ntuple` over a `Val` count rather than a splat or a tuple `map`, which leave the specialized path
@@ -294,7 +298,9 @@ const MODULE_BASELINE = (
   # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
   # one traversal, which is one method on the existing generic rather than a new operation.
   # Refrozen deliberately, with the reason.
-  Reductions            = 137,
+  Reductions            = 139,
+  # 137 → 139: `_pack_weights` and `_add_tuples` became `@generated` functions for the same reason as
+  # `FiberSections`' `_element_values`, each adding its hidden generator-body function.
   # 131 → 137: caller-controlled counts (decision 88). `weighted_inner` over a tuple of weights
   # reduces four weights per traversal: `_weighted_groups` ×2 splits the tuple, `_weighted_pass` is
   # one traversal, `_join_results` concatenates the groups' answers, and `_pack_weights` and

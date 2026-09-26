@@ -216,6 +216,19 @@ _six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)   # six sl
       @alloc_below field_threshold combine!(ssd, T(0.3), ss, T(0.7), ss, kernel)
       @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, kernel)
       @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, kernel)
+      # The same passes with each COMPRESSED kernel class. A stored kernel is a plain array like the
+      # fields beside it; a radial, separable or product kernel is a lazy expression of a different
+      # type, so the pass reads a MIXED tuple of operands. Decision 88's first version indexed that
+      # tuple through a closure the compiler did not inline, which allocated 8.3 MB per call on a
+      # `16^3` vector field here and did not compile on a device, while every row above passed.
+      radial_class = spectral_band(multipliers, T(1), T(2))
+      product_class = convolve(spectral_cutoff(multipliers, T(3)), separable)
+      for mixed in (radial_class, separable, product_class)
+        @alloc_below field_threshold convolve!(svd, sv, mixed)
+        @alloc_below field_threshold convolve!(std_, st, mixed)
+        @alloc_below field_threshold combine!(svd, T(0.3), sv, T(0.7), sv, mixed)
+        @alloc_below field_threshold combine!(std_, T(0.3), st, T(0.7), st, mixed)
+      end
 
       # ----- add! / subtract!: physical + spectral, R = 0/1/2, field·field + field·constant + reversed -----
       for (d, a, c) in ((psd, ps, const_real), (pvd, pu, const_vec), (ptd, pt, const_ten),

@@ -1247,8 +1247,15 @@ function _weighted_pass(f::AbstractFieldSpectral{T}, weights::Tuple) where {T}
   return map(total -> total / normalization, totals)
 end
 
-@inline _pack_weights(d, p, ws::Vararg{Any, N}) where {N} = ntuple(i -> p * ws[i] * d, Val(N))
-@inline _add_tuples(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N} = ntuple(i -> a[i] + b[i], Val(N))
+# Both written out with a literal index per weight, generated per count: the weights' element types
+# may differ (a stored kernel is complex where a radial one is real), and a closure indexing a mixed
+# tuple is resolved at run time whenever it is not inlined, which a device kernel cannot compile.
+@generated function _pack_weights(d, p, ws::Vararg{Any, N}) where {N}
+  return :(($((:(p * ws[$i] * d) for i in 1:N)...),))
+end
+@generated function _add_tuples(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
+  return :(($((:(a[$i] + b[$i]) for i in 1:N)...),))
+end
 
 
 # =============================================================================

@@ -3647,7 +3647,7 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
 
     Each now handles at most a fixed number per pass — eight for the first three, four weights for
     the reduction — and continues from its own partial result. Within a pass every per-element step
-    is an `ntuple` over a count the compiler knows, never a splat or a `map` over a tuple.
+    that indexes the operands is written out with a literal index per operand, generated per count.
 
     - **What broke.** The consumer's `weighted_inner` with 32 weights did not compile on a device.
       The research the report prompted found the same shape in the other three, where the count had
@@ -3681,6 +3681,19 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       allocates one single-weight call's worth per group of four (Performance finding (au)). Above one
       group, a pass per group re-reads what one pass would have read once: a tuple of 33 weights takes
       nine traversals. That time is unmeasured, and is invisible at the counts a solver passes.
+
+    - **The first version broke a case the CPU suite passed.** The per-element read was first an
+      `ntuple` over a closure, `i -> arrays[i][n]`. When the operands are of different types, as in a
+      kernel-composed `combine!` or `convolve!` where a radial kernel's lazy expression sits beside
+      plain arrays, the compiler did not inline that closure and indexed the tuple at run time. On the
+      CPU that ran, allocating 8.3 MB per call on a ``16^3`` vector field; on a device it did not
+      compile.
+
+    - **Why only the device saw it, and the repair.** The CUDA suite caught it, and the CPU
+      allocation audit had not, its kernel-composed rows using only a stored kernel, whose operands
+      are all plain arrays. The read is now a generated
+      function with a literal index per operand, back to the 16 bytes the call cost before, and the
+      audit has rows for every compressed kernel class, which fail against the closure form.
 
     - **How it is pinned.** The file `test/caller_counts.jl` sweeps each operation past its group size
       and past 32 operands against raw-array arithmetic, including a destination that aliases a later

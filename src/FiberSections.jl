@@ -821,12 +821,18 @@ end
 """
     _element_values(arrays, n)
 
-Return the tuple of every array's element at linear index `n`, unrolled over the static array count.
-An `ntuple` over a `Val` is generated per count, so this holds for any number of arrays; a `map` over the
-tuple would take `Base`'s generic path from 32 entries, which allocates on a CPU and does not compile on
-a device — the ceiling the multi-input `map!` hit at four second-order inputs.
+Return the tuple of every array's element at linear index `n`, written out with a literal index per
+array. The body is generated per tuple type, so it holds for any number of arrays and any mix of array
+types. A `map` over the tuple takes `Base`'s generic path from 32 entries, the ceiling the multi-input
+`map!` hit at four second-order inputs; an `ntuple` over a closure indexes a mixed tuple through a
+runtime lookup whenever the compiler declines to inline the closure, which allocates per element on a
+CPU and does not compile on a device (a radial kernel beside plain arrays in a kernel-composed
+`combine!`).
 """
-@inline _element_values(arrays::NTuple{NA, Any}, n) where {NA} = ntuple(i -> (@inbounds arrays[i][n]), Val(NA))
+@generated function _element_values(arrays::Tuple, n)
+  reads = [:(@inbounds arrays[$i][n]) for i in 1:fieldcount(arrays)]
+  return :(($(reads...),))
+end
 
 
 """

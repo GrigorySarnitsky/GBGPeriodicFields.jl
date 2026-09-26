@@ -735,8 +735,9 @@ construction (an element's reads precede its writes) or a documented contract (`
 Four operations take as many operands as their caller passes: `add!` and `subtract!` over sections,
 `map!` over sources, `displace!` over terms, and `weighted_inner` over a tuple of weights. Whatever
 route one of them takes, it handles at most a fixed number of operands per pass — eight for the first
-three, four weights for the reduction — and within a pass every per-element step is an `ntuple` over a
-count known to the compiler, never a splat of an unbounded list or a `map` over a tuple. The ceilings
+three, four weights for the reduction — and within a pass every per-element step that indexes the
+operands is written out with a literal index per operand, generated per count, never a splat of an
+unbounded list, a `map` over a tuple, or a closure indexing a tuple of mixed types. The ceilings
 this keeps clear are the compiler's, not the mathematics': Julia may decline to specialize a function
 on the length of a trailing argument list unless its signature names the count (`Vararg{T, N}`); a
 tuple of 32 or more entries leaves `Base`'s specialized tuple functions for a generic path, which
