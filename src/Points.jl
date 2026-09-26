@@ -47,7 +47,7 @@ using StaticArrays: SVector
 import Adapt: adapt, adapt_structure
 using ..FiberSections:
   _check_owned_storage, AbstractFiberSection, _section_scalar_type, _assign!, @_assign!,
-                       _add_values, _subtract_values,
+                       _add_values, _subtract_values, _nary_assign!, _operand_tuple, _OPERANDS_PER_PASS,
                        _scalar_kernel_body, _vector_kernel_body, _tensor_kernel_body,
                        _sum_terms, _vector_component, _tensor_component, _product,
                        _dot_vector_rhs, _dot_tensor_rhs, _cross_formula,
@@ -484,9 +484,17 @@ accepted in one order — a scalar broadcast across a vector's fiber — and rej
 was not commutative; and adding a scalar section to a vector one is not in the method set for fields
 either.
 """
-function _check_combinable(values::AbstractPointValues...)
-  first_values = first(values)
-  for other in Base.tail(values)
+_check_combinable(values::AbstractPointValues...) = _check_combinable(values)
+
+# A destination is checked against the first operand, and the operands among themselves.
+_check_combinable(destination::AbstractPointValues, operands::Tuple) =
+  (_check_combinable((destination, operands[1])); _check_combinable(operands))
+
+# The operands arrive as one tuple, indexed rather than splatted, since their number is the caller's.
+function _check_combinable(values::Tuple)
+  first_values = values[1]
+  for k in 2:length(values)
+    other = values[k]
     npoints(other) == npoints(first_values) ||
       throw(DimensionMismatch("point counts differ: $(npoints(first_values)) and $(npoints(other))"))
     point_value_tensor_order(other) == point_value_tensor_order(first_values) ||
@@ -500,17 +508,27 @@ function _check_combinable(values::AbstractPointValues...)
 end
 
 
+# A copy of point values with their own storage, for the one aliased operand an n-ary combination must preserve.
+_duplicate_point_values(values) = similar_point_values(values, copy(field_data(values)))
+
+
 # Field-field combination (variadic) and its operators; reuse the FieldAlgebra n-ary reducers.
 for (bang, operator, reducer) in ((:add!, :+, :_add_values), (:subtract!, :-, :_subtract_values))
-  @eval function $bang(destination::AbstractPointValues, a::AbstractPointValues, b::AbstractPointValues, rest::AbstractPointValues...)
-    _check_combinable(destination, a, b, rest...)
-    destination .= $reducer.(a, b, rest...)
-    return destination
+  # The operand count is a named type parameter, as in `FieldAlgebra`: a bare `rest...` is not
+  # specialized on its length, which made every call past three operands allocate and fail on a device.
+  @eval function $bang(destination::AbstractPointValues, a::AbstractPointValues, b::AbstractPointValues,
+                       rest::Vararg{AbstractPointValues, N}) where {N}
+    operands = _operand_tuple(a, b, rest)
+    _check_combinable(destination, operands)
+    return _nary_assign!($reducer, destination, operands, _duplicate_point_values)
   end
 
-  @eval function $operator(a::AbstractPointValues, b::AbstractPointValues, rest::AbstractPointValues...)
-    _check_combinable(a, b, rest...)
-    return $reducer.(a, b, rest...)
+  @eval function $operator(a::AbstractPointValues, b::AbstractPointValues, rest::Vararg{AbstractPointValues, N}) where {N}
+    operands = _operand_tuple(a, b, rest)
+    _check_combinable(operands)
+    N + 2 <= _OPERANDS_PER_PASS && return $reducer.(operands...)
+    return _nary_assign!($reducer, similar_point_values(a, similar(field_data(a))), operands,
+                         _duplicate_point_values)
   end
 end
 
@@ -1140,7 +1158,7 @@ function read_points end
 # --- map! / map (arbitrary φ) — the point-value peer of the FieldAlgebra methods, reusing the shared
 # `_map_pass!` driver over the same fused executor; point-values are representation-free, so no
 # physical-only restriction applies. The one docstring lives on the FieldAlgebra binding. ---
-function map!(φ::F, destination::AbstractPointValues, sources::AbstractPointValues...) where {F}
+function map!(φ::F, destination::AbstractPointValues, sources::Vararg{AbstractPointValues, N}) where {F, N}
   _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   for source in sources
@@ -1157,7 +1175,7 @@ function map!(φ::F, destination::AbstractPointValues, source::AbstractPointValu
   return _map_pass!(φ, destination, (source,), α, β)
 end
 
-function map(φ::F, source1::AbstractPointValues, sources::AbstractPointValues...) where {F}
+function map(φ::F, source1::AbstractPointValues, sources::Vararg{AbstractPointValues, N}) where {F, N}
   _refuse_field_as_fiber_map(φ)
   all_sources = (source1, sources...)
   order = _map_output_order(φ, all_sources)
@@ -1198,7 +1216,7 @@ the same trap as the forwarded-`Function` spelling pinned in `test/allocations.j
 without it a three-term call boxed per element.
 """
 _displacement_rhs(base) = base
-_displacement_rhs(base, term, rest...) =
+_displacement_rhs(base, term, rest::Vararg{Any, N}) where {N} =
   _displacement_rhs(Base.Broadcast.broadcasted(+, base,
                       Base.Broadcast.broadcasted(*, first(term), last(term))), rest...)
 
@@ -1230,7 +1248,7 @@ over the tuple rather than by a `map` closure: a closure would capture the type 
 audit would flag.
 """
 _convert_terms(::Type{T}) where {T} = ()
-_convert_terms(::Type{T}, term, rest...) where {T} =
+_convert_terms(::Type{T}, term, rest::Vararg{Any, N}) where {T, N} =
   ((T(first(term)), point_values(last(term))), _convert_terms(T, rest...)...)
 
 
@@ -1242,7 +1260,7 @@ per-axis operands of the fused displace-and-wrap pass. Recursion for the same re
 [`_convert_terms`](@ref): a specialized tuple in, a specialized tuple out, nothing boxed.
 """
 _axis_terms(axis::Int) = ()
-_axis_terms(axis::Int, term, rest...) =
+_axis_terms(axis::Int, term, rest::Vararg{Any, N}) where {N} =
   ((first(term), view(last(term), :, axis)), _axis_terms(axis, rest...)...)
 
 
@@ -1311,9 +1329,11 @@ x_p \\leftarrow x_p + \\sum_j c_j v_j(p) .
 Each element of `terms` is a tuple `(coefficient, section)`: the ``j``-th term supplies **one**
 host scalar ``c_j`` — a single number, applied to every point, not a per-point array — and one
 [`VectorPointValues`](@ref) section ``v_j``, which does hold one vector per point. The subscript
-``j`` counts the terms of the call, so a two-term call has ``c_1, c_2`` and ``v_1, v_2``. All
-terms apply in **one fused traversal**: the
-positions are read once, each section once, and the positions written once, on CPU and GPU alike.
+``j`` counts the terms of the call, so a two-term call has ``c_1, c_2`` and ``v_1, v_2``. Up to
+eight terms apply in **one fused traversal**: the positions are read once, each section once, and
+the positions written once, on CPU and GPU alike. A longer call takes one traversal per group of
+eight, each continuing from the last in the same left-to-right order, so the result is bitwise the
+single traversal's; with a `grid` the wrap runs once, on the finished sum.
 This is the one operation that crosses the position-versus-value role split, and it is a named
 operation rather than a `+` method because positions are points of the periodic domain, not
 vectors: what is being applied is a displacement, exact because the domain is flat and the fiber
@@ -1350,8 +1370,33 @@ point count, scalar type and [storage family](@ref GBGPeriodicFields.GBGPeriodic
 """
 function displace! end
 
-function displace!(destination::PointSet, source::PointSet,
-                   terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
+displace!(destination::PointSet, source::PointSet,
+          terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  _displace_grouped!(destination, source, nothing, terms)
+displace!(destination::PointSet, source::PointSet, grid::Grid3D,
+          terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  _displace_grouped!(destination, source, grid, terms)
+displace!(points::PointSet, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  _displace_grouped!(points, points, nothing, terms)
+displace!(points::PointSet, grid::Grid3D, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
+  _displace_grouped!(points, points, grid, terms)
+
+
+# Apply the terms in passes of at most `_OPERANDS_PER_PASS`: the first moves `source` into
+# `destination`, each later one continues from `destination`, so the sum keeps the single pass's
+# left-to-right order and is bitwise the same. The wrap onto the torus, when `grid` asks for it, runs
+# in the last pass alone, on the finished sum. A pass over every term at once would splat past
+# 32 entries on the host and nest one lazy expression per term in the device kernel.
+@inline function _displace_grouped!(destination::PointSet, source::PointSet, grid, terms::Tuple)
+  length(terms) <= _OPERANDS_PER_PASS && return _displace_pass!(destination, source, grid, terms)
+  head = ntuple(i -> terms[i], Val(_OPERANDS_PER_PASS))
+  tail = ntuple(i -> terms[_OPERANDS_PER_PASS + i], Val(length(terms) - _OPERANDS_PER_PASS))
+  _displace_pass!(destination, source, nothing, head)
+  return _displace_grouped!(destination, destination, grid, tail)
+end
+
+# One pass in the universal cover.
+function _displace_pass!(destination::PointSet, source::PointSet, ::Nothing, terms::Tuple)
   _check_displacement_compatibility(destination, source, map(last, terms))
   converted = _convert_terms(eltype(point_positions(destination)), terms...)
   rhs = _displacement_rhs(point_positions(source), converted...)
@@ -1360,8 +1405,8 @@ function displace!(destination::PointSet, source::PointSet,
   return destination
 end
 
-function displace!(destination::PointSet, source::PointSet, grid::Grid3D,
-                   terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N}
+# One pass on the torus, the wrap fused in.
+function _displace_pass!(destination::PointSet, source::PointSet, grid::Grid3D, terms::Tuple)
   _check_displacement_compatibility(destination, source, map(last, terms))
   _check_displacement_domain(destination, grid)
   converted = _convert_terms(eltype(point_positions(destination)), terms...)
@@ -1379,11 +1424,6 @@ function displace!(destination::PointSet, source::PointSet, grid::Grid3D,
   end
   return destination
 end
-
-displace!(points::PointSet, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
-  displace!(points, points, terms...)
-displace!(points::PointSet, grid::Grid3D, terms::Vararg{Tuple{Real, <:VectorPointValues}, N}) where {N} =
-  displace!(points, points, grid, terms...)
 
 
 """

@@ -731,6 +731,21 @@ implementation it replaces** (or against an oracle when the arithmetic legitimat
 element-traffic test counts no reads or writes beyond the fused minimum or names why, and alias safety is either by
 construction (an element's reads precede its writes) or a documented contract (`mul!`).
 
+**An operand count the caller chooses is worked through in groups of a fixed size (decision 88).**
+Four operations take as many operands as their caller passes: `add!` and `subtract!` over sections,
+`map!` over sources, `displace!` over terms, and `weighted_inner` over a tuple of weights. Whatever
+route one of them takes, it handles at most a fixed number of operands per pass — eight for the first
+three, four weights for the reduction — and within a pass every per-element step is an `ntuple` over a
+count known to the compiler, never a splat of an unbounded list or a `map` over a tuple. The ceilings
+this keeps clear are the compiler's, not the mathematics': Julia may decline to specialize a function
+on the length of a trailing argument list unless its signature names the count (`Vararg{T, N}`); a
+tuple of 32 or more entries leaves `Base`'s specialized tuple functions for a generic path, which
+allocates on a CPU and cannot run inside a device kernel; and a device kernel's arguments are limited
+in size. The group sizes are package constants rather than per-machine tunings, set well below all
+three. Grouping must not change a result: each group continues the previous one's left-to-right
+order, an operand that is also the destination is copied before a later group would read it, and the
+torus form of `displace!` wraps once, after the last group.
+
 **The kernel sites split into two classes for the threading policy — and two kernels are not
 bitwise.** The fused operations of decisions 38/39 (`gradient!`, `curl!`, `symmetric_gradient!`, the
 fiberwise executor behind the algebra) are `KernelAbstractions` kernels **on a device only**; on a

@@ -159,6 +159,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   `pointvalues_algebra.jl` (the point-value M2 + M3 surface, incl. `det` and the representation-free `map!` / `map`),
   `hdf5.jl` also covers **transfer-scheme persistence** (decision 75 — nine schemes round-tripped by `===` plus a bitwise behavioural check, eight malformed-group refusals, the `NUFFT` refusal, and a completeness guard over every concrete scheme type, itself verified by perturbation),
   `displacement.jl` (spatial motion, decision 73 — `displace!` against a raw-array oracle, the fused torus arity bitwise against cover-then-`wrap!`, and the wrap contract's endpoint / non-finite / origin pins),
+  `caller_counts.jl` (operand counts the caller chooses, decision 88 — `add!`/`subtract!`, `map!`, `displace!` and the tuple `weighted_inner` past their group sizes and past 32 operands, bitwise against the ungrouped arithmetic, with the destination aliasing a later operand),
   `interpolation_transfer.jl` (the physical-domain spline transfer — the smooth `LalescuSpline`/`CatmullRom` and the ``C^0`` `LagrangeSpline` — interpolation / anterpolation kernels),
   `transfer_spectral.jl` (the spectral-domain transfer schemes — the exact `DirectDFT` and the fast `NUFFT`), and
   `reductions.jl` (the L²/measure reductions + the multiplier-weighted `weighted_inner`, including its
@@ -481,6 +482,19 @@ operation's coverage is judged against the full axis list:
     and a coarse grid whose axes are of mixed parity against a fine grid of different parity — because
     what the map must get right is where each frequency lands when the two grids disagree about which
     index holds it. Each value is swept for BOTH verbs, by axis 20's rule.
+
+23. **the operand count**, for any operation taking as many operands as its caller passes — `add!`
+    and `subtract!` over sections, `map!` over sources, `displace!` over terms, `weighted_inner` over
+    a tuple of weights (decision 88). A count of two or three, which is all a solver usually passes,
+    exercises none of what breaks: each of these works through its operands in fixed-size groups,
+    and Julia takes a generic path for tuples of 32 or more entries.
+
+    The axis carries three values, all to be swept: a count below the group size, a count just past
+    it, and a count past 32. At each, the result must equal the ungrouped arithmetic exactly, a
+    destination that is also a LATER operand must give the same answer, and the serial allocation
+    must stay zero. An allocation row must build its call with every operand written out: a splat
+    of more than 32 values allocates at the call site, before the package is entered, and would
+    measure the test.
 
 The operator `inverse_curl` (decision 77) is covered on every axis this list names that applies to it: both
 element types, three grids including an anisotropic mixed-parity one, the aliased in-place call

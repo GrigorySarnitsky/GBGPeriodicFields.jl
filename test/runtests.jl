@@ -24,6 +24,7 @@ module ConvolutionTests;           include("convolution.jl");           end
 module InterpolationTests;         include("interpolation.jl");         end
 module PointValuesAlgebraTests;    include("pointvalues_algebra.jl");   end
 module DisplacementTests;          include("displacement.jl");          end
+module CallerCountsTests;          include("caller_counts.jl");         end
 module InterpolationTransferTests; include("interpolation_transfer.jl"); end
 module PointTraversalOrderTests;         include("point_traversal_order.jl");       end
 module SpectralTransferTests;      include("transfer_spectral.jl");     end

@@ -3638,3 +3638,54 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       card in another kernel, a wide tuple accumulator is the kind of shape that raises it, and nested
       lazy broadcasts are the fragile spot on that backend, so the batch size is to be swept rather than
       assumed.
+
+88. **An operand count the caller chooses is worked through in groups of a fixed size** (2026-09-26,
+    owner-approved; reported by `GBGHomogeneousTurbulence` on 2026-09-26). Four operations take as
+    many operands as their caller passes: `add!` and `subtract!` over sections (with the `+` and `-`
+    they back), `map!` over sources, `displace!` over terms, and `weighted_inner` over a tuple of
+    weights. Each was written as one pass over all of its operands.
+
+    Each now handles at most a fixed number per pass — eight for the first three, four weights for
+    the reduction — and continues from its own partial result. Within a pass every per-element step
+    is an `ntuple` over a count the compiler knows, never a splat or a `map` over a tuple.
+
+    - **What broke.** The consumer's `weighted_inner` with 32 weights did not compile on a device.
+      The research the report prompted found the same shape in the other three, where the count had
+      simply never been large: an unnamed trailing argument list (`fields...`), which Julia need not
+      specialize on its length, and tuple `map`s and splats, which leave `Base`'s specialized path at
+      32 entries for a generic one that allocates on a CPU and cannot run in a kernel. A device kernel's
+      arguments are also limited in size, which bounds how many lazy operands one launch may carry.
+
+    - **What it cost before.** Measured on the CPU before the change, with every operand written out at the call site and a
+      ``24^3`` vector field: at 33 operands `add!` allocated 775 MB per call, the 33-weight
+      `weighted_inner` 139 MB, `displace!` 0.6 MB, and `map!` over six tensor fields 57 MB already
+      at six sources. At 9 operands `add!` allocated 16.7 KB, still more than it does now at 33.
+
+    - **A fixed size, not a tuned one.** The owner raised the danger of tuning the group size to a
+      backend or a card and proposed a fixed safe size instead. The limits above differ between
+      vendors and drivers, a tuned constant would be right only on the machine that measured it, and nothing the package does needs a pass wider than the counts a
+      solver passes, which fit in one group. Eight and four sit well below every ceiling named above.
+      The alternative of recursing on argument lists was declined for the same reason as splatting:
+      it relies on the compiler's heuristics rather than stating the count.
+
+    - **Grouping changes no result.** Each group continues the previous one's left-to-right order, so
+      `add!` over 33 sections is bitwise the plain left fold, `displace!` over 20 terms bitwise the
+      term-by-term sum, and the tuple `weighted_inner` on the CPU bitwise one single-weight call per
+      weight. Two cases needed care. An operand that is also the destination would be overwritten by
+      the first group before a later group reads it, so the later group reads a copy of it; and the
+      torus form of `displace!` wraps once, after the last group, since wrapping between groups would
+      round differently wherever an intermediate position crossed the boundary.
+
+    - **What it costs.** At one thread every grouped call allocates zero bytes at 9 and at 33 operands;
+      threaded, a field `add!` pays `Base.Threads` task state once per pass; and `weighted_inner`
+      allocates one single-weight call's worth per group of four (Performance finding (au)). Above one
+      group, a pass per group re-reads what one pass would have read once: a tuple of 33 weights takes
+      nine traversals. That time is unmeasured, and is invisible at the counts a solver passes.
+
+    - **How it is pinned.** The file `test/caller_counts.jl` sweeps each operation past its group size
+      and past 32 operands against raw-array arithmetic, including a destination that aliases a later
+      operand; `test/allocations.jl` asserts the serial zero with every operand written out at the call
+      site, a splat of more than 32 values allocating in the caller; and the GPU suite runs each class
+      past the old ceiling on the device. The operand count is Testing axis 23. Two falsification runs
+      confirmed the new tests bite: removing the aliased-operand copy fails 28 assertions, and wrapping
+      after every group fails 6.

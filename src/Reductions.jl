@@ -983,10 +983,12 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
 
 The arguments are:
 - `f`, `g` — two compatible, equal-order fields in spectral representation (``g = f`` in the two-argument form).
-- `weights` — in the tuple form, a tuple of such kernels: every one is answered in a single traversal
-  and one device readback, bitwise-equal to calling the operation once per weight, and the results are
-  returned in the order given. An empty tuple answers `()` without reading the field, and every refusal
-  the single-weight form makes is made here in any position.
+- `weights` — in the tuple form, a tuple of such kernels, of any length. Up to four are answered in
+  one traversal and one device readback; a longer tuple takes one traversal per group of four. On the
+  CPU the results are bitwise-equal to calling the operation once per weight, and on a device they
+  agree to rounding, a device reduction summing in its own order. The results are returned in the
+  order given. An empty tuple answers `()` without reading the field, and every refusal the
+  single-weight form makes is made here in any position.
 - `w` — the weight: a kernel in **any** of the four storage classes of a [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), holding a **real** multiplier
   ``w(k)``. All four give bitwise-identical results. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
@@ -1147,7 +1149,7 @@ function _weighted_totals_cpu(a, b, parseval, folded_dimension::Int,
   pv = vec(parseval)
   element = column -> _weighted_column(pv, folded_dimension, weights, a, b, column,
                                        n1, n2, weight_columns, Val(N))
-  return _indexed_tree_reduce(element, (x, y) -> map(+, x, y), 1, total_columns)
+  return _indexed_tree_reduce(element, _add_tuples, 1, total_columns)
 end
 
 
@@ -1182,7 +1184,7 @@ weighted_inner(f::AbstractFieldSpectral{T}, w::SpectralKernel{T}) where {T<:Abst
   weighted_inner(f, f, w)
 
 
-# SEVERAL WEIGHTS, ONE TRAVERSAL (decision 72). The per-mode energy density is read and formed once and
+# SEVERAL WEIGHTS, ONE TRAVERSAL PER FOUR (decisions 72, 88). The per-mode energy density is read and formed once and
 # then multiplied by each weight, where n separate calls would read the coefficient array n times and,
 # on a device, block n times to bring n numbers back. The consuming solver's variance controller wants
 # exactly three of these per stage — the whole field, a forced band, and |κ|² — and it is the return
@@ -1198,6 +1200,33 @@ function weighted_inner(f::AbstractFieldSpectral{T},
   # No weights is not an error, it is no questions asked — and answering it without touching the field
   # keeps the degenerate case from reaching a broadcast that has nothing to broadcast over.
   isempty(weights) && return ()
+  return _weighted_groups(f, weights)
+end
+
+
+# Weights answered per traversal. A fixed package constant, not a per-machine tuning: it keeps every
+# pass far below each ceiling a wide pass meets — Julia's specialization of a call on its argument
+# count (a device pass failed from seven same-kind weights), `Base`'s generic path for tuples of 32 or
+# more, a device kernel's argument size, and register pressure, which a consumer measured making wide
+# passes slower well before any of those.
+const _WEIGHTS_PER_PASS = 4
+
+# Split the weights into groups by counts known at compile time, so a group of any kinds of kernel
+# stays a concrete tuple. Every weight's reduction is independent, so grouping changes no result.
+@inline _weighted_groups(f, weights::Tuple{}) = ()
+@inline function _weighted_groups(f, weights::Tuple)
+  length(weights) <= _WEIGHTS_PER_PASS && return _weighted_pass(f, weights)
+  head = ntuple(i -> weights[i], Val(_WEIGHTS_PER_PASS))
+  tail = ntuple(i -> weights[_WEIGHTS_PER_PASS + i], Val(length(weights) - _WEIGHTS_PER_PASS))
+  return _join_results(_weighted_pass(f, head), _weighted_groups(f, tail))
+end
+
+# Join two groups' results without splatting: past 32 entries a splat leaves the specialized path.
+@inline _join_results(a::NTuple{A, Any}, b::NTuple{B, Any}) where {A, B} =
+  ntuple(i -> i <= A ? a[i] : b[i - A], Val(A + B))
+
+# One traversal answering at most `_WEIGHTS_PER_PASS` weights.
+function _weighted_pass(f::AbstractFieldSpectral{T}, weights::Tuple) where {T}
   foreach(w -> _check_kernel_compatibility(f, w), weights)
   weight_data = map(_weight_data, weights)          # each one's complex-multiplier refusal runs here
   parseval = _parseval_weight(f)
@@ -1209,13 +1238,17 @@ function weighted_inner(f::AbstractFieldSpectral{T},
     return map(total -> total / normalization, totals)
   end
   density = Base.broadcasted(abs2, field_data(f))
-  # One element of the pass yields one value per weight. `map` over the tuple keeps the closure generic
-  # in the count while staying isbits, which is what the device reduction requires.
-  packed = Base.broadcasted((d, p, ws...) -> map(w -> p * w * d, ws), density, parseval, weight_data...)
-  zeros_tuple = ntuple(_ -> zero(T), length(weights))
-  totals = reduce((a, b) -> map(+, a, b), Base.Broadcast.instantiate(packed); init = zeros_tuple)
+  # One element of the pass yields one value per weight, through named functions whose count is a type
+  # parameter: an anonymous `(d, p, ws...)` closure is not specialized on its argument count, which is
+  # what made the device pass fail to compile.
+  packed = Base.broadcasted(_pack_weights, density, parseval, weight_data...)
+  zeros_tuple = ntuple(_ -> zero(T), Val(length(weights)))
+  totals = reduce(_add_tuples, Base.Broadcast.instantiate(packed); init = zeros_tuple)
   return map(total -> total / normalization, totals)
 end
+
+@inline _pack_weights(d, p, ws::Vararg{Any, N}) where {N} = ntuple(i -> p * ws[i] * d, Val(N))
+@inline _add_tuples(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N} = ntuple(i -> a[i] + b[i], Val(N))
 
 
 # =============================================================================

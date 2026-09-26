@@ -66,6 +66,7 @@ end
 # allocation). A named function has one type across both splices, so it warms up correctly.
 _map_double(x) = 2x
 _map_add(a, b) = a + b
+_six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)   # six slots, none symmetric
 
 
 @testset "allocation audit" begin
@@ -530,6 +531,73 @@ end
       for call in calls
         call()                                    # warm up
         @test (@allocated call()) < bound
+      end
+    end
+  end
+end
+
+
+@testset "caller-controlled counts allocate nothing past the group size (decision 88)" begin
+  # `add!`/`subtract!`, `map!`, `displace!` and `weighted_inner` take as many operands as the caller
+  # passes, and each now works through them in fixed-size groups. The rows above stop at three
+  # operands, below the first group boundary, so they cannot see what grouping costs. These rows go
+  # past it, and past Julia's 32-element tuple threshold, where a tuple-mapping implementation
+  # falls off its specialized path and starts allocating.
+  #
+  # The calls are built with `@eval` so every operand is a literal argument at the call site. A
+  # splat of more than 32 operands, `add!(d, operands...)`, allocates on the CALLER's side before the
+  # package is entered, which would make these rows measure the test rather than the operation.
+  #
+  # Serial, the true value is zero and is asserted as such. Threaded, each pass is one threaded
+  # assignment carrying `Base.Threads` task state, so the slack is per pass: grouping multiplies
+  # passes, and that is the only cost it is allowed to add.
+  for T in (Float64, Float32)
+    @testset "$T" begin
+      N, M = 24, 4000
+      grid, layout = Grid3D((N, N, N), T.((2pi, 2pi, 2pi))), RealFourierLayout()
+      fields = [VectorFieldPhysical(rand(T, N, N, N, 3), grid, layout) for _ in 1:33]
+      values = [VectorPointValues(rand(T, M, 3)) for _ in 1:33]
+      tensors = [TensorFieldPhysical{2}(rand(T, N, N, N, 3, 3), grid, layout) for _ in 1:6]
+      tensor_values = [TensorPointValues(rand(T, M, 3, 3)) for _ in 1:6]
+      points, source = PointSet(T(2pi) .* rand(T, M, 3)), PointSet(T(2pi) .* rand(T, M, 3))
+      per_pass = Threads.nthreads() == 1 ? 1 : 4096 * Threads.nthreads()
+
+      for n in (9, 33)
+        combine_passes = 1 + cld(n - 8, 7)          # eight operands, then seven more per pass
+        bound = combine_passes * per_pass
+        @eval @alloc_below $bound add!($(fields[1]), $(fields[1:n]...))
+        @eval @alloc_below $bound subtract!($(fields[1]), $(fields[1:n]...))
+        @eval @alloc_below $bound add!($(values[1]), $(values[1:n]...))
+        @eval @alloc_below $bound subtract!($(values[1]), $(values[1:n]...))
+
+        terms = [(T(0.01), values[i]) for i in 1:n]
+        bound = cld(n, 8) * per_pass                # eight terms per pass
+        @eval @alloc_below $bound displace!($points, $(terms...))
+        @eval @alloc_below $bound displace!($points, $grid, $(terms...))
+        @eval @alloc_below $bound displace!($points, $source, $(terms...))
+        @eval @alloc_below $bound displace!($points, $source, $grid, $(terms...))
+      end
+
+      @eval @alloc_below $per_pass map!(_six_tensor_map, $(tensors[1]), $(tensors...))
+      @eval @alloc_below $per_pass map!(_six_tensor_map, $(tensor_values[1]), $(tensor_values...))
+
+      # `weighted_inner` is not allocation-free — one call carries the Parseval weight's row, a few
+      # hundred bytes — so the claim is relative: n weights cost no more than their groups of four,
+      # each priced at one single-weight call. A regression that allocated per weight, or per mode,
+      # breaks it.
+      scalar = ScalarFieldSpectral(zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout)
+      spectral = similar_field(scalar, Val(1))
+      field_data(spectral) .= one(Complex{T})
+      multipliers = FieldSpectralMultipliers(spectral)
+      classes = (spectral_band(multipliers, T(1), T(2)), assignment_window(multipliers),
+                 materialize_kernel(spectral_cutoff(multipliers, T(3))),
+                 convolve(spectral_cutoff(multipliers, T(3)), assignment_window(multipliers)))
+      weighted_inner(spectral, classes[1])
+      single = @allocated weighted_inner(spectral, classes[1])
+      for n in (9, 33)
+        weights = ntuple(i -> classes[mod1(i, 4)], n)
+        bound = cld(n, 4) * single + 1
+        @eval @alloc_below $bound weighted_inner($spectral, $weights)
       end
     end
   end

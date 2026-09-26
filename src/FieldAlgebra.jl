@@ -116,6 +116,9 @@ using ..FiberSections:
   @_assign!,
   _add_values,
   _subtract_values,
+  _nary_assign!,
+  _operand_tuple,
+  _OPERANDS_PER_PASS,
   _vector_component,
   _tensor_component,
   _sum_terms,
@@ -318,19 +321,28 @@ for (kernel, update) in (
 end
 
 
+# A copy of a field with its own storage, for the one aliased operand an n-ary combination must preserve.
+_duplicate_field(field) = similar_field(field, copy(field_data(field)))
+
+
 # Field-field combination and its operators: the bodies are identical for the
 # two representations (the broadcast machinery enforces compatibility), so each
 # operation contributes one row and the loop stamps out the representation variants.
 for (bang, operator, reducer) in ((:add!, :+, :_add_values), (:subtract!, :-, :_subtract_values))
   for Representation in (:AbstractFieldPhysical, :AbstractFieldSpectral)
 
-    @eval function $bang(destination::$Representation, a::$Representation, b::$Representation, fields::$Representation...)
-      destination .= $reducer.(a, b, fields...)
-      return destination
+    # The operand count is a named type parameter: a bare `fields...` is not specialized on its
+    # length, so every call past three operands ran an unspecialized body — heap allocation on a CPU
+    # from four operands, and a device kernel that failed to compile past sixteen.
+    @eval function $bang(destination::$Representation, a::$Representation, b::$Representation,
+                         fields::Vararg{$Representation, N}) where {N}
+      return _nary_assign!($reducer, destination, _operand_tuple(a, b, fields), _duplicate_field)
     end
 
-    @eval function $operator(a::$Representation, b::$Representation, fields::$Representation...)
-      return $reducer.(a, b, fields...)
+    @eval function $operator(a::$Representation, b::$Representation, fields::Vararg{$Representation, N}) where {N}
+      N + 2 <= _OPERANDS_PER_PASS && return $reducer.(a, b, fields...)
+      return _nary_assign!($reducer, similar_field(a, similar(field_data(a))), _operand_tuple(a, b, fields),
+                           _duplicate_field)
     end
   end
 end
@@ -1741,22 +1753,15 @@ end
   ntuple(k -> _tensor2_component_data(section, (k - 1) % 3 + 1, (k - 1) ÷ 3 + 1), Val(9))
 
 
-# Concatenate every source's component arrays into one flat tuple in argument order — the `arrays` a fused
-# pass reads. Recursion over the sources tuple unrolls and stays type-stable.
-@inline _cat_components(::Tuple{}) = ()
-@inline _cat_components(sources::Tuple) =
-  (_section_components(sources[1], _section_order(sources[1]))...,
-   _cat_components(Base.tail(sources))...)
-
-
 # The shared driver: pack targets/arrays, build the φ adapter, run one fused pass. Generic over the
 # section kind; the public methods validate compatibility before calling it.
 function _map_pass!(φ::F, destination, sources::Tuple, α::Real, β::Real) where {F}
   scalar = _section_scalar_type(destination)
   orders = Base.map(_section_order, sources)
   targets = _section_components(destination, _section_order(destination))
-  arrays = _cat_components(sources)
-  _fiberwise_pass!(get_backend(field_data(destination)), _MapValues(φ, orders),
+  # One whole storage array per input; the adapter reads each input's components by stride.
+  arrays = Base.map(field_data, sources)
+  _fiberwise_pass!(get_backend(field_data(destination)), _MapValues(φ, orders, length(targets[1])),
                    targets, arrays, (), scalar(α), scalar(β))
   return destination
 end
@@ -1840,7 +1845,7 @@ The arguments are:
     aliased once transformed to spectral representation. De-alias before spectral reuse (see the module
     docstring). Point-value sections are representation-free and carry no such restriction.
 """
-function map!(φ::F, destination::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+function map!(φ::F, destination::AbstractFieldPhysical, sources::Vararg{AbstractFieldPhysical, N}) where {F, N}
   _refuse_field_as_fiber_map(φ)
   _check_map_not_aliased(φ, destination)
   for source in sources
@@ -1866,7 +1871,7 @@ holding the result. The output's tensor order is inferred from `φ` (`map(det, A
 when it cannot be inferred, call `map!` with a preallocated `destination`. See `map!` for the
 arguments and the physical-representation-only / aliasing caveats.
 """
-function map(φ::F, source1::AbstractFieldPhysical, sources::AbstractFieldPhysical...) where {F}
+function map(φ::F, source1::AbstractFieldPhysical, sources::Vararg{AbstractFieldPhysical, N}) where {F, N}
   _refuse_field_as_fiber_map(φ)
   all_sources = (source1, sources...)
   order = _map_output_order(φ, all_sources)

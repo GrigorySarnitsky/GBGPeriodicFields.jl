@@ -1684,6 +1684,32 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
+**(au) An operand count the caller chooses now costs nothing extra to allocate, at any count; its
+time is unmeasured** (2026-09-26, decision 88). The four operations whose operand count the caller
+chooses were measured at 9 and 33 operands on `Enteropia`, with every operand written out at the call
+site so the caller's own splat is not counted.
+
+At one thread `add!` and `subtract!` over fields and
+over point values, `displace!` in all four forms, and `map!` over six tensor sources each allocate
+zero bytes. At four threads the field `add!` carries about 9.6 KB of `Base.Threads` task state per
+pass, so 13.7 KB at 9 operands and 48.2 KB at 33, where each pass is one threaded assignment. The
+point-value forms, below the threading cutoff at 4000 points, stay at zero. The tuple form of
+`weighted_inner` allocates exactly what one single-weight call does, 368 B, once per group of four
+weights: 1104 B for 9 weights and 3312 B for 33.
+
+The same probe on the commit before the change read
+775 MB per call for `add!` over 33 fields, 211 MB over 33 point-value sections, 139 MB for 33 weights,
+0.6 MB for the torus `displace!` over 33 terms, and 57 MB for `map!` over six tensor fields. The field figures are
+tens to thousands of times the storage of the fields involved (332 KB for one vector field, 1 MB for one tensor field), so they were paid per
+element rather than once per call.
+
+What this finding does not settle is TIME. A tuple of 33 weights now takes nine traversals where
+decision 72's design would have taken one, which reads the coefficient array nine times, and above
+eight operands `add!` re-reads its partial sum once per group. The trade was made for compilation and
+correctness — the one-pass `weighted_inner` did not compile on a device past a handful of weights — and it is
+invisible at the counts a solver passes, which are all at or below one group. A benchmark row at a
+count past the group size would price it; none exists yet, and running one needs an idle host.
+
 **(at) The 2026-09-20 `Enteropia` five-lane re-sweep: flat against 55 commits, and one apparent
 ``1.75\times`` win that belongs to the sweep rather than to the package** (2026-09-20/21; the archives
 it replaces were stamped `6581b433 @ 2026-08-31`). Five lanes ran green — CPU ``t1``/``t2``/``t4``/``t8``

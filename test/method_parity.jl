@@ -76,7 +76,16 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 110,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  FiberSections         = 117,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  # 110 → 117: caller-controlled counts (decision 88). An operation taking as many operands as its
+  # caller passes now works through them in fixed-size groups, and every per-element step is an
+  # `ntuple` over a `Val` count rather than a splat or a tuple `map`, which leave the specialized path
+  # at 32 elements. Added: `_element_values` and `_call_values` ×2 (the executor's element read, one
+  # method for a codegen values function and one for a map), `_input_fibers` ×2 and
+  # `_strided_components` (a map's input fibers, assembled per source), and `_nary_assign!`,
+  # `_nary_continue!` and `_operand_tuple` (the grouped left fold behind `add!`/`subtract!`).
+  # Removed: `_assemble_inputs` ×2, which concatenated every source's components into one tuple.
+  # Refrozen deliberately, with the reason, per decision 53's protocol.
   # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
   # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
   # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
@@ -152,7 +161,11 @@ const MODULE_BASELINE = (
   # a rank-0 identity and the rank-`R` fiber-indexed slice). The reshape allocated an `Array` wrapper
   # per call, twice per transform, which is the 128 B/call a consumer's zero-allocation invariant
   # caught and this package's field-sized threshold did not (/bug-hunt-adjacent report, 2026-08-27).
-  FieldAlgebra          = 275,
+  FieldAlgebra          = 274,
+  # 275 → 274: caller-controlled counts (decision 88). `_cat_components` ×2 went — it concatenated
+  # every `map!` source's component arrays into one tuple, now read per source through
+  # `FiberSections`' map adapter — and `_duplicate_field` came, the copy the grouped `add!` takes of
+  # an operand that is also the destination and would be overwritten before its group reads it.
   DifferentialOperators = 90,
   # 79 → 90: `inverse_curl` (2026-08-28). Two public generics with one method each, plus the
   # `@kernel` expansion of `_inverse_curl_kernel!` and the two `_inverse_curl_modes!` arms — the
@@ -203,7 +216,12 @@ const MODULE_BASELINE = (
   # storage-family notion removes one. `_motion_storage_family` was a third spelling of `Fields`'
   # `_storage_family`, with the same non-recursing body, used by `displace!`'s family refusal; with
   # the `Fields` version now taking an array it is the same function and the duplicate is gone.
-  Points                = 228,
+  Points                = 234,
+  # 228 → 234: caller-controlled counts (decision 88). `displace!` works through its terms eight at a
+  # time: `_displace_grouped!` splits them, and `_displace_pass!` ×2 is one pass (the cover, and the
+  # torus, which wraps once, in the last pass). `_duplicate_point_values` is the grouped `add!`'s
+  # copy of an aliased operand, as in `FieldAlgebra`, and `_check_combinable` gained two methods so a
+  # destination and an operand tuple are checked without splatting the tuple.
   # 179 → 185: the display layer. A `show` each for `PointTraversalOrder`,
   # `PointTraversalOrderScratch`, `NUFFT`, `LalescuSpline` and `LagrangeSpline`, plus
   # `_show_spline_eltype`. A spline scheme's weight matrix is DERIVED from `(n, m)` — the property
@@ -276,7 +294,12 @@ const MODULE_BASELINE = (
   # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
   # one traversal, which is one method on the existing generic rather than a new operation.
   # Refrozen deliberately, with the reason.
-  Reductions            = 131,
+  Reductions            = 137,
+  # 131 → 137: caller-controlled counts (decision 88). `weighted_inner` over a tuple of weights
+  # reduces four weights per traversal: `_weighted_groups` ×2 splits the tuple, `_weighted_pass` is
+  # one traversal, `_join_results` concatenates the groups' answers, and `_pack_weights` and
+  # `_add_tuples` build and sum the per-mode tuple with `ntuple` rather than a tuple `map`. A tuple
+  # of 32 weights had failed to compile on a device, being past Julia's specialized tuple length.
   # 124 → 131: the weighted reductions' CPU leg (2026-08-30, from IT's codegen report). The weighted
   # inner products ran Base's SERIAL broadcast fold on CPU — 70× the same-size `inner` at eight
   # threads — because their GPU-first fused `sum` never met the decision-30/40 backend split. Seven

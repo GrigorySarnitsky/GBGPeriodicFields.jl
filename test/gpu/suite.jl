@@ -31,6 +31,7 @@ const ELEMENT_TYPES = (Float64, Float32)
 # independent: the field constructor converts each sampled value to the grid's type.
 tensor_a(x, y, z) = [sin(x) cos(y) 0.3; 0.5 sin(z) cos(x); 1.0 cos(z) sin(y)]
 tensor_b(x, y, z) = [cos(x) 0.1 sin(y); sin(z) cos(y) 0.2; 0.7 sin(x) cos(z)]
+six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)   # six slots, none symmetric
 
 # Device twins, through the package's own interface. These three were hand-written rewraps until the
 # storage-family move became public: each reached into a section's storage, copied it, and rebuilt the
@@ -783,6 +784,59 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test eq(mean(vpd), mean(vp))
       @test eq(inner(vpd, vpd), inner(vp, vp)) && eq(l2norm(vpd), l2norm(vp))
       @test eq(maximum(spd), maximum(sp))
+    end
+
+    @testset "caller-controlled counts past the group size (decision 88)" begin
+      # Each of these operations takes as many operands as the caller passes and works through them
+      # in fixed-size groups. Past the group size and past 32 operands is where the ungrouped forms
+      # broke on a device: `weighted_inner` with 32 weights did not compile, because a 32-element
+      # tuple leaves Julia's specialized tuple path and a kernel cannot take the generic one. The
+      # host is the reference; the device must agree to the suite's tolerance, since a device
+      # reduction and a device multiply-add round differently from the host's.
+      M = 300
+      fields = [VectorFieldPhysical(rand(T, 8, 7, 6, 3), grid, layout) for _ in 1:33]
+      fields_d = on_device.(fields)
+      host_result, device_result = similar_field(fields[1], similar(field_data(fields[1]))),
+                                   similar_field(fields_d[1], similar(field_data(fields_d[1])))
+      add!(host_result, fields...)
+      add!(device_result, fields_d...)
+      @test matches(device_result, host_result)
+      subtract!(host_result, fields...)
+      subtract!(device_result, fields_d...)
+      @test matches(device_result, host_result)
+
+      values = [VectorPointValues(rand(T, M, 3)) for _ in 1:33]
+      values_d = on_device_pv.(values)
+      host_sum = VectorPointValues(zeros(T, M, 3))
+      device_sum = on_device_pv(VectorPointValues(zeros(T, M, 3)))
+      add!(host_sum, values...)
+      add!(device_sum, values_d...)
+      @test isapprox(Array(point_values(device_sum)), point_values(host_sum); rtol = rtol, atol = atol)
+
+      tensors = [TensorFieldPhysical{2}(rand(T, 8, 7, 6, 3, 3), grid, layout) for _ in 1:6]
+      tensors_d = on_device.(tensors)
+      @test matches(map(six_tensor_map, tensors_d...), map(six_tensor_map, tensors...))
+
+      start = rand(T, M, 3) .* T(2π)
+      terms = [(T(0.1) * T(randn()), values[i]) for i in 1:20]
+      terms_d = [(c, values_d[i]) for (i, (c, _)) in enumerate(terms)]
+      host_points, device_points = PointSet(copy(start)), on_device_ps(PointSet(copy(start)))
+      displace!(host_points, terms...)
+      displace!(device_points, terms_d...)
+      @test isapprox(Array(point_positions(device_points)), point_positions(host_points);
+                     rtol = rtol, atol = atol)
+
+      spectral_h = to_spectral(fields[1], plans_for(fields[1]))
+      spectral_d = to_spectral(fields_d[1], plans_for(fields_d[1]))
+      mult_h, mult_d = FieldSpectralMultipliers(spectral_h), FieldSpectralMultipliers(spectral_d)
+      classes(m) = (radial_kernel(identity, m), spectral_band(m, T(1), T(2)), assignment_window(m),
+                    convolve(spectral_cutoff(m, T(3)), assignment_window(m)))
+      weights_h = ntuple(i -> classes(mult_h)[mod1(i, 4)], 33)
+      weights_d = ntuple(i -> classes(mult_d)[mod1(i, 4)], 33)
+      fused_d = weighted_inner(spectral_d, weights_d)
+      fused_h = weighted_inner(spectral_h, weights_h)
+      @test length(fused_d) == 33
+      @test all(i -> isapprox(fused_d[i], fused_h[i]; rtol = rtol, atol = rtol), 1:33)
     end
 
   end

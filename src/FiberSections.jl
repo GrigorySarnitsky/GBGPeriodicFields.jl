@@ -572,6 +572,44 @@ end
 @inline _subtract_values(x, y, z, rest...) = _subtract_values(x - y, z, rest...)
 
 
+# Operands folded per pass of an n-ary `add!`/`subtract!`. A fixed package constant, far below the
+# ceilings a wider pass meets: `Base`'s broadcast takes its generic path from 32 arguments (a device
+# kernel that does not compile, and a heap allocation on a CPU).
+const _OPERANDS_PER_PASS = 8
+
+"""
+    _nary_assign!(reducer, destination, operands, duplicate)
+
+Write the left fold of `reducer` over `operands` into `destination` and return it, in passes of at
+most `_OPERANDS_PER_PASS` operands: the first pass folds the leading operands, and each later one
+continues the fold with `destination` as its first operand. The order of the operations is the
+single pass's, so the result is bitwise the same. A later operand that is `destination` itself is
+copied by `duplicate` before the first pass overwrites it, which keeps an aliased call exact; that
+copy is the one allocation, and only an aliased call makes it.
+"""
+@inline function _nary_assign!(reducer::F, destination, operands::Tuple, duplicate::D) where {F, D}
+  length(operands) <= _OPERANDS_PER_PASS && (destination .= reducer.(operands...); return destination)
+  head = ntuple(i -> operands[i], Val(_OPERANDS_PER_PASS))
+  tail = ntuple(i -> (operand = operands[_OPERANDS_PER_PASS + i];
+                      operand === destination ? duplicate(operand) : operand),
+                Val(length(operands) - _OPERANDS_PER_PASS))
+  destination .= reducer.(head...)
+  return _nary_continue!(reducer, destination, tail)
+end
+
+@inline function _nary_continue!(reducer::F, destination, tail::Tuple) where {F}
+  step = _OPERANDS_PER_PASS - 1
+  length(tail) <= step && (destination .= reducer.(destination, tail...); return destination)
+  head = ntuple(i -> tail[i], Val(step))
+  rest = ntuple(i -> tail[step + i], Val(length(tail) - step))
+  destination .= reducer.(destination, head...)
+  return _nary_continue!(reducer, destination, rest)
+end
+
+# `(a, b, rest...)` as a tuple without a splat, which past 32 entries leaves the specialized path.
+@inline _operand_tuple(a, b, rest::Tuple) = ntuple(i -> i == 1 ? a : i == 2 ? b : rest[i - 2], Val(length(rest) + 2))
+
+
 #
 # Per-component formulas for the contraction and permutation families, written
 # once and fed to the kernel-body builders. `kind` is :field (component view) or
@@ -780,6 +818,28 @@ kernel bodies expression for expression.
 end
 
 
+"""
+    _element_values(arrays, n)
+
+Return the tuple of every array's element at linear index `n`, unrolled over the static array count.
+An `ntuple` over a `Val` is generated per count, so this holds for any number of arrays; a `map` over the
+tuple would take `Base`'s generic path from 32 entries, which allocates on a CPU and does not compile on
+a device — the ceiling the multi-input `map!` hit at four second-order inputs.
+"""
+@inline _element_values(arrays::NTuple{NA, Any}, n) where {NA} = ntuple(i -> (@inbounds arrays[i][n]), Val(NA))
+
+
+"""
+    _call_values(f, arrays, n, constants)
+
+Apply the values function `f` at linear index `n`: a generated values function takes one scalar per
+array, followed by the fiber `constants`, as positional arguments — a fixed and small count. The `map!`
+adapter reads its inputs itself instead (see [`_MapValues`](@ref)), since how many there are is the
+caller's to choose.
+"""
+@inline _call_values(f::F, arrays, n, constants) where {F} = f(_element_values(arrays, n)..., constants...)
+
+
 # One work-item per element: apply the values function and write every output, the α/β branch
 # uniform across items. The source arrays are deliberately not @Const: a target may alias a
 # source (the aliased cross!/transpose! in place), and all of an element's reads precede its
@@ -787,7 +847,7 @@ end
 @kernel function _fiberwise_values_kernel!(f, targets, arrays, constants, α, β)
   n = @index(Global, Linear)
   @inbounds begin
-    values = f(map(array -> array[n], arrays)..., constants...)
+    values = _call_values(f, arrays, n, constants)
     if iszero(β)
       _write_values!(targets, values, α, n)
     else
@@ -856,11 +916,11 @@ Run [`_fiberwise_pass!`](@ref)'s loop over one contiguous slab of the linear ind
 function _fiberwise_slab!(f::F, targets, arrays, constants, α, β, elements) where {F}
   if iszero(β)
     @inbounds @simd for n in elements
-      _write_values!(targets, f(map(array -> array[n], arrays)..., constants...), α, n)
+      _write_values!(targets, _call_values(f, arrays, n, constants), α, n)
     end
   else
     @inbounds @simd for n in elements
-      _accumulate_values!(targets, f(map(array -> array[n], arrays)..., constants...), α, β, n)
+      _accumulate_values!(targets, _call_values(f, arrays, n, constants), α, β, n)
     end
   end
   return nothing
@@ -1071,19 +1131,6 @@ even when `offset` is not a literal.
 
 
 """
-    _assemble_inputs(orders, scalars, offset)
-
-Split the flat `scalars` of all inputs into a tuple of assembled fibers, one per entry of `orders` (a
-tuple of `Val{R}`), advancing `offset` by each fiber's component count. The recursion is over the
-`orders` tuple, so it unrolls and the offsets fold to constants.
-"""
-@inline _assemble_inputs(::Tuple{}, scalars, offset) = ()
-@inline _assemble_inputs(orders::Tuple, scalars, offset) =
-  (_assemble_fiber(orders[1], scalars, offset),
-   _assemble_inputs(Base.tail(orders), scalars, offset + _fiber_component_count(orders[1]))...)
-
-
-"""
     _flatten_fiber(value)
 
 Flatten an output fiber into the column-major tuple written to the targets: a scalar becomes a
@@ -1096,25 +1143,40 @@ one-tuple, a `StaticArray` its `Tuple`.
 # The type-parameter order matches the field order (`φ` then `orders`): the GPU backends reconstruct
 # kernel-argument structs positionally, so a mismatch would swap the fields on the device.
 """
-    _MapValues(φ, orders)
+    _MapValues(φ, orders, stride)
 
-The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`: it takes the flat input
-component scalars, groups them into fibers by `orders` (a tuple of `Val{R}`), applies `φ`, and flattens
-the result. It is a struct rather than a closure so the input count stays type-level (the `Vararg{Any, N}`
-signature).
+The values function [`_fiberwise_pass!`](@ref) runs for `map!`/`map`. Its arrays are the inputs' whole
+storage arrays, one per input, and at each linear index it reads each input's fiber itself — component
+``c`` of an input at `n + (c - 1) * stride`, the fiber-last layout — applies `φ` to the fibers, and
+flattens the result. Passing one array per input, rather than one per component, keeps the arrays tuple
+as short as the input count and a device kernel's argument list independent of the inputs' tensor
+orders; the component reads are unrolled by order, so no count the caller chooses reaches a splat.
 
 The fields are
-- `φ` — the caller's fiber map, applied to the assembled fiber at each base point.
-- `orders` — the tensor orders of the inputs, carried as a type parameter so the fiber assembly is
-  resolved at compile time.
+- `φ` — the caller's fiber map, applied to the assembled fibers at each base point.
+- `orders` — the tensor orders of the inputs, a tuple of `Val{R}`, so the fiber assembly is resolved at
+  compile time.
+- `stride` — the number of base points, the distance between one component of an input and the next in
+  its storage.
 """
-struct _MapValues{F, Orders} <: Function
+struct _MapValues{F, Orders, S} <: Function
   φ::F
   orders::Orders
+  stride::S
 end
 
-@inline (map_values::_MapValues)(scalars::Vararg{Any, N}) where {N} =
-  _flatten_fiber(map_values.φ(_assemble_inputs(map_values.orders, scalars, 0)...))
+@inline _call_values(map_values::_MapValues, arrays, n, ::Tuple{}) =
+  _flatten_fiber(map_values.φ(_input_fibers(map_values.orders, arrays, n, map_values.stride)...))
+
+# One fiber per input, read from that input's storage at `n` with the components `stride` apart; the
+# recursion runs over the inputs, whose number is short, and the reads over a compile-time component count.
+@inline _input_fibers(::Tuple{}, ::Tuple{}, n, stride) = ()
+@inline _input_fibers(orders::Tuple, arrays::Tuple, n, stride) =
+  (_assemble_fiber(orders[1], _strided_components(orders[1], arrays[1], n, stride), 0),
+   _input_fibers(Base.tail(orders), Base.tail(arrays), n, stride)...)
+
+@inline _strided_components(order::Val, array, n, stride) =
+  ntuple(c -> (@inbounds array[n + (c - 1) * stride]), Val(_fiber_component_count(order)))
 
 
 """
