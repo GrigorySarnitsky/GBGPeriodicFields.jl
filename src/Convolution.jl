@@ -1890,8 +1890,8 @@ W(x) = \\prod_{a=1}^{3} \\frac{1}{\\Delta x_a}
        \\max\\Bigl(0, 1 - \\frac{|x_a|}{\\Delta x_a}\\Bigr),
 ```
 
-each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral and peaked at the
-origin (a cell-wide top-hat convolved with itself, hence the squared sinc). The function returns its
+each a tent of half-width one cell ``\\Delta x_a`` along axis ``a``, of unit integral — the
+[`tophat_window`](@ref) at the grid spacing convolved with itself, hence the squared sinc. It returns its
 transfer function ``\\hat W(k)``, the squared sinc
 
 ```math
