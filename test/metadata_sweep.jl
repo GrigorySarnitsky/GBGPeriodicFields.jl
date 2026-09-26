@@ -70,6 +70,7 @@ const FOLDS = ((1, 2, 3), (2, 1, 3), (3, 2, 1), (1, 3, 2))
         ("materialize_kernel rad",   () -> materialize_kernel(rad),             0),
         ("squared_wavenumber_field", () -> materialize_kernel(radial_kernel(identity, m)),     0),
         ("assignment_window",        () -> materialize_kernel(assignment_window(m)), 0),
+        ("tophat_window",            () -> materialize_kernel(tophat_window(m, 0.7)), 0),
         ("map tensor→scalar",        () -> map(det, Ap),                        0),
         ("map vector→tensor",        () -> map(x -> x * transpose(x), up),      2),
         ("map order-preserving",     () -> map(x -> 2x, up),                    1),

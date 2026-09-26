@@ -3594,3 +3594,48 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **How it surfaced.** The first documentation review's differential-geometry reader flagged it
       (finding `004` of 2026-09-22), and the wording changed only after the sign was checked in Pope
       (2000) and Sagaut & Cambon (2018).
+
+87. **A top-hat window of any width, and the cloud-in-cell window as its square** (2026-09-26,
+    owner-approved; requested by `GBGHomogeneousTurbulence` on 2026-09-22). The builder
+    `tophat_window(multipliers, width)` returns the box average of edges ``l_a`` as a `SeparableKernel`
+    whose per-axis factors are ``\operatorname{sinc}(k_a l_a / 2)``, taken from the true wavenumber
+    component ``k_a`` so the window is real and even. Physically it is the normalized indicator of the
+    box: convolving a field with it replaces the field at each point by its mean over the box centred
+    there.
+
+
+    - **Why the package builds it.** The consumer needed the kinetic energy held in scales below a size
+      ``l`` and the matching dissipation, both of which reduce exactly to spectral reductions weighted by
+      ``1 - \hat W_l^2``, with ``\hat W_l`` this window. The per-axis sinc is physics-free field
+      mathematics, and `SeparableKernel` has no public constructor, so the caller could not build it;
+      the diagnostic itself stays with the caller (invariant 12), as the pair-correlation recipe does
+      beside `assignment_window`.
+
+    - **The window, not its square.** ``\hat W`` is what acts on a field. Its square is the window
+      convolved with itself, which separable kernels already compose per axis at no cost (decision 50),
+      so shipping both would be adding an operation for completeness (invariant 1). The caller squares
+      it with `convolve(w, w)`.
+
+    - **`assignment_window` is now that square at the grid spacing.** The cloud-in-cell tent is a
+      cell-wide top-hat convolved with itself, so the older builder became the composition of two
+      cell-wide windows. The result is bitwise the former closed form, because squaring a
+      floating-point factor is the same product either way; this was checked in both precisions on a
+      cubic grid and on an anisotropic grid with an odd axis. The two builders now share one formula.
+
+    - **The name and the argument.** It is not `box_window`, because "the box" means the domain
+      throughout this package. The width is positional, since it changes the result: one number is a
+      cube, which is the consumer's case, and a triple a rectangular box, as `assignment_window` uses
+      one spacing per axis. A negative or non-finite edge is refused, a zero edge leaves its axis
+      unfiltered, and an edge as long as the domain is allowed: on a periodic domain it cancels every
+      nonzero wavenumber along that axis, so a cube the size of the domain keeps the mean alone.
+
+    - **A continuum average.** The sinc is the transform of the continuum box, so the result is the
+      exact box mean of the band-limited field. For an edge that is not a whole number of cells it
+      therefore differs from averaging the grid values inside the box, and the window changes sign
+      beyond its first zero. The docstring says so.
+
+    - **A caution passed to the consumer.** Batching many widths into one tuple reduction nests one
+      product kernel per width. Finding (aq) measured register pressure halving occupancy on the AMD
+      card in another kernel, a wide tuple accumulator is the kind of shape that raises it, and nested
+      lazy broadcasts are the fragile spot on that backend, so the batch size is to be swept rather than
+      assumed.

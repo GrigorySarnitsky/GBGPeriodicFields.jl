@@ -42,6 +42,7 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # The two separable builders return their three per-axis factors (decision 50), so the build is O(N)
   # and there is no field to sync on — sync one factor instead.
   group["assignment_window | $tag"] = @benchmarkable bench_sync(assignment_window($m).factor_1)
+  group["tophat_window | $tag"] = @benchmarkable bench_sync(tophat_window($m, 0.7).factor_1)
   offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)     # a half-cell displacement
   group["translation_kernel | $tag"] = @benchmarkable bench_sync(translation_kernel($m, $offset).factor_1)
   # Applying an axis-factored kernel against applying the same kernel stored as a field: same result,

@@ -406,7 +406,28 @@ of ``|k|^2`` (its ``\sigma = \mathrm{identity}`` case being that coordinate itse
 
 undone by dividing (deconvolution).
 
-The fifth builder, `translation_kernel`, is the shift theorem's multiplier: for a physical displacement
+The fifth builder, `tophat_window` (decision 87), is the box average of edges ``l_a``: the transform
+of the box's normalized indicator ``W_l(x) = \prod_a l_a^{-1} \mathbf{1}\bigl[|x_a| \le l_a/2\bigr]``,
+
+```math
+\hat W_l(k) = \prod_{a=1}^{3} \operatorname{sinc}\Bigl(\tfrac{k_a l_a}{2}\Bigr),
+```
+
+with ``k_a`` the true wavenumber component. Three statements, each expanded against the code and tested
+(`test/convolution.jl`, "tophat_window: the box average of a chosen width"):
+
+- **The box mean of one mode.** Per axis,
+  ``\tfrac{1}{l}\int_{-l/2}^{l/2} e^{\mathrm{i} k (x - s)} \,\mathrm{d}s = e^{\mathrm{i} k x} \operatorname{sinc}(k l/2)``,
+  so ``W_l \star \cos(k \cdot x) = \cos(k \cdot x) \prod_a \operatorname{sinc}(k_a l_a/2)``, the test's oracle on
+  an anisotropic box with edges that are not whole cells. ``\checkmark``
+- **The two limits.** At ``l_a = L_a`` the argument ``k_a l_a/2 = \pi n_a`` makes every factor with
+  ``n_a \ne 0`` vanish, so a box the size of the domain keeps ``k = 0`` alone; at ``l_a = 0`` each factor is
+  exactly ``1`` (the code's `ifelse` at a zero argument), so the window is the identity bitwise. ``\checkmark``
+- **The cloud-in-cell window is its square.** `assignment_window` is `convolve` of two windows at the grid
+  spacing, and composing separable kernels multiplies their factors, so
+  ``\hat W = \prod_a \operatorname{sinc}^2(k_a \Delta x_a/2)``, bitwise the former closed form. ``\checkmark``
+
+The sixth builder, `translation_kernel`, is the shift theorem's multiplier: for a physical displacement
 ``h = (h_1, h_2, h_3)`` it is the transform of the Dirac delta displaced to ``h``,
 so convolving carries the field ``f`` at position ``x`` to ``f(x - h)``. Write ``k_a`` for the
 true signed wavenumber of axis ``a``, ``a_a`` for the derivative wavenumber (equal to

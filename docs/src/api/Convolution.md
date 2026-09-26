@@ -53,13 +53,15 @@ materialize_kernel
 Each returns a kernel for a multiplier the package names, in whichever storage class that multiplier
 admits — and each signature says which class, since that is what determines the cost of applying it:
 `radial_kernel`, `spectral_cutoff` and `spectral_band` give a `RadialKernel` (a closure);
-`translation_kernel` and `assignment_window` give a `SeparableKernel` (three ``O(N)`` factors).
+`tophat_window`, `assignment_window` and `translation_kernel` give a `SeparableKernel` (three ``O(N)``
+factors).
 The escape hatch is `radial_kernel`, taking any other real **function** of ``\lvert k\rvert^2``.
 
 ```@docs
 radial_kernel
 spectral_cutoff
 spectral_band
+tophat_window
 assignment_window
 translation_kernel
 translation_kernel!

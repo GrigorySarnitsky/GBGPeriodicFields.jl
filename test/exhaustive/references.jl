@@ -405,6 +405,15 @@ function ref_assignment_window(grid, layout, shape)
           for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
 end
 
+# Ŵ = ∏_a sinc(k_a l_a / 2), the top-hat (box-average) window of edges l — the transform of the box's
+# normalized indicator, from its definition; Julia's normalized `sinc` again takes the argument over π.
+function ref_tophat_window(grid, layout, shape, width)
+  w = _ref_mode_wavenumbers(grid, layout, shape).true_k
+  factor(k, d) = sinc(k * width[d] / (2π))
+  return [factor(w[1][i], 1) * factor(w[2][j], 2) * factor(w[3][l], 3)
+          for i in 1:shape[1], j in 1:shape[2], l in 1:shape[3]]
+end
+
 # ĝ = e^{-i k·h}, the shift theorem's phase, with decision 28's Nyquist split: the even (cos) part
 # comes from the TRUE |k| and the odd (sin) part from the Nyquist-zeroed derivative k, so an even
 # axis's Nyquist multiplier is the real cos(πh/Δ) rather than a phase.

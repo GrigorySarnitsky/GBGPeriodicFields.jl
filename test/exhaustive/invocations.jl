@@ -247,6 +247,7 @@ function canonical_pool(config; device = identity)
   push("kernel: band",       spectral_band(multipliers, T(1), T(3)))
   push("kernel: separable",  translation_kernel(multipliers, offset))
   push("kernel: window",     assignment_window(multipliers))
+  push("kernel: tophat",     tophat_window(multipliers, 0.7))
   # A GENUINE ProductKernel. Composing two separables collapses per-axis back into a `SeparableKernel`,
   # so the entry that used to sit here was a third separable one and `ProductKernel`'s own
   # `_kernel_data`, compatibility check, `inv` and materialization were unreached. Radial ∘ separable is

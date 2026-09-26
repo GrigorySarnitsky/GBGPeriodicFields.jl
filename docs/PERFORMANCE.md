@@ -2377,7 +2377,7 @@ the ``O(N^3)`` ones, priced in place), **convolution** (`convolve!` scalar/vecto
 size measures the streaming pass and not the `Float32` subnormal band (finding (m)) — and the kernel-composed
 `combine!` of decision 33 — their baselines the stored-kernel `convolve!` and the sequential
 `combine!` + `convolve!` pair — + the builders `spectral_cutoff` /
-`spectral_band` / `radial_kernel` / `assignment_window` / `translation_kernel` — a builder is
+`spectral_band` / `radial_kernel` / `tophat_window` / `assignment_window` / `translation_kernel` — a builder is
 paid once and its kernel applied many times, so it is swept for regressions, not for hot-path cost, and
 a builder returning a compressed kernel is timed on one factor rather than a field it never allocates —
 the `spectral_cutoff` and `spectral_band` rows previously wrapped their builder in `materialize_kernel`

@@ -1087,12 +1087,14 @@ scalar, vector, and tensor fields), with the α/β accumulate form and alias-saf
 It is the **spectral sibling of `DifferentialOperators`** (both are coefficientwise multipliers, [§4](@ref "4. Spectral machinery")) and the
 **same-base counterpart of the `Interpolation` transfer** (decision 19); offered under its true name
 `convolve`, never as `*` (invariant 1). Spectral representation only; physics (an LES filter, an integrating
-factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Five neutral builders
+factor ``\exp(-\nu |k|^2 \Delta t)``) stays a consumer-built kernel (invariant 12). Six neutral builders
 ship: `spectral_cutoff` (the isotropic sharp low-pass), `spectral_band` (its annular generalization),
-`radial_kernel` (any real symbol of ``|k|^2``, held as a closure),
-`assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window), and
+`radial_kernel` (any real symbol of ``|k|^2``, held as a closure), `tophat_window` (the box average of
+edges ``l_a``, ``\prod_a \operatorname{sinc}(k_a l_a / 2)``; decision 87),
+`assignment_window` (the ``\prod_a \operatorname{sinc}^2`` CIC deconvolution window, the top-hat at the
+grid spacing composed with itself), and
 `translation_kernel` (the shift theorem's phase ``e^{-\mathrm{i} k\cdot h}``, which displaces a field by a
-physical offset ``h``). The first four are real and even in the wavenumber ``k``; `translation_kernel` is
+physical offset ``h``). The first five are real and even in the wavenumber ``k``; `translation_kernel` is
 the one **complex** kernel, and the reality condition a complex kernel must meet — the Hermitian symmetry
 ``\hat g(-k) = \overline{\hat g(k)}``, equivalently a real physical-space kernel ``g`` — is what forces its
 value at the Nyquist frequency to be a real attenuation rather than a phase (decision 28). Two fused

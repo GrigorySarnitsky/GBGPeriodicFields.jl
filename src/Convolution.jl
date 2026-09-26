@@ -38,8 +38,8 @@ Kernel storage classes:
 - `StoredKernel` — one coefficient per mode, the ``O(N^3)`` storage, cubic in the points per
   axis, every other class exists to avoid. It wraps a [`ScalarFieldSpectral`](@ref) in the kernel role.
 - [`SeparableKernel`](@ref) — a kernel that factors over the axes, held as its three per-axis factors,
-  so it costs kilobytes rather than a field; the class `translation_kernel` and `assignment_window`
-  return.
+  so it costs kilobytes rather than a field; the class `translation_kernel`, `tophat_window` and
+  `assignment_window` return.
 - [`RadialKernel`](@ref) — a kernel depending on the mode only through ``|k|^2``, held as the **function**
   ``\\sigma`` computing it (a closure, evaluated per mode), so it stores no coefficients at all; the class
   `spectral_cutoff`, `spectral_band` and `radial_kernel` return.
@@ -58,6 +58,7 @@ Kernel builders:
   hyperviscosity, an integrating factor).
 - [`spectral_cutoff`](@ref) / [`spectral_band`](@ref) — build the isotropic sharp low-pass kernel and
   its annular band-pass generalization, both radial kernels.
+- [`tophat_window`](@ref) — the box average of a chosen width, a separable kernel.
 - [`assignment_window`](@ref) — the linear (cloud-in-cell) mass-assignment window, a separable kernel,
   for deconvolving a gridded point density.
 - [`translation_kernel`](@ref) / [`translation_kernel!`](@ref) — the separable kernel that translates a
@@ -107,7 +108,7 @@ using KernelAbstractions: get_backend, @kernel, @index, @Const, synchronize
 import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
-       spectral_band, assignment_window, translation_kernel,
+       spectral_band, assignment_window, tophat_window, translation_kernel,
        StoredKernel, SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
 
 
@@ -1796,6 +1797,71 @@ end
 
 
 """
+    tophat_window(multipliers::FieldSpectralMultipliers, width::Real) -> SeparableKernel
+    tophat_window(multipliers::FieldSpectralMultipliers,
+                  width::NTuple{3, Real}) -> SeparableKernel
+
+Return the top-hat (box-average) window of a given width as a [`SeparableKernel`](@ref), its three
+per-axis factors on the multipliers' grid and storage family: convolving a field with it replaces the
+field at each point by its mean over the box of that width centred there.
+
+Use it to average a field over sub-boxes smaller than the domain — the scale-resolved statistics
+that remove a sub-box mean, such as the kinetic energy held in scales below a given size, or a box
+filter of chosen width. The window itself is ``\\hat W``; the energy-type weights those statistics
+need are its square, `convolve(w, w)`, which composes per axis at no extra cost.
+
+Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
+and storage family the window takes as its own, and `width` is the edge of the box in the units of the
+domain: one number for a cube, or one per axis for a rectangular box. Each edge must be finite and
+non-negative, and a zero edge leaves that axis unfiltered.
+
+As a real physical object the window is the normalized indicator of the box, the tensor product of
+per-axis top-hats, and the returned transfer function is its product of per-axis sincs:
+
+```math
+\\begin{gathered}
+W(x) = \\prod_{a=1}^{3} \\frac{1}{l_a} \\mathbf{1}\\bigl[|x_a| \\le \\tfrac{l_a}{2}\\bigr], \\\\
+\\hat W(k) = \\prod_{a=1}^{3} \\operatorname{sinc}\\Bigl(\\tfrac{k_a l_a}{2}\\Bigr), \\\\
+\\operatorname{sinc}(y) = \\frac{\\sin y}{y},
+\\end{gathered}
+```
+
+with ``l_a`` the box edge along axis ``a``, ``x_a`` the displacement along it reduced onto the periodic
+domain, and ``k_a`` the true wavenumber component, kept at the Nyquist frequency so the window is real
+and even and a real field stays real. On a periodic domain the width may be any non-negative number:
+at ``l_a`` equal to the domain's extent every nonzero wavenumber along that axis is cancelled, so a
+cube the size of the domain keeps the mean alone, and as ``l_a \\to 0`` the window tends to the
+identity. The [`assignment_window`](@ref) is this window at the grid spacing, squared.
+
+!!! note "It averages the band-limited field, not the grid values"
+    The sinc is the transform of the continuum box, so the result is the exact box mean of the
+    band-limited field the grid values represent. A box whose edge is not a whole number of cells
+    therefore averages between nodes rather than over the nodes it contains, and ``\\hat W`` changes
+    sign beyond its first zero, so the filtered field can overshoot where a mean of grid values could
+    not.
+"""
+function tophat_window(multipliers::FieldSpectralMultipliers, width::Real)
+  return tophat_window(multipliers, (width, width, width))
+end
+
+
+function tophat_window(multipliers::FieldSpectralMultipliers, width::NTuple{3, Real})
+  all(w -> isfinite(w) && w >= 0, width) ||
+    throw(ArgumentError("a top-hat width must be finite and non-negative; got $width"))
+  T = _multipliers_scalar_type(multipliers)
+  # sinc(|k_a| l_a / 2) per axis, GPU-safe (ifelse, not Base.sinc's branch); 1 at k_a = 0 or l_a = 0.
+  axis(squared_wavenumber, l) =
+    (y = sqrt.(squared_wavenumber) .* (T(l) / 2); ifelse.(iszero.(y), one(T), sin.(y) ./ y))
+  w1 = reshape(axis(multipliers.squared_wavenumber_1, width[1]), :, 1, 1)
+  w2 = reshape(axis(multipliers.squared_wavenumber_2, width[2]), 1, :, 1)
+  w3 = reshape(axis(multipliers.squared_wavenumber_3, width[3]), 1, 1, :)
+  # Real factors: the window is an even function of each k_a, and a real multiplier against a complex
+  # field is cheaper than a complex one.
+  return SeparableKernel{T}(w1, w2, w3, multipliers.grid, multipliers.fourier_layout)
+end
+
+
+"""
     assignment_window(multipliers::FieldSpectralMultipliers) -> SeparableKernel
 
 Return the linear (cloud-in-cell) **mass**-assignment window — *assignment* in the particle-mesh sense
@@ -1848,17 +1914,10 @@ Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (
 charge assignment; the NGP and CIC windows).
 """
 function assignment_window(multipliers::FieldSpectralMultipliers)
-  T = _multipliers_scalar_type(multipliers)
-  spacing = multipliers.grid.grid_spacing
-  # sinc²(|k_a| Δx_a / 2) per axis, GPU-safe (ifelse, not Base.sinc's branch); 1 at k_a = 0.
-  axis(squared_wavenumber, Δ) =
-    (y = sqrt.(squared_wavenumber) .* (T(Δ) / 2); ifelse.(iszero.(y), one(T), sin.(y) ./ y) .^ 2)
-  w1 = reshape(axis(multipliers.squared_wavenumber_1, spacing[1]), :, 1, 1)
-  w2 = reshape(axis(multipliers.squared_wavenumber_2, spacing[2]), 1, :, 1)
-  w3 = reshape(axis(multipliers.squared_wavenumber_3, spacing[3]), 1, 1, :)
-  # Real factors: a real multiplier against a complex field is cheaper than a complex one, and the
-  # window is real by construction (an even function of each k_a).
-  return SeparableKernel{T}(w1, w2, w3, multipliers.grid, multipliers.fourier_layout)
+  # The CIC tent is a cell-wide top-hat convolved with itself; composing the two separable factors
+  # squares each per-axis sinc, bitwise the direct sinc² (x^2 lowers to x*x).
+  cell = tophat_window(multipliers, multipliers.grid.grid_spacing)
+  return convolve(cell, cell)
 end
 
 

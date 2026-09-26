@@ -111,6 +111,7 @@ const EXEMPT = Dict{Tuple{Symbol, Symbol}, String}(
   (:spectral_band, :multipliers)      => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
   (:radial_kernel, :multipliers)      => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
   (:assignment_window, :multipliers)  => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
+  (:tophat_window, :multipliers)      => "single-carrier operation: the kernel adopts the multipliers' context, like assignment_window",
   (:translation_kernel, :multipliers) => "single-carrier operation since decision 66: the kernel adopts the multipliers' context",
   (:interpolate, :scheme)        => "the spline schemes carry no context — a LalescuSpline is weights only, valid on any grid",
   (:interpolate!, :scheme)       => "same: a spline scheme has no grid or layout to disagree with",

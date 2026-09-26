@@ -214,6 +214,7 @@ using .Convolution:
   spectral_cutoff,
   spectral_band,
   assignment_window,
+  tophat_window,
   translation_kernel
 
 
@@ -365,6 +366,7 @@ export FiberVector,
        spectral_cutoff,
        spectral_band,
             assignment_window,
+            tophat_window,
        translation_kernel,
        translation_kernel!,
        SpectralKernel,

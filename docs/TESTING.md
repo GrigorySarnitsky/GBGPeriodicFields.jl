@@ -697,6 +697,11 @@ the sequential `combine!`-then-convolve pair, and the in-place filtered accumula
 membership oracle) and `radial_kernel` (the builder for an arbitrary real function of ``|k|^2``, checked at
 ``\sigma = \mathrm{identity}`` against the analytic sum,
 real-valued), across `Float64`/`Float32`, and the physical-space intentional absence on fields in physical representation;
+`tophat_window`, the box average of decision 87 (the box mean of a single mode,
+``\cos(k \cdot x) \prod_a \operatorname{sinc}(k_a l_a / 2)``, as an independent oracle on an anisotropic box
+with edges that are not whole cells; a domain-sized box keeping the mean alone; a zero edge as the
+identity, bitwise; a scalar edge equal to the cube; `assignment_window` equal, bitwise, to the cell-wide
+window composed with itself; and the refusal of negative and non-finite edges);
 and — for `translation_kernel`, the displacement kernel of decision 28 — the same `circshift` oracle but on
 a **random** field, which unlike the band-limited fields above carries Nyquist content and so exercises the
 one frequency where the kernel is a real attenuation rather than a phase (a whole-cell displacement, odd and

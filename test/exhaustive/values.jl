@@ -296,6 +296,8 @@ function run_value_lane(configs)
                                                              complex.(ref_spectral_band(grid, layout, shape, T(1), cutoff))),
       (:assignment_window, kernel_data(assignment_window(multipliers)),
                                                              complex.(ref_assignment_window(grid, layout, shape))),
+      (:tophat_window,   kernel_data(tophat_window(multipliers, (T(0.7), T(1.3), T(2.1)))),
+                                                             complex.(ref_tophat_window(grid, layout, shape, (T(0.7), T(1.3), T(2.1))))),
       (:translation_kernel, kernel_data(translation_kernel(multipliers, offset)),
                                                              ref_translation_kernel(grid, layout, shape, offset)),
       # A SEPARABLE kernel, not the radial one the row above already materializes. `kernel_data` calls

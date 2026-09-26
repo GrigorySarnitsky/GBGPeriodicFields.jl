@@ -69,6 +69,7 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   :convolve           => (:independent, "convolution.jl — the circshift oracle for a whole-cell shift"),
   :translation_kernel => (:independent, "convolution.jl — circshift, and DirectDFT at displaced nodes"),
   :assignment_window  => (:analytic, "rdf.jl / convolution.jl — the ∏ sinc² closed form"),
+  :tophat_window      => (:analytic, "convolution.jl — the box mean of one mode, cos(k·x) ∏ sinc(k_a l_a / 2)"),
   :spectral_cutoff    => (:analytic, "convolution.jl — the |k|² membership oracle"),
   :spectral_band      => (:analytic, "convolution.jl — the annular membership oracle"),
   :exponential_convolve => (:analytic, "convolution.jl — the single-mode eigenvalue e^c·cos x"),

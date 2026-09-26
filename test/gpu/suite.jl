@@ -493,6 +493,7 @@ function run_gpu_suite(::Type{T}) where {T<:AbstractFloat}
       @test matches(materialize_kernel(radial_kernel(identity, mult_d)).field, materialize_kernel(radial_kernel(identity, mult_h)).field)
       # assignment_window (the CIC deconvolution window, ∏ sinc²) — device-clean (ifelse, not Base.sinc)
       @test kernel_matches(assignment_window(mult_d), assignment_window(mult_h))
+      @test kernel_matches(tophat_window(mult_d, T(0.7)), tophat_window(mult_h, T(0.7)))  # the box window, device-clean likewise
       # translation_kernel — the one complex kernel; the per-axis cos/sin phase builds on-device
       offset = ntuple(d -> T(0.5) * grid.grid_spacing[d], 3)                  # a half-cell displacement
       shift_h = translation_kernel(mult_h, offset)

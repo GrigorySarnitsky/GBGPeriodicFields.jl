@@ -199,6 +199,7 @@ _map_add(a, b) = a + b
       separable = translation_kernel(multipliers, (T(0.3), T(-0.7), T(1.1)))
       @alloc_below field_threshold translation_kernel(multipliers, (T(0.3), T(-0.7), T(1.1)))
       @alloc_below field_threshold assignment_window(multipliers)
+      @alloc_below field_threshold tophat_window(multipliers, 0.7)
       @alloc_below field_threshold inv(separable)                       # reciprocal: three O(N) axes
       @alloc_below threshold translation_kernel!(separable, multipliers, (T(0.1), T(0.2), T(0.3)))
       @alloc_below field_threshold convolve!(ssd, ss, separable)        # applying it materializes nothing

@@ -177,7 +177,10 @@ const MODULE_BASELINE = (
   # The default flooded: a `SeparableKernel` on a 512^3 grid printed 56742 characters and a
   # `ProductKernel` 58090, while a `RadialKernel`, which holds no array at all, still printed 815,
   # its symbol being an anonymous closure whose generated type name was most of the line.
-  Convolution           = 114,
+  # 114 → 116: `tophat_window` (decision 87), the box average of a chosen width — one method for a
+  # scalar edge (a cube) delegating to the per-axis-triple method. `assignment_window` is now that
+  # window at the grid spacing composed with itself, and keeps its one method.
+  Convolution           = 116,
   # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
   # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
   # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with

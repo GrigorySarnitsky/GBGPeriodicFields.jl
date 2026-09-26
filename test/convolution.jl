@@ -389,6 +389,7 @@ end
     @test_throws MethodError translation_kernel(phi_s, (0.1, 0.0, 0.0))
     @test_throws MethodError spectral_cutoff(phi_s, 2.0)
     @test_throws MethodError assignment_window(phi_s)
+    @test_throws MethodError tophat_window(phi_s, 1.0)
     mult_absence = FieldSpectralMultipliers(phi_s)
     @test_throws MethodError exponential_convolve(phi, mult_absence, -0.1)          # spectral-only too
     @test_throws MethodError exponential_convolve!(phi, phi, mult_absence, -0.1)
@@ -765,5 +766,50 @@ end
   for class in (StoredKernel, SeparableKernel, RadialKernel, ProductKernel)
     @test class <: SpectralKernel
     @test :($(nameof(class))) in names(GBGPeriodicFields)
+  end
+end
+
+
+# tophat_window: the box-average window of any width. The oracle is the definition itself: the mean of
+# cos(k·x) over a box of edges l centred at x is exactly cos(k·x) ∏ sinc(k_a l_a / 2), independent of
+# how the package builds the kernel.
+@testset "tophat_window: the box average of a chosen width" begin
+  for TP in (Float64, Float32)
+    tol = TP === Float64 ? 1e-12 : 2.0f-5
+    grid = Grid3D((12, 10, 9), (TP(2π), TP(4π), TP(6π)))        # anisotropic, one odd axis
+    layout = RealFourierLayout()
+    spectral_template = ScalarFieldSpectral(Array, grid, layout)
+    plans = FieldTransformPlans(ScalarFieldPhysical(zeros(TP, 12, 10, 9), grid), spectral_template)
+    mult = FieldSpectralMultipliers(spectral_template)
+    sincc(y) = y == 0 ? one(TP) : sin(y) / y
+    k = (TP(2), TP(1.5), TP(-2 / 3))                              # integer multiples of 2π/L per axis
+    for l in ((TP(0.7), TP(1.3), TP(2.1)), (TP(1), TP(1), TP(1)))   # not whole cells; a cube
+      f = ScalarFieldPhysical((x, y, z) -> cos(k[1] * x + k[2] * y + k[3] * z), grid)
+      averaged = to_physical(convolve(to_spectral(f, plans), tophat_window(mult, l)), plans)
+      factor = prod(sincc(k[a] * l[a] / 2) for a in 1:3)
+      @test isapprox(field_data(averaged), factor .* field_data(f); atol = tol)
+    end
+    # A scalar width is the cube of that edge, bitwise.
+    @test kernel_array(tophat_window(mult, TP(0.9))) ==
+          kernel_array(tophat_window(mult, (TP(0.9), TP(0.9), TP(0.9))))
+    # Real, even factors in the section's own scalar type.
+    window = tophat_window(mult, (TP(0.4), TP(0.8), TP(1.6)))
+    @test eltype(window.factor_1) === TP
+    # A zero edge is the identity, bitwise.
+    fs = to_spectral(ScalarFieldPhysical((x, y, z) -> sin(x) + cos(2y) * sin(z / 3), grid), plans)
+    @test field_data(convolve(fs, tophat_window(mult, zero(TP)))) == field_data(fs)
+    # An edge equal to the domain's extent keeps the mean alone.
+    rng = MersenneTwister(7)
+    fr = to_spectral(ScalarFieldPhysical(rand(rng, TP, 12, 10, 9), grid), plans)
+    kept = field_data(convolve(fr, tophat_window(mult, grid.domain_size)))
+    @test kept[1, 1, 1] ≈ field_data(fr)[1, 1, 1]
+    @test maximum(abs, kept[2:end]) <= tol * maximum(abs, field_data(fr))
+    # The CIC window is the cell-wide top-hat composed with itself, bitwise.
+    cell = tophat_window(mult, grid.grid_spacing)
+    @test kernel_array(assignment_window(mult)) == kernel_array(convolve(cell, cell))
+    # A width is a length: negative or non-finite edges are refused.
+    @test_throws ArgumentError tophat_window(mult, -TP(1))
+    @test_throws ArgumentError tophat_window(mult, (TP(1), TP(NaN), TP(1)))
+    @test_throws ArgumentError tophat_window(mult, (TP(1), TP(1), TP(Inf)))
   end
 end
