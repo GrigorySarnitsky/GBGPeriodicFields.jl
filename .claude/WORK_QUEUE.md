@@ -167,9 +167,9 @@ committing; allocation pins stay at zero; if any measured cell regresses, that c
 - [x] Finding (ai); committed and pushed
 
 
-## Open (2026-09-22: HT asks for a width-parameterized top-hat window; owner deferred it behind the CT work)
+## Done (2026-09-22: HT asked for a width-parameterized top-hat window; built 2026-09-26 as decision 87)
 
-- [x] DEFERRED by the owner — evaluated, not built. HT wants the generalization of `assignment_window`
+- [x] BUILT 2026-09-26 as `tophat_window`, decision 87 (`ecab83f1`), after the owner deferred it behind the CT work. HT wants the generalization of `assignment_window`
       from the grid spacing to an arbitrary width, for a k(l)/ε(l) sub-box diagnostic. VERDICT: the
       request is sound and the object belongs here. `assignment_window` IS W(Δ)² — `src/Convolution.jl:1856`
       computes sinc²(|k_a|Δ_a/2) per axis — so the generalization is that body with `spacing[a]` replaced

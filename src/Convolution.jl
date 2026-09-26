@@ -1807,8 +1807,8 @@ field at each point by its mean over the box of that width centred there.
 
 Use it to average a field over sub-boxes smaller than the domain — the scale-resolved statistics
 that remove a sub-box mean, such as the kinetic energy held in scales below a given size, or a box
-filter of chosen width. The window itself is ``\\hat W``; the energy-type weights those statistics
-need are its square, `convolve(w, w)`, which composes per axis at no extra cost.
+filter of chosen width. The returned `w` is the window's transfer function ``\\hat W``; the weights those
+statistics need are its square, `convolve(w, w)`, which composes per axis at no extra cost.
 
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
 and storage family the window takes as its own, and `width` is the edge of the box in the units of the
@@ -1827,18 +1827,17 @@ W(x) = \\prod_{a=1}^{3} \\frac{1}{l_a} \\mathbf{1}\\bigl[|x_a| \\le \\tfrac{l_a}
 ```
 
 with ``l_a`` the box edge along axis ``a``, ``x_a`` the displacement along it reduced onto the periodic
-domain, and ``k_a`` the true wavenumber component, kept at the Nyquist frequency so the window is real
-and even and a real field stays real. On a periodic domain the width may be any non-negative number:
-at ``l_a`` equal to the domain's extent every nonzero wavenumber along that axis is cancelled, so a
-cube the size of the domain keeps the mean alone, and as ``l_a \\to 0`` the window tends to the
-identity. The [`assignment_window`](@ref) is this window at the grid spacing, squared.
+domain, and ``k_a`` the true wavenumber component, kept at the Nyquist frequency so a real field stays
+real. On a periodic domain the width may be any non-negative number:
+at ``l_a`` equal to the domain's extent every nonzero wavenumber along that axis is cancelled to
+rounding, so a box the size of the domain keeps the mean alone, and as ``l_a \\to 0`` that axis's factor
+tends to one. The [`assignment_window`](@ref) is this window at the grid spacing, squared.
 
 !!! note "It averages the band-limited field, not the grid values"
     The sinc is the transform of the continuum box, so the result is the exact box mean of the
-    band-limited field the grid values represent. A box whose edge is not a whole number of cells
-    therefore averages between nodes rather than over the nodes it contains, and ``\\hat W`` changes
-    sign beyond its first zero, so the filtered field can overshoot where a mean of grid values could
-    not.
+    band-limited field the grid values represent, even for an edge of a whole number of cells: it is
+    not the mean of the nodes inside the box. That field can itself exceed the range of its grid
+    values, and so can its box mean, where a mean of grid values could not.
 """
 function tophat_window(multipliers::FieldSpectralMultipliers, width::Real)
   return tophat_window(multipliers, (width, width, width))

@@ -3630,9 +3630,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       nonzero wavenumber along that axis, so a cube the size of the domain keeps the mean alone.
 
     - **A continuum average.** The sinc is the transform of the continuum box, so the result is the
-      exact box mean of the band-limited field. For an edge that is not a whole number of cells it
-      therefore differs from averaging the grid values inside the box, and the window changes sign
-      beyond its first zero. The docstring says so.
+      exact box mean of the band-limited field, not the mean of the grid values inside the box, even
+      for an edge of a whole number of cells, and it can exceed the range of those values.
 
     - **A caution passed to the consumer.** Batching many widths into one tuple reduction nests one
       product kernel per width. Finding (aq) measured register pressure halving occupancy on the AMD
