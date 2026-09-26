@@ -3695,6 +3695,14 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       function with a literal index per operand, back to the 16 bytes the call cost before, and the
       audit has rows for every compressed kernel class, which fail against the closure form.
 
+    - **The repair itself cost speed until the canary caught it.** `@inline` cannot annotate a
+      `@generated` function, so the generated read stayed a call inside the executor's `@simd` loop and
+      blocked vectorization: the `mul!` canary ran ``3.2\times`` slower on one CPU thread and
+      ``13.5\times`` slower on the device, `sym!` ``2.1\times`` and ``9.5\times``. Every test passed
+      throughout, the pass being correct and allocation-free. The generated bodies now carry their own
+      inline marker, and the canary reads flat on the device and at eight threads and faster at one:
+      `mul!` 7.1 to 5.7 ms, `sym!` 13.1 to 9.3 ms.
+
     - **How it is pinned.** The file `test/caller_counts.jl` sweeps each operation past its group size
       and past 32 operands against raw-array arithmetic, including a destination that aliases a later
       operand; `test/allocations.jl` asserts the serial zero with every operand written out at the call

@@ -1249,12 +1249,14 @@ end
 
 # Both written out with a literal index per weight, generated per count: the weights' element types
 # may differ (a stored kernel is complex where a radial one is real), and a closure indexing a mixed
-# tuple is resolved at run time whenever it is not inlined, which a device kernel cannot compile.
+# tuple is resolved at run time whenever it is not inlined, which a device kernel cannot compile. The
+# generated body carries its own inline marker: `@inline` cannot annotate a `@generated` function, and
+# without the marker the call stays a call inside the reduction's loop.
 @generated function _pack_weights(d, p, ws::Vararg{Any, N}) where {N}
-  return :(($((:(p * ws[$i] * d) for i in 1:N)...),))
+  return Expr(:block, Expr(:meta, :inline), :(($((:(p * ws[$i] * d) for i in 1:N)...),)))
 end
 @generated function _add_tuples(a::NTuple{N, Any}, b::NTuple{N, Any}) where {N}
-  return :(($((:(a[$i] + b[$i]) for i in 1:N)...),))
+  return Expr(:block, Expr(:meta, :inline), :(($((:(a[$i] + b[$i]) for i in 1:N)...),)))
 end
 
 

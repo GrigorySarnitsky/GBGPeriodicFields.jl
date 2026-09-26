@@ -828,10 +828,14 @@ types. A `map` over the tuple takes `Base`'s generic path from 32 entries, the c
 runtime lookup whenever the compiler declines to inline the closure, which allocates per element on a
 CPU and does not compile on a device (a radial kernel beside plain arrays in a kernel-composed
 `combine!`).
+
+The generated body carries an inline marker, `@inline` not applying to a `@generated`
+function: without it the read stayed a call inside the executor's `@simd` loop, which blocked
+vectorization and made `mul!` 3.2 times slower on a CPU and 13.5 times slower on a device.
 """
 @generated function _element_values(arrays::Tuple, n)
   reads = [:(@inbounds arrays[$i][n]) for i in 1:fieldcount(arrays)]
-  return :(($(reads...),))
+  return Expr(:block, Expr(:meta, :inline), :(($(reads...),)))
 end
 
 
