@@ -18,7 +18,7 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § 9. Performance model and CPU threading / item 2",56,56,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading / item 3",110,110,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading / item 4",32,32,0
-"ARCHITECTURE.md § 9. Performance model and CPU threading / item 5",779,319,0
+"ARCHITECTURE.md § 9. Performance model and CPU threading / item 5",1011,319,0
 "ARCHITECTURE.md § Architecture — GBGPeriodicFields",142,83,0
 "ARCHITECTURE.md § Decision log",27,27,0
 "ARCHITECTURE.md § Documentation policy",227,142,0
@@ -171,6 +171,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 87",513,99,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",679,108,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -221,22 +222,23 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: FiberTensor3{T}",25,15,0
 "FiberSections.jl :: FiberTensor4{T}",26,16,0
 "FiberSections.jl :: FiberVector{T}",21,11,0
-"FiberSections.jl :: _MapValues(φ, orders)",92,48,0
+"FiberSections.jl :: _MapValues(φ, orders, stride)",170,104,0
 "FiberSections.jl :: _SERIAL_CUTOFF",41,40,0
 "FiberSections.jl :: _THREADING_OVERRIDE",31,30,0
 "FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",32,27,0
 "FiberSections.jl :: _assemble_fiber(::Val{R}, scalars, offset)",53,50,0
-"FiberSections.jl :: _assemble_inputs(orders, scalars, offset)",48,45,0
 "FiberSections.jl :: _assign!(destination, broadcasted)",56,54,0
 "FiberSections.jl :: _assign!(destination, source)",35,33,0
 "FiberSections.jl :: _assign_slabs!(destination, instantiated, axis::Val)",44,41,0
 "FiberSections.jl :: _assign_threaded!(destination, broadcasted)",164,162,0
 "FiberSections.jl :: _broadcast_sliceable(argument)",56,55,0
+"FiberSections.jl :: _call_values(f, arrays, n, constants)",56,52,0
 "FiberSections.jl :: _check_owned_storage(data, what::AbstractString)",244,89,0
 "FiberSections.jl :: _cross_formula(left_symbol, left_kind, right_symbol, right_k",31,27,0
 "FiberSections.jl :: _det_tensor_rhs(symbol, kind)",92,36,0
 "FiberSections.jl :: _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)",25,21,0
 "FiberSections.jl :: _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)",34,30,0
+"FiberSections.jl :: _element_values(arrays, n)",72,70,0
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",35,34,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",30,28,0
@@ -245,6 +247,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _flatten_fiber(value)",22,21,0
 "FiberSections.jl :: _foreach_outer_slab(slab_body!, outer_axis, element_count)",60,57,0
 "FiberSections.jl :: _index_ranges(axis::AbstractUnitRange, n::Integer)",14,12,0
+"FiberSections.jl :: _nary_assign!(reducer, destination, operands, duplicate)",96,92,0
 "FiberSections.jl :: _norm_scalar_rhs(symbol)",10,9,0
 "FiberSections.jl :: _norm_tensor_rhs(symbol, kind)",12,10,0
 "FiberSections.jl :: _norm_vector_rhs(symbol, kind)",12,10,0
@@ -458,6 +461,7 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 4. What we have found / finding (ar)",243,115,0
 "PERFORMANCE.md § 4. What we have found / finding (as)",331,103,0
 "PERFORMANCE.md § 4. What we have found / finding (at)",562,95,0
+"PERFORMANCE.md § 4. What we have found / finding (au)",357,109,0
 "PERFORMANCE.md § 4. What we have found / finding (b)",211,150,0
 "PERFORMANCE.md § 4. What we have found / finding (c)",979,669,0
 "PERFORMANCE.md § 4. What we have found / finding (d)",46,46,0
@@ -519,7 +523,7 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: _show_count(io, n)",41,24,0
 "Points.jl :: _unwrap_point_values_argument(x)",32,31,0
 "Points.jl :: _wrap_coordinate(coordinate, extent, origin)",90,87,0
-"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",509,152,0
+"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",550,179,0
 "Points.jl :: npoints(point_set::PointSet)",26,24,0
 "Points.jl :: point_positions(point_set::PointSet)",12,11,0
 "Points.jl :: point_value_tensor_order(sampled_values::AbstractPointValues",12,7,0
@@ -558,13 +562,13 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: radial_spectrum(f, multipliers)",768,261,1
 "Reductions.jl :: std(f; corrected = true)",142,82,0
 "Reductions.jl :: var(f; corrected = true)",346,122,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",752,224,2
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",786,258,2
 "Reductions.md § Integral reductions",57,57,0
 "Reductions.md § Internal API",54,54,0
 "Reductions.md § Moments and order statistics",78,43,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",2012,2012,0
+"TESTING.md § 2. Layout",2048,2048,0
 "TESTING.md § 3. Writing a test here",376,285,0
 "TESTING.md § 4. The coverage contract",842,512,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
@@ -581,7 +585,8 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 4. The coverage contract / item 2",4,4,0
 "TESTING.md § 4. The coverage contract / item 20",171,102,0
 "TESTING.md § 4. The coverage contract / item 21",143,63,0
-"TESTING.md § 4. The coverage contract / item 22",611,120,0
+"TESTING.md § 4. The coverage contract / item 22",125,69,0
+"TESTING.md § 4. The coverage contract / item 23",651,120,0
 "TESTING.md § 4. The coverage contract / item 3",21,21,0
 "TESTING.md § 4. The coverage contract / item 4",15,15,0
 "TESTING.md § 4. The coverage contract / item 5",9,9,0
