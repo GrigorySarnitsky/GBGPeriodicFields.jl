@@ -1718,7 +1718,9 @@ Past eight operands `add!` therefore runs about 20–24% slower than a single pa
 The `displace!` rows follow the same model: 33 terms cost 4.3 times the eight-term time on one CPU
 thread, as predicted, and 3.9 times on CUDA. The one outlier is eight threads at ``256^3``, 8.6 times,
 where the eight-term working set largely fits the 96 MB cache and the 33-term one does not; at
-``512^3``, where neither fits, the ratio returns to 4.1. For `weighted_inner` the grouped tuple still
+``512^3``, where neither fits, the ratio returns to 4.1.
+
+For `weighted_inner` the grouped tuple still
 beats one call per weight at every point measured — 33 weights at ``256^3`` take 391 ms against 564 on
 one CPU thread, 57 against 188 at eight, 15.1 against 23.1 on CUDA, and at ``64^3`` on CUDA 0.51 against
 1.12 ms — so the nine traversals cost less than the 33 they replace.
