@@ -5,7 +5,7 @@
 
 *Chronological and append-only.* Each entry records a decision, what it replaced, and the evidence
 that settled it; a later entry supersedes an earlier one's "remaining" or "deferred" note rather
-than contradicting it. Every entry reads on its own, without opening the source or another document.
+than contradicting it. An entry may use notation the architecture or an earlier entry introduced.
 
 This log lived as §13 of [the architecture](@ref "Architecture — GBGPeriodicFields") until
 2026-09-19, where it was three quarters of that file and pushed the design it documents into the

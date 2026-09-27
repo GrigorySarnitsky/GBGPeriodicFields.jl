@@ -395,10 +395,10 @@ a time unit) is also fine. The bar is on **docstring prose**.
 **What documents an argument.** A ``- `arg` — …`` bullet, a binding clause, an `arg = value` mention, or
 a `::Type` for a conventional first argument.
 
-**`docs/ARCHITECTURE.md` is self-contained — PF's part.** PF extends it to each decision-log entry on its
-own, since the log is browsed entry by entry. It covers package-specific math symbols too (`W`/`Wᵀ`, the
-base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the origin `o`, …). Decisions
-18/19 are the reference entries; keep the header's self-contained note true when editing.
+**`docs/ARCHITECTURE.md` is self-contained — PF's part.** It covers package-specific math symbols too
+(`W`/`Wᵀ`, the base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the origin `o`, …);
+keep the header's self-contained note true when editing. The decision log is held to the rule's scope,
+which exempts it (owner-ruled 2026-09-27).
 
 **Citations — PF's part.** Inside an existing parenthetical the year is bare, with no nested
 parentheses (`(de-aliasing; Sundaram & Collins 1996)`). The canonical reference list is `docs/ARCHITECTURE.md` §References: the works the package **implements /
