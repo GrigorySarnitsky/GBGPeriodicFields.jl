@@ -50,25 +50,6 @@ Config(
                          This is why the log is its own document: the rule can be narrowed to a \
                          FILE but not to a section, so splitting it turned an unfixable problem \
                          into a one-line switch. Every other rule still reads this file."),
-        Switch(target = Symbol("RULE.TEX.CODE_SPAN_JULIA"),
-               files = ["docs/src/notation.md"],
-               reason = "The notation page documents how the package's mathematics is SPELLED, \
-                         and two of its rows exist to show LaTeX source: which delimiter commands \
-                         to type (`\\bigl`/`\\Bigl`, never `\\left`/`\\right`) and why a table \
-                         writes its bars as `\\lvert…\\rvert`. Set as math those names render as \
-                         brackets and bars, and the reader loses the spelling the row is there to \
-                         give. Owner-decided 2026-09-24 (finding 2026-09-24-documentation-review-01-107). \
-                         Every other rule still reads this page."),
-        Switch(target = Symbol("RULE.TEX.CODE_SPAN_JULIA"),
-               files = ["examples/HIST_CPU.jl", "examples/gpu/rocm/HIST_ROCm.jl", "docs/PERFORMANCE.md"],
-               reason = "ONLY for command-line flags and shell input, such as `--smoke`, `--giant` \
-                         and `--freeze`: text typed at a shell is conventionally code-formatted and \
-                         is not Julia. A formula or other mathematics in a code span is still a \
-                         defect in these files, which is the rule's real purpose. A stopgap: the \
-                         owner asked GBGCodingTools to reword the rule as 'a code span holds literal \
-                         code or input in some language, never mathematics'; remove this switch \
-                         when it does. Owner-decided 2026-09-26 (finding \
-                         2026-09-24-documentation-review-01-095)."),
         Switch(target = Symbol("RULE.DOC.SIGNATURE_FIDELITY"),
                files = ["src/Fields.jl"],
                reason = "A stopgap for a checker defect, not an exemption. The rule reads a \
