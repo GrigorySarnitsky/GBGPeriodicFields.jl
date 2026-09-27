@@ -1762,10 +1762,8 @@ because  HAS a fallback for it) and, more importantly, **fixture blindness**: th
 named for an index convention its diagonal fixture could not see, and the tensor divergence had no analytic
 oracle at all — nine identical components, so , with every other assertion self-referential. Both now
 have closed-form oracles over asymmetric fixtures, **each verified by re-applying the mutation and confirming
-the new test fails**. Standing rule from it: a symmetric fixture cannot see an asymmetric defect, and a
-self-referential assertion (threaded vs serial, device vs host, compressed vs stored) cannot see a defect
-shared by both sides — when a convention is stated in a name or docstring, the fixture must be able to
-falsify it.
+the new test fails**. PF's self-referential pairs are threaded vs serial, device vs host, and compressed
+vs stored.
 
 **Standing item — a testing-protocol and allocator review (user-directed 2026-07-28).** Two findings
 motivate it, both surfaced by the module-placement panel rather than by the suite. **(1) A missing
@@ -1889,8 +1887,7 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   thirteen demotions spurious, on notation alone) is the recorded reason, which belongs in the shared
   docs because the pull to "improve" emptiness into a citation check is real. Staleness — PF reads
   **mtime**, which needs no compliance, and that mechanism wins, with IT's **default-direction rule**
-  stated beside it: a self-reported field is acceptable only when the missing case is the failing case.
-  The `/bug-hunt` **verdict sets** may differ between the trees, which is a schema divergence rather
+  stated beside it. The `/bug-hunt` **verdict sets** may differ between the trees, which is a schema divergence rather
   than wording, since `dismissals`/`closure`/`finished` all key off it. And same-named files differ by
   1.5–2× in length (`hunt.js` 324 vs 213, `verify.js` 269 vs 186), part commentary and part behaviour —
   that needs a real diff, never a count comparison.
@@ -2510,27 +2507,13 @@ that would have caught this class, so it earns its place ahead of work that repa
 
 ## Working agreements
 
-- The API is not frozen; do not build backward-compatibility shims.
 - During large refactors, complete "supposedly working" drafts are acceptable for
   architecture review, but loading + parity checks are required before calling work
   finished.
-- Errors found later are fixed one by one; architectural soundness is judged on the
-  full picture first.
-- **Commit ⇒ push, on `master`.** This is a *private* repo synced across machines through
-  GitHub, so work is committed **directly on `master`** (the default branch — do not branch)
-  and **pushed in the same step**; GitHub is the cross-machine sync path and the docs site
-  deploys on push. End every commit message with `Co-Authored-By: Anthropic Claude
-  <noreply@anthropic.com>`; never use `[skip ci]`. The trailer names no model VERSION on purpose
-  (user-decided 2026-09-04): the model in use changes often and the versions supersede each other, so
-  a version in the trailer is a fact about the day rather than about the work, and it goes stale in
-  the one place git will never let anyone correct it. History keeps whatever it was written with.
-- **CI is manual-only — run the matrix LOCALLY pre-commit.** Push-triggered CI burned the
-  free tier, so the workflow runs only on manual dispatch / tags, **not on push**. Before
-  committing a code change, run `Pkg.test()` (plus the GPU suite where a device change
-  warrants it); a docstring/doc/example-only change needs only a load + the relevant doc
-  build. Docs still deploy on push. (Sub-environment `Manifest`s under `docs/`, `test/gpu/*`,
-  `benchmark/*` are gitignored and go stale locally when package deps change — `Pkg.resolve`
-  that env if precompile breaks; CI is unaffected.) **One Julia, two thread counts.** The compat
+- **Commits and CI — PF's part.** Old commits keep whatever trailer they were written with; history is
+  not rewritten. CI is manual-only because push-triggered CI burned the free tier, and a device change
+  also runs the GPU suite before its commit. The sub-environments whose manifests are gitignored are
+  `docs/`, `test/gpu/*` and `benchmark/*`. **One Julia, two thread counts.** The compat
   floor was raised 1.11 → 1.12 on 2026-07-19, so the CI matrix now differs only in `-t1` vs `-t4`
   and there is no second local lane and no per-version manifest dance. Why 1.11 went: the package
   *ran* faster on it (every op, 1.11 vs 1.12 steady-state), but compiling cost several times more
