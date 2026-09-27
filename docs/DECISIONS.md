@@ -3680,7 +3680,8 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       threaded, a field `add!` pays `Base.Threads` task state once per pass; and `weighted_inner`
       allocates one single-weight call's worth per group of four (Performance finding (au)). Above one
       group, a pass per group re-reads what one pass would have read once: a tuple of 33 weights takes
-      nine traversals. That time is unmeasured, and is invisible at the counts a solver passes.
+      nine traversals. Measured, that is exactly the added traffic — `add!` past eight operands about 20–24%
+      slower than one pass would be — and 33 grouped weights still beat 33 separate calls (finding (au)).
 
     - **The first version broke a case the CPU suite passed.** The per-element read was first an
       `ntuple` over a closure, `i -> arrays[i][n]`. When the operands are of different types, as in a

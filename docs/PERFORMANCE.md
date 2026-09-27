@@ -1684,8 +1684,8 @@ was backwards for a sweep-seeded set and has been corrected. The traversal order
 locality to the FIELD reads and takes it from the COORDINATE reads, which is why it grows with tensor
 order — a vector field reads three components per point against one coordinate triple.
 
-**(au) An operand count the caller chooses now costs nothing extra to allocate, at any count; its
-time is unmeasured** (2026-09-26, decision 88). The four operations whose operand count the caller
+**(au) An operand count the caller chooses now costs nothing extra to allocate, at any count, and
+its time is exactly the traffic the grouping adds** (2026-09-26, measured 2026-09-27; decision 88). The four operations whose operand count the caller
 chooses were measured at 9 and 33 operands on `Enteropia`, with every operand written out at the call
 site so the caller's own splat is not counted.
 
