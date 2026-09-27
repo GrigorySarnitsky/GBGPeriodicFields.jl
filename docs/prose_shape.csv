@@ -171,7 +171,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 87",513,99,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",932,108,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",1064,108,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",361,185,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
@@ -266,6 +266,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: _to_broadcasted(expr)",60,59,0
 "FiberSections.jl :: _trace_tensor_rhs(symbol, kind)",63,61,0
 "FiberSections.jl :: _transpose_formula(A_symbol, A_kind)",23,21,0
+"FiberSections.jl :: _tuple_map(f, operands)",74,72,0
 "FiberSections.jl :: _undot(expr)",58,57,0
 "FiberSections.jl :: _use_threads(element_count)",38,37,0
 "FiberSections.jl :: _vector_component(symbol, kind, i)",70,67,0
