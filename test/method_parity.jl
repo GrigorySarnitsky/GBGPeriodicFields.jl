@@ -1,369 +1,48 @@
-# Method-parity baseline for FieldAlgebra (M2 + M3 — the full public surface).
+# Method-parity baselines — the public method set is the spec (invariant 1).
 #
-# Locks the generated method set so a codegen change cannot silently add or drop
-# methods. Counts are "methods FieldAlgebra defines for each generic"
-# (m.module === FieldAlgebra), which filters out the hundreds of Base methods on
-# the operators. 206 public methods total (the pre-refactor surface plus `tr`/`tr!`,
-# the weighted combination `combine!`, and the determinant `det`/`det!`).
+# Locks the method set so a codegen change cannot silently add or drop methods. The package DECLARES
+# method parity to GBGCodingTools (RULE.TEST.METHOD_PARITY): the engine is the tool's
+# `TestHarness.method_parity`, extracted from this file, and the frozen numbers live in
+# `test/method_parity_baseline.toml`, each moved number refrozen there with its reason.
+#
+# Two baselines, counting DIFFERENT denominators:
+#
+# - The ENUMERATED one names 28 generics and counts the methods FieldAlgebra defines for each
+#   (m.module === FieldAlgebra, which filters out the hundreds of Base methods on the operators): 206
+#   public methods, the pre-refactor surface plus `tr`/`tr!`, the weighted combination `combine!` and
+#   the determinant `det`/`det!`. The PointValues algebra (Points) mirrors the fields' *physical*
+#   surface on the same generics and is counted separately, 122 methods; representation-free, so no
+#   spectral variants.
+# - The DERIVED one (decision 53) is blind to nothing: for each module, every function it owns over the
+#   package's whole function surface, internals included, counted over the methods defined IN that
+#   module. The enumerated list missed decisions 48, 49 and 51 entirely — `map!`/`map`, `cov` and the
+#   kernel builders added surface and neither number moved. The candidate set is the whole surface,
+#   NOT `names(mod)`: a method defined under a QUALIFIED name creates no binding in its module, so a
+#   namespace scan cannot see it, and ownership (`m.module === mod`) is the only thing that answers it.
+#   Extension methods (the HDF5 weak dependency) live in their own module and are not counted.
+#
+# The engine also asserts that `detect_ambiguities` over the package is empty — the explicit
+# `multiply!` quartet exists precisely to resolve those.
 
 using Test
 using GBGPeriodicFields
 using Statistics
+using TOML
+import GBGCodingTools
 include("public_surface.jl")
 
-const FA = GBGPeriodicFields.FieldAlgebra
-const IP = GBGPeriodicFields.Points
-pkg_method_count(f) = count(m -> m.module === FA, methods(f))
-pointvalues_method_count(f) = count(m -> m.module === IP, methods(f))
+const METHOD_BASELINE = TOML.parsefile(joinpath(@__DIR__, "method_parity_baseline.toml"))
 
-@testset "method parity" begin
+# The external modules whose generics the package extends. LinearAlgebra is not a test dependency and
+# need not be: the umbrella re-exports the generics the package extends from it (`dot`, `cross`,
+# `norm`, `mul!`, `transpose`), so they resolve through the package.
+GBGCodingTools.TestHarness.method_parity(GBGPeriodicFields,
+    filter(m -> m !== GBGPeriodicFields, collect(PACKAGE_MODULES)), METHOD_BASELINE;
+    externals = (Base, Statistics))
 
-  @testset "M2 + M3 baseline (206 methods)" begin
-    baseline = (("add!", add!, 14), ("subtract!", subtract!, 14), ("combine!", combine!, 2),
-                ("multiply!", multiply!, 16), ("divide!", divide!, 6),
-                ("+", +, 15), ("-", -, 15), ("*", *, 28), ("/", /, 5),
-                ("dot", dot, 10), ("dot!", dot!, 10), ("cross", cross, 5), ("cross!", cross!, 5),
-                ("mul!", mul!, 30), ("transpose", transpose, 2), ("transpose!", transpose!, 2),
-                ("norm", norm, 3), ("norm!", norm!, 3),
-                ("sym", sym, 3), ("sym!", sym!, 2), ("skew", skew, 3), ("skew!", skew!, 2),
-                ("dev", dev, 3), ("dev!", dev!, 2),
-                ("tr", tr, 2), ("tr!", tr!, 2), ("det", det, 1), ("det!", det!, 1))
-    for (name, f, n) in baseline
-      @test pkg_method_count(f) == n
-    end
-    @test sum(pkg_method_count(f) for (_, f, _) in baseline) == 206
-  end
-
-  # The PointValues algebra (Points module) mirrors the fields' *physical* surface, on
-  # the same generics. It is counted separately (m.module === Points), so the field
-  # baseline above stays locked while this locks the new surface. Representation-free ⇒ no
-  # spectral variants, so the counts are smaller than the field ones.
-  @testset "PointValues algebra baseline (122 methods)" begin
-    baseline = (("add!", add!, 7), ("subtract!", subtract!, 7),
-                ("multiply!", multiply!, 10), ("divide!", divide!, 5),
-                ("+", +, 8), ("-", -, 8), ("*", *, 18), ("/", /, 5),
-                ("dot", dot, 6), ("dot!", dot!, 6), ("cross", cross, 3), ("cross!", cross!, 3),
-                ("mul!", mul!, 18), ("transpose", transpose, 1), ("transpose!", transpose!, 1),
-                ("norm", norm, 3), ("norm!", norm!, 3),
-                ("sym", sym, 1), ("sym!", sym!, 1), ("skew", skew, 1), ("skew!", skew!, 1),
-                ("dev", dev, 1), ("dev!", dev!, 1),
-                ("tr", tr, 1), ("tr!", tr!, 1), ("det", det, 1), ("det!", det!, 1))
-    for (name, f, n) in baseline
-      @test pointvalues_method_count(f) == n
-    end
-    @test sum(pointvalues_method_count(f) for (_, f, _) in baseline) == 122
-  end
-
-  @testset "no ambiguities" begin
-    @test isempty(detect_ambiguities(GBGPeriodicFields; recursive = true))
-  end
-
-end
-
-
-# ---------------------------------------------------------------------------------------------
-# Derived module baselines (decision 53).
-#
-# The hand-written baseline above enumerates 28 generic NAMES filtered to two modules, so it is
-# blind to everything else: decisions 48, 49 and 51 each added public surface — `map!`/`map` in
-# FieldAlgebra, `cov` in Reductions, the kernel builders in Convolution — and neither the 206 nor
-# the 122 moved. A baseline that cannot see a new generic does not enforce "the public method set
-# is the spec"; it enforces it for the names someone remembered to list.
-#
-# This one is DERIVED rather than enumerated: for each module, every function that module owns,
-# counted over the methods defined IN that module. Adding a method anywhere moves a number, and the
-# number must then be refrozen deliberately — the pass-audit protocol, applied to the method table.
-# Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
-# `m.module === mod` filter, so loading HDF5 does not perturb the counts.
-const MODULE_BASELINE = (
-  FiberSections         = 120,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
-  # 118 → 120: the `map!` path past 32 sources, found by the exhaustive survey (decision 88). Added:
-  # `_tuple_map` (a generated tuple map replacing `Base.map` over the sources) with its generator body,
-  # `_input_fiber` (one input's fiber read), and the generator body of `_call_values` for the map
-  # adapter, now generated. Removed: `_input_fibers` ×2, whose recursion and splat allocated per point.
-  # 117 → 118: `_element_values` became a `@generated` function, whose generator body Julia compiles
-  # as a hidden function of its own (`#62#63` at the time of writing), counted here like any other.
-  # The `ntuple` closure it replaced indexed a mixed operand tuple at run time on the CPU and did not
-  # compile on a device (decision 88, found by the CUDA suite).
-  # 110 → 117: caller-controlled counts (decision 88). An operation taking as many operands as its
-  # caller passes now works through them in fixed-size groups, and every per-element step is an
-  # `ntuple` over a `Val` count rather than a splat or a tuple `map`, which leave the specialized path
-  # at 32 elements. Added: `_element_values` and `_call_values` ×2 (the executor's element read, one
-  # method for a codegen values function and one for a map), `_input_fibers` ×2 and
-  # `_strided_components` (a map's input fibers, assembled per source), and `_nary_assign!`,
-  # `_nary_continue!` and `_operand_tuple` (the grouped left fold behind `add!`/`subtract!`).
-  # Removed: `_assemble_inputs` ×2, which concatenated every source's components into one tuple.
-  # Refrozen deliberately, with the reason, per decision 53's protocol.
-  # 105 → 103: `_kernel_data(::ScalarFieldSpectral)` and `_check_kernel_compatibility(field,
-  # ::ScalarFieldSpectral)` were deleted when a field in spectral representation stopped being a kernel
-  # (decision 60). Refrozen deliberately, with the reason, per decision 53's protocol.
-  # 103 → 115: moving sections between storage families. Four are the `adapt_structure` methods
-  # themselves (physical fields, spectral fields, `FieldSpectralMultipliers`, `FieldTransformPlans`);
-  # the other eight are the internals they need — `_storage_prototype`, the two three-method families
-  # `_field_physical_of_order`/`_field_spectral_of_order` that construct a field of a given tensor
-  # order without a reference to copy metadata from, and `_is_canonical`, which reads back the
-  # parameter that lets `convolve` collapse two radial kernels statically. Refrozen deliberately, with
-  # the reason, per decision 53's protocol.
-  # 115 → 116: the preserving scratch arity `to_physical!(physical, spectral, plans,
-  # spectral_scratch)` (decision 64, an IT round-3 request) — the allocation-free member of the
-  # preserving contract the allocating `to_physical` already offered. One new method on the existing
-  # generic; the 3-arg form and the allocating forms are unchanged.
-  # 116 → 119: the in-place storage move (decision 69). Two are `adapt!`'s own field methods, one per
-  # representation; the third is `_check_adapt_target`, which is `_check_same_domain` without its
-  # storage-family clause — the one thing this operation exists to let differ. Refrozen deliberately,
-  # with the reason, per decision 53's protocol.
-  # 119 → 120: `reality_residual` (decision 71), the checkable half of the real-field layout's
-  # conjugate-symmetry contract. One method, on the spectral representation only — a physical field
-  # has no such constraint, so it has none. Refrozen deliberately, with the reason.
-  # 120 → 122 (decision 74): the two helpers behind the allocating `(family, grid[, layout])`
-  # constructors — `_allocated_field_storage` and `_check_family_element_type`. The sixteen
-  # constructor methods themselves are Type methods, which this per-function count does not see;
-  # they are covered by the constructor testset and the ambiguity check instead.
-  # 122 → 126: the transform plans stopped carrying a tensor order (decision 76). The four are
-  # `_component_offsets_align` (does a component view begin where a transform library will accept
-  # it), `_component_views` (the fiber flattened to a trailing axis, which the fiber-last layout of
-  # invariant 3 makes contiguous), and the two per-component passes `_forward_components!` /
-  # `_inverse_components!`. No public method moved: the plans type lost a type parameter and the
-  # transform generics lost `R` from their signatures, but their arities are unchanged. Refrozen
-  # deliberately, with the reason, per decision 53's protocol.
-  # 130 → 141: the display layer (decision 82). Ten are it — `_show_extent`, `_approx`,
-  # `_show_field_head`, the two `_show_domain` arities (grid-and-layout, and grid alone for an object
-  # such as a traversal scratch that has no Fourier structure), and a `show` each for `Grid3D`, a
-  # field (compact), a field (`text/plain`), `FieldSpectralMultipliers` and `FieldTransformPlans`.
-  # The eleventh is a SPLIT rather than an addition: `_storage_family` had one untyped method taking
-  # a section and calling `parent` once; it is now the recursing array method plus a section method
-  # delegating to it, because the constructors reject only a `SubArray` and a `reshape` of a
-  # `PermutedDimsArray` of a device array therefore exists — one `parent` call answers
-  # `ReshapedArray` for it, and `_same_backend` would refuse two differently-wrapped views of the
-  # same device memory as different families.
-  # 141 → 157: `reality_projection!` (decision 83, 2026-09-05). Nine are hand-written — the two
-  # public arities, the two `_reality_projection_planes!` backend arms (the gated CPU loop and the
-  # device launch), `_project_pair!`, `_owns_pair`, and the three `_plane_linear` layout dispatches —
-  # and seven are what `@kernel` generates for `_reality_projection_kernel!`: four on the kernel
-  # constructor plus `__reality_projection_kernel!`, `cpu__reality_projection_kernel!` and
-  # `gpu__reality_projection_kernel!`, one each. Counted per function from the module's own method
-  # table before refreezing, so the sixteen are named rather than assumed.
-  # 157 → 176: moving Fourier modes between grid resolutions (decision 85). Thirteen are the two
-  # verbs and their machinery — `embed_modes!` and `extract_modes!` with two arities each, their
-  # shared body `_shared_modes!`, the structural check `_check_shared_mode_compatibility`, the
-  # per-axis geometry `_shared_mode_axis`, the index map `_shared_mode_index`, the work-item
-  # decomposition `_shared_mode_pair`, the single assignment `_write_shared_mode!` both arms call,
-  # and the two `_shared_modes_pass!` arms (device launch, gated CPU loop). The remaining six are the
-  # `@kernel` macro's own expansion of `_shared_modes_kernel!`, the same shape decision 83's
-  # projector kernel contributed.
-  Fields                = 176,
-  # 128 → 130: `_refuse_field_as_fiber_map`, the two-method guard that refuses a FIELD handed to
-  # the fiber-map slot of `map!`/`map` (open interface question (2), decided 2026-09-02). A field
-  # in physical representation is callable, so passing one as φ type-checked and RAN: with a
-  # vector source it silently interpolated the field at its own source's fiber values read as
-  # positions and returned a plausible number; with a scalar source it threw a `BoundsError`
-  # naming nothing. One method is the no-op the compiler removes, the other throws. It lives in
-  # `Fields` because both `FieldAlgebra` and `Points` need it and `Fields` owns the field types.
-  # Refrozen deliberately, with the reason, per decision 53's protocol.
-  # 127 → 128: `_reality_residual_plane`, the folded-plane pass with its axis as a `Val` type
-  # parameter. The exhaustive survey's type-stability check reported `reality_residual` inferring
-  # `Any` on every configuration (576 cells, one operation); reaching the plane through a runtime
-  # dimension was the cause, and naming the axis in the type domain is the same remedy
-  # `Interpolation`'s folded-plane helpers already use.
-  # 126 → 127: `_component_views` (one method, returning a reshape) became `_component_view` (two —
-  # a rank-0 identity and the rank-`R` fiber-indexed slice). The reshape allocated an `Array` wrapper
-  # per call, twice per transform, which is the 128 B/call a consumer's zero-allocation invariant
-  # caught and this package's field-sized threshold did not (/bug-hunt-adjacent report, 2026-08-27).
-  FieldAlgebra          = 274,
-  # 275 → 274: caller-controlled counts (decision 88). `_cat_components` ×2 went — it concatenated
-  # every `map!` source's component arrays into one tuple, now read per source through
-  # `FiberSections`' map adapter — and `_duplicate_field` came, the copy the grouped `add!` takes of
-  # an operand that is also the destination and would be overwritten before its group reads it.
-  DifferentialOperators = 90,
-  # 79 → 90: `inverse_curl` (2026-08-28). Two public generics with one method each, plus the
-  # `@kernel` expansion of `_inverse_curl_kernel!` and the two `_inverse_curl_modes!` arms — the
-  # device launch and its gated CPU twin. The same shape `curl` and `helmholtz_projection` already
-  # have, so the count moves by the same amount adding either of them would.
-  # 78 → 77: `squared_wavenumber_field` was deleted (decision 60). |k|² is a radial symbol, so it is
-  # `radial_kernel(identity, …)` — a closure — and materializing it is the caller's explicit choice
-  # through `materialize_kernel`, which is what that escape hatch is for.
-  # 77 → 79 for ONE new method: `convolve(::RadialKernel, ::RadialKernel)` split into two
-  # statically-dispatched methods — canonical multipliers collapse, anything else keeps both operands —
-  # replacing a runtime `===` test whose two outcomes made the return type a Union. It counts twice
-  # because `⋆` is `const ⋆ = convolve`, the same function object under a second name, and this baseline
-  # walks names rather than objects. That double count is a property of the instrument, not of the
-  # change; every alias in the package has always been counted this way. Refrozen deliberately, with the
-  # reason, per decision 53's protocol.
-  # 79 → 83: one `adapt_structure` per kernel storage class, so a kernel moves between storage
-  # families with its field, and a `ProductKernel` moves both factors rather than being assembled
-  # across families by accident.
-  # 105 → 114: the display layer. Four `_kernel_storage` methods (one per storage class, the
-  # product delegating to its first factor), the shared `_show_kernel`, and a `show` per class —
-  # three delegating and the product's own, which prints its two factors in full so the form nests.
-  # The default flooded: a `SeparableKernel` on a 512^3 grid printed 56742 characters and a
-  # `ProductKernel` 58090, while a `RadialKernel`, which holds no array at all, still printed 815,
-  # its symbol being an anonymous closure whose generated type name was most of the line.
-  # 114 → 116: `tophat_window` (decision 87), the box average of a chosen width — one method for a
-  # scalar edge (a cube) delegating to the per-axis-triple method. `assignment_window` is now that
-  # window at the grid spacing composed with itself, and keeps its one method.
-  Convolution           = 116,
-  # 83 → 103: the exponential fiber hoist (decision 79, IT item 2). The exponential family's R ≥ 1
-  # forms moved from the fused broadcast to a decision-38 kernel pair — `exp` once per mode, reused
-  # across the fiber, bitwise identical — so the module gained the two `_modes!` dispatchers with
-  # their gated CPU twins, the two KernelAbstractions kernels (four generated methods each, plus the
-  # CPU/GPU twins KA stamps), `_exponential_exponent` ×2, and `_exponential_factor_type` ×2 — the
-  # buffer-typing hook that keeps a complex ŵ on the semantics the broadcast always had. The public
-  # surface is unchanged.   # +6 earlier: the StoredKernel role marker and its protocol methods
-  # 207 → 209: `adapt_structure` for the point-value sections and for `PointSet`, mirroring the field
-  # layer as the point layer does throughout.
-  # 209 → 211: `adapt!`'s two point methods (decision 69), one for the point-value sections and one
-  # for `PointSet`. The generic and its documentation live in `Fields`; these are the point twins, as
-  # the `adapt_structure` pair above already are.
-  # 211 → 226: base-space motion (decision 73). Five public methods — `displace!` ×4 (cover and
-  # torus, each with a destination/source form and an in-place convenience) and `wrap!` ×1 — plus
-  # ten internal ones: the recursive broadcast builders (`_displacement_rhs`, `_convert_terms`,
-  # `_axis_terms`, two methods each), `_wrap_coordinate`, `_motion_storage_family`, and the two
-  # compatibility checks.
-  # 226 → 228: the display layer adds three — `_show_count` (which is where the singular `1 point`
-  # lives) and a `show` each for `PointSet` and `AbstractPointValues` — and the unification of the
-  # storage-family notion removes one. `_motion_storage_family` was a third spelling of `Fields`'
-  # `_storage_family`, with the same non-recursing body, used by `displace!`'s family refusal; with
-  # the `Fields` version now taking an array it is the same function and the duplicate is gone.
-  Points                = 234,
-  # 228 → 234: caller-controlled counts (decision 88). `displace!` works through its terms eight at a
-  # time: `_displace_grouped!` splits them, and `_displace_pass!` ×2 is one pass (the cover, and the
-  # torus, which wraps once, in the last pass). `_duplicate_point_values` is the grouped `add!`'s
-  # copy of an aliased operand, as in `FieldAlgebra`, and `_check_combinable` gained two methods so a
-  # destination and an operand tuple are checked without splatting the tuple.
-  # 179 → 185: the display layer. A `show` each for `PointTraversalOrder`,
-  # `PointTraversalOrderScratch`, `NUFFT`, `LalescuSpline` and `LagrangeSpline`, plus
-  # `_show_spline_eltype`. A spline scheme's weight matrix is DERIVED from `(n, m)` — the property
-  # decision 75 persists it by — so the default showed the derived quantity at 747 characters and
-  # the two numbers it came from not at all; the constructor call is the honest form and round-trips.
-  # 185 → 170: the NUFFT stopped carrying its own copy of the coarse↔oversampled index map and now
-  # calls decision 85's `embed_modes!`/`extract_modes!`. Gone are `_nufft_index_map`, the two
-  # `@kernel` definitions `_nufft_embed_kernel!`/`_nufft_extract_kernel!` with their macro expansions,
-  # and the three `embed_map_*` struct fields with the `MP` type parameter — the oversampled grid
-  # covers the same box as the reference, so its modes are a superset and the public verb IS this
-  # step. The refactor is also the strongest available test of those verbs: the NUFFT is verified
-  # exact against `DirectDFT`, and that equality still holds.
-  Interpolation         = 170,
-  # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
-  # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
-  # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build
-  # that `KernelAbstractions` did not parallelise, and its cost follows the BLOCK count, so it does
-  # not shrink as the rest is threaded: a quarter of the build at 512³ on eight threads.
-  # 176 → 177, ONE method: `adapt_structure` for `PointTraversalOrder`, from an adversarial review of
-  # the traversal order (2026-09-03). `_check_point_traversal_order`'s refusal told a caller to "move
-  # it with `adapt`" while no such method existed, so Adapt's identity default handed the same host
-  # order straight back and the caller hit the identical error — advice that did nothing. The same
-  # review closed a second hole in the same feature WITHOUT adding a method, which is why this moves
-  # by one rather than two: `PointTraversalOrderScratch` gained a `grid` FIELD, so a refill compares
-  # grids instead of testing that the block layout merely fits inside one. A scratch built on a 16³
-  # grid had been accepted for a rebuild on a 32³ grid, silently doubling the block edge, while the
-  # docstring claimed the layout was checked against the grid.
-  # 170 → 176: the non-allocating rebuild (2026-09-03). Its own docstring had promised one — "There
-  # is no in-place form yet" — while a consumer whose points move allocated a result, the counting
-  # sort's working arrays and the validation marks on every rebuild, about 15 MiB at 256³ with 10⁶
-  # points, on a device where the collector runs on host pressure and cannot see them. The six are
-  # `point_traversal_order!`, `PointTraversalOrderScratch` (its struct constructor and the outer one that sizes
-  # the arrays), `_validate_traversal`'s second method taking the caller's marks, and the two helpers
-  # `point_traversal_order` and `point_traversal_order!` now share so the two forms cannot compute different
-  # orders — `_traversal_tiles` and `_fill_traversal!`, with `_check_order_precision` extracted alongside.
-  # The public 206/122 baselines are untouched: this adds a verb and a companion type to the point
-  # transfer surface, neither of which is a field or point-value operation.
-  # 120 → 151: the transfer traversal order (decision 78). The public surface is UNCHANGED — the four
-  # transfer verbs gained a keyword argument, not a positional method, which is what keeps the 206/122
-  # baselines above intact — so every one of the 31 is new machinery or a keyword sorter: three
-  # KernelAbstractions kernels for the counting sort at four methods each plus their CPU and GPU twins
-  # (18), `_visit` ×2 and `_wrap_step` for the index walk, `_check_point_traversal_order` ×2, `point_traversal_order`
-  # itself, and the keyword sorters the four verbs now carry. Then 151 → 156: the four ALLOCATING
-  # wrappers took the same keyword, so a consumer that never writes the in-place spelling can use the
-  # option — one keyword sorter each, plus the spline `interpolate`'s.  The public 206/122 baselines
-  # are untouched throughout: these are keyword arguments, not new positional methods. Then 156 → 168
-  # when the adversarial review of 2026-08-30 turned the order's bijection from a claim into a type:
-  # `PointTraversalOrder`'s constructors and its `length`/`eltype`, `_validate_traversal`, `_tile_index`, the
-  # marking kernel with its CPU and GPU twins, and `_check_point_traversal_order`'s third method — the one
-  # that refuses a bare vector, which is where the old silent-wrong-answer entered. The last two are
-  # `_traversal_indices`, which unwraps the guarantee at the launch site because a struct holding a device
-  # array is not a bitstype and cannot cross into a kernel — a defect only the GPU suite could show.
-  # 119 → 120: `_stencil_half`, the NUFFT window stencil's per-axis node offset (/bug-hunt
-  # 2026-08-27). An odd width had held `half = W ÷ 2` like an even one, putting the stencil a full
-  # cell off centre; the offset now follows the nearer node, so it depends on `t` and needs a
-  # method of its own rather than an inline expression repeated in three places.
-  # 111 → 119, all of it type stability. Two helpers reaching the folded plane with a LITERAL dimension
-  # (`_folded_abs2_plane`, `_folded_cross_plane`) — `selectdim` with a runtime dimension yields a view
-  # inference cannot pin, which made the spectral `inner` infer `Any`. Two extra `_fiberwise` arms from
-  # dispatching on the tensor order rather than branching on it. And four `_tree_dims_reduce` /
-  # `_tree_dims_components` arms taking the base arity as a TYPE parameter: every `ntuple` and the
-  # closing `reshape` are sized by it, so a runtime `Int` left the whole reduction `Any` and carried
-  # that into `mean`, `cov` and `integral` above R = 0. Refrozen with the reason, per decision 53.
-  # 119 → 123 for the `weighted_inner` widening (decision 62): its two methods now take any
-  # `SpectralKernel` rather than `Union{StoredKernel, RadialKernel}` — that is a signature change, not a
-  # new method — and the +4 is the two internal helpers the widening needed, `_weight_data` and
-  # `_multiplier_eltype`, at two methods each. This baseline counts every function a module owns,
-  # internals included, which is exactly why it moved and why the enumerated per-generic lists did not.
-  # Refrozen deliberately, with the reason, per decision 53's protocol.
-  # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
-  # one traversal, which is one method on the existing generic rather than a new operation.
-  # Refrozen deliberately, with the reason.
-  Reductions            = 139,
-  # 137 → 139: `_pack_weights` and `_add_tuples` became `@generated` functions for the same reason as
-  # `FiberSections`' `_element_values`, each adding its hidden generator-body function.
-  # 131 → 137: caller-controlled counts (decision 88). `weighted_inner` over a tuple of weights
-  # reduces four weights per traversal: `_weighted_groups` ×2 splits the tuple, `_weighted_pass` is
-  # one traversal, `_join_results` concatenates the groups' answers, and `_pack_weights` and
-  # `_add_tuples` build and sum the per-mode tuple with `ntuple` rather than a tuple `map`. A tuple
-  # of 32 weights had failed to compile on a device, being past Julia's specialized tuple length.
-  # 124 → 131: the weighted reductions' CPU leg (2026-08-30, from IT's codegen report). The weighted
-  # inner products ran Base's SERIAL broadcast fold on CPU — 70× the same-size `inner` at eight
-  # threads — because their GPU-first fused `sum` never met the decision-30/40 backend split. Seven
-  # functions give them the same split `inner` has: `_weighted_totals_cpu` and `_weighted_column`
-  # (the fixed tree over contiguous axis-1 columns), `_weighted_step` ×2 (tuple-recursive
-  # accumulation — a closure here boxes the accumulator and allocated 15 MB a call), and
-  # `_cpu_weight` ×3 (per-class element sources, so a radial weight is evaluated by its symbol
-  # rather than through per-element Broadcasted getindex).
-)
-
-# The candidate set is the package's whole function surface, internals included, NOT `names(mod)`.
-# A method defined under a QUALIFIED name — `Base.inv(kernel::SeparableKernel) = …` — creates no
-# binding in the defining module, so a namespace scan cannot see it: adding `inv(::ScalarFieldSpectral)`
-# to Convolution moved no number here, which is the same hole `public_surface.jl` closes for the
-# ledgers. Ownership is the question, and `m.module === mod` is the only thing that answers it.
-function module_method_count(mod::Module)
-  total = 0
-  for name in all_package_functions()
-    f = _resolve_function(name)
-    f === nothing && continue
-    total += count(m -> m.module === mod, methods(f))
-  end
-  return total
-end
-
-
-# A name from the derived surface may live in a package module or in the external module whose generic
-# the package extends, so look in both.
-function _resolve_function(name::Symbol)
-  # LinearAlgebra is not a test dependency, and does not need to be: the umbrella re-exports the
-  # generics the package extends from it (`dot`, `cross`, `norm`, `mul!`, `transpose`).
-  for mod in (GBGPeriodicFields, Base, Statistics,
-              (getfield(GBGPeriodicFields, m) for m in
-               (:FiberSections, :Fields, :FieldAlgebra, :DifferentialOperators,
-                :Convolution, :Points, :Interpolation, :Reductions))...)
-    isdefined(mod, name) || continue
-    candidate = getfield(mod, name)
-    candidate isa Function && return candidate
-  end
-  return nothing
-end
-
-@testset "derived module baselines (decision 53)" begin
-  for (name, expected) in pairs(MODULE_BASELINE)
-    mod = getfield(GBGPeriodicFields, name)
-    measured = module_method_count(mod)
-    # On a mismatch the message says what to do, because the fix is a judgement, not a repair:
-    # confirm the new methods are intended and tested, then refreeze in the same commit.
-    measured == expected ||
-      @info "module method count moved — refreeze deliberately, with the reason" target = name expected measured
-    @test measured == expected
-  end
-  # The two baselines count DIFFERENT denominators and must not be compared. The enumerated one above
-  # is 206 methods over 28 named generics; this one is every method FieldAlgebra owns, extended `Base`
-  # operators included, which is why it is larger. Comparing them would only re-freeze a coincidence.
-  @test MODULE_BASELINE.FieldAlgebra > 206
+# The two baselines must not be compared: the derived FieldAlgebra count includes the extended `Base`
+# operators and every internal, which is why it is larger than the enumerated 206. Comparing them
+# would only re-freeze a coincidence; this asserts only that the relation holds.
+@testset "the derived FieldAlgebra count exceeds the enumerated surface" begin
+  @test METHOD_BASELINE["module"]["FieldAlgebra"] > 206
 end
