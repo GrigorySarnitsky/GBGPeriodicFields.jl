@@ -127,7 +127,7 @@ The wrapper is required rather than a convenience. A field and a kernel hold ide
 but a type can say which role is meant, and the two admit different operations: the coefficientwise
 reciprocal of a *kernel* is the kernel that deconvolves by it ([`inv`](@ref)), while the same operation
 on a *field* is nonlinear in that field's spectral representation and the package does not define it.
-So a bare `ScalarFieldSpectral` passed where a kernel is expected does **not** dispatch — wrap it here,
+So a bare [`ScalarFieldSpectral`](@ref) passed where a kernel is expected does **not** dispatch — wrap it here,
 or build the kernel with one of the builders, and the role is then carried by the type rather than
 inferred from the call site.
 
@@ -279,8 +279,8 @@ There is no public constructor, which is why no signature is shown above: a kern
 always obtained from a builder, so that the multipliers it evaluates against are the ones its grid
 owns. Build one with [`spectral_cutoff`](@ref) or [`spectral_band`](@ref) for the sharp masks, or with
 [`radial_kernel`](@ref) for any other such function — a smooth envelope, a hyperviscous
-``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), as the trailing kernel of `divergence!` or
-`helmholtz_projection!`, or to `weighted_inner` as a reduction weight.
+``\\exp(-\\nu (|k|^2)^p \\tau)`` of viscosity, power and time step. Apply it like any kernel: pass it to [`convolve!`](@ref), as the trailing kernel of [`divergence!`](@ref GBGPeriodicFields.DifferentialOperators.divergence!) or
+[`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!), or to [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner) as a reduction weight.
 
 Why this family is closed by construction: ``|k|^2`` is real and **even** in every component, so any
 real ``\\sigma`` of it is real and even too, hence Hermitian-symmetric — the coefficients it produces
@@ -464,7 +464,7 @@ There is no public constructor, which is why no signature is shown above: a kern
 always obtained from a builder, so that its per-axis factors match the grid they will be applied on.
 Build one with [`translation_kernel`](@ref) (the displacement phase, complex factors) or
 [`assignment_window`](@ref) (the mass-assignment window, real factors), and apply it exactly like a
-kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of `divergence!` or `helmholtz_projection!`.
+kernel held as a field: pass it to [`convolve!`](@ref) or as the trailing kernel of [`divergence!`](@ref GBGPeriodicFields.DifferentialOperators.divergence!) or [`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!).
 
 Whether that is also *faster* depends on the grid. Applying it moves two field-sized streams where a
 stored kernel moves three, but evaluates the product per mode, so it trails a stored kernel on a grid
@@ -1070,7 +1070,7 @@ convolve(kernel::SpectralKernel, field::AbstractFieldSpectral) = convolve(field,
 """
     field ⋆ kernel
     kernel ⋆ field
-    kernel₁ ⋆ kernel₂
+    first_kernel ⋆ second_kernel
 
 Infix alias for [`convolve`](@ref), in every arity: `a ⋆ b` is `convolve(a, b)`. Convolving a field
 with a kernel, either way round, filters the field in spectral representation; convolving two kernels
@@ -1423,7 +1423,7 @@ end
 
 The combination twin of [`_exponential_convolution_modes!`](@ref):
 ``\\exp(c |k|^2 [+ s \\hat w]) \\cdot (\\alpha \\hat a + \\beta \\hat b)`` with the factor computed once
-per mode. Both operands are always read (`combine!`'s α/β exception class — β scales an operand,
+per mode. Both operands are always read ([`combine!`](@ref)'s α/β exception class — β scales an operand,
 never the destination), so there is no overwrite/accumulate split.
 """
 function _exponential_combination_modes!(backend, destination, a_data, b_data, multipliers,
@@ -1577,8 +1577,8 @@ The single-operand accumulate form computes
 
 Passing `α, a, β, b` ahead of the multipliers applies the same kernel to a weighted combination,
 ``\\exp(c |k|^2 + s \\hat w) \\cdot (\\alpha \\hat a + \\beta \\hat b)``, in one pass — the lazy-kernel
-twin of the kernel-composed `combine!` method, and the fusion `divergence!` and
-`helmholtz_projection!` perform when given a trailing kernel. With `b === destination` it is the
+twin of the kernel-composed `combine!` method, and the fusion [`divergence!`](@ref GBGPeriodicFields.DifferentialOperators.divergence!) and
+[`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!) perform when given a trailing kernel. With `b === destination` it is the
 filtered accumulate, computed in place.
 
 !!! warning "The offset must be real-valued and even"
@@ -1945,7 +1945,7 @@ half-cell shift — the reality condition demands it, and the warning below give
 Here `multipliers` is the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
 and storage family the kernel takes as its own, and `offset` is the displacement
 ``h = (h_1, h_2, h_3)`` — a physical length per axis in the units of the box rather than a count of
-cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the `Grid3D` the field lives on.
+cells, so a half-cell displacement is `0.5 .* grid.grid_spacing` on the [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) the field lives on.
 
 As a real physical object the translation is the convolution with a Dirac delta displaced to ``h`` and
 periodized on the box, ``g = \\delta(x - h)``, whose sifting property (integrating against a delta
@@ -2090,7 +2090,7 @@ adapt_structure(to, kernel::ProductKernel{T}) where {T} =
 
 Represent the kernel's storage family as an array, one method per storage class.
 
-A kernel is not a section and has no `field_data`, and the four classes hold their memory in four
+A kernel is not a section and has no [`field_data`](@ref), and the four classes hold their memory in four
 different shapes: a stored kernel wraps a field, a separable one holds three per-axis factors, a
 radial one holds no coefficients at all and borrows its family from the multipliers it evaluates
 against, and a product borrows from its first factor, the two being required to agree. Used only for

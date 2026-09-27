@@ -25,7 +25,7 @@ The parts are:
   * **Spectral multipliers** — [`FieldSpectralMultipliers`](@ref) holds the wavenumber arrays the
     differential operators apply as spectral multipliers.
   * **Spectral kernels** — [`SpectralKernel`](@ref) is the supertype of every coefficientwise
-    multiplier a `convolve`-style operation can apply, whatever storage it uses — including the stored
+    multiplier a [`convolve`](@ref GBGPeriodicFields.Convolution.convolve)-style operation can apply, whatever storage it uses — including the stored
     class, which wraps a field of coefficients. It lives here, rather than with the kernels themselves,
     so every module that accepts one names a single type; [`Convolution`](@ref "Convolution") defines
     the concrete classes.
@@ -1781,7 +1781,7 @@ Whether the arrays were derived from the grid or supplied by the caller is recor
 final `Canonical` parameter: the convenience constructor marks them canonical, the explicit ones do
 not. It is in the type rather than in a field because it decides, statically, whether two multiplier
 sets provably hold the same coordinates — two canonical sets on a matching grid and layout are derived
-the same way from the same inputs, so they agree by construction. That is what lets `convolve` collapse
+the same way from the same inputs, so they agree by construction. That is what lets [`convolve`](@ref GBGPeriodicFields.Convolution.convolve) collapse
 two radial kernels into one without testing anything at run time, and it is why a caller supplying its
 own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
 grid's own wavenumbers.
@@ -2286,7 +2286,7 @@ _show_extent(io::IO, sizes) = join(io, sizes, "×")
 
 Round a number to four significant digits, for display.
 
-Reserved for a RATIO — the `NUFFT` oversampling is the only current caller — and never for a
+Reserved for a RATIO — the [`NUFFT`](@ref GBGPeriodicFields.Interpolation.NUFFT) oversampling is the only current caller — and never for a
 coordinate. No compatibility check turns on a ratio, so rounding one cannot make two refused objects
 print the same string; a coordinate is the opposite case, which is why
 [`_show_domain`](@ref) prints those at full precision.
@@ -2433,8 +2433,8 @@ other [`Adapt.jl`](https://github.com/JuliaGPU/Adapt.jl) adaptor, and `object` i
 one of the companions a section is useless without: multipliers, a kernel, or transform plans.
 
 The whole surface a solver needs is covered: the six field types, the point-value types, a
-`PointSet`, a [`FieldSpectralMultipliers`](@ref), the four spectral-kernel classes (`StoredKernel`,
-`SeparableKernel`, `RadialKernel` and `ProductKernel`, all subtypes of [`SpectralKernel`](@ref)), and
+[`PointSet`](@ref GBGPeriodicFields.Points.PointSet), a [`FieldSpectralMultipliers`](@ref), the four spectral-kernel classes ([`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel),
+[`SeparableKernel`](@ref GBGPeriodicFields.Convolution.SeparableKernel), [`RadialKernel`](@ref GBGPeriodicFields.Convolution.RadialKernel) and [`ProductKernel`](@ref GBGPeriodicFields.Convolution.ProductKernel), all subtypes of [`SpectralKernel`](@ref)), and
 `FieldTransformPlans`. Everything the moved object carries besides its storage — the grid, the Fourier
 layout, the origin, the tensor order — is preserved by construction, since it is rebuilt through the
 same allocator the package uses everywhere else.
@@ -2579,7 +2579,7 @@ end
 Read back whether a multiplier set's wavenumbers were derived from its grid, rather than supplied.
 
 The answer is a type parameter, not a field, because it decides statically whether two multiplier sets
-provably hold the same coordinates — which is what lets `convolve` collapse two radial kernels without
+provably hold the same coordinates — which is what lets [`convolve`](@ref GBGPeriodicFields.Convolution.convolve) collapse two radial kernels without
 a runtime test. The flag has to be carried across a move deliberately by [`adapt`](@ref): rebuilding through the
 public six-array constructor would mark the result non-canonical and silently disable that collapse,
 costing performance with no wrong answer to show for it.

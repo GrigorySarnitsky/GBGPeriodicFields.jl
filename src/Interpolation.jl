@@ -4,7 +4,7 @@
 Transfer between the grid [sections](@ref GBGPeriodicFields.GBGPeriodicFields) of [`Fields`](@ref "Fields") and the point sections of
 [`Points`](@ref "Points"): **interpolation**
 evaluates a field at off-grid positions, and its adjoint **anterpolation** deposits per-point quantities
-back onto the grid. A `PointSet` holds the positions and an `AbstractPointValues` the per-point values.
+back onto the grid. A [`PointSet`](@ref) holds the positions and an [`AbstractPointValues`](@ref) the per-point values.
 
 Interpolation (`interpolate`) is the **gather** ``W``, the linear map that evaluates a field ``f`` at
 the points: its value ``(Wf)_p = f(x_p)`` at the ``p``-th point is ``f`` at that point's position
@@ -14,7 +14,7 @@ its adjoint for the unnormalized sums: it spreads per-point quantities ``q`` (wi
 ``(W^\\top q)(x)`` is what it deposits at grid position ``x``. The two are exact transposes — pairing
 the gathered values against ``q`` over the ``M`` points equals pairing ``f`` against the scattered
 field over the ``N`` grid cells. Written with the normalized inner product ``\\langle\\cdot,\\cdot\\rangle``
-(`inner`, the fiber contraction averaged over its base), the factors ``M`` and ``N`` undo its ``1/M``
+([`inner`](@ref GBGPeriodicFields.Reductions.inner), the fiber contraction averaged over its base), the factors ``M`` and ``N`` undo its ``1/M``
 and ``1/N``:
 
 ```math
@@ -122,7 +122,7 @@ acting on a field in spectral representation). They share the verbs, one adjoint
 only in (kernel, representation).
 
 One place that uniformity does not reach is the **allocating** `anterpolate`'s leading argument,
-which names what the fresh destination is built from: a `Grid3D` suffices for the spline schemes,
+which names what the fresh destination is built from: a [`Grid3D`](@ref) suffices for the spline schemes,
 whose result is a field in physical representation, while the spectral schemes take a whole field in
 spectral representation, their destination needing that representation's layout, backend and element
 type too. Code
@@ -1101,11 +1101,12 @@ end
 
 """
     interpolate!(out::AbstractPointValues, field::AbstractFieldPhysical,
-                 points::PointSet, scheme::AbstractSplineScheme = CatmullRom)
+                 points::PointSet, scheme::AbstractSplineScheme = CatmullRom;
+                 traversal = nothing)
     interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
                  points::PointSet, scheme::DirectDFT)
     interpolate!(out::AbstractPointValues, field::AbstractFieldSpectral,
-                 points::PointSet, scheme::NUFFT)
+                 points::PointSet, scheme::NUFFT; traversal = nothing)
 
 Interpolate `field` to the off-grid `points`, writing the gathered values into `out`; returns `out`. This
 is the in-place home of the gather ``W``, and for a single position there is the callable `field(x)`.
@@ -1157,9 +1158,11 @@ end
 
 
 """
-    interpolate(field::AbstractFieldPhysical, points, scheme = CatmullRom)
+    interpolate(field::AbstractFieldPhysical, points, scheme = CatmullRom;
+                traversal = nothing)
     interpolate(field::AbstractFieldSpectral, points, scheme::DirectDFT)
-    interpolate(field::AbstractFieldSpectral, points, scheme::NUFFT)
+    interpolate(field::AbstractFieldSpectral, points, scheme::NUFFT;
+                traversal = nothing)
 
 Allocating form of [`interpolate!`](@ref): allocate a new [`AbstractPointValues`](@ref) of `field`'s
 tensor order and return `field` sampled at `points`. See `interpolate!` for the schemes and their
@@ -1200,13 +1203,13 @@ end
     anterpolate!(field::AbstractFieldPhysical, points::PointSet,
                  quantities::AbstractPointValues,
                  scheme::AbstractSplineScheme = CatmullRom,
-                 α::Real = true, β::Real = false)
+                 α::Real = true, β::Real = false; traversal = nothing)
     anterpolate!(field::AbstractFieldSpectral, points::PointSet,
                  quantities::AbstractPointValues, scheme::DirectDFT,
                  α::Real = true, β::Real = false)
     anterpolate!(field::AbstractFieldSpectral, points::PointSet,
                  quantities::AbstractPointValues, scheme::NUFFT,
-                 α::Real = true, β::Real = false)
+                 α::Real = true, β::Real = false; traversal = nothing)
 
 Deposit (scatter) the per-point `quantities` onto `field` in place — the transpose of
 [`interpolate!`](@ref) under the same `scheme`, conjugated for a spectral one — computing
@@ -1277,9 +1280,11 @@ end
 
 
 """
-    anterpolate(grid::Grid3D, points, quantities, scheme = CatmullRom)
+    anterpolate(grid::Grid3D, points, quantities, scheme = CatmullRom;
+                traversal = nothing)
     anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::DirectDFT)
-    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT)
+    anterpolate(reference::AbstractFieldSpectral, points, quantities, scheme::NUFFT;
+                traversal = nothing)
 
 Allocating form of [`anterpolate!`](@ref): allocate a new field of `quantities`' tensor order, deposit
 (scatter) the per-point `quantities` from the positions in `points` onto it, and return it. The spline
@@ -1370,7 +1375,7 @@ anterpolation matches [`to_spectral`](@ref) from grid-node samples. It is statel
     ``e^{-2\\mathrm{i} k_a x_{p,a}} \\ne 1``. The deposited array is then the half-spectrum of no real
     field, and `to_physical` — which is the Hermitian projector — silently keeps only its
     Hermitian part, so a transform round trip changes it. The same hazard
-    `translation_kernel` documents for its Nyquist factor is why `NUFFT`
+    [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel) documents for its Nyquist factor is why `NUFFT`
     projects that plane out; `DirectDFT` deliberately does not, keeping the literal adjoint instead.
     The **resolved band is unaffected**, which is the band a de-aliased spectral
     computation uses.
@@ -2019,7 +2024,7 @@ Provided by a package extension, so it is available only when [`HDF5.jl`](https:
     Every other scheme *is* its parameters, which is what makes a few attributes a faithful record.
     A [`NUFFT`](@ref) is not: it owns oversampled FFT plans and a deconvolution window built against
     a particular reference field, so a stored copy would be either a large duplicate of derived data
-    or a set of parameters pretending to be the object. It is the same class as `FieldTransformPlans`,
+    or a set of parameters pretending to be the object. It is the same class as [`FieldTransformPlans`](@ref),
     which is likewise rebuilt rather than moved when storage families change. Rebuild it from the
     reference field the caller restores anyway — `NUFFT(reference; tol)` — and write the `tol` in
     the caller's own snapshot if it varies. Passing one here throws an `ArgumentError` naming this.

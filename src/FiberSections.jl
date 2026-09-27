@@ -3,8 +3,8 @@
 
 It is the fiber-bundle model's base-agnostic core.
 
-A field (a section over a `Grid3D`) and a collection of off-grid point-values (a section over a
-`PointSet`) are both sections of a tensor bundle over a base. This module owns the part of the
+A field (a section over a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D)) and a collection of off-grid point-values (a section over a
+[`PointSet`](@ref GBGPeriodicFields.Points.PointSet)) are both sections of a tensor bundle over a base. This module owns the part of the
 design that does not depend on which base is used. The parts are:
 
 - the **fiber types** — [`FiberVector`](@ref), [`FiberTensor2`](@ref), [`FiberTensor3`](@ref) and
@@ -27,7 +27,7 @@ design that does not depend on which base is used. The parts are:
 
 The base-specific halves live elsewhere. [`Fields`](@ref "Fields") (grid) and
 [`Points`](@ref "Points") (point set) hold the
-concrete section types, the section-interface accessors (`field_data`, `_vector_component_data`,
+concrete section types, the section-interface accessors ([`field_data`](@ref GBGPeriodicFields.Fields.field_data), `_vector_component_data`,
 and `_tensor2_component_data`) and the broadcast styles, each extending the accessors for its own
 types, while [`FieldAlgebra`](@ref "FieldAlgebra") and `Points` stamp the method tables from the
 builders here.
@@ -62,8 +62,8 @@ export AbstractFiberSection,
     AbstractFiberSection{T, R}
 
 Supertype of every section of the package's tensor bundle, so both fields (sections over a
-`Grid3D`, in physical-space or spectral representation) and point-values (sections over a
-`PointSet`) subtype it.
+[`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D), in physical-space or spectral representation) and point-values (sections over a
+[`PointSet`](@ref GBGPeriodicFields.Points.PointSet)) subtype it.
 
 The parameter `T<:AbstractFloat` is the real scalar type, and `R` is the tensor order (`0`
 scalar, `1` vector, `2` second-order tensor, and so on). The fiberwise algebra is rooted at this
@@ -78,7 +78,7 @@ abstract type AbstractFiberSection{T<:AbstractFloat, R} end
 
 Return the real scalar type `T` of any section. Because it is defined once on
 `AbstractFiberSection{T}`, it yields the real `T` for fields (including those in spectral representation, whose
-data is `Complex{T}`) and for point-values alike, which lets the shared `sym`/`skew`/`dev`
+data is `Complex{T}`) and for point-values alike, which lets the shared [`sym`](@ref GBGPeriodicFields.FieldAlgebra.sym)/[`skew`](@ref GBGPeriodicFields.FieldAlgebra.skew)/[`dev`](@ref GBGPeriodicFields.FieldAlgebra.dev)
 kernels obtain `T` without dispatching on the concrete base.
 """
 _section_scalar_type(::AbstractFiberSection{T}) where {T<:AbstractFloat} = T
@@ -115,7 +115,7 @@ the property that does exclude it.
 
 The check is on ownership, not on layout: `Array`, `CuArray`, `ROCArray` and a `reshape` of any of them
 all own their memory and are accepted, so the package's backend genericity is untouched. Allocate with
-`similar_field` or `similar_point_values` rather than slicing a larger buffer.
+[`similar_field`](@ref GBGPeriodicFields.Fields.similar_field) or [`similar_point_values`](@ref GBGPeriodicFields.Points.similar_point_values) rather than slicing a larger buffer.
 """
 function _check_owned_storage(data, what::AbstractString)
   borrowed(a) = a isa SubArray || (a !== parent(a) && borrowed(parent(a)))
@@ -177,20 +177,20 @@ The arguments are:
 
 !!! warning "Not every operation is governed by this override"
     The override (and the cutoff) governs the fused broadcast assignments, the fused CPU loops
-    behind the algebra and the differential operators (`helmholtz_projection!` included), and the
+    behind the algebra and the differential operators ([`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!) included), and the
     fixed-tree reductions — a reduction whose summation tree is a function of the array length
     alone, so it returns the same value at every thread count. Two groups of operations run as
     portable device-style kernels on **every**
     backend and partition by `Threads.nthreads()` directly, ignoring this setting: the grid↔point
-    transfer (`interpolate!`/`anterpolate!`) and the radial reductions
-    (`radial_spectrum`/`radial_correlation`) — the kernels with atomic or irregular access, which a
+    transfer ([`interpolate!`](@ref GBGPeriodicFields.Interpolation.interpolate!)/[`anterpolate!`](@ref GBGPeriodicFields.Interpolation.anterpolate!)) and the radial reductions
+    ([`radial_spectrum`](@ref GBGPeriodicFields.Reductions.radial_spectrum)/[`radial_correlation`](@ref GBGPeriodicFields.Reductions.radial_correlation)) — the kernels with atomic or irregular access, which a
     gated loop cannot serve — "gated" meaning a CPU loop that consults this setting before
     threading, as against a kernel that always partitions by thread count. To run those
     serially, start Julia with one thread.
 
     A third category is neither governed nor exempt: an operation that is **not threaded at all**, and
-    so unaffected by this setting for a different reason. The `weighted_inner` reduction is the one to know about —
-    its single fused pass is serial, which is why it diverges from `inner` as threads are added.
+    so unaffected by this setting for a different reason. The [`weighted_inner`](@ref GBGPeriodicFields.Reductions.weighted_inner) reduction is the one to know about —
+    its single fused pass is serial, which is why it diverges from [`inner`](@ref GBGPeriodicFields.Reductions.inner) as threads are added.
     Nothing is wrong there; it simply has no threaded route to override.
 """
 with_threading(f; enabled::Union{Nothing, Bool} = true) =
@@ -827,7 +827,7 @@ types. A `map` over the tuple takes `Base`'s generic path from 32 entries, the c
 `map!` hit at four second-order inputs; an `ntuple` over a closure indexes a mixed tuple through a
 runtime lookup whenever the compiler declines to inline the closure, which allocates per element on a
 CPU and does not compile on a device (a radial kernel beside plain arrays in a kernel-composed
-`combine!`).
+[`combine!`](@ref GBGPeriodicFields.FieldAlgebra.combine!)).
 
 The generated body carries an inline marker, `@inline` not applying to a `@generated`
 function: without it the read stayed a call inside the executor's `@simd` loop, which blocked

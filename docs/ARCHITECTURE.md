@@ -384,8 +384,8 @@ were dropped: they duplicated the tables and went stale instantly.
 
 **Mathematics is rendered LaTeX, with the symbol bound to the code.** All math in docstrings and
 in these doc pages is written as Documenter LaTeX (KaTeX) in **standard notation** — inline
-``\langle f, g\rangle``, display ```math``` blocks — never Unicode-glyph approximations (`⟨f,g⟩`,
-`Σ`, `∫`). Because the package is *grounded in mathematics* (the principle of this section), each
+``\langle f, g\rangle``, display ```math``` blocks — never Unicode-glyph approximations (angle
+brackets, a summation sign or an integral sign typed as characters). Because the package is *grounded in mathematics* (the principle of this section), each
 code object is **explicitly identified with its mathematical symbol on first mention** so the
 correspondence is never left implicit: `gradient` (``\nabla``), `divergence` (``\nabla\cdot``),
 `curl` (``\nabla\times``), `laplacian` (``\Delta``), `inverse_laplacian` (``\Delta^{-1}``),

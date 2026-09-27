@@ -18,7 +18,7 @@ The parts are:
     physical-space quantity.
   * **A full fiberwise algebra on the point values.** Addition, real scaling, scalar
     multiplication and division, `dot`, `cross`, `mul!`, `transpose`, `norm`, the `tr` and `det`
-    invariants, and the `sym`/`skew`/`dev` decompositions form the same physical surface the fields
+    invariants, and the [`sym`](@ref)/[`skew`](@ref)/[`dev`](@ref) decompositions form the same physical surface the fields
     carry, together with `map!`/`map`, which apply any fiber function — each
     documented once, in [`FieldAlgebra`](@ref). It reuses the [`FiberSections`](@ref) code that generates the field algebra, so no
     per-component formula is written twice.
@@ -29,7 +29,7 @@ The parts are:
     their canonical in-box representatives. It is the one family coupling base and fiber, and
     positions deliberately have no `+` with point values.
   * **Allocation.** [`similar_point_values`](@ref) returns uninitialized storage carrying a reference's
-    tensor order and backend — the point-value twin of `similar_field`, and what the broadcast
+    tensor order and backend — the point-value twin of [`similar_field`](@ref GBGPeriodicFields.Fields.similar_field), and what the broadcast
     machinery and the allocating algebra wrappers build their results with.
   * **Persistence.** [`write_points`](@ref) and [`read_points`](@ref) map a point set or a point-value
     section to and from one self-describing HDF5 group, positions and values kept separate (methods
@@ -343,7 +343,7 @@ point-value type of the same tensor order as `reference`. The `Val{R}` form allo
 broadcast machinery and the allocating algebra wrappers use it to build their results.
 
 !!! note "Deliberately not an extension of `Base.similar`"
-    The reasoning is `similar_field`'s: `Base.similar`'s second argument means an element type
+    The reasoning is [`similar_field`](@ref GBGPeriodicFields.Fields.similar_field)'s: `Base.similar`'s second argument means an element type
     or dimensions rather than a tensor order, `similar(q, Float32)` would read as a precision change
     the package never makes implicitly, and the `data` form wraps supplied storage rather than
     allocating.
@@ -1110,7 +1110,7 @@ end
 Persist a point object — a [`PointSet`](@ref) of positions, or any of the three point-value types — as a
 **new HDF5 group** `name` under `parent`, returning the group it created. Use it to checkpoint the
 unstructured base and its samples for restart, or to hand them to another tool; the reload with
-[`read_points`](@ref) is exact. It is the point-layer twin of `write_field`, which persists a field.
+[`read_points`](@ref) is exact. It is the point-layer twin of [`write_field`](@ref GBGPeriodicFields.Fields.write_field), which persists a field.
 
 The group is **self-describing**: the numeric array becomes the dataset `data`, and the metadata become
 attributes — a `type` tag, a schema `version`, the element type, the point count, and, for point values,
@@ -1142,7 +1142,7 @@ Reconstruct the point object written by [`write_points`](@ref) from the HDF5 gro
 dispatching on the stored `type` attribute to return it in the matching type ([`PointSet`](@ref),
 [`ScalarPointValues`](@ref), [`VectorPointValues`](@ref), [`TensorPointValues`](@ref)). The reload is
 **exact** — the array data, the element type, the point count, and the tensor order are recovered
-bit-for-bit. It is the point-layer twin of `read_field`.
+bit-for-bit. It is the point-layer twin of [`read_field`](@ref GBGPeriodicFields.Fields.read_field).
 
 The reconstructed object is a host (CPU) one regardless of where the written one lived; move it to a
 device with [`adapt`](@ref) or [`adapt!`](@ref) afterward if needed.
@@ -1300,8 +1300,8 @@ end
     _check_displacement_domain(points, grid)
 
 Require the periodic domain's element type to match the point set's, refusing a mixed-precision
-pair rather than promoting (the rule binds non-section partners too — a `Grid3D` here
-plays the role `FieldSpectralMultipliers` plays for a spectral field).
+pair rather than promoting (the rule binds non-section partners too — a [`Grid3D`](@ref) here
+plays the role [`FieldSpectralMultipliers`](@ref GBGPeriodicFields.Fields.FieldSpectralMultipliers) plays for a spectral field).
 """
 function _check_displacement_domain(points::PointSet, grid::Grid3D)
   T = eltype(point_positions(points))

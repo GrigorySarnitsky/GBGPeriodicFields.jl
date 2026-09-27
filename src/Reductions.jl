@@ -5,10 +5,10 @@ This module holds the **L² / measure structure** on [sections](@ref GBGPeriodic
 fiberwise algebra and the differential operators. Periodic convolution and the grid↔point transfer belong to this same
 family, as two further roles of the one integration structure. A reduction integrates a section over
 its **base** against the base's measure — the extensive one for `integral`, its
-unit-mass normalization for the intensive reductions: a `Grid3D` uses its uniform quadrature (the cell
-volume), and a `PointSet` uses its **counting** measure (unit weight per point,
+unit-mass normalization for the intensive reductions: a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) uses its uniform quadrature (the cell
+volume), and a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) uses its **counting** measure (unit weight per point,
 as a `PointSet` is grid-free). One set of formulas serves both fields and point-values,
-dispatched on `AbstractFiberSection`.
+dispatched on [`AbstractFiberSection`](@ref).
 
 The measure reductions act on **fields in physical representation and point-values** — representation-free, physical-space
 quantities. Several also act on fields in **spectral representation**, returning the identical physical
@@ -462,14 +462,14 @@ end
 
 
 """
-    integral(f)
-    integral(fiber_map, f)
+    integral(section)
+    integral(fiber_map, section)
 
-The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section (`integral`, ``\\int\\,\\mathrm{d}\\mu``) — the
-measure-weighted sum of `f` over its base. It is the one **extensive** reduction, the only one that
+The base integral ``\\int f \\,\\mathrm{d}\\mu`` of a section ``f``, passed as `section`
+(`integral`, ``\\int\\,\\mathrm{d}\\mu``) — the measure-weighted sum of the section over its base. It is the one **extensive** reduction, the only one that
 scales with the base measure; reach for [`inner`](@ref) or [`mean`](@ref) when you want an intensive,
-size-independent average instead. On a `Grid3D` the sum uses the uniform cell-volume quadrature, and on
-a `PointSet` it uses the unit-weight counting measure:
+size-independent average instead. On a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) the sum uses the uniform cell-volume quadrature, and on
+a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) it uses the unit-weight counting measure:
 
 ```math
 \\int f \\,\\mathrm{d}\\mu =
@@ -583,7 +583,7 @@ var
     std(f; corrected = true)
 
 The sample **standard deviation** of a **scalar** section: the square root of [`var`](@ref), over the same
-bases `var` serves — a `Grid3D` or a `PointSet` — and, for a field, in spectral representation as
+bases `var` serves — a [`Grid3D`](@ref GBGPeriodicFields.Fields.Grid3D) or a [`PointSet`](@ref GBGPeriodicFields.Points.PointSet) — and, for a field, in spectral representation as
 well. Point values are representation-free, so that last clause reaches fields alone. Like `var` it is **scalar-only** —
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second central moment.
@@ -964,7 +964,7 @@ The **L² pairing** ``\\langle f, w g\\rangle`` of a field `f` with a field `g` 
 Fourier multiplier `w`, both in spectral representation
 (`weighted_inner`, ``\\langle\\cdot, w \\cdot\\rangle``). It applies the spectral symbol `w` to `g`
 and reduces against `f` in one fused pass, materializing no weighted field — the reduction-dual of
-`convolve`, which instead forms ``w \\star g`` as a field, `w` there also naming the physical-space kernel
+[`convolve`](@ref GBGPeriodicFields.Convolution.convolve), which instead forms ``w \\star g`` as a field, `w` there also naming the physical-space kernel
 whose transfer function it is. It generalizes [`inner`](@ref) (the
 ``w \\equiv 1`` case); the two-argument form is the ``g = f`` case ``\\langle f, w f\\rangle``.
 
@@ -972,7 +972,7 @@ Physically it pairs `f` with the filtered field ``w \\star g``. By Parseval, wit
 half-spectrum weight ``\\alpha(k)`` (``1`` on the folded axis's zero plane and, when that axis has
 even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the layout's
 `fft_dims[1]`, the first by default), ``N`` the number of grid points, and ``c`` a fiber-component index
-(not the exponent coefficient ``c`` of `exponential_convolve!`),
+(not the exponent coefficient ``c`` of [`exponential_convolve!`](@ref GBGPeriodicFields.Convolution.exponential_convolve!)),
 
 ```math
 \\begin{aligned}
@@ -992,9 +992,9 @@ The arguments are:
 - `w` — the weight: a kernel in **any** of the four storage classes of a [`SpectralKernel`](@ref GBGPeriodicFields.Fields.SpectralKernel), holding a **real** multiplier
   ``w(k)``. All four give bitwise-identical results. The
   multiplier must be real, because ``\\langle f, w g\\rangle`` is an inner product only then: a kernel
-  whose type says complex — `translation_kernel`'s phase, for one — is **rejected** rather than
+  whose type says complex — [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel)'s phase, for one — is **rejected** rather than
   silently contributing its real part. One class is exempt, and the exemption is a hazard in its own
-  right — see the warning below. Build it with the kernel builders: a band mask (`spectral_band`/`spectral_cutoff`) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``|k|^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
+  right — see the warning below. Build it with the kernel builders: a band mask ([`spectral_band`](@ref GBGPeriodicFields.Convolution.spectral_band)/[`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) gives an in-band (co-)energy, and `radial_kernel(identity, multipliers)` (``w = |k|^2``) gives the Dirichlet energy ``\\langle f, -\\Delta g\\rangle`` exactly (both keep the true Nyquist ``|k|^2``); on fields with no Nyquist content this equals ``\\langle\\nabla f, \\nabla g\\rangle``, the derivative multiplier zeroing only the then-empty Nyquist plane.
 
 It is spectral-only, a Parseval reduction like the spectral `inner`.
 
@@ -1016,7 +1016,7 @@ a scatter-add binning pass (and, for the correlation, an inverse transform).
     through each mode rather than a different summation order. That matters where code comparing
     against a stored number swaps one for the other.
 
-!!! warning "A complex `StoredKernel` weight is silently reduced to its real part"
+!!! warning "A complex [`StoredKernel`](@ref) weight is silently reduced to its real part"
     Three of the four kernel classes **throw** on a complex multiplier, their type settling the question
     for free. A `StoredKernel` cannot: its storage is `Complex{T}` by construction, so a materialized
     `spectral_cutoff` and a materialized `translation_kernel` have the same type. Telling them
@@ -1585,9 +1585,10 @@ end
 
 
 """
-    lpnorm(f, p = 2)
+    lpnorm(section, p = 2)
 
-The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section (`lpnorm`, ``\\lVert\\cdot\\rVert_p``),
+The **normalized ``L^p`` norm** ``\\lVert f\\rVert_p`` of a section ``f``, passed as `section`
+(`lpnorm`, ``\\lVert\\cdot\\rVert_p``),
 where ``|f|`` is the pointwise fiber magnitude (the fiberwise `norm`) — the ``L^p`` average of ``|f|`` over
 the base. The exponent `p` selects the norm: `p = 2` (the default) reduces to [`l2norm`](@ref), and
 `p = Inf` gives the supremum of the fiber magnitude (for example the maximum speed entering a CFL

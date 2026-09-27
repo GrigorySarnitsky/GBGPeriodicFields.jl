@@ -19,7 +19,7 @@ rather than a general differential-geometry package.
 
 These words recur in every operation's documentation:
 
-- a **base** is the set of locations a value is attached to: a `Grid3D` of nodes, or a `PointSet` of
+- a **base** is the set of locations a value is attached to: a [`Grid3D`](@ref) of nodes, or a [`PointSet`](@ref) of
   off-grid positions. A grid cell carries the quadrature weight a reduction integrates against; the
   values themselves sit on the nodes.
 - a **fiber** is the value at one such location — a scalar, a `FiberVector`, or a `FiberTensor2`.
@@ -80,9 +80,9 @@ docstring maps what it provides, so this list says what each is for rather than 
     `std`, `var` and the bare `maximum`/`minimum`/`extrema` a scalar — and each says so in its own
     docstring. The field and point-value types are
     parameterized on `R`, so higher orders can be constructed and several layers serve them
-    (storage, HDF5 persistence, the vector-space operations, `inner`, `l2norm`, and spline
+    (storage, HDF5 persistence, the vector-space operations, [`inner`](@ref), [`l2norm`](@ref), and spline
     interpolation between grid and points). Others do not: the reductions returning a fiber or taking
-    a fiber map (`mean(det, A)`), `map`, and `sym`/`skew`/`dev` are defined for ``R \\le 2`` and
+    a fiber map (`mean(det, A)`), `map`, and [`sym`](@ref)/[`skew`](@ref)/[`dev`](@ref) are defined for ``R \\le 2`` and
     **throw** above it.
 
     General `R` was deferred rather than declined, to ship a usable field layer for the second-order

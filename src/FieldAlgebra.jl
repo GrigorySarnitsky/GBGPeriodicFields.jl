@@ -53,7 +53,7 @@ The parts are:
     grid nodes are exact, but transforming the result to
     spectral representation folds that out-of-band content back onto the resolved modes as aliasing error.
     Before feeding such a result into a spectral computation — a solver's nonlinear term — de-alias it with
-    the sharp low-pass `spectral_cutoff` or the phase-shift `translation_kernel` from
+    the sharp low-pass [`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff) or the phase-shift [`translation_kernel`](@ref GBGPeriodicFields.Convolution.translation_kernel) from
     [`Convolution`](@ref). This is the same fact that makes these operations physical-representation only: a
     nonlinearity has no finite-band spectral form.
 
@@ -71,7 +71,7 @@ may be called with the destination aliasing an input.
     not merely undetected — they cannot be constructed. The `mul!` operation is the one exception, keeping
     `LinearAlgebra`'s contract that its destination must not alias.
 
-Most of this module is mirrored onto point-values (`AbstractPointValues`) — the same fiberwise algebra
+Most of this module is mirrored onto point-values ([`AbstractPointValues`](@ref GBGPeriodicFields.Points.AbstractPointValues)) — the same fiberwise algebra
 applied to field values sampled at an unstructured point set, generated from the same builders so no
 formula is written twice. The mirror covers the physical-representation surface, not every binding: the
 weighted combination `combine!` has no point-value method, for instance. See the [`Points`](@ref)
@@ -374,7 +374,7 @@ Allocating form of [`multiply!`](@ref) and, for the tensor contractions, [`mul!`
 a scalar-field action, or a tensor contraction — field-field (a tensor field acting on a vector or
 tensor field, physical representation only) as well as fiber-constant — returning a new section
 (fields and point-value collections alike). See those for the componentwise definitions. There is deliberately no field-times-field method in spectral representation — that
-coefficientwise product is a convolution and lives under `convolve`'s name, in the [`Convolution`](@ref "Convolution") module.
+coefficientwise product is a convolution and lives under [`convolve`](@ref GBGPeriodicFields.Convolution.convolve)'s name, in the [`Convolution`](@ref "Convolution") module.
 """
 *
 
@@ -553,7 +553,7 @@ The arguments are:
 # The kernel-composed form
 
 Passing a trailing `kernel` — a kernel's transfer function ``\\hat g``, held either as one coefficient
-per mode or in a compressed class evaluated per mode, exactly as `convolve!` takes it — convolves the
+per mode or in a compressed class evaluated per mode, exactly as [`convolve!`](@ref GBGPeriodicFields.Convolution.convolve!) takes it — convolves the
 combination with the kernel in the same pass. As there, ``\\hat g`` must be Hermitian between opposite modes ``k`` and ``-k``,
 ``\\hat g(-k) = \\overline{\\hat g(k)}``, or the result is the spectrum of no real field. Physically the
 result is the combination's periodic convolution with the physical kernel, ``g \\star (\\alpha a + \\beta b)``;
@@ -576,7 +576,7 @@ The additional argument is:
 !!! note "Here α and β weight the two inputs, not the destination"
     Almost every in-place operation in the package uses trailing `α`, `β` that
     accumulate a result **onto** `destination`: ``\\alpha (\\mathrm{result}) + \\beta \\texttt{destination}``.
-    This operation is one of two exceptions — the other is `exponential_convolve!`'s two-operand
+    This operation is one of two exceptions — the other is [`exponential_convolve!`](@ref GBGPeriodicFields.Convolution.exponential_convolve!)'s two-operand
     forms, which carry this same combination into a fused convolution — and it is the exception the
     name announces: it *is* the weighted combination, so its `α`
     and `β` sit between the operands they weight and there is no accumulate form — pass
@@ -622,7 +622,7 @@ The arguments are:
 
 Multiplication by a real number is representation-preserving and is defined for fields in both physical and spectral representation, in either argument order.
 
-Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical representation; in spectral representation the product of two fields is a convolution, which this module does not provide. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
+Multiplication by a scalar field is pointwise, so when the other factor is a field it is defined only in physical representation; in spectral representation the product of two fields is a convolution, which this module does not provide. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse. When the other factor is a constant `FiberVector` or `FiberTensor2`, the operation is linear in the scalar field and stays coefficient-wise, so it is defined in both representations and yields the corresponding vector or tensor field. Either argument order is accepted.
 """
 function multiply! end
 
@@ -630,7 +630,9 @@ function multiply! end
 """
     divide!(destination, field, scalar::Real)
     divide!(destination, field, scalar_field::ScalarFieldPhysical)
-    divide!(destination, numerator, scalar_field::ScalarFieldPhysical)
+    divide!(destination, scalar::Real, scalar_field::ScalarFieldPhysical)
+    divide!(destination, a::FiberVector, scalar_field::ScalarFieldPhysical)
+    divide!(destination, A::FiberTensor2, scalar_field::ScalarFieldPhysical)
 
 Divide a field in place, and return `destination`.
 
@@ -639,11 +641,12 @@ returns a fresh result instead.
 
 The arguments are:
 - `destination` — the field that receives the quotient.
-- `field`, `numerator` — the dividend: a field of any tensor order, a `Real`, or a constant `FiberVector` or `FiberTensor2`.
-- `scalar` — a `Real` divisor.
+- `field` — a dividend field of any tensor order.
+- `scalar` — a `Real`: the divisor after `field`, or the dividend before `scalar_field`.
+- `a`, `A` — a constant `FiberVector` or `FiberTensor2` dividend.
 - `scalar_field` — a scalar field divisor, dividing pointwise.
 
-Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field). When the divisor is a scalar field the result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Division by a real number is representation-preserving and is defined in both representations. Division by a scalar field is pointwise and is defined only in physical representation; the numerator may be a field of any tensor order (the division acts on all of its components), a real number (yielding a scalar field), or a constant `FiberVector` or `FiberTensor2` (yielding the corresponding vector or tensor field). When the divisor is a scalar field the result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 """
 function divide! end
 
@@ -894,12 +897,16 @@ const _Tensor2Field = Union{TensorFieldPhysical{2}, TensorFieldSpectral{2}}
 """
     dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical,
          v::VectorFieldPhysical)
-    dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysical, a::FiberVector)
-    dot!(destination::ScalarFieldSpectral, u::VectorFieldSpectral, a::FiberVector)
     dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2},
          B::TensorFieldPhysical{2})
-    dot!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2}, B::FiberTensor2)
-    dot!(destination::ScalarFieldSpectral, A::TensorFieldSpectral{2}, B::FiberTensor2)
+    dot!(destination::ScalarFieldPhysical, operand::VectorFieldPhysical,
+         constant::FiberVector)
+    dot!(destination::ScalarFieldSpectral, operand::VectorFieldSpectral,
+         constant::FiberVector)
+    dot!(destination::ScalarFieldPhysical, operand::TensorFieldPhysical{2},
+         constant::FiberTensor2)
+    dot!(destination::ScalarFieldSpectral, operand::TensorFieldSpectral{2},
+         constant::FiberTensor2)
 
 Compute a fiberwise inner product in place, and return `destination`.
 
@@ -909,11 +916,11 @@ returns a fresh result instead.
 The arguments are:
 - `destination` — the scalar field that receives the contraction.
 - `u`, `v` — two vector fields, or `A`, `B` two second-order tensor fields.
-- `a`, `B` — a constant `FiberVector` or `FiberTensor2` contracted against the field, in either argument order.
+- `operand`, `constant` — a field and a constant `FiberVector` or `FiberTensor2` contracted against it, in either argument order.
 
 For two vector fields this is the Euclidean scalar product; for two second-order tensor fields it is the Frobenius double contraction. Either argument order is accepted.
 
-Contraction of two fields is nonlinear and is defined only in physical representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Contraction of two fields is nonlinear and is defined only in physical representation. In spectral representation only contraction with a constant fiber vector or fiber tensor is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 
 Each base point ``x`` gives, summing over the repeated fiber indices:
 
@@ -1018,7 +1025,7 @@ The arguments are:
 - `a` — a constant `FiberVector` crossed with the field. Both orders have methods, and being a cross
   product they differ in sign: ``a \\times u = -(u \\times a)``.
 
-Cross products of two fields are nonlinear and are defined only in physical representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+Cross products of two fields are nonlinear and are defined only in physical representation. In spectral representation only the cross product with a constant fiber vector (in either argument order) is provided, which keeps the operation coefficient-wise. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 
 Pointwise over the base, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated ``j, k``), the components are
 
@@ -1129,17 +1136,17 @@ The arguments are:
 - `destination` — the field written with the product. It must **not** share storage with either
   operand, and that is not checked: `mul!` keeps `LinearAlgebra`'s contrary contract, where every
   other in-place operation here is alias-safe by construction.
-- the two operands — given in the order they multiply, so the signatures above cover both the **left**
-  action ``(A u)_i = A_{ij} u_j`` and the **right** action ``(u A)_i = u_j A_{ji}``. Each may be a field
-  or a fiber constant: a second-order tensor field or a `FiberTensor2`, a vector field or a
-  `FiberVector`. At least one must be a field, since a product of two constants is not a field
-  operation.
+- `A`, `B` — the tensor operands, each a second-order tensor field or a constant `FiberTensor2`.
+- `u`, `a` — the vector operand, a vector field `u` or a constant `FiberVector` `a`. The operands come
+  in the order they multiply, so the signatures above cover both the **left** action
+  ``(A u)_i = A_{ij} u_j`` and the **right** action ``(u A)_i = u_j A_{ji}``. At least one operand must
+  be a field, since a product of two constants is not a field operation.
 - `α`, `β` — real accumulation weights, converted to the field's scalar type. The three-argument forms
   overwrite (``\\alpha = 1``, ``\\beta = 0``); the five-argument forms compute
   ``\\alpha (A B) + \\beta \\texttt{destination}``, so ``\\beta = 0`` overwrites and any other value
   accumulates — the `LinearAlgebra.mul!` convention.
 
-A product of two fields is nonlinear and is defined only in physical representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+A product of two fields is nonlinear and is defined only in physical representation; a spectral-representation product requires one factor to be a constant fiber tensor or fiber vector. The field-field result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 
 Each base point gives, summing over the repeated fiber indices:
 
@@ -1405,16 +1412,16 @@ end
 
 
 """
-    norm!(destination::ScalarFieldPhysical, scalar_field::ScalarFieldPhysical)
-    norm!(destination::ScalarFieldPhysical, u::VectorFieldPhysical)
-    norm!(destination::ScalarFieldPhysical, A::TensorFieldPhysical{2})
+    norm!(destination::ScalarFieldPhysical, operand::ScalarFieldPhysical)
+    norm!(destination::ScalarFieldPhysical, operand::VectorFieldPhysical)
+    norm!(destination::ScalarFieldPhysical, operand::TensorFieldPhysical{2})
 
 Compute the fiberwise norm of a field in physical representation (`norm`, ``|\\cdot|``) in place, and return `destination`.
 
 Use this in-place form when `destination` is already allocated; the allocating [`norm`](@ref)
 returns a fresh result instead.
 
-The norm is nonlinear, so it is defined only in physical representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+The norm is nonlinear, so it is defined only in physical representation. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 
 Each base point gives the absolute value of a scalar ``\\varphi``, the Euclidean norm of a vector ``u``, and the Frobenius norm (not the operator norm) of a second-order tensor ``A``:
 
@@ -1526,7 +1533,7 @@ returns a fresh result instead.
 
 The determinant is cubic in the tensor's components — the third principal invariant ``I_3``, the signed
 factor by which ``A`` scales volumes as a linear map. Unlike the linear trace [`tr!`](@ref), it is
-nonlinear, so it is defined in physical representation only; there is no spectral form. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias (`spectral_cutoff`) before spectral reuse.
+nonlinear, so it is defined in physical representation only; there is no spectral form. Its result is not band-limited, so it aliases if transformed back to spectral representation; de-alias ([`spectral_cutoff`](@ref GBGPeriodicFields.Convolution.spectral_cutoff)) before spectral reuse.
 
 Each base point gives, with the Levi-Civita symbol ``\\varepsilon_{ijk}`` (summed over the repeated
 fiber indices):
@@ -1831,6 +1838,7 @@ The arguments are:
 - `destination` — the field (or point-value section) receiving the result; its tensor order must
   match `φ`'s output, and it may alias any of the `sources`.
 - `sources` — one or more compatible fields (or point-value sections) on `destination`'s base; `φ` takes their fibers in argument order.
+- `source` — the one input of the accumulating form, a field (or point-value section) as for `sources`.
 - `α`, `β` — the accumulation of the single-source form, ``\\texttt{destination} = \\alpha \\varphi(\\texttt{source}) + \\beta \\texttt{destination}`` (``β = 0`` overwrites, the `mul!` convention); the variadic form overwrites (``α = 1``, ``β = 0``).
 
 !!! warning "A fiber map must not read the destination"

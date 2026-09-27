@@ -914,10 +914,10 @@ real physical object the result is the kernel-weighted local average of the dive
 coefficientwise in spectral representation, so their symbols simply multiply. The additional
 arguments are:
 
-- `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
+- `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a [`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel) holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
   separable, or their product) costing ``O(N)`` for ``N`` points per axis, not ``O(N^3)``,
-  exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
+  exactly as [`convolve!`](@ref GBGPeriodicFields.Convolution.convolve!) takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; it may
   alias `destination`, since the product is coefficientwise.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
@@ -1533,10 +1533,10 @@ real physical object the result is the kernel-weighted local average of the proj
 coefficientwise in spectral representation, so the scalar symbol ``\\hat g`` multiplies the
 projection symbol. The additional arguments are:
 
-- `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a `StoredKernel` holding one
+- `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a [`SpectralKernel`](@ref) — a [`StoredKernel`](@ref GBGPeriodicFields.Convolution.StoredKernel) holding one
   coefficient per mode, or a compressed class evaluated per mode (radial,
   separable, or their product) costing ``O(N)`` for ``N`` points per axis, not ``O(N^3)``,
-  exactly as `convolve!` takes it — including its reality condition, that ``\\hat g`` be Hermitian,
+  exactly as [`convolve!`](@ref GBGPeriodicFields.Convolution.convolve!) takes it — including its reality condition, that ``\\hat g`` be Hermitian,
   ``\\hat g(-k) = \\overline{\\hat g(k)}``, without which the result is the spectrum of no real field; one
   scalar kernel weights all three components.
 - `α`, `β` — real accumulation weights as in `convolve!`: the four-argument form overwrites
