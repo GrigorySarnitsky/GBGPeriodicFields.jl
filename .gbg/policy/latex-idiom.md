@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
 # LaTeX idiom — `RULE.TEX.*`
 
 What renders, and how mathematics is written so that it renders the same way everywhere. 18 rules, written from the rule values themselves,
@@ -19,9 +19,9 @@ The renderer sets a run of letters in a math span as a product of italic single 
 Covered by a program.
 
 ### RULE.TEX.CODE_SPAN_JULIA
-A backtick span holds only well-formed Julia, never code-looking math.
+A code span holds literal code or input in some language — Julia, shell, TOML, a path, LaTeX source — and never mathematics, which is written as math.
 
-A half-open interval, an inequality, a product, a lone `≤` or `·` glyph is LaTeX; the real operators `×`, `⋅` and `≈` backticked are code and stay.
+Code formatting marks text to be typed or read as code in any language: a shell flag, a path, an environment variable, a TOML key, LaTeX source on a notation page. A half-open interval, an inequality, a product, a lone `≤` or `·` glyph is mathematics and is set as such; the real operators `×`, `⋅` and `≈` backticked are code and stay. Reworded on GBGPeriodicFields' request [ruled 2026-09-26]: the old wording, 'only well-formed Julia', made every shell command a finding.
 
 Covered by a reader given nothing.
 
@@ -54,11 +54,12 @@ A marker inside an open span lands in the formula, and the prose after it render
 Covered by a program.
 
 ### RULE.TEX.LEFTRIGHT
-A sized delimiter names what it sizes: \left( pairs with \right), and neither stands alone.
+\left and \right are not used, except in a formula the package lists in `leftright_allowed`, each formula listed exactly and on the owner's answer.
 
-An unpaired sizing command is a LaTeX error, and the whole formula fails to render.
+An auto-sized delimiter sizes to its content, so the same bracket renders at different sizes in neighbouring formulas; a size chosen with \bigl…\bigr is the same everywhere. Where a formula needs one, the owner says so for that formula.
 
 Covered by a program.
+This package may set `leftright_allowed`; unset, it is `String[]`.
 
 ### RULE.TEX.MATHBB
 A blackboard-bold digit is not a set; the identity is written \mathbb{1} only where it means one.
@@ -118,7 +119,7 @@ A span that renders as its own source is a formula the reader never sees, and th
 Covered by a program.
 
 ### RULE.TEX.SPACING
-Spacing inside a formula is the renderer's: no thin space, no medium or thick space, no negative thin space before a sized delimiter, and none of them doubled.
+Spacing inside a formula is the renderer's: no thin space except before a differential, no medium or thick space, no negative thin space before a sized delimiter, and none of them doubled.
 
 Hand spacing is tuned to one renderer at one font size and is wrong in every other setting.
 

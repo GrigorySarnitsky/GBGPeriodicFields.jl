@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
 # /bug-hunt
 
 The code does what its documentation says.
@@ -16,13 +16,20 @@ that stopped in the middle has spent its agents for nothing.
    `--readers both` for the open readers, `--model <name>` to name the careful model, `--sequential`
    to launch one agent at a time. It refuses a tree with uncommitted changes to tracked files.
 2. Launch the agents with the `Workflow` call the verb just printed: the driver at the path it names,
-   copied into the run's own scratch, with the arguments file beside it. Never the pinned package's
-   own `drivers/run.js`, which `Workflow` refuses because it lies outside the working directory. Julia
-   cannot launch an agent and only this session can, which is why the verb stopped here.
-3. `gbg run collect` — reads what the agents wrote. Exit 2 means a role wrote nothing, or the tree
-   moved under them; the first is relaunched once, the second is the owner's to answer.
-4. `gbg run next` — moves to the next stage and says what it wants. Repeat 2 to 4 until it says the
-   run is ready to close.
+   copied into the run's own scratch with the stage's arguments spliced in, so the call passes no
+   args. Never the pinned package's own `drivers/run.js`, which `Workflow` refuses because it lies
+   outside the working directory. Julia cannot launch an agent and only this session can, which is
+   why the verb stopped here.
+3. Save what the `Workflow` RETURNED — the whole object — as `returned.json` in the stage's own
+   directory, which the verb named: the collect falls back on it for an agent whose result file never
+   appeared. Then `gbg run collect`, which reads what the agents wrote. Exit 2 means a role wrote
+   nothing, or the tree moved under them; the first is relaunched once, the second is the owner's to
+   answer.
+4. `gbg run cost <dir>` — records what the stage's agents cost, from the transcripts under the
+   directory the `Workflow` result names (the one holding its `journal.jsonl`). The launch's own
+   token figure counts a tenth of the real cost; the transcripts are the source. Then
+   `gbg run next`, which moves to the next stage and says what it wants. Repeat 2 to 4 until it says
+   the run is ready to close.
 5. `gbg run close` — writes the record and the report.
 ## What it may not do
 

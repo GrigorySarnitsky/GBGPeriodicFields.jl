@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
 What a docstring and an API page contain, in what order and in what shape. 44 rules, written from the rule values themselves,
@@ -177,7 +177,7 @@ Its order is identity, then the contents list, then an optional trailing remark.
 Covered by a reader given siblings.
 
 ### RULE.DOC.NO_DEAD_REFS
-A docstring or error message cites no section number and no inaccessible source; it reads complete at the REPL.
+A docstring cites no section number and no inaccessible source; it reads complete at the REPL.
 
 At the REPL there are no links: a section number cannot be followed, and it is renumbered besides.
 
@@ -255,7 +255,6 @@ The first mention of a sibling package links to that package's site; later menti
 A reader meeting the name for the first time must be able to reach it, and a fourth link teaches nothing.
 
 Covered by a program.
-This package may set `sibling_sites`; unset, it is `["GBGCodingTools" => "https://grigorysarnitsky.github.io/GBGCodingTools.jl/", "GBGPeriodicFields" => "https://grigorysarnitsky.github.io/GBGPeriodicFields.jl/", "GBGHomogeneousTurbulence" => "https://grigorysarnitsky.github.io/GBGHomogeneousTurbulence.jl/", "GBGStreamingStatistics" => "https://grigorysarnitsky.github.io/GBGStreamingStatistics.jl/", "GBGCloudPhysics" => "https://grigorysarnitsky.github.io/GBGCloudPhysics.jl/"]`.
 
 ### RULE.DOC.SIGNATURE_FIDELITY
 The signature a docstring displays and the methods the module defines agree, argument for argument.

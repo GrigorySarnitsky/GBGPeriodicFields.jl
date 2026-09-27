@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # STOP HOOK — refuses to let the session end while committed work is open.
-# Written by GBGCodingTools v2.0.0-rc.23; do not edit.
+# Written by GBGCodingTools v2.0.0-rc.30; do not edit.
 #
 # CONTRACT. `.claude/WORK_QUEUE.md` holds one line per item, `- [ ]` open, `- [x]` done. While any
 # item is open this exits 2, which Claude Code treats as "do not stop", feeding stderr back as the
@@ -58,6 +58,61 @@ if [[ -d "$runs" ]]; then
     } >&2
     exit 2
   done
+fi
+
+# THE GIT RULES. RULE.GIT.BRANCH, RULE.GIT.PUSH and RULE.GIT.TRAILER ask about the branch and the
+# commits — what no build or test may read, since a fresh clone and CI must answer alike — so they
+# are checked HERE, at the end of the turn, on what is not yet pushed. A hook check is weaker than
+# a build check: a hook can be skipped and a failing test cannot, and the rulebook says so beside
+# each. Every function below is the rule's own lines, spliced from the rule value, so `gbg check`
+# and this script are one program and cannot disagree.
+    gbg_rule_RULE_GIT_BRANCH() {
+      b=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || return 0
+      [ "$b" = "$GBG_BRANCH" ] || echo "on branch '$b'; the working branch is '$GBG_BRANCH'"
+      return 0
+    }
+    gbg_rule_RULE_GIT_PUSH() {
+      git rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+      if ! git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1; then
+        n=$(git rev-list --count HEAD 2>/dev/null) || return 0
+        [ "$n" = "0" ] || echo "no upstream; $n commit(s) never pushed: commit ⇒ push"
+        return 0
+      fi
+      n=$(git rev-list --count '@{upstream}..HEAD' 2>/dev/null) || return 0
+      [ "$n" = "0" ] || echo "$n commit(s) not pushed: commit ⇒ push"
+      return 0
+    }
+    gbg_rule_RULE_GIT_TRAILER() {
+      git rev-parse --verify -q HEAD >/dev/null 2>&1 || return 0
+      range='@{upstream}..HEAD'
+      git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1 || range=HEAD
+      for c in $(git rev-list "$range" 2>/dev/null); do
+        msg=$(git log -1 --format=%B "$c")
+        printf '%s\n' "$msg" | grep -Fxq 'Co-Authored-By: Anthropic Claude <noreply@anthropic.com>' || echo "$(git log -1 --format=%h "$c") does not carry the trailer 'Co-Authored-By: Anthropic Claude <noreply@anthropic.com>'"
+        printf '%s\n' "$msg" | grep -Eq '^Co-Authored-By: .*<noreply@anthropic\.com>' && ! printf '%s\n' "$msg" | grep -Eq '^Co-Authored-By: Anthropic Claude <noreply@anthropic\.com>$' && echo "$(git log -1 --format=%h "$c") carries a versioned Co-Authored-By trailer"
+        printf '%s\n' "$msg" | grep -Eq '^Claude-Session:' && echo "$(git log -1 --format=%h "$c") carries a Claude-Session line"
+        printf '%s\n' "$msg" | grep -Fq '[skip ci]' && echo "$(git log -1 --format=%h "$c") says [skip ci]"
+      done
+      return 0
+    }
+
+GBG_BRANCH="master"
+git_said=""
+for r in RULE.GIT.BRANCH RULE.GIT.PUSH RULE.GIT.TRAILER; do
+  fn="gbg_rule_${r//./_}"
+  out=$(cd "${CLAUDE_PROJECT_DIR:-.}" && "$fn" 2>/dev/null) || out=""
+  [[ -n "$out" ]] && git_said+="$(printf '%s\n' "$out" | sed "s/^/  $r  /")"$'\n'
+done
+if [[ -n "$git_said" ]]; then
+  {
+    echo "THE GIT RULES ARE NOT MET — the turn does not end on a branch or a commit the rulebook refuses:"
+    echo
+    printf '%s' "$git_said"
+    echo
+    echo "Push what is committed (commit ⇒ push), on the working branch, with the trailer on every"
+    echo "commit — or say why you cannot, so the owner decides. A hook can be skipped; do not."
+  } >&2
+  exit 2
 fi
 
 queue="${CLAUDE_PROJECT_DIR:-.}/.claude/WORK_QUEUE.md"

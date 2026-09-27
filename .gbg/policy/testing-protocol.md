@@ -1,15 +1,15 @@
-<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
 # Testing protocol — `RULE.TEST.*`
 
 What a test is for, where its oracle comes from, and when a thing is done. 10 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.TEST.ALLOC_ZERO
-Every in-place ! operator is allocation-free and in the audit; a deliberate materializer gets a bounded guard; where a bound covers another nondeterminism a configuration pins the true zero.
+In a package that declares the allocation audit, every in-place ! operator is allocation-free and in the audit; a deliberate materializer gets a bounded guard; where a bound covers another nondeterminism a configuration pins the true zero.
 
 The audit runs on the CPU, where a materialized temporary is visible; the completeness of its rows is derived from the export list, never remembered.
 
-Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session until a package wires the harness contract `TestHarness.allocation_completeness`, which no wired package calls today; checked by nothing until then
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.allocation_completeness` from its suite, where that suite checks it; a package that has not declared it is not bound, and nothing checks it here
 
 ### RULE.TEST.BOTH_DIRECTIONS
 Test the check in both directions; a check that cannot fail is not a check; a self-reported field is acceptable only when the missing case is the failing case.
@@ -40,11 +40,11 @@ A gate re-checks claims already known and must be green or the change does not s
 Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session: followed while working, checked by nothing
 
 ### RULE.TEST.METHOD_PARITY
-The public method set is frozen per generic and per module; any change moves a number.
+In a package that declares method parity, the public method set is frozen per generic and per module; any change moves a number.
 
 The per-module count is derived from ownership over the whole function surface, internals included, so a method defined under a qualified name cannot hide.
 
-Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session until a package wires the harness contract `TestHarness.method_parity`, which no wired package calls today; checked by nothing until then
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.method_parity` from its suite, where that suite checks it; a package that has not declared it is not bound, and nothing checks it here
 
 ### RULE.TEST.MISSING_IS_FAILING
 The missing case is the failing case: derived denominators, absence arms, zero count = dead.
@@ -61,17 +61,17 @@ Inject the defect and require the suite to catch it; a fixture that cannot reach
 Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session: followed while working, checked by nothing
 
 ### RULE.TEST.ORACLE_INDEPENDENT
-Every public value-returning operation is classified in the oracle registry; relational-only coverage is a finding.
+In a package that declares the oracle registry, every public value-returning operation is classified in it; relational-only coverage is a finding.
 
 The classes are analytic (a closed form derived independently of the package), independent (a direct computation written in the test), property (an invariant that pins the operation without computing it), relational (compared only against other package operations — legitimate as a second layer, never as the only one) and structural (returns metadata or storage). A new operation fails the registry until someone classifies it, which is the moment to notice it has no independent oracle.
 
-Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session until a package wires the harness contract `TestHarness.oracle_registry`, which no wired package calls today; checked by nothing until then
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.oracle_registry` from its suite, where that suite checks it; a package that has not declared it is not bound, and nothing checks it here
 
 ### RULE.TEST.PASS_AUDIT
-Every audited operation has a frozen per-array traffic row with a named holder for any gap.
+In a package that declares the traffic audit, every audited operation has a frozen per-array traffic row with a named holder for any gap.
 
 A raised count is a fusion regression unless a new holder justifies it; the frozen values are refrozen in the same commit as the change, with the reason.
 
-Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session until a package wires the harness contract `TestHarness.traffic_completeness`, which no wired package calls today; checked by nothing until then
+Covered by the session, as an instruction: followed while working, checked by nothing. Nothing checks it: an instruction to the session of a package that has declared this contract by calling `TestHarness.traffic_completeness` from its suite, where that suite checks it; a package that has not declared it is not bound, and nothing checks it here
 
 <!-- gbg:managed end -->

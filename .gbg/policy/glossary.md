@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.23 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
 # Glossary
 
 The terms the rules use. A rule may use any of these without defining it; a term not here is defined
@@ -12,6 +12,8 @@ where it is used, or it is not a term of art.
   and three complying ones.
 - **switch** — a package turning a rule off, wholly or for named files, with its reason. It replaces
   the exemption ledger: there is no expiry and no ceremony, only a reason a reader can weigh.
+- **deferral** — a package saying a rule is owed here and not yet met, with what would close it. A
+  switch is an answer; a deferral is a question with a condition on it. It fails no build.
 - **file set** — which of a package's files a rule runs over: docstrings, code, pages, rationale,
   Literate examples, tests.
 - **finding** — one violation at one location, with the rule that found it.
@@ -36,10 +38,10 @@ where it is used, or it is not a term of art.
   source, or the built site. A rule's tag says which bundle can judge it.
 - **unit** — the one page a reader of the first bundle is given. That reader is launched once per
   unit, so that what it cannot see is what the rule needs it not to see.
-- **pass** — one round of fixing and verifying inside a run. A documentation review makes at most
-  four, after which what is still open carries to the next run.
-- **verifier** — an agent that judges whether a fix fixed the finding: the first blind to the
-  change, the second reading the diff.
+- **pass** — one round of fixing and verifying inside a run. A documentation review makes one,
+  after which what is still open goes to the owner's queue.
+- **verifier** — an agent that judges whether the fixes of one place fixed their findings, with
+  the text as it now stands and the diff of the pass in front of it.
 - **cover** — what decides a rule is broken: a program, a reader, or nothing, the last being an
   instruction the session follows while working.
 - **discipline** — a field of expertise a package declares it needs a reader to have. A rule naming
