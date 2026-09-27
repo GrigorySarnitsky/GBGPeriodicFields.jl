@@ -84,7 +84,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.md § Kernel builders",64,64,0
 "Convolution.md § Kernel storage classes",159,83,0
 "DECISIONS.md § (preamble)",22,22,1
-"DECISIONS.md § Decision log — GBGPeriodicFields",110,45,0
+"DECISIONS.md § Decision log — GBGPeriodicFields",109,44,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 1",11,11,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 10",109,109,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 11",159,159,0
@@ -172,6 +172,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 86",187,93,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 87",499,98,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 88",1068,107,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 89",264,65,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
@@ -569,7 +570,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Moments and order statistics",76,43,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",699,215,0
-"TESTING.md § 2. Layout",1981,1981,0
+"TESTING.md § 2. Layout",2060,2060,0
 "TESTING.md § 3. Writing a test here",357,267,0
 "TESTING.md § 4. The coverage contract",805,482,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
