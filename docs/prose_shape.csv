@@ -1,343 +1,343 @@
 unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § (preamble)",22,22,1
-"ARCHITECTURE.md § 1. Purpose and scope",329,264,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1455,248,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (2)",189,189,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (3)",42,42,0
-"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer (4)",1750,498,0
-"ARCHITECTURE.md § 11. Convolution",549,393,1
-"ARCHITECTURE.md § 12. Reductions",311,311,0
-"ARCHITECTURE.md § 2. The central principle: the architecture follows establish",103,103,0
-"ARCHITECTURE.md § 3. Types and memory layout",287,115,0
-"ARCHITECTURE.md § 4. Spectral machinery",627,161,0
-"ARCHITECTURE.md § 5. Validation design",216,131,0
-"ARCHITECTURE.md § 7. Aliasing policy",216,77,0
-"ARCHITECTURE.md § 8. Broadcasting",158,99,0
-"ARCHITECTURE.md § 9. Performance model and CPU threading",698,219,0
+"ARCHITECTURE.md § 1. Purpose and scope",321,257,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer",1316,216,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 1",182,182,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 2",41,41,0
+"ARCHITECTURE.md § 10. Interpolation and anterpolation (the grid↔point transfer / item 3",1683,476,0
+"ARCHITECTURE.md § 11. Convolution",501,349,1
+"ARCHITECTURE.md § 12. Reductions",278,278,0
+"ARCHITECTURE.md § 2. The central principle: the architecture follows establish",101,101,0
+"ARCHITECTURE.md § 3. Types and memory layout",283,115,0
+"ARCHITECTURE.md § 4. Spectral machinery",604,160,0
+"ARCHITECTURE.md § 5. Validation design",211,129,0
+"ARCHITECTURE.md § 7. Aliasing policy",212,76,0
+"ARCHITECTURE.md § 8. Broadcasting",155,97,0
+"ARCHITECTURE.md § 9. Performance model and CPU threading",681,211,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading / item 1",39,39,0
 "ARCHITECTURE.md § 9. Performance model and CPU threading / item 2",56,56,0
-"ARCHITECTURE.md § 9. Performance model and CPU threading / item 3",110,110,0
-"ARCHITECTURE.md § 9. Performance model and CPU threading / item 4",32,32,0
-"ARCHITECTURE.md § 9. Performance model and CPU threading / item 5",1025,319,0
-"ARCHITECTURE.md § Architecture — GBGPeriodicFields",142,83,0
-"ARCHITECTURE.md § Decision log",27,27,0
-"ARCHITECTURE.md § Documentation policy",227,142,0
-"ARCHITECTURE.md § Layers",383,309,0
-"ARCHITECTURE.md § Naming conventions",297,236,0
-"ARCHITECTURE.md § Representation validity lives in the method set",554,198,0
-"ARCHITECTURE.md § The architecture map",367,259,0
-"ARCHITECTURE.md § The fiber-bundle model",1387,583,0
+"ARCHITECTURE.md § 9. Performance model and CPU threading / item 3",109,109,0
+"ARCHITECTURE.md § 9. Performance model and CPU threading / item 4",30,30,0
+"ARCHITECTURE.md § 9. Performance model and CPU threading / item 5",1004,308,0
+"ARCHITECTURE.md § Architecture — GBGPeriodicFields",136,77,0
+"ARCHITECTURE.md § Decision log",26,26,0
+"ARCHITECTURE.md § Documentation policy",227,143,0
+"ARCHITECTURE.md § Layers",365,294,0
+"ARCHITECTURE.md § Naming conventions",288,228,0
+"ARCHITECTURE.md § Representation validity lives in the method set",519,177,0
+"ARCHITECTURE.md § The architecture map",338,238,0
+"ARCHITECTURE.md § The fiber-bundle model",1303,564,0
 "ARCHITECTURE.md § The invariants",45,45,0
-"ARCHITECTURE.md § The invariants / item 1",74,74,0
-"ARCHITECTURE.md § The invariants / item 10",132,132,0
-"ARCHITECTURE.md § The invariants / item 11",71,71,0
-"ARCHITECTURE.md § The invariants / item 12",48,48,0
+"ARCHITECTURE.md § The invariants / item 1",73,73,0
+"ARCHITECTURE.md § The invariants / item 10",118,118,0
+"ARCHITECTURE.md § The invariants / item 11",70,70,0
+"ARCHITECTURE.md § The invariants / item 12",47,47,0
 "ARCHITECTURE.md § The invariants / item 13",72,72,0
-"ARCHITECTURE.md § The invariants / item 14",140,140,0
-"ARCHITECTURE.md § The invariants / item 2",35,35,0
-"ARCHITECTURE.md § The invariants / item 3",31,31,0
+"ARCHITECTURE.md § The invariants / item 14",138,138,0
+"ARCHITECTURE.md § The invariants / item 2",34,34,0
+"ARCHITECTURE.md § The invariants / item 3",27,27,0
 "ARCHITECTURE.md § The invariants / item 4",37,37,0
 "ARCHITECTURE.md § The invariants / item 5",52,52,0
 "ARCHITECTURE.md § The invariants / item 6",36,36,0
 "ARCHITECTURE.md § The invariants / item 7",15,15,0
 "ARCHITECTURE.md § The invariants / item 8",23,23,0
-"ARCHITECTURE.md § The invariants / item 9",142,142,0
+"ARCHITECTURE.md § The invariants / item 9",140,140,0
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
-"ARCHITECTURE.md § Why it emerged",99,99,0
-"Convolution.jl :: Convolution",637,196,0
-"Convolution.jl :: ProductKernel",234,116,0
-"Convolution.jl :: RadialKernel",674,139,2
-"Convolution.jl :: SeparableKernel",391,99,1
-"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",205,110,0
-"Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",98,93,0
-"Convolution.jl :: _apply_convolution_combination!(destination_data, a_data, b_",59,53,0
-"Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",72,56,0
-"Convolution.jl :: _apply_exponential_convolution!(destination_data, source_dat",90,76,0
-"Convolution.jl :: _apply_separable_combination!(destination_data, a_data, b_da",41,35,0
-"Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",244,113,0
-"Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",61,49,0
-"Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",64,53,0
+"ARCHITECTURE.md § Why it emerged",98,98,0
+"Convolution.jl :: Convolution",607,184,0
+"Convolution.jl :: ProductKernel",229,116,0
+"Convolution.jl :: RadialKernel",645,133,2
+"Convolution.jl :: SeparableKernel",372,93,1
+"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",201,109,0
+"Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",86,81,0
+"Convolution.jl :: _apply_convolution_combination!(destination_data, a_data, b_",47,41,0
+"Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",57,41,0
+"Convolution.jl :: _apply_exponential_convolution!(destination_data, source_dat",76,62,0
+"Convolution.jl :: _apply_separable_combination!(destination_data, a_data, b_da",32,26,0
+"Convolution.jl :: _apply_separable_convolution!(destination_data, source_data,",225,107,0
+"Convolution.jl :: _exponential_combination_modes!(backend, destination, a_data",47,35,0
+"Convolution.jl :: _exponential_convolution_modes!(backend, destination, source",59,48,0
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
-"Convolution.jl :: _show_kernel(io, kernel)",60,46,0
-"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",417,113,0
-"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",727,174,2
+"Convolution.jl :: _show_kernel(io, kernel)",59,45,0
+"Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",367,107,0
+"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",649,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",986,232,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",898,203,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
-"Convolution.jl :: inv(kernel::ProductKernel)",65,33,1
-"Convolution.jl :: inv(kernel::RadialKernel)",62,40,1
-"Convolution.jl :: inv(kernel::SeparableKernel)",120,77,1
+"Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
+"Convolution.jl :: inv(kernel::RadialKernel)",61,39,1
+"Convolution.jl :: inv(kernel::SeparableKernel)",112,75,1
 "Convolution.jl :: inv(kernel::StoredKernel)",77,58,0
-"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",55,54,0
+"Convolution.jl :: materialize_kernel(kernel::ProductKernel)",54,53,0
 "Convolution.jl :: materialize_kernel(kernel::RadialKernel)",68,67,0
-"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",271,178,1
+"Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",269,178,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",15,14,0
-"Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",248,117,0
-"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",223,92,0
-"Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",215,91,0
-"Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",416,96,1
-"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",110,51,0
-"Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",733,210,1
-"Convolution.md § Convolution operations",66,66,0
-"Convolution.md § Internal API",72,72,0
-"Convolution.md § Kernel builders",66,66,0
-"Convolution.md § Kernel storage classes",162,84,0
+"Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",242,115,0
+"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",191,88,0
+"Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",191,85,0
+"Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",390,94,1
+"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",104,51,0
+"Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",674,198,1
+"Convolution.md § Convolution operations",64,64,0
+"Convolution.md § Internal API",68,68,0
+"Convolution.md § Kernel builders",64,64,0
+"Convolution.md § Kernel storage classes",159,83,0
 "DECISIONS.md § (preamble)",22,22,1
-"DECISIONS.md § Decision log — GBGPeriodicFields",112,45,0
+"DECISIONS.md § Decision log — GBGPeriodicFields",110,45,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 1",11,11,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 10",111,111,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 11",165,165,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 10",109,109,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 11",159,159,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 12",113,113,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 13",194,194,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 14",127,127,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 15",100,100,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 16",143,143,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 17",402,402,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 18",798,312,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 19",1091,280,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 13",189,189,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 14",124,124,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 15",98,98,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 16",139,139,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 17",367,367,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 18",711,291,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 19",1010,266,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 2",33,33,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 20",409,198,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 21",556,305,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 22",1453,332,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 23",679,221,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 24",388,388,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 25",506,217,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 26",642,254,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 27",976,538,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 28",1034,269,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 29",633,168,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 3",41,41,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 30",941,220,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 31",414,154,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 32",771,431,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 33",901,289,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 34",383,242,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 35",876,423,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 36",678,324,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 37",662,256,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 38",313,313,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 39",341,341,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 20",390,191,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 21",529,282,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 22",1273,265,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 23",627,187,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 24",364,364,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 25",487,207,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 26",619,245,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 27",896,477,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 28",977,250,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 29",622,163,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 3",40,40,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 30",924,216,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 31",408,152,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 32",738,413,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 33",846,282,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 34",358,232,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 35",836,411,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 36",661,316,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 37",650,252,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 38",308,308,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 39",335,335,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 4",20,20,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 40",419,419,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 41",310,310,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 42",217,217,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 43",607,607,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 44",225,225,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 45",228,228,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 46",457,118,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 47",387,150,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 48",389,161,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 49",456,286,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 40",401,401,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 41",307,307,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 42",184,184,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 43",585,585,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 44",223,223,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 45",226,226,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 46",448,117,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 47",377,145,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 48",382,159,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 49",408,252,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 5",18,18,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 50",817,270,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 51",699,283,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 52",467,148,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 53",294,111,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 54",456,129,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 55",584,148,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 56",783,156,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 57",519,146,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 58",479,150,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 59",515,101,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 50",786,263,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 51",686,276,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 52",444,134,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 53",289,109,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 54",449,127,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 55",573,144,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 56",774,155,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 57",512,144,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 58",472,147,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 59",506,100,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 6",16,16,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 60",361,112,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 61",404,120,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 62",675,166,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 63",834,223,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 64",494,139,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 65",358,212,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 66",488,118,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 67",411,118,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 68",344,127,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 69",697,143,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 60",354,110,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 61",398,118,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 62",652,163,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 63",820,220,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 64",485,136,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 65",350,206,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 66",481,116,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 67",406,117,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 68",340,126,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 69",683,141,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 7",63,63,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 70",482,107,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 71",947,232,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 72",1001,128,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 73",877,877,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 74",624,624,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 75",730,730,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 76",900,207,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 77",315,262,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 78",1466,208,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 79",668,147,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 8",49,49,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 80",1029,197,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 81",453,124,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 82",958,120,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 83",1340,117,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 84",479,88,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 85",909,117,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 86",219,117,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",513,99,0
-"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",1083,108,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 70",474,106,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 71",921,226,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 72",972,121,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 73",841,841,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 74",606,606,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 75",703,703,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 76",889,204,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 77",292,248,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 78",1429,200,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 79",643,143,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 8",48,48,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 80",1011,193,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 81",444,122,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 82",939,118,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 83",1287,112,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 84",471,87,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 85",891,116,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 86",187,93,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 87",499,98,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 88",1068,107,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
-"DifferentialOperators.jl :: DifferentialOperators",361,185,0
-"DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",90,84,0
-"DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",134,64,0
+"DifferentialOperators.jl :: DifferentialOperators",348,174,0
+"DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
+"DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
 "DifferentialOperators.jl :: _apply_spectral_inverse_laplacian!(destination_data, source_",26,22,0
 "DifferentialOperators.jl :: _apply_spectral_laplacian!(destination_data, source_data, sq",37,34,0
-"DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",61,50,0
-"DifferentialOperators.jl :: _helmholtz_projection_modes!(backend, destination_1, destina",83,70,0
+"DifferentialOperators.jl :: _curl_modes!(backend, destination_1, destination_2, destinat",55,44,0
+"DifferentialOperators.jl :: _helmholtz_projection_modes!(backend, destination_1, destina",82,69,0
 "DifferentialOperators.jl :: _inverse_curl_modes!(backend, destination_1, destination_2, ",67,56,0
 "DifferentialOperators.jl :: _optional_kernel_value(kernel_data, mode_1, mode_2, mode_3)",46,42,0
-"DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",52,43,0
-"DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",48,40,0
-"DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",48,41,0
-"DifferentialOperators.jl :: curl!(",305,78,0
-"DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",30,28,0
-"DifferentialOperators.jl :: divergence!(",442,110,0
-"DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",68,63,0
-"DifferentialOperators.jl :: gradient!(",191,52,0
-"DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",43,41,0
-"DifferentialOperators.jl :: helmholtz_projection!(",586,108,1
-"DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",69,64,0
-"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",334,86,1
+"DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",49,40,0
+"DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",42,34,0
+"DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",45,38,0
+"DifferentialOperators.jl :: curl!(",216,72,0
+"DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",29,27,0
+"DifferentialOperators.jl :: divergence!(",359,96,0
+"DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",63,58,0
+"DifferentialOperators.jl :: gradient!(",162,50,0
+"DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",42,40,0
+"DifferentialOperators.jl :: helmholtz_projection!(",487,94,1
+"DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",62,57,0
+"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",294,75,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
-"DifferentialOperators.jl :: inverse_laplacian!(",294,73,1
-"DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",43,41,0
-"DifferentialOperators.jl :: laplacian!(",163,56,0
-"DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",34,32,0
-"DifferentialOperators.jl :: symmetric_gradient!(",211,49,0
-"DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",44,42,0
-"DifferentialOperators.md § Internal API",58,58,0
+"DifferentialOperators.jl :: inverse_laplacian!(",237,65,1
+"DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",42,40,0
+"DifferentialOperators.jl :: laplacian!(",124,56,0
+"DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",33,31,0
+"DifferentialOperators.jl :: symmetric_gradient!(",179,48,0
+"DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",41,39,0
+"DifferentialOperators.md § Internal API",55,55,0
 "FORMALIZATION.md § (preamble)",22,22,1
-"FORMALIZATION.md § Base-space motion: displacement and the canonical representa",518,129,0
-"FORMALIZATION.md § Convolution (`Convolution`)",1582,248,0
-"FORMALIZATION.md § Declarations",591,376,0
-"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",884,114,0
-"FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",435,158,0
-"FORMALIZATION.md § Formalization — GBGPeriodicFields",218,95,1
-"FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",194,70,0
-"FORMALIZATION.md § Moving between grid resolutions (`Fields`, decision 85)",367,112,0
-"FORMALIZATION.md § Reductions (`Reductions`)",1019,155,0
-"FORMALIZATION.md § Representations and transforms (`Fields`)",817,185,0
-"FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",229,139,0
-"FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",505,125,0
+"FORMALIZATION.md § Base-space motion: displacement and the canonical representa",455,100,0
+"FORMALIZATION.md § Convolution (`Convolution`)",1333,236,0
+"FORMALIZATION.md § Declarations",513,326,0
+"FORMALIZATION.md § Differential operators (`DifferentialOperators`)",752,103,0
+"FORMALIZATION.md § Fiberwise algebra (`FieldAlgebra` / `FiberSections`)",387,125,0
+"FORMALIZATION.md § Formalization — GBGPeriodicFields",212,93,1
+"FORMALIZATION.md § Interpolation / anterpolation (`Interpolation`)",145,49,0
+"FORMALIZATION.md § Moving between grid resolutions (`Fields`, decision 85)",350,108,0
+"FORMALIZATION.md § Reductions (`Reductions`)",909,142,0
+"FORMALIZATION.md § Representations and transforms (`Fields`)",726,152,0
+"FORMALIZATION.md § Spectral transfer: `DirectDFT` / `NUFFT` (`Interpolation`)",207,123,0
+"FORMALIZATION.md § Storage families (`Fields`, `Points`, `Convolution`)",482,116,0
 "FiberSections.jl :: @_assign!(destination .= rhs)",54,51,0
-"FiberSections.jl :: AbstractFiberSection{T, R}",89,58,0
-"FiberSections.jl :: FiberSections",290,184,0
+"FiberSections.jl :: AbstractFiberSection{T, R}",91,58,0
+"FiberSections.jl :: FiberSections",282,173,0
 "FiberSections.jl :: FiberTensor2{T}",23,13,0
 "FiberSections.jl :: FiberTensor3{T}",25,15,0
 "FiberSections.jl :: FiberTensor4{T}",26,16,0
 "FiberSections.jl :: FiberVector{T}",21,11,0
-"FiberSections.jl :: _MapValues(φ, orders, stride)",170,104,0
+"FiberSections.jl :: _MapValues(φ, orders, stride)",161,101,0
 "FiberSections.jl :: _SERIAL_CUTOFF",41,40,0
 "FiberSections.jl :: _THREADING_OVERRIDE",31,30,0
-"FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",32,27,0
+"FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",30,25,0
 "FiberSections.jl :: _assemble_fiber(::Val{R}, scalars, offset)",53,50,0
 "FiberSections.jl :: _assign!(destination, broadcasted)",56,54,0
-"FiberSections.jl :: _assign!(destination, source)",35,33,0
+"FiberSections.jl :: _assign!(destination, source)",33,31,0
 "FiberSections.jl :: _assign_slabs!(destination, instantiated, axis::Val)",44,41,0
-"FiberSections.jl :: _assign_threaded!(destination, broadcasted)",164,162,0
-"FiberSections.jl :: _broadcast_sliceable(argument)",56,55,0
-"FiberSections.jl :: _call_values(f, arrays, n, constants)",56,52,0
-"FiberSections.jl :: _check_owned_storage(data, what::AbstractString)",244,89,0
-"FiberSections.jl :: _cross_formula(left_symbol, left_kind, right_symbol, right_k",31,27,0
-"FiberSections.jl :: _det_tensor_rhs(symbol, kind)",92,36,0
-"FiberSections.jl :: _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)",25,21,0
-"FiberSections.jl :: _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)",34,30,0
-"FiberSections.jl :: _element_values(arrays, n)",154,107,0
+"FiberSections.jl :: _assign_threaded!(destination, broadcasted)",162,160,0
+"FiberSections.jl :: _broadcast_sliceable(argument)",55,54,0
+"FiberSections.jl :: _call_values(f, arrays, n, constants)",55,51,0
+"FiberSections.jl :: _check_owned_storage(data, what::AbstractString)",241,86,0
+"FiberSections.jl :: _cross_formula(left_symbol, left_kind, right_symbol, right_k",27,23,0
+"FiberSections.jl :: _det_tensor_rhs(symbol, kind)",65,31,0
+"FiberSections.jl :: _dot_tensor_rhs(A_symbol, A_kind, B_symbol, B_kind)",23,19,0
+"FiberSections.jl :: _dot_vector_rhs(u_symbol, u_kind, v_symbol, v_kind)",32,28,0
+"FiberSections.jl :: _element_values(arrays, n)",155,108,0
 "FiberSections.jl :: _fiber_component_count(::Val{R})",16,15,0
 "FiberSections.jl :: _fiber_order(fiber_type)",35,34,0
 "FiberSections.jl :: _fiber_type(::Type{T}, ::Val{R})",30,28,0
-"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",167,160,0
-"FiberSections.jl :: _fiberwise_slab!(f, targets, arrays, constants, α, β, elemen",38,31,0
+"FiberSections.jl :: _fiberwise_pass!(backend, f, targets, arrays, constants, α, ",162,155,0
+"FiberSections.jl :: _fiberwise_slab!(f, targets, arrays, constants, α, β, elemen",36,29,0
 "FiberSections.jl :: _flatten_fiber(value)",22,21,0
-"FiberSections.jl :: _foreach_outer_slab(slab_body!, outer_axis, element_count)",60,57,0
+"FiberSections.jl :: _foreach_outer_slab(slab_body!, outer_axis, element_count)",58,55,0
 "FiberSections.jl :: _index_ranges(axis::AbstractUnitRange, n::Integer)",14,12,0
 "FiberSections.jl :: _nary_assign!(reducer, destination, operands, duplicate)",96,92,0
 "FiberSections.jl :: _norm_scalar_rhs(symbol)",10,9,0
-"FiberSections.jl :: _norm_tensor_rhs(symbol, kind)",12,10,0
-"FiberSections.jl :: _norm_vector_rhs(symbol, kind)",12,10,0
+"FiberSections.jl :: _norm_tensor_rhs(symbol, kind)",11,9,0
+"FiberSections.jl :: _norm_vector_rhs(symbol, kind)",11,9,0
 "FiberSections.jl :: _product(x, y)",10,8,0
 "FiberSections.jl :: _scalar_kernel_body(rhs)",23,22,0
-"FiberSections.jl :: _section_order(section)",24,23,0
-"FiberSections.jl :: _section_scalar_type(section::AbstractFiberSection)",51,50,0
+"FiberSections.jl :: _section_order(section)",23,22,0
+"FiberSections.jl :: _section_scalar_type(section::AbstractFiberSection)",54,53,0
 "FiberSections.jl :: _section_tensor_order(section)",31,30,0
 "FiberSections.jl :: _slab_axis(dimensions)",50,49,0
 "FiberSections.jl :: _slice_broadcast_argument(argument, axis::Val, slab)",115,112,0
 "FiberSections.jl :: _sum_terms(terms)",16,15,0
 "FiberSections.jl :: _tensor_component(symbol, kind, i, j)",56,52,0
-"FiberSections.jl :: _tensor_kernel_body(formula; alpha_beta::Bool)",36,34,0
-"FiberSections.jl :: _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)",32,28,0
-"FiberSections.jl :: _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)",31,27,0
-"FiberSections.jl :: _to_broadcasted(expr)",60,59,0
-"FiberSections.jl :: _trace_tensor_rhs(symbol, kind)",63,61,0
+"FiberSections.jl :: _tensor_kernel_body(formula; alpha_beta::Bool)",31,29,0
+"FiberSections.jl :: _tensor_tensor_formula(A_symbol, A_kind, B_symbol, B_kind)",31,27,0
+"FiberSections.jl :: _tensor_vector_formula(A_symbol, A_kind, u_symbol, u_kind)",30,26,0
+"FiberSections.jl :: _to_broadcasted(expr)",58,57,0
+"FiberSections.jl :: _trace_tensor_rhs(symbol, kind)",55,53,0
 "FiberSections.jl :: _transpose_formula(A_symbol, A_kind)",23,21,0
 "FiberSections.jl :: _tuple_map(f, operands)",74,72,0
-"FiberSections.jl :: _undot(expr)",58,57,0
+"FiberSections.jl :: _undot(expr)",56,55,0
 "FiberSections.jl :: _use_threads(element_count)",38,37,0
 "FiberSections.jl :: _vector_component(symbol, kind, i)",70,67,0
-"FiberSections.jl :: _vector_kernel_body(formula; alpha_beta::Bool)",82,80,0
-"FiberSections.jl :: _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)",31,27,0
-"FiberSections.jl :: _write_values!(targets, values, α, n)",41,37,0
-"FiberSections.jl :: fiber_shape(::Val{R}) where {R}",45,33,0
+"FiberSections.jl :: _vector_kernel_body(formula; alpha_beta::Bool)",78,76,0
+"FiberSections.jl :: _vector_tensor_formula(u_symbol, u_kind, A_symbol, A_kind)",30,26,0
+"FiberSections.jl :: _write_values!(targets, values, α, n)",39,35,0
+"FiberSections.jl :: fiber_shape(::Val{R}) where {R}",39,27,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
-"FiberSections.jl :: threading_cutoff()",140,139,0
-"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",287,135,1
-"FiberSections.md § Internal API",51,51,0
-"FieldAlgebra.jl :: *(a, b)",83,81,0
-"FieldAlgebra.jl :: +(a, b, fields...)",43,40,0
+"FiberSections.jl :: threading_cutoff()",139,138,0
+"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",286,137,1
+"FiberSections.md § Internal API",50,50,0
+"FieldAlgebra.jl :: *(a, b)",81,79,0
+"FieldAlgebra.jl :: +(a, b, fields...)",41,38,0
 "FieldAlgebra.jl :: -(a, b)",29,27,0
-"FieldAlgebra.jl :: /(a, b)",37,35,0
-"FieldAlgebra.jl :: FieldAlgebra",896,281,2
+"FieldAlgebra.jl :: /(a, b)",35,33,0
+"FieldAlgebra.jl :: FieldAlgebra",873,272,2
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
-"FieldAlgebra.jl :: add!(destination, a, b, fields...)",162,63,0
-"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",494,98,1
-"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",205,57,0
-"FieldAlgebra.jl :: cross(u::VectorFieldPhysical, v::VectorFieldPhysical)",53,51,0
-"FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",124,66,0
-"FieldAlgebra.jl :: det(A::TensorFieldPhysical{2})",41,40,0
-"FieldAlgebra.jl :: dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",72,33,0
+"FieldAlgebra.jl :: add!(destination, a, b, fields...)",156,57,0
+"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",430,92,1
+"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",153,58,0
+"FieldAlgebra.jl :: cross(u::VectorFieldPhysical, v::VectorFieldPhysical)",51,49,0
+"FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",117,66,0
+"FieldAlgebra.jl :: det(A::TensorFieldPhysical{2})",39,38,0
+"FieldAlgebra.jl :: dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",64,33,0
 "FieldAlgebra.jl :: dev(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",172,91,0
-"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",196,53,0
+"FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",177,92,0
+"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",177,54,0
 "FieldAlgebra.jl :: dot(u::VectorFieldPhysical, v::VectorFieldPhysical)",69,65,0
-"FieldAlgebra.jl :: map!(φ, destination, sources...)",495,151,2
+"FieldAlgebra.jl :: map!(φ, destination, sources...)",485,146,2
 "FieldAlgebra.jl :: map(φ, sources...)",59,57,0
-"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",333,161,0
-"FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",228,100,0
-"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, scalar_field::Scalar",117,31,0
-"FieldAlgebra.jl :: norm(scalar_field::ScalarFieldPhysical)",35,32,0
-"FieldAlgebra.jl :: skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhy",65,32,0
+"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",287,141,0
+"FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",221,101,0
+"FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, operand::ScalarField",104,32,0
+"FieldAlgebra.jl :: norm(scalar_field::ScalarFieldPhysical)",34,31,0
+"FieldAlgebra.jl :: skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhy",58,32,0
 "FieldAlgebra.jl :: skew(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: subtract!(destination, a, b, fields...)",130,46,0
-"FieldAlgebra.jl :: sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",65,32,0
+"FieldAlgebra.jl :: subtract!(destination, a, b, fields...)",122,45,0
+"FieldAlgebra.jl :: sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",58,32,0
 "FieldAlgebra.jl :: sym(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical",84,34,0
-"FieldAlgebra.jl :: tr(A::TensorFieldPhysical{2})",44,42,0
-"FieldAlgebra.jl :: transpose!(destination::TensorFieldPhysical{2}, A::TensorFie",84,31,0
+"FieldAlgebra.jl :: tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical",73,34,0
+"FieldAlgebra.jl :: tr(A::TensorFieldPhysical{2})",42,40,0
+"FieldAlgebra.jl :: transpose!(destination::TensorFieldPhysical{2}, A::TensorFie",79,31,0
 "FieldAlgebra.jl :: transpose(A)",27,26,0
 "FieldAlgebra.md § Arbitrary fiber map",14,14,0
-"FieldAlgebra.md § Contraction and product operations",30,30,0
-"FieldAlgebra.md § Internal API",100,51,0
-"Fields.jl :: AbstractField",63,51,0
-"Fields.jl :: AbstractFieldPhysical{T, R}",131,69,1
-"Fields.jl :: AbstractFieldSpectral{T, R}",132,69,1
-"Fields.jl :: FieldPhysicalBroadcastStyle{N}",42,41,0
-"Fields.jl :: FieldSpectralBroadcastStyle{N}",40,39,0
-"Fields.jl :: FieldSpectralMultipliers(",609,147,0
-"Fields.jl :: FieldTransformPlans(",480,171,1
-"Fields.jl :: Fields",506,455,0
-"Fields.jl :: Grid3D(",174,74,0
-"Fields.jl :: RealFourierLayout()",76,33,0
-"Fields.jl :: ScalarFieldPhysical(",338,118,0
-"Fields.jl :: ScalarFieldSpectral(",277,123,0
-"Fields.jl :: SpectralKernel{T}",215,115,0
-"Fields.jl :: TensorFieldPhysical{R}(",413,118,0
-"Fields.jl :: TensorFieldSpectral{R}(",329,123,0
-"Fields.jl :: VectorFieldPhysical(",355,118,0
-"Fields.jl :: VectorFieldSpectral(",286,123,0
-"Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",52,49,0
-"Fields.jl :: _approx(x)",63,53,0
+"FieldAlgebra.md § Contraction and product operations",28,28,0
+"FieldAlgebra.md § Internal API",98,50,0
+"Fields.jl :: AbstractField",62,50,0
+"Fields.jl :: AbstractFieldPhysical{T, R}",129,67,1
+"Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
+"Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
+"Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
+"Fields.jl :: FieldSpectralMultipliers(",584,138,0
+"Fields.jl :: FieldTransformPlans(",453,168,1
+"Fields.jl :: Fields",494,443,0
+"Fields.jl :: Grid3D(",165,66,0
+"Fields.jl :: RealFourierLayout()",74,33,0
+"Fields.jl :: ScalarFieldPhysical(",320,115,0
+"Fields.jl :: ScalarFieldSpectral(",267,120,0
+"Fields.jl :: SpectralKernel{T}",206,106,0
+"Fields.jl :: TensorFieldPhysical{R}(",391,115,0
+"Fields.jl :: TensorFieldSpectral{R}(",313,120,0
+"Fields.jl :: VectorFieldPhysical(",333,115,0
+"Fields.jl :: VectorFieldSpectral(",272,120,0
+"Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",51,48,0
+"Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
-"Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",66,63,0
-"Fields.jl :: _check_adapt_target(destination, source)",73,36,0
+"Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",65,62,0
+"Fields.jl :: _check_adapt_target(destination, source)",71,35,0
 "Fields.jl :: _check_broadcast_field_compatibility(destination, argument)",37,35,0
-"Fields.jl :: _check_family_element_type(family, grid)",67,65,0
+"Fields.jl :: _check_family_element_type(family, grid)",65,63,0
 "Fields.jl :: _check_field_compatibility(a::AbstractFieldPhysical, b::Abst",38,19,0
 "Fields.jl :: _check_field_domain_compatibility(a::AbstractFieldPhysical,",47,26,0
 "Fields.jl :: _check_field_matches_context(field::AbstractField, context)",36,20,0
@@ -345,267 +345,267 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _check_matching_context(a, b)",54,52,0
 "Fields.jl :: _check_multipliers_compatibility(field::AbstractFieldSpectra",22,20,0
 "Fields.jl :: _check_same_domain(a, b)",53,51,0
-"Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",154,63,0
-"Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",157,102,0
-"Fields.jl :: _component_view(data, ::Val{R}, component::Int)",151,108,0
-"Fields.jl :: _context_grid(object)",72,71,0
+"Fields.jl :: _check_shared_mode_compatibility(coarse, fine)",153,62,0
+"Fields.jl :: _component_offsets_align(grid, layout, ::Type{T}) -> (host_a",153,100,0
+"Fields.jl :: _component_view(data, ::Val{R}, component::Int)",150,107,0
+"Fields.jl :: _context_grid(object)",70,69,0
 "Fields.jl :: _context_layout(object)",10,9,0
-"Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",81,56,0
-"Fields.jl :: _first_field(x)",44,43,0
+"Fields.jl :: _field_physical_of_order(data, grid, layout, ::Val{R})",79,54,0
+"Fields.jl :: _first_field(x)",42,41,0
 "Fields.jl :: _init_fft_threads()",36,35,0
 "Fields.jl :: _is_canonical(multipliers::FieldSpectralMultipliers)",90,74,0
-"Fields.jl :: _kernel_data(kernel)",41,40,0
-"Fields.jl :: _project_pair!(data, ix, iy)",108,105,0
+"Fields.jl :: _kernel_data(kernel)",40,39,0
+"Fields.jl :: _project_pair!(data, ix, iy)",104,101,0
 "Fields.jl :: _reality_projection_planes!(backend, data, ::Val{D}, planes,",95,87,0
-"Fields.jl :: _refuse_field_as_fiber_map(φ)",173,96,0
+"Fields.jl :: _refuse_field_as_fiber_map(φ)",169,94,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
 "Fields.jl :: _shared_mode_axis(coarse_size, fine_size, is_folded)",34,31,0
 "Fields.jl :: _shared_mode_index(stored_index, axis)",76,45,0
 "Fields.jl :: _shared_mode_pair(work_item, axes, coarse_strides, fine_stri",58,31,0
 "Fields.jl :: _shared_modes!(destination, source, ::Val{ToFine}, α, β)",50,45,0
 "Fields.jl :: _shared_modes_pass!(backend, destination, source, ::Val{ToFi",68,56,0
-"Fields.jl :: _show_domain(io, grid)",179,70,0
+"Fields.jl :: _show_domain(io, grid)",177,70,0
 "Fields.jl :: _show_extent(io, sizes)",34,32,0
-"Fields.jl :: _show_field_head(io, field)",91,80,0
+"Fields.jl :: _show_field_head(io, field)",90,79,0
 "Fields.jl :: _similar_field_physical(reference::AbstractFieldSpectral, da",20,18,0
 "Fields.jl :: _similar_field_spectral(reference::AbstractFieldPhysical, da",20,18,0
 "Fields.jl :: _spectral_constant_scale(field::AbstractFieldSpectral)",38,37,0
 "Fields.jl :: _spectral_zero_mode_component_data(field::VectorFieldSpectra",27,22,0
 "Fields.jl :: _spectral_zero_mode_data(field::ScalarFieldSpectral)",25,24,0
-"Fields.jl :: _squared_wavenumber_broadcast(multipliers::FieldSpectralMult",140,73,0
+"Fields.jl :: _squared_wavenumber_broadcast(multipliers::FieldSpectralMult",126,67,0
 "Fields.jl :: _storage_prototype(to, ::Type{S})",73,53,0
 "Fields.jl :: _tensor2_component_data(",53,30,0
-"Fields.jl :: _unwrap_broadcast_argument(x)",38,37,0
+"Fields.jl :: _unwrap_broadcast_argument(x)",36,35,0
 "Fields.jl :: _validate_fft_dims(d::NTuple{3, Int})",19,17,0
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
 "Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
-"Fields.jl :: adapt!(destination, source)",302,134,0
-"Fields.jl :: adapt(storage, object)",514,144,2
-"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",368,82,1
-"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",244,59,1
+"Fields.jl :: adapt!(destination, source)",297,132,0
+"Fields.jl :: adapt(storage, object)",509,140,2
+"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",356,80,1
+"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",236,54,1
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
 "Fields.jl :: field_physical_shape(grid::Grid3D, ::Val{R}) where {R}",21,17,0
 "Fields.jl :: field_scalar_type(",24,10,0
-"Fields.jl :: field_spectral_shape(",63,43,0
+"Fields.jl :: field_spectral_shape(",57,37,0
 "Fields.jl :: field_tensor_order(",22,8,0
-"Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",123,55,0
-"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",373,90,0
-"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",426,102,1
+"Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",122,54,0
+"Fields.jl :: reality_projection!(destination::AbstractFieldSpectral,",337,87,0
+"Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",405,99,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
-"Fields.jl :: similar_field(reference::AbstractField, data)",206,116,1
-"Fields.jl :: to_physical!(",321,106,1
-"Fields.jl :: to_physical(",116,85,0
-"Fields.jl :: to_spectral!(",167,54,1
-"Fields.jl :: to_spectral(",92,61,0
-"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",256,89,0
-"Fields.md § Internal API",33,33,0
-"Fields.md § Moving between grid resolutions",112,112,0
-"Fields.md § Moving between storage families",111,111,0
-"Fields.md § Spectral kernel protocol",32,32,0
-"GBGPeriodicFields.jl :: GBGPeriodicFields",898,408,1
-"GBGPeriodicFields.md § Re-exported modules",26,16,0
+"Fields.jl :: similar_field(reference::AbstractField, data)",201,113,1
+"Fields.jl :: to_physical!(",307,97,1
+"Fields.jl :: to_physical(",114,83,0
+"Fields.jl :: to_spectral!(",160,53,1
+"Fields.jl :: to_spectral(",90,59,0
+"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",245,87,0
+"Fields.md § Internal API",32,32,0
+"Fields.md § Moving between grid resolutions",111,111,0
+"Fields.md § Moving between storage families",110,110,0
+"Fields.md § Spectral kernel protocol",31,31,0
+"GBGPeriodicFields.jl :: GBGPeriodicFields",854,394,1
+"GBGPeriodicFields.md § Re-exported modules",18,10,0
 "Interpolation.jl :: (field::AbstractFieldPhysical)(x; scheme = CatmullRom)",69,65,0
-"Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",266,123,0
-"Interpolation.jl :: AbstractTransferScheme",276,104,0
-"Interpolation.jl :: CatmullRom",27,26,0
-"Interpolation.jl :: DirectDFT()",464,174,1
-"Interpolation.jl :: Interpolation",858,242,0
-"Interpolation.jl :: LagrangeSpline(n; T = Float64)",273,173,0
-"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",448,199,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",667,216,1
-"Interpolation.jl :: PointTraversalOrder(indices)",222,58,1
-"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",305,90,1
-"Interpolation.jl :: _axis_weights(coefficients, t)",47,45,0
-"Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",84,61,0
+"Interpolation.jl :: AbstractSplineScheme{N2, M2, T, L}",238,113,0
+"Interpolation.jl :: AbstractTransferScheme",272,102,0
+"Interpolation.jl :: CatmullRom",22,21,0
+"Interpolation.jl :: DirectDFT()",403,164,1
+"Interpolation.jl :: Interpolation",818,238,0
+"Interpolation.jl :: LagrangeSpline(n; T = Float64)",261,165,0
+"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",403,172,0
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",631,202,1
+"Interpolation.jl :: PointTraversalOrder(indices)",220,58,1
+"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",284,84,1
+"Interpolation.jl :: _axis_weights(coefficients, t)",43,41,0
+"Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",83,60,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
-"Interpolation.jl :: _fornberg(evaluation_point, nodes, max_order)",57,37,0
-"Interpolation.jl :: _hermite_weight_matrix(n, m)",89,87,0
-"Interpolation.jl :: _lagrange_weight_matrix(n)",59,58,0
-"Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",45,41,0
-"Interpolation.jl :: _scan_offsets!(offsets, counts)",98,84,0
-"Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",174,87,0
-"Interpolation.jl :: _show_spline_eltype(io, scheme)",85,61,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",423,225,0
-"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",77,63,0
-"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",316,209,0
-"Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",37,26,0
-"Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",650,127,0
-"Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",110,43,1
+"Interpolation.jl :: _fornberg(evaluation_point, nodes, max_order)",53,33,0
+"Interpolation.jl :: _hermite_weight_matrix(n, m)",77,75,0
+"Interpolation.jl :: _lagrange_weight_matrix(n)",55,54,0
+"Interpolation.jl :: _locate(coordinate, origin, spacing, number_of_grid_points)",42,38,0
+"Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
+"Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
+"Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
+"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",401,206,0
+"Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",83,63,0
+"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",310,197,0
+"Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",43,26,0
+"Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",630,119,0
+"Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",105,43,1
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",388,117,1
-"Interpolation.md § Internal API",42,42,0
+"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",376,115,1
+"Interpolation.md § Internal API",41,41,0
 "Interpolation.md § Traversal order",31,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
-"PERFORMANCE.md § 1. Philosophy",829,521,0
-"PERFORMANCE.md § 2. The performance model",845,415,0
-"PERFORMANCE.md § 3. Best practices",384,125,0
+"PERFORMANCE.md § 1. Philosophy",812,510,0
+"PERFORMANCE.md § 2. The performance model",817,402,0
+"PERFORMANCE.md § 3. Best practices",367,120,0
 "PERFORMANCE.md § 4. What we have found",86,86,0
-"PERFORMANCE.md § 4. What we have found / finding (a)",105,59,0
-"PERFORMANCE.md § 4. What we have found / finding (aa)",346,123,0
-"PERFORMANCE.md § 4. What we have found / finding (ab)",537,95,0
-"PERFORMANCE.md § 4. What we have found / finding (ac)",326,96,0
-"PERFORMANCE.md § 4. What we have found / finding (ad)",1773,364,0
-"PERFORMANCE.md § 4. What we have found / finding (ae)",369,107,0
-"PERFORMANCE.md § 4. What we have found / finding (af)",105,105,0
-"PERFORMANCE.md § 4. What we have found / finding (ag)",381,162,0
-"PERFORMANCE.md § 4. What we have found / finding (ah)",125,125,0
-"PERFORMANCE.md § 4. What we have found / finding (ai)",349,111,0
-"PERFORMANCE.md § 4. What we have found / finding (aj)",1519,102,0
-"PERFORMANCE.md § 4. What we have found / finding (ak)",1026,92,0
-"PERFORMANCE.md § 4. What we have found / finding (al)",881,93,0
-"PERFORMANCE.md § 4. What we have found / finding (am)",822,99,0
-"PERFORMANCE.md § 4. What we have found / finding (ap)",386,103,0
-"PERFORMANCE.md § 4. What we have found / finding (aq)",487,110,0
-"PERFORMANCE.md § 4. What we have found / finding (ar)",243,115,0
-"PERFORMANCE.md § 4. What we have found / finding (as)",331,103,0
-"PERFORMANCE.md § 4. What we have found / finding (at)",562,95,0
-"PERFORMANCE.md § 4. What we have found / finding (au)",505,104,0
-"PERFORMANCE.md § 4. What we have found / finding (b)",211,150,0
-"PERFORMANCE.md § 4. What we have found / finding (c)",979,669,0
+"PERFORMANCE.md § 4. What we have found / finding (a)",104,59,0
+"PERFORMANCE.md § 4. What we have found / finding (aa)",337,118,0
+"PERFORMANCE.md § 4. What we have found / finding (ab)",526,95,0
+"PERFORMANCE.md § 4. What we have found / finding (ac)",317,92,0
+"PERFORMANCE.md § 4. What we have found / finding (ad)",1726,349,0
+"PERFORMANCE.md § 4. What we have found / finding (ae)",362,105,0
+"PERFORMANCE.md § 4. What we have found / finding (af)",103,103,0
+"PERFORMANCE.md § 4. What we have found / finding (ag)",373,160,0
+"PERFORMANCE.md § 4. What we have found / finding (ah)",119,119,0
+"PERFORMANCE.md § 4. What we have found / finding (ai)",343,109,0
+"PERFORMANCE.md § 4. What we have found / finding (aj)",1498,99,0
+"PERFORMANCE.md § 4. What we have found / finding (ak)",1011,92,0
+"PERFORMANCE.md § 4. What we have found / finding (al)",870,92,0
+"PERFORMANCE.md § 4. What we have found / finding (am)",810,96,0
+"PERFORMANCE.md § 4. What we have found / finding (ap)",381,102,0
+"PERFORMANCE.md § 4. What we have found / finding (aq)",483,109,0
+"PERFORMANCE.md § 4. What we have found / finding (ar)",240,114,0
+"PERFORMANCE.md § 4. What we have found / finding (as)",330,103,0
+"PERFORMANCE.md § 4. What we have found / finding (at)",557,94,0
+"PERFORMANCE.md § 4. What we have found / finding (au)",503,104,0
+"PERFORMANCE.md § 4. What we have found / finding (b)",206,148,0
+"PERFORMANCE.md § 4. What we have found / finding (c)",938,649,0
 "PERFORMANCE.md § 4. What we have found / finding (d)",46,46,0
 "PERFORMANCE.md § 4. What we have found / finding (e)",50,50,0
-"PERFORMANCE.md § 4. What we have found / finding (f)",255,255,0
-"PERFORMANCE.md § 4. What we have found / finding (g)",295,295,0
-"PERFORMANCE.md § 4. What we have found / finding (h)",741,312,0
-"PERFORMANCE.md § 4. What we have found / finding (i)",512,130,0
-"PERFORMANCE.md § 4. What we have found / finding (j)",269,153,0
-"PERFORMANCE.md § 4. What we have found / finding (k)",437,269,0
-"PERFORMANCE.md § 4. What we have found / finding (l)",433,433,0
-"PERFORMANCE.md § 4. What we have found / finding (m)",231,231,0
-"PERFORMANCE.md § 4. What we have found / finding (n)",419,419,0
-"PERFORMANCE.md § 4. What we have found / finding (o)",992,224,0
-"PERFORMANCE.md § 4. What we have found / finding (p)",1299,242,0
-"PERFORMANCE.md § 4. What we have found / finding (q)",1525,164,0
-"PERFORMANCE.md § 4. What we have found / finding (r)",944,99,0
-"PERFORMANCE.md § 4. What we have found / finding (s)",1709,200,0
-"PERFORMANCE.md § 4. What we have found / finding (t)",352,119,0
-"PERFORMANCE.md § 4. What we have found / finding (u)",316,79,0
-"PERFORMANCE.md § 4. What we have found / finding (v)",1151,651,0
-"PERFORMANCE.md § 4. What we have found / finding (w)",509,144,0
-"PERFORMANCE.md § 4. What we have found / finding (x)",782,176,0
-"PERFORMANCE.md § 4. What we have found / finding (y)",924,167,0
-"PERFORMANCE.md § 4. What we have found / finding (z)",512,279,0
-"PERFORMANCE.md § 5. The benchmark suite",1347,661,0
-"PERFORMANCE.md § 6. Tracking regressions, and per-platform results",955,390,0
-"PERFORMANCE.md § 7. Current coverage and known gaps",334,333,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / finding (an)",344,142,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / finding (ao)",312,100,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 1",113,113,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 2",113,113,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 3",286,286,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 4",160,160,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 5",169,169,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 6",729,512,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 7",162,162,0
-"PERFORMANCE.md § 7. Current coverage and known gaps / item 8",224,224,0
+"PERFORMANCE.md § 4. What we have found / finding (f)",247,247,0
+"PERFORMANCE.md § 4. What we have found / finding (g)",282,282,0
+"PERFORMANCE.md § 4. What we have found / finding (h)",726,305,0
+"PERFORMANCE.md § 4. What we have found / finding (i)",504,129,0
+"PERFORMANCE.md § 4. What we have found / finding (j)",259,145,0
+"PERFORMANCE.md § 4. What we have found / finding (k)",423,263,0
+"PERFORMANCE.md § 4. What we have found / finding (l)",424,424,0
+"PERFORMANCE.md § 4. What we have found / finding (m)",202,202,0
+"PERFORMANCE.md § 4. What we have found / finding (n)",410,410,0
+"PERFORMANCE.md § 4. What we have found / finding (o)",964,217,0
+"PERFORMANCE.md § 4. What we have found / finding (p)",1274,231,0
+"PERFORMANCE.md § 4. What we have found / finding (q)",1502,161,0
+"PERFORMANCE.md § 4. What we have found / finding (r)",905,98,0
+"PERFORMANCE.md § 4. What we have found / finding (s)",1683,195,0
+"PERFORMANCE.md § 4. What we have found / finding (t)",343,116,0
+"PERFORMANCE.md § 4. What we have found / finding (u)",309,78,0
+"PERFORMANCE.md § 4. What we have found / finding (v)",1122,630,0
+"PERFORMANCE.md § 4. What we have found / finding (w)",500,142,0
+"PERFORMANCE.md § 4. What we have found / finding (x)",763,169,0
+"PERFORMANCE.md § 4. What we have found / finding (y)",899,163,0
+"PERFORMANCE.md § 4. What we have found / finding (z)",486,260,0
+"PERFORMANCE.md § 5. The benchmark suite",1320,641,0
+"PERFORMANCE.md § 6. Tracking regressions, and per-platform results",939,383,0
+"PERFORMANCE.md § 7. Current coverage and known gaps",328,327,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / finding (an)",335,139,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / finding (ao)",306,95,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 1",110,110,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 2",111,111,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 3",277,277,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 4",159,159,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 5",166,166,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 6",715,500,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 7",159,159,0
+"PERFORMANCE.md § 7. Current coverage and known gaps / item 8",217,217,0
 "PERFORMANCE.md § 7. Current coverage and known gaps / item 9",217,89,0
-"PERFORMANCE.md § Performance — GBGPeriodicFields",75,75,0
-"Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",142,74,1
-"Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",96,62,0
-"Points.jl :: PointValuesBroadcastStyle{N}",72,71,0
-"Points.jl :: Points",358,169,0
+"PERFORMANCE.md § Performance — GBGPeriodicFields",74,74,0
+"Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",139,74,1
+"Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",92,62,0
+"Points.jl :: PointValuesBroadcastStyle{N}",71,70,0
+"Points.jl :: Points",355,167,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
-"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",45,30,0
-"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",77,36,0
-"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",46,25,0
-"Points.jl :: _axis_terms(axis, terms...)",41,39,0
-"Points.jl :: _check_broadcast_point_values_compatibility(destination, arg",39,37,0
-"Points.jl :: _check_combinable(values...)",127,105,0
+"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",42,29,0
+"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",70,33,0
+"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",43,23,0
+"Points.jl :: _axis_terms(axis, terms...)",40,38,0
+"Points.jl :: _check_broadcast_point_values_compatibility(destination, arg",37,35,0
+"Points.jl :: _check_combinable(values...)",125,103,0
 "Points.jl :: _check_displacement_compatibility(destination, source, secti",68,65,0
 "Points.jl :: _check_displacement_domain(points, grid)",39,37,0
 "Points.jl :: _check_npoints_match(a, b)",50,48,0
 "Points.jl :: _convert_terms(::Type{T}, terms...)",48,46,0
-"Points.jl :: _displacement_rhs(base, terms...)",111,109,0
-"Points.jl :: _first_point_values(x)",34,33,0
+"Points.jl :: _displacement_rhs(base, terms...)",104,102,0
+"Points.jl :: _first_point_values(x)",32,31,0
 "Points.jl :: _point_value_shape(number_of_points, ::Val{R}) where {R}",24,20,0
-"Points.jl :: _show_count(io, n)",41,24,0
+"Points.jl :: _show_count(io, n)",40,24,0
 "Points.jl :: _unwrap_point_values_argument(x)",32,31,0
-"Points.jl :: _wrap_coordinate(coordinate, extent, origin)",90,87,0
-"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",550,179,0
+"Points.jl :: _wrap_coordinate(coordinate, extent, origin)",87,84,0
+"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",523,175,0
 "Points.jl :: npoints(point_set::PointSet)",26,24,0
 "Points.jl :: point_positions(point_set::PointSet)",12,11,0
 "Points.jl :: point_value_tensor_order(sampled_values::AbstractPointValues",12,7,0
-"Points.jl :: point_values(sampled_values::AbstractPointValues)",32,31,0
+"Points.jl :: point_values(sampled_values::AbstractPointValues)",31,30,0
 "Points.jl :: read_points(parent::HDF5.H5DataStore, name::AbstractString)",126,59,0
-"Points.jl :: similar_point_values(reference::AbstractPointValues, data)",113,58,1
-"Points.jl :: wrap!(points::PointSet, grid::Grid3D)",274,122,1
-"Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",274,66,0
+"Points.jl :: similar_point_values(reference::AbstractPointValues, data)",114,58,1
+"Points.jl :: wrap!(points::PointSet, grid::Grid3D)",257,116,1
+"Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",264,65,0
 "Points.md § Base-space motion",20,20,0
-"Points.md § Internal API",79,79,0
+"Points.md § Internal API",75,75,0
 "Points.md § Point-value algebra",114,76,0
-"Reductions.jl :: Reductions",615,343,1
-"Reductions.jl :: _FiberGather{V}(fiber_map)",95,80,0
+"Reductions.jl :: Reductions",599,327,1
+"Reductions.jl :: _FiberGather{V}(fiber_map)",92,79,0
 "Reductions.jl :: _fiber_at(components, index, ::Val{NC})",36,33,0
-"Reductions.jl :: _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{",94,50,0
-"Reductions.jl :: _fiber_mapreduce(fiber_map, combine, section)",244,79,0
-"Reductions.jl :: _fiber_tree_reduce(fiber_map, combine, components, V, ::Val{",73,65,0
+"Reductions.jl :: _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{",93,49,0
+"Reductions.jl :: _fiber_mapreduce(fiber_map, combine, section)",239,77,0
+"Reductions.jl :: _fiber_tree_reduce(fiber_map, combine, components, V, ::Val{",72,64,0
 "Reductions.jl :: _fiberwise(section, whole_reduce, over_base_reduce)",76,73,0
-"Reductions.jl :: _indexed_leaf_reduce(element, combine, lo, hi)",44,40,0
-"Reductions.jl :: _indexed_tree_reduce(element, combine, lo, hi)",41,37,0
+"Reductions.jl :: _indexed_leaf_reduce(element, combine, lo, hi)",43,39,0
+"Reductions.jl :: _indexed_tree_reduce(element, combine, lo, hi)",40,36,0
 "Reductions.jl :: _reduce_fiber(backend, fiber_map, combine, components, V, ::",73,67,0
 "Reductions.jl :: _spawn_depth()",36,35,0
-"Reductions.jl :: _tree_dims_reduce(scalar_reduce, data, base_count)",43,40,0
-"Reductions.jl :: _tree_sum(data)",35,34,0
-"Reductions.jl :: _tree_var(data; corrected)",22,20,0
-"Reductions.jl :: cov(u; corrected = true)",239,81,0
-"Reductions.jl :: extrema(f)",45,42,0
-"Reductions.jl :: inner(f, g)",342,102,1
-"Reductions.jl :: integral(f)",539,121,1
-"Reductions.jl :: l2norm(f)",96,52,0
-"Reductions.jl :: lpnorm(f, p = 2)",201,89,0
-"Reductions.jl :: maximum(f)",124,121,0
-"Reductions.jl :: mean(f)",125,122,0
-"Reductions.jl :: minimum(f)",30,27,0
-"Reductions.jl :: radial_correlation(f, plans)",631,180,1
-"Reductions.jl :: radial_spectrum(f, multipliers)",768,261,1
-"Reductions.jl :: std(f; corrected = true)",142,82,0
-"Reductions.jl :: var(f; corrected = true)",346,122,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",786,258,2
-"Reductions.md § Integral reductions",57,57,0
-"Reductions.md § Internal API",54,54,0
-"Reductions.md § Moments and order statistics",78,43,0
+"Reductions.jl :: _tree_dims_reduce(scalar_reduce, data, base_count)",41,38,0
+"Reductions.jl :: _tree_sum(data)",34,33,0
+"Reductions.jl :: _tree_var(data; corrected)",20,18,0
+"Reductions.jl :: cov(u; corrected = true)",210,71,0
+"Reductions.jl :: extrema(f)",44,41,0
+"Reductions.jl :: inner(f, g)",296,101,1
+"Reductions.jl :: integral(section)",481,120,1
+"Reductions.jl :: l2norm(f)",66,46,0
+"Reductions.jl :: lpnorm(section, p = 2)",168,91,0
+"Reductions.jl :: maximum(f)",122,119,0
+"Reductions.jl :: mean(f)",120,117,0
+"Reductions.jl :: minimum(f)",29,26,0
+"Reductions.jl :: radial_correlation(f, plans)",519,153,1
+"Reductions.jl :: radial_spectrum(f, multipliers)",674,242,1
+"Reductions.jl :: std(f; corrected = true)",135,79,0
+"Reductions.jl :: var(f; corrected = true)",319,104,0
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",700,239,2
+"Reductions.md § Integral reductions",56,56,0
+"Reductions.md § Internal API",53,53,0
+"Reductions.md § Moments and order statistics",76,43,0
 "TESTING.md § (preamble)",22,22,1
-"TESTING.md § 1. Philosophy",746,250,0
-"TESTING.md § 2. Layout",2048,2048,0
-"TESTING.md § 3. Writing a test here",376,285,0
-"TESTING.md § 4. The coverage contract",842,512,0
+"TESTING.md § 1. Philosophy",699,215,0
+"TESTING.md § 2. Layout",1981,1981,0
+"TESTING.md § 3. Writing a test here",357,267,0
+"TESTING.md § 4. The coverage contract",805,482,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
-"TESTING.md § 4. The coverage contract / item 10",14,14,0
+"TESTING.md § 4. The coverage contract / item 10",9,9,0
 "TESTING.md § 4. The coverage contract / item 11",15,15,0
-"TESTING.md § 4. The coverage contract / item 12",36,36,0
-"TESTING.md § 4. The coverage contract / item 13",23,23,0
+"TESTING.md § 4. The coverage contract / item 12",35,35,0
+"TESTING.md § 4. The coverage contract / item 13",22,22,0
 "TESTING.md § 4. The coverage contract / item 14",14,14,0
-"TESTING.md § 4. The coverage contract / item 15",71,71,0
-"TESTING.md § 4. The coverage contract / item 16",78,78,0
-"TESTING.md § 4. The coverage contract / item 17",321,204,0
-"TESTING.md § 4. The coverage contract / item 18",169,169,0
-"TESTING.md § 4. The coverage contract / item 19",134,69,0
+"TESTING.md § 4. The coverage contract / item 15",70,70,0
+"TESTING.md § 4. The coverage contract / item 16",77,77,0
+"TESTING.md § 4. The coverage contract / item 17",317,201,0
+"TESTING.md § 4. The coverage contract / item 18",165,165,0
+"TESTING.md § 4. The coverage contract / item 19",126,64,0
 "TESTING.md § 4. The coverage contract / item 2",4,4,0
-"TESTING.md § 4. The coverage contract / item 20",171,102,0
-"TESTING.md § 4. The coverage contract / item 21",143,63,0
-"TESTING.md § 4. The coverage contract / item 22",125,69,0
-"TESTING.md § 4. The coverage contract / item 23",651,120,0
-"TESTING.md § 4. The coverage contract / item 3",21,21,0
-"TESTING.md § 4. The coverage contract / item 4",15,15,0
+"TESTING.md § 4. The coverage contract / item 20",167,101,0
+"TESTING.md § 4. The coverage contract / item 21",141,62,0
+"TESTING.md § 4. The coverage contract / item 22",123,67,0
+"TESTING.md § 4. The coverage contract / item 23",643,118,0
+"TESTING.md § 4. The coverage contract / item 3",20,20,0
+"TESTING.md § 4. The coverage contract / item 4",14,14,0
 "TESTING.md § 4. The coverage contract / item 5",9,9,0
-"TESTING.md § 4. The coverage contract / item 6",18,18,0
+"TESTING.md § 4. The coverage contract / item 6",17,17,0
 "TESTING.md § 4. The coverage contract / item 7",19,19,0
-"TESTING.md § 4. The coverage contract / item 8",12,12,0
-"TESTING.md § 4. The coverage contract / item 9",17,17,0
-"TESTING.md § 5. GPU testing",221,141,0
-"TESTING.md § 6. Maintenance",294,294,0
-"TESTING.md § 7. Current coverage and known gaps",1765,1750,0
-"TESTING.md § 7. Current coverage and known gaps / item 1",28,28,0
-"TESTING.md § 7. Current coverage and known gaps / item 2",39,39,0
-"TESTING.md § A GATE and a SURVEY, and how to tell which a test is",139,114,0
-"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item ",32,32,0
-"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item  (2)",46,46,0
-"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item  (3)",42,42,0
-"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item  (4)",224,80,0
-"TESTING.md § Testing — GBGPeriodicFields",80,80,0
+"TESTING.md § 4. The coverage contract / item 8",11,11,0
+"TESTING.md § 4. The coverage contract / item 9",16,16,0
+"TESTING.md § 5. GPU testing",214,135,0
+"TESTING.md § 6. Maintenance",284,284,0
+"TESTING.md § 7. Current coverage and known gaps",1637,1622,0
+"TESTING.md § 7. Current coverage and known gaps / item 1",27,27,0
+"TESTING.md § 7. Current coverage and known gaps / item 2",38,38,0
+"TESTING.md § A GATE and a SURVEY, and how to tell which a test is",134,109,0
+"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item 1",29,29,0
+"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item 2",46,46,0
+"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item 3",41,41,0
+"TESTING.md § A GATE and a SURVEY, and how to tell which a test is / item 4",223,80,0
+"TESTING.md § Testing — GBGPeriodicFields",78,78,0
 "api.md § API overview",52,35,0
 "gpu.md § (preamble)",22,22,1
 "gpu.md § A first run on CUDA",49,49,0
@@ -616,23 +616,23 @@ unit,words,longest_paragraph,admonitions
 "gpu.md § Known pitfalls on ROCm",118,74,1
 "gpu.md § Running on a GPU",52,52,0
 "gpu.md § Transforms may overwrite their input",42,42,0
-"gpu.md § Writing efficient device code",141,42,0
-"index.md § Design & internals",90,90,0
-"index.md § GBGPeriodicFields.jl",324,120,0
-"index.md § Installation",75,48,0
-"index.md § Main components",366,366,0
-"index.md § Start here",58,58,0
-"notation.md § Base and fiber",629,579,0
-"notation.md § Conventions",315,315,0
-"notation.md § Notation",56,56,0
-"notation.md § Operators",296,296,0
-"notation.md § Scalar weights",246,167,0
+"gpu.md § Writing efficient device code",135,39,0
+"index.md § Design & internals",84,84,0
+"index.md § GBGPeriodicFields.jl",318,118,0
+"index.md § Installation",73,46,0
+"index.md § Main components",350,350,0
+"index.md § Start here",54,54,0
+"notation.md § Base and fiber",599,549,0
+"notation.md § Conventions",299,299,0
+"notation.md § Notation",55,55,0
+"notation.md § Operators",291,291,0
+"notation.md § Scalar weights",233,158,0
 "tutorial.md § (preamble)",22,22,1
-"tutorial.md § Convolution (apply a Fourier kernel)",53,53,0
-"tutorial.md § Differential operators",106,58,0
-"tutorial.md § Fiberwise algebra and L²/measure reductions",122,59,0
-"tutorial.md § Getting started",79,45,0
-"tutorial.md § Grids and fields",83,83,0
+"tutorial.md § Convolution (apply a Fourier kernel)",50,50,0
+"tutorial.md § Differential operators",105,58,0
+"tutorial.md § Fiberwise algebra and L²/measure reductions",110,49,0
+"tutorial.md § Getting started",77,44,0
+"tutorial.md § Grids and fields",82,82,0
 "tutorial.md § Points: interpolation and anterpolation",62,38,0
-"tutorial.md § Representations: physical ↔ spectral",143,113,0
-"tutorial.md § Running multithreaded",251,80,0
+"tutorial.md § Representations: physical ↔ spectral",137,107,0
+"tutorial.md § Running multithreaded",249,79,0
