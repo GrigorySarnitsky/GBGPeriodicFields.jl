@@ -54,72 +54,22 @@ const PRINT_COUNTS = get(ENV, "PASS_AUDIT_PRINT", "0") == "1"
 
 # ---------------------------------------------------------------- the counting harness
 
-struct CountingArray{T, N} <: AbstractArray{T, N}
-  data::Array{T, N}
-  reads::Threads.Atomic{Int}
-  writes::Threads.Atomic{Int}
-end
+# The traffic audit is DECLARED to GBGCodingTools (RULE.TEST.PASS_AUDIT): `CountingArray`, `Traffic`,
+# `counting`, `audit` and the completeness check at the foot are the tool's engines,
+# `GBGCodingTools.TestHarness`, extracted from this file. A `CountingArray` counts every element read and
+# write; each `Traffic` row is one array's frozen `(reads, writes)`, asserted exactly, with the fused
+# ideal beside it and a named holder required whenever the two differ; `audit` records the operation
+# from the row name's leading token, so completeness is derived rather than remembered.
+import GBGCodingTools
+using GBGCodingTools.TestHarness: CountingArray, Traffic, counting
 
-counting(data::Array) = CountingArray(data, Threads.Atomic{Int}(0), Threads.Atomic{Int}(0))
-
-Base.size(a::CountingArray) = size(a.data)
-Base.IndexStyle(::Type{<:CountingArray}) = IndexLinear()
-Base.parent(a::CountingArray) = a.data
-
-Base.@propagate_inbounds function Base.getindex(a::CountingArray, i::Int)
-  Threads.atomic_add!(a.reads, 1)
-  return a.data[i]
-end
-
-Base.@propagate_inbounds function Base.setindex!(a::CountingArray, value, i::Int)
-  Threads.atomic_add!(a.writes, 1)
-  a.data[i] = value
-  return a
-end
-
-# The KA launchers ask the storage for its backend; answer for the wrapper (a method on our own
-# test-local type — no piracy).
+# The KA launchers ask the storage for its backend; the tool leaves answering for the wrapper to the
+# consumer, since it does not depend on KernelAbstractions.
 KernelAbstractions.get_backend(a::CountingArray) = KernelAbstractions.get_backend(a.data)
 
-
-# One array's row in an audited call: the frozen (reads, writes) asserted exactly, the fused ideal
-# documented beside it, and a named holder required whenever frozen ≠ ideal.
-struct Traffic
-  role::String
-  array::CountingArray
-  frozen::NTuple{2, Int}
-  ideal::NTuple{2, Int}
-  holder::String
-end
-
-Traffic(role, array, frozen) = Traffic(role, array, frozen, frozen, "")
-
-
-# Each row records the operation it measures, taken from the leading token of its name (the naming
-# convention this file already follows), so completeness can be derived rather than remembered.
-const AUDITED_OPS = Set{Symbol}()
-
-function audit(operation!, name::String, rows::Traffic...)
-  # Take the leading identifier, stopping at whitespace OR an opening paren: a row labelled
-  # "map!(det) tensor→scalar" names the operation `map!`. Splitting on whitespace alone recorded
-  # `Symbol("map!(det)")`, a phantom that matched nothing, so `map!` read as unaudited while two
-  # rows for it sat right there. The completeness guard then reported a gap that did not exist —
-  # which is the better failure, but only by luck of the label.
-  push!(AUDITED_OPS, Symbol(match(r"^[^\s(∘]+", name).match))
-  foreach(r -> (r.array.reads[] = 0; r.array.writes[] = 0), rows)
-  operation!()
-  @testset "$name" begin
-    for r in rows
-      measured = (r.array.reads[], r.array.writes[])
-      PRINT_COUNTS && println(rpad(name, 52), rpad(r.role, 14), "measured ", measured,
-                              "  frozen ", r.frozen, "  ideal ", r.ideal)
-      @test measured == r.frozen
-      if r.frozen != r.ideal
-        @test !isempty(r.holder)              # an above-ideal count must carry a named holder
-      end
-    end
-  end
-end
+# `PASS_AUDIT_PRINT=1` still regenerates the table: every measured count is printed beside its frozen one.
+audit(operation!, name::String, rows::Traffic...) =
+  GBGCodingTools.TestHarness.audit(operation!, name, rows...; print = PRINT_COUNTS)
 
 
 # ---------------------------------------------------------------- setup
@@ -469,30 +419,16 @@ end
 # ---------------------------------------------------------------------------------------------
 # Completeness (decision 53), derived from the export list rather than remembered. The exclusions
 # below are the ones this file's header already argues for; anything else must have a row.
-@testset "every exported in-place operation has a traffic row" begin
-  exempt = Dict(
-    :to_physical!          => "the transform interior is FFTW's, and FFT plans reject wrapped storage",
-    :to_spectral!          => "same — the transform interior is out of scope (see the header)",
-    :anterpolate!          => "the scatter accumulates through Atomix, which a wrapper array cannot provide (header)",
-    :translation_kernel!   => "an O(N) per-axis rebuild, not field-shaped traffic",
-    :point_traversal_order!       => "the counting sort histograms and places through Atomix, which a wrapper array cannot provide — the same reason `anterpolate!` is here; its allocation contract is guarded in test/allocations.jl and its result in test/point_traversal_order.jl",
-    :copyto!               => "the broadcast interface: the field `copyto!` IS the `_assign!` route every audited operation writes through, measured through them rather than as a case of its own",
-    :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
-    :set_fft_threads!      => "a configuration setter, not a field operation",
-    :set_threading_cutoff! => "a configuration setter, not a field operation",
-  )
-  required = inplace_operations()
-  uncovered = setdiff(required, AUDITED_OPS, keys(exempt))
-  isempty(uncovered) ||
-    @error "in-place operations with no traffic row — add one, or exempt it with a reason" uncovered
-  @test isempty(uncovered)
-  @test isempty(setdiff(keys(exempt), required))
-
-  # A guard needs a guard. `AUDITED_OPS` is parsed out of row labels, so a typo or an unexpected
-  # label shape records a symbol naming nothing — which silently shrinks the covered set and can
-  # only ever be noticed as a false gap. Every captured name must be a real package operation.
-  phantoms = setdiff(AUDITED_OPS, all_package_functions())
-  isempty(phantoms) ||
-    @error "row labels that parse to no real operation — fix the label" phantoms
-  @test isempty(phantoms)
-end
+GBGCodingTools.TestHarness.traffic_completeness(GBGPeriodicFields,
+    filter(m -> m !== GBGPeriodicFields, collect(PACKAGE_MODULES));
+    exempt = Dict(
+      :to_physical!          => "the transform interior is FFTW's, and FFT plans reject wrapped storage",
+      :to_spectral!          => "same — the transform interior is out of scope (see the header)",
+      :anterpolate!          => "the scatter accumulates through Atomix, which a wrapper array cannot provide (header)",
+      :translation_kernel!   => "an O(N) per-axis rebuild, not field-shaped traffic",
+      :point_traversal_order!       => "the counting sort histograms and places through Atomix, which a wrapper array cannot provide — the same reason `anterpolate!` is here; its allocation contract is guarded in test/allocations.jl and its result in test/point_traversal_order.jl",
+      :copyto!               => "the broadcast interface: the field `copyto!` IS the `_assign!` route every audited operation writes through, measured through them rather than as a case of its own",
+      :setindex!             => "the AbstractArray interface: a single-element write, not a field-shaped pass",
+      :set_fft_threads!      => "a configuration setter, not a field operation",
+      :set_threading_cutoff! => "a configuration setter, not a field operation",
+    ))
