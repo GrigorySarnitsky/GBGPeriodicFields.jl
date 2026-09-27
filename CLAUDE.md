@@ -183,10 +183,9 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
   (real `T` for any section), and the **fused fiberwise executor** `_fiberwise_pass!` (decision 39:
   one KA kernel + one slab-threaded linear `@simd` CPU loop running every stamped values function;
   the former per-consumer alias guards are retired — fused passes are alias-safe by construction).
-- Generators emit **methods only — never docstrings**. One docstring per operation,
-  on the bare binding: `function f end` for package-owned generics, the bare imported
-  name for Base/LinearAlgebra functions. Docstrings list a few canonical signatures
-  plus validity prose, and mention intentional absences.
+- Generators emit **methods only — never docstrings**: `function f end` for package-owned
+  generics, the bare imported name for Base/LinearAlgebra functions. Docstrings list a few
+  canonical signatures plus validity prose, and mention intentional absences.
 - Irregular corners stay explicit **with a comment saying why** (scalar±Real family,
   the four ambiguity-resolving `multiply!` methods, physical-only divisions).
 - Validation: call `Fields._check_field_domain_compatibility` (imported explicitly)
@@ -198,15 +197,13 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
 
 ## Documentation policy — the docstring rubric
 
-This is the organizing spec for every user-facing docstring and API page; §Style below elaborates the
-individual conventions and their rationale, and the rendered glossary at `docs/src/notation.md` is the
-reader's copy of the notation. Two audiences, one rule each: a **module docstring is a map**; a
-**function docstring is a home**.
+The rulebook holds the docstring rubric; what follows is PF's own part of it. §Style below elaborates
+the individual conventions and their rationale, and the rendered glossary at `docs/src/notation.md` is
+the reader's copy of the notation.
 
 **Two-tier structure.**
-- **Module docstring = map.** What the module is, its scope and place in the architecture, and its
-  invariants (physical vs spectral, the base measure) — then a **linked one-liner per operation
-  family, and no formulas.** Every formula lives in the operation's own docstring.
+- **Module docstring.** The invariants a PF module's map names are physical vs spectral representation
+  and the base measure.
 - **Function docstring = home**, in this order: (1) a plain one-sentence identity in the user's terms;
   (2) when to use it, versus the alternatives; (3) each argument (positional and keyword) and its
   effect; (4) the caveats a user needs (memory, accuracy, gotchas), as a `!!! warning` where
@@ -217,30 +214,17 @@ reader's copy of the notation. Two audiences, one rule each: a **module docstrin
   (→ `#` comments), unexplained specialist jargon, architectural rationale (→ `ARCHITECTURE.md`), and
   the formal/intrinsic apparatus (→ `FORMALIZATION.md`).
 
-**One concept, one home.**
-- *Across dispatch.* One docstring per operation, on the bare binding (`function f end`); a generic
-  carries **one** docstring, never one per method. Per-scheme or per-representation specifics live in
-  the scheme's / representation's own docstring, linked (the transfer verbs collapse 12 → 4 this way).
-- *Across `f`/`f!`.* The in-place `!` form is the **home** — it owns the componentwise formula and the
-  kernel — and is listed **first**; the allocating form and any operator alias (`+ - * / ⋅ × ⋆`) is a
-  **thin wrapper** that leads with the one-sentence meaning and `@ref`-links the home, carrying no
-  second copy of the formula. The bare operators `+ - * /` carry thin allocating docstrings so the
-  pairing is documented and REPL-visible.
+**Operator aliases.** The operator aliases (`+ - * / ⋅ × ⋆`) are thin wrappers of the `!` home, as
+the allocating form is, and the bare operators `+ - * /` carry thin allocating docstrings so the pairing
+is documented and REPL-visible.
 
 **The four shape rules (user-decided 2026-07-24; the `/check-consistency` uniformity pass).** The
 rubric above says what a docstring must *contain*; these fix the *shape*, so the same content is not
-written four ways. **(1) Arguments.** A docstring documenting **three or more arguments, or any
-keyword argument**, uses the bulleted form led by `The arguments are:`; with fewer, the arguments are
-bound in running prose and there are no bullets. Never mix the two within one docstring. Count the
-arguments a *signature* takes, not the distinct names across type-specialized variants (`norm!` takes
-two in every overload and stays prose, though its three signatures name the second one three ways).
-A **thin allocating wrapper is exempt**: it documents no arguments at all, leading with the
+written four ways. **(1) Arguments.** The marker phrase is `The arguments are:`. Count the arguments a
+*signature* takes, not the distinct names across type-specialized variants (`norm!` takes two in every
+overload and stays prose). A **thin allocating wrapper is exempt**: it documents no arguments at all, leading with the
 one-sentence meaning and `@ref`-linking the home, so the threshold never applies to it. **(2) Types.**
-A type that stores named, user-readable fields documents them under `The fields are`, one bullet per
-field; prose is reserved for the one-sentence identity above that list. **(3) Admonitions.** Every
-`!!!` block carries a **custom descriptive title** stating the caveat (`!!! warning "The destination
-must not alias an input"`), never a bare `!!! warning` rendering as "Warning" — a reader skimming the
-page should learn the hazard without opening the block. **(4) The in-place steer.** Every `!` form
+Prose is reserved for the one-sentence identity above the field list. **(4) The in-place steer.** Every `!` form
 that *has* an allocating sibling carries this sentence verbatim, after the identity paragraph and
 before the arguments: *"Use this in-place form when `destination` is already allocated; the allocating
 [`f`](@ref) returns a fresh result instead."* The sentence names **the destination argument the signature actually has** — `destination` in most of the
@@ -252,16 +236,11 @@ now sit on the FieldAlgebra `@docs` block, paired after their in-place homes lik
 link *would* resolve; they were previously mis-swept into that page's Internal API by the `Public =
 false` autodocs — the same public-but-unexported-Base-extension class as the stats on the Reductions
 page. The bare backtick stays the convention regardless.)
-**(5) Aliasing.** An operation-specific statement of whether `destination` may alias an input lives in
-the **`destination` argument bullet**, not as standalone prose before or after the argument list — that
-is where a reader asks the question, and the template already puts argument caveats there. Settled
-2026-08-05 on the majority position (`convolve!`, `combine!`); `curl!` and `helmholtz_projection!` were
-the two outliers and were moved. The package-wide guarantee itself belongs in the module docstring and is
-**not** repeated per operation — which is why `cross!`, `transpose!`, `sym!`, `skew!` and `dev!` carry
-nothing locally and are correct as they stand. An operation states it for itself only when it has an
-operation-specific *reason* to give (`curl!` and `helmholtz_projection!` each read all three components
-of a mode before writing any), or when its contract is the contrary one (`mul!`, whose destination must
-**not** alias).
+**(5) Aliasing.** PF's cases: `cross!`, `transpose!`, `sym!`, `skew!` and `dev!` carry nothing locally
+and are correct as they stand; `curl!` and `helmholtz_projection!` state it in their `destination` bullet
+because each reads all three components of a mode before writing any (moved there on 2026-08-05, the
+majority position of `convolve!` and `combine!`); `mul!` states its contrary contract, a destination that
+must **not** alias.
 
 **Two exemptions to rule 1, made explicit after the 2026-08-04 battery flagged them as violations:**
 an **internal `_`-prefixed helper** documents its arguments in whatever form reads best (the threshold
@@ -282,61 +261,38 @@ siblings for the stronger input-preservation reason (invariant 11) and are not d
 `Points`, `Interpolation`); one documenting **only functions** uses a single unlabelled block and no `###`
 at all (`Convolution`, `DifferentialOperators`, `FieldAlgebra`, `FiberSections`, `Reductions`). The split
 tracks the content, never the page. Every such section also opens with the same disclaimer sentence.
-**And a `@ref` never abuts a second code span** — ``[`f`](@ref)`(args)` `` renders as two adjacent
-monospace chips with a visible seam, so write the whole call as the link text with an explicit target,
-``[`lpnorm(f, Inf)`](@ref lpnorm)``.
 
 **API pages are math-grouped.** Group public objects into the operation **families of
 `ARCHITECTURE.md` §2** under hand-written `###` headers via explicit `@docs` blocks (not `@autodocs`,
-which cannot express a semantic group). Each object appears **once**, in the family whose defining
-mathematics it realizes; keep an `f`/`f!` pair together with the `!` home first; order a group by
-increasing tensor order. Lead a page with its **headline operations**, then the supporting
-types/schemes they take (Interpolation: the transfer operations before the transfer-scheme catalogue).
-Drop `@index` — it lists only module-owned bindings, so it silently omits the imported/extended
-operators and mixes in the internals; keep `@contents` as the table of contents. `checkdocs = :exports`
-guards a dropped export.
+which cannot express a semantic group), each object in the family whose defining mathematics it
+realizes; keep an `f`/`f!` pair together with the `!` home first; order a group by increasing tensor
+order. Lead a page with its **headline operations**, then the supporting types/schemes they take
+(Interpolation: the transfer operations before the transfer-scheme catalogue). Keep `@contents` as the
+table of contents. `checkdocs = :exports` guards a dropped export.
 
-**Coverage.** A measure reduction documents **every base it supports** — a `Grid3D`'s cell-volume
-average *and* a `PointSet`'s counting average — not just one.
-
-**Notation** (glossary: `docs/src/notation.md`). The imaginary unit is upright ``\mathrm{i}`` (never
-bare italic `i`, never `\imath`/`\mathbb{i}`), which frees `i` as an index; indices are italic
-``i, j, k, \dots`` in order, used freely alongside ``\mathrm{i}``; a partial derivative is
+**Notation** (glossary: `docs/src/notation.md`). Indices are italic ``i, j, k, \dots`` in order, used
+freely alongside the upright imaginary unit ``\mathrm{i}``; a partial derivative is
 ``\partial_{x_i}`` (subscript the coordinate), and a second-order derivative is ``\partial^2_{x_i x_i}`` (a
 repeated fiber index is summed, Einstein convention — so the Laplacian is ``\Delta f = \partial^2_{x_i x_i} f``,
-no explicit ``\sum``). No horizontal scroll, and a code identifier never
-sits inside a math span.
+no explicit ``\sum``).
 
-**Prose is grammatical.** Every sentence has a subject and a verb; no verbless fragments, noun-stacks,
-`label:`-colon tags, or comma splices. **Concise means few words, not missing verbs** — the goal is
-compact prose that still reads as sentences aloud; restore the grammar without adding fluff.
+**Prose is grammatical.** The defects named here are verbless fragments, noun-stacks, `label:`-colon
+tags and comma splices; restore the grammar without adding fluff.
 
-**A sentence opens with a capitalized ordinary word — never a lowercase code identifier or a math
-formula.** A lowercase start is the defect, so **reword** so an ordinary word leads — never capitalize
-the identifier, whose binding is lowercase by nature (`` `divergence` uses this kernel`` → "The
-`divergence` operator uses this kernel"; a formula opener `` ``n = 0`` is linear`` → "The case ``n = 0``
-is linear"). **Exempt** (a fragment, or not rendered): a **bullet / list item** — including a
-decision-log entry and an argument-doc bullet; a `#` **code** comment — *but* a Literate example's
-full-line `# ` line **renders as prose**, so it is **not** exempt; and a **capitalized**
-type/module/file opener (`Point`, `DirectDFT`, `RESULTS.md`), which already begins with a capital. The
-`/check-docs` sentence-opener scan flags this class (it triages out the `e.g.`/`i.e.` abbreviations and
-the ``\checkmark`` markers it also catches). That scan is a **script**, not a grep, since 2026-09-02: a
-sentence start has to be COMPUTED, because the two commonest shapes of the defect — an opener beginning
-a line whose previous line ended the sentence, and an opener beginning a paragraph — have no period on
-their own line and are invisible to any one-line pattern. The grep reported the corpus clean while nine
-were live.
+**Sentence openers.** A lowercase start is fixed by **rewording** so an ordinary word leads — never by
+capitalizing the identifier, whose binding is lowercase by nature (`` `divergence` uses this kernel`` →
+"The `divergence` operator uses this kernel"; a formula opener `` ``n = 0`` is linear`` → "The case
+``n = 0`` is linear"). A Literate example's full-line `# ` line **renders as prose**, so it is **not**
+exempt as a code comment is; and a **capitalized** type/module/file opener (`Point`, `DirectDFT`,
+`RESULTS.md`) already begins with a capital.
 
-**Correctness is verified, not asserted.** Check every formula, normalization, adjoint relation, and
-especially every **cross-scheme equivalence** by expanding it (degree, reproduction, indices, types)
-against the code — a plausible "X is just Y" is a false claim until the expansion matches. This session
-alone: the cross-product index splice, `LalescuSpline(n, 0)` vs `(0, 0)`, and the false
+**Correctness is verified, not asserted.** PF's recorded false equivalences: the cross-product index
+splice, `LalescuSpline(n, 0)` vs `(0, 0)`, and the false
 `LagrangeSpline ≡ LalescuSpline(n, 0)` (linear vs degree ``2n+1``).
 
-**Reconciled tensions.** *Compact vs grammatical:* grammaticality is the floor, compactness the goal
-above it. *Coordinate-free notation:* the intrinsic maps (`ι*`, `ι_*`, the pushforward of Dirac
-measures, `Π_d`) belong to the **design docs**; a docstring uses the honest concrete forms (``\sum_p``,
-``\int_\Omega``, `W`/`Wᵀ` as named maps). *Physical-meaning-first vs DRY:* a thin wrapper keeps its one
-plain-meaning sentence and sheds only the re-derived formula.
+**Intrinsic maps and concrete forms.** PF's intrinsic maps are `ι*`, `ι_*`, the pushforward of Dirac
+measures and `Π_d`; the concrete forms a docstring uses for them are ``\sum_p``, ``\int_\Omega`` and
+`W`/`Wᵀ` as named maps.
 
 ## Style
 
