@@ -714,16 +714,12 @@ outranks DRY). A thrown error, like a rendered docstring, must not cite a `§`-n
 
 ## Verification workflow
 
-**Consent gate (user-directed 2026-08-04) — unasked, run ONLY `Pkg.test()`.** Every other verification
-lane is expensive in wall-clock and in machine occupancy, and the decision to spend that is the user's:
-the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
+**Consent gate — PF's gated lanes (user-directed 2026-08-04).** Every lane beyond `Pkg.test()` is
+expensive in wall-clock and in machine occupancy: the **exhaustive survey** (`test/exhaustive/`, 75–115 min), the **benchmarks** and the **canary lane**
 (`benchmark/`), the **GPU suites** (`test/gpu/*`), **`/check-docs`**, **`/check-consistency`**, **`/bug-hunt`**, **`/audit-changes`**, the two
 fix verifiers (`check-consistency/verify.js`, `verify-fixes.js`), and any
-multi-agent fan-out each require explicit consent **before** being started. The correct output when one
-of them would be informative is to *name it and its cost* — "the survey would confirm this, ~90 min,
-shall I run it?" — and wait. This is a consent boundary, not licence to leave work unfinished: finish
-the code, run `Pkg.test()`, and report what remains unverified and why. It also protects measurement,
-since a long unasked run occupies the box that `docs/PERFORMANCE.md` §1 requires to be idle.
+multi-agent fan-out. The gate also protects measurement, since a long unasked run occupies the box that
+`docs/PERFORMANCE.md` §1 requires to be idle.
 
 **Four instruments, and each audits a DIFFERENT OBJECT (the last two ported from IT 2026-08-27).**
 `/audit-changes` audits **changes to code** — it reads the **diff**, not the tree, and asks whether
@@ -795,8 +791,8 @@ the round so the escape cannot be claimed where nothing was seeded; or a `SEEDED
 may write and the lint counts. Note the second hands the party being graded a verdict that closes a
 finding, which is the antipattern this apparatus exists to remove — so the first is the better shape.
 
-**Test the check in BOTH directions — the flattering one is not the only one.** Four defects in these
-instruments in one session, and every one was invisible to reading. Three erred toward closing a round
+**Checks tested in both directions — PF's measured cases.** Four defects in these instruments in one
+session, and every one was invisible to reading. Three erred toward closing a round
 early: the gate counted the *string* `HONORED`, which appears inside every `[DEMOTED: HONORED
 claimed …]` note (two verdicts read as six); staleness was read from a `RANGE:` line the verifier lanes
 were asked to stamp, which **all eight ignored**, so the check was vacuous while looking present; and
@@ -804,13 +800,9 @@ IT's identical demotion rule was **never applied at all** — its preamble said 
 judgement call" while nothing in the script applied it, leaving the rule to the party being graded. The
 fourth erred the other way and is the one nobody thinks to guard: the demotion misfired on **notation**,
 demanding `file:line` and a fixed vocabulary, so it demoted graders who wrote "`ARCHITECTURE.md` (lines
-195, 273)" or "no remaining instance" — ten of thirteen demotions in one round. That failure is slower
-to notice than a false pass, because nothing looks wrong; a reader who finds ten spurious demotions
-stops reading the column, and **a check nobody reads passes everything**. Hence: staleness is read from
-the **filesystem** (an mtime needs no compliance), demotion is applied **in post-processing** and its
-mechanical share reported separately, and a self-reported field is acceptable only when **the missing
-case is the failing case** — which is the real statement of the antipattern (IT's framing, sharper than
-"never self-report").
+195, 273)" or "no remaining instance" — ten of thirteen demotions in one round. Hence:
+staleness is read from the **filesystem** (an mtime needs no compliance), and demotion is applied **in
+post-processing** with its mechanical share reported separately.
 
 Before adding or changing tests, read `docs/TESTING.md` — the testing philosophy and
 the per-operation coverage contract. Its §4 carries the explicit **coverage-axes list** — the
@@ -823,9 +815,6 @@ from the list is exactly how the decision-41/42 bugs stayed invisible. Before op
 benchmark coverage contract.
 
 ### Definition of done — for a new or changed operation/feature
-
-These four are **systematically forgotten** — treat the feature as unfinished until each is
-explicitly checked (not "should work", *done and verified*):
 
 1. **Correctness tests** — a CPU behaviour test against an *independent* oracle (analytic or
    hand-computed), over both element types and both bases where applicable, **and GPU parity**
@@ -868,23 +857,16 @@ explicitly checked (not "should work", *done and verified*):
    that runs every row once (`samples = 1, evals = 1` at `16³`, seconds not minutes), which needs no
    idle machine and is not a measurement, so it does not violate the owns-the-machine rule.
 6. **The examples, RUN — `julia --project=examples examples/HIST_CPU.jl --smoke`** (and the GPU twin
-   `examples/gpu/rocm/HIST_ROCm.jl` where a device exists), for any change to the public surface. The
-   `examples/` demos are consumer-shaped code that is both a rendered doc page and a downloadable
-   script, and **nothing else executes them** — not `Pkg.test()`, not the docs build, which renders
-   `HIST_CPU.jl` through Literate without running it. That gap shipped two broken demos at once
+   `examples/gpu/rocm/HIST_ROCm.jl` where a device exists), for any change to the public surface.
+   Skipping it shipped two broken demos at once
    (2026-08-04): decision 60 stopped a field in spectral representation from being a kernel, and both
    demos were still passing a `ScalarFieldSpectral` to `convolve!`, so each threw a `MethodError` in
    its own time-stepping loop; the CPU one had additionally been multiplying by a `ws.Ek` buffer that
    an earlier `exponential_convolve!` refactor left allocated, zeroed and never filled. Every layer
    the project has — the gate, the pass audit, the survey, the docs build — passed throughout, because
-   an example is the one shipped surface none of them touch. A static check cannot close this: the
-   defect was a call that no longer dispatches, not a name that no longer exists, so only running it
-   finds it. The `smoke()` preset exists for exactly this and costs a few seconds of simulation.
+   an example is the one shipped surface none of them touch. The `smoke()` preset exists for exactly this and costs a few seconds of simulation.
 
-Grep the docs for stale "deferred/none-exist/future" claims about whatever you just implemented —
-those are the usual rot. Then the mechanical bar:
-
-"Should work" is not done. Minimum bar for any change:
+Minimum bar for any change:
 
 - Load: `julia --project -e 'using GBGPeriodicFields'` (catches `@eval` and wiring errors).
 - Method parity after codegen edits: compare per-generic `methods(f)` counts
@@ -895,13 +877,7 @@ those are the usual rot. Then the mechanical bar:
   these. `test/aqua.jl` runs `Aqua.test_all` for broader package checks (type piracy,
   compat bounds, stale deps, unbound type parameters, …).
 - `julia --project -e 'using Pkg; Pkg.test()'` (the `test/` suite now exists; keep it green).
-- **`Pkg.test()` is a GATE; `test/exhaustive/` is a SURVEY** — the split that decides where a new test
-  belongs (`docs/TESTING.md` §1). A gate re-checks claims we already know and must be green or the
-  change does not ship; a survey searches for combinations nobody enumerated and is *read*, not passed.
-  So: a **specific** oracle and every **completeness guard** go in the gate (a guard must fail the
-  moment an operation arrives uncovered, which an occasional run cannot do); a **universal** oracle over
-  a **product** goes in the survey; and anything that may legitimately be **non-green** must go in the
-  survey, because a suppressed failure reads as a pass and is worse than an absent test. The lifecycle
+- **`Pkg.test()` is the GATE; `test/exhaustive/` is the SURVEY** (`docs/TESTING.md` §1). The lifecycle
   joins them: the survey discovers, a fix lands, the gate pins it forever. (The GPU suite and the
   benchmarks are opt-in for an unrelated reason — hardware, and a quiet machine.)
 - The **exhaustive suite** is opt-in and separate too: `julia -t4 --project=test test/exhaustive/runtests.jl`
