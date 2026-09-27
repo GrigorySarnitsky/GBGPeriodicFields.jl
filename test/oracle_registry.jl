@@ -141,59 +141,29 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   # returns the scheme, with Julia's own parser as the reference.
   :show => (:property, "display.jl — no flood, self-delimiting, refused pairs render differently, " *
                        "and the parameter records round-trip through Julia's parser"),
+
+  # The broadcast interface: both methods return the section itself, so broadcasting uses the
+  # package's own broadcast style. Nothing is computed, so there is nothing to have an oracle for.
+  # The package's own surface scan never saw it (it does not descend into `Base.Broadcast`); the
+  # tool's does, and this entry arrived when the registry moved to it (2026-09-27).
+  :broadcastable => (:structural, "returns the section itself"),
 )
 
-@testset "oracle provenance is classified for every public operation" begin
-  public_ops = value_operations()
-  unclassified = setdiff(public_ops, keys(ORACLE_PROVENANCE))
-  isempty(unclassified) ||
-    @error """a public operation has no recorded oracle provenance. Classify it — and if the honest
-              answer is :relational, that is the finding: the operation is correct only insofar as the
-              operations it is compared against are.""" unclassified
-  @test isempty(unclassified)
-
-  # A classification naming an operation that no longer exists is stale.
-  @test isempty(setdiff(keys(ORACLE_PROVENANCE), public_ops))
-
-  # Every classification must be one of the five kinds.
-  @test all(p -> p[1] in (:analytic, :independent, :property, :relational, :structural),
-            values(ORACLE_PROVENANCE))
-
-  # The standing bar: no operation may rest on :relational coverage alone. This is currently empty,
-  # and it is the assertion that keeps it empty — `weighted_inner` sat here unnoticed until 6434ad86.
-  relational_only = sort([String(k) for (k, v) in ORACLE_PROVENANCE if v[1] === :relational])
-  isempty(relational_only) ||
-    @error "operations whose only oracle is other package operations" relational_only
-  @test isempty(relational_only)
-end
-
-
-# The registry cites a file for every classification, and a citation nobody checks is a comment.
-# Verifying that the cited file EXISTS and mentions the operation does not prove the assertion in it is
-# genuinely analytic — that judgement stays human — but it does close the half that rots on its own: an
-# entry surviving a test being moved, renamed or deleted. Cheap, mechanical, and it would have caught a
-# stale citation at any point in this file's life.
-@testset "every oracle citation names a file that exists and mentions the operation" begin
-  test_directory = @__DIR__
-  missing_file = Tuple{String, String}[]
-  unmentioned = Tuple{String, String}[]
-  for (operation, (provenance, where_it_lives)) in ORACLE_PROVENANCE
-    provenance === :structural && continue          # no oracle, so no citation to check
-    # The citation reads "<file>.jl — prose"; take the files it names.
-    for token in eachmatch(r"[A-Za-z_0-9]+\.jl", where_it_lives)
-      path = joinpath(test_directory, token.match)
-      if !isfile(path)
-        push!(missing_file, (String(operation), token.match))
-        continue
-      end
-      occursin(String(operation), read(path, String)) ||
-        push!(unmentioned, (String(operation), token.match))
-    end
-    # Every non-structural entry must cite at least one file, or it cites nothing at all.
-    @test occursin(".jl", where_it_lives)
-  end
-  isempty(missing_file) || @error "oracle citations naming a file that does not exist" missing_file
-  @test isempty(missing_file)
-  isempty(unmentioned) || @error "oracle citations whose file never mentions the operation" unmentioned
-  @test isempty(unmentioned)
-end
+# The registry is DECLARED to GBGCodingTools (RULE.TEST.ORACLE_INDEPENDENT): the checks are the tool's
+# engine, `TestHarness.oracle_registry`, extracted from this file. It asserts that every public
+# value-returning operation is classified here, that no entry names a vanished operation, that every
+# class is one of the five kinds, that no operation rests on `:relational` coverage alone — the standing
+# bar, currently empty, which `weighted_inner` sat against unnoticed until 6434ad86 — and that every
+# non-structural citation names a test file that exists and mentions the operation. That last check does
+# not prove the cited assertion is genuinely analytic, which stays a human judgement, but it closes the
+# half that rots on its own: an entry surviving its test being moved, renamed or deleted.
+#
+# The table stays here, in Julia, rather than in a TOML file: several of its entries are generated (the
+# `adapt` pair above) and most carry an explanation a TOML row would lose. The engine is handed the same
+# entries in the shape it reads.
+import GBGCodingTools
+GBGCodingTools.TestHarness.oracle_registry(GBGPeriodicFields,
+    filter(m -> m !== GBGPeriodicFields, collect(PACKAGE_MODULES)),
+    Dict("operation" => [Dict("name" => String(op), "class" => String(class), "evidence" => evidence)
+                         for (op, (class, evidence)) in ORACLE_PROVENANCE]),
+    @__DIR__)
