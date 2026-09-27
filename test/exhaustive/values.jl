@@ -1204,6 +1204,92 @@ function run_value_lane(configs)
 
     end
 
+    # ── sweep 9: caller-chosen operand counts (decision 88) ────────────────────────────────────
+    # `add!`/`subtract!`, `map!`, `displace!` and the tuple `weighted_inner` work through their
+    # operands in fixed groups — eight, or four weights — so every row above, at three operands or
+    # fewer, stays inside one group and cannot see the grouping. These go past the group size and past
+    # 32, where Julia leaves its specialized tuple path, and compare against the ungrouped arithmetic
+    # on raw arrays. The aliased rows make the destination an operand of a LATER group, which the
+    # grouped pass must copy before the first group overwrites it.
+    if !LEDGER_FIXTURES_ONLY
+      for n in (9, 33)
+        many = [VectorFieldPhysical(rand(T, P(1)...), grid, layout) for _ in 1:n]
+        raw = [copy(field_data(f)) for f in many]
+        push!(generated, (:add!, field_data(add!(similar_field(many[1], Val(1)), many...)), foldl(ref_add, raw)))
+        push!(generated, (:subtract!, field_data(subtract!(similar_field(many[1], Val(1)), many...)),
+                          foldl((x, y) -> x .- y, raw)))
+        aliased = [similar_field(f, copy(field_data(f))) for f in many]
+        push!(generated, (:add!, field_data(add!(aliased[n], aliased...)), foldl(ref_add, raw)))
+        push!(generated, (:+, field_data(+(many...)), foldl(ref_add, raw)))
+
+        spectral_many = [similar_field(spectral_zero, Val(1)) for _ in 1:n]
+        foreach(f -> copyto!(field_data(f), randn(Complex{T}, size(field_data(f)))), spectral_many)
+        raw_spectral = [copy(field_data(f)) for f in spectral_many]
+        push!(generated, (:add!, field_data(add!(similar_field(spectral_many[1], Val(1)), spectral_many...)),
+                          foldl(ref_add, raw_spectral)))
+
+        values_many = [VectorPointValues(rand(T, 9, 3)) for _ in 1:n]
+        raw_values_many = [copy(point_values(q)) for q in values_many]
+        push!(generated, (:add!, point_values(add!(similar_point_values(values_many[1], Val(1)), values_many...)),
+                          foldl(ref_add, raw_values_many)))
+        push!(generated, (:subtract!, point_values(subtract!(values_many[n], values_many...)),
+                          foldl((x, y) -> x .- y, raw_values_many)))
+      end
+
+      for n in (20, 33)
+        coefficients = [T(k) / 17 - T(1) for k in 1:n]
+        sections = [VectorPointValues(randn(T, 9, 3)) for _ in 1:n]
+        terms = [(coefficients[k], sections[k]) for k in 1:n]
+        raw_terms = [(coefficients[k], copy(point_values(sections[k]))) for k in 1:n]
+        push!(generated, (:displace!, point_positions(displace!(PointSet(copy(raw_coordinates)), terms...)),
+                          ref_displace(raw_coordinates, raw_terms...)))
+        push!(generated, (:displace!, point_positions(displace!(PointSet(copy(raw_coordinates)), grid, terms...)),
+                          ref_displace_wrapped(raw_coordinates, grid, raw_terms...)))
+        push!(generated, (:displace!, point_positions(displace!(PointSet(zeros(T, 9, 3)),
+                                                                 PointSet(copy(raw_coordinates)), grid, terms...)),
+                          ref_displace_wrapped(raw_coordinates, grid, raw_terms...)))
+        # The destination/source form in the universal cover — the one `displace!` method no row had
+        # reached, which the per-method ledger named on the survey's first run with these rows.
+        push!(generated, (:displace!, point_positions(displace!(PointSet(zeros(T, 9, 3)),
+                                                                 PointSet(copy(raw_coordinates)), terms...)),
+                          ref_displace(raw_coordinates, raw_terms...)))
+      end
+      push!(generated, (:displace!, point_positions(displace!(PointSet(zeros(T, 9, 3)),
+                                                               PointSet(copy(raw_coordinates)), (α, qa), (β, qb))),
+                        ref_displace(raw_coordinates, (α, point_values(qa)), (β, point_values(qb)))))
+
+      # Six second-order sources, each in its own slot of an asymmetric map, on both bases.
+      six(A1, A2, A3, A4, A5, A6) = A1 * A2 + 2A3 - A4 * A5 + transpose(A6)
+      tensor_sources = [TensorFieldPhysical{2}(rand(T, P(2)...), grid, layout) for _ in 1:6]
+      tensor_values = [TensorPointValues{2}(rand(T, 9, 3, 3)) for _ in 1:6]
+      for (sources, data, count) in ((tensor_sources, field_data, prod(grid.grid_size)), (tensor_values, point_values, 9))
+        raw_sources = [reshape(copy(data(x)), count, 3, 3) for x in sources]
+        expected = similar(raw_sources[1])
+        for p in 1:count
+          fibers = [[r[p, i, j] for i in 1:3, j in 1:3] for r in raw_sources]
+          expected[p, :, :] = fibers[1] * fibers[2] + 2 .* fibers[3] - fibers[4] * fibers[5] + transpose(fibers[6])
+        end
+        destination = sources === tensor_values ? similar_point_values(sources[1], Val(2)) : similar_field(sources[1], Val(2))
+        push!(generated, (:map!, reshape(Array(data(map!(six, destination, sources...))), count, 3, 3), expected))
+      end
+
+      # The tuple form of `weighted_inner` (decision 72), never surveyed before: 33 weights of mixed
+      # storage classes, each answer against the single-weight definition over a raw weight array
+      # built from `ref_squared_wavenumber`, not from the package's own multipliers.
+      k2 = ref_squared_wavenumber(grid, layout, shape)
+      weight_classes = ((radial_kernel(identity, multipliers), k2),
+                        (radial_kernel(x -> one(x), multipliers), one.(k2)),
+                        (radial_kernel(x -> exp(-x / 50), multipliers), exp.(-k2 ./ 50)),
+                        (materialize_kernel(radial_kernel(identity, multipliers)), k2))
+      weights = ntuple(i -> weight_classes[mod1(i, 4)][1], 33)
+      answers = weighted_inner(uh, weights)
+      for i in (1, 2, 3, 4, 5, 17, 32, 33)
+        push!(generated, (:weighted_inner, answers[i],
+                          ref_weighted_inner(field_data(uh), field_data(uh), weight_classes[mod1(i, 4)][2],
+                                             grid, layout, 1)))
+      end
+    end
+
     for (name, got, want) in Iterators.flatten((comparisons, spectral_comparisons, generated, persistence_comparisons))
       cells += 1
       # The comparison tuples are built eagerly, so this guards the COMPARISON; a throw during

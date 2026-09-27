@@ -76,7 +76,11 @@ end
 # Extension methods (the HDF5 weak dependency) live in their own module and are excluded by the
 # `m.module === mod` filter, so loading HDF5 does not perturb the counts.
 const MODULE_BASELINE = (
-  FiberSections         = 118,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  FiberSections         = 120,   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  # 118 → 120: the `map!` path past 32 sources, found by the exhaustive survey (decision 88). Added:
+  # `_tuple_map` (a generated tuple map replacing `Base.map` over the sources) with its generator body,
+  # `_input_fiber` (one input's fiber read), and the generator body of `_call_values` for the map
+  # adapter, now generated. Removed: `_input_fibers` ×2, whose recursion and splat allocated per point.
   # 117 → 118: `_element_values` became a `@generated` function, whose generator body Julia compiles
   # as a hidden function of its own (`#62#63` at the time of writing), counted here like any other.
   # The `ntuple` closure it replaced indexed a mixed operand tuple at run time on the CPU and did not

@@ -67,6 +67,7 @@ end
 _map_double(x) = 2x
 _map_add(a, b) = a + b
 _six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)   # six slots, none symmetric
+_sum_all(xs...) = sum(xs)                                                 # any number of sources
 
 
 @testset "allocation audit" begin
@@ -593,6 +594,11 @@ end
 
       @eval @alloc_below $per_pass map!(_six_tensor_map, $(tensors[1]), $(tensors...))
       @eval @alloc_below $per_pass map!(_six_tensor_map, $(tensor_values[1]), $(tensor_values...))
+      # Thirty-three sources. The per-point fiber reads recursed over the sources and splatted the
+      # result into φ, which past 32 allocated about 1.9 KB per point — 38 MB per call on this
+      # vector field — until the call was generated with one read per source.
+      @eval @alloc_below $per_pass map!(_sum_all, $(fields[1]), $(fields...))
+      @eval @alloc_below $per_pass map!(_sum_all, $(values[1]), $(values...))
 
       # `weighted_inner` is not allocation-free — one call carries the Parseval weight's row, a few
       # hundred bytes — so the claim is relative: n weights cost no more than their groups of four,

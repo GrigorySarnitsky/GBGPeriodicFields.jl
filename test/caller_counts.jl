@@ -19,6 +19,7 @@ using GBGPeriodicFields: field_data, point_values
 # A map over six tensor inputs with no symmetry between its slots, so a source bound to the wrong slot
 # changes the answer.
 _six_tensor_map(A, B, C, D, E, F) = A * B + 2C - D * E + transpose(F)
+_sum_all(xs...) = sum(xs)
 
 # A zero-filled section like `section`, to write a result into: zeros rather than uninitialized, so a
 # pass that silently wrote nothing cannot pass by reading back a stale value.
@@ -91,6 +92,21 @@ _copied(section) = similar_field(section, copy(field_data(section)))
           @test worst <= 16 * eps(T)
           # The allocating form infers the same order and gives the same values.
           @test field_data(map(_six_tensor_map, sources...)) == field_data(destination)
+        end
+      end
+
+      @testset "map! and map over 33 sources" begin
+        # Past 32 sources, where `Base.map` over the source tuple left its specialized path: the
+        # allocating `map` inferred a `Union` of every order, and `map!` allocated about 1.9 KB per
+        # point in its per-point fiber reads. Both were found by the exhaustive survey.
+        fields = [VectorFieldPhysical(rand(T, 8, 8, 8, 3), grid, layout) for _ in 1:33]
+        values = [VectorPointValues(rand(T, M, 3)) for _ in 1:33]
+        for (sources, data) in ((fields, field_data), (values, point_values))
+          expected = foldl((x, y) -> x .+ y, [copy(data(x)) for x in sources])
+          destination = _zeroed(sources[1])
+          map!(_sum_all, destination, sources...)
+          @test data(destination) ≈ expected rtol = 64 * eps(T)
+          @test data(@inferred(map(_sum_all, sources...))) == data(destination)
         end
       end
 

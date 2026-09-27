@@ -3703,6 +3703,16 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       inline marker, and the canary reads flat on the device and at eight threads and faster at one:
       `mul!` 7.1 to 5.7 ms, `sym!` 13.1 to 9.3 ms.
 
+    - **The exhaustive survey found the `map` path past 32 sources.** Its first run with sources past
+      the group size reported the allocating `map` over 33 sources inferring a `Union` of every tensor
+      order. The cause was three `Base.map` calls over the source tuple in the shared driver, which
+      leave the specialized path from 32 elements.
+
+    - **And what the survey's type check could not see.** Chasing it found that `map!` over 33 sources allocated about 1.9 KB per point, 38 MB per call on a ``24^3`` vector
+      field, in a per-point recursion over the sources whose results were splatted into φ. A generated
+      tuple map replaces the three calls and a generated call replaces the recursion; both now read zero
+      bytes and a concrete type, with `map!` unchanged at ordinary counts.
+
     - **How it is pinned.** The file `test/caller_counts.jl` sweeps each operation past its group size
       and past 32 operands against raw-array arithmetic, including a destination that aliases a later
       operand; `test/allocations.jl` asserts the serial zero with every operand written out at the call

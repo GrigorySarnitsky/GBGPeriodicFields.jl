@@ -255,6 +255,15 @@ function canonical_pool(config; device = identity)
   push("kernel: product",    convolve(spectral_cutoff(multipliers, T(3)),
                                       translation_kernel(multipliers, offset)))
   push("kernel: field",      materialize_kernel(radial_kernel(identity, multipliers)))
+  # A TUPLE OF WEIGHTS for `weighted_inner`'s several-weights form (decision 72), which no pool object
+  # could fill: its slot takes a `Tuple` of kernels, and nothing here was one, so the method was never
+  # built. Thirty-three weights of mixed REAL storage classes, past the group of four the reduction
+  # works in and past Julia's 32-element tuple threshold (decision 88). The complex translation phase
+  # is left out, a complex weight being refused by design.
+  real_weights = (materialize_kernel(spectral_cutoff(multipliers, T(3))), spectral_cutoff(multipliers, T(3)),
+                  spectral_band(multipliers, T(1), T(3)), assignment_window(multipliers),
+                  tophat_window(multipliers, 0.7))
+  push("weights: 33 mixed", ntuple(i -> real_weights[mod1(i, length(real_weights))], 33))
   # Every transfer scheme.
   push("scheme: CatmullRom", CatmullRom)
   push("scheme: Lalescu21",  LalescuSpline(2, 1))
@@ -293,6 +302,11 @@ function canonical_pool(config; device = identity)
   # invisible through the only two-source closure the pool has. The value lane already uses `x - 2y` for
   # exactly this reason; the sibling entry here was not updated to match.
   push("map: binary", (x, y) -> x - 2y)
+  # ANY NUMBER of inputs (decision 88). Every map above takes one or two fibers, so the nine- and
+  # thirty-three-source `map!` calls the variadic expansion builds all threw a `MethodError` and
+  # surveyed nothing. A sum is defined for any count of same-order fibers, and a mixed-order call still
+  # throws, as it should.
+  push("map: sum of all", (xs...) -> sum(xs))
   # The shape queries dispatch on `Val(R)`, and indexing takes indices. Without these the engine
   # reported `fiber_shape`, `field_physical_shape`, `field_spectral_shape`, `getindex` and `setindex!`
   # as unbuildable, which reads as "needs no test" rather than "the pool lacks an argument".
@@ -430,11 +444,18 @@ function invocations(operation::Function, pool; cap::Int = 400)
       base = parameters[1:end-1]
       # ONE copy and TWO, as DESIGN.md says. Expanding to two alone never builds the single-source
       # form for an operation whose only general method is the variadic one.
-      for repetitions in 1:2
+      #
+      # And NINE and THIRTY-THREE (decision 88). The operations with a variadic tail work through their
+      # operands in groups of eight, and Julia leaves its specialized tuple path at 32, so one and two
+      # copies reach neither boundary. A long expansion builds only the covering combinations below —
+      # one per candidate, every slot drawing that candidate — never the product, whose size is the
+      # candidate count to the thirty-third power.
+      for repetitions in (1, 2, 9, 33)
+        long_tail = repetitions > 2
         expanded = [base..., fill(element, repetitions)...]
         # Counted, like the non-variadic branch below. Skipping silently here is the very failure its
         # sibling's comment warns about, and it hides the `map!`/`map` forms this branch exists for.
-        if length(expanded) > 9
+        if !long_tail && length(expanded) > 9
           oversized += 1
           continue
         end
@@ -443,7 +464,9 @@ function invocations(operation::Function, pool; cap::Int = 400)
           unfillable += 1
           continue
         end
-        total = prod(length.(slots))
+        # A long tail is not truncated, it is a different expansion — covering calls only, by design —
+        # so it adds nothing to `dropped`, and its product (which would overflow an `Int`) is never formed.
+        total = long_tail ? 0 : prod(length.(slots))
         total > cap && (dropped += total - cap)
         # THE SAME COVERING PASS AS THE NON-VARIADIC BRANCH. Adding it there and not here was one fix
         # applied to one of two sibling call sites — and it bites harder here: `map!`'s `φ::F where {F}`
@@ -451,13 +474,13 @@ function invocations(operation::Function, pool; cap::Int = 400)
         # alone exhausts the cap and every trailing SOURCE slot stays frozen at its first entry for the
         # entire sweep. The two-source `map!(φ, dest, a, b)` form never varied `b` at all.
         variadic_covering = Vector{Any}[]
-        if total > cap
+        if total > cap || long_tail
           for t in 1:maximum(length, slots)
             Base.push!(variadic_covering, [slot[(t - 1) % length(slot) + 1] for slot in slots])
           end
         end
         seen_count = 0
-        for combination in Iterators.flatten((variadic_covering, Iterators.product(slots...)))
+        for combination in (long_tail ? variadic_covering : Iterators.flatten((variadic_covering, Iterators.product(slots...))))
           seen_count += 1
           seen_count > cap && break
           arguments = [e.object for e in combination]

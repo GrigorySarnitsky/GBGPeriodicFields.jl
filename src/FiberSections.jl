@@ -840,6 +840,21 @@ end
 
 
 """
+    _tuple_map(f, operands)
+
+Apply `f` to each element of the tuple `operands` and return the tuple of results, written out with a
+literal index per element and inlined, like [`_element_values`](@ref). It replaces `Base.map` over a
+tuple whose length the caller chooses: `Base.map` takes its generic path from 32 elements, where the
+result type is no longer inferred, which made the allocating `map` over 33 sources return a `Union`
+(found by the exhaustive survey, decision 88).
+"""
+@generated function _tuple_map(f::F, operands::Tuple) where {F}
+  calls = [:(f(operands[$i])) for i in 1:fieldcount(operands)]
+  return Expr(:block, Expr(:meta, :inline), :(($(calls...),)))
+end
+
+
+"""
     _call_values(f, arrays, n, constants)
 
 Apply the values function `f` at linear index `n`: a generated values function takes one scalar per
@@ -1175,15 +1190,21 @@ struct _MapValues{F, Orders, S} <: Function
   stride::S
 end
 
-@inline _call_values(map_values::_MapValues, arrays, n, ::Tuple{}) =
-  _flatten_fiber(map_values.φ(_input_fibers(map_values.orders, arrays, n, map_values.stride)...))
+# The call φ(fiber₁, …, fiberₘ) written out with one fiber read per input, generated per input count and
+# inlined. A recursion over the inputs whose results are then splatted into φ — the first form — ran at
+# nine sources and allocated per point at thirty-three, about 1.9 KB a point, because neither the
+# recursion nor the splat stays specialized that long (found by the exhaustive survey, decision 88).
+@generated function _call_values(map_values::_MapValues, arrays::Tuple, n, ::Tuple{})
+  fibers = [:(_input_fiber(orders[$i], arrays[$i], n, stride)) for i in 1:fieldcount(arrays)]
+  return Expr(:block, Expr(:meta, :inline),
+              :(orders = map_values.orders), :(stride = map_values.stride),
+              :(_flatten_fiber(map_values.φ($(fibers...)))))
+end
 
-# One fiber per input, read from that input's storage at `n` with the components `stride` apart; the
-# recursion runs over the inputs, whose number is short, and the reads over a compile-time component count.
-@inline _input_fibers(::Tuple{}, ::Tuple{}, n, stride) = ()
-@inline _input_fibers(orders::Tuple, arrays::Tuple, n, stride) =
-  (_assemble_fiber(orders[1], _strided_components(orders[1], arrays[1], n, stride), 0),
-   _input_fibers(Base.tail(orders), Base.tail(arrays), n, stride)...)
+# One input's fiber, read from its storage at `n` with the components `stride` apart, over a
+# compile-time component count.
+@inline _input_fiber(order::Val, array, n, stride) =
+  _assemble_fiber(order, _strided_components(order, array, n, stride), 0)
 
 @inline _strided_components(order::Val, array, n, stride) =
   ntuple(c -> (@inbounds array[n + (c - 1) * stride]), Val(_fiber_component_count(order)))

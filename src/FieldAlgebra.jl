@@ -118,6 +118,7 @@ using ..FiberSections:
   _subtract_values,
   _nary_assign!,
   _operand_tuple,
+  _tuple_map,
   _OPERANDS_PER_PASS,
   _vector_component,
   _tensor_component,
@@ -1757,10 +1758,10 @@ end
 # section kind; the public methods validate compatibility before calling it.
 function _map_pass!(φ::F, destination, sources::Tuple, α::Real, β::Real) where {F}
   scalar = _section_scalar_type(destination)
-  orders = Base.map(_section_order, sources)
+  orders = _tuple_map(_section_order, sources)
   targets = _section_components(destination, _section_order(destination))
   # One whole storage array per input; the adapter reads each input's components by stride.
-  arrays = Base.map(field_data, sources)
+  arrays = _tuple_map(field_data, sources)
   _fiberwise_pass!(get_backend(field_data(destination)), _MapValues(φ, orders, length(targets[1])),
                    targets, arrays, (), scalar(α), scalar(β))
   return destination
@@ -1770,7 +1771,7 @@ end
 # The output tensor order φ produces on these inputs, inferred from its return type; `-1` when
 # un-inferrable (an unstable φ), which the allocating `map` turns into a clear error.
 @inline function _map_output_order(φ::F, sources::Tuple) where {F}
-  input_types = Base.map(source -> _fiber_type(_section_scalar_type(source), _section_order(source)), sources)
+  input_types = _tuple_map(source -> _fiber_type(_section_scalar_type(source), _section_order(source)), sources)
   return _fiber_order(Base.promote_op(φ, input_types...))
 end
 

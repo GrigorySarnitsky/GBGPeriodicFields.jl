@@ -47,7 +47,11 @@ Three things the engine had to get right, each of which silently emptied the dom
   hid all four HDF5 operations behind "no buildable call".
 - **Zero-arity and variadic methods are still methods.** Skipping empty parameter lists lost
   `threading_cutoff`; skipping a variadic tail lost the whole multi-input `map!`/`map` surface, which
-  is expanded to its one- and two-argument forms instead.
+  is expanded to its one- and two-argument forms instead. It is also expanded to nine and to
+  thirty-three copies (decision 88): the operations with a variadic tail work through their operands in
+  groups of eight, and Julia leaves its specialized tuple path at 32, so the short forms reach neither
+  boundary. A long expansion builds only the covering combinations, one per candidate, never the
+  product, and adds nothing to the dropped count.
 
 ## Axis 2 — argument assignment
 
