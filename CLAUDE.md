@@ -311,53 +311,22 @@ docstrings; they surface in each module's **Internal API** docs section via
 formula docstring lives on the builder) — consistent with "generators emit methods only —
 never docstrings", which governs generated methods, not the hand-written builders.
 
-**Physical-space meaning first — even for spectral-representation operations.** By invariant 2 a field is
-a real physical object and spectral is only a *representation*, so a docstring for an operation that is
-*computed* in spectral representation must still **state what it does to the real object in physical space
-first — with the explicit relation/formula — then give the spectral form** it actually uses. `Convolution`
-is the reference: `convolve` leads with the periodic filtering integral (f⋆g)(x) = ∫_Ω f(y)·g(x−y) dy (and
+**Physical-space meaning first — PF's cases.** `Convolution` is the reference: `convolve` leads with the periodic filtering integral (f⋆g)(x) = ∫_Ω f(y)·g(x−y) dy (and
 its discrete circular sum) before the coefficientwise product f̂·ĝ; `assignment_window` leads with the
-linear/CIC B-spline "tent" cloud W(x) before returning its transfer function Ŵ. Give the physical form
-**whenever a clean one exists**; when it does not — a sharp spectral cutoff is a non-compact sinc/Dirichlet
-kernel, `squared_wavenumber_field` is the symbol of −∇² rather than a kernel — say so briefly rather than
-forcing it. **Correctness:** check the physical↔spectral relation is *exact* for the package's convention
+linear/CIC B-spline "tent" cloud W(x) before returning its transfer function Ŵ. Where no clean form
+exists, the docstring says so: a sharp spectral cutoff is a non-compact sinc/Dirichlet kernel, and
+`squared_wavenumber_field` was the symbol of −∇² rather than a kernel. **Correctness:** check the physical↔spectral relation is *exact* for the package's convention
 (unnormalized forward, invariant 4 — the convolution theorem holds for both the integral and the discrete
 sum); a stray 1/N, cell-volume, or |Ω| normalization factor is the easy slip here.
 
-**Math in docstrings and doc pages — rendered LaTeX, standard notation, symbol linked to code.**
-All mathematics in **docstrings and doc pages** is written as **rendered LaTeX** (Documenter's
-KaTeX), never Unicode-glyph approximations: inline as ``` ``\\langle f,g\\rangle`` ``` (double
-backticks; in a `"""` docstring the LaTeX backslashes are escaped `\\`, e.g. ``` ``\\Delta f`` ```;
-in a `.md` page raw `` `` ``), display as a ```` ```math ```` block. Use **standard mathematical
-notation** (∇, Δ, ⟨·,·⟩, ‖·‖, ∫, 𝔽, etc.). **Every code object is explicitly bound to its math
-symbol on first mention** — `laplacian` (``\\Delta``), `gradient` (``\\nabla``), `inner`
+**The symbol bound to the code.** Mathematics uses **standard notation** (∇, Δ, ⟨·,·⟩, ‖·‖, ∫, 𝔽,
+etc.), and **every code object is explicitly bound to its math symbol on first mention** — `laplacian` (``\\Delta``), `gradient` (``\\nabla``), `inner`
 (``\\langle\\cdot,\\cdot\\rangle``), the spectral representation written ``\\hat f`` — so the reader
-always knows which symbol *is* which function. **How that binding is written is
-`RULE.TEX.ONE_SPAN`'s, not this file's** (apposition: the two spans held apart by a connective, the
-``\\equiv`` spelling retired 2026-09-18); read the rule, which states the cases and is maintained
-against every package in the fleet. Plain `#` code comments stay Unicode (they are
+always knows which symbol *is* which function. Plain `#` code comments stay Unicode (they are
 not rendered). `Reductions` is the reference implementation of this convention.
 
-**Silent-rendering-failure micro-rules — markup KaTeX/Documenter render *wrong without failing the build*.**
-The bidirectional rule catches the two *loud* failures (a formula in backticks; a bare code name); these
-four are *silent* — the source looks right, the page renders broken, and a read-through of the *source*
-never catches it. **(a) A code identifier never sits inside a math span.** KaTeX renders a name inside a
-``` ``…`` ``` / ```` ```math ```` span as the product of italic single letters (`gradient` → eight italics,
-not the word). Backtick it in prose; a code name that must appear *inside* a formula is wrapped
-``` ``\\texttt{gradient}`` ```. The `code` (``\\Delta``) binding (code **beside** math) is correct —
-the token **inside** the span is the defect. **(b) A formula is one LaTeX span** — never split it
-across a ``` ``…`` ``` span and an adjacent `` `code` `` span (``` ``0 \\le m \\le`` ``` `2n` renders
-broken); keep it one span, a trailing code name in ``\\texttt{}``. **(c) Inline math stays on ONE source
-line.** A wrapped continuation of an inline ``` ``…`` ``` span that begins with a CommonMark list/blockquote
-leader (`- `/`* `/`+ `/`> `/`1.`, ≤ 3 leading spaces) is parsed as a **new list item** and silently drops
-the span out of math mode — the decision log (a list) and any bulleted math are the high-risk spots, and
-the α/β `convolve` formula wrapping onto a `+ …` line was exactly this. Break the *prose* around the span,
-not the span; **`docs/make.jl`'s `lint_inline_math()` fails the build on it** (scanning `src/` docstrings +
-the four rationale docs + every `docs/src` page incl. the generated example), so even a docstring-only
-change must pass it. **(d) No horizontal scroll.** A rendered code block (a docstring signature) and a
-display-math block do not auto-wrap — hand-wrap a long signature with a hanging indent under the first
-argument (the `anterpolate!` convention, ≤ ~88 source columns) and a wide display formula with
-`aligned`/`gathered`, never one line packing equations behind ``\\quad``; inline math reflows and is exempt.
+**Signature wrapping.** A long docstring signature is hand-wrapped with a hanging indent under the first
+argument (the `anterpolate!` convention, ≤ ~88 source columns).
 And **a backtick span holds only well-formed Julia** — a name/type/call/expression — never math that merely
 looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\ge``). The real operators
 `×`/`⋅`/`≈` backticked *are* code and stay.
@@ -365,14 +334,6 @@ looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\
 **Math spacing and command support — standard LaTeX idiom.** These are the conventions a fluent LaTeX
 author writes by default; the defects they head off — manual spacing, reflexive ``\\left``/``\\right`` — are
 novice tells, not subtle bugs. **Never:**
-- **manually space around a relation or binary operator** — ``\\;``/``\\:``/``\\,`` next to
-  ``=``/``<``/``\\in``/``+``/``-`` doubles the space TeX already puts there; write ``a = b``, not ``a \\;=\\; b``,
-  and let TeX space it.
-- **put ``\\!`` before an opening/closing delimiter that follows an operator or name** (``\\bigl``/``\\Bigl``/``\\bigr``)
-  — as in ``\\max\\!\\bigl(``, ``\\mathrm{Re}\\!\\bigl(``, ``\\mathcal F^{-1}\\!\\Bigl(``: there is already no gap there
-  (Op–Open and Ord–Open spacing is zero), so the ``\\!`` only jams the delimiter into the name; write
-  ``\\max\\bigl(``.
-- **double a negative thin as ``\\!\\!`` before ``\\sum``/``\\int``** — it overshoots into an overlap; juxtapose.
 - **write ``\\mathbb{…}`` on anything but a capital ``A``–``Z`` or ``k``** — KaTeX's blackboard font covers only
   those glyphs, so ``\\mathbb{1}`` (or any digit) falls back to a *plain* glyph with the font silently dropped;
   for the indicator/identity write ``\\mathbf{1}`` (or ``\\boldsymbol{1}``). KaTeX supports a subset of LaTeX, so
@@ -383,8 +344,7 @@ novice tells, not subtle bugs. **Never:**
   ``f\\bigl(x\\bigr)`` closes up where ``f\\left(x\\right)`` leaves a gap). **Sole exception:** a system / cases
   written ``\\left\\{ … \\right.`` — an auto-sized left brace closed by a null ``\\right.``.
 
-**These are correct — do NOT "fix" them:** ``\\sim\\!`` and relation-modifier tightening; ``\\,\\mathrm{d}x`` (the thin
-space before an upright differential is wanted); ``\\quad``/``\\qquad`` for display-equation separation; and
+**These are correct — do NOT "fix" them:** ``\\sim\\!`` and relation-modifier tightening; ``\\quad``/``\\qquad`` for display-equation separation; and
 ``\\mathrm{Re}`` versus ``\\operatorname{Re}`` before a delimiter (identical output — Ord–Open = Op–Open
 = 0 — so do not churn between them).
 
@@ -397,7 +357,7 @@ a plausible-sounding typographic argument — the one convention here once justi
 the actual method is typed in the docstring; one the code leaves untyped stays untyped — so an untyped
 codegen builder or kernel body (`_vector_component(symbol, kind, i)`, `_apply_convolution!(…)`) keeps its
 untyped header, while a fully-typed method shows the types (`anterpolate!(field::AbstractFieldPhysical,
-points::PointSet, …)`). Wrapping to ≤ ~88 columns is **docstring-only**: the source `function` definition
+points::PointSet, …)`). Wrapping is **docstring-only**: the source `function` definition
 is left exactly as written, however long (it is not a rendered surface, so its length does not matter). A
 generic multi-dispatch *summary* (the `add!`/`subtract!`/`combine!`/`multiply!`/`divide!` M2 family) types
 the args carrying one type across the overloads (`α::Real`) and keeps generic the ones that span types (a
@@ -432,9 +392,8 @@ representation, never spectral field", one type up. "Spectral kernels", `FieldSp
 and the `spectral_*` API names are NOT in this class (kernels genuinely are spectral objects; API
 renames are breaking), and the decision log keeps its original wording.
 
-**Neutral reference register — never "knob".** A tunable argument is an **option** (or *keyword argument*,
-*setting*, *choice* — the spline order `(n, m)`, the `NUFFT` `tol`, the α/β accumulation), never a "knob".
-Applies to docstrings, the four design docs, the doc pages, `#` comments, and `@testset` names.
+**Neutral reference register.** PF applies it to docstrings, the four design docs, the doc pages, `#`
+comments and `@testset` names.
 
 **Positional vs keyword arguments — the one-sentence policy (codified 2026-08-30; it had been
 implicit in the surface and one panel ruling).** In an OPERATION, every argument that affects the
@@ -452,17 +411,9 @@ transfer verbs' order (`anterpolate(grid, points, …)`), not the motion verbs' 
 (`wrap!(points, grid)`); the two families are deliberate and a new function joins the family whose
 verbs it serves.
 
-**Greek scalars — Unicode `α`/`β`, with two named exceptions.** The axpby accumulation scalars are written
-**Unicode `α`/`β`** everywhere — arguments, locals (`α_value`/`β_value`), kernel bodies, and docstrings —
-matching the `@eval` codegen, which itself emits Unicode `α`/`β` (so there is **no** codegen friction; the
-earlier "Unicode is friction in generated code" rationale was wrong). A hand-written op spelling them ASCII
-`alpha`/`beta` is **drift, not a choice** — do not reintroduce it (a `/check-consistency` sweep should flag
-it). **Two deliberate ASCII holdouts, not to be "unified":** the `alpha_beta::Bool` codegen flag (it names the
-α/β *variant*, not the scalar — `α_β::Bool` would read as a scalar product); and the **NUFFT** window-shape
-`beta` with its quadrature locals `omega`/`theta` — a self-consistent implementation block whose `beta` is a
-public **keyword argument + struct field** in the English register of `tol`/`width`/`oversampling` (a Unicode
-`β` keyword would be an odd Greek among English, and the rename is breaking). TurTLE's `beta_n{n}_m{m}` weight
-name is external and likewise stays.
+**Greek scalars — PF's names.** The locals are `α_value`/`β_value`; the NUFFT's quadrature locals
+`omega`/`theta` stay ASCII with its window-shape `beta`; and TurTLE's `beta_n{n}_m{m}` weight name is
+external and stays.
 
 **Cost register, not time — a docstring frames expense, never temporal cadence.** The package carries no
 concept of time (invariant 12), so a **docstring must not describe *when* or *how often* a consumer calls
@@ -477,28 +428,16 @@ allocation contract), `PERFORMANCE.md` — *may* reference the consumer's per-st
 *why* allocation-free matters requires it; a bare function/`#`-comment mention of "each call" (an invocation, not
 a time unit) is also fine. The bar is on **docstring prose**.
 
-**Argument coverage (signature-driven) — a sweep separate from the symbol sweep, run *from the signature*.**
-For each docstring, enumerate **every argument in its signature** (positional *and* keyword) and cite where
-the body documents each (a ``- `arg` — …`` bullet, a binding clause, an `arg = value` mention, or a `::Type`
-for a conventional first arg); flag any `UNDOCUMENTED`. The self-contained *symbol* sweep is not enough — an
-argument that surfaces only *inside a formula* reads as "bound by use" and slips through (a tolerance or
-stencil width shown only in a formula never gets its own entry).
+**What documents an argument.** A ``- `arg` — …`` bullet, a binding clause, an `arg = value` mention, or
+a `::Type` for a conventional first argument.
 
-**`docs/ARCHITECTURE.md` is self-contained — introduce notation in plain text before it is used.** As
-the top-level design document it must read top-to-bottom (and, since the decision log is browsed
-entry-by-entry, each entry on its own) **without** opening the source or another doc. So **every piece
-of notation — a math symbol in LaTeX or a `code` identifier — is introduced in plain language at its
-first use**, the meaning stated *before or in the same sentence as* the symbol; later uses may then be
-bare. This is stricter than the code↔symbol binding above: it also covers package-specific math symbols
-(`W`/`Wᵀ`, the base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the origin `o`, …).
-Universally standard math may stand unglossed (∇, Δ, ∫, ℝ, plain summation indices). Decisions 18/19 are
-the reference entries; keep the header's self-contained note true when editing.
+**`docs/ARCHITECTURE.md` is self-contained — PF's part.** PF extends it to each decision-log entry on its
+own, since the log is browsed entry by entry. It covers package-specific math symbols too (`W`/`Wᵀ`, the
+base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the origin `o`, …). Decisions
+18/19 are the reference entries; keep the header's self-contained note true when editing.
 
-**Citations — one uniform style across docstrings and doc pages.** In-text, **context-standard
-author–year**: author-prominent → parenthesized year (`Lalescu, Teaca & Carati (2010)`); inside an
-existing parenthetical → bare year, no nested parens (`(de-aliasing; Sundaram & Collins 1996)`). Name
-**up to three** authors (`A & B`; `A, B & C`); **four or more → `First et al.`** — except keep enough
-surnames to disambiguate two works that would otherwise collide. **Full references:** doc pages cite
+**Citations — PF's part.** Inside an existing parenthetical the year is bare, with no nested
+parentheses (`(de-aliasing; Sundaram & Collins 1996)`). **Full references:** doc pages cite
 short and the canonical full reference lives in `docs/ARCHITECTURE.md` §References (the works the package
 **implements / pins to** — Lalescu 2010, TurTLE 2022, van Hinsberg, Fornberg, the anterpolation lineage);
 **docstrings carry the full reference inline** (a `# References` block, or a one-line `Reference:`) so a
@@ -509,17 +448,12 @@ reference carries a clickable DOI on its title** — `[*Title*](https://doi.org/
 every inline docstring copy; a DOI stays REPL-safe (the URL renders as visible text, not a dead link).
 **A reference *block* of two or more citations is a bullet list, one citation per line**, never a
 semicolon-joined paragraph (unreadable when rendered); a lone citation stays inline as `Reference: …`.
-**Not
-citations:** eponymous method *names* (the `Catmull–Rom` spline, `Lagrange`/`Hermite` interpolation,
-`Fornberg` weights) take **no year** unless you are actually citing the work; non-implemented
-related-work asides (e.g. LES SGS models) may stay informal author–year with no full reference; plain
-`#` code comments are exempt (not rendered). **Never cite an inaccessible source** — the gitignored
-monograph under `inspiration/`, an "accompanying thesis", "appendix A", "Fig. A.1", or any "accompanying"
-material the reader cannot open — in **any** user-facing surface: rendered doc pages **and** the
-downloadable `examples/` scripts and READMEs. A citation the reader cannot follow is dead weight and
-implies they are missing something they cannot get; present every diagnostic on its own public terms
-(the trace structure functions and their K41 normalizations are standard turbulence — describe them, at
-most cite a public source).
+Non-implemented related-work asides (e.g. LES SGS models) may stay informal author–year with no full
+reference; plain `#` code comments are exempt (not rendered). The inaccessible source PF must never cite
+is the gitignored monograph under `inspiration/`, and the downloadable `examples/` scripts and READMEs
+are user-facing surfaces too; present every diagnostic on its own public terms (the trace structure
+functions and their K41 normalizations are standard turbulence — describe them, at most cite a public
+source).
 
 **Standing open item (2026-07-22 battery remainder).** The economy `/check-docs` run (13 Sonnet
 lanes + main-thread synthesis; raw findings in `.claude/check-docs-2026-07-22-findings.json`) fixed
@@ -547,14 +481,12 @@ divergence-annihilating at every mode, bitwise-unchanged sub-Nyquist). The ledge
 landed: the non-mean-free `inverse_laplacian` input and the ``\det(AB) = \det A \det B``
 assertion.
 
-**Two argument-shape inconsistencies are SETTLED, not defects (user-decided 2026-08-05).** The callable
-`field(x; scheme = …)` takes its scheme as a **keyword** while `interpolate`/`anterpolate` take it
-positionally, and `radial_kernel(sigma, multipliers)` leads with its **function** where
-`spectral_cutoff`/`spectral_band`/`assignment_window`/`translation_kernel` lead with their
-multipliers. Both were raised by the 12-hat panel as real interface inconsistencies; both are kept — a keyword suits a
-one-point convenience whose default is the usual case, and leading with the symbol follows Julia's
-`map(f, collection)` convention for the argument that distinguishes the general builder from the named
-ones. Changing either is breaking. A later review that re-raises them should close against this note.
+**An argument-shape inconsistency is SETTLED, not a defect (user-decided 2026-08-05).**
+`radial_kernel(sigma, multipliers)` leads with its **function** where
+`spectral_cutoff`/`spectral_band`/`assignment_window`/`translation_kernel` lead with their multipliers:
+leading with the symbol follows Julia's `map(f, collection)` convention for the argument that
+distinguishes the general builder from the named ones. Changing it is breaking. A later review that
+re-raises it should close against this note.
 
 **The `/check-docs` battery is CLOSED (2026-08-04).** Eleven economy lanes (nine surface lanes + the
 family and cold-reader lanes) plus the deterministic guards and the built-HTML pass; every finding
@@ -639,32 +571,19 @@ that must appear in a rendered doc is written as *visible* text and resolved by 
 guessing. (The one past instance — decision 19's "Grafakos, Thm 2.5.x" theorem-number placeholder — was
 resolved 2026-07-15, confirmed as Thm 2.5.10 against the user's copy.)
 
-**Mathematical correctness is its own check — distinct from formatting.** A sentence can be perfectly
-formatted, perfectly glossed, and still **false**. So every mathematical/definitional claim in the docs
-must be **true and precise**, checked on its own. Guard especially against: **category/type errors** (a
-vector space equated with an integer — "the fiber *is* the tensor order" was exactly this; an operator
-conflated with its parameter; a representation with the object; **an operator's domain/codomain left
-unchecked** — verify *which spaces* a map acts between, the fiber included, not only scalar formula values:
-the `𝟙`/`W` transfer slip wrote the section space `ℝ^N⊗V` as `ℝ^N` (flattening the fiber) and conflated the
-grid all-ones `𝟙_N` with the point `𝟙_M`, a structural error the value-check missed because it verified
-formulas, not spaces); **imprecise equalities / normalizations**
-(FFT/Parseval factors, a missing ``1/N``, adjoint relations); and **overclaims** ("exact"/"all"/"never"
-that aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs
-discrete-sum). When unsure, verify against the implementation and a standard reference. **Run this as a
-positive verification, not a read-through** — a false-but-plausible statement is as invisible as an unbound
-symbol: enumerate every formula, normalization constant (the `1/N`, `1/N²`, `2π/L`, Parseval factors),
-adjoint/transpose relation, and quantifier, and verify EACH independently against the implementation (read
-the code, quote the line) or a derivation, noting how. The §10 `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` slip — clean only for the
-measure-adjoint `ι_*`, but off by the `N/M` measure factor for the implemented (counting) transpose under
-the *normalized* inner — was exactly such a plausible-looking equality: a read-through passed it, a
-code-check (`inner = dot/_base_count`) caught it. **The lightweight way to run this:** write the statement
-formally on scratch — every object typed, the types taken from the code — and expand it; if it won't type,
-or an equality won't expand-match, the prose is imprecise. The nontrivial statements live formally in
-`docs/FORMALIZATION.md`; check each prose claim **against its entry** — the chain is *prose ↔ formalization ↔
-test* (the prose must agree with the typed statement, the statement is verified against the code, the linked
-test enforces it numerically) — and treat a nontrivial claim with **no entry**, or an entry with **no test
-link**, as a coverage gap. Hand-verified typed notes, not a
-proof assistant.
+**Mathematical correctness — PF's slips and its chain.** Check which *spaces* a map acts between, the
+fiber included, not only scalar formula values: the `𝟙`/`W` transfer slip wrote the section space
+`ℝ^N⊗V` as `ℝ^N` (flattening the fiber) and conflated the grid all-ones `𝟙_N` with the point `𝟙_M`, a
+structural error the value-check missed because it verified formulas, not spaces; "the fiber *is* the
+tensor order" equated a vector space with an integer. Watch for overclaims ("exact"/"all"/"never" that
+aren't literally true; bounded-vs-unbounded multiplier confusions; continuum-integral vs discrete-sum).
+The §10 `⟨Wf,q⟩ = ⟨f,Wᵀq⟩` slip — clean only for the measure-adjoint `ι_*`, but off by the `N/M` measure
+factor for the implemented (counting) transpose under the *normalized* inner — passed a read-through and
+was caught by a code-check (`inner = dot/_base_count`). The nontrivial statements live formally in
+`docs/FORMALIZATION.md`; check each prose claim **against its entry** — the chain is *prose ↔
+formalization ↔ test* (the prose must agree with the typed statement, the statement is verified against
+the code, the linked test enforces it numerically) — and treat a nontrivial claim with **no entry**, or an
+entry with **no test link**, as a coverage gap. Hand-verified typed notes, not a proof assistant.
 
 **Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
 **(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
@@ -696,22 +615,11 @@ author–year; ≤3 authors named, `First et al.` for 4+; full reference inline 
 `ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
 (The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)
 
-**A flagged instance is a sample of a class — fix the class, not the line.** When a check (or the user)
-catches one defect, treat it as evidence of a *pattern*, not a lone typo: characterize the class and
-**sweep every doc surface for it** — `ARCHITECTURE.md`, every module and operation docstring in `src/`, and
-the `docs/src/` pages — by grep or per-section enumeration, then fix all occurrences in one pass and report
-the class and the count. Fixing only the pointed-at line and waiting to be handed the next instance is the
-failure this rule exists to stop (across one review it happened repeatedly — the §10 symbol bindings, the
-indented tables, the unbound symbols — each patched singly while the rest of the class sat untouched).
+**A flagged instance is a sample of a class.** When the class is swept, report the class and the count.
 
-**"Check the docs" = the complete battery, never one check or one file.** When asked to check / review /
-audit the docs (in any words), run the FULL matrix in one go: every check above (the five-point checklist +
-the notation/structure rules) across every surface — `ARCHITECTURE.md`, `FORMALIZATION.md`, `TESTING.md`, `PERFORMANCE.md`,
-every `src/` docstring, and every `docs/src` page. The `/check-docs` command (`.claude/commands/check-docs.md`)
-encodes this exact protocol; running it — or the equivalent surface-parallel fan-out — is the default
-reading of the request. Do **not** run one check, sweep one file, then stop and wait to be asked for the
-next; report the matrix (surfaces × checks: findings, fixes, and what is verified clean). This rule exists
-because the checks were repeatedly run one-at-a-time, surface-by-surface, across one review. **Cheap
+**"Check the docs" — PF's surfaces.** They are `ARCHITECTURE.md`, `FORMALIZATION.md`, `TESTING.md`,
+`PERFORMANCE.md`, every `src/` docstring and every `docs/src` page, and the report is the matrix
+(surfaces × checks: findings, fixes, and what is verified clean). **Cheap
 (economy) scan lanes are the DEFAULT — full-strength lanes only on explicit request — and the fix
 phase always completes at full strength in the main thread, closing every finding as fixed or
 dismissed-with-reason in the same run; every mode ends with zero open findings (policy 2026-07-23,
@@ -722,49 +630,16 @@ cheap scan model, the two mathematician hats (`spectral-methods-mathematician`,
 by the main-thread verification but a subtle-math false negative has no downstream verifier;
 verification/consolidation/fix are never economized; **a fix pass is driven from the banked per-hat reports, never from the consolidated summary** — consolidation is lossy by design (the 2026-07-24 run buried 19 of one hat's 20 findings in a parenthetical and downgraded another hat's major contradiction to "soft"), so the summary is the user's reading artifact and the `NN-*.md` files are the work list, closed by finding number and a hat's own severity respected; `strength: "full"` only on explicit request.**
 
-**The review unit is the operation's whole variant set and the cold read — the two defects a per-docstring pass
-structurally misses.** Every check above runs *inside* one docstring (is each symbol bound? each formula
-true? each name backticked?), so two classes slip through by construction — one *relational*, one
-*audience-relative* — and both bit this session. **(1) Variant-pair drift.** One operation is documented
-across several bindings — the allocating `f` and the in-place `f!`, a getter and its `set_…!`, sometimes a
-physical and a spectral generic. The *operation's* defining math (the componentwise formula, the spectral
-kernel) has **one home** — the primary binding: the `!` form for the differential operators (it owns the
-kernel), the getter for a getter/setter (it owns the meaning) — and every other variant is a **thin wrapper
-that leads with the one-sentence physical meaning, names its result intrinsically, and `@ref`-links the
-home**, carrying no second copy of the formula (`gradient` → *"Allocating form of [`gradient!`](@ref):
-allocate the result and return it. A scalar field gives its gradient vector field ∇φ; a vector field u gives
-∇u. See `gradient!` for the componentwise definition and the spectral kernel."*; `set_threading_cutoff!` →
-*"Set [`threading_cutoff`](@ref) to `n`…"*). This is "one concept, one home" and the cross-referencing
-*at-home test* applied to the **generic pair** — the site nobody audits, because each string reads fine
-alone; it *reconciles* with "physical-meaning-first outranks DRY" (the wrapper keeps the one plain-meaning
-sentence, sheds only the *re-derivation*). Typed twice, the math **drifts** — the allocating operators wrote
-the partial as `\partial_i` while the `!` forms wrote `\partial_{x_i}`, the "one notation per concept" rule
-broken *across* the pair and invisible to a within-string sweep. **Guards:** the wrapper of each `f`/`f!` and
-getter/`set_…!` pair must carry **no** display formula and **must** link its home; and a banned-variant grep
-(bare-index `\partial_[ijk]` empty; canonical `\partial_{x_i}`) is **build-enforced** by `docs/make.jl`'s
-`lint_notation_variants()`. **(2) Cold-reader opacity.** A docstring can bind every *symbol* (passing
-*Self-contained*) yet be unreadable to someone who has not read the module, because its **terms of art are
-nouns, not symbols**: `threading_cutoff` said "the element count at or above which an *assignment* is split"
-— every word defined *elsewhere*, none on the page. Extend the defined-or-linked bar from symbols to
-**nouns** (checklist (2)): the first sentence says what the thing *is* in plain words, and a term naming a
-package concept is inlined in a clause or `@ref`-linked on first use. **Acceptance test — the cold read:**
-parse the docstring with the module's context withheld; a noun that silently assumes you already know the
-package is the defect. Both are family/context properties, so neither guard is another per-string grep —
-`/check-docs` adds a lane that **groups each operation's generics and diffs them** and a lane that **reads
-each exported docstring in isolation**; when one instance surfaces, sweep the *class* across every family per
-"fix the class, not the line".
+**Variant pairs — PF's part.** The getter is the home of a getter/`set_…!` pair (it owns the meaning),
+and a thin wrapper reads like `gradient` → *"Allocating form of [`gradient!`](@ref): allocate the result
+and return it. A scalar field gives its gradient vector field ∇φ; a vector field u gives ∇u. See
+`gradient!` for the componentwise definition and the spectral kernel."*, or `set_threading_cutoff!` →
+*"Set [`threading_cutoff`](@ref) to `n`…"*. The partial derivative is written `\partial_{x_i}`, never
+the bare-index `\partial_i` the allocating operators once wrote.
 
-**A Literate example (e.g. `examples/HIST_CPU.jl`) IS a rendered doc page — sweep and verify it like one.**
-Every **full-line `# ` comment becomes Markdown prose** on the built page (only inline `# …` after code on the
-same line, and `##` double-hash lines, stay as code comments). **"Full-line" includes INDENTED comments inside
-a function body** — a 2-space-indented `# …` on its own line still renders as prose, so the driver's internal
-step comments are rendered too (Literate strips the indentation). One consequence bit this page: a full-line
-comment **inside a control-flow block** (e.g. the first line inside an `if`/`for`) splits the code fence and
-strands the block header from its body. For a comment that must stay *in* the code — inside control flow, or
-any implementation note you don't want rendered — use `##` (Literate keeps it as a `#` code comment, math-glyph
-exempt) or make it inline after code; reserve full-line `# ` for genuine narrative prose at statement
-boundaries. So **all math in the prose comments is rendered and must be LaTeX** — double-backtick inline,
-```math``` display — exactly as in `ARCHITECTURE.md`. **Two forbidden
+**A Literate example — PF's part.** "Full-line" includes **indented** comments inside a function body: a
+2-space-indented `# …` on its own line still renders as prose, so the driver's internal step comments are
+rendered too (Literate strips the indentation). **Two forbidden
 failure modes, both found littered across this page:** (a) bare **Unicode glyphs** in prose (`Re_λ`, `λ ≪ L`,
 `∇·u = 0`, `exp(−νk²Δt)`) render as literal text, not math; (b) **math wrapped in backticks** — backticks are
 ONLY for a **code identifier that actually appears in the code** (a function/type/field/file name), so a
@@ -773,18 +648,10 @@ code yet names nothing in the code. Convert BOTH kinds to LaTeX; keep backticks 
 **underscored identifier in prose must be backticked** (`` `n_spinup` ``), or Markdown parses `n_spinup … n_stats`
 as an *italic* span across the underscores.
 
-**Verify a doc edit by BUILDING the page, not by eyeballing the diff — and "building" means the full
-`julia --project=docs docs/make.jl` EXITING 0, gated on that exit status.** The six lint functions run
-standalone are a subset of it and cannot see a dangling `@ref`; grepping a build log for error text
-passes a build that died at load. Six `Docs` deploys failed unnoticed for two days after decision 83
-(2026-09-04 → 06) on exactly that gap, and the repair shipped unbuilt once more through a grep-gate. After editing a Literate example,
-regenerate it (`Literate.markdown(src, out; documenter=false)`) and grep the OUTPUT prose for Unicode-math
-glyphs and backtick-wrapped formulas until the count is **zero** — the built page is the source of truth for
-what renders. The example page is a "check the docs" surface: the battery above (and `/check-docs`) must build
-and grep `examples/*.jl` → markdown too, not only `ARCHITECTURE.md` / `src/`. **This rule exists because a
-LaTeX pass was once applied to only the two paragraphs the user pointed at, leaving the rest of the page in
-Unicode/backtick math — the "fix the class, not the line" rule violated, and the gap went uncaught because the
-rendered page was never built and grepped (only the touched paragraphs were eyeballed).**
+**Verify a doc edit by building it.** The command is `julia --project=docs docs/make.jl`, gated on its
+exit status. After editing a Literate example, regenerate it (`Literate.markdown(src, out;
+documenter=false)`) and grep the OUTPUT prose for Unicode-math glyphs and backtick-wrapped formulas until
+the count is **zero**; the example page is a "check the docs" surface too.
 
 **Demo & figure standards (the `examples/` HIST demos).** A figure presented as a *result* must come from
 a **verified-stationary** flow: check the `k(t)`/`ε(t)` history fluctuates about a constant mean (not
@@ -802,42 +669,25 @@ surfaced as a cryptic `was_shown` `FieldError`); on a log axis skip the `r=0` / 
 notation follows Pope: `k` = turbulent kinetic energy, `κ` = wavenumber magnitude, `E(κ)` = spectrum —
 kept distinct (the integrating factor is `ℰ`, the RK stages `N̂₁`/`N̂₂`).
 
-**Markdown tables must be top-level — never indented inside a list item.** Documenter (CommonMark.jl) will
-not form a GFM table inside an indented list item; it falls back to literal text (the pipes and `---`
-render verbatim, rows mashed). Inside a list (e.g. a `DECISIONS.md` entry) use a **nested
-bullet list** instead, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
+**Markdown tables in a list.** Inside a list (e.g. a `DECISIONS.md` entry) use a **nested bullet list**
+instead of a table, and keep literal `|` out of cells (a `|` — even inside ``…`` math, like a norm/abs
 bar — is counted as a column delimiter). Bit twice: the decision-18 and decision-19 tables. Grep guard:
 `grep -rnE '^[[:space:]]+\|[-:| ]+\|' docs` must return nothing.
 
-**One notation per concept — and one concept per notation.** The self-contained check guards that every symbol
-is *introduced*; it does **not** guard that a concept has only *one* symbol. Before introducing a math
-symbol, check it isn't a synonym for one already in use. If an abstract operator and its matrix (or a
-continuous vs discrete form) genuinely both appear, name each one's distinct role **once** and stop — one
-object wearing three symbols (the `W`/`𝓘`/`ι` interpolation tangle: matrix, operator, and pullback all
-for the same map) is the failure mode. It is easy to *create* this when an edit adds new notation (here,
-`ι`) without retiring the old (`𝓘`), so when an edit introduces a symbol, grep the doc for any existing
-symbol denoting the same thing and reconcile them. **Run the rule the other way too:** a single glyph must
-not carry two meanings in one section. When you introduce a symbol, grep the section for the glyph and
-confirm it is free — `β` meaning both the `mul!` accumulation scalar *and* the spline stencil weight, and
-`p` meaning both the point index (`xₚ`, `Σₚ`) *and* a polynomial (`p ∈ Πₘ`), were the failure mode (fixed by
-yielding the local use: stencil weight → `w`, polynomial → `φ`). A package-wide convention that cannot move
-(the α/β accumulation, invariant 10) keeps the glyph; the local use renames.
+**One notation per concept — PF's cases.** If an abstract operator and its matrix (or a continuous vs
+discrete form) genuinely both appear, name each one's distinct role **once** and stop — the `W`/`𝓘`/`ι`
+interpolation tangle (matrix, operator and pullback all for the same map) was the failure. A
+package-wide convention that cannot move (the α/β accumulation, invariant 10) keeps its glyph and the
+local use renames: `β` meant both the `mul!` accumulation scalar and the spline stencil weight, and `p`
+both the point index (`xₚ`, `Σₚ`) and a polynomial (`p ∈ Πₘ`), fixed as stencil weight → `w`,
+polynomial → `φ`.
 
-**Prefer coordinate-free notation (a check).** State maps and pairings **intrinsically** — operators (the
-pullback `ι*`, the pushforward `ι_*`, `W`/`Wᵀ` as maps) and the measure pairings as honest sums/integrals
-(`Σ_p a_p·b_p`, `∫_Ω f·g dx` — concrete *and* coordinate-free in spirit; keep these, they are preferred).
-**Avoid coordinate/matrix machinery that buries the bundle structure:** the dense matrix of a section-level
-map (`W_{pn}`), an all-ones vector `𝟙`, a mass matrix, or flattening a section space `ℝ^N⊗V` to `ℝ^N`
-(which hides base vs fiber). **Carve-out:** component notation for the genuine *fiber* tensor algebra is
-fine — the fiber has a canonical global frame and a `FiberTensor2` really is a 3×3 matrix, so
-`(Au)_i = A_{ij}u_j` is the clearest form; the rule targets *section/base* flattening, not the fiber. If a
-basis/matrix form is genuinely needed (e.g. to mirror the code), state the basis **and** the space it acts
-on, kept as a clearly-marked shadow of the intrinsic object. This is **also a correctness guard**: the
-`𝟙`/`W_{pn}` transfer picture passed the binding and formula-value checks yet was structurally wrong (the
-fiber flattening + the `𝟙_N`/`𝟙_M` conflation above) — a coordinate-free lens catches what a value-check
-cannot. (`docs/FORMALIZATION.md` is the **sanctioned home** for the coordinate/matrix/component expansions —
-exempt from this preference, since *checking* precision requires expanding into components, but **not**
-exempt from correctness.)
+**Coordinate-free notation — PF's part.** The preferred forms are the pullback `ι*`, the pushforward
+`ι_*`, `W`/`Wᵀ` as maps, and the measure pairings as honest sums/integrals (`Σ_p a_p·b_p`,
+`∫_Ω f·g dx`). It is **also a correctness guard**: the `𝟙`/`W_{pn}` transfer picture passed the binding
+and formula-value checks yet was structurally wrong (the fiber flattening and the `𝟙_N`/`𝟙_M`
+conflation above). `docs/FORMALIZATION.md` holds the component expansions but is **not** exempt from
+correctness.
 
 **One concept, one home; everywhere else links.** Explain each idea in the single section that owns it;
 every other mention is a one-line hook + a `[…](@ref)` / §-link, never a re-derivation — and a diagram
@@ -852,22 +702,15 @@ necessarily quoting a retired claim in order to record that it was retired.
 **Cross-referencing — discriminating-minimalist; a link earns its place.** Live Documenter `@ref` links are
 the encouraged way to point across the docs (a mistyped `@ref` fails the build, so it cannot rot), but
 **backtick every code identifier and promote to `@ref` only where a reader would genuinely jump and there is
-one clear destination**: (1) link a target **at most once per docstring** (its first genuine mention); (2)
-**never** link the docstring's own binding, its argument names, `Symbol`/option tokens, struct fields, or
-`Base` names; (3) a **family** of built-ins (the spline schemes, the reductions) is **one** catalogue
-destination, not five — name each member in plain backticks and `@ref` the default — **unless the
-members are distinct types a reader must CHOOSE between**, as the four `SpectralKernel` storage classes
-are, where each is linked (user-directed 2026-09-02); **(3a) an enumeration is uniform** — sibling names
-in one list or one sentence are all linked or all plain, never a mix, since an odd one out reads as a
-broken link rather than as a rule. Both halves come from the same report: `SpectralKernel` named
-`Convolution` bare beside a linked `DifferentialOperators` and `Reductions`, and listed its four storage
-classes bare under a linked catalogue; (4) **at-home test** —
-if a sentence would sit equally well in the *target's* own docstring, cut it and link (the function's own
-defining formula and its validity/absence clauses always stay — physical-meaning-first outranks DRY). **No
-dead references on the user-facing surface:** a rendered docstring or a thrown error must not cite a
-`§`-number or a repo path (those live in `#` comments, `CLAUDE.md`, and the design docs, which cross-cite
-freely); a docstring must read **complete at the REPL**, where links are dead — a link adds depth one hop
-away, never a fact the reader needs.
+one clear destination**: (1) **never** link the docstring's own binding, its argument names,
+`Symbol`/option tokens, struct fields, or `Base` names; (2) a **family** of built-ins (the spline schemes,
+the reductions) is **one** catalogue destination, not five — name each member in plain backticks and
+`@ref` the default — **unless the members are distinct types a reader must CHOOSE between**, as the four
+`SpectralKernel` storage classes are, where each is linked (user-directed 2026-09-02); (3) **at-home
+test** — if a sentence would sit equally well in the *target's* own docstring, cut it and link (the
+function's own defining formula and its validity/absence clauses always stay — physical-meaning-first
+outranks DRY). A thrown error, like a rendered docstring, must not cite a `§`-number or a repo path
+(those live in `#` comments, `CLAUDE.md`, and the design docs, which cross-cite freely).
 
 ## Verification workflow
 
