@@ -1798,7 +1798,7 @@ against a quantity that varies 7× run to run. **(2) The value lane has now exec
 CLOSED (2026-08-15)** — it had thrown from 2026-08-03 until a fix on 2026-08-04, leaving its
 independent oracles unverified against the present code. The survey was run in full after decision 66, again on
 2026-08-28, and again on **2026-08-29** after the per-method ledger landed (`-t4`, from `test` so the
-HDF5 pair is reachable, ~85 minutes). The current figures are the **2026-09-06 afternoon** run's, on
+HDF5 pair is reachable, ~85 minutes). **Re-run 2026-09-27 on `Enteropia` (`-t4`, 94 min) after decision 88's rows landed: 3,606,720 invocations, 0 correctness and 0 type-stability findings, 54,144 value comparisons with 128 of 129 operations carrying an independent oracle, the per-method ledger 0 uncovered of 604 cells, 0 failures in every behaviour lane, 63 context-mismatch cells, the same 72 known `radial_spectrum` cells.** Its first run that day found the `map`/`map!` path past 32 sources (decision 88) and one `displace!` method no row reached; both closed before this run. The figures that follow are the **2026-09-06 afternoon** run's, on
 an idle `Aiporetne` (88 minutes), after the morning run had found a week's un-surveyed coverage debt
 from decisions 78, 80 and 82 and it was closed: **3,419,808 invocations** over 96 configurations,
 **50,400 value comparisons with 125 of 126 operations carrying an independent oracle** — the one
