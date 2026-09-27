@@ -41,6 +41,15 @@ function add_reductions!(group, AT, ::Type{T}, grid, tag) where {T}
   group["weighted_inner x3 separate | $tag"] =
     @benchmarkable (weighted_inner($us, $wk1), weighted_inner($us, $wk2), weighted_inner($us, $wk3))
   group["weighted_inner x3 fused | $tag"] = @benchmarkable weighted_inner($us, ($wk1, $wk2, $wk3))
+  # Past the group of four (decision 88): thirty-three weights take nine traversals, against the
+  # thirty-three a caller would otherwise make, and four weights are one traversal. The three rows
+  # price the grouped form against both.
+  weights33 = ntuple(i -> (wk1, wk2, wk3)[mod1(i, 3)], 33)
+  weights4 = weights33[1:4]
+  separate33 = Any[weights33...]
+  group["weighted_inner x4 fused | $tag"]     = @benchmarkable weighted_inner($us, $weights4)
+  group["weighted_inner x33 fused | $tag"]    = @benchmarkable weighted_inner($us, $weights33)
+  group["weighted_inner x33 separate | $tag"] = @benchmarkable [weighted_inner($us, w) for w in $separate33]
   group["reality_residual scalar | $tag"] = @benchmarkable reality_residual($ss)
   group["reality_residual vector | $tag"] = @benchmarkable reality_residual($us)
   group["inner spectral | $tag"]  = @benchmarkable inner($us, $vs)     # Parseval: dot + the kₓ=0/Nyquist planes

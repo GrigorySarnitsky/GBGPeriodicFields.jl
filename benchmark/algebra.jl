@@ -18,6 +18,15 @@ function add_algebra!(group, AT, ::Type{T}, grid, tag) where {T}
   # register-only), and the multi-input form the corresponding named binary op.
   group["map!(det) tensor | $tag"] = @benchmarkable (map!(det, $sdest, $A); bench_sync(field_data($sdest)))
   group["map!(+) vec | $tag"]      = @benchmarkable (map!(bench_add, $vdest, $u, $v); bench_sync(field_data($vdest)))
+  # Operand counts past the group of eight (decision 88). Eight operands take one pass, nine take two
+  # and sixteen three, each later pass re-reading the partial sum from the destination. Against a fold
+  # that read every operand once, the extra traffic is one destination read and write per extra pass,
+  # so the three rows price what grouping costs. Sixteen scalar fields are 16 GiB at 512^3 Float64.
+  operands = [scalar_phys(AT, T, grid) for _ in 1:16]
+  for n in (8, 9, 16)
+    arguments = (sdest, operands[1:n]...)
+    group["add! scalar x$n | $tag"] = @benchmarkable (bench_call(add!, $arguments); bench_sync(field_data($sdest)))
+  end
 end
 
 bench_add(a, b) = a + b     # named (not a closure) so the benchmark buffer stays stable across evals

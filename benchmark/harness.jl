@@ -34,5 +34,11 @@ function point_setup(AT, ::Type{T}, grid) where {T}
   return PointSet(AT(T(2π) .* rand(T, npart, 3))), ScalarPointValues(AT(rand(T, npart))), npart
 end
 
+# Call `f` with the elements of `arguments` as separate arguments, written out with a literal index
+# each. A splat of more than 32 values allocates at the call site, before the package is entered, so
+# the operand-count rows (decision 88) would time the benchmark's own call rather than the operation.
+@generated bench_call(f, arguments::Tuple) =
+  Expr(:call, :f, (:(arguments[$i]) for i in 1:fieldcount(arguments))...)
+
 # Block on the device so BenchmarkTools times to completion (no-op on the CPU backend).
 bench_sync(x::AbstractArray) = synchronize(get_backend(x))

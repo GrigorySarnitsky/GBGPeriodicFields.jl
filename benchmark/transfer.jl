@@ -83,4 +83,11 @@ function add_transfer!(group, AT, ::Type{T}, grid, tag; registry = nothing) wher
   group["displace! 3-term | $tag"] = @benchmarkable (displace!($motion_points, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_positions($motion_points)))
   group["displace! 3-term torus | $tag"] = @benchmarkable (displace!($motion_points, $grid, ($c, $v1), ($c, $v2), ($c, $v3)); bench_sync(point_positions($motion_points)))
   group["wrap! | $tag"] = @benchmarkable (wrap!($motion_points, $grid); bench_sync(point_positions($motion_points)))
+  # Past the group of eight terms (decision 88): eight terms are one pass, nine two, thirty-three five,
+  # each later pass re-reading the positions it continues from.
+  sections = [VectorPointValues(AT(randn(T, npart, 3))) for _ in 1:33]
+  for n in (8, 9, 33)
+    arguments = (motion_points, ((c, sections[k]) for k in 1:n)...)
+    group["displace! $(n)-term | $tag"] = @benchmarkable (bench_call(displace!, $arguments); bench_sync(point_positions($motion_points)))
+  end
 end

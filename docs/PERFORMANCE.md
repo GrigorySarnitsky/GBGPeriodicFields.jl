@@ -1703,12 +1703,24 @@ The same probe on the commit before the change read
 tens to thousands of times the storage of the fields involved (332 KB for one vector field, 1 MB for one tensor field), so they were paid per
 element rather than once per call.
 
-What this finding does not settle is TIME. A tuple of 33 weights now takes nine traversals where
-decision 72's design would have taken one, which reads the coefficient array nine times, and above
-eight operands `add!` re-reads its partial sum once per group. The trade was made for compilation and
-correctness — the one-pass `weighted_inner` did not compile on a device past a handful of weights — and it is
-invisible at the counts a solver passes, which are all at or below one group. A benchmark row at a
-count past the group size would price it; none exists yet, and running one needs an idle host.
+The time was measured on 2026-09-27 on `Enteropia`, with benchmark rows added to the suite for it
+(`add! scalar x8/x9/x16`, `displace! 8/9/33-term`, `weighted_inner x4/x33 fused` and `x33 separate`),
+`Float64`, minimum times.
+
+Grouping costs exactly the memory traffic it adds. Nine `add!` operands take
+two passes, the second re-reading and re-writing the partial sum, so 12 array transfers where one pass
+would need 10; sixteen take 21 where one pass would need 17. Priced per array from the eight-operand
+row, that model predicts CUDA at ``256^3`` to within 1%: 1976 us against 1984 measured for nine
+operands, 3458 against 3488 for sixteen. The CPU agrees to within about 10% at ``256^3`` and ``512^3``.
+Past eight operands `add!` therefore runs about 20–24% slower than a single pass would.
+
+The `displace!` rows follow the same model: 33 terms cost 4.3 times the eight-term time on one CPU
+thread, as predicted, and 3.9 times on CUDA. The one outlier is eight threads at ``256^3``, 8.6 times,
+where the eight-term working set largely fits the 96 MB cache and the 33-term one does not; at
+``512^3``, where neither fits, the ratio returns to 4.1. For `weighted_inner` the grouped tuple still
+beats one call per weight at every point measured — 33 weights at ``256^3`` take 391 ms against 564 on
+one CPU thread, 57 against 188 at eight, 15.1 against 23.1 on CUDA, and at ``64^3`` on CUDA 0.51 against
+1.12 ms — so the nine traversals cost less than the 33 they replace.
 
 **(at) The 2026-09-20 `Enteropia` five-lane re-sweep: flat against 55 commits, and one apparent
 ``1.75\times`` win that belongs to the sweep rather than to the package** (2026-09-20/21; the archives
