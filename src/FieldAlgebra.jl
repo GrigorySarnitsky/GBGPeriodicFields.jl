@@ -234,7 +234,7 @@ end
 
 Add fields, or a field and a constant, in place, and return `destination`.
 
-Use this in-place form when `destination` is already allocated; the allocating `+`
+Use this in-place form when `destination` is already allocated; the allocating [`+`](@ref)
 returns a fresh result instead.
 
 The arguments are:
@@ -256,7 +256,7 @@ function add! end
 
 Subtract fields, or a field and a constant, in place, and return `destination`.
 
-Use this in-place form when `destination` is already allocated; the allocating `-`
+Use this in-place form when `destination` is already allocated; the allocating [`-`](@ref)
 returns a fresh result instead.
 
 The arguments are:
@@ -611,7 +611,7 @@ end
 
 Multiply a field in place by a real number or by a scalar field, and return `destination`.
 
-Use this in-place form when `destination` is already allocated; the allocating `*`
+Use this in-place form when `destination` is already allocated; the allocating [`*`](@ref)
 returns a fresh result instead.
 
 The arguments are:
@@ -636,7 +636,7 @@ function multiply! end
 
 Divide a field in place, and return `destination`.
 
-Use this in-place form when `destination` is already allocated; the allocating `/`
+Use this in-place form when `destination` is already allocated; the allocating [`/`](@ref)
 returns a fresh result instead.
 
 The arguments are:
@@ -1129,7 +1129,7 @@ end
 
 Compute a fiberwise tensor (matrix) product in place, and return `destination`. The three-argument forms compute the tensor-on-vector left and right action, or the tensor-on-tensor product; the five-argument form scales and accumulates as ``\\texttt{destination} = \\alpha (A B) + \\beta \\texttt{destination}``.
 
-Use this in-place form when `destination` is already allocated; the allocating `*`
+Use this in-place form when `destination` is already allocated; the allocating [`*`](@ref)
 returns a fresh result instead.
 
 The arguments are:

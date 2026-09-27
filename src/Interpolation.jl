@@ -167,7 +167,9 @@ the two families of [`AbstractTransferScheme`](@ref); the spectral-domain [`Dire
 their weights alone. In the signature `T`
 is the coefficient type and `L` the matrix length `N2 * M2`.
 
-Reference: C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
+# References
+
+  * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
 """
 abstract type AbstractSplineScheme{N2, M2, T<:AbstractFloat, L} <: AbstractTransferScheme end
 
@@ -285,7 +287,9 @@ Return Fornberg (1988) finite-difference weights: `weights[i, k+1]` is the weigh
 order-``k`` derivative (``k = 0, 1, \\dots`` up to `max_order`) of a function sampled at `nodes`,
 evaluated at `evaluation_point`, a host-side spline-weight helper.
 
-Reference: B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
+# References
+
+  * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 """
 function _fornberg(evaluation_point::Float64, nodes::Vector{Float64}, max_order::Int)
   number_of_nodes = length(nodes)
@@ -1248,9 +1252,11 @@ The arguments are:
   once and live in the same storage family as the field; `nothing`, the default, visits them in
   index order.
 
-Reference: A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
-equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
-(an early use of "anterpolation" for the adjoint of interpolation).
+# References
+
+  * A. Brandt, A. A. Lubrecht, [*Multilevel matrix multiplication and fast solution of integral
+    equations*](https://doi.org/10.1016/0021-9991%2890%2990171-V), J. Comput. Phys. **90**(2) (1990) 348–370
+    (an early use of "anterpolation" for the adjoint of interpolation).
 """
 function anterpolate!(field::AbstractFieldPhysical, points::PointSet, quantities::AbstractPointValues,
                       scheme::AbstractSplineScheme = CatmullRom, α::Real = true, β::Real = false;
@@ -1697,7 +1703,9 @@ Nyquist content is not pointwise divergence-free in the continuum).
     times at the default oversampling ``\\sigma = 2``) for its whole lifetime, which matters on a
     memory-tight GPU.
 
-Reference: A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
+# References
+
+  * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 
 The fields are:
 

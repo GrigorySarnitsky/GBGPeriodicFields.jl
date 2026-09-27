@@ -1908,9 +1908,11 @@ the aliasing sum over the periodic images of ``k``, so the division undoes the s
 aliasing — trust the band well below the Nyquist frequency. The package supplies the
 window; the density estimate and the correlation normalization stay with the caller.
 
-Reference: R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
-Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition /
-charge assignment; the NGP and CIC windows).
+# References
+
+  * R. W. Hockney, J. W. Eastwood, [*Computer Simulation Using
+    Particles*](https://doi.org/10.1201/9780367806934), Adam Hilger, Bristol, 1988 (deposition /
+    charge assignment; the NGP and CIC windows).
 """
 function assignment_window(multipliers::FieldSpectralMultipliers)
   # The CIC tent is a cell-wide top-hat convolved with itself; composing the two separable factors

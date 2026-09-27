@@ -204,15 +204,12 @@ the reader's copy of the notation.
 **Two-tier structure.**
 - **Module docstring.** The invariants a PF module's map names are physical vs spectral representation
   and the base measure.
-- **Function docstring = home**, in this order: (1) a plain one-sentence identity in the user's terms;
-  (2) when to use it, versus the alternatives; (3) each argument (positional and keyword) and its
-  effect; (4) the caveats a user needs (memory, accuracy, gotchas), as a `!!! warning` where
-  load-bearing; (5) one physical-meaning-first formula **if a clean one exists**, never overflowing
-  (hand-wrap with `aligned`/`gathered`); (6) an inline citation for a **named/published** method
-  (verbatim-consistent with `ARCHITECTURE.md` §References) and **none** for a classical one (the
-  Lagrange interpolant, Fornberg weights); (7) cross-links. **Exclude:** implementation internals
-  (→ `#` comments), unexplained specialist jargon, architectural rationale (→ `ARCHITECTURE.md`), and
-  the formal/intrinsic apparatus (→ `FORMALIZATION.md`).
+- **Function docstring — PF's part.** The order is `RULE.DOC.HOME_ORDER`'s. The caveats a user needs are
+  memory, accuracy and gotchas, as a `!!! warning` where load-bearing; a **named/published** method carries
+  an inline citation verbatim-consistent with `ARCHITECTURE.md` §References, and a classical one (the
+  Lagrange interpolant, Fornberg weights) none. **Exclude:** implementation internals (→ `#` comments),
+  unexplained specialist jargon, architectural rationale (→ `ARCHITECTURE.md`), and the formal/intrinsic
+  apparatus (→ `FORMALIZATION.md`).
 
 **Operator aliases.** The operator aliases (`+ - * / ⋅ × ⋆`) are thin wrappers of the `!` home, as
 the allocating form is, and the bare operators `+ - * /` carry thin allocating docstrings so the pairing
@@ -224,30 +221,15 @@ written four ways. **(1) Arguments.** The marker phrase is `The arguments are:`.
 *signature* takes, not the distinct names across type-specialized variants (`norm!` takes two in every
 overload and stays prose). A **thin allocating wrapper is exempt**: it documents no arguments at all, leading with the
 one-sentence meaning and `@ref`-linking the home, so the threshold never applies to it. **(2) Types.**
-Prose is reserved for the one-sentence identity above the field list. **(4) The in-place steer.** Every `!` form
-that *has* an allocating sibling carries this sentence verbatim, after the identity paragraph and
-before the arguments: *"Use this in-place form when `destination` is already allocated; the allocating
-[`f`](@ref) returns a fresh result instead."* The sentence names **the destination argument the signature actually has** — `destination` in most of the
-corpus, but `out` in `interpolate!` and `field` in `anterpolate!` — since naming a parameter the method
-does not take would be worse than the variance; "verbatim" governs the wording around that name, not the
-name itself. An operator sibling (`+`, `-`, `*`, `/`) is written in
-plain backticks, not `@ref`, as a style choice — the glyph reads better unlinked. (The operators **do**
-now sit on the FieldAlgebra `@docs` block, paired after their in-place homes like `dot!`/`dot`, so a
-link *would* resolve; they were previously mis-swept into that page's Internal API by the `Public =
-false` autodocs — the same public-but-unexported-Base-extension class as the stats on the Reductions
-page. The bare backtick stays the convention regardless.)
+Prose is reserved for the one-sentence identity above the field list. **(4) The in-place steer** sits after the identity paragraph and before the arguments, and names the
+destination argument the signature actually has — `destination` in most of the corpus, but `out` in
+`interpolate!` and `field` in `anterpolate!`.
 **(5) Aliasing.** PF's cases: `cross!`, `transpose!`, `sym!`, `skew!` and `dev!` carry nothing locally
 and are correct as they stand; `curl!` and `helmholtz_projection!` state it in their `destination` bullet
 because each reads all three components of a mode before writing any (moved there on 2026-08-05, the
 majority position of `convolve!` and `combine!`); `mul!` states its contrary contract, a destination that
 must **not** alias.
 
-**Two exemptions to rule 1, made explicit after the 2026-08-04 battery flagged them as violations:**
-an **internal `_`-prefixed helper** documents its arguments in whatever form reads best (the threshold
-exists to keep a *user-facing* argument list findable, and the codegen builders and kernel bodies are
-read alongside their code); and a **single element-type keyword** (`T = Float64` on `LalescuSpline`,
-`LagrangeSpline`, and the callable field's `scheme`) bound in one prose clause does not trigger the
-bulleted form, since one self-evident keyword is not the long-list problem the rule addresses.
 A `!` form with **no** allocating sibling (`combine!`) and a setter (`set_fft_threads!`,
 `set_threading_cutoff!`) take no such sentence. **`translation_kernel!` is an exemption** (recorded
 2026-08-04, after three independent panel hats flagged the deviation): it rebuilds an existing
@@ -327,9 +309,6 @@ not rendered). `Reductions` is the reference implementation of this convention.
 
 **Signature wrapping.** A long docstring signature is hand-wrapped with a hanging indent under the first
 argument (the `anterpolate!` convention, ≤ ~88 source columns).
-And **a backtick span holds only well-formed Julia** — a name/type/call/expression — never math that merely
-looks code-ish (`[lo, hi)`, `R ≥ 2`, a lone `≤`/`·`); those are LaTeX (``\\ge``). The real operators
-`×`/`⋅`/`≈` backticked *are* code and stay.
 
 **Math spacing and command support — standard LaTeX idiom.** These are the conventions a fluent LaTeX
 author writes by default; the defects they head off — manual spacing, reflexive ``\\left``/``\\right`` — are
@@ -338,11 +317,6 @@ novice tells, not subtle bugs. **Never:**
   those glyphs, so ``\\mathbb{1}`` (or any digit) falls back to a *plain* glyph with the font silently dropped;
   for the indicator/identity write ``\\mathbf{1}`` (or ``\\boldsymbol{1}``). KaTeX supports a subset of LaTeX, so
   for anything tool-specific consult KaTeX's published support table — do not assume parity.
-- **use ``\\left``/``\\right`` for auto-sized delimiters** — size every delimiter by hand instead
-  (``\\bigl``/``\\Bigl`` … ``\\bigr``/``\\Bigr``): those are Open/Close atoms (no added gap, and the size is the one
-  you chose), where ``\\left … \\right`` is an Inner atom that adds a spurious gap around the fence (so
-  ``f\\bigl(x\\bigr)`` closes up where ``f\\left(x\\right)`` leaves a gap). **Sole exception:** a system / cases
-  written ``\\left\\{ … \\right.`` — an auto-sized left brace closed by a null ``\\right.``.
 
 **These are correct — do NOT "fix" them:** ``\\sim\\!`` and relation-modifier tightening; ``\\quad``/``\\qquad`` for display-equation separation; and
 ``\\mathrm{Re}`` versus ``\\operatorname{Re}`` before a delimiter (identical output — Ord–Open = Op–Open
@@ -395,18 +369,8 @@ renames are breaking), and the decision log keeps its original wording.
 **Neutral reference register.** PF applies it to docstrings, the four design docs, the doc pages, `#`
 comments and `@testset` names.
 
-**Positional vs keyword arguments — the one-sentence policy (codified 2026-08-30; it had been
-implicit in the surface and one panel ruling).** In an OPERATION, every argument that affects the
-result is positional, defaults included (`scheme = CatmullRom`, the invariant-10 α/β); an argument
-that cannot change the result — a performance hint like the transfer `traversal` — or a builder's
-cost/accuracy tunable (`tol`, `tile_size`, `fft_flags`, the constructors' `T = Float64`) is a
-keyword. Two recorded settled exceptions, and only these: the callable field's `scheme` keyword
-(2026-08-05), and **`Grid3D`'s two-argument constructor taking `origin` as a keyword**
-(2026-09-02) — `origin` does shift every node, so the rule genuinely points the other way, and
-the user weighed that against the churn and left it. `Grid3D` is the only PUBLIC entry point
-that takes an origin at all, so the disagreement is confined to one type's own constructor
-pair rather than spread across the surface. And
-`point_traversal_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
+**Positional vs keyword arguments — PF's part.** The exceptions are the `RULE.API.POSITIONAL` switches
+in `.gbg/config.jl`, each with its reason. `point_traversal_order(grid, points)` leads with the grid because it is TRANSFER infrastructure — the
 transfer verbs' order (`anterpolate(grid, points, …)`), not the motion verbs' trailing-grid one
 (`wrap!(points, grid)`); the two families are deliberate and a new function joins the family whose
 verbs it serves.
@@ -437,17 +401,9 @@ base, the fiber, tensor order `R`, `ψ̂`, `κ`, `α`, the counts `N`/`M`, the o
 18/19 are the reference entries; keep the header's self-contained note true when editing.
 
 **Citations — PF's part.** Inside an existing parenthetical the year is bare, with no nested
-parentheses (`(de-aliasing; Sundaram & Collins 1996)`). **Full references:** doc pages cite
-short and the canonical full reference lives in `docs/ARCHITECTURE.md` §References (the works the package
-**implements / pins to** — Lalescu 2010, TurTLE 2022, van Hinsberg, Fornberg, the anterpolation lineage);
-**docstrings carry the full reference inline** (a `# References` block, or a one-line `Reference:`) so a
-REPL reader sees it without opening another file — and each inline copy must match the §References entry
-**verbatim** (drift is the chosen duplication's only risk, so this is the thing to check). **Every
-reference carries a clickable DOI on its title** — `[*Title*](https://doi.org/…)`, or an
-`openlibrary.org/…/works/…` link for a book with no DOI — verbatim-identical in the §References list and
-every inline docstring copy; a DOI stays REPL-safe (the URL renders as visible text, not a dead link).
-**A reference *block* of two or more citations is a bullet list, one citation per line**, never a
-semicolon-joined paragraph (unreadable when rendered); a lone citation stays inline as `Reference: …`.
+parentheses (`(de-aliasing; Sundaram & Collins 1996)`). The canonical reference list is `docs/ARCHITECTURE.md` §References: the works the package **implements /
+pins to** — Lalescu 2010, TurTLE 2022, van Hinsberg, Fornberg, the anterpolation lineage. A DOI in a
+docstring stays REPL-safe, the URL rendering as visible text rather than a dead link.
 Non-implemented related-work asides (e.g. LES SGS models) may stay informal author–year with no full
 reference; plain `#` code comments are exempt (not rendered). The inaccessible source PF must never cite
 is the gitignored monograph under `inspiration/`, and the downloadable `examples/` scripts and READMEs
@@ -585,35 +541,16 @@ formalization ↔ test* (the prose must agree with the typed statement, the stat
 the code, the linked test enforces it numerically) — and treat a nontrivial claim with **no entry**, or an
 entry with **no test link**, as a coverage gap. Hand-verified typed notes, not a proof assistant.
 
-**Doc-edit checklist — run ALL FIVE on every documentation change (most strictly on `ARCHITECTURE.md`):**
-**(1) Correct** — every claim mathematically true and precise (no category errors, normalization slips, or
-overclaims); **(2) Self-contained** — **every** symbol is *bound* to its meaning in plain language at
-first use, the elementary working ones included (`f` the field, `x` a position, `q` a per-point value,
-index letters), not just the exotic; a concept *mentioned nearby* (a function argument, a passing noun)
-is **not** a binding, and a self-contained sweep must not be scoped to a hand-picked symbol list that
-skips the basics (how `f`/`x`/`q` slipped through a review). **Run this as a positive enumeration, not a
-read-through** — an unbound symbol is invisible by omission (the eye supplies a plausible meaning and moves
-on), so *list every distinct symbol, sub/superscript, operator name, and bold/blackboard letter in the
-passage* and, for each, quote the clause that binds it; a symbol with no citable binding **is** the defect.
-**The same defined-or-linked bar binds *terms of art*, not only symbols** — a noun that names a package
-concept (an *assignment*, a *section*, a *cutoff*, "the destination's length") must be explained in a clause
-on the page or `@ref`-linked, never left correct only to a reader who already holds the module's context;
-the acceptance test is the *cold read* (see the operation-family rule below). Reading-to-notice missed exactly this class — the unbound all-ones `𝟙`, the `⟨·,·⟩_pts`/`⟨·,·⟩_grid`
-inner-product measures, and the `sample`/`eval` operators all *looked* like ordinary math; **(3) Formatted —
-bidirectional** — math is LaTeX and **never** backticks (the `E = B × V` slip; and ASCII-only math like
-`S = J*` — single letters joined by `=`/`*`/juxtaposition — which carries no math glyph, so it evades a
-glyph grep *and* reads as code: catch this class by **reading**, not grep), **and** every code identifier —
-functions, types, **module names** (`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always**
-backticked and **never** bare (the bare-`FieldAlgebra` slip); check *both* directions (a backtick span must be
-greppable in `src/`; a code name must never sit in plain prose); **(4) Current** — no stale claims; statements
-match the code's present state, **and complete** — a docstring/summary that names only a *subset* of what
-the code now provides is stale even if every sentence is literally true (the Interpolation module docstring
-said "uses the local spline interpolation" after the spectral `DirectDFT`/`NUFFT` schemes shipped; the
-umbrella docstring listed only some of its submodules' operations), so check each module/operation/summary still names
-everything added since it was written, against the current `export`s / method set; **(5) Cited** — citations follow the citation policy above (context-standard
-author–year; ≤3 authors named, `First et al.` for 4+; full reference inline in docstrings and canonical in
-`ARCHITECTURE.md` §References, the copies verbatim-consistent). These are the standing bar, not one-off audits.
-(The formatting check is the one that has bitten twice — once each direction — so verify both explicitly.)
+**Doc-edit checks — PF's part.** Symbol binding is run as a **positive enumeration**, not a read-through:
+list every distinct symbol, sub/superscript, operator name and bold/blackboard letter in the passage and,
+for each, quote the clause that binds it; a symbol with no citable binding **is** the defect — the
+elementary ones included (`f` the field, `x` a position, `q` a per-point value), which is how `f`/`x`/`q`
+once slipped through a review. Every code identifier — functions, types, **module names**
+(`FieldAlgebra`, `DifferentialOperators`, …), struct fields — is **always** backticked and **never** bare
+(the bare-`FieldAlgebra` slip). And a docstring or summary that names only a *subset* of what the code now
+provides is stale even if every sentence is literally true (the Interpolation module docstring said "uses
+the local spline interpolation" after the spectral `DirectDFT`/`NUFFT` schemes shipped): check each
+module, operation and summary against the current `export`s and method set.
 
 **A flagged instance is a sample of a class.** When the class is swept, report the class and the count.
 
@@ -639,14 +576,7 @@ the bare-index `\partial_i` the allocating operators once wrote.
 
 **A Literate example — PF's part.** "Full-line" includes **indented** comments inside a function body: a
 2-space-indented `# …` on its own line still renders as prose, so the driver's internal step comments are
-rendered too (Literate strips the indentation). **Two forbidden
-failure modes, both found littered across this page:** (a) bare **Unicode glyphs** in prose (`Re_λ`, `λ ≪ L`,
-`∇·u = 0`, `exp(−νk²Δt)`) render as literal text, not math; (b) **math wrapped in backticks** — backticks are
-ONLY for a **code identifier that actually appears in the code** (a function/type/field/file name), so a
-*formula* in backticks (`` `exp(−νk²Δt)` ``, `` `|k|²` ``, `` `½⟨|u|²⟩` ``) is a lie: it renders as monospace
-code yet names nothing in the code. Convert BOTH kinds to LaTeX; keep backticks only for real code names. And an
-**underscored identifier in prose must be backticked** (`` `n_spinup` ``), or Markdown parses `n_spinup … n_stats`
-as an *italic* span across the underscores.
+rendered too (Literate strips the indentation).
 
 **Verify a doc edit by building it.** The command is `julia --project=docs docs/make.jl`, gated on its
 exit status. After editing a Literate example, regenerate it (`Literate.markdown(src, out;
@@ -699,10 +629,8 @@ body. It lived as §13 of `ARCHITECTURE.md` until 2026-09-19, where it was three
 it was split so `RULE.DOC.RETIRED_CLAIMS` could be switched off for the log alone, a decision log
 necessarily quoting a retired claim in order to record that it was retired.
 
-**Cross-referencing — discriminating-minimalist; a link earns its place.** Live Documenter `@ref` links are
-the encouraged way to point across the docs (a mistyped `@ref` fails the build, so it cannot rot), but
-**backtick every code identifier and promote to `@ref` only where a reader would genuinely jump and there is
-one clear destination**: (1) **never** link the docstring's own binding, its argument names,
+**Cross-referencing — PF's part.** Live Documenter `@ref` links are the encouraged way to point across the
+docs (a mistyped `@ref` fails the build, so it cannot rot): (1) **never** link the docstring's own binding, its argument names,
 `Symbol`/option tokens, struct fields, or `Base` names; (2) a **family** of built-ins (the spline schemes,
 the reductions) is **one** catalogue destination, not five — name each member in plain backticks and
 `@ref` the default — **unless the members are distinct types a reader must CHOOSE between**, as the four
@@ -1845,73 +1773,6 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
   memory at all, and gfx1100 could not validate it); four GPUs is a programme of the order of 17–25
   sessions plus consumer work, and its zero-cost competitor — four independent runs on one node — is the
   baseline it has to beat.
-
-- **The shared tooling package is DESIGNED, not built (2026-09-07) — implement it from the seed
-  directory, never from here.** Its name is `GBGCodingTools` (CLI `gbg`, consumer state in `.gbg/`), and
-  the brief for the implementing session is `~/Dropbox/Research and Teach/AI Helpers/GBGCodingTools/`:
-  `IMPLEMENTATION.md` (the owner's questions with defaults, then Phases 0–8 each with a definition of
-  done and its verification commands), `docs/ARCHITECTURE.md` (every decision with evidence and the
-  alternatives it dominates) and `docs/design-record/` (the surveys of all four packages, three
-  architect proposals, three critiques, the decision record, the red-team reviews). The freeze below
-  stays in force until Phase 4 migrates this package onto the pinned tool — that phase deletes
-  `.claude/commands/**`, the `make.jl` lint bodies, the copied test harnesses and ≈ 700 policy lines
-  of this file, replacing them with `.gbg/config.toml`, a ledger, tracked rounds, hash-managed stubs
-  and one `@`-import. Nothing in PF changes before that; the survey below is now history the brief
-  already consumed.
-- **The instruments are FROZEN in-tree, and a shared instrument package is DEFERRED (user-decided
-  2026-08-27).** Two rulings, and the first binds now. **(1) Stop changing the instruments.** They were
-  edited all week while grading the very work they measure — four defects fixed in PF's graders
-  mid-round, one of them ported to IT three days earlier — which is why PF's round 3→4 rate jump
-  (54.8 → 74.2%) is uninterpretable: the predicate moved between rounds. PF's copies are frozen as of
-  `faa164a1`. An instrument change is now a deliberate act with its own commit, never a fix folded into
-  a round it is scoring. **(2) The shared package is not a priority; it will be made later.** Do not
-  build it. What follows is the survey taken before the deferral, recorded so the work is not
-  re-derived — the piles it came from are transcript-only, and IT's findings piles are untracked.
-
-  **Sizes.** PF: 17 scripts, 1977 lines. IT: 33 scripts, 4583 lines (measured 2026-08-27, both trees).
-
-  **The split both sessions independently reached:** shared **engines**, per-package **config**
-  (personas, catalogue, notation patterns, package description, paths), per-package **`.md`**. The
-  evidence is where the coupling sits: IT's `panel.js` carries 22 package-specific lines and almost all
-  are inside its 27 `persona:` strings plus one preamble paragraph; `hunt.js`'s are module names and a
-  `julia` invocation; the `.md` definitions hold the surface lists and the rubric (IT `check-docs.md`
-  21, `check-consistency.md` 8).
-
-  **Zero-coupling in BOTH trees, shareable as-is:** `gate.py`, `coverage.py`, `recall.py`,
-  `witnesses.jl`, `argcov.jl`, `manifest.py`. IT additionally has `closure.py`, `finished.py`,
-  `dismissals.js`, `rubric_extract.py`, `rubric_prep.py`, `dupref.jl` at zero; PF has
-  `recall_selftest.py`.
-
-  **Behavioural divergences a shared package must RESOLVE, not merge.** The demotion predicate — IT
-  tests **emptiness** of the class answer, PF **parses content**; IT's wins, and PF's round 3 (ten of
-  thirteen demotions spurious, on notation alone) is the recorded reason, which belongs in the shared
-  docs because the pull to "improve" emptiness into a citation check is real. Staleness — PF reads
-  **mtime**, which needs no compliance, and that mechanism wins, with IT's **default-direction rule**
-  stated beside it. The `/bug-hunt` **verdict sets** may differ between the trees, which is a schema divergence rather
-  than wording, since `dismissals`/`closure`/`finished` all key off it. And same-named files differ by
-  1.5–2× in length (`hunt.js` 324 vs 213, `verify.js` 269 vs 186), part commentary and part behaviour —
-  that needs a real diff, never a count comparison.
-
-  **No counterpart, both ways.** IT has the whole `/audit-changes` instrument (499 lines), `bug-hunt`'s
-  `closure.py`/`finished.py`, the `rubric_*` triple, `severity_recheck.js`, `abutting_spans.py`,
-  `dupref.jl`, `signature_fidelity.jl`, `xlink.jl`, `lanes.js`. PF has `lint_review_closure()`,
-  `guards.sh`, `recall_selftest.py` — and `recall_selftest.py` is the one IT named as the piece it
-  would take immediately, its own perturbation arms being a **comment instructing a human to re-run
-  them** where PF's is a script.
-
-  **Two constraints on the eventual design.** The closure gate cannot move unchanged: PF's is a Julia
-  build lint and IT's build is not PF's, so it becomes a script both builds call — and **IT's findings
-  piles are untracked by standing decision**, so on a fresh clone such a gate finds no round and passes
-  **vacuously**, which the missing-case-must-fail rule forbids; it needs a tracked open-round marker or
-  must fail when the pile it expects is absent. And `manifest.py` is **kept**, demoted rather than
-  retired: a shared package can be pinned at different versions in two consumers, and then the toolboxes
-  are being diffed again.
-
-  **Undecided, and the user's call when this resumes:** where the package lives (a sibling private
-  GitHub repo — the recommendation, since instrument changes are exactly what wants review and history
-  — versus an untracked Dropbox folder, versus living inside one package), and how each tree consumes it
-  (symlink, which makes divergence impossible, versus vendored copies plus a manifest, which only
-  detects it).
 
 The package is feature-complete for its core mission. Recorded next steps, in priority order:
 
