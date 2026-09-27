@@ -253,7 +253,14 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
 - **`test/method_parity.jl`** — the spec-lock: per-generic method counts (the
   206-method field surface and the separate 122-method point-value surface) plus
   `detect_ambiguities` (from `Test`) over the whole package. The explicit `multiply!`
-  quartet exists precisely to keep that ambiguity set empty.
+  quartet exists precisely to keep that ambiguity set empty. The frozen counts, both the
+  enumerated and the derived per-module ones, live in `test/method_parity_baseline.toml`,
+  each moved number refrozen there with its reason.
+- **The four audits are declared to [GBGCodingTools](https://grigorysarnitsky.github.io/GBGCodingTools.jl/)** (since 2026-09-27): the allocation audit,
+  the traffic audit, the oracle registry and method parity call the tool's engines,
+  `GBGCodingTools.TestHarness`, which were extracted from these files, so the rulebook's
+  `RULE.TEST.ALLOC_ZERO`, `PASS_AUDIT`, `ORACLE_INDEPENDENT` and `METHOD_PARITY` bind the package.
+  Each file keeps its own rows, frozen counts and exemptions; only the machinery moved.
 - **`test/Project.toml`** — the test environment's dependencies, deliberately
   **backend-free** (see §5).
 - **`test/gpu/`** — the opt-in GPU suite (see §5): one shared `suite.jl` and a thin entry per lane — `rocm/`, `cuda/`, and `cuda-unified/`, which runs the same suite with every CUDA array in unified memory (§4, axis 17).
@@ -573,7 +580,7 @@ Adding a backend = mirror `rocm/` (see `test/gpu/README.md`); the suite needs no
 ## 6. Maintenance
 
 - After any code-generation change, re-verify the **method set is unchanged**: update the
-  counts in `test/method_parity.jl` only with a deliberate, reviewed reason, and keep
+  counts in `test/method_parity_baseline.toml` only with a deliberate, reviewed reason, and keep
   `detect_ambiguities` empty.
 - Keep the test summary in `CLAUDE.md` (roadmap item 4) roughly current.
 - `Aqua.jl` (`test/aqua.jl`) runs `Aqua.test_all` on every `Pkg.test()` — ambiguities,

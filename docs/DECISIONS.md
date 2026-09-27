@@ -3721,3 +3721,28 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
       past the old ceiling on the device. The operand count is Testing axis 23. Two falsification runs
       confirmed the new tests bite: removing the aliased-operand copy fails 28 assertions, and wrapping
       after every group fails 6.
+
+89. **The four audit harnesses are declared to [GBGCodingTools](https://grigorysarnitsky.github.io/GBGCodingTools.jl/)** (2026-09-27, owner-ruled). The allocation
+    audit, the element-traffic audit, the oracle registry and method parity now call the tool's
+    engines, `GBGCodingTools.TestHarness`, in place of the copies each test file defined. The tool's
+    engines were extracted from those same files, so every row, frozen count and exemption stays in PF;
+    what moved is the machinery that reads them.
+
+    - **Why.** The rulebook's four harness rules bind only a package that declares the harness, and a
+      package declares one by calling the tool's engine from its suite. Undeclared, the rules did not
+      bind PF, so `CLAUDE.md`'s own statements of the audits were the only binding text and could not be
+      cut as restatements of the rulebook.
+
+    - **Two counts moved, and no method was added.** The tool's surface walk descends into `Base`'s
+      submodules, so it sees the `Base.Broadcast.broadcastable` methods of `Fields` and `Points`, which
+      PF's own scan never did: the derived method counts are refrozen at 177 and 235, and
+      `broadcastable` is classified in the oracle registry as structural, returning the section itself.
+
+    - **What was kept of PF's.** The frozen method counts moved to `test/method_parity_baseline.toml`,
+      their refreeze history with them. The oracle table stays in Julia, being partly generated and
+      heavily annotated, and is handed to the engine in the shape it reads. `PASS_AUDIT_PRINT=1` still
+      regenerates the traffic table.
+
+    - **Verified.** Each ported file passes unchanged, and each fails on a planted defect, naming it:
+      a removed allocation row (`wrap!` uncovered), a removed traffic row (`transpose!` uncovered), an
+      altered frozen traffic count, an altered method count, and a removed oracle entry.

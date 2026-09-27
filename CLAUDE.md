@@ -124,9 +124,8 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
     integration, temporal interpolation, or per-step state; trajectory dynamics belong to the
     consumer. The interpolation data types follow this: `Point` (alias `SVector{3,T}`),
     `PointSet` (SoA positions), `PointValues` (three field-mirroring types). See `docs/ARCHITECTURE.md` §10.
-13. **Allocation-free is an enforced contract.** Every in-place `!` operator allocates **no** field-sized
-    scratch when called on preallocated buffers with a destination distinct from its sources — fuse
-    temporaries into the assignment, never materialize them. This is load-bearing for GPU hot loops: a
+13. **Allocation-free is an enforced contract** (`RULE.TEST.ALLOC_ZERO`; the audit is declared to the
+    tool). This is load-bearing for GPU hot loops: a
     per-call device temporary escapes Julia's GC (which triggers on *host* pressure, blind to the *device*
     buffer a dead array owns), so the pool grows every step until the run wedges (decisions 24, 25, 26).
     **A threshold cannot see a constant that never grows, so the class is also pinned at zero where
@@ -138,18 +137,12 @@ supertype `SpectralKernel` (decision 65) plus `_kernel_data` and `_check_kernel_
     returning a new heap-allocated `Array` sharing the data — and it sat under that threshold for ten
     days, invisible here and found by a **consumer** whose hot loop asserts literal zero per step. The
     transforms therefore carry a second lane that sets FFTW to one thread, where the callback is gone
-    and the only remaining bytes are the package's own, and asserts `== 0` for `R = 0, 1, 2`. The
-    general rule: where a bound exists only to cover someone else's nondeterminism, add a
-    configuration in which that nondeterminism is absent and pin the true value there.
-    Enforced **exhaustively** by `test/allocations.jl` via `@allocated` **on the CPU** — where a
-    materialized array's full bytes are counted; on the GPU it is a device buffer behind a tiny host
-    wrapper, invisible to `@allocated`, so a GPU measurement would miss the very leak that wedges a hot
-    loop. A new in-place op — or any function claimed allocation-free — **must** be added to that audit.
-    Deliberate materializers (`norm!`/`lpnorm` — `dev!` left the list when decision 39
+    and the only remaining bytes are the package's own, and asserts `== 0` for `R = 0, 1, 2`.
+    The audit is `test/allocations.jl`. Deliberate materializers (`norm!`/`lpnorm` — `dev!` left the list when decision 39
     fused its trace into a register and `std`/`var` when decision 49 rewrote them as two fused passes, `radial_correlation` (the power
     field + its transform; `radial_spectrum` is pinned tight since decision 34), the mixed
     spectral `inner(f, g)` — rocBLAS offering no `dotc` over a strided `ROCArray` view) are the documented
-    exceptions and get a *bounded* regression guard, not a zero guard.
+    exceptions.
 14. **Sections combine only within one precision and one storage family — never by conversion.** An
     operation over two or more sections requires them to agree in **element type** and in **storage
     family** (`Array` with `Array`, `CuArray` with `CuArray`, `ROCArray` with `ROCArray`), and
@@ -747,14 +740,13 @@ benchmark coverage contract.
 1. **Correctness tests** — a CPU behaviour test against an *independent* oracle (analytic or
    hand-computed), over both element types and both bases where applicable, **and GPU parity**
    in `test/gpu/suite.jl` (device-vs-CPU under `allowscalar(false)`). The `docs/TESTING.md` §4
-   coverage contract is the spec — and for an in-place `!` operator that includes an `@allocated`
-   assertion in `test/allocations.jl` (invariant 13: allocation-free, measured on the CPU; a deliberate
-   materializer gets a bounded guard instead) **and a `test/pass_audit.jl` row** (decision 36: exact
-   per-array element reads/writes measured via the `CountingArray` harness, frozen beside the fused
-   ideal, a named holder for any gap — the layer that catches an unfused recompute, which every other
-   layer passes; `PASS_AUDIT_PRINT=1` regenerates). A new **public value-returning** operation also
-   needs its `test/oracle_registry.jl` classification (decision 55) — and if the honest answer is
-   `:relational`, that is a finding to close, not a label to record.
+   coverage contract is the spec — for an in-place `!` operator that includes its row in
+   `test/allocations.jl` (invariant 13) **and in `test/pass_audit.jl`** (decision 36, the `CountingArray`
+   element-traffic ledger — the layer that catches an unfused recompute, which every other layer passes;
+   `PASS_AUDIT_PRINT=1` regenerates), and a new **public value-returning** operation needs its
+   `test/oracle_registry.jl` classification (decision 55). All three are declared to GBGCodingTools, as
+   is `test/method_parity.jl`, so `RULE.TEST.ALLOC_ZERO`, `PASS_AUDIT`, `ORACLE_INDEPENDENT` and
+   `METHOD_PARITY` bind.
 2. **Performance test** — a benchmark in the matching `benchmark/` class (a new `add_<class>!` +
    wiring into `benchmarks.jl`/`report.jl` if it is a new class), per the `docs/PERFORMANCE.md` §5
    benchmark coverage contract. Run it; regenerate `benchmark/RESULTS.md` when practical.
@@ -1679,9 +1671,7 @@ mutation audit could not see it, because it asked *would a defect be caught?* (y
 chain terminating in an anchored reference does catch defects) and never *does this operation have an
 oracle independent of other package operations?* `test/oracle_registry.jl` now records a provenance
 for every public value-returning operation, and fails on two conditions: an operation with no entry,
-and an operation covered only relationally. **Standing rule: a new public operation is unfinished
-until it is classified there** — the classification is the moment to notice it has no independent
-oracle, rather than a year later.
+and an operation covered only relationally.
 
 **Mutation audit (decision 52, 2026-07-29).** The suite was audited by INJECTING defects in isolated
 worktrees, not by reading coverage. It found two live bugs (a  plan used above its own tensor order
