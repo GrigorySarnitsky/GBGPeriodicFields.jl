@@ -237,7 +237,8 @@ Add fields, or a field and a constant, in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating [`+`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the sum; it shares the domain and tensor order of the operands.
 - `a`, `b`, `fields...` — two or more fields to add.
 - `field`, `constant` — the field-and-constant variants, in either argument order: a `Real` with a scalar field, a `FiberVector` with a vector field, a `FiberTensor2` with a second-order tensor field.
@@ -259,7 +260,8 @@ Subtract fields, or a field and a constant, in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating [`-`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the difference.
 - `a`, `b`, `fields...` — the fields to subtract in order.
 - `field`, `constant` — the field-and-constant variants, with the constant typed as in [`add!`](@ref); the reversed order computes `constant - field`.
@@ -539,7 +541,8 @@ operator expression ``\\alpha a + \\beta b``, which builds scratch fields instea
 linear and representation-preserving, so it is defined for both physical and spectral
 representation.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the result. The write is coefficientwise, so `a`, `b`, or
   both may be `destination` itself, and so may a trailing `kernel`; the aliased call
   `combine!(u, 1, u, β, b)` computes the scaled accumulate ``u \\leftarrow u + \\beta b`` in place.
@@ -614,7 +617,8 @@ Multiply a field in place by a real number or by a scalar field, and return `des
 Use this in-place form when `destination` is already allocated; the allocating [`*`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the product.
 - `scalar` — a `Real` factor, accepted in either argument order.
 - `scalar_field` — a scalar field factor, multiplying the other operand pointwise.
@@ -639,7 +643,8 @@ Divide a field in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating [`/`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the quotient.
 - `field` — a dividend field of any tensor order.
 - `scalar` — a `Real`: the divisor after `field`, or the dividend before `scalar_field`.
@@ -913,7 +918,8 @@ Compute a fiberwise inner product in place, and return `destination`.
 Use this in-place form when `destination` is already allocated; the allocating [`dot`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the scalar field that receives the contraction.
 - `u`, `v` — two vector fields, or `A`, `B` two second-order tensor fields.
 - `operand`, `constant` — a field and a constant `FiberVector` or `FiberTensor2` contracted against it, in either argument order.
@@ -1019,7 +1025,8 @@ Compute a fiberwise cross product (`cross`, ``\\times``) in place, and return `d
 Use this in-place form when `destination` is already allocated; the allocating [`cross`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the vector field that receives the product.
 - `u`, `v` — the two vector fields.
 - `a` — a constant `FiberVector` crossed with the field. Both orders have methods, and being a cross
@@ -1132,7 +1139,8 @@ Compute a fiberwise tensor (matrix) product in place, and return `destination`. 
 Use this in-place form when `destination` is already allocated; the allocating [`*`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field written with the product. It must **not** share storage with either
   operand, and that is not checked: `mul!` keeps `LinearAlgebra`'s contrary contract, where every
   other in-place operation here is alias-safe by construction.
@@ -1830,7 +1838,8 @@ fresh result instead.
 At every base point `x`, `destination`'s fiber is set to `φ` applied to the `sources`' fibers there;
 `map!(φ, dest, f, g)` sets it to `φ(f(x), g(x))`.
 
-The arguments are:
+# Arguments
+
 - `φ` — the fiber map, applied to the input fiber value(s) and returning the output fiber value. It must be
   a pure, GPU-safe function (no captured state, no scalar indexing of device arrays); its output tensor
   order sets `destination`'s order (`det` gives a scalar field, an `SMatrix`-valued `φ` a tensor field).

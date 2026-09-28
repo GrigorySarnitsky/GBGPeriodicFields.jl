@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.36 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
 What a docstring and an API page contain, in what order and in what shape. 44 rules, written from the rule values themselves,
@@ -49,7 +49,7 @@ A reader passing an argument the docstring never mentions has to read the source
 Covered by a program.
 
 ### RULE.DOC.ARGS_FORM
-Three or more arguments, or any keyword, use the bulleted form, led by the marker phrase and a colon; fewer are bound in running prose; the two are never mixed.
+Three or more arguments, or any keyword, are listed under an `# Arguments` heading, one bullet per argument; fewer are bound in running prose, as in "The arguments are `a`, the first, and `b`, the second."; the two are never mixed. A type whose `# Fields` section documents its fields, rather than its constructor's arguments, is exempt.
 
 A reader looking for one argument of many needs a list; a reader of a two-argument call needs a sentence.
 
@@ -106,7 +106,7 @@ A citation of something renamed or removed reads exactly like one that resolves,
 Covered by a program.
 
 ### RULE.DOC.FIELDS
-A type with named fields documents them under "The fields are", one bullet per field: every bullet a real field, and every field a bullet.
+A type with named fields documents them in a `# Fields` section, one bullet per field: every bullet a real field, and every field a bullet. A sentence listing them, "The fields are …", is no such section.
 
 A field list that has drifted is worse than none: it names what does not exist and hides what does.
 
@@ -120,9 +120,9 @@ Concise means few words, not missing verbs — compact prose that still reads as
 Covered by a reader given nothing, because this needs meaning.
 
 ### RULE.DOC.HOME_ORDER
-A function docstring is ordered: identity, when-to-use, arguments, one formula, citation, links, caveats, then `# References`, then `# Fields` last. Implementation internals and design rationale are excluded; so is any term that neither the surrounding sentence nor the package's notation page — the file RULE.DOC.ONE_NOTATION's `notation_page` names — defines.
+A function docstring is ordered: identity, when-to-use, arguments (under `# Arguments` where RULE.DOC.ARGS_FORM asks for the list), one formula, citation, links, caveats, then `# References`, then `# Fields` last. Implementation internals and design rationale are excluded; so is any term that neither the surrounding sentence nor the package's notation page — the file RULE.DOC.ONE_NOTATION's `notation_page` names — defines.
 
-In full: (1) a plain one-sentence identity in the user's terms; (2) when to use it, versus the alternatives; (3) each argument (positional and keyword) and its effect; (4) one formula if a clean one exists, never overflowing; (5) an inline citation for a named or published method and none for a classical one; (6) cross-links; (7) the caveats a user needs, as an admonition where load-bearing — the last block of the home's PROSE. Then the sections that are not prose, in this order and no other: the `# References` section of `RULE.CIT.FULL_INLINE`, then `# Fields`, which is last (`RULE.DOC.SHAPE`, and the shape scan reads any heading after `# Fields` as a hit). Three rules each used to claim the end of a docstring; the order lives here, and they defer to it. Excluded: implementation internals (a `#` comment), unexplained specialist jargon, architectural rationale and the formal apparatus (the rationale documents).
+In full: (1) a plain one-sentence identity in the user's terms; (2) when to use it, versus the alternatives; (3) each argument (positional and keyword) and its effect, bound in prose or listed under `# Arguments` as `RULE.DOC.ARGS_FORM` decides; (4) one formula if a clean one exists, never overflowing; (5) an inline citation for a named or published method and none for a classical one; (6) cross-links; (7) the caveats a user needs, as an admonition where load-bearing — the last block of the home's PROSE. Then the sections that are not prose, in this order and no other: the `# References` section of `RULE.CIT.FULL_INLINE`, then `# Fields`, which is last (`RULE.DOC.FIELDS`). Three rules each used to claim the end of a docstring; the order lives here, and they defer to it. Excluded: implementation internals (a `#` comment), unexplained specialist jargon, architectural rationale and the formal apparatus (the rationale documents).
 
 Covered by a reader given other documents.
 
@@ -264,7 +264,7 @@ A displayed signature is what a reader calls; one the method table has moved pas
 Covered by a program.
 
 ### RULE.DOC.SIGNATURE_MIRROR
-A docstring's signature block fits the house column and repeats only as much of the method as a reader needs.
+A docstring's signature block fits the house column of 88 characters, as rendered, and repeats only as much of the method as a reader needs.
 
 A signature wider than the column wraps in the rendered page and in every terminal that shows it.
 

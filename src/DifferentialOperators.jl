@@ -788,7 +788,8 @@ field ``u`` gives the second-order tensor field with components ``(\\nabla u)_{i
 Use this in-place form when `destination` is already allocated; the allocating [`gradient`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the result; it shares the domain of `field` and holds one tensor order higher.
 - `field` — the field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
@@ -889,7 +890,8 @@ Compute the divergence (`divergence`, ``\\nabla\\cdot``) of a field and write it
 Use this in-place form when `destination` is already allocated; the allocating [`divergence`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the result; it shares the domain of `field` and holds one tensor order lower.
 - `field` — the field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
@@ -1108,7 +1110,8 @@ package keeps the neutral mathematical name, as it does for `symmetric_gradient`
 Use this in-place form when `destination` is already allocated; the allocating [`curl`](@ref) returns a
 fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the vector field that receives the result; it shares the domain of `field`, and
   it may alias `field` freely: the single pass reads all three source coefficients of a mode before writing any component of it, so the aliased call needs no temporary copy and is bitwise-identical to the non-aliased one.
 - `field` — the vector field to differentiate, in spectral representation.
@@ -1179,7 +1182,7 @@ velocity field satisfies. It also requires a solvable right-hand side: a curl is
 ``\\nabla\\cdot w = 0`` is a compatibility condition on the input, and a `field` violating it has its
 longitudinal part silently discarded rather than reported.
 
-The arguments are:
+# Arguments
 
 - `destination` — the vector field written with the result. It may alias `field`: every mode's three
   source coefficients are read before any of its components are written.
@@ -1267,7 +1270,8 @@ of ``\\nabla u`` as a vector: forming ``S`` this way skips the full nine-compone
 Use this in-place form when `destination` is already allocated; the allocating [`symmetric_gradient`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the second-order tensor field that receives the result; it shares the domain of `field` and holds one tensor order higher.
 - `field` — the vector field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
@@ -1346,7 +1350,8 @@ alike, so it preserves the tensor order:
 Use this in-place form when `destination` is already allocated; the allocating [`laplacian`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field receiving the result, on `field`'s domain and tensor order.
 - `field` — the field to differentiate, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
@@ -1427,7 +1432,8 @@ preserved.
 Use this in-place form when `destination` is already allocated; the allocating
 [`inverse_laplacian`](@ref) returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field that receives the result; it matches the domain and tensor order of `field`.
 - `field` — the field to invert, in spectral representation.
 - `multipliers` — the wavenumber symbols for the field's grid.
@@ -1513,7 +1519,8 @@ mode — the Nyquist planes included.
 Use this in-place form when `destination` is already allocated; the allocating
 [`helmholtz_projection`](@ref) returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `destination` — the vector field that receives the result; it shares the domain of `field`, and
   it may alias `field` at no cost: the projection is computed in a single pass that reads all three components of a mode before writing any of them, so the aliased call needs no temporary.
 - `field` — the vector field to project, in spectral representation.

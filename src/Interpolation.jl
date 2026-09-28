@@ -209,7 +209,8 @@ Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point 
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
   * B. Fornberg, [*Generation of finite difference formulas on arbitrarily spaced grids*](https://doi.org/10.1090/S0025-5718-1988-0935077-0), Math. Comp. **51**(184) (1988) 699–706.
 
-The fields are
+# Fields
+
 - `neighbours` — the stencil half-width ``n``, as passed.
 - `smoothness` — the continuity order ``m``, as passed.
 - `coefficients` — the weight polynomial's coefficients, derived from ``(n, m)`` rather than stored
@@ -254,7 +255,8 @@ type the weight coefficients are stored in (`Float64` by default).
   * C. C. Lalescu, B. Teaca, D. Carati, [*Implementation of high order spline interpolations for tracking test particles in discretized fields*](https://doi.org/10.1016/j.jcp.2009.10.046), J. Comput. Phys. **229**(17) (2010) 5862–5869.
   * C. C. Lalescu, B. Bramas, M. Rampp, M. Wilczek, [*An efficient particle tracking algorithm for large-scale parallel pseudo-spectral simulations of turbulence*](https://doi.org/10.1016/j.cpc.2022.108406) (TurTLE), Comput. Phys. Commun. **278** (2022) 108406; arXiv:2107.01104. Code: gitlab.mpcdf.mpg.de/TurTLE/turtle.
 
-The fields are
+# Fields
+
 - `neighbours` — the stencil half-width ``n``, as passed.
 - `coefficients` — the cardinal-basis weights, derived from ``n`` rather than stored
   independently, which is why [`write_scheme`](@ref) persists the parameter and no dataset.
@@ -480,7 +482,8 @@ is given, since a transfer will not mix families. Use `adapt` to move one betwee
     Treat the field as read-only, and rebuild with [`point_traversal_order!`](@ref) rather than
     editing in place.
 
-The fields are
+# Fields
+
 - `indices` — the permutation itself, one point index per unit of work, in the storage family the
   constructor was given.
 """
@@ -771,7 +774,8 @@ Build and return a fresh [`PointTraversalOrder`](@ref) for `points` on `grid` �
 [`point_traversal_order!`](@ref), which says what an order is, when it pays, what `tile_size` trades
 and what a build costs.
 
-The arguments are:
+# Arguments
+
 - `grid`, `points` — as for the in-place form.
 - `tile_size` — the block edge in grid cells (default `4`), whose trade-off the in-place form describes.
 
@@ -810,7 +814,8 @@ Build one alongside the order it will refill, and hold both for as long as the p
 storage and nothing else: it holds no order, no transfer ever reads it, and two orders over the same
 grid and point count can share one — though not at the same time, since a refill overwrites it.
 
-The arguments are:
+# Arguments
+
 - `grid` — the [`Grid3D`](@ref) the order will be built against. It is stored, and a refill against a
   different grid is refused.
 - `points` — a [`PointSet`](@ref) of the size and storage family the refills will use. Only its point
@@ -823,7 +828,8 @@ The arguments are:
     A refill checks the point count and the block layout and refuses a mismatch rather than reading
     past an array. A point set that grows, or a different `tile_size`, needs a new scratch.
 
-The fields are
+# Fields
+
 - `keys` — the block each point falls in, one entry per point.
 - `counts` — how many points fall in each block.
 - `offsets` — the running total of `counts`, giving each block its starting slot.
@@ -886,7 +892,8 @@ accumulates. Here the result is `traversal`'s own storage and everything else is
 **nothing allocated per rebuild grows with the point count**: about 1.2 KiB of `KernelAbstractions`
 launch bookkeeping, measured unchanged from ``10^3`` points to ``10^6``.
 
-The arguments are:
+# Arguments
+
 - `traversal` — the [`PointTraversalOrder`](@ref) to overwrite, whose length fixes the point count.
 - `grid` — the grid whose cells the blocks are cut from, and whose origin the points are measured
   from, which must be the grid the `scratch` was built for. Points lying outside it are clamped into
@@ -1119,7 +1126,8 @@ The [`Interpolation`](@ref "Interpolation") module docstring explains the pair.
 Use this in-place form when `out` is already allocated; the allocating [`interpolate`](@ref) returns a
 fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `out` — the point-value section written with the gathered values. It must match `field` in tensor
   order and cover the same number of points as `points`. The local-spline transfer serves any tensor
   order the field types hold, order 3 included.
@@ -1231,7 +1239,8 @@ this operation *spreading* (immersed-boundary methods), *deposition* or *charge 
 (particle-in-cell), *projection* (PSI-Cell, particle-source-in-cell), or *gridding* (nonuniform FFTs);
 *anterpolation* follows Brandt & Lubrecht (1990).
 
-The arguments are:
+# Arguments
+
 - `field` — the field deposited onto, in the representation the `scheme` acts on. It shares its
   tensor order with `quantities`.
 - `points` — the [`PointSet`](@ref) the quantities sit at, covering as many points as `quantities`.
@@ -1675,7 +1684,9 @@ modes, `DirectDFT` is simpler and exact.
 
 Build a plan once from a `reference` field in spectral representation, which fixes the grid, layout, element type, and
 tensor order, then pass it as the `scheme` to [`interpolate`](@ref) / [`anterpolate`](@ref) on fields
-like the reference. The arguments are:
+like the reference.
+
+# Arguments
 
   - `reference` — a field in spectral representation, fixing the grid, layout, element type and tensor
     order the plan is built for. The order is fixed with the rest because the plan stores oversampled
@@ -1707,7 +1718,7 @@ Nyquist content is not pointwise divergence-free in the continuum).
 
   * A. H. Barnett, J. Magland, L. af Klinteberg, [*A parallel nonuniform fast Fourier transform library based on an exponential of semicircle kernel*](https://doi.org/10.1137/18M120885X), SIAM J. Sci. Comput. **41**(5) (2019) C479–C504.
 
-The fields are:
+# Fields
 
 - `width` — the gridding stencil width in nodes, as resolved from `tol`.
 - `beta` — the window shape parameter, as resolved from `tol` and `width`.
@@ -2020,7 +2031,8 @@ Because `parent` is a handle you opened and own, this never opens or closes a fi
 attaches no notion of time — the caller bundles a snapshot and owns any `time` / `iteration`
 attributes.
 
-The arguments are:
+# Arguments
+
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
 - `scheme` — the scheme to write: a `LalescuSpline`, a `LagrangeSpline`, or

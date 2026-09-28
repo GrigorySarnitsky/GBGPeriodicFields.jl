@@ -154,7 +154,7 @@ an anonymous `(values...) -> fiber_map(V(values))` leaves the tuple length uninf
 then cannot be built in registers, and the reduction allocates per base point — measured at about four
 and a half times the tensor section's own size. The `Vararg{Any, N}` signature restores that inference.
 
-The fields are:
+# Fields
 
 - `fiber_map` — the map applied to the assembled fiber value.
 """
@@ -566,7 +566,8 @@ of mode ``k``, and the ``N^{-2}`` the normalization the inner product itself car
 inverse transform; that one-pass form loses
 precision to cancellation when the mean dominates the fluctuations, so prefer the physical form there.
 
-The arguments are:
+# Arguments
+
 - `f` — the scalar section the moment is taken over: a field in physical or spectral
   representation, or point values.
 - `corrected` — divide by the count minus one (the sample convention, the default, matching
@@ -588,7 +589,8 @@ well. Point values are representation-free, so that last clause reaches fields a
 ``\\operatorname{std} = \\sqrt{\\operatorname{var}}`` has no canonical form for a vector (the matrix square root of the covariance is not a standard deviation);
 use [`cov`](@ref) for the vector second central moment.
 
-The arguments are:
+# Arguments
+
 - `f` — the scalar section the moment is taken over: a field in physical or spectral
   representation, or point values.
 - `corrected` — divide by the base count minus one (Bessel's correction, the default) rather than by
@@ -675,7 +677,8 @@ per-component `var` would be only the basis-dependent diagonal of this tensor, a
 canonical vector form, so the covariance tensor is the honest object. The mean ``\\bar u`` is subtracted
 first, so this is the covariance of the fluctuations, not the raw second moment ``\\langle u_i u_j\\rangle``.
 
-The arguments are:
+# Arguments
+
 - `u` — the vector section whose fluctuations the covariance tensor is built from.
 - `corrected` — divide by the base count minus one (the sample convention, the default, matching
   `Statistics.cov`); `false` divides by the count (the population covariance).
@@ -981,7 +984,8 @@ even length, its Nyquist plane; ``2`` otherwise — the folded rfft axis is the 
 \\end{aligned}
 ```
 
-The arguments are:
+# Arguments
+
 - `f`, `g` — two compatible, equal-order fields in spectral representation (``g = f`` in the two-argument form).
 - `weights` — in the tuple form, a tuple of such kernels, of any length. Up to four are answered in
   one traversal and one device readback; a longer tuple takes one traversal per group of four. On the
@@ -1349,7 +1353,8 @@ The **radial (shell-binned) power spectrum** resolves a field's L² energy over 
 shells. Write ``P(\\kappa)`` for the one-argument **power spectrum** and ``P_{fg}(\\kappa)`` for the
 two-argument **co-spectrum** (cross-power) of two compatible, equal-order fields.
 
-The arguments are:
+# Arguments
+
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `multipliers` — the per-axis wavenumbers ``k`` for the field's grid ([`FieldSpectralMultipliers`](@ref)).
 
@@ -1504,7 +1509,8 @@ and the power spectrum are a Fourier-transform pair. The one-argument form is th
 two-argument form is the **cross-correlation** ``C_{fg}(r) = \\langle f(x)\\cdot g(x+r)\\rangle`` of two
 compatible, equal-order fields.
 
-The arguments are:
+# Arguments
+
 - `f`, `g` — the fields, in spectral representation; the two-argument form takes them compatible and of equal tensor order.
 - `plans` — transform plans for their grid and layout; a pair carries no tensor order and serves every rank.
 

@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.36 — rewritten by `gbg sync`; do not edit -->
 # /bug-hunt
 
 The code does what its documentation says.

@@ -116,7 +116,8 @@ may live on the CPU (`Array`) or a GPU (`CuArray`/`ROCArray`). A point set carri
 because a periodic domain wraps any coordinate; a transfer operator takes the grid from the
 field it acts on.
 
-The fields are
+# Fields
+
 - `positions` — the coordinate triples, an `AbstractArray` of shape `(M, 3)` — point index first,
   coordinate axis last — whose second axis must have length `3`.
 """
@@ -161,7 +162,8 @@ One scalar value per point, sampled at `M` points — the point-set counterpart 
 [`ScalarFieldPhysical`](@ref GBGPeriodicFields.Fields.ScalarFieldPhysical). Point-values carry no second representation, there being no periodic
 grid to transform over.
 
-The fields are
+# Fields
+
 - `data` — the values, with shape `(M,)`.
 """
 struct ScalarPointValues{T<:AbstractFloat, A<:AbstractArray{T, 1}} <: AbstractPointValues{T, 0}
@@ -184,7 +186,8 @@ end
 One vector value per point, sampled at `M` points — the point-set counterpart of a
 [`VectorFieldPhysical`](@ref GBGPeriodicFields.Fields.VectorFieldPhysical).
 
-The fields are
+# Fields
+
 - `data` — the components, structure-of-arrays with shape `(M, 3)`; the second axis must have length `3`, and the constructor checks it.
 """
 struct VectorPointValues{T<:AbstractFloat, A<:AbstractArray{T, 2}} <: AbstractPointValues{T, 1}
@@ -209,7 +212,8 @@ One tensor value of order `R` per point (``R \\ge 2``; use [`ScalarPointValues`]
 
 The constructor written without an explicit `TensorPointValues{R}` infers the order as `ndims(data) - 1`.
 
-The fields are
+# Fields
+
 - `data` — the components, structure-of-arrays with shape `(M, fiber_shape(Val(R))...)` — `(M, 3, 3)` at order `2`.
 """
 struct TensorPointValues{R, T<:AbstractFloat, A<:AbstractArray{T}} <: AbstractPointValues{T, R}
@@ -1125,7 +1129,8 @@ Because `parent` is a handle you opened and own, this never opens or closes a fi
 attaches no notion of time — the caller bundles a snapshot and owns any `time` / `iteration`
 attributes.
 
-The arguments are:
+# Arguments
+
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
 - `points`, `values` — the `PointSet` or point-value section to write.
@@ -1349,7 +1354,8 @@ endpoint and non-finite contract. Displacement on the periodic domain proper is 
 the grid-free form is its lift to the cover, which preserves winding information (a
 mean-square-displacement diagnostic needs the unwrapped trajectory).
 
-The arguments are:
+# Arguments
+
 - `destination` — the [`PointSet`](@ref) receiving the displaced positions. It may be the `source`
   itself (the two-argument convenience forms are exactly that call): the pass reads each
   element's inputs before writing its outputs, so the aliased call is computed directly.

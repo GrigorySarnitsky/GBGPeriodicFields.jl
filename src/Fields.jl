@@ -143,7 +143,8 @@ checks what it is handed and throws an `ArgumentError` on a spacing that contrad
 Every grid size must be positive, every domain length finite and positive, and every origin
 coordinate finite.
 
-The fields are
+# Fields
+
 - `grid_size::NTuple{3, Int}` — the number of grid points in each spatial direction.
 - `domain_size::NTuple{3, T}` — the length of the domain in each spatial direction.
 - `grid_spacing::NTuple{3, T}` — the spacing between adjacent grid points in each spatial direction.
@@ -200,7 +201,8 @@ in dimension `fft_dims[1]`, only the nonnegative frequencies are represented, wh
 
 The zero-argument constructor uses `fft_dims = (1, 2, 3)`.
 
-The fields are
+# Fields
+
 - `fft_dims` — the tuple of transformed dimensions passed to the FFT planner, whose first entry is the
   halved (folded) axis.
 """
@@ -365,7 +367,8 @@ field_physical_shape(grid::Grid3D, ::Val{R}) where {R} = (grid.grid_size..., fib
 
 Return the storage shape of a field represented in nonredundant real-to-complex spectral space.
 
-The arguments are:
+# Arguments
+
 - `grid` — the [`Grid3D`](@ref) whose point count sets the spatial dimensions.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) deciding which axis carries the halved real
   transform.
@@ -435,7 +438,7 @@ function field_data end
 Scalar field in physical representation, stored as its values on a three-dimensional physical grid.
 
 The function constructor constructs a scalar field in physical representation by sampling a real-valued function on a three-dimensional physical grid.
-The arguments are:
+# Arguments
 
 - `f` — the sampled function, called as `f(x, y, z)` at each grid point.
 - `grid` — the `Grid3D` the values are sampled on.
@@ -443,14 +446,15 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `ScalarFieldPhysical`.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `values_at_grid` — the real scalar values, one per grid point.
 - `grid` — the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
@@ -510,7 +514,7 @@ Scalar field in spectral representation, stored as its nonredundant real-to-comp
 The coefficient array has shape `field_spectral_shape(grid, fourier_layout, Val(0))`.
 The dimension `fourier_layout.fft_dims[1]` is the real-FFT half dimension.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over scalar fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `ScalarFieldSpectral`.
@@ -518,7 +522,8 @@ All such operations are coefficientwise; for example, `.*` does not represent a 
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `fourier_coefficients` — the complex Fourier coefficients, in real-FFT storage.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) giving the transformed dimensions and the real-FFT half dimension.
@@ -578,7 +583,7 @@ field_data(field::ScalarFieldSpectral) = field.fourier_coefficients
 Vector field in physical representation, stored as its components on a three-dimensional physical grid.
 
 The function constructor constructs a vector field in physical representation by sampling a real vector-valued function on a three-dimensional physical grid.
-The arguments are:
+# Arguments
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return a three-component
   indexable object.
@@ -587,7 +592,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `VectorFieldPhysical`.
@@ -595,7 +600,8 @@ These operations are storage-wise and componentwise.
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `values_at_grid` — the real vector components, stored `values_at_grid[i, j, k, α]` with ``\\alpha = 1, 2, 3``.
 - `grid` — the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
@@ -655,7 +661,7 @@ end
 
 Vector field in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over vector fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `VectorFieldSpectral`.
@@ -663,7 +669,8 @@ These operations are storage-wise and componentwise. They do not represent pseud
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `fourier_coefficients` — the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with ``\\alpha = 1, 2, 3``; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(1))`.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
@@ -737,7 +744,7 @@ Tensor field of order ``R \\ge 2`` in physical representation, stored as its com
 The array has shape `field_physical_shape(grid, Val(R))`. The constructors without explicit `{R}` infer `R` as the array's dimension count minus three.
 
 The function constructor constructs a tensor field of order ``R \\ge 2`` in physical representation by sampling a real tensor-valued function on a three-dimensional physical grid.
-The arguments are:
+# Arguments
 
 - `f` — the sampled function, called as `f(x, y, z)`; it must return an indexable object with
   tensor-fiber shape `fiber_shape(Val(R))`.
@@ -746,7 +753,7 @@ The arguments are:
 - `array_type` — the array type the sampled values are stored in (`Array` on the host, a
   device array such as `CuArray` or `ROCArray` to build the field on a GPU).
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** value storage itself, on that family's backend, shaped by the grid and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in physical representation is lifted to `values_at_grid`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.values_at_grid`, while field-valued out-of-place dotted expressions return a new `TensorFieldPhysical`.
@@ -754,7 +761,8 @@ These operations are storage-wise and componentwise. They do not represent tenso
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `values_at_grid` — the real tensor components, stored `values_at_grid[i, j, k, αs...]` with each tensor index of length `3`.
 - `grid` — the [`Grid3D`](@ref) on which the values are sampled.
 - `fourier_layout` — the [`RealFourierLayout`](@ref) used when transforming the field.
@@ -835,7 +843,7 @@ end
 
 Tensor field of order ``R \\ge 2`` in spectral representation, stored as its nonredundant real-to-complex Fourier coefficients.
 
-The allocating constructor takes a storage *family* — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
+The allocating constructor takes a storage `family` — `Array`, `CuArray`, `ROCArray` — in place of the array, and produces **uninitialized** coefficient storage (element type `Complex{T}`) itself, on that family's backend, shaped by the grid, the layout and the tensor order. It exists for a caller holding only the domain context and no array or field to copy from; with a field in hand, [`similar_field`](@ref) is the shorter spelling. The element type is the grid's: a bare family takes it from there, a parameterized one must agree with it (a mixed pair is refused, never converted), any other parameter, a CUDA memory kind included, is ignored, and a complex parameter is always refused — complex storage is representation detail, not a user-facing element type.
 
 Broadcasting over tensor fields in spectral representation is lifted to `fourier_coefficients`. Thus dotted assignments such as `@. destination = a - b + c`
 write into `destination.fourier_coefficients`, while field-valued out-of-place dotted expressions return a new `TensorFieldSpectral`.
@@ -843,7 +851,8 @@ These operations are storage-wise and componentwise. They do not represent pseud
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
 
-The fields are
+# Fields
+
 - `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, αs...]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
 - `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
 - `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
@@ -1297,7 +1306,8 @@ end
 
 Forward and inverse FFT plans connecting compatible fields represented in physical and spectral space.
 
-The arguments are:
+# Arguments
+
 - `physical` — the field supplying the real-space storage array to plan against.
 - `spectral` — the field supplying the real-to-complex Fourier coefficient array.
 - `fft_flags` — an optional backend-specific FFT planner flag.
@@ -1324,7 +1334,8 @@ tensor order.
     the default stays `ESTIMATE` because it is instant, deterministic, and right for tests and short
     sessions.
 
-The fields are
+# Fields
+
 - `grid::G` — the [`Grid3D`](@ref) for which the plans were constructed.
 - `fourier_layout::L` — the [`RealFourierLayout`](@ref) for which the plans were constructed.
 - `plan_forward_fft::PF` — the plan transforming physical values to spectral coefficients, for **one
@@ -1504,7 +1515,8 @@ member of the preserving contract that the allocating [`to_physical`](@ref) offe
 fresh field: reach for it when the spectral coefficients are a state you keep — a solver's resolved
 state, a field transformed to physical space more than once — and the loop must not allocate.
 
-The arguments are:
+# Arguments
+
 - `physical` — the field that receives the transformed values.
 - `spectral` — the source coefficients. The three-argument form may overwrite them as scratch; the
   four-argument form leaves them bitwise-unchanged.
@@ -1566,7 +1578,8 @@ end
 Transform a field from physical space to spectral space in place, returning the modified
 `spectral` destination.
 
-The arguments are:
+# Arguments
+
 - `spectral` — the field that receives the transformed coefficients.
 - `physical` — the source values, which the transform may overwrite as scratch.
 - `transform_plans` — the [`FieldTransformPlans`](@ref) supplying the forward FFT plan.
@@ -1748,7 +1761,8 @@ function _check_kernel_compatibility end
 One-dimensional Fourier wavenumber arrays for the operators applied coefficientwise in spectral
 representation — derivatives, the Laplacian, and the Helmholtz projection.
 
-The arguments are:
+# Arguments
+
 - `grid`, `fourier_layout` — the [`Grid3D`](@ref) and [`RealFourierLayout`](@ref) the multipliers are
   built for. The two-argument forms take them from `field` instead.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the per-axis **derivative** wavenumbers, written
@@ -1788,7 +1802,7 @@ two radial kernels into one without testing anything at run time, and it is why 
 own coordinates (a sheared, time-dependent set, say) never has its kernels merged with one built on the
 grid's own wavenumbers.
 
-The fields are:
+# Fields
 
 - `grid`, `fourier_layout` — the grid and Fourier layout above, stored as passed.
 - `wavenumber_1`, `wavenumber_2`, `wavenumber_3` — the derivative wavenumbers above.
@@ -2207,7 +2221,8 @@ whole snapshot (velocity, vorticity, …) into one file under separate names and
 `iteration` attributes — the package serializes the fields, and the caller owns the bundling and any
 notion of time.
 
-The arguments are:
+# Arguments
+
 - `parent` — an open HDF5 `File` or `Group` to create the new subgroup under.
 - `name` — the name of the group to create.
 - `field` — the field to write.
@@ -3257,7 +3272,7 @@ which is how content computed cheaply on a small grid — a forcing, a prescribe
 reaches a large one without a transform. The cost
 is the coarse field's size. Use [`extract_modes!`](@ref) for the other direction.
 
-The arguments are:
+# Arguments
 
 - `destination` — the **finer** field, written on the shared modes only. Passing the coarser field
   here is refused, which is what keeps the two directions from being confused at a call site.
@@ -3304,7 +3319,7 @@ This is the reverse of [`embed_modes!`](@ref): it keeps the modes the coarse gri
 discards the rest, which is how the large scales of a field reach a small grid that something else
 computes on. The cost is the coarse field's size, so the fine field is never traversed.
 
-The arguments are:
+# Arguments
 
 - `destination` — the **coarser** field, written on the shared modes only. Passing the finer field
   here is refused.

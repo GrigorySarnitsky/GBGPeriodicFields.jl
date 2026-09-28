@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.36 — rewritten by `gbg sync`; do not edit -->
 # Citations — `RULE.CIT.*`
 
 Author–year in the prose, the full reference where the reader can reach it, a DOI on every title. 6 rules, written from the rule values themselves,
@@ -12,7 +12,7 @@ A reader looking for one reference in a semicolon-separated run has to parse the
 Covered by a program.
 
 ### RULE.CIT.DOI
-Every reference carries a clickable DOI, or an Open Library link for a book, on its title.
+Every reference carries a clickable DOI, or an Open Library link for a book, on its title. A work whose entry states it has no DOI — the words "no DOI", in any case — may carry on its title instead an https link to its stable public record.
 
 A DOI a reader cannot click is a string to retype; one written as a bare label is indistinguishable from prose.
 

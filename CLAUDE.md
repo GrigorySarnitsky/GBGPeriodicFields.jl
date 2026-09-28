@@ -1,4 +1,4 @@
-<!-- gbg:managed begin v2.0.0-rc.30 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.36 — rewritten by `gbg sync`; do not edit -->
 @.gbg/policy/00-index.md
 
 The rulebook above is the whole of it: the rules, the terms they use, and what GBGPeriodicFields has
@@ -210,11 +210,11 @@ is documented and REPL-visible.
 
 **The four shape rules (user-decided 2026-07-24; the `/check-consistency` uniformity pass).** The
 rubric above says what a docstring must *contain*; these fix the *shape*, so the same content is not
-written four ways. **(1) Arguments.** The marker phrase is `The arguments are:`. Count the arguments a
+written four ways. **(1) Arguments.** The marker is an `# Arguments` heading. Count the arguments a
 *signature* takes, not the distinct names across type-specialized variants (`norm!` takes two in every
 overload and stays prose). A **thin allocating wrapper is exempt**: it documents no arguments at all, leading with the
 one-sentence meaning and `@ref`-linking the home, so the threshold never applies to it. **(2) Types.**
-Prose is reserved for the one-sentence identity above the field list. **(4) The in-place steer** sits after the identity paragraph and before the arguments, and names the
+Prose is reserved for the one-sentence identity above the `# Fields` section. **(4) The in-place steer** sits after the identity paragraph and before the arguments, and names the
 destination argument the signature actually has — `destination` in most of the corpus, but `out` in
 `interpolate!` and `field` in `anterpolate!`.
 **(5) Aliasing.** PF's cases: `cross!`, `transpose!`, `sym!`, `skew!` and `dev!` carry nothing locally
@@ -305,11 +305,8 @@ argument (the `anterpolate!` convention, ≤ ~88 source columns).
 
 **Math spacing and command support — standard LaTeX idiom.** These are the conventions a fluent LaTeX
 author writes by default; the defects they head off — manual spacing, reflexive ``\\left``/``\\right`` — are
-novice tells, not subtle bugs. **Never:**
-- **write ``\\mathbb{…}`` on anything but a capital ``A``–``Z`` or ``k``** — KaTeX's blackboard font covers only
-  those glyphs, so ``\\mathbb{1}`` (or any digit) falls back to a *plain* glyph with the font silently dropped;
-  for the indicator/identity write ``\\mathbf{1}`` (or ``\\boldsymbol{1}``). KaTeX supports a subset of LaTeX, so
-  for anything tool-specific consult KaTeX's published support table — do not assume parity.
+novice tells, not subtle bugs. KaTeX supports a subset of LaTeX, so for anything tool-specific consult
+KaTeX's published support table — do not assume parity.
 
 **These are correct — do NOT "fix" them:** ``\\sim\\!`` and relation-modifier tightening; ``\\quad``/``\\qquad`` for display-equation separation; and
 ``\\mathrm{Re}`` versus ``\\operatorname{Re}`` before a delimiter (identical output — Ord–Open = Op–Open

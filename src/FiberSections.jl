@@ -168,7 +168,7 @@ Run `f()` with the CPU-threading decision forced to `enabled`, restore the previ
 `f()`'s value. The override is dynamically scoped and task-local, affecting only `f()`, and is restored
 even on an exception.
 
-The arguments are:
+# Arguments
 
 - `f` — the zero-argument function to run under the override.
 - `enabled` — `true` or `false` to force the threaded or serial path, or `nothing` to follow the
@@ -1177,7 +1177,8 @@ flattens the result. Passing one array per input, rather than one per component,
 as short as the input count and a device kernel's argument list independent of the inputs' tensor
 orders; the component reads are unrolled by order, so no count the caller chooses reaches a splat.
 
-The fields are
+# Fields
+
 - `φ` — the caller's fiber map, applied to the assembled fibers at each base point.
 - `orders` — the tensor orders of the inputs, a tuple of `Val{R}`, so the fiber assembly is resolved at
   compile time.

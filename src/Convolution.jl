@@ -139,7 +139,8 @@ coefficients through it without an extra read. Wrap once, where the kernel is bu
 The expansion [`materialize_kernel`](@ref) returns is this class, so a compressed kernel expanded
 into its coefficients arrives already in the kernel role.
 
-The fields are
+# Fields
+
 - `field` — the `ScalarFieldSpectral` holding the coefficients, referenced rather than copied.
 """
 struct StoredKernel{T, F<:ScalarFieldSpectral{T}} <: SpectralKernel{T}
@@ -177,7 +178,8 @@ applies exactly like either operand.
 This is what lets a mask and a displacement — or any radial symbol and any per-axis factor — be
 applied in a single pass instead of two.
 
-The fields are
+# Fields
+
 - `first_kernel`, `second_kernel` — the two operands, held unmultiplied and evaluated per mode.
 """
 struct ProductKernel{T, A, B} <: SpectralKernel{T}
@@ -342,7 +344,8 @@ zeroed at that mode — so no case analysis is needed anywhere in the family.
     its own fused operation. What this class buys is the general case, where no such factorization is
     available.
 
-The fields are
+# Fields
+
 - `sigma` — the function ``\\sigma``, called with the real ``|k|^2`` and returning a real value.
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) supplying ``|k|^2``, referenced, not copied.
   Whether they are the grid's own wavenumbers (**canonical**, built by the convenience constructor from
@@ -510,7 +513,8 @@ Use `inv` for the reciprocal kernel ``1/\\hat g``, which is separable too since
     being the notable exception (``\\exp(c|k|^2)`` factors, and has its own operation). This type is for
     kernels that genuinely do factor, the typical case being a per-axis phase.
 
-The fields are
+# Fields
+
 - `factor_1`, `factor_2`, `factor_3` — the per-axis factors, each shaped to broadcast along its
   own axis, of the stored spectral length of that axis (the folded axis is the layout's `fft_dims[1]`).
 - `grid`, `layout` — the base and Fourier layout the factors were built for, which a call
@@ -969,7 +973,8 @@ representation.
 Use this in-place form when `destination` is already allocated; the allocating [`convolve`](@ref)
 returns a fresh result instead.
 
-The arguments are:
+# Arguments
+
 - `field` — the field to filter, in spectral representation.
 - `kernel` — the kernel's transfer function ``\\hat g``, in any storage class of a
   [`SpectralKernel`](@ref): a `StoredKernel` holding one coefficient per mode, or one of the compressed
@@ -1575,7 +1580,8 @@ so a kernel deep enough to cross that band pays a multiple of its whole pass. Th
 (arguments below about ``-708``) is beyond any physical kernel, and the GPU backends flush subnormals
 to zero, so both are unaffected; where the band matters, use `Float64` or a milder exponent.
 
-The arguments are:
+# Arguments
+
 - `destination` — the field written with the result; it may alias `field` (or `a`, `b`, `offset`),
   since the product is coefficientwise.
 - `field` — the field to filter, in spectral representation.
@@ -1760,7 +1766,8 @@ band, or any shell selector. It is idempotent (``\\hat g^2 = \\hat g``), hence a
 the annular generalization of [`spectral_cutoff`](@ref), which is the low-pass case
 ``k_\\mathrm{lo} = 0``.
 
-The arguments are:
+# Arguments
+
 - `multipliers` — the [`FieldSpectralMultipliers`](@ref) whose grid, Fourier layout, element type
   and storage family the kernel takes as its own.
 - `wavenumber_low`, `wavenumber_high` — the inner and outer edges ``k_\\mathrm{lo}``,
@@ -2045,7 +2052,8 @@ in-place form when a displacement changes and the kernel is already allocated; t
 [`translation_kernel`](@ref) returns a fresh kernel instead. The cost is three ``O(N)`` axis passes,
 not a field, so rebuilding per call is cheap.
 
-The arguments are:
+# Arguments
+
 - `kernel` — the [`SeparableKernel`](@ref) whose per-axis factors are overwritten.
 - `multipliers` — the wavenumber arrays, supplying both families (the derivative wavenumbers and
   the true squared ones), checked against `kernel`'s grid and layout.
