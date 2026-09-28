@@ -57,6 +57,7 @@ import FFTW
 # Imported before extending, per invariant 7. `adapt` is the ecosystem-standard way to move a struct
 # holding arrays between storage families, and extending `adapt_structure` is its sanctioned hook.
 import Adapt: adapt, adapt_structure
+import Base: ==, isequal, hash
 using Base.ScopedValues: ScopedValue
 import KernelAbstractions
 using KernelAbstractions: @kernel, @index, get_backend, synchronize
@@ -2517,7 +2518,8 @@ Both arguments are sections of the same kind — two fields in the same represen
 two point-value sections, or two point sets — agreeing in element type, tensor order, grid and Fourier
 layout, and differing at most in the storage family they live in. Everything except the family must
 match, because this moves storage and nothing else: precision is not converted here, exactly as it is
-not by `adapt`. A pair that differs in representation has no method rather than an error message,
+not by `adapt`. A mismatch is refused with an `ArgumentError` naming the property that differs and
+both values, so a caller need not check the pair itself. A pair that differs in representation has no method rather than an error message,
 since a physical field and a spectral one are not the same section. Passing one section as both
 arguments is a no-op, and a `source` already in `destination`'s family is an ordinary copy rather than
 an error, so generic code need not ask which side of the bus it is on.
@@ -2538,8 +2540,8 @@ function adapt! end
 """
     _check_adapt_target(destination, source)
 
-Check that two sections agree in everything a storage move must preserve — scalar type, grid and
-Fourier layout — and deliberately **not** in storage family, which is the one thing the move exists to
+Check that two sections agree in everything a storage move must preserve — scalar type, tensor
+order, grid and Fourier layout — and deliberately **not** in storage family, which is the one thing the move exists to
 change.
 
 This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that check would refuse the pair
@@ -2547,12 +2549,25 @@ This is [`_check_same_domain`](@ref) minus its backend clause. Reusing that chec
 Returns `nothing` or throws.
 """
 function _check_adapt_target(destination, source)
+  # The element type and tensor order were once constraints in the method signatures, so a pair
+  # differing in either met Julia's generic `MethodError`, which names no reason — and a consumer wrote
+  # its own pre-checks over raw storage to get one. Invariant 14 promises a clear `ArgumentError`.
   _same_scalar_type(destination, source) ||
-    throw(ArgumentError("adapt! moves storage, not precision: destination and source scalar types must be equal"))
-  _same_grid(destination, source)   || throw(ArgumentError("adapt! destination and source grids must be equal"))
-  _same_layout(destination, source) || throw(ArgumentError("adapt! destination and source Fourier layouts must be equal"))
+    throw(ArgumentError("adapt! moves storage, not precision: it cannot move a $(field_scalar_type(source)) " *
+                        "$(nameof(typeof(source))) into a $(field_scalar_type(destination)) one"))
+  _same_tensor_order(destination, source) ||
+    throw(ArgumentError("adapt! cannot move a $(nameof(typeof(source))) into a $(nameof(typeof(destination))): " *
+                        "tensor orders must be equal"))
+  _same_grid(destination, source) ||
+    throw(ArgumentError("adapt! destination and source grids must be equal: the destination is on " *
+                        "$(field_grid(destination)), the source on $(field_grid(source))"))
+  _same_layout(destination, source) ||
+    throw(ArgumentError("adapt! destination and source Fourier layouts must be equal: the destination has " *
+                        "$(field_layout(destination)), the source $(field_layout(source))"))
   return nothing
 end
+
+
 
 
 # `copyto!` on the underlying arrays is what crosses the bus; the vendor packages define it in both
@@ -2560,19 +2575,98 @@ end
 # broadcast entry point, so a section-to-section `copyto!` that crossed families would cross where
 # `destination .= source` refuses (invariant 14) — the same two objects giving opposite answers under
 # two spellings. Decision 69.
-function adapt!(destination::AbstractFieldPhysical{T, R}, source::AbstractFieldPhysical{T, R}) where {T, R}
+function adapt!(destination::AbstractFieldPhysical, source::AbstractFieldPhysical)
   field_data(destination) === field_data(source) && return destination
   _check_adapt_target(destination, source)
   copyto!(field_data(destination), field_data(source))
   return destination
 end
 
-function adapt!(destination::AbstractFieldSpectral{T, R}, source::AbstractFieldSpectral{T, R}) where {T, R}
+function adapt!(destination::AbstractFieldSpectral, source::AbstractFieldSpectral)
   field_data(destination) === field_data(source) && return destination
   _check_adapt_target(destination, source)
   copyto!(field_data(destination), field_data(source))
   return destination
 end
+
+
+###################################################
+#   Equality                                      #
+###################################################
+#
+# Without these, `u == v` on two fields fell back to `Base`'s `===` and answered whether they were
+# the same OBJECT: two fields holding identical values compared unequal, silently. Decision 91.
+
+
+"""
+    ==(a, b)
+    isequal(a, b)
+
+Compare two fields, or two point-value sections, or two point sets, by what they hold: `a == b` is
+`true` when both are the same kind of section on the same base and every stored value is equal.
+
+For fields, "the same kind" means the same representation and tensor order, and "the same base" the
+same [`Grid3D`](@ref) and [`RealFourierLayout`](@ref); two fields differing in any of those are
+different fields and compare `false`. Point-value sections of different tensor orders or point
+counts, and point sets of different point counts, compare `false` for the same reason.
+
+Some pairs are refused with an `ArgumentError` rather than answered, because either answer could
+mislead. A field in physical representation compared with one in spectral representation may be two
+representations of one field, so `false` would be wrong and `true` would need a transform; transform
+one of them first. Sections of different element types or different storage families (host against
+device) are refused as every operation over two sections refuses them, rather than converted.
+
+The values compare as Julia's arrays compare. Under `==`, `0.0` equals `-0.0` and `NaN` equals nothing,
+itself included. Under `isequal`, `-0.0` differs from `0.0` and `NaN` equals `NaN`, which makes it the
+test for a bit-identical result. The `hash` of a section is consistent with `isequal`, and is built
+from the section's kind and base only, not its values, so it reads no stored value.
+"""
+function ==(a::AbstractFieldPhysical, b::AbstractFieldPhysical)
+  return _section_equality(==, a, b)
+end
+
+==(a::AbstractFieldSpectral, b::AbstractFieldSpectral) = _section_equality(==, a, b)
+isequal(a::AbstractFieldPhysical, b::AbstractFieldPhysical) = _section_equality(isequal, a, b)
+isequal(a::AbstractFieldSpectral, b::AbstractFieldSpectral) = _section_equality(isequal, a, b)
+
+# The cross-representation pairs are refused in both orders and under both comparisons.
+==(a::AbstractFieldPhysical, b::AbstractFieldSpectral) = _refuse_cross_representation_equality()
+==(a::AbstractFieldSpectral, b::AbstractFieldPhysical) = _refuse_cross_representation_equality()
+isequal(a::AbstractFieldPhysical, b::AbstractFieldSpectral) = _refuse_cross_representation_equality()
+isequal(a::AbstractFieldSpectral, b::AbstractFieldPhysical) = _refuse_cross_representation_equality()
+
+hash(field::AbstractField, h::UInt) =
+  hash(field_grid(field), hash(field_layout(field), hash(field_tensor_order(field),
+       hash(field isa AbstractFieldPhysical, hash(:GBGPeriodicFieldsField, h)))))
+
+
+"""
+    _section_equality(compare, a, b)
+
+Compare two fields of one representation with `compare` (`==` or `isequal`) applied to their
+storage, after refusing a pair of different element types or storage families and answering `false`
+for a pair of different tensor orders, grids or layouts. Returns a `Bool` or throws.
+"""
+function _section_equality(compare, a, b)
+  _same_scalar_type(a, b) ||
+    throw(ArgumentError("fields of different element types are not compared: " *
+                        "$(field_scalar_type(a)) against $(field_scalar_type(b))"))
+  _same_backend(a, b) ||
+    throw(ArgumentError("fields in different storage families are not compared: move one with `adapt` first"))
+  _same_tensor_order(a, b) && _same_grid(a, b) && _same_layout(a, b) || return false
+  return compare(field_data(a), field_data(b))
+end
+
+
+"""
+    _refuse_cross_representation_equality()
+
+Throw the `ArgumentError` for comparing a field in physical representation with one in spectral
+representation, which may be two representations of one field.
+"""
+_refuse_cross_representation_equality() =
+  throw(ArgumentError("a field in physical representation and one in spectral representation may " *
+                      "represent the same field, so they are not compared; transform one of them first"))
 
 """
     _is_canonical(multipliers::FieldSpectralMultipliers)

@@ -64,7 +64,7 @@ using ..FiberSections:
 
 using KernelAbstractions: get_backend
 using ..FiberSections: fiber_shape, FiberVector, FiberTensor2   # the fiber is base-agnostic
-import Base: +, -, *, /, map, map!
+import Base: +, -, *, /, map, map!, ==, isequal, hash
 import LinearAlgebra: dot, cross, mul!, transpose, transpose!, norm, tr, det
 using ..Fields: _refuse_field_as_fiber_map, _storage_family   # the callable-field guard shared with `FieldAlgebra`
 import ..Fields: adapt!, field_data, _vector_component_data, _tensor2_component_data  # extended on PointValues
@@ -1485,11 +1485,18 @@ adapt_structure(to, point_set::PointSet) = PointSet(adapt(to, point_positions(po
 
 # The point twins of `adapt!`, whose documentation lives with the generic in `Fields`. A point section
 # carries no grid or layout, so the only thing a move must preserve besides the values is the point
-# count — `_check_npoints_match` is the check the rest of this module already routes through, and a
-# tensor-order mismatch has no method rather than an error, exactly as a representation mismatch does
-# on the field side. Decision 69.
-function adapt!(destination::AbstractPointValues{T, R}, source::AbstractPointValues{T, R}) where {T, R}
+# count — `_check_npoints_match` is the check the rest of this module already routes through.
+# Decision 69; the element-type and tensor-order refusals with a reason, decision 91.
+function adapt!(destination::AbstractPointValues, source::AbstractPointValues)
   point_values(destination) === point_values(source) && return destination
+  # Element type and tensor order are checked here with a reason, not left to the signature, where a
+  # mismatch met Julia's generic `MethodError` (as on the field side, `_check_adapt_target`).
+  eltype(point_values(destination)) == eltype(point_values(source)) ||
+    throw(ArgumentError("adapt! moves storage, not precision: it cannot move $(eltype(point_values(source))) " *
+                        "point values into $(eltype(point_values(destination))) ones"))
+  point_value_tensor_order(destination) == point_value_tensor_order(source) ||
+    throw(ArgumentError("adapt! cannot move a $(nameof(typeof(source))) into a $(nameof(typeof(destination))): " *
+                        "tensor orders must be equal"))
   _check_npoints_match(destination, source)
   copyto!(point_values(destination), point_values(source))
   return destination
@@ -1497,6 +1504,11 @@ end
 
 function adapt!(destination::PointSet, source::PointSet)
   point_positions(destination) === point_positions(source) && return destination
+  # Precision is refused, not converted: `copyto!` alone would have written Float64 positions into
+  # a Float32 point set by rounding them, the silent conversion invariant 14 forbids.
+  eltype(point_positions(destination)) == eltype(point_positions(source)) ||
+    throw(ArgumentError("adapt! moves storage, not precision: it cannot move $(eltype(point_positions(source))) " *
+                        "positions into a point set of $(eltype(point_positions(destination)))"))
   # `DimensionMismatch`, not `ArgumentError`: a point-count mismatch is what this module already
   # throws that for (`_check_npoints_match`), and the two point methods should not disagree.
   npoints(destination) == npoints(source) ||
@@ -1504,6 +1516,30 @@ function adapt!(destination::PointSet, source::PointSet)
   copyto!(point_positions(destination), point_positions(source))
   return destination
 end
+
+
+# Equality: the point twins of the field methods, whose one docstring, on `==` in `Fields`, covers
+# them. Point values compare by tensor order, point count and values; point sets by point count and
+# positions. Precision and storage family are refused, as for fields.
+function _point_section_equality(compare, a_values, b_values)
+  eltype(a_values) == eltype(b_values) ||
+    throw(ArgumentError("point sections of different element types are not compared: " *
+                        "$(eltype(a_values)) against $(eltype(b_values))"))
+  _storage_family(a_values) === _storage_family(b_values) ||
+    throw(ArgumentError("point sections in different storage families are not compared: move one with `adapt` first"))
+  size(a_values) == size(b_values) || return false
+  return compare(a_values, b_values)
+end
+
+==(a::AbstractPointValues, b::AbstractPointValues) =
+  point_value_tensor_order(a) == point_value_tensor_order(b) && _point_section_equality(==, point_values(a), point_values(b))
+isequal(a::AbstractPointValues, b::AbstractPointValues) =
+  point_value_tensor_order(a) == point_value_tensor_order(b) && _point_section_equality(isequal, point_values(a), point_values(b))
+==(a::PointSet, b::PointSet) = _point_section_equality(==, point_positions(a), point_positions(b))
+isequal(a::PointSet, b::PointSet) = _point_section_equality(isequal, point_positions(a), point_positions(b))
+hash(values::AbstractPointValues, h::UInt) =
+  hash(point_value_tensor_order(values), hash(npoints(values), hash(:GBGPeriodicFieldsPointValues, h)))
+hash(points::PointSet, h::UInt) = hash(npoints(points), hash(:GBGPeriodicFieldsPointSet, h))
 
 
 # Display. See the note on the field methods in `Fields` for why the compact form is parenthesised

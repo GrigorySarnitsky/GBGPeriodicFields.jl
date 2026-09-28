@@ -11,6 +11,7 @@ module SharedModesTests;           include("shared_modes.jl");          end
 module FieldAlgebraTests;          include("fieldalgebra.jl");          end
 module MetadataSweepTests;         include("metadata_sweep.jl");        end
 module AdaptTests;                 include("adapt.jl");                 end
+module EqualityTests;              include("equality.jl");              end
 module GeneratedAnalyticTests;     include("generated_analytic.jl");    end
 module OracleRegistryTests;        include("oracle_registry.jl");      end
 module ResultsFormatTests;         include("results_format.jl");     end

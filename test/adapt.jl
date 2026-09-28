@@ -235,10 +235,21 @@ end
   @test_throws ArgumentError adapt!(ScalarFieldPhysical(rand(T, field_physical_shape(grid, Val(0))...), grid, RealFourierLayout((3, 1, 2)) === layout ? RealFourierLayout() : RealFourierLayout((3, 1, 2))), source)
   @test_throws MethodError adapt!(ScalarFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), source)
 
-  # Precision is not converted here, exactly as `adapt` does not convert it (invariant 14).
+  # Precision is not converted here, exactly as `adapt` does not convert it (invariant 14), and a
+  # mismatch of precision or tensor order is REFUSED with a reason, not left to a `MethodError`
+  # (decision 91: a consumer wrote its own pre-checks over raw storage to get one).
   S = T === Float64 ? Float32 : Float64
   other = grid_of(S)
-  @test_throws MethodError adapt!(ScalarFieldPhysical(rand(S, field_physical_shape(other, Val(0))...), other, layout), source)
+  refusal(f) = try f(); "" catch e; e isa ArgumentError ? e.msg : "not an ArgumentError: $(typeof(e))" end
+  precision_message = refusal(() -> adapt!(ScalarFieldPhysical(rand(S, field_physical_shape(other, Val(0))...), other, layout), source))
+  @test occursin("not precision", precision_message) && occursin(string(S), precision_message) && occursin(string(T), precision_message)
+  order_message = refusal(() -> adapt!(VectorFieldPhysical(rand(T, field_physical_shape(grid, Val(1))...), grid, layout), source))
+  @test occursin("tensor orders", order_message) && occursin("VectorFieldPhysical", order_message)
+  grid_message = refusal(() -> adapt!(ScalarFieldPhysical(rand(T, field_physical_shape(other_grid, Val(0))...), other_grid, layout), source))
+  @test occursin("grids must be equal", grid_message) && occursin(repr(other_grid), grid_message) && occursin(repr(grid), grid_message)
+  @test_throws ArgumentError adapt!(ScalarPointValues(randn(S, 6)), ScalarPointValues(randn(T, 6)))
+  @test_throws ArgumentError adapt!(ScalarPointValues(randn(T, 6)), VectorPointValues(randn(T, 6, 3)))
+  @test_throws ArgumentError adapt!(PointSet(zeros(S, 6, 3)), PointSet(rand(T, 6, 3)))
 
   # The point layer: no grid or layout, so the point count is the whole contract.
   values = VectorPointValues(randn(T, 6, 3))

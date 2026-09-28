@@ -104,6 +104,12 @@ reality_projection!
 mean_free_projection!
 ```
 
+## Comparing sections
+
+```@docs
+Base.:(==)(::GBGPeriodicFields.Fields.AbstractFieldPhysical, ::GBGPeriodicFields.Fields.AbstractFieldPhysical)
+```
+
 ## Spectral kernel protocol
 
 The kernel-taking operations dispatch on `SpectralKernel`, each accepting all four storage classes:
@@ -162,5 +168,5 @@ Order   = [:function]
 # surface that can see it: the duplicate is invisible in this file, where each block looks correct
 # alone. Whenever a Fields-owned binding is added to the umbrella's export list, it must be added here.
 Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual, :reality_projection!,
-                                    :mean_free_projection!))
+                                    :mean_free_projection!, :(==)))
 ```

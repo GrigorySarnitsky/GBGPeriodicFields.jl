@@ -147,6 +147,9 @@ const ORACLE_PROVENANCE = Dict{Symbol, Tuple{Symbol, String}}(
   # The package's own surface scan never saw it (it does not descend into `Base.Broadcast`); the
   # tool's does, and this entry arrived when the registry moved to it (2026-09-27).
   :broadcastable => (:structural, "returns the section itself"),
+  :(==)          => (:independent, "equality.jl — against raw arrays built independently, the section never consulted"),
+  :isequal       => (:independent, "equality.jl — against raw arrays, incl. signed zeros and NaN"),
+  :hash          => (:structural, "built from the section's kind and base only; equality.jl checks it agrees with isequal"),
 )
 
 # The registry is DECLARED to GBGCodingTools (RULE.TEST.ORACLE_INDEPENDENT): the checks are the tool's

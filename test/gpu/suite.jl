@@ -950,6 +950,11 @@ end
       device_stored = StoredKernel(adapt(AT, similar_field(host_z, Val(0))))
       @test materialize_kernel!(device_stored, device_kernel) === device_stored
       @test Array(field_data(device_stored.field)) == field_data(materialize_kernel(host_kernel).field)
+      # Equality compares values on the device without a scalar index, and refuses a host/device pair
+      # rather than answering it (decision 91).
+      @test device_u == adapt(AT, host_u)
+      @test isequal(device_u, adapt(AT, host_u))
+      @test_throws ArgumentError device_u == host_u
 
       # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
       # cross. The gate proves everything about `adapt!` except the crossing itself.

@@ -139,7 +139,7 @@ whole file exists to prevent. See `test/exhaustive/README.md`.
   Laplacian symbol, the two-argument form, the domain refusal and the physical absence, plus decision 90's
   `mean_free_projection!`: the zero coefficient exactly zero in both parts, every other coefficient
   bitwise untouched, agreement with a physical-space average oracle, exact idempotence and the physical
-  absence; and the decision-45 `Grid3D` uniformity check — a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types — and the decision-64 scratch-arity testset: bitwise source preservation, bitwise equality with the allocating form, the aliasing and context refusals), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
+  absence; and the decision-45 `Grid3D` uniformity check — a contradictory `grid_spacing` and a non-positive size are rejected, an equivalent-arithmetic spacing accepted, at both element types — and the decision-64 scratch-arity testset: bitwise source preservation, bitwise equality with the allocating form, the aliasing and context refusals), `equality.jl` (decision 91: sections compared by value against raw arrays built independently, the signed-zero and `NaN` semantics, and the refusals across representations and precisions), `fieldalgebra.jl` (the M2 + M3 surface, incl. the weighted
   combination `combine!`, the determinant `det`, and the arbitrary-φ `map!` / `map` — decision 48 —
   against the named operations as oracles, order changes, multi-input, α/β, aliasing, and the
   physical-only absence),

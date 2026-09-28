@@ -151,6 +151,8 @@ const PEER_INVOCATIONS = Dict{Symbol, Function}(
 
 # ── Exemptions: every one CITES the assertion that carries its refusal, or states why none can ──
 const PEER_EXEMPT = Dict{Symbol, String}(
+  :(==)     => "a peer on another grid or layout is a different field, so equality answers false rather than refusing (decision 91); its refusals — representation, precision, storage family — are asserted in test/equality.jl",
+  :isequal  => "as `==`: another grid or layout answers false; the refusals are asserted in test/equality.jl",
   # Unary at the public surface: no second operand whose context could disagree. Each allocating
   # form's peer check lives in the `!` sibling it delegates to, invoked above.
   :copy   => "unary; takes one section and returns its copy — no peer to disagree",

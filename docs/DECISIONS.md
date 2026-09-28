@@ -3806,3 +3806,35 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **Declined in the same review.** A mode count for a band (the consumer's own loop is exact and
       runs on a tiny grid) and a relative form of `reality_residual` (the consumer's comparison with
       the largest stored coefficient is the right one, now documented).
+91. **Sections compare by value, and `adapt!` refuses every mismatch with a reason** (2026-09-28, owner-ruled). Two changes from the second round of the consumer's API review.
+
+    - **Why equality.** `u == v` on two fields fell back to `Base`'s default, which compares identity:
+      two fields holding identical values compared unequal, and nothing warned the caller. Equality of
+      two sections is well defined, so `==`, `isequal` and `hash` are now defined for fields,
+      point-value sections and point sets. Two sections are equal when they are the same kind on the
+      same base (representation, tensor order, grid and layout for a field; tensor order and point
+      count for point values) and every stored value is equal.
+
+    - **What is refused rather than answered.** A field in physical representation against one in
+      spectral representation may be two representations of one field, so `false` would be wrong and
+      `true` would need a transform; the pair throws. Different element types or storage families
+      throw as invariant 14 has every two-section operation do. Everything else that differs gives
+      `false`.
+
+    - **The value semantics are Julia's arrays'.** Under `==`, `-0.0` equals `0.0` and `NaN` equals
+      nothing; `isequal` distinguishes the signed zeros and equates `NaN` with itself, which makes it
+      the bit-identical test. The `hash` is built from the kind and base alone, not the values, so it is
+      consistent with `isequal` and reads nothing from device storage.
+
+    - **Why `adapt!` changed.** A pair differing in element type or tensor order matched no method,
+      the constraints being in the signatures, so it met Julia's generic `MethodError`, which names
+      no reason. The consumer wrote its own pre-checks over raw storage to get one, and invariant 14
+      promises a clear `ArgumentError`. The checks now run inside the method, each naming the property
+      that differs and both values, the grid message showing both grids. A catch-all method for the
+      mismatched pairs was tried first and discarded: Julia's dispatch preferred it for a pair it
+      should not have reached, reporting a grid mismatch as a tensor-order one.
+
+    - **A defect found on the way.** The point-set method checked only the point count, so a `Float64`
+      source written into a `Float32` point set was rounded without complaint, the silent conversion
+      invariant 14 forbids. It is refused now, and `test/regressions/pointset-adapt-converts-precision.jl`
+      pins it.
