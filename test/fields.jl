@@ -5,6 +5,7 @@
 using Test
 using GBGPeriodicFields
 using AbstractFFTs: rfftfreq, fftfreq
+using Statistics: mean
 
 # Internal (non-exported) helpers and the Fields-defined FieldSpectralMultipliers
 # are reached through the submodule. Note: the umbrella currently re-exports
@@ -487,6 +488,47 @@ end
 
       # No physical-representation method: there the projection is the identity (invariant 1).
       @test_throws MethodError reality_projection!(physical)
+    end
+  end
+end
+
+
+@testset "mean_free_projection!: the projector onto zero-mean fields ($T)" for T in (Float64, Float32)
+  for (sizes, layout) in (((8, 8, 8), RealFourierLayout()),
+                          ((8, 8, 8), RealFourierLayout((2, 1, 3))),
+                          ((8, 7, 6), RealFourierLayout()),
+                          ((7, 5, 6), RealFourierLayout((3, 1, 2))))
+    grid = Grid3D(sizes, T.((2pi, 4pi, 6pi)))
+    for R in (0, 1, 2)
+      values = rand(T, sizes..., ntuple(_ -> 3, R)...) .+ T(2)          # a mean well away from zero
+      physical = R == 0 ? ScalarFieldPhysical(values, grid, layout) :
+                 R == 1 ? VectorFieldPhysical(values, grid, layout) :
+                          TensorFieldPhysical{2}(values, grid, layout)
+      spectral = similar_field(ScalarFieldSpectral(
+        zeros(Complex{T}, field_spectral_shape(grid, layout, Val(0))...), grid, layout), Val(R))
+      plans = FieldTransformPlans(physical, spectral)
+      transformed = to_spectral(physical, plans)
+      data = field_data(transformed)
+      data[ntuple(_ -> 1, 3)..., ntuple(_ -> 1, R)...] += Complex{T}(0, 0.5)   # an imaginary part too
+      before = copy(data)
+      zero_mode = [idx for idx in CartesianIndices(data) if Tuple(idx)[1:3] == (1, 1, 1)]
+
+      @test mean_free_projection!(transformed) === transformed
+      # The mean coefficient of every component is exactly zero, real and imaginary parts alike.
+      @test all(idx -> data[idx] == 0, zero_mode)
+      @test mean(transformed) == zero(mean(transformed))
+      # Every other coefficient keeps its bits.
+      @test all(idx -> Tuple(idx)[1:3] == (1, 1, 1) || data[idx] === before[idx], CartesianIndices(data))
+      # The independent oracle, in physical space: the values less their arithmetic average.
+      averaged = values .- sum(values; dims = (1, 2, 3)) ./ prod(sizes)
+      @test field_data(to_physical(transformed, plans)) ≈ averaged rtol = 64 * eps(T)
+      # Exactly idempotent.
+      once = copy(data)
+      mean_free_projection!(transformed)
+      @test all(idx -> data[idx] === once[idx], CartesianIndices(data))
+
+      # No physical-representation method: the mean is no single stored value there.
+      @test_throws MethodError mean_free_projection!(physical)
     end
   end
 end

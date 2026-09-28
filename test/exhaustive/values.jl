@@ -310,6 +310,19 @@ function run_value_lane(configs)
       # registry while asserting nothing beyond what the neighbour asserts.
       (:materialize_kernel, kernel_data(translation_kernel(multipliers, offset)),
                             ref_translation_kernel(grid, layout, shape, offset)),
+      # The in-place twin (decision 90), one row per compressed class it reaches: a band (radial) and
+      # a translation phase (separable), each into a StoredKernel holding unrelated values.
+      (:materialize_kernel!, Array(field_data(materialize_kernel!(StoredKernel(similar_field(spectral_zero_ones, Val(0))),
+                                                                  spectral_band(multipliers, T(1), cutoff)).field)),
+                             complex.(ref_spectral_band(grid, layout, shape, T(1), cutoff))),
+      (:materialize_kernel!, Array(field_data(materialize_kernel!(StoredKernel(similar_field(spectral_zero_ones, Val(0))),
+                                                                  translation_kernel(multipliers, offset)).field)),
+                             ref_translation_kernel(grid, layout, shape, offset)),
+      # The mean-free projector (decision 90), on a copy so the fixture survives: the reference is the
+      # definition, the zero coefficient of every component cleared and nothing else touched.
+      (:mean_free_projection!, field_data(mean_free_projection!(let f = similar_field(uh, Val(1))
+                                                                  copyto!(field_data(f), field_data(uh)); f end)),
+                               (d = copy(field_data(uh)); d[1, 1, 1, :] .= 0; d)),
       (:inner,          inner(sh, sh),                       ref_spectral_inner(field_data(sh), field_data(sh), grid, layout, 0)),
       # The Parseval-weighted fiber contraction, anchored above R = 0. At R = 0 there are `3^0 = 1`
       # components, which collapses the distinction between a weight applied per base point and one

@@ -325,6 +325,28 @@ end
 end
 
 
+# The divergence of a periodic field integrates to zero over the box, and the docstring promises the
+# computed mean is EXACTLY zero, not round-off: a consumer deletes its own mean-zeroing on the strength
+# of it. The input carries a large mean and an imaginary zero mode, so an operator that let either
+# through would fail here.
+@testset "divergence: the result's mean is exactly zero ($T)" for T in (Float64, Float32)
+  N = 8
+  grid = Grid3D((N, 7, 6), (T(2π), T(4π), T(2π)))
+  layout = RealFourierLayout()
+  uh = VectorFieldSpectral(rand(Complex{T}, field_spectral_shape(grid, layout, Val(1))...) .+ T(5), grid)
+  Ah = TensorFieldSpectral{2}(rand(Complex{T}, field_spectral_shape(grid, layout, Val(2))...) .+ T(5), grid)
+  m = FieldSpectralMultipliers(uh)
+  kernel = spectral_cutoff(m, T(2))
+  @test iszero(field_data(divergence(uh, m))[1, 1, 1])
+  @test all(iszero, field_data(divergence(Ah, m))[1, 1, 1, :])
+  scalar_destination = similar_field(uh, Val(0))
+  field_data(scalar_destination) .= T(7)
+  @test iszero(field_data(divergence!(scalar_destination, uh, m, kernel, T(-1), T(0)))[1, 1, 1])
+  vector_destination = similar_field(uh, Val(1))
+  @test all(iszero, field_data(divergence!(vector_destination, Ah, m, kernel))[1, 1, 1, :])
+end
+
+
 @testset "inverse_laplacian: a non-mean-free input is projected onto the compatible part ($T)" for T in (Float64, Float32)
   N = 8
   grid = Grid3D((N, N, N), (T(2π), T(2π), T(2π)))

@@ -939,6 +939,17 @@ end
       @test Array(field_data(device_corrupt)) == field_data(host_projected)
       device_two = reality_projection!(adapt(AT, similar_field(host_corrupt, Val(0))), adapt(AT, host_corrupt))
       @test Array(field_data(device_two)) == field_data(host_projected)
+      # The mean-free projector and the in-place kernel evaluation (decision 90): both must write a
+      # device array without a scalar index, and agree bitwise with the host.
+      host_spectral_u = to_spectral(host_u, host_plans)
+      device_spectral_u = adapt(AT, host_spectral_u)
+      mean_free_projection!(device_spectral_u)
+      mean_free_projection!(host_spectral_u)
+      @test Array(field_data(device_spectral_u)) == field_data(host_spectral_u)
+      @test all(iszero, Array(field_data(device_spectral_u))[1, 1, 1, :])
+      device_stored = StoredKernel(adapt(AT, similar_field(host_z, Val(0))))
+      @test materialize_kernel!(device_stored, device_kernel) === device_stored
+      @test Array(field_data(device_stored.field)) == field_data(materialize_kernel(host_kernel).field)
 
       # The IN-PLACE move (decision 69), which is the only place a second storage family exists to
       # cross. The gate proves everything about `adapt!` except the crossing itself.

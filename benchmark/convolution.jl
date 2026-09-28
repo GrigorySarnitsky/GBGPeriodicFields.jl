@@ -67,6 +67,11 @@ function add_convolution!(group, AT, ::Type{T}, grid, tag) where {T}
   # exists to avoid, so its cost is what a consumer trades away by materializing.
   group["materialize_kernel radial | $tag"]    = @benchmarkable bench_sync(field_data(materialize_kernel($radial).field))
   group["materialize_kernel separable | $tag"] = @benchmarkable bench_sync(field_data(materialize_kernel($separable).field))
+  # The in-place twin (decision 90): the same pass into a StoredKernel that already exists, so the
+  # difference from the rows above is the field-sized allocation alone.
+  materialized = materialize_kernel(radial)
+  group["materialize_kernel! radial | $tag"]    = @benchmarkable (materialize_kernel!($materialized, $radial); bench_sync(field_data($materialized.field)))
+  group["materialize_kernel! separable | $tag"] = @benchmarkable (materialize_kernel!($materialized, $separable); bench_sync(field_data($materialized.field)))
   # Rebuilding a separable kernel in place, against the allocating builder it replaces: both are O(N)
   # per-axis work, so the difference is the three small allocations, not the trigonometry.
   translation_scratch = translation_kernel(m, offset)

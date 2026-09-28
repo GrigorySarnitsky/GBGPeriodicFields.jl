@@ -16,6 +16,7 @@
 using Test
 using Random
 using GBGPeriodicFields
+using AbstractFFTs: rfftfreq, fftfreq
 # Materialize any kernel for inspection. Accepts a bare `ScalarFieldSpectral` too — not because one is
 # a kernel (it is not, since decision 60), but because several checks compare a kernel's coefficients
 # against a field built independently, and both sides go through here.
@@ -751,7 +752,36 @@ end
     convolve!(lazy_out, field, kernel)
     convolve!(stored_out, field, stored)
     @test field_data(lazy_out) == field_data(stored_out)
+    # And every class evaluates into an existing destination, bitwise the allocating form's.
+    destination = StoredKernel(similar_field(reference, Val(0)))
+    @test materialize_kernel!(destination, kernel) === destination
+    @test kernel_array(destination) == kernel_array(stored)
   end
+end
+
+
+# materialize_kernel!: the in-place evaluation of a kernel into an existing StoredKernel. The oracle for
+# the band is the membership test written from its definition over the transform's own frequencies,
+# sharing no code with the package's wavenumber arrays.
+@testset "materialize_kernel!: a kernel evaluated into existing storage ($T)" for T in (Float64, Float32)
+  grid = Grid3D((8, 6, 5), T.((2π, 4π, 2π)))
+  layout = RealFourierLayout()
+  reference = ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(grid, layout, Val(0))),
+                                  grid, layout)
+  multipliers = FieldSpectralMultipliers(reference)
+  low, high = T(0.75), T(2.25)
+  destination = StoredKernel(similar_field(reference, Val(0)))
+  field_data(destination.field) .= Complex{T}(NaN)                # garbage must be overwritten everywhere
+  materialize_kernel!(destination, spectral_band(multipliers, low, high))
+  kx = rfftfreq(8, 8) .* (2π / (2π)); ky = fftfreq(6, 6) .* (2π / (4π)); kz = fftfreq(5, 5) .* (2π / (2π))
+  expected = [low^2 <= T(kx[i])^2 + T(ky[j])^2 + T(kz[l])^2 <= high^2 ? one(Complex{T}) : zero(Complex{T})
+              for i in eachindex(kx), j in eachindex(ky), l in eachindex(kz)]
+  @test field_data(destination.field) == expected
+  # A destination on another box is refused rather than written.
+  other = Grid3D((8, 6, 5), T.((2π, 2π, 2π)))
+  foreign = StoredKernel(ScalarFieldSpectral(zeros(Complex{T}, GBGPeriodicFields.Fields.field_spectral_shape(other, layout, Val(0))),
+                                             other, layout))
+  @test_throws ArgumentError materialize_kernel!(foreign, spectral_band(multipliers, low, high))
 end
 
 

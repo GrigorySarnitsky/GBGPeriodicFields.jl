@@ -83,6 +83,7 @@ export Grid3D,
        to_physical,
        to_spectral,
        reality_projection!,
+       mean_free_projection!,
        embed_modes!,
        extract_modes!,
        field_data,
@@ -2684,6 +2685,11 @@ sits at zero or, on an even-length axis, at Nyquist; eight of them when all thre
 fewer when an axis is odd and so has no Nyquist plane — must be real, and this reports twice its imaginary part, that
 being the same discrepancy applied to a self-paired entry.
 
+The residual is in the units of the stored coefficients, which the forward transform leaves
+unnormalized: a Fourier mode of physical amplitude ``a`` is stored with magnitude about ``a M``,
+``M`` the number of grid points, not ``a``. So judge it against the field's largest stored
+coefficient, not against a physical amplitude.
+
 Reach for it where responsibility for the coefficients changes hands: after writing or accepting them —
 and after any step that scales the coefficients in place, because
 a spectrum built by transforming a real field satisfies the constraint only to round-off (FFTW is
@@ -2879,6 +2885,40 @@ function reality_projection!(destination::AbstractFieldSpectral{T, R}, source::A
 end
 
 reality_projection!(field::AbstractFieldSpectral) = reality_projection!(field, field)
+
+
+"""
+    mean_free_projection!(field::AbstractFieldSpectral) -> field
+
+Remove a field's mean exactly, in place: the orthogonal projector onto fields of zero mean, the
+companion of [`reality_projection!`](@ref) and of
+[`helmholtz_projection!`](@ref GBGPeriodicFields.DifferentialOperators.helmholtz_projection!).
+
+In physical space it subtracts the average over the domain ``\\Omega`` from every component,
+
+```math
+f(x) \\leftarrow f(x) - \\frac{1}{\\lvert\\Omega\\rvert} \\int_\\Omega f(y) \\, \\mathrm{d}y,
+```
+
+and in spectral representation that is setting the zero Fourier coefficient ``\\hat f(0)`` of every
+fiber component to zero, both its real and imaginary parts, leaving every other coefficient
+untouched. The projector is linear, exactly idempotent, and orthogonal in the ``L^2`` inner product,
+and the result's mean is exactly zero rather than zero to round-off.
+
+The cost is writing one coefficient per fiber component, ``O(1)`` in the grid size, with no copy of
+the field and no value read back to the host. Subtracting the mean with
+`subtract!(field, field, mean(field))` also touches only that coefficient, but it leaves round-off
+(the mean is scaled by the point count and back), reads the value back to the host, and clears only
+the real part, since the mean of a real field is real.
+
+The physical representation has no method. There the mean occupies no single stored value, so the
+projection is a pass over the whole field, which `subtract!(field, field, mean(field))` already is.
+"""
+function mean_free_projection!(field::AbstractFieldSpectral{T, R}) where {T<:AbstractFloat, R}
+  data = field_data(field)
+  fill!(view(data, 1:1, 1:1, 1:1, ntuple(_ -> Colon(), Val(R))...), zero(eltype(data)))
+  return field
+end
 
 
 ###################################################

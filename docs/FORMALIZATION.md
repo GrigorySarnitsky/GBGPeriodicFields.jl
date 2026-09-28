@@ -169,6 +169,33 @@ the Laplacian symbol, the two-argument form, the domain refusal and the physical
 element types, tensor orders 0/1/2, permuted folds and an odd folded axis; and `test/gpu/suite.jl`
 (device against host, the device result exactly Hermitian).
 
+**The mean-free projection (decision 90).** For a field ``f`` on the box ``\Omega``, let ``Q`` be
+``Q f = f - \lvert\Omega\rvert^{-1} \int_\Omega f \,\mathrm{d}x``, applied per fiber component. Under the
+forward-unnormalized transform the zero coefficient is ``\hat f(0) = \sum_x f(x)``, the sum over the
+``M`` grid points, and the discrete mean is ``\hat f(0) / M``; so ``Q`` sets ``\hat f(0) \leftarrow 0``
+in every component and leaves every other coefficient unchanged. That write is exactly what
+`mean_free_projection!` performs. The map ``Q`` is linear, and ``Q^2 = Q`` bit for bit, a zero
+written twice being the same zero. It is orthogonal in the Parseval inner product, since the zero
+mode's coefficient is orthogonal to every other's, and the result's mean is ``0 / M = 0`` exactly,
+with no rounding. Both parts are cleared: the zero coefficient of a real field is real, so an
+imaginary part there belongs to no real field's mean. ``\checkmark``
+
+**The divergence has exactly zero mean.** For a vector field ``u``, the computed zero coefficient of
+``\nabla\cdot u`` is ``\mathrm{i} (a_1 \hat u_1 + a_2 \hat u_2 + a_3 \hat u_3)`` at ``k = 0``, where
+every derivative wavenumber ``a_j`` is exactly ``0`` for multipliers built from the grid; a product of
+a real zero with a finite complex number is zero, so the coefficient is exactly zero (possibly
+``-0``), matching ``\int_\Omega \nabla\cdot u \,\mathrm{d}x = 0`` for a periodic field. The same holds
+componentwise for a second-order tensor, and in the kernel-composed form with ``\beta = 0``; with
+``\beta \ne 0`` the zero coefficient is ``\beta`` times the destination's. ``\checkmark``
+
+**Backs** [the decision log](decisions.md), decision 90, and the `mean_free_projection!` and
+`divergence!` docstrings.
+**Checked by** `test/fields.jl` (`mean_free_projection!`) — the zero coefficient exactly zero in both
+parts, every other coefficient bitwise untouched, agreement with the values less their arithmetic
+average computed in physical space, exact idempotence and the physical absence — over both element
+types, tensor orders 0/1/2, permuted folds and odd axes; `test/differentialoperators.jl` (the
+divergence's zero mean, vector and tensor, plain and kernel-composed); and `test/gpu/suite.jl`.
+
 **Backs** [Architecture](architecture.md) §4 and the `Fields` transform docstrings.
 **Checked by** `test/fields.jl` — FFT round-trip, multipliers vs `fftfreq`/`rfftfreq`, the Nyquist
 behaviour, transform input-preservation, and the scratch arity's bitwise preservation, its bitwise

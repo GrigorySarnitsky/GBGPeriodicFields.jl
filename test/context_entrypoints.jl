@@ -82,6 +82,7 @@ const INVOCATIONS = Dict{Tuple{Symbol, Symbol}, Function}(
   (:helmholtz_projection!, :kernel)     => (c, k) -> helmholtz_projection!(vspec(c), vspec(c), carrier_of(Val(:multipliers), c), k),
   (:combine!, :kernel)                  => (c, k) -> combine!(vspec(c), 0.3, vspec(c), 0.7, vspec(c), k),
   (:weighted_inner, :kernel)            => (c, k) -> weighted_inner(vspec(c), k),
+  (:materialize_kernel!, :kernel)       => (c, k) -> materialize_kernel!(StoredKernel(sspec(c)), k),
 
   # --- transform plans ---
   (:to_physical, :plans)                => (c, k) -> to_physical(sspec(c), k),

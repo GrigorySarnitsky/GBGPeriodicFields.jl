@@ -1093,7 +1093,7 @@ its scope is this section.
     symbol of ``\lvert k\rvert^2``) and `ProductKernel` (any two held unmultiplied); all four are
     interchangeable wherever a kernel is *applied* and agree bitwise on the host (on a device a
     *complex*-valued kernel agrees only to rounding), `materialize_kernel` expands any
-    other class into the stored one, and `inv` and `weighted_inner` are the two entry points with narrower contracts.
+    other class into the stored one (and `materialize_kernel!` into a `StoredKernel` that already exists), and `inv` and `weighted_inner` are the two entry points with narrower contracts.
 
 `Convolution` is the **kernel-multiplier** role of the measure structure: periodic (circular) convolution of a field with a
 kernel, in spectral representation. By the convolution theorem ([§2](@ref "2. The central principle: the architecture follows established mathematics")), ``f \star g`` is the coefficientwise

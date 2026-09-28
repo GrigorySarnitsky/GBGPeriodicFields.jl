@@ -21,6 +21,8 @@ function add_operators!(group, AT, ::Type{T}, grid, tag) where {T}
   # The reality-condition twin (decision 83): in place, one or two planes, O(N²) beside the O(N³) rows.
   group["reality_projection! scalar | $tag"] = @benchmarkable (reality_projection!($sout); bench_sync(field_data($sout)))
   group["reality_projection! vector | $tag"] = @benchmarkable (reality_projection!($uout); bench_sync(field_data($uout)))
+  # The mean-free projector (decision 90): one coefficient per component, O(1) — a launch-cost row.
+  group["mean_free_projection! vector | $tag"] = @benchmarkable (mean_free_projection!($uout); bench_sync(field_data($uout)))
   # kernel-composed forms (decision 32): the operator with a convolution fused into the same pass,
   # against which the sequential operator + convolve! pair is the baseline the fusion replaces
   kernel = spectral_cutoff(m, T(size(field_data(s), 2)) / 3)

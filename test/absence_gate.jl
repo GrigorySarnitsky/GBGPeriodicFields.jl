@@ -111,6 +111,7 @@ const ABSENT_CALLS = Dict{Symbol, Function}(
   :radial_correlation   => () -> radial_correlation(agsphys(), agplans()),
   :reality_residual     => () -> reality_residual(agsphys()),
   :reality_projection!  => () -> reality_projection!(agsphys()),        # decision 83: physical is the identity, so no method
+  :mean_free_projection! => () -> mean_free_projection!(agsphys()),    # decision 90: the physical mean is no single stored value
   # Definitional asymmetries: each transform names its input representation.
   :to_physical          => () -> to_physical(agsphys(), agplans()),
   :to_spectral          => () -> to_spectral(agsspec(), agplans()),

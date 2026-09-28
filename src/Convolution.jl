@@ -47,7 +47,8 @@ Kernel storage classes:
   cannot be collapsed into a single kernel gives: a cross-family pair, two stored kernels, or two
   radial kernels whose coordinates cannot be shown to agree. It applies in one pass.
 - [`materialize_kernel`](@ref) — expand a compressed kernel into a `StoredKernel`, for a caller that
-  wants to inspect or modify the coefficients.
+  wants to inspect or modify the coefficients, and [`materialize_kernel!`](@ref) to expand it into
+  one that already exists.
 - `inv` — the reciprocal kernel, which deconvolves by the original. Each class returns its own
   kind and states the precondition it can afford to check, an annihilated mode having no inverse.
 
@@ -109,7 +110,8 @@ import ..FieldAlgebra: combine!
 
 export convolve, convolve!, ⋆, exponential_convolve, exponential_convolve!, spectral_cutoff,
        spectral_band, assignment_window, tophat_window, translation_kernel,
-       StoredKernel, SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel
+       StoredKernel, SeparableKernel, RadialKernel, ProductKernel, radial_kernel, translation_kernel!, materialize_kernel,
+       materialize_kernel!
 
 
 ####################################################
@@ -250,6 +252,34 @@ Return a copy of a coefficientwise kernel, a `StoredKernel` owning storage no ot
 materialize_kernel(kernel::StoredKernel) =
   StoredKernel(ScalarFieldSpectral(copy(_kernel_data(kernel)),
                                    _context_grid(kernel), _context_layout(kernel)))
+
+
+"""
+    materialize_kernel!(destination::StoredKernel,
+                        kernel::SpectralKernel) -> destination
+
+Evaluate a kernel into storage that already exists: every coefficient of `destination` is
+overwritten with the kernel's value ``\\hat g(k)`` at that mode, and `destination` is returned.
+
+Use this in-place form when `destination` is already allocated; the allocating
+[`materialize_kernel`](@ref) returns a fresh result instead. The `destination` is a
+[`StoredKernel`](@ref) sharing the grid, Fourier layout, element type and storage family of `kernel`,
+which may be of any of the four storage classes of a [`SpectralKernel`](@ref); a mismatch is refused.
+The evaluation allocates nothing, so a field-sized kernel is written without a second field-sized
+temporary. A caller holding a field it means to fill wraps it once as `StoredKernel(field)`, which
+references the field rather than copying it.
+
+The cost is one pass over the modes, the same as the allocating form's without the allocation, and
+the warning on `materialize_kernel` about giving up a compressed kernel's memory saving applies to
+whatever the destination is then used for.
+"""
+function materialize_kernel! end
+
+function materialize_kernel!(destination::StoredKernel{T}, kernel::SpectralKernel{T}) where {T}
+  _check_kernel_compatibility(destination.field, kernel)
+  @_assign! field_data(destination.field) .= _kernel_data(kernel)
+  return destination
+end
 
 
 # Cross-family and mixed-storage composition. The same-family methods above take precedence, so this

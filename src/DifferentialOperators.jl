@@ -906,6 +906,13 @@ the true squared wavenumber the Laplacian uses:
 \\end{gathered}
 ```
 
+The result has exactly zero mean, as the divergence of a periodic field must: every derivative
+wavenumber is exactly zero at the zero mode, so the mean coefficient is computed as exactly zero rather
+than as round-off. This holds for multipliers built from the grid, which the convenience constructor of
+[`FieldSpectralMultipliers`](@ref) does; wavenumbers supplied through its explicit six-array constructor are
+not checked at the zero mode. In the kernel-composed form below with ``\\beta \\ne 0``, the mean is
+``\\beta`` times the destination's.
+
 # The kernel-composed form
 
 Passing a `kernel` composes the divergence with a periodic convolution in the same fused pass. As a

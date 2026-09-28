@@ -45,6 +45,7 @@ SeparableKernel
 RadialKernel
 ProductKernel
 inv
+materialize_kernel!
 materialize_kernel
 ```
 

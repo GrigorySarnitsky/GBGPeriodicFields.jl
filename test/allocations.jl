@@ -141,6 +141,10 @@ _sum_all(xs...) = sum(xs)                                                 # any 
       @alloc_below field_threshold reality_projection!(ssd)
       @alloc_below field_threshold reality_projection!(svd)
       @alloc_below field_threshold reality_projection!(svd, sv)
+      # the mean-free projector (decision 90): one coefficient per component, so the tight bound
+      @alloc_below threshold mean_free_projection!(ssd)
+      @alloc_below threshold mean_free_projection!(svd)
+      @alloc_below threshold mean_free_projection!(std_)
       # Moving modes between grid resolutions (decision 85): the pass walks the COARSE field, so its
       # cost and its allocation are set by the small grid whatever the fine one is.
       @alloc_below field_threshold embed_modes!(sv, coarse_spectral)
@@ -189,6 +193,15 @@ _sum_all(xs...) = sum(xs)                                                 # any 
       @alloc_below field_threshold tophat_window(multipliers, 0.7)
       @alloc_below field_threshold inv(separable)                       # reciprocal: three O(N) axes
       @alloc_below threshold translation_kernel!(separable, multipliers, (T(0.1), T(0.2), T(0.3)))
+      # Evaluating a kernel into an existing StoredKernel (decision 90) allocates nothing, in every
+      # class: the pin IS the feature, the allocating `materialize_kernel` costing a field.
+      materialized_destination = GBGPeriodicFields.Convolution.StoredKernel(spectral_scalar())
+      radial_band = spectral_band(multipliers, T(1), T(3))
+      product_kernel = convolve(radial_band, separable)
+      @alloc_below threshold materialize_kernel!(materialized_destination, radial_band)
+      @alloc_below threshold materialize_kernel!(materialized_destination, separable)
+      @alloc_below threshold materialize_kernel!(materialized_destination, kernel)
+      @alloc_below threshold materialize_kernel!(materialized_destination, product_kernel)
       @alloc_below field_threshold convolve!(ssd, ss, separable)        # applying it materializes nothing
       @alloc_below field_threshold convolve!(svd, sv, separable)
       @alloc_below field_threshold convolve!(std_, st, separable)

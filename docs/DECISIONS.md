@@ -3746,3 +3746,63 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     - **Verified.** Each ported file passes unchanged, and each fails on a planted defect, naming it:
       a removed allocation row (`wrap!` uncovered), a removed traffic row (`transpose!` uncovered), an
       altered frozen traffic count, an altered method count, and a removed oracle entry.
+90. **Removing a field's mean, and evaluating a kernel into existing storage, are named operations** (2026-09-28, owner-ruled). The consumer `GBGHomogeneousTurbulence` asked PF
+    to review how it uses PF, and two of its workarounds turned out to be missing operations rather
+    than misuse. `mean_free_projection!(f)` sets the mean of a field in spectral representation to
+    exactly zero, and `materialize_kernel!(destination, kernel)` writes a kernel's coefficients into a
+    `StoredKernel` that already exists.
+
+    - **Why a projector, rather than guidance.** The consumer zeroed its nonlinear term's mean by
+      writing into the stored coefficient at index ``(1, 1, 1)``, which is correct under every layout
+      but is knowledge PF owns. The first answer drafted for it was a recipe: fold a kernel that
+      vanishes at ``k = 0`` into a pass it already makes, relying on how the projection treats that
+      mode, that composition multiplies every other mode by exactly one, and that the ordinary cutoff
+      must not change because it also truncates initial conditions. A consumer should not need four
+      facts about the implementation to take a mean out, so the operation was named instead.
+
+    - **Why subtracting the mean does not serve.** Subtracting `mean(f)` is not a substitute: it reads the value back to the host, leaves round-off
+      at a grid size that is not a power of two, and clears only the real part, `mean` being real.
+
+    - **What `mean_free_projection!` is.** The ``L^2``-orthogonal projector onto the complement of the
+      constants, ``f \mapsto f - \lvert\Omega\rvert^{-1} \int_\Omega f \,\mathrm{d}x``, the companion
+      of `reality_projection!` and `helmholtz_projection!`. In spectral representation it writes zero
+      into the zero coefficient of every fiber component, both parts, and touches nothing else: one
+      write per component, no read, no copy, no readback, so it is exactly idempotent and its result's
+      mean is exactly zero.
+
+    - **Spectral representation only, by the owner's ruling.** Invariant 1 has operations linear in the
+      field exist in both representations. In physical space the mean occupies no single stored value,
+      so the projector would be a full pass leaving round-off, which `subtract!(f, f, mean(f))` already
+      is; that form stays the route there, and the absence gate asserts the physical call throws.
+
+    - **No "set the mean to a value".** The consumer asked for zero or a given constant. Setting it to
+      ``c`` is the projection followed by `add!(f, f, c)`, which already writes only the zero mode
+      (invariant 4), so only the projection is new.
+
+    - **Why `materialize_kernel!`.** The consumer's steady forcing held a band indicator as a raw
+      array for the whole run (1.69 GiB at ``768^3`` in `Float64`) and multiplied it into a rate field
+      every step. Once the rate is filled only when the forcing is built, the band can stay a lazy
+      kernel, but filling a field with its coefficients then cost a field-sized temporary per call of
+      `materialize_kernel` — two calls at construction, 3.38 GiB each at ``768^3``, on a device the
+      consumer already runs out of.
+
+    - **Why a name rather than the existing route.** An allocation-free route existed: fill the field with ones, the
+      spectrum of a unit impulse, and convolve it with the kernel. It rests on a fact about Fourier
+      spikes a consumer should not need, so the operation was named. Mathematically it is the in-place
+      twin of `materialize_kernel`, as `translation_kernel!` is of `translation_kernel`.
+
+    - **The destination is a `StoredKernel`, not a field.** Decision 60 separates a field from a kernel,
+      and `materialize_kernel` returns a `StoredKernel`, so its twin writes one. A caller holding a
+      field wraps it once as `StoredKernel(field)`, which references the field rather than copying it.
+      No scale argument: a `multiply!` afterwards serves, the evaluation being a construction-time cost.
+
+    - **The divergence's zero mean is now stated.** The consumer's scalar right-hand side zeroed a mean
+      that the divergence already computes as exactly zero, every derivative wavenumber being zero at
+      that mode. The `divergence!` docstring had only implied it, so it now says so, with its one
+      qualifier (wavenumbers built from the grid), and `test/differentialoperators.jl` pins it; the
+      consumer deletes its zeroing on the strength of that sentence. The `reality_residual` docstring
+      likewise now states its units, the unnormalized stored coefficients.
+
+    - **Declined in the same review.** A mode count for a band (the consumer's own loop is exact and
+      runs on a tiny grid) and a relative form of `reality_residual` (the consumer's comparison with
+      the largest stored coefficient is the right one, now documented).

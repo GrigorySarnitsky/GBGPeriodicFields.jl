@@ -248,6 +248,27 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("field", carr(v1), (3 * planes * plane, 3 * planes * plane)))
   end
 
+  # ---------------------------------------------------------- the mean-free projector (decision 90)
+  @testset "mean_free_projection! (one write per component, no read)" begin
+    # The ideal is the fiber's component count: the zero coefficient of each component is written
+    # once and nothing is read — a regression that walked the field would show up here as M.
+    s1, v1, t1 = sspec(), vspec(), tspec()
+    audit(() -> mean_free_projection!(s1), "mean_free_projection! scalar", Traffic("field", carr(s1), (0, 1)))
+    audit(() -> mean_free_projection!(v1), "mean_free_projection! vector", Traffic("field", carr(v1), (0, 3)))
+    audit(() -> mean_free_projection!(t1), "mean_free_projection! tensor", Traffic("field", carr(t1), (0, 9)))
+  end
+
+  # ------------------------------------------------ a kernel evaluated in place (decision 90)
+  @testset "materialize_kernel! (each mode written once, the source read once)" begin
+    destination = GBGPeriodicFields.Convolution.StoredKernel(sspec())
+    g = counted_kernel()
+    audit(() -> materialize_kernel!(destination, g), "materialize_kernel! stored",
+      Traffic("kernel", carr(g), (M, 0)), Traffic("destination", carr(destination), (0, M)))
+    radial_destination = GBGPeriodicFields.Convolution.StoredKernel(sspec())
+    audit(() -> materialize_kernel!(radial_destination, spectral_band(multipliers, 1, 3)), "materialize_kernel! radial",
+      Traffic("destination", carr(radial_destination), (0, M)))
+  end
+
   # ------------------------------------------------- moving modes between resolutions (decision 85)
   @testset "embed_modes! / extract_modes! (the shared modes, and nothing of the fine field besides)" begin
     # The ideal is hand-counted from the geometry, which is the whole value of this row: the fine

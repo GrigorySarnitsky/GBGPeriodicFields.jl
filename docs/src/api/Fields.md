@@ -98,6 +98,12 @@ reality_residual
 reality_projection!
 ```
 
+## Removing the mean
+
+```@docs
+mean_free_projection!
+```
+
 ## Spectral kernel protocol
 
 The kernel-taking operations dispatch on `SpectralKernel`, each accepting all four storage classes:
@@ -155,5 +161,6 @@ Order   = [:function]
 # under "The reality constraint" above and once here. Found by the built-HTML pass, which is the only
 # surface that can see it: the duplicate is invisible in this file, where each block looks correct
 # alone. Whenever a Fields-owned binding is added to the umbrella's export list, it must be added here.
-Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual, :reality_projection!))
+Filter  = f -> !(nameof(f) in (:adapt, :adapt!, :reality_residual, :reality_projection!,
+                                    :mean_free_projection!))
 ```
