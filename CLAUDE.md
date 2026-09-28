@@ -456,8 +456,8 @@ lanes and confirmed numerically. The cold-reader lane's headline finding is wort
 appears 108 times across rendered docstrings and was never once defined**, `fiber` 261 times and `base`
 113 — the glossary page defines them, but a REPL reader typing `?mean` never sees that page, so the
 umbrella docstring now binds base/fiber/section/resolved-band in plain language. Two rule-1 exemptions
-were recorded rather than churned (above). `lint_retired_claims()` in `docs/make.jl` was added the same
-day and is the build-enforced guard for the decision-60 claim class.
+were recorded rather than churned (above). A build lint for the decision-60 claim class was added the
+same day; since the migration to GBGCodingTools, `RULE.DOC.RETIRED_CLAIMS` is that guard.
 
 **The 12-hat `/check-consistency` panel is CLOSED (2026-07-24).** The first live economy-tiered run
 (ten Sonnet scan hats + the two mathematician anchors on Opus; banked per-hat reports in
@@ -1674,11 +1674,12 @@ for every public value-returning operation, and fails on two conditions: an oper
 and an operation covered only relationally.
 
 **Mutation audit (decision 52, 2026-07-29).** The suite was audited by INJECTING defects in isolated
-worktrees, not by reading coverage. It found two live bugs (a  plan used above its own tensor order
-returned NaN/uninitialized memory;  leaked the scalar-only absence that / enforce,
-because  HAS a fallback for it) and, more importantly, **fixture blindness**: the gradient testset was
+worktrees, not by reading coverage. It found two live bugs (a `NUFFT` plan used above its own tensor order
+returned NaN/uninitialized memory; `extrema` leaked the scalar-only absence that `maximum`/`minimum`
+enforce, because `Base` HAS a fallback for it) and, more importantly, **fixture blindness**: the gradient testset was
 named for an index convention its diagonal fixture could not see, and the tensor divergence had no analytic
-oracle at all — nine identical components, so , with every other assertion self-referential. Both now
+oracle at all — nine identical components, so the tensor equalled its own transpose, with every other assertion
+self-referential. Both now
 have closed-form oracles over asymmetric fixtures, **each verified by re-applying the mutation and confirming
 the new test fails**. PF's self-referential pairs are threaded vs serial, device vs host, and compressed
 vs stored.
