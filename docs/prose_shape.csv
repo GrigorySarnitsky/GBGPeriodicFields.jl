@@ -45,10 +45,10 @@ unit,words,longest_paragraph,admonitions
 "ARCHITECTURE.md § Verifying codegen changes",76,76,0
 "ARCHITECTURE.md § Why it emerged",98,98,0
 "Convolution.jl :: Convolution",617,194,0
-"Convolution.jl :: ProductKernel",229,116,0
-"Convolution.jl :: RadialKernel",645,133,2
-"Convolution.jl :: SeparableKernel",372,93,1
-"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",201,109,0
+"Convolution.jl :: ProductKernel",228,116,0
+"Convolution.jl :: RadialKernel",644,130,2
+"Convolution.jl :: SeparableKernel",371,93,1
+"Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",200,109,0
 "Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",86,81,0
 "Convolution.jl :: _apply_convolution_combination!(destination_data, a_data, b_",47,41,0
 "Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",57,41,0
@@ -60,9 +60,9 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: _kernel_storage(kernel)",93,79,0
 "Convolution.jl :: _show_kernel(io, kernel)",59,45,0
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",369,107,0
-"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",649,165,2
+"Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",648,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",898,203,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",897,200,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
@@ -75,10 +75,10 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: materialize_kernel(kernel::SeparableKernel)",269,178,1
 "Convolution.jl :: materialize_kernel(kernel::StoredKernel)",15,14,0
 "Convolution.jl :: radial_kernel(sigma, multipliers::FieldSpectralMultipliers) ",242,115,0
-"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",191,88,0
+"Convolution.jl :: spectral_band(multipliers::FieldSpectralMultipliers,",190,88,0
 "Convolution.jl :: spectral_cutoff(multipliers::FieldSpectralMultipliers,",191,85,0
 "Convolution.jl :: tophat_window(multipliers::FieldSpectralMultipliers, width::",390,94,1
-"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",104,51,0
+"Convolution.jl :: translation_kernel!(kernel::SeparableKernel, multipliers::Fi",103,51,0
 "Convolution.jl :: translation_kernel(multipliers::FieldSpectralMultipliers,",674,198,1
 "Convolution.md § Convolution operations",64,64,0
 "Convolution.md § Internal API",68,68,0
@@ -189,21 +189,21 @@ unit,words,longest_paragraph,admonitions
 "DifferentialOperators.jl :: _scalar_gradient_modes!(backend, destination_1, destination_",49,40,0
 "DifferentialOperators.jl :: _symmetric_gradient_modes!(backend, destinations::NTuple{9},",42,34,0
 "DifferentialOperators.jl :: _vector_gradient_modes!(backend, destinations::NTuple{9}, so",45,38,0
-"DifferentialOperators.jl :: curl!(",216,72,0
+"DifferentialOperators.jl :: curl!(",215,69,0
 "DifferentialOperators.jl :: curl(field, multipliers::FieldSpectralMultipliers)",29,27,0
-"DifferentialOperators.jl :: divergence!(",439,96,0
+"DifferentialOperators.jl :: divergence!(",438,96,0
 "DifferentialOperators.jl :: divergence(field, multipliers::FieldSpectralMultipliers)",63,58,0
-"DifferentialOperators.jl :: gradient!(",162,50,0
+"DifferentialOperators.jl :: gradient!(",161,50,0
 "DifferentialOperators.jl :: gradient(field, multipliers::FieldSpectralMultipliers)",42,40,0
-"DifferentialOperators.jl :: helmholtz_projection!(",487,94,1
+"DifferentialOperators.jl :: helmholtz_projection!(",486,94,1
 "DifferentialOperators.jl :: helmholtz_projection(field::VectorFieldSpectral,",62,57,0
-"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",294,75,1
+"DifferentialOperators.jl :: inverse_curl!(destination::VectorFieldSpectral, field::Vecto",293,75,1
 "DifferentialOperators.jl :: inverse_curl(field, multipliers::FieldSpectralMultipliers)",37,35,0
-"DifferentialOperators.jl :: inverse_laplacian!(",237,65,1
+"DifferentialOperators.jl :: inverse_laplacian!(",236,65,1
 "DifferentialOperators.jl :: inverse_laplacian(field::AbstractFieldSpectral,",42,40,0
-"DifferentialOperators.jl :: laplacian!(",124,56,0
+"DifferentialOperators.jl :: laplacian!(",123,56,0
 "DifferentialOperators.jl :: laplacian(field::AbstractFieldSpectral, multipliers::FieldSp",33,31,0
-"DifferentialOperators.jl :: symmetric_gradient!(",179,48,0
+"DifferentialOperators.jl :: symmetric_gradient!(",178,48,0
 "DifferentialOperators.jl :: symmetric_gradient(field::VectorFieldSpectral,",41,39,0
 "DifferentialOperators.md § Internal API",55,55,0
 "FORMALIZATION.md § (preamble)",22,22,1
@@ -226,7 +226,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: FiberTensor3{T}",25,15,0
 "FiberSections.jl :: FiberTensor4{T}",26,16,0
 "FiberSections.jl :: FiberVector{T}",21,11,0
-"FiberSections.jl :: _MapValues(φ, orders, stride)",161,101,0
+"FiberSections.jl :: _MapValues(φ, orders, stride)",160,101,0
 "FiberSections.jl :: _SERIAL_CUTOFF",41,40,0
 "FiberSections.jl :: _THREADING_OVERRIDE",31,30,0
 "FiberSections.jl :: _accumulate_values!(targets, values, α, β, n)",30,25,0
@@ -280,7 +280,7 @@ unit,words,longest_paragraph,admonitions
 "FiberSections.jl :: fiber_shape(::Val{R}) where {R}",39,27,0
 "FiberSections.jl :: set_threading_cutoff!(n::Integer)",69,41,0
 "FiberSections.jl :: threading_cutoff()",139,138,0
-"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",286,137,1
+"FiberSections.jl :: with_threading(f; enabled::Union{Nothing, Bool} = true)",285,137,1
 "FiberSections.md § Internal API",50,50,0
 "FieldAlgebra.jl :: *(a, b)",81,79,0
 "FieldAlgebra.jl :: +(a, b, fields...)",41,38,0
@@ -289,26 +289,26 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.jl :: FieldAlgebra",873,272,2
 "FieldAlgebra.jl :: _copy_field_data!(destination::AbstractField, field::Abstrac",26,24,0
 "FieldAlgebra.jl :: _scalar_field_broadcast_data(scalar_field::ScalarFieldPhysic",34,32,0
-"FieldAlgebra.jl :: add!(destination, a, b, fields...)",156,57,0
-"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",430,92,1
-"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",153,58,0
+"FieldAlgebra.jl :: add!(destination, a, b, fields...)",155,54,0
+"FieldAlgebra.jl :: combine!(destination, α::Real, a, β::Real, b)",429,92,1
+"FieldAlgebra.jl :: cross!(destination::VectorFieldPhysical, u::VectorFieldPhysi",152,58,0
 "FieldAlgebra.jl :: cross(u::VectorFieldPhysical, v::VectorFieldPhysical)",51,49,0
 "FieldAlgebra.jl :: det!(destination::ScalarFieldPhysical, A::TensorFieldPhysica",117,66,0
 "FieldAlgebra.jl :: det(A::TensorFieldPhysical{2})",39,38,0
 "FieldAlgebra.jl :: dev!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",64,33,0
 "FieldAlgebra.jl :: dev(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",177,92,0
-"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",177,54,0
+"FieldAlgebra.jl :: divide!(destination, field, scalar::Real)",176,92,0
+"FieldAlgebra.jl :: dot!(destination::ScalarFieldPhysical, u::VectorFieldPhysica",176,54,0
 "FieldAlgebra.jl :: dot(u::VectorFieldPhysical, v::VectorFieldPhysical)",69,65,0
-"FieldAlgebra.jl :: map!(φ, destination, sources...)",485,146,2
+"FieldAlgebra.jl :: map!(φ, destination, sources...)",484,143,2
 "FieldAlgebra.jl :: map(φ, sources...)",59,57,0
-"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",287,141,0
-"FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",221,101,0
+"FieldAlgebra.jl :: mul!(destination::VectorFieldPhysical, A::TensorFieldPhysica",286,138,0
+"FieldAlgebra.jl :: multiply!(destination, scalar::Real, field)",220,101,0
 "FieldAlgebra.jl :: norm!(destination::ScalarFieldPhysical, operand::ScalarField",104,32,0
 "FieldAlgebra.jl :: norm(scalar_field::ScalarFieldPhysical)",34,31,0
 "FieldAlgebra.jl :: skew!(destination::TensorFieldPhysical{2}, A::TensorFieldPhy",58,32,0
 "FieldAlgebra.jl :: skew(A::TensorFieldPhysical{2})",41,38,0
-"FieldAlgebra.jl :: subtract!(destination, a, b, fields...)",122,45,0
+"FieldAlgebra.jl :: subtract!(destination, a, b, fields...)",121,45,0
 "FieldAlgebra.jl :: sym!(destination::TensorFieldPhysical{2}, A::TensorFieldPhys",58,32,0
 "FieldAlgebra.jl :: sym(A::TensorFieldPhysical{2})",41,38,0
 "FieldAlgebra.jl :: tr!(destination::ScalarFieldPhysical, A::TensorFieldPhysical",73,34,0
@@ -324,18 +324,18 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
 "Fields.jl :: FieldPhysicalBroadcastStyle{N}",38,37,0
 "Fields.jl :: FieldSpectralBroadcastStyle{N}",36,35,0
-"Fields.jl :: FieldSpectralMultipliers(",584,138,0
-"Fields.jl :: FieldTransformPlans(",453,168,1
+"Fields.jl :: FieldSpectralMultipliers(",582,135,0
+"Fields.jl :: FieldTransformPlans(",451,168,1
 "Fields.jl :: Fields",494,443,0
-"Fields.jl :: Grid3D(",165,66,0
-"Fields.jl :: RealFourierLayout()",74,33,0
-"Fields.jl :: ScalarFieldPhysical(",320,115,0
-"Fields.jl :: ScalarFieldSpectral(",267,120,0
+"Fields.jl :: Grid3D(",232,66,0
+"Fields.jl :: RealFourierLayout()",73,33,0
+"Fields.jl :: ScalarFieldPhysical(",318,115,0
+"Fields.jl :: ScalarFieldSpectral(",333,120,0
 "Fields.jl :: SpectralKernel{T}",206,106,0
-"Fields.jl :: TensorFieldPhysical{R}(",391,115,0
-"Fields.jl :: TensorFieldSpectral{R}(",313,120,0
-"Fields.jl :: VectorFieldPhysical(",333,115,0
-"Fields.jl :: VectorFieldSpectral(",272,120,0
+"Fields.jl :: TensorFieldPhysical{R}(",389,115,0
+"Fields.jl :: TensorFieldSpectral{R}(",379,120,0
+"Fields.jl :: VectorFieldPhysical(",331,115,0
+"Fields.jl :: VectorFieldSpectral(",338,120,0
 "Fields.jl :: _allocated_field_storage(family, ::Type{S}, shape)",51,48,0
 "Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
@@ -389,14 +389,14 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
 "Fields.jl :: adapt!(destination, source)",321,156,0
 "Fields.jl :: adapt(storage, object)",509,140,2
-"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",356,80,1
-"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",236,54,1
+"Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",355,80,1
+"Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",235,54,1
 "Fields.jl :: field_data(field::AbstractField)",36,28,0
 "Fields.jl :: field_grid(field::AbstractField)",8,7,0
 "Fields.jl :: field_layout(field::AbstractField)",8,7,0
 "Fields.jl :: field_physical_shape(grid::Grid3D, ::Val{R}) where {R}",21,17,0
 "Fields.jl :: field_scalar_type(",24,10,0
-"Fields.jl :: field_spectral_shape(",57,37,0
+"Fields.jl :: field_spectral_shape(",56,34,0
 "Fields.jl :: field_tensor_order(",22,8,0
 "Fields.jl :: mean_free_projection!(field::AbstractFieldSpectral) -> field",201,76,0
 "Fields.jl :: read_field(parent::HDF5.H5DataStore, name::AbstractString)",122,54,0
@@ -404,11 +404,11 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: reality_residual(field::AbstractFieldSpectral) -> Real",456,99,1
 "Fields.jl :: set_fft_threads!(n)",50,49,0
 "Fields.jl :: similar_field(reference::AbstractField, data)",201,113,1
-"Fields.jl :: to_physical!(",307,97,1
+"Fields.jl :: to_physical!(",306,94,1
 "Fields.jl :: to_physical(",114,83,0
-"Fields.jl :: to_spectral!(",160,53,1
+"Fields.jl :: to_spectral!(",159,53,1
 "Fields.jl :: to_spectral(",90,59,0
-"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",245,87,0
+"Fields.jl :: write_field(parent::HDF5.H5DataStore, name::AbstractString, ",244,87,0
 "Fields.md § Internal API",32,32,0
 "Fields.md § Moving between grid resolutions",111,111,0
 "Fields.md § Moving between storage families",110,110,0
@@ -421,11 +421,11 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: CatmullRom",22,21,0
 "Interpolation.jl :: DirectDFT()",403,164,1
 "Interpolation.jl :: Interpolation",818,238,0
-"Interpolation.jl :: LagrangeSpline(n; T = Float64)",261,165,0
-"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",403,172,0
-"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",633,202,1
-"Interpolation.jl :: PointTraversalOrder(indices)",220,58,1
-"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",284,84,1
+"Interpolation.jl :: LagrangeSpline(n; T = Float64)",278,149,0
+"Interpolation.jl :: LalescuSpline(n, m = 1; T = Float64)",440,172,0
+"Interpolation.jl :: NUFFT(reference::AbstractFieldSpectral;",631,202,1
+"Interpolation.jl :: PointTraversalOrder(indices)",219,58,1
+"Interpolation.jl :: PointTraversalOrderScratch(grid::Grid3D, points::PointSet; t",282,81,1
 "Interpolation.jl :: _axis_weights(coefficients, t)",43,41,0
 "Interpolation.jl :: _check_nufft_compatibility(scheme::NUFFT, field::AbstractFie",83,60,0
 "Interpolation.jl :: _check_transfer_colocation(field, points, values)",94,68,0
@@ -436,14 +436,14 @@ unit,words,longest_paragraph,admonitions
 "Interpolation.jl :: _scan_offsets!(offsets, counts)",96,82,0
 "Interpolation.jl :: _scan_offsets!(offsets::Vector, counts::Vector)",173,86,0
 "Interpolation.jl :: _show_spline_eltype(io, scheme)",83,59,0
-"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",403,206,0
+"Interpolation.jl :: anterpolate!(field::AbstractFieldPhysical, points::PointSet,",402,203,0
 "Interpolation.jl :: anterpolate(grid::Grid3D, points, quantities, scheme = Catmu",83,63,0
-"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",310,197,0
+"Interpolation.jl :: interpolate!(out::AbstractPointValues, field::AbstractFieldP",309,194,0
 "Interpolation.jl :: interpolate(field::AbstractFieldPhysical, points, scheme = C",43,26,0
-"Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",630,119,0
-"Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",105,43,1
+"Interpolation.jl :: point_traversal_order!(traversal::PointTraversalOrder, grid:",629,118,0
+"Interpolation.jl :: point_traversal_order(grid::Grid3D, points::PointSet; tile_s",104,43,1
 "Interpolation.jl :: read_scheme(parent::HDF5.H5DataStore, name::AbstractString)",156,76,0
-"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",376,115,1
+"Interpolation.jl :: write_scheme(parent::HDF5.H5DataStore, name::AbstractString,",375,115,1
 "Interpolation.md § Internal API",41,41,0
 "Interpolation.md § Traversal order",31,31,0
 "PERFORMANCE.md § (preamble)",22,22,1
@@ -512,13 +512,13 @@ unit,words,longest_paragraph,admonitions
 "PERFORMANCE.md § 7. Current coverage and known gaps / item 9",217,89,0
 "PERFORMANCE.md § Performance — GBGPeriodicFields",74,74,0
 "Points.jl :: AbstractPointValues{T<:AbstractFloat, R}",139,74,1
-"Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",92,62,0
+"Points.jl :: PointSet(positions::AbstractArray{T, 2}) where {T<:AbstractF",91,62,0
 "Points.jl :: PointValuesBroadcastStyle{N}",71,70,0
 "Points.jl :: Points",355,167,0
 "Points.jl :: Point{T} = SVector{3, T}",66,62,0
-"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",42,29,0
-"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",70,33,0
-"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",43,23,0
+"Points.jl :: ScalarPointValues(data::AbstractArray{T, 1}) where {T<:Abstr",41,29,0
+"Points.jl :: TensorPointValues{R}(data::AbstractArray{T}) where {R, T<:Ab",69,33,0
+"Points.jl :: VectorPointValues(data::AbstractArray{T, 2}) where {T<:Abstr",42,20,0
 "Points.jl :: _axis_terms(axis, terms...)",40,38,0
 "Points.jl :: _check_broadcast_point_values_compatibility(destination, arg",37,35,0
 "Points.jl :: _check_combinable(values...)",125,103,0
@@ -532,7 +532,7 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: _show_count(io, n)",40,24,0
 "Points.jl :: _unwrap_point_values_argument(x)",32,31,0
 "Points.jl :: _wrap_coordinate(coordinate, extent, origin)",87,84,0
-"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",523,175,0
+"Points.jl :: displace!(destination::PointSet, source::PointSet, terms...)",522,175,0
 "Points.jl :: npoints(point_set::PointSet)",26,24,0
 "Points.jl :: point_positions(point_set::PointSet)",12,11,0
 "Points.jl :: point_value_tensor_order(sampled_values::AbstractPointValues",12,7,0
@@ -540,12 +540,12 @@ unit,words,longest_paragraph,admonitions
 "Points.jl :: read_points(parent::HDF5.H5DataStore, name::AbstractString)",126,59,0
 "Points.jl :: similar_point_values(reference::AbstractPointValues, data)",114,58,1
 "Points.jl :: wrap!(points::PointSet, grid::Grid3D)",257,116,1
-"Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",264,65,0
+"Points.jl :: write_points(parent::HDF5.H5DataStore, name::AbstractString,",263,65,0
 "Points.md § Base-space motion",20,20,0
 "Points.md § Internal API",75,75,0
 "Points.md § Point-value algebra",114,76,0
 "Reductions.jl :: Reductions",599,327,1
-"Reductions.jl :: _FiberGather{V}(fiber_map)",92,79,0
+"Reductions.jl :: _FiberGather{V}(fiber_map)",91,79,0
 "Reductions.jl :: _fiber_at(components, index, ::Val{NC})",36,33,0
 "Reductions.jl :: _fiber_loop_reduce(fiber_map, combine, components, V, ::Val{",93,49,0
 "Reductions.jl :: _fiber_mapreduce(fiber_map, combine, section)",239,77,0
@@ -558,7 +558,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: _tree_dims_reduce(scalar_reduce, data, base_count)",41,38,0
 "Reductions.jl :: _tree_sum(data)",34,33,0
 "Reductions.jl :: _tree_var(data; corrected)",20,18,0
-"Reductions.jl :: cov(u; corrected = true)",210,71,0
+"Reductions.jl :: cov(u; corrected = true)",209,71,0
 "Reductions.jl :: extrema(f)",44,41,0
 "Reductions.jl :: inner(f, g)",296,101,1
 "Reductions.jl :: integral(section)",481,120,1
@@ -567,11 +567,11 @@ unit,words,longest_paragraph,admonitions
 "Reductions.jl :: maximum(f)",122,119,0
 "Reductions.jl :: mean(f)",120,117,0
 "Reductions.jl :: minimum(f)",29,26,0
-"Reductions.jl :: radial_correlation(f, plans)",519,153,1
-"Reductions.jl :: radial_spectrum(f, multipliers)",674,242,1
-"Reductions.jl :: std(f; corrected = true)",135,79,0
-"Reductions.jl :: var(f; corrected = true)",319,104,0
-"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",700,239,2
+"Reductions.jl :: radial_correlation(f, plans)",518,153,1
+"Reductions.jl :: radial_spectrum(f, multipliers)",673,242,1
+"Reductions.jl :: std(f; corrected = true)",134,79,0
+"Reductions.jl :: var(f; corrected = true)",318,104,0
+"Reductions.jl :: weighted_inner(f, w::SpectralKernel)",699,236,2
 "Reductions.md § Integral reductions",56,56,0
 "Reductions.md § Internal API",53,53,0
 "Reductions.md § Moments and order statistics",76,43,0
