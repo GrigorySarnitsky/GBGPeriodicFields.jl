@@ -286,6 +286,9 @@ println(ka_digest(field_data(embed_modes!(ka_embedded, ka_coarse))))
     for mod in (GBGPeriodicFields.DifferentialOperators, FS, GBGPeriodicFields.Reductions,
                 GBGPeriodicFields.Convolution, GBGPeriodicFields.Fields)
       for name in names(mod; all = true)
+        # Compiler-generated bindings (`#809#val` and the like) are never the package's own
+        # functions; Julia 1.13 lists them, and they carry copies of the pairs' CPU methods.
+        startswith(string(name), "#") && continue
         isdefined(mod, name) || continue
         f = getfield(mod, name)
         f isa Function || continue

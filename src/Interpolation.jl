@@ -193,8 +193,6 @@ smallest stencil admits ``m = 0`` alone, spelled `LalescuSpline(0, 0)` (the line
 are stored in the ``(2n{+}2) \\times (2m{+}2)`` `SMatrix` `coefficients`
 (``w_q(t) = \\sum_r \\texttt{coefficients}[q, r{+}1]  t^r``, the exponent ``r`` running over the polynomial degrees).
 
-The `T` keyword sets the element type the weight coefficients are stored in (`Float64` by default).
-
 It reproduces polynomials up to degree ``\\min(2m{+}1, 2n)`` (for ``n \\ge 1``) wherever the whole
 stencil samples one branch of that polynomial — a periodic base wraps the stencil at the boundary, and
 the wrapped samples come from the opposite edge, which no non-periodic polynomial continues. Special cases:
@@ -202,6 +200,13 @@ the wrapped samples come from the opposite edge, which no non-periodic polynomia
 is the Catmull–Rom spline (the default [`CatmullRom`](@ref), quadratic precision). For the ``C^0``
 Lagrange hierarchy (degree ``2n{+}1``, all ``2n{+}2`` nodes interpolated) use [`LagrangeSpline`](@ref).
 Used by [`interpolate`](@ref) (grid → point) and [`anterpolate`](@ref) (point → grid).
+
+# Arguments
+
+- `n` — the finite-difference half-width, ``n \\ge 0``: the stencil has ``2n{+}2`` nodes per axis.
+- `m` — the smoothness, ``C^m`` with ``0 \\le m \\le 2n``; its default ``1`` is valid only for
+  ``n \\ge 1``, and the linear scheme on the smallest stencil is `LalescuSpline(0, 0)`.
+- `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
 
 # References
 
@@ -247,8 +252,13 @@ samples one branch of that polynomial (a wrapped stencil draws from the opposite
 non-periodic polynomial continues), but is only ``C^0`` (the
 interpolant kinks at the nodes); for smooth derivatives use [`LalescuSpline`](@ref) instead. The case ``n = 0`` is
 linear interpolation over the two bracketing nodes. Matches `Lagrange_polys` of TurTLE, the reference
-pseudospectral turbulence solver with Lagrangian particle tracking. The `T` keyword sets the element
-type the weight coefficients are stored in (`Float64` by default).
+pseudospectral turbulence solver with Lagrangian particle tracking.
+
+# Arguments
+
+- `n` — the stencil half-width, ``n \\ge 0``: the stencil has ``2n{+}2`` nodes per axis and the
+  interpolant degree ``2n{+}1``.
+- `T` — a keyword: the element type the weight coefficients are stored in, `Float64` by default.
 
 # References
 

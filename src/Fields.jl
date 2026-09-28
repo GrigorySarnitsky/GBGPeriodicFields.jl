@@ -143,6 +143,15 @@ checks what it is handed and throws an `ArgumentError` on a spacing that contrad
 Every grid size must be positive, every domain length finite and positive, and every origin
 coordinate finite.
 
+# Arguments
+
+- `grid_size` — the number of grid points along each axis, each positive.
+- `domain_size` — the length of the periodic box along each axis, each finite and positive.
+- `grid_spacing` — the four-argument form only: the spacing between adjacent points, which must
+  equal `domain_size ./ grid_size`.
+- `origin` — the physical coordinates of the first grid point, each finite: positional in the
+  four-argument form, a keyword defaulting to zero in the two-argument form.
+
 # Fields
 
 - `grid_size::NTuple{3, Int}` — the number of grid points in each spatial direction.
@@ -522,11 +531,21 @@ All such operations are coefficientwise; for example, `.*` does not represent a 
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
 
+# Arguments
+
+- `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
+  `field_spectral_shape(grid, fourier_layout, Val(0))`; the field keeps this array rather than
+  copying it, and a view is refused, a field owning its storage.
+- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+  place of the array.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+
 # Fields
 
 - `fourier_coefficients` — the complex Fourier coefficients, in real-FFT storage.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref) giving the transformed dimensions and the real-FFT half dimension.
+- `grid` — the `Grid3D` of the physical domain the coefficients represent.
+- `fourier_layout` — the `RealFourierLayout` giving the transformed dimensions and the real-FFT half dimension.
 """
 struct ScalarFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 3}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, 0}
   fourier_coefficients::Â
@@ -669,11 +688,21 @@ These operations are storage-wise and componentwise. They do not represent pseud
 
 The two-argument constructor uses the default `RealFourierLayout()` for the layout.
 
+# Arguments
+
+- `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
+  `field_spectral_shape(grid, fourier_layout, Val(1))`; the field keeps this array rather than
+  copying it, and a view is refused, a field owning its storage.
+- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+  place of the array.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+
 # Fields
 
 - `fourier_coefficients` — the complex vector Fourier coefficients in real-FFT storage, component index last, `fourier_coefficients[i, j, k, α]` with ``\\alpha = 1, 2, 3``; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(1))`.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension.
+- `grid` — the `Grid3D` of the physical domain the coefficients represent.
+- `fourier_layout` — the `RealFourierLayout`; its `fft_dims[1]` is the real-FFT half dimension.
 """
 struct VectorFieldSpectral{T<:AbstractFloat, Â<:AbstractArray{Complex{T}, 4}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, 1}
   fourier_coefficients::Â
@@ -851,11 +880,21 @@ These operations are storage-wise and componentwise. They do not represent pseud
 
 The two-argument constructors use the default `RealFourierLayout()` for the layout.
 
+# Arguments
+
+- `fourier_coefficients` — the complex coefficients in real-FFT storage, of shape
+  `field_spectral_shape(grid, fourier_layout, Val(R))`; the field keeps this array rather than
+  copying it, and a view is refused, a field owning its storage.
+- `family` — the allocating form only: the storage family (`Array`, `CuArray`, `ROCArray`) given in
+  place of the array.
+- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
+- `fourier_layout` — the [`RealFourierLayout`](@ref); omitted, it is `RealFourierLayout()`.
+
 # Fields
 
 - `fourier_coefficients` — the complex tensor Fourier coefficients in real-FFT storage, tensor indices last, `fourier_coefficients[i, j, k, αs...]` with each of length `3`; its spatial part has shape `field_spectral_shape(grid, fourier_layout, Val(0))` and the whole array `field_spectral_shape(grid, fourier_layout, Val(R))`.
-- `grid` — the [`Grid3D`](@ref) of the physical domain the coefficients represent.
-- `fourier_layout` — the [`RealFourierLayout`](@ref); its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
+- `grid` — the `Grid3D` of the physical domain the coefficients represent.
+- `fourier_layout` — the `RealFourierLayout`; its `fft_dims[1]` is the real-FFT half dimension. The constructors without an explicit `{R}` infer the tensor order ``R = N - 3`` from the stored array's dimension count `N`.
 """
 struct TensorFieldSpectral{R, T<:AbstractFloat, Â<:AbstractArray{Complex{T}}, G<:Grid3D{T}, L<:RealFourierLayout} <: AbstractFieldSpectral{T, R}
   fourier_coefficients::Â
