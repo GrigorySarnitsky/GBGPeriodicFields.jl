@@ -562,7 +562,12 @@ end
   #
   # Serial, the true value is zero and is asserted as such. Threaded, each pass is one threaded
   # assignment carrying `Base.Threads` task state, so the slack is per pass: grouping multiplies
-  # passes, and that is the only cost it is allowed to add.
+  # passes. A threaded pass also rebuilds the broadcast over a view of every operand in each slab
+  # task, so for the n-ary sums the slack grows with operands × threads as well — a fixed amount per
+  # call, freed by the collector, not field-sized and not growing across calls (measured 2026-09-28:
+  # flat live heap over 20000 calls). Julia 1.13 compiles that rebuild less tightly than 1.12, about
+  # 1.1 KB per operand per thread against 0.3 KB; the allowance below is 1280 B, above both. A
+  # materialized field would still fail the serial lane, whose bound is exact.
   for T in (Float64, Float32)
     @testset "$T" begin
       N, M = 24, 4000
@@ -573,10 +578,11 @@ end
       tensor_values = [TensorPointValues(rand(T, M, 3, 3)) for _ in 1:6]
       points, source = PointSet(T(2pi) .* rand(T, M, 3)), PointSet(T(2pi) .* rand(T, M, 3))
       per_pass = Threads.nthreads() == 1 ? 1 : 4096 * Threads.nthreads()
+      per_operand = Threads.nthreads() == 1 ? 0 : 1280 * Threads.nthreads()
 
       for n in (9, 33)
         combine_passes = 1 + cld(n - 8, 7)          # eight operands, then seven more per pass
-        bound = combine_passes * per_pass
+        bound = combine_passes * per_pass + n * per_operand
         @eval @alloc_below $bound add!($(fields[1]), $(fields[1:n]...))
         @eval @alloc_below $bound subtract!($(fields[1]), $(fields[1:n]...))
         @eval @alloc_below $bound add!($(values[1]), $(values[1:n]...))
