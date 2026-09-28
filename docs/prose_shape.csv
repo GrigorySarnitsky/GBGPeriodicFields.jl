@@ -176,6 +176,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 89",264,65,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 90",706,107,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 91",373,104,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -317,6 +318,7 @@ unit,words,longest_paragraph,admonitions
 "FieldAlgebra.md § Arbitrary fiber map",14,14,0
 "FieldAlgebra.md § Contraction and product operations",28,28,0
 "FieldAlgebra.md § Internal API",98,50,0
+"Fields.jl :: ==(a, b)",237,74,0
 "Fields.jl :: AbstractField",62,50,0
 "Fields.jl :: AbstractFieldPhysical{T, R}",129,67,1
 "Fields.jl :: AbstractFieldSpectral{T, R}",130,67,1
@@ -338,7 +340,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _approx(x)",62,52,0
 "Fields.jl :: _axis_wavenumber_arrays(reference, number_of_points, domain_",34,30,0
 "Fields.jl :: _axis_wavenumber_values(number_of_points, domain_length, hal",65,62,0
-"Fields.jl :: _check_adapt_target(destination, source)",71,35,0
+"Fields.jl :: _check_adapt_target(destination, source)",73,36,0
 "Fields.jl :: _check_broadcast_field_compatibility(destination, argument)",37,35,0
 "Fields.jl :: _check_family_element_type(family, grid)",65,63,0
 "Fields.jl :: _check_field_compatibility(a::AbstractFieldPhysical, b::Abst",38,19,0
@@ -360,8 +362,10 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _kernel_data(kernel)",40,39,0
 "Fields.jl :: _project_pair!(data, ix, iy)",104,101,0
 "Fields.jl :: _reality_projection_planes!(backend, data, ::Val{D}, planes,",95,87,0
+"Fields.jl :: _refuse_cross_representation_equality()",24,23,0
 "Fields.jl :: _refuse_field_as_fiber_map(φ)",169,94,0
 "Fields.jl :: _rfft_shape(grid_size::NTuple{3, Int}, fft_dims::NTuple{3, I",67,41,0
+"Fields.jl :: _section_equality(compare, a, b)",47,44,0
 "Fields.jl :: _shared_mode_axis(coarse_size, fine_size, is_folded)",34,31,0
 "Fields.jl :: _shared_mode_index(stored_index, axis)",76,45,0
 "Fields.jl :: _shared_mode_pair(work_item, axes, coarse_strides, fine_stri",58,31,0
@@ -383,7 +387,7 @@ unit,words,longest_paragraph,admonitions
 "Fields.jl :: _vector_component_data(",45,28,0
 "Fields.jl :: _wavenumber_broadcast_view(multipliers::FieldSpectralMultipl",41,39,0
 "Fields.jl :: _write_shared_mode!(destination, source, destination_index, ",30,24,0
-"Fields.jl :: adapt!(destination, source)",297,132,0
+"Fields.jl :: adapt!(destination, source)",321,156,0
 "Fields.jl :: adapt(storage, object)",509,140,2
 "Fields.jl :: embed_modes!(destination::AbstractFieldSpectral, source::Abs",356,80,1
 "Fields.jl :: extract_modes!(destination::AbstractFieldSpectral, source::A",236,54,1
@@ -573,7 +577,7 @@ unit,words,longest_paragraph,admonitions
 "Reductions.md § Moments and order statistics",76,43,0
 "TESTING.md § (preamble)",22,22,1
 "TESTING.md § 1. Philosophy",699,215,0
-"TESTING.md § 2. Layout",2089,2089,0
+"TESTING.md § 2. Layout",2113,2113,0
 "TESTING.md § 3. Writing a test here",357,267,0
 "TESTING.md § 4. The coverage contract",805,482,0
 "TESTING.md § 4. The coverage contract / item 1",8,8,0
