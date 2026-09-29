@@ -3603,7 +3603,6 @@ notes (e.g. the CPU threading and the interpolation layer) rather than contradic
     box: convolving a field with it replaces the field at each point by its mean over the box centred
     there.
 
-
     - **Why the package builds it.** The consumer needed the kinetic energy held in scales below a size
       ``l`` and the matching dissipation, both of which reduce exactly to spectral reductions weighted by
       ``1 - \hat W_l^2``, with ``\hat W_l`` this window. The per-axis sinc is physics-free field

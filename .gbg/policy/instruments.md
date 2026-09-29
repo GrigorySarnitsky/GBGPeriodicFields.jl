@@ -1,11 +1,11 @@
-<!-- gbg:managed begin v2.0.0-rc.37 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.47 — rewritten by `gbg sync`; do not edit -->
 # Instruments — `RULE.INST.*`
 
 What a session runs unasked, and how it reads what a scan prints. 2 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.INST.CONSENT
-Unasked, run only Pkg.test(); every instrument, survey, benchmark and panel runs only on the user's request, in words or by slash.
+Unasked, run only Pkg.test(), and before every push the docs build, which the push hook runs; every instrument, survey, benchmark and panel runs only on the user's request, in words or by slash.
 
 The correct output when one would be informative is to name it and its cost and wait. This is a consent boundary, not licence to leave work unfinished: finish the code, run the gate, and report what remains unverified and why. "Check the docs" is such a request: it means run `/check-docs`.
 

@@ -343,7 +343,10 @@ module = "Points"
 "PointValues" = 122
 
 [module]
-FiberSections = 120   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
+  # 120 → 114: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
+  # and the like), which own methods in the module but are never the package's own. No method
+  # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
+FiberSections = 114   # + _section_tensor_order, cartesian _index_ranges, _check_owned_storage
   # 118 → 120: the `map!` path past 32 sources, found by the exhaustive survey (decision 88). Added:
   # `_tuple_map` (a generated tuple map replacing `Base.map` over the sources) with its generator body,
   # `_input_fiber` (one input's fiber read), and the generator body of `_call_values` for the map
@@ -424,7 +427,10 @@ FiberSections = 120   # + _section_tensor_order, cartesian _index_ranges, _check
   # each representation, and the two cross-representation refusals), one `hash` over every field,
   # the shared `_section_equality` and `_refuse_cross_representation_equality`. `adapt!` kept its
   # two methods: its element-type and tensor-order checks moved from the signatures into the body.
-Fields = 189
+  # 189 → 184: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
+  # and the like), which own methods in the module but are never the package's own. No method
+  # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
+Fields = 184
   # 176 → 177: no method was added. The count moved when the parity check moved to
   # GBGCodingTools.TestHarness (2026-09-27), whose surface walk descends into Base's submodules and so
   # sees this module's `Base.Broadcast.broadcastable` method, which the package's own scan never did.
@@ -525,7 +531,10 @@ Points = 242
   # covers the same box as the reference, so its modes are a superset and the public verb IS this
   # step. The refactor is also the strongest available test of those verbs: the NUFFT is verified
   # exact against `DirectDFT`, and that equality still holds.
-Interpolation = 170
+  # 170 → 155: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
+  # and the like), which own methods in the module but are never the package's own. No method
+  # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
+Interpolation = 155
   # 177 → 179: the threaded running total (decision 81). `_scan_offsets!` has two methods — the
   # generic one, which is `cumsum!` and stays the device path since GPUArrays already scans in
   # parallel, and the host one that threads. On a CPU this was the only stage of the traversal build
@@ -585,7 +594,10 @@ Interpolation = 170
   # 123 → 124: `weighted_inner` gains its tuple-of-weights method (decision 72) — several weights in
   # one traversal, which is one method on the existing generic rather than a new operation.
   # Refrozen deliberately, with the reason.
-Reductions = 139
+  # 139 → 124: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
+  # and the like), which own methods in the module but are never the package's own. No method
+  # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
+Reductions = 124
   # 137 → 139: `_pack_weights` and `_add_tuples` became `@generated` functions for the same reason as
   # `FiberSections`' `_element_values`, each adding its hidden generator-body function.
   # 131 → 137: caller-controlled counts (decision 88). `weighted_inner` over a tuple of weights

@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.37 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.47 — rewritten by `gbg sync`; do not edit -->
 # Git conventions — `RULE.GIT.*`
 
-What a commit carries, where it goes, and what is never committed. 7 rules, written from the rule values themselves,
+What a commit carries, where it goes, and what is never committed. 8 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.GIT.BRANCH
@@ -16,6 +16,13 @@ This package may set `branch`; unset, it is `master`.
 CI is manual-only, `workflow_dispatch` and release tags; the matrix runs locally before a commit; docs deploy on push.
 
 Before committing a code change, run the gate locally; a documentation-only change needs a load and the docs build. The docs build is therefore the per-push enforcement point, and the rules that read the built site run inside it.
+
+Covered by a program.
+
+### RULE.GIT.LOCAL_PATH
+No committed environment file, a `Project.toml`'s `[sources]` or a `Manifest.toml`, names a path outside the repository.
+
+A path outside the repository exists on the machine that wrote it and nowhere else: GBGPeriodicFields committed docs and test projects whose `[sources]` named this package's Dropbox checkout, and its docs build failed on the runner while every local run passed (2026-09-18).
 
 Covered by a program.
 

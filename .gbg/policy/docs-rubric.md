@@ -1,7 +1,7 @@
-<!-- gbg:managed begin v2.0.0-rc.37 — rewritten by `gbg sync`; do not edit -->
+<!-- gbg:managed begin v2.0.0-rc.47 — rewritten by `gbg sync`; do not edit -->
 # Documentation and API — `RULE.DOC.*`, `RULE.API.*`
 
-What a docstring and an API page contain, in what order and in what shape. 44 rules, written from the rule values themselves,
+What a docstring and an API page contain, in what order and in what shape. 46 rules, written from the rule values themselves,
 so a rule reworded here was reworded in the program that checks it.
 
 ### RULE.API.POSITIONAL
@@ -42,14 +42,14 @@ Two homes for one docstring is two things to keep true, and the second teaches a
 Covered by a program.
 
 ### RULE.DOC.ARGCOV
-Every argument in a docstring's signature, positional and keyword, is documented in its body.
+Every argument in a docstring's signature, positional and keyword, is named as code in its body.
 
 A reader passing an argument the docstring never mentions has to read the source to learn what it does.
 
 Covered by a program.
 
 ### RULE.DOC.ARGS_FORM
-Three or more arguments, or any keyword, are listed under an `# Arguments` heading, one bullet per argument; fewer are bound in running prose, as in "The arguments are `a`, the first, and `b`, the second."; the two are never mixed. A type lists its constructor's arguments so too, even where its `# Fields` section repeats them.
+Three or more arguments, or any keyword, are listed as bullets under an `# Arguments` heading, where several may head one bullet together; fewer are bound in running prose, as in "The arguments are `a`, the first, and `b`, the second."; the two are never mixed. A type lists its constructor's arguments so too, even where its `# Fields` section repeats them.
 
 A reader looking for one argument of many needs a list; a reader of a two-argument call needs a sentence.
 
@@ -105,8 +105,15 @@ A citation of something renamed or removed reads exactly like one that resolves,
 
 Covered by a program.
 
+### RULE.DOC.FENCED_CODE
+A code block in a page or a rationale document is fenced with three backticks, never indented; a docstring's indented signature is exempt.
+
+An indented block is code only by context, so a program reading the page cannot tell it from an indented paragraph without the parser's whole reading, and a list item left indented after a blank line renders as code nobody wrote.
+
+Covered by a program.
+
 ### RULE.DOC.FIELDS
-A type with named fields documents them in a `# Fields` section, one bullet per field: every bullet a real field, and every field a bullet. A sentence listing them, "The fields are …", is no such section.
+A type with named fields documents them in a `# Fields` section, in bullets: every bullet a real field, and every field at the head of a bullet, alone or with others; a field named only inside another's bullet has none. A sentence listing them, "The fields are …", is no such section.
 
 A field list that has drifted is worse than none: it names what does not exist and hides what does.
 
@@ -130,6 +137,13 @@ Covered by a reader given other documents.
 An API page puts its internal section last, holds no empty block of collected docstrings, and is never indexed.
 
 Internals in the middle of the public surface, and an index on a hand-grouped page, both make a reader work around the page.
+
+Covered by a program.
+
+### RULE.DOC.JULIA_MANUAL
+A docstring or page that uses a keyword splat (`kwargs...`) or a `do` block links the Julia manual's section on it.
+
+A reader who has not met the construct learns it where it is used, and the manual is its official home: a paraphrase of it drifts, and a link does not.
 
 Covered by a program.
 
@@ -314,7 +328,7 @@ A plausible 'X is just Y' is a false claim until the expansion matches. Run this
 Covered by a reader given source, because this needs meaning.
 
 ### RULE.DOC.XLINK
-A name another module owns is linked at its first mention in a docstring, qualified so the link resolves.
+A name another module owns, mentioned on its own, is linked at its first mention in a docstring, qualified so the link resolves; a name inside a code expression owes no link.
 
 A reader meeting a name from elsewhere has nowhere to go: the docstring in front of him does not define it.
 
