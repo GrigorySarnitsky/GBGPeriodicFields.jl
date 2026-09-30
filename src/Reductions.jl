@@ -1116,6 +1116,12 @@ _cpu_weight(w::SpectralKernel) = _LazyWeight(Base.Broadcast.instantiate(_kernel_
    _weighted_step(Base.tail(totals), Base.tail(weights), p, d, weight_base, i, i2, i3)...)
 
 
+# The per-mode density: ``\lvert\hat f\rvert^2`` from one read when there is one field (`b` is
+# `nothing`), Re(f̂·conj ĝ) for two. Written as dispatch so the one-field loop carries no branch.
+@inline _pair_density(a, ::Nothing, n) = @inbounds abs2(a[n])
+@inline _pair_density(a, b, n) = @inbounds real(a[n] * conj(b[n]))
+
+
 function _weighted_column(parseval, folded_dimension, weights::WS, a, b, column::Int,
                           n1::Int, n2::Int, weight_columns::Int, ::Val{N}) where {WS <: Tuple, N}
   T = eltype(parseval)
@@ -1131,13 +1137,13 @@ function _weighted_column(parseval, folded_dimension, weights::WS, a, b, column:
     # carries no per-element conditional.
     @inbounds for i in 1:n1
       p = parseval[i]
-      d = real(a[base + i] * conj(b[base + i]))
+      d = _pair_density(a, b, base + i)
       totals = _weighted_step(totals, weights, p, d, weight_base, i, i2, i3)
     end
   else
     pv_column = folded_dimension == 2 ? (@inbounds parseval[i2]) : (@inbounds parseval[i3])
     @inbounds for i in 1:n1
-      d = real(a[base + i] * conj(b[base + i]))
+      d = _pair_density(a, b, base + i)
       totals = _weighted_step(totals, weights, pv_column, d, weight_base, i, i2, i3)
     end
   end
@@ -1184,8 +1190,12 @@ function weighted_inner(f::AbstractFieldSpectral{T}, g::AbstractFieldSpectral{T}
   return sum(Base.Broadcast.instantiate(Base.broadcasted(*, weight, density))) / normalization
 end
 
+# The ONE-field form is the one-weight case of the tuple form, whose pass reads each coefficient once
+# and forms ``\lvert\hat f\rvert^2``. It used to forward to `weighted_inner(f, f, w)`, which read every
+# coefficient twice, once as each operand of Re(f̂·conj ĝ): found by a consumer's traffic audit, and
+# costing 11% of the device pass in `Float32` on an RTX 5070 Ti at 256³ (2026-09-30).
 weighted_inner(f::AbstractFieldSpectral{T}, w::SpectralKernel{T}) where {T<:AbstractFloat} =
-  weighted_inner(f, f, w)
+  only(weighted_inner(f, (w,)))
 
 
 # SEVERAL WEIGHTS, ONE TRAVERSAL PER FOUR (decisions 72, 88). The per-mode energy density is read and formed once and
@@ -1236,7 +1246,8 @@ function _weighted_pass(f::AbstractFieldSpectral{T}, weights::Tuple) where {T}
   parseval = _parseval_weight(f)
   normalization = T(prod(field_grid(f).grid_size))^2
   if KernelAbstractions.get_backend(field_data(f)) isa KernelAbstractions.CPU
-    totals = _weighted_totals_cpu(field_data(f), field_data(f), parseval,
+    # `nothing` for the second operand: one field, so each coefficient is read once (`_pair_density`).
+    totals = _weighted_totals_cpu(field_data(f), nothing, parseval,
                                   field_layout(f).fft_dims[1], map(_cpu_weight, weights),
                                   Val(length(weights)))
     return map(total -> total / normalization, totals)

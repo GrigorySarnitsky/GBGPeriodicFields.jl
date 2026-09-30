@@ -597,7 +597,10 @@ Interpolation = 155
   # 139 → 124: GBGCodingTools rc.38 (2026-09-29) stops counting compiler-generated names (`#809#val`
   # and the like), which own methods in the module but are never the package's own. No method
   # changed; the old count included them, and on Julia 1.13 many more appear, which is how it surfaced.
-Reductions = 124
+  # 124 → 126: `_pair_density` (2026-09-30), the per-mode density of the CPU weighted loop, one
+  # method reading one field once for |f̂|² and one reading two for Re(f̂·conj ĝ); the one-field
+  # `weighted_inner` used to read its field twice.
+Reductions = 126
   # 137 → 139: `_pack_weights` and `_add_tuples` became `@generated` functions for the same reason as
   # `FiberSections`' `_element_values`, each adding its hidden generator-body function.
   # 131 → 137: caller-controlled counts (decision 88). `weighted_inner` over a tuple of weights

@@ -234,6 +234,22 @@ const counted_kernel = () -> GBGPeriodicFields.Convolution.StoredKernel(
       Traffic("kernel", carr(g), (M, 0)))                   # the KA kernel reads ĝ once, not per component
   end
 
+  # ------------------------------------------------ the weighted reductions (2026-09-30)
+  @testset "weighted_inner (each coefficient read once; the two-field form reads each field once)" begin
+    # The ideal is one read of every stored coefficient and no write. The one-field form read the
+    # field TWICE until 2026-09-30, once as each operand of Re(f̂·conj ĝ) — found by a consumer's
+    # traffic audit through its own forcing, the reductions having had no row here. The weights are
+    # built over plain storage, so only the field's traffic is counted.
+    s1, v1, v2 = sspec(), vspec(), vspec()
+    band = spectral_band(multipliers, 1, 3)
+    audit(() -> weighted_inner(s1, band), "weighted_inner scalar", Traffic("field", carr(s1), (M, 0)))
+    audit(() -> weighted_inner(v1, band), "weighted_inner vector", Traffic("field", carr(v1), (3M, 0)))
+    audit(() -> weighted_inner(v1, (band, band)), "weighted_inner vector, two weights one pass",
+      Traffic("field", carr(v1), (3M, 0)))
+    audit(() -> weighted_inner(v1, v2, band), "weighted_inner vector pair",
+      Traffic("f", carr(v1), (3M, 0)), Traffic("g", carr(v2), (3M, 0)))
+  end
+
   # ---------------------------------------------------------- the reality projector (decision 83)
   @testset "reality_projection! (the self-conjugate planes, each element once each way)" begin
     # The ideal is the plane area: every stored element of the zero plane and, the folded axis being

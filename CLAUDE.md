@@ -1719,17 +1719,23 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 ## Planned directions (recorded — not started)
 
 - **A GPU cost check against the memory an operation must move — TODO, raise with GBGCodingTools
-  (owner-directed 2026-09-30; not started).** HT found `weighted_inner` running 40–60% above a plain
-  read of its field on the RTX 5070 Ti, and nothing in PF could see it. The traffic audit counts reads on
-  the CPU, where `weighted_inner` is a separate hand loop without the defects, and the benchmarks compare
-  operations with peers and their own baselines, never with a plain read. Measured at 256³, vector: the
-  band symbol is evaluated per fiber component rather than per mode (+0.107 ms `Float32`, +0.172 ms
-  `Float64`), the mixed-shape broadcast costs index arithmetic (+0.059 ms `Float32`), and the one-field
-  form reads the field twice (+0.065 ms `Float32`). Likely dormant siblings, unmeasured: `convolve!`/
-  `combine!` with a radial kernel on a vector or tensor field, `laplacian!`/`inverse_laplacian!` on
-  vector fields, and the separable kernels' index cost. The owner ruled that CT is not extended with
-  benchmarks yet: first ask HT how its own harness caught it and how that harness is wired to CT
-  (asked 2026-09-30), then raise the check with CT. The fixes to `weighted_inner` wait for that too.
+  (owner-directed 2026-09-30; not started).** No check in PF or HT, and none in the tool, asks whether
+  a device operation runs as fast as the memory it must move allows. HT's traffic audit found
+  `weighted_inner`'s one-field form reading its field twice, through HT's own forcing, and a one-off
+  timing script of HT's then showed the whole device pass at 40–60% above a plain read on the RTX
+  5070 Ti. PF measured the rest at 256³ on a vector field: the band symbol is evaluated once per fiber
+  component instead of once per mode (+0.107 ms `Float32`, +0.172 ms `Float64`), and the mixed-shape
+  broadcast pays per-element index arithmetic (+0.059 ms `Float32`, nothing measurable in `Float64`).
+  Those two are computation, not traffic, so a counting audit cannot see them; only a timing against
+  the minimum traffic can. The double read is FIXED (2026-09-30): the one-field form takes the one-read
+  path on both backends, bitwise unchanged, and the weighted reductions now have traffic-audit rows,
+  the reductions never having had any. The two computation costs are NOT fixed, and wait for the
+  harness, which would also rank their likely dormant siblings: `convolve!`/`combine!` with a radial
+  kernel on a vector or tensor field, `laplacian!`/`inverse_laplacian!` on vector fields, and the
+  separable kernels' index cost. HT answered (2026-09-30) that its timing was a one-off probe with no
+  wiring to the tool, and that its traffic audit is the tool's engine, on the CPU, as PF's is. The
+  owner ruled that the tool is not extended with benchmarks yet; this item is raising it with the
+  tool's session, with this motivation.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in

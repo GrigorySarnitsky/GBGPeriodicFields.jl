@@ -768,6 +768,27 @@ end
 # fused call must be bitwise identical to the separate ones, because it is the same arithmetic in the
 # same order — only the pass over the field is shared. Anything weaker would make the fused form a
 # different operation wearing the same name.
+# The one-field form reads the field once, through the tuple path's |f̂|², and must agree BIT FOR BIT with
+# the two-field form given the field twice, whose Re(f̂·conj f̂) is the same arithmetic (2026-09-30).
+@testset "weighted_inner(f, w) is bitwise weighted_inner(f, f, w) ($T)" for T in (Float64, Float32)
+  for (sizes, layout) in (((8, 6, 4), RealFourierLayout()), ((7, 6, 5), RealFourierLayout((2, 1, 3))))
+    grid = Grid3D(sizes, T.((2π, 4π, 6π)))
+    for R in (0, 1, 2)
+      shape = field_spectral_shape(grid, layout, Val(R))
+      f = R == 0 ? ScalarFieldSpectral(randn(Complex{T}, shape...), grid, layout) :
+          R == 1 ? VectorFieldSpectral(randn(Complex{T}, shape...), grid, layout) :
+                   TensorFieldSpectral{2}(randn(Complex{T}, shape...), grid, layout)
+      m = FieldSpectralMultipliers(f)
+      for w in (spectral_band(m, T(0.5), T(2.5)), tophat_window(m, T(0.7)),
+                materialize_kernel(radial_kernel(identity, m)),
+                convolve(spectral_band(m, T(0.5), T(2.5)), tophat_window(m, T(0.7))))
+        @test weighted_inner(f, w) === weighted_inner(f, f, w)
+      end
+    end
+  end
+end
+
+
 @testset "weighted_inner over a tuple of weights ($T)" for T in (Float64, Float32)
   grid = Grid3D((8, 8, 8), T.((2pi, 4pi, 6pi)))
   for layout in (RealFourierLayout(), RealFourierLayout((2, 1, 3))), R in (0, 1, 2)
