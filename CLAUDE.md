@@ -1718,6 +1718,18 @@ too, routing it off the fused pass — vector traffic 3M reads against a frozen 
 
 ## Planned directions (recorded — not started)
 
+- **A GPU cost check against the memory an operation must move — TODO, raise with GBGCodingTools
+  (owner-directed 2026-09-30; not started).** HT found `weighted_inner` running 40–60% above a plain
+  read of its field on the RTX 5070 Ti, and nothing in PF could see it. The traffic audit counts reads on
+  the CPU, where `weighted_inner` is a separate hand loop without the defects, and the benchmarks compare
+  operations with peers and their own baselines, never with a plain read. Measured at 256³, vector: the
+  band symbol is evaluated per fiber component rather than per mode (+0.107 ms `Float32`, +0.172 ms
+  `Float64`), the mixed-shape broadcast costs index arithmetic (+0.059 ms `Float32`), and the one-field
+  form reads the field twice (+0.065 ms `Float32`). Likely dormant siblings, unmeasured: `convolve!`/
+  `combine!` with a radial kernel on a vector or tensor field, `laplacian!`/`inverse_laplacian!` on
+  vector fields, and the separable kernels' index cost. The owner ruled that CT is not extended with
+  benchmarks yet: first ask HT how its own harness caught it and how that harness is wired to CT
+  (asked 2026-09-30), then raise the check with CT. The fixes to `weighted_inner` wait for that too.
 - **CUDA unified memory — SUPPORTED and documented (2026-09-17, decision 84).** A single GPU can hold
   fields larger than its memory with no code change: CUDA.jl's `default_memory = "unified"` preference,
   under **`[CUDACore]`** with `CUDACore` in the job project's `[extras]` — the `[CUDA]` spelling in
