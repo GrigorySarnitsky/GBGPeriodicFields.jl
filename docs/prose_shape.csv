@@ -49,6 +49,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: RadialKernel",644,130,2
 "Convolution.jl :: SeparableKernel",371,93,1
 "Convolution.jl :: StoredKernel(field::ScalarFieldSpectral)",200,109,0
+"Convolution.jl :: _RadialOffset(sigma)",52,36,0
 "Convolution.jl :: _apply_convolution!(destination_data, source_data, kernel_da",86,81,0
 "Convolution.jl :: _apply_convolution_combination!(destination_data, a_data, b_",47,41,0
 "Convolution.jl :: _apply_exponential_combination!(destination_data, a_data, b_",57,41,0
@@ -62,7 +63,7 @@ unit,words,longest_paragraph,admonitions
 "Convolution.jl :: assignment_window(multipliers::FieldSpectralMultipliers) -> ",369,107,0
 "Convolution.jl :: convolve!(destination, field, kernel::SpectralKernel)",648,165,2
 "Convolution.jl :: convolve(field, kernel::SpectralKernel)",78,72,0
-"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",897,200,1
+"Convolution.jl :: exponential_convolve!(destination, field, multipliers, coeff",920,223,1
 "Convolution.jl :: exponential_convolve(field, multipliers, coefficient::Real)",54,46,0
 "Convolution.jl :: field ⋆ kernel",60,51,0
 "Convolution.jl :: inv(kernel::ProductKernel)",62,33,1
@@ -177,6 +178,7 @@ unit,words,longest_paragraph,admonitions
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 9",32,32,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 90",706,107,0
 "DECISIONS.md § Decision log — GBGPeriodicFields / item 91",373,104,0
+"DECISIONS.md § Decision log — GBGPeriodicFields / item 92",331,93,0
 "DifferentialOperators.jl :: DifferentialOperators",348,174,0
 "DifferentialOperators.jl :: _apply_helmholtz_projection!(destination, field, multipliers",89,83,0
 "DifferentialOperators.jl :: _apply_spectral_divergence!(destination_component,",104,48,0
@@ -605,7 +607,7 @@ unit,words,longest_paragraph,admonitions
 "TESTING.md § 4. The coverage contract / item 9",16,16,0
 "TESTING.md § 5. GPU testing",214,135,0
 "TESTING.md § 6. Maintenance",284,284,0
-"TESTING.md § 7. Current coverage and known gaps",1637,1622,0
+"TESTING.md § 7. Current coverage and known gaps",1660,1645,0
 "TESTING.md § 7. Current coverage and known gaps / item 1",27,27,0
 "TESTING.md § 7. Current coverage and known gaps / item 2",38,38,0
 "TESTING.md § A GATE and a SURVEY, and how to tell which a test is",134,109,0
